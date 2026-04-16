@@ -11,6 +11,7 @@ import {
 } from './coordinator-next-actions.js';
 import { buildCoordinatorRepoStatusEntries } from './coordinator-repo-status-presentation.js';
 import { summarizeCoordinatorEvent } from './coordinator-event-narrative.js';
+import { extractGateActionDigest } from './gate-actions.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
@@ -511,6 +512,11 @@ function extractGateFailureDigest(artifact) {
     }));
 }
 
+function extractGateActionEventDigest(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/decision-ledger.jsonl');
+  return extractGateActionDigest(data);
+}
+
 const GOVERNANCE_EVENT_TYPES = new Set([
   'policy_escalation',
   'conflict_detected',
@@ -986,6 +992,7 @@ function buildRunSubject(artifact) {
   const decisions = extractDecisionDigest(artifact);
   const approvalPolicyEvents = extractApprovalPolicyDigest(artifact);
   const gateFailures = extractGateFailureDigest(artifact);
+  const gateActions = extractGateActionEventDigest(artifact);
   const timeoutEvents = extractTimeoutEventDigest(artifact);
   const hookSummary = extractHookSummary(artifact);
   const timing = computeTiming(artifact, turns);
@@ -1034,6 +1041,7 @@ function buildRunSubject(artifact) {
       approval_policy_events: approvalPolicyEvents,
       governance_events: governanceEvents,
       gate_failures: gateFailures,
+      gate_actions: gateActions,
       timeout_events: timeoutEvents,
       delegation_summary: delegationSummary,
       hook_summary: hookSummary,
@@ -1427,6 +1435,18 @@ export function formatGovernanceReportText(report) {
         lines.push(`  - ${failure.gate_id || 'unknown'} | ${failure.gate_type || 'unknown'} | request: ${request} | source: ${source} | at: ${failure.failed_at || 'n/a'}`);
         for (const reason of failure.reasons || []) {
           lines.push(`      reason: ${reason}`);
+        }
+      }
+    }
+
+    if (run.gate_actions && run.gate_actions.length > 0) {
+      lines.push('', 'Gate Actions:');
+      for (const action of run.gate_actions) {
+        const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
+        const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
+        lines.push(`  - ${action.gate_id || 'unknown'} | ${action.gate_type || 'unknown'} | action ${action.action_index || '?'} | ${action.status} | ${label} | exit: ${exit} | at: ${action.timestamp || 'n/a'}`);
+        if (action.stderr_tail) {
+          lines.push(`      stderr: ${action.stderr_tail}`);
         }
       }
     }
@@ -1985,6 +2005,18 @@ export function formatGovernanceReportMarkdown(report) {
         lines.push(`- \`${failure.gate_id || 'unknown'}\` (${failure.gate_type || 'unknown'}) at \`${failure.failed_at || 'n/a'}\` via ${failure.queued_request ? 'queued drain' : 'direct'} request: ${request}`);
         for (const reason of failure.reasons || []) {
           lines.push(`  - ${reason}`);
+        }
+      }
+    }
+
+    if (run.gate_actions && run.gate_actions.length > 0) {
+      lines.push('', '## Gate Actions', '');
+      for (const action of run.gate_actions) {
+        const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
+        const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
+        lines.push(`- \`${action.gate_id || 'unknown'}\` (${action.gate_type || 'unknown'}) action ${action.action_index || '?'} — **${action.status}** at \`${action.timestamp || 'n/a'}\`: ${label} (exit \`${exit}\`)`);
+        if (action.stderr_tail) {
+          lines.push(`  - stderr: ${action.stderr_tail}`);
         }
       }
     }
@@ -2684,6 +2716,21 @@ function renderRunHtml(report) {
     }
     gfHtml += '</ul>';
     sections.push(`<div class="section">${htmlSection('Gate Failures', gfHtml)}</div>`);
+  }
+
+  if (run.gate_actions && run.gate_actions.length > 0) {
+    let gaHtml = '<ul>';
+    for (const action of run.gate_actions) {
+      const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
+      const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
+      gaHtml += `<li><code>${esc(action.gate_id || 'unknown')}</code> (${esc(action.gate_type || 'unknown')}) action ${esc(String(action.action_index || '?'))} — <strong>${esc(action.status)}</strong> at <code>${esc(action.timestamp || 'n/a')}</code>: ${esc(label)} (exit <code>${esc(exit)}</code>)`;
+      if (action.stderr_tail) {
+        gaHtml += `<br><code>${esc(action.stderr_tail)}</code>`;
+      }
+      gaHtml += '</li>';
+    }
+    gaHtml += '</ul>';
+    sections.push(`<div class="section">${htmlSection('Gate Actions', gaHtml)}</div>`);
   }
 
   // Approval Policy

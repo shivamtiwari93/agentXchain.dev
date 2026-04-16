@@ -37,11 +37,30 @@ export async function approveCompletionCommand(opts) {
   console.log(`  ${chalk.dim('Turn:')}   ${pc.requested_by_turn}`);
   console.log('');
 
-  const result = approveRunCompletion(root, config);
+  const result = approveRunCompletion(root, config, { dryRun: opts.dryRun });
+
+  if (result.dry_run) {
+    console.log(chalk.cyan('  Dry Run: gate approval preview only'));
+    if (result.gate_actions?.length > 0) {
+      console.log(`  ${chalk.dim('Gate actions:')} ${result.gate_actions.length}`);
+      for (const action of result.gate_actions) {
+        console.log(`    ${action.index}. ${action.label || action.run}`);
+        if (action.label) {
+          console.log(`       ${chalk.dim(action.run)}`);
+        }
+      }
+    } else {
+      console.log(`  ${chalk.dim('Gate actions:')} none configured`);
+    }
+    console.log('');
+    return;
+  }
 
   if (!result.ok) {
     if (result.error_code?.startsWith('hook_') || result.error_code === 'hook_blocked') {
       printGateHookFailure(result, 'run_completion', pc);
+    } else if (result.error_code === 'gate_action_failed') {
+      printGateActionFailure(result, pc);
     } else {
       console.log(chalk.red(`  Failed: ${result.error}`));
     }
@@ -49,6 +68,9 @@ export async function approveCompletionCommand(opts) {
   }
 
   console.log(chalk.green('  \u2713 Run completed'));
+  if (result.gateActionRun?.actions?.length > 0) {
+    console.log(`  ${chalk.dim('Gate actions:')} ${result.gateActionRun.actions.length} completed`);
+  }
   console.log(chalk.dim(`  Completed at: ${result.state.completed_at}`));
   console.log('');
 }
@@ -76,5 +98,22 @@ function printGateHookFailure(result, gateType, gateInfo) {
   } else {
     console.log(`  ${chalk.dim('Action:')}   Fix or reconfigure hook "${hookName}", then rerun agentxchain approve-completion`);
   }
+  console.log('');
+}
+
+function printGateActionFailure(result, gateInfo) {
+  const failure = result.gateActionRun?.failed_action;
+
+  console.log('');
+  console.log(chalk.yellow('  Run Completion Blocked By Gate Action'));
+  console.log(chalk.dim('  ' + '-'.repeat(44)));
+  console.log('');
+  console.log(`  ${chalk.dim('Gate:')}     ${gateInfo.gate}`);
+  console.log(`  ${chalk.dim('Action:')}   ${failure?.action_label || failure?.command || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Exit:')}     ${failure?.exit_code ?? failure?.signal ?? 'unknown'}`);
+  if (failure?.stderr_tail) {
+    console.log(`  ${chalk.dim('stderr:')}   ${failure.stderr_tail}`);
+  }
+  console.log(`  ${chalk.dim('Retry:')}    agentxchain approve-completion`);
   console.log('');
 }

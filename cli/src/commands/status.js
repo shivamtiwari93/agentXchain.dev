@@ -18,6 +18,7 @@ import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { readRecentRunEventSummary } from '../lib/recent-event-summary.js';
 import { deriveConflictedTurnResolutionActions } from '../lib/conflict-actions.js';
+import { summarizeLatestGateActionAttempt } from '../lib/gate-actions.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 
 export async function statusCommand(opts) {
@@ -126,6 +127,11 @@ function renderGovernedStatus(context, opts) {
   const repoDecisionSummary = summarizeRepoDecisions(readRepoDecisions(root), config);
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
+  const gateActionAttempt = state?.pending_phase_transition
+    ? summarizeLatestGateActionAttempt(root, 'phase_transition', state.pending_phase_transition.gate)
+    : state?.pending_run_completion
+      ? summarizeLatestGateActionAttempt(root, 'run_completion', state.pending_run_completion.gate)
+      : null;
 
   // Fire approval SLA reminders as a side effect (webhook-only, no CLI output)
   evaluateApprovalSlaReminders(root, config, state);
@@ -156,6 +162,7 @@ function renderGovernedStatus(context, opts) {
       next_actions: nextActions,
       connector_health: connectorHealth,
       recent_event_summary: recentEventSummary,
+      gate_action_attempt: gateActionAttempt,
       workflow_kit_artifacts: workflowKitArtifacts,
       dashboard_session: dashboardSessionObj,
     }, null, 2));
@@ -343,6 +350,21 @@ function renderGovernedStatus(context, opts) {
     console.log(`  ${chalk.dim('Gate:')}     ${pc.gate} (requires human approval)`);
     if (pc.requested_at) {
       console.log(`  ${chalk.dim('Requested:')} ${pc.requested_at} (${timeSince(pc.requested_at)} ago)`);
+    }
+  }
+
+  if (gateActionAttempt) {
+    console.log(`  ${chalk.dim('Gate actions:')} ${gateActionAttempt.status} at ${gateActionAttempt.attempted_at || 'unknown time'}`);
+    for (const action of gateActionAttempt.actions) {
+      const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
+      const outcome = action.status === 'failed'
+        ? chalk.red('failed')
+        : chalk.green('succeeded');
+      const exit = action.exit_code == null ? '' : ` (exit ${action.exit_code})`;
+      console.log(`    ${action.action_index || '?'}. ${label} — ${outcome}${exit}`);
+      if (action.status === 'failed' && action.stderr_tail) {
+        console.log(`      ${chalk.dim(action.stderr_tail)}`);
+      }
     }
   }
 

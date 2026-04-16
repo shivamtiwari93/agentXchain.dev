@@ -28,6 +28,7 @@ import {
   isWorkflowKitPhaseTemplateId,
   VALID_WORKFLOW_KIT_PHASE_TEMPLATE_IDS,
 } from './workflow-kit-phase-templates.js';
+import { validateGateActionsConfig } from './gate-actions.js';
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
 const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
@@ -501,7 +502,8 @@ export function validateV4Config(data, projectRoot) {
 
   // Gates (optional but validated if present)
   if (data.gates) {
-    if (data.routing) {
+    validateGateActionsConfig(data.gates, errors);
+    if (data.gates && typeof data.gates === 'object' && !Array.isArray(data.gates) && data.routing) {
       for (const [, route] of Object.entries(data.routing)) {
         if (route.exit_gate && !data.gates[route.exit_gate]) {
           errors.push(`Routing references unknown gate: "${route.exit_gate}"`);

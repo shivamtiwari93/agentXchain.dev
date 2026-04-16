@@ -36,11 +36,30 @@ export async function approveTransitionCommand(opts) {
   console.log(`  ${chalk.dim('Turn:')}  ${pt.requested_by_turn}`);
   console.log('');
 
-  const result = approvePhaseTransition(root, config);
+  const result = approvePhaseTransition(root, config, { dryRun: opts.dryRun });
+
+  if (result.dry_run) {
+    console.log(chalk.cyan('  Dry Run: gate approval preview only'));
+    if (result.gate_actions?.length > 0) {
+      console.log(`  ${chalk.dim('Gate actions:')} ${result.gate_actions.length}`);
+      for (const action of result.gate_actions) {
+        console.log(`    ${action.index}. ${action.label || action.run}`);
+        if (action.label) {
+          console.log(`       ${chalk.dim(action.run)}`);
+        }
+      }
+    } else {
+      console.log(`  ${chalk.dim('Gate actions:')} none configured`);
+    }
+    console.log('');
+    return;
+  }
 
   if (!result.ok) {
     if (result.error_code?.startsWith('hook_') || result.error_code === 'hook_blocked') {
       printGateHookFailure(result, 'phase_transition', pt);
+    } else if (result.error_code === 'gate_action_failed') {
+      printGateActionFailure(result, 'phase_transition', pt);
     } else {
       console.log(chalk.red(`  Failed: ${result.error}`));
     }
@@ -48,6 +67,9 @@ export async function approveTransitionCommand(opts) {
   }
 
   console.log(chalk.green(`  ✓ Phase advanced: ${pt.from} → ${pt.to}`));
+  if (result.gateActionRun?.actions?.length > 0) {
+    console.log(`  ${chalk.dim('Gate actions:')} ${result.gateActionRun.actions.length} completed`);
+  }
   console.log(chalk.dim(`  Run status: ${result.state.status}`));
   console.log('');
   console.log(chalk.dim(`  Next: agentxchain step  (to run the first turn in ${pt.to} phase)`));
@@ -81,5 +103,26 @@ function printGateHookFailure(result, gateType, gateInfo) {
   } else {
     console.log(`  ${chalk.dim('Action:')}   Fix or reconfigure hook "${hookName}", then rerun agentxchain approve-transition`);
   }
+  console.log('');
+}
+
+function printGateActionFailure(result, gateType, gateInfo) {
+  const failure = result.gateActionRun?.failed_action;
+
+  console.log('');
+  console.log(chalk.yellow(`  ${gateType === 'phase_transition' ? 'Phase Transition' : 'Run Completion'} Blocked By Gate Action`));
+  console.log(chalk.dim('  ' + '-'.repeat(44)));
+  console.log('');
+  if (gateType === 'phase_transition') {
+    console.log(`  ${chalk.dim('From:')}     ${gateInfo.from}`);
+    console.log(`  ${chalk.dim('To:')}       ${gateInfo.to}`);
+  }
+  console.log(`  ${chalk.dim('Gate:')}     ${gateInfo.gate}`);
+  console.log(`  ${chalk.dim('Action:')}   ${failure?.action_label || failure?.command || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Exit:')}     ${failure?.exit_code ?? failure?.signal ?? 'unknown'}`);
+  if (failure?.stderr_tail) {
+    console.log(`  ${chalk.dim('stderr:')}   ${failure.stderr_tail}`);
+  }
+  console.log(`  ${chalk.dim('Retry:')}    ${gateType === 'phase_transition' ? 'agentxchain approve-transition' : 'agentxchain approve-completion'}`);
   console.log('');
 }

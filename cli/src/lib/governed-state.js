@@ -54,6 +54,7 @@ import {
   replayVerificationMachineEvidence,
   summarizeVerificationReplay,
 } from './verification-replay.js';
+import { executeGateActions } from './gate-actions.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -1271,6 +1272,67 @@ function isOperatorEscalationBlockedOn(blockedOn) {
 
 function canApprovePendingGate(state) {
   return state?.status === 'paused' || state?.status === 'blocked';
+}
+
+function blockRunForGateActionFailure(root, state, gateFailure, config) {
+  const gateType = gateFailure.gate_type === 'run_completion' ? 'run_completion' : 'phase_transition';
+  const recoveryAction = gateType === 'run_completion'
+    ? 'agentxchain approve-completion'
+    : 'agentxchain approve-transition';
+  const actionLabel = gateFailure.action_label || gateFailure.command || gateFailure.gate_id || 'gate action';
+  const blockedAt = gateFailure.timestamp || new Date().toISOString();
+  const blockedState = {
+    ...state,
+    status: 'blocked',
+    blocked_on: `gate_action:${gateFailure.gate_id || 'unknown'}`,
+    blocked_reason: {
+      category: 'gate_action_failed',
+      blocked_at: blockedAt,
+      turn_id: gateFailure.requested_by_turn || null,
+      detail: `Gate action failed for "${gateFailure.gate_id || 'unknown'}": ${actionLabel}`,
+      recovery: {
+        typed_reason: 'gate_action_failed',
+        owner: 'human',
+        recovery_action: recoveryAction,
+        turn_retained: false,
+        detail: `${gateFailure.gate_id || 'unknown'} action ${gateFailure.action_index || '?'} (${actionLabel})`,
+      },
+      gate_action: {
+        attempt_id: gateFailure.attempt_id || null,
+        gate_id: gateFailure.gate_id || null,
+        gate_type: gateType,
+        action_index: gateFailure.action_index || null,
+        action_label: gateFailure.action_label || null,
+        command: gateFailure.command || null,
+        exit_code: gateFailure.exit_code ?? null,
+        stderr_tail: gateFailure.stderr_tail || null,
+      },
+    },
+  };
+
+  writeState(root, blockedState);
+  emitBlockedNotification(root, config, blockedState, {
+    category: 'gate_action_failed',
+    blockedOn: blockedState.blocked_on,
+    recovery: blockedState.blocked_reason.recovery,
+  });
+  emitRunEvent(root, 'run_blocked', {
+    run_id: blockedState.run_id,
+    phase: blockedState.phase,
+    status: blockedState.status,
+    turn: gateFailure.requested_by_turn
+      ? { turn_id: gateFailure.requested_by_turn, role_id: null }
+      : undefined,
+    payload: {
+      category: 'gate_action_failed',
+      gate_id: gateFailure.gate_id || null,
+      gate_type: gateType,
+      action_index: gateFailure.action_index || null,
+      exit_code: gateFailure.exit_code ?? null,
+    },
+  });
+
+  return blockedState;
 }
 
 function deriveHookRecovery(state, { phase, hookName, detail, errorCode, turnId, turnRetained }) {
@@ -3820,9 +3882,10 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
  *
  * @param {string} root - project root directory
  * @param {object} [config] - normalized config (optional; required for hook support)
+ * @param {object} [opts] - optional execution controls
  * @returns {{ ok: boolean, error?: string, error_code?: string, state?: object, transition?: object, hookResults?: object }}
  */
-export function approvePhaseTransition(root, config) {
+export function approvePhaseTransition(root, config, opts = {}) {
   const state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
@@ -3835,6 +3898,23 @@ export function approvePhaseTransition(root, config) {
   }
 
   const transition = state.pending_phase_transition;
+
+  if (opts.dryRun) {
+    const gateActions = executeGateActions(root, config, {
+      gateId: transition.gate,
+      gateType: 'phase_transition',
+      phase: state.phase,
+      requestedByTurn: transition.requested_by_turn || null,
+      triggerCommand: 'approve-transition',
+    }, { dryRun: true });
+    return {
+      ok: true,
+      dry_run: true,
+      state: attachLegacyCurrentTurnAlias(state),
+      transition,
+      gate_actions: gateActions.actions,
+    };
+  }
 
   // ── before_gate hooks ──────────────────────────────────────────────
   const hooksConfig = config?.hooks || {};
@@ -3875,6 +3955,32 @@ export function approvePhaseTransition(root, config) {
         hookResults: gateHooks,
       };
     }
+  }
+
+  const gateActions = executeGateActions(root, config, {
+    gateId: transition.gate,
+    gateType: 'phase_transition',
+    phase: state.phase,
+    requestedByTurn: transition.requested_by_turn || null,
+    triggerCommand: 'approve-transition',
+  });
+
+  if (!gateActions.ok) {
+    for (const entry of gateActions.actions || []) {
+      appendJsonl(root, LEDGER_PATH, entry);
+    }
+    const blockedState = blockRunForGateActionFailure(root, state, gateActions.failed_action, config);
+    return {
+      ok: false,
+      error: gateActions.error,
+      error_code: 'gate_action_failed',
+      state: blockedState,
+      gateActionRun: gateActions,
+    };
+  }
+
+  for (const entry of gateActions.actions || []) {
+    appendJsonl(root, LEDGER_PATH, entry);
   }
 
   const updatedState = {
@@ -3919,6 +4025,7 @@ export function approvePhaseTransition(root, config) {
     ok: true,
     state: attachLegacyCurrentTurnAlias(updatedState),
     transition,
+    gateActionRun: gateActions,
   };
 }
 
@@ -3934,9 +4041,10 @@ export function approvePhaseTransition(root, config) {
  *
  * @param {string} root - project root directory
  * @param {object} [config] - normalized config (optional; required for hook support)
+ * @param {object} [opts] - optional execution controls
  * @returns {{ ok: boolean, error?: string, error_code?: string, state?: object, completion?: object, hookResults?: object }}
  */
-export function approveRunCompletion(root, config) {
+export function approveRunCompletion(root, config, opts = {}) {
   const state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
@@ -3949,6 +4057,23 @@ export function approveRunCompletion(root, config) {
   }
 
   const completion = state.pending_run_completion;
+
+  if (opts.dryRun) {
+    const gateActions = executeGateActions(root, config, {
+      gateId: completion.gate,
+      gateType: 'run_completion',
+      phase: state.phase,
+      requestedByTurn: completion.requested_by_turn || null,
+      triggerCommand: 'approve-completion',
+    }, { dryRun: true });
+    return {
+      ok: true,
+      dry_run: true,
+      state: attachLegacyCurrentTurnAlias(state),
+      completion,
+      gate_actions: gateActions.actions,
+    };
+  }
 
   // ── before_gate hooks ──────────────────────────────────────────────
   const hooksConfig = config?.hooks || {};
@@ -3989,6 +4114,32 @@ export function approveRunCompletion(root, config) {
         hookResults: gateHooks,
       };
     }
+  }
+
+  const gateActions = executeGateActions(root, config, {
+    gateId: completion.gate,
+    gateType: 'run_completion',
+    phase: state.phase,
+    requestedByTurn: completion.requested_by_turn || null,
+    triggerCommand: 'approve-completion',
+  });
+
+  if (!gateActions.ok) {
+    for (const entry of gateActions.actions || []) {
+      appendJsonl(root, LEDGER_PATH, entry);
+    }
+    const blockedState = blockRunForGateActionFailure(root, state, gateActions.failed_action, config);
+    return {
+      ok: false,
+      error: gateActions.error,
+      error_code: 'gate_action_failed',
+      state: blockedState,
+      gateActionRun: gateActions,
+    };
+  }
+
+  for (const entry of gateActions.actions || []) {
+    appendJsonl(root, LEDGER_PATH, entry);
   }
 
   const updatedState = {
@@ -4037,6 +4188,7 @@ export function approveRunCompletion(root, config) {
     ok: true,
     state: attachLegacyCurrentTurnAlias(updatedState),
     completion,
+    gateActionRun: gateActions,
   };
 }
 

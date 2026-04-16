@@ -521,11 +521,13 @@ program
 program
   .command('approve-transition')
   .description('Approve a pending phase transition that requires human sign-off')
+  .option('--dry-run', 'Show configured gate actions without executing approval')
   .action(approveTransitionCommand);
 
 program
   .command('approve-completion')
   .description('Approve a pending run completion that requires human sign-off')
+  .option('--dry-run', 'Show configured gate actions without executing approval')
   .action(approveCompletionCommand);
 
 program
