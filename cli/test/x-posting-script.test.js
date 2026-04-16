@@ -23,10 +23,13 @@ function createFixture() {
   mkdirSync(marketingDir, { recursive: true });
   mkdirSync(fakeBinDir, { recursive: true });
 
-  const patchedScript = readFileSync(SOURCE_SCRIPT, 'utf8').replace(
-    `XBROWSER_DIR="${SOURCE_BROWSER_DIR}"`,
-    `XBROWSER_DIR="${fakeBrowserDir}"`,
-  );
+  const patchedScript = readFileSync(SOURCE_SCRIPT, 'utf8')
+    .replace(
+      `XBROWSER_DIR="${SOURCE_BROWSER_DIR}"`,
+      `XBROWSER_DIR="${fakeBrowserDir}"`,
+    )
+    // Keep fixture runs fast while preserving the fallback control flow.
+    .replace(/sleep 5/, 'sleep 0');
   writeExecutable(join(marketingDir, 'post-twitter.sh'), patchedScript);
 
   writeExecutable(
