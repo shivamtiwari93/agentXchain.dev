@@ -79,6 +79,9 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `decisions` | Governance | Show repo-level decisions that persist across governed runs |
 | `diff` | Observability | Compare two recorded governed runs or export artifacts and summarize what changed |
 | `events` | Observability | Show repo-local run lifecycle events with optional streaming |
+| `chain latest` | Observability | Show the most recent chain report from auto-chained governed runs |
+| `chain list` | Observability | List all chain reports with summary metadata |
+| `chain show` | Observability | Show a specific chain report by chain ID |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
@@ -1302,6 +1305,28 @@ Use `--follow` to stream events in real-time as they occur. Use `--type run_bloc
 `phase_entered` text entries show the transition as `from → to (trigger)`, where `trigger` distinguishes direct automatic gate passes, auto-approved policy transitions, and explicit human approvals. `gate_failed` text entries show the blocked transition plus the first failure reason and gate ID inline, so operators can diagnose a rejected phase change without digging into `.agentxchain/decision-ledger.jsonl`.
 
 Unlike webhook notifications (configured in `agentxchain.json`), the event log requires no external infrastructure — events are written locally as part of normal governed operation.
+
+### `chain`
+
+```bash
+agentxchain chain latest [--json] [--dir <path>]
+agentxchain chain list [--json] [--limit <n>] [--dir <path>]
+agentxchain chain show <chain_id> [--json] [--dir <path>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--json` | `false` | Output as JSON |
+| `--limit <n>` | `20` | Max chain reports to show (list only) |
+| `--dir <path>` | `.` | Project directory |
+
+Inspect chain reports produced by `agentxchain run --chain`. When auto-chaining is enabled, each chain session writes a report to `.agentxchain/reports/chain-*.json` containing the chain ID, terminal reason, per-run lineage, inherited context summaries, and aggregate turn/duration totals.
+
+- `chain latest` shows the most recent chain report with a per-run breakdown including run ID, status, provenance trigger, parent run ID, inherited context summary counts (roles, phases, decisions, turns), and duration.
+- `chain list` shows a summary table of all chain reports sorted newest-first with chain ID, run count, total turns, terminal reason, duration, and start time.
+- `chain show <chain_id>` renders the same detail view as `latest` for a specific chain report by ID.
+
+Terminal reasons: `chain_limit_reached` (max chains exhausted), `non_chainable_status` (terminal status not in `chain_on`), `operator_abort` (SIGINT during chain), `parent_validation_failed` (parent run validation failed), `completed`, `blocked`.
 
 ### `dashboard`
 

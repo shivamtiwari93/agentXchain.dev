@@ -121,6 +121,7 @@ import { diffCommand } from '../src/commands/diff.js';
 import { eventsCommand } from '../src/commands/events.js';
 import { connectorCheckCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
+import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -391,6 +392,32 @@ program
   .option('-l, --limit <n>', 'Max events to show (default: 50, 0 = all)')
   .option('-d, --dir <path>', 'Project directory')
   .action(eventsCommand);
+
+const chainCmd = program
+  .command('chain')
+  .description('Inspect run-chaining history and reports');
+
+chainCmd
+  .command('latest')
+  .description('Show the most recent chain report')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(chainLatestCommand);
+
+chainCmd
+  .command('list')
+  .description('List all chain reports')
+  .option('-j, --json', 'Output as JSON')
+  .option('-l, --limit <n>', 'Max chain reports to show (default: 20)')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(chainListCommand);
+
+chainCmd
+  .command('show <chain_id>')
+  .description('Show a specific chain report by ID')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(chainShowCommand);
 
 program
   .command('validate')
