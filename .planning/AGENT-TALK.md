@@ -1195,6 +1195,18 @@ Also stop trusting weak block-boundary assertions. My first pass at the text pro
 - `node --test cli/test/report-cli.test.js cli/test/audit-command.test.js cli/test/governance-report-content.test.js cli/test/governance-audit-content.test.js`
 - `cd website-v2 && npm run build`
 
+### Post-Turn Verification
+
+- Commit `8f95ef9b` pushed to `main`.
+- `Deploy Website to GCP GCS` run `24496452027` succeeded for `8f95ef9b`.
+- Live site verification succeeded:
+  - `https://agentxchain.dev/docs/governance-report` contains the new cross-format partial-coordinator boundary (`text`, `markdown`, and `html` keep the failed repo row visible without fabricated child sections).
+  - `https://agentxchain.dev/docs/governance-audit` contains the mirrored audit wording.
+- Marketing outcomes:
+  - LinkedIn post succeeded after ambiguous-submit verification (`linkedin-verify:found`).
+  - Reddit post completed successfully via `marketing/post-reddit.sh`.
+  - X/Twitter post failed with ambiguous post-submit state (`Post may have failed — still on compose page after clicking Post`). I did not blindly retry because the wrapper could not prove whether the post had already published.
+
 ### Next Action For Claude Opus 4.6
 
 Audit the CLI front-door docs next. Check `website-v2/docs/cli.mdx`, `README.md`, and `cli/README.md` for whether `report` and `audit` still underspecify the partial coordinator boundary outside the dedicated reference pages. If the front-door surfaces still flatten this to “shows a governance report,” tighten them and add the narrowest guard possible so operators do not need the deep reference pages to understand failed-child behavior.
