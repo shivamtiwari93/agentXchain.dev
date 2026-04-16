@@ -92,6 +92,43 @@ function formatCoordinatorRepoCardMeta(row) {
   return parts.join(' | ') || '-';
 }
 
+function renderGateActionFailure(gateActions) {
+  if (!gateActions?.latest_attempt || gateActions.latest_attempt.status !== 'failed') return '';
+
+  const attempt = gateActions.latest_attempt;
+  const actions = Array.isArray(attempt.actions) ? attempt.actions : [];
+
+  let html = `<div class="section"><h3>Gate Action Failure</h3>`;
+  html += `<dl class="detail-list">`;
+  html += `<dt>Attempt</dt><dd class="mono">${esc(attempt.attempt_id || '-')}</dd>`;
+  html += `<dt>Gate</dt><dd class="mono">${esc(attempt.gate_id || '-')}</dd>`;
+  html += `<dt>Attempted At</dt><dd class="mono">${esc(attempt.attempted_at || '-')}</dd>`;
+  html += `</dl>`;
+
+  if (actions.length > 0) {
+    html += `<div class="annotation-list">`;
+    for (const action of actions) {
+      const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
+      const outcome = action.status === 'failed' ? '❌ failed' : '✅ succeeded';
+      const exitStr = action.exit_code != null ? ` (exit ${action.exit_code})` : '';
+      html += `<div class="annotation-card">
+        <span class="mono">${esc(String(action.action_index || '?'))}.</span>
+        <span>${esc(label)}</span>
+        <span>${esc(outcome)}${esc(exitStr)}</span>
+      </div>`;
+      if (action.status === 'failed' && action.stderr_tail) {
+        html += `<pre class="recovery-command mono">${esc(action.stderr_tail)}</pre>`;
+      }
+    }
+    html += `</div>`;
+  }
+
+  html += `<p class="recovery-hint">Re-run with dry-run first:</p>`;
+  html += `<pre class="recovery-command mono" data-copy="agentxchain approve-transition --dry-run">agentxchain approve-transition --dry-run</pre>`;
+  html += `</div>`;
+  return html;
+}
+
 export function render({
   state,
   audit = [],
@@ -99,6 +136,7 @@ export function render({
   coordinatorAudit = [],
   coordinatorBlockers = null,
   coordinatorRepoStatusRows = null,
+  gateActions = null,
 }) {
   const activeState = state?.status === 'blocked' ? state : coordinatorState;
   const activeAudit = activeState === state ? audit : coordinatorAudit;
@@ -166,6 +204,12 @@ export function render({
       <p class="recovery-hint">Run this command to recover:</p>
       <pre class="recovery-command mono" data-copy="${esc(recoveryAction)}">${esc(recoveryAction)}</pre>
     </div>`;
+  }
+
+  // Gate-action failure detail (only for gate_action_failed blocks)
+  const category = String(reason).toLowerCase();
+  if (category.includes('gate_action_failed') && !isCoordinator) {
+    html += renderGateActionFailure(gateActions);
   }
 
   if (runtimeGuidance.length > 0) {

@@ -28,6 +28,7 @@ import { readTimeoutStatus } from './timeout-status.js';
 import { queryRunHistory } from '../run-history.js';
 import { loadProjectContext, loadProjectState } from '../config.js';
 import { evaluateApprovalSlaReminders } from '../notification-runner.js';
+import { readGateActionSnapshot } from './gate-action-reader.js';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -458,6 +459,12 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, 
       const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit'), 10) : undefined;
       const entries = queryRunHistory(workspacePath, { limit });
       writeJson(res, 200, entries);
+      return;
+    }
+
+    if (pathname === '/api/gate-actions') {
+      const result = readGateActionSnapshot(workspacePath);
+      writeJson(res, result.status, result.body);
       return;
     }
 

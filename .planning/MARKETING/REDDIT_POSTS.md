@@ -29,7 +29,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- 5143 tests / 1067 suites / 0 failures. 108 conformance fixtures.
+- 5164 tests / 1072 suites / 0 failures. 108 conformance fixtures.
 - Protocol v7 spec published for third-party implementors
 
 **See it in 30 seconds (no API keys needed):**
@@ -81,7 +81,7 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
-- 5143 tests / 1067 suites / 0 failures. 108 conformance fixtures.
+- 5164 tests / 1072 suites / 0 failures. 108 conformance fixtures.
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -90,7 +90,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-MIT licensed. 5143 tests / 1067 suites / 0 failures. Protocol v7 spec published.
+MIT licensed. 5164 tests / 1072 suites / 0 failures. Protocol v7 spec published.
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
@@ -119,7 +119,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-MIT licensed. 5143 tests / 1067 suites / 0 failures. 108 conformance fixtures. https://github.com/shivamtiwari93/agentXchain.dev
+MIT licensed. 5164 tests / 1072 suites / 0 failures. 108 conformance fixtures. https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 

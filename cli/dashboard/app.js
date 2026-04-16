@@ -29,8 +29,8 @@ const VIEWS = {
   delegations: { fetch: ['state', 'history'], render: renderDelegations },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger', 'repoDecisionsSummary'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderHooks },
-  blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers', 'coordinatorRepoStatusRows'], render: renderBlocked },
-  gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers'], render: renderGate },
+  blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers', 'coordinatorRepoStatusRows', 'gateActions'], render: renderBlocked },
+  gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers', 'gateActions'], render: renderGate },
   initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger', 'coordinatorBlockers', 'coordinatorRepoStatusRows'], render: renderInitiative },
   'cross-repo': { fetch: ['coordinatorState', 'coordinatorHistory'], render: renderCrossRepo },
   blockers: { fetch: ['coordinatorBlockers'], render: renderBlockers },
@@ -62,6 +62,7 @@ const API_MAP = {
   runHistory: '/api/run-history',
   timeouts: '/api/timeouts',
   coordinatorTimeouts: '/api/coordinator/timeouts',
+  gateActions: '/api/gate-actions',
   events: '/api/events?type=turn_conflicted&limit=10',
 };
 

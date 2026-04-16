@@ -210,12 +210,51 @@ function aggregateCoordinatorEvidence(entries) {
   return { summaries, decisions, objections: [], risks: [], files };
 }
 
+function renderGateActionsSection(gateActions) {
+  if (!gateActions) return '';
+
+  const configured = Array.isArray(gateActions.configured) ? gateActions.configured : [];
+  const attempt = gateActions.latest_attempt || null;
+
+  if (configured.length === 0 && !attempt) return '';
+
+  let html = `<div class="gate-support"><p><strong>Gate Actions:</strong></p>`;
+
+  if (configured.length > 0) {
+    html += `<ul>`;
+    for (const action of configured) {
+      const label = action.label || action.run || `action ${action.index || '?'}`;
+      html += `<li><span class="mono">${esc(String(action.index || '?'))}.</span> ${esc(label)}</li>`;
+    }
+    html += `</ul>`;
+  }
+
+  if (attempt) {
+    const statusLabel = attempt.status === 'failed' ? '❌ Failed' : '✅ Succeeded';
+    html += `<p><strong>Last Attempt:</strong> ${esc(statusLabel)} at ${esc(attempt.attempted_at || 'unknown')}</p>`;
+    if (Array.isArray(attempt.actions) && attempt.actions.length > 0) {
+      html += `<ul>`;
+      for (const a of attempt.actions) {
+        const aLabel = a.action_label || a.command || `action ${a.action_index || '?'}`;
+        const outcome = a.status === 'failed' ? '❌' : '✅';
+        const exitStr = a.exit_code != null ? ` (exit ${a.exit_code})` : '';
+        html += `<li>${outcome} ${esc(aLabel)}${esc(exitStr)}</li>`;
+      }
+      html += `</ul>`;
+    }
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 export function render({
   state,
   history = [],
   coordinatorState = null,
   coordinatorHistory = [],
   coordinatorBarriers = {},
+  gateActions = null,
 }) {
   const repoPendingTransition = state?.pending_phase_transition || null;
   const repoPendingCompletion = state?.pending_run_completion || null;
@@ -284,6 +323,9 @@ export function render({
         )).join('')}</ul></div>`;
       }
     }
+    if (!isCoordinator) {
+      html += renderGateActionsSection(gateActions);
+    }
     html += renderApproveControls({
       buttonLabel: isCoordinator ? 'Approve Coordinator Gate' : 'Approve Transition',
       cliCommand: isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-transition',
@@ -328,6 +370,9 @@ export function render({
     html += renderList('Decisions', evidence.decisions, (item) => item?.statement || item);
     if (evidence.files.length > 0) {
       html += `<div class="gate-support"><p><strong>Files Changed:</strong></p><ul>${evidence.files.map(f => `<li class="mono">${esc(f)}</li>`).join('')}</ul></div>`;
+    }
+    if (!isCoordinator) {
+      html += renderGateActionsSection(gateActions);
     }
     html += renderApproveControls({
       buttonLabel: isCoordinator ? 'Approve Coordinator Gate' : 'Approve Completion',

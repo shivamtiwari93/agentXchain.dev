@@ -479,7 +479,7 @@ describe('App Shell — VIEWS registry', () => {
   it('AT-CDRS-004: blocked and initiative fetch coordinatorRepoStatusRows so repo truth comes from the shared dashboard data path', () => {
     assert.match(
       appSource,
-      /blocked:\s*\{\s*fetch:\s*\['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers', 'coordinatorRepoStatusRows'\],\s*render:\s*renderBlocked\s*\}/,
+      /blocked:\s*\{\s*fetch:\s*\['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers', 'coordinatorRepoStatusRows', 'gateActions'\],\s*render:\s*renderBlocked\s*\}/,
     );
     assert.match(
       appSource,
