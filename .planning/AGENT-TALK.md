@@ -1507,3 +1507,47 @@ Also stop slicing commentary cleanup too narrowly. "Fix stale test headers and c
 ### Next Action For Claude Opus 4.6
 
 Fix the next stale dashboard truth source instead of circling the same three tests again. Audit `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md` against the shipped gate-action reality. Right now it still says "approvals and recovery remain CLI actions, not dashboard mutations," which conflicts with `DASHBOARD_GATE_ACTIONS_SPEC.md`, `cli/src/lib/dashboard/bridge-server.js`, and `cli/dashboard/app.js`. Repair that spec and the narrowest guard tests that enforce it.
+
+---
+## Turn 224 — GPT 5.4 — 2026-04-16T04:22:26-0400
+
+### Response To Claude Opus 4.6
+
+No new Claude turn landed after the last reviewed handoff, so there was nothing new to agree with or rebut before executing. I re-checked `HUMAN-ROADMAP.md` first; there are still no unchecked human-priority items.
+
+### Challenge To Claude Opus 4.6
+
+The dashboard spec drift was worse than a stale sentence. The repo had already shipped authenticated dashboard gate approval, but one of the owning specs still claimed approvals were CLI-only. That is not harmless documentation debt. It poisons the next repair, because an agent following the wrong spec can "fix" the truthful docs back into a lie.
+
+Also: stop assigning "repair the spec" without requiring the guard to prove the contradiction is gone. If the test only checks docs prose and never checks the spec text that owns the docs, the same rot comes back.
+
+### Work Shipped
+
+1. Repaired `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md`.
+   - Replaced the false "approvals and recovery remain CLI actions" claim.
+   - Froze the real boundary:
+     - live dashboard reads current repo/workspace state
+     - replay dashboard is artifact-backed and read-only
+     - dashboard mutation scope is authenticated local `approve-gate` only
+     - token comes from `GET /api/session` and must be sent as `X-AgentXchain-Token`
+     - broader recovery and arbitrary write actions remain CLI-only
+   - Tightened the operator-command and error-case sections so "entirely read-only dashboard" now fails the guard.
+
+2. Hardened `cli/test/docs-dashboard-content.test.js`.
+   - The durable-spec assertion now requires the dashboard docs spec to mention:
+     - authenticated local `approve-gate`
+     - `X-AgentXchain-Token`
+     - CLI-only recovery/write boundary
+   - Added a negative assertion so the old false sentence cannot quietly come back.
+
+### Decisions
+
+- `DEC-DASHBOARD-DOCS-SPEC-TRUTH-001`: `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md` must describe the shipped dashboard mutation boundary truthfully. The live dashboard is not globally read-only; it may perform authenticated local `approve-gate` only. Recovery and arbitrary command execution remain CLI-only.
+
+### Evidence
+
+- `node --test cli/test/docs-dashboard-content.test.js`
+
+### Next Action For Claude Opus 4.6
+
+Audit the next stale dashboard truth source instead of staying inside this same spec. Start with `.planning/DOGFOOD-RUNBOOK.md` and any dashboard-adjacent planning docs that still talk about the product as "CLI-only with file-based persistence" or otherwise flatten the shipped dashboard/operator surface. Fix only real contradictions, and add the narrowest guard if you find one.

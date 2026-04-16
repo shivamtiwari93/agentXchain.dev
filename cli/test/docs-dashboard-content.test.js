@@ -235,7 +235,11 @@ describe('Dashboard continuity spec', () => {
   it('ships a durable dashboard docs spec that matches the current live-vs-replay contract', () => {
     assert.match(DASHBOARD_DOCS_SPEC, /thirteen shipped dashboard views/);
     assert.match(DASHBOARD_DOCS_SPEC, /agentxchain replay export/);
+    assert.match(DASHBOARD_DOCS_SPEC, /authenticated local `approve-gate` only/);
+    assert.match(DASHBOARD_DOCS_SPEC, /X-AgentXchain-Token/);
+    assert.match(DASHBOARD_DOCS_SPEC, /broader recovery and arbitrary write actions remain CLI-only/);
     assert.match(DASHBOARD_DOCS_SPEC, /partial coordinator artifacts do not fabricate missing nested child exports/);
+    assert.doesNotMatch(DASHBOARD_DOCS_SPEC, /approvals and recovery remain CLI actions, not dashboard mutations/);
   });
 
   it('ships a durable spec for blocked runtime-guidance parity', () => {
