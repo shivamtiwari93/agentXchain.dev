@@ -1,0 +1,167 @@
+---
+title: Run Chaining
+description: "Auto-chain governed runs for lights-out operation — when a run completes, automatically start a continuation."
+---
+
+# Run Chaining
+
+By default, each `agentxchain run` drives a single governed run to completion. When the run ends, you start the next one manually with `--continue-from`. **Run chaining** automates this: when a run completes, AgentXchain automatically starts a new run that inherits context from the previous one.
+
+This is the key enabler for **lights-out software factory operation** — the system keeps producing governed work without constant human steering.
+
+## Quick Start
+
+```bash
+# Chain up to 5 continuation runs, auto-approving all gates
+agentxchain run --chain --auto-approve
+```
+
+Each chained run:
+- Gets a fresh `run_id`
+- Inherits read-only context from the previous run (decisions, accepted turns, completed phases)
+- Sets `trigger: "continuation"` provenance pointing to the parent run
+- Produces its own governance report
+
+## CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--chain` | off | Enable auto-chaining |
+| `--max-chains N` | `5` | Maximum continuation runs (total runs = N + 1 initial) |
+| `--chain-on STATUS` | `completed` | Comma-separated terminal statuses that trigger chaining |
+| `--chain-cooldown S` | `5` | Seconds to wait between chained runs |
+
+### Examples
+
+```bash
+# Chain only after completed runs (default)
+agentxchain run --chain --auto-approve
+
+# Chain even when blocked (recovery chaining)
+agentxchain run --chain --chain-on completed,blocked --auto-approve
+
+# Limit to 2 continuations with no cooldown
+agentxchain run --chain --max-chains 2 --chain-cooldown 0 --auto-approve
+
+# Chain with max turns per run
+agentxchain run --chain --max-turns 20 --auto-approve
+```
+
+## Config
+
+Chaining can also be set in `agentxchain.json` so it applies by default:
+
+```json title="agentxchain.json"
+{
+  "run_loop": {
+    "chain": {
+      "enabled": true,
+      "max_chains": 5,
+      "chain_on": ["completed"],
+      "cooldown_seconds": 5
+    }
+  }
+}
+```
+
+CLI flags override config values. If `--chain` is not passed but `run_loop.chain.enabled` is `true` in config, chaining activates automatically.
+
+## How It Works
+
+1. **Initial run** executes normally via the governed run loop.
+2. When the run terminates, the chain module checks:
+   - Is the terminal status in `chain_on`?
+   - Are there chains remaining?
+   - Was SIGINT received?
+3. If all conditions pass, it waits `cooldown_seconds`, then starts a new run with:
+   - `--continue-from <previous_run_id>`
+   - `--inherit-context`
+   - Same adapter routing, gate mode, and max-turns settings
+4. Repeat until chain limit, non-chainable status, or operator abort.
+
+## Chain Report
+
+Every chained sequence writes a report to `.agentxchain/reports/chain-<id>.json`:
+
+```json
+{
+  "chain_id": "chain-a1b2c3d4",
+  "started_at": "2026-04-16T22:00:00.000Z",
+  "completed_at": "2026-04-16T22:15:30.000Z",
+  "runs": [
+    { "run_id": "gov-abc123", "status": "completed", "turns": 5, "duration_ms": 12000 },
+    { "run_id": "gov-def456", "status": "completed", "turns": 3, "duration_ms": 8000 },
+    { "run_id": "gov-ghi789", "status": "completed", "turns": 4, "duration_ms": 10000 }
+  ],
+  "total_turns": 12,
+  "total_duration_ms": 30000,
+  "terminal_reason": "chain_limit_reached"
+}
+```
+
+### Terminal Reasons
+
+| Reason | Meaning |
+|--------|---------|
+| `completed` | Last run completed and no more chaining needed |
+| `chain_limit_reached` | Hit the `--max-chains` limit |
+| `non_chainable_status` | Run ended with a status not in `chain_on` |
+| `operator_abort` | SIGINT received during chain |
+| `parent_validation_failed` | Could not validate the previous run for continuation |
+
+## SIGINT Behavior
+
+- **First SIGINT**: finishes the current turn, stops the current run, does **not** start a continuation.
+- **Second SIGINT**: hard exit.
+
+## Combining With Other Features
+
+### With Parallel Turns
+
+Run chaining composes with parallel turns. Each chained run uses whatever concurrency is configured for its phases.
+
+### With Lights-Out Scheduling
+
+Use `agentxchain schedule` to trigger chained runs on a cron schedule:
+
+```json title="agentxchain.json"
+{
+  "schedules": {
+    "nightly": {
+      "cron": "0 2 * * *",
+      "command_args": ["--chain", "--max-chains", "10", "--auto-approve"]
+    }
+  },
+  "run_loop": {
+    "chain": {
+      "enabled": true,
+      "max_chains": 10,
+      "chain_on": ["completed"],
+      "cooldown_seconds": 10
+    }
+  }
+}
+```
+
+### With Context Inheritance
+
+Every continuation run inherits context automatically. The inherited context includes:
+- Parent run ID and terminal status
+- Up to 5 recent decisions
+- Up to 3 recent accepted turn summaries
+- Parent retrospective (if available)
+
+This gives each chained run enough context to continue meaningful work without losing the decision trail.
+
+## When to Use
+
+- **Long-horizon delivery**: Multi-phase projects where each run covers one slice of work.
+- **Overnight builds**: Start a chained run before leaving; review the chain report in the morning.
+- **CI pipelines**: Trigger a chained run from CI for continuous governed delivery.
+- **Recovery loops**: Chain on `blocked` to automatically retry after transient failures.
+
+## When Not to Use
+
+- **Interactive development**: If you want to review each run before continuing, skip `--chain`.
+- **Manual adapter roles**: Chaining requires non-manual adapters (`api_proxy`, `local_cli`, `mcp`, `remote_agent`).
+- **Untrusted configs**: Auto-chaining with `--auto-approve` bypasses all gate prompts. Only use this on configurations you trust.

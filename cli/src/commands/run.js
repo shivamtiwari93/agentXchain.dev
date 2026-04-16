@@ -44,12 +44,21 @@ import {
   getDispatchTurnDir,
   getTurnStagingResultPath,
 } from '../lib/turn-paths.js';
+import { resolveChainOptions, executeChainedRun } from '../lib/run-chain.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
   if (!context) {
     console.log(chalk.red('No agentxchain.json found. Run `agentxchain init` first.'));
     process.exit(1);
+  }
+
+  const chainOpts = resolveChainOptions(opts, context.config);
+  if (chainOpts.enabled) {
+    console.log(chalk.cyan.bold('agentxchain run --chain'));
+    console.log(chalk.dim(`  Chain mode: enabled (max ${chainOpts.maxChains} continuations, on: ${chainOpts.chainOn.join(',')}, cooldown: ${chainOpts.cooldownSeconds}s)`));
+    const { exitCode } = await executeChainedRun(context, opts, chainOpts, executeGovernedRun);
+    process.exit(exitCode);
   }
 
   const execution = await executeGovernedRun(context, opts);

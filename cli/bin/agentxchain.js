@@ -516,6 +516,10 @@ program
   .option('--continue-from <run_id>', 'Continue from a prior terminal run (sets trigger=continuation)')
   .option('--recover-from <run_id>', 'Recover from a prior blocked run (sets trigger=recovery)')
   .option('--inherit-context', 'Inherit read-only summary context from the parent run (requires --continue-from or --recover-from)')
+  .option('--chain', 'Auto-chain runs: when a run completes, start a continuation automatically')
+  .option('--max-chains <n>', 'Maximum continuation runs in chain mode (default: 5)', parseInt)
+  .option('--chain-on <statuses>', 'Comma-separated terminal statuses that trigger chaining (default: completed)')
+  .option('--chain-cooldown <seconds>', 'Seconds to wait between chained runs (default: 5)', parseInt)
   .action(runCommand);
 
 program

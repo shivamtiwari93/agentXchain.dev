@@ -69,6 +69,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'continuous-delivery-intake',
         'lights-out-scheduling',
+        'run-chaining',
         'parallel-turns',
         'delegation-chains',
         'multi-repo',
