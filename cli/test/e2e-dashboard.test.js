@@ -137,7 +137,7 @@ function baseState() {
   };
 }
 
-function writeGovernedRepo(root, projectId, runId) {
+function writeGovernedRepo(root, projectId, runId, status = 'active') {
   mkdirSync(root, { recursive: true });
   mkdirSync(join(root, '.agentxchain'), { recursive: true });
 
@@ -177,7 +177,7 @@ function writeGovernedRepo(root, projectId, runId) {
     schema_version: '1.1',
     project_id: projectId,
     run_id: runId,
-    status: 'paused',
+    status,
     phase: 'implementation',
     active_turns: {},
     turn_sequence: 0,
@@ -659,9 +659,12 @@ describe('Dashboard E2E acceptance', () => {
       coordinatorBlockers,
     });
     const timelineHtml = renderCrossRepo({ coordinatorState, coordinatorHistory });
+    const primaryCommand = coordinatorBlockers.next_actions?.[0]?.command;
 
     assert.ok(initiativeHtml.includes('srun_dashboard_e2e'));
-    assert.ok(initiativeHtml.includes('agentxchain multi approve-gate'));
+    assert.equal(primaryCommand, 'agentxchain multi approve-gate');
+    assert.ok(initiativeHtml.includes(primaryCommand));
+    assert.ok(!initiativeHtml.includes('agentxchain multi resync'));
     assert.ok(initiativeHtml.includes('Approval Snapshot'));
     assert.ok(initiativeHtml.includes('Open Blockers view'));
     assert.ok(initiativeHtml.includes('backend_completion'));
