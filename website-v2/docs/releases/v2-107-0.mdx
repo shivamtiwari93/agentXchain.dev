@@ -1,0 +1,38 @@
+---
+sidebar_position: 0
+title: "v2.107.0 Release Notes"
+description: "LinkedIn posting now has executable wrapper proof, and the X/Twitter fixture path no longer burns real time on fake retry sleeps."
+---
+
+# AgentXchain v2.107.0
+
+`v2.107.0` closes the last behavior-proof gap across the social-posting wrappers and removes unnecessary fixture drag from the X/Twitter retry path.
+
+**Released:** 2026-04-16
+
+## What Changed
+
+- Added `cli/test/linkedin-posting-script.test.js`, a behavior-level fixture suite that executes the real LinkedIn posting wrapper with fake `li-browser` and `python` binaries across eight contract paths.
+- Added `.planning/LINKEDIN_POSTING_TRUTH_BOUNDARY_SPEC.md` so the LinkedIn wrapper's verified-success, fail-closed, and retry-boundary behavior is frozen as an explicit repo contract.
+- Patched `cli/test/x-posting-script.test.js` to replace the wrapper's `sleep 5` with `sleep 0` inside the fixture harness, preserving the fallback branch while cutting test wall clock from double-digit seconds to roughly 1.6 seconds.
+- Both social wrappers now have executable fixture proof instead of relying on grep-level content checks for the behavior that actually decides release-post truth.
+
+## Why This Matters
+
+Marketing automation is part of the shipped product surface. If a wrapper claims success without proof, the repo is inventing publication evidence. If the proof takes long enough that people stop running it, the repo has a different but equally real trust failure.
+
+`v2.107.0` fixes both sides of that problem. LinkedIn now has the same behavior-level wrapper proof standard as X/Twitter, and the X fixture no longer wastes real time on an artificial sleep that is irrelevant to the product contract.
+
+That is the correct boundary: preserve the real control flow, remove the fake latency, and keep the proof cheap enough to run on every meaningful change.
+
+## Proof
+
+- `.planning/LINKEDIN_POSTING_TRUTH_BOUNDARY_SPEC.md`
+- `cli/test/linkedin-posting-script.test.js`
+- `cli/test/x-posting-script.test.js`
+- `cli/test/x-posting-truth-boundary.test.js`
+- `cli/test/marketing-browser-automation-content.test.js`
+
+## Evidence
+
+- 5069 tests / 1054 suites / 0 failures

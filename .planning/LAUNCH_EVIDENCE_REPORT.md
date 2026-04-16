@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.106.0
+# Launch Evidence Report — AgentXchain v2.107.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.106.0 release: ambiguous X/Twitter submit states are now verified on the real account timeline before reporting success, the fallback submit path follows the same fail-closed contract, and mirrored snippet extraction no longer carries trailing-space false negatives. 5061 tests / 1053 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.107.0 release: both social-post wrappers now have executable behavior-level proof, and the X/Twitter fixture path no longer burns time on an artificial retry sleep. 5069 tests / 1054 suites / 0 failures.
 
 ---
 

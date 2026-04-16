@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.107.0
+
+`2.107.0` brings behavior-level proof parity to the social-post wrappers and removes artificial delay from the X/Twitter fixture path so that proof stays cheap enough to run.
+
+- Added `cli/test/linkedin-posting-script.test.js`, an executable fixture suite that spawns the real LinkedIn wrapper through fake `li-browser` and `python` binaries across clean-success, ambiguous-submit, fallback, and profile-selection paths
+- Added `.planning/LINKEDIN_POSTING_TRUTH_BOUNDARY_SPEC.md` to freeze the LinkedIn wrapper's verified-success, fail-closed, and retry-boundary contract
+- `cli/test/x-posting-script.test.js` now patches the wrapper's retry sleep to `0` inside the fixture, cutting behavior-proof wall clock without weakening the fallback control-flow contract
+- Both X/Twitter and LinkedIn posting wrappers are now covered by behavior-level proof instead of content-only shell assertions
+- 5069 tests / 1054 suites / 0 failures
+
 ## 2.106.0
 
 `2.106.0` hardens social-post verification so ambiguous X/Twitter submits are only treated as success when publication is actually proven.
