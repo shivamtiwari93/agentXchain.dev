@@ -561,11 +561,14 @@ describe('Dashboard E2E acceptance', () => {
     assert.equal(address.address, '127.0.0.1');
   });
 
-  it('AT-DASH-ACT-001 approves a pending repo gate through the authenticated bridge action', async () => {
+  it('AT-DASH-ACT-001/AT-DASH-ACT-003: approves a pending repo gate through the authenticated bridge action', async () => {
     writeFixture(agentxchainDir, gateState());
     const sessionRes = await httpRequest(port, '/api/session');
     assert.equal(sessionRes.status, 200);
     const session = JSON.parse(sessionRes.body);
+    assert.equal(typeof session.session_version, 'string');
+    assert.equal(typeof session.mutation_token, 'string');
+    assert.equal(session.capabilities?.approve_gate, true);
 
     const res = await httpRequest(port, '/api/actions/approve-gate', {
       method: 'POST',
@@ -588,7 +591,7 @@ describe('Dashboard E2E acceptance', () => {
     assert.equal(state.status, 'active');
   });
 
-  it('AT-DASH-ACT-002 rejects action requests without the session token and keeps websocket read-only', async () => {
+  it('AT-DASH-ACT-002/AT-DASH-ACT-007: rejects action requests without the session token and keeps websocket read-only', async () => {
     const res = await httpRequest(port, '/api/actions/approve-gate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

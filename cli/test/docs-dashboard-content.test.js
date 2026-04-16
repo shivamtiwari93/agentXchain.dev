@@ -237,4 +237,35 @@ describe('Dashboard continuity spec', () => {
     assert.match(LIVE_OBSERVER_SPEC, /Timeline/);
     assert.match(LIVE_OBSERVER_SPEC, /Cross-Repo/);
   });
+
+  it('keeps AT-DASH-ACT ids unique and aligned across dashboard proof tests', () => {
+    const dashboardBridge = readFileSync(join(REPO_ROOT, 'cli', 'test', 'dashboard-bridge.test.js'), 'utf8');
+    const dashboardApp = readFileSync(join(REPO_ROOT, 'cli', 'test', 'dashboard-app.test.js'), 'utf8');
+    const dashboardE2E = readFileSync(join(REPO_ROOT, 'cli', 'test', 'e2e-dashboard.test.js'), 'utf8');
+    const ids = [dashboardBridge, dashboardApp, dashboardE2E]
+      .flatMap((source) => [...source.matchAll(/it\('((AT-DASH-ACT-\d{3})(?:\/AT-DASH-ACT-\d{3})*):/g)])
+      .flatMap((match) => match[1].split('/'));
+    const seen = new Set();
+    const duplicates = new Set();
+    for (const id of ids) {
+      if (seen.has(id)) duplicates.add(id);
+      seen.add(id);
+    }
+
+    assert.deepEqual(
+      [...duplicates],
+      [],
+      `duplicate AT-DASH-ACT ids across dashboard proof tests: ${[...duplicates].join(', ')}`,
+    );
+    assert.match(dashboardE2E, /AT-DASH-ACT-001\/AT-DASH-ACT-003: approves a pending repo gate through the authenticated bridge action/);
+    assert.match(dashboardE2E, /AT-DASH-ACT-002\/AT-DASH-ACT-007: rejects action requests without the session token and keeps websocket read-only/);
+    assert.match(dashboardBridge, /AT-DASH-ACT-009: POST \/api\/actions\/approve-gate returns normalized coordinator hook-block failure fields/);
+    assert.match(dashboardBridge, /AT-DASH-ACT-010: POST \/api\/actions\/approve-gate returns normalized repo-local hook-block failure fields/);
+    assert.match(dashboardBridge, /AT-DASH-ACT-011: POST \/api\/actions\/approve-gate returns repo-local success state and next actions/);
+    assert.match(dashboardBridge, /AT-DASH-ACT-012: POST \/api\/actions\/approve-gate returns coordinator success state and next actions/);
+    assert.match(dashboardApp, /AT-DASH-ACT-013: success formatting includes the first ordered next action/);
+    assert.match(dashboardBridge, /AT-DASH-ACT-014: POST \/api\/actions\/approve-gate returns repo-local completion success with no next actions/);
+    assert.match(dashboardBridge, /AT-DASH-ACT-015: POST \/api\/actions\/approve-gate returns coordinator completion success with no next actions even when repo snapshots drift/);
+    assert.match(dashboardApp, /AT-DASH-ACT-016: error formatting includes recovery detail and first next action/);
+  });
 });

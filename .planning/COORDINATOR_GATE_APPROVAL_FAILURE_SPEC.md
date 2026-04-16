@@ -49,7 +49,7 @@ Freeze one recovery contract for coordinator gate-approval failures so `multi ap
 - `AT-CLI-MR-016`: hook-blocked `multi approve-gate` prints structured recovery guidance including hook name and ordered next actions.
 - `AT-CLI-MR-017`: hook-blocked `multi approve-gate --json` returns normalized failure fields with `next_actions` and `recovery_summary`.
 - `AT-DASH-ACT-009`: dashboard approve action returns normalized coordinator hook-block failure fields.
-- `AT-DASH-ACT-010`: dashboard app failure handling consumes `payload.next_actions` so the operator sees the next command, not only the raw error string.
+- `AT-DASH-ACT-016`: dashboard app failure handling consumes `payload.next_actions` so the operator sees the next command, not only the raw error string.
 
 ## Open Questions
 

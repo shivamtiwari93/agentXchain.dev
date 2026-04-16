@@ -493,7 +493,7 @@ describe('App Shell — dashboard action error formatting', () => {
     return parts.join(' ');
   }
 
-  it('AT-DASH-ACT-010: error formatting includes recovery detail and first next action', () => {
+  it('AT-DASH-ACT-016: error formatting includes recovery detail and first next action', () => {
     const message = formatActionErrorMessage({
       error: 'Compliance review required',
       next_actions: [{ command: 'agentxchain multi approve-gate' }],

@@ -153,6 +153,7 @@ The bridge must call library functions directly, not shell out to the CLI.
 - `AT-DASH-ACT-013`: dashboard success banners consume `payload.next_actions` and render the first follow-up command when present.
 - `AT-DASH-ACT-014`: repo-local run-completion approval returns `status: "completed"`, `next_action: null`, and `next_actions: []`.
 - `AT-DASH-ACT-015`: coordinator run-completion approval returns `status: "completed"`, `next_action: null`, and `next_actions: []` even when child-repo snapshots drift.
+- `AT-DASH-ACT-016`: dashboard error banners consume `payload.recovery_summary.detail` and `payload.next_actions` so failure recovery guidance stays visible without renderer-specific branching.
 
 ## Open Questions
 
