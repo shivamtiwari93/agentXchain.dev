@@ -25,6 +25,7 @@ const sidebars: SidebarsConfig = {
     'governance-report',
     'policies',
     'approval-policy',
+    'gate-actions',
     'timeouts',
     'templates',
     'choosing-a-template',

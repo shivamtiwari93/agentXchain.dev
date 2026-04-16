@@ -761,7 +761,7 @@ Approves a pending phase transition gate. The run must be in `blocked:gate` stat
 |------|-------------|
 | `--dry-run` | Preview configured gate actions without executing them or mutating state |
 
-If the gate has `gate_actions` configured, they execute sequentially after approval hooks pass. A failing gate action blocks the run while preserving the pending gate for retry.
+If the gate has `gate_actions` configured, they execute sequentially after approval hooks pass. A failing gate action blocks the run while preserving the pending gate for retry. See [Gate Actions](/docs/gate-actions) for the config contract, dry-run semantics, and retry model.
 
 **Blocked state model:**
 
@@ -783,7 +783,7 @@ Approves run completion. This is the final human gate. The run transitions to `c
 |------|-------------|
 | `--dry-run` | Preview configured gate actions without executing them or mutating state |
 
-If the gate has `gate_actions` configured, they execute sequentially after approval hooks pass. A failing gate action blocks the run while preserving the pending gate for retry.
+If the gate has `gate_actions` configured, they execute sequentially after approval hooks pass. A failing gate action blocks the run while preserving the pending gate for retry. See [Gate Actions](/docs/gate-actions) for the config contract, dry-run semantics, and retry model.
 
 ## Validation
 

@@ -14,6 +14,8 @@ The approval policy is the conditional auto-approval layer for governed gates. I
 | `--auto-approve` on `agentxchain run` | Bypasses ALL approval gates |
 | **Approval policy** | Auto-approves specific gates when evidence conditions are met |
 
+If you need repo-local automation **after** a human-approved gate succeeds, that is a different feature. See [Gate Actions](/docs/gate-actions). Approval policy decides whether a human pause is required; gate actions decide what runs after approval.
+
 For lights-out operation, operators need conditional approval — rules that auto-approve low-risk transitions when structural predicates pass, while still requiring human approval for high-risk transitions like `qa → release`.
 
 ## Config shape
@@ -192,5 +194,6 @@ Controls auto-approval for the final run completion gate.
 |---|---|---|
 | [Policies](/docs/policies) | Turn acceptance rules | Independent — policies evaluate on acceptance, approval policy evaluates on gate transitions |
 | [Gates](/docs/protocol-reference) | Artifact and approval checks | Approval policy sits downstream — only evaluates after gate returns `awaiting_human_approval` |
+| [Gate Actions](/docs/gate-actions) | Post-approval repo-local automation | Adjacent but separate — gate actions run after a human-approved gate succeeds; approval policy can auto-approve the gate before that boundary |
 | [Hooks](/docs/plugins) | External commands/endpoints | Independent — hooks fire on lifecycle events, not on gate approval decisions |
 | `--auto-approve` | CLI flag | Overrides approval policy — approves everything |

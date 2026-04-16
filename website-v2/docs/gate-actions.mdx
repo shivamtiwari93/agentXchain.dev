@@ -1,0 +1,169 @@
+---
+title: Gate Actions
+description: "Repo-local post-approval automation for human-approved gates: dry-run, retry safety, evidence, and worked configuration."
+---
+
+# Gate Actions
+
+`gate_actions` let a **human-approved gate** run repo-local automation before the approval is finalized. This is the narrow bridge between "the gate is approved" and "the repo actually did the governed follow-up work."
+
+Use it for explicit, post-approval actions such as release wrappers, deploy wrappers, or repo-owned verification scripts that should run only after a human signs off.
+
+This is **not** a second workflow-kit config tree. The contract lives directly on the gate definition itself under `gates.<gate_id>`.
+
+## Config shape
+
+```json title="agentxchain.json"
+{
+  "gates": {
+    "qa_ship_verdict": {
+      "requires_human_approval": true,
+      "gate_actions": [
+        {
+          "label": "publish npm package",
+          "run": "bash scripts/release/publish-npm-if-needed.sh"
+        },
+        {
+          "label": "sync homebrew formula",
+          "run": "bash scripts/release/sync-homebrew-if-needed.sh"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Real validation rules
+
+- `gate_actions` is valid only on `gates.<gate_id>`.
+- The gate must set `requires_human_approval: true`.
+- `gate_actions` must be a non-empty array when present.
+- Every action needs a non-empty `run` string.
+- `label` is optional, but when present it must be a non-empty string.
+
+If you put `gate_actions` on a non-human gate, config validation rejects it. That is intentional. The shipped feature is a post-approval boundary, not a general automation runner.
+
+## Execution model
+
+When an operator runs `agentxchain approve-transition` or `agentxchain approve-completion`, the runtime applies this order:
+
+1. The pending human gate is identified.
+2. `before_gate` hooks run first.
+3. Gate actions execute sequentially in the repo root via `/bin/sh -lc`.
+4. The approval finalizes only after **all** gate actions succeed.
+
+That last point matters. AgentXchain does **not** mark the gate complete and then hope the automation worked. If a gate action fails, the approval is not finalized.
+
+## Dry-run
+
+Both approval commands support preview mode:
+
+```bash
+agentxchain approve-transition --dry-run
+agentxchain approve-completion --dry-run
+```
+
+`--dry-run` shows the planned gate actions without executing hooks, actions, or state mutation. Use it when you want to inspect the exact release/deploy follow-up before crossing the approval boundary.
+
+## Failure and retry model
+
+If any action fails:
+
+- the run becomes `blocked`
+- `typed_reason` becomes `gate_action_failed`
+- the pending gate stays intact
+- the recovery path remains the same approval command
+
+That means the configured commands must be **rerunnable**. Do not treat raw one-shot commands as safe defaults. `npm version patch`, ad hoc `git tag`, or other non-idempotent shell snippets are bad examples because a partial execution makes retry behavior ambiguous.
+
+Prefer repo-owned wrapper scripts that can detect already-completed steps and exit cleanly on rerun:
+
+```bash
+bash scripts/release/publish-npm-if-needed.sh
+bash scripts/release/sync-homebrew-if-needed.sh
+bash scripts/release/deploy-docs-if-needed.sh
+```
+
+If your automation cannot answer "what happens when I run the same approval command again after a partial failure?", the contract is too weak.
+
+## Environment available to actions
+
+AgentXchain exposes these environment variables to each gate-action command:
+
+- `AGENTXCHAIN_GATE_ID`
+- `AGENTXCHAIN_GATE_TYPE`
+- `AGENTXCHAIN_PHASE`
+- `AGENTXCHAIN_REQUESTED_BY_TURN`
+- `AGENTXCHAIN_TRIGGER_COMMAND`
+
+Use them in repo-owned wrappers when the script needs to log gate context or branch on approval type.
+
+## Evidence surface
+
+Every executed action appends a `type: "gate_action"` entry to `.agentxchain/decision-ledger.jsonl`.
+
+Recorded evidence includes:
+
+- gate id and gate type
+- phase and requesting turn
+- approval attempt id
+- action index and label
+- command
+- status
+- exit code or signal
+- stdout/stderr tail
+- timestamp
+
+That evidence is then surfaced through:
+
+- `agentxchain status` — latest gate-action attempt for the pending gate
+- `agentxchain report` — gate-action evidence in the governed report
+- `agentxchain audit` — gate-action evidence in the live audit surface
+
+## Worked example: release approval gate
+
+This is the right shape for a release gate:
+
+```json title="agentxchain.json"
+{
+  "gates": {
+    "release_publish": {
+      "requires_human_approval": true,
+      "gate_actions": [
+        {
+          "label": "publish npm if this version is not live",
+          "run": "bash scripts/release/publish-npm-if-needed.sh"
+        },
+        {
+          "label": "sync homebrew if formula lags",
+          "run": "bash scripts/release/sync-homebrew-if-needed.sh"
+        }
+      ]
+    }
+  }
+}
+```
+
+Then the operator flow is:
+
+```bash
+agentxchain status
+agentxchain approve-completion --dry-run
+agentxchain approve-completion
+```
+
+The approval does not complete unless both wrapper scripts succeed. If `sync-homebrew-if-needed.sh` fails, the run blocks with `gate_action_failed`, the pending completion gate remains, and the operator reruns `agentxchain approve-completion` after fixing the script or environment.
+
+## What gate actions are not
+
+| Mechanism | What it does | How it differs from gate actions |
+|---|---|---|
+| [Approval Policy](/docs/approval-policy) | Auto-approves some human gates when conditions match | Approval policy decides **whether** the human pause can be skipped; gate actions decide **what runs after** a human-approved gate |
+| [Policies](/docs/policies) | Declarative turn-acceptance rules | Policies govern turn acceptance, not post-approval automation |
+| [Notifications](/docs/notifications) | Best-effort delivery to external channels | Notification failures do not block approval; gate-action failures do |
+
+## Current boundary
+
+The shipped feature is **repo-local only**. It does not yet provide coordinator-level gate actions or a hosted action runner. That boundary is deliberate. Retry safety and evidence semantics need to stay battle-tested at the repo gate first.
+
+For command syntax, see [CLI Reference](/docs/cli). For blocked recovery after a failed action, see [Recovery](/docs/recovery).

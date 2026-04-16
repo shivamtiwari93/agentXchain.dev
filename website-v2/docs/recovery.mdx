@@ -37,7 +37,7 @@ When the latest gate failure exposes a deeper runtime/config blocker, `status` a
 | `pending_phase_transition` | Phase gate requires human approval | `agentxchain approve-transition` |
 | `pending_run_completion` | Run completion gate requires human approval | `agentxchain approve-completion` |
 
-These are governance-mandated pauses, not failures. The run resumes automatically after approval.
+These are governance-mandated pauses, not failures. The run resumes automatically after approval unless a configured gate action fails. When that happens, the run blocks with `typed_reason: gate_action_failed` and the same approval command remains the recovery action. See [Gate Actions](/docs/gate-actions).
 
 ### Dispatch Failures
 
