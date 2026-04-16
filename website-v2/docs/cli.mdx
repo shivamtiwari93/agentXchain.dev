@@ -921,6 +921,8 @@ agentxchain replay export <export-file> [--port <port>] [--json] [--no-open]
 
 `replay export` starts the dashboard bridge-server serving a completed export's state for offline post-mortem analysis. The dashboard is fully read-only: no gate approval and no live mutation path.
 
+Unlike `restore`, `replay export` is an observability surface, not a continuity surface. That is why it accepts both governed run exports and coordinator exports, restores them into a temporary workspace, and never treats the replayed files as the new live repo state.
+
 The command reads an export artifact produced by `agentxchain export`, restores the embedded file bytes from the artifact's `content_base64` fields into a temporary workspace, and starts the dashboard against that workspace. When the server stops (Ctrl+C), the temporary workspace is cleaned up automatically.
 
 Both export kinds are supported:
