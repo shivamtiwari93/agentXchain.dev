@@ -10,6 +10,9 @@ import { initializeGovernedRun } from '../src/lib/governed-state.js';
 import { readCoordinatorTimeoutStatus } from '../src/lib/dashboard/coordinator-timeout-status.js';
 import { render } from '../dashboard/components/coordinator-timeouts.js';
 
+const STATUS_SOURCE = readFileSync(new URL('../src/lib/dashboard/coordinator-timeout-status.js', import.meta.url), 'utf8');
+const VIEW_SOURCE = readFileSync(new URL('../dashboard/components/coordinator-timeouts.js', import.meta.url), 'utf8');
+
 function tempDir() {
   const dir = join(tmpdir(), `axc-coord-timeouts-${randomBytes(6).toString('hex')}`);
   mkdirSync(dir, { recursive: true });
@@ -79,7 +82,7 @@ function writeRepo(root, { projectId, timeouts = null }) {
 }
 
 describe('Coordinator Timeouts — readCoordinatorTimeoutStatus', () => {
-  it('aggregates per-repo timeout state and coordinator timeout events', () => {
+  it('AT-CDTRS-001: aggregates timeout state while preserving authority-first repo status and coordinator drift metadata', () => {
     const workspace = tempDir();
     try {
       const apiRoot = join(workspace, 'repos', 'api');
@@ -130,7 +133,7 @@ describe('Coordinator Timeouts — readCoordinatorTimeoutStatus', () => {
         status: 'active',
         phase: 'implementation',
         repo_runs: {
-          api: { run_id: apiState.run_id, status: 'linked', phase: 'implementation' },
+          api: { run_id: 'run_api_expected', status: 'linked', phase: 'implementation' },
           web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
         },
       });
@@ -189,7 +192,13 @@ describe('Coordinator Timeouts — readCoordinatorTimeoutStatus', () => {
       assert.equal(result.body.summary.coordinator_event_count, 1);
       assert.equal(result.body.summary.repo_event_count, 1);
       assert.equal(result.body.repos[0].repo_id, 'api');
+      assert.equal(result.body.repos[0].run_id, apiState.run_id);
+      assert.equal(result.body.repos[0].status, 'active');
       assert.equal(result.body.repos[0].configured, true);
+      assert.deepEqual(result.body.repos[0].details, [
+        { label: 'coordinator', value: 'linked' },
+        { label: 'expected run', value: 'run_api_expected', mono: true },
+      ]);
       assert.ok(result.body.repos[0].live.warnings.length > 0);
       const turnWarning = result.body.repos[0].live.warnings.find((item) => item.scope === 'turn');
       assert.ok(turnWarning, 'repo snapshot must include turn-scoped live pressure');
@@ -272,7 +281,7 @@ describe('Coordinator Timeouts View — render', () => {
     assert.ok(html.includes('No coordinator timeout data available'));
   });
 
-  it('renders summary, coordinator events, and repo snapshots', () => {
+  it('AT-CDTRS-002: renders authority-first repo status plus coordinator linkage/drift metadata on timeout cards', () => {
     const html = render({
       coordinatorTimeouts: {
         ok: true,
@@ -304,9 +313,13 @@ describe('Coordinator Timeouts View — render', () => {
           {
             repo_id: 'api',
             path: './repos/api',
-            run_id: 'run_api_003',
-            status: 'active',
-            phase: 'implementation',
+            run_id: 'run_api_live',
+            status: 'completed',
+            phase: 'release',
+            details: [
+              { label: 'coordinator', value: 'linked' },
+              { label: 'expected run', value: 'run_api_expected', mono: true },
+            ],
             configured: true,
             config: {
               per_phase_minutes: 60,
@@ -337,8 +350,11 @@ describe('Coordinator Timeouts View — render', () => {
             repo_id: 'web',
             path: './repos/web',
             run_id: 'run_web_003',
-            status: 'linked',
+            status: 'active',
             phase: 'implementation',
+            details: [
+              { label: 'coordinator', value: 'initialized' },
+            ],
             configured: false,
             config: null,
             live: null,
@@ -352,11 +368,16 @@ describe('Coordinator Timeouts View — render', () => {
     assert.ok(html.includes('srun_test_003'));
     assert.ok(html.includes('Coordinator Events'));
     assert.ok(html.includes('Repo Timeout Status'));
-    assert.ok(html.includes('run_api_003'));
+    assert.ok(html.includes('run_api_live'));
+    assert.ok(html.includes('completed'));
+    assert.ok(html.includes('release'));
+    assert.ok(html.includes('coordinator'));
+    assert.ok(html.includes('run_api_expected'));
     assert.ok(html.includes('turn_api_003'));
     assert.ok(html.includes('(dev)'));
     assert.ok(html.includes('No <code>timeouts</code> configured in this repo.'));
     assert.ok(html.includes('WARNING'));
+    assert.ok(!html.includes('<dt>Phase</dt><dd>implementation</dd><dt>coordinator</dt><dd>linked</dd>'));
   });
 
   it('renders repo error state', () => {
@@ -419,5 +440,12 @@ describe('Coordinator Timeouts Dashboard — wiring', () => {
     const serverContent = readFileSync(join(import.meta.dirname, '..', 'src', 'lib', 'dashboard', 'bridge-server.js'), 'utf8');
     assert.ok(serverContent.includes("import { readCoordinatorTimeoutStatus }"), 'bridge-server must import readCoordinatorTimeoutStatus');
     assert.ok(serverContent.includes("'/api/coordinator/timeouts'"), 'bridge-server must route /api/coordinator/timeouts');
+  });
+
+  it('AT-CDTRS-003: source guards keep coordinator timeout snapshots on the shared repo-status presenter', () => {
+    assert.match(STATUS_SOURCE, /buildCoordinatorRepoStatusRows/);
+    assert.doesNotMatch(STATUS_SOURCE, /status:\s*state\.status\s*\?\?\s*repoRun\?\.status/);
+    assert.doesNotMatch(STATUS_SOURCE, /phase:\s*state\.phase\s*\?\?\s*repoRun\?\.phase/);
+    assert.match(VIEW_SOURCE, /renderDetailRows\(repo\.details\)/);
   });
 });

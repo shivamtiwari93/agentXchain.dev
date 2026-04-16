@@ -32,6 +32,7 @@ const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOA
 const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md'), 'utf8');
 const COORDINATOR_ACTION_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md'), 'utf8');
 const COORDINATOR_DASHBOARD_REPO_STATUS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_DASHBOARD_REPO_STATUS_SPEC.md'), 'utf8');
+const COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC.md'), 'utf8');
 const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INITIATIVE_VIEW_HIERARCHY_SPEC.md'), 'utf8');
 const COORDINATOR_BLOCKER_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKER_PRESENTATION_SHARED_SPEC.md'), 'utf8');
 const COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC.md'), 'utf8');
@@ -143,6 +144,7 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('pending_gate'), 'cli docs must describe pending_gate next-action parity');
     assert.ok(CLI_DOCS.includes('authority-first child repo status'), 'cli docs must describe authority-first coordinator repo rows');
     assert.ok(CLI_DOCS.includes('coordinator linkage remains detail metadata'), 'cli docs must describe linked/initialized as metadata only');
+    assert.ok(CLI_DOCS.includes('coordinator linkage/drift metadata'), 'cli docs must describe coordinator timeout drift metadata');
     assert.ok(CLI_DOCS.includes('multi resync'), 'cli docs must describe coordinator resync next-action parity');
   });
 
@@ -237,6 +239,14 @@ describe('Dashboard continuity spec', () => {
     assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /GET \/api\/coordinator\/repo-status/);
     assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /linked/);
     assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /initialized/);
+  });
+
+  it('ships a durable spec for coordinator timeout repo status truth', () => {
+    assert.match(COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC, /Coordinator Dashboard Timeout Repo Status Spec/);
+    assert.match(COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC, /AT-CDTRS-001/);
+    assert.match(COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC, /AT-CDTRS-004/);
+    assert.match(COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC, /GET \/api\/coordinator\/timeouts/);
+    assert.match(COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC, /expected run/);
   });
 
   it('ships a durable spec for initiative view hierarchy', () => {

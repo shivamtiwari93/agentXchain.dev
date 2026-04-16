@@ -1,6 +1,7 @@
 import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../config.js';
 import { loadCoordinatorConfig } from '../coordinator-config.js';
+import { buildCoordinatorRepoStatusRows } from '../coordinator-repo-status-presentation.js';
 import { loadCoordinatorState } from '../coordinator-state.js';
 import { readJsonlFile } from './state-reader.js';
 import { buildTimeoutConfigSummary, evaluateDashboardTimeoutPressure, extractTimeoutEvents } from './timeout-status.js';
@@ -27,15 +28,26 @@ function emptyLiveTimeouts() {
   return { exceeded: [], warnings: [] };
 }
 
-function readRepoTimeoutSnapshot(repoId, repo, repoRun) {
+function getRepoStatusPresentation(repoStatusRow) {
+  return {
+    run_id: repoStatusRow?.run_id ?? null,
+    status: repoStatusRow?.status ?? null,
+    phase: repoStatusRow?.phase ?? null,
+    details: Array.isArray(repoStatusRow?.details) ? repoStatusRow.details : [],
+  };
+}
+
+function readRepoTimeoutSnapshot(repoId, repo, repoStatusRow) {
+  const presentation = getRepoStatusPresentation(repoStatusRow);
   const context = loadProjectContext(repo.resolved_path);
   if (!context) {
     return {
       repo_id: repoId,
       path: repo.path,
-      run_id: repoRun?.run_id ?? null,
-      status: repoRun?.status ?? null,
-      phase: repoRun?.phase ?? null,
+      run_id: presentation.run_id,
+      status: presentation.status,
+      phase: presentation.phase,
+      details: presentation.details,
       configured: false,
       config: null,
       live: null,
@@ -56,9 +68,10 @@ function readRepoTimeoutSnapshot(repoId, repo, repoRun) {
     return {
       repo_id: repoId,
       path: repo.path,
-      run_id: repoRun?.run_id ?? null,
-      status: repoRun?.status ?? null,
-      phase: repoRun?.phase ?? null,
+      run_id: presentation.run_id,
+      status: presentation.status,
+      phase: presentation.phase,
+      details: presentation.details,
       configured,
       config: buildTimeoutConfigSummary(context.config.timeouts, context.config.routing),
       live: configured ? emptyLiveTimeouts() : null,
@@ -77,9 +90,10 @@ function readRepoTimeoutSnapshot(repoId, repo, repoRun) {
   return {
     repo_id: repoId,
     path: repo.path,
-    run_id: state.run_id ?? repoRun?.run_id ?? null,
-    status: state.status ?? repoRun?.status ?? null,
-    phase: state.phase ?? repoRun?.phase ?? null,
+    run_id: presentation.run_id,
+    status: presentation.status,
+    phase: presentation.phase,
+    details: presentation.details,
     configured,
     config: buildTimeoutConfigSummary(context.config.timeouts, context.config.routing),
     live,
@@ -109,8 +123,17 @@ export function readCoordinatorTimeoutStatus(workspacePath) {
 
   const coordinatorDir = join(workspacePath, '.agentxchain', 'multirepo');
   const coordinatorEvents = extractTimeoutEvents(readJsonlFile(coordinatorDir, 'decision-ledger.jsonl'));
+  const repoStatusRows = buildCoordinatorRepoStatusRows({
+    config: configResult.config,
+    coordinatorRepoRuns: coordinatorState.repo_runs || {},
+  });
+  const repoStatusById = new Map(repoStatusRows.map((row) => [row.repo_id, row]));
   const repos = configResult.config.repo_order.map((repoId) => (
-    readRepoTimeoutSnapshot(repoId, configResult.config.repos[repoId], coordinatorState.repo_runs?.[repoId] ?? null)
+    readRepoTimeoutSnapshot(
+      repoId,
+      configResult.config.repos[repoId],
+      repoStatusById.get(repoId) ?? null,
+    )
   ));
 
   const summary = {

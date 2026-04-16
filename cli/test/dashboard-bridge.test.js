@@ -654,6 +654,45 @@ describe('Dashboard Bridge Server', () => {
       });
     });
 
+    it('AT-CDTRS-001: GET /api/coordinator/timeouts keeps authority-first repo status and expected-run metadata on timeout snapshots', async () => {
+      writeJson(join(fixture.reposDir, 'api', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'api',
+        run_id: 'run_api_live',
+        status: 'completed',
+        phase: 'release',
+        active_turns: {},
+        turn_sequence: 3,
+        accepted_count: 3,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'active',
+        phase: 'implementation',
+        pending_gate: null,
+        repo_runs: {
+          api: { run_id: 'run_api_expected', status: 'linked', phase: 'implementation' },
+          web: { run_id: 'run_web_live', status: 'initialized', phase: 'implementation' },
+        },
+      });
+
+      const res = await httpGet(port, '/api/coordinator/timeouts');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      const apiRepo = data.repos.find((entry) => entry.repo_id === 'api');
+      assert.deepEqual(apiRepo.details, [
+        { label: 'coordinator', value: 'linked' },
+        { label: 'expected run', value: 'run_api_expected', mono: true },
+      ]);
+      assert.equal(apiRepo.run_id, 'run_api_live');
+      assert.equal(apiRepo.status, 'completed');
+      assert.equal(apiRepo.phase, 'release');
+    });
+
     it('GET /api/coordinator/blockers returns structured repo_run_id_mismatch diagnostics', async () => {
       writeJson(join(fixture.reposDir, 'api', '.agentxchain', 'state.json'), {
         schema_version: '1.1',

@@ -152,6 +152,18 @@ function renderEventTable(events, title) {
   return html;
 }
 
+function renderDetailRows(details) {
+  if (!Array.isArray(details) || details.length === 0) {
+    return '';
+  }
+
+  let html = '';
+  for (const detail of details) {
+    html += `<dt>${esc(detail.label)}</dt><dd${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</dd>`;
+  }
+  return html;
+}
+
 function renderRepoCard(repo) {
   let html = `<div class="turn-card">
     <div class="turn-header">
@@ -168,6 +180,7 @@ function renderRepoCard(repo) {
   if (repo.phase) {
     html += `<dt>Phase</dt><dd>${esc(repo.phase)}</dd>`;
   }
+  html += renderDetailRows(repo.details);
   html += `</dl>`;
 
   if (repo.error) {
