@@ -1539,4 +1539,37 @@ describe('coordinator report narrative — run_id_mismatch visibility', () => {
     assert.match(md, /Terminal drift note: Child repo run-id drift remains visible for audit/);
     assert.doesNotMatch(md, /## Next Actions/);
   });
+
+  it('AT-COORD-DRIFT-001: completed coordinator status drift without run-id mismatch still stays visible and non-actionable', () => {
+    const fixture = buildCoordinatorFixture({
+      summaryStatus: 'completed',
+      state: {
+        status: 'completed',
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'active', phase: 'implementation', initialized_by_coordinator: true },
+          web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+        },
+      },
+    });
+    fixture.summary.repo_run_statuses = { api: 'active', web: 'completed' };
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, `report should build: ${JSON.stringify(result.errors)}`);
+    assert.deepEqual(result.report.subject.run.run_id_mismatches, []);
+    assert.deepEqual(result.report.subject.run.repo_status_drifts, [{
+      repo_id: 'api',
+      coordinator_status: 'active',
+      repo_status: 'completed',
+    }]);
+    assert.equal(
+      result.report.subject.run.terminal_observability_note,
+      'Child repo status drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
+    );
+    assert.deepEqual(result.report.subject.run.next_actions, []);
+
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /Repo status drift: 1/);
+    assert.match(text, /api: coordinator active, repo completed/);
+    assert.match(text, /Terminal drift note: Child repo status drift remains visible for audit/);
+    assert.doesNotMatch(text, /Next Actions:/);
+  });
 });

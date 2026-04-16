@@ -15,6 +15,7 @@ const CLI_ENTRY = read('cli/bin/agentxchain.js');
 const REPORT_LIB = read('cli/src/lib/report.js');
 const SIDEBAR = read('website-v2/sidebars.ts');
 const SPEC = read('.planning/GOVERNANCE_REPORT_SPEC.md');
+const COORDINATOR_REPORT_REPO_STATUS_SPEC = read('.planning/COORDINATOR_REPORT_REPO_STATUS_TRUTH_SPEC.md');
 
 describe('governance report docs contract', () => {
   it('registers the report command in the CLI entrypoint with input and format flags', () => {
@@ -56,6 +57,7 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /recent_event_summary/);
     assert.match(REPORT_DOCS, /recent_coordinator_events/);
     assert.match(REPORT_DOCS, /recent_child_repo_events/);
+    assert.match(REPORT_DOCS, /repo_status_drifts/);
     assert.match(REPORT_DOCS, /terminal_observability_note/);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
@@ -139,9 +141,18 @@ describe('governance report spec alignment', () => {
     assert.match(terminalDriftSpec, /DEC-COORD-REPORT-TERMINAL-DRIFT-001/);
     assert.match(terminalDriftSpec, /AT-COORD-RUNID-006/);
     assert.match(terminalDriftSpec, /AT-COORD-RUNID-007/);
+    assert.match(terminalDriftSpec, /AT-COORD-DRIFT-001/);
     assert.match(terminalDriftSpec, /AT-REPORT-009/);
     assert.match(terminalDriftSpec, /AT-REPORT-010/);
     assert.match(terminalDriftSpec, /terminal_observability_note/);
+  });
+
+  it('ships a coordinator repo-status truth spec for report and audit surfaces', () => {
+    assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /Coordinator Report Repo Status Truth Spec/);
+    assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /DEC-COORDINATOR-REPORT-REPO-STATUS-001/);
+    assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /repo_status_counts/);
+    assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /repo_status_drifts/);
+    assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /AT-COORD-REPORT-STATUS-004/);
   });
 
   it('keeps AT-REPORT ids unique inside report-cli command tests', () => {

@@ -234,13 +234,14 @@ Coordinator-export reports carry:
 | `subject.run.blocked_reason` | Coordinator blocked reason from state when present |
 | `subject.run.pending_gate` | Current coordinator pending gate from state when present |
 | `subject.run.run_id_mismatches` | Verified child repo run-id mismatches against coordinator state |
-| `subject.run.terminal_observability_note` | Non-actionable terminal-drift note shown when the coordinator is already completed but child run-id mismatches remain visible for audit |
+| `subject.run.repo_status_drifts` | Status disagreements between coordinator state and authority-first child repo status entries |
+| `subject.run.terminal_observability_note` | Non-actionable terminal-drift note shown when the coordinator is already completed but child repo drift remains visible for audit |
 | `subject.run.recent_coordinator_events` | Recent-event digest derived from coordinator lifecycle history |
 | `subject.run.recent_child_repo_events` | Recent-event digest derived from aggregated child repo events |
 | `subject.run.next_actions` | Ordered operator commands derived from verified coordinator state |
 | `subject.run.created_at` / `completed_at` / `duration_seconds` | Coordinator timing summary derived from lifecycle history when available, with state fallback |
 | `subject.run.barrier_count` | Number of coordinator barriers |
-| `subject.run.repo_status_counts` | Status histogram derived from coordinator state |
+| `subject.run.repo_status_counts` | Status histogram derived from the same authority-first child repo status contract used by dashboard and multi-repo CLI surfaces |
 | `subject.run.repo_ok_count` | Number of child repo exports that verified cleanly |
 | `subject.run.repo_error_count` | Number of child repo exports that failed |
 | `subject.coordinator_timeline` | Coordinator event narrative derived from `.agentxchain/multirepo/history.jsonl` |
@@ -281,7 +282,7 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 These fields are omitted for failed repos (`ok: false`). Text and markdown formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
 When a child repo export contains `.agentxchain/session.json`, text and markdown also render per-repo Continuity sections with stale-checkpoint warnings when the checkpoint run id no longer matches the child export run id.
 
-When `subject.run.status = "completed"` and `subject.run.run_id_mismatches` is non-empty, the report keeps those mismatches visible for audit but does not reopen recovery guidance. In that case `subject.run.terminal_observability_note` is populated, text and markdown render `Terminal drift note: ...`, HTML renders a `Terminal drift note` metadata row, and the report still omits `Next Actions`.
+When `subject.run.status = "completed"` and either `subject.run.run_id_mismatches` or `subject.run.repo_status_drifts` is non-empty, the report keeps that child repo drift visible for audit but does not reopen recovery guidance. In that case `subject.run.terminal_observability_note` is populated, text and markdown render `Terminal drift note: ...`, HTML renders a `Terminal drift note` metadata row, and the report still omits `Next Actions`.
 
 ### `subject.run.repo_decisions`
 

@@ -589,8 +589,13 @@ describe('agentxchain audit', () => {
     }]);
     assert.equal(
       parsed.subject.run.terminal_observability_note,
-      'Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
+      'Child repo run-id drift and status drift remain visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
     );
+    assert.deepEqual(parsed.subject.run.repo_status_drifts, [{
+      repo_id: 'app',
+      coordinator_status: 'linked',
+      repo_status: 'blocked',
+    }]);
     assert.deepEqual(parsed.subject.run.next_actions, []);
   });
 
@@ -598,12 +603,15 @@ describe('agentxchain audit', () => {
     const root = createCompletedCoordinatorWorkspaceWithRunIdDrift();
     const textResult = runCli(root, ['audit']);
     assert.equal(textResult.status, 0, `${textResult.stdout}\n${textResult.stderr}`);
-    assert.match(textResult.stdout, /Terminal drift note: Child repo run-id drift remains visible for audit/);
+    assert.match(textResult.stdout, /Repo status drift: 1/);
+    assert.match(textResult.stdout, /app: coordinator linked, repo blocked/);
+    assert.match(textResult.stdout, /Terminal drift note: Child repo run-id drift and status drift remain visible for audit/);
     assert.doesNotMatch(textResult.stdout, /Next Actions:/);
 
     const markdownResult = runCli(root, ['audit', '--format', 'markdown']);
     assert.equal(markdownResult.status, 0, `${markdownResult.stdout}\n${markdownResult.stderr}`);
-    assert.match(markdownResult.stdout, /Terminal drift note: Child repo run-id drift remains visible for audit/);
+    assert.match(markdownResult.stdout, /Repo status drift: 1/);
+    assert.match(markdownResult.stdout, /Terminal drift note: Child repo run-id drift and status drift remain visible for audit/);
     assert.doesNotMatch(markdownResult.stdout, /Next Actions:/);
   });
 
@@ -612,8 +620,10 @@ describe('agentxchain audit', () => {
     const htmlResult = runCli(root, ['audit', '--format', 'html']);
     assert.equal(htmlResult.status, 0, `${htmlResult.stdout}\n${htmlResult.stderr}`);
     assert.match(htmlResult.stdout, /<!DOCTYPE html>/);
+    assert.match(htmlResult.stdout, /<dt>Repo status drift<\/dt>/);
+    assert.match(htmlResult.stdout, /<h2>Repo Status Drift<\/h2>/);
     assert.match(htmlResult.stdout, /<dt>Terminal drift note<\/dt>/);
-    assert.match(htmlResult.stdout, /Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted\./);
+    assert.match(htmlResult.stdout, /Child repo run-id drift and status drift remain visible for audit, but this coordinator is already completed, so no recovery command is emitted\./);
     assert.doesNotMatch(htmlResult.stdout, />Next Actions</);
   });
 

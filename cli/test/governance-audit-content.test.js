@@ -42,11 +42,12 @@ describe('governance audit docs contract', () => {
     assert.match(AUDIT_DOCS, /runtime_guidance/);
     assert.match(AUDIT_DOCS, /pending_gate/);
     assert.match(AUDIT_DOCS, /multi resync/i);
+    assert.match(AUDIT_DOCS, /repo_status_drifts/);
     assert.match(AUDIT_DOCS, /terminal_observability_note/);
     assert.match(AUDIT_DOCS, /Terminal drift note:/);
     assert.match(AUDIT_DOCS, /Governance Report Reference/);
     assert.match(AUDIT_DOCS, /Export Schema Reference/);
-    assert.match(CLI_DOCS, /completed coordinator audit still shows child repo run-id drift/i);
+    assert.match(CLI_DOCS, /completed coordinator audit still shows child repo drift/i);
     assert.match(CLI_DOCS, /subject\.run\.terminal_observability_note/);
   });
 });

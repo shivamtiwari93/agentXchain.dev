@@ -8,8 +8,8 @@ import {
 } from './recent-event-summary.js';
 import {
   deriveCoordinatorNextActions,
-  detectCoordinatorRunIdMismatches,
 } from './coordinator-next-actions.js';
+import { buildCoordinatorRepoStatusEntries } from './coordinator-repo-status-presentation.js';
 import { summarizeCoordinatorEvent } from './coordinator-event-narrative.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
@@ -817,17 +817,35 @@ function extractBarrierLedgerTimeline(artifact) {
 
 function deriveRepoStatusCounts(repoStatuses) {
   const counts = {};
-  for (const status of Object.values(repoStatuses || {})) {
+  const statuses = Array.isArray(repoStatuses)
+    ? repoStatuses
+    : Object.values(repoStatuses || {});
+  for (const status of statuses) {
     const key = status || 'unknown';
     counts[key] = (counts[key] || 0) + 1;
   }
   return counts;
 }
 
-function deriveCoordinatorTerminalObservabilityNote(status, runIdMismatches) {
+function deriveCoordinatorStatusDrifts(repoStatusEntries) {
+  return repoStatusEntries
+    .filter((entry) => entry?.status_drift)
+    .map((entry) => entry.status_drift);
+}
+
+function deriveCoordinatorTerminalObservabilityNote(status, runIdMismatches, repoStatusDrifts) {
   if (status !== 'completed') return null;
-  if (!Array.isArray(runIdMismatches) || runIdMismatches.length === 0) return null;
-  return 'Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.';
+  const driftKinds = [];
+  if (Array.isArray(runIdMismatches) && runIdMismatches.length > 0) {
+    driftKinds.push('run-id drift');
+  }
+  if (Array.isArray(repoStatusDrifts) && repoStatusDrifts.length > 0) {
+    driftKinds.push('status drift');
+  }
+  if (driftKinds.length === 0) return null;
+
+  const verb = driftKinds.length > 1 ? 'remain' : 'remains';
+  return `Child repo ${driftKinds.join(' and ')} ${verb} visible for audit, but this coordinator is already completed, so no recovery command is emitted.`;
 }
 
 export function extractWorkflowKitArtifacts(artifact) {
@@ -1005,8 +1023,6 @@ function buildCoordinatorSubject(artifact) {
   const coordinatorState = extractFileData(artifact, '.agentxchain/multirepo/state.json') || {};
   const coordinatorStatus = coordinatorState?.status || artifact.summary?.status || null;
   const coordinatorPhase = coordinatorState?.phase || artifact.summary?.phase || null;
-  const repoStatuses = artifact.summary?.repo_run_statuses || {};
-  const repoStatusCounts = deriveRepoStatusCounts(repoStatuses);
   const repos = Object.entries(artifact.repos || {})
     .sort(([left], [right]) => left.localeCompare(right, 'en'))
     .map(([repoId, repoEntry]) => {
@@ -1048,7 +1064,16 @@ function buildCoordinatorSubject(artifact) {
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
   const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
   const pendingGate = normalizePendingGate(coordinatorState.pending_gate);
-  const runIdMismatches = detectCoordinatorRunIdMismatches(repos, coordinatorState.repo_runs || {});
+  const repoStatusEntries = buildCoordinatorRepoStatusEntries({
+    config: artifact.config,
+    coordinatorRepoRuns: coordinatorState.repo_runs || {},
+    repoSnapshots: repos,
+  });
+  const repoStatusCounts = deriveRepoStatusCounts(repoStatusEntries.map((entry) => entry.status));
+  const runIdMismatches = repoStatusEntries
+    .filter((entry) => entry?.run_id_mismatch)
+    .map((entry) => entry.run_id_mismatch);
+  const repoStatusDrifts = deriveCoordinatorStatusDrifts(repoStatusEntries);
   const recentCoordinatorEvents = buildRecentEventSummary(coordinatorTimeline);
   const recentChildRepoEvents = buildRecentEventSummary(extractAggregatedEventTimeline(artifact));
   const nextActions = deriveCoordinatorNextActions({
@@ -1059,7 +1084,11 @@ function buildCoordinatorSubject(artifact) {
     coordinatorRepoRuns: coordinatorState.repo_runs || {},
     runIdMismatches,
   });
-  const terminalObservabilityNote = deriveCoordinatorTerminalObservabilityNote(coordinatorStatus, runIdMismatches);
+  const terminalObservabilityNote = deriveCoordinatorTerminalObservabilityNote(
+    coordinatorStatus,
+    runIdMismatches,
+    repoStatusDrifts,
+  );
 
   return {
     kind: 'coordinator_workspace',
@@ -1077,6 +1106,7 @@ function buildCoordinatorSubject(artifact) {
       blocked_reason: blockedReason,
       pending_gate: pendingGate,
       run_id_mismatches: runIdMismatches,
+      repo_status_drifts: repoStatusDrifts,
       terminal_observability_note: terminalObservabilityNote,
       recent_coordinator_events: recentCoordinatorEvents,
       recent_child_repo_events: recentChildRepoEvents,
@@ -1461,6 +1491,12 @@ export function formatGovernanceReportText(report) {
     lines.push(`Run ID mismatches: ${run.run_id_mismatches.length}`);
     for (const m of run.run_id_mismatches) {
       lines.push(`  - ${m.repo_id}: expected ${m.expected_run_id}, actual ${m.actual_run_id}`);
+    }
+  }
+  if (run.repo_status_drifts && run.repo_status_drifts.length > 0) {
+    lines.push(`Repo status drift: ${run.repo_status_drifts.length}`);
+    for (const drift of run.repo_status_drifts) {
+      lines.push(`  - ${drift.repo_id}: coordinator ${drift.coordinator_status || 'unknown'}, repo ${drift.repo_status || 'unknown'}`);
     }
   }
 
@@ -2017,6 +2053,12 @@ export function formatGovernanceReportMarkdown(report) {
     mdLines.push(`- **Run ID mismatches: ${run.run_id_mismatches.length}**`);
     for (const m of run.run_id_mismatches) {
       mdLines.push(`  - \`${m.repo_id}\`: expected \`${m.expected_run_id}\`, actual \`${m.actual_run_id}\``);
+    }
+  }
+  if (run.repo_status_drifts && run.repo_status_drifts.length > 0) {
+    mdLines.push(`- **Repo status drift: ${run.repo_status_drifts.length}**`);
+    for (const drift of run.repo_status_drifts) {
+      mdLines.push(`  - \`${drift.repo_id}\`: coordinator \`${drift.coordinator_status || 'unknown'}\`, repo \`${drift.repo_status || 'unknown'}\``);
     }
   }
 
@@ -2704,6 +2746,9 @@ function renderCoordinatorHtml(report) {
   if (run.run_id_mismatches?.length > 0) {
     metaPairs.push(['Run ID mismatches', `<strong class="warn">${run.run_id_mismatches.length}</strong>`]);
   }
+  if (run.repo_status_drifts?.length > 0) {
+    metaPairs.push(['Repo status drift', `<strong class="warn">${run.repo_status_drifts.length}</strong>`]);
+  }
 
   metaPairs.push(
     ['Started', `<code>${esc(run.created_at || 'n/a')}</code>`],
@@ -2735,6 +2780,17 @@ function renderCoordinatorHtml(report) {
   if (run.next_actions?.length > 0) {
     const naHtml = '<ol>' + run.next_actions.map((a) => `<li><code>${esc(a.command)}</code>: ${esc(a.reason)}</li>`).join('') + '</ol>';
     sections.push(`<div class="section">${htmlSection('Next Actions', naHtml)}</div>`);
+  }
+
+  if (run.repo_status_drifts?.length > 0) {
+    const driftRows = run.repo_status_drifts.map((drift) => [
+      `<code>${esc(drift.repo_id)}</code>`,
+      `<code>${esc(drift.coordinator_status || 'unknown')}</code>`,
+      `<code>${esc(drift.repo_status || 'unknown')}</code>`,
+    ]);
+    sections.push(
+      `<div class="section">${htmlSection('Repo Status Drift', htmlTable(['Repo', 'Coordinator', 'Repo Authority'], driftRows))}</div>`,
+    );
   }
 
   // Coordinator Timeline

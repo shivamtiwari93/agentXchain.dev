@@ -826,9 +826,9 @@ describe('report CLI', () => {
       assert.equal(report.subject.run.next_actions.length, 1);
       assert.equal(report.subject.run.next_actions[0].command, 'agentxchain multi step');
       assert.deepEqual(report.subject.run.repo_status_counts, {
-        initialized: 1,
-        linked: 1,
+        active: 2,
       });
+      assert.deepEqual(report.subject.run.repo_status_drifts, []);
       assert.equal(report.subject.run.repo_ok_count, 2);
       assert.equal(report.subject.run.repo_error_count, 0);
       assert.equal(report.subject.repos.length, 2);
@@ -838,6 +838,9 @@ describe('report CLI', () => {
       assert.match(textResult.stdout, /Next Actions:/);
       assert.match(textResult.stdout, /agentxchain multi step/);
       assert.match(textResult.stdout, /Recent coordinator events: unknown timing/);
+      assert.match(textResult.stdout, /Repo statuses: active\(2\)/);
+      assert.doesNotMatch(textResult.stdout, /Repo statuses: .*linked/);
+      assert.doesNotMatch(textResult.stdout, /Repo statuses: .*initialized/);
       assert.match(textResult.stdout, /Started: 2026-04-03T00:00:00Z/);
       assert.doesNotMatch(textResult.stdout, /Completed:/);
       assert.doesNotMatch(textResult.stdout, /Duration:/);
@@ -885,15 +888,28 @@ describe('report CLI', () => {
       const report = JSON.parse(jsonResult.stdout);
       assert.equal(report.subject.kind, 'coordinator_workspace');
       assert.equal(report.subject.run.status, 'completed');
+      assert.deepEqual(report.subject.run.repo_status_counts, {
+        active: 1,
+        blocked: 1,
+      });
+      assert.deepEqual(report.subject.run.repo_status_drifts, [
+        {
+          repo_id: 'cli',
+          coordinator_status: 'initialized',
+          repo_status: 'blocked',
+        },
+      ]);
       assert.deepEqual(report.subject.run.next_actions, []);
       assert.equal(
         report.subject.run.terminal_observability_note,
-        'Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
+        'Child repo run-id drift and status drift remain visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
       );
 
       const textResult = runCli(root, ['report', '--input', artifactPath]);
       assert.equal(textResult.status, 0, textResult.stderr);
-      assert.match(textResult.stdout, /Terminal drift note: Child repo run-id drift remains visible for audit/);
+      assert.match(textResult.stdout, /Repo status drift: 1/);
+      assert.match(textResult.stdout, /cli: coordinator initialized, repo blocked/);
+      assert.match(textResult.stdout, /Terminal drift note: Child repo run-id drift and status drift remain visible for audit/);
       assert.doesNotMatch(textResult.stdout, /Next Actions:/);
       assert.doesNotMatch(textResult.stdout, /agentxchain multi (resync|resume|step)/);
     } finally {
@@ -937,10 +953,12 @@ describe('report CLI', () => {
       const artifactPath = exportArtifact(root, 'completed-terminal-artifact.html.json');
       const htmlResult = runCli(root, ['report', '--input', artifactPath, '--format', 'html']);
       assert.equal(htmlResult.status, 0, htmlResult.stderr);
+      assert.match(htmlResult.stdout, /<dt>Repo status drift<\/dt>/);
+      assert.match(htmlResult.stdout, /<h2>Repo Status Drift<\/h2>/);
       assert.match(htmlResult.stdout, /<dt>Terminal drift note<\/dt>/);
       assert.match(
         htmlResult.stdout,
-        /<dd>Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted\.<\/dd>/,
+        /<dd>Child repo run-id drift and status drift remain visible for audit, but this coordinator is already completed, so no recovery command is emitted\.<\/dd>/,
       );
       assert.doesNotMatch(htmlResult.stdout, /<h2>Next Actions<\/h2>/);
       assert.doesNotMatch(htmlResult.stdout, /agentxchain multi (resync|resume|step)/);
