@@ -19,6 +19,7 @@ import {
 import { loadCoordinatorConfig } from '../lib/coordinator-config.js';
 import { deriveCoordinatorNextActions } from '../lib/coordinator-next-actions.js';
 import { getCoordinatorPendingGateDetails } from '../lib/coordinator-pending-gate-presentation.js';
+import { buildCoordinatorRepoStatusRows } from '../lib/coordinator-repo-status-presentation.js';
 import { collectCoordinatorRepoSnapshots } from '../lib/coordinator-repo-snapshots.js';
 import {
   initializeCoordinatorRun,
@@ -108,6 +109,10 @@ export async function multiStatusCommand(options) {
   const status = getCoordinatorStatus(workspacePath);
   const barriers = readBarriers(workspacePath);
   const configResult = loadCoordinatorConfig(workspacePath);
+  const repoRows = buildCoordinatorRepoStatusRows({
+    config: configResult.ok ? configResult.config : null,
+    coordinatorRepoRuns: status.repo_runs || {},
+  });
   const nextActions = deriveCoordinatorCliNextActions(
     status,
     configResult.ok ? configResult.config : null,
@@ -160,9 +165,13 @@ export async function multiStatusCommand(options) {
 
   console.log('');
   console.log('Repos:');
-  for (const [repoId, info] of Object.entries(status.repo_runs || {})) {
-    const phase = info.phase ? ` [${info.phase}]` : '';
-    console.log(`  ${repoId}: ${info.status || 'unknown'}${phase} (run: ${info.run_id})`);
+  for (const row of repoRows) {
+    const phase = row.phase ? ` [${row.phase}]` : '';
+    const details = [
+      `run: ${row.run_id || 'unknown'}`,
+      ...row.details.map((detail) => `${detail.label}: ${detail.value}`),
+    ];
+    console.log(`  ${row.repo_id}: ${row.status || 'unknown'}${phase} (${details.join('; ')})`);
   }
 
   // Phase gate status

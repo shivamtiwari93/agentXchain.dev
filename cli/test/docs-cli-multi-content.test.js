@@ -17,6 +17,7 @@ const PENDING_GATE_SPEC = read('.planning/COORDINATOR_CLI_PENDING_GATE_PRESENTAT
 const HANDOFF_SPEC = read('.planning/COORDINATOR_CLI_HANDOFF_OUTPUT_SPEC.md');
 const RESYNC_SPEC = read('.planning/COORDINATOR_CLI_RESYNC_OUTPUT_SPEC.md');
 const STEP_BLOCKER_SPEC = read('.planning/COORDINATOR_CLI_STEP_BLOCKER_OUTPUT_SPEC.md');
+const STATUS_REPO_ROWS_SPEC = read('.planning/COORDINATOR_CLI_STATUS_REPO_ROWS_SPEC.md');
 
 function extractSection(startHeading) {
   const start = CLI_DOCS.indexOf(startHeading);
@@ -159,6 +160,14 @@ describe('CLI multi docs contract', () => {
     assert.match(multiSection, /Repo`, `Expected`, and `Actual`/i);
   });
 
+  it('AT-DOCS-MULTI-013: documents authority-first repo rows for multi status', () => {
+    assert.match(multiSection, /repo rows/i);
+    assert.match(multiSection, /repo-authority/i);
+    assert.match(multiSection, /`linked` \/ `initialized`/i);
+    assert.match(multiSection, /coordinator: /i);
+    assert.match(multiSection, /expected run/i);
+  });
+
   it('references agentxchain-multi.json as the config prerequisite', () => {
     assert.match(multiSection, /agentxchain-multi\.json/);
   });
@@ -201,6 +210,12 @@ describe('CLI multi spec alignment', () => {
     assert.ok(STEP_BLOCKER_SPEC.length > 0, 'step blocker spec file must exist');
     assert.match(STEP_BLOCKER_SPEC, /multi step/i);
     assert.match(STEP_BLOCKER_SPEC, /No assignable workstream/i);
+  });
+
+  it('status repo-row spec exists and references multi status', () => {
+    assert.ok(STATUS_REPO_ROWS_SPEC.length > 0, 'status repo-row spec file must exist');
+    assert.match(STATUS_REPO_ROWS_SPEC, /multi status/i);
+    assert.match(STATUS_REPO_ROWS_SPEC, /repo-authority/i);
   });
 });
 

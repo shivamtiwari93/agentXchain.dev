@@ -448,6 +448,47 @@ describe('multi status CLI', () => {
     }
   });
 
+  it('AT-CLI-MR-033: multi status renders repo-authority status and keeps coordinator provenance as metadata', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const result = runCli(workspace, ['multi', 'status']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.match(result.stdout, /api: active \[implementation\] \(run: run_[^;]+; coordinator: initialized\)/);
+      assert.match(result.stdout, /web: active \[implementation\] \(run: run_[^;]+; coordinator: initialized\)/);
+      assert.doesNotMatch(result.stdout, /api: initialized \[/);
+      assert.doesNotMatch(result.stdout, /web: initialized \[/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-034: multi status repo rows show actual repo run and expected coordinator run during drift', () => {
+    const { workspace, apiRepo } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const apiStatePath = join(apiRepo, '.agentxchain', 'state.json');
+      const apiState = JSON.parse(readFileSync(apiStatePath, 'utf8'));
+      const coordinatorState = JSON.parse(readFileSync(join(workspace, '.agentxchain', 'multirepo', 'state.json'), 'utf8'));
+      const expectedRunId = coordinatorState.repo_runs.api.run_id;
+      apiState.run_id = 'run_api_reinitialized';
+      writeJson(apiStatePath, apiState);
+
+      const result = runCli(workspace, ['multi', 'status']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.match(
+        result.stdout,
+        new RegExp(`api: active \\[implementation\\] \\(run: run_api_reinitialized; coordinator: initialized; expected run: ${expectedRunId}\\)`),
+      );
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CLI-MR-006: multi status fails without init', () => {
     const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
     try {
@@ -1132,5 +1173,10 @@ describe('multi help surface', () => {
     assert.match(MULTI_RESYNC_SOURCE, /printCoordinatorBlockerDetails/);
     assert.doesNotMatch(MULTI_RESYNC_SOURCE, /expected:\s*\$\{mismatch\.expected_run_id\}/);
     assert.doesNotMatch(MULTI_RESYNC_SOURCE, /actual:\s*\$\{mismatch\.actual_run_id\}/);
+  });
+
+  it('AT-CLI-MR-035: multi status imports shared coordinator repo-row presentation helpers', () => {
+    assert.match(MULTI_SOURCE, /buildCoordinatorRepoStatusRows/);
+    assert.doesNotMatch(MULTI_SOURCE, /console\.log\(`  \$\{repoId\}: \$\{info\.status \|\| 'unknown'\}/);
   });
 });
