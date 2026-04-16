@@ -30,6 +30,11 @@ Add a copy-paste getting-started guide that bridges the gap between the package-
   - the `cli-tool` walkthrough on this page is mixed-mode (`manual-pm`, `local-dev`, `api-qa`)
   - QA on the `cli-tool` walkthrough requires `ANTHROPIC_API_KEY` unless the operator changes `roles.qa.runtime` from `api-qa` to `manual-qa`
 - Link deeper artifact detail to `/docs/first-turn`
+- After the first complete run, teach the evidence boundary:
+  - `audit` is the live current repo/workspace summary
+  - `export` is the portable artifact
+  - `report --input` reads an existing export artifact
+  - partial coordinator artifacts stay readable via `repo_ok_count` / `repo_error_count`, failed repo row + error, and no fabricated failed-child drill-down
 - Explain the custom-phase workflow boundary:
   - `routing` controls phase order
   - `gates.requires_files` controls blocking files
@@ -54,6 +59,7 @@ Add a copy-paste getting-started guide that bridges the gap between the package-
 5. The page links to `/docs/first-turn` for artifact-level detail.
 6. Manual adapter output includes gate hints, a turn-result example, a suggested next role, and the new `/docs/getting-started` link.
 7. The page documents explicit `workflow_kit` for custom phases and the re-init plus `template validate` operator path.
+8. The page teaches `audit` vs `export` vs `report --input` truthfully and preserves the partial coordinator boundary.
 
 ## Open Questions
 

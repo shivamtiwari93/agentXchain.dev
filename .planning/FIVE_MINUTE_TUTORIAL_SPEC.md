@@ -39,6 +39,10 @@ This page must use the default manual-first `generic` scaffold so the walkthroug
   - `getting-started`
   - `first-turn`
   - `tutorial`
+- The page must include a short evidence-surface follow-up:
+  - `audit` for the live current repo/workspace summary
+  - `export` plus `report --input` for a portable artifact and derived summary
+  - partial coordinator artifacts stay readable with `repo_ok_count` / `repo_error_count`, failed repo row + error, and no fabricated failed-child drill-down
 
 ## Error Cases
 
@@ -62,6 +66,7 @@ This page must use the default manual-first `generic` scaffold so the walkthroug
   - `agentxchain accept-turn`
 - `quickstart.mdx` and `getting-started.mdx` link to the new page
 - `website-v2/static/llms.txt` includes `/docs/five-minute-tutorial`
+- The page teaches `audit` vs `export` vs `report --input` truthfully and keeps the partial coordinator boundary visible
 
 ## Open Questions
 

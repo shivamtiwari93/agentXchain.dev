@@ -145,6 +145,23 @@ git commit -m "approve governed completion"
 
 That final approval is constitutional. It exists so humans remain sovereign over what actually ships.
 
+## 8. Verify and share evidence truthfully
+
+If you want the live current repo summary right now, use `audit`:
+
+```bash
+agentxchain audit --format markdown
+```
+
+If you need a portable artifact for handoff, CI, or offline review, export first and then render it with `report`:
+
+```bash
+agentxchain export --format json > governance-export.json
+agentxchain report --input governance-export.json --format markdown
+```
+
+Do not collapse those commands into one vague "report the run" story. `audit` reads the live current repo or workspace. `report --input` reads an existing export artifact. In coordinator workspaces, partial artifacts are still valid: `audit` and `report` keep `repo_ok_count` / `repo_error_count`, preserve the failed repo row plus error, and do not fabricate failed-child drill-down when a nested export is missing.
+
 ## Custom phases
 
 The default scaffold uses three phases: `planning → implementation → qa`. This is intentional — most governed runs fit this model.

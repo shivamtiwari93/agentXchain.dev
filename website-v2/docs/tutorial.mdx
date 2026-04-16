@@ -440,18 +440,21 @@ Check the final state:
 
 ```bash
 agentxchain status
+agentxchain audit --format markdown
 ```
 
-You should see `status: completed` and all three phases closed.
+You should see `status: completed` and all three phases closed. `audit` is the live current repo/workspace summary surface.
 
-Export the run and then generate the governance report:
+If you need a portable artifact for handoff, export the run and then generate the governance report from that artifact:
 
 ```bash
 agentxchain export --format json > governance-export.json
 agentxchain report --input governance-export.json --format markdown
 ```
 
-This produces a structured summary of the run: turns, decisions, gate evaluations, timing, and the complete decision ledger.
+Do not collapse those commands into one vague "report the run" story. `report --input` reads an existing export artifact; it does not inspect live repo state directly. This produces a structured summary of the run: turns, decisions, gate evaluations, timing, and the complete decision ledger.
+
+That same boundary applies in coordinator workspaces. Partial artifacts are still valid evidence surfaces: `audit` and `report` keep `repo_ok_count` / `repo_error_count`, preserve the failed repo row plus error, and do not fabricate failed-child drill-down when the nested child export is unavailable.
 
 ## What you just did
 

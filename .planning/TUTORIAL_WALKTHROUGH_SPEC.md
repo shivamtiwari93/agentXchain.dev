@@ -24,7 +24,7 @@ The tutorial walks through a **complete governed lifecycle** using only shipped 
 7. **Implementation turn** — `step` (manual dev), write code, stage result
 8. **QA turn** — implementation auto-advances to `qa`; run `step` with `manual-qa`
 9. **Complete the run** — `approve-completion`
-10. **Verify** — `agentxchain status`, `agentxchain export`, `agentxchain report --input`
+10. **Verify** — `agentxchain status`, `agentxchain audit`, `agentxchain export`, `agentxchain report --input`
 
 ### Constraints
 
@@ -35,6 +35,7 @@ The tutorial walks through a **complete governed lifecycle** using only shipped 
 - Every gate file edit is shown with exact content
 - No hand-waving ("fill in the files") — the tutorial provides the actual content to write
 - Commits at natural boundaries (after scaffold, after each phase)
+- The verification step must distinguish live-state `audit` from artifact-based `report --input`, and must note that partial coordinator artifacts stay readable without fabricated failed-child drill-down
 
 ## Error Cases
 
@@ -48,7 +49,7 @@ The tutorial walks through a **complete governed lifecycle** using only shipped 
 
 - `AT-TUTORIAL-001`: Tutorial page exists at `website-v2/docs/tutorial.mdx` with frontmatter title
 - `AT-TUTORIAL-002`: Sidebar includes `tutorial` entry
-- `AT-TUTORIAL-003`: Tutorial contains the governed lifecycle commands: `init --governed`, `step`, `approve-transition`, `approve-completion`, `status`, `export`, `report --input`
+- `AT-TUTORIAL-003`: Tutorial contains the governed lifecycle commands: `init --governed`, `step`, `approve-transition`, `approve-completion`, `status`, `audit`, `export`, `report --input`
 - `AT-TUTORIAL-004`: Tutorial shows the fully manual runtime rebind: `local-dev` → `manual-dev`, `api-qa` → `manual-qa`
 - `AT-TUTORIAL-005`: Tutorial shows exact gate file content (PM_SIGNOFF.md with `Approved: YES`, ROADMAP.md, SYSTEM_SPEC.md)
 - `AT-TUTORIAL-006`: Tutorial shows `turn-result.json` examples
@@ -56,6 +57,7 @@ The tutorial walks through a **complete governed lifecycle** using only shipped 
 - `AT-TUTORIAL-008`: sitemap.xml and llms.txt include `/docs/tutorial`
 - `AT-TUTORIAL-009`: Tutorial shows exactly one `approve-transition` command and explains that implementation auto-advances to `qa`
 - `AT-TUTORIAL-010`: Subprocess E2E proves the fully manual tutorial path through `step` → `approve-transition` → `step` → `step` → `approve-completion`
+- `AT-TUTORIAL-011`: Tutorial verification step states the `audit` vs `report --input` boundary and preserves the partial coordinator artifact rule
 
 ## Open Questions
 

@@ -109,6 +109,15 @@ The page must include a short troubleshooting section covering:
 - blocked/pending approval state
 - when to use `status`
 
+### 7. Evidence surfaces
+
+The page must teach the evidence boundary in onboarding language:
+
+- `audit` is the live current repo/workspace summary
+- `export` is the portable artifact for handoff or offline review
+- `report --input` reads an existing export artifact
+- partial coordinator artifacts keep `repo_ok_count` / `repo_error_count`, the failed repo row plus error, and no fabricated failed-child drill-down
+
 ## Error Cases
 
 | Condition | Required docs behavior |
@@ -133,6 +142,7 @@ The page must include a short troubleshooting section covering:
 7. The page documents the default `local-dev` command and the scaffold-time override path via `--dev-command` / `--dev-prompt-transport`.
 8. The walkthrough includes both `accept-turn` and human approval commands.
 9. The page does not mention legacy-first artifacts such as `PROJECT.md`, `REQUIREMENTS.md`, or `qa/`.
+10. The page teaches `audit` vs `export` vs `report --input` truthfully and keeps the partial coordinator boundary visible.
 
 ## Open Questions
 

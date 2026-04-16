@@ -549,6 +549,20 @@ agentxchain events --follow --type run_started,run_completed
 
 This is the repo-local observability surface. For external notification delivery, configure webhooks in `agentxchain.json` — see [Notifications](/docs/notifications).
 
+## Audit, export, and report
+
+Do not teach yourself the wrong boundary here:
+
+```bash
+agentxchain audit --format markdown
+agentxchain export --format json > governance-export.json
+agentxchain report --input governance-export.json --format markdown
+```
+
+Use `audit` for the live current repo or workspace summary. Use `export` when you need the portable artifact. Use `report --input` only when you already have an export artifact and want the verified derived summary.
+
+That still holds in coordinator workspaces. Partial artifacts are intentional, not broken: `audit` and `report` keep `repo_ok_count` / `repo_error_count` export-health visibility plus the failed repo row and error, but they do not fabricate failed-child drill-down when the nested child export is unavailable.
+
 ## Common mistakes
 
 - **Don't treat `run` as zero-config on the default scaffold.** `pm` defaults to `manual-pm`; rebind that role or use `step`.

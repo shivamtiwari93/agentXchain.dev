@@ -190,6 +190,23 @@ You should now see:
 
 That is the correct stopping point for this page. You have a real governed repo, a real accepted turn, and a real next action.
 
+## Evidence boundary after the first accepted turn
+
+If you want to inspect the live current repo state after that PM turn, use `audit`:
+
+```bash
+agentxchain audit --format markdown
+```
+
+If you need a portable artifact for handoff or offline review, export first and then read that artifact with `report`:
+
+```bash
+agentxchain export --format json > governance-export.json
+agentxchain report --input governance-export.json --format markdown
+```
+
+Do not flatten those into one fake "report the run" command. `audit` reads the live current repo or workspace. `report --input` reads an existing export artifact. In coordinator workspaces, partial artifacts are still readable: `repo_ok_count` / `repo_error_count` stay visible, failed repos keep the repo row plus error, and failed-child drill-down stays absent when the nested export is missing.
+
 ## What to do next
 
 - Run `agentxchain approve-transition` when you are ready to open implementation.
