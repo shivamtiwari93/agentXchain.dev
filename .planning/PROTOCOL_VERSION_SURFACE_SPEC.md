@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Stop operator-facing CLI surfaces from conflating three different version axes:
+Stop operator-facing CLI and public-doc surfaces from conflating three different version axes:
 
-- protocol version (`v6`)
+- protocol version (`v7`)
 - governed config generation (`v4`)
 - governed config schema (`1.0`)
 
@@ -28,12 +28,13 @@ This slice does **not** add a new `protocol_version` field to `agentxchain.json`
   - existing `config_version` field may remain as a backward-compat alias for config generation
 - Docs
   - CLI docs must stop using bare `v4` shorthand where the real meaning is governed config generation
-  - CLI docs must explain that protocol v6 and config generation v4 are different axes
+  - CLI docs must explain that protocol v7 and config generation v4 are different axes
+  - Protocol overview docs must not title the page `Protocol v7` while still describing the compatibility boundary as `v6 extends v5`
 
 ## Behavior
 
 - Governed repos use:
-  - protocol version: `v6`
+  - protocol version: `v7`
   - config generation: `4`
   - config schema version:
     - `"1.0"` for governed config
@@ -50,11 +51,12 @@ This slice does **not** add a new `protocol_version` field to `agentxchain.json`
 
 ## Acceptance Tests
 
-- `AT-PVS-001`: `doctor --json` returns `protocol_version: "v6"`, `config_generation: 4`, and `config_schema_version: "1.0"` for a governed scaffold
-- `AT-PVS-002`: human `doctor` output distinguishes protocol v6 from config generation v4
+- `AT-PVS-001`: `doctor --json` returns `protocol_version: "v7"`, `config_generation: 4`, and `config_schema_version: "1.0"` for a governed scaffold
+- `AT-PVS-002`: human `doctor` output distinguishes protocol v7 from config generation v4
 - `AT-PVS-003`: `validate --json` returns the same three version fields for a governed scaffold
-- `AT-PVS-004`: human `validate` output distinguishes protocol v6 from config generation v4
+- `AT-PVS-004`: human `validate` output distinguishes protocol v7 from config generation v4
 - `AT-PVS-005`: CLI docs describe doctor/validate version output without flattening protocol and config generation into one number
+- `AT-PVS-007`: `website-v2/docs/protocol.mdx` describes the current compatibility boundary as `v7 extends v6` and includes a v5/v6/v7 comparison table instead of a stale v5/v6-only table
 
 ## Open Questions
 

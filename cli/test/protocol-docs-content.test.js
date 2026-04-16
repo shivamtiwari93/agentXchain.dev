@@ -45,6 +45,32 @@ describe('Protocol docs content', () => {
     );
   });
 
+  it('keeps the protocol overview compatibility boundary aligned to v7', () => {
+    assert.match(
+      PROTOCOL_DOCS_MDX,
+      /v7 extends v6/i,
+      'protocol docs must describe the current compatibility boundary as v7 extending v6'
+    );
+    assert.doesNotMatch(
+      PROTOCOL_DOCS_MDX,
+      /v6 extends v5/i,
+      'protocol docs must not leave the old v6 compatibility line on the current v7 page'
+    );
+    assert.match(
+      PROTOCOL_DOCS_MDX,
+      /\| Feature \| v5 \| v6 \| v7 \|/,
+      'protocol docs must show the current three-version compatibility table'
+    );
+    for (const term of [
+      'Delegation chains',
+      'Cross-run decision carryover',
+      'Parallel turns',
+      'Run event lifecycle (`events.jsonl`)',
+    ]) {
+      assert.ok(PROTOCOL_DOCS_MDX.includes(term), `protocol docs must mention ${term} as v7 constitutional scope`);
+    }
+  });
+
   it('documents multi-repo coordinator concepts in the docs page', () => {
     for (const term of [
       'agentxchain-multi.json',
@@ -151,6 +177,8 @@ describe('Protocol docs content', () => {
     assert.match(MIGRATE_COMMAND, /schema_version: '1\.0'/);
     assert.match(MIGRATE_COMMAND, /schema_version: '1\.1'/);
     assert.match(MIGRATE_COMMAND, /blocked_on: 'human:migration-review'/);
+    assert.match(PROTOCOL_DOCS_MDX, /To migrate a legacy v3 project into the current governed contract:/);
+    assert.doesNotMatch(PROTOCOL_DOCS_MDX, /To migrate a v5 project to v6:/);
     for (const term of ['schema `1.0`', 'schema `1.1`', 'human:migration-review', 'does not backfill legacy history']) {
       assert.ok(PROTOCOL_DOCS_MDX.includes(term), `protocol docs must mention ${term}`);
     }

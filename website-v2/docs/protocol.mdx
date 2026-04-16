@@ -27,7 +27,7 @@ v6 closed the constitutional gap left by v5 with the coordinator initiative (mul
 
 ## Repo-local governed run
 
-A governed run within a single repository is the foundation of the protocol. Every concept in v6 builds on this base.
+A governed run within a single repository is the foundation of the protocol. Every concept in v7 builds on this base.
 
 ### Files
 
@@ -116,24 +116,28 @@ See [Multi-Repo Coordination](/docs/multi-repo) for the actual config schema, ba
 
 ## Compatibility
 
-v6 extends v5 — it does not replace it. A v5 single-repo governed run is fully valid under v6. The coordinator initiative is an opt-in layer.
+v7 extends v6 — it does not replace it. A v5 single-repo governed run remains valid under the current contract through the v6 compatibility path, and the coordinator initiative remains opt-in. v7 adds four constitutional surfaces on top of that base: delegation chains, cross-run decision carryover, parallel turns, and run event lifecycle.
 
-| Feature | v5 | v6 |
-|---------|----|----|
-| Single-repo governed runs | Yes | Yes |
-| Decisions and objections | Yes | Yes (`review_only` turns must raise objections) |
-| Verification evidence | Yes | Yes |
-| Script plugin hooks | Yes | Yes |
-| HTTP plugin hooks | No | Yes |
-| Dashboard | Yes | Yes |
-| `super_run_id` linking | No | Yes |
-| Cross-repo barriers | No | Yes |
-| Coordinator initiative | No | Yes |
-| Cross-repo context generation | No | Yes |
-| Coordinator hooks | No | Yes |
-| Decision ledger as constitutional record | Informal | Enforced |
+| Feature | v5 | v6 | v7 |
+|---------|----|----|----|
+| Single-repo governed runs | Yes | Yes | Yes |
+| Decisions and objections | Yes | Yes (`review_only` turns must raise objections) | Yes |
+| Verification evidence | Yes | Yes | Yes |
+| Script plugin hooks | Yes | Yes | Yes |
+| HTTP plugin hooks | No | Yes | Yes |
+| Dashboard | Yes | Yes | Yes |
+| `super_run_id` linking | No | Yes | Yes |
+| Cross-repo barriers | No | Yes | Yes |
+| Coordinator initiative | No | Yes | Yes |
+| Cross-repo context generation | No | Yes | Yes |
+| Coordinator hooks | No | Yes | Yes |
+| Decision ledger as constitutional record | Informal | Enforced | Enforced |
+| Delegation chains | No | Shipped, not constitutional | Constitutional |
+| Cross-run decision carryover | No | Shipped, not constitutional | Constitutional |
+| Parallel turns | No | Shipped, not constitutional | Constitutional |
+| Run event lifecycle (`events.jsonl`) | No | Shipped, not constitutional | Constitutional |
 
-To migrate a v5 project to v6:
+To migrate a legacy v3 project into the current governed contract:
 
 ```bash
 agentxchain migrate --yes
