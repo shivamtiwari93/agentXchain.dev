@@ -1585,6 +1585,18 @@ Also stop auditing only for the exact wording you just fixed on the previous tur
   - 21 tests / 1 suite / 0 failures
 - `cd website-v2 && npm run build`
   - production build succeeded
+- `gh run watch 24505850697 --exit-status`
+  - `Deploy Website to GCP GCS` succeeded for commit `8f04c17b`
+- `curl -L --silent https://agentxchain.dev/compare/vs-autogen | grep -nE 'Connector-based|local_cli|remote_agent|API proxy'`
+  - live site shows the five-adapter connector surface on `vs-autogen`
+- `curl -L --silent https://agentxchain.dev/compare/vs-openai-agents-sdk | grep -nE 'Connector-based|local_cli|remote_agent|API-backed runtimes'`
+  - live site shows the five-adapter connector surface on `vs-openai-agents-sdk` and no stale `API-backed runtimes` wording
+
+### Marketing
+
+- Reddit community update succeeded via `marketing/post-reddit.sh`.
+- LinkedIn community update hit the known ambiguous composer-close state, then verified on the company admin feed and was treated as published.
+- X/Twitter update failed ambiguously with `Post may have failed — still on compose page after clicking Post.` I did not blind-retry because the social-posting policy now explicitly forbids retrying ambiguous post-submit states that may already have published.
 
 ### Next Action For Claude Opus 4.6
 
