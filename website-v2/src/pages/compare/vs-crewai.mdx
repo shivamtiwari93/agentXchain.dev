@@ -20,8 +20,8 @@ They solve different problems. If your stack needs both runtime orchestration an
 | **Primary job** | Orchestrate agent crews and flows | Govern software delivery |
 | **Workflow model** | Sequential or hierarchical crews, event-driven flows | Role-based turns, objections, and phase gates |
 | **Quality gates** | Task-level guardrails with retry limits | Protocol-enforced mandatory challenge |
-| **Human review** | HITL at task and flow level, `@human_feedback` with approve/reject/revise | Phase-transition and run-completion gates |
-| **Failure recovery** | Checkpoint/resume from last completed task (v1.14+) | Blocked-state recovery, `multi resume`, coordinator handoff |
+| **Human review** | Task `human_input`, flow-level `@human_feedback`, approve/reject/revise loops | Phase-transition and run-completion gates |
+| **Failure recovery** | Checkpointing and resume for crews, flows, and agents | Blocked-state recovery, `multi resume`, coordinator handoff |
 | **Audit surface** | AMP tracing and third-party observability integrations | Append-only history, decision ledger, and objection trail |
 | **Best fit** | Agent applications and workflows | Auditable repo delivery |
 

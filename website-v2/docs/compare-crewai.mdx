@@ -22,13 +22,13 @@ This page explains the differences honestly so you can pick the right tool.
 | **Agent definition** | Python classes (Agent, Task, Crew) | JSON config with role charters and runtime bindings |
 | **Model access** | Native provider SDKs plus LiteLLM fallback | Model-agnostic — any LLM via adapters |
 | **IDE lock-in** | None (Python library) | None — works with any IDE, CLI, or cloud agent |
-| **Governance** | Minimal — no audit trail, no gates, no decision ledger | Core feature — full audit trail, phase gates, decision carryover |
+| **Governance** | HITL and tracing exist, but governance stays app-defined | Core feature — full audit trail, phase gates, decision carryover |
 | **Protocol** | Implicit (internal orchestration) | Explicit versioned protocol (v7) with conformance tiers |
-| **State persistence** | In-memory by default | File-based governed state with history, events, decisions |
-| **Recovery** | Manual restart | Built-in recovery with state preservation |
-| **Multi-repo** | Not supported | Coordinator with cross-repo barriers and event aggregation |
+| **State persistence** | Flow persistence and checkpointing for app-defined workflows | File-based governed state with history, events, decisions |
+| **Recovery** | Checkpointing and flow persistence; recovery semantics stay app-defined | Built-in recovery with state preservation |
+| **Multi-repo** | No built-in cross-repo coordinator surface | Coordinator with cross-repo barriers and event aggregation |
 | **Delegation chains** | Agent-to-agent via task delegation | Governed delegation with decision contracts and review gates |
-| **Human oversight** | Callback-based | Built-in approval gates, human roles, escalation protocol |
+| **Human oversight** | `@human_feedback`, task `human_input`, and callbacks | Built-in approval gates, human roles, escalation protocol |
 | **License** | MIT | MIT |
 
 ---
@@ -46,7 +46,7 @@ This page explains the differences honestly so you can pick the right tool.
 
 ### 1. Governance and Audit Trail
 
-CrewAI agents execute tasks and return results. There is no built-in decision ledger, no turn-level audit trail, and no governed state machine.
+CrewAI agents execute tasks and flows with built-in tracing and HITL options, but the governance model remains application-defined. There is no protocol-native decision ledger, append-only turn history, or governed state machine comparable to AgentXchain's.
 
 AgentXchain records every turn, every decision, every phase transition, and every approval in append-only logs. When a run completes, you can export a cryptographically verifiable artifact that proves exactly what happened, who did what, and why.
 
@@ -58,7 +58,7 @@ This matters when:
 
 ### 2. Long-Horizon Execution
 
-CrewAI is optimized for task graphs that complete in a single session. AgentXchain is designed for **long-horizon software delivery** — runs that span multiple sessions, multiple phases, and potentially multiple days.
+CrewAI supports longer-lived workflows better than this page previously implied. Current docs include flow persistence and early-release checkpointing so crews, flows, and agents can resume after failures. AgentXchain is still designed more narrowly for **long-horizon software delivery** — runs that span multiple sessions, multiple phases, and potentially multiple days under one governed contract.
 
 Features that support this:
 - **Cross-run decision carryover**: decisions made in run N automatically constrain run N+1
@@ -80,7 +80,7 @@ The real difference is elsewhere: CrewAI's coordination model still lives inside
 
 ### 5. Human Authority Model
 
-CrewAI supports human-in-the-loop via callbacks, but there is no structured authority model. Any agent can do anything.
+CrewAI supports human-in-the-loop through task `human_input`, flow `@human_feedback`, and callbacks. What it does not provide is AgentXchain's protocol-enforced authority model with explicit write authority, phase approvals, and escalation rules.
 
 AgentXchain has explicit write authority levels (`authoritative`, `review_only`), phase-level approval gates, human roles with escalation paths, and budget controls. Humans remain sovereign without micromanaging.
 
