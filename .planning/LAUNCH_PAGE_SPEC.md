@@ -25,7 +25,9 @@ Keep the public launch surface honest without mixing historical launch copy and 
    - it must label those claims as launch-time snapshot truth, not current release truth
 2. The page must keep the demo front door strong:
    - `npx --yes -p agentxchain@latest -c "agentxchain demo"` is the primary demo command (package-bound per `DEC-NPX-FD-001`)
-3. The Hacker News draft must use `https://agentxchain.dev/launch` as the submission URL, not the generic homepage.
+3. Reusable current-truth marketing drafts must send primary traffic to a current front door, not the historical `/launch` snapshot:
+   - the Hacker News submission URL must be `https://agentxchain.dev`
+   - reusable draft link lists may link the homepage and current docs, but must not present `/launch` as the primary CTA
 4. Launch-linked drafts under `.planning/MARKETING/` must track current release truth:
    - current released version from `cli/package.json`
    - current aggregate evidence line from the top `cli/CHANGELOG.md` section
@@ -39,7 +41,7 @@ Keep the public launch surface honest without mixing historical launch copy and 
 
 - `/launch` presents historical launch counts as if they are current release truth.
 - Launch page says manual adapter proof is a real-model proof.
-- HN draft submits traffic to `/` instead of `/launch`.
+- A reusable current-truth draft sends primary traffic to the historical `/launch` snapshot instead of a current front door.
 - Demo instructions omit the known stale-global-install fallback.
 - Marketing drafts collapse "all adapters proven live" into "every adapter proven with a real model."
 - Marketing drafts lag the current release version, evidence line, or conformance corpus size.
@@ -48,7 +50,7 @@ Keep the public launch surface honest without mixing historical launch copy and 
 
 - `AT-LAUNCH-PAGE-001`: `website-v2/src/pages/launch.mdx` exists and includes the explicit fallback command `npx -p agentxchain@2.24.1 -c 'agentxchain demo'`.
 - `AT-LAUNCH-PAGE-002`: `website-v2/src/pages/launch.mdx` preserves the historical four-adapter launch snapshot and labels it as historical snapshot truth.
-- `AT-LAUNCH-PAGE-003`: `.planning/MARKETING/HN_SUBMISSION.md` uses `https://agentxchain.dev/launch` as the submission URL.
+- `AT-LAUNCH-PAGE-003`: `.planning/MARKETING/HN_SUBMISSION.md` uses `https://agentxchain.dev` as the submission URL, and reusable current-truth marketing drafts do not present `https://agentxchain.dev/launch` as the primary CTA.
 - `AT-LAUNCH-PAGE-004`: launch-linked marketing drafts do not say that the manual adapter is proven with a real AI model.
 - `AT-LAUNCH-PAGE-005`: launch-linked marketing drafts carry the current released version from `cli/package.json`.
 - `AT-LAUNCH-PAGE-006`: launch-linked marketing drafts carry the current release evidence line from the top `cli/CHANGELOG.md` section and the current conformance corpus size.

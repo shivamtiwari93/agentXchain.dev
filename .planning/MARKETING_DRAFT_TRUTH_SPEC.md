@@ -33,7 +33,11 @@ These drafts are reused for posting, editing, and downstream launch copy. If the
    - all five adapter types are proven live
    - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
    - `manual` is the governed human control path
-7. Reusable marketing drafts must not fall back to stale launch-era counts, stale release versions, or the pre-remote-agent four-adapter story.
+7. Reusable marketing drafts must point their primary CTA at a current front door:
+   - `https://agentxchain.dev` is the canonical general-purpose landing URL
+   - current docs URLs such as `/docs/quickstart` are allowed as supporting links
+   - the historical `/launch` snapshot must not be presented as the primary destination for fresh marketing traffic
+8. Reusable marketing drafts must not fall back to stale launch-era counts, stale release versions, or the pre-remote-agent four-adapter story.
 
 ## Error Cases
 
@@ -42,6 +46,7 @@ These drafts are reused for posting, editing, and downstream launch copy. If the
 - A draft still says `All 4 adapters proven live` or omits `remote_agent` from the real-model proof list.
 - A draft still carries `4,500+ tests`, `970+ suites`, `2,486+ tests`, or other stale proof-floor wording after the top changelog section has moved.
 - A draft says or implies that `manual` is proven with a real AI model.
+- A reusable current-truth draft sends fresh traffic to `https://agentxchain.dev/launch` as its primary CTA.
 
 ## Acceptance Tests
 
@@ -52,6 +57,7 @@ These drafts are reused for posting, editing, and downstream launch copy. If the
 - `AT-MARKETING-TRUTH-005`: Each reusable marketing draft states that `manual` is the governed human control path rather than a real-model proof path.
 - `AT-MARKETING-TRUTH-006`: Reusable marketing drafts reject stale four-adapter phrasing and stale release-version phrasing.
 - `AT-MARKETING-TRUTH-007`: The spec defines `cli/package.json` plus the top `cli/CHANGELOG.md` section as the canonical numeric authority, and `.planning/LAUNCH_EVIDENCE_REPORT.md` is required to mirror that same current version and aggregate evidence line.
+- `AT-MARKETING-TRUTH-008`: Reusable marketing drafts use `https://agentxchain.dev` as the canonical primary landing URL and do not present the historical `/launch` snapshot as the primary CTA.
 
 ## Open Questions
 

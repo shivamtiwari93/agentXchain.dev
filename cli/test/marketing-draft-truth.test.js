@@ -77,6 +77,7 @@ describe('marketing draft truth spec', () => {
       'AT-MARKETING-TRUTH-005',
       'AT-MARKETING-TRUTH-006',
       'AT-MARKETING-TRUTH-007',
+      'AT-MARKETING-TRUTH-008',
     ]) {
       assert.match(marketingSpec, new RegExp(id));
     }
@@ -86,6 +87,11 @@ describe('marketing draft truth spec', () => {
     assert.match(marketingSpec, /Canonical current release truth sources:/);
     assert.match(marketingSpec, /Exact release version and aggregate evidence numbers are canonical in `cli\/package\.json` and the top `cli\/CHANGELOG\.md` section/i);
     assert.match(marketingSpec, /\.planning\/LAUNCH_EVIDENCE_REPORT\.md` must mirror the same current version and aggregate evidence line/i);
+  });
+
+  it('defines the current homepage as the primary marketing landing URL and quarantines /launch as historical', () => {
+    assert.match(marketingSpec, /`https:\/\/agentxchain\.dev` is the canonical general-purpose landing URL/i);
+    assert.match(marketingSpec, /historical `\/launch` snapshot must not be presented as the primary destination/i);
   });
 
   it('keeps the launch-page spec honest about historical launch page vs current drafts', () => {
@@ -143,4 +149,13 @@ describe('reusable marketing drafts', () => {
         `${label} still carries stale proof-floor language`);
     });
   }
+
+  it('keeps fresh marketing traffic off the historical /launch snapshot', () => {
+    const hn = drafts.find(([label]) => label === 'HN submission')?.[1] ?? '';
+    const reddit = drafts.find(([label]) => label === 'Reddit posts')?.[1] ?? '';
+
+    assert.match(hn, /\*\*URL:\*\* https:\/\/agentxchain\.dev\s*$/m);
+    assert.doesNotMatch(hn, /https:\/\/agentxchain\.dev\/launch/);
+    assert.doesNotMatch(reddit, /https:\/\/agentxchain\.dev\/launch/);
+  });
 });

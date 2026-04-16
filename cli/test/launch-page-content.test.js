@@ -47,9 +47,15 @@ describe('launch page public contract', () => {
 });
 
 describe('launch-linked marketing drafts', () => {
-  it('use the launch page as the Hacker News destination', () => {
-    assert.match(HN_SUBMISSION, /\*\*URL:\*\* https:\/\/agentxchain\.dev\/launch/);
-    assert.doesNotMatch(HN_SUBMISSION, /\*\*URL:\*\* https:\/\/agentxchain\.dev\s*$/m);
+  it('use the current homepage as the Hacker News destination instead of the historical launch snapshot', () => {
+    assert.match(HN_SUBMISSION, /\*\*URL:\*\* https:\/\/agentxchain\.dev\s*$/m);
+    assert.doesNotMatch(HN_SUBMISSION, /\*\*URL:\*\* https:\/\/agentxchain\.dev\/launch/);
+  });
+
+  it('do not present the historical launch page as the primary CTA in reusable current-truth drafts', () => {
+    assert.doesNotMatch(HN_SUBMISSION, /^1\. Submit as "Show HN" with `https:\/\/agentxchain\.dev\/launch`$/m);
+    assert.doesNotMatch(REDDIT_POSTS, /- Launch page: https:\/\/agentxchain\.dev\/launch/);
+    assert.doesNotMatch(REDDIT_POSTS, /^https:\/\/agentxchain\.dev\/launch \|/m);
   });
 
   it('do not falsely describe the manual adapter as real-model proof', () => {
@@ -90,6 +96,8 @@ describe('launch page spec', () => {
     assert.match(SPEC, /# Launch Page Spec/);
     assert.match(SPEC, /AT-LAUNCH-PAGE-001/);
     assert.match(SPEC, /AT-LAUNCH-PAGE-004/);
+    assert.match(SPEC, /historical `\/launch` snapshot/i);
+    assert.match(SPEC, /https:\/\/agentxchain\.dev` as the submission URL/);
   });
 
   it('records the front-door launch contract in a standalone spec', () => {

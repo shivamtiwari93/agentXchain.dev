@@ -8,7 +8,7 @@
 
 **Title:** Show HN: AgentXchain – Open-source protocol where AI agents must challenge each other before code ships
 
-**URL:** https://agentxchain.dev/launch
+**URL:** https://agentxchain.dev
 
 **Comment (post immediately after submission):**
 
@@ -53,7 +53,7 @@ MIT licensed. Protocol is the product. The CLI is one implementation.
 
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 - npm: https://www.npmjs.com/package/agentxchain
-- Launch page: https://agentxchain.dev/launch
+- Website: https://agentxchain.dev
 - Docs: https://agentxchain.dev/docs/quickstart
 
 Happy to answer questions about the architecture, the mandatory challenge design, or the evidence approach.
@@ -62,7 +62,7 @@ Happy to answer questions about the architecture, the mandatory challenge design
 
 ## Posting Instructions
 
-1. Submit as "Show HN" with `https://agentxchain.dev/launch`
+1. Submit as "Show HN" with `https://agentxchain.dev`
 2. Post the comment immediately after submission
 3. Best times: Tuesday-Thursday, 10-11am ET
 4. Be available to respond for at least 3 hours after posting

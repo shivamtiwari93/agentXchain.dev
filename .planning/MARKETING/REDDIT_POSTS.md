@@ -50,7 +50,6 @@ It's the governance layer between agents. They can be built with anything. We go
 
 MIT licensed. Protocol is the product. CLI is one implementation.
 
-- Launch page: https://agentxchain.dev/launch
 - Website: https://agentxchain.dev
 - Demo: `npx --yes -p agentxchain@latest -c "agentxchain demo"`
 - Quickstart: https://agentxchain.dev/docs/quickstart
@@ -93,7 +92,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 MIT licensed. 4710 tests / 1004 suites / 0 failures. Protocol v7 spec published.
 
-https://agentxchain.dev/launch | https://github.com/shivamtiwari93/agentXchain.dev
+https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/artificial/submit
 
