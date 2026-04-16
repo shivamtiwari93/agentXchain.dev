@@ -104,6 +104,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('/api/coordinator/ledger'), 'cli docs must document the coordinator ledger endpoint');
     assert.ok(CLI_DOCS.includes('/api/repo-decisions-summary'), 'cli docs must document the repo decision summary endpoint');
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
+    assert.ok(CLI_DOCS.includes('/api/poll'), 'cli docs must document the dashboard poll endpoint');
     assert.ok(CLI_DOCS.includes('repo_run_id_mismatch'), 'cli docs must mention structured run identity drift blockers');
     assert.ok(CLI_DOCS.includes('SESSION_RECOVERY.md'), 'cli docs must mention the recovery report continuity surface');
     assert.ok(CLI_DOCS.includes('agentxchain restart'), 'cli docs must mention restart guidance in the dashboard surface');
@@ -185,6 +186,7 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('coordinator linkage remains detail metadata'), 'cli docs must describe linked/initialized as metadata only');
     assert.ok(CLI_DOCS.includes('coordinator linkage/drift metadata'), 'cli docs must describe coordinator timeout drift metadata');
     assert.ok(CLI_DOCS.includes('multi resync'), 'cli docs must describe coordinator resync next-action parity');
+    assert.ok(CLI_DOCS.includes('every 60 seconds'), 'cli docs must describe the dashboard heartbeat cadence');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {

@@ -1303,7 +1303,7 @@ agentxchain dashboard [options]
 | `--daemon` | `false` | Start the dashboard in the background and print the live PID + URL |
 | `--no-open` | `false` | Do not auto-open the browser |
 
-Launches a local web dashboard with live updates via WebSocket. The bridge binds locally to `127.0.0.1` and prints a `http://localhost:<port>` URL for convenience.
+Launches a local web dashboard with live updates via WebSocket plus a 60-second visible-tab heartbeat for time-based surfaces. The bridge binds locally to `127.0.0.1` and prints a `http://localhost:<port>` URL for convenience.
 
 When `--daemon` is used, the dashboard writes `.agentxchain-dashboard.pid` and `.agentxchain-dashboard.json` in the project root after the bridge is actually listening. Stop the background dashboard with `agentxchain stop`.
 
@@ -1361,6 +1361,8 @@ The dashboard is not a general write surface. It supports exactly one authentica
 - `agentxchain multi approve-gate`
 
 The bridge issues a per-process local mutation token from `GET /api/session`, and gate approvals must send that token in `X-AgentXchain-Token`. This is a local anti-CSRF boundary, not a multi-user auth system.
+
+The bridge also exposes `GET /api/poll`, a narrow heartbeat endpoint used by the browser shell. While the dashboard tab is visible, the shell calls it immediately on connect and then every 60 seconds so time-based dashboard surfaces stay truthful. Its only allowed side effect is lazy approval-SLA reminder evaluation; it does not mutate governed state.
 
 For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus ordered next actions for `pending_gate`, `repo_run_id_mismatch`, and `multi resync` drift cases. Those next actions derive from the same authority-first child repo status contract used by the coordinator repo rows, so coordinator linkage labels like `linked` / `initialized` stay detail metadata instead of silently changing blocker recovery guidance. Structured blockers such as `repo_run_id_mismatch` still include expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand or guess which recovery command comes next.
 

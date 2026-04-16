@@ -61,13 +61,14 @@ Per `DEC-APPROVAL-TIMEOUT-EXEMPT-001`, approval-pending states are exempt from t
 
 ### Evaluation Model
 
-Approval SLA reminders are **lazily evaluated** — they fire when the governed state is inspected, not on a background timer. Evaluation points:
+Approval SLA reminders are **lazily evaluated** — they fire when the governed state is inspected, not on a general background scheduler. Evaluation points:
 
 1. **`agentxchain status`** — evaluates and fires due reminders as a side effect.
-2. **Dashboard daemon poll** — evaluates on each status poll tick.
-3. **`agentxchain step` / `agentxchain run`** — evaluates before dispatch if an approval is pending.
+2. **Dashboard heartbeat** — the browser shell calls `GET /api/poll` immediately on connect and every 60 seconds while the tab is visible. That endpoint evaluates due reminders exactly once per poll.
+3. **`agentxchain step`** — evaluates before it exits on an already-pending approval.
+4. **`agentxchain run`** — evaluates when the run loop enters a pending approval gate before the operator approves or holds it.
 
-This matches the existing architecture: no background daemon is required, and operators who never interact with the CLI never receive reminders (which is correct — if nobody is checking, a reminder webhook to Slack/PagerDuty is the right escalation path, and that happens at the next CLI or dashboard interaction).
+This matches the existing architecture: reminders are tied to real operator touchpoints instead of a separate scheduler. Operators who never interact with the CLI or dashboard never trigger the lazy evaluator, which is correct — if nobody is checking, the right delivery surface is the reminder webhook itself once the next operator-facing boundary is hit.
 
 ### Reminder Logic
 
@@ -160,6 +161,8 @@ This file is:
 8. `AT-SLA-008`: Payload includes `approval_type`, `elapsed_seconds`, `threshold_seconds`, `reminder_index`, and gate context.
 9. `AT-SLA-009`: No reminders fire when `approval_sla.enabled` is `false`.
 10. `AT-SLA-010`: Config warning when `approval_sla` is configured but no webhook subscribes to `approval_sla_reminder`.
+11. `AT-SLA-011`: `agentxchain step` evaluates due approval SLA reminders before exiting on a pending approval.
+12. `AT-SLA-012`: `runLoop()` evaluates due approval SLA reminders when it encounters a pending gate.
 
 ---
 
@@ -174,7 +177,7 @@ This file is:
 
 ## Decisions
 
-- `DEC-APPROVAL-SLA-REMINDERS-001`: Approval SLA reminders are a notification feature, not a timeout feature. They emit `approval_sla_reminder` webhook events at configured time thresholds after an approval is requested. They never block or mutate governed state. Evaluation is lazy (at CLI interaction / dashboard poll). Scope is repo-local only.
+- `DEC-APPROVAL-SLA-REMINDERS-001`: Approval SLA reminders are a notification feature, not a timeout feature. They emit `approval_sla_reminder` webhook events at configured time thresholds after an approval is requested. They never block or mutate governed state. Evaluation is lazy at truthful operator touchpoints (`status`, dashboard `/api/poll`, `step`, and `run` gate handling). Scope is repo-local only.
 
 ---
 

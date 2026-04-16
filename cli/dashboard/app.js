@@ -79,11 +79,14 @@ const viewState = {
     hookName: 'all',
   },
 };
+const DASHBOARD_POLL_INTERVAL_MS = 60 * 1000;
 
 let activeViewName = null;
 let activeViewData = null;
 let dashboardSession = null;
 let actionInFlight = false;
+let pollInFlight = false;
+let pollTimer = null;
 const liveObserverState = {
   connected: false,
   lastRefreshAt: null,
@@ -274,6 +277,39 @@ function rerenderActiveView() {
   renderView(activeViewName, activeViewData);
 }
 
+async function pollDashboard({ refreshView = false } = {}) {
+  if (pollInFlight) return;
+  pollInFlight = true;
+  try {
+    await fetch('/api/poll', { cache: 'no-store' });
+    if (refreshView) {
+      await loadView(currentView());
+    }
+  } catch {
+    // Best-effort heartbeat only
+  } finally {
+    pollInFlight = false;
+  }
+}
+
+function startDashboardPolling() {
+  if (pollTimer) return;
+
+  const tick = () => {
+    if (document.visibilityState === 'hidden') return;
+    if (actionInFlight) return;
+    void pollDashboard({ refreshView: true });
+  };
+
+  pollTimer = setInterval(tick, DASHBOARD_POLL_INTERVAL_MS);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void pollDashboard({ refreshView: true });
+    }
+  });
+}
+
 // ── WebSocket connection ──────────────────────────────────────────────────
 
 let ws = null;
@@ -291,7 +327,9 @@ function connect() {
     statusLabel.textContent = 'Connected';
     reconnectDelay = 1000;
     liveObserverState.connected = true;
-    loadView(currentView());
+    void pollDashboard().finally(() => {
+      loadView(currentView());
+    });
   };
 
   ws.onmessage = (event) => {
@@ -501,5 +539,6 @@ function fallbackSelect(el) {
 
 Promise.all([pickInitialView(), loadSession()]).finally(() => {
   updateNav();
+  startDashboardPolling();
   connect();
 });

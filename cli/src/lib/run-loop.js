@@ -35,6 +35,7 @@ import {
 import { runAdmissionControl } from './admission-control.js';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
+import { evaluateApprovalSlaReminders } from './notification-runner.js';
 
 const DEFAULT_MAX_TURNS = 50;
 
@@ -495,6 +496,8 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
  * Handle a paused state by checking for pending gates and calling approveGate.
  */
 async function handleGatePause(root, config, state, callbacks, emit) {
+  evaluateApprovalSlaReminders(root, config, state);
+
   if (state.pending_phase_transition) {
     emit({ type: 'gate_paused', gateType: 'phase_transition', state });
     let approved;

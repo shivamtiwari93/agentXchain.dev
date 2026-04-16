@@ -67,6 +67,7 @@ import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest, verifyDispatchManifest } from '../lib/dispatch-manifest.js';
 import { resolveGovernedRole } from '../lib/role-resolution.js';
 import { shouldSuggestManualQaFallback } from '../lib/manual-qa-fallback.js';
+import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -169,6 +170,7 @@ export async function stepCommand(opts) {
 
   if (!skipAssignment) {
     if (state.pending_phase_transition || state.pending_run_completion) {
+      evaluateApprovalSlaReminders(root, config, state);
       printRecoverySummary(state, 'This run is awaiting approval.', config);
       process.exit(1);
     }

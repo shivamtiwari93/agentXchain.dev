@@ -382,6 +382,22 @@ describe('App Shell — live observer routing', () => {
   });
 });
 
+describe('App Shell — dashboard polling contract', () => {
+  const appSource = readFileSync(join(import.meta.dirname, '..', 'dashboard', 'app.js'), 'utf8');
+
+  it('AT-DPOLL-002: defines a 60-second visible-tab heartbeat to /api/poll', () => {
+    assert.match(appSource, /const DASHBOARD_POLL_INTERVAL_MS = 60 \* 1000;/);
+    assert.match(appSource, /fetch\('\/api\/poll', \{ cache: 'no-store' \}\)/);
+    assert.match(appSource, /document\.visibilityState === 'hidden'/);
+    assert.match(appSource, /setInterval\(tick, DASHBOARD_POLL_INTERVAL_MS\)/);
+  });
+
+  it('AT-DPOLL-003: refreshes the active view after a poll tick instead of treating poll as fire-and-forget', () => {
+    assert.match(appSource, /pollDashboard\(\{ refreshView: true \}\)/);
+    assert.match(appSource, /if \(refreshView\) \{\s*await loadView\(currentView\(\)\);\s*\}/);
+  });
+});
+
 // ── VIEWS registry contract ───────────────────────────────────────────────
 
 describe('App Shell — VIEWS registry', () => {

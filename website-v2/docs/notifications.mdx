@@ -91,8 +91,9 @@ Per `DEC-APPROVAL-TIMEOUT-EXEMPT-001`, approval-pending states are exempt from t
 Reminders are **lazily evaluated** at operator interaction time:
 
 - `agentxchain status` evaluates and fires due reminders as a side effect.
-- The dashboard daemon evaluates on each status poll tick.
-- `agentxchain step` / `agentxchain run` evaluate before dispatch if an approval is pending.
+- The dashboard browser shell calls `GET /api/poll` immediately on connect and every 60 seconds while the tab is visible. That heartbeat evaluates due reminders exactly once per poll tick.
+- `agentxchain step` evaluates before it exits on an already-pending approval.
+- `agentxchain run` evaluates when the run loop enters a pending gate before the operator approves or holds it.
 
 Each threshold fires once per pending approval. If a 1-hour threshold fires, it will not fire again until the approval is resolved and a new approval starts.
 

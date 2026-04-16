@@ -18,7 +18,7 @@ const EVENT_NAMES = [];
 for (const match of NOTIFICATION_RUNNER_SRC.matchAll(/'([a-z_]+)'/g)) {
   const value = match[1];
   if (
-    ['run_blocked', 'operator_escalation_raised', 'escalation_resolved', 'phase_transition_pending', 'run_completion_pending', 'run_completed'].includes(value)
+    ['run_blocked', 'operator_escalation_raised', 'escalation_resolved', 'phase_transition_pending', 'run_completion_pending', 'run_completed', 'approval_sla_reminder'].includes(value)
     && !EVENT_NAMES.includes(value)
   ) {
     EVENT_NAMES.push(value);
@@ -63,6 +63,13 @@ describe('Notifications docs contract', () => {
     assert.match(DOC, /best-effort/i);
     assert.match(DOC, /do not block/i);
     assert.match(DOC, /advisory/i);
+  });
+
+  it('documents the truthful lazy evaluation boundaries for approval SLA reminders', () => {
+    assert.match(DOC, /GET \/api\/poll/);
+    assert.match(DOC, /every 60 seconds while the tab is visible/i);
+    assert.match(DOC, /agentxchain step/);
+    assert.match(DOC, /agentxchain run/);
   });
 
   it('does not fabricate run_failed as a shipped notification event', () => {

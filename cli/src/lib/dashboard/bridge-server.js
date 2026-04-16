@@ -26,6 +26,8 @@ import { readWorkflowKitArtifacts } from './workflow-kit-artifacts.js';
 import { readConnectorHealthSnapshot } from './connectors.js';
 import { readTimeoutStatus } from './timeout-status.js';
 import { queryRunHistory } from '../run-history.js';
+import { loadProjectContext, loadProjectState } from '../config.js';
+import { evaluateApprovalSlaReminders } from '../notification-runner.js';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -214,6 +216,40 @@ function resolveDashboardAssetPath(dashboardDir, pathname) {
   return { blocked: false, filePath };
 }
 
+function readDashboardPollStatus(workspacePath, replayMode) {
+  const body = {
+    ok: true,
+    polled_at: new Date().toISOString(),
+    replay_mode: replayMode,
+    governed_project_detected: false,
+    state_available: false,
+    reminder_evaluation: {
+      reminders_sent: [],
+      notifications_emitted: 0,
+    },
+  };
+
+  if (replayMode) {
+    return { ok: true, status: 200, body };
+  }
+
+  const context = loadProjectContext(workspacePath);
+  if (!context || context.config?.protocol_mode !== 'governed') {
+    return { ok: true, status: 200, body };
+  }
+
+  body.governed_project_detected = true;
+
+  const state = loadProjectState(context.root, context.config);
+  if (!state) {
+    return { ok: true, status: 200, body };
+  }
+
+  body.state_available = true;
+  body.reminder_evaluation = evaluateApprovalSlaReminders(context.root, context.config, state);
+  return { ok: true, status: 200, body };
+}
+
 // ── Bridge Server ───────────────────────────────────────────────────────────
 
 export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, replayMode = false }) {
@@ -312,6 +348,12 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, 
           approve_gate: !replayMode,
         },
       });
+      return;
+    }
+
+    if (pathname === '/api/poll') {
+      const result = readDashboardPollStatus(workspacePath, replayMode);
+      writeJson(res, result.status, result.body);
       return;
     }
 
