@@ -33,8 +33,11 @@ bash scripts/release-bump.sh --target-version <semver> --coauthored-by "Name <em
    - `.agentxchain-conformance/capabilities.json`
    - `website-v2/docs/protocol-implementor-guide.mdx`
    - `.planning/LAUNCH_EVIDENCE_REPORT.md`
+   - `.planning/SHOW_HN_DRAFT.md`
+   - `.planning/MARKETING/TWITTER_THREAD.md`
+   - `.planning/MARKETING/REDDIT_POSTS.md`
+   - `.planning/MARKETING/HN_SUBMISSION.md`
    - `website-v2/static/llms.txt`
-   - `website-v2/static/sitemap.xml`
    - `cli/homebrew/agentxchain.rb`
    - `cli/homebrew/README.md`
 6. Auto-aligns the Homebrew mirror formula URL and README version/tarball to the target version. The SHA256 is carried from the previous committed formula because the registry tarball SHA is inherently a post-publish artifact (npm registry tarballs are not byte-identical to local `npm pack` output). Any working-tree SHA edits are overwritten during the bump. `sync-homebrew.sh` corrects the SHA after publish. See `DEC-HOMEBREW-SHA-SPLIT-001`.
@@ -66,7 +69,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 3. Assert `package.json` version ≠ target (prevent double-bump)
 4. Assert the tree contains no dirty paths outside the release-surface whitelist for the target version
 5. Run `npm version ${TARGET} --no-git-tag-version` — this updates `package.json` only
-6. Fail closed unless every governed version surface already references the target version (9 manual surfaces: changelog, release notes page, sidebar, homepage badge, capabilities, implementor guide, launch evidence, `llms.txt`, `sitemap.xml`)
+6. Fail closed unless every governed version surface already references the target version (current public/docs surfaces pre-bump; marketing/package-version surfaces stage into the same release commit)
 7. Normalize all release-note `sidebar_position` values so reverse-semver order maps to contiguous positions starting at `0`
 8. Auto-align the Homebrew mirror formula URL and README to the target version (SHA carried from the previous committed formula; corrected post-publish by `sync-homebrew.sh`)
 9. Stage `package.json`, `package-lock.json`, and any allowed release-surface files that exist, plus any older release notes touched by normalization
@@ -102,6 +105,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 - `AT-RIH-010`: In a temp git repo with target-version discovery-surface edits prepared, `release-bump.sh --target-version <semver>` stages `website-v2/static/llms.txt` and `website-v2/static/sitemap.xml` into the same release commit, and rejects the bump if either omits the current release route
 - `AT-RIH-011`: `release-bump.sh` automatically normalizes release-note `sidebar_position` values, assigning the new release `0`, incrementing older releases, and staging any touched legacy release-note docs in the same release commit
 - `AT-RIH-012`: `release-bump.sh` requires `--coauthored-by`, creates the release commit with subject `<semver>`, and records `Co-Authored-By: <value>` in the commit body without relying on a later amend
+- `AT-RIH-013`: Package-version-driven marketing drafts (`SHOW_HN_DRAFT.md`, Twitter thread, Reddit posts, HN submission) are allowed and staged into the same release commit so inline preflight does not require a follow-up recovery commit just to make current-release marketing truth match `package.json`
 
 ## Open Questions
 
