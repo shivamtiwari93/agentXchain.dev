@@ -350,6 +350,40 @@ describe('multi status CLI', () => {
     }
   });
 
+  it('AT-CLI-MR-018: multi status renders canonical pending-gate detail rows', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const statePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.pending_gate = {
+        gate: 'phase_transition:implementation->qa',
+        gate_type: 'phase_transition',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+        human_barriers: ['PM_SIGNOFF.md'],
+      };
+      state.status = 'paused';
+      writeJson(statePath, state);
+
+      const result = runCli(workspace, ['multi', 'status']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.match(result.stdout, /Pending Gate:/);
+      assert.match(result.stdout, /Type: phase_transition/);
+      assert.match(result.stdout, /Gate: phase_transition:implementation->qa/);
+      assert.match(result.stdout, /Current Phase: implementation/);
+      assert.match(result.stdout, /Target Phase: qa/);
+      assert.match(result.stdout, /Required Repos: api, web/);
+      assert.match(result.stdout, /Approval State: Awaiting human approval/);
+      assert.match(result.stdout, /Human Barriers: PM_SIGNOFF\.md/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CLI-MR-006: multi status fails without init', () => {
     const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
     try {
@@ -631,5 +665,11 @@ describe('multi help surface', () => {
     assert.match(MULTI_SOURCE, /deriveCoordinatorNextActions/);
     assert.match(MULTI_SOURCE, /collectCoordinatorRepoSnapshots/);
     assert.doesNotMatch(MULTI_SOURCE, /Action:\s+Run \$\{chalk\.cyan\('agentxchain multi approve-gate'\)\} to advance/);
+  });
+
+  it('AT-CLI-MR-019: multi command imports shared coordinator pending-gate presentation helpers', () => {
+    assert.match(MULTI_SOURCE, /getCoordinatorPendingGateDetails/);
+    assert.doesNotMatch(MULTI_SOURCE, /const fromTo = pg\.from && pg\.to/);
+    assert.doesNotMatch(MULTI_SOURCE, /Pending Gate: \$\{pg\.gate\}/);
   });
 });

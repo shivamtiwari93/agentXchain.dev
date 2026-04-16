@@ -13,6 +13,7 @@ const CLI_DOCS = read('website-v2/docs/cli.mdx');
 const CLI_ENTRY = read('cli/bin/agentxchain.js');
 const MULTI_IMPL = read('cli/src/commands/multi.js');
 const SPEC = read('.planning/CLI_DOCS_MULTI_CONTRACT_SPEC.md');
+const PENDING_GATE_SPEC = read('.planning/COORDINATOR_CLI_PENDING_GATE_PRESENTATION_SPEC.md');
 
 function extractSection(startHeading) {
   const start = CLI_DOCS.indexOf(startHeading);
@@ -111,6 +112,14 @@ describe('CLI multi docs contract', () => {
     assert.match(multiSection, /next_actions/);
   });
 
+  it('AT-DOCS-MULTI-007: documents canonical pending-gate detail rows for multi status', () => {
+    assert.match(multiSection, /Pending Gate/i);
+    assert.match(multiSection, /Current Phase/i);
+    assert.match(multiSection, /Target Phase/i);
+    assert.match(multiSection, /Required Repos/i);
+    assert.match(multiSection, /Approval State/i);
+  });
+
   it('references agentxchain-multi.json as the config prerequisite', () => {
     assert.match(multiSection, /agentxchain-multi\.json/);
   });
@@ -130,6 +139,11 @@ describe('CLI multi spec alignment', () => {
   it('spec exists and references the shipped state', () => {
     assert.ok(SPEC.length > 0, 'spec file must exist');
     assert.match(SPEC, /multi/i);
+  });
+
+  it('pending-gate presentation spec exists and references multi status', () => {
+    assert.ok(PENDING_GATE_SPEC.length > 0, 'pending-gate spec file must exist');
+    assert.match(PENDING_GATE_SPEC, /multi status/i);
   });
 });
 

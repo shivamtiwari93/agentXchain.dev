@@ -14,6 +14,7 @@ import chalk from 'chalk';
 import { normalizeCoordinatorGateApprovalFailure } from '../lib/coordinator-gate-approval.js';
 import { loadCoordinatorConfig } from '../lib/coordinator-config.js';
 import { deriveCoordinatorNextActions } from '../lib/coordinator-next-actions.js';
+import { getCoordinatorPendingGateDetails } from '../lib/coordinator-pending-gate-presentation.js';
 import { collectCoordinatorRepoSnapshots } from '../lib/coordinator-repo-snapshots.js';
 import {
   initializeCoordinatorRun,
@@ -137,11 +138,9 @@ export async function multiStatusCommand(options) {
     console.log(`Blocked:      ${chalk.red.bold('BLOCKED')} — ${reason}`);
   }
 
-  // Pending gate with phase transition direction
+  // Pending gate details
   if (status.pending_gate) {
-    const pg = status.pending_gate;
-    const fromTo = pg.from && pg.to ? ` ${pg.from} → ${pg.to}` : '';
-    console.log(`Pending Gate: ${pg.gate} (${pg.gate_type})${fromTo}`);
+    printCoordinatorPendingGate(status.pending_gate);
   }
 
   printCoordinatorNextActions(nextActions);
@@ -215,6 +214,18 @@ function printCoordinatorNextActions(nextActions, write = console.log) {
     if (action.reason) {
       write(`     ${action.reason}`);
     }
+  }
+}
+
+function printCoordinatorPendingGate(pendingGate, write = console.log) {
+  const details = getCoordinatorPendingGateDetails({ pendingGate });
+  if (details.length === 0) {
+    return;
+  }
+
+  write('Pending Gate:');
+  for (const detail of details) {
+    write(`  ${detail.label}: ${detail.value}`);
   }
 }
 
