@@ -9,6 +9,8 @@
  * server-side gate evaluators used by `multi step` and `multi approve-gate`.
  */
 
+import { getCoordinatorBlockerDetails } from '../../src/lib/coordinator-blocker-presentation.js';
+
 function esc(str) {
   if (!str) return '';
   return String(str)
@@ -41,6 +43,7 @@ function blockerColor(code) {
 function renderBlockerRow(blocker) {
   const code = blocker.code || 'unknown';
   const color = blockerColor(code);
+  const details = getCoordinatorBlockerDetails(blocker);
   let html = `<div class="turn-card" style="border-left: 3px solid ${color}">
     <div class="turn-header">
       ${badge(code, color)}
@@ -50,26 +53,10 @@ function renderBlockerRow(blocker) {
     html += `<div class="turn-summary">${esc(blocker.message)}</div>`;
   }
 
-  if (code === 'repo_run_id_mismatch' && blocker.repo_id) {
-    html += `<dl class="detail-list">
-      <dt>Repo</dt><dd class="mono">${esc(blocker.repo_id)}</dd>`;
-    if (blocker.expected_run_id) {
-      html += `<dt>Expected</dt><dd class="mono">${esc(blocker.expected_run_id)}</dd>`;
-    }
-    if (blocker.actual_run_id) {
-      html += `<dt>Actual</dt><dd class="mono">${esc(blocker.actual_run_id)}</dd>`;
-    }
-    html += `</dl>`;
-  }
-
-  if (code === 'repo_not_ready' && blocker.repo_id) {
-    html += `<dl class="detail-list">
-      <dt>Repo</dt><dd class="mono">${esc(blocker.repo_id)}</dd>`;
-    if (blocker.current_phase) {
-      html += `<dt>Current Phase</dt><dd>${esc(blocker.current_phase)}</dd>`;
-    }
-    if (blocker.required_phase) {
-      html += `<dt>Required Phase</dt><dd>${esc(blocker.required_phase)}</dd>`;
+  if (details.length > 0) {
+    html += `<dl class="detail-list">`;
+    for (const detail of details) {
+      html += `<dt>${esc(detail.label)}</dt><dd${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</dd>`;
     }
     html += `</dl>`;
   }

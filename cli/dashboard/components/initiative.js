@@ -1,3 +1,8 @@
+import {
+  getCoordinatorBlockerDetails,
+  summarizeCoordinatorAttention,
+} from '../../src/lib/coordinator-blocker-presentation.js';
+
 function esc(str) {
   if (!str) return '';
   return String(str)
@@ -103,24 +108,17 @@ function renderPrimaryAction(action) {
 }
 
 function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
-  if (!coordinatorBlockers || coordinatorBlockers.ok === false) {
+  const summary = summarizeCoordinatorAttention(coordinatorBlockers);
+  if (!summary) {
     return '';
   }
 
-  const active = coordinatorBlockers.active || {};
-  const blockers = Array.isArray(active.blockers)
-    ? active.blockers.filter((blocker) => blocker?.code !== 'no_next_phase')
-    : [];
-  const nextActions = Array.isArray(coordinatorBlockers.next_actions)
-    ? coordinatorBlockers.next_actions.filter((action) => action && typeof action === 'object')
-    : [];
-  const primaryBlocker = blockers[0] || null;
-  const primaryAction = nextActions[0] || null;
+  const { active, blockers, nextActions, primaryBlocker, primaryAction } = summary;
   const hasBlockers = blockers.length > 0;
-  const title = coordinatorBlockers.mode === 'pending_gate' ? 'Approval Snapshot' : 'Blocker Snapshot';
+  const blockerDetails = getCoordinatorBlockerDetails(primaryBlocker);
 
   let html = `<div class="gate-card">
-    <h3>${title}</h3>
+    <h3>${summary.title}</h3>
     <p class="section-subtitle">First-glance coordinator attention only. Full blocker diagnostics stay in the Blockers view.</p>
     <dl class="detail-list">`;
   if (coordinatorBlockers.mode) {
@@ -154,18 +152,16 @@ function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
     if (primaryBlocker.message) {
       html += `<div class="turn-summary">${esc(primaryBlocker.message)}</div>`;
     }
-    if (primaryBlocker.repo_id || primaryBlocker.expected_run_id || primaryBlocker.actual_run_id) {
+    if (blockerDetails.length > 0) {
       html += `<dl class="detail-list">`;
-      if (primaryBlocker.repo_id) html += `<dt>Repo</dt><dd class="mono">${esc(primaryBlocker.repo_id)}</dd>`;
-      if (primaryBlocker.expected_run_id) html += `<dt>Expected</dt><dd class="mono">${esc(primaryBlocker.expected_run_id)}</dd>`;
-      if (primaryBlocker.actual_run_id) html += `<dt>Actual</dt><dd class="mono">${esc(primaryBlocker.actual_run_id)}</dd>`;
-      if (primaryBlocker.current_phase) html += `<dt>Current Phase</dt><dd>${esc(primaryBlocker.current_phase)}</dd>`;
-      if (primaryBlocker.required_phase) html += `<dt>Required Phase</dt><dd>${esc(primaryBlocker.required_phase)}</dd>`;
+      for (const detail of blockerDetails) {
+        html += `<dt>${esc(detail.label)}</dt><dd${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</dd>`;
+      }
       html += `</dl>`;
     }
     html += `</div>`;
-    if (blockers.length > 1) {
-      html += `<p class="turn-detail">${blockers.length - 1} additional blocker${blockers.length - 1 !== 1 ? 's are' : ' is'} summarized in <a href="#blockers">Blockers</a>.</p>`;
+    if (summary.additionalBlockerCount > 0) {
+      html += `<p class="turn-detail">${summary.additionalBlockerCount} additional blocker${summary.additionalBlockerCount !== 1 ? 's are' : ' is'} summarized in <a href="#blockers">Blockers</a>.</p>`;
     }
   } else if (coordinatorBlockers.blocked_reason) {
     html += `<p class="turn-summary">${esc(
@@ -177,8 +173,8 @@ function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
 
   if (primaryAction) {
     html += `<div class="section" style="margin-top:12px">${renderPrimaryAction(primaryAction)}`;
-    if (nextActions.length > 1) {
-      html += `<p class="turn-detail">${nextActions.length - 1} additional action${nextActions.length - 1 !== 1 ? 's remain' : ' remains'} in <a href="#blockers">Blockers</a>.</p>`;
+    if (summary.additionalActionCount > 0) {
+      html += `<p class="turn-detail">${summary.additionalActionCount} additional action${summary.additionalActionCount !== 1 ? 's remain' : ' remains'} in <a href="#blockers">Blockers</a>.</p>`;
     }
     html += `</div>`;
   }

@@ -32,6 +32,7 @@ const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOA
 const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md'), 'utf8');
 const COORDINATOR_ACTION_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md'), 'utf8');
 const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INITIATIVE_VIEW_HIERARCHY_SPEC.md'), 'utf8');
+const COORDINATOR_BLOCKER_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKER_PRESENTATION_SHARED_SPEC.md'), 'utf8');
 const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_LIVE_OBSERVER_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
@@ -231,6 +232,15 @@ describe('Dashboard continuity spec', () => {
     assert.match(INITIATIVE_HIERARCHY_SPEC, /AT-IVH-004/);
     assert.match(INITIATIVE_HIERARCHY_SPEC, /`Blockers` view|Blockers view/);
     assert.match(INITIATIVE_HIERARCHY_SPEC, /first-glance overview surface/);
+  });
+
+  it('ships a durable spec for shared coordinator blocker presentation', () => {
+    assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /Coordinator Blocker Presentation Shared Spec/);
+    assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /AT-CBPS-001/);
+    assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /AT-CBPS-002/);
+    assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /AT-CBPS-003/);
+    assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /coordinator-next-actions/);
+    assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /typed blocker detail rows are shared/i);
   });
 
   it('keeps initiative hierarchy acceptance ids executable in dashboard view tests', () => {
