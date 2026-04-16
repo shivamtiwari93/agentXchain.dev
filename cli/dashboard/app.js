@@ -25,7 +25,7 @@ import {
 } from './live-observer.js';
 
 const VIEWS = {
-  timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderTimeline },
+  timeline: { fetch: ['state', 'continuity', 'history', 'events', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderTimeline },
   delegations: { fetch: ['state', 'history'], render: renderDelegations },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger', 'repoDecisionsSummary'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderHooks },
@@ -62,6 +62,7 @@ const API_MAP = {
   runHistory: '/api/run-history',
   timeouts: '/api/timeouts',
   coordinatorTimeouts: '/api/coordinator/timeouts',
+  events: '/api/events?type=turn_conflicted&limit=10',
 };
 
 const viewState = {

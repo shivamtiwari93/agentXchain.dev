@@ -38,6 +38,7 @@ const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INI
 const COORDINATOR_BLOCKER_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKER_PRESENTATION_SHARED_SPEC.md'), 'utf8');
 const COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC.md'), 'utf8');
 const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_LIVE_OBSERVER_SPEC.md'), 'utf8');
+const DASHBOARD_CONFLICT_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CONFLICT_VISIBILITY_SPEC.md'), 'utf8');
 const DASHBOARD_DOCS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DOCS_CONTRACT_SPEC.md'), 'utf8');
 const EXPECTED_TOP_LEVEL_VIEWS = [
   { id: 'initiative', label: 'Initiative' },
@@ -217,6 +218,13 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(timelineRow.includes('coordinator hook annotations') || timelineRow.includes('/api/coordinator/hooks/annotations'), 'Timeline row must describe coordinator hook annotations visibility');
   });
 
+  it('AT-DASH-CONFLICT-004: documents timeline conflict visibility and /api/events sourcing', () => {
+    const timelineRow = CLI_DOCS.split('\n').find(l => l.includes('**Timeline**'));
+    assert.ok(timelineRow?.includes('conflict panel'), 'Timeline row must describe the conflict panel');
+    assert.ok(timelineRow?.includes('/api/events?type=turn_conflicted'), 'Timeline row must describe the durable conflict events endpoint');
+    assert.ok(CLI_DOCS.includes('GET /api/events'), 'cli docs must document the events endpoint');
+  });
+
   it('documents live observer freshness for timeline and cross-repo views', () => {
     const timelineRow = CLI_DOCS.split('\n').find(l => l.includes('**Timeline**'));
     const crossRepoRow = CLI_DOCS.split('\n').find(l => l.includes('**Cross-Repo**'));
@@ -350,6 +358,13 @@ describe('Dashboard continuity spec', () => {
     assert.match(LIVE_OBSERVER_SPEC, /coordinator_event/);
     assert.match(LIVE_OBSERVER_SPEC, /Timeline/);
     assert.match(LIVE_OBSERVER_SPEC, /Cross-Repo/);
+  });
+
+  it('ships a durable spec for dashboard conflict visibility', () => {
+    assert.match(DASHBOARD_CONFLICT_SPEC, /Dashboard Conflict Visibility Spec/);
+    assert.match(DASHBOARD_CONFLICT_SPEC, /AT-DASH-CONFLICT-001/);
+    assert.match(DASHBOARD_CONFLICT_SPEC, /GET \/api\/events\?type=turn_conflicted&limit=10/);
+    assert.match(DASHBOARD_CONFLICT_SPEC, /Timeline view/);
   });
 
   it('keeps AT-DASH-ACT ids unique and aligned across dashboard proof tests', () => {

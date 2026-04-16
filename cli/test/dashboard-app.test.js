@@ -471,6 +471,14 @@ describe('App Shell — VIEWS registry', () => {
     );
     assert.match(appSource, /coordinatorRepoStatusRows:\s*'\/api\/coordinator\/repo-status'/);
   });
+
+  it('AT-DASH-CONFLICT-003: timeline fetches durable turn_conflicted events from the dashboard API map', () => {
+    assert.match(
+      appSource,
+      /timeline:\s*\{\s*fetch:\s*\['state', 'continuity', 'history', 'events', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'\],\s*render:\s*renderTimeline\s*\}/,
+    );
+    assert.match(appSource, /events:\s*'\/api\/events\?type=turn_conflicted&limit=10'/);
+  });
 });
 
 describe('App Shell — dashboard action error formatting', () => {

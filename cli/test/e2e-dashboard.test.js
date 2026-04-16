@@ -270,6 +270,18 @@ function fixtureData() {
       { turn_id: 'turn_003', hook_name: 'policy', annotations: [{ key: 'schema', value: 'normalized to v1.1 contract' }] },
       { turn_id: 'turn_003', hook_name: 'sast', annotations: [{ key: 'sast', value: 'clean on modified files' }] },
     ],
+    events: [
+      {
+        event_id: 'evt_run_started_dashboard',
+        event_type: 'run_started',
+        timestamp: '2026-04-09T21:50:00Z',
+        run_id: 'run_dashboard_e2e',
+        phase: 'development',
+        status: 'running',
+        turn: null,
+        payload: {},
+      },
+    ],
   };
 }
 
@@ -289,6 +301,7 @@ function writeFixture(agentxchainDir, state) {
   writeJsonl(join(agentxchainDir, 'decision-ledger.jsonl'), data.ledger);
   writeJsonl(join(agentxchainDir, 'hook-audit.jsonl'), data.audit);
   writeJsonl(join(agentxchainDir, 'hook-annotations.jsonl'), data.annotations);
+  writeJsonl(join(agentxchainDir, 'events.jsonl'), data.events);
   return data;
 }
 
@@ -469,7 +482,8 @@ describe('Dashboard E2E acceptance', () => {
     const state = await getJson(port, '/api/state');
     const continuity = await getJson(port, '/api/continuity');
     const history = await getJson(port, '/api/history');
-    const html = renderTimeline({ state, continuity, history });
+    const events = await getJson(port, '/api/events?type=turn_conflicted&limit=10');
+    const html = renderTimeline({ state, continuity, history, events });
 
     assert.ok(html.includes('run_dashboard_e2e'));
     assert.ok(html.includes('3 turns completed'));
@@ -481,6 +495,63 @@ describe('Dashboard E2E acceptance', () => {
     assert.ok(html.includes('Defined auth middleware scope and requested development'));
     assert.ok(html.includes('Implemented RS256 auth flow'));
     assert.ok(html.includes('Added refresh-token coverage and requested QA review'));
+  });
+
+  it('AT-DASH-CONFLICT-005: dashboard API + timeline render surface durable conflict details', async () => {
+    writeFixture(agentxchainDir, {
+      ...baseState(),
+      status: 'blocked',
+      blocked_on: 'human:conflict_loop:turn_004',
+      blocked_reason: { category: 'conflict_loop' },
+      active_turns: {
+        t4: {
+          turn_id: 'turn_004',
+          role: 'qa',
+          status: 'conflicted',
+          conflict_state: {
+            detected_at: '2026-04-09T22:02:00Z',
+            detection_count: 3,
+            conflict_error: {
+              conflicting_files: ['src/refresh.ts'],
+              accepted_since: [{ turn_id: 'turn_003' }],
+              overlap_ratio: 1,
+            },
+          },
+        },
+      },
+    });
+    writeJsonl(join(agentxchainDir, 'events.jsonl'), [
+      {
+        event_id: 'evt_conflict_004',
+        event_type: 'turn_conflicted',
+        timestamp: '2026-04-09T22:02:00Z',
+        run_id: 'run_dashboard_e2e',
+        phase: 'development',
+        status: 'blocked',
+        turn: { turn_id: 'turn_004', role_id: 'qa' },
+        payload: {
+          error_code: 'conflict',
+          detection_count: 3,
+          conflicting_files: ['src/refresh.ts'],
+          accepted_since_turn_ids: ['turn_003'],
+          overlap_ratio: 1,
+        },
+      },
+    ]);
+
+    const state = await getJson(port, '/api/state');
+    const continuity = await getJson(port, '/api/continuity');
+    const history = await getJson(port, '/api/history');
+    const events = await getJson(port, '/api/events?type=turn_conflicted&limit=10');
+    const html = renderTimeline({ state, continuity, history, events });
+
+    assert.equal(events.length, 1);
+    assert.equal(events[0].event_type, 'turn_conflicted');
+    assert.ok(html.includes('Conflicts'));
+    assert.ok(html.includes('conflict loop blocked run'));
+    assert.ok(html.includes('src/refresh.ts'));
+    assert.ok(html.includes('turn_003'));
+    assert.ok(html.includes('Detection count:'));
   });
 
   it('AT-DASH-002 pushes live invalidation within one second', async () => {

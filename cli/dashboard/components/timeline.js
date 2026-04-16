@@ -90,6 +90,11 @@ function formatTimestamp(iso) {
   }
 }
 
+function formatPercent(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return `${Math.round(value * 100)}%`;
+}
+
 function statusBadge(status) {
   const colors = {
     running: 'var(--green)',
@@ -206,6 +211,99 @@ function renderDelegationReview(review) {
   return `<div class="turn-detail"><span class="detail-label">Delegation Review:</span> <span class="mono">${esc(review.parent_turn_id || 'unknown')}</span> with ${esc(resultCount)} result${resultCount === 1 ? '' : 's'}</div>`;
 }
 
+function collectConflictCards(state, events) {
+  const latestByTurn = new Map();
+
+  if (Array.isArray(events)) {
+    for (const event of [...events].reverse()) {
+      if (event?.event_type !== 'turn_conflicted') continue;
+      const turnId = event?.turn?.turn_id;
+      if (!turnId || latestByTurn.has(turnId)) continue;
+      latestByTurn.set(turnId, {
+        turn_id: turnId,
+        role_id: event?.turn?.role_id || 'unknown',
+        detected_at: event?.timestamp || null,
+        state_label: event?.status === 'blocked' ? 'conflict loop blocked run' : 'recent conflict',
+        detection_count: typeof event?.payload?.detection_count === 'number' ? event.payload.detection_count : null,
+        conflicting_files: Array.isArray(event?.payload?.conflicting_files) ? event.payload.conflicting_files : [],
+        accepted_since_turn_ids: Array.isArray(event?.payload?.accepted_since_turn_ids) ? event.payload.accepted_since_turn_ids : [],
+        overlap_ratio: typeof event?.payload?.overlap_ratio === 'number' ? event.payload.overlap_ratio : null,
+      });
+    }
+  }
+
+  const activeTurns = state?.active_turns ? Object.values(state.active_turns) : [];
+  for (const turn of activeTurns) {
+    if (turn?.status !== 'conflicted') continue;
+    if (latestByTurn.has(turn.turn_id)) {
+      const existing = latestByTurn.get(turn.turn_id);
+      latestByTurn.set(turn.turn_id, {
+        ...existing,
+        state_label: state?.blocked_reason?.category === 'conflict_loop' && state?.blocked_on?.includes(turn.turn_id)
+          ? 'conflict loop blocked run'
+          : 'active conflict',
+      });
+      continue;
+    }
+
+    const conflictError = turn?.conflict_state?.conflict_error || {};
+    latestByTurn.set(turn.turn_id, {
+      turn_id: turn.turn_id,
+      role_id: getRole(turn),
+      detected_at: turn?.conflict_state?.detected_at || null,
+      state_label: state?.blocked_reason?.category === 'conflict_loop' && state?.blocked_on?.includes(turn.turn_id)
+        ? 'conflict loop blocked run'
+        : 'active conflict',
+      detection_count: typeof turn?.conflict_state?.detection_count === 'number' ? turn.conflict_state.detection_count : null,
+      conflicting_files: Array.isArray(conflictError.conflicting_files) ? conflictError.conflicting_files : [],
+      accepted_since_turn_ids: Array.isArray(conflictError.accepted_since)
+        ? conflictError.accepted_since.map((entry) => entry?.turn_id).filter(Boolean)
+        : [],
+      overlap_ratio: typeof conflictError.overlap_ratio === 'number' ? conflictError.overlap_ratio : null,
+    });
+  }
+
+  return [...latestByTurn.values()].slice(0, 5);
+}
+
+function renderConflictPanel(state, events) {
+  const conflicts = collectConflictCards(state, events);
+  if (conflicts.length === 0) return '';
+
+  let html = `<div class="section"><h3>Conflicts</h3><div class="turn-list">`;
+  for (const conflict of conflicts) {
+    const detectedAt = formatTimestamp(conflict.detected_at);
+    const overlap = formatPercent(conflict.overlap_ratio);
+    html += `<div class="turn-card">
+      <div class="turn-header">
+        ${roleBadge(conflict.role_id)}
+        <span class="mono">${esc(conflict.turn_id)}</span>
+        ${statusBadge('conflicted')}
+      </div>
+      <div class="turn-detail"><span class="detail-label">Scope:</span> ${esc(conflict.state_label)}</div>`;
+
+    if (detectedAt) {
+      html += `<div class="turn-detail"><span class="detail-label">Detected:</span> ${esc(detectedAt)}</div>`;
+    }
+    if (conflict.conflicting_files.length > 0) {
+      html += `<div class="turn-detail"><span class="detail-label">Files:</span> <span class="mono">${conflict.conflicting_files.map((file) => esc(file)).join(', ')}</span></div>`;
+    }
+    if (conflict.accepted_since_turn_ids.length > 0) {
+      html += `<div class="turn-detail"><span class="detail-label">Accepted since:</span> <span class="mono">${conflict.accepted_since_turn_ids.map((turnId) => esc(turnId)).join(', ')}</span></div>`;
+    }
+    if (overlap) {
+      html += `<div class="turn-detail"><span class="detail-label">Overlap:</span> ${esc(overlap)}</div>`;
+    }
+    if (conflict.detection_count != null) {
+      html += `<div class="turn-detail"><span class="detail-label">Detection count:</span> ${esc(conflict.detection_count)}</div>`;
+    }
+
+    html += `</div>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
 function renderContinuityPanel(continuity) {
   if (!continuity) return '';
 
@@ -306,7 +404,7 @@ function renderConnectorHealthPanel(connectorsPayload) {
 
 export { formatDuration, computeElapsed, formatTimestamp };
 
-export function render({ state, continuity, history, annotations, audit, connectors, coordinatorAudit = null, coordinatorAnnotations = null, liveMeta = null }) {
+export function render({ state, continuity, history, events = null, annotations, audit, connectors, coordinatorAudit = null, coordinatorAnnotations = null, liveMeta = null }) {
   if (!state) {
     return `<div class="placeholder"><h2>No Run</h2><p>No governed run found. Start one with <code class="mono">agentxchain init --governed</code></p></div>`;
   }
@@ -330,6 +428,7 @@ export function render({ state, continuity, history, annotations, audit, connect
 
   html += renderContinuityPanel(continuity);
   html += renderConnectorHealthPanel(connectors);
+  html += renderConflictPanel(state, events);
 
   // Active turns
   if (activeTurns.length > 0) {

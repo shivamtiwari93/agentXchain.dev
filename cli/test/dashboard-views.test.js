@@ -230,6 +230,81 @@ describe('Timeline View', () => {
     assert.ok(html.includes('Last run event: turn_accepted at 2026-04-15T16:09:58Z'));
     assert.ok(html.includes('WebSocket connected'));
   });
+
+  it('AT-DASH-CONFLICT-001: renders recent conflict cards from durable turn_conflicted events', () => {
+    const html = renderTimeline({
+      state: {
+        run_id: 'run_conflict_001',
+        status: 'running',
+        phase: 'implementation',
+        active_turns: {},
+      },
+      history: [],
+      events: [
+        {
+          event_id: 'evt_conflict_001',
+          event_type: 'turn_conflicted',
+          timestamp: '2026-04-16T16:30:00Z',
+          run_id: 'run_conflict_001',
+          phase: 'implementation',
+          status: 'active',
+          turn: { turn_id: 'turn_conflict_001', role_id: 'dev' },
+          payload: {
+            error_code: 'conflict',
+            detection_count: 2,
+            conflicting_files: ['src/auth.ts', 'src/policy.ts'],
+            accepted_since_turn_ids: ['turn_007', 'turn_008'],
+            overlap_ratio: 0.5,
+          },
+        },
+      ],
+    });
+
+    assert.ok(html.includes('Conflicts'));
+    assert.ok(html.includes('turn_conflict_001'));
+    assert.ok(html.includes('recent conflict'));
+    assert.ok(html.includes('src/auth.ts'));
+    assert.ok(html.includes('turn_007'));
+    assert.ok(html.includes('50%'));
+    assert.ok(html.includes('Detection count:'));
+  });
+
+  it('AT-DASH-CONFLICT-002: falls back to active-turn conflict_state when no durable event is present', () => {
+    const html = renderTimeline({
+      state: {
+        run_id: 'run_conflict_002',
+        status: 'blocked',
+        phase: 'implementation',
+        blocked_on: 'human:conflict_loop:turn_conflict_002',
+        blocked_reason: { category: 'conflict_loop' },
+        active_turns: {
+          turn_conflict_002: {
+            turn_id: 'turn_conflict_002',
+            assigned_role: 'qa',
+            status: 'conflicted',
+            conflict_state: {
+              detected_at: '2026-04-16T16:45:00Z',
+              detection_count: 3,
+              conflict_error: {
+                conflicting_files: ['docs/release.md'],
+                accepted_since: [{ turn_id: 'turn_010' }],
+                overlap_ratio: 1,
+              },
+            },
+          },
+        },
+      },
+      history: [],
+      events: [],
+    });
+
+    assert.ok(html.includes('Conflicts'));
+    assert.ok(html.includes('turn_conflict_002'));
+    assert.ok(html.includes('conflict loop blocked run'));
+    assert.ok(html.includes('docs/release.md'));
+    assert.ok(html.includes('turn_010'));
+    assert.ok(html.includes('100%'));
+  });
 });
 
 // ── Ledger View ────────────────────────────────────────────────────────────
