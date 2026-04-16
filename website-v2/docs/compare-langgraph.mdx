@@ -22,12 +22,12 @@ This page explains the differences honestly so you can pick the right tool.
 | **Agent definition** | Python functions as graph nodes | JSON config with role charters and runtime bindings |
 | **State** | Shared state object passed through graph | Governed state machine with history, events, decisions |
 | **Control flow** | Conditional edges, cycles, branches | Phase progression with gates, approvals, delegation |
-| **Governance** | None built-in | Core feature — audit trail, gates, decision carryover |
+| **Governance** | No built-in delivery-governance layer | Core feature — audit trail, gates, decision carryover |
 | **Protocol** | Implicit (graph execution semantics) | Explicit versioned protocol (v7) with conformance tiers |
-| **Human oversight** | Interrupt nodes, breakpoints | Structured approval gates, human roles, escalation |
+| **Human oversight** | Interrupts with checkpoint-backed resume, state inspection, and modification | Structured approval gates, human roles, escalation |
 | **Persistence** | Checkpointer (SQLite, Postgres) | File-based governed state (history, events, decisions) |
 | **Model support** | LangChain model integrations | Model-agnostic via adapters |
-| **Multi-repo** | Not supported | Coordinator with cross-repo barriers |
+| **Multi-repo** | No built-in cross-repo coordinator surface | Coordinator with cross-repo barriers |
 | **Cloud** | LangGraph Platform / LangSmith Deployment | Self-hosted today + agentxchain.ai managed-cloud early access |
 | **License** | MIT | MIT |
 
@@ -38,8 +38,8 @@ This page explains the differences honestly so you can pick the right tool.
 - **Graph expressiveness.** LangGraph's directed graph model is powerful for workflows with complex branching, cycles, and conditional logic. If your workflow naturally maps to a graph, LangGraph makes it easy to express.
 - **Fine-grained control.** Each node is a Python function with full control over state transitions. You can model arbitrary workflows, not just linear phase progressions.
 - **LangChain ecosystem.** Deep integration with LangChain's model providers, tools, and observability (LangSmith).
-- **Checkpointing.** Built-in persistence via checkpointers lets you resume workflows from any node.
-- **LangGraph Platform.** Hosted cloud execution with API access and monitoring.
+- **Checkpointing.** Built-in checkpointers, durable execution, and time travel let you resume from persisted checkpoints and prior thread state.
+- **LangSmith Deployment.** Managed deployment/runtime with cloud, hybrid, or self-hosted options plus Studio and observability.
 - **General purpose.** Works for any stateful agent workflow, not limited to software development.
 
 If your requirement is hosted cloud execution today, LangGraph is the stronger answer today. AgentXchain's managed cloud surface exists publicly at `agentxchain.ai`, but it is still opening through early access rather than matching LangGraph Platform as a mature hosted runtime.
@@ -50,18 +50,18 @@ If your requirement is hosted cloud execution today, LangGraph is the stronger a
 
 ### 1. Governance as a First-Class Concern
 
-LangGraph gives you powerful orchestration primitives but no governance layer. You can build a complex agent workflow, but:
+LangGraph gives you powerful orchestration primitives but no built-in delivery-governance layer. You can build a complex agent workflow, but:
 
 - There is no decision ledger recording what was decided and why
 - There is no turn-level audit trail
 - There is no mechanism to prevent phase advancement without criteria being met
-- There is no built-in human authority model beyond interrupt nodes
+- There is no built-in human authority model beyond interrupts and application-defined logic
 
 AgentXchain treats governance as the core product, not an afterthought. Every turn produces a validated, structured result. Every decision gets a permanent ID. Every phase transition requires explicit approval or gate satisfaction. The system is designed so that after a 100-turn run, you can export a complete governance artifact that proves exactly what happened.
 
 ### 2. Role-Based Authority vs. Node-Based Flow
 
-LangGraph models agents as **graph nodes** with state transitions. Authority is implicit — any node can modify any part of the shared state.
+LangGraph models agents as **graph nodes** with state transitions. Authority is implicit by default — node logic can update any declared shared-state channel unless you add extra application constraints.
 
 AgentXchain models agents as **governed roles** with explicit charters, write authority levels, and mandate boundaries. A `qa` role with `review_only` write authority cannot make authoritative code changes. A `dev` role cannot approve phase transitions without gate satisfaction. Authority is structural, not just conversational.
 
@@ -104,7 +104,7 @@ AgentXchain supports divergent collaboration through:
 - Your workflow has complex branching and conditional logic
 - You want fine-grained control over every state transition
 - You're already invested in the LangChain ecosystem
-- You want hosted cloud execution (LangGraph Platform)
+- You want managed deployment/runtime today (LangSmith Deployment)
 - You don't need governance, audit trails, or formal decision records
 
 ## When to Choose AgentXchain

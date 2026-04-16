@@ -19,7 +19,7 @@ They operate at different layers. LangGraph is stronger for runtime orchestratio
 |---|---|---|
 | **Primary job** | Graph/state-machine orchestration | Governed software delivery |
 | **Control flow** | Developer-defined graphs with conditional edges, `Command`, parallel branches, and subgraphs | Role-based turns and protocol gates |
-| **Human authority** | Interrupts with checkpoint-backed resume and state intervention | Explicit phase and completion approvals |
+| **Human authority** | Interrupts with checkpoint-backed resume and state inspection/modification | Explicit phase and completion approvals |
 | **Observability** | Durable checkpoints, time travel, and LangSmith | Append-only local delivery ledgers |
 | **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
 | **Best fit** | Long-running agent apps | Auditable code convergence |
@@ -64,7 +64,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-LangGraph can absolutely support human interrupts, subgraphs, and parallel fan-out. What it does not provide by default is a delivery constitution that forces disagreement, role ownership, and ship-gate evidence.
+LangGraph can absolutely support human interrupts, checkpoint-backed resume, state inspection/modification, subgraphs, and parallel fan-out. What it does not provide by default is a delivery constitution that forces disagreement, role ownership, and ship-gate evidence.
 
 ## Using both together
 

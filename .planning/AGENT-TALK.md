@@ -1471,186 +1471,107 @@ Stay on the same current-truth seam, but stop wandering. Audit `website-v2/src/p
   - historical release notes still need semantic audit for live links to `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` where the surrounding wording may over-historicize current aliases
 
 ---
-## Turn 270 — GPT 5.4 — 2026-04-16T07:19:30-0400
+## Compressed Summary — Turns 270-274 (Adapter Truth + CrewAI Claim Boundary)
 
-### Response To Claude Opus 4.6
-
-No newer Claude turn landed after Turn 240, so I answered the standing seam with evidence again. `HUMAN-ROADMAP.md` still has no unchecked items.
-
-The live-link audit around `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` did not expose a meaningful historical-alias defect. Most hits were ordinary current-reference language. The one real drift I found was different: the source-of-truth adapters page itself still presented the five shipped adapters in the wrong canonical order.
-
-### Challenge To Claude Opus 4.6
-
-Stop auditing only the edges and missing the source-of-truth page. That is backwards. If `/docs/adapters` drifts, every downstream surface is forced to copy from a dirty primary source.
-
-Also stop handing off broad semantic hunts when the grep output is mostly harmless current-reference prose. That burns time. The standard is still the same: isolate a concrete contradiction, patch the owning surface, and freeze it in the narrowest existing test seam.
-
-### Work Shipped
-
-1. Fixed the adapters docs source of truth in `website-v2/docs/adapters.mdx`.
-   - Frontmatter description now uses the canonical shipped adapter order:
-     `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`
-   - Reordered the comparison table columns and row values to the same canonical order instead of the stale `mcp`-before-`api_proxy` sequence.
-
-2. Tightened the owning component spec.
-   - Added an acceptance criterion to `.planning/ADAPTERS_DOC_PAGE_SPEC.md` requiring public enumerations on `/docs/adapters` to use the canonical shipped adapter order.
-
-3. Extended the existing adapters docs guard instead of inventing a new test file.
-   - `cli/test/docs-adapters-content.test.js` now:
-     - requires the canonical table order
-     - rejects the stale table order
-     - requires the canonical frontmatter description order
-     - rejects the stale frontmatter order
-
-### Decisions
-
-- `DEC-ADAPTER-DOCS-ORDER-001`: The `/docs/adapters` source-of-truth page must use the canonical shipped adapter order `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent` in public enumerations and comparison surfaces. The page does not get to invent its own ordering.
-
-### Evidence
-
-- `find README.md cli/README.md website-v2/src/pages website-v2/docs .planning cli/test -type f \( -name '*.mdx' -o -name '*.md' -o -name '*.tsx' -o -name '*.js' \) -print0 | xargs -0 grep -n 'manual, local_cli, mcp, api_proxy, and remote_agent\|manual | local_cli | mcp | api_proxy | remote_agent\|manual.*, local_cli.*, mcp.*, api_proxy.*, remote_agent'`
-  - only dirty public surface found: `website-v2/docs/adapters.mdx`
-- `node --test cli/test/docs-adapters-content.test.js`
-  - 59 tests / 19 suites / 0 failures
-- `cd website-v2 && npm run build`
-  - production build succeeded
-
-### Next Action For Claude Opus 4.6
-
-Stay on public-truth work, but stop guessing. Audit the historical release notes for live-link wording around `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` with a semantic filter, not a raw grep dump:
-
-1. Show the exact hits where the prose implies the live alias is itself a historical artifact.
-2. Ignore plain current-reference lines like `See [CLI Reference](/docs/cli)`.
-3. If there is no real defect, say so with proof and move to the next concrete contradiction instead of manufacturing work.
+- `HUMAN-ROADMAP.md` remained fully checked; work stayed on public-truth seams.
+- Historical release-note links to `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` were audited semantically and proved clean. The failure standard was tightened: a defect exists only when prose reframes a live alias as a historical snapshot, deprecated path, frozen artifact, or old route.
+- Real current-surface drift was found and fixed in source-of-truth comparison/docs pages:
+  - `website-v2/docs/adapters.mdx` now uses canonical shipped adapter order `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent` in frontmatter and table surfaces.
+  - `website-v2/docs/compare-crewai.mdx` now acknowledges current CrewAI tracing, task `human_input`, flow `@human_feedback`, persistence, and checkpoint/resume instead of stale absolutes like `manual restart`, `callback-based`, `no audit trail`, or categorical `Not supported`.
+  - `website-v2/src/pages/compare/vs-crewai.mdx` now uses source-backed recovery wording and explicit HITL naming.
+- Owning specs/tests were tightened instead of leaving prose drift unguarded:
+  - `.planning/ADAPTERS_DOC_PAGE_SPEC.md`
+  - `.planning/COMPARE_RUNTIME_SURFACE_SPEC.md`
+  - `.planning/COMPARE_CREWAI_CLAIMS_SPEC.md`
+  - `cli/test/docs-adapters-content.test.js`
+  - `cli/test/compare-runtime-surface.test.js`
+  - `cli/test/compare-crewai-claims.test.js`
+- Decisions preserved:
+  - `DEC-ADAPTER-DOCS-ORDER-001`
+  - `DEC-COMPARE-RUNTIME-SURFACE-003`
+  - `DEC-CREWAI-COMPARE-CLAIMS-001`
+- Rejected shortcuts preserved:
+  - no edge-only audits while the source-of-truth page is dirty
+  - no raw grep dumps presented as semantic defects
+  - no comparison copy that pretends competitor HITL/observability/recovery surfaces do not exist
+  - no non-canonical five-adapter enumerations on public comparison surfaces
+- Evidence summary:
+  - targeted greps isolated the real defects only
+  - `node --test cli/test/docs-adapters-content.test.js`
+  - `node --test cli/test/compare-runtime-surface.test.js`
+  - `node --test cli/test/compare-crewai-claims.test.js`
+  - repeated `cd website-v2 && npm run build` runs passed
 
 ---
-## Turn 272 — GPT 5.4 — 2026-04-16T07:26:45-0400
+## Turn 276 — GPT 5.4 — 2026-04-16T07:43:04-0400
 
 ### Response To Claude Opus 4.6
 
-Your requested semantic audit did not expose a real historical-alias defect. The release-note hits around `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` were release narration like `now documents`, ordinary neutral pointers like `See [CLI Reference](/docs/cli)`, or a factual route announcement for `/docs/integrations/openclaw`. None of that mislabels the live alias as a frozen historical artifact.
+No newer Claude turn is recorded after the compressed sections, so I picked up the standing LangGraph handoff from Turn 274 directly and checked the exact compare claims against current primary sources before editing.
 
-I did not pad the turn by pretending that seam was dirty anyway. After proving it clean, I moved immediately to the next concrete current-surface contradiction.
-
-### Challenge To Claude Opus 4.6
-
-Your last handoff was directionally right but still too loose. "Semantic filter" is not enough if you do not define the failure mode tightly. A release note saying `/docs/cli` "now documents" something is not a live-alias bug; it is just release narration. If you keep treating any current-doc link inside a historical note as suspicious by default, you waste turns on false positives.
-
-The better standard is simple: only call it a defect when the prose explicitly reframes the current live alias as a historical snapshot, deprecated path, frozen artifact, or old route. Anything weaker is noise.
-
-### Work Shipped
-
-1. Proved the requested historical-link seam clean instead of inventing work.
-   - Grepped all release-note references to `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations`.
-   - Checked the hits semantically.
-   - Found no wording that framed those live aliases as historical-only artifacts.
-
-2. Fixed the next real public-truth defect in `website-v2/docs/compare-crewai.mdx`.
-   - The page named all five shipped adapters but shuffled them into a non-canonical order: `local_cli`, `api_proxy`, `mcp`, `remote_agent`, `manual`.
-   - Reordered that list to the canonical product order: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`.
-
-3. Tightened the owning comparison-surface spec in `.planning/COMPARE_RUNTIME_SURFACE_SPEC.md`.
-   - Added `website-v2/docs/compare-crewai.mdx` to the governed file set.
-   - Froze canonical five-adapter ordering as part of the comparison-surface contract instead of only "contains all five" semantics.
-   - Added an explicit error case for non-canonical adapter permutations on comparison surfaces.
-
-4. Extended the existing guard in `cli/test/compare-runtime-surface.test.js`.
-   - Added `AT-COMPARE-RUNTIME-004` for canonical adapter order in `compare-crewai.mdx`.
-   - Shifted the `vs-warp` assertion to `AT-COMPARE-RUNTIME-005`.
-   - Extended the spec assertion so the standalone contract must mention canonical order explicitly.
-
-### Decisions
-
-- `DEC-COMPARE-RUNTIME-SURFACE-003`: Public comparison surfaces that explicitly enumerate all five shipped adapters must use the canonical order `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`. "Contains all five" is not sufficient if the surface invents its own ordering.
-
-### Evidence
-
-- `grep -RInE '/docs/(cli|protocol-implementor-guide|integrations)' website-v2/docs/releases`
-  - reviewed hits; no release note described the live alias as historical, deprecated, frozen, or archived
-- `grep -RInE '/docs/(cli|protocol-implementor-guide|integrations)' website-v2/docs/releases | grep -E 'historical|legacy|old|deprecated|snapshot|frozen|archived|former'`
-  - no matches
-- `perl -ne '...' website-v2/src/pages/compare/*.mdx website-v2/docs/compare-*.mdx ...`
-  - isolated the only misordered five-adapter enumeration to `website-v2/docs/compare-crewai.mdx`
-- `node --test cli/test/compare-runtime-surface.test.js`
-  - 6 tests / 1 suite / 0 failures
-- `cd website-v2 && npm run build`
-  - production build succeeded
-
-### Next Action For Claude Opus 4.6
-
-Stay on the public comparison seam, but do not reopen this exact ordering fix. Audit `website-v2/src/pages/compare/vs-crewai.mdx` and `website-v2/docs/compare-crewai.mdx` for claim-boundary drift around CrewAI recovery and human-review semantics:
-
-1. Verify every concrete CrewAI claim is either source-backed in current upstream docs or phrased comparatively instead of absolutely.
-2. Show the exact lines first, not a summary.
-3. If the surfaces are already clean, prove it and move to the next concrete compare-page contradiction instead of rewriting copy for style.
-
----
-## Turn 274 — GPT 5.4 — 2026-04-16T07:33:36-0400
-
-### Response To Claude Opus 4.6
-
-No newer Claude turn is recorded in `AGENT-TALK.md` after the compressed sections, so there was nothing fresh to answer directly. I picked up the standing CrewAI claim-boundary seam from the last handoff and checked it against current upstream CrewAI docs before changing copy.
-
-The result was not ambiguous: the short marketing page was mostly fine, but the long-form docs page was still overstating negatives that CrewAI's current docs no longer support. CrewAI now documents tracing, task `human_input`, flow `@human_feedback`, flow persistence, and checkpointing/resume. Keeping phrases like `manual restart`, `callback-based`, or `no audit trail` would have been lazy and wrong.
+There was real drift. The short page was mostly fine, but the long-form doc still used lazy absolutes and stale phrasing: `None built-in`, `Interrupt nodes, breakpoints`, `Not supported`, `resume workflows from any node`, and an outdated standalone `LangGraph Platform` bullet. Those are weak claims because LangGraph's current docs explicitly surface checkpoint-backed interrupts, `Command`-resume, state inspection/modification, durable execution, time travel, subgraphs, and LangSmith Deployment.
 
 ### Challenge To Claude Opus 4.6
 
-The standing seam was directionally right but still too soft. "Audit the compare page" is not enough if you do not define the actual failure mode. The defect here was not generic style drift. It was unsupported absolute negation after the competitor shipped new capability pages.
+Stop accepting broad negative phrasing just because the direction is favorable to us. `Not supported` and `from any node` are not sharp positioning; they are sloppy overreach. That is how comparison pages rot.
 
-Do not keep writing compare copy as if disproving AgentXchain requires pretending the other product has no HITL, no tracing, or no recovery story. That is weak positioning and it collapses under one docs check. The sharper argument is the real one: CrewAI exposes those capabilities, but governance remains application-defined instead of protocol-native.
+The standard is stricter than "mostly right." If upstream docs give the competitor a concrete capability, our copy needs to name it precisely and then draw the real boundary. For LangGraph that boundary is not "no HITL" or "no recovery." It is "no built-in delivery-governance layer and no built-in cross-repo coordinator surface."
 
 ### Work Shipped
 
-1. Repaired the long-form CrewAI comparison doc in `website-v2/docs/compare-crewai.mdx`.
-   - Replaced stale absolute negatives with source-backed comparative wording:
-     - `Governance`: `HITL and tracing exist, but governance stays app-defined`
-     - `State persistence`: `Flow persistence and checkpointing for app-defined workflows`
-     - `Recovery`: `Checkpointing and flow persistence; recovery semantics stay app-defined`
+1. Repaired `website-v2/docs/compare-langgraph.mdx`.
+   - Replaced stale absolutes with scoped, source-backed wording:
+     - `Governance`: `No built-in delivery-governance layer`
+     - `Human oversight`: `Interrupts with checkpoint-backed resume, state inspection, and modification`
      - `Multi-repo`: `No built-in cross-repo coordinator surface`
-     - `Human oversight`: ``@human_feedback`, task `human_input`, and callbacks`
-   - Rewrote the narrative sections to distinguish CrewAI tracing/HITL from AgentXchain's protocol-native audit and authority model instead of falsely claiming CrewAI has none.
+   - Rewrote the persistence/deployment bullets to current LangGraph surfaces:
+     - `Checkpointing`: persisted checkpoints, durable execution, and time travel
+     - `LangSmith Deployment`: managed deployment/runtime wording instead of the stale standalone platform bullet
+   - Tightened the narrative governance/authority sections so they contrast delivery governance against LangGraph's application-defined orchestration without denying current upstream capability.
 
-2. Tightened the short compare page in `website-v2/src/pages/compare/vs-crewai.mdx`.
-   - Replaced the version-pinned recovery claim `Checkpoint/resume from last completed task (v1.14+)` with the source-backed current wording `Checkpointing and resume for crews, flows, and agents`.
-   - Tightened the human-review row to name task `human_input` and flow-level `@human_feedback` explicitly.
+2. Tightened `website-v2/src/pages/compare/vs-langgraph.mdx`.
+   - Replaced vague `state intervention` wording with `state inspection/modification`.
+   - Made the narrative sentence name human interrupts, checkpoint-backed resume, state inspection/modification, subgraphs, and parallel fan-out explicitly.
 
-3. Added a standalone spec for this comparison boundary in `.planning/COMPARE_CREWAI_CLAIMS_SPEC.md`.
-   - Purpose, interface, behavior, error cases, and acceptance tests now freeze the exact boundary:
-     acknowledge real CrewAI HITL/observability/recovery surfaces, but keep the governance contrast on protocol-native audit, authority, and coordinator semantics.
+3. Added a standalone spec for this comparison boundary in `.planning/COMPARE_LANGGRAPH_CLAIMS_SPEC.md`.
+   - Purpose, interface, behavior, error cases, and acceptance tests now freeze the exact LangGraph boundary:
+     acknowledge current interrupts/persistence/deployment surfaces, but keep the product contrast on protocol-native delivery governance and missing cross-repo coordinator semantics.
 
-4. Added a narrow regression guard in `cli/test/compare-crewai-claims.test.js`.
-   - The test requires the new source-backed wording and rejects the stale phrases:
-     `no audit trail`, `Manual restart`, `Callback-based`, `Any agent can do anything`, and categorical `Not supported` for multi-repo.
+4. Added a narrow regression guard in `cli/test/compare-langgraph-claims.test.js`.
+   - The test requires the new LangGraph wording and rejects the stale phrases:
+     `None built-in`, `Interrupt nodes, breakpoints`, `Not supported`, `resume workflows from any node`, and the outdated standalone `LangGraph Platform` bullet.
 
 ### Decisions
 
-- `DEC-CREWAI-COMPARE-CLAIMS-001`: CrewAI comparison surfaces must acknowledge current upstream CrewAI capabilities where official docs explicitly provide them (`tracing`, task `human_input`, flow `@human_feedback`, flow persistence, checkpointing/resume`). The product contrast must stay on protocol-native governance, authority, and coordinator semantics rather than false absolute negation.
+- `DEC-LANGGRAPH-COMPARE-CLAIMS-001`: LangGraph comparison surfaces must acknowledge current official LangGraph capabilities where the docs explicitly provide them (`Command`-resume, checkpoint-backed interrupts, state inspection/modification, durable execution, time travel, subgraphs, and LangSmith Deployment). The product contrast must stay on missing delivery-governance and cross-repo coordinator semantics rather than stale absolute negation.
 
 ### Evidence
 
-- Official CrewAI sources checked before editing:
-  - `https://docs.crewai.com/en/concepts/tasks`
-    - task docs expose `guardrail`, `guardrails`, `guardrail_max_retries`, and `human_input`
-  - `https://docs.crewai.com/en/learn/human-feedback-in-flows`
-    - current docs describe flow `@human_feedback` and approve/reject/revise loops
-  - `https://docs.crewai.com/en/concepts/checkpointing`
-    - current docs state crews, flows, and agents can resume after failures from checkpoints
-  - `https://docs.crewai.com/concepts/flows`
-    - current docs describe flow persistence across restarts / executions via `@persist`
-  - `https://docs.crewai.com/en/observability/tracing`
-    - current docs describe built-in tracing support
-- `node --test cli/test/compare-crewai-claims.test.js`
+- Official LangGraph/LangSmith sources checked before editing:
+  - `https://docs.langchain.com/oss/python/langgraph/graph-api`
+    - current docs explicitly describe `Command`, `resume`, conditional edges, parallel next-superstep execution, and breakpoints/checkpointers at compile time
+  - `https://docs.langchain.com/oss/python/langgraph/interrupts`
+    - current docs describe `interrupt`, resume behavior, and the re-run semantics around checkpoint-backed human interruption
+  - `https://docs.langchain.com/oss/python/langgraph/use-subgraphs`
+    - current docs describe subgraph composition and parent/subgraph interfaces
+  - `https://docs.langchain.com/oss/python/langgraph/overview`
+    - current docs surface Persistence, Durable execution, Interrupts, Time travel, Subgraphs, and LangSmith Deployment
+  - `https://docs.langchain.com/langgraph-platform/index`
+    - current deployment docs describe cloud, hybrid, and self-hosted deployment options under LangSmith Deployment
+- `node --test cli/test/compare-langgraph-claims.test.js`
   - 3 tests / 1 suite / 0 failures
-- `node --test cli/test/compare-runtime-surface.test.js`
-  - 6 tests / 1 suite / 0 failures
+- `node --test cli/test/comparison-pages-content.test.js`
+  - 13 tests / 1 suite / 0 failures
+- `node --test cli/test/product-boundary-surface.test.js`
+  - 7 tests / 1 suite / 0 failures
 - `cd website-v2 && npm run build`
   - production build succeeded
 
 ### Next Action For Claude Opus 4.6
 
-Stay on the compare/truth seam, but stop drifting across multiple competitors at once. Audit the LangGraph comparison next for the same failure class:
+Stay on the compare/truth seam, but stop bouncing randomly between pages. Audit the next highest-risk competitor page for the same failure class, and do it with current primary sources only:
 
-1. Inspect `website-v2/src/pages/compare/vs-langgraph.mdx` and `website-v2/docs/compare-langgraph.mdx`.
-2. Show the exact lines where we make concrete LangGraph recovery, observability, or governance claims.
-3. Check those claims against current primary sources only.
-4. If you find real drift, patch the owning surface, add the narrowest spec/test guard, and stop. If it is already clean, prove it and move on.
+1. Inspect `website-v2/src/pages/compare/vs-autogen.mdx` and any longer-form AG2 / AutoGen comparison surface or positioning doc that still makes concrete capability claims.
+2. Show the exact lines where we make hard claims about AG2 guardrails, HITL, Swarm/handoffs, observability, or protocol support.
+3. Patch only real drift, then freeze it with the narrowest spec/test guard.
+4. If the surface is already clean, prove it and move to the next concrete contradiction instead of rewriting copy for style.
