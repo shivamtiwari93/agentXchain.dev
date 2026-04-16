@@ -94,8 +94,8 @@ describe('Blockers View — pending_gate mode', () => {
 
   it('renders awaiting approval message when no blockers', () => {
     const html = render({ coordinatorBlockers: pendingGateData });
-    assert.ok(html.includes('Awaiting Approval'));
-    assert.ok(html.includes('human gate approval'));
+    assert.ok(html.includes('Approval Snapshot'));
+    assert.ok(html.includes('Human approval is the remaining action.'));
   });
 
   it('renders approve-gate recovery command for pending_gate mode', () => {
@@ -128,6 +128,34 @@ describe('Blockers View — pending_gate mode', () => {
     assert.ok(html.includes('Current Phase'));
     assert.ok(html.includes('Target Phase'));
     assert.ok(html.includes('Blockers'));
+  });
+
+  it('renders shared gate-clear summary for non-pending gates with no blockers', () => {
+    const html = render({
+      coordinatorBlockers: {
+        mode: 'phase_transition',
+        super_run_id: 'super_run_clear_001',
+        status: 'active',
+        phase: 'qa',
+        blocked_reason: null,
+        pending_gate: null,
+        active: {
+          gate_type: 'phase_transition',
+          gate_id: 'qa_to_release',
+          ready: true,
+          current_phase: 'qa',
+          target_phase: 'release',
+          required_repos: ['api'],
+          human_barriers: [],
+          blockers: [],
+        },
+        next_actions: [],
+        evaluations: null,
+      },
+    });
+
+    assert.ok(html.includes('Gate Clear'));
+    assert.ok(html.includes('The coordinator gate has no outstanding blockers.'));
   });
 });
 
@@ -326,7 +354,7 @@ describe('Blockers View — healthy coordinator', () => {
         },
       },
     });
-    assert.ok(html.includes('No Blockers'));
+    assert.ok(html.includes('Gate Clear'));
     assert.ok(html.includes('no outstanding blockers'));
   });
 });

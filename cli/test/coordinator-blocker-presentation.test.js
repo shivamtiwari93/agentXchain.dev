@@ -5,6 +5,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  buildCoordinatorAttentionSnapshotPresentation,
+  getCoordinatorAttentionStatusCard,
   getCoordinatorBlockerDetails,
   summarizeCoordinatorAttention,
 } from '../src/lib/coordinator-blocker-presentation.js';
@@ -90,11 +92,91 @@ describe('coordinator blocker presentation helper', () => {
   });
 
   it('AT-CBPS-003: dashboard renderers consume the shared helper instead of duplicating typed blocker detail fields inline', () => {
+    assert.match(initiativeSource, /buildCoordinatorAttentionSnapshotPresentation/);
+    assert.match(blockersSource, /getCoordinatorAttentionStatusCard/);
     assert.match(initiativeSource, /summarizeCoordinatorAttention/);
     assert.match(initiativeSource, /getCoordinatorBlockerDetails/);
     assert.match(blockersSource, /getCoordinatorBlockerDetails/);
 
     assert.doesNotMatch(initiativeSource, /primaryBlocker\.(expected_run_id|actual_run_id|current_phase|required_phase)/);
     assert.doesNotMatch(blockersSource, /blocker\.(expected_run_id|actual_run_id|current_phase|required_phase)/);
+  });
+
+  it('AT-CBPS-004: shared snapshot presentation emits canonical summary labels and subtitle', () => {
+    const presentation = buildCoordinatorAttentionSnapshotPresentation({
+      ok: true,
+      mode: 'phase_transition',
+      active: {
+        gate_type: 'phase_transition',
+        gate_id: 'phase_transition:integration->release',
+        current_phase: 'integration',
+        target_phase: 'release',
+        blockers: [
+          {
+            code: 'repo_run_id_mismatch',
+            message: 'Repo "api" drifted',
+            repo_id: 'api',
+            expected_run_id: 'run_api_001',
+            actual_run_id: 'run_api_999',
+          },
+        ],
+      },
+      next_actions: [
+        {
+          command: 'agentxchain multi resume',
+          reason: 'Resume after reconciling repo drift.',
+        },
+      ],
+    });
+
+    assert.equal(presentation.title, 'Blocker Snapshot');
+    assert.equal(
+      presentation.subtitle,
+      'First-glance coordinator attention only. Full blocker diagnostics stay in the Blockers view.',
+    );
+    assert.deepEqual(
+      presentation.details,
+      [
+        { label: 'Mode', value: 'phase_transition', mono: false },
+        { label: 'Type', value: 'phase_transition', mono: false },
+        { label: 'Gate', value: 'phase_transition:integration->release', mono: true },
+        { label: 'Current Phase', value: 'integration', mono: false },
+        { label: 'Target Phase', value: 'release', mono: false },
+        { label: 'Blockers', value: '1', mono: false },
+        { label: 'Primary Blocker', value: 'repo_run_id_mismatch', mono: true },
+      ],
+    );
+  });
+
+  it('AT-CBPS-005: shared status-card helper emits canonical pending-approval and gate-clear summaries', () => {
+    assert.deepEqual(
+      getCoordinatorAttentionStatusCard({
+        ok: true,
+        mode: 'pending_gate',
+        active: { blockers: [] },
+      }),
+      {
+        title: 'Approval Snapshot',
+        message: 'All coordinator prerequisites are satisfied. Human approval is the remaining action.',
+      },
+    );
+
+    assert.deepEqual(
+      getCoordinatorAttentionStatusCard({
+        ok: true,
+        mode: 'phase_transition',
+        active: { blockers: [] },
+      }),
+      {
+        title: 'Gate Clear',
+        message: 'The coordinator gate has no outstanding blockers.',
+      },
+    );
+  });
+
+  it('AT-CBPS-006: Initiative and Blockers no longer hardcode coordinator attention summary titles or status copy inline', () => {
+    assert.doesNotMatch(initiativeSource, /First-glance coordinator attention only\./);
+    assert.doesNotMatch(blockersSource, /Awaiting Approval|No Blockers/);
+    assert.doesNotMatch(blockersSource, /All prerequisites are satisfied\. The coordinator is waiting for human gate approval\./);
   });
 });

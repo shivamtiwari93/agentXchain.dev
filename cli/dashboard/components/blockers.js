@@ -9,7 +9,10 @@
  * server-side gate evaluators used by `multi step` and `multi approve-gate`.
  */
 
-import { getCoordinatorBlockerDetails } from '../../src/lib/coordinator-blocker-presentation.js';
+import {
+  getCoordinatorAttentionStatusCard,
+  getCoordinatorBlockerDetails,
+} from '../../src/lib/coordinator-blocker-presentation.js';
 import { buildCoordinatorGateEvaluationPresentation } from '../../src/lib/coordinator-gate-evaluation-presentation.js';
 import { getCoordinatorPendingGateDetails } from '../../src/lib/coordinator-pending-gate-presentation.js';
 
@@ -157,6 +160,7 @@ export function render({ coordinatorBlockers }) {
   const data = coordinatorBlockers;
   const blockers = data.active?.blockers || [];
   const hasBlockers = blockers.length > 0 && !blockers.every(b => b.code === 'no_next_phase');
+  const statusCard = getCoordinatorAttentionStatusCard(data);
 
   let html = `<div class="blockers-view">`;
 
@@ -189,12 +193,9 @@ export function render({ coordinatorBlockers }) {
   }
 
   // Status summary
-  if (!hasBlockers && data.mode === 'pending_gate') {
-    html += `<div class="gate-card"><h3>Awaiting Approval</h3>
-      <p class="turn-summary">All prerequisites are satisfied. The coordinator is waiting for human gate approval.</p></div>`;
-  } else if (!hasBlockers) {
-    html += `<div class="gate-card"><h3>No Blockers</h3>
-      <p class="turn-summary">The coordinator gate has no outstanding blockers.</p></div>`;
+  if (!hasBlockers && statusCard) {
+    html += `<div class="gate-card"><h3>${esc(statusCard.title)}</h3>
+      <p class="turn-summary">${esc(statusCard.message)}</p></div>`;
   }
 
   // Active gate detail

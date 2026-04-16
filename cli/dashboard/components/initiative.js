@@ -1,4 +1,5 @@
 import {
+  buildCoordinatorAttentionSnapshotPresentation,
   getCoordinatorBlockerDetails,
   summarizeCoordinatorAttention,
 } from '../../src/lib/coordinator-blocker-presentation.js';
@@ -121,73 +122,42 @@ function renderDetailRows(details) {
 }
 
 function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
-  const summary = summarizeCoordinatorAttention(coordinatorBlockers);
-  if (!summary) {
+  const presentation = buildCoordinatorAttentionSnapshotPresentation(coordinatorBlockers);
+  if (!presentation) {
     return '';
   }
 
-  const { active, blockers, nextActions, primaryBlocker, primaryAction } = summary;
+  const summary = summarizeCoordinatorAttention(coordinatorBlockers);
+  const { primaryBlocker, primaryAction } = presentation;
+  const { blockers } = summary;
   const hasBlockers = blockers.length > 0;
-  const blockerDetails = getCoordinatorBlockerDetails(primaryBlocker);
 
   let html = `<div class="gate-card">
-    <h3>${summary.title}</h3>
-    <p class="section-subtitle">First-glance coordinator attention only. Full blocker diagnostics stay in the Blockers view.</p>
-    <dl class="detail-list">`;
-  if (coordinatorBlockers.mode) {
-    html += `<dt>Mode</dt><dd>${esc(coordinatorBlockers.mode)}</dd>`;
-  }
-  if (active.gate_type) {
-    html += `<dt>Type</dt><dd>${esc(active.gate_type)}</dd>`;
-  }
-  if (active.gate_id) {
-    html += `<dt>Gate</dt><dd class="mono">${esc(active.gate_id)}</dd>`;
-  }
-  if (active.current_phase) {
-    html += `<dt>Current</dt><dd>${esc(active.current_phase)}</dd>`;
-  }
-  if (active.target_phase) {
-    html += `<dt>Target</dt><dd>${esc(active.target_phase)}</dd>`;
-  }
-  if (hasBlockers) {
-    html += `<dt>Blockers</dt><dd>${blockers.length}</dd>`;
-  }
-  if (primaryBlocker?.code) {
-    html += `<dt>Primary Blocker</dt><dd class="mono">${esc(primaryBlocker.code)}</dd>`;
-  }
-  html += `</dl>`;
+    <h3>${presentation.title}</h3>
+    <p class="section-subtitle">${presentation.subtitle}</p>
+    <dl class="detail-list">${renderDetailRows(presentation.details)}</dl>`;
 
-  if (coordinatorBlockers.mode === 'pending_gate') {
-    html += `<p class="turn-summary">All coordinator prerequisites are satisfied. Human approval is the remaining action.</p>`;
+  if (presentation.summaryMessage) {
+    html += `<p class="turn-summary">${esc(presentation.summaryMessage)}</p>`;
   } else if (primaryBlocker) {
     html += `<div class="turn-card">
       <div class="turn-header"><span class="mono">${esc(primaryBlocker.code || 'unknown')}</span></div>`;
     if (primaryBlocker.message) {
       html += `<div class="turn-summary">${esc(primaryBlocker.message)}</div>`;
     }
-    if (blockerDetails.length > 0) {
-      html += `<dl class="detail-list">`;
-      for (const detail of blockerDetails) {
-        html += `<dt>${esc(detail.label)}</dt><dd${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</dd>`;
-      }
-      html += `</dl>`;
+    if (presentation.primaryBlockerDetails.length > 0) {
+      html += `<dl class="detail-list">${renderDetailRows(presentation.primaryBlockerDetails)}</dl>`;
     }
     html += `</div>`;
-    if (summary.additionalBlockerCount > 0) {
-      html += `<p class="turn-detail">${summary.additionalBlockerCount} additional blocker${summary.additionalBlockerCount !== 1 ? 's are' : ' is'} summarized in <a href="#blockers">Blockers</a>.</p>`;
+    if (presentation.additionalBlockerCount > 0) {
+      html += `<p class="turn-detail">${presentation.additionalBlockerCount} additional blocker${presentation.additionalBlockerCount !== 1 ? 's are' : ' is'} summarized in <a href="#blockers">Blockers</a>.</p>`;
     }
-  } else if (coordinatorBlockers.blocked_reason) {
-    html += `<p class="turn-summary">${esc(
-      typeof coordinatorBlockers.blocked_reason === 'string'
-        ? coordinatorBlockers.blocked_reason
-        : JSON.stringify(coordinatorBlockers.blocked_reason)
-    )}</p>`;
   }
 
   if (primaryAction) {
     html += `<div class="section" style="margin-top:12px">${renderPrimaryAction(primaryAction)}`;
-    if (summary.additionalActionCount > 0) {
-      html += `<p class="turn-detail">${summary.additionalActionCount} additional action${summary.additionalActionCount !== 1 ? 's remain' : ' remains'} in <a href="#blockers">Blockers</a>.</p>`;
+    if (presentation.additionalActionCount > 0) {
+      html += `<p class="turn-detail">${presentation.additionalActionCount} additional action${presentation.additionalActionCount !== 1 ? 's remain' : ' remains'} in <a href="#blockers">Blockers</a>.</p>`;
     }
     html += `</div>`;
   }

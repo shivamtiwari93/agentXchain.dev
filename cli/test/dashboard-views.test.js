@@ -615,6 +615,11 @@ describe('Initiative View', () => {
 
     assert.ok(html.includes('Blocker Snapshot'));
     assert.ok(html.includes('First-glance coordinator attention only'));
+    assert.ok(html.includes('Mode'));
+    assert.ok(html.includes('Type'));
+    assert.ok(html.includes('Current Phase'));
+    assert.ok(html.includes('Target Phase'));
+    assert.ok(html.includes('Primary Blocker'));
     assert.ok(html.includes('repo_run_id_mismatch'));
     assert.ok(html.includes('run_api_001'));
     assert.ok(html.includes('run_api_999'));

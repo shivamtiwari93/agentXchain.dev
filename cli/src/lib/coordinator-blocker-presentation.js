@@ -2,6 +2,16 @@ function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function normalizeMessage(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value == null) {
+    return null;
+  }
+  return JSON.stringify(value);
+}
+
 function pushDetail(details, label, value, options = {}) {
   if (value == null || value === '') {
     return;
@@ -62,5 +72,58 @@ export function summarizeCoordinatorAttention(coordinatorBlockers) {
     primaryAction: nextActions[0] || null,
     additionalBlockerCount: Math.max(0, blockers.length - 1),
     additionalActionCount: Math.max(0, nextActions.length - 1),
+  };
+}
+
+export function buildCoordinatorAttentionSnapshotPresentation(coordinatorBlockers) {
+  const summary = summarizeCoordinatorAttention(coordinatorBlockers);
+  if (!summary) {
+    return null;
+  }
+
+  const details = [];
+  pushDetail(details, 'Mode', coordinatorBlockers?.mode);
+  pushDetail(details, 'Type', summary.active?.gate_type);
+  pushDetail(details, 'Gate', summary.active?.gate_id, { mono: true });
+  pushDetail(details, 'Current Phase', summary.active?.current_phase);
+  pushDetail(details, 'Target Phase', summary.active?.target_phase);
+  if (summary.blockers.length > 0) {
+    pushDetail(details, 'Blockers', summary.blockers.length);
+  }
+  pushDetail(details, 'Primary Blocker', summary.primaryBlocker?.code, { mono: true });
+
+  return {
+    title: summary.title,
+    subtitle: 'First-glance coordinator attention only. Full blocker diagnostics stay in the Blockers view.',
+    details,
+    summaryMessage: summary.primaryBlocker
+      ? null
+      : summary.title === 'Approval Snapshot'
+        ? 'All coordinator prerequisites are satisfied. Human approval is the remaining action.'
+        : normalizeMessage(coordinatorBlockers?.blocked_reason),
+    primaryBlocker: summary.primaryBlocker,
+    primaryBlockerDetails: getCoordinatorBlockerDetails(summary.primaryBlocker),
+    primaryAction: summary.primaryAction,
+    additionalBlockerCount: summary.additionalBlockerCount,
+    additionalActionCount: summary.additionalActionCount,
+  };
+}
+
+export function getCoordinatorAttentionStatusCard(coordinatorBlockers) {
+  const summary = summarizeCoordinatorAttention(coordinatorBlockers);
+  if (!summary || summary.blockers.length > 0) {
+    return null;
+  }
+
+  if (summary.title === 'Approval Snapshot') {
+    return {
+      title: 'Approval Snapshot',
+      message: 'All coordinator prerequisites are satisfied. Human approval is the remaining action.',
+    };
+  }
+
+  return {
+    title: 'Gate Clear',
+    message: 'The coordinator gate has no outstanding blockers.',
   };
 }
