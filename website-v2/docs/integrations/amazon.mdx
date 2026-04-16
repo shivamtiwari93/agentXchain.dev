@@ -105,7 +105,7 @@ agentxchain connector check
 - **Proxy must be running**: The proxy must be started before `connector check` or `run`. If you stop the proxy, AgentXchain will fail to reach the runtime.
 - **Region**: Ensure your AWS credentials and proxy target the same region where your Nova models are enabled.
 - **Model access**: Nova models must be explicitly enabled in your AWS account via the Bedrock console before use.
-- **Cost rates**: Bedrock pricing varies by region. Supply operator-specific rates:
+- **Cost rates**: Bedrock pricing varies by region. Add an operator override keyed by the exact runtime `model` string, since Bedrock models are not in the bundled defaults:
 
 ```json
 {

@@ -33,6 +33,13 @@ If a guide shows a URL that is not the real endpoint (e.g., Devin's `https://api
 
 Every guide must include a "Minimal working example" section showing `init --governed ... --dir <dir> -y` → `cd <dir>` → `connector check` → `doctor` → `run`, plus a mention of the guided interactive path.
 
+### FA-6: Cost-rate examples must describe override truth
+
+If a guide shows `budget.cost_rates` for a model that is not in AgentXchain's bundled defaults, the guide must say that:
+- the snippet is an operator-supplied override, not part of a complete built-in pricing catalog
+- the `cost_rates` key must match the exact runtime `model` string
+- bundled defaults are intentionally narrow, so non-bundled models require explicit operator rates
+
 ## Provider-Specific Accuracy Notes
 
 ### Amazon Bedrock

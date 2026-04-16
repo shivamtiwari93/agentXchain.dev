@@ -80,7 +80,7 @@ Groq's LPU hardware delivers inference 5-10x faster than GPU-based providers. Fo
 - **Rate limits**: Groq applies aggressive rate limits (tokens per minute). For governed runs with large dispatch bundles, you may hit limits between turns. Consider adding delays or using `timeouts.turn_timeout_ms` to handle retries gracefully.
 - **Model availability**: Groq's model catalog changes. Check [console.groq.com/docs/models](https://console.groq.com/docs/models) for current availability.
 - **Context window**: Some Groq-hosted models have smaller context windows than their original versions. Verify the context limit for your chosen model.
-- **Cost rates**: Supply operator-specific rates:
+- **Cost rates**: Add an operator override keyed by the exact runtime `model` string. Groq-hosted models are not in the bundled defaults:
 
 ```json
 {

@@ -255,3 +255,57 @@ describe('All integration guides must have governed bootstrap example (FA-5)', (
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// FA-6: cost_rates examples must explain override truth for non-bundled models
+// ---------------------------------------------------------------------------
+const COST_OVERRIDE_GUIDES = [
+  {
+    path: 'website-v2/docs/integrations/openai.mdx',
+    model: 'gpt-5.4',
+  },
+  {
+    path: 'website-v2/docs/integrations/cohere.mdx',
+    model: 'command-a-reasoning',
+  },
+  {
+    path: 'website-v2/docs/integrations/deepseek.mdx',
+    model: 'deepseek-coder-v3',
+  },
+  {
+    path: 'website-v2/docs/integrations/groq.mdx',
+    model: 'gpt-oss-120b',
+  },
+  {
+    path: 'website-v2/docs/integrations/xai.mdx',
+    model: 'grok-4.20-beta-2',
+  },
+  {
+    path: 'website-v2/docs/integrations/amazon.mdx',
+    model: 'bedrock/amazon.nova-pro-v2',
+  },
+];
+
+describe('Integration guide cost-rate override truth (FA-6)', () => {
+  for (const { path, model } of COST_OVERRIDE_GUIDES) {
+    const guide = read(path);
+    const name = path.split('/').pop().replace('.mdx', '');
+
+    it(`FA-COST-${name}-001: explains cost_rates as operator overrides`, () => {
+      assert.match(guide, /operator override/i,
+        `${name} guide must say the cost_rates example is an operator override`);
+    });
+
+    it(`FA-COST-${name}-002: requires exact runtime model string as key`, () => {
+      assert.match(guide, /exact runtime `model` string/i,
+        `${name} guide must tell operators to use the exact runtime model string as the cost_rates key`);
+      assert.match(guide, new RegExp(model.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+        `${name} guide must retain the example model key ${model}`);
+    });
+
+    it(`FA-COST-${name}-003: explains bundled defaults do not cover the example model`, () => {
+      assert.match(guide, /bundled (cost )?defaults?/i,
+        `${name} guide must explain that bundled defaults do not cover this example model`);
+    });
+  }
+});

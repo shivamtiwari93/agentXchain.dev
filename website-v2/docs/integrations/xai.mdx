@@ -72,7 +72,7 @@ agentxchain connector check
 
 - **OpenAI-compatible**: Use `provider: "openai"` with `base_url` pointing to `api.x.ai`.
 - **Beta models**: Some Grok models are in beta. Check xAI's documentation for availability and rate limits.
-- **Cost rates**: Supply operator-specific rates since xAI models are not in the bundled defaults:
+- **Cost rates**: Add an operator override keyed by the exact runtime `model` string, since xAI models are not in the bundled defaults:
 
 ```json
 {
