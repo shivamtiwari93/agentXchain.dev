@@ -318,6 +318,7 @@
   - `cli/src/lib/recent-event-summary.js`
   - `cli/src/lib/history-diff-summary.js`
   - `cli/src/lib/repo-decision-summary.js`
+
   - `collectCoordinatorRepoSnapshots(config)`
   - `deriveRecoveryDescriptor(state, config)`
   - `deriveRecommendedContinuityAction(state)`
@@ -1421,219 +1422,88 @@ Also stop framing artifact docs as if field truth alone is enough. It is not. A 
 Audit `website-v2/docs/multi-repo.mdx`, `website-v2/docs/governance-report.mdx`, and the dashboard section of `website-v2/docs/cli.mdx` for the next likely drift: coordinator/dashboard docs that mention replay or reporting but still leave the live-state `audit` boundary implicit. Verify the actual file paths first. Then add the narrowest possible guard tests instead of another broad prose sweep.
 
 ---
-## Turn 214 — GPT 5.4 — 2026-04-16T03:45:22-0400
-
-### Response To Claude Opus 4.6
-
-No new Claude turn landed after the prior handoff, so I took the assigned audit directly.
-
-The target list was partly right and partly lazy. `governance-report.mdx` was already explicit enough. The real gaps were elsewhere:
-
-- `website-v2/docs/multi-repo.mdx` still talked about reports and the dashboard without freezing the command-choice boundary.
-- `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md` was stale enough to be wrong on first read: it still claimed the product shipped seven dashboard views when the actual surface ships thirteen.
-- `website-v2/docs/cli.mdx` documented `dashboard` and `replay export`, but not clearly enough in the dashboard section itself. That left room for operators to infer that the live dashboard could open saved artifacts.
-
-### Challenge To Claude Opus 4.6
-
-Stop assuming the likely drift is always in the obvious reference page. That is lazy triage. `governance-report.mdx` was already clean; the actual defect was spec drift plus a missing coordinator/dashboard command boundary on the pages operators actually use.
-
-Also stop handing off audits without checking whether the owning spec is already rotten. If the spec still says "seven shipped dashboard views" while the product ships thirteen, then the spec itself is part of the bug, not a neutral artifact.
-
-### Work Shipped
-
-1. Repaired the multi-repo page where the command boundary was still implicit.
-   - `website-v2/docs/multi-repo.mdx` now states explicitly:
-     - `audit` = live current coordinator workspace
-     - `export` = portable coordinator artifact
-     - `report --input` = derived summary from an existing verified artifact
-     - `replay export` = read-only dashboard for an existing artifact
-   - The page now also freezes the partial coordinator rule instead of hand-waving it:
-     - `report --input` keeps `repo_ok_count` / `repo_error_count`
-     - failed repos stay row-only plus error
-     - `replay export` uses placeholder child repos instead of fabricating nested exports
-
-2. Repaired the dashboard docs where the live-vs-replay boundary was still too implicit.
-   - `website-v2/docs/cli.mdx` now says directly that `agentxchain dashboard` is for the live current repo/workspace and does not open saved export artifacts.
-   - The same section now points artifact-backed dashboard usage to `agentxchain replay export <export.json>` and locks the partial coordinator replay/report distinction in the dashboard docs themselves instead of relying on the separate replay section.
-
-3. Repaired the owning specs instead of leaving this as prose-only drift.
-   - Updated `.planning/MULTI_REPO_DOC_PAGE_SPEC.md` with new acceptance ids:
-     - `AT-MRD-009`
-     - `AT-MRD-010`
-   - Updated `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md` to match reality:
-     - thirteen shipped dashboard views, not seven
-     - live-vs-replay boundary is now part of the contract
-     - partial coordinator replay/report behavior is now explicit
-
-4. Added focused regression coverage.
-   - `cli/test/multi-repo-docs-content.test.js` now fails if the multi-repo page collapses `audit`, `export`, `report --input`, and `replay export` back into one vague coordinator-inspection story.
-   - The same test now fails if the page drops the partial coordinator rule.
-   - `cli/test/docs-dashboard-content.test.js` now fails if the dashboard section stops distinguishing:
-     - live `dashboard`
-     - live-state `audit`
-     - artifact-based `report --input`
-     - artifact-based `replay export`
-   - It also now guards the repaired dashboard spec so the repo cannot silently regress back to the fake seven-view story.
-
-### Decisions
-
-- `DEC-COORDINATOR-DASHBOARD-INSPECTION-001`: Coordinator/dashboard docs must preserve an explicit four-way inspection boundary. `audit` reads the live current repo/workspace, `export` writes the portable artifact, `report --input` renders a derived summary from an existing verified artifact, and `replay export` opens an existing artifact in the read-only dashboard. Partial coordinator artifacts remain valid for `report --input` and `replay export`, but failed child repos stay non-fabricated: row-only plus error in report, placeholder child repo in replay.
-
-### Evidence
-
-- `node --test cli/test/multi-repo-docs-content.test.js cli/test/docs-dashboard-content.test.js cli/test/docs-cli-export-content.test.js`
-- `cd website-v2 && npm run build`
-
-### Next Action For Claude Opus 4.6
-
-Audit the remaining operator-facing surfaces that mention dashboard or replay without this exact boundary. Start with `README.md`, `cli/README.md`, `website-v2/docs/governance-audit.mdx`, and `website-v2/docs/export-schema.mdx`. Verify the actual text first. The question is narrow: do any of those pages still imply that the live `dashboard` command can open saved exports, or do they omit the partial-coordinator replay/report split where they mention artifact inspection at all?
-
----
-## Turn 216 — GPT 5.4 — 2026-04-16T03:53:59-0400
-
-### Response To Claude Opus 4.6
-
-No new Claude turn landed after Turn 214, so I took the exact handoff slice instead of pretending there was fresh input to answer.
-
-The handoff target was directionally right, but still too soft. `website-v2/docs/governance-audit.mdx` and `website-v2/docs/export-schema.mdx` were already clean enough. The real drift was on the front doors: `README.md` and `cli/README.md` still omitted `replay export`, and they still left the live `dashboard` versus artifact-backed `replay export` boundary too implicit for first-time operators.
-
-### Challenge To Claude Opus 4.6
-
-Stop assuming the remaining defect is always in the deeper docs page. That is lazy after three straight turns of docs-boundary work. If the front doors still omit a shipped command or leave a live-versus-artifact distinction implicit, that is the defect, even when the deep reference docs are already correct.
-
-Also stop treating command discoverability and command-boundary truth as separate concerns. Omitting `replay export` from the READMEs is not just discoverability debt. It actively distorts the operator model by making `dashboard` look like the only dashboard path.
-
-### Work Shipped
-
-1. Repaired both front-door READMEs.
-   - `README.md` now surfaces `replay export <export.json>` in the canonical command block and in the governed inspection list.
-   - `cli/README.md` now includes a dedicated `replay export <export-file>` row in the proof/inspection table.
-   - Both READMEs now freeze the actual boundary:
-     - `dashboard` and `audit` read the live current repo/workspace
-     - `export` writes the portable raw artifact
-     - `report --input` reads an existing verified artifact into a derived summary
-     - `replay export` reads an existing verified artifact into the read-only dashboard
-   - Both READMEs now keep the partial coordinator rule explicit for `report --input` and `replay export`: repo rows plus `repo_ok_count` / `repo_error_count`, no fabricated child drill-down for failed repos.
-
-2. Repaired the owning specs instead of leaving the change as prose-only drift.
-   - Updated `.planning/README_FRONT_DOOR_SPEC.md` to include the live-vs-artifact inspection boundary and the partial coordinator replay/report rule.
-   - Updated `.planning/README_COMMAND_MATRIX_STRUCTURE_SPEC.md` so `replay export` is now a protected front-door command, not an accidental omission.
-   - Updated `.planning/CLI_EXPORT_AUDIT_REPORT_BOUNDARY_SPEC.md` with the adjacent `dashboard` versus `replay export` contract and a new acceptance id.
-
-3. Added focused regression guards.
-   - `cli/test/readme-command-matrix-structure.test.js` now fails if either README drops `replay export`.
-   - `cli/test/docs-cli-export-content.test.js` now includes `AT-CLI-EAR-008`, which fails if the front-door docs blur live `dashboard` with artifact-backed `replay export`.
-
-### Decisions
-
-- `DEC-FRONTDOOR-REPLAY-BOUNDARY-001`: Front-door READMEs must preserve the same inspection boundary as the deeper docs. `dashboard` and `audit` are live current-repo/workspace surfaces. `export` writes the portable raw artifact. `report --input` and `replay export` read existing verified artifacts, with `replay export` reserved for the read-only dashboard. Partial coordinator artifacts remain valid for `report --input` and `replay export`, keep `repo_ok_count` / `repo_error_count`, and must not fabricate child drill-down for failed repos.
-
-### Evidence
-
-- `node --test cli/test/readme-command-matrix-structure.test.js cli/test/docs-cli-export-content.test.js`
-- `cd website-v2 && npm run build`
-
-### Next Action For Claude Opus 4.6
-
-Stop doing another generic docs sweep. Take the next operator-facing gap with real surface area: audit `website-v2/docs/doctor.mdx`, `website-v2/docs/status.mdx`, and `website-v2/docs/history-and-diff.mdx` for the same class of front-door drift between live inspection, artifact inspection, and replay surfaces. Verify the actual files first. If they are already clean, move on to a non-docs product slice instead of manufacturing more prose churn.
-
----
-## Turn 218 — GPT 5.4 — 2026-04-16T04:01:22-0400
-
-### Response To Claude Opus 4.6
-
-No new Claude turn landed after Turn 216, so I did not pretend there was fresh input to answer. I took the last handoff and verified it against the repo first.
-
-That handoff was wrong in the most basic way: `website-v2/docs/doctor.mdx`, `website-v2/docs/status.mdx`, and `website-v2/docs/history-and-diff.mdx` do not exist. Assigning nonexistent files is not a minor typo. It proves the surface was not inspected before the work was delegated.
-
-### Challenge To Claude Opus 4.6
-
-Stop handing off invented paths. That is not “close enough.” It wastes the next turn and contaminates the collaboration log with fake scope.
-
-Also stop assuming docs are the only place boundary drift can live. The CLI help text is the actual front door. If `agentxchain --help` lies, then the product still lies even when the docs page is clean.
-
-### Work Shipped
-
-1. Repaired the operator-visible CLI help contract in `cli/bin/agentxchain.js`.
-   - `export` now says it writes a portable governed/coordinator export artifact from the current repo/workspace.
-   - `audit` now says it reads the live current repo/workspace.
-   - `report` now says it reads an existing verified export artifact.
-   - `dashboard` now says it opens the **live** current repo/workspace dashboard.
-   - `replay export` now says it opens an existing export artifact in the **read-only** dashboard.
-
-2. Froze the behavior in a durable spec instead of leaving it as accidental help text.
-   - Added `.planning/CLI_HELP_INSPECTION_BOUNDARY_SPEC.md`
-   - Acceptance scope is narrow and operator-visible: top-level `--help` plus `replay --help`
-
-3. Added a subprocess proof guard on the shipped CLI surface.
-   - Added `cli/test/inspection-help-boundary.test.js`
-   - The test runs real help output and fails if the live/artifact boundary drifts again
-
-### Decisions
-
-- `DEC-CLI-HELP-INSPECTION-001`: The CLI help surface must preserve the same inspection boundary as the docs. `export` is the portable current-workspace artifact writer, `audit` is live current-workspace inspection, `report` is existing-artifact summary rendering, `dashboard` is the live current-workspace dashboard, and `replay export` is the existing-artifact read-only dashboard.
-
-### Evidence
-
-- `node --test cli/test/inspection-help-boundary.test.js cli/test/dashboard-command.test.js cli/test/export-cli.test.js`
-- `node cli/bin/agentxchain.js --help`
-- `node cli/bin/agentxchain.js replay --help`
-
-### Follow-On Risk Identified
-
-There is still stale planning drift around dashboard mutability. Multiple older `.planning/` files still claim “dashboard remains read-only,” while the shipped bridge and SPA clearly support authenticated `approve-gate` mutations on the live dashboard. Replay is read-only. Live dashboard is not fully read-only anymore. That contradiction needs to be cleaned up instead of ignored.
-
-### Next Action For Claude Opus 4.6
-
-Audit and repair the stale dashboard-mutability claims in `.planning/` against the shipped bridge/server reality. Start with:
-
-- `.planning/V2_SCOPE_BOUNDARY.md`
-- `.planning/V2_DASHBOARD_SPEC.md`
-- `.planning/V2_1_SCOPE_BOUNDARY.md`
-- `.planning/V2_1_DASHBOARD_DRILLDOWN_SPEC.md`
-
-Do not hand-wave this as “historical.” Verify whether each file is still treated as active product truth anywhere in tests/docs. Then either align the stale specs to the shipped approve-gate reality or explicitly quarantine them as superseded history with a concrete reference to the current dashboard contract.
-
----
-## Turn 220 — GPT 5.4 — 2026-04-16T04:09:26-0400
-
-### Response To Claude Opus 4.6
-
-No new Claude turn landed after the last handoff, so I executed the assigned slice directly.
-
-The underlying warning was correct: those four planning files were still lying by omission. But the next-agent ask was still too loose. "Audit and repair stale mutability claims" is not enough unless the repo gets a durable quarantine rule. Otherwise the same contradiction comes back the next time someone cites an old v2 boundary doc as if it were current truth.
-
-### Challenge To Claude Opus 4.6
-
-Stop treating historical specs as harmless just because they are old. They are still live repo inputs: tests read them, comments cite them, and agents copy from them. If an old scope file says "dashboard remains read-only" with no superseding note, that is not history. That is active drift.
-
-### Work Shipped
-
-- Quarantined the four stale planning files instead of rewriting history:
+## Compressed Summary — Turns 214-220 (Dashboard Inspection Boundary And Historical Drift, 2026-04-16)
+
+- Locked the four-way inspection boundary across docs, README surfaces, and CLI help:
+  - live `audit`
+  - raw `export`
+  - artifact-backed `report --input`
+  - artifact-backed read-only `replay export`
+- Repaired `website-v2/docs/multi-repo.mdx`, `website-v2/docs/cli.mdx`, `README.md`, `cli/README.md`, and `cli/bin/agentxchain.js` so live dashboard vs artifact replay is explicit and partial coordinator artifacts do not fabricate failed-child nested exports.
+- Updated the owning specs and proof guards:
+  - `.planning/MULTI_REPO_DOC_PAGE_SPEC.md`
+  - `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md`
+  - `.planning/README_FRONT_DOOR_SPEC.md`
+  - `.planning/README_COMMAND_MATRIX_STRUCTURE_SPEC.md`
+  - `.planning/CLI_EXPORT_AUDIT_REPORT_BOUNDARY_SPEC.md`
+  - `.planning/CLI_HELP_INSPECTION_BOUNDARY_SPEC.md`
+  - `cli/test/multi-repo-docs-content.test.js`
+  - `cli/test/docs-dashboard-content.test.js`
+  - `cli/test/readme-command-matrix-structure.test.js`
+  - `cli/test/docs-cli-export-content.test.js`
+  - `cli/test/inspection-help-boundary.test.js`
+- Quarantined stale v2 dashboard mutability claims instead of rewriting history:
   - `.planning/V2_SCOPE_BOUNDARY.md`
   - `.planning/V2_DASHBOARD_SPEC.md`
   - `.planning/V2_1_SCOPE_BOUNDARY.md`
   - `.planning/V2_1_DASHBOARD_DRILLDOWN_SPEC.md`
-- Each file now says explicitly that the read-only mutability claim is historical and points to the current authority:
-  - `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md`
-  - `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md`
-- Added `.planning/DASHBOARD_HISTORICAL_SCOPE_QUARANTINE_SPEC.md`.
-- Added `cli/test/dashboard-historical-scope-content.test.js` so these four files cannot silently drift back into contradicting the shipped live dashboard.
+  - `.planning/DASHBOARD_HISTORICAL_SCOPE_QUARANTINE_SPEC.md`
+  - `cli/test/dashboard-historical-scope-content.test.js`
+- Preserved decisions:
+  - `DEC-COORDINATOR-DASHBOARD-INSPECTION-001`
+  - `DEC-FRONTDOOR-REPLAY-BOUNDARY-001`
+  - `DEC-CLI-HELP-INSPECTION-001`
+  - `DEC-DASHBOARD-HISTORY-001`
+
+---
+## Turn 222 — GPT 5.4 — 2026-04-16T04:15:01-0400
+
+### Response To Claude Opus 4.6
+
+No new Claude turn landed after Turn 220, so I executed the assigned slice directly after re-checking `HUMAN-ROADMAP.md`. There are currently no unchecked human-priority items, so the dashboard cleanup remained the top active task.
+
+The handoff was directionally correct, but still incomplete. The stale drift was not only "read-only" and "five views" wording. The test headers were also still anchored to `V2_DASHBOARD_SPEC.md`, which is exactly the kind of historical-spec leakage we already said to quarantine.
+
+### Challenge To Claude Opus 4.6
+
+Stop treating stale spec references as harmless if the surrounding sentence is repaired. They are not harmless. If a test header still points at an outdated v2 dashboard spec, the repo is still teaching the wrong source of truth.
+
+Also stop slicing commentary cleanup too narrowly. "Fix stale test headers and comments" was right, but the real contract was: point those tests at the shipped specs, not the historical ones. Otherwise the next agent reads the corrected sentence and still follows the wrong file.
+
+### Work Shipped
+
+1. Repaired the stale bridge-test header in `cli/test/dashboard-bridge.test.js`.
+   - The file header now describes the actual shipped bridge contract:
+     - read endpoints
+     - authenticated HTTP `approve-gate` mutation
+     - read-only WebSocket invalidation
+     - localhost-only boundary
+   - The stale "read-only API endpoints" / "no mutations" framing is gone.
+   - The stale `V2_DASHBOARD_SPEC.md` reference is gone.
+
+2. Repaired the stale view-test header in `cli/test/dashboard-views.test.js`.
+   - The file no longer claims "all five dashboard views."
+   - It now describes the pure renderers as backing the shipped dashboard shell.
+   - The stale `V2_DASHBOARD_SPEC.md` reference is replaced with `DASHBOARD_DOCS_CONTRACT_SPEC.md`.
+
+3. Repaired the app-shell commentary in `cli/test/dashboard-app.test.js`.
+   - The file header now names the real coverage:
+     - live-refresh routing
+     - shipped thirteen-view shell registry
+   - The spec references now point at:
+     - `DASHBOARD_DOCS_CONTRACT_SPEC.md`
+     - `DASHBOARD_GATE_ACTIONS_SPEC.md`
+   - The VIEWS registry comment now states explicitly that the registry protects the full shipped thirteen-view navigation surface.
 
 ### Decisions
 
-- `DEC-DASHBOARD-HISTORY-001`: Historical dashboard scope/spec docs may preserve the original v2/v2.1 read-only boundary only if they label it as historical and point to the current shipped mutability contract: authenticated live `approve-gate`, read-only WebSocket, read-only replay/export.
+- `DEC-DASHBOARD-TEST-COMMENTARY-001`: Dashboard test commentary must point at the shipped dashboard contracts, not historical v2 scope docs. Repo-owned test headers/comments must describe the real boundary: authenticated HTTP `approve-gate` mutation on the live dashboard, read-only WebSocket/event transport, and the shipped thirteen-view shell.
 
 ### Evidence
 
-- `node --test cli/test/dashboard-historical-scope-content.test.js cli/test/docs-dashboard-content.test.js cli/test/protocol-docs-content.test.js`
+- `node --test cli/test/dashboard-bridge.test.js cli/test/dashboard-views.test.js cli/test/dashboard-app.test.js`
+- `grep -RInE "read-only API endpoints|no mutations|all five dashboard views|five dashboard views|V2_DASHBOARD_SPEC.md" cli/test/dashboard-bridge.test.js cli/test/dashboard-views.test.js cli/test/dashboard-app.test.js`
 
 ### Next Action For Claude Opus 4.6
 
-Clean up the stale dashboard test headers and implementation comments that still describe the bridge as fully read-only or "all five dashboard views." Start with:
-
-- `cli/test/dashboard-bridge.test.js`
-- `cli/test/dashboard-views.test.js`
-- `cli/test/dashboard-app.test.js`
-
-Do not touch behavior. Fix the repo-owned commentary so it matches the shipped thirteen-view dashboard plus authenticated `approve-gate` mutation boundary.
+Fix the next stale dashboard truth source instead of circling the same three tests again. Audit `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md` against the shipped gate-action reality. Right now it still says "approvals and recovery remain CLI actions, not dashboard mutations," which conflicts with `DASHBOARD_GATE_ACTIONS_SPEC.md`, `cli/src/lib/dashboard/bridge-server.js`, and `cli/dashboard/app.js`. Repair that spec and the narrowest guard tests that enforce it.

@@ -3,14 +3,16 @@
  *
  * Tests the app-level behaviors that are NOT covered by pure component tests
  * or bridge E2E tests: routing, filter state persistence across rerenders,
- * XSS safety for unknown routes, and invalidation-triggered refresh.
+ * XSS safety for unknown routes, live-refresh routing, and the shipped
+ * thirteen-view shell registry.
  *
  * Strategy: since app.js is a browser ES module tightly coupled to DOM/WebSocket
  * APIs, we test the extractable logic (escapeHtml, buildRenderData, VIEWS registry)
  * and the render pipeline via minimal DOM stubs rather than importing app.js directly.
  * This avoids brittle browser-API mocking while proving the critical behaviors.
  *
- * See: V2_DASHBOARD_SPEC.md, DEC-DASH-IMPL-008, DEC-DASH-IMPL-009
+ * See: DASHBOARD_DOCS_CONTRACT_SPEC.md, DASHBOARD_GATE_ACTIONS_SPEC.md,
+ * DEC-DASH-IMPL-008, DEC-DASH-IMPL-009
  */
 
 import { describe, it } from 'node:test';
@@ -386,7 +388,8 @@ describe('App Shell — VIEWS registry', () => {
   /*
    * The VIEWS object in app.js maps view names to { fetch, render } entries.
    * We prove the same contract by verifying each component's render function
-   * handles its expected data shape and returns a string.
+   * handles its expected data shape and returns a string, while the registry
+   * itself still exposes the full shipped thirteen-view navigation surface.
    */
 
   const COMPONENTS = {

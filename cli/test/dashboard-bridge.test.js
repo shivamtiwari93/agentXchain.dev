@@ -1,10 +1,11 @@
 /**
  * Dashboard bridge server tests — Slice 1
  *
- * Tests the HTTP bridge server, read-only API endpoints, WebSocket
- * invalidation, and security constraints (localhost-only, no mutations).
+ * Tests the HTTP bridge server's local bridge contract: read endpoints,
+ * authenticated approve-gate HTTP mutation, read-only WebSocket invalidation,
+ * and localhost-only security constraints.
  *
- * See: V2_DASHBOARD_SPEC.md, AT-DASH-007, AT-DASH-008.
+ * See: DASHBOARD_GATE_ACTIONS_SPEC.md, AT-DASH-ACT-001 through AT-DASH-ACT-007.
  */
 
 import { describe, it, before, after } from 'node:test';

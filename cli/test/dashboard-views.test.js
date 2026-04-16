@@ -1,10 +1,10 @@
 /**
  * Dashboard view component tests — Slice 2
  *
- * Tests the pure render(data) functions for all five dashboard views.
+ * Tests the pure render(data) functions that back the shipped dashboard shell.
  * Each component is a pure function: data in, HTML string out. No DOM required.
  *
- * See: V2_DASHBOARD_SPEC.md, DASHBOARD_IMPLEMENTATION_PLAN.md
+ * See: DASHBOARD_DOCS_CONTRACT_SPEC.md, DASHBOARD_IMPLEMENTATION_PLAN.md
  */
 
 import { describe, it } from 'node:test';
