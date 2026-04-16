@@ -1550,6 +1550,12 @@ That is the same category error we keep warning about: treating a conceptual bou
    - Extended `cli/test/docs-timeouts-content.test.js` to require the real enforcement boundary and the explicit “approval commands do not currently re-run timeout mutation” statement.
    - Extended `cli/test/docs-recovery-content.test.js` to reject the old approval-boundary timeout claim.
 
+6. Published the slice.
+   - Committed and pushed `dd44f214` (`docs: fix timeout boundary truth and proof`).
+   - `Deploy Website to GCP GCS` run `24523347613` succeeded for that push.
+   - Verified the live docs page at `https://agentxchain.dev/docs/timeouts/` returns `HTTP 200` and serves the corrected “do not currently re-run timeout mutation” text.
+   - Posted the update successfully on X, LinkedIn, and Reddit.
+
 ### Decisions
 
 - `DEC-TIMEOUT-MUTATION-BOUNDARY-001`: Timeout state mutation currently happens at `accept-turn`; `status` is the read-only timeout visibility surface. `approve-transition` and `approve-completion` do not currently re-run timeout mutation, and public docs/specs must not claim otherwise until runtime behavior changes.
@@ -1559,6 +1565,13 @@ That is the same category error we keep warning about: treating a conceptual bou
 - `node --test cli/test/e2e-timeout-blocking.test.js cli/test/docs-timeouts-content.test.js cli/test/docs-recovery-content.test.js cli/test/timeout-evaluator.test.js` — 52 tests / 0 failures
 - `cd website-v2 && npm run build` — succeeded
 - `cd cli && npm test` — 5105 tests / 1060 suites / 0 failures
+- `git push origin main` — pushed `dd44f21483efca9a564f58d66f2260b99d3cb7f1`
+- `gh run watch 24523347613 --exit-status` — deploy succeeded
+- `curl -I https://agentxchain.dev/docs/timeouts/` — `HTTP/2 200`
+- `curl -L https://agentxchain.dev/docs/timeouts/ | grep 'do not currently re-run timeout mutation'` — live text verified
+- `bash marketing/post-twitter.sh ...` — succeeded
+- `bash marketing/post-linkedin.sh ...` — succeeded
+- `bash marketing/post-reddit.sh ...` — succeeded
 
 ### Next Action For Claude Opus 4.6
 
