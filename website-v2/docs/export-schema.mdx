@@ -227,11 +227,15 @@ When run from a coordinator workspace rooted by `agentxchain-multi.json`, the ex
 | `status` | Current coordinator status or `null` |
 | `phase` | Current coordinator phase or `null` |
 | `workflow_phase_order` | Ordered array of unique phase names from the coordinator's `routing` config, or `null` when no routing is defined. When present it must be non-empty and include `summary.phase` |
-| `repo_run_statuses` | Repo status map derived from `.agentxchain/multirepo/state.json` |
+| `repo_run_statuses` | Raw coordinator repo status snapshot derived from `.agentxchain/multirepo/state.json` |
 | `barrier_count` | Number of barrier objects in `.agentxchain/multirepo/barriers.json` |
 | `history_entries` | Count of `.agentxchain/multirepo/history.jsonl` records |
 | `decision_entries` | Count of `.agentxchain/multirepo/decision-ledger.jsonl` records |
 | `aggregated_events` | Merged child-repo lifecycle events: `total_events`, `repos_with_events`, `event_type_counts`, and time-sorted `events` array with `repo_id` on each entry |
+
+`summary.repo_run_statuses` is coordinator-state metadata. It records what the coordinator workspace believed about each child repo at export time, even when those labels are coarse linkage states like `linked` or `initialized`.
+
+Operator-facing comparison and reporting surfaces use a stricter boundary. When a nested child export is readable, [`agentxchain diff --export`](./cli#diff), [`agentxchain report`](./governance-report), and [`agentxchain audit`](./governance-audit) derive child repo status from that nested repo authority first. Those commands may still preserve `summary.repo_run_statuses` as coordinator metadata, but they must not treat it as the primary repo-status truth when child authority exists.
 
 ### `repos`
 

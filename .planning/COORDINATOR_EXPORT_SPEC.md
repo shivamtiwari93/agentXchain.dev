@@ -70,6 +70,8 @@ Detection order:
 }
 ```
 
+`summary.repo_run_statuses` is the raw coordinator-state snapshot embedded in the export artifact. It is not the downstream operator-facing repo-status authority for report/audit/diff when nested child exports are readable. Those surfaces must prefer child repo authority and keep `repo_run_statuses` as metadata only.
+
 ## Child Repo Embedding
 
 For each repo declared in `agentxchain-multi.json`:

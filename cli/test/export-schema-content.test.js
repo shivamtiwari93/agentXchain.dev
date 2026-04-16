@@ -505,6 +505,19 @@ describe('coordinator export schema docs contract', () => {
     }
   });
 
+  it('AT-EXPORT-REF-008: distinguishes raw coordinator snapshot metadata from authority-first report/diff truth', () => {
+    assert.match(EXPORT_DOCS, /raw coordinator repo status snapshot/i);
+    assert.match(EXPORT_DOCS, /coordinator-state metadata/i);
+    assert.match(EXPORT_DOCS, /must not treat it as the primary repo-status truth/i);
+    assert.match(EXPORT_DOCS, /nested child export is readable/i);
+    assert.match(EXPORT_DOCS, /agentxchain diff --export/);
+    assert.match(EXPORT_DOCS, /agentxchain report/);
+    assert.match(EXPORT_DOCS, /agentxchain audit/);
+    assert.match(SPEC, /AT-EXPORT-REF-008/);
+    assert.match(SPEC, /raw coordinator-state snapshot/i);
+    assert.match(SPEC, /report\/audit\/diff/i);
+  });
+
   it('AT-EXPORT-REF-007: documents aggregated_events verification truthfully', () => {
     assert.match(EXPORT_DOCS, /aggregated_events/i);
     assert.match(EXPORT_DOCS, /embedded child-repo `events\.jsonl` data/i);

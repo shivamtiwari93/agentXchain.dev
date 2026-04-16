@@ -18,6 +18,7 @@ The exporter and verifier already enforce a stable JSON schema, but that truth l
 - Both `agentxchain_run_export` and `agentxchain_coordinator_export`
 - File-entry contract: `format`, `bytes`, `sha256`, `content_base64`, `data`
 - Summary-field semantics for run and coordinator artifacts
+- Explicit distinction between raw coordinator snapshot fields and downstream operator-facing comparison/report truth
 - Child-repo embedding and failure contract for coordinator exports
 - Explicit statement that export artifacts are a stable operator contract, not protocol v6 conformance
 - Code-backed docs guard built from actual exporter and verifier behavior
@@ -88,6 +89,7 @@ The docs must cover:
 - `coordinator.project_id`, `project_name`, `schema_version`, `repo_count`, `workstream_count`
 - `summary.super_run_id`, `status`, `phase`, `repo_run_statuses`, `barrier_count`, `history_entries`, `decision_entries`
 - `repos.<repo_id>.ok`, `path`, `export`, and `error`
+- `summary.repo_run_statuses` as the raw coordinator-state snapshot, not the operator-facing repo-status authority for report/audit/diff when nested child exports are readable
 
 ### File-entry integrity contract
 
@@ -106,7 +108,8 @@ The docs must explain that `verify export` re-derives `bytes` and `sha256` from 
 1. The docs blur export schema with protocol v6 conformance
 2. The docs omit coordinator child-repo failure semantics
 3. The docs omit real top-level or nested keys
-4. The docs claim fields or behaviors not emitted by exporter/verifier code
+4. The docs blur raw coordinator snapshot metadata with downstream operator-facing report/diff truth
+5. The docs claim fields or behaviors not emitted by exporter/verifier code
 
 ## Acceptance Tests
 
@@ -116,6 +119,7 @@ The docs must explain that `verify export` re-derives `bytes` and `sha256` from 
 - `AT-EXPORT-REF-004`: the page documents the actual coordinator export top-level, coordinator, summary, and per-repo keys emitted by `buildCoordinatorExport()`
 - `AT-EXPORT-REF-005`: the page documents the real child-repo failure contract (`ok: false` plus `error`) without claiming coordinator export failure
 - `AT-EXPORT-REF-006`: `/docs/protocol-reference` links to the export schema page and keeps the non-normative boundary explicit
+- `AT-EXPORT-REF-008`: the page distinguishes raw coordinator `summary.repo_run_statuses` snapshot metadata from the authority-first repo-status contract used by report/audit/diff when nested child exports are readable
 
 ## Open Questions
 
