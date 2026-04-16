@@ -1,6 +1,6 @@
 # Launch Evidence Report — AgentXchain v2.108.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.108.0 release: conflict observability is now durable, dashboard-visible, notification-correct, report-visible, and queryable from the `events` CLI with inline conflict metadata. 5138 tests / 1066 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.108.0 release: conflict observability is now durable, dashboard-visible, notification-correct, report-visible, and queryable from the `events` CLI with inline conflict metadata. 5143 tests / 1067 suites / 0 failures.
 
 ---
 
@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-16
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 5138 tests / 1066 suites / 0 failures
+- **Result**: 5143 tests / 1067 suites / 0 failures
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)

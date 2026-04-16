@@ -9,7 +9,7 @@
 - The dashboard timeline now reads `/api/events?type=turn_conflicted&limit=10` and renders conflict metadata directly in the Timeline view
 - Conflict-loop exhaustion now emits the missing `run_blocked` notification with `category: conflict_loop`, while intermediate conflict detections remain observability-only to avoid webhook noise
 - `agentxchain events --type turn_conflicted` now renders inline conflict details including overlapping files, overlap percentage, detection count, and accepted-since turn IDs
-- 5095 tests / 1057 suites / 0 failures
+- 5143 tests / 1067 suites / 0 failures
 
 ## 2.107.0
 

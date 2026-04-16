@@ -383,12 +383,12 @@ describe('CLI governance docs contract — coordinator status observability', ()
   });
 });
 
-describe('CLI governance docs contract — approval commands have no flag tables', () => {
+describe('CLI governance docs contract — approval commands document --dry-run', () => {
   for (const cmd of ['approve-transition', 'approve-completion']) {
-    it(`${cmd} docs state "No flags"`, () => {
+    it(`${cmd} docs include --dry-run`, () => {
       const docsFlags = extractDocsFlags(cmd);
       assert.ok(docsFlags !== null, `${cmd} section not found`);
-      assert.equal(docsFlags.length, 0, `${cmd} should have no flags documented`);
+      assert.ok(docsFlags.includes('--dry-run'), `${cmd} must document --dry-run flag`);
     });
   }
 });

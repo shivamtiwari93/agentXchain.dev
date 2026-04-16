@@ -61,7 +61,32 @@ jobs:
         working-directory: cli/vscode-extension
         run: npx @vscode/vsce package --no-dependencies
 
+      - name: Detect existing Marketplace publication
+        id: detect
+        working-directory: cli/vscode-extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          PUBLISHER="$(node -p "require('./package.json').publisher")"
+          EXT_NAME="$(node -p "require('./package.json').name")"
+          EXT_ID="${PUBLISHER}.${EXT_NAME}"
+
+          echo "Checking Marketplace for ${EXT_ID}@${PKG_VERSION}..."
+
+          # vsce show exits 0 if extension exists; we compare the latest version
+          MARKETPLACE_VERSION="$(npx @vscode/vsce show "${EXT_ID}" --json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).versions?.[0]?.version ?? ''" 2>/dev/null || echo "")"
+
+          if [[ "$MARKETPLACE_VERSION" == "$PKG_VERSION" ]]; then
+            echo "::notice::Version ${PKG_VERSION} already published to Marketplace. Skipping publish."
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version ${PKG_VERSION} not yet published (latest: ${MARKETPLACE_VERSION:-none}). Will publish."
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to VS Code Marketplace
+        if: steps.detect.outputs.already_published != 'true'
         working-directory: cli/vscode-extension
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}

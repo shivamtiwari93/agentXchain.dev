@@ -752,10 +752,16 @@ Rejects the staged turn result. The turn returns to `pending` status and can be 
 ### `approve-transition`
 
 ```bash
-agentxchain approve-transition
+agentxchain approve-transition [--dry-run]
 ```
 
-No flags. Approves a pending phase transition gate. The run must be in `blocked:gate` state with a pending `phase_transition_request`. On approval, the phase advances (e.g., `planning` to `implementation`, `implementation` to `verification`).
+Approves a pending phase transition gate. The run must be in `blocked:gate` state with a pending `phase_transition_request`. On approval, the phase advances (e.g., `planning` to `implementation`, `implementation` to `verification`).
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview configured gate actions without executing them or mutating state |
+
+If the gate has `gate_actions` configured, they execute sequentially after approval hooks pass. A failing gate action blocks the run while preserving the pending gate for retry.
 
 **Blocked state model:**
 
@@ -768,10 +774,16 @@ No flags. Approves a pending phase transition gate. The run must be in `blocked:
 ### `approve-completion`
 
 ```bash
-agentxchain approve-completion
+agentxchain approve-completion [--dry-run]
 ```
 
-No flags. Approves run completion. This is the final human gate. The run transitions to `completed` status and no further turns can be created. The ship verdict (`.planning/ship-verdict.md`) should be reviewed before approval, and the runtime only opens this gate when that file carries an affirmative `## Verdict:` value.
+Approves run completion. This is the final human gate. The run transitions to `completed` status and no further turns can be created. The ship verdict (`.planning/ship-verdict.md`) should be reviewed before approval, and the runtime only opens this gate when that file carries an affirmative `## Verdict:` value.
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview configured gate actions without executing them or mutating state |
+
+If the gate has `gate_actions` configured, they execute sequentially after approval hooks pass. A failing gate action blocks the run while preserving the pending gate for retry.
 
 ## Validation
 
