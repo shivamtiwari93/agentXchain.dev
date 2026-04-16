@@ -15,7 +15,7 @@ description: "Decision-authority enforcement fixed in the real governed acceptan
 - Illegal repo-decision overrides are now rejected through the real `acceptGovernedTurn` path. Before this fix, override enforcement could compare against an undefined overriding role instead of the accepted turn's role.
 - Config validation now rejects invalid `decision_authority` values unless they are integers in the `0..99` range.
 - Active repo decisions in `CONTEXT.md` now show the originating role and authority metadata so agents can see override constraints before attempting a supersession.
-- Export summaries, `verify export`, and governance reports now preserve authority metadata for repo decisions.
+- Export summaries now preserve repo-decision authority metadata, `verify export` now rejects drift or tampering in that metadata, and governance reports render the preserved values from verifier-clean artifacts.
 - `agentxchain role show` now prints configured decision authority directly.
 
 ## Why This Matters
