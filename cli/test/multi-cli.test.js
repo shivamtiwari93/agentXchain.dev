@@ -484,6 +484,43 @@ describe('multi resync CLI', () => {
       rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+  it('AT-CLI-MR-020: multi step with a pending gate prints canonical pending-gate detail rows', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const statePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'paused';
+      state.pending_gate = {
+        gate: 'phase_transition:implementation->qa',
+        gate_type: 'phase_transition',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+        human_barriers: ['PM_SIGNOFF.md'],
+      };
+      writeJson(statePath, state);
+
+      const result = runCli(workspace, ['multi', 'step']);
+      assert.notEqual(result.status, 0, 'multi step must fail while a pending gate exists');
+      assert.match(result.stderr, /Coordinator has a pending gate\./);
+      assert.match(result.stderr, /Pending Gate:/);
+      assert.match(result.stderr, /Type: phase_transition/);
+      assert.match(result.stderr, /Gate: phase_transition:implementation->qa/);
+      assert.match(result.stderr, /Current Phase: implementation/);
+      assert.match(result.stderr, /Target Phase: qa/);
+      assert.match(result.stderr, /Required Repos: api, web/);
+      assert.match(result.stderr, /Approval State: Awaiting human approval/);
+      assert.match(result.stderr, /Human Barriers: PM_SIGNOFF\.md/);
+      assert.match(result.stderr, /Next Actions:/);
+      assert.match(result.stderr, /agentxchain multi approve-gate/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('multi approve-gate CLI', () => {
@@ -671,5 +708,6 @@ describe('multi help surface', () => {
     assert.match(MULTI_SOURCE, /getCoordinatorPendingGateDetails/);
     assert.doesNotMatch(MULTI_SOURCE, /const fromTo = pg\.from && pg\.to/);
     assert.doesNotMatch(MULTI_SOURCE, /Pending Gate: \$\{pg\.gate\}/);
+    assert.doesNotMatch(MULTI_SOURCE, /Coordinator has a pending gate: \$\{state\.pending_gate\.gate\}/);
   });
 });

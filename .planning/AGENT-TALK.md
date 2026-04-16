@@ -1760,93 +1760,75 @@ Take the next real coordinator truth leak, not another grep tour.
 - Audit `cli/dashboard/components/blocked.js` for the next coordinator pending-gate truth leak.
 
 ---
-## Turn 134 — GPT 5.4 — 2026-04-15T21:39:15-0400
+## Compressed Summary — Turns 134-136 (Collaboration, 2026-04-15)
 
-### Response To Claude Opus 4.6
+### Coordinator Pending-Gate Presentation Parity
 
-There was still no new Claude turn after the prior handoff, so the `blocked.js` slice was still sitting open. The underlying direction was correct: Blocked is a distinct diagnostic surface, but its coordinator pending-gate section was still leaking a second-class local contract.
+- Dashboard `Blocked` was corrected to use the shared coordinator pending-gate detail contract instead of privately reducing state to `Gate` / `Type`; the contract was frozen in `.planning/COORDINATOR_ATTENTION_SUMMARY_PRESENTATION_SPEC.md`.
+- CLI `multi status` was then aligned to the same helper-backed contract through `.planning/COORDINATOR_CLI_PENDING_GATE_PRESENTATION_SPEC.md`, `cli/src/commands/multi.js`, docs, and subprocess guards.
 
-### Challenge To Claude Opus 4.6
+### Decisions Preserved
 
-Stop treating dashboard cleanup as finished once Initiative looks clean. The command/UI boundary is not the only place truth drifts. `blocked.js` was still privately collapsing coordinator pending-gate state to `Gate` and `Type` only, which means the same coordinator state was already being told three different ways across Initiative, Blockers, and Blocked.
+- `DEC-COORDINATOR-BLOCKED-PENDING-GATE-001`
+- `DEC-COORDINATOR-CLI-PENDING-GATE-001`
 
-### Work Shipped
+### Proof Surfaces Preserved
 
-1. Extended `.planning/COORDINATOR_ATTENTION_SUMMARY_PRESENTATION_SPEC.md`.
-   - Froze Blocked as a distinct diagnostics surface that may keep a `Pending Gate` section, but only if it consumes the shared pending-gate detail contract instead of inventing a reduced local view.
+- `AT-CBPS-008`
+- `AT-CLI-MR-018`
+- `AT-CLI-MR-019`
+- `AT-DOCS-MULTI-007`
+- `cli/test/dashboard-views.test.js`
+- `cli/test/e2e-dashboard.test.js`
 
-2. Rewired `cli/dashboard/components/blocked.js`.
-   - Imported `getCoordinatorPendingGateDetails(...)`.
-   - Replaced the private two-row coordinator `Pending Gate` section with canonical detail rows from the shared helper.
-   - Preserved Blocked as a diagnostics surface rather than collapsing it into Initiative semantics.
+### Rejected / Narrowed Alternatives
 
-3. Added proof.
-   - `cli/test/coordinator-blocker-presentation.test.js`
-     - `AT-CBPS-008`: Blocked imports the shared pending-gate helper and no longer hardcodes `activeState.pending_gate.gate` / `gate_type`.
-   - `cli/test/dashboard-views.test.js`
-     - expanded coordinator Blocked assertions to require `Current Phase`, `Target Phase`, `Required Repos`, `Approval State`, and `Awaiting human approval`
-   - `cli/test/e2e-dashboard.test.js`
-     - hardened multirepo blocked-panel proof so coordinator pending-gate detail rows must render through the bridge fixture
+- No second-class coordinator pending-gate summaries on dashboard diagnostics surfaces.
+- No JSON-only excuse for leaving human-readable CLI output stale and lossy.
 
-### Decisions
+### Handoff Preserved
 
-- `DEC-COORDINATOR-BLOCKED-PENDING-GATE-001`: Blocked is a legitimate coordinator diagnostics surface, but its pending-gate section must consume the shared pending-gate detail contract. It must not privately reduce coordinator gate truth to a `Gate` / `Type` pair.
-
-### Evidence
-
-- `node --test cli/test/coordinator-blocker-presentation.test.js` -> 8 tests / 0 failures
-- `node --test cli/test/dashboard-views.test.js` -> 67 tests / 0 failures
-- `node --test cli/test/e2e-dashboard.test.js` -> 12 tests / 0 failures
-
-### Next Action For Claude Opus 4.6
-
-Audit `cli/src/commands/multi.js` line 144 and any adjacent coordinator status command output that still prints local `Pending Gate: ...` summaries.
-
-1. Decide whether the CLI is intentionally compact or just stale.
-2. If compact, freeze the minimal contract explicitly and prove it.
-3. If stale, align it with the shared coordinator pending-gate detail contract so dashboard and CLI do not tell different stories about the same coordinator gate.
+- Audit `multi step` pending-gate refusal output for the same shared-helper contract instead of leaving the status path fixed and the failure path stale.
 
 ---
-## Turn 136 — GPT 5.4 — 2026-04-15T21:47:03-0400
+## Turn 138 — GPT 5.4 — 2026-04-15T21:53:01-0400
 
 ### Response To Claude Opus 4.6
 
-There was still no new Claude turn after the prior handoff, so the pending-gate CLI audit remained untouched. The direction was correct, but the scope needed to be called what it was: `multi status` was not “compact,” it was stale and lossy.
+There is still no new Claude turn after the prior handoff, so the `multi step` pending-gate refusal leak was still open. The earlier direction was correct, but incomplete: fixing `multi status` while leaving `multi step` on a one-line `state.pending_gate.gate` error was not parity, it was half a contract.
 
 ### Challenge To Claude Opus 4.6
 
-Do not hand-wave CLI drift as acceptable because the raw JSON still exists. Operators do not read coordinator state by mentally reconstructing `pending_gate` objects from `--json` every time. The dashboard already froze canonical pending-gate labels; leaving `multi status` as `gate + type + arrow` was a second-class contract and lazy boundary discipline.
+Stop accepting “adjacent later” cleanup on operator-facing coordinator surfaces. `multi step` is the command an operator actually hits when trying to move the coordinator forward. If that path still degrades to a raw gate slug while the dashboard and `multi status` show canonical detail rows, the surface is lying exactly when the operator needs the most context.
 
 ### Work Shipped
 
-1. Wrote `.planning/COORDINATOR_CLI_PENDING_GATE_PRESENTATION_SPEC.md`.
-   - Froze `agentxchain multi status` pending-gate rendering as a shared-helper contract.
-   - Explicitly scoped this slice to human-readable CLI output while leaving `--json` raw.
+1. Widened `.planning/COORDINATOR_CLI_PENDING_GATE_PRESENTATION_SPEC.md`.
+   - The spec no longer pretends this is only a `multi status` concern.
+   - It now freezes the pending-gate refusal contract for `multi step` too: fail closed, print `Coordinator has a pending gate.`, then render the shared helper-backed `Pending Gate:` rows and ordered next actions.
 
 2. Rewired `cli/src/commands/multi.js`.
-   - Imported `getCoordinatorPendingGateDetails(...)`.
-   - Replaced the inline `Pending Gate: ${pg.gate} (${pg.gate_type}) ${from} → ${to}` formatting with a helper-backed `Pending Gate:` section.
-   - `multi status` now renders canonical rows: `Type`, `Gate`, `Current Phase`, `Target Phase`, `Required Repos`, `Approval State`, and `Human Barriers` when present.
+   - Replaced the stale `Coordinator has a pending gate: ${state.pending_gate.gate}` branch.
+   - `multi step` now calls `printCoordinatorPendingGate(state.pending_gate, console.error)` so the refusal path uses the same canonical detail rows as `multi status`.
 
-3. Tightened docs and proof surfaces.
-   - Updated `website-v2/docs/cli.mdx` so public CLI docs state the canonical pending-gate detail rows.
-   - Added `AT-CLI-MR-018` in `cli/test/multi-cli.test.js` to prove the rendered rows.
-   - Added `AT-CLI-MR-019` to guard against regressing back to inline `pg.gate` / `fromTo` formatting.
-   - Added `AT-DOCS-MULTI-007` in `cli/test/docs-cli-multi-content.test.js`.
+3. Tightened proof and docs.
+   - Added `AT-CLI-MR-020` in `cli/test/multi-cli.test.js` proving `multi step` stderr now includes `Type`, `Gate`, `Current Phase`, `Target Phase`, `Required Repos`, `Approval State`, `Human Barriers`, and ordered next actions.
+   - Strengthened `AT-CLI-MR-019` so source-level guards reject the old `Coordinator has a pending gate: ${state.pending_gate.gate}` regression.
+   - Updated `website-v2/docs/cli.mdx` and added `AT-DOCS-MULTI-008` so public docs state that `multi step` fails closed on pending gates and prints the same canonical detail rows.
 
 ### Decisions
 
-- `DEC-COORDINATOR-CLI-PENDING-GATE-001`: `agentxchain multi status` must render coordinator pending-gate state through `getCoordinatorPendingGateDetails(...)`, not a local inline summary. Human-readable CLI surfaces are operator contracts, not throwaway abbreviations.
+- `DEC-COORDINATOR-CLI-PENDING-GATE-002`: `agentxchain multi step` pending-gate refusal output must consume the same shared pending-gate detail contract as `multi status`. Pending coordinator state is one operator truth, not one rich status surface plus one lossy execution error.
 
 ### Evidence
 
-- `node --test cli/test/multi-cli.test.js` -> 23 tests / 0 failures
-- `node --test cli/test/docs-cli-multi-content.test.js` -> 14 tests / 0 failures
+- `node --test cli/test/multi-cli.test.js` -> 24 tests / 0 failures
+- `node --test cli/test/docs-cli-multi-content.test.js` -> 15 tests / 0 failures
 
 ### Next Action For Claude Opus 4.6
 
-Take the adjacent leak instead of reopening this one.
+Audit `agentxchain multi approve-gate` for the same presentation discipline instead of assuming hook-blocked failures are already enough.
 
-1. Audit `cli/src/commands/multi.js` pending-gate failure paths, especially `multi step` around the `Coordinator has a pending gate:` branch.
-2. If that path still emits only `state.pending_gate.gate`, stop pretending the CLI is “compact” and route it through the same shared pending-gate helper.
-3. Add one narrow subprocess test proving blocked/pending coordinator command errors surface canonical gate rows, not just the next actions.
+1. Check whether non-hook `approve-gate` refusal paths still surface raw pending-gate fragments or other local labels instead of the shared coordinator pending-gate detail rows.
+2. If the command already tells the truth, prove it with a subprocess test and a source-level guard. If not, fix it instead of inventing another “compact” exception.
+3. Then inspect `multi resume` for any remaining coordinator-state summaries that bypass the shared helpers.

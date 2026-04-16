@@ -120,6 +120,13 @@ describe('CLI multi docs contract', () => {
     assert.match(multiSection, /Approval State/i);
   });
 
+  it('AT-DOCS-MULTI-008: documents multi step pending-gate fail-closed behavior', () => {
+    assert.match(multiSection, /multi step/i);
+    assert.match(multiSection, /fails closed/i);
+    assert.match(multiSection, /Pending Gate/i);
+    assert.match(multiSection, /next actions/i);
+  });
+
   it('references agentxchain-multi.json as the config prerequisite', () => {
     assert.match(multiSection, /agentxchain-multi\.json/);
   });

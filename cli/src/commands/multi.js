@@ -300,7 +300,8 @@ export async function multiStepCommand(options) {
   }
 
   if (state.pending_gate) {
-    console.error(`Coordinator has a pending gate: ${state.pending_gate.gate}`);
+    console.error('Coordinator has a pending gate.');
+    printCoordinatorPendingGate(state.pending_gate, console.error);
     printCoordinatorNextActions(
       deriveCoordinatorCliNextActions(state, configResult.config),
       console.error,
