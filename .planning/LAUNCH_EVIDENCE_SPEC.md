@@ -23,6 +23,7 @@ The output is a single Markdown file at `.planning/LAUNCH_EVIDENCE_REPORT.md` wi
 - Every claim in sections 2 and 3 must cite a specific evidence source from section 1.
 - The artifact is updated whenever new live evidence is collected.
 - The artifact must distinguish historical dashboard baselines from the current shipped live-dashboard contract. It must not describe the current local dashboard as fully read-only once authenticated `approve-gate` exists.
+- Launch-boundary docs must not downgrade the current shipped dashboard contract to a historical shorthand such as "v2.0 observation surface." Current truth is narrower and more precise: local observation plus authenticated `approve-gate`, with broader mutations still deferred.
 - Launch surfaces (SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, `website-v2/src/pages/index.tsx`, `website-v2/src/pages/why.mdx`) must not make claims that appear in section 3.
 
 ## Evidence Sources
@@ -44,6 +45,7 @@ The following evidence sources exist as of 2026-04-02:
 - AT-EVIDENCE-003: No launch-facing file (SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, `website-v2/src/pages/index.tsx`, `website-v2/src/pages/why.mdx`) contains language that matches a disallowed claim.
 - AT-EVIDENCE-004: The test count floor in the report matches the current test suite.
 - AT-EVIDENCE-005: The report does not present the current shipped local dashboard as fully read-only; it preserves the live-dashboard boundary that authenticated `approve-gate` exists while WebSocket transport and `replay export` remain read-only.
+- AT-EVIDENCE-006: `LAUNCH_BRIEF.md` does not tell operators to describe the current shipped dashboard as a `v2.0 observation surface`; it uses the shipped shorthand of local observation plus narrow live gate approval.
 
 ## Open Questions
 

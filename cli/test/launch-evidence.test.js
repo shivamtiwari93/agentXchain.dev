@@ -339,6 +339,12 @@ describe('Launch brief references evidence report', () => {
     assert.match(brief, /production-proven/i);
     assert.match(brief, /DEC-POSITIONING-008/);
   });
+
+  it('keeps launch dashboard shorthand aligned with the shipped live scope', () => {
+    assert.match(brief, /local operator dashboard with observation plus narrow live gate approval/i);
+    assert.match(brief, /authenticated `approve-gate` exists/i);
+    assert.doesNotMatch(brief, /use "v2\.0 observation surface"/i);
+  });
 });
 
 describe('Mobile nav sidebar regression guard', () => {

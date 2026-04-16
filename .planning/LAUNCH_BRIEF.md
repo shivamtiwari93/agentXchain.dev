@@ -83,7 +83,7 @@ All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key const
 - `api_proxy` proposed-authority full lifecycle including run completion is now proven live against real Anthropic (E2c, `run_7b067f892916b799`). The previous disallowed claim (`DEC-PROP-COMPLETION-CONTRACT-001`) is closed: the product contract bug was fixed in Turn 133, and the hardened live proof passed on 2026-04-08 with gate-valid proposal content, no-op completion, `pending_run_completion` pause, and `approve-completion`
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)
-- Do not claim dashboard is "feature-complete" publicly — use "v2.0 observation surface"
+- Do not claim dashboard is "feature-complete" publicly. Current truthful shorthand: local operator dashboard with observation plus narrow live gate approval. Do not fall back to the stale "v2.0 observation surface" wording now that authenticated `approve-gate` exists.
 
 ## Release Day Sequence
 
