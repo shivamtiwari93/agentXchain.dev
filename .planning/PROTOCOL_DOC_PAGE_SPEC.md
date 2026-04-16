@@ -48,6 +48,7 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
    - `website-v2/docs/first-turn.mdx`
    - `website-v2/docs/quickstart.mdx`
    - `website-v2/docs/runner-interface.mdx`
+9. Historical release notes may preserve historical statements, but if they link the current `/docs/protocol` alias they must not label that link as `Protocol v6` or any other stale version title. They should use a neutral label such as `Protocol docs` unless they point to a versioned historical artifact instead.
 
 ## Error Cases
 
@@ -59,6 +60,7 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
 - Claiming the ledger generically records rejections
 - Showing `accept-turn` as the next command after `step` in the normal flow (step auto-accepts)
 - Claiming the implementation exit gate requires `approve-transition` (it only requires verification pass)
+- A historical release note links `/docs/protocol` with a stale `Protocol v6` label
 
 ## Acceptance Tests
 
@@ -73,6 +75,7 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
 9. The guard verifies the command sequence documents `step` auto-acceptance and does not insert `accept-turn` into the normal governed flow.
 10. The guard verifies the implementation exit gate is documented as `implementation_complete` (verification-only), not `approve-transition`.
 11. The guard verifies current public protocol links in the footer and adjacent docs pages use `Protocol v7` and reject stale `Protocol v6` labels.
+12. The guard verifies historical release notes do not label the current `/docs/protocol` alias as `Protocol v6`.
 
 ## Open Questions
 

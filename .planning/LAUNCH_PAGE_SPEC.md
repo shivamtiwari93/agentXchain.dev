@@ -23,6 +23,8 @@ Keep the public launch surface honest without mixing historical launch copy and 
 1. `/launch` must remain a clearly labeled historical launch snapshot:
    - it may preserve v2.24.1 launch-time counts and the four-adapter launch story
    - it must label those claims as launch-time snapshot truth, not current release truth
+   - the page title, metadata, opening paragraph, and adapter-proof section headings must read as historical launch-time claims, not current-tense front-door copy
+   - the five-layer connector description may preserve the launch-time four-adapter subset, but it must explicitly label that subset as the v2.24.1 launch boundary
 2. The page must keep the demo front door strong:
    - `npx --yes -p agentxchain@latest -c "agentxchain demo"` is the primary demo command (package-bound per `DEC-NPX-FD-001`)
 3. Reusable current-truth marketing drafts must send primary traffic to a current front door, not the historical `/launch` snapshot:
@@ -40,7 +42,9 @@ Keep the public launch surface honest without mixing historical launch copy and 
 ## Error Cases
 
 - `/launch` presents historical launch counts as if they are current release truth.
+- `/launch` title, metadata, or opening paragraph sounds like a current release landing page instead of a historical launch snapshot.
 - Launch page says manual adapter proof is a real-model proof.
+- Launch page lists the four-adapter launch subset in the architecture section without saying it is the v2.24.1 launch-time boundary.
 - A reusable current-truth draft sends primary traffic to the historical `/launch` snapshot instead of a current front door.
 - Demo instructions omit the known stale-global-install fallback.
 - Marketing drafts collapse "all adapters proven live" into "every adapter proven with a real model."
@@ -55,6 +59,7 @@ Keep the public launch surface honest without mixing historical launch copy and 
 - `AT-LAUNCH-PAGE-005`: launch-linked marketing drafts carry the current released version from `cli/package.json`.
 - `AT-LAUNCH-PAGE-006`: launch-linked marketing drafts carry the current release evidence line from the top `cli/CHANGELOG.md` section and the current conformance corpus size.
 - `AT-LAUNCH-PAGE-007`: launch-linked marketing drafts state that all five adapter types are proven live and include `remote_agent` in the non-manual real-model proof boundary.
+- `AT-LAUNCH-PAGE-008`: `website-v2/src/pages/launch.mdx` labels its title, metadata, opening paragraph, adapter-proof heading, and architecture connector subset as historical launch-time snapshot truth.
 
 ## Open Questions
 

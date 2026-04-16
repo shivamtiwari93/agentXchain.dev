@@ -19,6 +19,7 @@ const DOCUSAURUS_CONFIG = read('website-v2/docusaurus.config.ts');
 const FIRST_TURN_DOC = read('website-v2/docs/first-turn.mdx');
 const QUICKSTART_DOC = read('website-v2/docs/quickstart.mdx');
 const RUNNER_INTERFACE_DOC = read('website-v2/docs/runner-interface.mdx');
+const RELEASE_2_21_DOC = read('website-v2/docs/releases/v2-21-0.mdx');
 const ROOT_README = read('README.md');
 const CLI_README = read('cli/README.md');
 const INIT_COMMAND = read('cli/src/commands/init.js');
@@ -221,5 +222,18 @@ describe('Public links stay host-safe and point at the latest protocol alias', (
       assert.doesNotMatch(text, /\[Protocol v6\]\(\/docs\/protocol\)/, `${label} must not use a stale Protocol v6 label`);
     }
     assert.doesNotMatch(DOCUSAURUS_CONFIG, /label: 'Protocol v6'/);
+  });
+
+  it('does not let historical release notes mislabel the current protocol alias as v6', () => {
+    assert.match(
+      RELEASE_2_21_DOC,
+      /\[Protocol docs\]\(\/docs\/protocol\)/,
+      'historical release notes should use a neutral label when linking the current /docs/protocol alias',
+    );
+    assert.doesNotMatch(
+      RELEASE_2_21_DOC,
+      /\[Protocol v6\]\(\/docs\/protocol\)/,
+      'historical release notes must not label the current /docs/protocol alias as Protocol v6',
+    );
   });
 });

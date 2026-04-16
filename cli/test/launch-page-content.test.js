@@ -22,7 +22,9 @@ const FRONTDOOR_SPEC = read('.planning/COMPARISON_LAUNCH_FRONTDOOR_SPEC.md');
 describe('launch page public contract', () => {
   it('keeps /launch as a first-class public route', () => {
     assert.match(DOCUSAURUS_CONFIG, /to: '\/launch'/);
-    assert.match(LAUNCH_PAGE, /^# AgentXchain v2\.24/m);
+    assert.match(LAUNCH_PAGE, /^# AgentXchain v2\.24 Launch Snapshot/m);
+    assert.match(LAUNCH_PAGE, /<title>AgentXchain v2\.24 Launch Snapshot — Governed Multi-Agent Software Delivery<\/title>/);
+    assert.match(LAUNCH_PAGE, /Historical launch snapshot for AgentXchain v2\.24\.1/i);
   });
 
   it('uses the package-bound demo command per DEC-NPX-FD-001', () => {
@@ -37,8 +39,10 @@ describe('launch page public contract', () => {
   });
 
   it('keeps the adapter proof boundary honest', () => {
-    assert.match(LAUNCH_PAGE, /All 4 adapters proven live/);
+    assert.match(LAUNCH_PAGE, /Four adapters were proven live at launch/);
     assert.match(LAUNCH_PAGE, /three non-manual adapters/);
+    assert.match(LAUNCH_PAGE, /\*\*Historical launch snapshot from April 2026\*\* — At v2\.24\.1, AgentXchain first proved four runtime adapters live/);
+    assert.match(LAUNCH_PAGE, /The precise launch-time claim matters:/);
     assert.match(LAUNCH_PAGE, /human-in-the-loop control path/);
     assert.doesNotMatch(LAUNCH_PAGE, /manual, local CLI, API proxy, and MCP — is proven live with real AI models/i);
     assert.doesNotMatch(LAUNCH_PAGE, /All 4 adapter types proven live with real AI models/i);
@@ -74,6 +78,15 @@ describe('launch-linked marketing drafts', () => {
 });
 
 describe('launch page evidence is labeled as historical snapshot', () => {
+  it('keeps the opening and architecture copy explicitly historical', () => {
+    assert.match(LAUNCH_PAGE, /\*\*Historical launch snapshot from April 2026\*\*/);
+    assert.match(LAUNCH_PAGE, /## What was proven at the v2\.24\.1 launch/);
+    assert.match(
+      LAUNCH_PAGE,
+      /At the v2\.24\.1 launch, this included manual, local CLI, API proxy, and MCP\. Current releases have expanded beyond this launch snapshot\./,
+    );
+  });
+
   it('labels the evidence block as v2.24.1 launch-time snapshot', () => {
     assert.match(LAUNCH_PAGE, /Evidence \(v2\.24\.1 launch-time snapshot\)/);
   });
