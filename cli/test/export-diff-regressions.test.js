@@ -190,6 +190,54 @@ describe('Export diff regression detection', () => {
       assert.strictEqual(reg.right, 'failed');
     });
 
+    it('AT-REG-012B: gate regression with gate-action timeout includes timeout cause in message', () => {
+      const left = makeRunExport();
+      const right = makeRunExport({
+        summary: { status: 'blocked' },
+        state: {
+          phase_gate_status: { planning_signoff: 'blocked' },
+          blocked_reason: {
+            category: 'gate_action_failed',
+            gate_action: {
+              timed_out: true,
+              timeout_ms: 5000,
+              action_label: 'npm test',
+              exit_code: null,
+            },
+          },
+        },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'gate');
+      assert.ok(reg, 'should have gate regression');
+      assert.ok(reg.message.includes('timed out after 5000ms'), `message should mention timeout, got: ${reg.message}`);
+    });
+
+    it('AT-REG-012C: gate regression with generic gate-action failure includes cause in message', () => {
+      const left = makeRunExport();
+      const right = makeRunExport({
+        summary: { status: 'blocked' },
+        state: {
+          phase_gate_status: { planning_signoff: 'blocked' },
+          blocked_reason: {
+            category: 'gate_action_failed',
+            gate_action: {
+              timed_out: false,
+              exit_code: 1,
+              action_label: 'npm test',
+            },
+          },
+        },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'gate');
+      assert.ok(reg, 'should have gate regression');
+      assert.ok(reg.message.includes('gate action failed'), `message should mention gate action failure, got: ${reg.message}`);
+      assert.ok(!reg.message.includes('timed out'), 'should not mention timeout for non-timeout failure');
+    });
+
     it('AT-REG-013: new delegation missing_decision_ids produce delegation regression', () => {
       const left = makeRunExport({
         summary: {

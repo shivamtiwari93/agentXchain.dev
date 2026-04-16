@@ -216,6 +216,9 @@ function normalizeRunExport(artifact) {
     budget_warn_mode: budgetStatus.warn_mode === true,
     budget_exhausted: budgetStatus.exhausted === true,
     phase_gate_status: normalizeGateStatusMap(phaseGateStatus),
+    blocked_category: state.blocked_reason?.category || null,
+    blocked_gate_action_timed_out: state.blocked_reason?.gate_action?.timed_out === true,
+    blocked_gate_action_timeout_ms: typeof state.blocked_reason?.gate_action?.timeout_ms === 'number' ? state.blocked_reason.gate_action.timeout_ms : null,
     delegation_missing_decisions: normalizeDelegationMissingMap(summary.delegation_summary),
   };
 }
@@ -563,11 +566,17 @@ function detectRunRegressions(left, right) {
     const leftGate = (left.phase_gate_status || {})[gateId] || null;
     const rightGate = (right.phase_gate_status || {})[gateId] || null;
     if (leftGate && rightGate && GATE_PASSED_STATES.has(leftGate) && GATE_FAILED_STATES.has(rightGate)) {
+      let causeDetail = '';
+      if (right.blocked_category === 'gate_action_failed') {
+        causeDetail = right.blocked_gate_action_timed_out
+          ? ` (gate action timed out after ${right.blocked_gate_action_timeout_ms}ms)`
+          : ' (gate action failed)';
+      }
       regressions.push({
         id: `REG-GATE-${String(++counter).padStart(3, '0')}`,
         category: 'gate',
         severity: 'error',
-        message: `Gate "${gateId}" regressed from ${leftGate} to ${rightGate}`,
+        message: `Gate "${gateId}" regressed from ${leftGate} to ${rightGate}${causeDetail}`,
         field: `phase_gate_status.${gateId}`,
         left: leftGate,
         right: rightGate,

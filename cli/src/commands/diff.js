@@ -215,7 +215,26 @@ function formatValue(value, label = '') {
   if (typeof value === 'boolean') return value ? 'yes' : 'no';
   if (label === 'Cost' || label === 'Budget') return `$${value.toFixed(4)}`;
   if (label === 'Duration') return formatDuration(value);
+  if (label === 'Blocked reason' && value && typeof value === 'object') {
+    return formatBlockedReason(value);
+  }
+  if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function formatBlockedReason(reason) {
+  const category = reason.category || 'unknown';
+  const gateAction = reason.gate_action;
+  if (category === 'gate_action_failed' && gateAction) {
+    const actionLabel = gateAction.action_label || gateAction.command || 'unknown action';
+    if (gateAction.timed_out) {
+      return `gate_action_failed: ${actionLabel} timed out after ${gateAction.timeout_ms}ms`;
+    }
+    const exit = gateAction.exit_code != null ? ` (exit ${gateAction.exit_code})` : '';
+    return `gate_action_failed: ${actionLabel} failed${exit}`;
+  }
+  const detail = reason.detail || reason.recovery?.detail || '';
+  return detail ? `${category}: ${detail}` : category;
 }
 
 function formatDelta(delta, label) {

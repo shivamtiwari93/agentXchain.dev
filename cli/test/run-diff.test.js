@@ -423,6 +423,81 @@ describe('agentxchain diff', () => {
     }
   });
 
+  it('AT-RD-006: blocked_reason with gate-action timeout renders timeout evidence in text output', () => {
+    const root = makeTmpDir();
+    try {
+      scaffoldProject(root);
+      writeRunHistory(root, [
+        makeEntry(),
+        makeEntry({
+          run_id: 'run_beta_9876543210',
+          status: 'blocked',
+          blocked_reason: {
+            category: 'gate_action_failed',
+            detail: 'Gate action timed out for "phase_transition": npm test',
+            gate_action: {
+              timed_out: true,
+              timeout_ms: 5000,
+              action_label: 'npm test',
+              exit_code: null,
+            },
+          },
+        }),
+      ]);
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', 'run_alpha', 'run_beta', '--dir', root], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Blocked reason/);
+      assert.match(result.stdout, /gate_action_failed/);
+      assert.match(result.stdout, /timed out after 5000ms/);
+      assert.match(result.stdout, /npm test/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-RD-007: blocked_reason with generic gate-action failure shows exit code', () => {
+    const root = makeTmpDir();
+    try {
+      scaffoldProject(root);
+      writeRunHistory(root, [
+        makeEntry(),
+        makeEntry({
+          run_id: 'run_beta_9876543210',
+          status: 'blocked',
+          blocked_reason: {
+            category: 'gate_action_failed',
+            detail: 'Gate action failed for "phase_transition": npm test',
+            gate_action: {
+              timed_out: false,
+              timeout_ms: 900000,
+              action_label: 'npm test',
+              exit_code: 1,
+            },
+          },
+        }),
+      ]);
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', 'run_alpha', 'run_beta', '--dir', root], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Blocked reason/);
+      assert.match(result.stdout, /gate_action_failed: npm test failed \(exit 1\)/);
+      assert.doesNotMatch(result.stdout, /timed out/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-COORD-TERM-SUM-001: completed coordinator child status drift summarizes as changed without governance regressions', () => {
     const root = makeTmpDir();
     try {
