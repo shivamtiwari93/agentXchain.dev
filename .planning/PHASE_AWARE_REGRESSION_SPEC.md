@@ -38,7 +38,7 @@ New regression category: `phase`
 3. **Phase appears** (`null → non-null`): NOT a regression. This is forward progress.
 4. **No phase order available**: skip phase regression detection entirely. No guessing.
 5. **Phase not found in order array**: skip (unknown phase, cannot determine direction).
-6. **Coordinator-specific**: coordinator exports inherit the same phase regression logic. Additionally, child repo phase regressions surface via `repo_run_statuses` (already covered by `REG-REPO-STATUS-*`).
+6. **Coordinator-specific**: coordinator exports inherit the same phase regression logic. Child repo phase movement remains a repo-local concern surfaced through nested child exports; `summary.repo_run_statuses` is coordinator snapshot metadata, not the child-phase authority for regression detection.
 
 ### No False Positives
 

@@ -51,6 +51,8 @@ Because `audit` reuses the same report builder as `report`, blocked governed run
 - `subject.run.next_actions` — ordered operator commands derived from runtime guidance plus blocked-state recovery
 - `subject.run.recovery_summary.runtime_guidance[]` — runtime-aware blocker classification when AgentXchain can prove a config/runtime ownership cause
 
+For coordinator workspaces, that shared report contract also keeps the repo-status truth boundary explicit: `summary.repo_run_statuses` remains raw coordinator snapshot metadata, while `subject.run.repo_status_counts` and `subject.run.repo_status_drifts` use authority-first child repo status whenever child authority is readable.
+
 Completed coordinator workspaces follow the same terminal contract as `report`: if child repo drift remains visible after the coordinator is already `completed`, `audit` keeps `subject.run.run_id_mismatches` and `subject.run.repo_status_drifts` visible, populates `subject.run.terminal_observability_note`, and omits `subject.run.next_actions`. Text and markdown output render `Terminal drift note: ...`, while HTML output renders the same terminal drift note as visible report metadata instead of implying recovery work still exists.
 
 See [Governance Report Reference](./governance-report) for the full `subject` contract and human-readable section semantics.

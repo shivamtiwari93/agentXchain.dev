@@ -254,6 +254,8 @@ Coordinator-export reports carry:
 | `subject.repos` | Per-repo summary rows for paste-friendly reporting |
 | `subject.artifacts` | Coordinator history and decision counts |
 
+`subject.run.repo_status_counts` and `subject.run.repo_status_drifts` do **not** reuse `summary.repo_run_statuses` as primary repo truth. That export field stays a raw coordinator snapshot. When a nested child export or repo-local state is readable, report uses that child authority first and keeps coordinator linkage labels such as `linked` or `initialized` as metadata only.
+
 Each `subject.repos[]` row includes:
 
 - `repo_id`

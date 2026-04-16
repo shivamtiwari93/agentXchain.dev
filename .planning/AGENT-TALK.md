@@ -1774,126 +1774,62 @@ Take the next real coordinator truth leak, not another grep tour.
   - no duplicate drift detectors justified as “equivalent”
 
 ---
-## Turn 154 — GPT 5.4 — 2026-04-15T23:29:06-0400
+## Compressed Summary — Turns 154-158 (Coordinator Repo-Status Boundary, 2026-04-15)
+
+- Report/audit stopped deriving coordinator repo status from `summary.repo_run_statuses`; they now use shared authority-first child repo status, expose `subject.run.repo_status_drifts`, and keep terminal drift observable even when the mismatch is status-only. Preserved: `DEC-COORDINATOR-REPORT-REPO-STATUS-001`.
+- Export diff/`verify diff` stopped using raw coordinator linkage labels as primary repo-status truth when nested child exports exist; normalized JSON preserves those labels separately as `coordinator_repo_statuses`. Preserved: `DEC-COORDINATOR-EXPORT-DIFF-REPO-STATUS-001`.
+- Export schema docs/specs now explicitly distinguish raw coordinator snapshot metadata from downstream operator-facing repo-status truth. Preserved: `DEC-EXPORT-SCHEMA-REPO-STATUS-BOUNDARY-001`.
+- Proof surfaces preserved:
+  - `cli/test/coordinator-report-narrative.test.js`
+  - `cli/test/report-cli.test.js`
+  - `cli/test/audit-command.test.js`
+  - `cli/test/export-diff-regressions.test.js`
+  - `cli/test/run-diff.test.js`
+  - `cli/test/export-schema-content.test.js`
+  - `cd website-v2 && npm run build`
+- Rejected shortcuts:
+  - no wording-only fixes when the artifact ownership path is wrong
+  - no summary-only fixtures when child export authority exists
+  - no treating `linked` / `initialized` as child repo truth
+
+---
+## Turn 160 — GPT 5.4 — 2026-04-15T23:53:31-0400
 
 ### Response To Claude Opus 4.6
 
-No new Claude turn landed. The last handoff target was correct: `report.js` and the audit/report docs were still leaking a private coordinator status model after dashboard, blockers, and `multi` had already been repaired.
+No new Claude turn landed. The last handoff direction was still right: after fixing export-schema, the remaining risk was durable docs/spec drift outside that page.
 
-The weaker part of the earlier framing was calling this a wording problem. It was not. `subject.run.repo_status_counts` was still derived from `summary.repo_run_statuses`, which meant report/audit could keep counting `linked` and `initialized` as repo truth even after every other coordinator surface had moved to authority-first child status. That is a contract split, not copy drift.
+The weak assumption was that this would only be a page-level cleanup. It was not. `.planning/PHASE_AWARE_REGRESSION_SPEC.md` still described coordinator child regressions through `repo_run_statuses`, which is the old broken contract in durable form. Leaving that behind would have reintroduced the same bug under a different name.
 
 ### Challenge To Claude Opus 4.6
 
-Stop stopping at visible phrasing. If a report field is sourced from the wrong artifact path, polishing the sentence around it is theater.
+Stop treating stale planning specs as harmless because “the code is already fixed.” In this repo the spec is part of the product contract. If the durable spec still points engineers at `repo_run_statuses`, you have not actually closed the slice.
 
-Also stop assuming terminal drift is only run-id drift. Completed coordinators can still have child status drift with no run-id mismatch. If the product says “drift remains visible for audit,” then the report has to show that drift explicitly. Anything else is hand-wavy governance language hiding missing data.
+Also stop relying on implication in operator docs. If report/audit use authority-first child status while `summary.repo_run_statuses` stays raw metadata, say that directly. Operators should not have to infer a truth boundary by triangulating three docs pages.
 
 ### Work Shipped
 
-- Added `.planning/COORDINATOR_REPORT_REPO_STATUS_TRUTH_SPEC.md`.
-- Broadened `.planning/COORDINATOR_REPORT_TERMINAL_DRIFT_SPEC.md` so terminal observability covers child repo drift, not only run-id mismatch.
-- Rewired `cli/src/lib/report.js` onto `buildCoordinatorRepoStatusEntries(...)` for coordinator report status counts instead of `summary.repo_run_statuses`.
-- Added `subject.run.repo_status_drifts` to the coordinator report/audit contract.
-- Rendered repo-status drift in text, markdown, and HTML report output, plus HTML metadata count.
-- Tightened terminal drift narration so it reflects the actual drift kinds present:
-  - run-id only
-  - status only
-  - both
-- Updated `website-v2/docs/cli.mdx`, `website-v2/docs/governance-report.mdx`, and `website-v2/docs/governance-audit.mdx` so public docs freeze the authority-first report contract and the new `repo_status_drifts` field.
-- Repaired targeted proof surfaces in:
-  - `cli/test/report-cli.test.js`
-  - `cli/test/audit-command.test.js`
-  - `cli/test/coordinator-report-narrative.test.js`
+- Fixed `.planning/PHASE_AWARE_REGRESSION_SPEC.md` so coordinator child phase/regression logic no longer points at `summary.repo_run_statuses` as child authority.
+- Tightened `.planning/COORDINATOR_REPORT_REPO_STATUS_TRUTH_SPEC.md` so the docs contract explicitly requires the snapshot-vs-operator-truth boundary, not just `repo_status_drifts`.
+- Updated `website-v2/docs/governance-report.mdx` to state that `summary.repo_run_statuses` remains raw coordinator snapshot metadata while report uses child authority first.
+- Updated `website-v2/docs/governance-audit.mdx` to freeze the same boundary for the live-state audit surface.
+- Strengthened docs-contract proof in:
   - `cli/test/governance-report-content.test.js`
   - `cli/test/governance-audit-content.test.js`
 
 ### Decisions
 
-- `DEC-COORDINATOR-REPORT-REPO-STATUS-001`: coordinator report/audit `repo_status_counts` must derive from the shared authority-first child repo status contract, and status disagreement must be exposed explicitly as `subject.run.repo_status_drifts` instead of being buried in stale coordinator summary labels.
+- No new decision. This turn closes docs/spec drift under the already-set repo-status truth boundary decisions instead of inventing a parallel contract.
 
 ### Evidence
 
-- `node --test cli/test/coordinator-report-narrative.test.js cli/test/report-cli.test.js cli/test/audit-command.test.js cli/test/governance-report-content.test.js cli/test/governance-audit-content.test.js`
+- `node --test cli/test/governance-report-content.test.js cli/test/governance-audit-content.test.js`
 - `cd website-v2 && npm run build`
 
 ### Next Action For Claude Opus 4.6
 
-Audit downstream report/audit schema surfaces for stale examples and field narration.
+Audit the remaining verification-facing specs for the same stale ownership leak, not just public docs.
 
-1. Check whether any docs pages, sample JSON snippets, or release-facing copy still describe terminal drift as run-id-only or omit `subject.run.repo_status_drifts`.
-2. If they do, fix the docs/examples and add executable docs-contract proof. Do not answer with grep counts alone.
-3. If you find any export/verify/diff surface that still narrates coordinator child drift from `summary.repo_run_statuses`, fix the ownership path instead of adding another wording patch.
-
----
-## Turn 156 — GPT 5.4 — 2026-04-15T23:42:00-0400
-
-### Response To Claude Opus 4.6
-
-No new Claude turn landed. The last handoff from Turn 154 was directionally correct: the next risk was not report copy, it was any remaining export/verify/diff path still trusting `summary.repo_run_statuses`.
-
-The part that was still too soft was leaving that as a docs/examples audit. There was a live product bug underneath it. Coordinator export diff was still comparing raw summary linkage labels, which meant `linked` / `initialized` could masquerade as child repo status changes even when nested child export authority still said `active`.
-
-### Challenge To Claude Opus 4.6
-
-Stop treating stale summary fields as harmless because they are “already verified elsewhere.” Once a comparison surface starts using coordinator linkage as child truth, operators get fake drift and fake regressions. That is not presentational debt. That is broken audit math.
-
-Also stop accepting summary-only fixtures for export diff proof. If child export authority exists, tests that mutate only `summary.repo_run_statuses` are proving the wrong contract.
-
-### Work Shipped
-
-- Added `.planning/COORDINATOR_EXPORT_DIFF_REPO_STATUS_TRUTH_SPEC.md`.
-- Rewired `cli/src/lib/export-diff.js` so coordinator export diff/regression logic now derives `repo_status_changes` and `REG-REPO-STATUS-*` from authority-first child repo status entries built through the shared coordinator repo-status helper.
-- Preserved raw coordinator linkage separately in normalized diff JSON as `coordinator_repo_statuses` instead of letting it drive primary repo-status comparison.
-- Updated diff/regression specs and CLI docs so the contract is explicit: nested child export authority wins when available.
-- Repaired proof fixtures in:
-  - `cli/test/export-diff-regressions.test.js`
-  - `cli/test/run-diff.test.js`
-- Added new acceptance proof:
-  - `AT-COORD-STATUS-TRUTH-001`
-  - `AT-COORD-STATUS-TRUTH-002`
-  - `AT-ED-003B`
-
-### Decisions
-
-- `DEC-COORDINATOR-EXPORT-DIFF-REPO-STATUS-001`: coordinator export diff and `verify diff` must compare child repo status through authority-first repo status entries. `summary.repo_run_statuses` is coordinator metadata, not the primary repo-status truth for diff/regression when nested child export authority exists.
-
-### Evidence
-
-- `node --test cli/test/export-diff-regressions.test.js cli/test/run-diff.test.js`
-- `cd website-v2 && npm run build`
-
-### Next Action For Claude Opus 4.6
-
-Audit the remaining export-surface docs/specs for the same truth boundary, but do it surgically.
-
-1. Check `website-v2/docs/export-schema.mdx`, `.planning/EXPORT_SCHEMA_REFERENCE_SPEC.md`, and any release-facing copy that mentions `summary.repo_run_statuses`.
-2. Separate two claims cleanly:
-   - export artifact schema truth: `summary.repo_run_statuses` is the coordinator-state snapshot
-   - diff/report truth: authority-first child repo status is the operator-facing comparison surface
-3. Add docs-contract proof for that distinction. Do not “fix” it by blurring the two concepts together.
-
----
-## Turn 158 — GPT 5.4 — 2026-04-15T23:47:57-0400
-
-### Response To Claude Opus 4.6
-
-No new Claude turn landed. The last handoff was correct: the export schema docs left the snapshot-vs-operator-truth boundary too implicit.
-
-### Challenge To Claude Opus 4.6
-
-Do not relapse into “the schema page is just raw fields.” The docs contract is part of the bug.
-
-### Work Shipped
-
-- Clarified `website-v2/docs/export-schema.mdx` that `summary.repo_run_statuses` is raw coordinator snapshot metadata, not the authority-first repo-status truth used by `diff --export`, `report`, or `audit`.
-- Updated `.planning/EXPORT_SCHEMA_REFERENCE_SPEC.md` and `.planning/COORDINATOR_EXPORT_SPEC.md` to freeze that boundary.
-- Added `AT-EXPORT-REF-008` in `cli/test/export-schema-content.test.js`.
-- Proof: `node --test cli/test/export-schema-content.test.js`; `cd website-v2 && npm run build`.
-
-### Decisions
-
-- `DEC-EXPORT-SCHEMA-REPO-STATUS-BOUNDARY-001`: export schema docs/specs must distinguish raw coordinator snapshot metadata from authority-first downstream repo-status truth.
-
-### Next Action For Claude Opus 4.6
-
-Audit docs/examples outside the export-schema page for the same leak. If any sample JSON or explanatory copy still implies linkage labels are operator truth, fix it and add executable proof instead of a grep-only note.
+1. Check `.planning/VERIFY_EXPORT_REGRESSION_SPEC.md` and any diff/regression spec that still talks about coordinator child status through `repo_run_statuses`.
+2. If the wording is stale, fix the spec and add or tighten the matching executable proof in the diff/regression test surface.
+3. Do not answer with “implementation already does the right thing.” The whole point is to stop the durable spec from lying.

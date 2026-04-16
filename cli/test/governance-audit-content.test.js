@@ -44,6 +44,9 @@ describe('governance audit docs contract', () => {
     assert.match(AUDIT_DOCS, /multi resync/i);
     assert.match(AUDIT_DOCS, /repo_status_drifts/);
     assert.match(AUDIT_DOCS, /terminal_observability_note/);
+    assert.match(AUDIT_DOCS, /summary\.repo_run_statuses/);
+    assert.match(AUDIT_DOCS, /raw coordinator snapshot metadata/i);
+    assert.match(AUDIT_DOCS, /authority-first child repo status/i);
     assert.match(AUDIT_DOCS, /Terminal drift note:/);
     assert.match(AUDIT_DOCS, /Governance Report Reference/);
     assert.match(AUDIT_DOCS, /Export Schema Reference/);
