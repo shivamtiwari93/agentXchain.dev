@@ -56,6 +56,8 @@ For coordinator workspaces, that shared report contract also keeps the repo-stat
 
 That same boundary applies when the freshly built coordinator export is partial. If a child repo export fails and the built artifact records `repos.<repoId>.ok === false`, `audit` still renders coordinator-level evidence plus `subject.run.repo_ok_count` / `subject.run.repo_error_count` export-health totals, but it must not invent child drill-down sections for the failed repo. The repo row and error remain visible; turn timelines, decisions, gate outcomes, hook activity, and recovery details stay absent because no nested child export exists to summarize.
 
+`html` follows the same repo-detail contract as the other human-readable audit formats. Successful child repos keep the available per-repo drill-down sections when the nested child export includes them, including Approval Policy, Governance Events, Timeout Events, Hook Activity, Recovery, and Continuity. Failed child repos stay row-only plus error even in HTML; the renderer must not fabricate `<h4>` child sections for a repo whose export build failed.
+
 Completed coordinator workspaces follow the same terminal contract as `report`: if child repo drift remains visible after the coordinator is already `completed`, `audit` keeps `subject.run.run_id_mismatches` and `subject.run.repo_status_drifts` visible, populates `subject.run.terminal_observability_note`, and omits `subject.run.next_actions`. Text and markdown output render `Terminal drift note: ...`, while HTML output renders the same terminal drift note as visible report metadata instead of implying recovery work still exists.
 
 See [Governance Report Reference](./governance-report) for the full `subject` contract and human-readable section semantics.

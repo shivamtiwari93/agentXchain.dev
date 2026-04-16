@@ -413,6 +413,98 @@ function createPartialCoordinatorWorkspace() {
     },
   });
 
+  const childRoot = join(root, 'repos', 'app');
+  writeJson(join(childRoot, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: 'child-app',
+    run_id: 'run_app_001',
+    status: 'blocked',
+    phase: 'implementation',
+    active_turns: {},
+    retained_turns: {},
+    turn_sequence: 1,
+    blocked_on: 'operator_escalation',
+    phase_gate_status: { implementation_complete: 'failed' },
+    budget_status: { spent_usd: 0.9, remaining_usd: 9.1 },
+    protocol_mode: 'governed',
+    blocked_reason: {
+      category: 'operator_escalation',
+      blocked_at: '2026-04-16T01:07:00.000Z',
+      turn_id: 'turn_001',
+      recovery: {
+        typed_reason: 'approval_policy_blocked',
+        owner: 'operator',
+        recovery_action: 'agentxchain approve-transition',
+        detail: 'Release approval still required.',
+        turn_retained: true,
+      },
+    },
+  });
+
+  writeJsonl(join(childRoot, '.agentxchain', 'history.jsonl'), [
+    {
+      turn_id: 'turn_001',
+      role: 'dev',
+      status: 'completed',
+      summary: 'Prepared release candidate.',
+      decisions: [{ id: 'DEC-APP-001' }],
+      objections: [],
+      files_changed: ['src/app.js'],
+      cost: { total_usd: 0.9 },
+      started_at: '2026-04-16T01:00:00.000Z',
+      duration_ms: 420000,
+      accepted_at: '2026-04-16T01:07:00.000Z',
+      accepted_sequence: 1,
+    },
+  ]);
+
+  writeJsonl(join(childRoot, '.agentxchain', 'decision-ledger.jsonl'), [
+    { id: 'DEC-APP-001', role: 'dev', phase: 'implementation', statement: 'Child repo ready for release review.' },
+    {
+      type: 'approval_policy',
+      action: 'blocked',
+      gate_type: 'phase_transition',
+      from_phase: 'implementation',
+      to_phase: 'release',
+      reason: 'Release approval still required.',
+      timestamp: '2026-04-16T01:05:00.000Z',
+    },
+    {
+      decision: 'operator_escalated',
+      role: 'dev',
+      phase: 'implementation',
+      blocked_on: 'operator_escalation',
+      escalation: { reason: 'Need release approval before handoff.' },
+      timestamp: '2026-04-16T01:06:00.000Z',
+    },
+    {
+      type: 'timeout_warning',
+      scope: 'run',
+      phase: 'implementation',
+      limit_minutes: 30,
+      elapsed_minutes: 35,
+      exceeded_by_minutes: 5,
+      action: 'notify',
+      timestamp: '2026-04-16T01:07:30.000Z',
+    },
+  ]);
+
+  writeJsonl(join(childRoot, '.agentxchain', 'hook-audit.jsonl'), [
+    { event: 'before_step', result: 'allowed' },
+    { event: 'before_transition', result: 'blocked', blocked: true },
+  ]);
+
+  writeJson(join(childRoot, '.agentxchain', 'session.json'), {
+    session_id: 'session_app_audit',
+    run_id: 'run_app_old',
+    started_at: '2026-04-16T01:00:00.000Z',
+    last_checkpoint_at: '2026-04-16T01:08:00.000Z',
+    last_turn_id: 'turn_001',
+    last_phase: 'implementation',
+    last_role: 'dev',
+    checkpoint_reason: 'awaiting_operator',
+  });
+
   return root;
 }
 
@@ -518,6 +610,37 @@ describe('agentxchain audit', () => {
     assert.equal(brokenRepo.hook_summary, undefined);
     assert.equal(brokenRepo.gate_summary, undefined);
     assert.equal(brokenRepo.recovery_summary, undefined);
+  });
+
+  it('AT-AUDIT-014: partial coordinator audit html keeps export health, failed repo row, and successful child drill-down sections', () => {
+    const root = createPartialCoordinatorWorkspace();
+    const result = runCli(root, ['audit', '--format', 'html']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /<!DOCTYPE html>/);
+    assert.match(result.stdout, /2 total, 1 exported, 1 failed/);
+    assert.match(result.stdout, /no governed project found/i);
+    assert.match(result.stdout, /<h4>Approval Policy<\/h4>/);
+    assert.match(result.stdout, /<h4>Governance Events<\/h4>/);
+    assert.match(result.stdout, /<h4>Timeout Events<\/h4>/);
+    assert.match(result.stdout, /<h4>Hook Activity<\/h4>/);
+    assert.match(result.stdout, /<h4>Recovery<\/h4>/);
+    assert.match(result.stdout, /<h4>Continuity<\/h4>/);
+    assert.match(result.stdout, /checkpoint tracks run <code>run_app_old<\/code>, but repo export tracks <code>run_app_001<\/code>/);
+
+    const brokenHeaderIndex = result.stdout.indexOf('<h3>broken</h3>');
+    assert.notEqual(brokenHeaderIndex, -1, 'failed repo heading must render');
+    const nextRepoHeaderIndex = result.stdout.indexOf('<h3>', brokenHeaderIndex + '<h3>broken</h3>'.length);
+    const failedRepoBlock = result.stdout.slice(
+      brokenHeaderIndex,
+      nextRepoHeaderIndex === -1 ? undefined : nextRepoHeaderIndex,
+    );
+    assert.doesNotMatch(failedRepoBlock, /<h4>Turn Timeline<\/h4>/);
+    assert.doesNotMatch(failedRepoBlock, /<h4>Decisions<\/h4>/);
+    assert.doesNotMatch(failedRepoBlock, /<h4>Gate Outcomes<\/h4>/);
+    assert.doesNotMatch(failedRepoBlock, /<h4>Hook Activity<\/h4>/);
+    assert.doesNotMatch(failedRepoBlock, /<h4>Recovery<\/h4>/);
+    assert.doesNotMatch(failedRepoBlock, /<h4>Continuity<\/h4>/);
   });
 
   it('AT-CBAP-004: coordinator audit json preserves repo_run_id_mismatch next actions', () => {
