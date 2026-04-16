@@ -846,7 +846,7 @@ describe('report CLI', () => {
     }
   });
 
-  it('AT-REPORT-006: completed coordinator export stays terminal even when child repos drift', () => {
+  it('AT-REPORT-010: completed coordinator export stays terminal even when child repos drift', () => {
     const root = createCoordinatorWorkspace();
     try {
       writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
@@ -1168,7 +1168,7 @@ describe('report CLI', () => {
     }
   });
 
-  it('AT-REPORT-008: report surfaces warn-mode budget state across all formats', () => {
+  it('AT-REPORT-011: report surfaces warn-mode budget state across all formats', () => {
     const root = createGovernedProject();
     try {
       // Patch state to include warn-mode budget fields

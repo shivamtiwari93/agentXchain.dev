@@ -36,7 +36,7 @@ subject.run.terminal_observability_note: string | null
 
 - `AT-COORD-RUNID-006`: completed coordinator drift sets `subject.run.terminal_observability_note` and keeps `next_actions` empty.
 - `AT-COORD-RUNID-007`: text and markdown reports render the terminal observability note and still omit `Next Actions`.
-- `AT-REPORT-006`: CLI `report` for a completed drifted coordinator shows the note in text mode and JSON while omitting recovery commands.
+- `AT-REPORT-010`: CLI `report` for a completed drifted coordinator shows the note in text mode and JSON while omitting recovery commands.
 - `AT-REPORT-009`: CLI `report --format html` renders a visible `Terminal drift note` metadata row and omits the HTML `Next Actions` section for a completed drifted coordinator.
 - `AT-COORD-ACT-006`: public report docs mention the terminal observability note.
 

@@ -141,6 +141,7 @@ This preserves the verifier output as the authoritative failure explanation.
 - `AT-REPORT-006`: invalid export artifact fails with exit `1` and surfaces verifier errors instead of a success summary.
 - `AT-REPORT-007`: unreadable/invalid input fails with exit `2` and command-error shape.
 - `AT-REPORT-008`: docs surface truthfully documents the CLI contract and the stable JSON/markdown intent.
+- `AT-REPORT-011`: warn-mode budget state is preserved across text, JSON, and markdown report formats.
 
 ## Open Questions
 

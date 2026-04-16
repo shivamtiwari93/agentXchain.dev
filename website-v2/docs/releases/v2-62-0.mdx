@@ -24,8 +24,7 @@ A governed system that blocks on every budget violation forces operators to choo
 ## Evidence
 
 - 3625 tests / 782 suites / 0 failures
-- Report warn-mode proof: `node --test cli/test/report-cli.test.js` (13 tests including AT-REPORT-008 warn-mode across all formats)
+- Report warn-mode proof: `node --test cli/test/report-cli.test.js` (13 tests including AT-REPORT-011 warn-mode across all formats)
 - Budget warn-mode proof: `node --test cli/test/budget-warn-mode.test.js cli/test/e2e-budget-warn-mode.test.js` (15 tests covering state, CLI, and E2E)
 - Config inspection proof: `node --test cli/test/config-governed.test.js` (20 tests)
 - `cd website-v2 && npm run build` -> clean production build
-

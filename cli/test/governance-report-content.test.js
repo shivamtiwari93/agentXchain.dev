@@ -99,6 +99,7 @@ describe('governance report spec alignment', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(SPEC, /AT-REPORT-001/);
     assert.match(SPEC, /AT-REPORT-008/);
+    assert.match(SPEC, /AT-REPORT-011/);
     assert.match(SPEC, /markdown/);
     assert.match(SPEC, /report_version/);
   });
@@ -139,7 +140,28 @@ describe('governance report spec alignment', () => {
     assert.match(terminalDriftSpec, /AT-COORD-RUNID-006/);
     assert.match(terminalDriftSpec, /AT-COORD-RUNID-007/);
     assert.match(terminalDriftSpec, /AT-REPORT-009/);
+    assert.match(terminalDriftSpec, /AT-REPORT-010/);
     assert.match(terminalDriftSpec, /terminal_observability_note/);
+  });
+
+  it('keeps AT-REPORT ids unique inside report-cli command tests', () => {
+    const reportCli = read('cli/test/report-cli.test.js');
+    const ids = [...reportCli.matchAll(/it\('((AT-REPORT-\d{3})(?:\/AT-REPORT-\d{3})*):/g)].flatMap(
+      (match) => match[1].split('/'),
+    );
+    const seen = new Set();
+    const duplicates = new Set();
+    for (const id of ids) {
+      if (seen.has(id)) duplicates.add(id);
+      seen.add(id);
+    }
+    assert.deepEqual(
+      [...duplicates],
+      [],
+      `duplicate report acceptance ids in report-cli.test.js: ${[...duplicates].join(', ')}`,
+    );
+    assert.match(reportCli, /AT-REPORT-010: completed coordinator export stays terminal/);
+    assert.match(reportCli, /AT-REPORT-011: report surfaces warn-mode budget state across all formats/);
   });
 
   it('ships a coordinator continuity spec for child repo checkpoints', () => {
