@@ -19,6 +19,7 @@ const PACKAGE = readJson('cli/package.json');
 const CHANGELOG = read('cli/CHANGELOG.md');
 const SIDEBARS = read('website-v2/sidebars.ts');
 const HOME = read('website-v2/src/pages/index.tsx');
+const PROTOCOL_DOCS = read('website-v2/docs/protocol.mdx');
 const CAPABILITIES = readJson('.agentxchain-conformance/capabilities.json');
 const IMPLEMENTOR_GUIDE = read('website-v2/docs/protocol-implementor-guide.mdx');
 const LAUNCH_EVIDENCE = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
@@ -48,6 +49,17 @@ function extractAggregateEvidenceLine(text, label) {
     .trim();
 }
 
+function extractAggregateEvidenceCount(text, label) {
+  const line = extractAggregateEvidenceLine(text, label);
+  const match = line.match(/\b(\d+)\s+tests\b/);
+  assert.ok(match, `${label} must contain a concrete test count`);
+  return Number(match[1]);
+}
+
+function formatCount(value) {
+  return new Intl.NumberFormat('en-US').format(value);
+}
+
 function extractReleaseSummaryParagraph(text, version) {
   const withoutFrontmatter = text.replace(/^---\n[\s\S]*?\n---\n*/, '').trim();
   const heading = `# AgentXchain v${version}`;
@@ -61,6 +73,12 @@ function extractReleaseSummaryParagraph(text, version) {
   const match = afterHeading.match(/^([^\n#][\s\S]*?)\n\s*\n/);
   assert.ok(match, 'release notes page must contain a summary paragraph immediately after the governed heading');
   return match[1].replace(/\s+/g, ' ').trim();
+}
+
+function extractCurrentProtocolLabel(text) {
+  const titleMatch = text.match(/^title:\s*(Protocol v\d+)$/m);
+  assert.ok(titleMatch, 'protocol docs must declare a current title in frontmatter');
+  return titleMatch[1];
 }
 
 describe('current release surface', () => {
@@ -92,27 +110,59 @@ describe('current release surface', () => {
     assert.match(HOME, new RegExp(`v${CURRENT_VERSION.replace(/\./g, '\\.')}`));
   });
 
-  it('AT-CRS-005: conformance capabilities version matches current package version', () => {
+  it('AT-CRS-005: homepage proof stat shows the exact current aggregate test count', () => {
+    const versionBlock = CHANGELOG.split(/^## \d+\.\d+\.\d+$/m).slice(0, 2).join('');
+    const aggregateTestCount = extractAggregateEvidenceCount(versionBlock, 'changelog evidence');
+    assert.match(
+      HOME,
+      new RegExp(`stat-number\">${formatCount(aggregateTestCount).replace(/,/g, ',')}`),
+      'homepage proof stat must show the exact aggregate current-release test count',
+    );
+    assert.match(HOME, /stat-label">Tests \/ 0 failures</);
+  });
+
+  it('AT-CRS-006: homepage protocol-layer CTA matches the current protocol docs title', () => {
+    const currentProtocolLabel = extractCurrentProtocolLabel(PROTOCOL_DOCS);
+    assert.match(
+      HOME,
+      new RegExp(`linkText: '${currentProtocolLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`),
+      'homepage protocol-layer CTA must use the current protocol docs title',
+    );
+  });
+
+  it('AT-CRS-007: homepage connectors layer names all five shipped adapters', () => {
+    const requiredAdapters = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
+    for (const adapter of requiredAdapters) {
+      assert.match(
+        HOME,
+        new RegExp(`\\b${adapter}\\b`),
+        `homepage connectors layer must mention ${adapter}`,
+      );
+    }
+    assert.doesNotMatch(HOME, /Three modes:/);
+  });
+
+  it('AT-CRS-008: conformance capabilities version matches current package version', () => {
     assert.equal(CAPABILITIES.version, CURRENT_VERSION);
   });
 
-  it('AT-CRS-006: protocol implementor guide example shows current package version', () => {
+  it('AT-CRS-009: protocol implementor guide example shows current package version', () => {
     assert.match(IMPLEMENTOR_GUIDE, new RegExp(`"version": "${CURRENT_VERSION.replace(/\./g, '\\.')}"`));
   });
 
-  it('AT-CRS-007: release notes page evidence section has concrete test counts', () => {
+  it('AT-CRS-010: release notes page evidence section has concrete test counts', () => {
     const releasePage = read(CURRENT_RELEASE_DOC_PATH);
     const summary = extractReleaseSummaryParagraph(releasePage, CURRENT_VERSION);
     assert.ok(summary.length > 0, 'release notes summary paragraph must not be empty');
   });
 
-  it('AT-CRS-008: release notes page evidence section has concrete test counts', () => {
+  it('AT-CRS-011: release notes page evidence section has concrete test counts', () => {
     const releasePage = read(CURRENT_RELEASE_DOC_PATH);
     assert.match(releasePage, /## Evidence/i, 'release notes page must have an Evidence section');
     extractAggregateEvidenceLine(releasePage, 'release notes evidence');
   });
 
-  it('AT-CRS-009: changelog and release notes evidence lines stay aligned', () => {
+  it('AT-CRS-012: changelog and release notes evidence lines stay aligned', () => {
     const versionBlock = CHANGELOG.split(/^## \d+\.\d+\.\d+$/m).slice(0, 2).join('');
     const releasePage = read(CURRENT_RELEASE_DOC_PATH);
     const changelogEvidence = extractAggregateEvidenceLine(versionBlock, 'changelog evidence');
@@ -124,7 +174,7 @@ describe('current release surface', () => {
     );
   });
 
-  it('AT-CRS-010: launch evidence title carries the current release version', () => {
+  it('AT-CRS-013: launch evidence title carries the current release version', () => {
     assert.match(
       LAUNCH_EVIDENCE,
       new RegExp(`^# Launch Evidence Report — AgentXchain v${CURRENT_VERSION.replace(/\./g, '\\.')}`, 'm'),
@@ -132,7 +182,7 @@ describe('current release surface', () => {
     );
   });
 
-  it('AT-CRS-011: Homebrew mirror formula points at the current npm tarball', () => {
+  it('AT-CRS-014: Homebrew mirror formula points at the current npm tarball', () => {
     assert.match(
       HOMEBREW_FORMULA,
       new RegExp(`url "${CURRENT_TARBALL_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`),
@@ -140,7 +190,7 @@ describe('current release surface', () => {
     );
   });
 
-  it('AT-CRS-012: Homebrew mirror maintainer README tracks the current version and tarball', () => {
+  it('AT-CRS-015: Homebrew mirror maintainer README tracks the current version and tarball', () => {
     assert.match(
       HOMEBREW_README,
       new RegExp(`- version: \`${CURRENT_VERSION.replace(/\./g, '\\.')}\``),
@@ -153,7 +203,7 @@ describe('current release surface', () => {
     );
   });
 
-  it('AT-CRS-013: llms.txt lists the current release-notes route', () => {
+  it('AT-CRS-016: llms.txt lists the current release-notes route', () => {
     assert.match(
       LLMS,
       new RegExp(CURRENT_RELEASE_ROUTE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
@@ -161,7 +211,7 @@ describe('current release surface', () => {
     );
   });
 
-  it('AT-CRS-014: sitemap is auto-generated by Docusaurus and includes all built docs', () => {
+  it('AT-CRS-017: sitemap is auto-generated by Docusaurus and includes all built docs', () => {
     // sitemap.xml is now auto-generated at build time — every doc that builds is included.
     // This test verifies the release doc file exists (which guarantees sitemap inclusion).
     const releaseDocPath = join(REPO_ROOT, 'website-v2', 'docs', CURRENT_RELEASE_DOC_ID + '.mdx');

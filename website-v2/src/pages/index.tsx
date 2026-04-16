@@ -116,8 +116,8 @@ function Stats() {
         <div className="stat-label">Architecture layers</div>
       </div>
       <div>
-        <div className="stat-number">3,800+</div>
-        <div className="stat-label">Tests passing</div>
+        <div className="stat-number">4,710</div>
+        <div className="stat-label">Tests / 0 failures</div>
       </div>
       <div>
         <div className="stat-number">108</div>
@@ -245,7 +245,7 @@ function FiveLayers() {
       bg: 'rgba(43,124,182,0.12)',
       desc: 'Run state, roles, turn contracts, artifact schemas, validation rules, phase gates, decision ledger format, recovery semantics. Versioned independently. Model-agnostic. Runtime-agnostic.',
       link: '/docs/protocol',
-      linkText: 'Protocol v6',
+      linkText: 'Protocol v7',
     },
     {
       num: '2',
@@ -263,7 +263,7 @@ function FiveLayers() {
       label: 'The bridge to agent runtimes',
       color: 'var(--axc-orange)',
       bg: 'rgba(232,117,42,0.12)',
-      desc: 'Three modes: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API calls). MCP support via stdio and streamable HTTP. ~200 lines to add a new connector.',
+      desc: 'Five shipped adapters: manual (human control path), local_cli (Claude Code, Codex CLI, Cursor, any CLI agent), api_proxy (direct LLM API calls), mcp (stdio and streamable HTTP), and remote_agent (HTTP/webhook bridges). ~200 lines to add a new connector.',
       link: '/docs/adapters',
       linkText: 'Adapter reference',
     },
