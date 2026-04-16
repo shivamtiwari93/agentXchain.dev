@@ -56,7 +56,7 @@ All run-level regressions apply to the coordinator summary, plus:
 
 | ID Pattern | Category | Trigger | Severity |
 |---|---|---|---|
-| REG-REPO-STATUS-* | repo_status | Any child repo `status` changes from `completed` to `failed`/`error`/`crashed`, but only when either compared coordinator export is non-terminal | error |
+| REG-REPO-STATUS-* | repo_status | Any authority-first child repo `status` changes from `completed` to `failed`/`error`/`crashed`, but only when either compared coordinator export is non-terminal | error |
 | REG-REPO-EXPORT-* | repo_export | Any child repo `export.ok` changes from `true` to `false`, but only when either compared coordinator export is non-terminal | error |
 | REG-BARRIER-* | barrier | `barrier_count` decreases (barriers removed between runs) | warning |
 | REG-EVENT-LOSS-* | events | `total_events` decreases between exports | warning |

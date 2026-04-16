@@ -86,7 +86,8 @@ For `agentxchain_coordinator_export`, the diff compares:
   - repo IDs present in `repos`
   - `aggregated_events.repos_with_events`
 - structured deltas:
-  - per-repo `repo_run_statuses`
+  - per-repo authority-first `repo_statuses`
+  - raw coordinator linkage metadata as `coordinator_repo_statuses` when present
   - per-repo nested export availability (`repos.<id>.ok`)
   - per-event-type counts from `aggregated_events.event_type_counts`
 

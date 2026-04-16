@@ -131,8 +131,28 @@ function makeCoordinatorExportArtifact(path, overrides = {}) {
       ...overrides.summary,
     },
     repos: {
-      web: { ok: true, path: './repos/web' },
-      api: { ok: true, path: './repos/api' },
+      web: {
+        ok: true,
+        path: './repos/web',
+        export: {
+          summary: {
+            status: 'completed',
+            run_id: 'run_web_001',
+            phase: 'implementation',
+          },
+        },
+      },
+      api: {
+        ok: true,
+        path: './repos/api',
+        export: {
+          summary: {
+            status: 'completed',
+            run_id: 'run_api_001',
+            phase: 'implementation',
+          },
+        },
+      },
       ...overrides.repos,
     },
     ...overrides.root,
@@ -414,6 +434,19 @@ describe('agentxchain diff', () => {
             api: 'failed',
           },
         },
+        repos: {
+          api: {
+            ok: true,
+            path: './repos/api',
+            export: {
+              summary: {
+                status: 'failed',
+                run_id: 'run_api_001',
+                phase: 'implementation',
+              },
+            },
+          },
+        },
       });
 
       const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export'], {
@@ -463,6 +496,73 @@ describe('agentxchain diff', () => {
     }
   });
 
+  it('AT-ED-003B: export mode json keeps authority-first repo status truth and preserves coordinator linkage metadata', () => {
+    const root = makeTmpDir();
+    try {
+      const leftPath = makeCoordinatorExportArtifact(join(root, 'left-coordinator-export.json'), {
+        summary: {
+          status: 'active',
+          repo_run_statuses: {
+            web: 'completed',
+            api: 'linked',
+          },
+        },
+        repos: {
+          api: {
+            ok: true,
+            path: './repos/api',
+            export: {
+              summary: {
+                status: 'active',
+                run_id: 'run_api_001',
+                phase: 'implementation',
+              },
+            },
+          },
+        },
+      });
+      const rightPath = makeCoordinatorExportArtifact(join(root, 'right-coordinator-export.json'), {
+        summary: {
+          status: 'active',
+          repo_run_statuses: {
+            web: 'completed',
+            api: 'active',
+          },
+        },
+        repos: {
+          api: {
+            ok: true,
+            path: './repos/api',
+            export: {
+              summary: {
+                status: 'active',
+                run_id: 'run_api_001',
+                phase: 'implementation',
+              },
+            },
+          },
+        },
+      });
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export', '--json'], {
+        env: { ...process.env },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.left.repo_statuses.api, 'active');
+      assert.equal(payload.left.coordinator_repo_statuses.api, 'linked');
+      assert.equal(payload.right.coordinator_repo_statuses.api, 'active');
+      assert.equal(payload.repo_status_changes.some((entry) => entry.key === 'api' && entry.changed), false);
+      assert.equal(payload.summary.outcome, 'unchanged');
+      assert.equal(payload.summary.risk_level, 'none');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-ED-004: mixed export kinds fail closed', () => {
     const root = makeTmpDir();
     try {
@@ -494,6 +594,8 @@ describe('run diff docs contract', () => {
     assert.match(CLI_DOCS, /full run IDs or unique prefixes/i);
     assert.match(CLI_DOCS, /`--export` switches the command into artifact comparison mode/i);
     assert.match(CLI_DOCS, /ambiguous prefixes fail closed/i);
+    assert.match(CLI_DOCS, /authority-first repo-status/i);
+    assert.match(CLI_DOCS, /coordinator_repo_statuses/);
     assert.match(CLI_DOCS, /Comparison Summary/i);
     assert.match(CLI_DOCS, /Outcome: `unchanged \| improved \| changed \| regressed \| mixed`/);
     assert.match(CLI_DOCS, /Risk: `none \| low \| medium \| high`/);

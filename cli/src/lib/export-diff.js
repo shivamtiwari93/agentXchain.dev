@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
+import { buildCoordinatorRepoStatusEntries } from './coordinator-repo-status-presentation.js';
 
 const FAILED_STATUSES = new Set(['failed', 'error', 'crashed']);
 const BLOCKED_OR_FAILED_STATUSES = new Set(['blocked', 'failed', 'error', 'crashed']);
@@ -152,7 +153,7 @@ function buildCoordinatorExportDiff(leftArtifact, rightArtifact, refs) {
     repo_ids: buildListChange('Repos', left.repo_ids, right.repo_ids),
     repos_with_events: buildListChange('Repos with events', left.repos_with_events, right.repos_with_events),
   };
-  const repo_status_changes = buildMapChanges('Repo status', left.repo_run_statuses, right.repo_run_statuses);
+  const repo_status_changes = buildMapChanges('Repo status', left.repo_statuses, right.repo_statuses);
   const repo_export_changes = buildBooleanMapChanges('Repo export ok', left.repo_export_status, right.repo_export_status);
   const event_type_changes = buildNumericMapChanges('Event type', left.event_type_counts, right.event_type_counts);
 
@@ -222,8 +223,8 @@ function normalizeRunExport(artifact) {
 function normalizeCoordinatorExport(artifact) {
   const summary = artifact.summary || {};
   const aggregatedEvents = summary.aggregated_events || {};
-  const repoRunStatuses = summary.repo_run_statuses || {};
   const repos = artifact.repos || {};
+  const repoStatusEntries = buildCoordinatorExportRepoStatusEntries(artifact);
 
   return {
     export_kind: artifact.export_kind,
@@ -236,14 +237,41 @@ function normalizeCoordinatorExport(artifact) {
     history_entries: toNumber(summary.history_entries),
     decision_entries: toNumber(summary.decision_entries),
     total_events: toNumber(aggregatedEvents.total_events),
-    repo_ids: normalizeStringArray(Object.keys(repos)),
+    repo_ids: normalizeStringArray(repoStatusEntries.map((entry) => entry.repo_id)),
     repos_with_events: normalizeStringArray(aggregatedEvents.repos_with_events),
-    repo_run_statuses: normalizeStringMap(repoRunStatuses),
+    repo_statuses: normalizeStringMap(Object.fromEntries(
+      repoStatusEntries.map((entry) => [entry.repo_id, entry.status]),
+    )),
+    coordinator_repo_statuses: normalizeStringMap(Object.fromEntries(
+      repoStatusEntries
+        .filter((entry) => entry.coordinator_status != null)
+        .map((entry) => [entry.repo_id, entry.coordinator_status]),
+    )),
     repo_export_status: normalizeBooleanMap(Object.fromEntries(
       Object.entries(repos).map(([repoId, repoEntry]) => [repoId, repoEntry?.ok === true]),
     )),
     event_type_counts: normalizeNumericMap(aggregatedEvents.event_type_counts),
   };
+}
+
+function buildCoordinatorExportRepoStatusEntries(artifact) {
+  const summaryRepoStatuses = artifact.summary?.repo_run_statuses || {};
+  const coordinatorRepoRuns = Object.fromEntries(
+    Object.entries(summaryRepoStatuses).map(([repoId, status]) => [repoId, { status: status || null }]),
+  );
+  const repoSnapshots = Object.entries(artifact.repos || {}).map(([repoId, repoEntry]) => ({
+    repo_id: repoId,
+    ok: repoEntry?.ok === true,
+    status: repoEntry?.ok ? (repoEntry.export?.summary?.status ?? null) : null,
+    run_id: repoEntry?.ok ? (repoEntry.export?.summary?.run_id ?? null) : null,
+    phase: repoEntry?.ok ? (repoEntry.export?.summary?.phase ?? null) : null,
+  }));
+
+  return buildCoordinatorRepoStatusEntries({
+    config: artifact.config,
+    coordinatorRepoRuns,
+    repoSnapshots,
+  });
 }
 
 function buildFieldChanges(left, right, fields) {
@@ -558,17 +586,17 @@ function detectCoordinatorRegressions(left, right) {
 
   // Repo status regressions: child repo success/non-terminal -> blocked/failed
   if (!terminalComparison) {
-    const allRepoIds = new Set([...Object.keys(left.repo_run_statuses || {}), ...Object.keys(right.repo_run_statuses || {})]);
+    const allRepoIds = new Set([...Object.keys(left.repo_statuses || {}), ...Object.keys(right.repo_statuses || {})]);
     for (const repoId of allRepoIds) {
-      const leftStatus = (left.repo_run_statuses || {})[repoId] || null;
-      const rightStatus = (right.repo_run_statuses || {})[repoId] || null;
+      const leftStatus = (left.repo_statuses || {})[repoId] || null;
+      const rightStatus = (right.repo_statuses || {})[repoId] || null;
       if (leftStatus && rightStatus && !BLOCKED_OR_FAILED_STATUSES.has(leftStatus) && BLOCKED_OR_FAILED_STATUSES.has(rightStatus)) {
         regressions.push({
           id: `REG-REPO-STATUS-${String(++counter).padStart(3, '0')}`,
           category: 'repo_status',
           severity: 'error',
           message: `Child repo "${repoId}" status regressed from ${leftStatus} to ${rightStatus}`,
-          field: `repo_run_statuses.${repoId}`,
+          field: `repo_statuses.${repoId}`,
           left: leftStatus,
           right: rightStatus,
         });

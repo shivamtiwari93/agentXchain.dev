@@ -69,8 +69,26 @@ function makeCoordinatorExport(overrides = {}) {
       },
     },
     repos: {
-      web: { ok: true },
-      api: { ok: true },
+      web: {
+        ok: true,
+        export: {
+          summary: {
+            status: 'completed',
+            run_id: 'run_web_001',
+            phase: 'done',
+          },
+        },
+      },
+      api: {
+        ok: true,
+        export: {
+          summary: {
+            status: 'completed',
+            run_id: 'run_api_001',
+            phase: 'done',
+          },
+        },
+      },
     },
     state: {
       budget_status: { warn_mode: false, exhausted: false },
@@ -254,6 +272,18 @@ describe('Export diff regression detection', () => {
       const left = makeCoordinatorExport({ summary: { status: 'active' } });
       const right = makeCoordinatorExport({
         summary: { status: 'active', repo_run_statuses: { web: 'completed', api: 'failed' } },
+        repos: {
+          api: {
+            ok: true,
+            export: {
+              summary: {
+                status: 'failed',
+                run_id: 'run_api_001',
+                phase: 'done',
+              },
+            },
+          },
+        },
       });
       const result = buildExportDiff(left, right);
       assert.ok(result.ok);
@@ -267,6 +297,18 @@ describe('Export diff regression detection', () => {
       const left = makeCoordinatorExport({ summary: { status: 'active' } });
       const right = makeCoordinatorExport({
         summary: { status: 'active', repo_run_statuses: { web: 'completed', api: 'blocked' } },
+        repos: {
+          api: {
+            ok: true,
+            export: {
+              summary: {
+                status: 'blocked',
+                run_id: 'run_api_001',
+                phase: 'done',
+              },
+            },
+          },
+        },
       });
       const result = buildExportDiff(left, right);
       assert.ok(result.ok);
@@ -295,6 +337,18 @@ describe('Export diff regression detection', () => {
       const left = makeCoordinatorExport();
       const right = makeCoordinatorExport({
         summary: { repo_run_statuses: { web: 'completed', api: 'failed' } },
+        repos: {
+          api: {
+            ok: true,
+            export: {
+              summary: {
+                status: 'failed',
+                run_id: 'run_api_001',
+                phase: 'done',
+              },
+            },
+          },
+        },
       });
       const result = buildExportDiff(left, right);
       assert.ok(result.ok);
@@ -311,6 +365,73 @@ describe('Export diff regression detection', () => {
       assert.equal(result.diff.repo_export_changes.some((entry) => entry.key === 'api' && entry.changed), true);
       assert.equal(result.diff.regressions.some((r) => r.category === 'repo_export'), false);
       assert.equal(result.diff.has_regressions, false);
+    });
+
+    it('AT-COORD-STATUS-TRUTH-001: linkage-only summary drift does not create repo status change or regression', () => {
+      const left = makeCoordinatorExport({
+        summary: { status: 'active', repo_run_statuses: { web: 'completed', api: 'linked' } },
+        repos: {
+          api: {
+            ok: true,
+            export: {
+              summary: {
+                status: 'active',
+                run_id: 'run_api_001',
+                phase: 'implementation',
+              },
+            },
+          },
+        },
+      });
+      const right = makeCoordinatorExport({
+        summary: { status: 'active', repo_run_statuses: { web: 'completed', api: 'active' } },
+        repos: {
+          api: {
+            ok: true,
+            export: {
+              summary: {
+                status: 'active',
+                run_id: 'run_api_001',
+                phase: 'implementation',
+              },
+            },
+          },
+        },
+      });
+
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      assert.equal(result.diff.left.repo_statuses.api, 'active');
+      assert.equal(result.diff.left.coordinator_repo_statuses.api, 'linked');
+      assert.equal(result.diff.right.coordinator_repo_statuses.api, 'active');
+      assert.equal(result.diff.repo_status_changes.some((entry) => entry.key === 'api' && entry.changed), false);
+      assert.equal(result.diff.regressions.some((entry) => entry.category === 'repo_status'), false);
+    });
+
+    it('AT-COORD-STATUS-TRUTH-002: stale coordinator summary failure does not create a repo-status regression when child authority is unchanged', () => {
+      const left = makeCoordinatorExport({
+        summary: { status: 'active', repo_run_statuses: { web: 'completed', api: 'completed' } },
+      });
+      const right = makeCoordinatorExport({
+        summary: { status: 'active', repo_run_statuses: { web: 'completed', api: 'failed' } },
+        repos: {
+          api: {
+            ok: true,
+            export: {
+              summary: {
+                status: 'completed',
+                run_id: 'run_api_001',
+                phase: 'done',
+              },
+            },
+          },
+        },
+      });
+
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      assert.equal(result.diff.repo_status_changes.some((entry) => entry.key === 'api' && entry.changed), false);
+      assert.equal(result.diff.regressions.some((entry) => entry.category === 'repo_status'), false);
     });
 
     it('AT-REG-007: barrier_count decrease produces barrier warning', () => {
