@@ -39,6 +39,21 @@ const COORDINATOR_BLOCKER_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.pla
 const COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC.md'), 'utf8');
 const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_LIVE_OBSERVER_SPEC.md'), 'utf8');
 const DASHBOARD_DOCS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DOCS_CONTRACT_SPEC.md'), 'utf8');
+const EXPECTED_TOP_LEVEL_VIEWS = [
+  { id: 'initiative', label: 'Initiative' },
+  { id: 'cross-repo', label: 'Cross-Repo' },
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'delegations', label: 'Delegations' },
+  { id: 'ledger', label: 'Decisions' },
+  { id: 'hooks', label: 'Hooks' },
+  { id: 'blocked', label: 'Blocked' },
+  { id: 'gate', label: 'Gates' },
+  { id: 'blockers', label: 'Blockers' },
+  { id: 'artifacts', label: 'Artifacts' },
+  { id: 'run-history', label: 'Run History' },
+  { id: 'timeouts', label: 'Timeouts' },
+  { id: 'coordinator-timeouts', label: 'Coordinator Timeouts' },
+];
 
 function extractNavViews(html) {
   return Array.from(
@@ -119,8 +134,17 @@ describe('Dashboard docs contract — view surface', () => {
   const viewIds = extractViewIds(DASHBOARD_APP);
 
   it('documents every shipped top-level dashboard view', () => {
-    assert.equal(navViews.length, 13, 'dashboard nav must expose thirteen top-level views');
-    for (const view of navViews) {
+    assert.deepEqual(
+      navViews,
+      EXPECTED_TOP_LEVEL_VIEWS,
+      'dashboard nav must expose the expected named top-level views'
+    );
+    assert.deepEqual(
+      [...viewIds].sort(),
+      EXPECTED_TOP_LEVEL_VIEWS.map((view) => view.id).sort(),
+      'app.js must define the same named top-level views as the dashboard nav'
+    );
+    for (const view of EXPECTED_TOP_LEVEL_VIEWS) {
       assert.ok(viewIds.includes(view.id), `app.js must define view "${view.id}"`);
       assert.ok(
         CLI_DOCS.includes(`**${view.label}**`) || CLI_DOCS.includes(view.label),
@@ -233,7 +257,10 @@ describe('Dashboard continuity spec', () => {
   });
 
   it('ships a durable dashboard docs spec that matches the current live-vs-replay contract', () => {
-    assert.match(DASHBOARD_DOCS_SPEC, /thirteen shipped dashboard views/);
+    assert.match(DASHBOARD_DOCS_SPEC, /shipped top-level dashboard views/);
+    for (const view of EXPECTED_TOP_LEVEL_VIEWS) {
+      assert.match(DASHBOARD_DOCS_SPEC, new RegExp(view.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
     assert.match(DASHBOARD_DOCS_SPEC, /agentxchain replay export/);
     assert.match(DASHBOARD_DOCS_SPEC, /authenticated local `approve-gate` only/);
     assert.match(DASHBOARD_DOCS_SPEC, /X-AgentXchain-Token/);

@@ -65,7 +65,7 @@ The docs must state that:
 
 ### 3. View list must match the shipped SPA
 
-The docs must cover the thirteen shipped dashboard views:
+The docs must cover the shipped top-level dashboard views:
 
 - Initiative
 - Cross-Repo

@@ -621,15 +621,12 @@ describe('run-history dashboard component contract', () => {
     assert.match(source, /Has inheritance snapshot/);
   });
 
-  it('dashboard nav has exactly 13 tabs', () => {
+  it('dashboard nav includes Run History as a named top-level view', () => {
     const source = readFileSync(
       join(import.meta.dirname, '..', 'dashboard', 'index.html'),
       'utf8'
     );
-    const navMatch = source.match(/<nav>[\s\S]*?<\/nav>/);
-    assert.ok(navMatch, 'nav element must exist');
-    const tabCount = (navMatch[0].match(/href="#/g) || []).length;
-    assert.strictEqual(tabCount, 13, `Expected 13 nav tabs, found ${tabCount}`);
+    assert.match(source, /<a href="#run-history">Run History<\/a>/);
   });
 });
 
@@ -671,12 +668,13 @@ describe('run-history docs contract', () => {
     assert.match(docs, /\| `history` \|/);
   });
 
-  it('dashboard docs mention thirteen views', () => {
+  it('dashboard docs classify Run History as a top-level dashboard view', () => {
     const docs = readFileSync(
       join(import.meta.dirname, '..', '..', 'website-v2', 'docs', 'cli.mdx'),
       'utf8'
     );
-    assert.match(docs, /thirteen top-level views/);
+    assert.match(docs, /The shipped dashboard surface has these top-level views:/);
+    assert.match(docs, /\*\*Run History\*\*/);
   });
 
   it('dashboard docs include Run History view', () => {

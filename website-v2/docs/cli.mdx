@@ -1309,7 +1309,7 @@ When `--daemon` is used, the dashboard writes `.agentxchain-dashboard.pid` and `
 
 That distinction survives partial coordinator artifacts. `report --input` keeps `repo_ok_count` / `repo_error_count` plus the failed repo row and error without inventing nested child sections. `replay export` keeps the same artifact readable in the dashboard, but restores a placeholder governed repo for the failed child path so coordinator layout validation still works. `dashboard` itself never reads the saved artifact; it reads the current local repo/workspace state.
 
-The shipped dashboard surface has thirteen top-level views:
+The shipped dashboard surface has these top-level views:
 
 | View | Description |
 |------|-------------|
