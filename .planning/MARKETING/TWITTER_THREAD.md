@@ -52,7 +52,7 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-5164 tests / 1072 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
+5166 tests / 1073 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
 
 **Tweet 5 (the insight):**
 

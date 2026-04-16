@@ -39,7 +39,7 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
 - Proposal authoring: agents propose changes through a staging area with conflict detection
-- 5164 tests / 1072 suites / 0 failures, 108 conformance fixtures, Protocol v7 spec for third-party implementors
+- 5166 tests / 1073 suites / 0 failures, 108 conformance fixtures, Protocol v7 spec for third-party implementors
 - Post-release `npx` install verification as part of the release process
 
 **Architecture:**

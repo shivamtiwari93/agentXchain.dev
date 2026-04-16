@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.109.0
+
+`2.109.0` ships governed gate actions as a complete operator surface — runtime execution, CLI dry-run, dedicated docs page, dashboard visibility with gate-type-correct recovery — and hardens the release pipeline for rerun safety.
+
+- Gates can now own post-approval automation commands via `gate_actions` on `gates.<gate_id>`, with per-action exit-code tracking, structured failure evidence in the decision ledger, and automatic run-blocking on failure
+- `approve-transition --dry-run` and `approve-completion --dry-run` preview configured gate actions without executing them
+- New `/docs/gate-actions` operator guide covering config syntax, execution semantics, dry-run, failure/retry model, environment variables, and decision-ledger evidence
+- Dashboard gate-action visibility: pending gates show configured actions, blocked states show full failure detail including per-action status, exit codes, stderr tail, and gate-type-correct dry-run recovery hints
+- E2E dashboard proof using real CLI-produced gate-action failures, not just mocked fixtures
+- Release idempotency audit: all 16 release/publish/deploy scripts verified, `publish-vscode-on-tag.yml` fixed to detect existing Marketplace publications
+- Approval SLA reminder notifications for stale pending approvals
+- Timeout pressure surfaced during approval waits
+- Conflict-loop recovery UX parity across all operator surfaces
+- 5166 tests / 1073 suites / 0 failures
+
 ## 2.108.0
 
 `2.108.0` turns conflict observability into a first-class operator surface instead of scattering it across state files, dashboard guesses, and notification drift.

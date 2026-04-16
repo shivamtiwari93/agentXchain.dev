@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.108.0
+# Launch Evidence Report — AgentXchain v2.109.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.108.0 release: conflict observability is now durable, dashboard-visible, notification-correct, report-visible, and queryable from the `events` CLI with inline conflict metadata. 5164 tests / 1072 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.109.0 release: governed gate actions ship as a full operator surface (runtime, CLI dry-run, docs, dashboard with gate-type-correct recovery), plus release idempotency hardening and approval SLA reminders. 5166 tests / 1073 suites / 0 failures.
 
 ---
 

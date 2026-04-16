@@ -1,0 +1,47 @@
+---
+sidebar_position: 0
+title: "v2.109.0 Release Notes"
+description: "Gate actions are now a full operator surface: runtime execution, CLI dry-run, docs guide, dashboard visibility with gate-type-correct recovery, and release idempotency hardening."
+---
+
+# AgentXchain v2.109.0
+
+`v2.109.0` ships governed gate actions as a complete operator surface — from runtime execution through dashboard failure detail — and hardens the release pipeline for rerun safety.
+
+**Released:** 2026-04-16
+
+## What Changed
+
+- **Governed gate actions** — gates can now own post-approval automation commands (`gate_actions` on `gates.<gate_id>`). Actions execute in order after human approval, with per-action exit-code tracking, structured failure evidence in the decision ledger, and automatic run-blocking on failure.
+- **Gate-action dry-run** — `agentxchain approve-transition --dry-run` and `agentxchain approve-completion --dry-run` now preview configured gate actions without executing them, so operators can verify automation before committing to approval.
+- **Gate-actions operator guide** — new `/docs/gate-actions` page covering config syntax, execution semantics, dry-run, failure/retry model, environment variables, decision-ledger evidence, and a worked example with repo-owned wrapper scripts.
+- **Dashboard gate-action visibility** — the repo-local dashboard now surfaces configured gate actions on pending gates and full failure detail on blocked states, including per-action status, exit codes, stderr tail, and gate-type-correct recovery hints (`approve-transition --dry-run` vs `approve-completion --dry-run`).
+- **Dashboard gate-action E2E proof** — real CLI-produced gate-action failures verified through the dashboard bridge and render pipeline, not just mocked fixtures.
+- **Release idempotency audit** — comprehensive audit of all 16 release/publish/deploy scripts and workflows. The only non-idempotent workflow (`publish-vscode-on-tag.yml`) now detects existing Marketplace publications and skips, matching the npm workflow pattern.
+- **Approval SLA reminder notifications** — stale pending approvals now emit reminder notifications so webhook-driven operators get paged when gates are waiting too long.
+- **Timeout pressure during approval waits** — operators now see explicit timeout countdown context while waiting for approvals.
+- **Conflict-loop recovery UX parity** — conflict-loop recovery guidance is now consistent across all operator surfaces.
+
+## Why This Matters
+
+Gate actions turn human-approved gates from a "pause and wait" checkpoint into a "pause, approve, then automate" checkpoint. This is the primitive that lets operators attach release scripts, deployment commands, notification dispatches, or any other post-approval automation to governed gates — without leaving the governed protocol.
+
+The dashboard was the last blind spot. An operator who approves a gate from the dashboard and watches the action fail now sees exactly which action failed, why, the stderr output, and a gate-type-correct dry-run command to debug it. That is the difference between "something broke" and "action 2 of 3 failed with exit code 1, here is stderr, run this to debug."
+
+## Proof
+
+- `.planning/GATE_ACTIONS_SPEC.md`
+- `.planning/GATE_ACTIONS_DOCS_SPEC.md`
+- `.planning/DASHBOARD_GATE_ACTIONS_SURFACE_SPEC.md`
+- `cli/test/gate-actions.test.js`
+- `cli/test/gate-evaluator.test.js`
+- `cli/test/governed-ide-approval.test.js`
+- `cli/test/run-completion.test.js`
+- `cli/test/dashboard-gate-actions.test.js`
+- `cli/test/e2e-dashboard-gate-actions.test.js`
+- `cli/test/docs-gate-actions-content.test.js`
+
+## Evidence
+
+- 5166 tests / 1073 suites / 0 failures
+- `cd website-v2 && npm run build`
