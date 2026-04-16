@@ -46,6 +46,8 @@ Exit codes:
    - **Export verification:** does the final export artifact verify against embedded bytes, hashes, and summary invariants?
    - **Elapsed time:** wall-clock time for the full lifecycle
 5. Output a compliance report
+6. Saved benchmark proof currently uses repo-local run exports, not coordinator exports. Operators comparing those saved artifacts through `verify diff` should expect repo-local diff semantics here, not implicit coordinator repo-status behavior.
+7. If benchmark proof is ever extended to emit coordinator exports, the comparison contract stays explicit: `verify diff` must treat `summary.repo_run_statuses` as coordinator snapshot metadata only and derive repo-status changes/regressions from authority-first child repo status when nested child exports are readable.
 
 ## Output (human-readable)
 
@@ -108,6 +110,7 @@ AgentXchain Benchmark — Governed Delivery Compliance
 - AT-BENCH-014: `agentxchain benchmark --json --workload completion-recovery` exits 0, reports at least one failed gate evaluation, and still completes the run
 - AT-BENCH-015: `agentxchain benchmark --stress --workload baseline` exits 1 with a clear conflict error
 - AT-BENCH-016: baseline and completion-recovery benchmark artifacts saved with `--output` compare cleanly through `verify diff`
+- AT-BENCH-021: benchmark docs/specs state that saved benchmark artifacts are repo-local today and that any future coordinator comparison still inherits `verify diff`'s authority-first child repo-status boundary
 
 ## Open Questions
 

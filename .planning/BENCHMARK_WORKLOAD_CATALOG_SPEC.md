@@ -50,6 +50,7 @@ agentxchain benchmark workloads [--json]
 7. Saved `workload.json` must include the selected workload id, description, and expected recovery semantics so later verification is not forced to infer them from history alone.
 8. `phase-drift` must use a 4-phase workflow (planning → design → implementation → qa) producing a different `workflow_phase_order` than the default 3-phase config. Diffing against baseline must produce a `REG-PHASE-ORDER` regression.
 9. `agentxchain benchmark workloads` must list all available workloads with descriptions, expected signals, and visible phase topology. `--json` produces structured catalog output including `phase_order` and `phase_count`.
+10. Workload-comparison docs must not imply the saved benchmark bundles are coordinator exports. They are repo-local exports today, and any future coordinator comparison through `verify diff` still inherits the explicit authority-first child repo-status contract instead of raw `summary.repo_run_statuses`.
 
 ## Error Cases
 
@@ -68,6 +69,7 @@ agentxchain benchmark workloads [--json]
 - `AT-BENCH-018`: saved baseline vs phase-drift `verify diff` exits 1 with exactly `REG-PHASE-ORDER-001` regression
 - `AT-BENCH-019`: `agentxchain benchmark workloads` lists all 4 workloads with usage hint
 - `AT-BENCH-020`: `agentxchain benchmark workloads --json` returns structured catalog with all 4 workload entries plus `phase_order` / `phase_count`
+- `AT-BENCH-021`: benchmark docs/specs freeze the repo-local benchmark-artifact scope and the future coordinator `verify diff` truth boundary
 
 ## Open Questions
 

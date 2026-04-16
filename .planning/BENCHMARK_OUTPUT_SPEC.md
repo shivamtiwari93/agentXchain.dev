@@ -36,6 +36,8 @@ Persisted files:
 8. Saved artifacts must be consumable by the public CLI surfaces:
    - `agentxchain verify export --input <dir>/run-export.json`
    - `agentxchain verify diff <left-dir>/run-export.json <right-dir>/run-export.json`
+9. The persisted `run-export.json` bundle is a repo-local run export today, not a coordinator export. Benchmark docs must say that directly instead of implying the saved-artifact examples are exercising coordinator repo-status behavior.
+10. If operators later feed coordinator exports into the same `verify diff` flow, the benchmark docs/specs must preserve the coordinator repo-status truth boundary explicitly: `summary.repo_run_statuses` stays raw coordinator metadata, while repo-status changes/regressions come from authority-first child repo status when nested child exports are readable.
 
 ## Error Cases
 
@@ -49,6 +51,7 @@ Persisted files:
 - `AT-BENCH-010`: `agentxchain benchmark --json --output <dir>` writes `metrics.json`, `run-export.json`, `verify-export.json`, and `workload.json`
 - `AT-BENCH-011`: `agentxchain verify export --input <dir>/run-export.json` exits 0 for a saved benchmark artifact
 - `AT-BENCH-012`: baseline and stress benchmark artifacts saved with `--output` can be compared with `agentxchain verify diff` and the command exits 0
+- `AT-BENCH-021`: benchmark docs/specs freeze the repo-local benchmark-artifact scope and the future coordinator `verify diff` truth boundary
 
 ## Open Questions
 

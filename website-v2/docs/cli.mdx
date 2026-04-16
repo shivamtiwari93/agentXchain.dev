@@ -100,6 +100,8 @@ agentxchain benchmark [--json] [--workload <name>] [--stress] [--output <dir>]
 
 `benchmark` is a governance proof surface, not a performance test. It runs a temp governed project, drives a full lifecycle, and fails closed if admission control, gates, or export verification fail. Use `--output <dir>` when you want durable artifacts that can be re-verified or diffed later instead of losing the proof when the temp project is cleaned up.
 
+Those saved benchmark bundles are repo-local run exports today, not coordinator exports. These examples are proving workload and phase-regression behavior, not quietly exercising coordinator repo-status logic.
+
 Built-in workloads:
 
 | Workload | What it proves |
@@ -137,6 +139,8 @@ agentxchain verify diff \
   ./artifacts/benchmark-phase-drift/run-export.json
 # → exits 1 with REG-PHASE-ORDER-001 regression (expected)
 ```
+
+If you later run `verify diff` on coordinator exports outside the benchmark flow, keep the same truth boundary explicit: `summary.repo_run_statuses` remains raw coordinator snapshot metadata, while coordinator repo-status changes and regressions come from authority-first child repo status when nested child exports are readable.
 
 ### `init`
 
