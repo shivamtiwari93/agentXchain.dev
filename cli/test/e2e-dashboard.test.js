@@ -692,6 +692,9 @@ describe('Dashboard E2E acceptance', () => {
     assert.ok(gateHtml.includes('agentxchain multi approve-gate'));
     assert.ok(gateHtml.includes('API integration accepted'));
     assert.ok(blockedHtml.includes('coordinator_hook_violation'));
+    assert.ok(blockedHtml.includes('Approval State'));
+    assert.ok(blockedHtml.includes('Awaiting human approval'));
+    assert.ok(blockedHtml.includes('Required Repos'));
     assert.ok(blockedHtml.includes('release-guard'));
   });
 

@@ -14,6 +14,7 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const initiativeSource = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'initiative.js'), 'utf8');
 const blockersSource = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'blockers.js'), 'utf8');
+const blockedSource = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'blocked.js'), 'utf8');
 
 describe('coordinator blocker presentation helper', () => {
   it('AT-CBPS-001: returns typed detail rows for supported coordinator blockers', () => {
@@ -225,5 +226,11 @@ describe('coordinator blocker presentation helper', () => {
     );
     assert.doesNotMatch(initiativeSource, /<h3>Pending Gate<\/h3>/);
     assert.doesNotMatch(initiativeSource, /Approval is the only remaining action\. Detailed gate diagnostics stay in the Gates and Blockers views\./);
+  });
+
+  it('AT-CBPS-008: Blocked consumes the shared coordinator pending-gate detail helper instead of hardcoding gate/type rows inline', () => {
+    assert.match(blockedSource, /getCoordinatorPendingGateDetails/);
+    assert.doesNotMatch(blockedSource, /activeState\.pending_gate\.gate/);
+    assert.doesNotMatch(blockedSource, /activeState\.pending_gate\.gate_type/);
   });
 });

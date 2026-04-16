@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Freeze one shared presentation contract for coordinator attention summary wording so the Initiative and Blockers views do not privately invent titles, subtitles, detail labels, or approval-summary copy for the same coordinator state.
+Freeze one shared presentation contract for coordinator attention summary wording and pending-gate detail rows so the Initiative, Blockers, and Blocked views do not privately invent titles, subtitles, detail labels, or approval-summary copy for the same coordinator state.
 
 ## Interface
 
@@ -17,6 +17,7 @@ Freeze one shared presentation contract for coordinator attention summary wordin
 - Dashboard consumers:
   - `cli/dashboard/components/initiative.js`
   - `cli/dashboard/components/blockers.js`
+  - `cli/dashboard/components/blocked.js`
 
 ## Behavior
 
@@ -53,6 +54,8 @@ Freeze one shared presentation contract for coordinator attention summary wordin
      - message: `The coordinator gate has no outstanding blockers.`
 4. Renderer boundary
    - Initiative and Blockers may add view-specific surrounding layout, but they must not hardcode coordinator attention summary titles or approval/no-blocker status copy inline.
+   - Blocked may render a distinct `Pending Gate` diagnostics section, but it must source its coordinator gate rows from `getCoordinatorPendingGateDetails(...)`.
+   - Blocked must not privately reduce coordinator pending-gate diagnostics to a local `Gate`/`Type` pair when the shared helper exposes the fuller contract.
 
 ## Error Cases
 
@@ -66,6 +69,7 @@ Freeze one shared presentation contract for coordinator attention summary wordin
 - `AT-CBPS-005`: shared status-card helper emits canonical pending-approval and no-blocker summaries.
 - `AT-CBPS-006`: Initiative and Blockers import shared summary helpers and no longer hardcode the legacy snapshot/status strings inline.
 - `AT-CBPS-007`: shared snapshot presentation absorbs pending-gate detail rows so Initiative does not render a second `Pending Gate` card.
+- `AT-CBPS-008`: Blocked imports the shared pending-gate detail helper and renders canonical coordinator pending-gate rows instead of hardcoding local `gate` / `gate_type` fields.
 
 ## Open Questions
 

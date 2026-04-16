@@ -1,3 +1,5 @@
+import { getCoordinatorPendingGateDetails } from '../../src/lib/coordinator-pending-gate-presentation.js';
+
 /**
  * Blocked State view — renders current blocked state with recovery info.
  *
@@ -21,6 +23,18 @@ function getHookPhase(entry) {
 
 function getHookName(entry) {
   return entry?.hook_name || entry?.hook || entry?.name || '';
+}
+
+function renderDetailRows(details) {
+  if (!Array.isArray(details) || details.length === 0) {
+    return '';
+  }
+
+  let html = '';
+  for (const detail of details) {
+    html += `<dt>${esc(detail.label)}</dt><dd${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</dd>`;
+  }
+  return html;
 }
 
 function selectRelevantAuditEntries(state, audit) {
@@ -92,6 +106,12 @@ export function render({
     : Array.isArray(activeState.next_actions)
       ? activeState.next_actions
       : [];
+  const coordinatorPendingGateDetails = isCoordinator
+    ? getCoordinatorPendingGateDetails({
+      pendingGate: activeState.pending_gate,
+      active: coordinatorBlockers?.active,
+    })
+    : [];
   const relevantAudit = selectRelevantAuditEntries(activeState, activeAudit);
 
   let html = `<div class="blocked-view">
@@ -144,12 +164,9 @@ export function render({
     html += `</div></div>`;
   }
 
-  if (isCoordinator && activeState.pending_gate) {
+  if (isCoordinator && coordinatorPendingGateDetails.length > 0) {
     html += `<div class="section"><h3>Pending Gate</h3>
-      <dl class="detail-list">
-        <dt>Gate</dt><dd class="mono">${esc(activeState.pending_gate.gate || '-')}</dd>
-        <dt>Type</dt><dd>${esc(activeState.pending_gate.gate_type || '-')}</dd>
-      </dl>
+      <dl class="detail-list">${renderDetailRows(coordinatorPendingGateDetails)}</dl>
     </div>`;
   }
 

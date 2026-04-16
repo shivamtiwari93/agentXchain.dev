@@ -1039,7 +1039,13 @@ describe('Blocked View', () => {
       coordinatorState: {
         status: 'blocked',
         blocked_reason: 'coordinator_hook_violation',
-        pending_gate: { gate: 'initiative_ship', gate_type: 'run_completion' },
+        pending_gate: {
+          gate: 'initiative_ship',
+          gate_type: 'run_completion',
+          from: 'integration',
+          to: 'release',
+          required_repos: ['api', 'web'],
+        },
         repo_runs: {
           api: { status: 'linked', phase: 'integration' },
         },
@@ -1063,6 +1069,12 @@ describe('Blocked View', () => {
     assert.ok(html.includes('agentxchain multi approve-gate --from-blockers'));
     assert.ok(!html.includes('data-copy="agentxchain multi approve-gate"'));
     assert.ok(html.includes('Next Actions'));
+    assert.ok(html.includes('Pending Gate'));
+    assert.ok(html.includes('Current Phase'));
+    assert.ok(html.includes('Target Phase'));
+    assert.ok(html.includes('Required Repos'));
+    assert.ok(html.includes('Approval State'));
+    assert.ok(html.includes('Awaiting human approval'));
     assert.ok(html.includes('Repo Status'));
     assert.ok(html.includes('release-guard'));
   });
