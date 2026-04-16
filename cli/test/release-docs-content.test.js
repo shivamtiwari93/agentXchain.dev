@@ -174,4 +174,20 @@ describe('release planning surface classification', () => {
     assert.match(release241, expectedLine);
     assert.doesNotMatch(release241, staleSubset);
   });
+
+  it('historical release notes do not present the live quickstart alias as a frozen historical route', () => {
+    const spec = read('.planning/HISTORICAL_QUICKSTART_LINK_TRUTH_SPEC.md');
+    const release213 = read('website-v2/docs/releases/v2-13-0.mdx');
+    const staleHistoricalizedAlias =
+      /was already shipped under `\/docs\/quickstart#multi-repo-cold-start`/;
+    const currentWalkthroughLine =
+      /See \[Quickstart\]\(\/docs\/quickstart#multi-repo-cold-start\) for the current multi-repo cold-start walkthrough\./;
+
+    assert.match(spec, /AT-HQLT-001/);
+    assert.match(spec, /AT-HQLT-002/);
+    assert.match(spec, /AT-HQLT-003/);
+
+    assert.doesNotMatch(release213, staleHistoricalizedAlias);
+    assert.match(release213, currentWalkthroughLine);
+  });
 });
