@@ -119,7 +119,7 @@ describe('comparison pages content', () => {
     assertCommonPageContract(pages.devin, 'Devin');
     assert.match(pages.devin, /autonomous/i, 'Devin page must acknowledge autonomous agent capability');
     assert.match(pages.devin, /parallel/i, 'Devin page must acknowledge parallel Devin instances');
-    assert.match(pages.devin, /fine-tun/i, 'Devin page must acknowledge fine-tunability');
+    assert.match(pages.devin, /Knowledge|Playbooks/i, 'Devin page must acknowledge Knowledge/Playbooks');
     assert.match(pages.devin, /governed software delivery|delivery governance protocol/i);
   });
 

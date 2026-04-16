@@ -20,18 +20,20 @@ Devin is a very capable AI coding agent. AgentXchain is a delivery governance pr
 | **Primary job** | Autonomous AI software engineer | Governed software delivery protocol |
 | **Agent model** | One agent type, parallelized across tasks | Heterogeneous chartered roles with different mandates |
 | **Scaling model** | Run many Devins in parallel on independent tasks | Multiple roles collaborate through structured turns on shared work |
-| **Governance** | Human reviews PRs that Devin produces | Protocol-enforced phase gates, mandatory challenge, and decision ledger |
-| **Human authority** | Approve or reject Devin's output | Explicit phase-transition and run-completion approvals at the constitutional layer |
+| **Governance** | Human mid-session intervention, PR review, and organizational Playbooks | Protocol-enforced phase gates, mandatory cross-role challenge, and append-only decision ledger |
+| **Human authority** | Mid-session redirection, PR approval, and team RBAC/SSO controls | Explicit phase-transition and run-completion approvals at the constitutional layer |
 | **Cross-role challenge** | Not applicable (single agent type) | Required — roles must challenge each other structurally |
-| **Learning** | Fine-tunable to specific codebases; learns from past sessions | Protocol-level decision history; no model fine-tuning |
-| **Best fit** | High-volume autonomous coding tasks | Auditable convergence on shippable software across roles |
+| **Knowledge** | Organizational Knowledge base, Playbooks, and codebase-indexed Devin Search | Protocol-level decision history and append-only decision ledger |
+| **Audit surface** | Full session replay, action logs, and API/webhook event notifications | Governed run exports, HTML reports, event streams, and decision ledger |
+| **API / automation** | Devin API for programmatic session management plus webhooks | CLI, dashboard, governed run API, and plugin system |
+| **Best fit** | High-volume autonomous coding tasks with organizational knowledge | Auditable convergence on shippable software across heterogeneous roles |
 
 ## Choose Devin when
 
 - You want a capable autonomous coding agent that can handle complex multi-step tasks end to end.
 - You want to scale by running many parallel instances for large migrations, refactors, or codebase-wide changes.
-- You want deep integrations with Slack, Linear, GitHub, and Datadog for seamless team workflows.
-- You want an agent that fine-tunes to your codebase and improves over time from past sessions.
+- You want deep integrations with Slack, Linear, GitHub, Datadog, and VS Code for seamless team workflows.
+- You want organizational Knowledge, Playbooks, and codebase-indexed search so the agent learns your patterns and conventions.
 - Your problem is "make one very capable agent do more coding work faster."
 
 ## Choose AgentXchain when
@@ -63,7 +65,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-Devin can absolutely produce high-quality code at scale. What it does not provide is a governed multi-role delivery protocol with mandatory disagreement, append-only delivery ledgers, and constitutional ship gates. Parallel Devins are parallel instances of the same agent — they do not challenge each other, do not enforce phase transitions, and do not produce a governed decision trail.
+Devin can absolutely produce high-quality code at scale, and it provides real oversight surfaces: session replay, action logs, API/webhook automation, organizational Knowledge, Playbooks, and mid-session human intervention. What it does not provide is a governed multi-role delivery protocol with heterogeneous chartered roles, mandatory cross-role disagreement, append-only decision ledgers, and constitutional phase gates. Parallel Devins are parallel instances of the same agent type — they do not challenge each other from different mandates, do not enforce governed phase transitions, and do not produce a cross-role decision trail.
 
 ## Using both together
 
