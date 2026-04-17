@@ -108,6 +108,9 @@ Always include when present:
 
 Also include when present:
 
+- `.agentxchain/continuous-session.json`
+- `.agentxchain/human-escalations.jsonl`
+- `.agentxchain/sla-reminders.json`
 - `.agentxchain/multirepo/**`
 
 Do not include:
@@ -143,6 +146,7 @@ Do not include:
 - AT-EXPORT-002: `agentxchain export --format json` prints valid JSON for a governed project
 - AT-EXPORT-003: the artifact includes config, state, history, decision ledger, dispatch, staging, and hook audit surfaces when present
 - AT-EXPORT-004: `.agentxchain/intake/**` and `.agentxchain/multirepo/**` are included when present
+- AT-EXPORT-010: `.agentxchain/continuous-session.json`, `.agentxchain/human-escalations.jsonl`, and `.agentxchain/sla-reminders.json` are included when present and round-trip through restore roots
 - AT-EXPORT-005: `agentxchain export --output <path>` writes the artifact to disk
 - AT-EXPORT-006: legacy projects are rejected
 - AT-EXPORT-007: unsupported formats are rejected

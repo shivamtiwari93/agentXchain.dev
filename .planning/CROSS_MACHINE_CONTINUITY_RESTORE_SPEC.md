@@ -54,6 +54,12 @@ Restore is authoritative only over governed continuity roots:
 - `.planning/`
 - `TALK.md`
 
+That continuity surface includes runtime-owned session and escalation state such as:
+
+- `.agentxchain/continuous-session.json`
+- `.agentxchain/human-escalations.jsonl`
+- `.agentxchain/sla-reminders.json`
+
 Before writing restored files, the command clears those roots in the target checkout so deletions in the source export are reproduced instead of leaving stale files behind.
 
 ### Compatibility checks
@@ -106,6 +112,7 @@ When restore succeeds:
 - `AT-XRESTORE-006`: restore rejects coordinator exports
 - `AT-XRESTORE-007`: `/docs/cli`, `/docs/multi-session`, and `README.md` document the restore path truthfully in the same turn
 - `AT-XRESTORE-008`: docs and spec keep the dual-surface export boundary explicit: `restore` only accepts `agentxchain_run_export`, while coordinator exports remain non-restore artifacts for report/audit/verify/replay
+- `AT-XRESTORE-009`: restore preserves exported continuous-session, human-escalations, and sla-reminders runtime state so blocked continuous recovery can continue truthfully after migration
 
 ## Open Questions
 

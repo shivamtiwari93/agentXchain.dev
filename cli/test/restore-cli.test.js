@@ -131,6 +131,23 @@ describe('restore CLI', () => {
     const accept = runCli(source, ['accept-turn']);
     assert.equal(accept.status, 0, `${accept.stdout}\n${accept.stderr}`);
 
+    writeFileSync(join(source, '.agentxchain', 'continuous-session.json'), JSON.stringify({
+      session_id: 'cont_restore_001',
+      status: 'paused',
+      vision_path: '.planning/VISION.md',
+      runs_completed: 1,
+      current_run_id: runId,
+    }, null, 2) + '\n');
+    writeFileSync(join(source, '.agentxchain', 'human-escalations.jsonl'), `${JSON.stringify({
+      id: 'hesc_restore_001',
+      type: 'needs_decision',
+      status: 'open',
+      run_id: runId,
+    })}\n`);
+    writeFileSync(join(source, '.agentxchain', 'sla-reminders.json'), JSON.stringify({
+      reminders: [{ escalation_id: 'hesc_restore_001', last_sent_at: '2026-04-17T15:00:00.000Z' }],
+    }, null, 2) + '\n');
+
     const artifactPath = exportArtifact(source);
     const exported = JSON.parse(readFileSync(artifactPath, 'utf8'));
     assert.equal(exported.schema_version, '0.3');
@@ -152,6 +169,18 @@ describe('restore CLI', () => {
     const restoredState = readState(target);
     assert.equal(restoredState.run_id, runId);
     assert.equal(restoredState.last_completed_turn_id, readState(source).last_completed_turn_id);
+    assert.equal(
+      JSON.parse(readFileSync(join(target, '.agentxchain', 'continuous-session.json'), 'utf8')).session_id,
+      'cont_restore_001',
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(target, '.agentxchain', 'human-escalations.jsonl'), 'utf8').trim()).id,
+      'hesc_restore_001',
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(target, '.agentxchain', 'sla-reminders.json'), 'utf8')).reminders[0].escalation_id,
+      'hesc_restore_001',
+    );
 
     const resumeTarget = runCli(target, ['resume', '--role', 'pm']);
     assert.equal(resumeTarget.status, 0, `${resumeTarget.stdout}\n${resumeTarget.stderr}`);

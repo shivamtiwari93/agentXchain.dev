@@ -120,6 +120,19 @@ function createGovernedProject() {
   writeJsonl(join(root, '.agentxchain', 'notification-audit.jsonl'), [
     { event_type: 'run_blocked', notification_name: 'ops_webhook', delivered: true },
   ]);
+  writeJson(join(root, '.agentxchain', 'continuous-session.json'), {
+    session_id: 'cont_export_001',
+    status: 'paused',
+    vision_path: '.planning/VISION.md',
+    runs_completed: 1,
+    current_run_id: 'run_export_001',
+  });
+  writeJsonl(join(root, '.agentxchain', 'human-escalations.jsonl'), [
+    { id: 'hesc_001', status: 'open', type: 'needs_decision' },
+  ]);
+  writeJson(join(root, '.agentxchain', 'sla-reminders.json'), {
+    reminders: [{ escalation_id: 'hesc_001', last_sent_at: '2026-04-17T14:00:00.000Z' }],
+  });
 
   writeFileSync(
     join(root, '.agentxchain', 'dispatch', 'turns', 'turn_001', 'PROMPT.md'),
@@ -206,6 +219,18 @@ describe('export CLI', () => {
         exported.files['.agentxchain/multirepo/state.json'].data.super_run_id,
         'srun_001',
       );
+      assert.equal(
+        exported.files['.agentxchain/continuous-session.json'].data.session_id,
+        'cont_export_001',
+      );
+      assert.equal(
+        exported.files['.agentxchain/human-escalations.jsonl'].data[0].id,
+        'hesc_001',
+      );
+      assert.equal(
+        exported.files['.agentxchain/sla-reminders.json'].data.reminders[0].escalation_id,
+        'hesc_001',
+      );
       assert.equal(exported.files['TALK.md'].data, '# Export Talk\n');
       assert.equal(exported.summary.intake_present, true);
       assert.equal(exported.summary.coordinator_present, true);
@@ -218,6 +243,22 @@ describe('export CLI', () => {
       );
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps continuous-session, human-escalations, and sla-reminders in both export and restore roots', () => {
+    const exportSrc = readFileSync(join(__dirname, '..', 'src', 'lib', 'export.js'), 'utf8');
+    const exportRootsMatch = exportSrc.match(/RUN_EXPORT_INCLUDED_ROOTS\s*=\s*\[([\s\S]*?)\];/);
+    const restoreRootsMatch = exportSrc.match(/RUN_RESTORE_ROOTS\s*=\s*\[([\s\S]*?)\];/);
+    assert.ok(exportRootsMatch, 'RUN_EXPORT_INCLUDED_ROOTS not found');
+    assert.ok(restoreRootsMatch, 'RUN_RESTORE_ROOTS not found');
+    for (const relPath of [
+      'continuous-session.json',
+      'human-escalations.jsonl',
+      'sla-reminders.json',
+    ]) {
+      assert.match(exportRootsMatch[1], new RegExp(relPath.replace('.', '\\.')));
+      assert.match(restoreRootsMatch[1], new RegExp(relPath.replace('.', '\\.')));
     }
   });
 
