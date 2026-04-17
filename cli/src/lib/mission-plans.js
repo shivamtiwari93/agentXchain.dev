@@ -454,6 +454,29 @@ export function markWorkstreamOutcome(root, missionId, planId, workstreamId, { t
   return { ok: true, plan, workstream: ws };
 }
 
+// ── Batch launch helpers ───────────────────────────────────────────────────
+
+/**
+ * Return all workstreams with launch_status === 'ready', in plan order.
+ */
+export function getReadyWorkstreams(plan) {
+  if (!plan || !Array.isArray(plan.workstreams)) return [];
+  return plan.workstreams.filter((ws) => ws.launch_status === 'ready');
+}
+
+/**
+ * Return a summary of workstream status distribution for operator messaging.
+ */
+export function getWorkstreamStatusSummary(plan) {
+  if (!plan || !Array.isArray(plan.workstreams)) return {};
+  const summary = {};
+  for (const ws of plan.workstreams) {
+    const status = ws.launch_status || 'unknown';
+    summary[status] = (summary[status] || 0) + 1;
+  }
+  return summary;
+}
+
 // ── LLM planner prompt ──────────────────────────────────────────────────────
 
 /**

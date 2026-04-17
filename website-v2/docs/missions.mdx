@@ -120,15 +120,21 @@ agentxchain mission plan approve latest
 
 Approval is latest-only and fail-closed. Approving a newer plan supersedes older active plan revisions for that mission.
 
-#### 3. Launch one approved workstream
+#### 3. Launch approved workstreams
 
 ```bash
+# Launch a single workstream
 agentxchain mission plan launch latest \
   --workstream ws-release-alignment \
   --auto-approve
+
+# Or launch all ready workstreams sequentially
+agentxchain mission plan launch latest --all-ready --auto-approve
 ```
 
 `mission plan launch` is not bookkeeping-only. It records real `workstream_id -> chain_id` linkage in `launch_records`, then executes the workstream immediately through the existing governed run/chaining path using that same chain ID. `--auto-approve` passes through to the launched governed run exactly as it does on `agentxchain run`.
+
+`--all-ready` launches every currently `ready` workstream one at a time, stopping on first failure. Blocked workstreams are never included. The `--workstream` and `--all-ready` flags are mutually exclusive.
 
 #### 4. Inspect plan and launch state
 
@@ -152,6 +158,7 @@ agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json]
 agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --all-ready [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 ```
 
 ### `mission start`
@@ -200,7 +207,12 @@ Approves only the latest `proposed` plan for a mission and supersedes older acti
 
 ### `mission plan launch`
 
-Launches one approved workstream at a time. It validates the approval boundary and dependency satisfaction, records a preallocated `workstream_id -> chain_id` launch record, executes the workstream immediately through the governed run path, and reconciles the workstream outcome from the real chain result.
+Launches approved workstreams with two modes:
+
+- **`--workstream <id>`** — launch one specific workstream.
+- **`--all-ready`** — launch all currently `ready` workstreams sequentially. Stops on first failure — remaining workstreams are skipped. Blocked workstreams are never included.
+
+Both modes validate the approval boundary and dependency satisfaction, record preallocated `workstream_id -> chain_id` launch records, execute through the governed run path, and reconcile outcomes from real chain results. The two flags are mutually exclusive.
 
 Shipped workstream launch states:
 
@@ -301,6 +313,14 @@ The chained run fails closed before execution. Fix the mission ID or create the 
 ### Plan launch target is unapproved, missing, or blocked
 
 `mission plan launch --workstream <id>` fails closed when the plan is not approved, the workstream does not exist, or dependencies remain unsatisfied. The command surfaces the blocking workstream IDs instead of silently starting partial execution.
+
+### `--all-ready` with no ready workstreams
+
+`mission plan launch --all-ready` fails closed when no workstreams have `launch_status: ready`. The error message shows the current status distribution (how many are blocked, launched, completed, etc.) so the operator can diagnose the state.
+
+### `--all-ready` partial failure
+
+If any workstream fails during a batch launch, the remaining workstreams are skipped. The command reports which workstreams completed, which failed, and which were skipped, then exits non-zero.
 
 ### Launched workstream execution fails
 

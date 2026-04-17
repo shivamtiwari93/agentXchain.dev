@@ -15,6 +15,8 @@ import {
 import {
   approvePlanArtifact,
   createPlanArtifact,
+  getReadyWorkstreams,
+  getWorkstreamStatusSummary,
   launchWorkstream,
   markWorkstreamOutcome,
   loadAllPlans,
@@ -415,9 +417,20 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
   }
   const { root } = context;
 
-  if (!opts.workstream) {
-    console.error(chalk.red('--workstream <id> is required. Specify which workstream to launch.'));
+  // Mutual exclusivity guard
+  if (opts.allReady && opts.workstream) {
+    console.error(chalk.red('--all-ready and --workstream are mutually exclusive. Use one or the other.'));
     process.exit(1);
+  }
+
+  if (!opts.allReady && !opts.workstream) {
+    console.error(chalk.red('--workstream <id> or --all-ready is required. Specify which workstream(s) to launch.'));
+    process.exit(1);
+  }
+
+  // Dispatch to batch launch if --all-ready
+  if (opts.allReady) {
+    return missionPlanLaunchAllReady(planTarget, opts, context);
   }
 
   const mission = opts.mission
@@ -522,6 +535,195 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
   if (execution.exitCode !== 0) {
     console.error(chalk.red(`Workstream execution ended with exit code ${execution.exitCode}.`));
     process.exit(execution.exitCode);
+  }
+}
+
+// ── Batch launch (--all-ready) ──────────────────────────────────────────────
+
+async function missionPlanLaunchAllReady(planTarget, opts, context) {
+  const { root } = context;
+
+  const mission = opts.mission
+    ? loadMissionArtifact(root, opts.mission)
+    : loadLatestMissionArtifact(root);
+
+  if (!mission) {
+    console.error(chalk.red('No mission found.'));
+    console.error(chalk.dim('  Use --mission <id> or create a mission first.'));
+    process.exit(1);
+  }
+
+  const plan = planTarget && planTarget !== 'latest'
+    ? loadPlan(root, mission.mission_id, planTarget)
+    : loadLatestPlan(root, mission.mission_id);
+
+  if (!plan) {
+    if (planTarget && planTarget !== 'latest') {
+      console.error(chalk.red(`Plan not found: ${planTarget}`));
+    } else {
+      console.error(chalk.red(`No plans found for mission ${mission.mission_id}.`));
+      console.error(chalk.dim('  Run `agentxchain mission plan latest` to generate one.'));
+    }
+    process.exit(1);
+  }
+
+  if (plan.status !== 'approved') {
+    console.error(chalk.red(`Plan ${plan.plan_id} is not approved (status: "${plan.status}"). Approve the plan before launching workstreams.`));
+    process.exit(1);
+  }
+
+  const readyWorkstreams = getReadyWorkstreams(plan);
+  if (readyWorkstreams.length === 0) {
+    const summary = getWorkstreamStatusSummary(plan);
+    const parts = Object.entries(summary).map(([status, count]) => `${count} ${status}`);
+    console.error(chalk.red(`No ready workstreams to launch. Current distribution: ${parts.join(', ')}.`));
+    process.exit(1);
+  }
+
+  const executor = opts._executeGovernedRun || executeGovernedRun;
+  const logger = opts._log || console.log;
+  const results = [];
+  let hadFailure = false;
+
+  if (!opts.json) {
+    console.log(chalk.bold(`Launching ${readyWorkstreams.length} ready workstream(s) from plan ${plan.plan_id}...\n`));
+  }
+
+  for (let i = 0; i < readyWorkstreams.length; i++) {
+    const ws = readyWorkstreams[i];
+    const prefix = `[${i + 1}/${readyWorkstreams.length}]`;
+
+    // Skip remaining if a prior workstream failed
+    if (hadFailure) {
+      results.push({
+        workstream_id: ws.workstream_id,
+        status: 'skipped',
+        skip_reason: 'prior workstream failed',
+      });
+      if (!opts.json) {
+        console.log(`${prefix} ${chalk.dim(ws.workstream_id)} — ${chalk.dim('skipped (prior workstream failed)')}`);
+      }
+      continue;
+    }
+
+    // Launch bookkeeping
+    const launch = launchWorkstream(root, mission.mission_id, plan.plan_id, ws.workstream_id);
+    if (!launch.ok) {
+      hadFailure = true;
+      results.push({
+        workstream_id: ws.workstream_id,
+        status: 'launch_error',
+        error: launch.error,
+      });
+      if (!opts.json) {
+        console.log(`${prefix} ${chalk.red(ws.workstream_id)} — launch error: ${launch.error}`);
+      }
+      continue;
+    }
+
+    if (!opts.json) {
+      process.stdout.write(`${prefix} ${chalk.cyan(ws.workstream_id)} → ${launch.chainId} ... `);
+    }
+
+    // Execute
+    const chainOpts = {
+      enabled: true,
+      maxChains: 0,
+      chainOn: ['completed'],
+      cooldownSeconds: 0,
+      mission: mission.mission_id,
+      chainId: launch.chainId,
+    };
+    const runOpts = {
+      autoApprove: !!opts.autoApprove,
+      provenance: {
+        trigger: 'manual',
+        created_by: 'operator',
+        trigger_reason: `mission:${mission.mission_id} workstream:${ws.workstream_id} batch:all-ready`,
+      },
+    };
+
+    let execution;
+    try {
+      execution = await executeChainedRun(context, runOpts, chainOpts, executor, logger);
+    } catch (error) {
+      markWorkstreamOutcome(root, mission.mission_id, plan.plan_id, ws.workstream_id, {
+        terminalReason: 'execution_error',
+        completedAt: new Date().toISOString(),
+      });
+      hadFailure = true;
+      results.push({
+        workstream_id: ws.workstream_id,
+        chain_id: launch.chainId,
+        status: 'needs_attention',
+        error: error.message,
+        exit_code: 1,
+      });
+      if (!opts.json) {
+        console.log(chalk.red(`needs_attention ✗ (${error.message})`));
+      }
+      continue;
+    }
+
+    // Record outcome
+    const lastRun = execution?.chainReport?.runs?.[execution.chainReport.runs.length - 1] || null;
+    const terminalReason = lastRun?.status === 'completed'
+      ? 'completed'
+      : (lastRun?.status || execution?.chainReport?.terminal_reason || 'execution_error');
+
+    markWorkstreamOutcome(root, mission.mission_id, plan.plan_id, ws.workstream_id, {
+      terminalReason,
+      completedAt: execution?.chainReport?.completed_at || new Date().toISOString(),
+    });
+
+    const wsStatus = terminalReason === 'completed' ? 'completed' : 'needs_attention';
+    if (wsStatus === 'needs_attention') {
+      hadFailure = true;
+    }
+
+    results.push({
+      workstream_id: ws.workstream_id,
+      chain_id: launch.chainId,
+      status: wsStatus,
+      exit_code: execution.exitCode || 0,
+    });
+
+    if (!opts.json) {
+      if (wsStatus === 'completed') {
+        console.log(chalk.green('completed ✓'));
+      } else {
+        console.log(chalk.red(`needs_attention ✗`));
+      }
+    }
+  }
+
+  // Summary
+  const completed = results.filter((r) => r.status === 'completed').length;
+  const failed = results.filter((r) => r.status === 'needs_attention' || r.status === 'launch_error').length;
+  const skipped = results.filter((r) => r.status === 'skipped').length;
+
+  if (opts.json) {
+    console.log(JSON.stringify({
+      plan_id: plan.plan_id,
+      mission_id: mission.mission_id,
+      results,
+      summary: {
+        total: results.length,
+        completed,
+        failed,
+        skipped,
+      },
+    }, null, 2));
+  } else {
+    console.log('');
+    console.log(chalk.bold(`Summary: ${completed} completed, ${failed} failed, ${skipped} skipped`));
+    if (hadFailure) {
+      console.log(chalk.dim('  Inspect plan state with `agentxchain mission plan show latest`'));
+    }
+  }
+
+  if (hadFailure) {
+    process.exit(1);
   }
 }
 
