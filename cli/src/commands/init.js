@@ -495,6 +495,18 @@ function formatGovernedRuntimeCommand(runtime) {
   return Array.isArray(runtime?.command) ? runtime.command.join(' ') : String(runtime?.command || '');
 }
 
+function formatRuntimeSummary(runtimeId, runtime) {
+  if (!runtimeId || !runtime) return 'unconfigured';
+  if (runtime.type === 'manual') return `${runtimeId} (manual)`;
+  const command = formatGovernedRuntimeCommand(runtime);
+  if (!command) return `${runtimeId} (${runtime.type})`;
+  return `${command} (${runtime.prompt_transport || runtime.type})`;
+}
+
+function hasTemplateDefinedRouting(template) {
+  return Boolean(template?.scaffold_blueprint?.routing && Object.keys(template.scaffold_blueprint.routing).length > 0);
+}
+
 function resolveInitDirOption(dirOption) {
   if (dirOption == null) return null;
   const value = String(dirOption).trim();
@@ -862,10 +874,8 @@ async function initGoverned(opts) {
   const dir = resolve(process.cwd(), folderName);
   const targetLabel = formatInitTarget(dir);
   const projectId = slugify(projectName);
-  let localDevRuntime;
-
   try {
-    ({ runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(opts));
+    resolveGovernedLocalDevRuntime(opts);
   } catch (err) {
     console.error(chalk.red(`  Error: ${err.message}`));
     process.exit(1);
@@ -906,6 +916,9 @@ async function initGoverned(opts) {
     ? { ...opts, goal: projectGoal }
     : { ...opts };
   const { config, scaffoldWorkflowKitConfig } = scaffoldGoverned(dir, projectName, projectId, templateId, scaffoldOptions, workflowKitConfig);
+  const devRuntimeId = config.roles?.dev?.runtime;
+  const devRuntime = devRuntimeId ? config.runtimes?.[devRuntimeId] : null;
+  const hasLiveConnectorProbe = Object.values(config.runtimes || {}).some((runtime) => runtime?.type && runtime.type !== 'manual');
 
   console.log('');
   console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(targetLabel)}/`));
@@ -928,12 +941,12 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.dim('└──')} TALK.md`);
   console.log('');
   console.log(`  ${chalk.dim('Roles:')} ${promptRoleIds.join(', ')}`);
-  console.log(`  ${chalk.dim('Phases:')} ${phaseNames.join(' → ')} ${chalk.dim(selectedTemplate.scaffold_blueprint ? '(template-defined; edit routing in agentxchain.json to customize)' : '(default; extend via routing in agentxchain.json)')}`);
+  console.log(`  ${chalk.dim('Phases:')} ${phaseNames.join(' → ')} ${chalk.dim(hasTemplateDefinedRouting(selectedTemplate) ? '(template-defined; edit routing in agentxchain.json to customize)' : '(default; extend via routing in agentxchain.json)')}`);
   console.log(`  ${chalk.dim('Template:')} ${templateId}`);
   if (config.project?.goal) {
     console.log(`  ${chalk.dim('Goal:')} ${config.project.goal}`);
   }
-  console.log(`  ${chalk.dim('Dev runtime:')} ${formatGovernedRuntimeCommand(localDevRuntime)} ${chalk.dim(`(${localDevRuntime.prompt_transport})`)}`);
+  console.log(`  ${chalk.dim('Dev runtime:')} ${formatRuntimeSummary(devRuntimeId, devRuntime)}`);
   console.log(`  ${chalk.dim('Protocol:')} governed convergence`);
   console.log('');
 
@@ -962,6 +975,7 @@ async function initGoverned(opts) {
     console.log('');
   } else if (Object.entries(config.roles).every(([, role]) => allRuntimes[role.runtime]?.type === 'manual')) {
     console.log(`  ${chalk.green('Ready:')} manual-only scaffold (${chalk.bold('no API keys')} and ${chalk.bold('no local coding CLI')} required).`);
+    console.log(`  ${chalk.green('  ')}Use ${chalk.bold('agentxchain step')} for the first governed turn; ${chalk.bold('run')} requires automatable runtimes.`);
     console.log('');
   }
 
@@ -974,7 +988,9 @@ async function initGoverned(opts) {
   }
   console.log(`    ${chalk.bold('agentxchain template validate')} ${chalk.dim('# prove the scaffold contract before the first turn')}`);
   console.log(`    ${chalk.bold('agentxchain doctor')} ${chalk.dim('# verify runtimes, config, and readiness')}`);
-  console.log(`    ${chalk.bold('agentxchain connector check')} ${chalk.dim('# live-probe configured runtimes before the first turn')}`);
+  if (hasLiveConnectorProbe) {
+    console.log(`    ${chalk.bold('agentxchain connector check')} ${chalk.dim('# live-probe configured runtimes before the first turn')}`);
+  }
   console.log(`    ${chalk.bold('git add -A')} ${chalk.dim('# stage the governed scaffold')}`);
   console.log(`    ${chalk.bold('git commit -m "initial governed scaffold"')} ${chalk.dim('# checkpoint the starting state')}`);
   console.log(`    ${chalk.bold('agentxchain step')} ${chalk.dim('# run the first governed turn')}`);

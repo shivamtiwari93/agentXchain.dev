@@ -247,6 +247,9 @@ describe('governed CLI support', () => {
       assert.equal(config.runtimes['manual-dev'].type, 'manual');
       assert.equal(config.runtimes['manual-qa'].type, 'manual');
       assert.match(result.stdout, /Ready:\s+manual-only scaffold/i);
+      assert.match(result.stdout, /Dev runtime:\s+manual-dev \(manual\)/);
+      assert.match(result.stdout, /Use agentxchain step for the first governed turn; run requires automatable runtimes\./);
+      assert.doesNotMatch(result.stdout, /agentxchain connector check/);
 
       const doctor = runCli(join(dir, 'my-agentxchain-project'), ['doctor', '--json']);
       assert.equal(doctor.status, 0, doctor.stderr);
@@ -256,7 +259,8 @@ describe('governed CLI support', () => {
 
       // Phase scaffold hint
       assert.match(result.stdout, /Phases:.*planning.*implementation.*qa/, 'init output must show default phase order');
-      assert.match(result.stdout, /routing/, 'init output must hint at routing config for custom phases');
+      assert.match(result.stdout, /\(default; extend via routing in agentxchain\.json\)/, 'generic init must describe default routing truthfully');
+      assert.doesNotMatch(result.stdout, /template-defined/, 'generic init must not claim custom routing');
 
       // Readiness hint and getting-started link
       assert.match(result.stdout, /Ready:/, 'init output must include a readiness hint');
@@ -355,6 +359,7 @@ describe('governed CLI support', () => {
       assert.deepEqual(config.runtimes['local-dev'].command, ['./scripts/dev-agent.sh']);
       assert.equal(config.runtimes['local-dev'].prompt_transport, 'dispatch_bundle_only');
       assert.match(result.stdout, /Dev runtime:\s+\.\/scripts\/dev-agent\.sh\s+\(dispatch_bundle_only\)/);
+      assert.match(result.stdout, /agentxchain connector check/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
