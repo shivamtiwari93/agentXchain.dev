@@ -65,6 +65,7 @@ The `auth_env` field is required by the adapter contract, but Ollama ignores the
 ollama serve &  # ensure server is running
 export OLLAMA_API_KEY="ollama"
 agentxchain connector check
+agentxchain connector validate ollama-dev
 ```
 
 ## Minimal working example
@@ -77,12 +78,13 @@ export OLLAMA_API_KEY="ollama"
 agentxchain init --governed --template cli-tool --goal "Build a file renamer" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Ollama config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate ollama-dev
 agentxchain run
 ```
 
-Or use the **guided interactive path** (prompts for template, name, goal, and folder), then update `agentxchain.json` with the Ollama config above before `agentxchain connector check`:
+Or use the **guided interactive path** (prompts for template, name, goal, and folder), then update `agentxchain.json` with the Ollama config above before `agentxchain connector check` and `agentxchain connector validate ollama-dev`:
 
 ```bash
 agentxchain init --governed

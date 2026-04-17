@@ -49,12 +49,13 @@ If you are trying to automate the **actual Jules product**, that is a different 
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Google config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate google-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Google config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Google config above before `agentxchain connector check` and `agentxchain connector validate google-dev`.
 
 ## Available models
 
@@ -69,6 +70,7 @@ If you prefer the guided interactive scaffold, run `agentxchain init --governed`
 ```bash
 export GOOGLE_API_KEY="your-key-here"
 agentxchain connector check
+agentxchain connector validate google-dev
 ```
 
 The connector probe sends a test request to the Google Generative AI API to verify your key and model access.

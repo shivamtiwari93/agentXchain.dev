@@ -65,8 +65,9 @@ Edit your code in Cursor. Run AgentXchain in Cursor's integrated terminal with a
 agentxchain init --governed --template web-app --goal "Build a bookmarks manager" --dir my-project -y
 cd my-project
 # Edit agentxchain.json to use one of the CLI runtime configs above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate <runtime_id>   # use claude-dev or codex-dev from your config
 agentxchain run
 ```
 
@@ -75,6 +76,8 @@ Or use the **guided interactive path** (prompts for template, name, goal, and fo
 ```bash
 agentxchain init --governed
 ```
+
+Then update `agentxchain.json` with the CLI runtime you chose, run `agentxchain doctor`, `agentxchain connector check`, and `agentxchain connector validate <runtime_id>`, then start `agentxchain run`.
 
 ## Using Cursor's built-in AI alongside AgentXchain
 

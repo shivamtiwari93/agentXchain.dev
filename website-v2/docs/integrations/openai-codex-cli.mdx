@@ -50,6 +50,7 @@ description: "Connect OpenAI Codex CLI to AgentXchain as a governed local agent.
 
 ```bash
 agentxchain connector check
+agentxchain connector validate codex-dev
 ```
 
 ## Minimal working example
@@ -58,6 +59,8 @@ agentxchain connector check
 agentxchain init --governed --template cli-tool --goal "Build a JSON schema validator" --dir my-project -y
 cd my-project
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate codex-dev
 agentxchain run
 ```
 
@@ -66,6 +69,8 @@ Or use the **guided interactive path** (prompts for template, name, goal, and fo
 ```bash
 agentxchain init --governed
 ```
+
+Then update `agentxchain.json` with the Codex runtime above, run `agentxchain doctor`, `agentxchain connector check`, and `agentxchain connector validate codex-dev`, then start `agentxchain run`.
 
 ## Gotchas
 

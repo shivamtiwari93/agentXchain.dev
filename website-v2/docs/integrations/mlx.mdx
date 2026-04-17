@@ -55,12 +55,13 @@ This serves an OpenAI-compatible API at `http://localhost:8080/v1/chat/completio
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the MLX config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate mlx-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the MLX config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the MLX config above before `agentxchain connector check` and `agentxchain connector validate mlx-dev`.
 
 Set a dummy API key (MLX server doesn't require auth):
 
@@ -74,6 +75,7 @@ export MLX_API_KEY="mlx"
 mlx_lm.server --model mlx-community/Qwen3-Coder-30B-A3B-4bit --port 8080 &
 export MLX_API_KEY="mlx"
 agentxchain connector check
+agentxchain connector validate mlx-dev
 ```
 
 ## Recommended models

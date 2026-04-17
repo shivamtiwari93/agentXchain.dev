@@ -47,12 +47,13 @@ description: "Connect Alibaba's Qwen3-Coder models to AgentXchain."
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Qwen config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate qwen-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Qwen config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Qwen config above before `agentxchain connector check` and `agentxchain connector validate qwen-dev`.
 
 ## Available models
 
@@ -89,6 +90,7 @@ ollama pull qwen3-coder:30b
 ```bash
 export DASHSCOPE_API_KEY="sk-..."
 agentxchain connector check
+agentxchain connector validate qwen-dev
 ```
 
 ## Gotchas

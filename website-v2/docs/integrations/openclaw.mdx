@@ -57,6 +57,7 @@ Add a runtime to your `agentxchain.json`:
 
 ```bash
 agentxchain connector check
+agentxchain connector validate openclaw-dev
 ```
 
 This probes that the `openclaw` binary exists on your PATH and is executable. If it fails, check your OpenClaw installation.
@@ -67,6 +68,8 @@ This probes that the `openclaw` binary exists on your PATH and is executable. If
 agentxchain init --governed --template cli-tool --goal "Build a URL shortener CLI" --dir my-project -y
 cd my-project
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate openclaw-dev
 agentxchain run
 ```
 
@@ -75,6 +78,8 @@ Or use the **guided interactive path** (prompts for template, name, goal, and fo
 ```bash
 agentxchain init --governed
 ```
+
+Then update `agentxchain.json` with the OpenClaw runtime above, run `agentxchain doctor`, `agentxchain connector check`, and `agentxchain connector validate openclaw-dev`, then start `agentxchain run`.
 
 The governed run will dispatch turns to OpenClaw via subprocess. Each turn receives the full dispatch bundle (prompt, context, assignment) via stdin.
 

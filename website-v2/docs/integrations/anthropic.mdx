@@ -45,12 +45,13 @@ description: "Connect Anthropic's Claude models to AgentXchain via the API proxy
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Anthropic config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate claude-qa
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Anthropic config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Anthropic config above before `agentxchain connector check` and `agentxchain connector validate claude-qa`.
 
 ## Available models
 
@@ -99,6 +100,7 @@ Use different Claude models for different roles to optimize cost and quality:
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 agentxchain connector check
+agentxchain connector validate claude-qa
 ```
 
 The connector probe sends a test request to verify your API key and model access.

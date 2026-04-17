@@ -75,12 +75,13 @@ agentxchain init --governed --template api-service --goal "Build a feedback inta
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Bedrock config above.
 export LITELLM_API_KEY="sk-placeholder"
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate nova-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Bedrock config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Bedrock config above before `agentxchain connector check` and `agentxchain connector validate nova-dev`.
 
 ## Available models
 
@@ -97,12 +98,13 @@ The exact model ID string depends on your proxy. LiteLLM uses `bedrock/<model-id
 ```bash
 export LITELLM_API_KEY="sk-placeholder"
 agentxchain connector check
+agentxchain connector validate nova-dev
 ```
 
 ## Gotchas
 
 - **No direct API key auth**: Bedrock uses AWS SigV4 signing, not API keys or Bearer tokens. The proxy handles this translation. Do not point `base_url` directly at a `bedrock-runtime.*.amazonaws.com` URL — it will fail.
-- **Proxy must be running**: The proxy must be started before `connector check` or `run`. If you stop the proxy, AgentXchain will fail to reach the runtime.
+- **Proxy must be running**: The proxy must be started before `connector check`, `connector validate`, or `run`. If you stop the proxy, AgentXchain will fail to reach the runtime.
 - **Region**: Ensure your AWS credentials and proxy target the same region where your Nova models are enabled.
 - **Model access**: Nova models must be explicitly enabled in your AWS account via the Bedrock console before use.
 - **Cost rates**: Bedrock pricing varies by region. Add an operator override keyed by the exact runtime `model` string, since Bedrock models are not in the bundled defaults:

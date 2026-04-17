@@ -109,12 +109,13 @@ The tool must return a valid AgentXchain turn result JSON.
 agentxchain init --governed --template api-service --goal "Build an API with an MCP agent" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the MCP config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate mcp-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the MCP config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the MCP config above before `agentxchain connector check` and `agentxchain connector validate mcp-dev`.
 
 ## Examples in the repo
 
@@ -126,6 +127,7 @@ If you prefer the guided interactive scaffold, run `agentxchain init --governed`
 
 ```bash
 agentxchain connector check
+agentxchain connector validate mcp-dev
 ```
 
 For stdio: verifies the command binary exists on PATH.

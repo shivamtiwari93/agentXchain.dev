@@ -46,12 +46,13 @@ description: "Connect to Groq's ultra-fast inference for GPT-OSS, Qwen3, Llama 4
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Groq config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate groq-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Groq config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Groq config above before `agentxchain connector check` and `agentxchain connector validate groq-dev`.
 
 ## Available models on Groq
 
@@ -69,6 +70,7 @@ If you prefer the guided interactive scaffold, run `agentxchain init --governed`
 ```bash
 export GROQ_API_KEY="gsk_..."
 agentxchain connector check
+agentxchain connector validate groq-dev
 ```
 
 ## Why Groq for governed runs?

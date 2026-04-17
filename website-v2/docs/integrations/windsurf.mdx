@@ -65,12 +65,13 @@ Edit your code in Windsurf. Run AgentXchain in Windsurf's integrated terminal wi
 agentxchain init --governed --template api-service --goal "Build a REST API" --dir my-project -y
 cd my-project
 # Edit agentxchain.json to use one of the CLI runtime configs above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate <runtime_id>   # use claude-dev or codex-dev from your config
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with your chosen CLI runtime config before running `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with your chosen CLI runtime config before running `agentxchain connector check` and `agentxchain connector validate <runtime_id>`.
 
 ## Using Windsurf's built-in AI alongside AgentXchain
 

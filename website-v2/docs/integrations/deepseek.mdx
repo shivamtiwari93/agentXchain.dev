@@ -46,12 +46,13 @@ description: "Connect DeepSeek coding models to AgentXchain."
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the DeepSeek config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate deepseek-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the DeepSeek config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the DeepSeek config above before `agentxchain connector check` and `agentxchain connector validate deepseek-dev`.
 
 ## Available models
 
@@ -87,6 +88,7 @@ ollama pull deepseek-coder-v3:33b
 ```bash
 export DEEPSEEK_API_KEY="sk-..."
 agentxchain connector check
+agentxchain connector validate deepseek-dev
 ```
 
 ## Budget configuration

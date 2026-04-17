@@ -45,12 +45,13 @@ description: "Connect Google Gemini models to AgentXchain via the Generative AI 
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Google config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate gemini-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Google config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Google config above before `agentxchain connector check` and `agentxchain connector validate gemini-dev`.
 
 ## Available models
 
@@ -104,6 +105,7 @@ For Google Cloud enterprise deployments using Vertex AI:
 ```bash
 export GOOGLE_API_KEY="AIza..."
 agentxchain connector check
+agentxchain connector validate gemini-dev
 ```
 
 ## Gotchas

@@ -45,12 +45,13 @@ description: "Connect OpenAI models (GPT-5.4, GPT-5.3-Codex, GPT-OSS) to AgentXc
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the OpenAI config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate gpt-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the OpenAI config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the OpenAI config above before `agentxchain connector check` and `agentxchain connector validate gpt-dev`.
 
 ## Available models
 
@@ -102,6 +103,7 @@ For Azure OpenAI Service deployments:
 ```bash
 export OPENAI_API_KEY="sk-..."
 agentxchain connector check
+agentxchain connector validate gpt-dev
 ```
 
 ## Budget configuration

@@ -46,12 +46,13 @@ description: "Connect Mistral coding models (Devstral, Codestral, Leanstral) to 
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Mistral config above.
-agentxchain connector check
 agentxchain doctor
+agentxchain connector check
+agentxchain connector validate mistral-dev
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Mistral config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Mistral config above before `agentxchain connector check` and `agentxchain connector validate mistral-dev`.
 
 ## Available models
 
@@ -88,6 +89,7 @@ ollama pull devstral-small:24b
 ```bash
 export MISTRAL_API_KEY="..."
 agentxchain connector check
+agentxchain connector validate mistral-dev
 ```
 
 ## Gotchas

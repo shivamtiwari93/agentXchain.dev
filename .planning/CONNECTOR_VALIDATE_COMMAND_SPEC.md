@@ -128,6 +128,7 @@ Text output must state:
 - `AT-CCV-006`: `api_proxy` validation fails closed when required auth env is missing.
 - `AT-CCV-007`: docs distinguish `connector check` reachability from `connector validate` contract proof.
 - `AT-CCV-008`: CLI command map includes `connector validate`.
+- `AT-CCV-009`: integration guides that recommend `connector check` before `agentxchain run` also show `connector validate <runtime_id>` between `connector check` and `run`.
 
 ## Open Questions
 
