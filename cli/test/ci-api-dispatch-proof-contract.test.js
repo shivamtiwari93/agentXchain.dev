@@ -131,7 +131,14 @@ describe('CI API dispatch proof: workflow wiring', () => {
     });
 
     assert.equal(result.status, 1, 'missing auth should fail the proof');
-    assert.equal(result.stderr.trim(), '', 'failure contract should not depend on stderr parsing');
+    // Human-escalation local notices legitimately emit to stderr; filter them out
+    const nonEscalationStderr = result.stderr
+      .split('\n')
+      .filter(l => !l.startsWith('[agentxchain] ⚠ HUMAN ESCALATION') &&
+                   !l.startsWith('  Type:') && !l.startsWith('  Action:') &&
+                   !l.startsWith('  Unblock:'))
+      .join('\n').trim();
+    assert.equal(nonEscalationStderr, '', 'failure contract should not depend on stderr parsing');
 
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.runner, 'ci-api-dispatch-proof');

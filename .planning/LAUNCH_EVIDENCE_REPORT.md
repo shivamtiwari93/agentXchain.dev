@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.116.0
+# Launch Evidence Report — AgentXchain v2.117.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.116.0 release: mission plan autopilot for unattended wave execution, continue-on-failure with plan_incomplete terminal state, hardened autopilot E2E proof. 5370 tests / 1116 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.117.0 release: vision-driven continuous mode (`run --continuous --vision`), real intake lifecycle consumption, human-escalation events/notifier, scheduler auto-resume on unblock, priority injection with scheduler consumption. 5431 tests / 1136 suites / 0 failures.
 
 ---
 
@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-16
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 5359 tests / 1114 suites / 0 failures
+- **Result**: 5431 tests / 1136 suites / 0 failures
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.117.0
+
+`2.117.0` ships vision-driven continuous mode — fully autonomous lights-out operation where agents derive work from a project's `VISION.md`, execute governed runs back-to-back, and complete all three HUMAN-ROADMAP items for full-auto operation.
+
+- Vision-driven continuous mode: `agentxchain run --continuous --vision <path>` reads VISION.md, derives candidate work from unaddressed goals, seeds the intake pipeline, and chains governed runs autonomously. Vision path is always project-relative, never hardcoded. Session state persists to `.agentxchain/continuous-session.json` and is visible via `agentxchain status` (`DEC-VISION-CONTINUOUS-001`)
+- Real intake lifecycle consumption: continuous mode uses `planIntent` -> `startIntent` -> `resolveIntent` for proper provenance. No orphaned intents (`DEC-VISION-CONTINUOUS-002`)
+- First-class continuous provenance: `trigger: "vision_scan"` and `created_by: "continuous_loop"` are valid provenance values (`DEC-VISION-CONTINUOUS-003`)
+- Human escalation events: `human_escalation_raised` and `human_escalation_resolved` promoted to `events.jsonl` and webhook notification fan-out. Non-webhook local notifier floor emits structured stderr notices. macOS native notification via `AGENTXCHAIN_LOCAL_NOTIFY=1` (`DEC-HUMAN-ESCALATION-EVENTS-001`)
+- Scheduler auto-resume on unblock: `schedule daemon` treats blocked schedule-owned runs as non-fatal wait states. After `agentxchain unblock <id>`, the daemon continues within one poll interval (`DEC-SCHEDULE-DAEMON-UNBLOCK-001`)
+- Priority injection scheduler consumer: `schedule daemon` consumes `priority_preempted` by planning/starting injected p0 work into the same schedule-owned run (`DEC-INJECT-SCHEDULE-CONSUMER-001`)
+- Fixed VALID_RUN_EVENTS count (14 -> 16) after human escalation event types were added
+- Fixed CI API dispatch proof stderr assertion to tolerate legitimate human-escalation notices
+- 5431 tests / 1136 suites / 0 failures
+
 ## 2.116.0
 
 `2.116.0` ships mission plan autopilot — unattended lights-out execution of dependency-ordered mission plans with wave-by-wave progression, failure policies, and safety limits.

@@ -1,0 +1,68 @@
+---
+sidebar_position: 0
+title: "v2.117.0 Release Notes"
+---
+
+# AgentXchain v2.117.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Vision-Driven Continuous Mode
+
+`agentxchain run --continuous --vision <path>` enables fully autonomous, vision-driven lights-out operation. The continuous loop reads a project's `VISION.md`, derives candidate work from unaddressed vision goals, seeds the intake pipeline, and executes governed runs back-to-back without human turn dispatch.
+
+**Key capabilities:**
+- Vision reader parses `VISION.md` sections and goals, compares against completed intents, and derives ranked unaddressed candidates
+- Continuous session lifecycle with cooldown between runs, idle detection, and clean SIGINT stop behavior
+- Full intake lifecycle consumption: `planIntent` -> `startIntent` -> `resolveIntent` — no orphaned intents
+- First-class provenance: `trigger: "vision_scan"`, `created_by: "continuous_loop"`
+- Session state persists to `.agentxchain/continuous-session.json` and is visible via `agentxchain status`
+- Vision path is always project-relative, resolved against the governed project root — never hardcoded to the agentxchain.dev repo
+
+**Usage:**
+```bash
+agentxchain run --continuous --vision .planning/VISION.md --max-runs 10
+```
+
+**CLI flags:**
+- `--continuous` — enable continuous mode
+- `--vision <path>` — path to VISION.md (project-relative)
+- `--max-runs <n>` — maximum runs before stopping
+- `--poll-seconds <n>` — seconds between idle polls
+- `--max-idle-cycles <n>` — idle cycles before stopping
+
+### Human Escalation Events and Notifier Floor
+
+Human escalation lifecycle events (`human_escalation_raised`, `human_escalation_resolved`) are now promoted to `events.jsonl` and webhook notification fan-out. A non-webhook local notifier floor emits structured stderr notices unconditionally. macOS native `display notification` via AppleScript is available behind `AGENTXCHAIN_LOCAL_NOTIFY=1`.
+
+### Scheduler Auto-Resume on Unblock
+
+`schedule daemon` now treats blocked schedule-owned runs as non-fatal wait states. After `agentxchain unblock <id>`, the daemon continues the same schedule-owned run within one poll interval without requiring a separate operator command.
+
+### Priority Injection with Scheduler Consumption
+
+`agentxchain inject` composes record+triage+approve into one command. The run loop yields with `priority_preempted`, and `schedule daemon` consumes injected `p0` work by planning/starting it into the same schedule-owned run on the next poll.
+
+## Breaking Changes
+
+None.
+
+## Decisions
+
+- `DEC-VISION-CONTINUOUS-001`: `run --continuous --vision <path>` is the product surface for vision-driven lights-out operation
+- `DEC-VISION-CONTINUOUS-002`: Continuous mode must consume work through real intake lifecycle
+- `DEC-VISION-CONTINUOUS-003`: Vision-driven runs use first-class provenance `trigger: "vision_scan"` and `created_by: "continuous_loop"`
+- `DEC-HUMAN-ESCALATION-EVENTS-001`: Human escalation events promoted to events.jsonl with local notifier floor
+- `DEC-SCHEDULE-DAEMON-UNBLOCK-001`: Scheduler auto-resume on unblock within one poll
+- `DEC-INJECT-SCHEDULE-CONSUMER-001`: Scheduler consumes priority-preempted injected work
+- `DEC-INJECT-MISSION-PROMOTION-001`: Mission promotion deferred to vision-driven layer
+
+## Evidence
+
+- 5431 tests / 1136 suites / 0 failures
+- Docusaurus build: clean
+- npm: `agentxchain@2.117.0`
+- Conformance: 108 fixtures across 3 tiers
+- CLI E2E proof: 3 back-to-back governed runs via `--continuous --vision`, clean SIGINT stop

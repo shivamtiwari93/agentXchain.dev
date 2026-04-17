@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.116.0
+# Show HN Draft — AgentXchain v2.117.0
 
-> Ready-to-post draft. Updated 2026-04-17 for v2.116.0.
+> Ready-to-post draft. Updated 2026-04-17 for v2.117.0.
 
 ---
 
@@ -48,7 +48,7 @@ The point is not “more agents.” The point is better convergence: disagreemen
 
 Latest shipped operator slice: `mission plan autopilot` for unattended lights-out execution of dependency-ordered plans with wave-by-wave progression, failure policies, and safety limits.
 
-5370 tests / 1116 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
+5431 tests / 1136 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
 
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 npm: https://www.npmjs.com/package/agentxchain
