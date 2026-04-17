@@ -92,6 +92,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission plan show` | Planning | Show a decomposition plan with workstream details and dependency state |
 | `mission plan approve` | Planning | Approve the latest proposed mission plan and supersede older active revisions |
 | `mission plan launch` | Planning | Launch workstream(s) from an approved plan — single `--workstream`, batch `--all-ready`, or `--retry` failed |
+| `run --continuous` | Continuous delivery | Vision-driven lights-out loop: derive work from VISION.md and execute governed runs until all goals are addressed |
 | `mission plan autopilot` | Planning | Unattended wave execution of an approved plan — launches dependency waves until plan completes or failure stops execution |
 | `mission plan list` | Planning | List all plans for a mission, newest first |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
@@ -815,6 +816,11 @@ agentxchain run [options]
 | `--continue-from <run_id>` | — | Continue from a prior terminal run (sets `trigger=continuation` provenance) |
 | `--recover-from <run_id>` | — | Recover from a prior blocked run (sets `trigger=recovery` provenance) |
 | `--inherit-context` | `false` | Inherit read-only summary context from the parent run (requires `--continue-from` or `--recover-from`) |
+| `--continuous` | `false` | Enable continuous vision-driven loop: derive work from VISION.md and run until satisfied |
+| `--vision <path>` | `.planning/VISION.md` | Path to VISION.md (project-relative or absolute) |
+| `--max-runs <n>` | `100` | Maximum consecutive governed runs in continuous mode |
+| `--poll-seconds <n>` | `30` | Seconds between idle-detection cycles in continuous mode |
+| `--max-idle-cycles <n>` | `3` | Stop after N consecutive idle cycles with no derivable work |
 
 Drives a governed run to completion using the `runLoop` library. Continuously assigns turns, dispatches to adapters, handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). The manual adapter is not supported — use `step` for manual dispatch workflows. When a gate pause is reached, the command prompts interactively on stdin unless `--auto-approve` is set. In non-TTY environments (e.g., CI), gates fail closed unless `--auto-approve` is explicitly passed. If `project.goal` is set in `agentxchain.json`, every dispatched turn's `CONTEXT.md` includes a `## Project Goal` section so agents know what the project is trying to accomplish.
 
@@ -823,6 +829,8 @@ Drives a governed run to completion using the `runLoop` library. Continuously as
 **Provenance flags:** `--continue-from` and `--recover-from` are mutually exclusive. Both validate that the referenced run exists in `run-history.jsonl` and is in a terminal state (`completed` or `blocked`). If the current repo state is terminal, the command bootstraps a fresh run envelope before initializing the new run. The new run's `state.json` will carry the provenance metadata linking it to the parent run. These flags are metadata — they do not copy phase state or alter routing.
 
 **Context inheritance:** Add `--inherit-context` to either `--continue-from` or `--recover-from` to carry a read-only summary of the selected parent run into the child run. The inherited summary includes the parent's terminal status, phases completed, roles used, terminal retrospective, recent decisions, and recent accepted-turn summaries from that parent run's recorded `run-history.jsonl` snapshot. The child run remains a fresh run — no phase state, gate approvals, or mutable state is copied. The inherited summary is rendered in the first turn's `CONTEXT.md`, exposed in `status --json`, `report`, and `export`, and persists in `state.json` as `inherited_context`. If you target an older parent run recorded before inheritance snapshots existed, inheritance degrades to metadata-only with warnings instead of reading today's repo-global history and pretending it came from that parent.
+
+**Continuous vision-driven mode:** `--continuous` enables a lights-out loop where the only human-supplied input is VISION.md. The loop derives candidate intents from unaddressed vision goals, records them through the intake pipeline, and executes governed runs automatically. Each run's provenance traces back to a specific vision section (`trigger: "vision_scan"`). The loop stops on `--max-runs`, `--max-idle-cycles` (when all vision goals appear addressed), SIGINT, or a human-blocking escalation. Configure `triage_approval: "human"` in `run_loop.continuous` config to require operator approval for vision-derived intents instead of auto-approving. Use `agentxchain status` to view the continuous session and current vision-derived objective. VISION.md is project-relative — each governed project has its own VISION.md, never the agentxchain.dev repo's VISION.md.
 
 ### `schedule`
 
@@ -1625,7 +1633,7 @@ The intake command family is the repo-native entrypoint for continuous governed 
 
 | Subcommand | Purpose | Key contract |
 |------------|---------|--------------|
-| `record` | Record one delivery trigger event and create a detected intent | Accepts inline, file, or stdin payloads. Supported sources: `manual`, `ci_failure`, `git_ref_change`, `schedule` |
+| `record` | Record one delivery trigger event and create a detected intent | Accepts inline, file, or stdin payloads. Supported sources: `manual`, `ci_failure`, `git_ref_change`, `schedule`, `vision_scan` |
 | `triage` | Turn a detected intent into governed work, or suppress/reject it | Sets priority, template, charter, and acceptance contract for real work |
 | `approve` | Authorize a `triaged` or re-reviewed `blocked` intent for planning | Approval is an explicit gate. It does not start a governed run |
 | `plan` | Materialize template-backed planning artifacts and move `approved -> planned` | Generates `.planning/` artifacts and fails on conflicts unless `--force` is supplied |

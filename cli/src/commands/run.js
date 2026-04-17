@@ -45,12 +45,25 @@ import {
   getTurnStagingResultPath,
 } from '../lib/turn-paths.js';
 import { resolveChainOptions, executeChainedRun } from '../lib/run-chain.js';
+import { resolveContinuousOptions, executeContinuousRun } from '../lib/continuous-run.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
   if (!context) {
     console.log(chalk.red('No agentxchain.json found. Run `agentxchain init` first.'));
     process.exit(1);
+  }
+
+  // Continuous vision-driven mode
+  const contOpts = resolveContinuousOptions(opts, context.config);
+  if (contOpts.enabled) {
+    console.log(chalk.cyan.bold('agentxchain run --continuous'));
+    console.log(chalk.dim(`  Vision: ${contOpts.visionPath}`));
+    console.log(chalk.dim(`  Max runs: ${contOpts.maxRuns}, Poll: ${contOpts.pollSeconds}s, Idle limit: ${contOpts.maxIdleCycles}`));
+    console.log(chalk.dim(`  Triage approval: ${contOpts.triageApproval}`));
+    console.log('');
+    const { exitCode } = await executeContinuousRun(context, contOpts, executeGovernedRun);
+    process.exit(exitCode);
   }
 
   const chainOpts = resolveChainOptions(opts, context.config);

@@ -671,6 +671,11 @@ program
   .option('--chain-on <statuses>', 'Comma-separated terminal statuses that trigger chaining (default: completed)')
   .option('--chain-cooldown <seconds>', 'Seconds to wait between chained runs (default: 5)', parseInt)
   .option('--mission <mission_id>', 'Bind chained runs to a mission (use "latest" for most recent mission)')
+  .option('--continuous', 'Enable continuous vision-driven loop: derive work from VISION.md and run until satisfied')
+  .option('--vision <path>', 'Path to VISION.md (project-relative or absolute, default: .planning/VISION.md)')
+  .option('--max-runs <n>', 'Maximum consecutive governed runs in continuous mode (default: 100)', parseInt)
+  .option('--poll-seconds <n>', 'Seconds between idle-detection cycles in continuous mode (default: 30)', parseInt)
+  .option('--max-idle-cycles <n>', 'Stop after N consecutive idle cycles with no derivable work (default: 3)', parseInt)
   .action(runCommand);
 
 program

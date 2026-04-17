@@ -22,6 +22,7 @@ import { summarizeLatestGateActionAttempt } from '../lib/gate-actions.js';
 import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { readPreemptionMarker } from '../lib/intake.js';
+import { readContinuousSession } from '../lib/continuous-run.js';
 
 export async function statusCommand(opts) {
   const context = loadStatusContext();
@@ -131,6 +132,7 @@ function renderGovernedStatus(context, opts) {
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
   const humanEscalation = findCurrentHumanEscalation(root, state);
   const preemptionMarker = readPreemptionMarker(root);
+  const continuousSession = readContinuousSession(root);
   const gateActionAttempt = state?.pending_phase_transition
     ? summarizeLatestGateActionAttempt(root, 'phase_transition', state.pending_phase_transition.gate)
     : state?.pending_run_completion
@@ -168,6 +170,7 @@ function renderGovernedStatus(context, opts) {
       recent_event_summary: recentEventSummary,
       human_escalation: humanEscalation,
       preemption_marker: preemptionMarker,
+      continuous_session: continuousSession,
       gate_action_attempt: gateActionAttempt,
       workflow_kit_artifacts: workflowKitArtifacts,
       dashboard_session: dashboardSessionObj,
@@ -192,6 +195,23 @@ function renderGovernedStatus(context, opts) {
       console.log(chalk.dim(`  Injected at: ${preemptionMarker.injected_at}`));
     }
     console.log(chalk.dim('  Effect:      Will preempt current workstream after this turn completes'));
+    console.log(chalk.dim('  ' + '─'.repeat(44)));
+    console.log('');
+  }
+
+  // Continuous session banner
+  if (continuousSession) {
+    console.log(chalk.cyan.bold('  🔄 Continuous Vision-Driven Session'));
+    console.log(chalk.dim(`  Session:     ${continuousSession.session_id}`));
+    console.log(chalk.dim(`  Vision:      ${continuousSession.vision_path}`));
+    console.log(`  Status:      ${chalk.cyan(continuousSession.status || 'unknown')}`);
+    console.log(`  Runs:        ${continuousSession.runs_completed || 0}/${continuousSession.max_runs || '?'}`);
+    if (continuousSession.current_vision_objective) {
+      console.log(`  Objective:   ${chalk.yellow(continuousSession.current_vision_objective)}`);
+    }
+    if (continuousSession.idle_cycles > 0) {
+      console.log(chalk.dim(`  Idle cycles: ${continuousSession.idle_cycles}/${continuousSession.max_idle_cycles}`));
+    }
     console.log(chalk.dim('  ' + '─'.repeat(44)));
     console.log('');
   }

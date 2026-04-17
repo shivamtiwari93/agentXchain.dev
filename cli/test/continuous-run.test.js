@@ -1,0 +1,375 @@
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join } from 'path';
+import { randomUUID } from 'crypto';
+import { fileURLToPath } from 'url';
+
+import {
+  resolveContinuousOptions,
+  readContinuousSession,
+  writeContinuousSession,
+  seedFromVision,
+  findNextQueuedIntent,
+  executeContinuousRun,
+} from '../src/lib/continuous-run.js';
+
+const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const binPath = join(cliRoot, 'bin', 'agentxchain.js');
+
+function createTmpProject() {
+  const dir = join(tmpdir(), `axc-continuous-test-${randomUUID().slice(0, 8)}`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'agentxchain.json'), JSON.stringify({
+    schema_version: '1.0',
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { name: 'continuous-test', id: 'ct-001', default_branch: 'main' },
+    roles: {
+      dev: { title: 'Developer', mandate: 'Implement.', write_authority: 'authoritative', runtime: 'manual-dev' },
+    },
+    runtimes: { 'manual-dev': { type: 'manual' } },
+    routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'done' } },
+    gates: { done: {} },
+    rules: { challenge_required: false, max_turn_retries: 1 },
+  }, null, 2));
+  return dir;
+}
+
+function writeVision(dir, content) {
+  const planDir = join(dir, '.planning');
+  mkdirSync(planDir, { recursive: true });
+  writeFileSync(join(planDir, 'VISION.md'), content, 'utf8');
+}
+
+function writeIntent(dir, { intentId, status, charter }) {
+  const intentsDir = join(dir, '.agentxchain', 'intake', 'intents');
+  mkdirSync(intentsDir, { recursive: true });
+  const intent = {
+    schema_version: '1.0',
+    intent_id: intentId,
+    event_id: `evt_${Date.now()}_0001`,
+    status,
+    priority: 'p2',
+    template: 'generic',
+    charter,
+    acceptance_contract: [charter],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    history: [],
+  };
+  writeFileSync(join(intentsDir, `${intentId}.json`), JSON.stringify(intent, null, 2));
+}
+
+describe('Continuous Run', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTmpProject();
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  describe('resolveContinuousOptions', () => {
+    it('uses defaults when no CLI flags or config', () => {
+      const opts = resolveContinuousOptions({}, {});
+      assert.equal(opts.enabled, false);
+      assert.equal(opts.visionPath, '.planning/VISION.md');
+      assert.equal(opts.maxRuns, 100);
+      assert.equal(opts.pollSeconds, 30);
+      assert.equal(opts.maxIdleCycles, 3);
+      assert.equal(opts.triageApproval, 'auto');
+    });
+
+    it('CLI flags override config', () => {
+      const opts = resolveContinuousOptions(
+        { continuous: true, vision: '/tmp/v.md', maxRuns: 5 },
+        { run_loop: { continuous: { vision_path: 'other.md', max_runs: 50 } } },
+      );
+      assert.equal(opts.enabled, true);
+      assert.equal(opts.visionPath, '/tmp/v.md');
+      assert.equal(opts.maxRuns, 5);
+    });
+
+    it('reads config values when no CLI flags', () => {
+      const opts = resolveContinuousOptions({}, {
+        run_loop: { continuous: { enabled: true, triage_approval: 'human', max_idle_cycles: 5 } },
+      });
+      assert.equal(opts.enabled, true);
+      assert.equal(opts.triageApproval, 'human');
+      assert.equal(opts.maxIdleCycles, 5);
+    });
+  });
+
+  describe('session state', () => {
+    it('reads and writes session state', () => {
+      assert.equal(readContinuousSession(tmpDir), null);
+      const session = { session_id: 'cont-test', status: 'running', runs_completed: 2 };
+      writeContinuousSession(tmpDir, session);
+      const read = readContinuousSession(tmpDir);
+      assert.equal(read.session_id, 'cont-test');
+      assert.equal(read.runs_completed, 2);
+    });
+  });
+
+  describe('findNextQueuedIntent', () => {
+    it('returns false when no intents exist', () => {
+      assert.equal(findNextQueuedIntent(tmpDir).ok, false);
+    });
+
+    it('finds planned intent', () => {
+      writeIntent(tmpDir, { intentId: 'intent_001', status: 'planned', charter: 'Build X' });
+      const result = findNextQueuedIntent(tmpDir);
+      assert.ok(result.ok);
+      assert.equal(result.intentId, 'intent_001');
+      assert.equal(result.status, 'planned');
+    });
+
+    it('prefers planned over approved', () => {
+      writeIntent(tmpDir, { intentId: 'intent_a', status: 'approved', charter: 'A' });
+      writeIntent(tmpDir, { intentId: 'intent_p', status: 'planned', charter: 'P' });
+      const result = findNextQueuedIntent(tmpDir);
+      assert.ok(result.ok);
+      assert.equal(result.status, 'planned');
+    });
+  });
+
+  describe('seedFromVision', () => {
+    it('AT-VCONT-005: seeds an intent with vision provenance metadata', () => {
+      writeVision(tmpDir, `## Protocol
+
+- governed run state machine
+- explicit role mandates
+`);
+      const visionPath = join(tmpDir, '.planning', 'VISION.md');
+      const result = seedFromVision(tmpDir, visionPath);
+      assert.ok(result.ok);
+      assert.ok(!result.idle);
+      assert.equal(result.section, 'Protocol');
+      assert.ok(result.intentId);
+
+      // Verify the intent was written
+      const intentPath = join(tmpDir, '.agentxchain', 'intake', 'intents', `${result.intentId}.json`);
+      assert.ok(existsSync(intentPath));
+      const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+      assert.ok(intent.charter.includes('[vision]'));
+      assert.ok(intent.charter.includes('Protocol'));
+      // Should be approved (auto triage approval)
+      assert.equal(intent.status, 'approved');
+    });
+
+    it('AT-VCONT-009: leaves intent in triaged when triage_approval is human', () => {
+      writeVision(tmpDir, `## Goals
+
+- build a testing framework
+`);
+      const visionPath = join(tmpDir, '.planning', 'VISION.md');
+      const result = seedFromVision(tmpDir, visionPath, { triageApproval: 'human' });
+      assert.ok(result.ok);
+      assert.ok(!result.idle);
+
+      const intentPath = join(tmpDir, '.agentxchain', 'intake', 'intents', `${result.intentId}.json`);
+      const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+      assert.equal(intent.status, 'triaged');
+    });
+
+    it('returns idle when all goals are addressed', () => {
+      writeVision(tmpDir, `## Protocol
+
+- governed run state machine
+`);
+      // Write a completed intent that matches
+      writeIntent(tmpDir, { intentId: 'intent_done', status: 'completed', charter: 'governed run state machine implementation' });
+      const visionPath = join(tmpDir, '.planning', 'VISION.md');
+      const result = seedFromVision(tmpDir, visionPath);
+      assert.ok(result.ok);
+      assert.ok(result.idle);
+    });
+  });
+
+  describe('executeContinuousRun', () => {
+    it('AT-VCONT-001: executes back-to-back runs from vision goals', async () => {
+      writeVision(tmpDir, `## Core
+
+- explicit role definitions
+- explicit turn contracts
+`);
+
+      const context = { root: tmpDir, config: JSON.parse(readFileSync(join(tmpDir, 'agentxchain.json'), 'utf8')) };
+      const contOpts = { ...resolveContinuousOptions(
+        { continuous: true, maxRuns: 2, maxIdleCycles: 1 },
+        context.config,
+      ), cooldownSeconds: 0 };
+
+      let runCount = 0;
+      const mockExecutor = async (ctx, opts) => {
+        runCount += 1;
+        // Verify vision provenance
+        assert.equal(opts.provenance.trigger, 'vision_scan');
+        assert.equal(opts.provenance.created_by, 'continuous_loop');
+        return {
+          exitCode: 0,
+          result: {
+            stop_reason: 'completed',
+            state: { run_id: `run-${runCount}`, status: 'completed' },
+          },
+        };
+      };
+
+      const logs = [];
+      const { exitCode, session } = await executeContinuousRun(
+        context, contOpts, mockExecutor, (msg) => logs.push(msg),
+      );
+
+      assert.equal(exitCode, 0);
+      assert.equal(session.runs_completed, 2);
+      assert.equal(session.status, 'completed');
+      assert.equal(runCount, 2);
+
+      // Session file should exist
+      const savedSession = readContinuousSession(tmpDir);
+      assert.ok(savedSession);
+      assert.equal(savedSession.runs_completed, 2);
+    });
+
+    it('AT-VCONT-002: exits on max idle cycles when all goals addressed', async () => {
+      writeVision(tmpDir, `## Core
+
+- explicit role definitions
+`);
+      writeIntent(tmpDir, { intentId: 'intent_x', status: 'completed', charter: 'explicit role definitions implementation' });
+
+      const context = { root: tmpDir, config: JSON.parse(readFileSync(join(tmpDir, 'agentxchain.json'), 'utf8')) };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true, maxRuns: 10, maxIdleCycles: 2 }, context.config),
+        pollSeconds: 0, // no wait in tests
+      };
+
+      const mockExecutor = async () => {
+        assert.fail('Should not execute any run when all goals are addressed');
+      };
+
+      const logs = [];
+      const { exitCode, session } = await executeContinuousRun(
+        context, contOpts, mockExecutor, (msg) => logs.push(msg),
+      );
+
+      assert.equal(exitCode, 0);
+      assert.equal(session.runs_completed, 0);
+      assert.equal(session.idle_cycles, 2);
+      assert.ok(logs.some(l => l.includes('All vision goals appear addressed')));
+    });
+
+    it('AT-VCONT-006: respects --max-runs limit', async () => {
+      writeVision(tmpDir, `## Large
+
+- goal one
+- goal two
+- goal three
+- goal four
+- goal five
+`);
+
+      const context = { root: tmpDir, config: JSON.parse(readFileSync(join(tmpDir, 'agentxchain.json'), 'utf8')) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true, maxRuns: 2, maxIdleCycles: 10 }, context.config), cooldownSeconds: 0 };
+
+      let runCount = 0;
+      const mockExecutor = async () => {
+        runCount += 1;
+        return { exitCode: 0, result: { stop_reason: 'completed', state: { run_id: `r-${runCount}` } } };
+      };
+
+      const { session } = await executeContinuousRun(
+        context, contOpts, mockExecutor, () => {},
+      );
+
+      assert.equal(session.runs_completed, 2);
+      assert.equal(session.status, 'completed');
+    });
+
+    it('AT-VCONT-003: fails with clear error when VISION.md missing', async () => {
+      // No VISION.md written
+      const context = { root: tmpDir, config: JSON.parse(readFileSync(join(tmpDir, 'agentxchain.json'), 'utf8')) };
+      const contOpts = resolveContinuousOptions({ continuous: true }, context.config);
+
+      const logs = [];
+      const { exitCode } = await executeContinuousRun(
+        context, contOpts, async () => assert.fail('should not run'), (msg) => logs.push(msg),
+      );
+
+      assert.equal(exitCode, 1);
+      assert.ok(logs.some(l => l.includes('VISION.md not found')));
+      assert.ok(logs.some(l => l.includes('Create a .planning/VISION.md')));
+    });
+
+    it('AT-VCONT-004: session is readable via readContinuousSession during run', async () => {
+      writeVision(tmpDir, `## Test
+
+- test goal for session visibility
+`);
+
+      const context = { root: tmpDir, config: JSON.parse(readFileSync(join(tmpDir, 'agentxchain.json'), 'utf8')) };
+      const contOpts = resolveContinuousOptions({ continuous: true, maxRuns: 1 }, context.config);
+
+      let sessionDuringRun = null;
+      const mockExecutor = async () => {
+        sessionDuringRun = readContinuousSession(tmpDir);
+        return { exitCode: 0, result: { stop_reason: 'completed', state: { run_id: 'r-1' } } };
+      };
+
+      await executeContinuousRun(context, contOpts, mockExecutor, () => {});
+
+      assert.ok(sessionDuringRun);
+      assert.equal(sessionDuringRun.status, 'running');
+      assert.ok(sessionDuringRun.session_id.startsWith('cont-'));
+    });
+  });
+
+  describe('structural guards', () => {
+    it('S01: continuous-run.js exports required functions', async () => {
+      const mod = await import('../src/lib/continuous-run.js');
+      assert.equal(typeof mod.executeContinuousRun, 'function');
+      assert.equal(typeof mod.resolveContinuousOptions, 'function');
+      assert.equal(typeof mod.readContinuousSession, 'function');
+      assert.equal(typeof mod.writeContinuousSession, 'function');
+      assert.equal(typeof mod.seedFromVision, 'function');
+      assert.equal(typeof mod.findNextQueuedIntent, 'function');
+    });
+
+    it('S02: vision-reader.js exports required functions', async () => {
+      const mod = await import('../src/lib/vision-reader.js');
+      assert.equal(typeof mod.parseVisionDocument, 'function');
+      assert.equal(typeof mod.deriveVisionCandidates, 'function');
+      assert.equal(typeof mod.resolveVisionPath, 'function');
+      assert.equal(typeof mod.isGoalAddressed, 'function');
+      assert.equal(typeof mod.loadCompletedIntentSignals, 'function');
+    });
+
+    it('S03: run command registers --continuous and --vision flags', () => {
+      const content = readFileSync(binPath, 'utf8');
+      assert.ok(content.includes("'--continuous'"));
+      assert.ok(content.includes("'--vision <path>'"));
+      assert.ok(content.includes("'--max-runs <n>'"));
+      assert.ok(content.includes("'--max-idle-cycles <n>'"));
+    });
+
+    it('S04: intake accepts vision_scan as a valid source', async () => {
+      const { validateEventPayload } = await import('../src/lib/intake.js');
+      const result = validateEventPayload({
+        source: 'vision_scan',
+        signal: { description: 'test' },
+        evidence: [{ type: 'text', value: 'test evidence' }],
+      });
+      assert.ok(result.valid, `validation errors: ${result.errors.join(', ')}`);
+    });
+
+    it('S05: status command imports readContinuousSession', () => {
+      const content = readFileSync(join(cliRoot, 'src', 'commands', 'status.js'), 'utf8');
+      assert.ok(content.includes('readContinuousSession'));
+      assert.ok(content.includes('continuous_session'));
+    });
+  });
+});
