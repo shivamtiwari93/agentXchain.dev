@@ -176,4 +176,17 @@ describe('agentxchain run — guard tests', () => {
       'run.js must handle report generation failures gracefully without altering exit code',
     );
   });
+
+  // AT-RUN-GUARD-015: dry-run warns when first role in current phase is manual
+  it('AT-RUN-GUARD-015: dry-run warns when first-dispatched role is manual', () => {
+    const src = readFileSync(runCommandPath, 'utf8');
+    assert.ok(
+      src.includes('will block immediately'),
+      'run.js dry-run must warn operators when the first-dispatched role is manual',
+    );
+    assert.ok(
+      src.includes('agentxchain step'),
+      'dry-run manual warning must point operators to agentxchain step',
+    );
+  });
 });

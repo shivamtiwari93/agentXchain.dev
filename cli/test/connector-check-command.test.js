@@ -155,4 +155,24 @@ describe('agentxchain connector check', () => {
     const output = JSON.parse(jsonResult.stdout);
     assert.equal(output.timeout_ms, 8000);
   });
+
+  it('AT-CC-006: connector check handles space-containing command array elements', () => {
+    // Simulate a hand-edited config where the command is ["echo test"] (single element with space)
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['echo test'],
+        cwd: '.',
+        prompt_transport: 'dispatch_bundle_only',
+      };
+      config.roles.dev.runtime = 'local-dev';
+    });
+
+    const result = runCli(root, ['connector', 'check', '--json']);
+    assert.equal(result.status, 0, `connector check should pass — commandHead must extract "echo" from "echo test": ${result.stdout}`);
+    const output = JSON.parse(result.stdout);
+    const localDev = output.connectors.find((c) => c.runtime_id === 'local-dev');
+    assert.equal(localDev.level, 'pass');
+    assert.match(localDev.detail, /echo is available on PATH/);
+  });
 });

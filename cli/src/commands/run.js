@@ -193,6 +193,19 @@ export async function executeGovernedRun(context, opts = {}) {
       const supported = rtType !== 'manual';
       log(`  ${supported ? chalk.green('✓') : chalk.red('✗')} ${rid} → ${rtType}${supported ? '' : ' (not supported in run mode)'}`);
     }
+    // Warn if the first-dispatched role in the current phase is manual
+    if (roleId) {
+      const firstRole = config.roles?.[roleId];
+      const firstRtId = firstRole?.runtime;
+      const firstRt = config.runtimes?.[firstRtId];
+      const firstRtType = firstRt?.type || firstRole?.runtime_class || 'manual';
+      if (firstRtType === 'manual') {
+        log('');
+        log(chalk.yellow(`  ⚠ The current phase's first role (${roleId}) is manual.`));
+        log(chalk.yellow(`    "run" will block immediately. Complete manual turns via "agentxchain step" first,`));
+        log(chalk.yellow(`    or configure ${roleId} with an automatable runtime.`));
+      }
+    }
     return { exitCode: 0, result: null };
   }
 

@@ -387,6 +387,30 @@ describe('governed CLI support', () => {
     }
   });
 
+  it('init --governed splits a quoted multi-word dev command into separate array elements', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-quoted-cmd-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      // Simulates: --dev-command "claude -p" (shell delivers one quoted argument)
+      const result = runCli(dir, [
+        'init',
+        '--governed',
+        '--dev-command', 'claude -p --dangerously-skip-permissions',
+        '--dev-prompt-transport', 'dispatch_bundle_only',
+        '-y',
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      // Must be split into separate array elements, not stored as one string
+      assert.deepEqual(config.runtimes['local-dev'].command, ['claude', '-p', '--dangerously-skip-permissions']);
+      assert.match(result.stdout, /agentxchain connector check/);
+      assert.match(result.stdout, /agentxchain connector validate local-dev/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('init --governed rejects a custom command without prompt delivery', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-bad-runtime-'));
     const projectDir = join(dir, 'my-agentxchain-project');

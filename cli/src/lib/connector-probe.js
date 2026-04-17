@@ -38,7 +38,9 @@ function formatTarget(runtime) {
 
 function commandHead(runtime) {
   if (Array.isArray(runtime?.command)) {
-    return runtime.command[0] || null;
+    const first = runtime.command[0] || null;
+    if (first && first.includes(' ')) return first.split(/\s+/)[0];
+    return first;
   }
   if (typeof runtime?.command === 'string' && runtime.command.trim()) {
     return runtime.command.trim().split(/\s+/)[0];

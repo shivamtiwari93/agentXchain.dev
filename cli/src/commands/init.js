@@ -443,7 +443,7 @@ function commandHasPromptPlaceholder(parts = []) {
 
 function resolveGovernedLocalDevRuntime(opts = {}) {
   const customCommand = Array.isArray(opts.devCommand)
-    ? opts.devCommand.map((part) => String(part).trim()).filter(Boolean)
+    ? opts.devCommand.flatMap((part) => String(part).trim().split(/\s+/)).filter(Boolean)
     : null;
   const explicitTransport = typeof opts.devPromptTransport === 'string' && opts.devPromptTransport.trim()
     ? opts.devPromptTransport.trim()

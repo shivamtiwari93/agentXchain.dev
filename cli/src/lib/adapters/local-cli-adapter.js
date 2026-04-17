@@ -278,7 +278,13 @@ function resolveCommand(runtime, fullPrompt) {
 
   // Shape 1: command is an array
   if (Array.isArray(runtime.command)) {
-    const [cmd, ...rest] = runtime.command;
+    // Normalize: if the first element contains spaces (e.g., ["echo test"]), split it
+    // into binary + args. Only the first element is split — later elements may contain
+    // legitimate spaces (e.g., script text for `node -e "..."`).
+    const first = runtime.command[0] || '';
+    const headParts = typeof first === 'string' && first.includes(' ') ? first.split(/\s+/) : [first];
+    const [cmd, ...headArgs] = headParts;
+    const rest = [...headArgs, ...runtime.command.slice(1)];
     const args = transport === 'argv'
       ? rest.map(arg => arg === '{prompt}' ? fullPrompt : arg)
       : rest.filter(arg => arg !== '{prompt}');
