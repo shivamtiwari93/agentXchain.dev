@@ -21,6 +21,7 @@ import {
   startIntent,
   resolveIntent,
 } from './intake.js';
+import { loadProjectState } from './config.js';
 import { safeWriteJson } from './safe-write.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
@@ -352,6 +353,56 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     writeContinuousSession(root, session);
     log(`Session budget exhausted: $${(session.cumulative_spent_usd || 0).toFixed(2)} spent of $${sessionBudget.toFixed(2)} limit.`);
     return { ok: true, status: 'completed', action: 'session_budget_exhausted', stop_reason: 'session_budget' };
+  }
+
+  // Paused-session guard: if session is paused (blocked run awaiting unblock),
+  // check governed state before attempting to advance. Without this guard, the
+  // loop would try to startIntent() on a blocked project, hit the blocked-state
+  // rejection, and permanently fail the session instead of staying paused.
+  if (session.status === 'paused') {
+    const governedState = loadProjectState(root, context.config);
+    if (governedState?.status === 'blocked') {
+      // Still blocked — stay paused, do not attempt new work
+      writeContinuousSession(root, session);
+      return { ok: true, status: 'blocked', action: 'still_blocked', run_id: session.current_run_id };
+    }
+    // Unblocked — resume by continuing the existing governed run directly.
+    // Skip the intake pipeline: the run is already in progress, and startIntent
+    // would reject because the governed state is active.
+    session.status = 'running';
+    log('Blocked run resolved — resuming continuous session.');
+    writeContinuousSession(root, session);
+
+    let execution;
+    try {
+      execution = await executeGovernedRun(context, { autoApprove: true, report: true, log });
+    } catch (err) {
+      session.status = 'failed';
+      writeContinuousSession(root, session);
+      return { ok: false, status: 'failed', action: 'run_failed', stop_reason: err.message, run_id: session.current_run_id };
+    }
+
+    session.cumulative_spent_usd = (session.cumulative_spent_usd || 0) + getExecutionRunSpentUsd(execution);
+    const resumeStopReason = execution.result?.stop_reason;
+
+    if (isBlockedContinuousExecution(execution)) {
+      session.status = 'paused';
+      log('Resumed run blocked again — continuous loop re-paused.');
+      writeContinuousSession(root, session);
+      return { ok: true, status: 'blocked', action: 'run_blocked', run_id: session.current_run_id };
+    }
+
+    if (execution.exitCode !== 0 || !execution.result) {
+      session.status = 'failed';
+      writeContinuousSession(root, session);
+      return { ok: false, status: 'failed', action: 'run_failed', stop_reason: resumeStopReason || `exit_code_${execution.exitCode}`, run_id: session.current_run_id };
+    }
+
+    session.runs_completed += 1;
+    session.current_run_id = execution.result?.state?.run_id || session.current_run_id;
+    log(`Resumed run completed (${session.runs_completed}/${contOpts.maxRuns}): ${resumeStopReason || 'completed'}`);
+    writeContinuousSession(root, session);
+    return { ok: true, status: 'running', action: 'resumed_after_unblock', run_id: session.current_run_id };
   }
 
   // Validate vision file

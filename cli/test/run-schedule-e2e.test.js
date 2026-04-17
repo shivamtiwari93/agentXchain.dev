@@ -2,6 +2,7 @@ import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -489,6 +490,126 @@ describe('run schedule E2E', () => {
     assert.ok(
       daemonCycles.some((cycle) => cycle.results?.some((entry) => entry.action === 'continued' && entry.stop_reason === 'completed')),
       `expected a continued cycle, got: ${daemonResult.stdout}`,
+    );
+  });
+
+  it('AT-SCHED-CONT-FAIL-001: daemon records continuous_blocked, keeps polling with still_blocked, resumes after unblock', async () => {
+    const root = makeProject({
+      schedules: {
+        vision_autopilot: {
+          every_minutes: 1,
+          auto_approve: true,
+          max_turns: 5,
+          initial_role: 'pm',
+          continuous: {
+            enabled: true,
+            vision_path: '.planning/VISION.md',
+            max_runs: 5,
+            max_idle_cycles: 3,
+            triage_approval: 'auto',
+          },
+        },
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'VISION.md'), '# Vision\n\n## Goals\n\n- Set up OAuth integration\n');
+
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    const blockingAgent = writeBlockingMockAgent(root);
+    for (const runtimeId of Object.keys(config.runtimes || {})) {
+      config.runtimes[runtimeId] = {
+        type: 'local_cli',
+        command: process.execPath,
+        args: [blockingAgent],
+        prompt_transport: 'dispatch_bundle_only',
+      };
+    }
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const daemon = spawnCli(root, [
+      'schedule', 'daemon', '--max-cycles', '5', '--poll-seconds', '1', '--json',
+    ], { timeout: 45000 });
+
+    // Wait for the escalation to surface (run blocked)
+    const escalationId = await waitFor(() => {
+      if (daemon.child.exitCode != null) {
+        throw new Error(`daemon exited before escalation:\n${daemon.getStdout()}\n${daemon.getStderr()}`);
+      }
+      const match = daemon.getStderr().match(/agentxchain unblock (hesc_[a-z0-9]+)/i);
+      return match ? match[1] : null;
+    });
+
+    // Daemon must keep polling while blocked
+    assert.equal(daemon.child.exitCode, null, 'daemon must not exit while waiting for unblock');
+
+    // Wait for at least one still_blocked cycle to prove the guard works
+    await new Promise((r) => setTimeout(r, 2500));
+    assert.equal(daemon.child.exitCode, null, 'daemon must keep polling during still_blocked cycles');
+
+    // Verify schedule-state records continuous_blocked
+    const schedState = readJson(root, '.agentxchain/schedule-state.json');
+    assert.equal(
+      schedState.schedules.vision_autopilot.last_status,
+      'continuous_blocked',
+      'schedule state must record continuous_blocked',
+    );
+    const sessionId = schedState.schedules.vision_autopilot.last_continuous_session_id;
+    assert.ok(sessionId, 'continuous session id must be recorded');
+
+    // Verify continuous session is paused with stable session id
+    const pausedSession = readJson(root, '.agentxchain/continuous-session.json');
+    assert.equal(pausedSession.status, 'paused');
+    assert.equal(pausedSession.session_id, sessionId);
+    assert.equal(pausedSession.runs_completed, 0, 'blocked run must not count as completed');
+    assert.equal(pausedSession.owner_type, 'schedule');
+    assert.equal(pausedSession.owner_id, 'vision_autopilot');
+
+    // Unblock — the blocking agent succeeds on second call (marker file exists)
+    const unblock = runCli(root, ['unblock', escalationId], { timeout: 30000 });
+    assert.equal(unblock.status, 0, unblock.combined);
+
+    // Wait for daemon to finish remaining cycles
+    const daemonResult = await daemon.completed;
+    assert.equal(daemonResult.status, 0, daemonResult.combined);
+
+    // Verify governed state completed after unblock
+    const finalState = readJson(root, '.agentxchain/state.json');
+    assert.equal(finalState.status, 'completed');
+
+    // Verify session resumed with stable session_id and completed at least 1 run
+    const finalSession = readJson(root, '.agentxchain/continuous-session.json');
+    assert.equal(finalSession.session_id, sessionId, 'session_id must stay stable across block/unblock');
+    assert.ok(finalSession.runs_completed >= 1, 'session must complete at least one run after unblock');
+
+    // Parse daemon cycle outputs and verify the full lifecycle
+    const cycles = daemonResult.stdout.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+
+    // Must have a run_blocked cycle (initial block)
+    assert.ok(
+      cycles.some((c) => c.results?.some((r) => r.continuous && r.action === 'run_blocked')),
+      `expected a run_blocked cycle, got: ${daemonResult.stdout}`,
+    );
+
+    // Must have at least one still_blocked cycle (daemon polled while blocked)
+    assert.ok(
+      cycles.some((c) => c.results?.some((r) => r.continuous && r.action === 'still_blocked')),
+      `expected a still_blocked cycle proving the guard works, got: ${daemonResult.stdout}`,
+    );
+
+    // Must have a resumed_after_unblock cycle (continuation after unblock)
+    assert.ok(
+      cycles.some((c) => c.results?.some((r) => r.continuous && r.action === 'resumed_after_unblock')),
+      `expected a resumed_after_unblock cycle, got: ${daemonResult.stdout}`,
+    );
+
+    // Schedule state must no longer show continuous_blocked
+    const finalSchedState = readJson(root, '.agentxchain/schedule-state.json');
+    assert.notEqual(
+      finalSchedState.schedules.vision_autopilot.last_status,
+      'continuous_blocked',
+      'schedule state must recover from continuous_blocked after unblock',
     );
   });
 

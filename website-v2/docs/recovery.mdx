@@ -140,6 +140,8 @@ To prevent hard stops on budget exhaustion, switch to warn mode with `agentxchai
 
 **Continuous failure handling:** If a governed run reaches blocked state during continuous mode, the session pauses and preserves the blocked recovery surface (`run_blocked_reason`, `run_blocked_recovery`) instead of pretending the run completed. If a governed run fails without reaching blocked state, the continuous session stops with `status: "failed"` and leaves the current intake intent unresolved for operator investigation.
 
+**Paused-session guard:** When a continuous session is paused (awaiting unblock), the daemon keeps polling but does not attempt to start new work. On each poll cycle, `advanceContinuousRunOnce()` checks the governed project state: if still blocked, it returns `still_blocked` and stays paused; if the block has been resolved (via `agentxchain unblock <id>`), the session resumes automatically by continuing the existing governed run. The session ID stays stable across the block/unblock cycle — no state is lost.
+
 ### Other States
 
 | Condition | Recovery |

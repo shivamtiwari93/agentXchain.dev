@@ -50,6 +50,7 @@ function writeConfig(dir, overrides = {}) {
     },
     gates: { planning_signoff: {}, done: {} },
     rules: { challenge_required: false, max_turn_retries: 1 },
+    files: { state: '.agentxchain/state.json', history: '.agentxchain/history.jsonl', talk: 'TALK.md' },
     ...overrides,
   };
   writeFileSync(join(dir, 'agentxchain.json'), JSON.stringify(config, null, 2));
@@ -464,6 +465,127 @@ describe('advanceContinuousRunOnce — schedule-compatible primitive', () => {
     const intent = JSON.parse(readFileSync(join(root, '.agentxchain', 'intake', 'intents', 'injected-p0-001.json'), 'utf8'));
     assert.equal(intent.status, 'executing', 'preempted intent must remain executing');
     // Session is NOT terminal — daemon should consume injected work on next poll
+  });
+
+  it('AT-CONT-FAIL-005: paused session stays blocked when governed state is still blocked (still_blocked guard)', async () => {
+    const root = makeTmpDir();
+    writeConfig(root);
+    writeState(root, {
+      run_id: 'run_blocked_001',
+      status: 'blocked',
+      blocked_on: 'dispatch:turn_001',
+      blocked_reason: {
+        category: 'retries_exhausted',
+        blocked_at: new Date().toISOString(),
+        turn_id: 'turn_001',
+        recovery: {
+          typed_reason: 'retries_exhausted',
+          owner: 'operator',
+          recovery_action: 'fix the adapter then rerun agentxchain step',
+          turn_retained: false,
+          detail: 'adapter retries exhausted',
+        },
+      },
+    });
+    writeVision(root, '# Vision\n\n## Goals\n\n- Recover from failure\n');
+
+    const session = {
+      session_id: 'cont-guard-001',
+      started_at: new Date().toISOString(),
+      vision_path: '.planning/VISION.md',
+      runs_completed: 0,
+      max_runs: 5,
+      idle_cycles: 0,
+      max_idle_cycles: 3,
+      current_run_id: 'run_blocked_001',
+      current_vision_objective: 'Recover from failure',
+      status: 'paused',
+      owner_type: 'schedule',
+      owner_id: 'vision_autopilot',
+      cumulative_spent_usd: 0,
+    };
+    writeContinuousSession(root, session);
+
+    const contOpts = {
+      visionPath: '.planning/VISION.md',
+      maxRuns: 5,
+      maxIdleCycles: 3,
+      triageApproval: 'auto',
+    };
+
+    const mockExecute = async () => { throw new Error('should not be called while still blocked'); };
+
+    const step = await advanceContinuousRunOnce(
+      { root, config: JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8')) },
+      session,
+      contOpts,
+      mockExecute,
+      () => {},
+    );
+
+    assert.ok(step.ok);
+    assert.equal(step.status, 'blocked');
+    assert.equal(step.action, 'still_blocked');
+    assert.equal(step.run_id, 'run_blocked_001');
+    assert.equal(session.status, 'paused', 'session must remain paused');
+    assert.equal(session.runs_completed, 0, 'still_blocked must not increment runs');
+  });
+
+  it('AT-CONT-FAIL-006: paused session resumes when governed state is unblocked', async () => {
+    const root = makeTmpDir();
+    writeConfig(root);
+    // State is active (after unblock) — not blocked
+    writeState(root, { status: 'active', phase: 'planning' });
+    writeVision(root, '# Vision\n\n## Goals\n\n- Resume after unblock\n');
+
+    const session = {
+      session_id: 'cont-resume-001',
+      started_at: new Date().toISOString(),
+      vision_path: '.planning/VISION.md',
+      runs_completed: 0,
+      max_runs: 5,
+      idle_cycles: 0,
+      max_idle_cycles: 3,
+      current_run_id: 'run_resumed_001',
+      current_vision_objective: 'Resume after unblock',
+      status: 'paused',
+      owner_type: 'schedule',
+      owner_id: 'vision_autopilot',
+      cumulative_spent_usd: 0.10,
+    };
+    writeContinuousSession(root, session);
+
+    const contOpts = {
+      visionPath: '.planning/VISION.md',
+      maxRuns: 5,
+      maxIdleCycles: 3,
+      triageApproval: 'auto',
+    };
+
+    const mockExecute = async () => ({
+      exitCode: 0,
+      result: {
+        stop_reason: 'completed',
+        state: { run_id: 'run_resumed_001', budget_status: { spent_usd: 0.05 } },
+      },
+    });
+
+    const logs = [];
+    const step = await advanceContinuousRunOnce(
+      { root, config: JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8')) },
+      session,
+      contOpts,
+      mockExecute,
+      (msg) => logs.push(msg),
+    );
+
+    assert.ok(step.ok, `resume step should succeed: ${JSON.stringify(step)}`);
+    assert.equal(step.status, 'running');
+    assert.equal(step.action, 'resumed_after_unblock');
+    assert.equal(session.status, 'running');
+    assert.equal(session.runs_completed, 1, 'resumed run completion must increment count');
+    assert.ok(Math.abs(session.cumulative_spent_usd - 0.15) < 1e-9, `expected 0.15 spent, got ${session.cumulative_spent_usd}`);
+    assert.ok(logs.some((m) => m.includes('Blocked run resolved')), 'should log resume message');
   });
 
   it('AT-CONT-FAIL-001: non-blocked governed failures fail the session without resolving the intent', async () => {
