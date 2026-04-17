@@ -71,7 +71,7 @@ export function printManualDispatchInstructions(state, config, options = {}) {
   lines.push(`    "run_id": "${state.run_id || 'run_...'}",`);
   lines.push(`    "turn_id": "${turn.turn_id}",`);
   lines.push(`    "role": "${roleId}",`);
-  lines.push(`    "runtime_id": "${role?.runtime || 'manual'}",`);
+  lines.push(`    "runtime_id": "${turn.runtime_id || role?.runtime_id || role?.runtime || 'manual'}",`);
   lines.push('    "status": "completed",');
   lines.push('    "summary": "...",');
   lines.push('    "decisions": [{"id":"DEC-001","category":"scope","statement":"...","rationale":"..."}],');
@@ -79,7 +79,7 @@ export function printManualDispatchInstructions(state, config, options = {}) {
   lines.push('    "files_changed": [],');
   lines.push('    "verification": {"status":"skipped","commands":[],"evidence_summary":"..."},');
   lines.push('    "artifact": {"type":"review","ref":null},');
-  lines.push(`    "proposed_next_role": "${getDefaultNextRole(roleId, config)}",`);
+  lines.push(`    "proposed_next_role": "${getDefaultNextRole(roleId, config, phase)}",`);
   lines.push('    "phase_transition_request": null,');
   lines.push('    "run_completion_request": null');
   lines.push('  }');
@@ -115,8 +115,19 @@ function getPhaseGateHints(phase, roleId, config) {
 /**
  * Suggest a reasonable next role based on current role.
  */
-function getDefaultNextRole(roleId, config) {
+function getDefaultNextRole(roleId, config, phase) {
   const routing = config.routing || {};
+  // Check phase-specific allowed_next first
+  const phaseAllowed = routing[phase]?.allowed_next_roles || routing[phase]?.allowed_next;
+  if (phase && phaseAllowed?.length > 0) {
+    const allowed = phaseAllowed;
+    // If the current role is in the allowlist, suggest it (another turn in same phase)
+    if (allowed.includes(roleId)) return roleId;
+    // Otherwise suggest the first non-human allowed role
+    const nonHuman = allowed.find(r => r !== 'human');
+    if (nonHuman) return nonHuman;
+    return allowed[0];
+  }
   if (routing[roleId]?.default_next) return routing[roleId].default_next;
   if (roleId === 'pm') return 'dev';
   if (roleId === 'dev') return 'qa';

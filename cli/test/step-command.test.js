@@ -211,7 +211,8 @@ describe('Manual Adapter', () => {
       assert.ok(output.includes('Minimal turn-result.json:'));
       assert.ok(output.includes('"run_id": "run_test123"'));
       assert.ok(output.includes('"turn_id": "turn_abc"'));
-      assert.ok(output.includes('"proposed_next_role": "dev"'));
+      // PM is in allowed_next_roles for planning, so template suggests another PM turn
+      assert.ok(output.includes('"proposed_next_role": "pm"'));
       assert.ok(output.includes('https://agentxchain.dev/docs/getting-started'));
     });
   });
@@ -507,8 +508,64 @@ describe('Step Flow Integration', () => {
       const output = printManualDispatchInstructions(state, config);
       assert.ok(output.includes('Gate files to update this phase:'));
       assert.ok(output.includes('Minimal turn-result.json:'));
-      assert.ok(output.includes('"proposed_next_role": "dev"'));
+      // PM is in allowed_next_roles for planning, so template suggests another PM turn
+      assert.ok(output.includes('"proposed_next_role": "pm"'));
       assert.ok(output.includes('https://agentxchain.dev/docs/getting-started'));
+    });
+
+    it('template runtime_id matches the turn assignment, not a hardcoded fallback', () => {
+      const state = {
+        run_id: 'run_rtid_test',
+        phase: 'planning',
+        current_turn: {
+          turn_id: 'turn_rtid',
+          assigned_role: 'pm',
+          attempt: 1,
+          runtime_id: 'manual-pm',
+        },
+      };
+      const config = makeNormalizedConfig();
+      const output = printManualDispatchInstructions(state, config);
+      // Must show the actual runtime_id from the turn, not the generic "manual"
+      assert.ok(output.includes('"runtime_id": "manual-pm"'), 'template must use turn runtime_id, not "manual"');
+      assert.ok(!output.includes('"runtime_id": "manual"'), 'must not fall back to bare "manual"');
+    });
+
+    it('proposed_next_role respects phase allowed_next_roles', () => {
+      // Config where planning only allows [pm, eng_director, human] — dev is NOT allowed
+      const config = makeNormalizedConfig();
+      config.routing.planning.allowed_next_roles = ['pm', 'eng_director', 'human'];
+      const state = {
+        run_id: 'run_routing_test',
+        phase: 'planning',
+        current_turn: {
+          turn_id: 'turn_routing',
+          assigned_role: 'pm',
+          attempt: 1,
+          runtime_id: 'manual-pm',
+        },
+      };
+      const output = printManualDispatchInstructions(state, config);
+      // PM is in allowed_next_roles, so it should suggest pm (not dev)
+      assert.ok(output.includes('"proposed_next_role": "pm"'), 'must suggest a role from allowed_next_roles');
+      assert.ok(!output.includes('"proposed_next_role": "dev"'), 'must not suggest dev when dev is not in allowed_next_roles');
+    });
+
+    it('proposed_next_role suggests first non-human role when current role is not in allowlist', () => {
+      const config = makeNormalizedConfig();
+      config.routing.implementation.allowed_next_roles = ['qa', 'human'];
+      const state = {
+        run_id: 'run_impl_test',
+        phase: 'implementation',
+        current_turn: {
+          turn_id: 'turn_impl',
+          assigned_role: 'dev',
+          attempt: 1,
+          runtime_id: 'manual-dev',
+        },
+      };
+      const output = printManualDispatchInstructions(state, config);
+      assert.ok(output.includes('"proposed_next_role": "qa"'), 'must suggest first non-human allowed role');
     });
   });
 
