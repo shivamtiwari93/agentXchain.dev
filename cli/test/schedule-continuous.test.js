@@ -459,7 +459,146 @@ describe('advanceContinuousRunOnce — schedule-compatible primitive', () => {
     assert.ok(step.ok);
     assert.equal(step.action, 'consumed_injected_priority');
     assert.equal(step.status, 'running');
+    assert.equal(session.runs_completed, 1, 'preemption must not count as a completed run');
+
+    const intent = JSON.parse(readFileSync(join(root, '.agentxchain', 'intake', 'intents', 'injected-p0-001.json'), 'utf8'));
+    assert.equal(intent.status, 'executing', 'preempted intent must remain executing');
     // Session is NOT terminal — daemon should consume injected work on next poll
+  });
+
+  it('AT-CONT-FAIL-001: non-blocked governed failures fail the session without resolving the intent', async () => {
+    const root = makeTmpDir();
+    writeConfig(root);
+    writeState(root);
+    writeVision(root, '# Vision\n\n## Goals\n\n- Build resilient continuous recovery\n');
+
+    const session = {
+      session_id: 'cont-fail-001',
+      started_at: new Date().toISOString(),
+      vision_path: '.planning/VISION.md',
+      runs_completed: 0,
+      max_runs: 5,
+      idle_cycles: 0,
+      max_idle_cycles: 3,
+      current_run_id: null,
+      current_vision_objective: null,
+      status: 'running',
+    };
+
+    const contOpts = {
+      visionPath: '.planning/VISION.md',
+      maxRuns: 5,
+      maxIdleCycles: 3,
+      triageApproval: 'auto',
+    };
+
+    const mockExecute = async () => {
+      const currentState = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+      return {
+        exitCode: 1,
+        result: {
+          stop_reason: 'dispatch_error',
+          state: {
+            run_id: currentState.run_id,
+            status: currentState.status,
+            budget_status: { spent_usd: 0.25 },
+          },
+        },
+      };
+    };
+
+    const step = await advanceContinuousRunOnce(
+      { root, config: JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8')) },
+      session,
+      contOpts,
+      mockExecute,
+      () => {},
+    );
+
+    assert.equal(step.ok, false);
+    assert.equal(step.status, 'failed');
+    assert.equal(step.action, 'run_failed');
+    assert.equal(step.stop_reason, 'dispatch_error');
+    assert.equal(session.status, 'failed');
+    assert.equal(session.runs_completed, 0, 'failed run must not increment completed-run count');
+    assert.equal(session.cumulative_spent_usd, 0.25, 'visible spend from failed run still counts toward session budget');
+
+    const queued = findNextQueuedIntent(root);
+    assert.equal(queued.ok, false, 'failed run must not re-queue the executing intent as planned work');
+
+    const intentFile = join(root, '.agentxchain', 'intake', 'intents', `${step.intent_id}.json`);
+    const intent = JSON.parse(readFileSync(intentFile, 'utf8'));
+    assert.equal(intent.status, 'executing', 'failed run must leave intake intent unresolved');
+  });
+
+  it('AT-CONT-FAIL-004: blocked governed outcomes pause the session even when stop_reason is reject_exhausted', async () => {
+    const root = makeTmpDir();
+    writeConfig(root);
+    writeState(root);
+    writeVision(root, '# Vision\n\n## Goals\n\n- Recover from adapter failures\n');
+
+    const session = {
+      session_id: 'cont-blocked-reject-001',
+      started_at: new Date().toISOString(),
+      vision_path: '.planning/VISION.md',
+      runs_completed: 0,
+      max_runs: 5,
+      idle_cycles: 0,
+      max_idle_cycles: 3,
+      current_run_id: null,
+      current_vision_objective: null,
+      status: 'running',
+    };
+
+    const contOpts = {
+      visionPath: '.planning/VISION.md',
+      maxRuns: 5,
+      maxIdleCycles: 3,
+      triageApproval: 'auto',
+    };
+
+    const mockExecute = async () => {
+      const currentState = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+      writeState(root, {
+        run_id: currentState.run_id,
+        status: 'blocked',
+        phase: currentState.phase,
+        blocked_on: `dispatch:${Object.keys(currentState.active_turns || {})[0] || 'turn_001'}`,
+        blocked_reason: {
+          category: 'dispatch_error',
+          recovery: { recovery_action: 'fix the adapter, then rerun agentxchain unblock <id>' },
+        },
+      });
+      return {
+        exitCode: 1,
+        result: {
+          stop_reason: 'reject_exhausted',
+          state: {
+            run_id: currentState.run_id,
+            status: 'blocked',
+          },
+        },
+      };
+    };
+
+    const step = await advanceContinuousRunOnce(
+      { root, config: JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8')) },
+      session,
+      contOpts,
+      mockExecute,
+      () => {},
+    );
+
+    assert.equal(step.ok, true);
+    assert.equal(step.status, 'blocked');
+    assert.equal(step.action, 'run_blocked');
+    assert.equal(session.status, 'paused');
+    assert.equal(session.runs_completed, 0, 'blocked run must not increment completed-run count');
+
+    const intent = JSON.parse(readFileSync(join(root, '.agentxchain', 'intake', 'intents', `${step.intent_id}.json`), 'utf8'));
+    assert.equal(intent.status, 'blocked');
+    assert.equal(intent.run_blocked_reason, 'dispatch_error');
+    assert.ok(intent.run_blocked_recovery);
   });
 
   it('AT-SCHED-CONT-006: status JSON includes owner_type and owner_id', () => {

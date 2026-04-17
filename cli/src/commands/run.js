@@ -201,10 +201,10 @@ export async function executeGovernedRun(context, opts = {}) {
   const onSigint = () => {
     sigintCount++;
     if (sigintCount >= 2) {
+      controller.abort();
       process.exit(130);
     }
     aborted = true;
-    controller.abort();
     log(chalk.yellow('\nSIGINT received — finishing current turn, then stopping.'));
   };
   process.on('SIGINT', onSigint);

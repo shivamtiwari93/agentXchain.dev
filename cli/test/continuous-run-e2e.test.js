@@ -23,18 +23,30 @@ const MOCK_AGENT = join(cliRoot, 'test-support', 'mock-agent.mjs');
 
 const tempDirs = [];
 
-function makeProject({ slowAgent = false } = {}) {
+function writeFailingAgent(root) {
+  const agentPath = join(root, '_failing-mock-agent.mjs');
+  writeFileSync(agentPath, [
+    '#!/usr/bin/env node',
+    "console.error('intentional continuous failure');",
+    'process.exit(1);',
+    '',
+  ].join('\n'));
+  return agentPath;
+}
+
+function makeProject({ slowAgent = false, failingAgent = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-continuous-e2e-'));
   tempDirs.push(root);
   scaffoldGoverned(root, 'Continuous Vision E2E', `continuous-e2e-${Date.now()}`);
 
   const configPath = join(root, 'agentxchain.json');
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
-  const agentEntry = slowAgent
-    ? join(root, '_slow-mock-agent.mjs')
-    : MOCK_AGENT;
+  let agentEntry = MOCK_AGENT;
   if (slowAgent) {
+    agentEntry = join(root, '_slow-mock-agent.mjs');
     writeFileSync(agentEntry, `import { setTimeout as sleep } from 'node:timers/promises';\nawait sleep(1500);\nawait import(${JSON.stringify(MOCK_AGENT)});\n`);
+  } else if (failingAgent) {
+    agentEntry = writeFailingAgent(root);
   }
   const mockRuntime = {
     type: 'local_cli',
@@ -48,6 +60,9 @@ function makeProject({ slowAgent = false } = {}) {
   }
   for (const role of Object.values(config.roles || {})) {
     role.write_authority = 'authoritative';
+  }
+  if (failingAgent) {
+    config.rules = { ...(config.rules || {}), max_turn_retries: 1 };
   }
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
@@ -96,6 +111,55 @@ afterEach(() => {
 });
 
 describe('continuous run E2E', () => {
+  it('AT-CONT-FAIL-003: adapter failure exhausts retries, pauses the continuous session, and preserves blocked recovery truth', () => {
+    const root = makeProject({ failingAgent: true });
+
+    const run = runCli(root, [
+      'run',
+      '--continuous',
+      '--vision',
+      '.planning/VISION.md',
+      '--max-runs',
+      '3',
+      '--max-idle-cycles',
+      '1',
+      '--poll-seconds',
+      '0',
+    ]);
+
+    assert.equal(run.status, 0, `continuous run should pause cleanly on blocked recovery:\n${run.combined}`);
+    assert.match(run.stdout, /Run blocked — continuous loop paused/);
+
+    const session = readJson(root, '.agentxchain/continuous-session.json');
+    assert.equal(session.status, 'paused');
+    assert.equal(session.runs_completed, 0, 'blocked recovery must not count as a completed run');
+    assert.ok(session.current_run_id, 'failed run context must remain visible');
+    assert.ok(session.current_vision_objective, 'current objective must remain visible for recovery');
+
+    const state = readJson(root, '.agentxchain/state.json');
+    assert.equal(state.status, 'blocked');
+    assert.equal(state.blocked_reason.category, 'retries_exhausted');
+
+    const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
+    const intents = readdirSync(intentsDir)
+      .filter((file) => file.endsWith('.json'))
+      .map((file) => JSON.parse(readFileSync(join(intentsDir, file), 'utf8')));
+    assert.equal(intents.length, 1);
+    assert.equal(intents[0].status, 'blocked');
+    assert.equal(intents[0].run_blocked_reason, 'retries_exhausted');
+    assert.ok(intents[0].run_blocked_recovery);
+
+    const history = readJsonl(root, '.agentxchain/run-history.jsonl');
+    assert.equal(history.length, 1, `expected blocked run to be recorded once, got ${history.length}`);
+    assert.equal(history[0].status, 'blocked');
+
+    const status = runCli(root, ['status', '--json']);
+    assert.equal(status.status, 0, `status failed:\n${status.combined}`);
+    const parsedStatus = JSON.parse(status.stdout);
+    assert.equal(parsedStatus.continuous_session.status, 'paused');
+    assert.equal(parsedStatus.continuous_session.runs_completed, 0);
+  });
+
   it('AT-VCONT-010: run --continuous rejects invalid --session-budget values instead of disabling the cap silently', () => {
     const root = makeProject();
 
@@ -173,7 +237,7 @@ describe('continuous run E2E', () => {
     assert.equal(parsedStatus.continuous_session.status, 'completed');
   });
 
-  it('AT-VCONT-007: SIGINT stops the continuous loop cleanly after the current run', async () => {
+  it('AT-VCONT-007: SIGINT stops the continuous loop cleanly after the current in-flight turn', async () => {
     const root = makeProject({ slowAgent: true });
 
     const child = spawn(process.execPath, [
@@ -229,6 +293,6 @@ describe('continuous run E2E', () => {
 
     const session = readJson(root, '.agentxchain/continuous-session.json');
     assert.equal(session.status, 'stopped');
-    assert.equal(session.runs_completed, 1);
+    assert.equal(session.runs_completed, 0);
   });
 });

@@ -138,6 +138,8 @@ To prevent hard stops on budget exhaustion, switch to warn mode with `agentxchai
 
 **Session-level budget (continuous mode):** In addition to per-run budget caps, continuous mode supports a cumulative session-level budget via `--session-budget <usd>` or `continuous.per_session_max_usd` in config. When total spend across all runs in the session reaches this limit, the continuous loop exits cleanly with `session_budget_exhausted`. This is a terminal stop, not a blocker — start a new session to continue. Use `agentxchain status` to see cumulative spend and budget utilization for the active session.
 
+**Continuous failure handling:** If a governed run reaches blocked state during continuous mode, the session pauses and preserves the blocked recovery surface (`run_blocked_reason`, `run_blocked_recovery`) instead of pretending the run completed. If a governed run fails without reaching blocked state, the continuous session stops with `status: "failed"` and leaves the current intake intent unresolved for operator investigation.
+
 ### Other States
 
 | Condition | Recovery |

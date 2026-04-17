@@ -79,10 +79,25 @@ function describeContinuousTerminalStep(step, contOpts) {
   if (step.action === 'session_budget_exhausted') {
     return 'Session budget exhausted. Stopping.';
   }
+  if (step.action === 'operator_stopped') {
+    return 'Continuous loop stopped by operator.';
+  }
   if (step.status === 'idle_exit') {
     return `All vision goals appear addressed (${contOpts.maxIdleCycles} consecutive idle cycles). Stopping.`;
   }
   return null;
+}
+
+function getExecutionRunSpentUsd(execution) {
+  return execution?.result?.state?.budget_status?.spent_usd || 0;
+}
+
+function isBlockedContinuousExecution(execution) {
+  const stopReason = execution?.result?.stop_reason || null;
+  const stateStatus = execution?.result?.state?.status || null;
+  return stateStatus === 'blocked'
+    || stopReason === 'blocked'
+    || stopReason === 'reject_exhausted';
 }
 
 // ---------------------------------------------------------------------------
@@ -408,20 +423,85 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   session.status = 'running';
   writeContinuousSession(root, session);
 
-  const execution = await executeGovernedRun(context, {
-    autoApprove: true,
-    report: true,
-    log,
-  });
+  let execution;
+  try {
+    execution = await executeGovernedRun(context, {
+      autoApprove: true,
+      report: true,
+      log,
+    });
+  } catch (err) {
+    session.status = 'failed';
+    writeContinuousSession(root, session);
+    log(`Governed run threw during continuous execution: ${err.message}`);
+    return {
+      ok: false,
+      status: 'failed',
+      action: 'run_failed',
+      stop_reason: err.message,
+      run_id: preparedIntent.runId || null,
+      intent_id: targetIntentId,
+    };
+  }
 
-  session.runs_completed += 1;
-  session.current_run_id = execution.result?.state?.run_id || null;
-
-  // Accumulate cost from this run into the session total
-  const runSpentUsd = execution.result?.state?.budget_status?.spent_usd || 0;
-  session.cumulative_spent_usd = (session.cumulative_spent_usd || 0) + runSpentUsd;
+  session.current_run_id = execution.result?.state?.run_id || preparedIntent.runId || null;
+  session.cumulative_spent_usd = (session.cumulative_spent_usd || 0) + getExecutionRunSpentUsd(execution);
 
   const stopReason = execution.result?.stop_reason;
+
+  if (stopReason === 'priority_preempted') {
+    log('Priority preemption detected — consuming injected work next cycle.');
+    writeContinuousSession(root, session);
+    return {
+      ok: true,
+      status: 'running',
+      action: 'consumed_injected_priority',
+      run_id: session.current_run_id,
+      intent_id: targetIntentId,
+    };
+  }
+
+  if (isBlockedContinuousExecution(execution)) {
+    const resolved = resolveIntent(root, targetIntentId);
+    if (!resolved.ok) {
+      log(`Continuous resolve error: ${resolved.error}`);
+      session.status = 'failed';
+      writeContinuousSession(root, session);
+      return { ok: false, status: 'failed', action: 'resolve_failed', stop_reason: resolved.error, intent_id: targetIntentId };
+    }
+    session.status = 'paused';
+    log('Run blocked — continuous loop paused. Use `agentxchain unblock <id>` to resume.');
+    writeContinuousSession(root, session);
+    return { ok: true, status: 'blocked', action: 'run_blocked', run_id: session.current_run_id, intent_id: targetIntentId };
+  }
+
+  if (stopReason === 'caller_stopped') {
+    session.status = 'stopped';
+    writeContinuousSession(root, session);
+    return {
+      ok: true,
+      status: 'stopped',
+      action: 'operator_stopped',
+      run_id: session.current_run_id,
+      intent_id: targetIntentId,
+    };
+  }
+
+  if (execution.exitCode !== 0 || !execution.result) {
+    session.status = 'failed';
+    writeContinuousSession(root, session);
+    log(`Governed run failed during continuous execution: ${stopReason || `exit_code_${execution.exitCode}`}.`);
+    return {
+      ok: false,
+      status: 'failed',
+      action: 'run_failed',
+      stop_reason: stopReason || `exit_code_${execution.exitCode}`,
+      run_id: session.current_run_id,
+      intent_id: targetIntentId,
+    };
+  }
+
+  session.runs_completed += 1;
   log(`Run ${session.runs_completed}/${contOpts.maxRuns} completed: ${stopReason || 'unknown'}`);
 
   // Resolve the consumed intent
@@ -431,19 +511,6 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     session.status = 'failed';
     writeContinuousSession(root, session);
     return { ok: false, status: 'failed', action: 'resolve_failed', stop_reason: resolved.error, intent_id: targetIntentId };
-  }
-
-  if (stopReason === 'blocked') {
-    session.status = 'paused';
-    log('Run blocked — continuous loop paused. Use `agentxchain unblock <id>` to resume.');
-    writeContinuousSession(root, session);
-    return { ok: true, status: 'blocked', action: 'run_blocked', run_id: session.current_run_id, intent_id: targetIntentId };
-  }
-
-  if (stopReason === 'priority_preempted') {
-    log('Priority preemption detected — consuming injected work next cycle.');
-    writeContinuousSession(root, session);
-    return { ok: true, status: 'running', action: 'consumed_injected_priority', run_id: session.current_run_id, intent_id: targetIntentId };
   }
 
   writeContinuousSession(root, session);
@@ -496,7 +563,7 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
       const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
 
       // Terminal states
-      if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked') {
+      if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped') {
         const terminalMessage = describeContinuousTerminalStep(step, contOpts);
         if (terminalMessage) {
           log(terminalMessage);
