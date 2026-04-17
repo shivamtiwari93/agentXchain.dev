@@ -1,0 +1,35 @@
+---
+sidebar_position: 0
+title: "v2.123.0 Release Notes"
+---
+
+# AgentXchain v2.123.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Live Continuous 3-Run Proof Published
+
+The live continuous 3-run proof is now published with full evidence: three consecutive governed continuous runs executed with real models, including deploy and distribution results. This extends the continuous mode evidence surface from a single proof run to a repeatable multi-run sequence.
+
+### Homebrew Mirror CI Simplified
+
+The dead PR fallback path has been removed from the Homebrew mirror sync in `publish-npm-on-tag.yml`. The release workflow now only attempts direct push with the available tokens, eliminating the code path that created unmergeable PRs when direct push succeeded.
+
+### Continuous Mode Error Messages Improved
+
+Continuous mode failures now surface actionable error context instead of generic stack traces, making operator diagnosis faster during unattended runs.
+
+## What Changed
+
+- **Live continuous 3-run proof**: published end-to-end evidence for three consecutive governed continuous runs with real-model execution and deploy/distribution results (`DEC-LIVE-CONTINUOUS-3RUN-001`)
+- **Homebrew mirror CI**: removed dead PR fallback path, simplifying token selection to direct-push only (`DEC-HOMEBREW-MIRROR-SIMPLIFY-001`)
+- **Continuous mode errors**: improved error diagnostics for continuous mode failures
+- **Release docs**: deploy and distribution results recorded for v2.122.0
+
+## Evidence
+
+- 5,481 tests / 1,153 suites / 0 failures
+- Website build: clean
+- Live continuous 3-run proof published with real-model execution evidence

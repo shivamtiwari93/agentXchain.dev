@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.122.0
+# Twitter/X Thread — AgentXchain v2.123.0
 
-> Ready-to-post thread. Updated 2026-04-17 to reflect v2.122.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-17 to reflect v2.123.0 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.122.0 is live. Open source. MIT.
+AgentXchain v2.123.0 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,7 +57,7 @@ New in this release:
 - public docs for the real mixed-runtime continuous proof (`run-continuous-mixed-proof.mjs`, Anthropic-backed QA, real spend)
 - Homebrew mirror CI now tries the repo-scoped workflow token before PR fallback, fixing a repeatable release defect
 
-5,483 tests / 1,153 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
+5,481 tests / 1,153 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
 
 **Tweet 5 (the insight):**
 

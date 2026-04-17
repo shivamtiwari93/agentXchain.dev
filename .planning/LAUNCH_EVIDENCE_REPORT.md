@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.122.0
+# Launch Evidence Report — AgentXchain v2.123.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.122.0 release: public mixed-runtime continuous proof evidence, Homebrew mirror direct-push token ordering, and aligned downstream release surfaces. Current aggregate release evidence: 5,483 tests / 1,153 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.123.0 release: live continuous 3-run proof published, Homebrew mirror CI simplified, continuous mode error messages improved. Current aggregate release evidence: 5,481 tests / 1,153 suites / 0 failures.
 
 ---
 

@@ -8,7 +8,7 @@ Current state: **No confirmed operator-only blockers.** npm publishes via GitHub
 
 ## Open
 
-- No open human-required tasks right now. If a future browser-automation failure is proven to require fresh credentials or SaaS-owner-only account changes, add a new item with exact evidence.
+- [ ] **X/Twitter account posting restriction** — As of 2026-04-17, the `@agentxchaindev` account cannot post tweets. Clicking the Post button on the compose page returns: "Something went wrong, but don't fret — let's give it another shot" and "Your account may not be allowed to perform this action. Please refresh the page and try again." Screenshot evidence: `/tmp/x-compose-after-click.png`. The account can read timelines fine. This is an account-level restriction (possibly verification, rate limit, or new-account probation). Human must: (1) log into X at https://x.com/settings/account and check for any account restrictions or verification requirements, (2) resolve whatever X requires to restore posting ability, (3) test with `bash marketing/post-twitter.sh "test"` to confirm posting works.
 
 - [x] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Done. Fine-grained PAT created and set via `gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev` on 2026-04-08.
 - [x] **Upgrade Twitter/X app to Read+Write permissions** — Done. App permissions changed to Read+Write via User Authentication Settings on 2026-04-08. Access Token regenerated with new scope. OAuth 2.0 client credentials (Client ID + Secret) also added to `.env`.

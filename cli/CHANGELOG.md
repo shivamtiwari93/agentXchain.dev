@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.123.0
+
+Live continuous 3-run proof published, Homebrew mirror CI simplified (removed dead PR fallback), and continuous mode error messages improved.
+
+- Live continuous 3-run proof: published end-to-end evidence for three consecutive governed continuous runs with real-model execution and deploy/distribution results (`DEC-LIVE-CONTINUOUS-3RUN-001`)
+- Homebrew mirror CI: removed dead PR fallback path from `publish-npm-on-tag.yml`, simplifying the token selection to direct-push only (`DEC-HOMEBREW-MIRROR-SIMPLIFY-001`)
+- Continuous mode error messages: improved error diagnostics for continuous mode failures to surface actionable context instead of generic stack traces
+- Release docs and deploy/distribution results recorded for v2.122.0
+- 5,481 tests / 1,153 suites / 0 failures
+
 ## 2.122.0
 
 `2.122.0` ships public live-proof evidence for the mixed-runtime continuous run contract and fixes the Homebrew mirror sync workflow so the release pipeline tries the repo-scoped workflow token before falling back to an unmergeable PR.
