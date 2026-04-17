@@ -441,10 +441,20 @@ function commandHasPromptPlaceholder(parts = []) {
   return parts.some((part) => typeof part === 'string' && part.includes('{prompt}'));
 }
 
+function normalizeGovernedDevCommand(parts = []) {
+  if (!Array.isArray(parts) || parts.length === 0) {
+    return null;
+  }
+  const [head, ...rest] = parts;
+  const normalizedHead = String(head || '').trim().split(/\s+/).filter(Boolean);
+  const normalizedRest = rest
+    .map((part) => String(part).trim())
+    .filter(Boolean);
+  return [...normalizedHead, ...normalizedRest];
+}
+
 function resolveGovernedLocalDevRuntime(opts = {}) {
-  const customCommand = Array.isArray(opts.devCommand)
-    ? opts.devCommand.flatMap((part) => String(part).trim().split(/\s+/)).filter(Boolean)
-    : null;
+  const customCommand = normalizeGovernedDevCommand(opts.devCommand);
   const explicitTransport = typeof opts.devPromptTransport === 'string' && opts.devPromptTransport.trim()
     ? opts.devPromptTransport.trim()
     : null;

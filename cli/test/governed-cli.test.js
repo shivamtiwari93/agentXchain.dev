@@ -411,6 +411,31 @@ describe('governed CLI support', () => {
     }
   });
 
+  it('init --governed preserves later dev-command arguments that contain spaces', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-spaced-arg-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    const fixturesDir = join(dir, 'agent fixtures');
+    const agentPath = join(fixturesDir, 'valid-agent.mjs');
+    try {
+      mkdirSync(fixturesDir, { recursive: true });
+      writeFileSync(agentPath, 'console.log("ok");\n');
+
+      const result = runCli(dir, [
+        'init',
+        '--governed',
+        '--dev-command', 'node', agentPath,
+        '--dev-prompt-transport', 'dispatch_bundle_only',
+        '-y',
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      assert.deepEqual(config.runtimes['local-dev'].command, ['node', agentPath]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('init --governed rejects a custom command without prompt delivery', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-bad-runtime-'));
     const projectDir = join(dir, 'my-agentxchain-project');

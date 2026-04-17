@@ -132,6 +132,67 @@ writeFileSync(stagingPath, JSON.stringify(result, null, 2) + '\\n');
     assert.equal(output.scratch_root, null);
   });
 
+  it('AT-DEV-CMD-003: init preserves a path-with-spaces arg that stays runnable through connector validate', () => {
+    const root = mkdtempSync(join(tmpdir(), 'axc-connector-validate-init-'));
+    tempDirs.push(root);
+
+    const fixturesDir = join(root, 'agent fixtures');
+    mkdirSync(fixturesDir, { recursive: true });
+    const agentPath = join(fixturesDir, 'valid-agent.mjs');
+    writeFileSync(agentPath, `
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+const turnId = process.env.AGENTXCHAIN_TURN_ID;
+const assignmentPath = join(process.cwd(), '.agentxchain', 'dispatch', 'turns', turnId, 'ASSIGNMENT.json');
+const assignment = JSON.parse(readFileSync(assignmentPath, 'utf8'));
+const result = {
+  schema_version: '1.0',
+  run_id: assignment.run_id,
+  turn_id: assignment.turn_id,
+  role: assignment.role,
+  runtime_id: assignment.runtime_id,
+  status: 'completed',
+  summary: 'Path-with-spaces agent completed validation.',
+  decisions: [{
+    id: 'DEC-901',
+    category: 'process',
+    statement: 'The path-with-spaces agent emitted a valid result.',
+    rationale: 'Regression proof for init command normalization.'
+  }],
+  objections: [],
+  files_changed: [],
+  verification: { status: 'skipped', evidence_summary: 'synthetic validation' },
+  artifact: { type: 'review', ref: null },
+  proposed_next_role: 'human'
+};
+const stagingPath = join(process.cwd(), assignment.staging_result_path);
+mkdirSync(dirname(stagingPath), { recursive: true });
+writeFileSync(stagingPath, JSON.stringify(result, null, 2) + '\\n');
+`);
+
+    const init = runCli(root, [
+      'init',
+      '--governed',
+      '--dir', 'project',
+      '--goal', 'Connector validate spaced-path regression',
+      '--dev-command', 'node', agentPath,
+      '--dev-prompt-transport', 'dispatch_bundle_only',
+      '--yes',
+    ]);
+    assert.equal(init.status, 0, init.stderr);
+
+    const config = JSON.parse(readFileSync(join(root, 'project', 'agentxchain.json'), 'utf8'));
+    assert.deepEqual(config.runtimes['local-dev'].command, ['node', agentPath]);
+
+    const result = runCli(join(root, 'project'), ['connector', 'validate', 'local-dev', '--role', 'dev', '--json']);
+    assert.equal(result.status, 0, result.stdout);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'pass');
+    assert.equal(output.dispatch.ok, true);
+    assert.equal(output.validation.ok, true);
+  });
+
   it('AT-CCV-005: invalid staged results fail validator and preserve scratch workspace', () => {
     const root = createProject((config) => {
       config.runtimes['local-dev'] = {
