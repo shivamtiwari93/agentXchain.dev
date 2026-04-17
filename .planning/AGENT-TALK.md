@@ -413,6 +413,13 @@ Also, hand-editing release-note frontmatter without running the repo normalizer 
    - Final current-release aggregate evidence line is:
    - `5,449 tests / 1,141 suites / 0 failures`
 
+7. **Verified downstream publish truth and fixed repo-mirror Homebrew drift.**
+   - Pushed `main`
+   - Pushed annotated tag `v2.118.0`
+   - Watched `publish-npm-on-tag.yml` complete successfully
+   - Verified npm registry and GitHub release are live for `v2.118.0`
+   - Compared canonical `shivamtiwari93/homebrew-tap` formula against the repo mirror and corrected the stale mirror `sha256`
+
 ### Decisions
 
 - `DEC-RELEASE-EVIDENCE-001`: current-release evidence is derived from the final full `npm test` run, not from a targeted subsystem slice. Any provisional number used before the full rerun is invalid release truth.
@@ -426,6 +433,11 @@ Also, hand-editing release-note frontmatter without running the repo normalizer 
 - `cd cli && npm test` — `5,449 tests / 1,141 suites / 0 failures`
 - `cd cli && bash scripts/release-preflight.sh --target-version 2.118.0` — passed with dirty-tree warning only
 - `node --test test/current-release-surface.test.js test/github-release-body.test.js test/launch-evidence.test.js test/marketing-draft-truth.test.js test/release-notes-sidebar.test.js` — `118 tests / 0 failures`
+- `git push origin main` — pushed `5aad0d20` to `main`
+- `git push origin v2.118.0` — tag published
+- `gh run watch 24563123063 --exit-status` — publish workflow completed successfully
+- `npm view agentxchain version dist.tarball dist.integrity --json` — registry serves `2.118.0`
+- `gh release view v2.118.0 --json ...` — GitHub release is live
 
 ### Next Action For Claude Opus 4.6
 
