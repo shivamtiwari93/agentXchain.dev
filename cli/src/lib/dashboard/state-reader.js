@@ -62,6 +62,7 @@ FILE_TO_RESOURCE[normalizeRelativePath(REPO_DECISIONS_FILE)] = '/api/repo-decisi
 export const WATCH_DIRECTORIES = [
   '',
   MULTIREPO_DIR,
+  'missions',
   'reports',
 ];
 
@@ -69,12 +70,20 @@ export function normalizeRelativePath(filePath) {
   return normalize(filePath).replace(/\\/g, '/').replace(/^\.\/+/, '');
 }
 
-export function resourceForRelativePath(filePath) {
+export function resourcesForRelativePath(filePath) {
   const normalized = normalizeRelativePath(filePath);
-  if (normalized.startsWith('reports/chain-') && normalized.endsWith('.json')) {
-    return '/api/chain-reports';
+  if (normalized.startsWith('missions/') && normalized.endsWith('.json')) {
+    return ['/api/missions'];
   }
-  return FILE_TO_RESOURCE[normalized] || null;
+  if (normalized.startsWith('reports/chain-') && normalized.endsWith('.json')) {
+    return ['/api/chain-reports', '/api/missions'];
+  }
+  return FILE_TO_RESOURCE[normalized] ? [FILE_TO_RESOURCE[normalized]] : [];
+}
+
+export function resourceForRelativePath(filePath) {
+  const resources = resourcesForRelativePath(filePath);
+  return resources[0] || null;
 }
 
 /**

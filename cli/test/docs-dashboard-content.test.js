@@ -40,6 +40,7 @@ const COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC = readFileSync(join(REPO_ROO
 const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_LIVE_OBSERVER_SPEC.md'), 'utf8');
 const DASHBOARD_CONFLICT_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CONFLICT_VISIBILITY_SPEC.md'), 'utf8');
 const DASHBOARD_CHAIN_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CHAIN_SURFACE_SPEC.md'), 'utf8');
+const DASHBOARD_MISSION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_MISSION_SURFACE_SPEC.md'), 'utf8');
 const DASHBOARD_DOCS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DOCS_CONTRACT_SPEC.md'), 'utf8');
 const EXPECTED_TOP_LEVEL_VIEWS = [
   { id: 'initiative', label: 'Initiative' },
@@ -52,6 +53,7 @@ const EXPECTED_TOP_LEVEL_VIEWS = [
   { id: 'gate', label: 'Gates' },
   { id: 'blockers', label: 'Blockers' },
   { id: 'artifacts', label: 'Artifacts' },
+  { id: 'mission', label: 'Mission' },
   { id: 'chain', label: 'Chain' },
   { id: 'run-history', label: 'Run History' },
   { id: 'timeouts', label: 'Timeouts' },
@@ -107,6 +109,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('/api/repo-decisions-summary'), 'cli docs must document the repo decision summary endpoint');
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
     assert.ok(CLI_DOCS.includes('/api/poll'), 'cli docs must document the dashboard poll endpoint');
+    assert.ok(CLI_DOCS.includes('/api/missions'), 'cli docs must document the missions endpoint');
     assert.ok(CLI_DOCS.includes('/api/chain-reports'), 'cli docs must document the chain-reports endpoint');
     assert.ok(CLI_DOCS.includes('repo_run_id_mismatch'), 'cli docs must mention structured run identity drift blockers');
     assert.ok(CLI_DOCS.includes('SESSION_RECOVERY.md'), 'cli docs must mention the recovery report continuity surface');
@@ -176,8 +179,11 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('approve button'), 'cli docs must describe the dashboard approve action');
     assert.ok(CLI_DOCS.includes('Blockers'), 'cli docs must document coordinator blockers view');
     assert.ok(CLI_DOCS.includes('Artifacts'), 'cli docs must document workflow-kit artifacts view');
+    assert.ok(CLI_DOCS.includes('Mission'), 'cli docs must document mission view');
     assert.ok(CLI_DOCS.includes('Chain'), 'cli docs must document chain view');
     assert.ok(CLI_DOCS.includes('Coordinator Timeouts'), 'cli docs must document coordinator timeout view');
+    assert.ok(CLI_DOCS.includes('single-repo hierarchy above chains'), 'cli docs must keep mission scoped as single-repo hierarchy');
+    assert.ok(CLI_DOCS.includes('separate from coordinator **Initiative**'), 'cli docs must keep mission distinct from coordinator initiative');
     assert.ok(CLI_DOCS.includes('latest chain report'), 'cli docs must describe latest chain visibility');
     assert.ok(CLI_DOCS.includes('inherited-context summary'), 'cli docs must describe inherited context lineage visibility');
     assert.ok(CLI_DOCS.includes('continuity panel'), 'cli docs must describe the timeline continuity panel');
@@ -271,6 +277,13 @@ describe('Dashboard continuity spec', () => {
     assert.match(DASHBOARD_CHAIN_SPEC, /AT-DASH-CHAIN-001/);
     assert.match(DASHBOARD_CHAIN_SPEC, /GET \/api\/chain-reports/);
     assert.match(DASHBOARD_CHAIN_SPEC, /Chain/);
+  });
+
+  it('ships a durable spec for dashboard mission visibility', () => {
+    assert.match(DASHBOARD_MISSION_SPEC, /Dashboard Mission Surface Spec/);
+    assert.match(DASHBOARD_MISSION_SPEC, /AT-DASH-MISSION-001/);
+    assert.match(DASHBOARD_MISSION_SPEC, /GET \/api\/missions/);
+    assert.match(DASHBOARD_MISSION_SPEC, /Mission/);
   });
 
   it('ships a durable spec for dashboard daemon lifecycle', () => {

@@ -8,7 +8,7 @@
 import { watch, existsSync } from 'fs';
 import { basename, join } from 'path';
 import { EventEmitter } from 'events';
-import { WATCH_DIRECTORIES, resourceForRelativePath } from './state-reader.js';
+import { WATCH_DIRECTORIES, resourcesForRelativePath } from './state-reader.js';
 
 const DEBOUNCE_MS = 100;
 
@@ -40,24 +40,26 @@ export class FileWatcher extends EventEmitter {
         if (!filename || this.#closed) return;
         const base = basename(filename);
         const relativePath = relativeDir ? `${relativeDir}/${base}` : base;
-        const resource = resourceForRelativePath(relativePath);
+        const resources = resourcesForRelativePath(relativePath);
 
-        if (!resource) {
+        if (resources.length === 0) {
           if (!relativeDir && base === 'multirepo') {
             this.#watchPath('multirepo');
           }
           return;
         }
 
-        if (this.#debounceTimers.has(resource)) {
-          clearTimeout(this.#debounceTimers.get(resource));
-        }
-        this.#debounceTimers.set(resource, setTimeout(() => {
-          this.#debounceTimers.delete(resource);
-          if (!this.#closed) {
-            this.emit('invalidate', { resource });
+        for (const resource of resources) {
+          if (this.#debounceTimers.has(resource)) {
+            clearTimeout(this.#debounceTimers.get(resource));
           }
-        }, DEBOUNCE_MS));
+          this.#debounceTimers.set(resource, setTimeout(() => {
+            this.#debounceTimers.delete(resource);
+            if (!this.#closed) {
+              this.emit('invalidate', { resource });
+            }
+          }, DEBOUNCE_MS));
+        }
       });
 
       watcher.on('error', (err) => {

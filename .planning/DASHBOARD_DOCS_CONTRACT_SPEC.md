@@ -77,6 +77,7 @@ The docs must cover the shipped top-level dashboard views:
 - Gates
 - Blockers
 - Artifacts
+- Mission
 - Chain
 - Run History
 - Timeouts
