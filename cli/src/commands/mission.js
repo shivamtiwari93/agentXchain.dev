@@ -833,22 +833,7 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
 
       const readyWorkstreams = getReadyWorkstreams(currentPlan);
       if (readyWorkstreams.length === 0) {
-        const summary = getWorkstreamStatusSummary(currentPlan);
-        const allCompleted = currentPlan.workstreams.every((ws) => ws.launch_status === 'completed');
-        if (allCompleted) {
-          terminalReason = 'plan_completed';
-        } else {
-          const hasNeedsAttention = (summary.needs_attention || 0) > 0;
-          const hasBlocked = (summary.blocked || 0) > 0;
-          const hasLaunched = (summary.launched || 0) > 0;
-          if (hasNeedsAttention && !continueOnFailure) {
-            terminalReason = 'failure_stopped';
-          } else if (hasBlocked && !hasLaunched) {
-            terminalReason = 'deadlock';
-          } else {
-            terminalReason = 'no_ready_workstreams';
-          }
-        }
+        terminalReason = deriveAutopilotIdleOutcome(currentPlan, continueOnFailure);
         break;
       }
 
@@ -874,7 +859,9 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
           continue;
         }
 
-        const launch = launchWorkstream(root, mission.mission_id, plan.plan_id, ws.workstream_id);
+        const launch = launchWorkstream(root, mission.mission_id, plan.plan_id, ws.workstream_id, {
+          allowNeedsAttention: continueOnFailure,
+        });
         if (!launch.ok) {
           waveHadFailure = true;
           totalFailed++;
@@ -967,6 +954,12 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
         break;
       }
 
+      const remainingReadyWorkstreams = getReadyWorkstreams(afterWavePlan);
+      if (remainingReadyWorkstreams.length === 0) {
+        terminalReason = deriveAutopilotIdleOutcome(afterWavePlan, continueOnFailure);
+        break;
+      }
+
       if (waveHadFailure && !continueOnFailure) {
         terminalReason = 'failure_stopped';
         break;
@@ -990,7 +983,9 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
   }
 
   if (!terminalReason) {
-    terminalReason = totalFailed > 0 ? 'failure_stopped' : 'plan_completed';
+    terminalReason = totalFailed > 0
+      ? (continueOnFailure ? 'plan_incomplete' : 'failure_stopped')
+      : 'plan_completed';
   }
 
   const jsonOutput = {
@@ -1026,6 +1021,9 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
     } else if (terminalReason === 'failure_stopped') {
       console.log(chalk.red('\n  Stopped due to workstream failure.'));
       console.log(chalk.dim('  Use --continue-on-failure to skip failures, or retry with `mission plan launch --workstream <id> --retry`.'));
+    } else if (terminalReason === 'plan_incomplete') {
+      console.log(chalk.yellow('\n  Autopilot exhausted all launchable work, but failed workstreams still need attention.'));
+      console.log(chalk.dim('  Retry the failed workstream or inspect the plan before running autopilot again.'));
     } else if (terminalReason === 'interrupted') {
       console.log(chalk.yellow('\n  Interrupted by operator.'));
     }
@@ -1040,12 +1038,33 @@ function formatTerminalReason(reason) {
   switch (reason) {
     case 'plan_completed': return chalk.green('plan completed');
     case 'failure_stopped': return chalk.red('stopped on failure');
+    case 'plan_incomplete': return chalk.yellow('incomplete after failures');
     case 'deadlock': return chalk.red('deadlock');
     case 'wave_limit_reached': return chalk.yellow('wave limit reached');
     case 'interrupted': return chalk.yellow('interrupted');
     case 'no_ready_workstreams': return chalk.yellow('no ready workstreams');
     default: return reason || '—';
   }
+}
+
+function deriveAutopilotIdleOutcome(plan, continueOnFailure) {
+  const summary = getWorkstreamStatusSummary(plan);
+  const allCompleted = plan.workstreams.every((ws) => ws.launch_status === 'completed');
+  if (allCompleted) {
+    return 'plan_completed';
+  }
+
+  const hasNeedsAttention = (summary.needs_attention || 0) > 0;
+  const hasBlocked = (summary.blocked || 0) > 0;
+  const hasLaunched = (summary.launched || 0) > 0;
+
+  if (hasNeedsAttention) {
+    return continueOnFailure ? 'plan_incomplete' : 'failure_stopped';
+  }
+  if (hasBlocked && !hasLaunched) {
+    return 'deadlock';
+  }
+  return 'no_ready_workstreams';
 }
 
 // ── Plan rendering ───────────────────────────────────────────────────────────

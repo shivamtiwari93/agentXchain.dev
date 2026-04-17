@@ -287,6 +287,7 @@ Terminal conditions:
 |-----------|------|--------|
 | All workstreams completed | 0 | `plan_completed` |
 | Workstream failed (no `--continue-on-failure`) | 1 | `failure_stopped` |
+| Launchable work exhausted but failures remain (`--continue-on-failure`) | 1 | `plan_incomplete` |
 | Wave limit reached | 1 | `wave_limit_reached` |
 | Blocked with unsatisfiable dependencies | 1 | `deadlock` |
 | Operator SIGINT | 1 | `interrupted` |

@@ -390,8 +390,12 @@ export function launchWorkstream(root, missionId, planId, workstreamId, options 
   if (!plan) {
     return { ok: false, error: `Plan not found: ${planId}` };
   }
-  if (plan.status !== 'approved') {
-    return { ok: false, error: `Plan ${planId} is not approved (status: "${plan.status}"). Approve the plan before launching workstreams.` };
+  const allowNeedsAttention = options.allowNeedsAttention === true;
+  if (plan.status !== 'approved' && !(allowNeedsAttention && plan.status === 'needs_attention')) {
+    return {
+      ok: false,
+      error: `Plan ${planId} is not approved (status: "${plan.status}"). Approve the plan before launching workstreams.`,
+    };
   }
 
   const ws = plan.workstreams.find((w) => w.workstream_id === workstreamId);

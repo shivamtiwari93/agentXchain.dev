@@ -62,7 +62,7 @@ Each iteration ("wave") does:
 |-----------|-----------|---------|
 | All workstreams completed | 0 | Plan completed successfully |
 | Failure without `--continue-on-failure` | 1 | Workstream X failed, autopilot stopped |
-| All launchable work done, some failed (with `--continue-on-failure`) | 1 | Plan incomplete: N completed, N failed, N blocked |
+| All launchable work done, some failed (with `--continue-on-failure`) | 1 | `plan_incomplete` — launchable work is exhausted but failed workstreams still need attention |
 | Wave limit reached | 1 | Wave limit (N) reached, plan still in progress |
 | No ready workstreams on first scan | 1 | No ready workstreams to launch |
 | SIGINT | 1 | Autopilot interrupted by operator |

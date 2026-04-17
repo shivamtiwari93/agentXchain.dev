@@ -268,6 +268,8 @@ Launch supports three modes: single workstream (`--workstream <id>`), targeted r
 
 `--retry` re-launches a workstream that has `needs_attention` status (i.e., a previously failed launch). It creates a new launch record with a new chain ID while preserving the old launch record for audit. The plan status returns from `needs_attention` to `approved` during the retry. `--retry` requires `--workstream` and is mutually exclusive with `--all-ready`. When all workstreams reach `completed`, the plan auto-transitions to `completed`.
 
+`mission plan autopilot` loops through dependency waves until the plan completes, the wave limit is reached, or execution stops. With `--continue-on-failure`, autopilot keeps launching any remaining ready workstreams, then exits with `plan_incomplete` once launchable work is exhausted but failed workstreams still need attention.
+
 **Plan auto-completion:** When all workstreams in a plan reach `completed` status, the plan automatically transitions to `completed`. This happens as part of outcome recording — no separate command is needed.
 
 ### `init`
