@@ -918,6 +918,7 @@ intakeCmd
   .description('Start governed execution for a planned intent')
   .option('--intent <id>', 'Intent ID to start')
   .option('--role <role>', 'Override the default entry role for the governed phase')
+  .option('--restart-completed', 'Initialize a fresh governed run when state is already completed')
   .option('-j, --json', 'Output as JSON')
   .action(intakeStartCommand);
 

@@ -21,13 +21,14 @@ This slice must reuse the existing governed run and dispatch machinery. It must 
 ### CLI Command
 
 ```bash
-agentxchain intake start --intent <id> [--role <role>] [--json]
+agentxchain intake start --intent <id> [--role <role>] [--restart-completed] [--json]
 ```
 
 **Options:**
 
 - `--intent <id>` — required, the planned intent to start
 - `--role <role>` — optional, override the default entry role for the current governed phase
+- `--restart-completed` — optional, initialize a fresh governed run when the prior run is already `completed`
 - `--json` — output structured JSON instead of text
 
 ### Intent Schema Extension
@@ -95,7 +96,7 @@ planned -> executing
 6. Busy-run rules:
    - if any active turn already exists, reject start
    - if the run is `blocked`, reject start
-   - if the run is `completed`, reject start
+   - if the run is `completed`, reject start unless `--restart-completed` is passed
    - if the run is `paused`, reject start because paused remains an approval-held state in the current governed schema
    - if `pending_phase_transition` or `pending_run_completion` is present, reject start
 7. Role selection rules:
@@ -110,13 +111,14 @@ planned -> executing
    - append history entry with `from: "planned"`, `to: "executing"`, `run_id`, `turn_id`, and `role`
 10. `intake start` does not wait for the turn to finish. Follow-on execution remains on the existing governed surfaces (`step --resume`, `accept-turn`, `reject-turn`, `status`).
 
-### Single-Run Limitation
+### Completed-Run Restart
 
-S3 must document the current engine truth instead of hiding it:
+S3 must expose the current engine truth instead of hiding it:
 
 - AgentXchain today behaves like a single-run engine per project state file.
-- `intake start` does not solve post-completion run recycling.
-- Starting a new intent after a completed governed run is explicitly out of scope for S3.
+- The governed-state initializer already supports a terminal restart path.
+- `intake start --restart-completed` uses that existing restart path to initialize a fresh run from completed state.
+- Without `--restart-completed`, completed-state starts still fail closed.
 - S3 does not widen the meaning of `paused`. Relaxing the governed schema to support paused-without-pending intake resume is explicitly rejected for this slice.
 
 ---
@@ -130,9 +132,10 @@ S3 must document the current engine truth instead of hiding it:
 5. **Missing recorded planning artifacts**: exit 1 listing the missing paths, no state change
 6. **Run already busy with active turns**: exit 1 naming the active turn(s), no state change
 7. **Run blocked or awaiting approval**: exit 1 with the governing reason, no state change
-8. **Run already completed**: exit 1 with a deterministic message explaining that S3 does not reopen completed runs
-9. **Unknown role override**: exit 1 listing available roles
-10. **Assignment failure from governed engine**: propagate deterministic error from the governed assignment primitive, no intake intent mutation
+8. **Run already completed without restart flag**: exit 1 with a deterministic message that names `--restart-completed`
+9. **Run already completed with restart flag**: initialize a fresh run and continue through the normal success contract
+10. **Unknown role override**: exit 1 listing available roles
+11. **Assignment failure from governed engine**: propagate deterministic error from the governed assignment primitive, no intake intent mutation
 
 ---
 
@@ -144,13 +147,14 @@ S3 must document the current engine truth instead of hiding it:
 - `AT-V3S3-004`: `intake start` rejects when any recorded planning artifact path is missing on disk
 - `AT-V3S3-005`: `intake start` rejects when another active governed turn already exists
 - `AT-V3S3-006`: `intake start` rejects when governed state is `blocked`
-- `AT-V3S3-007`: `intake start` rejects when governed state is `completed`
+- `AT-V3S3-007`: `intake start` rejects when governed state is `completed` and `--restart-completed` is not passed
 - `AT-V3S3-008`: success output includes `run_id`, `turn_id`, and dispatch directory in JSON mode
 - `AT-V3S3-009`: success appends an intent-history transition from `planned` to `executing` with linkage fields
 - `AT-V3S3-010`: `intake start` rejects a paused run that is awaiting approval instead of pretending paused is intake-resumable
+- `AT-V3S3-011`: `intake start --restart-completed` initializes a fresh governed run from completed state
 
 ---
 
 ## Open Questions
 
-None for S3 itself. Multi-intent scheduling and post-completion run recycling are explicitly deferred beyond this slice.
+None for S3 itself. Multi-intent scheduling beyond one explicit restart remains deferred beyond this slice.

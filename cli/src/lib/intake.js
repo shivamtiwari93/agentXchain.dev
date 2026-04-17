@@ -711,9 +711,10 @@ export function startIntent(root, intentId, options = {}) {
   }
 
   if (state.status === 'completed' && !allowCompletedRestart) {
+    const restartCmd = `agentxchain intake start --intent ${intent.intent_id} --restart-completed`;
     return {
       ok: false,
-      error: 'cannot start: governed run is already completed. Use "agentxchain init --force" to start a new run.',
+      error: `cannot start: governed run is already completed. Re-run with "${restartCmd}" to initialize a fresh governed run.`,
       exitCode: 1,
     };
   }

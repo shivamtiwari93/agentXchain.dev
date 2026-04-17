@@ -288,6 +288,7 @@ Use `intake start` to bridge one `planned` intent into the existing governed run
 ```bash
 agentxchain intake start \
   --intent intent_1712173200000_c3d4 \
+  [--restart-completed] \
   --role dev \
   --json
 ```
@@ -319,14 +320,15 @@ On success the intent gains:
 - any recorded planning artifact is missing on disk
 - another governed turn is already active
 - the run is `blocked`
-- the run is `completed`
+- the run is `completed` and `--restart-completed` is not passed
 - the run has a `pending_phase_transition` or `pending_run_completion` gate
 
 ### Bootstrap and resume behavior
 
-`intake start` can also handle one non-rejection special case that operators should understand:
+`intake start` can also handle two non-rejection special cases that operators should understand:
 
 - **Idle bootstrap:** If the governed state is `idle` with no `run_id`, `intake start` initializes a new governed run before assigning the first turn. You do not need to run `agentxchain init` separately.
+- **Completed restart:** If the governed state is `completed` with no active turns, pass `--restart-completed` to initialize a fresh governed run for the planned intent. This creates a new `run_id`; it does not reopen the historical completed run in place.
 
 If the governed state is `paused`, `intake start` always rejects — regardless of whether `pending_phase_transition` or `pending_run_completion` is set. In the governed schema, `paused` is an approval-held state. Resolve the blocking gate with `approve-transition` or `approve-completion` before starting new intake work.
 

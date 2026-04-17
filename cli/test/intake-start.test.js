@@ -298,8 +298,8 @@ describe('intake start', () => {
     assert.match(out.error, /blocked/);
   });
 
-  // AT-V3S3-007: rejects when governed state is completed
-  it('rejects when governed state is completed', () => {
+  // AT-V3S3-007: rejects when governed state is completed without restart flag
+  it('rejects when governed state is completed without --restart-completed', () => {
     const intentId = pipelineThroughPlan(dir);
 
     const statePath = join(dir, '.agentxchain', 'state.json');
@@ -313,6 +313,36 @@ describe('intake start', () => {
     const out = JSON.parse(result.stdout);
     assert.equal(out.ok, false);
     assert.match(out.error, /completed/);
+    assert.match(out.error, /--restart-completed/);
+  });
+
+  // AT-V3S3-011 + AT-ISR-002 + AT-ISR-003: completed-state restart bootstraps a fresh run
+  it('starts a fresh governed run from completed state when --restart-completed is passed', () => {
+    const intentId = pipelineThroughPlan(dir);
+
+    const statePath = join(dir, '.agentxchain', 'state.json');
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    state.status = 'completed';
+    state.run_id = 'run_completed_test';
+    state.last_completed_turn_id = 'turn_prev';
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+    const result = runCli(['intake', 'start', '--intent', intentId, '--restart-completed', '--json'], dir);
+    assert.equal(result.status, 0, `restart-completed start failed: ${result.stderr}\n${result.stdout}`);
+
+    const out = JSON.parse(result.stdout);
+    assert.equal(out.ok, true);
+    assert.equal(out.intent.status, 'executing');
+    assert.ok(out.run_id, 'run_id must be present');
+    assert.notEqual(out.run_id, 'run_completed_test', 'restart must allocate a fresh run id');
+    assert.ok(out.turn_id, 'turn_id must be present');
+
+    const nextState = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert.equal(nextState.status, 'active');
+    assert.equal(nextState.run_id, out.run_id);
+    assert.ok(nextState.active_turns[out.turn_id], 'new active turn must exist');
+    assert.equal(out.intent.target_run, out.run_id);
+    assert.equal(out.intent.target_turn, out.turn_id);
   });
 
   // AT-V3S3-008: JSON output shape

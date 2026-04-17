@@ -17,6 +17,7 @@ export async function intakeStartCommand(opts) {
 
   const result = startIntent(root, opts.intent, {
     role: opts.role || undefined,
+    allowTerminalRestart: opts.restartCompleted === true,
   });
 
   if (opts.json) {

@@ -182,6 +182,13 @@ describe('Intake docs start behavior — code-backed verification', () => {
     );
   });
 
+  it('documents completed restart behavior', () => {
+    assert.ok(
+      DOC.includes('--restart-completed') && DOC.includes('completed'),
+      'docs must explain the explicit completed-run restart path'
+    );
+  });
+
   it('documents approval resolution path for paused runs', () => {
     assert.ok(
       DOC.includes('approve-transition') || DOC.includes('approve-completion'),
