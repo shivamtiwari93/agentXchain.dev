@@ -141,12 +141,22 @@ jobs:
           git restore --worktree --staged homebrew/agentxchain.rb homebrew/README.md
 
           # --- Primary path: direct push to main ---
-          # Since enforce_admins is false, a repo admin PAT can bypass required reviews.
+          # Token priority: REPO_PUSH_TOKEN (admin PAT) > GITHUB_TOKEN (workflow token
+          # with contents:write) > HOMEBREW_TAP_TOKEN (tap-scoped, usually lacks repo access).
+          # GITHUB_TOKEN can push to main when branch protection allows GitHub Actions
+          # bypass, which is the common case when enforce_admins is false.
           DIRECT_PUSH_OK=false
-          PUSH_TOKEN="${REPO_PUSH_TOKEN:-${HOMEBREW_TAP_TOKEN:-}}"
-          PUSH_TOKEN_NAME="HOMEBREW_TAP_TOKEN"
+          PUSH_TOKEN=""
+          PUSH_TOKEN_NAME=""
           if [[ -n "${REPO_PUSH_TOKEN:-}" ]]; then
+            PUSH_TOKEN="${REPO_PUSH_TOKEN}"
             PUSH_TOKEN_NAME="REPO_PUSH_TOKEN"
+          elif [[ -n "${GH_TOKEN:-}" ]]; then
+            PUSH_TOKEN="${GH_TOKEN}"
+            PUSH_TOKEN_NAME="GITHUB_TOKEN"
+          elif [[ -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+            PUSH_TOKEN="${HOMEBREW_TAP_TOKEN}"
+            PUSH_TOKEN_NAME="HOMEBREW_TAP_TOKEN"
           fi
           if [[ -n "${PUSH_TOKEN:-}" ]]; then
             echo "Attempting direct push to main using ${PUSH_TOKEN_NAME}..."
@@ -165,11 +175,11 @@ jobs:
             REPO_SLUG="${GITHUB_REPOSITORY}"
             PUSH_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${REPO_SLUG}.git"
             if git push "$PUSH_URL" HEAD:main 2>/dev/null; then
-              echo "Direct push to main succeeded — no PR needed."
+              echo "Direct push to main succeeded via ${PUSH_TOKEN_NAME} — no PR needed."
               echo "direct_push=true" >> "$GITHUB_OUTPUT"
               DIRECT_PUSH_OK=true
             else
-              echo "Direct push to main failed for ${PUSH_TOKEN_NAME} (token may lack repo-level access). Falling back to PR path."
+              echo "Direct push to main failed for ${PUSH_TOKEN_NAME}. Falling back to PR path."
             fi
             # Reset to detached state for potential PR fallback
             git checkout --detach 2>/dev/null || true

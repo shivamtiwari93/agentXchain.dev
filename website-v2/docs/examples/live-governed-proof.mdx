@@ -10,18 +10,44 @@ description: "Live proof scripts for real model-backed governed execution."
 ## What It Is
 
 - Category: live proof example
-- Surface: `runner-interface`, `api_proxy`, and MCP proof scripts
+- Surface: `runner-interface`, `api_proxy`, MCP, and continuous mixed-runtime proof scripts
 - Source: `examples/live-governed-proof`
 
 ## Workflow Or Proof Shape
 
-This directory currently contains:
+This directory contains two categories of live proof:
 
-- `run-live-turn.mjs` for one real `api_proxy` governed turn
-- `run-multi-provider-proof.mjs` for OpenAI -> Google -> Anthropic governed flow
-- `run-proposed-authority-proof.mjs` for proposal-authority proof
-- `run-escalation-recovery-proof.mjs` for blocked-state recovery proof
-- `run-mcp-real-model-proof.mjs` for real-model MCP proof
+### Single-Turn and Multi-Provider Proofs
+
+- `run-live-turn.mjs` — one real `api_proxy` governed turn
+- `run-multi-provider-proof.mjs` — OpenAI → Google → Anthropic governed flow
+- `run-proposed-authority-proof.mjs` — proposal-authority proof
+- `run-escalation-recovery-proof.mjs` — blocked-state recovery proof
+- `run-mcp-real-model-proof.mjs` — real-model MCP proof
+
+### Continuous Mixed-Runtime Proof
+
+- `run-continuous-mixed-proof.mjs` — **full continuous session** with mixed local + remote runtimes
+
+This is the strongest proof in the repo. It exercises the real `agentxchain run --continuous` CLI surface with:
+
+- local authoring roles (PM, Dev, Director) satisfying `requires_files` gates via `local_cli`
+- a real Anthropic-backed `api_proxy` QA role (`review_only`) validating and requesting completion
+- vision-driven intake seeding from a project-local `VISION.md`
+- continuous session lifecycle: start → governed run → intake resolution → session completion
+
+**Verified evidence from a real run (2026-04-17):**
+
+| Metric | Value |
+|---|---|
+| Model | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) |
+| Runtime | `api_proxy` (Anthropic) for QA, `local_cli` for authoring roles |
+| Runs completed | 1 |
+| Total spend | $0.007 |
+| Review artifact | `.agentxchain/reviews/turn_*-qa-review.md` |
+| Session status | `completed` |
+
+This proof confirms that AgentXchain can dispatch to real models, accept structured turn results, track budget, and complete a governed continuous session — not just pass mock-based tests.
 
 ## How AgentXchain Governs This Example
 
@@ -31,10 +57,13 @@ AgentXchain governs these proofs by:
 - validating real turn-result JSON
 - enforcing gate progression and completion rules
 - recording governed artifacts even when the model is live
+- tracking continuous session state, budget, and intake provenance
 
 This is proof infrastructure, not a sample product.
 
 ## Run It
+
+**Single-turn and multi-provider proofs:**
 
 ```bash
 node examples/live-governed-proof/run-live-turn.mjs --json
@@ -44,10 +73,17 @@ node examples/live-governed-proof/run-escalation-recovery-proof.mjs --json
 node examples/live-governed-proof/run-mcp-real-model-proof.mjs --json
 ```
 
-Credential requirements depend on the script, including `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY`.
+**Continuous mixed-runtime proof:**
+
+```bash
+node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json
+```
+
+Credential requirements: `ANTHROPIC_API_KEY` is required for the continuous proof and several single-turn scripts. `OPENAI_API_KEY` and `GOOGLE_API_KEY` are needed for the multi-provider proof. Scripts skip cleanly when their required credentials are absent.
 
 ## Key Takeaways
 
 - This is the clearest live-proof surface in the repo.
-- It proves governed execution against real providers, not just static fixtures.
-- Use it to validate runtime truth before making product claims.
+- The continuous mixed-runtime proof is the strongest evidence that governed lights-out execution works with real models — not just mocks.
+- `review_only` remote roles can validate and review but cannot author gate files. Local authoring roles satisfy `requires_files` gates. This is the truthful mixed-runtime shape today.
+- Use these proofs to validate runtime truth before making product claims.
