@@ -496,3 +496,94 @@ describe('AT-SDH-010: schedule-owned continuous session stops cleanly when the s
       `expected status cumulative spend near 0.12, got ${parsedStatus.continuous_session.cumulative_spent_usd}`);
   });
 });
+
+describe('AT-SDH-011: sibling continuous schedules do not leak into the normal due-schedule path', () => {
+  it('keeps beta out of the standard scheduler while alpha owns the active continuous session, then starts beta on a later poll', () => {
+    const root = makeProject({
+      schedules: {
+        alpha: {
+          every_minutes: 60,
+          auto_approve: true,
+          max_turns: 5,
+          initial_role: 'pm',
+          continuous: {
+            enabled: true,
+            vision_path: '.planning/ALPHA-VISION.md',
+            max_runs: 1,
+            max_idle_cycles: 3,
+            triage_approval: 'auto',
+          },
+        },
+        beta: {
+          every_minutes: 60,
+          auto_approve: true,
+          max_turns: 5,
+          initial_role: 'pm',
+          continuous: {
+            enabled: true,
+            vision_path: '.planning/BETA-VISION.md',
+            max_runs: 1,
+            max_idle_cycles: 3,
+            triage_approval: 'auto',
+          },
+        },
+      },
+    });
+
+    const planningDir = join(root, '.planning');
+    mkdirSync(planningDir, { recursive: true });
+    writeFileSync(join(planningDir, 'ALPHA-VISION.md'), `# Alpha Vision
+
+## Goals
+
+- alpha telemetry ledger heartbeat audit
+`);
+
+    writeFileSync(join(planningDir, 'BETA-VISION.md'), `# Beta Vision
+
+## Goals
+
+- beta marketplace packaging formula release
+`);
+
+    const daemon = runCli(root, [
+      'schedule', 'daemon',
+      '--max-cycles', '3',
+      '--poll-seconds', '1',
+      '--json',
+    ], { timeout: 180000 });
+
+    assert.equal(daemon.status, 0, `daemon failed:\n${daemon.combined}`);
+
+    const cycleOutputs = daemon.stdout.trim().split('\n')
+      .filter(Boolean)
+      .map((line) => { try { return JSON.parse(line); } catch { return null; } })
+      .filter(Boolean);
+    assert.equal(cycleOutputs.length, 3, `expected 3 cycle outputs, got ${cycleOutputs.length}`);
+
+    const cont1 = cycleOutputs[0].results.find((r) => r.continuous);
+    const cont2 = cycleOutputs[1].results.find((r) => r.continuous);
+    const cont3 = cycleOutputs[2].results.find((r) => r.continuous);
+    assert.ok(cont1 && cont2 && cont3, 'every cycle must include a continuous result');
+
+    assert.equal(cont1.id, 'alpha', 'first due continuous entry should own the first session');
+    assert.equal(cont2.id, 'alpha', 'active session owner must keep ownership on the next poll');
+    assert.equal(cont3.id, 'beta', 'beta should start only after alpha reaches terminal completion');
+    assert.equal(cont1.session_id, cont2.session_id, 'alpha session must stay stable across its lifecycle');
+    assert.notEqual(cont2.session_id, cont3.session_id, 'beta must start a fresh session after alpha completes');
+
+    const ranEntries = cycleOutputs.flatMap((cycle) => cycle.results.filter((r) => r.action === 'ran'));
+    assert.equal(ranEntries.length, 0, `continuous-enabled schedules must not leak into normal scheduler runs: ${JSON.stringify(ranEntries)}`);
+
+    const history = readFileSync(join(root, '.agentxchain', 'run-history.jsonl'), 'utf8').trim().split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    assert.equal(history.length, 2, `expected 2 governed runs total, got ${history.length}`);
+
+    const schedState = JSON.parse(readFileSync(join(root, '.agentxchain', 'schedule-state.json'), 'utf8'));
+    assert.equal(schedState.schedules.alpha.last_status, 'continuous_completed');
+    assert.equal(schedState.schedules.beta.last_status, 'continuous_running');
+    assert.ok(schedState.schedules.alpha.last_continuous_session_id, 'alpha must persist its continuous session id');
+    assert.ok(schedState.schedules.beta.last_continuous_session_id, 'beta must persist its continuous session id');
+  });
+});

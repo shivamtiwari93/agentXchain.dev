@@ -234,10 +234,12 @@ async function runDueSchedules(context, opts = {}) {
 
   const nowIso = opts.at || new Date().toISOString();
   const results = [];
+  const excludedSchedules = new Set(opts.excludeSchedules || []);
 
   for (const entry of resolved.entries) {
-    // Skip entries handled by the continuous session manager
-    if (opts.excludeSchedule && entry.id === opts.excludeSchedule) {
+    // Skip entries handled by the continuous session manager.
+    if ((opts.excludeSchedule && entry.id === opts.excludeSchedule)
+      || excludedSchedules.has(entry.id)) {
       continue;
     }
     if (!entry.enabled) {
@@ -330,6 +332,12 @@ async function runDueSchedules(context, opts = {}) {
 
 function isSessionTerminal(session) {
   return ['completed', 'idle_exit', 'failed', 'stopped'].includes(session?.status);
+}
+
+function getContinuousEnabledScheduleIds(config) {
+  return Object.entries(config?.schedules || {})
+    .filter(([, schedule]) => schedule?.continuous?.enabled === true)
+    .map(([id]) => id);
 }
 
 export function selectContinuousScheduleEntry(root, config, opts = {}) {
@@ -653,6 +661,7 @@ export async function scheduleDaemonCommand(opts) {
   while (true) {
     cycle += 1;
     daemonState.last_cycle_started_at = new Date().toISOString();
+    const continuousScheduleIds = getContinuousEnabledScheduleIds(context.config);
 
     // Check for continuous schedule entries first
     const contEntry = selectContinuousScheduleEntry(context.root, context.config, {
@@ -686,7 +695,7 @@ export async function scheduleDaemonCommand(opts) {
         ...opts,
         continueActiveScheduleRuns: true,
         tolerateBlockedRun: true,
-        excludeSchedule: contEntry.id,
+        excludeSchedules: continuousScheduleIds,
       });
 
       // Merge results
@@ -711,6 +720,7 @@ export async function scheduleDaemonCommand(opts) {
         ...opts,
         continueActiveScheduleRuns: true,
         tolerateBlockedRun: true,
+        excludeSchedules: continuousScheduleIds,
       });
     }
 

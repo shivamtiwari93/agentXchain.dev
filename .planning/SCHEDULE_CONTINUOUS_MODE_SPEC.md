@@ -146,6 +146,12 @@ On each daemon poll, for a schedule-owned active continuous session:
 
 The daemon must continue advancing the session on later polls even when the schedule is not "due" again yet. Due-ness gates session creation, not session continuation.
 
+When the daemon is managing any `continuous.enabled` schedules, sibling continuous entries must **not** leak into the normal due-schedule execution path on the same poll. A continuous-enabled schedule is always owned by the continuous-session manager:
+
+- the selected active/due continuous owner advances through `advanceContinuousRunOnce(...)`
+- other continuous-enabled siblings wait for a later poll and never appear as normal `action: "ran"` schedule executions
+- once the active owner's session reaches a terminal state and is no longer due, the next due continuous-enabled sibling may start its own schedule-owned session
+
 ### 4. Blocked recovery
 
 - If a schedule-owned continuous session blocks on `needs_human`, the daemon records `continuous_blocked` and keeps polling.
@@ -204,6 +210,7 @@ Schedule ownership is tracked in session/schedule state, not by lying about run 
 - `AT-SCHED-CONT-008`: daemon selects a due continuous schedule instead of starving later entries behind the first configured continuous block. ✅
 - `AT-SCHED-CONT-009`: an active schedule-owned session keeps ownership on later polls even when another continuous entry is due. ✅
 - `AT-SDH-009`: subprocess E2E — daemon `--max-cycles 2` executes two governed runs through a single schedule-owned continuous session. Session id stays stable, `runs_completed` reaches 2, intents resolve through real intake lifecycle (`planIntent` → `startIntent` → `resolveIntent`), run history carries provenance, and `schedule-state.json` records `last_continuous_session_id`. ✅
+- `AT-SDH-011`: subprocess E2E — when two schedules enable `continuous`, the active/selected owner is the only one advanced on that poll; sibling continuous schedules do not leak into normal `action: "ran"` executions, and a later poll may start the next due sibling after the first session reaches terminal completion. ✅
 
 ## Open Questions
 
