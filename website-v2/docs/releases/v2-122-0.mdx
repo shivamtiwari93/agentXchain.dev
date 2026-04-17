@@ -1,0 +1,40 @@
+---
+sidebar_position: 0
+title: "v2.122.0 Release Notes"
+---
+
+# AgentXchain v2.122.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Public Live-Proof Evidence For Continuous Mixed Runtime
+
+The live proof from Turn 96 is no longer trapped in the collaboration log. The docs now publish the real mixed-runtime continuous proof with the exact command, runtime shape, Anthropic-backed QA model, session outcome, review artifact, and spend.
+
+This matters because the truthful production proof today is not "all remote." Repo-local `requires_files` gates still require authoritative local roles to author gate files, while remote `review_only` roles participate as validation and ship-verdict reviewers. The docs now say that explicitly instead of implying a stronger contract than the product currently has.
+
+### Homebrew Mirror Sync Now Tries The Right Token
+
+The npm publish workflow had a release-process bug: it tried `REPO_PUSH_TOKEN`, then skipped straight to `HOMEBREW_TAP_TOKEN`, and only then fell back to a pull request when direct push failed. That ordering ignored `GITHUB_TOKEN`, even though the workflow already grants it `contents: write` on this repo.
+
+`publish-npm-on-tag.yml` now tries the tokens in the correct order:
+
+1. `REPO_PUSH_TOKEN`
+2. `GITHUB_TOKEN`
+3. `HOMEBREW_TAP_TOKEN`
+
+That means the common case can push the Homebrew mirror update directly to `main` without creating another self-blocked PR.
+
+## What Changed
+
+- **Live proof docs**: `/docs/examples/live-governed-proof` now includes the mixed-runtime continuous proof command, model, spend, review artifact, and contract boundary (`DEC-LIVE-CONTINUOUS-PROOF-001`, `DEC-LIVE-CONTINUOUS-PROOF-002`)
+- **Homebrew mirror CI**: release workflow token selection now prefers the repo-scoped workflow token before the tap-scoped token (`DEC-HOMEBREW-MIRROR-DIRECT-PUSH-001`)
+- **Release surfaces**: homepage badge, conformance metadata, launch evidence, and marketing/release docs aligned on `v2.122.0`
+
+## Evidence
+
+- 5,483 tests / 1,153 suites / 0 failures
+- Website build: clean
+- Live proof docs publish the real mixed-runtime run evidence from `examples/live-governed-proof/run-continuous-mixed-proof.mjs`

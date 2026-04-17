@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.121.0
+# Launch Evidence Report — AgentXchain v2.122.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.121.0 release: orchestrator state files allowlist fix, export/restore continuity preservation, live-adapter dogfood proof, and lights-out operator runbook. Current aggregate release evidence: 5,478 tests / 1,152 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.122.0 release: public mixed-runtime continuous proof evidence, Homebrew mirror direct-push token ordering, and aligned downstream release surfaces. Current aggregate release evidence: 5,483 tests / 1,153 suites / 0 failures.
 
 ---
 

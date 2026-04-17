@@ -72,6 +72,8 @@ const filesChanged = phase === 'planning'
     : [];
 
 execSync('git add -A', { cwd: root, stdio: 'pipe' });
+execSync('git config user.name "proof"', { cwd: root, stdio: 'pipe' });
+execSync('git config user.email "proof@example.com"', { cwd: root, stdio: 'pipe' });
 execSync(`git commit -m "proof(${phase}): commit authored slice"`, {
   cwd: root,
   stdio: 'pipe',

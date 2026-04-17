@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.122.0
+
+`2.122.0` ships public live-proof evidence for the mixed-runtime continuous run contract and fixes the Homebrew mirror sync workflow so the release pipeline tries the repo-scoped workflow token before falling back to an unmergeable PR.
+
+- Live mixed-runtime continuous proof docs: the examples docs now publish the real `run-continuous-mixed-proof.mjs` evidence with command, runtime shape, model, session outcome, review artifact, and spend so the public proof surface matches the shipped harness (`DEC-LIVE-CONTINUOUS-PROOF-001`, `DEC-LIVE-CONTINUOUS-PROOF-002`)
+- Homebrew mirror direct-push fix: `publish-npm-on-tag.yml` now tries `REPO_PUSH_TOKEN`, then `GITHUB_TOKEN`, then `HOMEBREW_TAP_TOKEN` when syncing `cli/homebrew/*`, instead of skipping the repo-scoped workflow token and falling back to a PR that cannot self-merge (`DEC-HOMEBREW-MIRROR-DIRECT-PUSH-001`)
+- Release docs + marketing drafts updated to carry the truthful mixed-runtime proof story and v2.122.0 downstream release surfaces
+- 5,483 tests / 1,153 suites / 0 failures
+
 ## 2.121.0
 
 `2.121.0` ships orchestrator state files allowlist fix, export/restore continuity preservation, live-adapter dogfood proof, and the lights-out operator runbook.

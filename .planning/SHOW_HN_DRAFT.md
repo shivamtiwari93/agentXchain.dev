@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.121.0
+# Show HN Draft — AgentXchain v2.122.0
 
-> Ready-to-post draft. Updated 2026-04-17 for v2.121.0.
+> Ready-to-post draft. Updated 2026-04-17 for v2.122.0.
 
 ---
 
@@ -46,9 +46,9 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest shipped operator slice: schedule-owned continuous mode in `schedule daemon`, so repo-local scheduling can own a persistent vision-driven session instead of firing only one governed run per due interval.
+Latest shipped operator slice: public mixed-runtime continuous proof docs and a real release-pipeline fix for Homebrew mirror sync. The proof page now names the exact script, Anthropic-backed QA model, spend, and runtime split; the publish workflow now tries `GITHUB_TOKEN` for direct mirror sync before falling back to a PR.
 
-5,478 tests / 1,152 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
+5,483 tests / 1,153 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
 
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 npm: https://www.npmjs.com/package/agentxchain

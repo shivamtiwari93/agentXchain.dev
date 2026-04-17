@@ -51,6 +51,20 @@ async function waitForFile(filePath, timeoutMs = 5000) {
   }
 }
 
+async function waitFor(check, timeoutMs = 5000, intervalMs = 25) {
+  const start = Date.now();
+  while (true) {
+    const value = check();
+    if (value) {
+      return value;
+    }
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('Timed out waiting for expected condition');
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
 async function createWebhookCollector(root) {
   const portFile = join(root, 'notify-port.txt');
   const requestsFile = join(root, 'notify-requests.jsonl');
@@ -203,7 +217,7 @@ describe('notification lifecycle', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('AT-NOTIFY-003: markRunBlocked emits run_blocked and records notification audit', () => {
+  it('AT-NOTIFY-003: markRunBlocked emits run_blocked and records notification audit', async () => {
     const config = makeConfig(collector.url, ['run_blocked']);
     scaffoldGoverned(dir, config);
     initializeGovernedRun(dir, config);
@@ -227,14 +241,17 @@ describe('notification lifecycle', () => {
     });
 
     assert.equal(blocked.ok, true);
-    const requests = collector.readRequests();
+    const requests = await waitFor(() => {
+      const seen = collector.readRequests();
+      return seen.length === 1 ? seen : null;
+    });
     assert.equal(requests.length, 1);
     assert.equal(requests[0].event_type, 'run_blocked');
     assert.equal(requests[0].payload.category, 'dispatch_error');
     assert.ok(requests[0].payload.human_escalation, 'run_blocked payload must include human escalation metadata');
     assert.match(requests[0].payload.human_escalation.resolution_command, /^agentxchain unblock hesc_/);
 
-    const audit = readJsonl(dir, NOTIFICATION_AUDIT_PATH);
+    const audit = await waitFor(() => existsSync(join(dir, NOTIFICATION_AUDIT_PATH)) ? readJsonl(dir, NOTIFICATION_AUDIT_PATH) : null);
     assert.equal(audit.length, 1);
     assert.equal(audit[0].event_type, 'run_blocked');
     assert.equal(audit[0].delivered, true);

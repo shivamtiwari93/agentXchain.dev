@@ -272,7 +272,7 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /Direct push to main succeeded — no PR needed/,
+      /Direct push to main succeeded via \$\{PUSH_TOKEN_NAME\} — no PR needed/,
       'workflow must report success on direct push',
     );
     assert.match(
@@ -312,7 +312,7 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
-  it('CI workflow prefers REPO_PUSH_TOKEN over HOMEBREW_TAP_TOKEN for repo direct push', () => {
+  it('CI workflow prefers REPO_PUSH_TOKEN, then GITHUB_TOKEN, then HOMEBREW_TAP_TOKEN for repo direct push', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(
       workflow,
@@ -321,13 +321,23 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /PUSH_TOKEN="\$\{REPO_PUSH_TOKEN:-\$\{HOMEBREW_TAP_TOKEN:-}}"/,
-      'workflow must prefer REPO_PUSH_TOKEN and fall back to HOMEBREW_TAP_TOKEN',
+      /GH_TOKEN: \$\{\{ github\.token }}/,
+      'workflow must expose GITHUB_TOKEN for direct repo push attempts',
+    );
+    assert.match(
+      workflow,
+      /if \[\[ -n "\$\{REPO_PUSH_TOKEN:-}" \]\]; then[\s\S]*PUSH_TOKEN_NAME="REPO_PUSH_TOKEN"[\s\S]*elif \[\[ -n "\$\{GH_TOKEN:-}" \]\]; then[\s\S]*PUSH_TOKEN_NAME="GITHUB_TOKEN"[\s\S]*elif \[\[ -n "\$\{HOMEBREW_TAP_TOKEN:-}" \]\]; then[\s\S]*PUSH_TOKEN_NAME="HOMEBREW_TAP_TOKEN"/,
+      'workflow must prefer REPO_PUSH_TOKEN, then GITHUB_TOKEN, then HOMEBREW_TAP_TOKEN',
     );
     assert.match(
       workflow,
       /PUSH_TOKEN_NAME="REPO_PUSH_TOKEN"/,
       'workflow must label the preferred repo-push credential explicitly',
+    );
+    assert.match(
+      workflow,
+      /PUSH_TOKEN_NAME="GITHUB_TOKEN"/,
+      'workflow must label the workflow-token fallback explicitly',
     );
   });
 
