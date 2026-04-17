@@ -1401,6 +1401,103 @@ export function clearPreemptionMarker(root) {
   }
 }
 
+export function consumePreemptionMarker(root, options = {}) {
+  const marker = readPreemptionMarker(root);
+  if (!marker?.intent_id) {
+    return { ok: false, error: 'no preemption marker found', exitCode: 1 };
+  }
+
+  const loadedIntent = readIntent(root, marker.intent_id);
+  if (!loadedIntent.ok) {
+    return {
+      ok: false,
+      error: `preemption marker references missing intent ${marker.intent_id}`,
+      marker,
+      exitCode: 1,
+    };
+  }
+
+  const startingStatus = loadedIntent.intent.status;
+  let intent = loadedIntent.intent;
+  let planned = false;
+  let started = false;
+
+  if (intent.status === 'approved') {
+    const plannedResult = planIntent(root, intent.intent_id, {
+      projectName: options.projectName,
+      force: options.forcePlan === true,
+    });
+    if (!plannedResult.ok) {
+      return {
+        ok: false,
+        error: `failed to plan injected intent ${intent.intent_id}: ${plannedResult.error}`,
+        marker,
+        intent_status: intent.status,
+        exitCode: plannedResult.exitCode || 1,
+      };
+    }
+    intent = plannedResult.intent;
+    planned = true;
+  }
+
+  if (intent.status === 'planned') {
+    const startResult = startIntent(root, intent.intent_id, {
+      role: options.role || undefined,
+    });
+    if (!startResult.ok) {
+      return {
+        ok: false,
+        error: `failed to start injected intent ${intent.intent_id}: ${startResult.error}`,
+        marker,
+        intent_status: intent.status,
+        exitCode: startResult.exitCode || 1,
+      };
+    }
+    clearPreemptionMarker(root);
+    return {
+      ok: true,
+      marker,
+      intent_id: intent.intent_id,
+      starting_status: startingStatus,
+      final_status: startResult.intent.status,
+      planned,
+      started: true,
+      run_id: startResult.run_id,
+      turn_id: startResult.turn_id,
+      role: startResult.role,
+      intent: startResult.intent,
+      exitCode: 0,
+    };
+  }
+
+  if (intent.status === 'executing') {
+    clearPreemptionMarker(root);
+    return {
+      ok: true,
+      marker,
+      intent_id: intent.intent_id,
+      starting_status: startingStatus,
+      final_status: intent.status,
+      planned,
+      started: false,
+      run_id: intent.target_run || null,
+      turn_id: intent.target_turn || null,
+      role: options.role || null,
+      intent,
+      exitCode: 0,
+    };
+  }
+
+  return {
+    ok: false,
+    error: `cannot consume preemption marker from intent status "${intent.status}"`,
+    marker,
+    intent_id: intent.intent_id,
+    intent_status: intent.status,
+    exitCode: 1,
+  };
+}
+
 export function injectIntent(root, description, options = {}) {
   if (!description || typeof description !== 'string' || !description.trim()) {
     return { ok: false, error: 'description is required', exitCode: 1 };

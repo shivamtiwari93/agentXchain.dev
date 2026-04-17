@@ -13,6 +13,7 @@ import {
   createDaemonState,
   evaluateDaemonStatus,
 } from '../lib/run-schedule.js';
+import { consumePreemptionMarker } from '../lib/intake.js';
 import { executeGovernedRun } from './run.js';
 
 function loadScheduleContext() {
@@ -116,6 +117,45 @@ function recordScheduleExecution(context, entryId, execution, fallbackState, now
   return buildScheduleExecutionResult(entryId, execution, fallbackState, action);
 }
 
+function consumeScheduledPriorityPreemption(context, scheduleId, schedule, execution, fallbackState, at) {
+  const scheduleResult = recordScheduleExecution(
+    context,
+    scheduleId,
+    execution,
+    fallbackState,
+    at || new Date().toISOString(),
+    'preempted',
+  );
+  const consumed = consumePreemptionMarker(context.root, {
+    role: schedule.initial_role || undefined,
+  });
+
+  if (!consumed.ok) {
+    return {
+      ok: false,
+      exitCode: 1,
+      result: {
+        ...scheduleResult,
+        action: 'preemption_failed',
+        error: consumed.error,
+        injected_intent_id: execution.result?.preempted_by || null,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    exitCode: 0,
+    result: {
+      ...scheduleResult,
+      action: 'preempted',
+      injected_intent_id: consumed.intent_id,
+      injected_turn_id: consumed.turn_id,
+      injected_role: consumed.role,
+    },
+  };
+}
+
 async function continueActiveScheduledRun(context, opts = {}) {
   const continuation = findContinuableScheduleRun(context.root, context.config, {
     scheduleId: opts.schedule || null,
@@ -136,6 +176,16 @@ async function continueActiveScheduledRun(context, opts = {}) {
     report: true,
     log: opts.json ? () => {} : console.log,
   });
+
+  if (execution.result?.stop_reason === 'priority_preempted') {
+    const promoted = consumeScheduledPriorityPreemption(context, scheduleId, schedule, execution, state, opts.at);
+    return {
+      matched: true,
+      ok: promoted.ok,
+      exitCode: promoted.exitCode,
+      result: promoted.result,
+    };
+  }
 
   const blocked = execution.result?.stop_reason === 'blocked';
   const action = blocked && opts.tolerateBlockedRun ? 'blocked' : 'continued';
@@ -231,6 +281,15 @@ async function runDueSchedules(context, opts = {}) {
       continue;
     }
 
+    if (execution.result?.stop_reason === 'priority_preempted') {
+      const promoted = consumeScheduledPriorityPreemption(context, entry.id, entry, execution, execution.result?.state || null, nowIso);
+      results.push(promoted.result);
+      if (!promoted.ok) {
+        return { ok: false, exitCode: promoted.exitCode, results };
+      }
+      continue;
+    }
+
     const blocked = execution.result?.stop_reason === 'blocked';
     results.push(recordScheduleExecution(
       context,
@@ -291,6 +350,10 @@ export async function scheduleRunDueCommand(opts) {
         console.log(chalk.green(`Schedule ran: ${entry.id} (${entry.run_id || 'no run id'})`));
       } else if (entry.action === 'continued') {
         console.log(chalk.green(`Schedule continued: ${entry.id} (${entry.run_id || 'no run id'})`));
+      } else if (entry.action === 'preempted') {
+        console.log(chalk.yellow(`Schedule preempted by injected priority: ${entry.id} (${entry.injected_intent_id || 'unknown intent'})`));
+      } else if (entry.action === 'preemption_failed') {
+        console.log(chalk.red(`Schedule preemption failed: ${entry.id} (${entry.error || 'unknown error'})`));
       } else if (entry.action === 'blocked') {
         console.log(chalk.yellow(`Schedule waiting on unblock: ${entry.id}`));
       } else if (entry.action === 'skipped') {

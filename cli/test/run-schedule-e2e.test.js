@@ -150,6 +150,63 @@ function writeBlockingMockAgent(root) {
   return agentPath;
 }
 
+function writeLoopingMockAgent(root) {
+  const agentPath = join(root, 'mock-looping-agent.mjs');
+  const source = [
+    '#!/usr/bin/env node',
+    "import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';",
+    "import { join, dirname } from 'path';",
+    '',
+    'const root = process.cwd();',
+    "const indexPath = join(root, '.agentxchain/dispatch/index.json');",
+    "const counterPath = join(root, '.agentxchain', 'mock-loop-count');",
+    'if (!existsSync(indexPath)) process.exit(1);',
+    "const index = JSON.parse(readFileSync(indexPath, 'utf8'));",
+    'const entry = Object.values(index.active_turns || {})[0];',
+    'if (!entry) process.exit(1);',
+    'const turnId = entry.turn_id;',
+    'const roleId = entry.role;',
+    'const runtimeId = entry.runtime_id;',
+    'const stagingResultPath = entry.staging_result_path;',
+    'const runId = index.run_id;',
+    '',
+    'const count = existsSync(counterPath)',
+    "  ? Number.parseInt(readFileSync(counterPath, 'utf8').trim() || '0', 10) + 1",
+    '  : 1;',
+    "writeFileSync(counterPath, `${count}\\n`);",
+    '',
+    'await new Promise((resolve) => setTimeout(resolve, 1200));',
+    '',
+    'const turnResult = {',
+    "  schema_version: '1.0',",
+    '  run_id: runId,',
+    '  turn_id: turnId,',
+    '  role: roleId,',
+    '  runtime_id: runtimeId,',
+    "  status: 'completed',",
+    "  summary: `Looping mock turn ${count} completed.`,",
+    '  decisions: [],',
+    '  objections: [],',
+    '  files_changed: [],',
+    '  artifacts_created: [],',
+    "  verification: { status: 'pass', commands: ['echo ok'], evidence_summary: 'pass', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] },",
+    '  artifact: { type: roleId === "dev" ? "workspace" : "review", ref: null },',
+    '  proposed_next_role: roleId,',
+    '  phase_transition_request: null,',
+    '  run_completion_request: false,',
+    '  needs_human_reason: null,',
+    "  cost: { input_tokens: 0, output_tokens: 0, usd: 0 },",
+    '};',
+    '',
+    'const absStaging = join(root, stagingResultPath);',
+    'mkdirSync(dirname(absStaging), { recursive: true });',
+    "writeFileSync(absStaging, JSON.stringify(turnResult, null, 2) + '\\n');",
+  ].join('\n');
+
+  writeFileSync(agentPath, source);
+  return agentPath;
+}
+
 function runCli(root, args, opts = {}) {
   const result = spawnSync(process.execPath, [CLI_BIN, ...args], {
     cwd: root,
@@ -222,6 +279,10 @@ function readRunHistory(root) {
   const content = readFileSync(join(root, '.agentxchain', 'run-history.jsonl'), 'utf8').trim();
   if (!content) return [];
   return content.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+}
+
+function readIntent(root, intentId) {
+  return JSON.parse(readFileSync(join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`), 'utf8'));
 }
 
 async function waitFor(fn, { timeoutMs = 15000, intervalMs = 100 } = {}) {
@@ -428,6 +489,68 @@ describe('run schedule E2E', () => {
     assert.ok(
       daemonCycles.some((cycle) => cycle.results?.some((entry) => entry.action === 'continued' && entry.stop_reason === 'completed')),
       `expected a continued cycle, got: ${daemonResult.stdout}`,
+    );
+  });
+
+  it('AT-SCHED-010: schedule daemon consumes injected p0 work after priority preemption', async () => {
+    const root = makeProject();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    const loopingAgent = writeLoopingMockAgent(root);
+    const runtime = {
+      type: 'local_cli',
+      command: process.execPath,
+      args: [loopingAgent],
+      prompt_transport: 'dispatch_bundle_only',
+    };
+
+    for (const runtimeId of Object.keys(config.runtimes || {})) {
+      config.runtimes[runtimeId] = { ...runtime };
+    }
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const daemon = spawnCli(root, ['schedule', 'daemon', '--max-cycles', '2', '--poll-seconds', '1', '--json'], {
+      timeout: 20000,
+    });
+
+    await waitFor(() => {
+      const statePath = join(root, '.agentxchain', 'state.json');
+      if (!existsSync(statePath)) return null;
+      try {
+        const state = JSON.parse(readFileSync(statePath, 'utf8'));
+        return state.status === 'active' && Object.keys(state.active_turns || {}).length > 0 ? state : null;
+      } catch {
+        return null;
+      }
+    });
+
+    const inject = runCli(root, ['inject', 'Emergency schedule fix', '--priority', 'p0', '--json'], { timeout: 30000 });
+    assert.equal(inject.status, 0, inject.combined);
+    const injected = JSON.parse(inject.stdout);
+
+    const daemonResult = await daemon.completed;
+    assert.equal(daemonResult.status, 0, daemonResult.combined);
+
+    const injectedIntent = readIntent(root, injected.intent_id);
+    assert.equal(injectedIntent.status, 'executing');
+    assert.ok(injectedIntent.target_turn, 'injected intent must be started by the daemon');
+
+    const markerPath = join(root, '.agentxchain', 'intake', 'injected-priority.json');
+    assert.equal(existsSync(markerPath), false, 'daemon must clear the preemption marker after starting injected work');
+
+    const daemonCycles = daemonResult.stdout.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    assert.ok(
+      daemonCycles.some((cycle) => cycle.results?.some((entry) =>
+        entry.action === 'preempted'
+        && entry.stop_reason === 'priority_preempted'
+        && entry.injected_intent_id === injected.intent_id
+        && entry.injected_turn_id === injectedIntent.target_turn
+      )),
+      `expected a preempted cycle that promoted the injected intent, got: ${daemonResult.stdout}`,
+    );
+    assert.ok(
+      daemonCycles.some((cycle) => cycle.results?.some((entry) => entry.action === 'continued')),
+      `expected a continuation cycle after injected work was started, got: ${daemonResult.stdout}`,
     );
   });
 });

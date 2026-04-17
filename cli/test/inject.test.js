@@ -55,6 +55,34 @@ function createGovernedProject() {
   return createProject();
 }
 
+function writeActiveState(dir, overrides = {}) {
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify({
+    schema_version: '1.0',
+    run_id: `run_${Date.now()}_inject`,
+    project_id: 'test-inject',
+    status: 'active',
+    phase: 'implementation',
+    accepted_integration_ref: null,
+    active_turns: {},
+    turn_sequence: 0,
+    last_completed_turn_id: null,
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+    pending_phase_transition: null,
+    pending_run_completion: null,
+    queued_phase_transition: null,
+    queued_run_completion: null,
+    phase_gate_status: {},
+    provenance: {
+      trigger: 'schedule',
+      created_by: 'operator',
+      trigger_reason: 'schedule:test-inject',
+    },
+    ...overrides,
+  }, null, 2));
+}
+
 function runCli(args, cwd) {
   return spawnSync(process.execPath, [CLI_BIN, ...args], {
     cwd,
@@ -287,5 +315,39 @@ describe('inject preemption in run loop', () => {
     const preemptEvent = events.find(e => e.type === 'priority_injected');
     assert.ok(preemptEvent, 'priority_injected event must be emitted');
     assert.equal(preemptEvent.intent_id, marker.intent_id);
+  });
+});
+
+describe('inject preemption marker consumption', () => {
+  let dir;
+  beforeEach(() => { dir = createGovernedProject(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('plans and starts the injected intent, then clears the marker', async () => {
+    writeActiveState(dir);
+
+    const injected = runCli(['inject', 'Critical fix', '--priority', 'p0', '--json'], dir);
+    assert.equal(injected.status, 0, `exit ${injected.status}: ${injected.stderr}`);
+    const injectedPayload = JSON.parse(injected.stdout);
+
+    const { consumePreemptionMarker } = await import('../src/lib/intake.js');
+    const result = consumePreemptionMarker(dir);
+
+    assert.equal(result.ok, true, result.error || 'consumePreemptionMarker must succeed');
+    assert.equal(result.intent_id, injectedPayload.intent_id);
+    assert.equal(result.starting_status, 'approved');
+    assert.equal(result.final_status, 'executing');
+    assert.equal(result.planned, true);
+    assert.equal(result.started, true);
+    assert.ok(result.turn_id);
+
+    assert.equal(readPreemptionMarker(dir), null, 'preemption marker must be cleared after start');
+
+    const intents = readIntakeFiles(dir, 'intents');
+    assert.equal(intents[0].status, 'executing');
+    assert.equal(intents[0].target_turn, result.turn_id);
+
+    const state = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+    assert.ok(state.active_turns[result.turn_id], 'consuming the marker must assign the injected turn');
   });
 });

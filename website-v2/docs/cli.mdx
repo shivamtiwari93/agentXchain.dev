@@ -759,7 +759,7 @@ agentxchain inject "<description>" [options]
 
 Injects a priority work item into the intake queue in one atomic operation. Composes `intake record` + `intake triage` + `intake approve` so the operator can express "do this next" without running three separate commands.
 
-When priority is `p0`, a preemption marker is written to `.agentxchain/intake/injected-priority.json`. The run loop checks for this marker at the top of each iteration. If present and no turns are active, the current run yields with `stop_reason: "priority_preempted"` so the scheduler or continuous loop can pick up the injected work next. Non-`p0` injections enter the queue for normal priority ordering without triggering preemption.
+When priority is `p0`, a preemption marker is written to `.agentxchain/intake/injected-priority.json`. The run loop checks for this marker at the top of each iteration. If present and no turns are active, the current run yields with `stop_reason: "priority_preempted"` so the scheduler or continuous loop can pick up the injected work next. On the repo-local path, `schedule daemon` now consumes that marker by planning and starting the injected intent, then clears the marker after the injected governed turn is assigned. Non-`p0` injections enter the queue for normal priority ordering without triggering preemption.
 
 `agentxchain status` shows a prominent "Priority injection pending" banner when a preemption marker exists.
 
@@ -864,6 +864,7 @@ Behavior contract:
 - `schedule list` shows due status, next due time, and last run/skip metadata from `.agentxchain/schedule-state.json`
 - `schedule run-due` evaluates configured schedules once and runs only the ones currently due
 - `schedule daemon` repeats that same due-run path on a fixed local poll interval and, after an explicit `agentxchain unblock <id>`, continues the same schedule-owned run on the next poll
+- when a running schedule-owned turn yields with `priority_preempted`, `schedule daemon` consumes the injected `p0` intent, plans it if needed, starts it into the same schedule-owned run, and continues that run on the next poll
 - scheduled runs use `trigger: "schedule"` provenance instead of pretending they were started manually
 - scheduled runs start only from `missing` (no state file yet), `idle`, or `completed`
 - scheduled runs do **not** attach to an existing `active` or `paused` run

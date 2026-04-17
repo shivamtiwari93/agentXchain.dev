@@ -40,7 +40,7 @@ When an intent is injected with priority `p0`:
 2. The run loop (`runLoop`) checks for this marker at the **top of each iteration** (after `loadState`, before `selectRole`). If a marker exists and the current run has no active turns:
    - Emit a `priority_injected` event with the intent ID and priority.
    - Return `{ ok: false, stop_reason: 'priority_preempted', preempted_by: intent_id }`.
-3. The scheduler/daemon detects `priority_preempted` and evaluates the injected intent as the next work item.
+3. A continuous owner such as `schedule daemon` detects `priority_preempted`, consumes the marker, promotes the injected intent through `approved -> planned -> executing`, and clears the marker after the new governed turn is assigned.
 4. Non-p0 injections do NOT trigger preemption — they enter the queue for normal priority ordering.
 
 ### Preemption visibility in `agentxchain status`
@@ -61,8 +61,9 @@ This section appears above the normal run status when a marker is present.
 ### Marker lifecycle
 
 - Written by `agentxchain inject` when priority is `p0`.
-- Consumed (deleted) by the run loop when it acts on the preemption, or by `intake start` when the injected intent enters execution.
-- Stale markers (intent already terminal or executing) are cleaned up by `status` and `intake status`.
+- The run loop does **not** delete the marker. It yields with `priority_preempted` and leaves ownership to the continuous scheduler.
+- The continuous scheduler deletes the marker only after the injected intent has been started successfully, or when it discovers the referenced intent is already `executing`.
+- Failed consumption leaves the marker in place so operator surfaces remain truthful.
 
 ## Error Cases
 
@@ -82,10 +83,11 @@ This section appears above the normal run status when a marker is present.
 - `AT-INJECT-003`: `agentxchain inject "..." --no-approve` creates an intent in `triaged` status.
 - `AT-INJECT-004`: `agentxchain status` shows preemption section when marker exists.
 - `AT-INJECT-005`: Run loop returns `priority_preempted` when a p0 marker is present and no active turns exist.
-- `AT-INJECT-006`: Preemption marker is cleaned up when the injected intent enters execution.
+- `AT-INJECT-006`: Consuming the preemption marker plans and starts the injected intent, then clears the marker.
 - `AT-INJECT-007`: Duplicate inject (same description) returns existing intent without error.
+- `AT-SCHED-010`: `schedule daemon` consumes an injected `p0` after `priority_preempted`, starts the injected governed turn, and continues the schedule-owned run on the next poll.
 
 ## Open Questions
 
 - Whether `p1` should also trigger preemption (current spec: only `p0`). Start conservative.
-- Whether `inject` should auto-plan as well (current spec: stops at `approved` — operator or automation runs `intake plan` + `intake start` separately, or the continuous loop picks it up).
+- Whether the future mission layer should promote some injected work into a mission automatically instead of keeping the current repo-local intent boundary.

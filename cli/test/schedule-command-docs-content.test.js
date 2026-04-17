@@ -48,6 +48,12 @@ describe('schedule command docs contract', () => {
     assert.match(CLI_DOCS, /after an explicit `agentxchain unblock <id>`.*continues the same schedule-owned run on the next poll/i);
   });
 
+  it('documents injected p0 consumption for schedule-owned runs', () => {
+    assert.match(CLI_DOCS, /priority_preempted/i);
+    assert.match(CLI_DOCS, /schedule daemon.*consumes the injected `p0` intent/i);
+    assert.match(CLI_DOCS, /continues that run on the next poll/i);
+  });
+
   it('documents fresh-repo start eligibility (missing, idle, completed)', () => {
     assert.match(CLI_DOCS, /`missing`/);
     assert.match(CLI_DOCS, /scheduled runs start only from `missing`.*`idle`.*`completed`/i);
@@ -67,7 +73,7 @@ describe('run schedule spec alignment', () => {
     assert.match(SPEC, /## Purpose/);
     assert.match(SPEC, /## Interface/);
     assert.match(SPEC, /AT-SCHED-001/);
-    assert.match(SPEC, /AT-SCHED-008/);
+    assert.match(SPEC, /AT-SCHED-010/);
     assert.match(SPEC, /## Non-Scope/);
   });
 });

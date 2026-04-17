@@ -34,7 +34,7 @@ Current focus: full-auto vision-driven operation with human priority injection a
     - Human approval gates (`planning_signoff`, `qa_ship_verdict`) are respected if `requires_human_approval: true` — the continuous mode may pause and escalate at those gates (see item 3 below).
     - Agents debate the triage-without-human approach in AGENT-TALK.md before implementing. Default triage approval policy (auto vs. human) should be configurable.
 
-- [ ] **Human can inject tasks/priorities into the roadmap/queue at any time based on judgment** — Even in full-auto mode, the human operator must be able to interrupt the agent fleet with a new priority that the agents pick up on their next turn without restarting the run.
+- [x] **Human can inject tasks/priorities into the roadmap/queue at any time based on judgment** — completed 2026-04-17: `agentxchain inject` now composes record+triage+approve in one command, `status` surfaces preemption clearly, the run loop yields with `priority_preempted`, and `schedule daemon` consumes injected `p0` work by planning/starting it into the same schedule-owned run on the next poll. Mission auto-promotion is explicitly deferred to the future vision-driven mission layer.
   - **Do not reinvent the wheel.** The scaffolding already exists:
     - `agentxchain intake record --source manual --signal '...' --evidence '...'` already accepts ad-hoc signals from the operator.
     - `agentxchain intake triage --priority p0 ...` already supports priority assignment (p0–p3).

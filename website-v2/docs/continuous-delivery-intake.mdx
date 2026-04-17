@@ -646,7 +646,7 @@ agentxchain inject "Draft work" --no-approve
 
 `inject` composes `intake record` + `intake triage` + `intake approve` into one atomic command. It exists so an operator can express "do this next" without running three separate commands.
 
-When priority is `p0`, a **preemption marker** is written to `.agentxchain/intake/injected-priority.json`. The run loop checks for this marker at the top of each iteration and, if no turns are active, yields with `stop_reason: "priority_preempted"`. The scheduler or continuous loop then picks up the injected intent as the next work item.
+When priority is `p0`, a **preemption marker** is written to `.agentxchain/intake/injected-priority.json`. The run loop checks for this marker at the top of each iteration and, if no turns are active, yields with `stop_reason: "priority_preempted"`. A continuous owner such as `schedule daemon` then consumes that marker, promotes the injected intent through `approved -> planned -> executing`, and clears the marker once the new governed turn is assigned.
 
 Non-`p0` injections (`p1`–`p3`) enter the queue for normal priority ordering without triggering preemption.
 

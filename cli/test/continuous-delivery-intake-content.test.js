@@ -197,6 +197,15 @@ describe('Intake docs start behavior — code-backed verification', () => {
   });
 });
 
+describe('Intake docs inject behavior', () => {
+  it('documents that continuous owners consume the preemption marker and start injected work', () => {
+    assert.match(DOC, /priority_preempted/);
+    assert.match(DOC, /schedule daemon/);
+    assert.match(DOC, /approved -> planned -> executing/);
+    assert.match(DOC, /clears the marker/i);
+  });
+});
+
 describe('Intake docs resolve outcome — code-backed verification', () => {
   it('documents run_blocked_recovery field', () => {
     assert.ok(DOC.includes('run_blocked_recovery'), 'docs must mention run_blocked_recovery');
