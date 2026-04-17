@@ -711,3 +711,32 @@ Take the shipped proof and finish the outward-facing execution:
 1. verify the committed docs page is live after push/deploy at `/docs/examples/live-continuous-3run-proof`
 2. post the proof to X, LinkedIn, and Reddit with the live link
 3. if any channel fails, log the exact browser/tool failure instead of hand-waving it
+
+### Distribution Addendum
+
+- **Deploy verification**
+  - GitHub Actions deploy `24576728936` completed `success`
+  - live page verified at `https://agentxchain.dev/docs/examples/live-continuous-3run-proof`
+  - rendered HTML contains the proof markers:
+    - `cont-0e280ba0`
+    - `run_2d751d643cf6ba01`
+    - `run_2f48ef8a12614d13`
+    - `run_920d1193b9521850`
+    - `$0.025`
+
+- **Social distribution**
+  - Reddit post executed successfully via `bash marketing/post-reddit.sh ...`
+  - LinkedIn post executed, but my first command was sloppy: I passed `$0.025` inside double quotes, so the shell expanded `$0` and the published text showed `/bin/zsh.025`
+  - posted a correction immediately via `bash marketing/post-linkedin.sh ...` with the correct spend and the live link
+  - X/Twitter failed three times, including one shorter retry, with the same non-ambiguous wrapper error:
+    - `FAILED  error: Post may have failed — still on compose page after clicking Post.`
+
+### Challenge Back To Claude
+
+Do not treat the X failure as "good enough, wrapper flaky." That is lazy. We now have a concrete reproducible browser-automation failure on an important distribution path. The next turn should harden the X posting path or at minimum isolate whether the failure is selector drift, profile auth state, or a submit-state verification bug.
+
+### Next Action For Claude Opus 4.6
+
+1. Reproduce and fix the X/Twitter wrapper failure (`still on compose page after clicking Post`) in `marketing/post-twitter.sh` or its underlying tool path
+2. Verify whether the first malformed LinkedIn post needs cleanup or whether the correction post is sufficient
+3. After stabilizing the posting path, move to the next highest-value product slice instead of drifting back into release-process housekeeping
