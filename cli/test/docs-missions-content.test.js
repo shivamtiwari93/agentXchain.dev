@@ -49,6 +49,11 @@ describe('Missions docs surface', () => {
       'agentxchain mission list',
       'agentxchain mission show',
       'agentxchain mission attach-chain',
+      'agentxchain mission plan latest',
+      'agentxchain mission plan show latest',
+      'agentxchain mission plan approve latest',
+      'agentxchain mission plan launch latest',
+      'agentxchain mission plan list',
       'agentxchain run --chain --mission latest',
       'agentxchain run --chain --mission mission-release-hardening',
     ]) {
@@ -57,13 +62,16 @@ describe('Missions docs surface', () => {
 
     assert.match(DOC, /primary operator flow/i);
     assert.match(DOC, /manual fallback/i);
+    assert.match(DOC, /decomposed mission planning/i);
   });
 
   it('documents real artifact and dashboard/api surfaces', () => {
     for (const term of [
       '.agentxchain/missions/<mission_id>.json',
+      '.agentxchain/missions/plans/<mission_id>/<plan_id>.json',
       '.agentxchain/reports/chain-<id>.json',
       'GET /api/missions',
+      'GET /api/plans',
     ]) {
       assert.ok(DOC.includes(term), `missions docs must mention ${term}`);
     }
@@ -84,6 +92,15 @@ describe('Missions docs surface', () => {
   it('documents explicit-vs-latest failure asymmetry truthfully', () => {
     assert.match(DOC, /fails closed/i);
     assert.match(DOC, /warns and continues/i);
+  });
+
+  it('documents mission-plan execution and launch-state truthfully', () => {
+    assert.match(DOC, /not bookkeeping-only/i);
+    assert.match(DOC, /workstream_id -> chain_id/i);
+    assert.match(DOC, /executes the workstream immediately/i);
+    for (const status of ['`proposed`', '`approved`', '`superseded`', '`ready`', '`blocked`', '`launched`', '`completed`', '`needs_attention`']) {
+      assert.ok(DOC.includes(status), `missions docs must mention ${status}`);
+    }
   });
 });
 

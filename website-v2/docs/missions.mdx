@@ -35,16 +35,22 @@ Mission data is repo-local and file-backed:
 | Surface | Purpose |
 |---|---|
 | `.agentxchain/missions/<mission_id>.json` | Durable mission artifact with title, goal, timestamps, and attached `chain_ids` |
+| `.agentxchain/missions/plans/<mission_id>/<plan_id>.json` | Durable mission-plan artifact with workstreams, dependencies, approval state, and `launch_records` |
 | `.agentxchain/reports/chain-<id>.json` | Chain report referenced by a mission |
 | `GET /api/missions` | Dashboard/API surface returning newest-first mission snapshots plus the latest mission summary |
+| `GET /api/plans` | Dashboard/API surface returning newest-first plan snapshots, workstream launch states, and launch-record chain linkage |
 
-The dashboard `Mission` view reads `GET /api/missions`. It is intentionally separate from the coordinator `Initiative` view.
+The dashboard `Mission` view reads both `GET /api/missions` and `GET /api/plans`. It is intentionally separate from the coordinator `Initiative` view.
 
 ## Primary Operator Flow
 
-This is the preferred mission workflow. Do not default to manual chain attachment if the chain can be mission-bound at run start.
+AgentXchain now exposes two real repo-local mission workflows. Use the simpler direct path when one chained run can advance the mission cleanly. Use mission decomposition when the mission needs explicit workstreams, dependency review, and staged launches.
 
-### 1. Start a mission
+### Direct chained execution
+
+This is still the fastest path. Do not default to manual chain attachment if the chain can be mission-bound at run start.
+
+#### 1. Start a mission
 
 ```bash
 agentxchain mission start \
@@ -54,7 +60,7 @@ agentxchain mission start \
 
 This creates a durable mission artifact under `.agentxchain/missions/`.
 
-### 2. Run chained work bound to the mission
+#### 2. Run chained work bound to the mission
 
 ```bash
 # Bind to the most recent mission
@@ -66,7 +72,7 @@ agentxchain run --chain --mission mission-release-hardening --auto-approve
 
 This is the main operator path. When mission binding is active, AgentXchain auto-attaches the emitted chain report after completion. The operator does not need to remember a separate `mission attach-chain` step.
 
-### 3. Inspect mission state
+#### 3. Inspect mission state
 
 ```bash
 agentxchain mission show
@@ -75,6 +81,50 @@ agentxchain dashboard
 
 Use `mission show` for terminal inspection and the dashboard `Mission` view for a repo-local overview of the latest mission, attached-chain lineage, and recent missions.
 
+### Decomposed mission planning
+
+Use this path when the mission needs reviewed workstreams instead of one undifferentiated chain.
+
+#### 1. Generate a plan
+
+```bash
+agentxchain mission plan latest \
+  --constraint "Keep release automation idempotent" \
+  --role-hint dev \
+  --role-hint qa
+```
+
+This creates a proposal under `.agentxchain/missions/plans/<mission_id>/<plan_id>.json`. The artifact contains workstreams, dependency edges, phases, acceptance checks, and per-workstream `launch_status`.
+
+#### 2. Review and approve the latest plan
+
+```bash
+agentxchain mission plan show latest
+agentxchain mission plan approve latest
+```
+
+Approval is latest-only and fail-closed. Approving a newer plan supersedes older active plan revisions for that mission.
+
+#### 3. Launch one approved workstream
+
+```bash
+agentxchain mission plan launch latest \
+  --workstream ws-release-alignment \
+  --auto-approve
+```
+
+`mission plan launch` is not bookkeeping-only. It records real `workstream_id -> chain_id` linkage in `launch_records`, then executes the workstream immediately through the existing governed run/chaining path using that same chain ID. `--auto-approve` passes through to the launched governed run exactly as it does on `agentxchain run`.
+
+#### 4. Inspect plan and launch state
+
+```bash
+agentxchain mission plan list
+agentxchain mission plan show latest
+agentxchain dashboard
+```
+
+The dashboard `Mission` view now combines mission snapshots with the latest plan, workstream launch table, and launch-record chain linkage. Operators should not need to read raw plan JSON just to see which workstream launched, completed, or needs attention.
+
 ## CLI Commands
 
 ```bash
@@ -82,6 +132,11 @@ agentxchain mission start --title <text> --goal <text> [--id <mission_id>] [--js
 agentxchain mission list [--limit <n>] [--json] [--dir <path>]
 agentxchain mission show [mission_id] [--json] [--dir <path>]
 agentxchain mission attach-chain [chain_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
+agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
+agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
+agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
+agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 ```
 
 ### `mission start`
@@ -107,6 +162,36 @@ agentxchain mission attach-chain latest
 ```
 
 If no explicit `--mission` is passed here, the command defaults to attaching the latest chain report to the latest mission.
+
+### `mission plan`
+
+Generates a decomposition plan for an existing mission. The planner uses the mission goal plus optional constraints and role hints to produce dependency-ordered workstreams. The output is a durable plan artifact, not a fake pre-created swarm of chains.
+
+### `mission plan show`
+
+Shows one plan by ID or the latest plan revision for a mission. The summary includes workstreams, dependencies, acceptance checks, `launch_status`, and any recorded `launch_records`.
+
+### `mission plan list`
+
+Lists plan artifacts newest-first for the target mission. This is the audit surface when a newer approved plan supersedes an older proposal.
+
+### `mission plan approve`
+
+Approves only the latest `proposed` plan for a mission and supersedes older active revisions. This is the review boundary before any workstream can launch.
+
+### `mission plan launch`
+
+Launches one approved workstream at a time. It validates the approval boundary and dependency satisfaction, records a preallocated `workstream_id -> chain_id` launch record, executes the workstream immediately through the governed run path, and reconciles the workstream outcome from the real chain result.
+
+Shipped workstream launch states:
+
+| Launch Status | Meaning |
+|---|---|
+| `ready` | Workstream can be launched now |
+| `blocked` | Dependency workstreams have not completed successfully yet |
+| `launched` | Workstream has been launched and is still in flight |
+| `completed` | Bound chain finished successfully and unblocks dependents |
+| `needs_attention` | Bound chain failed or blocked; operator review is required |
 
 ## Run Chaining Integration
 
@@ -153,6 +238,19 @@ Mission status is evidence-backed. The current shipped surface derives status fr
 
 The dashboard and `mission show` surfaces summarize these derived states so operators can see the mission condition without opening every chain report manually.
 
+## Mission Plan Status
+
+Mission decomposition adds its own repo-local planning states. These are evidence-backed plan artifacts, not hidden coordinator phases:
+
+| Plan Status | Meaning |
+|---|---|
+| `proposed` | A new plan artifact exists and still requires review |
+| `approved` | The latest reviewed plan may launch workstreams |
+| `superseded` | A newer plan revision replaced this artifact |
+| `needs_attention` | A launched workstream failed or blocked and the plan requires intervention |
+
+The dashboard `Mission` view exposes the latest plan plus older revisions so operators can see which plan is current without diffing raw JSON files.
+
 ## Dashboard Mission View
 
 The dashboard `Mission` view is the browser surface for repo-local mission inspection. It shows:
@@ -163,7 +261,11 @@ The dashboard `Mission` view is the browser surface for repo-local mission inspe
 - latest chain ID and latest terminal reason
 - active repo-decision count
 - attached-chain lineage summaries
+- latest plan summary with approval metadata
+- per-workstream launch states and dependency visibility
+- launch records binding workstreams to real `chain_id` values
 - newest-first recent missions
+- prior plan revisions for the active mission
 
 This is not the coordinator `Initiative` view with a renamed label. `Mission` is repo-local. `Initiative` remains the multi-repo coordinator surface.
 
@@ -176,6 +278,14 @@ This is not the coordinator `Initiative` view with a renamed label. `Mission` is
 ### Explicit mission ID does not exist
 
 The chained run fails closed before execution. Fix the mission ID or create the mission first.
+
+### Plan launch target is unapproved, missing, or blocked
+
+`mission plan launch --workstream <id>` fails closed when the plan is not approved, the workstream does not exist, or dependencies remain unsatisfied. The command surfaces the blocking workstream IDs instead of silently starting partial execution.
+
+### Launched workstream execution fails
+
+The workstream is marked `needs_attention`, the plan becomes `needs_attention`, and dependents remain `blocked`. AgentXchain does not silently auto-replan around a failed approved workstream.
 
 ### Chain report missing from a mission
 
