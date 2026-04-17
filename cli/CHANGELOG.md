@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.115.0
+
+`2.115.0` completes the mission plan lifecycle with auto-completion, workstream retry, and single-command mission health visibility — closing the loop from plan creation through governed recovery.
+
+- Plan auto-completion: plans auto-transition to `completed` when all workstreams finish successfully. No separate operator command needed — happens inside `markWorkstreamOutcome`. Previously a fully-complete plan stayed `approved` forever (`DEC-MISSION-PLAN-AUTO-COMPLETE-001`)
+- Workstream retry: `agentxchain mission plan launch --workstream <id> --retry` retries failed workstreams (`needs_attention` only). New chain_id, old launch record preserved for audit, new record marked `retry: true`. Plan status returns from `needs_attention` to `approved` during retry. `--retry` requires `--workstream` and is mutually exclusive with `--all-ready` (`DEC-MISSION-PLAN-RETRY-001`)
+- Mission show plan health: `mission show` now surfaces latest plan ID, plan status, completion percentage, and workstream-status breakdown. `--json` exposes the same `latest_plan` summary. Shared plan-progress summarization reused by CLI and dashboard (`DEC-MISSION-SHOW-PLAN-SUMMARY-001`)
+- Cascade rejected: `--cascade` explicitly rejected as scope creep. Operator cost of re-running `--all-ready` is trivial. Future unattended execution belongs in a separate `mission run --autopilot` surface (`DEC-MISSION-PLAN-LAUNCH-CASCADE-001`)
+- Missions docs and CLI reference updated for retry, auto-completion, and plan health surfaces
+- 5359 tests / 1114 suites / 0 failures
+
 ## 2.114.0
 
 `2.114.0` turns mission decomposition into a one-session operator flow: mission creation can generate a proposed plan immediately, offline planner output is a real supported input, and approved plans can launch every currently-ready workstream in one fail-closed batch.

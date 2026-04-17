@@ -1,0 +1,56 @@
+---
+sidebar_position: 0
+title: "v2.115.0 Release Notes"
+---
+
+# AgentXchain v2.115.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+- **Plan auto-completion** — plans auto-transition to `completed` when all workstreams finish successfully, no separate operator action needed
+- **Workstream retry** — failed workstreams (`needs_attention`) can be retried via `mission plan launch --workstream <id> --retry` with new chain_id, audit trail preserved
+- **Mission show plan health** — `mission show` now surfaces the latest plan status, completion percentage, and workstream-status breakdown in both text and JSON output
+- **Cascade rejected, operator control preserved** — `--cascade` was explicitly rejected in favor of manual `--all-ready` re-invocation; future unattended execution belongs in a separate `mission run --autopilot` surface
+
+## What Changed
+
+### Plan Auto-Completion
+
+- `markWorkstreamOutcome` now detects when all workstreams in a plan are `completed` and auto-transitions the plan to `completed` status
+- No separate command or operator action needed — happens as part of outcome recording
+- Previously, a plan whose workstreams were all done would remain in `approved` status indefinitely
+
+### Workstream Retry
+
+- New command mode: `agentxchain mission plan launch --workstream <id> --retry`
+- Only accepts workstreams with `launch_status === 'needs_attention'` — fail-closed on any other status
+- Creates a new launch record with a new `chain_id`; old launch record preserved for audit
+- New launch record marked with `retry: true` for observability
+- Plan status returns from `needs_attention` to `approved` during retry
+- `--retry` requires `--workstream` and is mutually exclusive with `--all-ready`
+
+### Mission Show Plan Health
+
+- `mission show` now includes latest plan ID, plan status, completion percentage, and workstream-status breakdown
+- `mission show --json` exposes the same `latest_plan` summary machine-readably
+- Shared plan-progress summarization logic reused by both CLI and dashboard
+- Empty-mission guidance now points at the real primary flow: `run --chain --mission ...`
+
+### Cascade Rejection
+
+- `--cascade` explicitly rejected via `DEC-MISSION-PLAN-LAUNCH-CASCADE-001`
+- Operator cost of running `--all-ready` twice is trivial; engineering cost of cascade is non-trivial
+- Future unattended dependency-chain execution belongs in a separate `mission run --autopilot` surface with its own contract
+
+### Docs Update
+
+- `/docs/missions` updated with retry, plan auto-completion, and mission-show plan summary
+- `/docs/cli` updated with `--retry` usage syntax and plan auto-completion behavior
+- Decomposition spec and missions docs spec tightened to match shipped behavior
+
+## Evidence
+
+- 5359 tests / 1114 suites / 0 failures
+- `cd website-v2 && npm run build` — clean

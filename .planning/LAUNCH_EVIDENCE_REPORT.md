@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.114.0
+# Launch Evidence Report — AgentXchain v2.115.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.114.0 release: mission start auto-planning, real offline planner-file support, batch launch for all ready workstreams, and mission/CLI docs alignment. 5349 tests / 1112 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.115.0 release: plan auto-completion, workstream retry, mission-show plan health, cascade rejection. 5359 tests / 1114 suites / 0 failures.
 
 ---
 
@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-16
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 5349 tests / 1112 suites / 0 failures
+- **Result**: 5359 tests / 1114 suites / 0 failures
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -295,7 +295,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 
 | Claim | Evidence | Notes |
 |-------|----------|-------|
-| "5246 tests / 1087 suites / 0 failures" | E1 (current release verification through 2026-04-16) | Use the current aggregate release evidence line; do not inflate beyond the verified count. |
+| "5359 tests / 1114 suites / 0 failures" | E1 (current release verification through 2026-04-17) | Use the current aggregate release evidence line; do not inflate beyond the verified count. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
@@ -345,7 +345,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-16 release verification is 5246 tests / 1087 suites / 0 failures. Public launch copy must use this current aggregate evidence line instead of stale launch-era floors.
+- **Test count verified**: 2026-04-17 release verification is 5359 tests / 1114 suites / 0 failures. Public launch copy must use this current aggregate evidence line instead of stale launch-era floors.
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
 - **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. This expanded the launch-era live CLI total from the original three-adapter path to four adapters before later `remote_agent` proof completed the current five-adapter surface. Evidence gap E2b closed.
