@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.125.0
+# Hacker News Submission — AgentXchain v2.126.0
 
-> Ready-to-post. Updated 2026-04-17 for v2.125.0.
+> Ready-to-post. Updated 2026-04-17 for v2.126.0.
 
 ---
 
@@ -34,14 +34,14 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.125.0:**
-- Public docs now publish the truthful mixed-runtime continuous proof with the exact script, Anthropic-backed QA model, spend, and review artifact
-- The release workflow now tries `GITHUB_TOKEN` for direct Homebrew mirror sync before falling back to a PR, fixing a repeatable self-blocking release defect
+**What's shipped in v2.126.0:**
+- Governed `run` now enforces the existing turn-timeout contract during in-flight adapter dispatch instead of hanging indefinitely on a stuck automated turn
+- `status`, `turn show`, and dashboard timeout surfaces now show remaining budget and deadline, not just elapsed time
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
 - Proposal authoring: agents propose changes through a staging area with conflict detection
-- 5,557 tests / 1,156 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,568 tests / 1,158 suites / 0 failures. 108 conformance fixtures. Website build clean.
 - Post-release `npx` install verification as part of the release process
 
 **Architecture:**

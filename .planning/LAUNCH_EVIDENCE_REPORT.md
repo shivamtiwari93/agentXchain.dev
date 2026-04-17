@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.125.0
+# Launch Evidence Report — AgentXchain v2.126.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.125.0 release: connector validation command, front-door onboarding guidance, integration guide alignment. Current aggregate release evidence: 5,557 tests / 1,156 suites / 0 failures. 108 conformance fixtures. Website build clean.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.126.0 release: in-flight dispatch timeout enforcement, timeout budget visibility on CLI/dashboard surfaces, and timeout docs alignment. Current aggregate release evidence: 5,568 tests / 1,158 suites / 0 failures. 108 conformance fixtures. Website build clean.
 
 ---
 

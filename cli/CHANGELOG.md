@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.126.0
+
+### Turn Timeout Enforcement & Budget Visibility
+
+- **In-flight dispatch timeout enforcement:** governed `run` / `runLoop` now enforce the existing `timeouts.per_turn_minutes` contract during adapter dispatch instead of only detecting timeout drift at acceptance or status boundaries. When `action: "escalate"` is configured, hung automated turns block cleanly with retained active-turn context and timeout ledger evidence. (`DEC-RUN-DISPATCH-TIMEOUT-001`)
+- **Operator timeout budget visibility:** `agentxchain status`, `agentxchain turn show`, and the dashboard timeout-status endpoint now surface remaining budget, deadline, and exceeded state for all configured timeout scopes so operators can tell "still running with budget left" from "over budget" without opening `agentxchain.json`. (`DEC-TIMEOUT-BUDGET-VISIBILITY-001`)
+- **Timeout docs updated:** the public timeouts guide now documents dispatch-time enforcement plus the budget display contract on CLI and dashboard surfaces.
+- **Release notes sidebar normalization:** duplicate `sidebar_position` values in older release docs were normalized so Docusaurus keeps newest-first release ordering stable.
+
+### Evidence
+
+- 5,568 tests / 1,158 suites / 0 failures. 108 conformance fixtures. Website build clean.
+
 ## 2.125.0
 
 ### Connector Validation & Onboarding

@@ -1,0 +1,48 @@
+---
+sidebar_position: 0
+title: "v2.126.0 Release Notes"
+---
+
+# AgentXchain v2.126.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Turn Timeouts Now Enforce During Real Dispatch
+
+This release closes a real lights-out gap: `agentxchain run` now enforces the existing `timeouts.per_turn_minutes` policy while an adapter dispatch is in flight. Before this, a hung `local_cli` or other automated adapter could stall a governed run indefinitely and only be recognized as timed out when some later surface looked at the clock. That was not a truthful timeout contract.
+
+With `action: "escalate"`, timed-out dispatches now block the run cleanly, retain the active turn for recovery, emit blocked-state evidence, and append a timeout entry to the decision ledger.
+
+### Budget Visibility Is Now Operator-Facing Truth
+
+Elapsed time alone is not enough. Operators need to know whether a turn is healthy, close to budget, or already over the line.
+
+`agentxchain status`, `agentxchain turn show`, and the dashboard timeout-status payload now show:
+
+- remaining budget
+- configured limit
+- deadline
+- exceeded state per configured scope
+
+This makes the timeout story self-contained on the observation surfaces instead of forcing operators to inspect config and do the math manually.
+
+## What Changed
+
+- **Run-loop enforcement:** `runLoop` now evaluates timeout budgets before and during in-flight dispatch, aborts timed-out dispatches, and blocks the governed run on `timeout:turn` using the existing timeout configuration.
+- **CLI adapter abort propagation:** the `run` command now combines CLI abort handling with run-loop timeout aborts so `local_cli` dispatch can be interrupted when the configured budget is exhausted.
+- **Budget display in `status`:** active turns now show remaining budget or timeout-exceeded state inline, and the Timeouts section shows all configured scopes, not only already-exceeded ones.
+- **Budget display in `turn show`:** human-readable output and JSON payloads now include `timeout_budget` details for configured scopes.
+- **Dashboard parity:** `timeout-status` responses now include a `budget` array alongside the existing live timeout pressure data.
+- **Docs updated:** `/docs/timeouts` now covers both dispatch-time enforcement and the budget visibility contract.
+- **Release-note ordering fix:** older release note pages with duplicate sidebar positions were renumbered to preserve a stable newest-first release sidebar.
+
+## Key Decisions
+
+- `DEC-RUN-DISPATCH-TIMEOUT-001`: governed `run` / `runLoop` must enforce in-flight turn timeout blocking using the existing `timeouts.per_turn_minutes` contract when `action: "escalate"`. No second timeout policy, no hidden default.
+- `DEC-TIMEOUT-BUDGET-VISIBILITY-001`: `status` and `turn show` must surface remaining timeout budget for all configured scopes so operators can judge run health without opening the config file.
+
+## Evidence
+
+- 5,568 tests / 1,158 suites / 0 failures. 108 conformance fixtures. Website build clean.

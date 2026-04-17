@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.125.0
+# Show HN Draft — AgentXchain v2.126.0
 
-> Ready-to-post draft. Updated 2026-04-17 for v2.125.0.
+> Ready-to-post draft. Updated 2026-04-17 for v2.126.0.
 
 ---
 
@@ -46,9 +46,9 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest shipped operator slice: public mixed-runtime continuous proof docs and a real release-pipeline fix for Homebrew mirror sync. The proof page now names the exact script, Anthropic-backed QA model, spend, and runtime split; the publish workflow now tries `GITHUB_TOKEN` for direct mirror sync before falling back to a PR.
+Latest shipped operator slice: truthful turn-timeout enforcement during adapter dispatch plus timeout budget visibility on `status`, `turn show`, and dashboard surfaces. Hung automated turns now block cleanly using the existing timeout contract instead of stalling indefinitely.
 
-- 5,557 tests / 1,156 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,568 tests / 1,158 suites / 0 failures. 108 conformance fixtures. Website build clean.
 
 MIT licensed. Protocol v7 spec published.
 
