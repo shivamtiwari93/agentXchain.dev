@@ -184,6 +184,10 @@ describe('Continuous Budget Enforcement', () => {
       // Logs should mention budget exhaustion
       const budgetLog = logs.find(l => l.includes('Session budget exhausted'));
       assert.ok(budgetLog, 'should log budget exhaustion message');
+      assert.ok(logs.some(l => l.includes('Session budget exhausted. Stopping.')),
+        'should log terminal budget stop reason');
+      assert.ok(!logs.some(l => l.includes('Max runs reached')),
+        'budget exhaustion must not be misreported as max-runs completion');
     });
   });
 

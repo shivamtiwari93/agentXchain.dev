@@ -460,7 +460,10 @@ async function advanceScheduleContinuousSession(context, entry, opts = {}) {
     blocked: 'continuous_blocked',
     running: 'continuous_running',
   };
-  const schedStatus = statusMap[step.status] || 'continuous_running';
+  let schedStatus = statusMap[step.status] || 'continuous_running';
+  if (step.action === 'session_budget_exhausted') {
+    schedStatus = 'continuous_session_budget_exhausted';
+  }
 
   updateScheduleState(root, config, scheduleId, (record) => ({
     ...record,

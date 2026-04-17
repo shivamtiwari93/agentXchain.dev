@@ -96,6 +96,25 @@ afterEach(() => {
 });
 
 describe('continuous run E2E', () => {
+  it('AT-VCONT-010: run --continuous rejects invalid --session-budget values instead of disabling the cap silently', () => {
+    const root = makeProject();
+
+    const run = runCli(root, [
+      'run',
+      '--continuous',
+      '--vision',
+      '.planning/VISION.md',
+      '--session-budget',
+      'nope',
+    ]);
+
+    assert.equal(run.status, 1, `continuous run should fail for invalid budget:\n${run.combined}`);
+    assert.match(run.stdout, /--session-budget must be a finite number greater than 0/);
+
+    const sessionPath = join(root, '.agentxchain', 'continuous-session.json');
+    assert.equal(existsSync(sessionPath), false, 'invalid session budget must fail before session creation');
+  });
+
   it('AT-VCONT-001: run --continuous completes 3 real governed runs from VISION.md and resolves intake state', () => {
     const root = makeProject();
 

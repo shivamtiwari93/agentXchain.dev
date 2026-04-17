@@ -72,6 +72,19 @@ function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd) {
   };
 }
 
+function describeContinuousTerminalStep(step, contOpts) {
+  if (step.action === 'max_runs_reached') {
+    return `Max runs reached (${contOpts.maxRuns}). Stopping.`;
+  }
+  if (step.action === 'session_budget_exhausted') {
+    return 'Session budget exhausted. Stopping.';
+  }
+  if (step.status === 'idle_exit') {
+    return `All vision goals appear addressed (${contOpts.maxIdleCycles} consecutive idle cycles). Stopping.`;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Intake queue check
 // ---------------------------------------------------------------------------
@@ -484,10 +497,9 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
 
       // Terminal states
       if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked') {
-        if (step.status === 'completed') {
-          log(`Max runs reached (${contOpts.maxRuns}). Stopping.`);
-        } else if (step.status === 'idle_exit') {
-          log(`All vision goals appear addressed (${contOpts.maxIdleCycles} consecutive idle cycles). Stopping.`);
+        const terminalMessage = describeContinuousTerminalStep(step, contOpts);
+        if (terminalMessage) {
+          log(terminalMessage);
         }
         return { exitCode: step.ok ? 0 : 1, session };
       }

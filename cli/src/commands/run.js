@@ -57,6 +57,10 @@ export async function runCommand(opts) {
   // Continuous vision-driven mode
   const contOpts = resolveContinuousOptions(opts, context.config);
   if (contOpts.enabled) {
+    if (contOpts.perSessionMaxUsd != null && (!Number.isFinite(contOpts.perSessionMaxUsd) || contOpts.perSessionMaxUsd <= 0)) {
+      console.log(chalk.red('--session-budget must be a finite number greater than 0'));
+      process.exit(1);
+    }
     console.log(chalk.cyan.bold('agentxchain run --continuous'));
     console.log(chalk.dim(`  Vision: ${contOpts.visionPath}`));
     console.log(chalk.dim(`  Max runs: ${contOpts.maxRuns}, Poll: ${contOpts.pollSeconds}s, Idle limit: ${contOpts.maxIdleCycles}`));

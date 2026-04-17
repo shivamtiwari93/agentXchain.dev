@@ -21,7 +21,7 @@ const CLI_BIN = join(cliRoot, 'bin', 'agentxchain.js');
 const MOCK_AGENT = join(cliRoot, 'test-support', 'mock-agent.mjs');
 const tempDirs = [];
 
-function makeProject({ schedules } = {}) {
+function makeProject({ schedules, mockAgentPath = MOCK_AGENT } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-sdh-e2e-'));
   tempDirs.push(root);
   scaffoldGoverned(root, 'SDH E2E', `sdh-e2e-${Date.now()}`);
@@ -31,7 +31,7 @@ function makeProject({ schedules } = {}) {
   const mockRuntime = {
     type: 'local_cli',
     command: process.execPath,
-    args: [MOCK_AGENT],
+    args: [mockAgentPath],
     prompt_transport: 'dispatch_bundle_only',
   };
 
@@ -53,6 +53,16 @@ function makeProject({ schedules } = {}) {
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
   return root;
+}
+
+function writeCostedMockAgent(root, usdPerTurn) {
+  const scriptPath = join(root, 'costed-mock-agent.mjs');
+  const source = readFileSync(MOCK_AGENT, 'utf8').replace(
+    /usd:\s*0\b/,
+    `usd: ${usdPerTurn}`,
+  );
+  writeFileSync(scriptPath, source);
+  return scriptPath;
 }
 
 function runCli(root, args, opts = {}) {
@@ -392,5 +402,97 @@ describe('AT-SDH-009: daemon --max-cycles 2 executes two governed runs through a
     const state = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
     assert.equal(state.status, 'completed');
     assert.ok(state.provenance.intake_intent_id);
+  });
+});
+
+describe('AT-SDH-010: schedule-owned continuous session stops cleanly when the session budget is exhausted', () => {
+  it('preserves the session across polls, stops before a third run, and records a truthful budget stop reason', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'axc-sdh-budget-agent-'));
+    tempDirs.push(tempRoot);
+    const costedAgent = writeCostedMockAgent(tempRoot, 0.02);
+
+    const root = makeProject({
+      mockAgentPath: costedAgent,
+      schedules: {
+        budgeted_factory: {
+          every_minutes: 1,
+          auto_approve: true,
+          max_turns: 5,
+          initial_role: 'pm',
+          continuous: {
+            enabled: true,
+            vision_path: '.planning/VISION.md',
+            max_runs: 10,
+            max_idle_cycles: 5,
+            triage_approval: 'auto',
+            per_session_max_usd: 0.1,
+          },
+        },
+      },
+    });
+
+    writeVision(root, `# Budget Vision
+
+## Governed Delivery
+
+- governed scheduling loop
+- session budget evidence
+- truthful operator status
+`);
+
+    const daemon = runCli(root, [
+      'schedule', 'daemon',
+      '--max-cycles', '3',
+      '--poll-seconds', '1',
+      '--json',
+    ], { timeout: 180000 });
+
+    assert.equal(daemon.status, 0, `daemon failed:\n${daemon.combined}`);
+
+    const cycleOutputs = daemon.stdout.trim().split('\n')
+      .filter(Boolean)
+      .map((line) => { try { return JSON.parse(line); } catch { return null; } })
+      .filter(Boolean);
+    assert.equal(cycleOutputs.length, 3, `expected 3 cycle outputs, got ${cycleOutputs.length}`);
+
+    const cont1 = cycleOutputs[0].results.find((r) => r.continuous);
+    const cont2 = cycleOutputs[1].results.find((r) => r.continuous);
+    const cont3 = cycleOutputs[2].results.find((r) => r.continuous);
+    assert.ok(cont1 && cont2 && cont3, 'every cycle must include the continuous result');
+
+    assert.equal(cont1.session_id, cont2.session_id);
+    assert.equal(cont2.session_id, cont3.session_id);
+    assert.equal(cont1.runs_completed, 1);
+    assert.equal(cont2.runs_completed, 2);
+    assert.equal(cont3.runs_completed, 2, 'budget stop must happen before a third run starts');
+    assert.equal(cont3.action, 'session_budget_exhausted');
+    assert.equal(cont3.status, 'completed');
+
+    const session = JSON.parse(readFileSync(join(root, '.agentxchain', 'continuous-session.json'), 'utf8'));
+    assert.equal(session.owner_type, 'schedule');
+    assert.equal(session.owner_id, 'budgeted_factory');
+    assert.equal(session.status, 'completed');
+    assert.equal(session.budget_exhausted, true);
+    assert.equal(session.runs_completed, 2);
+    assert.equal(session.per_session_max_usd, 0.1);
+    assert.ok(Math.abs(session.cumulative_spent_usd - 0.12) < 1e-9,
+      `expected cumulative spend near 0.12, got ${session.cumulative_spent_usd}`);
+
+    const schedState = JSON.parse(readFileSync(join(root, '.agentxchain', 'schedule-state.json'), 'utf8'));
+    assert.equal(schedState.schedules.budgeted_factory.last_continuous_session_id, session.session_id);
+    assert.equal(schedState.schedules.budgeted_factory.last_status, 'continuous_session_budget_exhausted');
+
+    const history = readFileSync(join(root, '.agentxchain', 'run-history.jsonl'), 'utf8').trim().split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    assert.equal(history.length, 2, `expected 2 completed runs before budget stop, got ${history.length}`);
+
+    const status = runCli(root, ['status', '--json']);
+    assert.equal(status.status, 0, `status failed:\n${status.combined}`);
+    const parsedStatus = JSON.parse(status.stdout.trim());
+    assert.equal(parsedStatus.continuous_session.status, 'completed');
+    assert.equal(parsedStatus.continuous_session.budget_exhausted, true);
+    assert.ok(Math.abs(parsedStatus.continuous_session.cumulative_spent_usd - 0.12) < 1e-9,
+      `expected status cumulative spend near 0.12, got ${parsedStatus.continuous_session.cumulative_spent_usd}`);
   });
 });

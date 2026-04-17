@@ -103,6 +103,11 @@ When using the `api_proxy` adapter, each turn accumulates `cost.usd` from real t
 Session Budget: $12.75 / $200.00 (6.4%)
 ```
 
+When a continuous session exits because the session budget is exhausted, the terminal stop reason and persisted schedule state must stay truthful:
+
+- `run --continuous` must log `Session budget exhausted. Stopping.` rather than reusing the max-runs stop message.
+- schedule-owned sessions must persist a distinct schedule-state status (`continuous_session_budget_exhausted`) instead of collapsing the stop into generic `continuous_completed`.
+
 ### Resolution options
 
 ```
@@ -139,6 +144,12 @@ Add:
 - `AT-CONT-BUDGET-003`: Schedule continuous config with `per_session_max_usd: 50` validates correctly. Config with `per_session_max_usd: -1` rejected.
 
 - `AT-CONT-BUDGET-004`: Status JSON includes `cumulative_spent_usd` and `per_session_max_usd` for active continuous sessions.
+
+- `AT-CONT-BUDGET-005`: `executeContinuousRun()` logs `Session budget exhausted. Stopping.` when the session terminates on the budget gate and does not log the max-runs message.
+
+- `AT-SDH-010`: `schedule daemon --max-cycles 3` with a cost-bearing continuous schedule preserves one schedule-owned session across polls, completes two runs, then stops before a third run starts when `per_session_max_usd` is reached. Assert: cycle 3 returns `action: session_budget_exhausted`, session `budget_exhausted: true`, run history length remains 2, `agentxchain status --json` shows the exhausted budget, and `schedule-state.json` records `last_status: continuous_session_budget_exhausted`.
+
+- `AT-VCONT-010`: `run --continuous --session-budget nope` fails fast with `--session-budget must be a finite number greater than 0` and does not create `.agentxchain/continuous-session.json`.
 
 ---
 
