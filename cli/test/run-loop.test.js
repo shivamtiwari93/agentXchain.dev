@@ -13,6 +13,7 @@ const { runLoop, DEFAULT_MAX_TURNS } = await import(join(cliRoot, 'src', 'lib', 
 const {
   loadState,
   initRun,
+  assignTurn,
   getTurnStagingResultPath,
   RUNNER_INTERFACE_VERSION,
 } = await import(join(cliRoot, 'src', 'lib', 'runner-interface.js'));
@@ -632,6 +633,66 @@ describe('run-loop', () => {
 
     it('records the error', () => {
       assert.ok(result.errors.some(e => e.includes('Adapter exploded')));
+    });
+  });
+
+  describe('in-flight dispatch timeout blocking', () => {
+    let root, config, result, events, state, ledger;
+
+    before(async () => {
+      root = makeTempRoot();
+      config = makeConfig({
+        timeouts: {
+          per_turn_minutes: 1,
+          action: 'escalate',
+        },
+      });
+      scaffoldProject(root, config);
+
+      const init = initRun(root, config);
+      assert.ok(init.ok, init.error);
+      const assigned = assignTurn(root, config, 'pm');
+      assert.ok(assigned.ok, assigned.error);
+
+      const statePath = join(root, '.agentxchain', 'state.json');
+      const seededState = JSON.parse(readFileSync(statePath, 'utf8'));
+      const turnId = Object.keys(seededState.active_turns)[0];
+      seededState.active_turns[turnId].started_at = '2026-04-10T00:00:00.000Z';
+      writeFileSync(statePath, JSON.stringify(seededState, null, 2));
+
+      events = [];
+      result = await runLoop(root, config, {
+        selectRole() { return null; },
+        async dispatch() {
+          return await new Promise(() => {});
+        },
+        async approveGate() { return true; },
+        onEvent(evt) { events.push(evt); },
+      });
+
+      state = JSON.parse(readFileSync(statePath, 'utf8'));
+      ledger = readFileSync(join(root, '.agentxchain', 'decision-ledger.jsonl'), 'utf8')
+        .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    });
+
+    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+
+    it('AT-RUN-TIMEOUT-001: blocks the run on timed-out in-flight dispatch', () => {
+      assert.equal(result.ok, false);
+      assert.equal(result.stop_reason, 'blocked');
+      assert.equal(state.status, 'blocked');
+      assert.equal(state.blocked_on, 'timeout:turn');
+    });
+
+    it('AT-RUN-TIMEOUT-002: retains the active timed-out turn for recovery', () => {
+      assert.equal(Object.keys(state.active_turns || {}).length, 1);
+      assert.equal(state.blocked_reason?.recovery?.turn_retained, true);
+    });
+
+    it('AT-RUN-TIMEOUT-003: records structured timeout evidence in the decision ledger', () => {
+      assert.ok(ledger.some((entry) => entry.type === 'timeout' && entry.scope === 'turn'));
+      assert.ok(result.errors.some((entry) => entry.includes('dispatch timed out')));
+      assert.ok(events.some((entry) => entry.type === 'blocked'));
     });
   });
 

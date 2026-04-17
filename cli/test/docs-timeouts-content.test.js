@@ -28,6 +28,8 @@ describe('Timeout docs content guard', () => {
   });
 
   it('documents the actual enforcement boundary and rejects ghost approval-boundary claims', () => {
+    assert.match(content, /agentxchain run|runLoop/i,
+      'must document run/runLoop as the in-flight dispatch timeout enforcement surface');
     assert.match(content, /accept-turn/i, 'must document accept-turn as the mutating timeout boundary');
     assert.match(content, /status/i, 'must document status as the read-only timeout surface');
     assert.match(content, /do not currently re-run timeout mutation/i,

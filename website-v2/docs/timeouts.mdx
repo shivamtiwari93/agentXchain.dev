@@ -103,14 +103,15 @@ Why the restriction matters:
 
 ## Where timeouts evaluate
 
-Timeouts fire at governed acceptance boundaries, not through a background daemon:
+Timeouts do not rely on a background daemon. They evaluate at governed execution boundaries:
 
-1. `agentxchain accept-turn` for mutating enforcement of turn, phase, and run limits
-2. `agentxchain status` for proactive read-only visibility of current timeout pressure and persisted timeout blocks
+1. `agentxchain run` / `runLoop` for **in-flight turn dispatch blocking** when `per_turn_minutes` is configured and the effective action is `escalate`
+2. `agentxchain accept-turn` for mutating enforcement of accepted turn, phase, and run limits
+3. `agentxchain status` for proactive read-only visibility of current timeout pressure and persisted timeout blocks
 
-`approve-transition` and `approve-completion` do not currently re-run timeout mutation. The accepted-turn boundary is the authoritative enforcement point today, and the docs must stay honest about that.
+`approve-transition` and `approve-completion` do not currently re-run timeout mutation. The accepted-turn boundary remains the authoritative mutation point for accepted work, while `run` / `runLoop` closes the narrower but important gap of a turn that hangs forever before acceptance.
 
-That keeps timeout evidence deterministic and tied to governed state transitions instead of background timers.
+That keeps timeout evidence tied to governed state transitions instead of pretending a free-running background timer is the source of truth.
 
 ## Operator surfaces
 

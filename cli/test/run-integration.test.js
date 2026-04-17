@@ -19,6 +19,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { scaffoldGoverned } from '../src/commands/init.js';
+import { assignGovernedTurn, initializeGovernedRun } from '../src/lib/governed-state.js';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const binPath = join(cliRoot, 'bin', 'agentxchain.js');
@@ -229,5 +230,48 @@ describe('agentxchain run — integration', () => {
     assert.ok(existsSync(statePath), 'state.json should be recreated by run');
     const state = JSON.parse(readFileSync(statePath, 'utf8'));
     assert.equal(state.status, 'completed', 'bootstrapped run should complete successfully');
+  });
+
+  it('AT-RUN-TIMEOUT-004: blocks the real CLI when a local_cli dispatch hangs past the configured turn timeout', () => {
+    const root = makeProject();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+
+    config.timeouts = {
+      per_turn_minutes: 1,
+      action: 'escalate',
+    };
+    for (const key of Object.keys(config.runtimes)) {
+      config.runtimes[key] = {
+        type: 'local_cli',
+        command: process.execPath,
+        args: ['-e', 'setInterval(() => {}, 1000)'],
+        prompt_transport: 'dispatch_bundle_only',
+      };
+    }
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+    const assigned = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assigned.ok, assigned.error);
+
+    const statePath = join(root, '.agentxchain/state.json');
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    const [turnId] = Object.keys(state.active_turns);
+    state.active_turns[turnId].started_at = '2026-04-10T00:00:00.000Z';
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+    const result = runCli(root, ['run', '--auto-approve', '--max-turns', '5'], { timeout: 15000 });
+
+    assert.equal(result.status, 1, `Expected timeout block exit 1, got ${result.status}.\nstdout: ${result.stdout}\nstderr: ${result.stderr}`);
+    assert.match(result.stdout, /Run blocked/, 'Expected blocked output');
+    assert.match(result.stdout, /Recovery:\s+timeout/, 'Expected timeout recovery summary');
+    assert.match(result.stdout, /Action:\s+agentxchain resume/, 'Expected resume recovery command');
+
+    const blockedState = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert.equal(blockedState.status, 'blocked');
+    assert.equal(blockedState.blocked_on, 'timeout:turn');
+    assert.equal(Object.keys(blockedState.active_turns || {}).length, 1, 'timed-out turn must remain retained');
   });
 });

@@ -12,7 +12,7 @@
  *   - Never calls process dot exit
  *   - No stdout/stderr
  *   - No adapter dispatch (caller provides dispatch callback)
- *   - Imports only from runner-interface.js
+ *   - Governed lifecycle operations import through runner-interface.js
  */
 
 import {
@@ -21,6 +21,7 @@ import {
   assignTurn,
   acceptTurn,
   rejectTurn,
+  markRunBlocked,
   writeDispatchBundle,
   getTurnStagingResultPath,
   approvePhaseGate,
@@ -33,10 +34,11 @@ import {
 } from './runner-interface.js';
 
 import { runAdmissionControl } from './admission-control.js';
-import { mkdirSync, writeFileSync } from 'fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { evaluateApprovalSlaReminders } from './notification-runner.js';
 import { readPreemptionMarker } from './intake.js';
+import { buildTimeoutBlockedReason, evaluateTimeouts } from './timeout-evaluator.js';
 
 const DEFAULT_MAX_TURNS = 50;
 
@@ -214,6 +216,7 @@ async function executeSequentialTurn(root, config, state, callbacks, emit, error
 async function executeParallelTurns(root, config, state, maxConcurrent, callbacks, emit, errors) {
   const history = [];
   let acceptedCount = 0;
+  const timedOutDispatches = [];
 
   // ── Collect active turns that need dispatch (retries) ────────────────
   const activeTurns = getActiveTurns(state);
@@ -332,7 +335,7 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
   const dispatchResults = await Promise.allSettled(
     contexts.map(async (ctx) => {
       try {
-        return { ctx, result: await callbacks.dispatch(ctx) };
+        return { ctx, result: await dispatchWithTimeout(ctx, config, callbacks.dispatch) };
       } catch (err) {
         return { ctx, result: { accept: false, reason: `dispatch threw: ${err.message}` } };
       }
@@ -349,6 +352,11 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
 
     const { turn } = ctx;
     const roleId = turn.assigned_role;
+
+    if (dispatchResult?.timed_out === true) {
+      timedOutDispatches.push({ ctx, dispatchResult });
+      continue;
+    }
 
     if (dispatchResult.accept) {
       const absStaging = join(root, ctx.stagingPath);
@@ -405,6 +413,13 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
     }
   }
 
+  if (timedOutDispatches.length > 0) {
+    const timedOut = timedOutDispatches[0];
+    const blocked = persistDispatchTimeout(root, config, timedOut.ctx.turn, timedOut.dispatchResult.timeout_result, errors);
+    emit({ type: 'blocked', state: blocked.state, reason: 'timeout:turn' });
+    return { terminal: true, ok: false, stop_reason: 'blocked', history, acceptedCount };
+  }
+
   // ── Stall detection: if no turns were accepted and no new roles were ──
   // ── assignable, terminate to avoid infinite re-dispatch loops. ────────
   if (acceptedCount === 0 && history.length > 0) {
@@ -445,10 +460,16 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
 
   let dispatchResult;
   try {
-    dispatchResult = await callbacks.dispatch(context);
+    dispatchResult = await dispatchWithTimeout(context, config, callbacks.dispatch);
   } catch (err) {
     errors.push(`dispatch threw for ${roleId}: ${err.message}`);
     return { terminal: true, ok: false, stop_reason: 'dispatch_error', history };
+  }
+
+  if (dispatchResult?.timed_out === true) {
+    const blocked = persistDispatchTimeout(root, config, turn, dispatchResult.timeout_result, errors);
+    emit({ type: 'blocked', state: blocked.state, reason: 'timeout:turn' });
+    return { terminal: true, ok: false, stop_reason: 'blocked', history };
   }
 
   if (dispatchResult.accept) {
@@ -574,3 +595,107 @@ function makeResult(ok, stop_reason, state, turns_executed, turn_history, gates_
 function noop() {}
 
 export { DEFAULT_MAX_TURNS };
+
+function buildTimeoutLedgerEntry(timeoutResult, timestamp, turnId, phase) {
+  return {
+    type: 'timeout',
+    scope: timeoutResult.scope,
+    phase: timeoutResult.phase || phase || null,
+    turn_id: turnId || null,
+    limit_minutes: timeoutResult.limit_minutes,
+    elapsed_minutes: timeoutResult.elapsed_minutes,
+    exceeded_by_minutes: timeoutResult.exceeded_by_minutes,
+    action: timeoutResult.action,
+    timestamp,
+  };
+}
+
+function appendJsonl(root, relPath, value) {
+  appendFileSync(join(root, relPath), `${JSON.stringify(value)}\n`);
+}
+
+function getDispatchTimeoutResult(config, state, turn, now = new Date()) {
+  const evaluation = evaluateTimeouts({ config, state, turn, now });
+  return evaluation.exceeded.find((entry) => entry.scope === 'turn' && entry.action === 'escalate') || null;
+}
+
+async function dispatchWithTimeout(context, config, dispatchFn) {
+  const timeoutResult = getDispatchTimeoutResult(config, context.state, context.turn);
+  if (!timeoutResult) {
+    return await dispatchFn(context);
+  }
+
+  const remainingMs = Math.max(
+    0,
+    timeoutResult.limit_minutes * 60 * 1000
+      - Math.max(0, new Date() - new Date(context.turn.started_at || context.turn.assigned_at || new Date())),
+  );
+  const abortController = new AbortController();
+  if (remainingMs === 0) {
+    abortController.abort(new Error(`Turn timeout exceeded after ${timeoutResult.limit_minutes}m`));
+    return {
+      timed_out: true,
+      timeout_result: timeoutResult,
+    };
+  }
+  const enrichedContext = {
+    ...context,
+    dispatchTimeoutMs: remainingMs,
+    dispatchDeadlineAt: new Date(Date.now() + remainingMs).toISOString(),
+    dispatchAbortSignal: abortController.signal,
+  };
+
+  let timer = null;
+  const dispatchPromise = Promise.resolve(dispatchFn(enrichedContext))
+    .then((result) => ({ kind: 'result', result }))
+    .catch((error) => ({ kind: 'error', error }));
+  const timeoutPromise = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      abortController.abort(new Error(`Turn timeout exceeded after ${timeoutResult.limit_minutes}m`));
+      resolve({ kind: 'timeout', timeoutResult });
+    }, remainingMs);
+  });
+
+  const winner = await Promise.race([dispatchPromise, timeoutPromise]);
+  clearTimeout(timer);
+
+  if (winner.kind === 'timeout') {
+    return {
+      timed_out: true,
+      timeout_result: winner.timeoutResult,
+    };
+  }
+
+  if (winner.kind === 'error') {
+    throw winner.error;
+  }
+
+  return winner.result;
+}
+
+function persistDispatchTimeout(root, config, turn, timeoutResult, errors) {
+  const blockedAt = new Date().toISOString();
+  const blockedReason = buildTimeoutBlockedReason(timeoutResult, { turnRetained: true });
+  const blocked = markRunBlocked(root, {
+    blockedOn: `timeout:${timeoutResult.scope}`,
+    category: blockedReason.category,
+    recovery: blockedReason.recovery,
+    turnId: turn.turn_id,
+    blockedAt,
+    notificationConfig: config,
+  });
+
+  if (!blocked.ok) {
+    errors.push(`markRunBlocked(timeout): ${blocked.error}`);
+    return { state: loadState(root, config) };
+  }
+
+  try {
+    appendJsonl(root, '.agentxchain/decision-ledger.jsonl', buildTimeoutLedgerEntry(timeoutResult, blockedAt, turn.turn_id, blocked.state?.phase));
+  } catch (err) {
+    errors.push(`timeout ledger append failed: ${err.message}`);
+  }
+
+  errors.push(`dispatch timed out for ${turn.assigned_role} after ${timeoutResult.limit_minutes}m`);
+  return blocked;
+}

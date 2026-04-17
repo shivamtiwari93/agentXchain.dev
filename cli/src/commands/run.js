@@ -300,7 +300,7 @@ export async function executeGovernedRun(context, opts = {}) {
 
       // ── Route to adapter ──────────────────────────────────────────────
       const adapterOpts = {
-        signal: controller.signal,
+        signal: combineAbortSignals(controller.signal, ctx.dispatchAbortSignal),
         onStatus: (msg) => log(chalk.dim(`  ${msg}`)),
         verifyManifest: true,
         turnId: turn.turn_id,
@@ -556,4 +556,29 @@ function printManualQaFallback(log = console.log) {
   log(chalk.dim('  - Edit agentxchain.json and change roles.qa.runtime from "api-qa" to "manual-qa"'));
   log(chalk.dim('  - Then recover the retained QA turn with: agentxchain step --resume'));
   log(chalk.dim('  - Guide: https://agentxchain.dev/docs/getting-started'));
+}
+
+function combineAbortSignals(primarySignal, secondarySignal) {
+  if (!secondarySignal) {
+    return primarySignal;
+  }
+  if (!primarySignal) {
+    return secondarySignal;
+  }
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([primarySignal, secondarySignal]);
+  }
+
+  const combined = new AbortController();
+  const forward = (signal) => {
+    if (!signal) return;
+    if (signal.aborted) {
+      combined.abort(signal.reason);
+      return;
+    }
+    signal.addEventListener('abort', () => combined.abort(signal.reason), { once: true });
+  };
+  forward(primarySignal);
+  forward(secondarySignal);
+  return combined.signal;
 }
