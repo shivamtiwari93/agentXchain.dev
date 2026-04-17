@@ -211,6 +211,93 @@ export function validateTimeoutsConfig(timeouts, routing) {
 }
 
 /**
+ * Compute remaining timeout budget for an active turn/phase/run.
+ *
+ * Unlike evaluateTimeouts() which only returns items when exceeded,
+ * this returns budget info for ALL configured timeout scopes regardless
+ * of whether the deadline has passed.
+ *
+ * @param {object} options
+ * @param {object} options.config - Normalized config with optional `timeouts` section
+ * @param {object} options.state - Current governed state
+ * @param {object} [options.turn] - Active turn metadata
+ * @param {Date|string} [options.now] - Override for current time (testing)
+ * @returns {Array<TimeoutBudget>} Array of { scope, limit_minutes, elapsed_minutes, remaining_minutes, deadline_iso, exceeded, action }
+ */
+export function computeTimeoutBudget({ config, state, turn = null, now = new Date() }) {
+  const timeouts = config?.timeouts;
+  if (!timeouts) return [];
+
+  const nowMs = typeof now === 'string' ? new Date(now).getTime() : now.getTime();
+  const budgets = [];
+
+  // Per-turn budget
+  if (timeouts.per_turn_minutes && turn) {
+    const startedAt = turn.started_at || turn.assigned_at;
+    if (startedAt) {
+      const dispatchMs = new Date(startedAt).getTime();
+      const limitMs = timeouts.per_turn_minutes * 60 * 1000;
+      const elapsedMs = nowMs - dispatchMs;
+      const remainingMs = limitMs - elapsedMs;
+      budgets.push({
+        scope: 'turn',
+        limit_minutes: timeouts.per_turn_minutes,
+        elapsed_minutes: Math.round(elapsedMs / 60000),
+        remaining_minutes: Math.max(0, Math.round(remainingMs / 60000)),
+        remaining_seconds: Math.max(0, Math.round(remainingMs / 1000)),
+        deadline_iso: new Date(dispatchMs + limitMs).toISOString(),
+        exceeded: elapsedMs > limitMs,
+        action: resolveAction(timeouts.action, 'turn'),
+      });
+    }
+  }
+
+  // Per-phase budget
+  const phaseLimit = resolvePhaseLimit(timeouts, config.routing, state.phase);
+  const phaseAction = resolvePhaseAction(timeouts, config.routing, state.phase);
+  if (phaseLimit) {
+    const phaseEnteredAt = findPhaseEntryTime(state);
+    if (phaseEnteredAt) {
+      const entryMs = new Date(phaseEnteredAt).getTime();
+      const limitMs = phaseLimit * 60 * 1000;
+      const elapsedMs = nowMs - entryMs;
+      const remainingMs = limitMs - elapsedMs;
+      budgets.push({
+        scope: 'phase',
+        phase: state.phase,
+        limit_minutes: phaseLimit,
+        elapsed_minutes: Math.round(elapsedMs / 60000),
+        remaining_minutes: Math.max(0, Math.round(remainingMs / 60000)),
+        remaining_seconds: Math.max(0, Math.round(remainingMs / 1000)),
+        deadline_iso: new Date(entryMs + limitMs).toISOString(),
+        exceeded: elapsedMs > limitMs,
+        action: phaseAction,
+      });
+    }
+  }
+
+  // Per-run budget
+  if (timeouts.per_run_minutes && state.created_at) {
+    const createMs = new Date(state.created_at).getTime();
+    const limitMs = timeouts.per_run_minutes * 60 * 1000;
+    const elapsedMs = nowMs - createMs;
+    const remainingMs = limitMs - elapsedMs;
+    budgets.push({
+      scope: 'run',
+      limit_minutes: timeouts.per_run_minutes,
+      elapsed_minutes: Math.round(elapsedMs / 60000),
+      remaining_minutes: Math.max(0, Math.round(remainingMs / 60000)),
+      remaining_seconds: Math.max(0, Math.round(remainingMs / 1000)),
+      deadline_iso: new Date(createMs + limitMs).toISOString(),
+      exceeded: elapsedMs > limitMs,
+      action: resolveAction(timeouts.action, 'run'),
+    });
+  }
+
+  return budgets;
+}
+
+/**
  * Build a blocked_reason descriptor for a timeout.
  */
 export function buildTimeoutBlockedReason(timeoutResult, options = {}) {

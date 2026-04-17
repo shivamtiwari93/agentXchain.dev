@@ -3,6 +3,7 @@ import { join } from 'path';
 import chalk from 'chalk';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
+import { computeTimeoutBudget } from '../lib/timeout-evaluator.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -54,11 +55,11 @@ export function turnShowCommand(turnId, opts) {
   }
 
   if (opts.json) {
-    console.log(JSON.stringify(buildTurnPayload(selectedTurnId, turn, state, artifacts, assignment), null, 2));
+    console.log(JSON.stringify(buildTurnPayload(selectedTurnId, turn, state, artifacts, assignment, context.config), null, 2));
     return;
   }
 
-  printTurnSummary(selectedTurnId, turn, state, artifacts, assignment);
+  printTurnSummary(selectedTurnId, turn, state, artifacts, assignment, context.config);
 }
 
 function requireGovernedContext() {
@@ -118,9 +119,9 @@ function buildArtifactIndex(root, turnId) {
   );
 }
 
-function buildTurnPayload(turnId, turn, state, artifacts, assignment) {
+function buildTurnPayload(turnId, turn, state, artifacts, assignment, config) {
   const elapsedMs = getElapsedMs(turn.started_at);
-  return {
+  const payload = {
     turn_id: turnId,
     run_id: state.run_id || assignment?.run_id || null,
     phase: state.phase || assignment?.phase || null,
@@ -140,9 +141,17 @@ function buildTurnPayload(turnId, turn, state, artifacts, assignment) {
       }]),
     ),
   };
+  // Add timeout budget if configured
+  if (config?.timeouts) {
+    const budgets = computeTimeoutBudget({ config, state, turn, now: new Date() });
+    if (budgets.length > 0) {
+      payload.timeout_budget = budgets;
+    }
+  }
+  return payload;
 }
 
-function printTurnSummary(turnId, turn, state, artifacts, assignment) {
+function printTurnSummary(turnId, turn, state, artifacts, assignment, config) {
   const elapsedMs = getElapsedMs(turn.started_at);
   console.log('');
   console.log(chalk.bold(`  Turn: ${chalk.cyan(turnId)}`));
@@ -158,6 +167,21 @@ function printTurnSummary(turnId, turn, state, artifacts, assignment) {
   }
   if (elapsedMs != null) {
     console.log(`  ${chalk.dim('Elapsed:')}  ${formatElapsed(elapsedMs)}`);
+  }
+  // Timeout budget per scope
+  if (config?.timeouts) {
+    const budgets = computeTimeoutBudget({ config, state, turn, now: new Date() });
+    for (const b of budgets) {
+      const scopeLabel = b.scope === 'phase' ? `phase (${b.phase})` : b.scope;
+      if (b.exceeded) {
+        console.log(`  ${chalk.dim('Timeout:')}  ${chalk.red(`${scopeLabel} EXCEEDED`)} — was ${b.limit_minutes}m, over by ${b.elapsed_minutes - b.limit_minutes}m`);
+      } else {
+        const remMins = Math.floor(b.remaining_seconds / 60);
+        const remSecs = b.remaining_seconds % 60;
+        const remLabel = remMins > 0 ? `${remMins}m ${remSecs}s` : `${remSecs}s`;
+        console.log(`  ${chalk.dim('Timeout:')}  ${scopeLabel} — ${chalk.green(`${remLabel} remaining`)} of ${b.limit_minutes}m`);
+      }
+    }
   }
   console.log(`  ${chalk.dim('Dispatch:')} ${getDispatchTurnDir(turnId)}`);
   if (assignment?.staging_result_path) {

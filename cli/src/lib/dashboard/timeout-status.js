@@ -9,7 +9,7 @@
 
 import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../config.js';
-import { evaluateTimeouts } from '../timeout-evaluator.js';
+import { evaluateTimeouts, computeTimeoutBudget } from '../timeout-evaluator.js';
 import { readJsonlFile } from './state-reader.js';
 
 /**
@@ -209,7 +209,15 @@ export function readTimeoutStatus(workspacePath) {
   const configSummary = buildTimeoutConfigSummary(timeouts, config.routing);
 
   // Live timeout evaluation — only meaningful when the run is active
-  const live = evaluateDashboardTimeoutPressure(config, state, new Date());
+  const nowDate = new Date();
+  const live = evaluateDashboardTimeoutPressure(config, state, nowDate);
+
+  // Compute remaining budget for all configured scopes
+  const activeTurnsList = getActiveTurns(state);
+  const primaryTurn = activeTurnsList.length === 1 ? activeTurnsList[0] : null;
+  const budget = (state?.status === 'active' || Boolean(state?.pending_phase_transition || state?.pending_run_completion))
+    ? computeTimeoutBudget({ config, state, turn: primaryTurn, now: nowDate })
+    : [];
 
   // Persisted timeout events from the decision ledger
   const ledger = readJsonlFile(agentxchainDir, 'decision-ledger.jsonl');
@@ -223,6 +231,7 @@ export function readTimeoutStatus(workspacePath) {
         configured: true,
         config: configSummary,
         live,
+        budget,
         live_context: buildLiveContext(state),
         events,
       },

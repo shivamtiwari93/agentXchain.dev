@@ -13,7 +13,7 @@ import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
 import { readRepoDecisions, summarizeRepoDecisions } from '../lib/repo-decisions.js';
 import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
-import { evaluateTimeouts } from '../lib/timeout-evaluator.js';
+import { evaluateTimeouts, computeTimeoutBudget } from '../lib/timeout-evaluator.js';
 import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { readRecentRunEventSummary } from '../lib/recent-event-summary.js';
@@ -283,7 +283,19 @@ function renderGovernedStatus(context, opts) {
           elapsedTag = m > 0 ? ` — ${m}m ${s % 60}s` : ` — ${s}s`;
         }
       }
-      console.log(`    ${marker} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${statusLabel}) [attempt ${turn.attempt}]${elapsedTag}`);
+      let budgetTag = '';
+      if (config.timeouts?.per_turn_minutes && turn.started_at) {
+        const tb = computeTimeoutBudget({ config, state, turn, now: new Date() });
+        const tBudget = tb.find((b) => b.scope === 'turn');
+        if (tBudget) {
+          if (tBudget.exceeded) {
+            budgetTag = ` ${chalk.red('[TIMEOUT]')}`;
+          } else {
+            budgetTag = ` ${chalk.dim(`[${tBudget.remaining_minutes}m left]`)}`;
+          }
+        }
+      }
+      console.log(`    ${marker} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${statusLabel}) [attempt ${turn.attempt}]${elapsedTag}${budgetTag}`);
       if (turn.status === 'conflicted' && turn.conflict_state) {
         const cs = turn.conflict_state;
         const files = cs.conflict_error?.conflicting_files || [];
@@ -312,6 +324,21 @@ function renderGovernedStatus(context, opts) {
         const remainSecs = secs % 60;
         const elapsed = mins > 0 ? `${mins}m ${remainSecs}s` : `${remainSecs}s`;
         console.log(`  ${chalk.dim('Elapsed:')}  ${elapsed}`);
+      }
+    }
+    // Turn-level timeout budget inline with turn info
+    if (config.timeouts?.per_turn_minutes && singleActiveTurn.started_at) {
+      const turnBudgets = computeTimeoutBudget({ config, state, turn: singleActiveTurn, now: new Date() });
+      const turnBudget = turnBudgets.find((b) => b.scope === 'turn');
+      if (turnBudget) {
+        if (turnBudget.exceeded) {
+          console.log(`  ${chalk.dim('Budget:')}   ${chalk.red(`EXCEEDED — was ${turnBudget.limit_minutes}m, over by ${turnBudget.elapsed_minutes - turnBudget.limit_minutes}m`)}`);
+        } else {
+          const remMins = Math.floor(turnBudget.remaining_seconds / 60);
+          const remSecs = turnBudget.remaining_seconds % 60;
+          const remLabel = remMins > 0 ? `${remMins}m ${remSecs}s` : `${remSecs}s`;
+          console.log(`  ${chalk.dim('Budget:')}   ${chalk.green(`${remLabel} remaining`)} of ${turnBudget.limit_minutes}m (deadline ${new Date(turnBudget.deadline_iso).toLocaleTimeString()})`);
+        }
       }
     }
     if (singleActiveTurn.status === 'conflicted' && singleActiveTurn.conflict_state) {
@@ -474,19 +501,22 @@ function renderGovernedStatus(context, opts) {
   renderWorkflowKitArtifactsSection(workflowKitArtifacts);
 
   if (config.timeouts && (state?.status === 'active' || approvalPending)) {
+    const nowDate = new Date();
     const activeTurn = state?.status === 'active' ? getActiveTurn(state) : null;
     const turnResult = activeTurn ? { role: activeTurn.assigned_role } : undefined;
-    const timeoutEval = evaluateTimeouts({ config, state, turn: activeTurn, turnResult, now: new Date().toISOString() });
+    const timeoutEval = evaluateTimeouts({ config, state, turn: activeTurn, turnResult, now: nowDate.toISOString() });
     const allItems = [...timeoutEval.exceeded, ...timeoutEval.warnings];
-    if (allItems.length > 0 || approvalPending) {
+    // Compute full budget for phase/run scopes (turn budget is shown inline with turn info above)
+    const budgets = computeTimeoutBudget({ config, state, turn: activeTurn, now: nowDate })
+      .filter((b) => b.scope !== 'turn'); // turn budget already shown inline
+
+    if (allItems.length > 0 || budgets.length > 0 || approvalPending) {
       console.log('');
       console.log(`  ${chalk.dim('Timeouts:')}`);
       if (approvalPending) {
         console.log(`    ${chalk.yellow('◷')} approval wait does not mutate timeout state; phase/run clocks keep ticking until the next accepted turn`);
       }
-      if (approvalPending && allItems.length === 0) {
-        console.log(`    ${chalk.dim('No current phase/run timeout pressure.')}`);
-      }
+      // Show exceeded/warned items
       for (const item of allItems) {
         const isExceeded = timeoutEval.exceeded.includes(item);
         const elapsed = item.elapsed_minutes != null ? `${item.elapsed_minutes}m` : '?';
@@ -494,6 +524,17 @@ function renderGovernedStatus(context, opts) {
         const icon = isExceeded ? chalk.red('⚠') : chalk.yellow('◷');
         const label = isExceeded ? chalk.red(`EXCEEDED ${item.scope}`) : chalk.yellow(`${item.scope}`);
         console.log(`    ${icon} ${label}: ${elapsed}/${limit} (action: ${item.action || 'n/a'})`);
+      }
+      // Show remaining budget for non-exceeded phase/run scopes
+      const exceededScopes = new Set(allItems.map((i) => `${i.scope}:${i.phase || ''}`));
+      for (const b of budgets) {
+        const key = `${b.scope}:${b.phase || ''}`;
+        if (exceededScopes.has(key)) continue; // already shown as exceeded above
+        const scopeLabel = b.scope === 'phase' ? `phase (${b.phase})` : b.scope;
+        console.log(`    ${chalk.green('✓')} ${scopeLabel}: ${b.elapsed_minutes}m/${b.limit_minutes}m — ${chalk.green(`${b.remaining_minutes}m remaining`)}`);
+      }
+      if (approvalPending && allItems.length === 0 && budgets.length === 0) {
+        console.log(`    ${chalk.dim('No current phase/run timeout pressure.')}`);
       }
     }
   }

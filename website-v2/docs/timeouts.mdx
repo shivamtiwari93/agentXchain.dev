@@ -117,11 +117,23 @@ That keeps timeout evidence tied to governed state transitions instead of preten
 
 ### `agentxchain status`
 
-When a run is active and `timeouts` are configured, `agentxchain status` evaluates current timeout pressure without mutating state.
+When a run is active and `timeouts` are configured, `agentxchain status` shows remaining timeout budget without mutating state.
 
-- warnings render with `◷`
-- exceeded scopes render with `⚠`
-- output includes elapsed time, configured limit, and configured action
+**Turn-level budget** is shown inline with the active turn info:
+- When within limits: remaining time, limit, and deadline (e.g., `Budget: 18m 30s remaining of 30m (deadline 2:30:00 PM)`)
+- When exceeded: `Budget: EXCEEDED — was 30m, over by 5m`
+
+**Phase/run-level budget** is shown in the Timeouts section:
+- When within limits: elapsed/limit and remaining time with `✓` (e.g., `✓ phase (planning): 15m/120m — 105m remaining`)
+- When exceeded: `⚠ EXCEEDED phase: 135m/120m (action: escalate)`
+- Warnings render with `◷`
+
+### `agentxchain turn show`
+
+When `timeouts` are configured, `turn show` displays per-scope remaining budget for the active turn:
+
+- Each configured scope (turn, phase, run) shows remaining time or exceeded status
+- JSON output (`--json`) includes a `timeout_budget` array with `scope`, `remaining_minutes`, `remaining_seconds`, `deadline_iso`, and `exceeded` for each scope
 
 ### `agentxchain report`
 

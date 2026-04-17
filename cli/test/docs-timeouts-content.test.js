@@ -56,6 +56,13 @@ describe('Timeout docs content guard', () => {
     assert.ok(content.includes('/docs/recovery'), 'must link to recovery docs');
   });
 
+  it('documents remaining timeout budget visibility in status and turn show', () => {
+    assert.ok(content.includes('remaining'), 'must document remaining budget display');
+    assert.ok(content.includes('deadline'), 'must document deadline display');
+    assert.ok(content.includes('turn show'), 'must document turn show budget visibility');
+    assert.ok(content.includes('timeout_budget'), 'must document timeout_budget in JSON output');
+  });
+
   it('is linked from docs navigation and discovery surfaces', () => {
     const sidebars = readFileSync(resolve(DOCS_ROOT, '../sidebars.ts'), 'utf8');
     const llms = readFileSync(resolve(DOCS_ROOT, '../static/llms.txt'), 'utf8');

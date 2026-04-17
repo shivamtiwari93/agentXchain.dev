@@ -4,6 +4,7 @@ import {
   evaluateTimeouts,
   validateTimeoutsConfig,
   buildTimeoutBlockedReason,
+  computeTimeoutBudget,
 } from '../src/lib/timeout-evaluator.js';
 
 describe('timeout-evaluator', () => {
@@ -307,6 +308,112 @@ describe('timeout-evaluator', () => {
         action: 'escalate',
       }, { turnRetained: true });
       assert.equal(reason.recovery.turn_retained, true);
+    });
+  });
+
+  describe('computeTimeoutBudget', () => {
+    const baseConfig = {
+      timeouts: {
+        per_turn_minutes: 30,
+        per_phase_minutes: 120,
+        per_run_minutes: 480,
+        action: 'escalate',
+      },
+      routing: {
+        planning: { entry_role: 'pm' },
+        implementation: { entry_role: 'dev' },
+      },
+    };
+
+    const baseState = {
+      phase: 'planning',
+      created_at: '2026-04-10T00:00:00.000Z',
+      phase_entered_at: '2026-04-10T01:00:00.000Z',
+    };
+
+    it('AT-BUDGET-001: returns remaining budget for all configured scopes when within limits', () => {
+      const budgets = computeTimeoutBudget({
+        config: baseConfig,
+        state: baseState,
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
+        now: '2026-04-10T01:10:00.000Z', // 10 min elapsed
+      });
+      assert.equal(budgets.length, 3); // turn, phase, run
+      const turnBudget = budgets.find((b) => b.scope === 'turn');
+      assert.ok(turnBudget);
+      assert.equal(turnBudget.limit_minutes, 30);
+      assert.equal(turnBudget.elapsed_minutes, 10);
+      assert.equal(turnBudget.remaining_minutes, 20);
+      assert.equal(turnBudget.exceeded, false);
+      assert.ok(turnBudget.deadline_iso, 'must include deadline ISO string');
+
+      const phaseBudget = budgets.find((b) => b.scope === 'phase');
+      assert.ok(phaseBudget);
+      assert.equal(phaseBudget.exceeded, false);
+      assert.ok(phaseBudget.remaining_minutes > 0);
+      assert.equal(phaseBudget.phase, 'planning');
+
+      const runBudget = budgets.find((b) => b.scope === 'run');
+      assert.ok(runBudget);
+      assert.equal(runBudget.exceeded, false);
+      assert.ok(runBudget.remaining_minutes > 0);
+    });
+
+    it('AT-BUDGET-002: marks exceeded: true when turn budget is exhausted', () => {
+      const budgets = computeTimeoutBudget({
+        config: baseConfig,
+        state: baseState,
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
+        now: '2026-04-10T02:00:00.000Z', // 60 min elapsed, limit 30
+      });
+      const turnBudget = budgets.find((b) => b.scope === 'turn');
+      assert.ok(turnBudget);
+      assert.equal(turnBudget.exceeded, true);
+      assert.equal(turnBudget.remaining_minutes, 0);
+    });
+
+    it('AT-BUDGET-003: returns empty array when no timeouts configured', () => {
+      const budgets = computeTimeoutBudget({
+        config: { routing: {} },
+        state: baseState,
+      });
+      assert.deepEqual(budgets, []);
+    });
+
+    it('AT-BUDGET-004: omits turn scope when no turn is provided', () => {
+      const budgets = computeTimeoutBudget({
+        config: baseConfig,
+        state: baseState,
+        now: '2026-04-10T01:10:00.000Z',
+      });
+      assert.ok(!budgets.find((b) => b.scope === 'turn'), 'must not include turn scope without a turn');
+      assert.equal(budgets.length, 2); // phase, run only
+    });
+
+    it('AT-BUDGET-005: remaining_seconds provides sub-minute precision', () => {
+      const budgets = computeTimeoutBudget({
+        config: { timeouts: { per_turn_minutes: 5 }, routing: {} },
+        state: baseState,
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
+        now: '2026-04-10T01:04:30.000Z', // 4.5 min elapsed, 0.5 min left
+      });
+      const turnBudget = budgets.find((b) => b.scope === 'turn');
+      assert.ok(turnBudget);
+      assert.equal(turnBudget.remaining_seconds, 30);
+      assert.equal(turnBudget.remaining_minutes, 1); // rounds up
+    });
+
+    it('AT-BUDGET-006: deadline_iso is correct for turn scope', () => {
+      const budgets = computeTimeoutBudget({
+        config: { timeouts: { per_turn_minutes: 10 }, routing: {} },
+        state: baseState,
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
+        now: '2026-04-10T01:05:00.000Z',
+      });
+      const turnBudget = budgets.find((b) => b.scope === 'turn');
+      assert.ok(turnBudget);
+      // started_at + 10m = 01:10:00
+      assert.equal(turnBudget.deadline_iso, '2026-04-10T01:10:00.000Z');
     });
   });
 });
