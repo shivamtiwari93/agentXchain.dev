@@ -86,6 +86,9 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission list` | Observability | List mission artifacts with aggregate run, turn, and repo-decision counts |
 | `mission show` | Observability | Show the latest mission or one mission by ID, including attached chain summaries |
 | `mission attach-chain` | Observability | Bind a chain report to a mission so long-horizon work has a durable grouping layer |
+| `mission plan` | Planning | Generate a decomposition plan for a mission using LLM-assisted workstream decomposition |
+| `mission plan show` | Planning | Show a decomposition plan with workstream details and dependency state |
+| `mission plan list` | Planning | List all plans for a mission, newest first |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
@@ -189,6 +192,33 @@ Mission summaries derive aggregate chain count, total runs, total turns, latest 
 `mission attach-chain` remains available for binding chains from runs that were not mission-bound at start. It defaults to attaching the latest chain report to the latest mission.
 
 For the full operator model, see [Missions](/docs/missions). That page keeps the repo-local **Mission** hierarchy explicitly separate from coordinator **Initiative**, documents the derived mission-status contract, and makes `run --chain --mission ...` the primary flow instead of the manual repair path.
+
+### `mission plan`
+
+```bash
+agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
+agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
+agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
+```
+
+`mission plan` is the decomposition layer above mission grouping. It turns a mission goal into an operator-reviewed set of **workstreams** — dependency-ordered delivery slices with roles, phases, and acceptance checks.
+
+Plans are advisory artifacts under `.agentxchain/missions/plans/<mission_id>/`. They do not modify governed run state or allocate chain IDs before execution. A plan must be explicitly approved before any workstream can launch.
+
+```bash
+# Generate a decomposition plan for the latest mission
+agentxchain mission plan latest --constraint "No protocol changes" --role-hint dev --role-hint qa
+
+# Show the latest plan for the latest mission
+agentxchain mission plan show latest
+
+# List all plans for a specific mission
+agentxchain mission plan list --mission mission-release-hardening
+```
+
+The planner uses LLM-assisted one-shot generation with strict schema validation. Configure `mission_planner` or `api_proxy` in `agentxchain.json` with `base_url` and `model`. Malformed planner output fails validation closed — no partially-valid plan artifacts are created.
+
+Plan revision works by supersession: generating a new plan sets `supersedes_plan_id` to the prior plan. Earlier plans remain durable for auditability. The system never mutates an existing plan artifact.
 
 ### `init`
 

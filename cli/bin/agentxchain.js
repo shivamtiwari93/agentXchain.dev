@@ -122,7 +122,7 @@ import { eventsCommand } from '../src/commands/events.js';
 import { connectorCheckCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
-import { missionAttachChainCommand, missionListCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
+import { missionAttachChainCommand, missionListCommand, missionPlanCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -456,6 +456,36 @@ missionCmd
   .option('-j, --json', 'Output as JSON')
   .option('-d, --dir <path>', 'Project directory')
   .action(missionAttachChainCommand);
+
+const missionPlanCmd = missionCmd
+  .command('plan [mission_id]')
+  .description('Generate a decomposition plan for a mission (default: latest mission)')
+  .option('--constraint <text>', 'Add a constraint to the planner (repeatable)', collectOption, [])
+  .option('--role-hint <role>', 'Hint available roles to the planner (repeatable)', collectOption, [])
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionPlanCommand);
+
+missionPlanCmd
+  .command('show [plan_id]')
+  .description('Show a decomposition plan (default: latest plan)')
+  .option('-m, --mission <mission_id>', 'Explicit mission ID')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionPlanShowCommand);
+
+missionPlanCmd
+  .command('list')
+  .description('List all plans for a mission')
+  .option('-m, --mission <mission_id>', 'Explicit mission ID')
+  .option('-l, --limit <n>', 'Max plans to show (default: 20)')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionPlanListCommand);
+
+function collectOption(value, previous) {
+  return previous.concat([value]);
+}
 
 program
   .command('validate')
