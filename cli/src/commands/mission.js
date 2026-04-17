@@ -18,6 +18,7 @@ import {
   getReadyWorkstreams,
   getWorkstreamStatusSummary,
   launchWorkstream,
+  retryWorkstream,
   markWorkstreamOutcome,
   loadAllPlans,
   loadLatestPlan,
@@ -423,6 +424,16 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
     process.exit(1);
   }
 
+  if (opts.retry && !opts.workstream) {
+    console.error(chalk.red('--retry requires --workstream <id>. Specify which failed workstream to retry.'));
+    process.exit(1);
+  }
+
+  if (opts.retry && opts.allReady) {
+    console.error(chalk.red('--retry and --all-ready are mutually exclusive. Retry targets a specific workstream.'));
+    process.exit(1);
+  }
+
   if (!opts.allReady && !opts.workstream) {
     console.error(chalk.red('--workstream <id> or --all-ready is required. Specify which workstream(s) to launch.'));
     process.exit(1);
@@ -457,7 +468,9 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
     process.exit(1);
   }
 
-  const launch = launchWorkstream(root, mission.mission_id, plan.plan_id, opts.workstream);
+  const launch = opts.retry
+    ? retryWorkstream(root, mission.mission_id, plan.plan_id, opts.workstream)
+    : launchWorkstream(root, mission.mission_id, plan.plan_id, opts.workstream);
   if (!launch.ok) {
     console.error(chalk.red(launch.error));
     process.exit(1);

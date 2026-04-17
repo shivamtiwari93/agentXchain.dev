@@ -89,7 +89,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission plan` | Planning | Generate a decomposition plan for a mission using LLM-assisted workstream decomposition |
 | `mission plan show` | Planning | Show a decomposition plan with workstream details and dependency state |
 | `mission plan approve` | Planning | Approve the latest proposed mission plan and supersede older active revisions |
-| `mission plan launch` | Planning | Launch workstream(s) from an approved plan — single `--workstream` or batch `--all-ready` |
+| `mission plan launch` | Planning | Launch workstream(s) from an approved plan — single `--workstream`, batch `--all-ready`, or `--retry` failed |
 | `mission plan list` | Planning | List all plans for a mission, newest first |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
@@ -213,6 +213,7 @@ agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hi
 agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --workstream <id> --retry [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --all-ready [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
 ```
@@ -237,6 +238,9 @@ agentxchain mission plan approve latest
 # Launch and execute a single ready workstream from the approved plan
 agentxchain mission plan launch latest --workstream ws-alignment --auto-approve
 
+# Retry a failed workstream (only works for needs_attention status)
+agentxchain mission plan launch latest --workstream ws-alignment --retry --auto-approve
+
 # Launch all ready workstreams sequentially (stops on first failure)
 agentxchain mission plan launch latest --all-ready --auto-approve
 
@@ -253,6 +257,10 @@ Approval is latest-only and fail-closed. `mission plan approve` may approve only
 Launch supports two modes: single workstream (`--workstream <id>`) and batch (`--all-ready`). Both validate that the plan is approved and that target workstreams have satisfied dependencies. Each launch records a preallocated `workstream_id` → `chain_id` launch record and executes through the existing governed run/chaining path. Dependency satisfaction is based on the depended-on chain's latest run status, not only the chain-loop terminal label. `--auto-approve` passes through to the governed run surface. Successful execution marks the workstream `completed` and attaches the emitted chain report to the parent mission; failed execution marks the workstream `needs_attention` and leaves dependent workstreams blocked.
 
 `--all-ready` launches all currently `ready` workstreams sequentially. If any workstream fails, remaining workstreams are skipped (fail-closed). Blocked workstreams are never launched — only the set that was `ready` at invocation time is included. The `--workstream` and `--all-ready` flags are mutually exclusive.
+
+`--retry` re-launches a workstream that has `needs_attention` status (i.e., a previously failed launch). It creates a new launch record with a new chain ID while preserving the old launch record for audit. The plan status returns from `needs_attention` to `approved` during the retry. `--retry` requires `--workstream` and is mutually exclusive with `--all-ready`.
+
+**Plan auto-completion:** When all workstreams in a plan reach `completed` status, the plan automatically transitions to `completed`. This happens as part of outcome recording — no separate command is needed.
 
 ### `init`
 

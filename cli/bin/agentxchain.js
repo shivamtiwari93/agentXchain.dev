@@ -491,6 +491,7 @@ missionPlanCmd
   .description('Launch workstream(s) from an approved plan (default: latest plan)')
   .option('-w, --workstream <id>', 'Workstream ID to launch (mutually exclusive with --all-ready)')
   .option('--all-ready', 'Launch all ready workstreams sequentially (mutually exclusive with --workstream)')
+  .option('--retry', 'Retry a failed workstream (requires --workstream, only for needs_attention status)')
   .option('-m, --mission <mission_id>', 'Explicit mission ID')
   .option('--auto-approve', 'Auto-approve run gates while executing the launched workstream')
   .option('-j, --json', 'Output as JSON')

@@ -443,6 +443,12 @@ export function markWorkstreamOutcome(root, missionId, planId, workstreamId, { t
         }
       }
     }
+
+    // Auto-complete plan when all workstreams are completed
+    const allCompleted = plan.workstreams.every((w) => w.launch_status === 'completed');
+    if (allCompleted) {
+      plan.status = 'completed';
+    }
   } else {
     ws.launch_status = 'needs_attention';
     plan.status = 'needs_attention';
@@ -452,6 +458,62 @@ export function markWorkstreamOutcome(root, missionId, planId, workstreamId, { t
   writePlanArtifact(root, missionId, plan);
 
   return { ok: true, plan, workstream: ws };
+}
+
+/**
+ * Retry a failed workstream by resetting its status and creating a new launch record.
+ *
+ * Only workstreams with launch_status === 'needs_attention' can be retried.
+ * The old launch record is preserved for audit. A new launch record with a new
+ * chain_id is created. If the plan was in 'needs_attention' status, it returns
+ * to 'approved' since the retry represents a new attempt.
+ *
+ * @returns {{ ok: boolean, plan?: object, workstream?: object, chainId?: string, launchRecord?: object, error?: string }}
+ */
+export function retryWorkstream(root, missionId, planId, workstreamId, options = {}) {
+  const plan = loadPlan(root, missionId, planId);
+  if (!plan) {
+    return { ok: false, error: `Plan not found: ${planId}` };
+  }
+
+  const ws = plan.workstreams.find((w) => w.workstream_id === workstreamId);
+  if (!ws) {
+    return { ok: false, error: `Workstream not found: ${workstreamId}` };
+  }
+
+  if (ws.launch_status !== 'needs_attention') {
+    return {
+      ok: false,
+      error: `Workstream ${workstreamId} cannot be retried (status: "${ws.launch_status}"). Only "needs_attention" workstreams can be retried.`,
+    };
+  }
+
+  // Generate new chain ID for the retry
+  const chainId = options.chainId || `chain-${randomUUID().slice(0, 8)}`;
+  const now = new Date().toISOString();
+  const launchRecord = {
+    workstream_id: workstreamId,
+    chain_id: chainId,
+    launched_at: now,
+    status: 'launched',
+    retry: true,
+  };
+
+  if (!Array.isArray(plan.launch_records)) {
+    plan.launch_records = [];
+  }
+  plan.launch_records.push(launchRecord);
+  ws.launch_status = 'launched';
+
+  // Restore plan status from needs_attention to approved (retry in progress)
+  if (plan.status === 'needs_attention') {
+    plan.status = 'approved';
+  }
+
+  plan.updated_at = now;
+  writePlanArtifact(root, missionId, plan);
+
+  return { ok: true, plan, workstream: ws, chainId, launchRecord };
 }
 
 // ── Batch launch helpers ───────────────────────────────────────────────────

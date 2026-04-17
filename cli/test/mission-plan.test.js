@@ -1417,3 +1417,232 @@ describe('mission-plans.js — batch launch (--all-ready)', () => {
     assert.equal(typeof plansMod.getWorkstreamStatusSummary, 'function');
   });
 });
+
+describe('mission-plans.js — plan auto-completion', () => {
+  let tmpDir;
+  let plansMod;
+
+  beforeEach(async () => {
+    tmpDir = createTmpProject();
+    plansMod = await import(missionPlansPath);
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('AT-MISSION-PLAN-048: plan status transitions to completed when all workstreams complete', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-auto-complete',
+      title: 'Auto Complete',
+      goal: 'Test plan auto-completion.',
+    });
+
+    // Single-workstream plan for simplicity
+    const plannerOutput = {
+      workstreams: [
+        {
+          workstream_id: 'ws-only',
+          title: 'Only workstream',
+          goal: 'Do the thing.',
+          roles: ['dev'],
+          phases: ['implementation'],
+          depends_on: [],
+          acceptance_checks: ['It works'],
+        },
+      ],
+    };
+
+    const created = plansMod.createPlanArtifact(tmpDir, mission, { plannerOutput });
+    plansMod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    // Launch the workstream
+    const launch = plansMod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-only');
+    assert.ok(launch.ok);
+
+    // Write a successful chain report
+    writeChainReport(tmpDir, {
+      chain_id: launch.chainId,
+      runs: [{ run_id: 'run-1', status: 'completed' }],
+    });
+
+    // Mark outcome as completed
+    const outcome = plansMod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-only', {
+      terminalReason: 'completed',
+    });
+    assert.ok(outcome.ok);
+    assert.equal(outcome.plan.status, 'completed', 'plan must auto-complete when all workstreams are completed');
+    assert.equal(outcome.workstream.launch_status, 'completed');
+  });
+
+  it('AT-MISSION-PLAN-049: plan stays approved when not all workstreams are completed', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-partial-complete',
+      title: 'Partial Complete',
+      goal: 'Test partial completion.',
+    });
+
+    const created = plansMod.createPlanArtifact(tmpDir, mission, { plannerOutput: validPlannerOutput() });
+    plansMod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    // Launch and complete only the first workstream
+    const launch = plansMod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    writeChainReport(tmpDir, {
+      chain_id: launch.chainId,
+      runs: [{ run_id: 'run-1', status: 'completed' }],
+    });
+    const outcome = plansMod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment', {
+      terminalReason: 'completed',
+    });
+    assert.ok(outcome.ok);
+    assert.equal(outcome.plan.status, 'approved', 'plan must remain approved when blocked/ready workstreams remain');
+  });
+
+  it('AT-MISSION-PLAN-050: plan auto-completes after all workstreams including dependents finish', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-dep-complete',
+      title: 'Dependency Complete',
+      goal: 'Test completion with dependencies.',
+    });
+
+    const created = plansMod.createPlanArtifact(tmpDir, mission, { plannerOutput: validPlannerOutput() });
+    plansMod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    // Launch and complete ws-alignment
+    const launch1 = plansMod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    writeChainReport(tmpDir, {
+      chain_id: launch1.chainId,
+      runs: [{ run_id: 'run-1', status: 'completed' }],
+    });
+    plansMod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment', {
+      terminalReason: 'completed',
+    });
+
+    // Now ws-verification should be ready (unblocked). Launch and complete it.
+    const launch2 = plansMod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-verification');
+    assert.ok(launch2.ok, 'dependent workstream must be launchable after dependency completes');
+    writeChainReport(tmpDir, {
+      chain_id: launch2.chainId,
+      runs: [{ run_id: 'run-2', status: 'completed' }],
+    });
+    const outcome = plansMod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-verification', {
+      terminalReason: 'completed',
+    });
+    assert.ok(outcome.ok);
+    assert.equal(outcome.plan.status, 'completed', 'plan must auto-complete after all workstreams including dependents finish');
+  });
+});
+
+describe('mission-plans.js — workstream retry', () => {
+  let tmpDir;
+  let plansMod;
+
+  beforeEach(async () => {
+    tmpDir = createTmpProject();
+    plansMod = await import(missionPlansPath);
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('AT-MISSION-PLAN-051: retryWorkstream rejects non-needs_attention workstreams', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-retry-reject',
+      title: 'Retry Reject',
+      goal: 'Test retry rejection.',
+    });
+
+    const created = plansMod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: {
+        workstreams: [{
+          workstream_id: 'ws-a', title: 'A', goal: 'Do A.',
+          roles: ['dev'], phases: ['impl'], depends_on: [], acceptance_checks: ['pass'],
+        }],
+      },
+    });
+    plansMod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    // Try to retry a 'ready' workstream — should fail
+    const result = plansMod.retryWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-a');
+    assert.equal(result.ok, false);
+    assert.ok(result.error.includes('needs_attention'));
+  });
+
+  it('AT-MISSION-PLAN-052: retryWorkstream resets needs_attention workstream and creates new launch record', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-retry-ok',
+      title: 'Retry OK',
+      goal: 'Test retry success.',
+    });
+
+    const created = plansMod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: {
+        workstreams: [{
+          workstream_id: 'ws-a', title: 'A', goal: 'Do A.',
+          roles: ['dev'], phases: ['impl'], depends_on: [], acceptance_checks: ['pass'],
+        }],
+      },
+    });
+    plansMod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    // Launch, then mark as failed
+    const launch = plansMod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-a');
+    assert.ok(launch.ok);
+    plansMod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-a', {
+      terminalReason: 'execution_error',
+    });
+
+    // Now retry
+    const retry = plansMod.retryWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-a');
+    assert.ok(retry.ok, 'retry must succeed for needs_attention workstream');
+    assert.equal(retry.workstream.launch_status, 'launched');
+    assert.notEqual(retry.chainId, launch.chainId, 'retry must generate a new chain_id');
+    assert.ok(retry.launchRecord.retry, 'retry launch record must be marked as retry');
+
+    // Old launch record must still exist
+    assert.equal(retry.plan.launch_records.length, 2, 'old launch record must be preserved');
+    assert.equal(retry.plan.launch_records[0].chain_id, launch.chainId);
+    assert.equal(retry.plan.launch_records[1].chain_id, retry.chainId);
+  });
+
+  it('AT-MISSION-PLAN-053: retryWorkstream restores plan from needs_attention to approved', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-retry-plan-status',
+      title: 'Retry Plan Status',
+      goal: 'Test plan status restoration on retry.',
+    });
+
+    const created = plansMod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: {
+        workstreams: [{
+          workstream_id: 'ws-a', title: 'A', goal: 'Do A.',
+          roles: ['dev'], phases: ['impl'], depends_on: [], acceptance_checks: ['pass'],
+        }],
+      },
+    });
+    plansMod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+    plansMod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-a');
+    plansMod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-a', {
+      terminalReason: 'execution_error',
+    });
+
+    // Verify plan is needs_attention before retry
+    let plan = plansMod.loadPlan(tmpDir, mission.mission_id, created.plan.plan_id);
+    assert.equal(plan.status, 'needs_attention');
+
+    // Retry
+    const retry = plansMod.retryWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-a');
+    assert.ok(retry.ok);
+    assert.equal(retry.plan.status, 'approved', 'plan must return to approved during retry');
+  });
+
+  it('AT-MISSION-PLAN-S09: mission-plans.js exports retryWorkstream', async () => {
+    assert.equal(typeof plansMod.retryWorkstream, 'function');
+  });
+
+  it('AT-MISSION-PLAN-S10: CLI registers --retry flag on mission plan launch', () => {
+    const bin = readFileSync(binPath, 'utf8');
+    assert.ok(bin.includes('--retry'), 'launch must accept --retry');
+  });
+});
