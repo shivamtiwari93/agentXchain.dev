@@ -55,6 +55,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `restore` | Migration | Restore governed continuity roots from a prior run export into another checkout of the same repo |
 | `restart` | Turn lifecycle | Restart a governed run from the last checkpoint after a session boundary (terminal close, machine restart, context loss) |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
+| `unblock` | Turn lifecycle | Resolve the current human escalation record and continue the governed run |
 | `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
 | `run` | Turn lifecycle | Drive a governed run to completion: multi-turn execution with adapter dispatch and gate prompting |
@@ -728,6 +729,16 @@ agentxchain resume [options]
 | `--turn <id>` | (selected retained turn) | Target a specific retained turn when multiple blocked, failed, or retrying turns exist |
 
 Initializes or resumes a governed run and then assigns or re-dispatches one turn without waiting for completion. Use it when you want a fresh dispatch bundle now, or when a retained turn must be re-dispatched after a `failed`, `retrying`, or operator-escalated blocked state. If a turn is already active and you need to continue waiting on it, use `agentxchain step --resume` instead.
+
+### `unblock`
+
+```bash
+agentxchain unblock <escalation-id>
+```
+
+No flags.
+
+Resolves the current open human escalation record from `.agentxchain/human-escalations.jsonl`, updates `HUMAN_TASKS.md`, and continues the governed run through the same recovery path `resume` would use. This is the operator-focused command when `status` shows a concrete human task id such as `hesc_abcd1234`.
 
 ### `escalate`
 

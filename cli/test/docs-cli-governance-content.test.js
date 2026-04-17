@@ -31,7 +31,7 @@ const governedStateSource = readFileSync(governedStatePath, 'utf8');
  */
 function extractBinFlags(commandName) {
   // Find the .command('name') registration
-  const cmdPattern = new RegExp(`\\.command\\('${commandName}'\\)`);
+  const cmdPattern = new RegExp(`\\.command\\('${commandName}(?: [^']+)?'\\)`);
   const cmdMatch = cmdPattern.exec(bin);
   if (!cmdMatch) return null; // command not found
   const start = cmdMatch.index;
@@ -97,6 +97,7 @@ function extractDocsFlags(commandName) {
 // Commands to audit — governance, turn lifecycle, approval, migration, validation
 const GOVERNED_COMMANDS = [
   'resume',
+  'unblock',
   'escalate',
   'step',
   'accept-turn',

@@ -76,6 +76,7 @@ describe('Recovery docs — command coverage', () => {
     const RECOVERY_COMMANDS = [
       'step --resume',
       'agentxchain resume',
+      'unblock',
       'resume --role',
       'approve-transition',
       'approve-completion',
@@ -150,6 +151,12 @@ describe('Recovery docs — implementation-backed contracts', () => {
       DOC.includes('decision-ledger.jsonl'),
       'must reference the decision ledger file'
     );
+  });
+
+  it('documents the human escalation record surfaces', () => {
+    assert.ok(DOC.includes('.agentxchain/human-escalations.jsonl'));
+    assert.ok(DOC.includes('HUMAN_TASKS.md'));
+    assert.ok(DOC.includes('agentxchain unblock <id>'));
   });
 
   it('documents budget recovery through config --set', () => {

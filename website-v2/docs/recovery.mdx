@@ -19,6 +19,8 @@ When a governed run enters a blocked state, the orchestrator persists a **recove
 
 The `agentxchain status` command always displays the current recovery action when a run is blocked.
 
+When the blocker truly requires human action, AgentXchain also writes a structured escalation record to `.agentxchain/human-escalations.jsonl` and mirrors the current open item into `HUMAN_TASKS.md`. `status` surfaces the linked escalation id together with `agentxchain unblock <id>`.
+
 When the latest gate failure exposes a deeper runtime/config blocker, `status` also renders runtime guidance. These codes are:
 
 | Code | Meaning | Operator action |
@@ -60,9 +62,9 @@ Operator escalations record `decision = "operator_escalated"` in the decision le
 
 | State | Cause | Recovery |
 |---|---|---|
-| `needs_human` | Agent returned `blocked_on: "human:..."` requesting human intervention | Resolve the stated issue, then `agentxchain resume` |
+| `needs_human` | Agent returned `blocked_on: "human:..."` requesting human intervention | Resolve the stated issue, then `agentxchain unblock <id>` |
 
-The normal `needs_human` path accepts the turn that raised the issue and clears it, so recovery assigns the next turn with `resume` instead of trying to wait on a non-existent retained turn.
+The normal `needs_human` path accepts the turn that raised the issue and clears it, so recovery assigns the next turn after `unblock` instead of trying to wait on a non-existent retained turn.
 
 ### Hook Failures
 
@@ -139,6 +141,7 @@ The recovery surface uses these existing commands — no dedicated `recover` com
 |---|---|
 | `step --resume` | Resume a blocked non-manual retained turn when you want dispatch plus waiting in one command |
 | `resume` | Resume a blocked run: re-dispatches retained turns without waiting or assigns the next turn (budget, escalation, any blocked state) |
+| `unblock` | Resolve the current human escalation record and continue the run through the correct `resume` path |
 | `resume --role` | Re-assign a turn after cleared block or hook failure during assignment |
 | `approve-transition` | Approve a phase gate |
 | `approve-completion` | Approve run completion |

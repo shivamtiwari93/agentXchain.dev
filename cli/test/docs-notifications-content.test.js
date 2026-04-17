@@ -59,6 +59,13 @@ describe('Notifications docs contract', () => {
     assert.ok(DOC.includes('verify export'));
   });
 
+  it('documents the human escalation projection attached to run_blocked notifications', () => {
+    assert.ok(DOC.includes('human_escalation'));
+    assert.ok(DOC.includes('.agentxchain/human-escalations.jsonl'));
+    assert.ok(DOC.includes('HUMAN_TASKS.md'));
+    assert.ok(DOC.includes('agentxchain unblock'));
+  });
+
   it('states best-effort advisory delivery semantics', () => {
     assert.match(DOC, /best-effort/i);
     assert.match(DOC, /do not block/i);

@@ -19,6 +19,7 @@ import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { readRecentRunEventSummary } from '../lib/recent-event-summary.js';
 import { deriveConflictedTurnResolutionActions } from '../lib/conflict-actions.js';
 import { summarizeLatestGateActionAttempt } from '../lib/gate-actions.js';
+import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 
 export async function statusCommand(opts) {
@@ -127,6 +128,7 @@ function renderGovernedStatus(context, opts) {
   const repoDecisionSummary = summarizeRepoDecisions(readRepoDecisions(root), config);
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
+  const humanEscalation = findCurrentHumanEscalation(root, state);
   const gateActionAttempt = state?.pending_phase_transition
     ? summarizeLatestGateActionAttempt(root, 'phase_transition', state.pending_phase_transition.gate)
     : state?.pending_run_completion
@@ -162,6 +164,7 @@ function renderGovernedStatus(context, opts) {
       next_actions: nextActions,
       connector_health: connectorHealth,
       recent_event_summary: recentEventSummary,
+      human_escalation: humanEscalation,
       gate_action_attempt: gateActionAttempt,
       workflow_kit_artifacts: workflowKitArtifacts,
       dashboard_session: dashboardSessionObj,
@@ -322,6 +325,16 @@ function renderGovernedStatus(context, opts) {
     console.log(`  ${chalk.dim('Turn:')}     ${recovery.turn_retained ? 'retained' : 'cleared'}`);
     if (recovery.detail) {
       console.log(`  ${chalk.dim('Detail:')}   ${recovery.detail}`);
+    }
+  }
+
+  if (humanEscalation) {
+    console.log('');
+    console.log(`  ${chalk.dim('Human task:')} ${chalk.yellow(humanEscalation.escalation_id)}${humanEscalation.service ? ` (${humanEscalation.service})` : ''}`);
+    console.log(`  ${chalk.dim('Type:')}     ${humanEscalation.type}`);
+    console.log(`  ${chalk.dim('Unblock:')}  ${chalk.cyan(humanEscalation.resolution_command)}`);
+    if (humanEscalation.action) {
+      console.log(`  ${chalk.dim('Task:')}     ${humanEscalation.action}`);
     }
   }
 

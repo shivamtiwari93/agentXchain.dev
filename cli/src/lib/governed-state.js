@@ -45,6 +45,11 @@ import { writeSessionCheckpoint } from './session-checkpoint.js';
 import { recordRunHistory } from './run-history.js';
 import { buildDefaultRunProvenance } from './run-provenance.js';
 import {
+  ensureHumanEscalation,
+  findCurrentHumanEscalation,
+  resolveHumanEscalation,
+} from './human-escalations.js';
+import {
   getActiveRepoDecisions,
   appendRepoDecision,
   overrideRepoDecision,
@@ -161,11 +166,13 @@ function buildGateFailureRecord({
 }
 
 function emitBlockedNotification(root, config, state, details = {}, turn = null) {
+  const recovery = state?.blocked_reason?.recovery || details.recovery || null;
+  const humanEscalation = ensureHumanEscalation(root, state, turn);
+
   if (!config?.notifications?.webhooks?.length) {
     return;
   }
 
-  const recovery = state?.blocked_reason?.recovery || details.recovery || null;
   emitNotifications(root, config, state, 'run_blocked', {
     category: state?.blocked_reason?.category || details.category || 'unknown_block',
     blocked_on: state?.blocked_on || details.blockedOn || null,
@@ -173,6 +180,13 @@ function emitBlockedNotification(root, config, state, details = {}, turn = null)
     owner: recovery?.owner || null,
     recovery_action: recovery?.recovery_action || null,
     detail: recovery?.detail || null,
+    human_escalation: humanEscalation?.record ? {
+      escalation_id: humanEscalation.record.escalation_id,
+      type: humanEscalation.record.type,
+      service: humanEscalation.record.service,
+      action: humanEscalation.record.action,
+      resolution_command: humanEscalation.record.resolution_command,
+    } : null,
   }, turn);
 }
 
@@ -1910,6 +1924,7 @@ export function reactivateGovernedRun(root, state, details = {}) {
 
   const now = new Date().toISOString();
   const wasEscalation = state.status === 'blocked' && typeof state.blocked_on === 'string' && state.blocked_on.startsWith('escalation:');
+  const humanEscalation = findCurrentHumanEscalation(root, state);
   const nextState = {
     ...state,
     status: 'active',
@@ -1919,6 +1934,14 @@ export function reactivateGovernedRun(root, state, details = {}) {
   };
 
   writeState(root, nextState);
+
+  if (humanEscalation) {
+    resolveHumanEscalation(root, humanEscalation.escalation_id, {
+      resolved_at: now,
+      resolved_via: details.via || 'unknown',
+      resolution_notes: details.note || null,
+    });
+  }
 
   if (wasEscalation) {
     appendJsonl(root, LEDGER_PATH, {

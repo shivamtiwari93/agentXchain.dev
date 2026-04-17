@@ -14,6 +14,7 @@ This slice is deliberately narrow:
 - top-level governed config: `notifications`
 - one transport: `webhook`
 - one evidence file: `.agentxchain/notification-audit.jsonl`
+- one operator-facing blocker projection: `HUMAN_TASKS.md` + `.agentxchain/human-escalations.jsonl`
 - only shipped lifecycle events, not aspirational ones
 
 Delivery is **best-effort**. Notification failures are audited, but they do not block `step`, `resume`, `accept-turn`, `approve-completion`, or any other governed command.
@@ -150,7 +151,14 @@ Each webhook receives one JSON object:
     "category": "dispatch_error",
     "blocked_on": "dispatch:api_proxy_failure",
     "typed_reason": "dispatch_error",
-    "recovery_action": "Resolve the dispatch issue, then run agentxchain step --resume"
+    "recovery_action": "Resolve the dispatch issue, then run agentxchain step --resume",
+    "human_escalation": {
+      "escalation_id": "hesc_abc123",
+      "type": "needs_credential",
+      "service": "Anthropic",
+      "action": "Restore the required Anthropic credential and verify access.",
+      "resolution_command": "agentxchain unblock hesc_abc123"
+    }
   }
 }
 ```
@@ -167,6 +175,8 @@ Top-level fields:
 - `payload`
 
 `turn` is `null` when the event is run-scoped and no retained or targeted turn exists.
+
+When a `run_blocked` event is human-owned, the payload also includes a `human_escalation` object. The same blocker is recorded durably in `.agentxchain/human-escalations.jsonl` and mirrored into `HUMAN_TASKS.md`.
 
 ## Audit Evidence
 

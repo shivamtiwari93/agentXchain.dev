@@ -231,6 +231,8 @@ describe('notification lifecycle', () => {
     assert.equal(requests.length, 1);
     assert.equal(requests[0].event_type, 'run_blocked');
     assert.equal(requests[0].payload.category, 'dispatch_error');
+    assert.ok(requests[0].payload.human_escalation, 'run_blocked payload must include human escalation metadata');
+    assert.match(requests[0].payload.human_escalation.resolution_command, /^agentxchain unblock hesc_/);
 
     const audit = readJsonl(dir, NOTIFICATION_AUDIT_PATH);
     assert.equal(audit.length, 1);

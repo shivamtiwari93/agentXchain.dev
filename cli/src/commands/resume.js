@@ -77,6 +77,8 @@ export async function resumeCommand(opts) {
   // §47: active + turns present → reject (resume assigns new turns, not re-dispatches)
   const activeCount = getActiveTurnCount(state);
   const activeTurns = getActiveTurns(state);
+  const resumeVia = opts?._via || 'resume';
+  const turnResumeVia = opts?._via || 'resume --turn';
 
   if (state.status === 'active' && activeCount > 0) {
     if (activeCount === 1) {
@@ -135,7 +137,7 @@ export async function resumeCommand(opts) {
       console.log(`  Attempt: ${retainedTurn.attempt}`);
       console.log('');
 
-      const reactivated = reactivateGovernedRun(root, state, { via: 'resume --turn', notificationConfig: config });
+      const reactivated = reactivateGovernedRun(root, state, { via: turnResumeVia, notificationConfig: config });
       if (!reactivated.ok) {
         console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
         process.exit(1);
@@ -195,7 +197,7 @@ export async function resumeCommand(opts) {
     console.log(`  Attempt: ${retainedTurn.attempt}`);
     console.log('');
 
-    const reactivated = reactivateGovernedRun(root, state, { via: 'resume --turn', notificationConfig: config });
+    const reactivated = reactivateGovernedRun(root, state, { via: turnResumeVia, notificationConfig: config });
     if (!reactivated.ok) {
       console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
       process.exit(1);
@@ -234,7 +236,7 @@ export async function resumeCommand(opts) {
 
   // §47: paused + run_id exists → resume same run
   if (state.status === 'blocked' && state.run_id) {
-    const reactivated = reactivateGovernedRun(root, state, { via: 'resume', notificationConfig: config });
+    const reactivated = reactivateGovernedRun(root, state, { via: resumeVia, notificationConfig: config });
     if (!reactivated.ok) {
       console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
       process.exit(1);
@@ -245,7 +247,7 @@ export async function resumeCommand(opts) {
 
   // §47: paused + run_id exists → resume same run
   if (state.status === 'paused' && state.run_id) {
-    const reactivated = reactivateGovernedRun(root, state, { via: 'resume', notificationConfig: config });
+    const reactivated = reactivateGovernedRun(root, state, { via: resumeVia, notificationConfig: config });
     if (!reactivated.ok) {
       console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
       process.exit(1);

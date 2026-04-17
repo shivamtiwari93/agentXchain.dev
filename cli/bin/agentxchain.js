@@ -67,6 +67,7 @@ import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
 import { migrateCommand } from '../src/commands/migrate.js';
 import { resumeCommand } from '../src/commands/resume.js';
+import { unblockCommand } from '../src/commands/unblock.js';
 import { escalateCommand } from '../src/commands/escalate.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
 import { rejectTurnCommand } from '../src/commands/reject-turn.js';
@@ -599,6 +600,11 @@ program
   .option('--role <role>', 'Override the target role (default: phase entry role)')
   .option('--turn <id>', 'Target a specific retained turn when multiple exist')
   .action(resumeCommand);
+
+program
+  .command('unblock <escalation-id>')
+  .description('Resolve the current human escalation record and continue the governed run')
+  .action(unblockCommand);
 
 program
   .command('escalate')
