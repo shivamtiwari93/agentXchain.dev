@@ -30,6 +30,7 @@ Then deletes the branch and exits with `status=auto_closed`.
 - Auto-merge attempt: unchanged
 - Stale PR supersession: unchanged
 - The auto-close only fires AFTER auto-merge has been attempted and failed
+- If the closeout step receives an empty or invalid `pr_number`, it must recover the PR by querying the deterministic branch `chore/homebrew-sync-v<version>` before deciding no closeout work exists
 
 ## Interface
 
@@ -45,6 +46,7 @@ No new scripts, no new secrets, no new test files.
 - AT-HM-AC-004: The step output is `status=auto_closed` (not `needs_manual_followup` or `manual_approval_required`).
 - AT-HM-AC-005: If auto-merge succeeds, the PR is NOT auto-closed (merge path still works).
 - AT-HM-AC-006: If the PR is already merged by the time closeout runs, no action is taken.
+- AT-HM-AC-007: If the closeout step receives an invalid `pr_number` output, it re-resolves the PR from `chore/homebrew-sync-v<version>` instead of failing the workflow or silently skipping real closeout work.
 
 ## Decisions
 

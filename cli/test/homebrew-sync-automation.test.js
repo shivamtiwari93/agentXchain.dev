@@ -142,6 +142,16 @@ describe('homebrew sync automation contract', () => {
       /direct push when `REPO_PUSH_TOKEN` \(preferred\) or a broad `HOMEBREW_TAP_TOKEN` is available, otherwise via PR fallback/i,
       'playbook must describe the repo-mirror direct-push path truthfully',
     );
+    assert.match(
+      playbook,
+      /repo mirror catch-up is best-effort and may be deferred to the next agent push or explicit sync/i,
+      'playbook must describe repo-mirror convergence truthfully when the fallback PR auto-closes',
+    );
+    assert.doesNotMatch(
+      playbook,
+      /The release is not operationally complete until main reaches Phase 3\./,
+      'playbook must not claim repo-mirror main convergence is a release completeness requirement',
+    );
   });
 
   it('sync automation spec exists with acceptance tests', () => {
@@ -153,11 +163,13 @@ describe('homebrew sync automation contract', () => {
     assert.match(spec, /AT-HS-019/, 'spec must define acceptance test AT-HS-019');
     assert.match(spec, /AT-HS-020/, 'spec must define acceptance test AT-HS-020');
     assert.match(spec, /AT-HS-022/, 'spec must define acceptance test AT-HS-022');
+    assert.match(spec, /AT-HS-023/, 'spec must define acceptance test AT-HS-023');
     assert.match(spec, /DEC-HOMEBREW-SYNC-001/, 'spec must declare decision DEC-HOMEBREW-SYNC-001');
     assert.match(spec, /DEC-HOMEBREW-SYNC-009/, 'spec must declare decision DEC-HOMEBREW-SYNC-009');
     assert.match(spec, /DEC-HOMEBREW-SYNC-011/, 'spec must declare decision DEC-HOMEBREW-SYNC-011');
     assert.match(spec, /DEC-HOMEBREW-SYNC-013/, 'spec must declare decision DEC-HOMEBREW-SYNC-013');
     assert.match(spec, /DEC-HOMEBREW-SYNC-015/, 'spec must declare decision DEC-HOMEBREW-SYNC-015');
+    assert.match(spec, /DEC-HOMEBREW-SYNC-016/, 'spec must declare decision DEC-HOMEBREW-SYNC-016');
   });
 
   it('Homebrew sync step warns when HOMEBREW_TAP_TOKEN is missing', () => {
@@ -371,6 +383,21 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
+      /FALLBACK_BRANCH="chore\/homebrew-sync-v\$\{RELEASE_TAG#v\}"/,
+      'workflow closeout must reconstruct the deterministic mirror branch for PR lookup',
+    );
+    assert.match(
+      workflow,
+      /gh pr list --base main --head "\$FALLBACK_BRANCH" --state all --json number --jq '\.\[0\]\.number \/\/ empty'/,
+      'workflow closeout must recover the mirror PR number from the branch when the recorded output is missing or invalid',
+    );
+    assert.match(
+      workflow,
+      /No Homebrew mirror PR found for branch \$\{FALLBACK_BRANCH\}; closeout not needed\./,
+      'workflow closeout must fail open when no fallback PR exists instead of crashing the release',
+    );
+    assert.match(
+      workflow,
       /gh pr review "\$PR_NUMBER" --approve/,
       'workflow must attempt an approval review for the mirror PR',
     );
@@ -432,6 +459,11 @@ describe('homebrew sync automation contract', () => {
       workflow,
       /gh pr merge "\$PR_NUMBER" --squash --delete-branch --admin/,
       'workflow must never use admin merge for the mirror PR closeout path',
+    );
+    assert.doesNotMatch(
+      workflow,
+      /homebrew_mirror_closeout[\s\S]*continue-on-error:\s*true/,
+      'workflow must fix mirror closeout correctness directly instead of masking failures with continue-on-error',
     );
     assert.match(
       workflow,

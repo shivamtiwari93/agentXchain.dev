@@ -48,6 +48,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 9. If the PR still remains open because `github-actions` cannot self-approve or other mergeability requirements stay unmet, emit an explicit warning with the PR URL and continue the release. Repo-mirror follow-up is required, but canonical downstream truth is already handled by the canonical tap sync plus the final downstream verification gate.
 10. The workflow must snapshot the mutated mirror files and clear those local edits before switching from the tagged checkout to the PR branch. Branch creation cannot fail on its own dirty mirror-file changes.
 11. Once the current release's mirror PR is known, the workflow must close any older open `chore/homebrew-sync-v*` PRs as superseded so release automation does not accumulate stale mirror PR debt across versions.
+12. The PR closeout step must not rely solely on the recorded `pr_number` output. If that output is empty, whitespace, or a non-positive value, the workflow must resolve the PR again from the deterministic branch name `chore/homebrew-sync-v<version>` before deciding closeout is not needed.
 
 **Auth requirements for canonical tap push:**
 - Requires a PAT with `contents: write` on `shivamtiwari93/homebrew-tap`, stored as `HOMEBREW_TAP_TOKEN` secret.
@@ -96,6 +97,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 | PR approval submission fails because the workflow authored the PR and review is still required | Emit an explicit warning with the PR URL and continue. Repo mirror follow-up remains open. |
 | Regular merge is blocked because required checks and/or approval requirements are still unmet | Attempt squash auto-merge, poll for `MERGED`, then warn with the PR URL if the PR still remains open. |
 | Auto-merge cannot be enabled or the PR never reaches `MERGED` | Emit an explicit warning with the PR URL and continue. Repo mirror follow-up remains open, but downstream truth is still verified separately. |
+| The recorded `pr_number` output is empty, whitespace, or `0` in the closeout step | Resolve the PR number again from `chore/homebrew-sync-v<version>`. If no PR exists for that branch, treat closeout as not needed instead of failing the release. |
 
 ## Acceptance Tests
 
@@ -121,6 +123,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-020: The workflow never invokes `gh pr merge --admin` for the mirror PR closeout path.
 - AT-HS-021: PR creation still fails closed, but unexpected mirror closeout failures after the PR exists are warning-only because repo-mirror convergence is not part of canonical downstream truth.
 - AT-HS-022: Once the current release's mirror PR exists, the workflow closes any older open `chore/homebrew-sync-v*` PRs as superseded so stale mirror PRs do not accumulate across releases.
+- AT-HS-023: If the closeout step receives an empty or invalid `pr_number` output, it re-resolves the current release PR from `chore/homebrew-sync-v<version>` and only skips closeout when that lookup also finds nothing.
 
 ## Decisions
 
@@ -137,6 +140,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 `DEC-HOMEBREW-SYNC-014`: The publish workflow should attempt a direct push to `main` for Homebrew mirror updates before falling back to the PR path. Direct push prefers `REPO_PUSH_TOKEN` as the repo-push credential and falls back to `HOMEBREW_TAP_TOKEN` only when it also has repo-level access. Since `enforce_admins` is `false` on branch protection, a repo admin PAT bypasses the required-review rule. If the chosen token lacks `contents:write` on `agentXchain.dev`, the push fails harmlessly and the PR fallback activates. The PR closeout step is skipped entirely when direct push succeeds.
 
 `DEC-HOMEBREW-SYNC-015`: `HOMEBREW_TAP_TOKEN` cannot be assumed to cover `agentXchain.dev`, because the canonical tap may be backed by a fine-grained PAT. Repo-mirror direct push therefore supports an explicit `REPO_PUSH_TOKEN` secret and prefers it when present.
+
+`DEC-HOMEBREW-SYNC-016`: Homebrew mirror PR closeout must recover from missing or invalid `pr_number` outputs by re-querying the deterministic branch `chore/homebrew-sync-v<version>`. The workflow must not mask this bug with `continue-on-error`, because that would preserve a false-green CI boundary while leaving the PR closeout path unreliable.
 
 ## Open Questions
 

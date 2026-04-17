@@ -244,7 +244,7 @@ jobs:
 
       - name: Close out Homebrew mirror PR
         id: homebrew_mirror_closeout
-        if: always() && (steps.registry.outputs.already_published == 'true' || success()) && steps.homebrew_pr.outputs.pr_number != '' && steps.homebrew_pr.outputs.direct_push != 'true'
+        if: always() && (steps.registry.outputs.already_published == 'true' || success()) && steps.homebrew_pr.outputs.direct_push != 'true'
         working-directory: cli
         shell: bash
         env:
@@ -253,7 +253,16 @@ jobs:
           set -euo pipefail
           echo "status=not_needed" >> "$GITHUB_OUTPUT"
           echo "pr_url=" >> "$GITHUB_OUTPUT"
-          PR_NUMBER="${{ steps.homebrew_pr.outputs.pr_number }}"
+          PR_NUMBER_RAW="${{ steps.homebrew_pr.outputs.pr_number }}"
+          PR_NUMBER="$(printf '%s' "$PR_NUMBER_RAW" | tr -d '[:space:]')"
+          FALLBACK_BRANCH="chore/homebrew-sync-v${RELEASE_TAG#v}"
+          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            PR_NUMBER="$(gh pr list --base main --head "$FALLBACK_BRANCH" --state all --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+          fi
+          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "No Homebrew mirror PR found for branch ${FALLBACK_BRANCH}; closeout not needed."
+            exit 0
+          fi
           PR_URL="$(gh pr view "$PR_NUMBER" --json url --jq '.url')"
           echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
           PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
