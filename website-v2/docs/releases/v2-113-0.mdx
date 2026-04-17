@@ -1,0 +1,65 @@
+---
+sidebar_position: 0
+title: "v2.113.0 Release Notes"
+---
+
+# AgentXchain v2.113.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+- **Mission decomposition** — `agentxchain mission plan` generates dependency-ordered workstreams from a mission goal via LLM-assisted planning, with strict schema validation and durable plan artifacts
+- **Plan approval gate** — `mission plan approve` enforces latest-only governance with deterministic supersession lineage
+- **One-command workstream launch** — `mission plan launch` executes immediately through the chain runner with preallocated chain IDs, not deferred bookkeeping
+- **Dashboard plan visibility** — Mission view surfaces latest plan detail, workstream launch status, launch records with chain linkage, and prior plan revisions via dedicated `GET /api/plans` endpoint
+- **Missions docs update** — `/docs/missions` now covers the full decomposition flow end-to-end
+
+## What Changed
+
+### Mission Decomposition (`mission plan`)
+
+New `agentxchain mission plan` command generates a structured decomposition of a mission goal into dependency-ordered workstreams:
+
+- LLM-assisted one-shot generation with operator-supplied `--constraint` and `--role-hint` options
+- Goal derived from the mission artifact — no split-brain goal drift
+- Strict schema validation: required fields, type checking, duplicate ID detection, dependency reference validation, `chain_id` pre-allocation rejection
+- Durable plan artifacts under `.agentxchain/missions/plans/<mission_id>/<plan_id>.json`
+- `launch_status` derived from dependency edges at creation time (`ready` for no dependencies, `blocked` for non-empty `depends_on`)
+- Revision by supersession — new plans auto-set `supersedes_plan_id` to the prior plan's ID
+- `mission plan show` and `mission plan list` for plan inspection
+
+### Plan Approval (`mission plan approve`)
+
+- Latest-only governance: only the newest `proposed` plan may transition to `approved`
+- Approving a newer plan supersedes any older active `proposed` or `approved` plans
+- Fails closed on: stale targets, already-approved plans, non-proposed plans
+- Deterministic recency — plan lineage and latest-plan resolution are monotonic, not random-suffix-dependent
+
+### Workstream Launch (`mission plan launch`)
+
+- One-command execution surface, not deferred bookkeeping
+- Requires `--workstream <id>` and an `approved` plan
+- Preallocates `chain_id` at launch, executes immediately via `executeChainedRun`
+- Dependency satisfaction based on latest run status in bound chain report — single-run chains with `terminal_reason: "chain_limit_reached"` correctly unblock dependents
+- Mission attachment happens after chain report exists, not before
+- Five workstream launch states: `ready`, `blocked`, `launched`, `completed`, `needs_attention`
+- On failure: workstream sets `needs_attention`, plan sets `needs_attention`, dependents remain blocked
+
+### Dashboard Plan Visibility
+
+- Dedicated `GET /api/plans` endpoint with optional `?mission=<id>` filter and `?limit=N` pagination
+- Integrated into Mission dashboard view: latest plan with workstream table, launch records with chain linkage, status breakdown, previous plans
+- Recursive file watching for `missions/plans/**/*.json` — plan changes invalidate both `/api/plans` and `/api/missions`
+- Empty-state guidance: "Run `agentxchain mission plan <mission_id>` to generate one."
+
+### Missions Docs Update
+
+- `/docs/missions` now documents both operator paths: direct chained execution and decomposed planning
+- Covers plan artifacts, `GET /api/plans`, launch-state visibility, and immediate-execution boundary
+- Cross-linked from CLI docs and run-chaining guide
+
+## Evidence
+
+- 5339 tests / 1110 suites / 0 failures
+- `cd website-v2 && npm run build` — clean

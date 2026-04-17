@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.112.0
+# Launch Evidence Report — AgentXchain v2.113.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.112.0 release: single-repo mission hierarchy, mission auto-binding, dashboard mission visibility, release-alignment unification. 5273 tests / 1095 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.113.0 release: mission decomposition, plan approval gate, one-command workstream launch, dashboard plan visibility, missions docs update. 5339 tests / 1110 suites / 0 failures.
 
 ---
 
@@ -8,9 +8,9 @@
 
 ### E1 — Automated Test Suite
 
-- **Date**: continuously maintained through 2026-04-16
+- **Date**: continuously maintained through 2026-04-17
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 5273 tests / 1095 suites / 0 failures
+- **Result**: 5339 tests / 1110 suites / 0 failures
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)

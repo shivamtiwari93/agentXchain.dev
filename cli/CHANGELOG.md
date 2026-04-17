@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.113.0
+
+`2.113.0` ships mission decomposition — the governed planning layer that splits a mission goal into dependency-ordered workstreams with LLM-assisted generation, approval gates, and one-command execution through the chain runner.
+
+- Mission decomposition: `agentxchain mission plan` generates dependency-ordered workstreams from a mission goal via LLM-assisted planning. Strict schema validation (required fields, type checking, duplicate ID detection, dependency reference validation, chain_id pre-allocation rejection). Durable plan artifacts under `.agentxchain/missions/plans/<mission_id>/`. `launch_status` derived from dependency edges at creation time. Revision by supersession. `mission plan show` and `mission plan list` for inspection
+- Plan approval gate: `mission plan approve` enforces latest-only governance. Approving a newer plan supersedes older active plans. Fails closed on stale/non-proposed targets. Deterministic recency via monotonic plan IDs (`DEC-MISSION-PLAN-APPROVAL-001`, `DEC-MISSION-PLAN-RECENCY-001`)
+- One-command workstream launch: `mission plan launch --workstream <id>` preallocates chain_id, executes immediately via `executeChainedRun`, reconciles workstream outcome from real run result. Dependency satisfaction based on latest run status in bound chain report. Five launch states: `ready`, `blocked`, `launched`, `completed`, `needs_attention` (`DEC-MISSION-PLAN-LAUNCH-001`, `DEC-MISSION-PLAN-LAUNCH-EXECUTION-001`)
+- Dashboard plan visibility: dedicated `GET /api/plans` endpoint with `?mission=<id>` filter. Integrated into Mission view with workstream table, launch records, status breakdown. Recursive file watching for `missions/plans/**/*.json` (`DEC-DASHBOARD-PLAN-VISIBILITY-001`, `DEC-DASHBOARD-PLAN-API-001`)
+- Missions docs update: `/docs/missions` now covers the full decomposition flow — plan artifacts, approval, launch, dashboard visibility, and immediate-execution boundary (`DEC-MISSIONS-DOCS-DECOMPOSITION-001`)
+- Protocol v7/v8 boundary audit: all post-v7 features (mission hierarchy, plans, dashboard) confirmed as reference-runner advisory — zero conformance surface changes (`DEC-PROTOCOL-V8-NO-BUMP-001`)
+- 5339 tests / 1110 suites / 0 failures
+
 ## 2.112.0
 
 `2.112.0` ships single-repo mission hierarchy — the governed layer above chained runs that groups related chains under named missions with aggregate status, cross-chain decision carryover, and dashboard visibility.
