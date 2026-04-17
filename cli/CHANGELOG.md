@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.119.0
+
+`2.119.0` ships session-level budget enforcement for continuous mode, adapter-level continuous E2E proof, and api_proxy prompt contract hardening.
+
+- Session-level budget enforcement: `per_session_max_usd` config and `--session-budget` CLI flag cap cumulative spend across an entire continuous session. Pre-run budget gate stops cleanly with `session_budget_exhausted`. Schedule-owned sessions persist distinct `continuous_session_budget_exhausted` status. Invalid budget values fail closed (`DEC-CONT-BUDGET-001`, `DEC-CONT-BUDGET-002`)
+- Continuous api_proxy E2E: `AT-CONT-APIPROXY-001/002` prove continuous mode through the real api_proxy adapter pathway with a mock Anthropic HTTP server, mixed adapter setup, vision provenance, and real intake lifecycle (`DEC-CONT-APIPROXY-PROOF-001`)
+- API proxy prompt contract hardening: integration test mocks now parse markdown-formatted dispatch bundles (`**Run:**`, `**Turn:**`, `**Phase:**`) instead of accidental JSON fragments. Tests fail closed on fallback defaults (`DEC-APIPROXY-PROMPT-CONTRACT-001`)
+- Docs updated: CLI reference, lights-out scheduling, and recovery docs cover session-level budget enforcement
+- 5,463 tests / 1,149 suites / 0 failures
+
 ## 2.118.0
 
 `2.118.0` ships schedule-owned continuous mode — the daemon can now own a persistent vision-driven continuous session, advance governed runs one step per poll, and keep repo-local lights-out execution on one shared continuous-step contract.

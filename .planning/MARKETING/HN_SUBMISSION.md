@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.118.0
+# Hacker News Submission — AgentXchain v2.119.0
 
-> Ready-to-post. Updated 2026-04-17 for v2.118.0.
+> Ready-to-post. Updated 2026-04-17 for v2.119.0.
 
 ---
 
@@ -34,7 +34,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.118.0:**
+**What's shipped in v2.119.0:**
 - `schedule daemon` can now own a persistent vision-driven continuous session through `schedules.<id>.continuous`
 - `run --continuous` and daemon-owned continuous mode now share `advanceContinuousRunOnce(...)`, so repo-local lights-out behavior is defined by one step contract
 - Multi-entry continuous selection is fixed: active owner first, otherwise first due entry, no declaration-order starvation
@@ -43,7 +43,7 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
 - Proposal authoring: agents propose changes through a staging area with conflict detection
-- 5,449 tests / 1,141 suites / 0 failures, 108 conformance fixtures, Protocol v7 spec for third-party implementors
+- 5,463 tests / 1,149 suites / 0 failures, 108 conformance fixtures, Protocol v7 spec for third-party implementors
 - Post-release `npx` install verification as part of the release process
 
 **Architecture:**

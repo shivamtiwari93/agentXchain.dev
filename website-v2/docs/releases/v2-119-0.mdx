@@ -1,0 +1,70 @@
+---
+sidebar_position: 0
+title: "v2.119.0 Release Notes"
+---
+
+# AgentXchain v2.119.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Session-Level Budget Enforcement
+
+Continuous mode now enforces cumulative spend limits across an entire session, not just per-run. This closes the operational risk where a `run --continuous` or schedule-owned continuous session chaining dozens of `api_proxy`-backed runs could spend arbitrarily with no session-level cap.
+
+**Key capabilities:**
+- `per_session_max_usd` config field on both CLI (`--session-budget <usd>`) and schedule continuous config
+- Pre-run budget gate: before each new governed run, cumulative spend is checked against the session cap
+- Clean terminal exit with `session_budget_exhausted` action and truthful operator reason across all surfaces
+- Schedule-owned sessions persist `continuous_session_budget_exhausted` in `schedule-state.json` (distinct from generic completion)
+- `agentxchain status` shows budget progress: `$X.XX / $Y.YY (Z.Z%)` with `[EXHAUSTED]` when depleted
+- Invalid `--session-budget` values fail closed (no silent NaN-to-null degradation)
+
+**Config shape (standalone):**
+```bash
+agentxchain run --continuous --vision .planning/VISION.md --session-budget 50.00
+```
+
+**Config shape (schedule-owned):**
+```json
+{
+  "schedules": {
+    "factory": {
+      "enabled": true,
+      "every_minutes": 60,
+      "continuous": {
+        "enabled": true,
+        "vision_path": ".planning/VISION.md",
+        "per_session_max_usd": 50.00,
+        "max_runs": 100
+      }
+    }
+  }
+}
+```
+
+### Continuous Mode Adapter E2E Proof
+
+Added `AT-CONT-APIPROXY-001` and `AT-CONT-APIPROXY-002` proving continuous mode works through the real `api_proxy` adapter pathway with a mock Anthropic HTTP server, not just `local_cli` with `mock-agent.mjs`.
+
+### API Proxy Prompt Contract Hardening
+
+Hardened the existing `run-api-proxy-integration.test.js` mock server to parse the real markdown prompt contract (`**Run:**`, `**Turn:**`, `**Phase:**`, `# Turn Assignment:`) instead of accidental JSON fragments. Tests now assert extracted metadata matches dispatched values.
+
+## What Changed
+
+- **Session-level budget enforcement**: `per_session_max_usd` config, `--session-budget` CLI flag, cumulative spend tracking in session state, pre-run budget gate, truthful terminal messaging, schedule-owned budget-exhausted status (`DEC-CONT-BUDGET-001`, `DEC-CONT-BUDGET-002`)
+- **Continuous api_proxy E2E**: `AT-CONT-APIPROXY-001/002` proving mixed-adapter continuous mode with mock Anthropic server, vision provenance, and real intake lifecycle (`DEC-CONT-APIPROXY-PROOF-001`)
+- **API proxy prompt contract**: integration test mocks now parse markdown-formatted dispatch bundles, not JSON fragments; tests fail closed on fallback defaults (`DEC-APIPROXY-PROMPT-CONTRACT-001`)
+- **Docs updated**: CLI reference, lights-out scheduling, and recovery docs now cover session-level budget enforcement
+- 5,463 tests / 1,149 suites / 0 failures
+
+## Evidence
+
+| Surface | Status |
+|---------|--------|
+| Protocol conformance | 53 fixtures passing |
+| Test suite | 5,463 tests / 1,149 suites / 0 failures |
+| Website build | Clean (0 warnings) |
+| Release preflight | Passing |
