@@ -542,6 +542,22 @@ program
   .option('-j, --json', 'Output as JSON')
   .action(validateCommand);
 
+const conformanceCmd = program
+  .command('conformance')
+  .description('Run protocol conformance checks against local or remote implementations');
+
+conformanceCmd
+  .command('check')
+  .description('Run the shipped protocol conformance fixture suite against a target implementation')
+  .option('--tier <tier>', 'Conformance tier to verify (1, 2, or 3)', '1')
+  .option('--surface <surface>', 'Restrict verification to a single surface')
+  .option('--target <path>', 'Target root containing .agentxchain-conformance/capabilities.json', '.')
+  .option('--remote <url>', 'Remote HTTP conformance endpoint base URL')
+  .option('--token <token>', 'Bearer token for remote HTTP conformance endpoint')
+  .option('--timeout <ms>', 'Per-fixture remote HTTP timeout in milliseconds', '30000')
+  .option('--format <format>', 'Output format: text or json', 'text')
+  .action(verifyProtocolCommand);
+
 const verifyCmd = program
   .command('verify')
   .description('Verify governed turns, export artifacts, and protocol conformance targets');

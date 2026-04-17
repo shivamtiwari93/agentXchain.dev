@@ -300,7 +300,7 @@ agentxchain doctor                           # governed project health check
 agentxchain connector check                  # live health probes for configured connectors
 agentxchain verify turn                      # replay staged machine-evidence before acceptance
 agentxchain replay turn                      # replay accepted machine-evidence from history
-agentxchain verify protocol                  # run the protocol conformance kit
+agentxchain conformance check               # run the protocol conformance kit
 ```
 
 ### Automation, Plugins, And Continuity
@@ -404,7 +404,7 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 - `plugin install|list|remove`: manage hook-packaging plugins under `.agentxchain/plugins/`
 - `verify turn`: replay a staged turn's declared machine-evidence commands to confirm reproducibility before acceptance
 - `replay turn`: replay an accepted turn's machine-evidence commands from history for audit and drift detection
-- `verify protocol`: run the shipped protocol conformance kit against any target implementation
+- `conformance check`: run the shipped protocol conformance kit against any target implementation
 - `validate`: validate governed kickoff wiring, a staged turn result, or both
 
 ### Continuous-delivery intake
@@ -483,8 +483,10 @@ See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 The protocol is only meaningful if implementations can prove they obey it. The repo ships a conformance kit under `.agentxchain-conformance/` and the CLI exposes it directly:
 
 ```bash
-agentxchain verify protocol --tier 3 --target .
+agentxchain conformance check --tier 3 --target .
 ```
+
+`agentxchain verify protocol` remains supported as a compatibility alias over the same verifier.
 
 Use `--surface <name>` to isolate one area such as `state_machine`, `dispatch_manifest`, or `coordinator`. Use `--format json` in CI.
 
@@ -502,7 +504,7 @@ Use `--surface <name>` to isolate one area such as `state_machine`, `dispatch_ma
 | [ci-runner-proof](examples/ci-runner-proof/) | Repo-native runner proof in 3 tiers: single-turn primitive, full lifecycle, and `runLoop` composition |
 | [mcp-echo-agent](examples/mcp-echo-agent/) | Reference MCP stdio server implementing `agentxchain_turn` with a validator-clean no-op result |
 | [mcp-http-echo-agent](examples/mcp-http-echo-agent/) | Reference MCP streamable HTTP server for remote `agentxchain_turn` dispatch |
-| [remote-conformance-server](examples/remote-conformance-server/) | HTTP fixture server for `agentxchain verify protocol --remote` |
+| [remote-conformance-server](examples/remote-conformance-server/) | HTTP fixture server for `agentxchain conformance check --remote` |
 | [live-governed-proof](examples/live-governed-proof/) | Live single-turn governed proof using a real model via `api_proxy` |
 
 ## Positioning

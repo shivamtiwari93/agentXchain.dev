@@ -18,6 +18,34 @@ function runCli(args, cwd = REPO_ROOT) {
 }
 
 describe('protocol conformance verifier', () => {
+  it('lists the conformance command family in top-level help', () => {
+    const result = runCli(['--help']);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /\bconformance\b/);
+  });
+
+  it('conformance check --help exposes the shipped verifier flags', () => {
+    const result = runCli(['conformance', 'check', '--help']);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /--tier <tier>/);
+    assert.match(result.stdout, /--surface <surface>/);
+    assert.match(result.stdout, /--target <path>/);
+    assert.match(result.stdout, /--remote <url>/);
+    assert.match(result.stdout, /--token <token>/);
+    assert.match(result.stdout, /--timeout <ms>/);
+    assert.match(result.stdout, /--format <format>/);
+  });
+
+  it('passes Tier 1 self-validation through the conformance check alias', () => {
+    const result = runCli(['conformance', 'check', '--tier', '1', '--target', '.', '--format', 'json']);
+    assert.equal(result.status, 0, result.stderr);
+
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.overall, 'pass');
+    assert.equal(report.results.tier_1.fixtures_run, 77);
+    assert.equal(report.results.tier_1.fixtures_passed, 77);
+  });
+
   it('passes Tier 1 self-validation against the reference adapter', () => {
     const result = runCli(['verify', 'protocol', '--tier', '1', '--target', '.', '--format', 'json']);
     assert.equal(result.status, 0, result.stderr);

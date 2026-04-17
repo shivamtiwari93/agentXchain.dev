@@ -17,12 +17,18 @@ const CI_WORKFLOW = read('.github/workflows/ci.yml');
 const CLI_DOC_SPEC = read('.planning/CLI_DOC_PAGE_SPEC.md');
 
 describe('Protocol conformance public surface', () => {
-  it('documents verify protocol in both READMEs', () => {
+  it('documents conformance check as the preferred front door in both READMEs', () => {
+    assert.match(ROOT_README, /conformance check/);
+    assert.match(CLI_README, /conformance check/);
+  });
+
+  it('preserves verify protocol compatibility language in both READMEs', () => {
     assert.match(ROOT_README, /verify protocol/);
     assert.match(CLI_README, /verify protocol/);
   });
 
   it('documents verify protocol in the Docusaurus docs surface', () => {
+    assert.match(CLI_DOCS, /conformance check/);
     assert.match(CLI_DOCS, /verify protocol/);
     assert.match(CLI_DOCS, /capabilities\.json/);
     assert.match(CLI_DOCS, /stdio-fixture-v1/);
@@ -30,6 +36,7 @@ describe('Protocol conformance public surface', () => {
   });
 
   it('keeps the CLI docs spec aligned with conformance documentation', () => {
+    assert.match(CLI_DOC_SPEC, /conformance check/);
     assert.match(CLI_DOC_SPEC, /verify protocol/);
     assert.match(CLI_DOC_SPEC, /tier, surface, target, and JSON-report semantics/i);
   });

@@ -94,6 +94,7 @@ describe('CLI command map docs contract', () => {
     ['mission', ['mission start', 'mission list', 'mission show', 'mission attach-chain', 'mission plan', 'mission plan show', 'mission plan approve', 'mission plan autopilot', 'mission plan list']],
     ['doctor', ['doctor']],
     ['connector', ['connector check', 'connector validate']],
+    ['conformance', ['conformance check']],
   ]);
 
   it('documents every governed-scope top-level command family from the CLI registration', () => {
@@ -118,6 +119,7 @@ describe('CLI command map docs contract', () => {
       'chain',
       'mission',
       'validate',
+      'conformance',
       'verify',
       'replay',
       'migrate',
@@ -207,6 +209,7 @@ describe('CLI command map spec alignment', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(SPEC, /AT-CMAP-001/);
     assert.match(SPEC, /AT-CMAP-005/);
+    assert.match(SPEC, /conformance check/);
     assert.match(SPEC, /verify turn/);
     assert.match(SPEC, /verify protocol/);
   });

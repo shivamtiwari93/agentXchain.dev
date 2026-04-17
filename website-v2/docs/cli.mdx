@@ -69,6 +69,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `verify turn` | Validation | Replay a staged turn's declared machine-evidence commands and compare actual exit codes |
 | `replay turn` | Validation | Replay an accepted turn's declared machine-evidence commands from history |
 | `replay export` | Observability | Browse a completed export in the dashboard for offline post-mortem analysis |
+| `conformance check` | Conformance | Preferred front door for the shipped protocol conformance fixture suite |
 | `verify protocol` | Conformance | Run the shipped protocol conformance fixture suite against a target implementation |
 | `verify export` | Conformance | Verify an export artifact against embedded file bytes, hashes, and summary invariants |
 | `verify diff` | Conformance | Verify two export artifacts, then fail closed on governance regressions between them |
@@ -1154,9 +1155,12 @@ In replay mode, the dashboard session endpoint reports `replay_mode: true` and `
 
 ## Protocol conformance
 
-### `verify protocol`
+### `conformance check`
 
 ```bash
+agentxchain conformance check [options]
+
+# compatibility alias
 agentxchain verify protocol [options]
 ```
 
@@ -1170,7 +1174,9 @@ agentxchain verify protocol [options]
 | `--timeout <ms>` | `30000` | Per-fixture remote HTTP timeout in milliseconds. Valid only with `--remote` |
 | `--format <format>` | `text` | Output format: `text` or `json` |
 
-The repo ships a first-party conformance corpus under `.agentxchain-conformance/`. `verify protocol` runs those fixtures against either:
+`conformance check` is the preferred front door for protocol implementors. `verify protocol` remains supported as a compatibility alias over the same verifier.
+
+The repo ships a first-party conformance corpus under `.agentxchain-conformance/`. The verifier runs those fixtures against either:
 
 - a local implementation that exposes a `stdio-fixture-v1` adapter and declares supported tiers and surfaces in `.agentxchain-conformance/capabilities.json`
 - a remote HTTP implementation that exposes `GET /conform/capabilities` and `POST /conform/execute` with `adapter.protocol: "http-fixture-v1"`
@@ -1179,13 +1185,13 @@ Typical use:
 
 ```bash
 # self-validate the reference CLI
-agentxchain verify protocol --tier 3 --target .
+agentxchain conformance check --tier 3 --target .
 
 # isolate one surface and emit CI-friendly JSON
-agentxchain verify protocol --tier 2 --surface dispatch_manifest --target . --format json
+agentxchain conformance check --tier 2 --surface dispatch_manifest --target . --format json
 
 # verify a remote implementation over HTTP
-agentxchain verify protocol --tier 1 --remote https://example.com/agentxchain --format json
+agentxchain conformance check --tier 1 --remote https://example.com/agentxchain --format json
 ```
 
 **Progressive conformance:** Adapters may return `not_implemented` (exit code 3 from the adapter process) for fixtures they do not yet support. The verifier treats `not_implemented` as non-failing — the overall exit code remains `0` if all other fixtures pass. This allows implementations to adopt conformance progressively: pass lower tiers first while marking higher-tier or optional surfaces as not yet ready.

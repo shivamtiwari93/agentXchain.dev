@@ -44,7 +44,7 @@ describe('verify protocol docs — flag alignment', () => {
 
   it('no ghost flags in docs that are not in CLI registration', () => {
     // Extract flags from the docs verify protocol section
-    const verifyDocStart = CLI_DOCS.indexOf('### `verify protocol`');
+    const verifyDocStart = CLI_DOCS.indexOf('### `conformance check`');
     const verifyDocEnd = CLI_DOCS.indexOf('## Export verification');
     const verifyDocSection = CLI_DOCS.slice(verifyDocStart, verifyDocEnd);
 
@@ -99,6 +99,13 @@ describe('verify protocol docs — behavioral semantics', () => {
       'Docs must mention http-fixture-v1 for remote verification');
     assert.match(CLI_DOCS, /--remote/,
       'Docs must mention the remote verification mode');
+  });
+
+  it('documents conformance check as the preferred entrypoint while preserving verify protocol compatibility', () => {
+    assert.match(CLI_DOCS, /conformance check/,
+      'Docs must mention conformance check');
+    assert.match(CLI_DOCS, /verify protocol.*compatibility alias|compatibility alias.*verify protocol/i,
+      'Docs must preserve verify protocol as a compatibility alias');
   });
 });
 

@@ -182,23 +182,25 @@ Be precise about the semantics:
 - A tier can still be reported as overall `pass` when every selected fixture is either `pass` or `not_implemented`.
 - `not_implemented` is not a loophole for broken behavior. If the surface exists and behaves incorrectly, return `fail`.
 
-## Running `agentxchain verify protocol`
+## Running protocol conformance
 
 Typical usage:
 
 ```bash
 # Run Tier 1 against the current directory
-agentxchain verify protocol --tier 1 --target .
+agentxchain conformance check --tier 1 --target .
 
 # Run up to Tier 2 and isolate one surface
-agentxchain verify protocol --tier 2 --surface dispatch_manifest --target .
+agentxchain conformance check --tier 2 --surface dispatch_manifest --target .
 
 # Emit JSON for CI or a reporting pipeline
-agentxchain verify protocol --tier 3 --target . --format json
+agentxchain conformance check --tier 3 --target . --format json
 
 # Verify a remote implementation over HTTP
-agentxchain verify protocol --tier 1 --remote https://example.com/agentxchain --format json
+agentxchain conformance check --tier 1 --remote https://example.com/agentxchain --format json
 ```
+
+`agentxchain verify protocol` remains supported as a compatibility alias over the same verifier.
 
 Command options:
 

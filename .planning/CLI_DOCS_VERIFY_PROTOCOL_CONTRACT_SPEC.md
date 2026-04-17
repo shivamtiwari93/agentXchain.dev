@@ -27,6 +27,7 @@ Current shipped flags:
 
 ## Changes Required
 
+0. Present `conformance check` as the preferred operator-facing entrypoint while keeping `verify protocol` documented as a compatibility alias
 1. Keep `not_implemented` in the exit-code explanation with progressive-conformance semantics
 2. Keep the `capabilities.json.surfaces` enforcement note
 3. Keep `--tier` documented as cumulative
@@ -44,3 +45,4 @@ Current shipped flags:
 - AT-VP-006: Guard test reads `agentxchain.js` to verify all documented flags exist in CLI registration
 - AT-VP-007: Docs mention `http-fixture-v1`
 - AT-VP-008: Docs mention `--remote`
+- AT-VP-009: Docs mention `conformance check` as the preferred entrypoint and `verify protocol` as a compatibility alias

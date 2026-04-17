@@ -172,7 +172,8 @@ agentxchain step
 | `template validate` | Prove the template registry, workflow-kit scaffold contract, and planning artifact completeness (`--json` exposes a `workflow_kit` block) |
 | `verify turn` | Replay a staged turn's declared machine-evidence commands to confirm reproducibility before acceptance |
 | `replay turn` | Replay an accepted turn's machine-evidence commands from history for audit and drift detection |
-| `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
+| `conformance check` | Preferred front door for the shipped protocol conformance suite |
+| `verify protocol` | Compatibility alias for the shipped protocol conformance suite |
 | `dashboard` | Open the live local governance dashboard in your browser for the current repo/workspace or multi-repo coordinator initiative, including pending gate approvals |
 | `run [--auto-approve] [--max-turns N] [--dry-run]` | Drive a governed run from start to completion — dispatches turns, handles gates, manages rejection/retry |
 
@@ -247,8 +248,10 @@ Partial coordinator artifacts are first-class here too: `audit` and `report` kee
 AgentXchain ships a conformance kit under `.agentxchain-conformance/`. Use it to prove a runner or fork still implements the governed workflow contract:
 
 ```bash
-agentxchain verify protocol --tier 3 --target .
+agentxchain conformance check --tier 3 --target .
 ```
+
+`agentxchain verify protocol` remains available as a compatibility alias.
 
 Useful flags:
 

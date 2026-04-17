@@ -46,6 +46,7 @@ The page must document the governed command surface and the governed-adjacent co
 - `approve-transition`
 - `approve-completion`
 - `validate`
+- `conformance check`
 - `verify protocol`
 - `migrate`
 - `plugin`
@@ -111,7 +112,7 @@ The page must link to:
 4. The page includes real dispatch and staging paths.
 5. The page links from other docs pages through local `/docs/cli` links.
 6. The page does not describe legacy lock-based workflow as the primary command path and explicitly marks it as compatibility scope.
-7. The page documents `agentxchain verify protocol` with tier, surface, target, and JSON-report semantics.
+7. The page documents `agentxchain conformance check` with tier, surface, target, and JSON-report semantics, while preserving `agentxchain verify protocol` as a compatibility alias.
 8. The command map includes every governed and governed-adjacent command family registered in `cli/bin/agentxchain.js`.
 9. The `init` section documents the scaffold-time `local-dev` runtime override flags and the `{prompt}` / prompt-transport contract.
 
