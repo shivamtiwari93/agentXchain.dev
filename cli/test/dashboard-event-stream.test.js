@@ -428,11 +428,12 @@ describe('dashboard event stream — /api/events', () => {
 
 describe('dashboard event stream — state-reader resource mapping', () => {
   it('events.jsonl is in RESOURCE_MAP', async () => {
-    const { RESOURCE_MAP, FILE_TO_RESOURCE, resourceForRelativePath } = await import('../src/lib/dashboard/state-reader.js');
+    const { RESOURCE_MAP, FILE_TO_RESOURCE, resourceForRelativePath, resourcesForRelativePath } = await import('../src/lib/dashboard/state-reader.js');
     assert.equal(RESOURCE_MAP['/api/events'], 'events.jsonl');
     assert.equal(resourceForRelativePath('events.jsonl'), '/api/events');
     assert.equal(FILE_TO_RESOURCE['repo-decisions.jsonl'], '/api/repo-decisions-summary');
     assert.equal(resourceForRelativePath('repo-decisions.jsonl'), '/api/repo-decisions-summary');
+    assert.deepEqual(resourcesForRelativePath('dispatch-progress-turn_001.json'), ['/api/state']);
   });
 });
 

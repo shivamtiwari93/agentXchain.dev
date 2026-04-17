@@ -46,7 +46,7 @@ import {
 } from '../lib/turn-paths.js';
 import { resolveChainOptions, executeChainedRun } from '../lib/run-chain.js';
 import { resolveContinuousOptions, executeContinuousRun } from '../lib/continuous-run.js';
-import { createDispatchProgressTracker, deleteProgressFile } from '../lib/dispatch-progress.js';
+import { createDispatchProgressTracker } from '../lib/dispatch-progress.js';
 import { emitRunEvent } from '../lib/run-events.js';
 
 export async function runCommand(opts) {
@@ -312,26 +312,42 @@ export async function executeGovernedRun(context, opts = {}) {
         turnId: turn.turn_id,
       };
 
+      const recordOutputActivity = (stream, text) => {
+        const lines = text.split('\n').length - 1 || 1;
+        const wasSilent = tracker.onOutput(stream, lines);
+        if (wasSilent) {
+          const progressState = tracker.getState();
+          emitRunEvent(projectRoot, 'dispatch_progress', {
+            run_id: state.run_id,
+            phase: state.phase,
+            status: state.status,
+            turn: { turn_id: turn.turn_id, assigned_role: roleId },
+            payload: {
+              milestone: 'output_resumed',
+              output_lines: progressState.output_lines,
+              elapsed_seconds: Math.round((Date.now() - new Date(progressState.started_at)) / 1000),
+              silent_seconds: 0,
+            },
+          });
+        }
+      };
+
       if (verbose) {
         adapterOpts.onStdout = (text) => {
           process.stdout.write(chalk.dim(text));
-          const lines = text.split('\n').length - 1 || 1;
-          tracker.onOutput('stdout', lines);
+          recordOutputActivity('stdout', text);
         };
         adapterOpts.onStderr = (text) => {
           process.stderr.write(chalk.yellow(text));
-          const lines = text.split('\n').length - 1 || 1;
-          tracker.onOutput('stderr', lines);
+          recordOutputActivity('stderr', text);
         };
       } else {
         // Even in non-verbose mode, track output activity for progress visibility
         adapterOpts.onStdout = (text) => {
-          const lines = text.split('\n').length - 1 || 1;
-          tracker.onOutput('stdout', lines);
+          recordOutputActivity('stdout', text);
         };
         adapterOpts.onStderr = (text) => {
-          const lines = text.split('\n').length - 1 || 1;
-          tracker.onOutput('stderr', lines);
+          recordOutputActivity('stderr', text);
         };
       }
 

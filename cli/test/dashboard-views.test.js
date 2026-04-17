@@ -69,6 +69,37 @@ describe('Timeline View', () => {
     assert.ok(html.includes('dev'));
   });
 
+  it('AT-PROGRESS-009: renders dispatch activity for active turns from /api/state', () => {
+    const html = renderTimeline({
+      state: {
+        run_id: 'run_001',
+        status: 'running',
+        phase: 'implementation',
+        active_turns: {
+          t1: {
+            turn_id: 'turn_001',
+            assigned_role: 'dev',
+            status: 'running',
+            started_at: new Date(Date.now() - 5_000).toISOString(),
+          },
+        },
+        dispatch_progress: {
+          turn_001: {
+            turn_id: 'turn_001',
+            activity_type: 'output',
+            output_lines: 12,
+            last_activity_at: new Date(Date.now() - 2_000).toISOString(),
+          },
+        },
+      },
+      history: [],
+    });
+
+    assert.ok(html.includes('Activity:'));
+    assert.ok(html.includes('Producing output'));
+    assert.ok(html.includes('12 lines'));
+  });
+
   it('renders turn history with summary, files, decisions, objections, risks', () => {
     const history = [{
       turn_id: 'turn_001',

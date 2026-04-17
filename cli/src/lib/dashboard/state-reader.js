@@ -15,6 +15,7 @@ import {
 import { loadProjectContext } from '../config.js';
 import { getContinuityStatus } from '../continuity-status.js';
 import { readRepoDecisions, summarizeRepoDecisions } from '../repo-decisions.js';
+import { readAllDispatchProgress } from '../dispatch-progress.js';
 
 const STATE_FILE = 'state.json';
 const SESSION_FILE = 'session.json';
@@ -80,6 +81,9 @@ export function normalizeRelativePath(filePath) {
 
 export function resourcesForRelativePath(filePath) {
   const normalized = normalizeRelativePath(filePath);
+  if (/^dispatch-progress-[^/]+\.json$/.test(normalized)) {
+    return ['/api/state'];
+  }
   if (normalized.startsWith('missions/plans/') && normalized.endsWith('.json')) {
     return ['/api/plans', '/api/missions'];
   }
@@ -136,6 +140,7 @@ function enrichGovernedState(agentxchainDir, state) {
     ...state,
     runtime_guidance: deriveRuntimeBlockedGuidance(state, context.config),
     next_actions: deriveGovernedRunNextActions(state, context.config),
+    dispatch_progress: readAllDispatchProgress(workspacePath),
   };
 }
 

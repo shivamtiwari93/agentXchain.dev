@@ -20,8 +20,9 @@ import { tmpdir } from 'node:os';
 import {
   createDispatchProgressTracker,
   readDispatchProgress,
+  readAllDispatchProgress,
   deleteProgressFile,
-  DISPATCH_PROGRESS_PATH,
+  getDispatchProgressRelativePath,
 } from '../src/lib/dispatch-progress.js';
 
 import { readRunEvents, VALID_RUN_EVENTS } from '../src/lib/run-events.js';
@@ -65,7 +66,7 @@ describe('dispatch-progress', () => {
       tracker.start();
 
       // After start — file exists with correct fields
-      const progress = readDispatchProgress(root);
+      const progress = readDispatchProgress(root, turn.turn_id);
       assert.ok(progress, 'progress file should exist after start');
       assert.equal(progress.turn_id, 'turn_test_001');
       assert.equal(progress.runtime_id, 'local-dev');
@@ -80,7 +81,7 @@ describe('dispatch-progress', () => {
       tracker.complete();
 
       // After complete — file deleted
-      assert.equal(readDispatchProgress(root), null);
+      assert.equal(readDispatchProgress(root, turn.turn_id), null);
     });
 
     it('deletes progress file on fail()', () => {
@@ -91,10 +92,10 @@ describe('dispatch-progress', () => {
       });
 
       tracker.start();
-      assert.ok(readDispatchProgress(root));
+      assert.ok(readDispatchProgress(root, turn.turn_id));
 
       tracker.fail();
-      assert.equal(readDispatchProgress(root), null);
+      assert.equal(readDispatchProgress(root, turn.turn_id), null);
     });
   });
 
@@ -113,7 +114,7 @@ describe('dispatch-progress', () => {
       tracker.onOutput('stdout', 3);
       tracker.onOutput('stderr', 2);
 
-      const progress = readDispatchProgress(root);
+      const progress = readDispatchProgress(root, turn.turn_id);
       assert.equal(progress.output_lines, 8);
       assert.equal(progress.stderr_lines, 2);
       assert.equal(progress.activity_type, 'output');
@@ -130,13 +131,13 @@ describe('dispatch-progress', () => {
       });
 
       tracker.start();
-      const startProgress = readDispatchProgress(root);
+      const startProgress = readDispatchProgress(root, turn.turn_id);
       const startTime = new Date(startProgress.last_activity_at).getTime();
 
       // Small delay to get a different timestamp
       const before = Date.now();
       tracker.onOutput('stdout', 1);
-      const afterProgress = readDispatchProgress(root);
+      const afterProgress = readDispatchProgress(root, turn.turn_id);
 
       assert.ok(new Date(afterProgress.last_activity_at).getTime() >= startTime);
 
@@ -159,7 +160,7 @@ describe('dispatch-progress', () => {
       // Wait for silence threshold
       await new Promise((r) => setTimeout(r, 100));
 
-      const progress = readDispatchProgress(root);
+      const progress = readDispatchProgress(root, turn.turn_id);
       assert.equal(progress.activity_type, 'silent');
       assert.ok(progress.silent_since);
 
@@ -183,7 +184,7 @@ describe('dispatch-progress', () => {
       const wasSilent = tracker.onOutput('stdout', 1);
       assert.equal(wasSilent, true);
 
-      const progress = readDispatchProgress(root);
+      const progress = readDispatchProgress(root, turn.turn_id);
       assert.equal(progress.activity_type, 'output');
       assert.equal(progress.silent_since, null);
 
@@ -209,14 +210,14 @@ describe('dispatch-progress', () => {
       tracker.start();
       tracker.requestStarted();
 
-      const progress = readDispatchProgress(root);
+      const progress = readDispatchProgress(root, turn.turn_id);
       assert.equal(progress.turn_id, 'turn_test_001');
       assert.equal(progress.adapter_type, 'api_proxy');
       assert.equal(progress.activity_type, 'request');
       assert.equal(progress.activity_summary, 'API request in flight');
 
       tracker.responseReceived();
-      const after = readDispatchProgress(root);
+      const after = readDispatchProgress(root, turn.turn_id);
       assert.equal(after.activity_type, 'response');
 
       tracker.complete();
@@ -232,7 +233,7 @@ describe('dispatch-progress', () => {
   describe('AT-PROGRESS-007: stale progress file detection', () => {
     it('returns data even for mismatched turn_id (caller checks)', () => {
       // Write a progress file with a different turn_id
-      const filePath = join(root, DISPATCH_PROGRESS_PATH);
+      const filePath = join(root, getDispatchProgressRelativePath('turn_old_stale'));
       mkdirSync(join(root, '.agentxchain'), { recursive: true });
       writeFileSync(filePath, JSON.stringify({
         turn_id: 'turn_old_stale',
@@ -255,6 +256,36 @@ describe('dispatch-progress', () => {
     });
   });
 
+  describe('AT-PROGRESS-008: concurrent trackers stay isolated', () => {
+    it('writes one progress file per turn so parallel dispatch does not clobber another turn', () => {
+      const firstTurn = makeTurn({ turn_id: 'turn_parallel_001' });
+      const secondTurn = makeTurn({ turn_id: 'turn_parallel_002' });
+      const firstTracker = createDispatchProgressTracker(root, firstTurn, {
+        adapter_type: 'local_cli',
+        writeIntervalMs: 0,
+        silenceThresholdMs: 60000,
+      });
+      const secondTracker = createDispatchProgressTracker(root, secondTurn, {
+        adapter_type: 'api_proxy',
+        writeIntervalMs: 0,
+        silenceThresholdMs: 60000,
+      });
+
+      firstTracker.start();
+      firstTracker.onOutput('stdout', 4);
+      secondTracker.start();
+      secondTracker.requestStarted();
+
+      const allProgress = readAllDispatchProgress(root);
+      assert.deepEqual(Object.keys(allProgress).sort(), ['turn_parallel_001', 'turn_parallel_002']);
+      assert.equal(allProgress.turn_parallel_001.output_lines, 4);
+      assert.equal(allProgress.turn_parallel_002.activity_type, 'request');
+
+      firstTracker.complete();
+      secondTracker.complete();
+    });
+  });
+
   describe('setPid', () => {
     it('updates pid field in progress state', () => {
       const turn = makeTurn();
@@ -267,7 +298,7 @@ describe('dispatch-progress', () => {
       tracker.start();
       tracker.setPid(12345);
 
-      const progress = readDispatchProgress(root);
+      const progress = readDispatchProgress(root, turn.turn_id);
       assert.equal(progress.pid, 12345);
 
       tracker.complete();
@@ -281,11 +312,11 @@ describe('dispatch-progress', () => {
     });
 
     it('deletes existing file', () => {
-      const filePath = join(root, DISPATCH_PROGRESS_PATH);
+      const filePath = join(root, getDispatchProgressRelativePath('turn_delete_001'));
       writeFileSync(filePath, '{}');
       assert.ok(existsSync(filePath));
 
-      deleteProgressFile(root);
+      deleteProgressFile(root, 'turn_delete_001');
       assert.ok(!existsSync(filePath));
     });
   });

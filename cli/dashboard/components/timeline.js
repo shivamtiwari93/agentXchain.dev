@@ -95,6 +95,30 @@ function formatPercent(value) {
   return `${Math.round(value * 100)}%`;
 }
 
+function formatDispatchActivity(progress) {
+  if (!progress || typeof progress !== 'object') return null;
+  const lastActivityAt = progress.last_activity_at ? new Date(progress.last_activity_at) : null;
+  const agoSec = lastActivityAt && !Number.isNaN(lastActivityAt.getTime())
+    ? Math.round((Date.now() - lastActivityAt.getTime()) / 1000)
+    : null;
+
+  if (progress.activity_type === 'silent') {
+    const silentSince = progress.silent_since ? new Date(progress.silent_since) : null;
+    const silentSec = silentSince && !Number.isNaN(silentSince.getTime())
+      ? Math.round((Date.now() - silentSince.getTime()) / 1000)
+      : agoSec;
+    return `Silent for ${silentSec ?? 0}s (${progress.output_lines || 0} lines total, last output ${agoSec ?? 0}s ago)`;
+  }
+  if (progress.activity_type === 'request') {
+    return `API request in flight (${agoSec ?? 0}s ago)`;
+  }
+  if (progress.activity_type === 'response') {
+    return 'API response received';
+  }
+  const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
+  return `Producing output (${progress.output_lines || 0} lines${agoLabel})`;
+}
+
 function statusBadge(status) {
   const colors = {
     running: 'var(--green)',
@@ -411,6 +435,9 @@ export function render({ state, continuity, history, events = null, annotations,
 
   const turnCount = Array.isArray(history) ? history.length : 0;
   const activeTurns = state.active_turns ? Object.values(state.active_turns) : [];
+  const dispatchProgress = state.dispatch_progress && typeof state.dispatch_progress === 'object'
+    ? state.dispatch_progress
+    : {};
 
   let html = `<div class="timeline-view">`;
 
@@ -436,6 +463,7 @@ export function render({ state, continuity, history, events = null, annotations,
     for (const turn of activeTurns) {
       const elapsedMs = computeElapsed(turn.started_at);
       const elapsedStr = formatDuration(elapsedMs);
+      const activity = formatDispatchActivity(dispatchProgress[turn.turn_id]);
       html += `<div class="turn-card active">
         <div class="turn-header">
           ${roleBadge(getRole(turn))}
@@ -445,6 +473,7 @@ export function render({ state, continuity, history, events = null, annotations,
         </div>
         ${renderDelegationContext(turn.delegation_context)}
         ${renderDelegationReview(turn.delegation_review)}
+        ${activity ? `<div class="turn-detail"><span class="detail-label">Activity:</span> ${esc(activity)}</div>` : ''}
       </div>`;
     }
     html += `</div></div>`;

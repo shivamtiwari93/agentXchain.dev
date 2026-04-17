@@ -9,10 +9,31 @@
  * block or delay the governed turn.
  */
 
-import { writeFileSync, unlinkSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { writeFileSync, unlinkSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { join, dirname, basename } from 'node:path';
 
-export const DISPATCH_PROGRESS_PATH = '.agentxchain/dispatch-progress.json';
+export const LEGACY_DISPATCH_PROGRESS_PATH = '.agentxchain/dispatch-progress.json';
+export const DISPATCH_PROGRESS_FILE_PREFIX = '.agentxchain/dispatch-progress-';
+
+export function getDispatchProgressRelativePath(turnId) {
+  return `${DISPATCH_PROGRESS_FILE_PREFIX}${turnId}.json`;
+}
+
+function getDispatchProgressFilePath(root, turnId) {
+  return join(root, getDispatchProgressRelativePath(turnId));
+}
+
+function listDispatchProgressFiles(root) {
+  const agentxchainDir = join(root, '.agentxchain');
+  if (!existsSync(agentxchainDir)) return [];
+  try {
+    return readdirSync(agentxchainDir)
+      .filter((entry) => entry.startsWith('dispatch-progress-') && entry.endsWith('.json'))
+      .map((entry) => join(agentxchainDir, entry));
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Create a dispatch progress tracker for a single turn.
@@ -43,7 +64,7 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
     silenceThresholdMs = 30000,
   } = options;
 
-  const filePath = join(root, DISPATCH_PROGRESS_PATH);
+  const filePath = getDispatchProgressFilePath(root, turn.turn_id);
 
   let state = {
     turn_id: turn.turn_id,
@@ -165,13 +186,13 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
     /** Clean up — dispatch completed successfully. */
     complete() {
       if (silenceTimer) clearTimeout(silenceTimer);
-      deleteProgressFile(root);
+      deleteProgressFile(root, turn.turn_id);
     },
 
     /** Clean up — dispatch failed. */
     fail() {
       if (silenceTimer) clearTimeout(silenceTimer);
-      deleteProgressFile(root);
+      deleteProgressFile(root, turn.turn_id);
     },
 
     /** Clean up timers without deleting file (for abort paths). */
@@ -185,11 +206,24 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
  * Delete the dispatch progress file.
  * @param {string} root - project root
  */
-export function deleteProgressFile(root) {
+export function deleteProgressFile(root, turnId = null) {
   try {
-    const filePath = join(root, DISPATCH_PROGRESS_PATH);
-    if (existsSync(filePath)) {
-      unlinkSync(filePath);
+    if (turnId) {
+      const filePath = getDispatchProgressFilePath(root, turnId);
+      if (existsSync(filePath)) {
+        unlinkSync(filePath);
+      }
+      return;
+    }
+
+    const legacyPath = join(root, LEGACY_DISPATCH_PROGRESS_PATH);
+    if (existsSync(legacyPath)) {
+      unlinkSync(legacyPath);
+    }
+    for (const filePath of listDispatchProgressFiles(root)) {
+      if (existsSync(filePath)) {
+        unlinkSync(filePath);
+      }
     }
   } catch {
     // Best-effort.
@@ -203,10 +237,24 @@ export function deleteProgressFile(root) {
  * @param {string} root - project root
  * @returns {object|null}
  */
-export function readDispatchProgress(root) {
+export function readDispatchProgress(root, turnId = null) {
   try {
-    const filePath = join(root, DISPATCH_PROGRESS_PATH);
-    if (!existsSync(filePath)) return null;
+    let filePath;
+    if (turnId) {
+      filePath = getDispatchProgressFilePath(root, turnId);
+      if (!existsSync(filePath)) return null;
+    } else {
+      const files = listDispatchProgressFiles(root);
+      if (files.length === 0) {
+        const legacyPath = join(root, LEGACY_DISPATCH_PROGRESS_PATH);
+        if (!existsSync(legacyPath)) return null;
+        filePath = legacyPath;
+      } else if (files.length === 1) {
+        filePath = files[0];
+      } else {
+        return null;
+      }
+    }
     const raw = readFileSync(filePath, 'utf8');
     const data = JSON.parse(raw);
     if (!data.turn_id || !data.started_at) return null;
@@ -214,4 +262,37 @@ export function readDispatchProgress(root) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Read all current per-turn dispatch progress files.
+ *
+ * @param {string} root - project root
+ * @returns {Record<string, object>}
+ */
+export function readAllDispatchProgress(root) {
+  const progressByTurn = {};
+
+  for (const filePath of listDispatchProgressFiles(root)) {
+    try {
+      const raw = readFileSync(filePath, 'utf8');
+      const data = JSON.parse(raw);
+      const turnId = typeof data?.turn_id === 'string' && data.turn_id.length > 0
+        ? data.turn_id
+        : basename(filePath).replace(/^dispatch-progress-/, '').replace(/\.json$/, '');
+      if (!turnId || !data?.started_at) continue;
+      progressByTurn[turnId] = data;
+    } catch {
+      // Ignore malformed files.
+    }
+  }
+
+  if (Object.keys(progressByTurn).length === 0) {
+    const legacy = readDispatchProgress(root);
+    if (legacy?.turn_id) {
+      progressByTurn[legacy.turn_id] = legacy;
+    }
+  }
+
+  return progressByTurn;
 }

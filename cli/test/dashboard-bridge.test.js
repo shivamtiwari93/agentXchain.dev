@@ -631,6 +631,88 @@ describe('Dashboard Bridge Server', () => {
       }
     });
 
+    it('AT-PROGRESS-009: GET /api/state includes active-turn dispatch progress', async () => {
+      const localFixture = createTestFixture();
+      let localBridge;
+      try {
+        writeJson(join(localFixture.root, 'agentxchain.json'), {
+          schema_version: 4,
+          protocol_mode: 'governed',
+          template: 'generic',
+          project: { id: 'dashboard-progress', name: 'Dashboard Progress', default_branch: 'main' },
+          roles: {
+            dev: {
+              title: 'Developer',
+              mandate: 'Build safely.',
+              write_authority: 'authoritative',
+              runtime: 'local-dev',
+            },
+          },
+          runtimes: {
+            'local-dev': {
+              type: 'local_cli',
+              command: 'echo ok',
+            },
+          },
+          routing: {
+            implementation: {
+              entry_role: 'dev',
+              allowed_next_roles: ['dev', 'human'],
+            },
+          },
+        });
+
+        writeJson(join(localFixture.axcDir, 'state.json'), {
+          schema_version: '1.1',
+          run_id: 'run_progress_001',
+          status: 'active',
+          phase: 'implementation',
+          active_turns: {
+            turn_progress_001: {
+              turn_id: 'turn_progress_001',
+              assigned_role: 'dev',
+              runtime_id: 'local-dev',
+              status: 'running',
+              attempt: 1,
+              started_at: '2026-04-17T23:00:00.000Z',
+            },
+          },
+          turn_sequence: 1,
+        });
+
+        writeJson(join(localFixture.axcDir, 'dispatch-progress-turn_progress_001.json'), {
+          turn_id: 'turn_progress_001',
+          runtime_id: 'local-dev',
+          adapter_type: 'local_cli',
+          started_at: '2026-04-17T23:00:00.000Z',
+          last_activity_at: '2026-04-17T23:00:05.000Z',
+          activity_type: 'output',
+          activity_summary: 'Producing output (12 lines)',
+          output_lines: 12,
+          stderr_lines: 0,
+          silent_since: null,
+          pid: 12345,
+        });
+
+        localBridge = createBridgeServer({
+          agentxchainDir: localFixture.axcDir,
+          dashboardDir: localFixture.dashDir,
+          port: 0,
+        });
+        const started = await localBridge.start();
+        const res = await httpGet(started.port, '/api/state');
+        assert.equal(res.status, 200);
+        const data = JSON.parse(res.body);
+        assert.equal(data.dispatch_progress.turn_progress_001.output_lines, 12);
+        assert.equal(data.dispatch_progress.turn_progress_001.activity_type, 'output');
+      } finally {
+        if (localBridge) {
+          await localBridge.stop();
+        }
+        rmSync(localFixture.root, { recursive: true, force: true });
+      }
+    });
+
     it('GET /api/coordinator/ledger returns multirepo decision-ledger.jsonl as array', async () => {
       const res = await httpGet(port, '/api/coordinator/ledger');
       assert.equal(res.status, 200);

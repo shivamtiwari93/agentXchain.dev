@@ -23,7 +23,7 @@ import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { readPreemptionMarker } from '../lib/intake.js';
 import { readContinuousSession } from '../lib/continuous-run.js';
-import { readDispatchProgress } from '../lib/dispatch-progress.js';
+import { readAllDispatchProgress } from '../lib/dispatch-progress.js';
 
 export async function statusCommand(opts) {
   const context = loadStatusContext();
@@ -143,6 +143,9 @@ function renderGovernedStatus(context, opts) {
   // Fire approval SLA reminders as a side effect (webhook-only, no CLI output)
   evaluateApprovalSlaReminders(root, config, state);
 
+  const activeTurns = getActiveTurns(state);
+  const dispatchProgress = filterDispatchProgressForActiveTurns(readAllDispatchProgress(root), activeTurns);
+
   if (opts.json) {
     const dashPid = getDashboardPid(root);
     const dashSession = getDashboardSession(root);
@@ -169,6 +172,7 @@ function renderGovernedStatus(context, opts) {
       next_actions: nextActions,
       connector_health: connectorHealth,
       recent_event_summary: recentEventSummary,
+      dispatch_progress: dispatchProgress,
       human_escalation: humanEscalation,
       preemption_marker: preemptionMarker,
       continuous_session: continuousSession,
@@ -263,7 +267,6 @@ function renderGovernedStatus(context, opts) {
   renderRecentEventSummary(recentEventSummary);
 
   const activeTurnCount = getActiveTurnCount(state);
-  const activeTurns = getActiveTurns(state);
   const singleActiveTurn = getActiveTurn(state);
   const approvalPending = Boolean(state?.pending_phase_transition || state?.pending_run_completion);
   if (activeTurnCount > 1) {
@@ -297,6 +300,10 @@ function renderGovernedStatus(context, opts) {
         }
       }
       console.log(`    ${marker} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${statusLabel}) [attempt ${turn.attempt}]${elapsedTag}${budgetTag}`);
+      const activityLine = formatDispatchActivityLine(dispatchProgress[turn.turn_id]);
+      if (activityLine) {
+        console.log(`      ${chalk.dim('Activity:')} ${activityLine}`);
+      }
       if (turn.status === 'conflicted' && turn.conflict_state) {
         const cs = turn.conflict_state;
         const files = cs.conflict_error?.conflicting_files || [];
@@ -343,22 +350,9 @@ function renderGovernedStatus(context, opts) {
       }
     }
     // Dispatch progress activity line (DEC-DISPATCH-PROGRESS-001)
-    const progress = readDispatchProgress(root);
-    if (progress && progress.turn_id === singleActiveTurn.turn_id) {
-      const lastAct = progress.last_activity_at ? new Date(progress.last_activity_at) : null;
-      const agoSec = lastAct ? Math.round((Date.now() - lastAct.getTime()) / 1000) : null;
-      if (progress.activity_type === 'silent') {
-        const silentSec = progress.silent_since ? Math.round((Date.now() - new Date(progress.silent_since).getTime()) / 1000) : agoSec;
-        console.log(`  ${chalk.dim('Activity:')} ${chalk.yellow(`Silent for ${silentSec}s`)} (${progress.output_lines} lines total, last output ${agoSec}s ago)`);
-      } else if (progress.activity_type === 'request') {
-        console.log(`  ${chalk.dim('Activity:')} ${chalk.cyan('API request in flight')} (${agoSec}s ago)`);
-      } else if (progress.activity_type === 'response') {
-        console.log(`  ${chalk.dim('Activity:')} ${chalk.green('API response received')}`);
-      } else {
-        // 'output' — actively producing
-        const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
-        console.log(`  ${chalk.dim('Activity:')} ${chalk.green(`Producing output`)} (${progress.output_lines} lines${agoLabel})`);
-      }
+    const activityLine = formatDispatchActivityLine(dispatchProgress[singleActiveTurn.turn_id]);
+    if (activityLine) {
+      console.log(`  ${chalk.dim('Activity:')} ${activityLine}`);
     }
     if (singleActiveTurn.status === 'conflicted' && singleActiveTurn.conflict_state) {
       const cs = singleActiveTurn.conflict_state;
@@ -760,6 +754,45 @@ function formatRepoDecisionCarryover(summary) {
 
 function pluralizeRepoDecisionCount(count, singular, plural) {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function filterDispatchProgressForActiveTurns(progressByTurn, activeTurns) {
+  const filtered = {};
+  if (!progressByTurn || typeof progressByTurn !== 'object') {
+    return filtered;
+  }
+  for (const turn of Object.values(activeTurns || {})) {
+    const turnId = turn?.turn_id;
+    if (turnId && progressByTurn[turnId]) {
+      filtered[turnId] = progressByTurn[turnId];
+    }
+  }
+  return filtered;
+}
+
+function formatDispatchActivityLine(progress) {
+  if (!progress || typeof progress !== 'object') return null;
+  const lastAct = progress.last_activity_at ? new Date(progress.last_activity_at) : null;
+  const agoSec = lastAct && !Number.isNaN(lastAct.getTime())
+    ? Math.round((Date.now() - lastAct.getTime()) / 1000)
+    : null;
+
+  if (progress.activity_type === 'silent') {
+    const silentAt = progress.silent_since ? new Date(progress.silent_since) : null;
+    const silentSec = silentAt && !Number.isNaN(silentAt.getTime())
+      ? Math.round((Date.now() - silentAt.getTime()) / 1000)
+      : agoSec;
+    return chalk.yellow(`Silent for ${silentSec}s`) +
+      ` (${progress.output_lines || 0} lines total, last output ${agoSec ?? 0}s ago)`;
+  }
+  if (progress.activity_type === 'request') {
+    return chalk.cyan('API request in flight') + ` (${agoSec ?? 0}s ago)`;
+  }
+  if (progress.activity_type === 'response') {
+    return chalk.green('API response received');
+  }
+  const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
+  return chalk.green('Producing output') + ` (${progress.output_lines || 0} lines${agoLabel})`;
 }
 
 function renderLastGateFailure(failure, config) {

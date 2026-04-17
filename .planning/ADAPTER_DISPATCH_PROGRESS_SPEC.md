@@ -20,14 +20,14 @@ A `local_cli` dispatch with Claude Code or Codex can take 2-10 minutes. During t
 
 - **No new config surface.** Progress streaming uses the existing event infrastructure (`events.jsonl`, dashboard file-watcher, `onEvent` callbacks).
 - **Best-effort.** Progress events never block or delay the governed turn. Write failures are swallowed.
-- **File-based signal.** A single `.agentxchain/dispatch-progress.json` file is written (overwritten) periodically by the adapter. The file-watcher detects changes. This avoids flooding `events.jsonl` with high-frequency progress events.
+- **File-based signal.** Each in-flight turn writes its own `.agentxchain/dispatch-progress-<turn_id>.json` file. The file-watcher detects changes and invalidates `/api/state`. This avoids flooding `events.jsonl` with high-frequency progress events and remains correct under parallel dispatch.
 - **Adapter-specific.** Only adapters that can produce progress signals emit them. Manual adapter does not. API proxy emits a single "request in flight" / "response received" pair.
 
 ## Interface
 
-### Progress file: `.agentxchain/dispatch-progress.json`
+### Progress file: `.agentxchain/dispatch-progress-<turn_id>.json`
 
-Written by the adapter (or run-loop dispatch wrapper) during in-flight dispatch. Overwritten on each update. Deleted when the turn completes or is rejected.
+Written by the run-command dispatch wrapper during in-flight dispatch. Overwritten on each update. Deleted when the turn completes or is rejected.
 
 ```json
 {
@@ -84,7 +84,7 @@ Emitted to `events.jsonl` at coarse milestones only (not per output line):
 
 ### Status command rendering
 
-When `.agentxchain/dispatch-progress.json` exists and matches the active turn:
+When `.agentxchain/dispatch-progress-<turn_id>.json` exists and matches the active turn:
 
 ```
   Turn:     turn_abc123
@@ -129,23 +129,24 @@ Same as api_proxy — request/response lifecycle only.
 
 No progress file. Manual turns are operator-driven.
 
-### Run-loop integration
+### Run-command integration
 
-The run-loop itself does not write progress files — that's the adapter's job. The run-loop:
+The governed engine does not write progress files directly. The `run.js` command implementation:
 
-1. Passes an `onProgress` callback to the dispatch function.
-2. The `run.js` command implementation creates progress-writing callbacks that the adapter calls.
-3. On dispatch completion (accept or reject), the run-loop deletes the progress file if it exists.
+1. Creates one tracker per dispatched turn.
+2. Passes stdout/stderr lifecycle callbacks to the adapter.
+3. Writes per-turn progress files during dispatch.
+4. Deletes the matching per-turn file on dispatch completion, failure, or timeout.
 
 ### Dashboard integration
 
-The file-watcher already monitors `.agentxchain/`. When `dispatch-progress.json` changes, the dashboard receives an invalidation event. No new API endpoint needed — the dashboard reads the file directly.
+The file-watcher already monitors `.agentxchain/`. When `dispatch-progress-<turn_id>.json` changes, `/api/state` is invalidated. The dashboard timeline consumes `state.dispatch_progress[turn_id]` for active turns. No separate dashboard-only endpoint is needed.
 
 ## Error Cases
 
 - Progress file write fails → swallowed, no impact on dispatch.
-- Progress file is stale (turn completed but file not deleted) → status command checks `turn_id` matches active turn; ignores stale files.
-- Multiple concurrent turns → progress file contains one turn at a time. For parallel dispatch, use `dispatch-progress-<turn_id>.json` (future extension; current implementation supports sequential mode only since that's the common case).
+- Progress file is stale (turn completed but file not deleted) → status command and `/api/state` expose progress only for active turns; stale files are ignored.
+- Multiple concurrent turns → each turn writes its own `dispatch-progress-<turn_id>.json` file so parallel dispatch does not clobber progress state.
 
 ## Acceptance Tests
 
@@ -156,6 +157,8 @@ The file-watcher already monitors `.agentxchain/`. When `dispatch-progress.json`
 - `AT-PROGRESS-005`: status command renders `Activity:` line when progress file exists and matches active turn.
 - `AT-PROGRESS-006`: status command omits `Activity:` line when no progress file exists (backwards compatible).
 - `AT-PROGRESS-007`: stale progress file (mismatched turn_id) is ignored by status command.
+- `AT-PROGRESS-008`: concurrent trackers write isolated per-turn files so parallel dispatch does not overwrite another turn's progress.
+- `AT-PROGRESS-009`: `/api/state` exposes `dispatch_progress` for active turns, and the dashboard timeline renders the corresponding Activity line.
 
 ## Open Questions
 
