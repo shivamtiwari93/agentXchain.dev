@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.127.0
+# Show HN Draft — AgentXchain v2.128.0
 
-> Ready-to-post draft. Updated 2026-04-17 for v2.127.0.
+> Ready-to-post draft. Updated 2026-04-17 for v2.128.0.
 
 ---
 
@@ -48,7 +48,7 @@ The point is not “more agents.” The point is better convergence: disagreemen
 
 Latest shipped operator slice: truthful turn-timeout enforcement during adapter dispatch plus timeout budget visibility on `status`, `turn show`, and dashboard surfaces. Hung automated turns now block cleanly using the existing timeout contract instead of stalling indefinitely.
 
-- 5,586 tests / 1,170 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,597 tests / 1,171 suites / 0 failures. 108 conformance fixtures. Website build clean.
 
 MIT licensed. Protocol v7 spec published.
 

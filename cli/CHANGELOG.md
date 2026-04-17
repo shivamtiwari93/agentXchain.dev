@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.128.0
+
+### Conformance Check as First-Class CLI Surface
+
+- **`agentxchain conformance check`:** promoted protocol conformance from the overloaded `verify protocol` path to a first-class CLI noun. `verify protocol` remains as a compatibility alias over the same verifier engine. Public docs updated to present `conformance check` as the preferred entry point. (`DEC-CONFORMANCE-CLI-ALIAS-001`)
+
+### Cold-Start Automated Onboarding Fixes
+
+- **Dev-command array splitting:** `init --governed --dev-command` now correctly splits quoted multi-word commands (e.g., `"claude -p"` becomes `["claude", "-p"]`) instead of storing the entire string as one element that breaks `connector check`, `connector validate`, and `spawn()`. Only the first argv element is split; later elements preserve spaces for legitimate paths. (`DEC-COMMAND-ARRAY-SPLIT-001`, `DEC-DEV-CMD-NORMALIZATION-002`)
+- **Manual-first dry-run warning:** `run --dry-run` now warns when the first-dispatched role is manual, so operators know `run` will immediately block. Points to `agentxchain step` as the alternative. (`DEC-DRYRUN-MANUAL-WARNING-001`)
+- **Cold-start E2E proof:** new `automated-cold-start-e2e.test.js` proves the full `init → doctor → connector check → connector validate → run --auto-approve` path works from cold start with agent scripts under spaced paths.
+
+### Evidence
+
+- 5,597 tests / 1,171 suites / 0 failures. 108 conformance fixtures. Website build clean.
+
 ## 2.127.0
 
 ### Adapter Dispatch Progress Tracking

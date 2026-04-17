@@ -1,0 +1,55 @@
+---
+sidebar_position: 0
+sidebar_position: -1
+title: "v2.128.0 Release Notes"
+---
+
+# AgentXchain v2.128.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Conformance Check as First-Class CLI Surface
+
+`agentxchain conformance check` is now a discoverable, first-class CLI noun — no longer buried as a hidden `verify protocol` sub-command. Operators and implementors now have a clear, memorable entry point for validating protocol conformance:
+
+- **`agentxchain conformance check`** is the new preferred front door for running the conformance verifier against a project or fixture set.
+- **`verify protocol`** is retained as a fully functional compatibility alias over the same verifier engine — existing scripts and CI pipelines continue to work without change.
+- **Public docs updated:** `cli.mdx`, `README`, and `protocol-implementor-guide` all now present `conformance check` as the canonical command. `verify protocol` is documented as a legacy alias.
+
+### Cold-Start Automated Onboarding Fixes
+
+Two bugs affecting the `init --governed` automated cold-start path have been resolved, and a new operator-visibility warning has been added to `run --dry-run`:
+
+- **Multi-word dev-command splitting:** `init --governed --dev-command "claude -p"` now correctly stores the command as `["claude", "-p"]` instead of `["claude -p"]`. The single-string form caused `connector check`, `connector validate`, and `spawn()` to fail with a command-not-found error because the entire string (including the flag) was treated as the executable name.
+- **Selective splitting:** Only the first argv element (the executable) is split on spaces. Subsequent elements are preserved verbatim, so legitimate spaced paths and script arguments — such as paths containing `VS Code/` — are never corrupted.
+- **Dry-run manual-role warning:** `run --dry-run` now emits a warning when the first-dispatched role in the current phase is a manual role. Operators receive an explicit notice that `run` will block immediately on human input, rather than discovering this only after the process stalls.
+
+### Cold-Start E2E Proof
+
+A new end-to-end test (`automated-cold-start-e2e.test.js`) exercises the complete automated onboarding path from a cold filesystem:
+
+- Covers the full `init → doctor → connector check → connector validate → run --auto-approve` chain.
+- Validates agent scripts under spaced paths (e.g., `VS Code/`) to confirm splitting does not corrupt later argv elements.
+- Runs against a real project directory with no pre-seeded state.
+
+## What Changed
+
+- **`conformance check` CLI noun:** new top-level command registered in the CLI router. Help text, usage examples, and exit-code contract match the existing verifier behaviour.
+- **`verify protocol` alias:** aliased to the same handler; marked as a compatibility alias in `--help` output.
+- **Dev-command normalization:** `init --governed` splits the first element of the `--dev-command` value on whitespace before writing `protocol.yaml`. A deprecation warning is logged when a split is performed so operators are aware the value was normalised.
+- **`run --dry-run` warning:** the dry-run path checks whether the first dispatched role resolves to a manual role and, if so, prints a visible `[warn]` line before exiting.
+- **Public docs:** `cli.mdx`, `README`, and `protocol-implementor-guide` updated to lead with `conformance check`. `verify protocol` remains documented under a "Legacy aliases" section.
+- **E2E test suite:** `automated-cold-start-e2e.test.js` added under `test/e2e/`. Reuses existing fixture helpers; no new fixture infrastructure required.
+
+## Key Decisions
+
+- `DEC-CONFORMANCE-CLI-ALIAS-001`: `conformance check` is the canonical command; `verify protocol` is a permanent compatibility alias. Both invoke the same verifier engine. No behaviour divergence between the two forms is permitted.
+- `DEC-COMMAND-ARRAY-SPLIT-001`: `--dev-command` values are split on whitespace at write time (during `init`), not at read time (during spawn). This ensures `protocol.yaml` is always in normalised form and all consumers (check, validate, spawn) see a correctly structured array.
+- `DEC-DEV-CMD-NORMALIZATION-002`: only the zeroth argv element is subject to whitespace splitting. Elements at index 1 and above are written verbatim to preserve legitimate spaces in paths and arguments.
+- `DEC-DRYRUN-MANUAL-WARNING-001`: `run --dry-run` must warn when the first-dispatched role is manual. Silent dry-run exit with no indication of a blocking role is not acceptable operator experience.
+
+## Evidence
+
+- 5,597 tests / 1,171 suites / 0 failures. 108 conformance fixtures. Website build clean.
