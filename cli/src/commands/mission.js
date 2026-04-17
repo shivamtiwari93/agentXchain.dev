@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { findProjectRoot } from '../lib/config.js';
+import { findProjectRoot, loadProjectContext } from '../lib/config.js';
 import {
   attachChainToMission,
   buildMissionListSummary,
@@ -22,6 +22,8 @@ import {
   parsePlannerResponse,
   validatePlannerOutput,
 } from '../lib/mission-plans.js';
+import { executeChainedRun } from '../lib/run-chain.js';
+import { executeGovernedRun } from './run.js';
 
 export async function missionStartCommand(opts) {
   const root = findProjectRoot(opts.dir || process.cwd());
@@ -429,11 +431,12 @@ export async function missionPlanApproveCommand(planTarget, opts) {
  * Records launch_record with workstream_id → chain_id binding.
  */
 export async function missionPlanLaunchCommand(planTarget, opts) {
-  const root = findProjectRoot(opts.dir || process.cwd());
-  if (!root) {
+  const context = loadProjectContext(opts.dir || process.cwd());
+  if (!context) {
     console.error(chalk.red('No AgentXchain project found. Run this inside a governed project.'));
     process.exit(1);
   }
+  const { root } = context;
 
   if (!opts.workstream) {
     console.error(chalk.red('--workstream <id> is required. Specify which workstream to launch.'));
@@ -464,33 +467,85 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
     process.exit(1);
   }
 
-  const result = launchWorkstream(root, mission.mission_id, plan.plan_id, opts.workstream);
-  if (!result.ok) {
-    console.error(chalk.red(result.error));
+  const launch = launchWorkstream(root, mission.mission_id, plan.plan_id, opts.workstream);
+  if (!launch.ok) {
+    console.error(chalk.red(launch.error));
+    process.exit(1);
+  }
+
+  const executor = opts._executeGovernedRun || executeGovernedRun;
+  const logger = opts._log || console.log;
+  const chainOpts = {
+    enabled: true,
+    maxChains: 0,
+    chainOn: ['completed'],
+    cooldownSeconds: 0,
+    mission: mission.mission_id,
+    chainId: launch.chainId,
+  };
+  const runOpts = {
+    autoApprove: !!opts.autoApprove,
+    provenance: {
+      trigger: 'manual',
+      created_by: 'operator',
+      trigger_reason: `mission:${mission.mission_id} workstream:${opts.workstream}`,
+    },
+  };
+
+  let execution;
+  try {
+    execution = await executeChainedRun(context, runOpts, chainOpts, executor, logger);
+  } catch (error) {
+    markWorkstreamOutcome(root, mission.mission_id, plan.plan_id, opts.workstream, {
+      terminalReason: 'execution_error',
+      completedAt: new Date().toISOString(),
+    });
+    console.error(chalk.red(`Workstream execution failed: ${error.message}`));
+    process.exit(1);
+  }
+
+  const lastRun = execution?.chainReport?.runs?.[execution.chainReport.runs.length - 1] || null;
+  const terminalReason = lastRun?.status === 'completed'
+    ? 'completed'
+    : (lastRun?.status || execution?.chainReport?.terminal_reason || 'execution_error');
+  const outcome = markWorkstreamOutcome(root, mission.mission_id, plan.plan_id, opts.workstream, {
+    terminalReason,
+    completedAt: execution?.chainReport?.completed_at || new Date().toISOString(),
+  });
+  if (!outcome.ok) {
+    console.error(chalk.red(outcome.error));
     process.exit(1);
   }
 
   if (opts.json) {
     console.log(JSON.stringify({
       workstream_id: opts.workstream,
-      chain_id: result.chainId,
-      plan_id: result.plan.plan_id,
+      chain_id: launch.chainId,
+      plan_id: launch.plan.plan_id,
       mission_id: mission.mission_id,
-      launch_record: result.launchRecord,
+      launch_record: launch.launchRecord,
+      exit_code: execution.exitCode,
+      chain_terminal_reason: execution?.chainReport?.terminal_reason || null,
+      workstream_status: outcome.workstream.launch_status,
     }, null, 2));
+    if (execution.exitCode !== 0) {
+      process.exit(execution.exitCode);
+    }
     return;
   }
 
-  console.log(chalk.green(`Launched workstream ${chalk.bold(opts.workstream)} → chain ${chalk.bold(result.chainId)}`));
+  console.log(chalk.green(`Executed workstream ${chalk.bold(opts.workstream)} → chain ${chalk.bold(launch.chainId)}`));
   console.log('');
   console.log(chalk.dim(`  Mission:   ${mission.mission_id}`));
-  console.log(chalk.dim(`  Plan:      ${result.plan.plan_id}`));
-  console.log(chalk.dim(`  Chain ID:  ${result.chainId}`));
+  console.log(chalk.dim(`  Plan:      ${launch.plan.plan_id}`));
+  console.log(chalk.dim(`  Chain ID:  ${launch.chainId}`));
+  console.log(chalk.dim(`  Outcome:   ${outcome.workstream.launch_status}`));
   console.log('');
-  console.log(chalk.dim('  To start the governed run for this workstream:'));
-  console.log(chalk.cyan(`    agentxchain run --chain --mission ${mission.mission_id}`));
-  console.log('');
-  renderPlan(result.plan);
+  renderPlan(outcome.plan);
+  if (execution.exitCode !== 0) {
+    console.error(chalk.red(`Workstream execution ended with exit code ${execution.exitCode}.`));
+    process.exit(execution.exitCode);
+  }
 }
 
 // ── Plan rendering ───────────────────────────────────────────────────────────

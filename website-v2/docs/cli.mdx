@@ -201,7 +201,7 @@ For the full operator model, see [Missions](/docs/missions). That page keeps the
 agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
 agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
-agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--json] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
 ```
 
@@ -219,8 +219,8 @@ agentxchain mission plan show latest
 # Approve the latest proposed plan before any workstream launch
 agentxchain mission plan approve latest
 
-# Launch a ready workstream from the approved plan
-agentxchain mission plan launch latest --workstream ws-alignment
+# Launch and execute a ready workstream from the approved plan
+agentxchain mission plan launch latest --workstream ws-alignment --auto-approve
 
 # List all plans for a specific mission
 agentxchain mission plan list --mission mission-release-hardening
@@ -232,7 +232,7 @@ Plan revision works by supersession: generating a new plan sets `supersedes_plan
 
 Approval is latest-only and fail-closed. `mission plan approve` may approve only the newest `proposed` plan for a mission. Approving a newer plan supersedes any older active `proposed` or `approved` plan artifacts so one approved revision remains current.
 
-Launch is per-workstream and dependency-aware. `mission plan launch --workstream <id>` validates that the plan is approved and the target workstream's dependencies are satisfied (all depended-on workstreams must have completed chains). Launch records bind `workstream_id` → `chain_id` and attach the chain to the parent mission. If a launched workstream's chain fails, the workstream is marked `needs_attention` and dependent workstreams remain blocked.
+Launch is per-workstream and dependency-aware. `mission plan launch --workstream <id>` validates that the plan is approved and the target workstream's dependencies are satisfied, records a preallocated `workstream_id` → `chain_id` launch record, and then executes the workstream through the existing governed run/chaining path using that same chain ID. Dependency satisfaction is based on the depended-on chain's latest run status, not only the chain-loop terminal label. `--auto-approve` passes through to the governed run surface. Successful execution marks the workstream `completed` and attaches the emitted chain report to the parent mission; failed execution marks the workstream `needs_attention` and leaves dependent workstreams blocked.
 
 ### `init`
 

@@ -486,6 +486,7 @@ missionPlanCmd
   .description('Launch a workstream from an approved plan (default: latest plan)')
   .requiredOption('-w, --workstream <id>', 'Workstream ID to launch')
   .option('-m, --mission <mission_id>', 'Explicit mission ID')
+  .option('--auto-approve', 'Auto-approve run gates while executing the launched workstream')
   .option('-j, --json', 'Output as JSON')
   .option('-d, --dir <path>', 'Project directory')
   .action(missionPlanLaunchCommand);

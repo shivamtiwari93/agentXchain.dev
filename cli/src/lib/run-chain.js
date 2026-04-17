@@ -24,7 +24,7 @@ const DEFAULT_COOLDOWN_SECONDS = 5;
  *
  * @param {object} opts - CLI options
  * @param {object} config - agentxchain.json config
- * @returns {{ enabled: boolean, maxChains: number, chainOn: string[], cooldownSeconds: number, mission: string|null }}
+ * @returns {{ enabled: boolean, maxChains: number, chainOn: string[], cooldownSeconds: number, mission: string|null, chainId?: string|null }}
  */
 export function resolveChainOptions(opts, config) {
   const configChain = config?.run_loop?.chain || {};
@@ -46,7 +46,9 @@ export function resolveChainOptions(opts, config) {
 
   const mission = opts.mission ?? configChain.mission ?? null;
 
-  return { enabled, maxChains, chainOn, cooldownSeconds, mission };
+  const chainId = opts.chainId ?? null;
+
+  return { enabled, maxChains, chainOn, cooldownSeconds, mission, chainId };
 }
 
 /**
@@ -60,7 +62,7 @@ export function resolveChainOptions(opts, config) {
  * @returns {Promise<{ exitCode: number, chainReport: object }>}
  */
 export async function executeChainedRun(context, opts, chainOpts, executeGovernedRun, log = console.log) {
-  const chainId = `chain-${randomUUID().slice(0, 8)}`;
+  const chainId = chainOpts.chainId || `chain-${randomUUID().slice(0, 8)}`;
   const chainOnSet = new Set(chainOpts.chainOn);
   const maxRuns = chainOpts.maxChains + 1; // initial + continuations
   const startedAt = new Date().toISOString();

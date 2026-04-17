@@ -204,4 +204,24 @@ describe('run --chain --mission — integration behavior', () => {
     const mission = loadMission(tmpDir, 'mission-config-driven');
     assert.ok(mission.chain_ids.includes(result.chainReport.chain_id), 'config-driven mission must contain the chain');
   });
+
+  it('AT-CHAIN-MISSION-012: executeChainedRun preserves an internally preallocated chain ID', async () => {
+    createMission(tmpDir, 'mission-preallocated-chain', 'Preallocated Chain', 'Launch uses a fixed chain ID');
+
+    const context = { root: tmpDir, config: {} };
+    const chainOpts = {
+      maxChains: 0,
+      chainOn: ['completed'],
+      cooldownSeconds: 0,
+      mission: 'mission-preallocated-chain',
+      chainId: 'chain-preallocated-001',
+    };
+
+    const result = await executeChainedRun(context, {}, chainOpts, mockExecute(), () => {});
+
+    assert.equal(result.chainReport.chain_id, 'chain-preallocated-001', 'chain report must preserve the provided chain ID');
+
+    const mission = loadMission(tmpDir, 'mission-preallocated-chain');
+    assert.deepEqual(mission.chain_ids, ['chain-preallocated-001'], 'mission attachment must use the same preallocated chain ID');
+  });
 });

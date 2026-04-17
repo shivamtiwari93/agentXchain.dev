@@ -10,7 +10,6 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 import { loadChainReport } from './chain-reports.js';
-import { loadMissionArtifact } from './missions.js';
 
 // ── Plan artifact directory ──────────────────────────────────────────────────
 
@@ -309,9 +308,19 @@ export function loadPlan(root, missionId, planId) {
 
 // ── Workstream launch ───────────────────────────────────────────────────────
 
+export function didChainFinishSuccessfully(chainReport) {
+  if (!chainReport || !Array.isArray(chainReport.runs) || chainReport.runs.length === 0) {
+    return false;
+  }
+
+  const lastRun = chainReport.runs[chainReport.runs.length - 1];
+  return lastRun?.status === 'completed';
+}
+
 /**
  * Check whether a workstream's dependencies are satisfied.
- * A dependency is satisfied when its launch_record exists AND its chain completed.
+ * A dependency is satisfied when its launch_record exists AND the bound chain's
+ * most recent run completed successfully.
  *
  * @returns {string[]} list of unsatisfied dependency workstream IDs
  */
@@ -327,7 +336,7 @@ export function checkDependencySatisfaction(plan, workstream, root) {
     }
     // Check that the dependency chain actually completed
     const chainReport = loadChainReport(root, depRecord.chain_id);
-    if (!chainReport || chainReport.terminal_reason !== 'completed') {
+    if (!didChainFinishSuccessfully(chainReport)) {
       unsatisfied.push(depId);
     }
   }
@@ -339,11 +348,12 @@ export function checkDependencySatisfaction(plan, workstream, root) {
  *
  * Validates plan approval, workstream existence, dependency satisfaction.
  * Records launch_record with workstream_id → chain_id binding.
- * Attaches the chain to the parent mission.
+ * The actual chain report attachment happens through the existing mission/chain
+ * surface after execution writes the chain report.
  *
  * @returns {{ ok: boolean, plan?: object, workstream?: object, chainId?: string, launchRecord?: object, error?: string }}
  */
-export function launchWorkstream(root, missionId, planId, workstreamId) {
+export function launchWorkstream(root, missionId, planId, workstreamId, options = {}) {
   const plan = loadPlan(root, missionId, planId);
   if (!plan) {
     return { ok: false, error: `Plan not found: ${planId}` };
@@ -371,7 +381,7 @@ export function launchWorkstream(root, missionId, planId, workstreamId) {
   }
 
   // Generate chain ID and record launch
-  const chainId = `chain-${randomUUID().slice(0, 8)}`;
+  const chainId = options.chainId || `chain-${randomUUID().slice(0, 8)}`;
   const now = new Date().toISOString();
   const launchRecord = {
     workstream_id: workstreamId,
@@ -388,21 +398,6 @@ export function launchWorkstream(root, missionId, planId, workstreamId) {
   plan.updated_at = now;
 
   writePlanArtifact(root, missionId, plan);
-
-  // Directly attach chain_id to mission artifact.
-  // We cannot use attachChainToMission() here because that function requires
-  // the chain report to exist on disk, but execution hasn't started yet.
-  const mission = loadMissionArtifact(root, missionId);
-  if (mission) {
-    const chainIds = Array.isArray(mission.chain_ids) ? [...mission.chain_ids] : [];
-    if (!chainIds.includes(chainId)) {
-      chainIds.push(chainId);
-    }
-    const updatedMission = { ...mission, chain_ids: chainIds, updated_at: now };
-    const missionsDir = join(root, '.agentxchain', 'missions');
-    mkdirSync(missionsDir, { recursive: true });
-    writeFileSync(join(missionsDir, `${missionId}.json`), JSON.stringify(updatedMission, null, 2));
-  }
 
   return { ok: true, plan, workstream: ws, chainId, launchRecord };
 }

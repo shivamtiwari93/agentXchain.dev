@@ -15,10 +15,50 @@ function createTmpProject() {
   const dir = join(tmpdir(), `axc-mission-plan-test-${randomUUID().slice(0, 8)}`);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'agentxchain.json'), JSON.stringify({
-    version: 4,
-    project: { name: 'plan-test', id: 'plan-001' },
-    roles: { pm: { agent: 'manual' }, dev: { agent: 'manual' }, qa: { agent: 'manual' } },
-    workflow: { phases: ['planning', 'implementation', 'qa'] },
+    schema_version: '1.0',
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { name: 'plan-test', id: 'plan-001', default_branch: 'main' },
+    roles: {
+      pm: {
+        title: 'PM',
+        mandate: 'Plan the work.',
+        write_authority: 'review_only',
+        runtime: 'manual-pm',
+      },
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement the work.',
+        write_authority: 'authoritative',
+        runtime: 'manual-dev',
+      },
+      qa: {
+        title: 'QA',
+        mandate: 'Verify the work.',
+        write_authority: 'review_only',
+        runtime: 'manual-qa',
+      },
+    },
+    runtimes: {
+      'manual-pm': { type: 'manual' },
+      'manual-dev': { type: 'manual' },
+      'manual-qa': { type: 'manual' },
+    },
+    routing: {
+      planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev', 'human'], exit_gate: 'planning_signoff' },
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'implementation_complete' },
+      qa: { entry_role: 'qa', allowed_next_roles: ['qa', 'human'], exit_gate: 'qa_signoff' },
+    },
+    gates: {
+      planning_signoff: { requires_human_approval: true },
+      implementation_complete: {},
+      qa_signoff: { requires_human_approval: true },
+    },
+    rules: {
+      challenge_required: true,
+      max_turn_retries: 2,
+      max_deadlock_cycles: 2,
+    },
   }, null, 2));
   return dir;
 }
@@ -38,6 +78,12 @@ function writeMission(dir, { missionId, title, goal }) {
   };
   writeFileSync(join(missionsDir, `${missionId}.json`), JSON.stringify(artifact, null, 2));
   return artifact;
+}
+
+function writeChainReport(dir, report) {
+  const reportsDir = join(dir, '.agentxchain', 'reports');
+  mkdirSync(reportsDir, { recursive: true });
+  writeFileSync(join(reportsDir, `${report.chain_id}.json`), JSON.stringify(report, null, 2));
 }
 
 function validPlannerOutput() {
@@ -700,11 +746,11 @@ describe('mission-plans.js — workstream launch', () => {
     assert.match(second.error, /already been launched/i);
   });
 
-  it('AT-MISSION-PLAN-034: launchWorkstream attaches chain to mission artifact', () => {
+  it('AT-MISSION-PLAN-034: launchWorkstream records chain linkage without mutating the mission artifact first', () => {
     const mission = writeMission(tmpDir, {
       missionId: 'mission-launch-attach',
       title: 'Attach Chain',
-      goal: 'Verify chain attachment to mission.',
+      goal: 'Keep launch bookkeeping separate from mission attachment.',
     });
 
     const created = mod.createPlanArtifact(tmpDir, mission, {
@@ -715,10 +761,10 @@ describe('mission-plans.js — workstream launch', () => {
     const result = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
     assert.equal(result.ok, true);
 
-    // Verify mission artifact has the chain_id
+    // Mission attachment happens after execution writes a real chain report.
     const missionPath = join(tmpDir, '.agentxchain', 'missions', 'mission-launch-attach.json');
     const missionData = JSON.parse(readFileSync(missionPath, 'utf8'));
-    assert.ok(missionData.chain_ids.includes(result.chainId), 'mission must have the launched chain_id');
+    assert.deepEqual(missionData.chain_ids, [], 'launch bookkeeping must not pre-attach a chain without a chain report');
   });
 });
 
@@ -773,6 +819,34 @@ describe('mission-plans.js — workstream outcome', () => {
     const reloaded = mod.loadPlan(tmpDir, mission.mission_id, created.plan.plan_id);
     const depWs = reloaded.workstreams.find((w) => w.workstream_id === 'ws-verification');
     assert.equal(depWs.launch_status, 'ready', 'dependent workstream should be unblocked after dependency completes');
+  });
+
+  it('AT-MISSION-PLAN-038: dependency satisfaction accepts a successful single-run chain even when the chain terminal reason is chain_limit_reached', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-outcome-success-terminal',
+      title: 'Successful Single Run',
+      goal: 'Treat completed last-run status as satisfied dependency truth.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    const launched = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    assert.equal(launched.ok, true);
+
+    writeChainReport(tmpDir, {
+      chain_id: launched.chainId,
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      terminal_reason: 'chain_limit_reached',
+      runs: [{ run_id: 'run-001', status: 'completed', turns: 3 }],
+    });
+
+    const reloaded = mod.loadPlan(tmpDir, mission.mission_id, created.plan.plan_id);
+    const dependent = reloaded.workstreams.find((w) => w.workstream_id === 'ws-verification');
+    assert.deepEqual(mod.checkDependencySatisfaction(reloaded, dependent, tmpDir), []);
   });
 
   it('AT-MISSION-PLAN-036: markWorkstreamOutcome sets needs_attention on failure', () => {
@@ -831,6 +905,7 @@ describe('mission-plans.js — structural guards (launch)', () => {
     assert.equal(typeof mod.launchWorkstream, 'function');
     assert.equal(typeof mod.markWorkstreamOutcome, 'function');
     assert.equal(typeof mod.checkDependencySatisfaction, 'function');
+    assert.equal(typeof mod.didChainFinishSuccessfully, 'function');
   });
 
   it('AT-MISSION-PLAN-S06: mission.js exports missionPlanLaunchCommand', async () => {
@@ -843,5 +918,90 @@ describe('mission-plans.js — structural guards (launch)', () => {
     assert.ok(bin.includes('missionPlanLaunchCommand'), 'missionPlanLaunchCommand must be imported');
     assert.ok(bin.includes("command('launch"), 'mission plan launch must be registered');
     assert.ok(bin.includes('--workstream'), 'launch must accept --workstream');
+    assert.ok(bin.includes('--auto-approve'), 'launch must accept --auto-approve');
+  });
+});
+
+describe('missionPlanLaunchCommand — execution path', () => {
+  let tmpDir;
+  let plansMod;
+  let missionMod;
+
+  beforeEach(async () => {
+    tmpDir = createTmpProject();
+    plansMod = await import(missionPlansPath);
+    missionMod = await import(missionCommandPath);
+  });
+
+  afterEach(() => {
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  });
+
+  it('AT-MISSION-PLAN-039: missionPlanLaunchCommand executes a real chain report with the preallocated chain_id and reconciles the plan outcome', async () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-launch-command',
+      title: 'Launch Command',
+      goal: 'Execute the launched workstream through the real chain path.',
+    });
+
+    const created = plansMod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    plansMod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    let seenOpts = null;
+    const fakeExecutor = async (_context, opts) => {
+      seenOpts = opts;
+      return {
+        exitCode: 0,
+        result: {
+          ok: true,
+          stop_reason: 'completed',
+          turns_executed: 2,
+          state: {
+            run_id: 'gov-launch-001',
+            provenance: opts.provenance,
+          },
+        },
+      };
+    };
+
+    const originalLog = console.log;
+    const originalError = console.error;
+    console.log = () => {};
+    console.error = () => {};
+    try {
+      await missionMod.missionPlanLaunchCommand('latest', {
+        dir: tmpDir,
+        mission: mission.mission_id,
+        workstream: 'ws-alignment',
+        autoApprove: true,
+        _log: () => {},
+        _executeGovernedRun: fakeExecutor,
+      });
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+    }
+
+    assert.equal(seenOpts.autoApprove, true, 'launch must pass through --auto-approve');
+
+    const reloadedPlan = plansMod.loadPlan(tmpDir, mission.mission_id, created.plan.plan_id);
+    const launchRecord = reloadedPlan.launch_records.find((record) => record.workstream_id === 'ws-alignment');
+    assert.ok(launchRecord, 'launch record must exist for the executed workstream');
+    assert.equal(launchRecord.status, 'completed');
+
+    const ws = reloadedPlan.workstreams.find((workstream) => workstream.workstream_id === 'ws-alignment');
+    assert.equal(ws.launch_status, 'completed', 'executed workstream must reconcile to completed');
+
+    const missionPath = join(tmpDir, '.agentxchain', 'missions', `${mission.mission_id}.json`);
+    const missionArtifact = JSON.parse(readFileSync(missionPath, 'utf8'));
+    assert.deepEqual(missionArtifact.chain_ids, [launchRecord.chain_id], 'mission must attach the emitted chain after execution writes the report');
+
+    const reportPath = join(tmpDir, '.agentxchain', 'reports', `${launchRecord.chain_id}.json`);
+    assert.ok(existsSync(reportPath), 'launch execution must write a chain report using the preallocated chain ID');
+    const report = JSON.parse(readFileSync(reportPath, 'utf8'));
+    assert.equal(report.chain_id, launchRecord.chain_id);
+    assert.equal(report.runs[0].run_id, 'gov-launch-001');
   });
 });

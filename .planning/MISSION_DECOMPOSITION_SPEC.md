@@ -151,8 +151,10 @@ This keeps one current approved plan per mission and makes revision lineage expl
 Launch behavior:
 
 - only workstreams whose `depends_on` set is satisfied may launch
-- launch records bind `workstream_id` to the emitted runtime `chain_id`
-- the emitted chain report attaches back to the parent mission through the existing mission/chain surface
+- launch bookkeeping creates one `launch_record` binding `workstream_id` to a preallocated runtime `chain_id`
+- the command then executes the launched workstream immediately through the existing governed run/chaining path using that same `chain_id`
+- `--auto-approve` on `mission plan launch` passes through to the governed run surface exactly as it does on `agentxchain run`
+- the emitted chain report attaches back to the parent mission through the existing mission/chain surface after the report exists on disk
 
 This keeps decomposition advisory and execution explicit. The product does not turn one plan approval into an uncontrolled swarm fan-out.
 
@@ -164,6 +166,8 @@ If a launched workstream ends in failure or blocked state:
 - dependent workstreams remain `blocked`
 - the plan status becomes `needs_attention`
 - no automatic replanning or relaunch occurs
+
+If a launched workstream's bound chain finishes successfully, that workstream is marked `completed` and any newly unblocked dependents become `ready`.
 
 The operator may then create a new superseding plan revision. Replanning is explicit because automatic replanning would otherwise rewrite approved intent without review.
 
@@ -189,6 +193,7 @@ At minimum, the plan surface must expose:
 | Launch requested for an unapproved plan | Fail closed. |
 | Launch requested for a blocked workstream with unsatisfied dependencies | Fail closed and list blocking workstream IDs. |
 | Launch requested for a nonexistent workstream ID | Fail closed. |
+| Launch execution crashes before the governed run completes | Mark the workstream and plan `needs_attention`; do not leave a stale `launched` state behind. |
 | Prior plan already approved and operator generates a new one | New plan supersedes prior plan; prior artifact remains durable. |
 | Launched workstream chain fails or blocks | Mark the workstream and plan `needs_attention`; do not auto-replan. |
 
@@ -200,12 +205,13 @@ At minimum, the plan surface must expose:
 - `AT-MISSION-PLAN-004`: malformed planner output fails validation and does not create an approved or partially-valid artifact.
 - `AT-MISSION-PLAN-005`: `mission plan approve` is required before `mission plan launch`.
 - `AT-MISSION-PLAN-006`: `mission plan launch --workstream <id>` fails when dependencies are unsatisfied.
-- `AT-MISSION-PLAN-007`: successful launch records `workstream_id` → `chain_id` linkage in `launch_records` and attaches the chain to the mission.
+- `AT-MISSION-PLAN-007`: successful launch records `workstream_id` → `chain_id` linkage in `launch_records`, executes through the governed run path using that same `chain_id`, and attaches the emitted chain report to the mission.
 - `AT-MISSION-PLAN-008`: failed launched workstreams mark the plan `needs_attention` and leave dependent workstreams blocked.
 - `AT-MISSION-PLAN-009`: generating a revised plan writes a new artifact with `supersedes_plan_id` instead of mutating the prior plan.
 - `AT-MISSION-PLAN-010`: `mission plan approve` approves only the latest proposed plan for a mission and stamps approval metadata on that artifact.
 - `AT-MISSION-PLAN-011`: approving a newer plan supersedes any older active proposed/approved plans so only one approved plan remains current.
 - `AT-MISSION-PLAN-012`: attempting to approve an already-approved or older superseded plan fails closed.
+- `AT-MISSION-PLAN-013`: dependency satisfaction treats a launched dependency as complete when its bound chain's latest run completed successfully, even if the chain-loop terminal reason is not literally `"completed"`.
 
 ## Open Questions
 
