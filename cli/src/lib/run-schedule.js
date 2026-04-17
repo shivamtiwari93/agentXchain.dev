@@ -161,6 +161,49 @@ export function evaluateScheduleLaunchEligibility(root, config) {
   return { ok: false, status, reason: `run_${status}` };
 }
 
+function resolveScheduleTriggerReason(scheduleId, schedule) {
+  return schedule?.trigger_reason || `schedule:${scheduleId}`;
+}
+
+export function findContinuableScheduleRun(root, config, { scheduleId = null } = {}) {
+  const projectState = loadProjectState(root, config);
+  if (!projectState || projectState.status !== 'active' || !projectState.run_id) {
+    return { ok: false, reason: 'not_active' };
+  }
+
+  if (projectState.provenance?.trigger !== 'schedule') {
+    return { ok: false, reason: 'not_schedule_run' };
+  }
+
+  const scheduleState = readScheduleState(root, config);
+  const matches = Object.entries(config?.schedules || {}).filter(([candidateId, schedule]) => {
+    if (scheduleId && candidateId !== scheduleId) return false;
+
+    const record = scheduleState.schedules[candidateId];
+    if (record?.last_run_id === projectState.run_id) {
+      return true;
+    }
+
+    return projectState.provenance?.trigger_reason === resolveScheduleTriggerReason(candidateId, schedule);
+  });
+
+  if (matches.length === 0) {
+    return { ok: false, reason: 'no_matching_schedule' };
+  }
+
+  if (matches.length > 1) {
+    return { ok: false, reason: 'ambiguous_schedule_run' };
+  }
+
+  const [matchedId, matchedSchedule] = matches[0];
+  return {
+    ok: true,
+    schedule_id: matchedId,
+    schedule: matchedSchedule,
+    state: projectState,
+  };
+}
+
 // ── Daemon Health State ─────────────────────────────────────────────────────
 
 export function readDaemonState(root) {

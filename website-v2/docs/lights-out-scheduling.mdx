@@ -126,6 +126,8 @@ nohup agentxchain schedule daemon --poll-seconds 300 > schedule.log 2>&1 &
 tmux new-session -d -s agentxchain-daemon 'agentxchain schedule daemon --poll-seconds 300'
 ```
 
+Blocked scheduled runs are not auto-recovered. If a governed turn reports `needs_human`, the daemon keeps polling but does not invent a restart. Resolve the blocker explicitly with `agentxchain unblock <id>`. On the next poll, the daemon continues that same schedule-owned run automatically.
+
 ## Daemon health monitoring
 
 The daemon writes a heartbeat file at `.agentxchain/schedule-daemon.json` on every poll cycle. Check its health:

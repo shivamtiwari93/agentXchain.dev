@@ -6,6 +6,7 @@ import {
   listSchedules,
   updateScheduleState,
   evaluateScheduleLaunchEligibility,
+  findContinuableScheduleRun,
   readDaemonState,
   writeDaemonState,
   updateDaemonHeartbeat,
@@ -86,7 +87,87 @@ function buildScheduleProvenance(entry) {
   };
 }
 
+function buildScheduleExecutionResult(entryId, execution, fallbackState, action = 'ran') {
+  const state = execution.result?.state || fallbackState || null;
+  return {
+    id: entryId,
+    action,
+    run_id: state?.run_id || null,
+    stop_reason: execution.result?.stop_reason || null,
+    exit_code: execution.exitCode,
+  };
+}
+
+function recordScheduleExecution(context, entryId, execution, fallbackState, nowIso, action = 'ran') {
+  const state = execution.result?.state || fallbackState || null;
+  const runId = state?.run_id || null;
+  const startedAt = state?.created_at || nowIso;
+
+  updateScheduleState(context.root, context.config, entryId, (record) => ({
+    ...record,
+    last_started_at: startedAt,
+    last_finished_at: new Date().toISOString(),
+    last_run_id: runId,
+    last_status: execution.result?.stop_reason || (execution.exitCode === 0 ? 'completed' : 'launch_failed'),
+    last_skip_at: null,
+    last_skip_reason: null,
+  }));
+
+  return buildScheduleExecutionResult(entryId, execution, fallbackState, action);
+}
+
+async function continueActiveScheduledRun(context, opts = {}) {
+  const continuation = findContinuableScheduleRun(context.root, context.config, {
+    scheduleId: opts.schedule || null,
+  });
+  if (!continuation.ok) {
+    return { matched: false, reason: continuation.reason };
+  }
+
+  const { schedule_id: scheduleId, schedule, state } = continuation;
+
+  if (!opts.json) {
+    console.log(chalk.cyan(`Continuing active scheduled run: ${scheduleId}`));
+  }
+
+  const execution = await executeGovernedRun(context, {
+    maxTurns: schedule.max_turns,
+    autoApprove: schedule.auto_approve !== false,
+    report: true,
+    log: opts.json ? () => {} : console.log,
+  });
+
+  const blocked = execution.result?.stop_reason === 'blocked';
+  const action = blocked && opts.tolerateBlockedRun ? 'blocked' : 'continued';
+  const result = recordScheduleExecution(context, scheduleId, execution, state, opts.at || new Date().toISOString(), action);
+
+  if (execution.exitCode !== 0 && !(opts.tolerateBlockedRun && blocked)) {
+    return {
+      matched: true,
+      ok: false,
+      exitCode: execution.exitCode,
+      result,
+    };
+  }
+
+  return {
+    matched: true,
+    ok: true,
+    exitCode: 0,
+    result,
+  };
+}
+
 async function runDueSchedules(context, opts = {}) {
+  if (opts.continueActiveScheduleRuns) {
+    const continuation = await continueActiveScheduledRun(context, opts);
+    if (continuation.matched) {
+      return continuation.ok
+        ? { ok: true, exitCode: continuation.exitCode, results: [continuation.result] }
+        : { ok: false, exitCode: continuation.exitCode, results: [continuation.result], error: 'Scheduled run failed' };
+    }
+  }
+
   const resolved = resolveScheduleEntries(context, opts.schedule, opts.at);
   if (!resolved.ok) {
     return { ok: false, exitCode: 1, error: resolved.error, results: [] };
@@ -150,26 +231,20 @@ async function runDueSchedules(context, opts = {}) {
       continue;
     }
 
-    const runId = execution.result?.state?.run_id || null;
-    const startedAt = execution.result?.state?.created_at || nowIso;
-    updateScheduleState(context.root, context.config, entry.id, (record) => ({
-      ...record,
-      last_started_at: startedAt,
-      last_finished_at: new Date().toISOString(),
-      last_run_id: runId,
-      last_status: execution.result?.stop_reason || (execution.exitCode === 0 ? 'completed' : 'launch_failed'),
-      last_skip_at: null,
-      last_skip_reason: null,
-    }));
-    results.push({
-      id: entry.id,
-      action: 'ran',
-      run_id: runId,
-      stop_reason: execution.result?.stop_reason || null,
-      exit_code: execution.exitCode,
-    });
+    const blocked = execution.result?.stop_reason === 'blocked';
+    results.push(recordScheduleExecution(
+      context,
+      entry.id,
+      execution,
+      execution.result?.state || null,
+      nowIso,
+      blocked && opts.tolerateBlockedRun ? 'blocked' : 'ran',
+    ));
 
     if (execution.exitCode !== 0) {
+      if (opts.tolerateBlockedRun && blocked) {
+        continue;
+      }
       return { ok: false, exitCode: execution.exitCode, results };
     }
   }
@@ -214,6 +289,10 @@ export async function scheduleRunDueCommand(opts) {
     for (const entry of result.results) {
       if (entry.action === 'ran') {
         console.log(chalk.green(`Schedule ran: ${entry.id} (${entry.run_id || 'no run id'})`));
+      } else if (entry.action === 'continued') {
+        console.log(chalk.green(`Schedule continued: ${entry.id} (${entry.run_id || 'no run id'})`));
+      } else if (entry.action === 'blocked') {
+        console.log(chalk.yellow(`Schedule waiting on unblock: ${entry.id}`));
       } else if (entry.action === 'skipped') {
         console.log(chalk.yellow(`Schedule skipped: ${entry.id} (${entry.reason})`));
       } else if (entry.action === 'not_due') {
@@ -338,7 +417,11 @@ export async function scheduleDaemonCommand(opts) {
   while (true) {
     cycle += 1;
     daemonState.last_cycle_started_at = new Date().toISOString();
-    const result = await runDueSchedules(context, opts);
+    const result = await runDueSchedules(context, {
+      ...opts,
+      continueActiveScheduleRuns: true,
+      tolerateBlockedRun: true,
+    });
 
     updateDaemonHeartbeat(context.root, daemonState, result);
 

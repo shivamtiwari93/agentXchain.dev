@@ -1,6 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -8,7 +9,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { scaffoldGoverned } from '../src/commands/init.js';
@@ -52,6 +53,103 @@ function makeProject({ schedules } = {}) {
   return root;
 }
 
+function writeBlockingMockAgent(root) {
+  const agentPath = join(root, 'mock-blocking-agent.mjs');
+  const source = [
+    '#!/usr/bin/env node',
+    "import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';",
+    "import { join, dirname } from 'path';",
+    '',
+    'const root = process.cwd();',
+    "const indexPath = join(root, '.agentxchain/dispatch/index.json');",
+    'if (!existsSync(indexPath)) process.exit(1);',
+    "const index = JSON.parse(readFileSync(indexPath, 'utf8'));",
+    'const entry = Object.values(index.active_turns || {})[0];',
+    'if (!entry) process.exit(1);',
+    'const turnId = entry.turn_id;',
+    'const roleId = entry.role;',
+    'const runtimeId = entry.runtime_id;',
+    'const stagingResultPath = entry.staging_result_path;',
+    'const phase = index.phase;',
+    'const runId = index.run_id;',
+    "const blockedMarker = join(root, '.agentxchain', 'mock-blocked-once');",
+    '',
+    'function ensureFile(relPath, content) {',
+    '  const absPath = join(root, relPath);',
+    '  mkdirSync(dirname(absPath), { recursive: true });',
+    '  writeFileSync(absPath, content);',
+    '}',
+    '',
+    "let status = 'completed';",
+    "let summary = 'Mock agent completed phase.';",
+    'let phaseTransitionRequest = null;',
+    'let runCompletionRequest = false;',
+    "let proposedNextRole = 'human';",
+    'let filesChanged = [];',
+    'let artifactType = roleId === "dev" ? "workspace" : "review";',
+    'let needsHumanReason = null;',
+    '',
+    "if (phase === 'planning' && !existsSync(blockedMarker)) {",
+    "  writeFileSync(blockedMarker, '1\\n');",
+    "  status = 'needs_human';",
+    "  summary = 'Mock agent requires human unblock before continuing.';",
+    "  needsHumanReason = 'Linear OAuth expired for governed intake sync. Reconnect the OAuth session before continuing.';",
+    "  proposedNextRole = 'human';",
+    '} else if (phase === "planning") {',
+    "  ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\\n\\nApproved: YES\\n');",
+    "  ensureFile('.planning/ROADMAP.md', '# Roadmap\\n\\n## Phases\\n\\n- planning\\n- implementation\\n- qa\\n');",
+    "  ensureFile('.planning/SYSTEM_SPEC.md', '# System Spec\\n\\n## Purpose\\n\\nMock governed project for integration testing.\\n\\n## Interface\\n\\nagentxchain run --auto-approve completes a 3-turn lifecycle.\\n\\n## Acceptance Tests\\n\\n- [ ] Run completes with exit 0 and 3 turns executed.\\n');",
+    "  filesChanged = ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'];",
+    "  summary = 'Mock planning completed after unblock.';",
+    "  phaseTransitionRequest = 'implementation';",
+    "  proposedNextRole = 'human';",
+    '} else if (phase === "implementation") {',
+    "  ensureFile('src/output.js', 'export const ok = true;\\n');",
+    "  ensureFile('.planning/IMPLEMENTATION_NOTES.md', '# Implementation Notes\\n\\n## Changes\\n\\nImplemented the integration-test governed artifact output.\\n\\n## Verification\\n\\nRun the governed integration test flow and confirm the implementation phase exits cleanly.\\n');",
+    "  filesChanged = ['src/output.js', '.planning/IMPLEMENTATION_NOTES.md'];",
+    "  summary = 'Mock implementation completed.';",
+    "  phaseTransitionRequest = 'qa';",
+    "  proposedNextRole = 'qa';",
+    '} else if (phase === "qa") {',
+    "  ensureFile('.planning/acceptance-matrix.md', '# Acceptance Matrix\\n\\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\\n|-------|-------------|-------------------|-------------|-------------|--------|\\n| 1 | Mock governed run | QA confirms the mocked governed run can complete end to end | pass | 2026-04-06 | pass |\\n');",
+    "  ensureFile('.planning/ship-verdict.md', '# Ship Verdict\\n\\n## Verdict: YES\\n');",
+    "  ensureFile('.planning/RELEASE_NOTES.md', '# Release Notes\\n\\n## User Impact\\n\\nMock governed run completed successfully through QA.\\n\\n## Verification Summary\\n\\nIntegration-test mock agent created the full workflow-kit artifact set required by the shipped gates.\\n');",
+    "  filesChanged = ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'];",
+    "  summary = 'Mock QA completed.';",
+    '  runCompletionRequest = true;',
+    "  proposedNextRole = 'human';",
+    '}',
+    '',
+    'const turnResult = {',
+    "  schema_version: '1.0',",
+    '  run_id: runId,',
+    '  turn_id: turnId,',
+    '  role: roleId,',
+    '  runtime_id: runtimeId,',
+    '  status,',
+    '  summary,',
+    '  decisions: [],',
+    '  objections: [],',
+    '  files_changed: filesChanged,',
+    '  artifacts_created: [],',
+    "  verification: { status: 'pass', commands: ['echo ok'], evidence_summary: 'pass', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] },",
+    '  artifact: { type: artifactType, ref: null },',
+    '  proposed_next_role: proposedNextRole,',
+    '  phase_transition_request: phaseTransitionRequest,',
+    '  run_completion_request: runCompletionRequest,',
+    '  needs_human_reason: needsHumanReason,',
+    "  cost: { input_tokens: 0, output_tokens: 0, usd: 0 },",
+    '};',
+    '',
+    'const absStaging = join(root, stagingResultPath);',
+    'mkdirSync(dirname(absStaging), { recursive: true });',
+    "writeFileSync(absStaging, JSON.stringify(turnResult, null, 2) + '\\n');",
+  ].join('\n');
+
+  writeFileSync(agentPath, source);
+  return agentPath;
+}
+
 function runCli(root, args, opts = {}) {
   const result = spawnSync(process.execPath, [CLI_BIN, ...args], {
     cwd: root,
@@ -68,14 +166,74 @@ function runCli(root, args, opts = {}) {
   };
 }
 
+function spawnCli(root, args, opts = {}) {
+  const child = spawn(process.execPath, [CLI_BIN, ...args], {
+    cwd: root,
+    env: { ...process.env, NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
+  });
+
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+
+  const completed = new Promise((resolve) => {
+    child.on('close', (code) => {
+      resolve({
+        status: code ?? 1,
+        stdout,
+        stderr,
+        combined: `${stdout}${stderr}`,
+      });
+    });
+  });
+
+  if (opts.timeout) {
+    setTimeout(() => {
+      if (child.exitCode == null) {
+        child.kill('SIGTERM');
+      }
+    }, opts.timeout).unref();
+  }
+
+  return {
+    child,
+    completed,
+    getStdout: () => stdout,
+    getStderr: () => stderr,
+  };
+}
+
 function readJson(root, relPath) {
   return JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+}
+
+function readHumanEscalations(root) {
+  const relPath = join(root, '.agentxchain', 'human-escalations.jsonl');
+  if (!existsSync(relPath)) return [];
+  const content = readFileSync(relPath, 'utf8').trim();
+  if (!content) return [];
+  return content.split('\n').filter(Boolean).map((line) => JSON.parse(line));
 }
 
 function readRunHistory(root) {
   const content = readFileSync(join(root, '.agentxchain', 'run-history.jsonl'), 'utf8').trim();
   if (!content) return [];
   return content.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+}
+
+async function waitFor(fn, { timeoutMs = 15000, intervalMs = 100 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const value = fn();
+    if (value) {
+      return value;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error(`Timed out after ${timeoutMs}ms`);
 }
 
 afterEach(() => {
@@ -212,5 +370,64 @@ describe('run schedule E2E', () => {
     const scheduleState = readJson(root, '.agentxchain/schedule-state.json');
     assert.equal(scheduleState.schedules.hourly_cleanup.last_status, 'completed');
     assert.equal(scheduleState.schedules.nightly_governed_run.last_run_id, null);
+  });
+
+  it('AT-SCHED-009: schedule daemon keeps polling blocked schedule runs and continues them after unblock', async () => {
+    const root = makeProject();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    const blockingAgent = writeBlockingMockAgent(root);
+    const runtime = {
+      type: 'local_cli',
+      command: process.execPath,
+      args: [blockingAgent],
+      prompt_transport: 'dispatch_bundle_only',
+    };
+
+    for (const runtimeId of Object.keys(config.runtimes || {})) {
+      config.runtimes[runtimeId] = { ...runtime };
+    }
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const daemon = spawnCli(root, ['schedule', 'daemon', '--max-cycles', '3', '--poll-seconds', '1', '--json'], {
+      timeout: 20000,
+    });
+
+    const escalationId = await waitFor(() => {
+      if (daemon.child.exitCode != null) {
+        throw new Error(`daemon exited before escalation surfaced:\n${daemon.getStdout()}\n${daemon.getStderr()}`);
+      }
+      const match = daemon.getStderr().match(/agentxchain unblock (hesc_[a-z0-9]+)/i);
+      return match ? match[1] : null;
+    });
+
+    assert.equal(daemon.child.exitCode, null, 'daemon must keep polling while waiting for human unblock');
+
+    const unblock = runCli(root, ['unblock', escalationId], { timeout: 30000 });
+    assert.equal(unblock.status, 0, unblock.combined);
+
+    const daemonResult = await daemon.completed;
+    assert.equal(daemonResult.status, 0, daemonResult.combined);
+
+    const state = readJson(root, '.agentxchain/state.json');
+    assert.equal(state.status, 'completed');
+
+    const scheduleState = readJson(root, '.agentxchain/schedule-state.json');
+    assert.equal(scheduleState.schedules.nightly_governed_run.last_status, 'completed');
+
+    const escalations = readHumanEscalations(root);
+    const resolved = escalations.find((entry) => entry.escalation_id === escalationId && entry.kind === 'resolved');
+    assert.ok(resolved, 'expected resolved human escalation record after unblock');
+    assert.equal(resolved.resolved_via, 'operator_unblock');
+
+    const daemonCycles = daemonResult.stdout.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    assert.ok(
+      daemonCycles.some((cycle) => cycle.results?.some((entry) => entry.action === 'blocked' && entry.stop_reason === 'blocked')),
+      `expected a blocked cycle, got: ${daemonResult.stdout}`,
+    );
+    assert.ok(
+      daemonCycles.some((cycle) => cycle.results?.some((entry) => entry.action === 'continued' && entry.stop_reason === 'completed')),
+      `expected a continued cycle, got: ${daemonResult.stdout}`,
+    );
   });
 });

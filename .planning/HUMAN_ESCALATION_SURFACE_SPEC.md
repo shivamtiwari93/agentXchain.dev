@@ -101,4 +101,4 @@ This slice introduces the operator floor for roadmap item 3:
 
 ## Open Questions
 
-- Continuous auto-resume from the scheduler/daemon after `unblock` is still a separate contract from this operator-facing unblock surface.
+- Continuous auto-resume from the scheduler/daemon after `unblock` is implemented separately in the schedule daemon contract; this spec remains the operator-facing unblock surface.

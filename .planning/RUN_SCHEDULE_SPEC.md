@@ -152,6 +152,9 @@ agentxchain schedule daemon [--poll-seconds <n>] [--max-cycles <n>] [--json]
 - Repeats `run-due` on a fixed poll interval.
 - Default poll is 60 seconds.
 - `--max-cycles <n>` is for deterministic tests and bounded CI proof.
+- The daemon must stay alive when a schedule-owned governed run blocks on human action.
+- The daemon must **not** auto-recover a blocked run by itself.
+- After the operator explicitly resolves the blocker with `agentxchain unblock <id>`, the next daemon poll may continue that same schedule-owned run automatically.
 - This daemon is repo-local only. No PID management, launchctl integration, or hosted scheduler is part of this slice.
 
 ## Error Cases
@@ -165,6 +168,7 @@ agentxchain schedule daemon [--poll-seconds <n>] [--max-cycles <n>] [--json]
 | repo currently `active` or `paused` | skip with recorded `last_skip_reason`, exit 0 |
 | repo currently `blocked` | skip with recorded `last_skip_reason`, exit 0 |
 | scheduled run launch returns non-zero | record failed status in `schedule-state.json`, exit 1 |
+| schedule daemon cycle hits a schedule-owned run that blocked on `needs_human` | record `last_status: "blocked"`, keep polling, wait for explicit `agentxchain unblock <id>` |
 | schedule-state file missing/corrupt | recreate from empty state when possible; fail only on write/read errors that prevent truthful execution |
 
 ## Acceptance Tests
@@ -177,6 +181,7 @@ agentxchain schedule daemon [--poll-seconds <n>] [--max-cycles <n>] [--json]
 - `AT-SCHED-006`: `agentxchain schedule run-due` skips active/paused repos instead of attaching to the existing run.
 - `AT-SCHED-007`: `agentxchain schedule daemon --max-cycles 1` executes the same due-run path as `run-due`.
 - `AT-SCHED-008`: `--schedule <id>` runs only the targeted schedule.
+- `AT-SCHED-009`: `agentxchain schedule daemon` survives a schedule-owned `needs_human` block and, after `agentxchain unblock <id>`, continues that same run within one polling interval.
 
 ## Non-Scope
 

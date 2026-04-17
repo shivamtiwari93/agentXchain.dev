@@ -423,7 +423,7 @@ See [Continuous Delivery Intake](https://agentxchain.dev/docs/continuous-deliver
 
 - `schedule list`: inspect configured schedules, due status, and recent run/skip metadata
 - `schedule run-due`: evaluate schedules once and run only the ones currently due
-- `schedule daemon`: poll locally and launch due governed runs on cadence
+- `schedule daemon`: poll locally, launch due governed runs on cadence, and continue explicitly unblocked schedule-owned runs on the next poll
 - `schedule status`: inspect daemon heartbeat and health from `.agentxchain/schedule-daemon.json`
 
 See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/) for the repo-local daemon contract. This is not coordinator-wide or hosted automation.

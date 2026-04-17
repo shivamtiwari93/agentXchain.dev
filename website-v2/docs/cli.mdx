@@ -840,13 +840,13 @@ Behavior contract:
 
 - `schedule list` shows due status, next due time, and last run/skip metadata from `.agentxchain/schedule-state.json`
 - `schedule run-due` evaluates configured schedules once and runs only the ones currently due
-- `schedule daemon` repeats that same due-run path on a fixed local poll interval
+- `schedule daemon` repeats that same due-run path on a fixed local poll interval and, after an explicit `agentxchain unblock <id>`, continues the same schedule-owned run on the next poll
 - scheduled runs use `trigger: "schedule"` provenance instead of pretending they were started manually
 - scheduled runs start only from `missing` (no state file yet), `idle`, or `completed`
 - scheduled runs do **not** attach to an existing `active` or `paused` run
 - scheduled runs do **not** auto-recover a `blocked` run
 
-The skip behavior is deliberate. If a repo is already active, paused on a gate, or blocked for operator recovery, the scheduler records a skip reason and exits cleanly. It does not invent a second run and it does not hijack the current one.
+The skip behavior is deliberate. If a repo is already active, paused on a gate, or blocked for operator recovery, the scheduler records a skip reason and exits cleanly. It does not invent a second run and it does not hijack the current one. The only continuation exception is explicit human recovery: if a scheduled run blocks, the daemon stays alive, and once the operator resolves the blocker with `agentxchain unblock <id>`, the next daemon poll continues that same reactivated run instead of leaving it stranded in `active`.
 
 #### Daemon health
 
