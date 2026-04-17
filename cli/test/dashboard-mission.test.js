@@ -208,8 +208,9 @@ describe('dashboard mission component', () => {
 describe('dashboard mission contract', () => {
   it('AT-DASH-MISSION-003: shell, docs, and spec expose Mission as a shipped top-level view with /api/missions', () => {
     assert.match(DASHBOARD_APP, /import.*renderMission.*from.*components\/mission/);
-    assert.match(DASHBOARD_APP, /mission:\s*\{\s*fetch:\s*\['missions'\],\s*render:\s*renderMission\s*\}/);
+    assert.match(DASHBOARD_APP, /mission:\s*\{\s*fetch:\s*\['missions',\s*'plans'\]/);
     assert.match(DASHBOARD_APP, /missions:\s*'\/api\/missions'/);
+    assert.match(DASHBOARD_APP, /plans:\s*'\/api\/plans'/);
     assert.match(DASHBOARD_INDEX, /<a href="#mission">Mission<\/a>/);
     assert.match(CLI_DOCS, /\*\*Mission\*\*/);
     assert.match(CLI_DOCS, /\/api\/missions/);

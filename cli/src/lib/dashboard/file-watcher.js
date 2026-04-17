@@ -8,7 +8,7 @@
 import { watch, existsSync } from 'fs';
 import { basename, join } from 'path';
 import { EventEmitter } from 'events';
-import { WATCH_DIRECTORIES, resourcesForRelativePath } from './state-reader.js';
+import { WATCH_DIRECTORIES, RECURSIVE_WATCH_DIRECTORIES, resourcesForRelativePath } from './state-reader.js';
 
 const DEBOUNCE_MS = 100;
 
@@ -23,7 +23,7 @@ export class FileWatcher extends EventEmitter {
     this.#agentxchainDir = agentxchainDir;
   }
 
-  #watchPath(relativeDir) {
+  #watchPath(relativeDir, { recursive = false } = {}) {
     if (this.#watchers.has(relativeDir)) {
       return;
     }
@@ -36,14 +36,15 @@ export class FileWatcher extends EventEmitter {
     }
 
     try {
-      const watcher = watch(watchPath, { recursive: false }, (eventType, filename) => {
+      const watcher = watch(watchPath, { recursive }, (eventType, filename) => {
         if (!filename || this.#closed) return;
-        const base = basename(filename);
-        const relativePath = relativeDir ? `${relativeDir}/${base}` : base;
+        // For recursive watchers, filename includes subdirectory path
+        const fileSegment = recursive ? filename.replace(/\\/g, '/') : basename(filename);
+        const relativePath = relativeDir ? `${relativeDir}/${fileSegment}` : fileSegment;
         const resources = resourcesForRelativePath(relativePath);
 
         if (resources.length === 0) {
-          if (!relativeDir && base === 'multirepo') {
+          if (!relativeDir && fileSegment === 'multirepo') {
             this.#watchPath('multirepo');
           }
           return;
@@ -78,6 +79,9 @@ export class FileWatcher extends EventEmitter {
     if (this.#watchers.size > 0) return;
     for (const relativeDir of WATCH_DIRECTORIES) {
       this.#watchPath(relativeDir);
+    }
+    for (const relativeDir of RECURSIVE_WATCH_DIRECTORIES) {
+      this.#watchPath(relativeDir, { recursive: true });
     }
   }
 

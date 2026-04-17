@@ -66,12 +66,23 @@ export const WATCH_DIRECTORIES = [
   'reports',
 ];
 
+/**
+ * Directories that require recursive watching because they contain
+ * dynamic subdirectories (e.g., missions/plans/<mission_id>/).
+ */
+export const RECURSIVE_WATCH_DIRECTORIES = [
+  'missions/plans',
+];
+
 export function normalizeRelativePath(filePath) {
   return normalize(filePath).replace(/\\/g, '/').replace(/^\.\/+/, '');
 }
 
 export function resourcesForRelativePath(filePath) {
   const normalized = normalizeRelativePath(filePath);
+  if (normalized.startsWith('missions/plans/') && normalized.endsWith('.json')) {
+    return ['/api/plans', '/api/missions'];
+  }
   if (normalized.startsWith('missions/') && normalized.endsWith('.json')) {
     return ['/api/missions'];
   }

@@ -110,6 +110,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
     assert.ok(CLI_DOCS.includes('/api/poll'), 'cli docs must document the dashboard poll endpoint');
     assert.ok(CLI_DOCS.includes('/api/missions'), 'cli docs must document the missions endpoint');
+    assert.ok(CLI_DOCS.includes('/api/plans'), 'cli docs must document the plans endpoint');
     assert.ok(CLI_DOCS.includes('/api/chain-reports'), 'cli docs must document the chain-reports endpoint');
     assert.ok(CLI_DOCS.includes('repo_run_id_mismatch'), 'cli docs must mention structured run identity drift blockers');
     assert.ok(CLI_DOCS.includes('SESSION_RECOVERY.md'), 'cli docs must mention the recovery report continuity surface');
@@ -279,10 +280,12 @@ describe('Dashboard continuity spec', () => {
     assert.match(DASHBOARD_CHAIN_SPEC, /Chain/);
   });
 
-  it('ships a durable spec for dashboard mission visibility', () => {
+  it('ships a durable spec for dashboard mission visibility including plan surface', () => {
     assert.match(DASHBOARD_MISSION_SPEC, /Dashboard Mission Surface Spec/);
     assert.match(DASHBOARD_MISSION_SPEC, /AT-DASH-MISSION-001/);
     assert.match(DASHBOARD_MISSION_SPEC, /GET \/api\/missions/);
+    assert.match(DASHBOARD_MISSION_SPEC, /GET \/api\/plans/);
+    assert.match(DASHBOARD_MISSION_SPEC, /AT-DASH-PLAN-001/);
     assert.match(DASHBOARD_MISSION_SPEC, /Mission/);
   });
 
