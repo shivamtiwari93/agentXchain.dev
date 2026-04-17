@@ -1,0 +1,46 @@
+---
+sidebar_position: 0
+title: "v2.125.0 Release Notes"
+---
+
+# AgentXchain v2.125.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Connector Validation: Runtime+Role Binding Contract Proof
+
+This release adds `agentxchain connector validate`, a dedicated command that proves one configured runtime+role binding can produce a valid governed turn result — without touching the operator's live repo. The command runs in a scratch workspace, routes through the real adapter and validator path, and fails closed on unknown runtimes, manual runtimes, and missing auth.
+
+`connector check` and `connector validate` answer different questions and are now exposed as separate commands. Reachability (transport probe) and contract proof (turn-result validation in a scratch workspace) are not interchangeable.
+
+### Front-Door Guidance Updated
+
+`init --governed`, `doctor`, and the `getting-started` docs now present the complete onboarding chain: `connector check` for reachability, then `connector validate <runtime_id>` for one bounded contract proof before the first automated run. Manual-only scaffolds correctly omit both commands and direct operators to `step` instead.
+
+### Integration Guides Aligned
+
+All 20 integration guides now show the full automated onboarding sequence: `doctor → connector check → connector validate → run`. Guides that previously stopped at `connector check` were publishing an incomplete onboarding story; every provider, protocol, and editor guide now reflects the same contract.
+
+## What Changed
+
+- **`connector validate` command:** `agentxchain connector validate <runtime_id> [--role <role_id>] [--json] [--timeout <ms>] [--keep-artifacts]` proves one runtime+role binding produces a valid governed turn result in a scratch workspace. Unknown runtimes, manual runtimes, and missing `api_proxy` auth fail closed. When multiple roles share one runtime, the command validates the first binding and emits a warning rather than implying full coverage.
+- **Scratch-workspace isolation:** `local_cli` validation copies the repo into a temporary directory, skips live `.agentxchain/` state, symlinks `node_modules`, and initializes a lightweight git baseline. The operator's live workspace is never mutated.
+- **Front-door guidance — `init --governed`:** Non-manual scaffolds now print `agentxchain connector validate <runtime_id>` (using the first non-manual runtime ID) after the `connector check` line. Manual-only scaffolds omit both commands.
+- **Front-door guidance — `doctor`:** The connector probe recommendation now explicitly distinguishes `connector check` (transport probe) from `connector validate <runtime_id>` (turn-result contract proof in a scratch workspace).
+- **Front-door guidance — `getting-started` docs:** `agentxchain connector validate local-dev` added to the scaffold command sequence with an explanation paragraph distinguishing the two commands.
+- **Integration guides:** All 20 guides updated (`anthropic`, `openai`, `google`, `google-jules`, `deepseek`, `mistral`, `xai`, `amazon`, `qwen`, `groq`, `cohere`, `ollama`, `mlx`, `mcp`, `devin`, `openclaw`, `claude-code`, `openai-codex-cli`, `cursor`, `windsurf`). Cursor and Windsurf now explicitly show the full `doctor → connector check → connector validate → run` chain.
+- **Flag alignment test fix:** `extractBinFlags()` in `docs-cli-governance-content.test.js` now prefers `program.command()` matches over subcommand matches, resolving a collision introduced when `connector validate` was registered as a subcommand of `connectorCmd` with the same name as the top-level `validate` command.
+
+## Key Decisions
+
+- `DEC-CONNECTOR-VALIDATE-001`: `connector validate` is a separate command from `connector check`. Reachability and turn-result contract proof answer different operator questions and must not be collapsed into one surface.
+- `DEC-CONNECTOR-VALIDATE-002`: connector validation is runtime+role binding proof, not universal runtime certification. The command supports explicit `--role` targeting and warns when a shared runtime is only proving one binding.
+- `DEC-CONNECTOR-VALIDATE-003`: `local_cli` validation must execute in a scratch repo copy, not the operator's live workspace. A first-run safety surface that mutates the real repo is product malpractice.
+- `DEC-FRONTDOOR-VALIDATE-GUIDANCE-001`: operator front-door surfaces (`init --governed`, `doctor`, `getting-started` docs) must distinguish reachability (`connector check`) from contract proof (`connector validate <runtime_id>`). `connector validate` is shown only when non-manual runtimes are configured.
+- `DEC-INTEGRATION-VALIDATE-001`: any integration guide that recommends `connector check` before `agentxchain run` must also recommend `connector validate <runtime_id>` between `connector check` and `run`. Front-door onboarding truth is not complete until the integration guides match it.
+
+## Evidence
+
+- 5,557 tests / 1,156 suites / 0 failures. Website build clean.

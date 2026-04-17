@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.125.0
+
+### Connector Validation & Onboarding
+
+- **`connector validate` command:** New command that proves a runtime+role binding produces valid governed turn results in an isolated scratch workspace. Supports `local_cli`, `api_proxy`, `mcp`, and `remote_agent` adapters. Manual runtimes are rejected. Scratch workspace prevents live repo mutation during validation. (`DEC-CONNECTOR-VALIDATE-001`, `DEC-CONNECTOR-VALIDATE-002`, `DEC-CONNECTOR-VALIDATE-003`)
+- **Front-door guidance updated:** `init --governed`, `doctor`, and `getting-started` docs now recommend `connector validate <runtime_id>` after `connector check` — the full onboarding sequence is now `doctor → connector check → connector validate → run`. (`DEC-FRONTDOOR-VALIDATE-GUIDANCE-001`)
+- **Integration guides aligned:** All 20 integration guides updated to include `connector validate` in the onboarding sequence. (`DEC-INTEGRATION-VALIDATE-001`)
+- **Flag alignment test fix:** `extractBinFlags()` now prefers `program.command()` matches over subcommand matches, fixing a false positive when a subcommand shares a name with a top-level command.
+
+### Evidence
+
+- 5,557 tests / 1,156 suites / 0 failures. 108 conformance fixtures. Website build clean.
+
 ## 2.124.0
 
 ### Operator Adoption Quality
