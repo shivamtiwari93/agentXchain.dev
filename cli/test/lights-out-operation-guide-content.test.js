@@ -35,6 +35,8 @@ describe('lights-out operation guide contract', () => {
     assert.match(DOC, /agentxchain connector check/);
     assert.match(DOC, /agentxchain status/);
     assert.match(DOC, /agentxchain run --continuous --vision \.planning\/VISION\.md --max-runs 1 --session-budget 5\.00/);
+    assert.match(DOC, /run-continuous-mixed-proof\.mjs/);
+    assert.match(DOC, /A `review_only` `api_proxy` QA role can validate and request completion, but it cannot create gate files/i);
   });
 
   it('documents the daemon-owned runbook path and observation commands', () => {

@@ -92,6 +92,26 @@ That command is the safety floor. It proves:
 
 Skipping this proof and going straight to `schedule daemon` is lazy. If the repo cannot complete one bounded run in the foreground, the daemon will not save you.
 
+## 3a. Use a truthful mixed-runtime proof shape
+
+Do not fake a “fully lights-out” proof by binding every phase to remote `review_only` roles and then acting surprised when `requires_files` gates never pass.
+
+The production-valid mixed-runtime shape is:
+
+- local authoring roles satisfy repo-local gate files
+- a `review_only` `api_proxy` QA role validates and requests completion
+- the repo already contains the final QA gate files before the QA review turn begins
+
+That is the real contract today. A `review_only` `api_proxy` QA role can validate and request completion, but it cannot create gate files.
+
+If you want the repo-owned live proof harness for this exact shape, run:
+
+```bash
+node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json
+```
+
+That harness drives the real `run --continuous` CLI surface, uses a real Anthropic-backed `api_proxy` QA turn, and validates the continuous session, intake provenance, review artifact, and recorded spend.
+
 ## 4. Start the daemon
 
 Once the bounded proof run is clean, start the scheduler:
