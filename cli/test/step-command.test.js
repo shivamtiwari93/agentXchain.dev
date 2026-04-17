@@ -164,6 +164,7 @@ describe('Manual Adapter', () => {
         },
       };
       const config = makeNormalizedConfig();
+      config.gates.implementation_complete = { requires_verification_pass: true };
       const output = printManualDispatchInstructions(state, config);
 
       assert.ok(output.includes('MANUAL TURN REQUIRED'));
@@ -186,6 +187,7 @@ describe('Manual Adapter', () => {
         },
       };
       const config = makeNormalizedConfig();
+      config.gates.implementation_complete = { requires_verification_pass: true };
       const output = printManualDispatchInstructions(state, config);
       assert.ok(output.includes('2'));
     });
@@ -202,6 +204,7 @@ describe('Manual Adapter', () => {
         },
       };
       const config = makeNormalizedConfig();
+      config.gates.implementation_complete = { requires_verification_pass: true };
       const output = printManualDispatchInstructions(state, config);
 
       assert.ok(output.includes('Gate files to update this phase:'));
@@ -507,9 +510,11 @@ describe('Step Flow Integration', () => {
 
       const output = printManualDispatchInstructions(state, config);
       assert.ok(output.includes('Gate files to update this phase:'));
+      assert.ok(output.includes('To exit this phase cleanly:'));
       assert.ok(output.includes('Minimal turn-result.json:'));
       // PM is in allowed_next_roles for planning, so template suggests another PM turn
       assert.ok(output.includes('"proposed_next_role": "pm"'));
+      assert.ok(output.includes('"phase_transition_request": "implementation"'));
       assert.ok(output.includes('https://agentxchain.dev/docs/getting-started'));
     });
 
@@ -566,6 +571,46 @@ describe('Step Flow Integration', () => {
       };
       const output = printManualDispatchInstructions(state, config);
       assert.ok(output.includes('"proposed_next_role": "qa"'), 'must suggest first non-human allowed role');
+    });
+
+    it('implementation example reflects authoritative artifact and verification expectations', () => {
+      const state = {
+        run_id: 'run_impl_example',
+        phase: 'implementation',
+        current_turn: {
+          turn_id: 'turn_impl',
+          assigned_role: 'dev',
+          attempt: 1,
+          runtime_id: 'manual-dev',
+        },
+      };
+      const config = makeNormalizedConfig();
+      config.gates.implementation_complete = { requires_verification_pass: true };
+      const output = printManualDispatchInstructions(state, config);
+
+      assert.ok(output.includes('use `artifact.type: "workspace"` unless you created a real git commit during the turn'));
+      assert.ok(output.includes('"verification": {"status":"pass","commands":["..."],"evidence_summary":"..."}'));
+      assert.ok(output.includes('"artifact": {"type":"workspace","ref":null}'));
+      assert.ok(output.includes('"phase_transition_request": "qa"'));
+    });
+
+    it('qa example reflects run completion guidance for review-only final turns', () => {
+      const state = {
+        run_id: 'run_qa_example',
+        phase: 'qa',
+        current_turn: {
+          turn_id: 'turn_qa',
+          assigned_role: 'qa',
+          attempt: 1,
+          runtime_id: 'manual-qa',
+        },
+      };
+      const config = makeNormalizedConfig();
+      const output = printManualDispatchInstructions(state, config);
+
+      assert.ok(output.includes('set `run_completion_request` to `true` when QA evidence is complete'));
+      assert.ok(output.includes('"artifact": {"type":"review","ref":null}'));
+      assert.ok(output.includes('"run_completion_request": true'));
     });
   });
 

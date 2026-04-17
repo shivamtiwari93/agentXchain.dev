@@ -32,6 +32,10 @@ export function printManualDispatchInstructions(state, config, options = {}) {
   const stagingPath = getTurnStagingResultPath(turn.turn_id);
   const phase = state.phase || 'planning';
   const roleId = turn.assigned_role;
+  const artifactType = getDefaultArtifactType(role);
+  const verificationExample = getVerificationExample(phase, config, role);
+  const phaseTransitionExample = getDefaultPhaseTransitionRequest(phase, config);
+  const runCompletionExample = getDefaultRunCompletionRequest(phase, config);
 
   const lines = [];
   lines.push('');
@@ -64,6 +68,15 @@ export function printManualDispatchInstructions(state, config, options = {}) {
     lines.push('');
   }
 
+  const completionHints = getPhaseCompletionHints(phase, role, config);
+  if (completionHints.length > 0) {
+    lines.push('  To exit this phase cleanly:');
+    for (const hint of completionHints) {
+      lines.push(`    - ${hint}`);
+    }
+    lines.push('');
+  }
+
   // Minimal turn-result example
   lines.push('  Minimal turn-result.json:');
   lines.push('  {');
@@ -77,11 +90,11 @@ export function printManualDispatchInstructions(state, config, options = {}) {
   lines.push('    "decisions": [{"id":"DEC-001","category":"scope","statement":"...","rationale":"..."}],');
   lines.push('    "objections": [{"id":"OBJ-001","severity":"medium","statement":"...","status":"raised"}],');
   lines.push('    "files_changed": [],');
-  lines.push('    "verification": {"status":"skipped","commands":[],"evidence_summary":"..."},');
-  lines.push('    "artifact": {"type":"review","ref":null},');
+  lines.push(`    "verification": ${verificationExample},`);
+  lines.push(`    "artifact": {"type":"${artifactType}","ref":null},`);
   lines.push(`    "proposed_next_role": "${getDefaultNextRole(roleId, config, phase)}",`);
-  lines.push('    "phase_transition_request": null,');
-  lines.push('    "run_completion_request": null');
+  lines.push(`    "phase_transition_request": ${phaseTransitionExample === null ? 'null' : `"${phaseTransitionExample}"`},`);
+  lines.push(`    "run_completion_request": ${runCompletionExample === null ? 'null' : runCompletionExample}`);
   lines.push('  }');
   lines.push('');
   lines.push('  Docs: https://agentxchain.dev/docs/getting-started');
@@ -112,6 +125,32 @@ function getPhaseGateHints(phase, roleId, config) {
   return hints;
 }
 
+function getPhaseCompletionHints(phase, role, config) {
+  const hints = [];
+  const writeAuthority = role?.write_authority || 'review_only';
+  const nextPhase = getNextPhase(phase, config);
+  const exitGate = config?.routing?.[phase]?.exit_gate;
+  const gateConfig = exitGate ? config?.gates?.[exitGate] : null;
+
+  if (gateConfig?.requires_verification_pass && writeAuthority !== 'review_only') {
+    hints.push('set `verification.status` to `pass` only when your listed checks actually passed');
+  }
+  if (writeAuthority === 'authoritative') {
+    hints.push('use `artifact.type: "workspace"` unless you created a real git commit during the turn');
+  } else if (writeAuthority === 'proposed') {
+    hints.push('use `artifact.type: "patch"` for non-completion turns');
+  } else {
+    hints.push('keep `artifact.type: "review"` because review-only roles cannot claim code-writing artifacts');
+  }
+  if (nextPhase) {
+    hints.push(`set \`phase_transition_request\` to \`${nextPhase}\` when this turn is ready to leave \`${phase}\``);
+  } else if (phase === 'qa') {
+    hints.push('set `run_completion_request` to `true` when QA evidence is complete and you are asking to end the run');
+  }
+
+  return hints;
+}
+
 /**
  * Suggest a reasonable next role based on current role.
  */
@@ -133,6 +172,46 @@ function getDefaultNextRole(roleId, config, phase) {
   if (roleId === 'dev') return 'qa';
   if (roleId === 'qa') return 'human';
   return 'human';
+}
+
+function getDefaultArtifactType(role) {
+  const writeAuthority = role?.write_authority || 'review_only';
+  if (writeAuthority === 'authoritative') return 'workspace';
+  if (writeAuthority === 'proposed') return 'patch';
+  return 'review';
+}
+
+function getVerificationExample(phase, config, role) {
+  const writeAuthority = role?.write_authority || 'review_only';
+  const exitGate = config?.routing?.[phase]?.exit_gate;
+  const gateConfig = exitGate ? config?.gates?.[exitGate] : null;
+  if (gateConfig?.requires_verification_pass && writeAuthority !== 'review_only') {
+    return '{"status":"pass","commands":["..."],"evidence_summary":"..."}';
+  }
+  return '{"status":"skipped","commands":[],"evidence_summary":"..."}';
+}
+
+function getDefaultPhaseTransitionRequest(phase, config) {
+  return getNextPhase(phase, config);
+}
+
+function getDefaultRunCompletionRequest(phase, config) {
+  const nextPhase = getNextPhase(phase, config);
+  if (!nextPhase && phase === 'qa') {
+    return 'true';
+  }
+  return null;
+}
+
+function getNextPhase(phase, config) {
+  const orderedPhases = Array.isArray(config?.phases) && config.phases.length > 0
+    ? config.phases.map((entry) => typeof entry === 'string' ? entry : entry?.id).filter(Boolean)
+    : Object.keys(config?.routing || {});
+  const index = orderedPhases.indexOf(phase);
+  if (index === -1 || index === orderedPhases.length - 1) {
+    return null;
+  }
+  return orderedPhases[index + 1];
 }
 
 /**

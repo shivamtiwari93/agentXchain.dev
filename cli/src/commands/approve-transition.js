@@ -2,6 +2,8 @@ import chalk from 'chalk';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { approvePhaseTransition } from '../lib/governed-state.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { resolveGovernedRole } from '../lib/role-resolution.js';
+import { checkCleanBaseline } from '../lib/repo-observer.js';
 
 export async function approveTransitionCommand(opts) {
   const context = loadProjectContext();
@@ -72,8 +74,21 @@ export async function approveTransitionCommand(opts) {
     console.log(`  ${chalk.dim('Gate actions:')} ${result.gateActionRun.actions.length} completed`);
   }
   console.log(chalk.dim(`  Run status: ${result.state.status}`));
+  const nextRole = resolveGovernedRole({ state: result.state, config });
+  const nextRoleConfig = nextRole.roleId ? config.roles?.[nextRole.roleId] : null;
+  const cleanBaseline = nextRoleConfig
+    ? checkCleanBaseline(root, nextRoleConfig.write_authority || 'review_only')
+    : { clean: true };
   console.log('');
-  console.log(chalk.dim(`  Next: agentxchain step  (to run the first turn in ${pt.to} phase)`));
+  if (!cleanBaseline.clean && nextRole.roleId) {
+    console.log(chalk.yellow('  Next turn blocked until the workspace is checkpointed.'));
+    console.log(`  ${chalk.dim('Role:')}  ${nextRole.roleId} (${nextRoleConfig?.write_authority || 'review_only'})`);
+    console.log(`  ${chalk.dim('Why:')}   ${cleanBaseline.reason}`);
+    console.log(chalk.dim('  Fix:   git add -A && git commit -m "checkpoint accepted artifacts"'));
+    console.log(chalk.dim(`  Then:  agentxchain step  (to run the first turn in ${pt.to} phase)`));
+  } else {
+    console.log(chalk.dim(`  Next: agentxchain step  (to run the first turn in ${pt.to} phase)`));
+  }
   console.log('');
 }
 

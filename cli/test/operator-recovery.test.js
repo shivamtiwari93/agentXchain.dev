@@ -340,6 +340,37 @@ describe('operator recovery surfaces', () => {
     }
   });
 
+  it('approve-transition warns when the next authoritative turn would fail the clean-baseline check', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'paused',
+        phase: 'planning',
+        pending_phase_transition: {
+          from: 'planning',
+          to: 'implementation',
+          gate: 'planning_signoff',
+          requested_by_turn: 'turn_01H',
+        },
+      },
+    });
+
+    try {
+      initGitRepo(dir);
+      writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+      writeFileSync(join(dir, '.planning', 'ROADMAP.md'), '# roadmap\nupdated\n');
+
+      const result = runCli(dir, ['approve-transition']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Phase advanced: planning → implementation/);
+      assert.match(result.stdout, /Next turn blocked until the workspace is checkpointed/);
+      assert.match(result.stdout, /Working tree has uncommitted changes in actor-owned files: .*\.planning\/PM_SIGNOFF\.md/);
+      assert.match(result.stdout, /git add -A && git commit -m "checkpoint accepted artifacts"/);
+      assert.match(result.stdout, /Then:\s+agentxchain step/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('approve-completion succeeds after a hook-blocked approval leaves pending completion intact', () => {
     const dir = createGovernedProject({
       state: {
