@@ -79,7 +79,7 @@ agentxchain mission show
 agentxchain dashboard
 ```
 
-Use `mission show` for terminal inspection and the dashboard `Mission` view for a repo-local overview of the latest mission, attached-chain lineage, and recent missions.
+Use `mission show` for terminal inspection and the dashboard `Mission` view for a repo-local overview of the latest mission, attached-chain lineage, and recent missions. When a mission has a plan, `mission show` also includes the latest plan status, completion percentage, and workstream status breakdown so one terminal command can answer basic mission-health questions.
 
 ### Decomposed mission planning
 
@@ -136,6 +136,17 @@ agentxchain mission plan launch latest --all-ready --auto-approve
 
 `--all-ready` launches every currently `ready` workstream one at a time, stopping on first failure. Blocked workstreams are never included. The `--workstream` and `--all-ready` flags are mutually exclusive.
 
+If a launched workstream ends in `needs_attention`, retry that same workstream explicitly:
+
+```bash
+agentxchain mission plan launch latest \
+  --workstream ws-release-alignment \
+  --retry \
+  --auto-approve
+```
+
+Retry preserves the older launch record for audit, allocates a new `chain_id`, and returns the plan from `needs_attention` to active execution. When every workstream reaches `completed`, the plan auto-transitions to `completed` too.
+
 #### 4. Inspect plan and launch state
 
 ```bash
@@ -158,6 +169,7 @@ agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json]
 agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --workstream <id> --retry [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --all-ready [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 ```
 
@@ -173,7 +185,7 @@ Lists mission artifacts newest-first by `updated_at`.
 
 ### `mission show`
 
-Shows one mission by ID or the latest mission when no ID is provided. The summary includes attached chain counts, aggregate run and turn totals, latest terminal reason, and active repo-decision count.
+Shows one mission by ID or the latest mission when no ID is provided. The summary includes attached chain counts, aggregate run and turn totals, latest terminal reason, active repo-decision count, and when available the latest plan's status, completion percentage, and workstream counts.
 
 ### `mission attach-chain`
 
@@ -210,9 +222,10 @@ Approves only the latest `proposed` plan for a mission and supersedes older acti
 Launches approved workstreams with two modes:
 
 - **`--workstream <id>`** — launch one specific workstream.
+- **`--workstream <id> --retry`** — retry one `needs_attention` workstream with a new launch record and chain ID while preserving the previous failed attempt for audit.
 - **`--all-ready`** — launch all currently `ready` workstreams sequentially. Stops on first failure — remaining workstreams are skipped. Blocked workstreams are never included.
 
-Both modes validate the approval boundary and dependency satisfaction, record preallocated `workstream_id -> chain_id` launch records, execute through the governed run path, and reconcile outcomes from real chain results. The two flags are mutually exclusive.
+All modes validate the approval boundary and dependency satisfaction, record preallocated `workstream_id -> chain_id` launch records, execute through the governed run path, and reconcile outcomes from real chain results. The launch modes are mutually exclusive where they would conflict.
 
 Shipped workstream launch states:
 
@@ -223,6 +236,16 @@ Shipped workstream launch states:
 | `launched` | Workstream has been launched and is still in flight |
 | `completed` | Bound chain finished successfully and unblocks dependents |
 | `needs_attention` | Bound chain failed or blocked; operator review is required |
+
+Shipped plan states relevant to execution and follow-up:
+
+| Plan Status | Meaning |
+|---|---|
+| `proposed` | Plan exists but has not been approved |
+| `approved` | Plan is launchable |
+| `superseded` | Newer plan revision replaced this one |
+| `needs_attention` | At least one launched workstream failed or blocked |
+| `completed` | Every workstream reached `completed` and the plan auto-closed |
 
 ## Run Chaining Integration
 
@@ -267,7 +290,7 @@ Mission status is evidence-backed. The current shipped surface derives status fr
 | `needs_attention` | At least one attached chain reports `operator_abort`, `parent_validation_failed`, or contains a run with `blocked` or `failed` status |
 | `degraded` | The mission references one or more missing chain reports |
 
-The dashboard and `mission show` surfaces summarize these derived states so operators can see the mission condition without opening every chain report manually.
+The dashboard and `mission show` surfaces summarize these derived states so operators can see the mission condition without opening every chain report manually. When a plan exists, `mission show` also reports the latest plan's completion percentage and workstream-status breakdown.
 
 ## Mission Plan Status
 

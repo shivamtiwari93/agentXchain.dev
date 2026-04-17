@@ -5,9 +5,7 @@
  * Plans are advisory repo-local artifacts; this reader is not protocol-normative.
  */
 
-import { existsSync, readdirSync } from 'fs';
-import { join } from 'path';
-import { loadAllPlans, loadLatestPlan } from '../mission-plans.js';
+import { buildPlanProgressSummary, loadAllPlans } from '../mission-plans.js';
 import { loadAllMissionArtifacts } from '../missions.js';
 
 /**
@@ -65,28 +63,12 @@ export function readPlanSnapshot(workspacePath, { limit, missionId } = {}) {
  * Build a dashboard-ready summary for a single plan.
  */
 function buildPlanSummary(plan) {
+  const summary = buildPlanProgressSummary(plan);
   const workstreams = Array.isArray(plan.workstreams) ? plan.workstreams : [];
   const launchRecords = Array.isArray(plan.launch_records) ? plan.launch_records : [];
 
-  const statusCounts = {};
-  for (const ws of workstreams) {
-    const status = ws.launch_status || 'unknown';
-    statusCounts[status] = (statusCounts[status] || 0) + 1;
-  }
-
   return {
-    plan_id: plan.plan_id,
-    mission_id: plan.mission_id,
-    status: plan.status,
-    created_at: plan.created_at,
-    updated_at: plan.updated_at,
-    approved_at: plan.approved_at || null,
-    supersedes_plan_id: plan.supersedes_plan_id || null,
-    superseded_by_plan_id: plan.superseded_by_plan_id || null,
-    input_goal: plan.input?.goal || null,
-    workstream_count: workstreams.length,
-    launch_record_count: launchRecords.length,
-    workstream_status_counts: statusCounts,
+    ...summary,
     workstreams: workstreams.map((ws) => ({
       workstream_id: ws.workstream_id,
       title: ws.title,

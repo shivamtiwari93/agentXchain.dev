@@ -56,6 +56,7 @@ describe('Missions docs surface', () => {
       'agentxchain mission plan show latest',
       'agentxchain mission plan approve latest',
       'agentxchain mission plan launch latest',
+      '--retry',
       'agentxchain mission plan list',
       'agentxchain run --chain --mission latest',
       'agentxchain run --chain --mission mission-release-hardening',
@@ -103,7 +104,8 @@ describe('Missions docs surface', () => {
     assert.match(DOC, /workstream_id -> chain_id/i);
     assert.match(DOC, /executes the workstream immediately/i);
     assert.match(DOC, /deterministic or offline/i);
-    for (const status of ['`proposed`', '`approved`', '`superseded`', '`ready`', '`blocked`', '`launched`', '`completed`', '`needs_attention`']) {
+    assert.match(DOC, /completion percentage/i);
+    for (const status of ['`proposed`', '`approved`', '`superseded`', '`completed`', '`ready`', '`blocked`', '`launched`', '`needs_attention`']) {
       assert.ok(DOC.includes(status), `missions docs must mention ${status}`);
     }
   });

@@ -63,8 +63,9 @@ The page must make both real operator paths explicit:
 2. **Decomposed planning flow**
    - create the mission and first proposed plan in one command with `mission start --plan`, or generate a plan later with `mission plan`
    - review and approve the latest plan
-   - launch one approved workstream at a time
+   - launch one approved workstream at a time, retry failed workstreams explicitly, or batch-launch all currently ready workstreams
    - inspect workstream launch state and chain linkage in the dashboard Mission view
+   - use `mission show` as the terminal summary for latest plan status, completion percentage, and workstream counts
 
 Manual `mission attach-chain` should be documented as a fallback path for chains that were not mission-bound at run start, not as the primary workflow.
 
@@ -95,7 +96,7 @@ It must describe the evidence behind them rather than inventing lifecycle verbs 
 
 The page should also explain the shipped mission-plan and workstream execution states instead of hand-waving them:
 
-- plan states such as `proposed`, `approved`, `superseded`, and `needs_attention`
+- plan states such as `proposed`, `approved`, `superseded`, `needs_attention`, and `completed`
 - workstream launch states `ready`, `blocked`, `launched`, `completed`, and `needs_attention`
 
 ### 5. Document decomposition execution truthfully
@@ -105,7 +106,9 @@ The page must say plainly that `mission plan launch` is a one-command execution 
 - it records `workstream_id -> chain_id` launch linkage
 - it executes the workstream immediately through the existing governed run/chaining path
 - `--auto-approve` passes through to the launched governed run
+- `--retry` is the explicit repair path for `needs_attention` workstreams
 - successful execution marks the workstream `completed`
+- all-completed plans auto-transition to `completed`
 - failed or blocked execution marks the workstream and plan `needs_attention`
 
 ### 6. Document failure behavior
@@ -141,6 +144,7 @@ The page must distinguish:
 6. The page documents `mission plan launch` as immediate execution with real `workstream_id -> chain_id` linkage and launch/workstream state visibility.
 7. `llms.txt` includes the missions page.
 8. The page documents `mission start --plan` and `--planner-output-file <path>` as shipped planning-entry surfaces.
+9. The page documents explicit retry, plan auto-completion, and `mission show` latest-plan summary truthfully.
 
 ## Open Questions
 

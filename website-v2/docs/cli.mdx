@@ -84,7 +84,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `chain show` | Observability | Show a specific chain report by chain ID |
 | `mission start` | Observability | Create a single-repo mission artifact above chained runs |
 | `mission list` | Observability | List mission artifacts with aggregate run, turn, and repo-decision counts |
-| `mission show` | Observability | Show the latest mission or one mission by ID, including attached chain summaries |
+| `mission show` | Observability | Show the latest mission or one mission by ID, including attached chain summaries and latest plan health |
 | `mission attach-chain` | Observability | Bind a chain report to a mission so long-horizon work has a durable grouping layer |
 | `mission plan` | Planning | Generate a decomposition plan for a mission using LLM-assisted workstream decomposition |
 | `mission plan show` | Planning | Show a decomposition plan with workstream details and dependency state |
@@ -200,7 +200,7 @@ The `--mission` flag on `run --chain` is the primary operator flow. It auto-atta
 
 `mission start --plan` is a convenience layer over the shipped planner path, not a governance bypass. It creates the mission first, then writes exactly one `proposed` plan artifact. `mission start --plan --json` emits `{ mission, plan }`; the mission-only JSON shape remains unchanged when `--plan` is absent.
 
-Mission summaries derive aggregate chain count, total runs, total turns, latest chain terminal reason, and active repo-decision count. That last field matters: repo decisions already carry across chained runs, and the mission surface keeps that continuity visible instead of pretending each chain starts from zero.
+Mission summaries derive aggregate chain count, total runs, total turns, latest chain terminal reason, and active repo-decision count. When a decomposition plan exists, the same summary also includes the latest plan status, completion percentage, and workstream counts so one command can answer basic mission-health questions. That repo-decision field still matters: decisions already carry across chained runs, and the mission surface keeps that continuity visible instead of pretending each chain starts from zero.
 
 `mission attach-chain` remains available for binding chains from runs that were not mission-bound at start. It defaults to attaching the latest chain report to the latest mission.
 
@@ -254,11 +254,11 @@ Plan revision works by supersession: generating a new plan sets `supersedes_plan
 
 Approval is latest-only and fail-closed. `mission plan approve` may approve only the newest `proposed` plan for a mission. Approving a newer plan supersedes any older active `proposed` or `approved` plan artifacts so one approved revision remains current.
 
-Launch supports two modes: single workstream (`--workstream <id>`) and batch (`--all-ready`). Both validate that the plan is approved and that target workstreams have satisfied dependencies. Each launch records a preallocated `workstream_id` → `chain_id` launch record and executes through the existing governed run/chaining path. Dependency satisfaction is based on the depended-on chain's latest run status, not only the chain-loop terminal label. `--auto-approve` passes through to the governed run surface. Successful execution marks the workstream `completed` and attaches the emitted chain report to the parent mission; failed execution marks the workstream `needs_attention` and leaves dependent workstreams blocked.
+Launch supports three modes: single workstream (`--workstream <id>`), targeted retry (`--workstream <id> --retry`), and batch (`--all-ready`). They validate that the plan is approved and that target workstreams have satisfied dependencies. Each launch records a preallocated `workstream_id` → `chain_id` launch record and executes through the existing governed run/chaining path. Dependency satisfaction is based on the depended-on chain's latest run status, not only the chain-loop terminal label. `--auto-approve` passes through to the governed run surface. Successful execution marks the workstream `completed` and attaches the emitted chain report to the parent mission; failed execution marks the workstream `needs_attention` and leaves dependent workstreams blocked.
 
 `--all-ready` launches all currently `ready` workstreams sequentially. If any workstream fails, remaining workstreams are skipped (fail-closed). Blocked workstreams are never launched — only the set that was `ready` at invocation time is included. The `--workstream` and `--all-ready` flags are mutually exclusive.
 
-`--retry` re-launches a workstream that has `needs_attention` status (i.e., a previously failed launch). It creates a new launch record with a new chain ID while preserving the old launch record for audit. The plan status returns from `needs_attention` to `approved` during the retry. `--retry` requires `--workstream` and is mutually exclusive with `--all-ready`.
+`--retry` re-launches a workstream that has `needs_attention` status (i.e., a previously failed launch). It creates a new launch record with a new chain ID while preserving the old launch record for audit. The plan status returns from `needs_attention` to `approved` during the retry. `--retry` requires `--workstream` and is mutually exclusive with `--all-ready`. When all workstreams reach `completed`, the plan auto-transitions to `completed`.
 
 **Plan auto-completion:** When all workstreams in a plan reach `completed` status, the plan automatically transitions to `completed`. This happens as part of outcome recording — no separate command is needed.
 

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadAllChainReports, loadChainReport, loadLatestChainReport } from './chain-reports.js';
+import { buildPlanProgressSummary, loadLatestPlan } from './mission-plans.js';
 import { getActiveRepoDecisions } from './repo-decisions.js';
 
 const MISSION_ATTENTION_TERMINALS = new Set(['operator_abort', 'parent_validation_failed']);
@@ -139,6 +140,7 @@ export function buildMissionSnapshot(root, missionArtifact) {
   const totalRuns = chains.reduce((sum, chain) => sum + (chain.runs?.length || 0), 0);
   const totalTurns = chains.reduce((sum, chain) => sum + (chain.total_turns || 0), 0);
   const latestChain = chains[0] || null;
+  const latestPlan = loadLatestPlan(root, missionArtifact.mission_id);
   const activeRepoDecisions = getActiveRepoDecisions(root);
 
   return {
@@ -151,6 +153,7 @@ export function buildMissionSnapshot(root, missionArtifact) {
     total_turns: totalTurns,
     latest_chain_id: latestChain?.chain_id || null,
     latest_terminal_reason: latestChain?.terminal_reason || null,
+    latest_plan: buildPlanProgressSummary(latestPlan),
     active_repo_decisions_count: activeRepoDecisions.length,
     chains,
   };

@@ -20,10 +20,13 @@ This feature is advisory, not protocol-normative:
 
 ```bash
 agentxchain mission start --title <text> --goal <text> --plan [--constraint <text>]... [--role-hint <role>]... [--planner-output-file <path>] [--json] [--dir <path>]
+agentxchain mission show [mission_id] [--json] [--dir <path>]
 agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--planner-output-file <path>] [--json] [--dir <path>]
 agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --workstream <workstream_id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --workstream <workstream_id> --retry [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --all-ready [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 ```
 
 ### Repo Artifacts
@@ -177,7 +180,7 @@ Launch behavior:
 
 This keeps decomposition advisory and execution explicit. The product does not turn one plan approval into an uncontrolled swarm fan-out.
 
-### 8. Failure behavior is block-and-replan, not silent auto-retry
+### 8. Failure behavior is explicit retry or replan, not silent automation
 
 If a launched workstream ends in failure or blocked state:
 
@@ -188,7 +191,19 @@ If a launched workstream ends in failure or blocked state:
 
 If a launched workstream's bound chain finishes successfully, that workstream is marked `completed` and any newly unblocked dependents become `ready`.
 
-The operator may then create a new superseding plan revision. Replanning is explicit because automatic replanning would otherwise rewrite approved intent without review.
+The operator then has two explicit repair paths:
+
+- create a new superseding plan revision
+- retry the failed workstream with `mission plan launch ... --workstream <id> --retry`
+
+Retry is narrow by design:
+
+- only `needs_attention` workstreams are eligible
+- the old launch record stays durable for audit
+- retry appends a new `launch_record` with a new `chain_id` and `retry: true`
+- the plan returns from `needs_attention` to `approved` while the retry is in flight
+
+When every workstream reaches `completed`, the plan auto-transitions to `completed`.
 
 ### 9. Visibility surfaces
 
@@ -196,6 +211,7 @@ At minimum, the plan surface must expose:
 
 - newest-first plan list per mission
 - latest plan summary for `mission plan show latest`
+- latest plan summary inside `mission show`, including plan status, completion percentage, and workstream-status counts
 - each workstream's dependency state and launch state
 - `launch_records` binding approved workstreams to actual chain IDs
 
@@ -235,6 +251,12 @@ At minimum, the plan surface must expose:
 - `AT-MISSION-PLAN-013`: dependency satisfaction treats a launched dependency as complete when its bound chain's latest run completed successfully, even if the chain-loop terminal reason is not literally `"completed"`.
 - `AT-MISSION-PLAN-040`: `mission plan ... --planner-output-file <path>` accepts offline planner JSON and creates the same proposed artifact shape as the live planner path.
 - `AT-MISSION-PLAN-041`: `mission start --plan` creates the mission plus exactly one proposed plan using the same planner contract, and it never auto-approves or auto-launches that plan.
+- `AT-MISSION-CLI-011`: `mission show` surfaces the latest plan status, completion percentage, and workstream summary when a mission has plan artifacts.
+- `AT-MISSION-CLI-012`: `mission show --json` includes a machine-readable latest-plan summary.
+- `AT-MISSION-PLAN-048`: a plan auto-transitions to `completed` when all workstreams reach `completed`.
+- `AT-MISSION-PLAN-051`: `mission plan launch --workstream <id> --retry` fails closed unless the target workstream is already `needs_attention`.
+- `AT-MISSION-PLAN-052`: retry preserves the old launch record and appends a new `retry: true` launch record with a new `chain_id`.
+- `AT-MISSION-PLAN-053`: retry returns the plan from `needs_attention` to `approved` while the new attempt is in flight.
 
 ## Open Questions
 

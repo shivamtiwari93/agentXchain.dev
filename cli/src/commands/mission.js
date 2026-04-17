@@ -962,6 +962,8 @@ function renderMissionPlanError(error) {
 }
 
 function renderMissionSnapshot(snapshot) {
+  const latestPlan = snapshot.latest_plan || null;
+
   console.log(chalk.bold(`Mission: ${snapshot.mission_id}`));
   console.log('');
   console.log(`  Title:                 ${snapshot.title || '—'}`);
@@ -980,10 +982,19 @@ function renderMissionSnapshot(snapshot) {
     console.log(`  Missing chains:        ${snapshot.missing_chain_ids.join(', ')}`);
   }
 
+  if (latestPlan) {
+    console.log('');
+    console.log(chalk.bold('  Latest plan:'));
+    console.log(`    Plan ID:             ${latestPlan.plan_id || '—'}`);
+    console.log(`    Status:              ${formatPlanStatus(latestPlan.status)}`);
+    console.log(`    Completion:          ${latestPlan.completion_percentage}% (${latestPlan.completed_count}/${latestPlan.workstream_count} completed)`);
+    console.log(`    Workstream summary:  ready ${latestPlan.ready_count}, blocked ${latestPlan.blocked_count}, launched ${latestPlan.launched_count}, completed ${latestPlan.completed_count}, needs_attention ${latestPlan.needs_attention_count}`);
+  }
+
   if (!snapshot.chains || snapshot.chains.length === 0) {
     console.log('');
     console.log(chalk.dim('  No chains attached.'));
-    console.log(chalk.dim('  Use `agentxchain mission attach-chain latest` after a chained run.'));
+    console.log(chalk.dim('  Use `agentxchain run --chain --mission latest` for new work, or `agentxchain mission attach-chain latest` to repair an unbound chain.'));
     return;
   }
 

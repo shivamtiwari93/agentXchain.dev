@@ -365,4 +365,96 @@ describe('mission CLI behavior', () => {
     assert.deepEqual(parsed.plan.input.role_hints, ['dev', 'qa']);
     assert.equal(parsed.plan.status, 'proposed');
   });
+
+  it('AT-MISSION-CLI-011: mission show surfaces the latest plan summary with completion and workstream counts', () => {
+    runCli([
+      'mission',
+      'start',
+      '--title', 'Mission Summary',
+      '--goal', 'Show plan health in one command',
+      '-d', tmpDir,
+    ], tmpDir);
+
+    writePlanArtifact(tmpDir, 'mission-summary', {
+      plan_id: 'plan-older-summary',
+      mission_id: 'mission-summary',
+      status: 'approved',
+      supersedes_plan_id: null,
+      created_at: '2026-04-17T10:00:00.000Z',
+      updated_at: '2026-04-17T10:00:00.000Z',
+      input: { goal: 'Show plan health in one command', constraints: [], role_hints: [] },
+      planner: { mode: 'llm_one_shot', model: 'test' },
+      workstreams: [
+        { workstream_id: 'ws-old', title: 'Older', goal: 'Old', roles: ['dev'], phases: ['implementation'], depends_on: [], acceptance_checks: [], launch_status: 'completed' },
+      ],
+      launch_records: [],
+    });
+
+    writePlanArtifact(tmpDir, 'mission-summary', {
+      plan_id: 'plan-newer-summary',
+      mission_id: 'mission-summary',
+      status: 'needs_attention',
+      supersedes_plan_id: 'plan-older-summary',
+      created_at: '2026-04-17T11:00:00.000Z',
+      updated_at: '2026-04-17T11:15:00.000Z',
+      input: { goal: 'Show plan health in one command', constraints: [], role_hints: [] },
+      planner: { mode: 'llm_one_shot', model: 'test' },
+      workstreams: [
+        { workstream_id: 'ws-ready', title: 'Ready', goal: 'Ready', roles: ['dev'], phases: ['implementation'], depends_on: [], acceptance_checks: [], launch_status: 'ready' },
+        { workstream_id: 'ws-blocked', title: 'Blocked', goal: 'Blocked', roles: ['qa'], phases: ['qa'], depends_on: ['ws-ready'], acceptance_checks: [], launch_status: 'blocked' },
+        { workstream_id: 'ws-complete', title: 'Complete', goal: 'Complete', roles: ['dev'], phases: ['implementation'], depends_on: [], acceptance_checks: [], launch_status: 'completed' },
+        { workstream_id: 'ws-failed', title: 'Failed', goal: 'Failed', roles: ['dev'], phases: ['implementation'], depends_on: [], acceptance_checks: [], launch_status: 'needs_attention' },
+      ],
+      launch_records: [],
+    });
+
+    const output = runCli(['mission', 'show', 'mission-summary', '-d', tmpDir], tmpDir);
+    assert.match(output, /Latest plan:/);
+    assert.match(output, /Plan ID:\s+plan-newer-summary/);
+    assert.match(output, /Status:\s+needs_attention/);
+    assert.match(output, /Completion:\s+25% \(1\/4 completed\)/);
+    assert.match(output, /Workstream summary:\s+ready 1, blocked 1, launched 0, completed 1, needs_attention 1/);
+  });
+
+  it('AT-MISSION-CLI-012: mission show --json includes latest plan summary for machine-readable mission health', () => {
+    runCli([
+      'mission',
+      'start',
+      '--title', 'Mission Json Summary',
+      '--goal', 'Return latest plan health in JSON',
+      '-d', tmpDir,
+    ], tmpDir);
+
+    writePlanArtifact(tmpDir, 'mission-json-summary', {
+      plan_id: 'plan-json-summary',
+      mission_id: 'mission-json-summary',
+      status: 'completed',
+      supersedes_plan_id: null,
+      created_at: '2026-04-17T12:00:00.000Z',
+      updated_at: '2026-04-17T12:20:00.000Z',
+      approved_at: '2026-04-17T12:05:00.000Z',
+      input: { goal: 'Return latest plan health in JSON', constraints: [], role_hints: [] },
+      planner: { mode: 'llm_one_shot', model: 'test' },
+      workstreams: [
+        { workstream_id: 'ws-a', title: 'A', goal: 'A', roles: ['dev'], phases: ['implementation'], depends_on: [], acceptance_checks: [], launch_status: 'completed' },
+        { workstream_id: 'ws-b', title: 'B', goal: 'B', roles: ['qa'], phases: ['qa'], depends_on: ['ws-a'], acceptance_checks: [], launch_status: 'completed' },
+      ],
+      launch_records: [
+        { workstream_id: 'ws-a', chain_id: 'chain-a', launched_at: '2026-04-17T12:05:00.000Z', completed_at: '2026-04-17T12:10:00.000Z', status: 'completed', terminal_reason: 'completed' },
+        { workstream_id: 'ws-b', chain_id: 'chain-b', launched_at: '2026-04-17T12:11:00.000Z', completed_at: '2026-04-17T12:20:00.000Z', status: 'completed', terminal_reason: 'completed' },
+      ],
+    });
+
+    const output = runCli(['mission', 'show', 'mission-json-summary', '--json', '-d', tmpDir], tmpDir);
+    const parsed = JSON.parse(output);
+
+    assert.equal(parsed.latest_plan.plan_id, 'plan-json-summary');
+    assert.equal(parsed.latest_plan.status, 'completed');
+    assert.equal(parsed.latest_plan.workstream_count, 2);
+    assert.equal(parsed.latest_plan.launch_record_count, 2);
+    assert.equal(parsed.latest_plan.completed_count, 2);
+    assert.equal(parsed.latest_plan.ready_count, 0);
+    assert.equal(parsed.latest_plan.needs_attention_count, 0);
+    assert.equal(parsed.latest_plan.completion_percentage, 100);
+  });
 });

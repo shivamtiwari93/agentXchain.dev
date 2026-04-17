@@ -306,6 +306,38 @@ export function loadPlan(root, missionId, planId) {
   return plans.find((p) => p.plan_id === planId) || null;
 }
 
+export function buildPlanProgressSummary(plan) {
+  if (!plan || typeof plan !== 'object') return null;
+
+  const workstreams = Array.isArray(plan.workstreams) ? plan.workstreams : [];
+  const launchRecords = Array.isArray(plan.launch_records) ? plan.launch_records : [];
+  const workstreamStatusCounts = getWorkstreamStatusSummary(plan);
+  const completedCount = workstreamStatusCounts.completed || 0;
+
+  return {
+    plan_id: plan.plan_id,
+    mission_id: plan.mission_id,
+    status: plan.status,
+    created_at: plan.created_at,
+    updated_at: plan.updated_at,
+    approved_at: plan.approved_at || null,
+    supersedes_plan_id: plan.supersedes_plan_id || null,
+    superseded_by_plan_id: plan.superseded_by_plan_id || null,
+    input_goal: plan.input?.goal || null,
+    workstream_count: workstreams.length,
+    launch_record_count: launchRecords.length,
+    workstream_status_counts: workstreamStatusCounts,
+    ready_count: workstreamStatusCounts.ready || 0,
+    blocked_count: workstreamStatusCounts.blocked || 0,
+    launched_count: workstreamStatusCounts.launched || 0,
+    completed_count: completedCount,
+    needs_attention_count: workstreamStatusCounts.needs_attention || 0,
+    completion_percentage: workstreams.length === 0
+      ? 0
+      : Math.round((completedCount / workstreams.length) * 100),
+  };
+}
+
 // ── Workstream launch ───────────────────────────────────────────────────────
 
 export function didChainFinishSuccessfully(chainReport) {
