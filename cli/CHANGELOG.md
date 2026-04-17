@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.127.0
+
+### Adapter Dispatch Progress Tracking
+
+- **Per-turn dispatch progress:** every adapter dispatch (local_cli, api_proxy, mcp, remote_agent) now emits structured progress to a per-turn file (`dispatch-progress-<turn_id>.json`). `agentxchain status` renders an Activity line showing whether the adapter is producing output, silent, or waiting for an API response. Dashboard `/api/state` and timeline view consume the same signal. (`DEC-DISPATCH-PROGRESS-001`, `DEC-DISPATCH-PROGRESS-002`, `DEC-DISPATCH-PROGRESS-003`)
+- **Parallel dispatch isolation:** progress files are keyed by turn_id so parallel dispatch (`max_concurrent_turns > 1`) never clobbers another turn's progress data. Previously all turns shared a single file.
+- **E2E parallel dispatch proof:** real governed integration test with `max_concurrent_turns=2` verifies distinct per-turn progress in both `status --json` and `readAllDispatchProgress()` during concurrent in-flight dispatch. (`DEC-PARALLEL-PROGRESS-PROOF-001`)
+- **Coarse event milestones:** `dispatch_progress` events emitted to `events.jsonl` at start, completion, failure, timeout, and output-resumed milestones — not per output line.
+
+### Evidence
+
+- 5,586 tests / 1,170 suites / 0 failures. 108 conformance fixtures. Website build clean.
+
 ## 2.126.0
 
 ### Turn Timeout Enforcement & Budget Visibility

@@ -1,0 +1,46 @@
+---
+sidebar_position: 0
+title: "v2.127.0 Release Notes"
+---
+
+# AgentXchain v2.127.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Adapter Dispatch Progress Tracking
+
+Operators running long governed dispatches (2-10 minute Claude Code or Codex turns) previously had no way to tell whether the adapter was doing anything or silently hung — the only signal was the timeout countdown. Now every adapter dispatch emits structured progress to a per-turn file, and all operator surfaces consume it:
+
+- **`agentxchain status`** shows an `Activity:` line during active dispatch: `Producing output (142 lines, last 2s ago)`, `Silent for 45s`, `API request in flight`, or `API response received`.
+- **Dashboard** detects dispatch-progress file changes via the existing file-watcher and pushes WebSocket invalidation events. `/api/state` includes `dispatch_progress` for active turns.
+- **`events.jsonl`** receives coarse `dispatch_progress` milestones (started, completed, failed, timed_out, output_resumed) — not per-line flooding.
+
+### Per-Turn Progress Isolation for Parallel Dispatch
+
+In governed parallel mode (`max_concurrent_turns > 1`), each concurrent turn now writes to its own `dispatch-progress-<turn_id>.json` file. Before this fix, all turns shared a single file, causing active turns to clobber each other's progress data.
+
+This release includes a real governed E2E parallel dispatch test (AT-PARALLEL-PROGRESS-001) that scaffolds a project with `max_concurrent_turns=2`, spawns `agentxchain run`, verifies 2 concurrent agents are in-flight, and asserts both `status --json` and `readAllDispatchProgress()` expose distinct per-turn activity.
+
+## What Changed
+
+- **Dispatch progress tracker module:** `createDispatchProgressTracker()` tracks per-turn activity with rate-limited file writes (1/second), 30s silence detection, and best-effort error handling that never blocks dispatch.
+- **Per-turn file isolation:** dispatch progress files are keyed by turn_id (`dispatch-progress-<turn_id>.json`), preventing clobber in parallel dispatch mode.
+- **Run.js integration:** every adapter dispatch (local_cli, api_proxy, mcp, remote_agent) creates a tracker. stdout/stderr callbacks update the tracker even in non-verbose mode.
+- **Status command:** reads per-turn progress and renders the Activity line for both single-turn and multi-turn states. JSON output includes `dispatch_progress`.
+- **Dashboard state reader:** `/api/state` enrichment includes `dispatch_progress` from `readAllDispatchProgress()`. Timeline component renders Activity lines.
+- **Orchestrator state allowlist:** `dispatch-progress-*.json` files are exempt from agent blame on review_only roles.
+- **Spec:** `.planning/ADAPTER_DISPATCH_PROGRESS_SPEC.md` covers file format, event contract, status rendering, adapter behavior, error cases, and acceptance tests.
+- **E2E proof:** `mock-agent-slow.mjs` (reusable slow mock with ready/continue signal handshake) and `parallel-dispatch-progress-e2e.test.js` (AT-PARALLEL-PROGRESS-001, AT-PARALLEL-PROGRESS-002).
+
+## Key Decisions
+
+- `DEC-DISPATCH-PROGRESS-001`: dispatch progress tracked via per-turn `.agentxchain/dispatch-progress-<turn_id>.json` files, best-effort, deleted on completion. No new config surface. 30s silence threshold (not configurable).
+- `DEC-DISPATCH-PROGRESS-002`: parallel dispatch must use per-turn files, not a shared file. Any observability surface wrong under parallel turns is not shippable.
+- `DEC-DISPATCH-PROGRESS-003`: dashboard progress must flow through `/api/state` and the timeline view. File invalidation without a readable payload is not a product surface.
+- `DEC-PARALLEL-PROGRESS-PROOF-001`: dispatch observability features must include a real governed parallel-dispatch E2E test before shipping. Unit tests on the tracker alone are insufficient.
+
+## Evidence
+
+- 5,586 tests / 1,170 suites / 0 failures. 108 conformance fixtures. Website build clean.

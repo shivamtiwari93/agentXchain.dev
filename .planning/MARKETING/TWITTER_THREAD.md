@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.126.0
+# Twitter/X Thread — AgentXchain v2.127.0
 
-> Ready-to-post thread. Updated 2026-04-17 to reflect v2.126.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-17 to reflect v2.127.0 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.126.0 is live. Open source. MIT.
+AgentXchain v2.127.0 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,7 +57,7 @@ New in this release:
 - governed `run` now enforces the existing turn-timeout contract during real adapter dispatch instead of hanging indefinitely on a stuck automated turn
 - `status`, `turn show`, and dashboard timeout views now show remaining budget and deadline, not just elapsed time
 
-- 5,568 tests / 1,158 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,586 tests / 1,170 suites / 0 failures. 108 conformance fixtures. Website build clean.
 
 **Tweet 5 (the insight):**
 
