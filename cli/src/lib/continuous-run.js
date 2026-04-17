@@ -311,7 +311,7 @@ export function resolveContinuousOptions(opts, config) {
     maxRuns: opts.maxRuns ?? configCont.max_runs ?? 100,
     pollSeconds: opts.pollSeconds ?? configCont.poll_seconds ?? 30,
     maxIdleCycles: opts.maxIdleCycles ?? configCont.max_idle_cycles ?? 3,
-    triageApproval: configCont.triage_approval ?? 'auto',
+    triageApproval: opts.triageApproval ?? configCont.triage_approval ?? 'auto',
     cooldownSeconds: opts.cooldownSeconds ?? configCont.cooldown_seconds ?? 5,
     perSessionMaxUsd: opts.sessionBudget ?? configCont.per_session_max_usd ?? null,
   };

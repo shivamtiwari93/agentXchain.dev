@@ -1,0 +1,171 @@
+---
+title: Live Continuous 3-Run Proof
+description: "A dated case study proving three unattended governed runs through `run --continuous` with real Anthropic QA turns."
+---
+
+# Live Continuous 3-Run Proof
+
+This page is the public evidence for the reopened roadmap claim: AgentXchain completed **three back-to-back governed runs** from a project-local `VISION.md` with no manual `accept-turn`, no manual gate approval, no HUMAN-ROADMAP edits mid-session, and at least one real-credential turn per run.
+
+Date of proof: `2026-04-17`
+
+## What It Is
+
+- Category: live proof example
+- Surface: `agentxchain run --continuous`
+- Runtime shape: `local_cli` authoring roles + real `api_proxy` QA review
+- Credentialed provider: Anthropic (`claude-haiku-4-5-20251001`)
+- Source harness: `examples/live-governed-proof/run-continuous-3run-proof.mjs`
+
+## Workflow Or Proof Shape
+
+The proof used a temp governed repo with a project-local `VISION.md` containing three distinct goals:
+
+- `capture alpha ledger evidence trail`
+- `capture beta provenance dashboard slice`
+- `capture gamma escalation recovery drill`
+
+Each governed run used the truthful mixed-runtime shape:
+
+- `pm` and `dev` authored repo-local artifacts through `local_cli`
+- `qa` ran through a real Anthropic-backed `api_proxy` runtime in `review_only` mode
+- `run --continuous` derived the next intent from `VISION.md`, auto-triaged it via `--triage-approval auto`, and advanced through planning, implementation, and QA without operator input
+
+`run-agents.sh` is now documented as the **raw fallback** path. `run --continuous` is the primary product surface for lights-out operation.
+
+## Exact Command
+
+```bash
+agentxchain run --continuous --vision .planning/VISION.md --max-runs 3 --poll-seconds 30 --triage-approval auto
+```
+
+Observed harness invocation:
+
+```bash
+set -a; source .env; set +a
+node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --keep-temp
+```
+
+Proof workspace:
+
+```text
+/var/folders/2c/vqqd_9tn4wd_flr5f0690yl80000gn/T/axc-live-cont-3run-BbcBIi
+```
+
+## Evidence Summary
+
+| Metric | Value |
+|---|---|
+| Session ID | `cont-0e280ba0` |
+| Started | `2026-04-17T16:48:55.218Z` |
+| Finished | `2026-04-17T16:49:49.796Z` |
+| Wall clock | `54.578s` |
+| Runs completed | `3` |
+| Final session status | `completed` |
+| Total cumulative spend | `$0.025` |
+| Provider / model | `anthropic / claude-haiku-4-5-20251001` |
+| Blockers hit | `none` |
+| `VISION.md` changed | `no` |
+
+## Session Snapshots
+
+Before the command started, `.agentxchain/continuous-session.json` did **not** exist.
+
+Initial snapshot after the session materialized:
+
+```json
+{
+  "session_id": "cont-0e280ba0",
+  "started_at": "2026-04-17T16:48:55.518Z",
+  "vision_path": ".planning/VISION.md",
+  "runs_completed": 0,
+  "max_runs": 3,
+  "idle_cycles": 0,
+  "max_idle_cycles": 3,
+  "current_run_id": null,
+  "current_vision_objective": null,
+  "status": "running",
+  "per_session_max_usd": null,
+  "cumulative_spent_usd": 0,
+  "budget_exhausted": false
+}
+```
+
+Final snapshot:
+
+```json
+{
+  "session_id": "cont-0e280ba0",
+  "started_at": "2026-04-17T16:48:55.518Z",
+  "vision_path": ".planning/VISION.md",
+  "runs_completed": 3,
+  "max_runs": 3,
+  "idle_cycles": 0,
+  "max_idle_cycles": 3,
+  "current_run_id": "run_920d1193b9521850",
+  "current_vision_objective": "Proof Queue: capture gamma escalation recovery drill",
+  "status": "completed",
+  "per_session_max_usd": null,
+  "cumulative_spent_usd": 0.025,
+  "budget_exhausted": false
+}
+```
+
+## Per-Run Evidence
+
+Turn counts below are derived from accepted `.agentxchain/history.jsonl` entries grouped by `run_id`, which is the truthful per-run count for this session.
+
+| Run | Vision goal | Trigger | Model used | Accepted turns | Spend | QA artifact |
+|---|---|---|---|---:|---:|---|
+| `run_2d751d643cf6ba01` | `Proof Queue: capture alpha ledger evidence trail` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.008` | `.agentxchain/reviews/turn_4d196165f84b4485-qa-review.md` |
+| `run_2f48ef8a12614d13` | `Proof Queue: capture beta provenance dashboard slice` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.008` | `.agentxchain/reviews/turn_dcc77f924f63955b-qa-review.md` |
+| `run_920d1193b9521850` | `Proof Queue: capture gamma escalation recovery drill` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.009` | `.agentxchain/reviews/turn_8f0fcbf4de0f9d6f-qa-review.md` |
+
+Every run carried the same provenance shape:
+
+- `trigger: "vision_scan"`
+- `created_by: "continuous_loop"`
+- a distinct `intake_intent_id`
+
+## Git Log Evidence
+
+`git log --oneline` from the proof repo shows run-derived commits for all three runs, and every run-derived commit includes the session trailer `Continuous-Session: cont-0e280ba0`.
+
+```text
+54689bc proof(implementation): run_920d1193b9521850 proof-queue-capture-gamma-escalation-recovery-drill
+f8279ea proof(planning): run_920d1193b9521850 proof-queue-capture-gamma-escalation-recovery-drill
+84508d8 proof(implementation): run_2f48ef8a12614d13 proof-queue-capture-beta-provenance-dashboard-slice
+66b5cf5 proof(planning): run_2f48ef8a12614d13 proof-queue-capture-beta-provenance-dashboard-slice
+2d8506a proof(implementation): run_2d751d643cf6ba01 proof-queue-capture-alpha-ledger-evidence-trail
+5f17e1e proof(planning): run_2d751d643cf6ba01 proof-queue-capture-alpha-ledger-evidence-trail
+df74d41 init proof repo
+```
+
+Example commit trailer:
+
+```text
+Continuous-Session: cont-0e280ba0
+Co-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>
+```
+
+## Notes
+
+- No blocker or escalation fired during the clean run.
+- No manual gate approval was needed because the continuous loop executed with auto-approval enabled for gate handling.
+- The project-local `VISION.md` remained unchanged throughout the session.
+- A pre-proof harness hardening pass was required earlier on `2026-04-17`; that exploratory run is not counted as the public proof. The evidence on this page is from the subsequent clean rerun above.
+
+## Run It
+
+```bash
+export ANTHROPIC_API_KEY=...
+node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --keep-temp
+```
+
+The harness creates a temp governed repo, runs the exact `run --continuous` command shown above, and prints the evidence as JSON. Use `--keep-temp` when you want to inspect the proof repo's `.agentxchain/` artifacts and git history afterward.
+
+## Key Takeaways
+
+- The strongest marketing claim now has public evidence: one unattended continuous session completed three governed runs with real provider-backed QA review.
+- `run --continuous` is the primary lights-out path; `run-agents.sh` is only the raw fallback.
+- The proof leaves durable provenance in three places at once: `continuous-session.json`, `run-history.jsonl` / `history.jsonl`, and git commit trailers.

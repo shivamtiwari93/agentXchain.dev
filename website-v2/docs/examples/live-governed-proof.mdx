@@ -28,6 +28,7 @@ This directory contains two categories of live proof:
 ### Continuous Mixed-Runtime Proof
 
 - `run-continuous-mixed-proof.mjs` — **full continuous session** with mixed local + remote runtimes
+- `run-continuous-3run-proof.mjs` — dated case-study harness for **three unattended governed runs in one continuous session**
 
 This is the strongest proof in the repo. It exercises the real `agentxchain run --continuous` CLI surface with:
 
@@ -48,6 +49,8 @@ This is the strongest proof in the repo. It exercises the real `agentxchain run 
 | Session status | `completed` |
 
 This proof confirms that AgentXchain can dispatch to real models, accept structured turn results, track budget, and complete a governed continuous session — not just pass mock-based tests.
+
+For the public 3-run proof page with the exact command, spend, session snapshots, and git-log evidence, read [Live Continuous 3-Run Proof](/docs/examples/live-continuous-3run-proof).
 
 ## How AgentXchain Governs This Example
 
@@ -77,6 +80,7 @@ node examples/live-governed-proof/run-mcp-real-model-proof.mjs --json
 
 ```bash
 node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json
+node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --keep-temp
 ```
 
 Credential requirements: `ANTHROPIC_API_KEY` is required for the continuous proof and several single-turn scripts. `OPENAI_API_KEY` and `GOOGLE_API_KEY` are needed for the multi-provider proof. Scripts skip cleanly when their required credentials are absent.

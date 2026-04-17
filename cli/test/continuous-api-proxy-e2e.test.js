@@ -314,7 +314,7 @@ afterEach(() => {
 
 describe('continuous mode through api_proxy adapter E2E', () => {
 
-  it('AT-CONT-APIPROXY-001: run --continuous completes 2 governed runs through api_proxy with full intake lifecycle', async () => {
+  it('AT-CONT-APIPROXY-001: run --continuous completes 3 governed runs through api_proxy with full intake lifecycle', async () => {
     const mock = await startMockAnthropicServer();
     const root = makeProject(mock.url);
 
@@ -322,7 +322,7 @@ describe('continuous mode through api_proxy adapter E2E', () => {
       'run',
       '--continuous',
       '--vision', '.planning/VISION.md',
-      '--max-runs', '2',
+      '--max-runs', '3',
       '--max-idle-cycles', '1',
       '--poll-seconds', '0',
     ]);
@@ -331,8 +331,8 @@ describe('continuous mode through api_proxy adapter E2E', () => {
       `continuous run failed (exit ${result.status}):\n${result.combined.slice(-2000)}`);
 
     // ── Mock server received API requests ──
-    assert.ok(mock.requestLog.length >= 2,
-      `Expected >= 2 API requests, got ${mock.requestLog.length}`);
+    assert.ok(mock.requestLog.length >= 3,
+      `Expected >= 3 API requests, got ${mock.requestLog.length}`);
 
     // Verify Anthropic API contract
     const firstReq = mock.requestLog[0];
@@ -341,22 +341,22 @@ describe('continuous mode through api_proxy adapter E2E', () => {
     assert.equal(firstReq.body.model, 'claude-haiku-4-5-20251001');
     assert.ok(Array.isArray(firstReq.body.messages));
 
-    // ── Continuous session reflects 2 completed runs ──
+    // ── Continuous session reflects 3 completed runs ──
     const session = readJson(root, '.agentxchain/continuous-session.json');
     assert.equal(session.status, 'completed');
-    assert.equal(session.runs_completed, 2);
+    assert.equal(session.runs_completed, 3);
     assert.equal(session.vision_path, '.planning/VISION.md');
 
-    // ── Run history has 2 entries with vision provenance ──
+    // ── Run history has 3 entries with vision provenance ──
     const history = readJsonl(root, '.agentxchain/run-history.jsonl');
-    assert.equal(history.length, 2, `expected 2 history entries, got ${history.length}`);
+    assert.equal(history.length, 3, `expected 3 history entries, got ${history.length}`);
     for (const entry of history) {
       assert.equal(entry.status, 'completed');
       assert.equal(entry.provenance.trigger, 'vision_scan');
       assert.equal(entry.provenance.created_by, 'continuous_loop');
       assert.ok(entry.provenance.intake_intent_id);
     }
-    assert.notEqual(history[0].run_id, history[1].run_id);
+    assert.equal(new Set(history.map((entry) => entry.run_id)).size, 3);
 
     // ── Intents resolve through real intake lifecycle ──
     const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
@@ -364,7 +364,7 @@ describe('continuous mode through api_proxy adapter E2E', () => {
     const intents = readdirSync(intentsDir)
       .filter(f => f.endsWith('.json'))
       .map(f => JSON.parse(readFileSync(join(intentsDir, f), 'utf8')));
-    assert.equal(intents.length, 2, `expected 2 resolved intents, got ${intents.length}`);
+    assert.equal(intents.length, 3, `expected 3 resolved intents, got ${intents.length}`);
     for (const intent of intents) {
       assert.equal(intent.status, 'completed');
       assert.ok(intent.target_run);

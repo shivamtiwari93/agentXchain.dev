@@ -105,12 +105,13 @@ describe('Continuous Run', () => {
 
     it('CLI flags override config', () => {
       const opts = resolveContinuousOptions(
-        { continuous: true, vision: '/tmp/v.md', maxRuns: 5 },
-        { run_loop: { continuous: { vision_path: 'other.md', max_runs: 50 } } },
+        { continuous: true, vision: '/tmp/v.md', maxRuns: 5, triageApproval: 'auto' },
+        { run_loop: { continuous: { vision_path: 'other.md', max_runs: 50, triage_approval: 'human' } } },
       );
       assert.equal(opts.enabled, true);
       assert.equal(opts.visionPath, '/tmp/v.md');
       assert.equal(opts.maxRuns, 5);
+      assert.equal(opts.triageApproval, 'auto');
     });
 
     it('reads config values when no CLI flags', () => {

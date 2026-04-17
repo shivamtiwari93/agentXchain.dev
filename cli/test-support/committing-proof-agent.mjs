@@ -32,28 +32,73 @@ const runtimeId = entry.runtime_id;
 const stagingResultPath = entry.staging_result_path;
 const phase = index.phase;
 const runId = index.run_id;
+const sessionPath = join(root, '.agentxchain', 'continuous-session.json');
+const session = existsSync(sessionPath)
+  ? JSON.parse(readFileSync(sessionPath, 'utf8'))
+  : null;
+const sessionId = session?.session_id || 'cont-unknown';
+const currentObjective = String(session?.current_vision_objective || runId);
+const objectiveSlug = currentObjective
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '')
+  .slice(0, 64) || runId;
 
 function ensureFile(relPath, content) {
   const absPath = join(root, relPath);
   mkdirSync(dirname(absPath), { recursive: true });
+  const current = existsSync(absPath) ? readFileSync(absPath, 'utf8') : null;
+  if (current === content) return false;
   writeFileSync(absPath, content);
+  return true;
 }
 
+function ensureFileOnce(relPath, content) {
+  const absPath = join(root, relPath);
+  if (existsSync(absPath)) return false;
+  mkdirSync(dirname(absPath), { recursive: true });
+  writeFileSync(absPath, content);
+  return true;
+}
+
+const filesChanged = [];
+
 if (phase === 'planning') {
-  ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\n\nApproved: YES\n');
-  ensureFile('.planning/ROADMAP.md', '# Roadmap\n\n## Phases\n\n- planning\n- implementation\n- qa\n');
-  ensureFile(
+  if (ensureFile(
+    '.planning/PM_SIGNOFF.md',
+    `# PM Signoff\n\nApproved: YES\n\n## Notes\n\nContinuous proof gate baseline.\n`,
+  )) filesChanged.push('.planning/PM_SIGNOFF.md');
+  if (ensureFile(
+    '.planning/ROADMAP.md',
+    '# Roadmap\n\n## Phases\n\n- planning\n- implementation\n- qa\n',
+  )) filesChanged.push('.planning/ROADMAP.md');
+  if (ensureFile(
     '.planning/SYSTEM_SPEC.md',
     '# System Spec\n\n## Purpose\n\nLive continuous mixed-runtime proof.\n\n## Interface\n\n- local authoring roles commit their slice before the next turn\n- QA reviews through api_proxy\n\n## Acceptance Tests\n\n- [ ] Planning artifacts committed\n- [ ] Implementation artifacts committed\n- [ ] QA review completes through api_proxy\n',
-  );
+  )) filesChanged.push('.planning/SYSTEM_SPEC.md');
+  if (ensureFile(
+    `.planning/proof-objectives/${objectiveSlug}.md`,
+    `# Proof Objective\n\n- Session: ${sessionId}\n- Run: ${runId}\n- Objective: ${currentObjective}\n- Phase: planning\n`,
+  )) filesChanged.push(`.planning/proof-objectives/${objectiveSlug}.md`);
 }
 
 if (phase === 'implementation') {
-  ensureFile('src/output.js', 'export const liveContinuousProof = true;\n');
-  ensureFile(
+  if (ensureFileOnce(
+    'src/output.js',
+    'export const liveContinuousProof = true;\n',
+  )) filesChanged.push('src/output.js');
+  if (ensureFile(
+    `src/objectives/${objectiveSlug}.js`,
+    `export const sessionId = ${JSON.stringify(sessionId)};\nexport const runId = ${JSON.stringify(runId)};\nexport const objective = ${JSON.stringify(currentObjective)};\n`,
+  )) filesChanged.push(`src/objectives/${objectiveSlug}.js`);
+  if (ensureFile(
     '.planning/IMPLEMENTATION_NOTES.md',
     '# Implementation Notes\n\n## Changes\n\n- Added a committed implementation artifact for the live mixed-runtime proof.\n- Kept the working tree clean so the next authoritative turn can be assigned truthfully.\n\n## Verification\n\n- `node -e "import(\'./src/output.js\').then((m) => console.log(m.liveContinuousProof))"`\n',
-  );
+  )) filesChanged.push('.planning/IMPLEMENTATION_NOTES.md');
+  if (ensureFile(
+    `.planning/implementation-objectives/${objectiveSlug}.md`,
+    `# Implementation Objective\n\n- Session: ${sessionId}\n- Run: ${runId}\n- Objective: ${currentObjective}\n- Phase: implementation\n`,
+  )) filesChanged.push(`.planning/implementation-objectives/${objectiveSlug}.md`);
 }
 
 let phaseTransitionRequest = null;
@@ -65,16 +110,13 @@ if (phase === 'planning') {
   proposedNextRole = 'qa';
 }
 
-const filesChanged = phase === 'planning'
-  ? ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md']
-  : phase === 'implementation'
-    ? ['src/output.js', '.planning/IMPLEMENTATION_NOTES.md']
-    : [];
-
 execSync('git add -A', { cwd: root, stdio: 'pipe' });
 execSync('git config user.name "proof"', { cwd: root, stdio: 'pipe' });
 execSync('git config user.email "proof@example.com"', { cwd: root, stdio: 'pipe' });
-execSync(`git commit -m "proof(${phase}): commit authored slice"`, {
+execSync(`git commit -m "proof(${phase}): ${runId} ${objectiveSlug}
+
+Continuous-Session: ${sessionId}
+Co-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>"`, {
   cwd: root,
   stdio: 'pipe',
   env: {

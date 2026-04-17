@@ -675,6 +675,7 @@ program
   .option('--vision <path>', 'Path to VISION.md (project-relative or absolute, default: .planning/VISION.md)')
   .option('--max-runs <n>', 'Maximum consecutive governed runs in continuous mode (default: 100)', parseInt)
   .option('--poll-seconds <n>', 'Seconds between idle-detection cycles in continuous mode (default: 30)', parseInt)
+  .option('--triage-approval <mode>', 'Triage policy for vision-derived intents: auto or human (default: config or auto)')
   .option('--max-idle-cycles <n>', 'Stop after N consecutive idle cycles with no derivable work (default: 3)', parseInt)
   .option('--session-budget <usd>', 'Cumulative session-level budget cap in USD for continuous mode', parseFloat)
   .action(runCommand);

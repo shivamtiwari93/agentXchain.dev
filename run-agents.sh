@@ -1,4 +1,6 @@
 #!/bin/bash
+# Raw fallback loop for local agent dogfooding.
+# Primary path: `agentxchain run --continuous --vision .planning/VISION.md`
 # Usage: bash run-agents.sh [maxLoops] [delayMinutes]
 # Example: bash run-agents.sh 20 5
 
@@ -25,6 +27,7 @@ fi
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║  AgentXchain Dev Loop                                        ║"
+echo "║  Raw fallback only — prefer run --continuous                 ║"
 echo "║  Max loops: $MAX_LOOPS | Delay: ${DELAY_MINUTES}m between turns               ║"
 echo "║  Agents: Claude Opus 4.6 + GPT 5.4                          ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
