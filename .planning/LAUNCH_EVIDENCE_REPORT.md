@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.117.0
+# Launch Evidence Report — AgentXchain v2.118.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.117.0 release: vision-driven continuous mode (`run --continuous --vision`), real intake lifecycle consumption, human-escalation events/notifier, scheduler auto-resume on unblock, priority injection with scheduler consumption. 5431 tests / 1136 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.118.0 release: schedule-owned continuous mode in `schedule daemon`, shared `advanceContinuousRunOnce(...)` semantics, multi-entry continuous selection hardening, and truthful `last_continuous_session_id` persistence. Current aggregate release evidence: 5,449 tests / 1,141 suites / 0 failures.
 
 ---
 

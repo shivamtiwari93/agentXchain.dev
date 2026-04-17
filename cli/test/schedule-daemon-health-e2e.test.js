@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -68,6 +69,12 @@ function runCli(root, args, opts = {}) {
     stderr: result.stderr || '',
     combined: `${result.stdout || ''}${result.stderr || ''}`,
   };
+}
+
+function writeVision(root, content) {
+  const planningDir = join(root, '.planning');
+  mkdirSync(planningDir, { recursive: true });
+  writeFileSync(join(planningDir, 'VISION.md'), content);
 }
 
 afterEach(() => {
@@ -211,5 +218,179 @@ describe('schedule status human-readable output', () => {
     assert.equal(status.status, 0, `status failed: ${status.combined}`);
     assert.match(status.stdout, /Schedule Daemon Status/i);
     assert.match(status.stdout, /running/i);
+  });
+});
+
+describe('AT-SDH-008: daemon selects a due continuous schedule instead of the first configured non-due entry', () => {
+  it('starts the due schedule-owned continuous session', () => {
+    const root = makeProject({
+      schedules: {
+        alpha: {
+          every_minutes: 60,
+          auto_approve: true,
+          max_turns: 5,
+          initial_role: 'pm',
+          continuous: {
+            enabled: true,
+            vision_path: '.planning/VISION.md',
+            max_runs: 2,
+            max_idle_cycles: 3,
+            triage_approval: 'auto',
+          },
+        },
+        beta: {
+          every_minutes: 60,
+          auto_approve: true,
+          max_turns: 5,
+          initial_role: 'pm',
+          continuous: {
+            enabled: true,
+            vision_path: '.planning/VISION.md',
+            max_runs: 2,
+            max_idle_cycles: 3,
+            triage_approval: 'auto',
+          },
+        },
+      },
+    });
+
+    writeVision(root, '# Vision\n\n## Goals\n\n- Build the beta path\n');
+    writeFileSync(join(root, '.agentxchain', 'schedule-state.json'), JSON.stringify({
+      schema_version: '0.1',
+      schedules: {
+        alpha: {
+          last_started_at: new Date().toISOString(),
+          last_finished_at: new Date().toISOString(),
+          last_run_id: 'run_alpha_recent',
+          last_status: 'continuous_running',
+          last_skip_at: null,
+          last_skip_reason: null,
+        },
+      },
+    }, null, 2));
+
+    const daemon = runCli(root, ['schedule', 'daemon', '--max-cycles', '1', '--json'], { timeout: 120000 });
+    assert.equal(daemon.status, 0, `daemon failed: ${daemon.combined}`);
+
+    const session = JSON.parse(readFileSync(join(root, '.agentxchain', 'continuous-session.json'), 'utf8'));
+    assert.equal(session.owner_type, 'schedule');
+    assert.equal(session.owner_id, 'beta');
+    assert.ok(session.runs_completed >= 1, 'daemon should advance the due continuous session at least one run');
+  });
+});
+
+describe('AT-SDH-009: daemon --max-cycles 2 executes two governed runs through a single schedule-owned continuous session', () => {
+  it('session_id stays stable, runs_completed reaches 2, and intents resolve through real intake lifecycle', () => {
+    const root = makeProject({
+      schedules: {
+        factory: {
+          every_minutes: 1,
+          auto_approve: true,
+          max_turns: 5,
+          initial_role: 'pm',
+          continuous: {
+            enabled: true,
+            vision_path: '.planning/VISION.md',
+            max_runs: 10,
+            max_idle_cycles: 5,
+            triage_approval: 'auto',
+          },
+        },
+      },
+    });
+
+    writeVision(root, `# Factory Vision
+
+## Governed Delivery
+
+- durable decision ledger
+- explicit phase gates
+- recovery-first blocked state handling
+
+## Quality Surface
+
+- acceptance matrix with pass/fail evidence
+- conformance fixtures for protocol boundaries
+`);
+
+    const daemon = runCli(root, [
+      'schedule', 'daemon',
+      '--max-cycles', '2',
+      '--poll-seconds', '1',
+      '--json',
+    ], { timeout: 180000 });
+
+    assert.equal(daemon.status, 0, `daemon failed:\n${daemon.combined}`);
+
+    // Parse both cycle JSON outputs
+    const cycleOutputs = daemon.stdout.trim().split('\n')
+      .filter(Boolean)
+      .map((line) => { try { return JSON.parse(line); } catch { return null; } })
+      .filter(Boolean);
+    assert.equal(cycleOutputs.length, 2, `expected 2 cycle outputs, got ${cycleOutputs.length}`);
+
+    // Both cycles should be ok
+    assert.equal(cycleOutputs[0].ok, true, `cycle 1 failed: ${JSON.stringify(cycleOutputs[0])}`);
+    assert.equal(cycleOutputs[1].ok, true, `cycle 2 failed: ${JSON.stringify(cycleOutputs[1])}`);
+
+    // Session id must be stable across both cycles
+    const contResult1 = cycleOutputs[0].results.find((r) => r.continuous);
+    const contResult2 = cycleOutputs[1].results.find((r) => r.continuous);
+    assert.ok(contResult1, 'cycle 1 must have a continuous result');
+    assert.ok(contResult2, 'cycle 2 must have a continuous result');
+    assert.equal(contResult1.session_id, contResult2.session_id, 'session_id must stay stable across cycles');
+
+    // runs_completed must increment
+    assert.equal(contResult1.runs_completed, 1, 'cycle 1 should complete 1 run');
+    assert.equal(contResult2.runs_completed, 2, 'cycle 2 should complete 2 runs');
+
+    // Session file must reflect final state
+    const session = JSON.parse(readFileSync(join(root, '.agentxchain', 'continuous-session.json'), 'utf8'));
+    assert.equal(session.owner_type, 'schedule');
+    assert.equal(session.owner_id, 'factory');
+    assert.equal(session.runs_completed, 2);
+    assert.equal(session.status, 'running');
+    assert.equal(session.session_id, contResult1.session_id);
+
+    // Schedule state must track the continuous session
+    const schedState = JSON.parse(readFileSync(join(root, '.agentxchain', 'schedule-state.json'), 'utf8'));
+    assert.ok(schedState.schedules.factory, 'factory schedule state must exist');
+    assert.equal(schedState.schedules.factory.last_continuous_session_id, session.session_id);
+    assert.equal(schedState.schedules.factory.last_status, 'continuous_running');
+
+    // Run history must have 2 completed entries with provenance
+    const historyPath = join(root, '.agentxchain', 'run-history.jsonl');
+    assert.ok(existsSync(historyPath), 'run-history.jsonl must exist');
+    const history = readFileSync(historyPath, 'utf8').trim().split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    assert.equal(history.length, 2, `expected 2 history entries, got ${history.length}`);
+    for (const entry of history) {
+      assert.equal(entry.status, 'completed');
+      assert.equal(entry.provenance.trigger, 'vision_scan');
+      assert.equal(entry.provenance.created_by, 'continuous_loop');
+      assert.ok(entry.provenance.intake_intent_id, 'each run must trace to an intake intent');
+    }
+
+    // Both runs must have distinct run_ids
+    assert.notEqual(history[0].run_id, history[1].run_id, 'two runs must have distinct run_ids');
+
+    // Intents must resolve through real intake lifecycle
+    const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
+    assert.ok(existsSync(intentsDir), 'intents directory must exist');
+    const intents = readdirSync(intentsDir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => JSON.parse(readFileSync(join(intentsDir, f), 'utf8')));
+    assert.equal(intents.length, 2, `expected 2 resolved intents, got ${intents.length}`);
+    for (const intent of intents) {
+      assert.equal(intent.status, 'completed', `intent ${intent.intent_id} must be completed`);
+      assert.ok(intent.target_run, `intent ${intent.intent_id} must have target_run`);
+      assert.ok(intent.run_completed_at, `intent ${intent.intent_id} must have run_completed_at`);
+    }
+
+    // Final governed state must be completed
+    const state = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    assert.equal(state.status, 'completed');
+    assert.ok(state.provenance.intake_intent_id);
   });
 });

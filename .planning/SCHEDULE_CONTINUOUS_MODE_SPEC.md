@@ -77,17 +77,17 @@ Existing schedule entries may declare an optional `continuous` block:
 }
 ```
 
-`.agentxchain/schedule-state.json` remains the daemon-owned schedule ledger and may record:
+`.agentxchain/schedule-state.json` remains the daemon-owned schedule ledger and records:
 
 - `last_continuous_session_id`
 - `last_status: "continuous_running" | "continuous_blocked" | "continuous_completed" | "continuous_idle_exit" | "continuous_failed"`
 
 ### Library Boundary
 
-Introduce a new continuous-step library primitive:
+The shared single-step primitive:
 
 ```js
-await advanceContinuousRunOnce(context, continuousOptions, executeGovernedRun, log)
+await advanceContinuousRunOnce(context, session, continuousOptions, executeGovernedRun, log)
 ```
 
 Return shape:
@@ -103,26 +103,11 @@ Return shape:
 }
 ```
 
-Valid `status` values:
+Valid `status` values: `running`, `blocked`, `completed`, `idle_exit`, `failed`.
 
-- `running`
-- `blocked`
-- `completed`
-- `idle_exit`
-- `failed`
+Valid `action` examples: `max_runs_reached`, `max_idle_reached`, `vision_missing`, `no_work_found`, `waited_for_human`, `seeded_from_vision`, `started_run`, `run_blocked`, `consumed_injected_priority`, `prepare_failed`, `resolve_failed`, `vision_scan_error`.
 
-Valid `action` examples:
-
-- `continued_active_run`
-- `continued_blocked_run`
-- `consumed_injected_priority`
-- `seeded_from_vision`
-- `started_run`
-- `resolved_run`
-- `waited_for_human`
-- `no_work_found`
-
-`executeContinuousRun()` may continue to exist as the CLI-owned wrapper for `run --continuous`, but it must be reimplemented on top of repeated `advanceContinuousRunOnce()` calls rather than remaining a separate lifecycle engine.
+`executeContinuousRun()` continues to exist as the CLI-owned wrapper for `run --continuous`, reimplemented on top of repeated `advanceContinuousRunOnce()` calls.
 
 ## Behavior
 
@@ -140,6 +125,10 @@ Valid `action` examples:
   - there is no other active continuous session owned by that schedule
   - the repo is eligible for schedule-owned work
 - The schedule's `every_minutes` controls session start or restart cadence after terminal completion, not every individual governed run inside the session.
+- If multiple schedule entries enable `continuous`, selection follows this order:
+  1. the active non-terminal session owner, if one exists
+  2. otherwise the first due continuous entry in declaration order
+  3. otherwise no continuous session is advanced on that poll
 
 ### 3. Continuous schedule advancement
 
@@ -189,7 +178,7 @@ Runs produced inside a schedule-owned continuous session keep the existing conti
 }
 ```
 
-Schedule ownership is tracked in session/schedule state, not by lying about run provenance. A run derived from vision remains a vision-derived run even when the daemon owns the outer loop.
+Schedule ownership is tracked in session/schedule state, not by lying about run provenance.
 
 ## Error Cases
 
@@ -197,21 +186,24 @@ Schedule ownership is tracked in session/schedule state, not by lying about run 
 | --- | --- |
 | `continuous.enabled: true` without `vision_path` | config validation error |
 | `triage_approval` is not `auto` or `human` | config validation error |
-| daemon sees a schedule-owned session owned by another schedule id | fail closed for that schedule entry and record `continuous_failed` |
-| `advanceContinuousRunOnce()` returns an unsupported status | mark session failed and return exit 1 |
-| `vision_path` is missing | mark session failed with clear error pointing to the configured path |
-| continuous session is terminal (`completed`, `idle_exit`, `failed`, `stopped`) | daemon may start a fresh session only when the schedule becomes due again |
-| another schedule entry tries to start while one schedule-owned continuous session is already active for the repo | fail closed and record skip reason; no overlapping continuous sessions in one repo |
+| daemon sees a schedule-owned session owned by another schedule id | fail closed for that schedule entry |
+| `advanceContinuousRunOnce()` returns an unsupported status | mark session failed |
+| `vision_path` is missing | mark session failed with clear error |
+| continuous session is terminal | daemon may start a fresh session only when the schedule becomes due again |
+| another schedule entry tries to start while one schedule-owned continuous session is already active | fail closed; no overlapping continuous sessions in one repo |
 
 ## Acceptance Tests
 
-- `AT-SCHED-CONT-001`: governed config accepts a valid `schedules.<id>.continuous` block and rejects invalid `vision_path` / `triage_approval` combinations.
-- `AT-SCHED-CONT-002`: `agentxchain schedule daemon --max-cycles 1` starts a due schedule-owned continuous session, writes `.agentxchain/continuous-session.json`, and records `owner_type: "schedule"` plus `owner_id`.
-- `AT-SCHED-CONT-003`: on the next poll, the daemon advances the same session even though the schedule is no longer due, and the session completes another governed run.
-- `AT-SCHED-CONT-004`: if the session blocks on `needs_human`, `agentxchain unblock <id>` allows the daemon to resume that same session within one poll.
-- `AT-SCHED-CONT-005`: if a running schedule-owned session yields `priority_preempted`, the daemon consumes the injected `p0` before seeding any new vision-derived work.
-- `AT-SCHED-CONT-006`: `agentxchain status --json` reports the active schedule-owned continuous session with owner schedule id and current objective.
-- `AT-SCHED-CONT-007`: `run --continuous` is reimplemented on the same `advanceContinuousRunOnce()` primitive so standalone and daemon-owned continuous mode do not drift semantically.
+- `AT-SCHED-CONT-001`: config accepts valid `continuous` blocks and rejects invalid `vision_path` / `triage_approval` / `max_runs` combinations. ✅
+- `AT-SCHED-CONT-002`: session records `owner_type: "schedule"` and `owner_id`. ✅
+- `AT-SCHED-CONT-003`: daemon advances same session on subsequent calls; session_id does not change. ✅
+- `AT-SCHED-CONT-004`: blocked run pauses session for later unblock resume. ✅
+- `AT-SCHED-CONT-005`: priority preemption is surfaced for daemon to consume before vision seeding. ✅
+- `AT-SCHED-CONT-006`: `status --json` reports owner_type, owner_id, and vision objective. ✅
+- `AT-SCHED-CONT-007`: `run --continuous` and daemon-owned mode share `advanceContinuousRunOnce()` primitive. ✅
+- `AT-SCHED-CONT-008`: daemon selects a due continuous schedule instead of starving later entries behind the first configured continuous block. ✅
+- `AT-SCHED-CONT-009`: an active schedule-owned session keeps ownership on later polls even when another continuous entry is due. ✅
+- `AT-SDH-009`: subprocess E2E — daemon `--max-cycles 2` executes two governed runs through a single schedule-owned continuous session. Session id stays stable, `runs_completed` reaches 2, intents resolve through real intake lifecycle (`planIntent` → `startIntent` → `resolveIntent`), run history carries provenance, and `schedule-state.json` records `last_continuous_session_id`. ✅
 
 ## Open Questions
 

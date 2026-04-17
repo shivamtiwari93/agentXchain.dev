@@ -27,6 +27,7 @@ function normalizeScheduleStateRecord(value) {
       last_status: null,
       last_skip_at: null,
       last_skip_reason: null,
+      last_continuous_session_id: null,
     };
   }
 
@@ -37,6 +38,7 @@ function normalizeScheduleStateRecord(value) {
     last_status: typeof value.last_status === 'string' ? value.last_status : null,
     last_skip_at: typeof value.last_skip_at === 'string' ? value.last_skip_at : null,
     last_skip_reason: typeof value.last_skip_reason === 'string' ? value.last_skip_reason : null,
+    last_continuous_session_id: typeof value.last_continuous_session_id === 'string' ? value.last_continuous_session_id : null,
   };
 }
 

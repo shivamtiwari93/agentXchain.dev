@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.118.0
+
+`2.118.0` ships schedule-owned continuous mode — the daemon can now own a persistent vision-driven continuous session, advance governed runs one step per poll, and keep repo-local lights-out execution on one shared continuous-step contract.
+
+- Schedule-owned continuous mode: `schedules.<id>.continuous` enables daemon-managed vision-driven execution with validated `vision_path`, `max_runs`, `max_idle_cycles`, and `triage_approval` (`DEC-SCHEDULE-CONTINUOUS-001`)
+- Shared step primitive: both `run --continuous --vision <path>` and `schedule daemon` continuous mode now use `advanceContinuousRunOnce(...)`, so CLI-owned and daemon-owned continuous execution cannot drift semantically (`DEC-SCHEDULE-CONTINUOUS-001`)
+- Multi-entry selection fix: daemon continuous selection is now active-owner-first, then due-entry-first, preventing declaration-order starvation when more than one schedule enables continuous mode (`DEC-SCHEDULE-CONTINUOUS-002`)
+- Schedule-state truthfulness: `.agentxchain/schedule-state.json` now persists `last_continuous_session_id` through the normalizer path instead of silently dropping it (`DEC-SCHEDULE-STATE-NORMALIZER-001`)
+- Docs updated: CLI reference and lights-out scheduling docs now cover schedule-owned continuous mode, ownership metadata, blocked recovery, and priority-preemption semantics
+- 5,449 tests / 1,141 suites / 0 failures
+
 ## 2.117.0
 
 `2.117.0` ships vision-driven continuous mode — fully autonomous lights-out operation where agents derive work from a project's `VISION.md`, execute governed runs back-to-back, and complete all three HUMAN-ROADMAP items for full-auto operation.

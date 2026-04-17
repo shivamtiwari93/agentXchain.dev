@@ -1,0 +1,100 @@
+---
+sidebar_position: 0
+title: "v2.118.0 Release Notes"
+---
+
+# AgentXchain v2.118.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Schedule-Owned Continuous Mode
+
+`agentxchain schedule daemon` can now own a persistent vision-driven continuous session through `schedules.<id>.continuous`. This turns repo-local scheduling from "run one governed cycle on cadence" into "start a schedule-owned session and keep advancing it one governed run at a time."
+
+**Key capabilities:**
+- schedule entries may opt into `continuous.enabled`
+- `continuous.vision_path`, `max_runs`, `max_idle_cycles`, and `triage_approval` are validated and normalized
+- the daemon starts a schedule-owned session only when the schedule is due, then keeps advancing that same session on later polls even when the interval has not elapsed again
+- session ownership is explicit in `.agentxchain/continuous-session.json` via `owner_type: "schedule"` and `owner_id`
+- `agentxchain status` now shows the owning schedule for schedule-owned continuous sessions
+
+**Config shape:**
+```json
+{
+  "schedules": {
+    "vision_autopilot": {
+      "enabled": true,
+      "every_minutes": 60,
+      "continuous": {
+        "enabled": true,
+        "vision_path": ".planning/VISION.md",
+        "max_runs": 100,
+        "max_idle_cycles": 8,
+        "triage_approval": "auto"
+      }
+    }
+  }
+}
+```
+
+### Shared Continuous Step Primitive
+
+Continuous execution now has a single advancement contract:
+
+```js
+await advanceContinuousRunOnce(context, session, continuousOptions, executeGovernedRun, log)
+```
+
+Both:
+
+- `agentxchain run --continuous --vision <path>`
+- `agentxchain schedule daemon` schedule-owned continuous mode
+
+now use the same step primitive. The CLI owns sleep/cooldown in standalone mode. The daemon owns cadence in schedule-owned mode. The semantic core is shared, so the two surfaces cannot silently drift.
+
+### Correct Multi-Entry Continuous Selection
+
+The daemon now handles more than one `continuous.enabled` schedule entry without starvation.
+
+Selection order is:
+
+1. active non-terminal schedule-owned session owner
+2. otherwise the first due continuous schedule in declaration order
+3. otherwise no continuous session advances on that poll
+
+This fixes the earlier control-loop defect where the first configured continuous entry could starve a later due entry indefinitely.
+
+### Truthful Schedule-State Persistence
+
+`.agentxchain/schedule-state.json` now persists `last_continuous_session_id` correctly through the normalizer path.
+
+This matters because the schedule-state ledger is the daemon-owned truth surface. If the updater writes a field and the normalizer drops it, status/recovery correlations lie. `v2.118.0` fixes that contract gap.
+
+### Proof Surface
+
+This release includes subprocess-level daemon proof for the integrated path:
+
+- daemon runs `--max-cycles 2`
+- one schedule-owned continuous session persists across both polls
+- `runs_completed` increments from 1 to 2
+- the intake lifecycle resolves for both derived intents
+- `run-history.jsonl` records continuous provenance
+- `schedule-state.json` records the continuous session id
+
+## Breaking Changes
+
+None.
+
+## Decisions
+
+- `DEC-SCHEDULE-CONTINUOUS-001`: repo-local lights-out unification happens through a shared single-step primitive, not nested schedulers
+- `DEC-SCHEDULE-CONTINUOUS-002`: multi-entry continuous selection is session-owner-first, then due-entry-first
+- `DEC-SCHEDULE-STATE-NORMALIZER-001`: schedule-state normalizers must preserve `last_continuous_session_id`
+
+## Evidence
+
+- 5,449 tests / 1,141 suites / 0 failures
+- Includes subprocess daemon E2E proving 2 governed runs through one schedule-owned continuous session
+- Docusaurus build: pending release build for this tag

@@ -70,7 +70,7 @@ function extractAggregateEvidenceLine(text) {
     return best;
   }, null);
 
-  return aggregate.line.replace(/\*\*/g, '').replace(/`/g, '').trim();
+  return aggregate.line.replace(/\*\*/g, '').replace(/`/g, '').replace(/,/g, '').trim();
 }
 
 function getPreviousVersionTag(repoRoot, version) {

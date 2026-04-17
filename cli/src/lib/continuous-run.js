@@ -278,7 +278,155 @@ export function resolveContinuousOptions(opts, config) {
 }
 
 // ---------------------------------------------------------------------------
-// Main continuous loop
+// Single-step continuous advancement primitive
+// ---------------------------------------------------------------------------
+
+/**
+ * Advance a continuous session by exactly one step.
+ *
+ * This is the shared primitive used by both `run --continuous` (CLI-owned loop)
+ * and `schedule daemon` (daemon-owned poll). Neither caller embeds a nested
+ * poll/sleep loop — the caller owns cadence, this function owns one step.
+ *
+ * @param {object} context - { root, config }
+ * @param {object} session - mutable session object (read/written by caller)
+ * @param {object} contOpts - resolved continuous options (visionPath, maxRuns, maxIdleCycles, triageApproval)
+ * @param {Function} executeGovernedRun - the run executor function
+ * @param {Function} [log] - logging function
+ * @returns {Promise<{ ok: boolean, status: string, action: string, run_id?: string, intent_id?: string, stop_reason?: string }>}
+ */
+export async function advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log = console.log) {
+  const { root } = context;
+  const absVisionPath = resolveVisionPath(root, contOpts.visionPath);
+
+  // Terminal checks
+  if (session.runs_completed >= contOpts.maxRuns) {
+    session.status = 'completed';
+    writeContinuousSession(root, session);
+    return { ok: true, status: 'completed', action: 'max_runs_reached', stop_reason: 'max_runs' };
+  }
+
+  if (session.idle_cycles >= contOpts.maxIdleCycles) {
+    session.status = 'completed';
+    writeContinuousSession(root, session);
+    return { ok: true, status: 'idle_exit', action: 'max_idle_reached', stop_reason: 'idle_exit' };
+  }
+
+  // Validate vision file
+  if (!existsSync(absVisionPath)) {
+    session.status = 'failed';
+    writeContinuousSession(root, session);
+    return { ok: false, status: 'failed', action: 'vision_missing', stop_reason: `VISION.md not found at ${absVisionPath}` };
+  }
+
+  // Step 1: Check intake queue for pending work
+  const queued = findNextQueuedIntent(root);
+  let targetIntentId = null;
+  let visionObjective = null;
+
+  if (queued.ok) {
+    targetIntentId = queued.intentId;
+    session.idle_cycles = 0;
+    log(`Found queued intent: ${queued.intentId} (${queued.status})`);
+  } else {
+    // Step 2: Derive from vision
+    const seeded = seedFromVision(root, absVisionPath, {
+      triageApproval: contOpts.triageApproval,
+    });
+
+    if (!seeded.ok) {
+      log(`Vision scan error: ${seeded.error}`);
+      session.status = 'failed';
+      writeContinuousSession(root, session);
+      return { ok: false, status: 'failed', action: 'vision_scan_error', stop_reason: seeded.error };
+    }
+
+    if (seeded.idle) {
+      session.idle_cycles += 1;
+      log(`Idle cycle ${session.idle_cycles}/${contOpts.maxIdleCycles} — no derivable work from vision.`);
+      writeContinuousSession(root, session);
+      return { ok: true, status: 'running', action: 'no_work_found' };
+    }
+
+    // If triage_approval is "human", the intent is in "triaged" state — don't auto-start
+    if (contOpts.triageApproval === 'human') {
+      log(`Vision-derived intent ${seeded.intentId} left in triaged state (triage_approval: human).`);
+      session.idle_cycles += 1;
+      writeContinuousSession(root, session);
+      return { ok: true, status: 'running', action: 'waited_for_human', intent_id: seeded.intentId };
+    }
+
+    targetIntentId = seeded.intentId;
+    visionObjective = `${seeded.section}: ${seeded.goal}`;
+    session.idle_cycles = 0;
+    log(`Vision-derived: ${visionObjective}`);
+  }
+
+  // Prepare intent through intake lifecycle
+  const provenance = buildContinuousProvenance(targetIntentId, {
+    trigger: visionObjective ? 'vision_scan' : 'intake',
+    triggerReason: visionObjective || readIntent(root, targetIntentId)?.charter || null,
+  });
+  const preparedIntent = prepareIntentForRun(root, targetIntentId, { provenance });
+  if (!preparedIntent.ok) {
+    log(`Continuous start error: ${preparedIntent.error}`);
+    session.status = 'failed';
+    writeContinuousSession(root, session);
+    return { ok: false, status: 'failed', action: 'prepare_failed', stop_reason: preparedIntent.error, intent_id: targetIntentId };
+  }
+
+  // Execute the governed run
+  session.current_run_id = preparedIntent.runId;
+  session.current_vision_objective = visionObjective || preparedIntent.intent?.charter || null;
+  session.status = 'running';
+  writeContinuousSession(root, session);
+
+  const execution = await executeGovernedRun(context, {
+    autoApprove: true,
+    report: true,
+    log,
+  });
+
+  session.runs_completed += 1;
+  session.current_run_id = execution.result?.state?.run_id || null;
+
+  const stopReason = execution.result?.stop_reason;
+  log(`Run ${session.runs_completed}/${contOpts.maxRuns} completed: ${stopReason || 'unknown'}`);
+
+  // Resolve the consumed intent
+  const resolved = resolveIntent(root, targetIntentId);
+  if (!resolved.ok) {
+    log(`Continuous resolve error: ${resolved.error}`);
+    session.status = 'failed';
+    writeContinuousSession(root, session);
+    return { ok: false, status: 'failed', action: 'resolve_failed', stop_reason: resolved.error, intent_id: targetIntentId };
+  }
+
+  if (stopReason === 'blocked') {
+    session.status = 'paused';
+    log('Run blocked — continuous loop paused. Use `agentxchain unblock <id>` to resume.');
+    writeContinuousSession(root, session);
+    return { ok: true, status: 'blocked', action: 'run_blocked', run_id: session.current_run_id, intent_id: targetIntentId };
+  }
+
+  if (stopReason === 'priority_preempted') {
+    log('Priority preemption detected — consuming injected work next cycle.');
+    writeContinuousSession(root, session);
+    return { ok: true, status: 'running', action: 'consumed_injected_priority', run_id: session.current_run_id, intent_id: targetIntentId };
+  }
+
+  writeContinuousSession(root, session);
+  return {
+    ok: true,
+    status: 'running',
+    action: visionObjective ? 'seeded_from_vision' : 'started_run',
+    run_id: session.current_run_id,
+    intent_id: targetIntentId,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Main continuous loop (CLI-owned, built on advanceContinuousRunOnce)
 // ---------------------------------------------------------------------------
 
 /**
@@ -293,7 +441,6 @@ export function resolveContinuousOptions(opts, config) {
 export async function executeContinuousRun(context, contOpts, executeGovernedRun, log = console.log) {
   const { root } = context;
   const absVisionPath = resolveVisionPath(root, contOpts.visionPath);
-  let exitCode = 0;
 
   // Validate vision file exists
   if (!existsSync(absVisionPath)) {
@@ -315,122 +462,26 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
 
   try {
     while (!stopping) {
-      // Check max runs
-      if (session.runs_completed >= contOpts.maxRuns) {
-        session.status = 'completed';
-        log(`Max runs reached (${contOpts.maxRuns}). Stopping.`);
-        break;
-      }
+      const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
 
-      // Check max idle cycles
-      if (session.idle_cycles >= contOpts.maxIdleCycles) {
-        session.status = 'completed';
-        log(`All vision goals appear addressed (${contOpts.maxIdleCycles} consecutive idle cycles). Stopping.`);
-        break;
-      }
-
-      // Step 1: Check intake queue for pending work
-      const queued = findNextQueuedIntent(root);
-      let targetIntentId = null;
-      let visionObjective = null;
-      let preparedIntent = null;
-
-      if (queued.ok) {
-        targetIntentId = queued.intentId;
-        session.idle_cycles = 0;
-        log(`Found queued intent: ${queued.intentId} (${queued.status})`);
-      } else {
-        // Step 2: Derive from vision
-        const seeded = seedFromVision(root, absVisionPath, {
-          triageApproval: contOpts.triageApproval,
-        });
-
-        if (!seeded.ok) {
-          log(`Vision scan error: ${seeded.error}`);
-          session.status = 'stopped';
-          exitCode = 1;
-          break;
+      // Terminal states
+      if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked') {
+        if (step.status === 'completed') {
+          log(`Max runs reached (${contOpts.maxRuns}). Stopping.`);
+        } else if (step.status === 'idle_exit') {
+          log(`All vision goals appear addressed (${contOpts.maxIdleCycles} consecutive idle cycles). Stopping.`);
         }
+        return { exitCode: step.ok ? 0 : 1, session };
+      }
 
-        if (seeded.idle) {
-          session.idle_cycles += 1;
-          log(`Idle cycle ${session.idle_cycles}/${contOpts.maxIdleCycles} — no derivable work from vision.`);
-          writeContinuousSession(root, session);
-          if (session.idle_cycles >= contOpts.maxIdleCycles) continue;
-          await new Promise(r => setTimeout(r, contOpts.pollSeconds * 1000));
-          continue;
+      // Non-terminal: sleep before next step
+      if (!stopping) {
+        const sleepMs = step.action === 'no_work_found' || step.action === 'waited_for_human'
+          ? contOpts.pollSeconds * 1000
+          : (contOpts.cooldownSeconds ?? 5) * 1000;
+        if (sleepMs > 0) {
+          await new Promise(r => setTimeout(r, sleepMs));
         }
-
-        // If triage_approval is "human", the intent is in "triaged" state — don't auto-start
-        if (contOpts.triageApproval === 'human') {
-          log(`Vision-derived intent ${seeded.intentId} left in triaged state (triage_approval: human).`);
-          session.idle_cycles += 1;
-          writeContinuousSession(root, session);
-          await new Promise(r => setTimeout(r, contOpts.pollSeconds * 1000));
-          continue;
-        }
-
-        targetIntentId = seeded.intentId;
-        visionObjective = `${seeded.section}: ${seeded.goal}`;
-        session.idle_cycles = 0;
-        log(`Vision-derived: ${visionObjective}`);
-      }
-
-      const provenance = buildContinuousProvenance(targetIntentId, {
-        trigger: visionObjective ? 'vision_scan' : 'intake',
-        triggerReason: visionObjective || readIntent(root, targetIntentId)?.charter || null,
-      });
-      preparedIntent = prepareIntentForRun(root, targetIntentId, { provenance });
-      if (!preparedIntent.ok) {
-        log(`Continuous start error: ${preparedIntent.error}`);
-        session.status = 'stopped';
-        exitCode = 1;
-        break;
-      }
-
-      // Step 3: Execute the prepared governed run.
-      session.current_run_id = preparedIntent.runId;
-      session.current_vision_objective = visionObjective || preparedIntent.intent?.charter || null;
-      session.status = 'running';
-      writeContinuousSession(root, session);
-
-      const execution = await executeGovernedRun(context, {
-        autoApprove: true,
-        report: true,
-        log,
-      });
-
-      session.runs_completed += 1;
-      session.current_run_id = execution.result?.state?.run_id || null;
-
-      const stopReason = execution.result?.stop_reason;
-      log(`Run ${session.runs_completed}/${contOpts.maxRuns} completed: ${stopReason || 'unknown'}`);
-
-      const resolved = resolveIntent(root, targetIntentId);
-      if (!resolved.ok) {
-        log(`Continuous resolve error: ${resolved.error}`);
-        session.status = 'stopped';
-        writeContinuousSession(root, session);
-        return { exitCode: 1, session };
-      }
-
-      if (stopReason === 'blocked') {
-        session.status = 'paused';
-        log('Run blocked — continuous loop paused. Use `agentxchain unblock <id>` to resume.');
-        writeContinuousSession(root, session);
-        break;
-      }
-
-      if (stopReason === 'priority_preempted') {
-        log('Priority preemption detected — consuming injected work next cycle.');
-      }
-
-      writeContinuousSession(root, session);
-
-      // Brief cooldown between runs
-      const cooldownMs = (contOpts.cooldownSeconds ?? 5) * 1000;
-      if (!stopping && session.runs_completed < contOpts.maxRuns && cooldownMs > 0) {
-        await new Promise(r => setTimeout(r, cooldownMs));
       }
     }
 
@@ -440,7 +491,7 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
     }
 
     writeContinuousSession(root, session);
-    return { exitCode, session };
+    return { exitCode: 0, session };
 
   } finally {
     process.removeListener('SIGINT', sigHandler);

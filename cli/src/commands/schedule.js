@@ -15,6 +15,15 @@ import {
 } from '../lib/run-schedule.js';
 import { consumePreemptionMarker } from '../lib/intake.js';
 import { executeGovernedRun } from './run.js';
+import {
+  readContinuousSession,
+  writeContinuousSession,
+  advanceContinuousRunOnce,
+  resolveContinuousOptions,
+} from '../lib/continuous-run.js';
+import { resolveVisionPath } from '../lib/vision-reader.js';
+import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 
 function loadScheduleContext() {
   const context = loadProjectContext();
@@ -227,6 +236,10 @@ async function runDueSchedules(context, opts = {}) {
   const results = [];
 
   for (const entry of resolved.entries) {
+    // Skip entries handled by the continuous session manager
+    if (opts.excludeSchedule && entry.id === opts.excludeSchedule) {
+      continue;
+    }
     if (!entry.enabled) {
       results.push({ id: entry.id, action: 'disabled' });
       continue;
@@ -309,6 +322,159 @@ async function runDueSchedules(context, opts = {}) {
   }
 
   return { ok: true, exitCode: 0, results };
+}
+
+// ---------------------------------------------------------------------------
+// Schedule-owned continuous session management
+// ---------------------------------------------------------------------------
+
+function isSessionTerminal(session) {
+  return ['completed', 'idle_exit', 'failed', 'stopped'].includes(session?.status);
+}
+
+export function selectContinuousScheduleEntry(root, config, opts = {}) {
+  const entries = listSchedules(root, config, { at: opts.at });
+  const continuousEntries = entries.filter((entry) => config?.schedules?.[entry.id]?.continuous?.enabled === true);
+
+  if (continuousEntries.length === 0) {
+    return null;
+  }
+
+  if (opts.scheduleId) {
+    const selected = continuousEntries.find((entry) => entry.id === opts.scheduleId);
+    return selected
+      ? { id: selected.id, schedule: config.schedules[selected.id], due: selected.due }
+      : null;
+  }
+
+  const activeSession = readContinuousSession(root);
+  if (activeSession && !isSessionTerminal(activeSession) && activeSession.owner_type === 'schedule') {
+    const ownerEntry = continuousEntries.find((entry) => entry.id === activeSession.owner_id);
+    if (!ownerEntry) {
+      return {
+        id: activeSession.owner_id,
+        error: `active continuous session owned by unknown schedule "${activeSession.owner_id}"`,
+      };
+    }
+    return { id: ownerEntry.id, schedule: config.schedules[ownerEntry.id], due: ownerEntry.due };
+  }
+
+  const dueEntry = continuousEntries.find((entry) => entry.due);
+  if (!dueEntry) {
+    return null;
+  }
+
+  return { id: dueEntry.id, schedule: config.schedules[dueEntry.id], due: dueEntry.due };
+}
+
+function createScheduleOwnedSession(schedule, scheduleId) {
+  return {
+    session_id: `cont-${randomUUID().slice(0, 8)}`,
+    started_at: new Date().toISOString(),
+    vision_path: schedule.continuous.vision_path,
+    runs_completed: 0,
+    max_runs: schedule.continuous.max_runs,
+    idle_cycles: 0,
+    max_idle_cycles: schedule.continuous.max_idle_cycles,
+    current_run_id: null,
+    current_vision_objective: null,
+    status: 'running',
+    owner_type: 'schedule',
+    owner_id: scheduleId,
+  };
+}
+
+async function advanceScheduleContinuousSession(context, entry, opts = {}) {
+  const { root, config } = context;
+  const scheduleId = entry.id;
+  const schedule = entry.schedule;
+  const contConfig = schedule.continuous;
+  const log = opts.json ? () => {} : console.log;
+
+  // Read existing session
+  let session = readContinuousSession(root);
+
+  // If there's an active session owned by a different schedule, fail closed
+  if (session && !isSessionTerminal(session) && session.owner_type === 'schedule' && session.owner_id !== scheduleId) {
+    return {
+      ok: false,
+      action: 'skipped',
+      reason: `continuous session owned by schedule "${session.owner_id}"`,
+    };
+  }
+
+  // Determine if we need a new session
+  const needsNewSession = !session || isSessionTerminal(session) || session.owner_id !== scheduleId;
+
+  if (needsNewSession) {
+    // Only start a new session if the schedule is due
+    if (!opts.isDue) {
+      return { ok: true, action: 'not_due', reason: 'waiting_interval' };
+    }
+
+    // Check launch eligibility
+    const eligibility = evaluateScheduleLaunchEligibility(root, config);
+    if (!eligibility.ok) {
+      return { ok: false, action: 'skipped', reason: eligibility.reason };
+    }
+
+    // Validate vision path
+    const absVision = resolveVisionPath(root, contConfig.vision_path);
+    if (!existsSync(absVision)) {
+      return { ok: false, action: 'failed', reason: `VISION.md not found at ${absVision}` };
+    }
+
+    session = createScheduleOwnedSession(schedule, scheduleId);
+    writeContinuousSession(root, session);
+    log(chalk.cyan(`Started schedule-owned continuous session: ${session.session_id} (schedule: ${scheduleId})`));
+
+    // Record schedule start
+    updateScheduleState(root, config, scheduleId, (record) => ({
+      ...record,
+      last_started_at: new Date().toISOString(),
+      last_status: 'continuous_running',
+      last_continuous_session_id: session.session_id,
+    }));
+  }
+
+  // Build contOpts from schedule continuous config
+  const contOpts = {
+    visionPath: contConfig.vision_path,
+    maxRuns: contConfig.max_runs,
+    maxIdleCycles: contConfig.max_idle_cycles,
+    triageApproval: contConfig.triage_approval,
+  };
+
+  // Advance one step
+  const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
+
+  // Update schedule state based on step result
+  const statusMap = {
+    completed: 'continuous_completed',
+    idle_exit: 'continuous_idle_exit',
+    failed: 'continuous_failed',
+    blocked: 'continuous_blocked',
+    running: 'continuous_running',
+  };
+  const schedStatus = statusMap[step.status] || 'continuous_running';
+
+  updateScheduleState(root, config, scheduleId, (record) => ({
+    ...record,
+    last_finished_at: new Date().toISOString(),
+    last_status: schedStatus,
+    last_run_id: step.run_id || record.last_run_id,
+    last_continuous_session_id: session.session_id,
+  }));
+
+  return {
+    ok: step.ok,
+    action: step.action,
+    status: step.status,
+    session_id: session.session_id,
+    run_id: step.run_id || null,
+    intent_id: step.intent_id || null,
+    runs_completed: session.runs_completed,
+  };
 }
 
 export async function scheduleListCommand(opts) {
@@ -480,11 +646,66 @@ export async function scheduleDaemonCommand(opts) {
   while (true) {
     cycle += 1;
     daemonState.last_cycle_started_at = new Date().toISOString();
-    const result = await runDueSchedules(context, {
-      ...opts,
-      continueActiveScheduleRuns: true,
-      tolerateBlockedRun: true,
+
+    // Check for continuous schedule entries first
+    const contEntry = selectContinuousScheduleEntry(context.root, context.config, {
+      scheduleId: opts.schedule || null,
+      at: opts.at,
     });
+    let result;
+
+    if (contEntry?.error) {
+      result = {
+        ok: false,
+        exitCode: 1,
+        results: [{
+          id: contEntry.id,
+          action: 'failed',
+          continuous: true,
+          reason: contEntry.error,
+        }],
+      };
+    } else if (contEntry) {
+      const isDue = contEntry.due ?? false;
+
+      const contResult = await advanceScheduleContinuousSession(context, contEntry, {
+        isDue,
+        json: opts.json,
+        at: opts.at,
+      });
+
+      // Run non-continuous schedules normally alongside
+      const nonContResult = await runDueSchedules(context, {
+        ...opts,
+        continueActiveScheduleRuns: true,
+        tolerateBlockedRun: true,
+        excludeSchedule: contEntry.id,
+      });
+
+      // Merge results
+      const contResultEntry = {
+        id: contEntry.id,
+        action: contResult.action,
+        continuous: true,
+        session_id: contResult.session_id || null,
+        status: contResult.status || null,
+        run_id: contResult.run_id || null,
+        runs_completed: contResult.runs_completed ?? null,
+      };
+      if (contResult.reason) contResultEntry.reason = contResult.reason;
+
+      result = {
+        ok: contResult.ok !== false && nonContResult.ok,
+        exitCode: (contResult.ok === false || !nonContResult.ok) ? 1 : 0,
+        results: [contResultEntry, ...nonContResult.results],
+      };
+    } else {
+      result = await runDueSchedules(context, {
+        ...opts,
+        continueActiveScheduleRuns: true,
+        tolerateBlockedRun: true,
+      });
+    }
 
     updateDaemonHeartbeat(context.root, daemonState, result);
 

@@ -206,6 +206,9 @@ function renderGovernedStatus(context, opts) {
     console.log(chalk.dim(`  Vision:      ${continuousSession.vision_path}`));
     console.log(`  Status:      ${chalk.cyan(continuousSession.status || 'unknown')}`);
     console.log(`  Runs:        ${continuousSession.runs_completed || 0}/${continuousSession.max_runs || '?'}`);
+    if (continuousSession.owner_type === 'schedule') {
+      console.log(chalk.dim(`  Owner:       schedule:${continuousSession.owner_id}`));
+    }
     if (continuousSession.current_vision_objective) {
       console.log(`  Objective:   ${chalk.yellow(continuousSession.current_vision_objective)}`);
     }

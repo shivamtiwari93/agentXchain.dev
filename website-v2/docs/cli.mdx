@@ -866,6 +866,11 @@ Repo-local run scheduling is the narrow first step from "tool you invoke" to "sy
 | `max_turns` | `50` | Safety limit passed to the governed run |
 | `initial_role` | config-driven | Optional first-turn role override |
 | `trigger_reason` | `schedule:<id>` | Human-readable provenance reason |
+| `continuous.enabled` | `false` | Opt the schedule into vision-driven continuous mode |
+| `continuous.vision_path` | — | Required when enabled. Project-relative path to VISION.md |
+| `continuous.max_runs` | `50` | Max governed runs before the continuous session exits |
+| `continuous.max_idle_cycles` | `5` | Max polls with no derivable work before idle exit |
+| `continuous.triage_approval` | `"auto"` | `"auto"` or `"human"` for vision-derived intent approval |
 
 Behavior contract:
 

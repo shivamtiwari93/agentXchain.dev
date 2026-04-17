@@ -171,6 +171,83 @@ Scheduled runs follow strict safety rules:
 
 5. **Budget enforcement.** If `budget.on_limit` is `pause_and_escalate`, a scheduled run that exhausts its budget will block and escalate — the daemon will skip it on subsequent cycles until an operator intervenes. If `budget.on_limit` is `warn`, the run continues past budget with observable warnings.
 
+## Schedule-owned continuous mode
+
+A schedule can opt into **continuous vision-driven execution** by adding a `continuous` block. Instead of running a single governed cycle per cadence, the daemon maintains a persistent session that chains governed runs back-to-back, deriving work from your project's `VISION.md` when the intake queue is empty.
+
+```json
+{
+  "schedules": {
+    "vision_autopilot": {
+      "enabled": true,
+      "every_minutes": 60,
+      "auto_approve": true,
+      "max_turns": 10,
+      "initial_role": "pm",
+      "continuous": {
+        "enabled": true,
+        "vision_path": ".planning/VISION.md",
+        "max_runs": 100,
+        "max_idle_cycles": 8,
+        "triage_approval": "auto"
+      }
+    }
+  }
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `continuous.enabled` | `false` | Opt the schedule into continuous mode |
+| `continuous.vision_path` | — | **Required when enabled.** Project-relative path to the VISION file |
+| `continuous.max_runs` | `50` | Max governed runs before the session exits terminally |
+| `continuous.max_idle_cycles` | `5` | Max daemon polls with no derivable work before idle exit |
+| `continuous.triage_approval` | `"auto"` | `"auto"` auto-approves vision-derived intents; `"human"` pauses for operator triage |
+
+### How it works
+
+1. When the schedule is **due**, the daemon starts a schedule-owned continuous session and records `owner_type: "schedule"` plus `owner_id` in `.agentxchain/continuous-session.json`.
+2. On **each subsequent poll**, the daemon advances the session by one step — even if the schedule's `every_minutes` hasn't elapsed again. Due-ness gates session creation, not session continuation.
+3. Each step checks the intake queue first. If queued work exists (including injected `p0` priorities), it runs that. Otherwise, it seeds a new intent from `vision_path`.
+4. Work flows through the real intake lifecycle: `planIntent()` → `startIntent()` → governed run → `resolveIntent()`.
+5. The session exits terminally when `max_runs` is reached, `max_idle_cycles` consecutive polls find no work, or the operator stops it.
+
+### Blocked recovery
+
+If a continuous session blocks on `needs_human`, the daemon records `continuous_blocked` and keeps polling. After `agentxchain unblock <id>`, the next poll resumes the same session — no re-launch needed.
+
+### Priority injection precedence
+
+If a schedule-owned continuous run yields `priority_preempted`, the daemon consumes the injected `p0` work before any new vision seeding. Human priorities always take precedence over vision-derived work.
+
+### Visibility
+
+`agentxchain status --json` reports the active schedule-owned continuous session:
+
+```json
+{
+  "continuous_session": {
+    "session_id": "cont-abc12345",
+    "status": "running",
+    "vision_path": ".planning/VISION.md",
+    "runs_completed": 7,
+    "max_runs": 100,
+    "owner_type": "schedule",
+    "owner_id": "vision_autopilot",
+    "current_vision_objective": "Goals: Build the API"
+  }
+}
+```
+
+### Standalone vs daemon-owned continuous mode
+
+Both `run --continuous --vision` and schedule-owned continuous mode use the same `advanceContinuousRunOnce()` step primitive. The difference is who owns the outer loop:
+
+- **`run --continuous`** — the CLI process owns cadence with sleep between steps
+- **`schedule daemon`** — the daemon owns cadence with its existing poll loop
+
+The two surfaces share one code path and cannot drift semantically.
+
 ## Combining with intake
 
 Scheduling pairs naturally with the [continuous delivery intake](/docs/continuous-delivery-intake) surface. A common pattern:

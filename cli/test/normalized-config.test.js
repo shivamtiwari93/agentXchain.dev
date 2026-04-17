@@ -1005,6 +1005,7 @@ describe('normalizeV4', () => {
       max_turns: 50,
       initial_role: null,
       trigger_reason: 'schedule:nightly_governed_run',
+      continuous: null,
     });
   });
 });

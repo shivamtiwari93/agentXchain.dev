@@ -689,6 +689,30 @@ export function validateSchedulesConfig(schedules, roles) {
         errors.push(`Schedule "${scheduleId}": initial_role "${schedule.initial_role}" is not a defined role`);
       }
     }
+
+    // Continuous mode validation
+    if ('continuous' in schedule && schedule.continuous != null) {
+      const cont = schedule.continuous;
+      if (typeof cont !== 'object' || Array.isArray(cont)) {
+        errors.push(`Schedule "${scheduleId}": continuous must be an object`);
+      } else {
+        if ('enabled' in cont && typeof cont.enabled !== 'boolean') {
+          errors.push(`Schedule "${scheduleId}": continuous.enabled must be a boolean`);
+        }
+        if (cont.enabled === true && (!cont.vision_path || typeof cont.vision_path !== 'string' || !cont.vision_path.trim())) {
+          errors.push(`Schedule "${scheduleId}": continuous.vision_path is required when continuous.enabled is true`);
+        }
+        if ('max_runs' in cont && (!Number.isInteger(cont.max_runs) || cont.max_runs < 1)) {
+          errors.push(`Schedule "${scheduleId}": continuous.max_runs must be an integer >= 1`);
+        }
+        if ('max_idle_cycles' in cont && (!Number.isInteger(cont.max_idle_cycles) || cont.max_idle_cycles < 1)) {
+          errors.push(`Schedule "${scheduleId}": continuous.max_idle_cycles must be an integer >= 1`);
+        }
+        if ('triage_approval' in cont && cont.triage_approval !== 'auto' && cont.triage_approval !== 'human') {
+          errors.push(`Schedule "${scheduleId}": continuous.triage_approval must be "auto" or "human"`);
+        }
+      }
+    }
   }
 
   return { ok: errors.length === 0, errors };
@@ -1120,6 +1144,18 @@ export function normalizeV4(raw) {
   };
 }
 
+function normalizeContinuousConfig(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if (raw.enabled !== true) return null;
+  return {
+    enabled: true,
+    vision_path: raw.vision_path || '.planning/VISION.md',
+    max_runs: Number.isInteger(raw.max_runs) && raw.max_runs >= 1 ? raw.max_runs : 50,
+    max_idle_cycles: Number.isInteger(raw.max_idle_cycles) && raw.max_idle_cycles >= 1 ? raw.max_idle_cycles : 5,
+    triage_approval: raw.triage_approval === 'human' ? 'human' : 'auto',
+  };
+}
+
 function normalizeSchedules(rawSchedules) {
   if (!rawSchedules || typeof rawSchedules !== 'object' || Array.isArray(rawSchedules)) {
     return {};
@@ -1135,6 +1171,7 @@ function normalizeSchedules(rawSchedules) {
         max_turns: schedule?.max_turns ?? 50,
         initial_role: schedule?.initial_role || null,
         trigger_reason: schedule?.trigger_reason?.trim() || `schedule:${scheduleId}`,
+        continuous: normalizeContinuousConfig(schedule?.continuous),
       },
     ]),
   );
