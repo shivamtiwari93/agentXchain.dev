@@ -713,7 +713,7 @@ export function startIntent(root, intentId, options = {}) {
   if (state.status === 'completed' && !allowCompletedRestart) {
     return {
       ok: false,
-      error: 'cannot start: governed run is already completed. S3 does not reopen completed runs.',
+      error: 'cannot start: governed run is already completed. Use "agentxchain init --force" to start a new run.',
       exitCode: 1,
     };
   }

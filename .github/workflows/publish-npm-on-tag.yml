@@ -14,7 +14,6 @@ on:
 permissions:
   id-token: write
   contents: write
-  pull-requests: write
 
 concurrency:
   group: npm-publish-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -115,7 +114,7 @@ jobs:
           fi
           bash scripts/sync-homebrew.sh --target-version "${RELEASE_TAG#v}" $PUSH_FLAG
 
-      - name: Commit Homebrew mirror updates (direct push or PR fallback)
+      - name: Commit Homebrew mirror updates (direct push only)
         id: homebrew_pr
         if: always() && (steps.registry.outputs.already_published == 'true' || success())
         working-directory: cli
@@ -185,158 +184,15 @@ jobs:
             git checkout --detach 2>/dev/null || true
           fi
 
-          # --- Fallback path: PR-based mirror update ---
+          # --- Fallback: warn and skip ---
+          # When direct push fails (branch protection blocks GITHUB_TOKEN), do NOT
+          # create a PR. The canonical Homebrew tap is already updated by sync-homebrew.sh.
+          # The repo mirror is a reference copy — agents sync it during release follow-up.
+          # Creating PRs that can't self-merge wastes CI time every release.
           if [[ "$DIRECT_PUSH_OK" == "false" ]]; then
-            BRANCH="chore/homebrew-sync-v${RELEASE_TAG#v}"
-            git switch -C "$BRANCH" origin/main
-            cp "$TMP_FORMULA" homebrew/agentxchain.rb
-            cp "$TMP_README" homebrew/README.md
-            if git diff --quiet homebrew/; then
-              echo "Homebrew mirror update already present on main — no commit needed."
-              rm -f "$TMP_FORMULA" "$TMP_README"
-              exit 0
-            fi
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add homebrew/agentxchain.rb homebrew/README.md
-            git commit -m "chore: sync Homebrew formula for v${RELEASE_TAG#v}"
-            if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-              git push --force-with-lease origin "$BRANCH"
-            else
-              git push origin "$BRANCH"
-            fi
-            EXISTING_PR="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)"
-            CURRENT_PR="$EXISTING_PR"
-            if [[ -n "$EXISTING_PR" ]]; then
-              echo "Homebrew mirror PR already open: #${EXISTING_PR}"
-            else
-              gh pr create \
-                --base main \
-                --head "$BRANCH" \
-                --title "chore: sync Homebrew formula for v${RELEASE_TAG#v}" \
-                --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball."
-              CURRENT_PR="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
-              if [[ -z "$CURRENT_PR" ]]; then
-                echo "::error::Homebrew mirror PR creation did not yield an open PR number."
-                rm -f "$TMP_FORMULA" "$TMP_README"
-                exit 1
-              fi
-              echo "Created PR for Homebrew mirror update on branch $BRANCH."
-            fi
-            echo "pr_number=${CURRENT_PR}" >> "$GITHUB_OUTPUT"
+            echo "::warning::Homebrew mirror direct push failed. Canonical tap is already correct. Agents will sync the repo mirror on the next push. To enable direct push, configure REPO_PUSH_TOKEN (admin PAT with contents:write and branch-protection bypass)."
           fi
           rm -f "$TMP_FORMULA" "$TMP_README"
-
-          # --- Cleanup: close superseded Homebrew mirror PRs ---
-          echo "Ensuring no superseded Homebrew mirror PRs remain open."
-          EXCLUDE_BRANCH=""
-          if [[ "$DIRECT_PUSH_OK" == "false" ]]; then
-            EXCLUDE_BRANCH="chore/homebrew-sync-v${RELEASE_TAG#v}"
-          fi
-          STALE_PRS="$(gh pr list --base main --state open --json number,headRefName --jq '.[] | select(.headRefName | startswith("chore/homebrew-sync-v")) | select(.headRefName != "'"$EXCLUDE_BRANCH"'") | "\(.number)\t\(.headRefName)"' 2>/dev/null || true)"
-          if [[ -z "$STALE_PRS" ]]; then
-            echo "No superseded Homebrew mirror PRs detected."
-            exit 0
-          fi
-          while IFS=$'\t' read -r STALE_NUMBER STALE_BRANCH; do
-            if [[ -z "${STALE_NUMBER:-}" ]]; then
-              continue
-            fi
-            echo "Closing superseded Homebrew mirror PR #${STALE_NUMBER} (${STALE_BRANCH})."
-            CLOSE_MSG="Superseded by direct push to main for v${RELEASE_TAG#v}."
-            if [[ -n "${CURRENT_PR:-}" ]]; then
-              CLOSE_MSG="Superseded by #${CURRENT_PR} for v${RELEASE_TAG#v}."
-            fi
-            if ! gh pr close "$STALE_NUMBER" --comment "$CLOSE_MSG"; then
-              echo "::warning::Could not close superseded Homebrew mirror PR #${STALE_NUMBER} (${STALE_BRANCH})."
-            fi
-          done <<< "$STALE_PRS"
-
-      - name: Close out Homebrew mirror PR
-        id: homebrew_mirror_closeout
-        if: always() && (steps.registry.outputs.already_published == 'true' || success()) && steps.homebrew_pr.outputs.direct_push != 'true'
-        working-directory: cli
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          echo "status=not_needed" >> "$GITHUB_OUTPUT"
-          echo "pr_url=" >> "$GITHUB_OUTPUT"
-          PR_NUMBER_RAW="${{ steps.homebrew_pr.outputs.pr_number }}"
-          PR_NUMBER="$(printf '%s' "$PR_NUMBER_RAW" | tr -d '[:space:]')"
-          FALLBACK_BRANCH="chore/homebrew-sync-v${RELEASE_TAG#v}"
-          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
-            PR_NUMBER="$(gh pr list --base main --head "$FALLBACK_BRANCH" --state all --json number --jq '.[0].number // empty' 2>/dev/null || true)"
-          fi
-          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
-            echo "No Homebrew mirror PR found for branch ${FALLBACK_BRANCH}; closeout not needed."
-            exit 0
-          fi
-          PR_URL="$(gh pr view "$PR_NUMBER" --json url --jq '.url')"
-          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
-          PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
-          if [[ "$PR_STATE" == "MERGED" ]]; then
-            echo "Homebrew mirror PR #${PR_NUMBER} already merged."
-            echo "status=merged" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [[ "$PR_STATE" != "OPEN" ]]; then
-            echo "::warning::Homebrew mirror PR #${PR_NUMBER} is ${PR_STATE}, not OPEN or MERGED. Canonical downstream truth is verified separately; repo mirror follow-up remains at ${PR_URL}."
-            echo "status=needs_manual_followup" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          REVIEW_DECISION="$(gh pr view "$PR_NUMBER" --json reviewDecision --jq '.reviewDecision // empty')"
-          if [[ "$REVIEW_DECISION" != "APPROVED" ]]; then
-            if gh pr review "$PR_NUMBER" --approve --body "Automated approval for governed Homebrew mirror sync." 2>/dev/null; then
-              echo "Homebrew mirror PR #${PR_NUMBER} approved."
-              REVIEW_DECISION="APPROVED"
-            else
-              echo "::warning::Cannot self-approve PR #${PR_NUMBER} (same actor created it). Continuing with explicit mergeability checks."
-              REVIEW_DECISION="$(gh pr view "$PR_NUMBER" --json reviewDecision --jq '.reviewDecision // empty')"
-            fi
-          else
-            echo "Homebrew mirror PR #${PR_NUMBER} already has an approval."
-          fi
-          MERGE_ERR="$(gh pr merge "$PR_NUMBER" --squash --delete-branch 2>&1)" && MERGE_OK=true || MERGE_OK=false
-          if [[ "$MERGE_OK" == "true" ]]; then
-            echo "Homebrew mirror PR #${PR_NUMBER} merge initiated."
-          elif echo "$MERGE_ERR" | grep -qiE 'required status check|is expected|add the --auto flag|after all the requirements have been met|review is required|approving review|required approving review|1 approving review'; then
-            echo "::warning::Regular merge could not complete for Homebrew mirror PR #${PR_NUMBER}. Attempting auto-merge."
-            echo "::warning::Merge error was: ${MERGE_ERR}"
-            if gh pr merge "$PR_NUMBER" --auto --squash --delete-branch 2>/dev/null; then
-              echo "Auto-merge enabled for Homebrew mirror PR #${PR_NUMBER}."
-            else
-              echo "Auto-merge could not be enabled for Homebrew mirror PR #${PR_NUMBER}. Auto-closing — canonical tap is already correct."
-              CLOSE_COMMENT="Canonical Homebrew tap (\`shivamtiwari93/homebrew-tap\`) is already updated for v${RELEASE_TAG#v}. This repo mirror PR could not be self-merged due to branch protection (required review). Closing automatically — agents will sync the repo mirror on the next push. To eliminate this fallback entirely, configure \`REPO_PUSH_TOKEN\` (admin PAT with \`contents:write\` on this repo)."
-              gh pr close "$PR_NUMBER" --comment "$CLOSE_COMMENT" --delete-branch 2>/dev/null || true
-              echo "status=auto_closed" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          else
-            echo "Regular merge failed for Homebrew mirror PR #${PR_NUMBER}: ${MERGE_ERR}. Auto-closing — canonical tap is already correct."
-            CLOSE_COMMENT="Canonical Homebrew tap (\`shivamtiwari93/homebrew-tap\`) is already updated for v${RELEASE_TAG#v}. This repo mirror PR could not be merged: ${MERGE_ERR}. Closing automatically — agents will sync the repo mirror on the next push."
-            gh pr close "$PR_NUMBER" --comment "$CLOSE_COMMENT" --delete-branch 2>/dev/null || true
-            echo "status=auto_closed" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          for attempt in $(seq 1 12); do
-            PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
-            if [[ "$PR_STATE" == "MERGED" ]]; then
-              echo "Homebrew mirror PR #${PR_NUMBER} merged."
-              echo "status=merged" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            if [[ "$attempt" -lt 12 ]]; then
-              echo "Waiting for Homebrew mirror PR #${PR_NUMBER} to merge (attempt ${attempt}/12)..."
-              sleep 10
-            fi
-          done
-          echo "Homebrew mirror PR #${PR_NUMBER} did not merge after auto-merge handling. Auto-closing — canonical tap is already correct."
-          CLOSE_COMMENT="Canonical Homebrew tap (\`shivamtiwari93/homebrew-tap\`) is already updated for v${RELEASE_TAG#v}. Auto-merge was enabled but the PR did not merge within the timeout. Closing automatically — agents will sync the repo mirror on the next push. To eliminate this fallback entirely, configure \`REPO_PUSH_TOKEN\` (admin PAT with \`contents:write\` on this repo)."
-          gh pr close "$PR_NUMBER" --comment "$CLOSE_COMMENT" --delete-branch 2>/dev/null || true
-          echo "status=auto_closed" >> "$GITHUB_OUTPUT"
-          exit 0
 
       - name: Create GitHub Release
         if: always() && (steps.registry.outputs.already_published == 'true' || success())

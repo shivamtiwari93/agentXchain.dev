@@ -45,11 +45,6 @@ describe('homebrew sync automation contract', () => {
       /--push-tap/,
       'publish workflow must use --push-tap flag when token is available',
     );
-    assert.match(
-      workflow,
-      /pull-requests:\s*write/,
-      'publish workflow must grant pull-requests: write so it can open the mirror PR itself',
-    );
   });
 
   it('CI workflow blocks first-time publish before npm mutation when HOMEBREW_TAP_TOKEN is missing', () => {
@@ -136,21 +131,6 @@ describe('homebrew sync automation contract', () => {
       playbook,
       /Sync Homebrew/,
       'playbook must describe the sync automation',
-    );
-    assert.match(
-      playbook,
-      /direct push when `REPO_PUSH_TOKEN` \(preferred\) or a broad `HOMEBREW_TAP_TOKEN` is available, otherwise via PR fallback/i,
-      'playbook must describe the repo-mirror direct-push path truthfully',
-    );
-    assert.match(
-      playbook,
-      /repo mirror catch-up is best-effort and may be deferred to the next agent push or explicit sync/i,
-      'playbook must describe repo-mirror convergence truthfully when the fallback PR auto-closes',
-    );
-    assert.doesNotMatch(
-      playbook,
-      /The release is not operationally complete until main reaches Phase 3\./,
-      'playbook must not claim repo-mirror main convergence is a release completeness requirement',
     );
   });
 
@@ -248,12 +228,12 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
-  it('CI workflow attempts direct push to main before falling back to PR', () => {
+  it('CI workflow attempts direct push to main for Homebrew mirror updates', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(
       workflow,
-      /Commit Homebrew mirror updates \(direct push or PR fallback\)/,
-      'workflow must have a combined direct-push + PR fallback step',
+      /Commit Homebrew mirror updates \(direct push only\)/,
+      'workflow must have a direct-push-only mirror step (no PR fallback)',
     );
     assert.match(
       workflow,
@@ -280,35 +260,20 @@ describe('homebrew sync automation contract', () => {
       /direct_push=true.*GITHUB_OUTPUT/s,
       'workflow must set direct_push output on success',
     );
-    assert.match(
-      workflow,
-      /Falling back to PR path/,
-      'workflow must fall back to PR if direct push fails',
-    );
-    assert.match(
-      workflow,
-      /chore\/homebrew-sync-v/,
-      'workflow must create a named branch for the mirror update PR in fallback path',
-    );
-    assert.match(
-      workflow,
-      /gh pr create/,
-      'workflow must create a PR in fallback path',
-    );
-    assert.match(
-      workflow,
-      /git push --force-with-lease origin "\$BRANCH"/,
-      'workflow must update an existing mirror branch safely on rerun',
-    );
-    assert.match(
-      workflow,
-      /gh pr list --base main --head "\$BRANCH" --state open/,
-      'workflow must detect an existing open PR on rerun instead of blindly creating a second one',
-    );
     assert.doesNotMatch(
       workflow,
-      /git config --global url\..*insteadOf/,
-      'workflow must not rewrite global GitHub auth just to push the canonical tap',
+      /gh pr create/,
+      'workflow must not create PRs for mirror sync (DEC-HOMEBREW-MIRROR-NO-PR-001)',
+    );
+    assert.match(
+      workflow,
+      /Homebrew mirror direct push failed.*Canonical tap is already correct/,
+      'workflow must warn clearly when direct push fails instead of creating a PR',
+    );
+    assert.match(
+      workflow,
+      /REPO_PUSH_TOKEN.*admin PAT.*branch-protection bypass/,
+      'workflow must tell the operator how to fix the direct push permanently',
     );
   });
 
@@ -329,198 +294,14 @@ describe('homebrew sync automation contract', () => {
       /if \[\[ -n "\$\{REPO_PUSH_TOKEN:-}" \]\]; then[\s\S]*PUSH_TOKEN_NAME="REPO_PUSH_TOKEN"[\s\S]*elif \[\[ -n "\$\{GH_TOKEN:-}" \]\]; then[\s\S]*PUSH_TOKEN_NAME="GITHUB_TOKEN"[\s\S]*elif \[\[ -n "\$\{HOMEBREW_TAP_TOKEN:-}" \]\]; then[\s\S]*PUSH_TOKEN_NAME="HOMEBREW_TAP_TOKEN"/,
       'workflow must prefer REPO_PUSH_TOKEN, then GITHUB_TOKEN, then HOMEBREW_TAP_TOKEN',
     );
-    assert.match(
-      workflow,
-      /PUSH_TOKEN_NAME="REPO_PUSH_TOKEN"/,
-      'workflow must label the preferred repo-push credential explicitly',
-    );
-    assert.match(
-      workflow,
-      /PUSH_TOKEN_NAME="GITHUB_TOKEN"/,
-      'workflow must label the workflow-token fallback explicitly',
-    );
   });
 
-  it('CI workflow fails closed on unexpected PR creation failure', () => {
+  it('CI workflow does not require pull-requests permission (no PR path)', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
-    assert.match(
-      workflow,
-      /gh pr create/,
-      'workflow must create the Homebrew mirror PR directly',
-    );
     assert.doesNotMatch(
       workflow,
-      /::warning::Could not create Homebrew mirror PR/,
-      'workflow must not treat PR creation failure as an acceptable warning-only outcome',
-    );
-  });
-
-  it('CI workflow skips PR closeout when direct push succeeded', () => {
-    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
-    assert.match(
-      workflow,
-      /direct_push != 'true'/,
-      'PR closeout step must be skipped when direct push succeeded',
-    );
-  });
-
-  it('CI workflow best-effort closes the Homebrew mirror PR after creation (fallback path)', () => {
-    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
-    assert.match(
-      workflow,
-      /id:\s*homebrew_pr/,
-      'workflow must expose the mirror PR step output for follow-on automation',
-    );
-    assert.match(
-      workflow,
-      /pr_number=.*GITHUB_OUTPUT/s,
-      'workflow must record the Homebrew mirror PR number for later steps',
-    );
-    assert.match(
-      workflow,
-      /Close out Homebrew mirror PR/,
-      'workflow must have a dedicated PR closeout step',
-    );
-    assert.match(
-      workflow,
-      /status=not_needed.*GITHUB_OUTPUT/s,
-      'workflow must emit a closeout status output for the mirror PR step',
-    );
-    assert.match(
-      workflow,
-      /pr_url=.*GITHUB_OUTPUT/s,
-      'workflow must record the mirror PR URL for warning output',
-    );
-    assert.match(
-      workflow,
-      /FALLBACK_BRANCH="chore\/homebrew-sync-v\$\{RELEASE_TAG#v\}"/,
-      'workflow closeout must reconstruct the deterministic mirror branch for PR lookup',
-    );
-    assert.match(
-      workflow,
-      /gh pr list --base main --head "\$FALLBACK_BRANCH" --state all --json number --jq '\.\[0\]\.number \/\/ empty'/,
-      'workflow closeout must recover the mirror PR number from the branch when the recorded output is missing or invalid',
-    );
-    assert.match(
-      workflow,
-      /No Homebrew mirror PR found for branch \$\{FALLBACK_BRANCH\}; closeout not needed\./,
-      'workflow closeout must fail open when no fallback PR exists instead of crashing the release',
-    );
-    assert.match(
-      workflow,
-      /gh pr review "\$PR_NUMBER" --approve/,
-      'workflow must attempt an approval review for the mirror PR',
-    );
-    assert.match(
-      workflow,
-      /Cannot self-approve/,
-      'workflow must handle self-approval failure gracefully',
-    );
-    assert.match(
-      workflow,
-      /gh pr merge "\$PR_NUMBER" --squash --delete-branch(?!.*--admin)/,
-      'workflow must attempt regular merge first without admin override',
-    );
-    assert.match(
-      workflow,
-      /required status check\|is expected\|add the --auto flag\|after all the requirements have been met/,
-      'workflow must recognize the pending-checks case that should arm auto-merge',
-    );
-    // The approval-deadlock predicate must stay narrow.
-    const grepLine = workflow.split('\n').find(l => l.includes('grep -qiE') && l.includes('review is required'));
-    assert.ok(grepLine, 'workflow must have a grep-based error pattern gate');
-    assert.ok(
-      !grepLine.includes('is not clean'),
-      'admin-fallback grep must not contain "is not clean" — it matches unrelated mergeability failures (DEC-HOMEBREW-SYNC-010)',
-    );
-    assert.ok(
-      !grepLine.includes('branch protection'),
-      'admin-fallback grep must not contain generic "branch protection" wording — that is broader than the self-approval deadlock',
-    );
-    assert.ok(
-      !grepLine.includes('not authorized to merge'),
-      'admin-fallback grep must not treat generic authorization failures as self-approval deadlock',
-    );
-    assert.ok(
-      !grepLine.includes('admin override'),
-      'approval-deadlock grep must not depend on generic admin-override wording',
-    );
-    assert.match(
-      workflow,
-      /Auto-closing — canonical tap is already correct/,
-      'workflow must auto-close mirror PRs that cannot be self-merged (DEC-HOMEBREW-MIRROR-AUTOCLOSE-001)',
-    );
-    assert.match(
-      workflow,
-      /gh pr close "\$PR_NUMBER" --comment.*--delete-branch/,
-      'workflow must close the PR and delete the branch when auto-merge fails',
-    );
-    assert.match(
-      workflow,
-      /status=auto_closed/,
-      'workflow must emit auto_closed status when mirror PR is closed',
-    );
-    assert.match(
-      workflow,
-      /gh pr merge "\$PR_NUMBER" --auto --squash --delete-branch/,
-      'workflow must enable auto-merge when required checks are still pending',
-    );
-    assert.doesNotMatch(
-      workflow,
-      /gh pr merge "\$PR_NUMBER" --squash --delete-branch --admin/,
-      'workflow must never use admin merge for the mirror PR closeout path',
-    );
-    assert.doesNotMatch(
-      workflow,
-      /homebrew_mirror_closeout[\s\S]*continue-on-error:\s*true/,
-      'workflow must fix mirror closeout correctness directly instead of masking failures with continue-on-error',
-    );
-    assert.match(
-      workflow,
-      /Regular merge failed for Homebrew mirror PR/,
-      'workflow must warn explicitly on unexpected mirror closeout merge failures',
-    );
-    assert.match(
-      workflow,
-      /did not merge after auto-merge handling\. Auto-closing/,
-      'workflow must auto-close the mirror PR if auto-merge times out',
-    );
-  });
-
-  it('CI workflow closes superseded Homebrew mirror PRs after determining the current PR', () => {
-    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
-    assert.match(
-      workflow,
-      /Ensuring no superseded Homebrew mirror PRs remain open\./,
-      'workflow must explicitly reconcile older Homebrew mirror PRs after the current release PR is known',
-    );
-    assert.match(
-      workflow,
-      /gh pr list --base main --state open --json number,headRefName/,
-      'workflow must inspect open PR head refs when reconciling stale Homebrew sync PRs',
-    );
-    assert.match(
-      workflow,
-      /startswith\("chore\/homebrew-sync-v"\)/,
-      'workflow must filter stale Homebrew sync PRs by the release-sync branch prefix',
-    );
-    assert.ok(
-      workflow.includes(`select(.headRefName != "'"$EXCLUDE_BRANCH"'")`),
-      'workflow must exclude the current release branch from stale-PR cleanup',
-    );
-    assert.ok(
-      workflow.includes(`"\\(.number)\\t\\(.headRefName)"`),
-      'workflow must keep the stale PR number and branch name together for closeout logging',
-    );
-    assert.match(
-      workflow,
-      /Superseded by direct push to main for v\$\{RELEASE_TAG#v\}\./,
-      'workflow must have a direct-push supersession message for stale PRs',
-    );
-    assert.match(
-      workflow,
-      /::warning::Could not close superseded Homebrew mirror PR #\$\{STALE_NUMBER\}/,
-      'workflow must warn clearly if stale PR cleanup fails instead of silently leaving drift',
+      /pull-requests:\s*write/,
+      'workflow must not request pull-requests:write since the PR fallback was removed',
     );
   });
 });

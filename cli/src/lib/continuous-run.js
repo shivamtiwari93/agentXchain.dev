@@ -86,6 +86,13 @@ function describeContinuousTerminalStep(step, contOpts) {
   if (step.status === 'idle_exit') {
     return `All vision goals appear addressed (${contOpts.maxIdleCycles} consecutive idle cycles). Stopping.`;
   }
+  if (step.status === 'failed') {
+    const reason = step.stop_reason || step.action || 'unknown';
+    return `Continuous loop failed: ${reason}. Check "agentxchain status" for details.`;
+  }
+  if (step.status === 'blocked') {
+    return 'Continuous loop paused on blocker. Use "agentxchain unblock <id>" to resume.';
+  }
   return null;
 }
 

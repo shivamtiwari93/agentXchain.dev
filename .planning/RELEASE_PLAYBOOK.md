@@ -82,7 +82,7 @@ npm view "agentxchain@<semver>" version
 The publish workflow now handles all downstream surfaces automatically:
 
 1. **GitHub Release** — created by CI from the governed website release page, and reruns repair the release body via `gh release edit` if an older low-signal body already exists
-2. **Homebrew sync** — canonical tap pushed with `HOMEBREW_TAP_TOKEN`; repo mirror updated in CI by direct push when `REPO_PUSH_TOKEN` (preferred) or a broad `HOMEBREW_TAP_TOKEN` is available, otherwise via PR fallback
+2. **Homebrew sync** — canonical tap pushed with `HOMEBREW_TAP_TOKEN`; repo mirror updated in CI by direct push when `REPO_PUSH_TOKEN` is available, otherwise agents sync the mirror on the next push
 3. **Completeness gate** — `release-downstream-truth.sh` runs as the final CI step
 
 **If `HOMEBREW_TAP_TOKEN` is absent on a first publish attempt**, the workflow fails before npm publication. The operator must either:
@@ -207,9 +207,9 @@ The Homebrew mirror goes through three states during every release. Understandin
 |-------|-------|-----------|--------|
 | **Phase 1: Pre-publish** | `release-bump.sh` updates formula URL to new version; SHA is carried from the previous committed formula (real but wrong version). Local `npm pack` SHA values are not valid here. | Green with `AGENTXCHAIN_RELEASE_PREFLIGHT=1` (Tier 2 tests skipped). | Push tag → CI publishes to npm. |
 | **Phase 2: Post-publish, pre-sync** | npm is live; repo mirror SHA is stale (previous version's hash). | Green — Tier 1 (internal consistency) passes; Tier 2 (version alignment) passes on URL but SHA is from the wrong version. | Run `verify:post-publish` or `sync:homebrew`. |
-| **Phase 3: Post-sync** | Repo mirror SHA matches the published tarball. | Fully green, no env skip needed. | CI merges the repo-mirror PR or a local operator sync commits the update. Main is now truthfully green. |
+| **Phase 3: Post-sync** | Repo mirror SHA matches the published tarball. | Fully green, no env skip needed. | CI direct-pushes the mirror update or agents sync it on the next push. Main is now truthfully green. |
 
-**Phase 3 is the fully converged repo state, not the downstream completeness gate.** If CI cannot land the repo-mirror update because direct push lacks repo access and the fallback PR cannot self-merge, the workflow auto-closes that PR after leaving a comment. Canonical downstream truth can still be complete, and repo mirror catch-up is best-effort and may be deferred to the next agent push or explicit sync.
+**Phase 3 is the fully converged repo state, not the downstream completeness gate.** If CI cannot direct-push the repo-mirror update (branch protection blocks `GITHUB_TOKEN`), it warns and moves on. Canonical downstream truth is still complete. Repo mirror catch-up is best-effort and may be deferred to the next agent push or explicit sync. To enable CI direct push, configure `REPO_PUSH_TOKEN` (admin PAT with `contents:write` and branch-protection bypass).
 
 #### Operator Commands
 
@@ -237,9 +237,7 @@ This command:
 #### CI Behavior
 
 In CI, the publish workflow runs sync automatically after postflight if `HOMEBREW_TAP_TOKEN` is configured. Without the token, first-time publish is blocked before npm mutation. Reruns can still update the repo mirror without the token, but downstream truth must pass before the workflow can finish green.
-The tag workflow requests `pull-requests: write`, creates or reuses a PR (`chore/homebrew-sync-v<version>`) for the repo-mirror update, submits the approval review, enables squash auto-merge with branch deletion, and waits for the PR to reach `MERGED`.
-Workflow reruns update that same branch with `--force-with-lease` and reuse the open PR instead of failing on duplicate branch or PR creation.
-If auto-merge cannot be enabled or times out (typically due to branch protection requiring a review that `github-actions[bot]` cannot self-approve), the workflow **auto-closes the PR** with an explanatory comment and deletes the branch (`DEC-HOMEBREW-MIRROR-AUTOCLOSE-001`). The canonical tap is always correct at this point. Agents sync the repo mirror on their next push. To eliminate the PR fallback entirely, configure `REPO_PUSH_TOKEN` (admin PAT with `contents:write`).
+The tag workflow attempts a direct push to main for the repo-mirror update using `REPO_PUSH_TOKEN` (preferred) or `GITHUB_TOKEN`. If direct push fails (branch protection blocks the token), the workflow warns and moves on — no PR is created (`DEC-HOMEBREW-MIRROR-NO-PR-001`). The canonical tap is always correct at this point. Agents sync the repo mirror on their next push.
 If the repo mirror is already current but the canonical tap is stale, `--push-tap` still pushes the tap update. Repo-mirror equality is not allowed to short-circuit public-tap truth.
 
 #### Invariants
