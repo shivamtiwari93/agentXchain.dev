@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.123.0
+# Show HN Draft — AgentXchain v2.124.0
 
-> Ready-to-post draft. Updated 2026-04-17 for v2.123.0.
+> Ready-to-post draft. Updated 2026-04-17 for v2.124.0.
 
 ---
 
@@ -48,7 +48,9 @@ The point is not “more agents.” The point is better convergence: disagreemen
 
 Latest shipped operator slice: public mixed-runtime continuous proof docs and a real release-pipeline fix for Homebrew mirror sync. The proof page now names the exact script, Anthropic-backed QA model, spend, and runtime split; the publish workflow now tries `GITHUB_TOKEN` for direct mirror sync before falling back to a PR.
 
-5,481 tests / 1,153 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
+- 5,493 tests / 1,154 suites / 0 failures. 108 conformance fixtures. Website build clean.
+
+MIT licensed. Protocol v7 spec published.
 
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 npm: https://www.npmjs.com/package/agentxchain

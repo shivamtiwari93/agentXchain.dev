@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.124.0
+
+### Operator Adoption Quality
+
+- **Governed init cold-start truth:** `init --governed` now prints the actual scaffold that was generated — correct runtime summary, correct routing label, correct next-step guidance. Manual-only scaffolds now explicitly say to use `agentxchain step` first.
+- **Manual template correctness:** The `step` command's turn-result template now uses the turn assignment's `runtime_id` (not a hardcoded fallback) and respects the current phase's `allowed_next_roles` for `proposed_next_role`.
+- **Phase handoff guidance:** `approve-transition` now warns when the next authoritative turn would fail the clean-baseline rule, with exact checkpoint instructions. Manual turn examples are now phase-aware and write-authority-aware.
+- **Authoritative artifact validation:** Authoritative roles with non-empty product `files_changed` can no longer claim `artifact.type: "review"`. The validator rejects the mismatch with a clear error directing the operator to use `"workspace"` or `"commit"`.
+- **Intake completed-run restart:** `agentxchain intake start --restart-completed` now exposes the engine's existing terminal-restart capability on the public CLI surface, replacing the nonexistent `init --force` guidance.
+
+### Evidence
+
+- 5,493 tests / 1,154 suites / 0 failures. 108 conformance fixtures. Website build clean.
+
 ## 2.123.0
 
 Live continuous 3-run proof published, Homebrew mirror CI simplified (removed dead PR fallback), and continuous mode error messages improved.

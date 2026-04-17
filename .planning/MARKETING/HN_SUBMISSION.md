@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.123.0
+# Hacker News Submission — AgentXchain v2.124.0
 
-> Ready-to-post. Updated 2026-04-17 for v2.123.0.
+> Ready-to-post. Updated 2026-04-17 for v2.124.0.
 
 ---
 
@@ -41,7 +41,7 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
 - Proposal authoring: agents propose changes through a staging area with conflict detection
-- 5,481 tests / 1,153 suites / 0 failures, 108 conformance fixtures, Protocol v7 spec for third-party implementors
+- 5,493 tests / 1,154 suites / 0 failures. 108 conformance fixtures. Website build clean.
 - Post-release `npx` install verification as part of the release process
 
 **Architecture:**
