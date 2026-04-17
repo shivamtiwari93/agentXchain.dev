@@ -68,6 +68,7 @@ const sidebars: SidebarsConfig = {
       label: 'Continuous Delivery',
       items: [
         'continuous-delivery-intake',
+        'lights-out-operation',
         'lights-out-scheduling',
         'run-chaining',
         'missions',

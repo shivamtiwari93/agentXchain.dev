@@ -1,0 +1,211 @@
+---
+title: Lights-Out Operation
+description: "Operator runbook for running AgentXchain continuously in one repo: preflight, daemon launch, recovery, budgets, and priority injection."
+---
+
+# Lights-Out Operation
+
+This is the repo-local operator runbook for unattended governed execution.
+
+If you want the scheduler reference, read [Lights-Out Scheduling](/docs/lights-out-scheduling). If you want the end-to-end path from zero to a running continuous session, start here.
+
+This guide is **repo-local only**. It assumes one governed repository with `agentxchain.json` and one project-owned `.planning/VISION.md`. If you are coordinating multiple repositories, use `agentxchain multi` and the [Multi-Repo Coordination](/docs/multi-repo) docs instead of trying to stretch this flow across child repos.
+
+## Choose the right loop owner
+
+AgentXchain ships two related lights-out surfaces:
+
+- `agentxchain run --continuous --vision <path>`: one process owns the loop directly
+- `agentxchain schedule daemon`: the daemon owns cadence and advances schedule-owned continuous sessions
+
+Use `run --continuous` when you want a foreground proof run or a single process in a tmux/session manager. Use `schedule daemon` when you want repo-local polling, daemon health, and schedule-owned session continuity.
+
+## 1. Preflight the repo before turning anything on
+
+Do not daemonize a repo you have not validated. The minimum preflight is:
+
+```bash
+agentxchain doctor
+agentxchain connector check
+agentxchain status
+```
+
+Confirm these inputs before you go further:
+
+- `.planning/VISION.md` exists and reflects the product direction for this repo
+- your runtime binding is real for the roles that will execute unattended work
+- approval policy is intentional: use auto-approval only where your governance rules allow it
+- budget stance is explicit for both per-run and continuous session spend
+
+If you need human review before vision-derived work enters execution, set `triage_approval: "human"` in the continuous config instead of pretending the repo is safe for full auto-approval.
+
+## 2. Configure one schedule-owned continuous session
+
+Add a schedule entry in `agentxchain.json`:
+
+```json
+{
+  "schedules": {
+    "vision_autopilot": {
+      "enabled": true,
+      "every_minutes": 60,
+      "auto_approve": true,
+      "max_turns": 10,
+      "initial_role": "pm",
+      "trigger_reason": "Repo-local lights-out execution",
+      "continuous": {
+        "enabled": true,
+        "vision_path": ".planning/VISION.md",
+        "max_runs": 50,
+        "max_idle_cycles": 5,
+        "triage_approval": "auto",
+        "per_session_max_usd": 25.0
+      }
+    }
+  }
+}
+```
+
+What matters here:
+
+- `every_minutes` controls **when the daemon may start or restart** the session
+- `continuous.vision_path` is required when continuous mode is enabled
+- `per_session_max_usd` is the cumulative session cap; when hit, the session stops cleanly instead of blocking
+- `triage_approval: "human"` pauses vision-derived work at the intake approval boundary instead of auto-approving it
+
+For the field-by-field reference, see [Lights-Out Scheduling](/docs/lights-out-scheduling) and [CLI Reference](/docs/cli).
+
+## 3. Prove the loop once before starting the daemon
+
+Run one bounded continuous session in the foreground first:
+
+```bash
+agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --session-budget 5.00
+```
+
+That command is the safety floor. It proves:
+
+- the vision file resolves correctly
+- the intake lifecycle can seed or consume work
+- the configured adapter/runtime can complete a governed run
+- status surfaces continuous-session truth for this repo
+
+Skipping this proof and going straight to `schedule daemon` is lazy. If the repo cannot complete one bounded run in the foreground, the daemon will not save you.
+
+## 4. Start the daemon
+
+Once the bounded proof run is clean, start the scheduler:
+
+```bash
+agentxchain schedule daemon --poll-seconds 60
+```
+
+Or for a persistent shell session:
+
+```bash
+tmux new-session -d -s agentxchain-daemon 'agentxchain schedule daemon --poll-seconds 60'
+```
+
+What happens next:
+
+1. When the schedule becomes due, the daemon starts a schedule-owned continuous session.
+2. Later polls advance the **same session** even if the schedule is not due again yet.
+3. The daemon checks queued work first.
+4. If nothing is queued, it seeds work from `.planning/VISION.md`.
+5. Each run still goes through the real intake lifecycle: plan → start → governed run → resolve.
+
+This is why `schedule daemon` is the correct unattended owner for schedule-driven operation: it owns heartbeat, status, and later-poll continuation without inventing a second scheduler.
+
+## 5. Observe the system while it runs
+
+Use these commands while the daemon is active:
+
+```bash
+agentxchain status
+agentxchain status --json
+agentxchain schedule status
+agentxchain schedule list
+agentxchain events --follow
+```
+
+Watch for:
+
+- active `continuous_session` state
+- `owner_type: "schedule"` and the owning schedule id
+- `runs_completed` versus `max_runs`
+- `current_vision_objective`
+- `continuous_blocked`, `continuous_running`, `continuous_completed`, or `continuous_failed`
+
+`agentxchain status` is the run/session truth surface. `agentxchain schedule status` is the daemon heartbeat surface. Do not confuse them.
+
+## 6. Handle blocked and failed states correctly
+
+When the session pauses for a real blocker:
+
+```bash
+agentxchain status
+agentxchain unblock <id>
+```
+
+Rules that matter:
+
+- blocked continuous sessions stay **paused**, not fake-completed
+- after `agentxchain unblock <id>`, the next daemon poll resumes the **same** session
+- session-budget exhaustion is a **terminal stop**, not a blocker; start a new session if you want to continue
+- non-blocked executor failure leaves the session `failed` for inspection instead of pretending the intake intent completed
+
+If you need the full recovery matrix, use [Recovery](/docs/recovery). This page keeps the operational path short; the recovery page is the canonical blocked-state map.
+
+## 7. Inject explicit human priority when the vision queue is wrong
+
+Vision seeding is fallback discovery, not authority. Human priority wins.
+
+Inject urgent work like this:
+
+```bash
+agentxchain inject "Fix the broken release-note sidebar ordering" --priority p0
+```
+
+Or stage lower-priority work without approval:
+
+```bash
+agentxchain inject "Investigate docs stack migration options" --priority p2 --no-approve
+```
+
+Important behavior:
+
+- injected `p0` work preempts new vision seeding
+- the continuous loop yields with `priority_preempted` and the daemon consumes the injected item first
+- non-`p0` items join the intake queue in normal priority order
+
+For the intake boundary and queue semantics, see [Continuous Delivery Intake](/docs/continuous-delivery-intake).
+
+## 8. Know how the loop stops
+
+Continuous mode stops for specific reasons:
+
+- `max_runs` reached
+- `max_idle_cycles` reached because no queued or vision-derived work was found
+- `per_session_max_usd` or `--session-budget` reached
+- blocked human escalation that you have not resolved yet
+- operator `SIGINT`
+
+`SIGINT` behavior is intentional:
+
+- first `Ctrl+C`: finish the current in-flight work, then stop
+- second `Ctrl+C`: hard-abort
+
+For daemon-owned operation, stop the daemon the same way you stop any foreground process or session-manager job.
+
+## 9. Minimum operating discipline
+
+If you want unattended execution without lying to yourself, keep this floor:
+
+1. Validate the repo with `doctor` and `connector check`.
+2. Run one bounded `run --continuous --max-runs 1` proof first.
+3. Set a real session budget.
+4. Watch `status`, `schedule status`, and `events --follow`.
+5. Use `inject --priority p0` when human judgment needs to override vision seeding.
+6. Use `unblock` to resolve true blockers; do not hack state files.
+
+That is the stable repo-local lights-out story today.
