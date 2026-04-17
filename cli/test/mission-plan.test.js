@@ -583,3 +583,265 @@ describe('mission-plans.js — planner prompt and response parsing', () => {
     assert.equal(mod.parsePlannerResponse(null).ok, false);
   });
 });
+
+describe('mission-plans.js — workstream launch', () => {
+  let tmpDir;
+  let mod;
+
+  beforeEach(async () => {
+    tmpDir = createTmpProject();
+    mod = await import(missionPlansPath);
+  });
+
+  afterEach(() => {
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  });
+
+  it('AT-MISSION-PLAN-029: launchWorkstream rejects launch from unapproved plan', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-launch-unapproved',
+      title: 'Launch Unapproved',
+      goal: 'Reject launch from proposed plan.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    assert.equal(created.ok, true);
+    assert.equal(created.plan.status, 'proposed');
+
+    const result = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    assert.equal(result.ok, false);
+    assert.match(result.error, /not approved/i);
+  });
+
+  it('AT-MISSION-PLAN-030: launchWorkstream rejects launch for nonexistent workstream', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-launch-bad-ws',
+      title: 'Bad Workstream',
+      goal: 'Reject nonexistent workstream.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    const result = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-nonexistent');
+    assert.equal(result.ok, false);
+    assert.match(result.error, /not found/i);
+  });
+
+  it('AT-MISSION-PLAN-031: launchWorkstream rejects launch with unsatisfied dependencies', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-launch-blocked',
+      title: 'Blocked Launch',
+      goal: 'Reject launch of dependency-blocked workstream.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    // ws-verification depends on ws-alignment which hasn't been launched
+    const result = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-verification');
+    assert.equal(result.ok, false);
+    assert.match(result.error, /unsatisfied dependencies/i);
+    assert.match(result.error, /ws-alignment/);
+  });
+
+  it('AT-MISSION-PLAN-032: launchWorkstream records chain linkage for ready workstream', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-launch-ready',
+      title: 'Ready Launch',
+      goal: 'Launch a no-dependency workstream.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    const result = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    assert.equal(result.ok, true);
+    assert.ok(result.chainId, 'launch must return a chain_id');
+    assert.ok(result.chainId.startsWith('chain-'), 'chain_id must start with chain-');
+    assert.equal(result.launchRecord.workstream_id, 'ws-alignment');
+    assert.equal(result.launchRecord.chain_id, result.chainId);
+    assert.equal(result.launchRecord.status, 'launched');
+
+    // Verify plan artifact was updated on disk
+    const reloaded = mod.loadPlan(tmpDir, mission.mission_id, created.plan.plan_id);
+    assert.equal(reloaded.launch_records.length, 1);
+    assert.equal(reloaded.launch_records[0].workstream_id, 'ws-alignment');
+    assert.equal(reloaded.launch_records[0].chain_id, result.chainId);
+    const ws = reloaded.workstreams.find((w) => w.workstream_id === 'ws-alignment');
+    assert.equal(ws.launch_status, 'launched');
+  });
+
+  it('AT-MISSION-PLAN-033: launchWorkstream rejects double launch of same workstream', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-launch-double',
+      title: 'Double Launch',
+      goal: 'Reject duplicate launch.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    const first = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    assert.equal(first.ok, true);
+
+    const second = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    assert.equal(second.ok, false);
+    assert.match(second.error, /already been launched/i);
+  });
+
+  it('AT-MISSION-PLAN-034: launchWorkstream attaches chain to mission artifact', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-launch-attach',
+      title: 'Attach Chain',
+      goal: 'Verify chain attachment to mission.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    const result = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    assert.equal(result.ok, true);
+
+    // Verify mission artifact has the chain_id
+    const missionPath = join(tmpDir, '.agentxchain', 'missions', 'mission-launch-attach.json');
+    const missionData = JSON.parse(readFileSync(missionPath, 'utf8'));
+    assert.ok(missionData.chain_ids.includes(result.chainId), 'mission must have the launched chain_id');
+  });
+});
+
+describe('mission-plans.js — workstream outcome', () => {
+  let tmpDir;
+  let mod;
+
+  beforeEach(async () => {
+    tmpDir = createTmpProject();
+    mod = await import(missionPlansPath);
+  });
+
+  afterEach(() => {
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  });
+
+  it('AT-MISSION-PLAN-035: markWorkstreamOutcome records completed chain and unblocks dependents', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-outcome-complete',
+      title: 'Outcome Complete',
+      goal: 'Test completion unblocks dependents.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    // Launch the no-dep workstream
+    const launched = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    assert.equal(launched.ok, true);
+
+    // Write a completed chain report so dependency check can find it
+    const reportsDir = join(tmpDir, '.agentxchain', 'reports');
+    mkdirSync(reportsDir, { recursive: true });
+    writeFileSync(join(reportsDir, `${launched.chainId}.json`), JSON.stringify({
+      chain_id: launched.chainId,
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      terminal_reason: 'completed',
+      runs: [{ run_id: 'run-001', status: 'completed', turns: 3 }],
+    }, null, 2));
+
+    // Mark the outcome
+    const outcome = mod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment', {
+      terminalReason: 'completed',
+    });
+    assert.equal(outcome.ok, true);
+    assert.equal(outcome.workstream.launch_status, 'completed');
+
+    // Verify dependent ws-verification is now unblocked
+    const reloaded = mod.loadPlan(tmpDir, mission.mission_id, created.plan.plan_id);
+    const depWs = reloaded.workstreams.find((w) => w.workstream_id === 'ws-verification');
+    assert.equal(depWs.launch_status, 'ready', 'dependent workstream should be unblocked after dependency completes');
+  });
+
+  it('AT-MISSION-PLAN-036: markWorkstreamOutcome sets needs_attention on failure', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-outcome-fail',
+      title: 'Outcome Fail',
+      goal: 'Test failure marks plan needs_attention.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    const launched = mod.launchWorkstream(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment');
+    assert.equal(launched.ok, true);
+
+    const outcome = mod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment', {
+      terminalReason: 'blocked',
+    });
+    assert.equal(outcome.ok, true);
+    assert.equal(outcome.workstream.launch_status, 'needs_attention');
+
+    // Plan status should be needs_attention
+    const reloaded = mod.loadPlan(tmpDir, mission.mission_id, created.plan.plan_id);
+    assert.equal(reloaded.status, 'needs_attention');
+
+    // Dependent workstream should remain blocked
+    const depWs = reloaded.workstreams.find((w) => w.workstream_id === 'ws-verification');
+    assert.equal(depWs.launch_status, 'blocked');
+  });
+
+  it('AT-MISSION-PLAN-037: markWorkstreamOutcome rejects outcome for unlaunched workstream', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-outcome-nope',
+      title: 'No Launch Record',
+      goal: 'Reject outcome without launch.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+
+    const outcome = mod.markWorkstreamOutcome(tmpDir, mission.mission_id, created.plan.plan_id, 'ws-alignment', {
+      terminalReason: 'completed',
+    });
+    assert.equal(outcome.ok, false);
+    assert.match(outcome.error, /no launch record/i);
+  });
+});
+
+describe('mission-plans.js — structural guards (launch)', () => {
+  it('AT-MISSION-PLAN-S05: mission-plans.js exports launch functions', async () => {
+    const mod = await import(missionPlansPath);
+    assert.equal(typeof mod.launchWorkstream, 'function');
+    assert.equal(typeof mod.markWorkstreamOutcome, 'function');
+    assert.equal(typeof mod.checkDependencySatisfaction, 'function');
+  });
+
+  it('AT-MISSION-PLAN-S06: mission.js exports missionPlanLaunchCommand', async () => {
+    const mod = await import(missionCommandPath);
+    assert.equal(typeof mod.missionPlanLaunchCommand, 'function');
+  });
+
+  it('AT-MISSION-PLAN-S07: CLI registers mission plan launch subcommand', () => {
+    const bin = readFileSync(binPath, 'utf8');
+    assert.ok(bin.includes('missionPlanLaunchCommand'), 'missionPlanLaunchCommand must be imported');
+    assert.ok(bin.includes("command('launch"), 'mission plan launch must be registered');
+    assert.ok(bin.includes('--workstream'), 'launch must accept --workstream');
+  });
+});

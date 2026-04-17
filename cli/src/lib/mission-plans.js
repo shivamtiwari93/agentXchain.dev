@@ -7,7 +7,10 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { join } from 'path';
+import { loadChainReport } from './chain-reports.js';
+import { loadMissionArtifact } from './missions.js';
 
 // ── Plan artifact directory ──────────────────────────────────────────────────
 
@@ -302,6 +305,158 @@ export function loadPlan(root, missionId, planId) {
   // Scan for matching plan_id
   const plans = loadAllPlans(root, missionId);
   return plans.find((p) => p.plan_id === planId) || null;
+}
+
+// ── Workstream launch ───────────────────────────────────────────────────────
+
+/**
+ * Check whether a workstream's dependencies are satisfied.
+ * A dependency is satisfied when its launch_record exists AND its chain completed.
+ *
+ * @returns {string[]} list of unsatisfied dependency workstream IDs
+ */
+export function checkDependencySatisfaction(plan, workstream, root) {
+  const unsatisfied = [];
+  if (!Array.isArray(workstream.depends_on)) return unsatisfied;
+
+  for (const depId of workstream.depends_on) {
+    const depRecord = (plan.launch_records || []).find((r) => r.workstream_id === depId);
+    if (!depRecord) {
+      unsatisfied.push(depId);
+      continue;
+    }
+    // Check that the dependency chain actually completed
+    const chainReport = loadChainReport(root, depRecord.chain_id);
+    if (!chainReport || chainReport.terminal_reason !== 'completed') {
+      unsatisfied.push(depId);
+    }
+  }
+  return unsatisfied;
+}
+
+/**
+ * Launch a single workstream from an approved plan.
+ *
+ * Validates plan approval, workstream existence, dependency satisfaction.
+ * Records launch_record with workstream_id → chain_id binding.
+ * Attaches the chain to the parent mission.
+ *
+ * @returns {{ ok: boolean, plan?: object, workstream?: object, chainId?: string, launchRecord?: object, error?: string }}
+ */
+export function launchWorkstream(root, missionId, planId, workstreamId) {
+  const plan = loadPlan(root, missionId, planId);
+  if (!plan) {
+    return { ok: false, error: `Plan not found: ${planId}` };
+  }
+  if (plan.status !== 'approved') {
+    return { ok: false, error: `Plan ${planId} is not approved (status: "${plan.status}"). Approve the plan before launching workstreams.` };
+  }
+
+  const ws = plan.workstreams.find((w) => w.workstream_id === workstreamId);
+  if (!ws) {
+    return { ok: false, error: `Workstream not found: ${workstreamId}` };
+  }
+
+  if (ws.launch_status === 'launched' || ws.launch_status === 'completed') {
+    return { ok: false, error: `Workstream ${workstreamId} has already been launched (status: "${ws.launch_status}").` };
+  }
+
+  // Check dependency satisfaction
+  const unsatisfied = checkDependencySatisfaction(plan, ws, root);
+  if (unsatisfied.length > 0) {
+    return {
+      ok: false,
+      error: `Workstream ${workstreamId} has unsatisfied dependencies: ${unsatisfied.join(', ')}. Launch and complete those workstreams first.`,
+    };
+  }
+
+  // Generate chain ID and record launch
+  const chainId = `chain-${randomUUID().slice(0, 8)}`;
+  const now = new Date().toISOString();
+  const launchRecord = {
+    workstream_id: workstreamId,
+    chain_id: chainId,
+    launched_at: now,
+    status: 'launched',
+  };
+
+  if (!Array.isArray(plan.launch_records)) {
+    plan.launch_records = [];
+  }
+  plan.launch_records.push(launchRecord);
+  ws.launch_status = 'launched';
+  plan.updated_at = now;
+
+  writePlanArtifact(root, missionId, plan);
+
+  // Directly attach chain_id to mission artifact.
+  // We cannot use attachChainToMission() here because that function requires
+  // the chain report to exist on disk, but execution hasn't started yet.
+  const mission = loadMissionArtifact(root, missionId);
+  if (mission) {
+    const chainIds = Array.isArray(mission.chain_ids) ? [...mission.chain_ids] : [];
+    if (!chainIds.includes(chainId)) {
+      chainIds.push(chainId);
+    }
+    const updatedMission = { ...mission, chain_ids: chainIds, updated_at: now };
+    const missionsDir = join(root, '.agentxchain', 'missions');
+    mkdirSync(missionsDir, { recursive: true });
+    writeFileSync(join(missionsDir, `${missionId}.json`), JSON.stringify(updatedMission, null, 2));
+  }
+
+  return { ok: true, plan, workstream: ws, chainId, launchRecord };
+}
+
+/**
+ * Record the outcome of a launched workstream after its chain completes.
+ *
+ * Updates launch_record with terminal reason, updates workstream launch_status,
+ * and recalculates dependency-blocked workstreams.
+ *
+ * @returns {{ ok: boolean, plan?: object, workstream?: object, error?: string }}
+ */
+export function markWorkstreamOutcome(root, missionId, planId, workstreamId, { terminalReason, completedAt }) {
+  const plan = loadPlan(root, missionId, planId);
+  if (!plan) {
+    return { ok: false, error: `Plan not found: ${planId}` };
+  }
+
+  const ws = plan.workstreams.find((w) => w.workstream_id === workstreamId);
+  if (!ws) {
+    return { ok: false, error: `Workstream not found: ${workstreamId}` };
+  }
+
+  const record = (plan.launch_records || []).find((r) => r.workstream_id === workstreamId);
+  if (!record) {
+    return { ok: false, error: `No launch record found for workstream ${workstreamId}.` };
+  }
+
+  const now = completedAt || new Date().toISOString();
+  record.terminal_reason = terminalReason;
+  record.completed_at = now;
+  record.status = terminalReason === 'completed' ? 'completed' : 'failed';
+
+  if (terminalReason === 'completed') {
+    ws.launch_status = 'completed';
+
+    // Recalculate blocked dependents — some may now be ready
+    for (const depWs of plan.workstreams) {
+      if (depWs.launch_status === 'blocked' && Array.isArray(depWs.depends_on) && depWs.depends_on.includes(workstreamId)) {
+        const stillBlocked = checkDependencySatisfaction(plan, depWs, root);
+        if (stillBlocked.length === 0) {
+          depWs.launch_status = 'ready';
+        }
+      }
+    }
+  } else {
+    ws.launch_status = 'needs_attention';
+    plan.status = 'needs_attention';
+  }
+
+  plan.updated_at = now;
+  writePlanArtifact(root, missionId, plan);
+
+  return { ok: true, plan, workstream: ws };
 }
 
 // ── LLM planner prompt ──────────────────────────────────────────────────────

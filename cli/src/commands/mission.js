@@ -13,6 +13,8 @@ import {
 import {
   approvePlanArtifact,
   createPlanArtifact,
+  launchWorkstream,
+  markWorkstreamOutcome,
   loadAllPlans,
   loadLatestPlan,
   loadPlan,
@@ -420,6 +422,77 @@ export async function missionPlanApproveCommand(planTarget, opts) {
   renderPlan(result.plan);
 }
 
+/**
+ * agentxchain mission plan launch [plan_id|latest] --workstream <id> — launch a workstream.
+ *
+ * Validates plan approval, workstream existence, dependency satisfaction.
+ * Records launch_record with workstream_id → chain_id binding.
+ */
+export async function missionPlanLaunchCommand(planTarget, opts) {
+  const root = findProjectRoot(opts.dir || process.cwd());
+  if (!root) {
+    console.error(chalk.red('No AgentXchain project found. Run this inside a governed project.'));
+    process.exit(1);
+  }
+
+  if (!opts.workstream) {
+    console.error(chalk.red('--workstream <id> is required. Specify which workstream to launch.'));
+    process.exit(1);
+  }
+
+  const mission = opts.mission
+    ? loadMissionArtifact(root, opts.mission)
+    : loadLatestMissionArtifact(root);
+
+  if (!mission) {
+    console.error(chalk.red('No mission found.'));
+    console.error(chalk.dim('  Use --mission <id> or create a mission first.'));
+    process.exit(1);
+  }
+
+  const plan = planTarget && planTarget !== 'latest'
+    ? loadPlan(root, mission.mission_id, planTarget)
+    : loadLatestPlan(root, mission.mission_id);
+
+  if (!plan) {
+    if (planTarget && planTarget !== 'latest') {
+      console.error(chalk.red(`Plan not found: ${planTarget}`));
+    } else {
+      console.error(chalk.red(`No plans found for mission ${mission.mission_id}.`));
+      console.error(chalk.dim('  Run `agentxchain mission plan latest` to generate one.'));
+    }
+    process.exit(1);
+  }
+
+  const result = launchWorkstream(root, mission.mission_id, plan.plan_id, opts.workstream);
+  if (!result.ok) {
+    console.error(chalk.red(result.error));
+    process.exit(1);
+  }
+
+  if (opts.json) {
+    console.log(JSON.stringify({
+      workstream_id: opts.workstream,
+      chain_id: result.chainId,
+      plan_id: result.plan.plan_id,
+      mission_id: mission.mission_id,
+      launch_record: result.launchRecord,
+    }, null, 2));
+    return;
+  }
+
+  console.log(chalk.green(`Launched workstream ${chalk.bold(opts.workstream)} → chain ${chalk.bold(result.chainId)}`));
+  console.log('');
+  console.log(chalk.dim(`  Mission:   ${mission.mission_id}`));
+  console.log(chalk.dim(`  Plan:      ${result.plan.plan_id}`));
+  console.log(chalk.dim(`  Chain ID:  ${result.chainId}`));
+  console.log('');
+  console.log(chalk.dim('  To start the governed run for this workstream:'));
+  console.log(chalk.cyan(`    agentxchain run --chain --mission ${mission.mission_id}`));
+  console.log('');
+  renderPlan(result.plan);
+}
+
 // ── Plan rendering ───────────────────────────────────────────────────────────
 
 function renderPlan(plan) {
@@ -475,6 +548,17 @@ function renderPlan(plan) {
     ].join(' ')}`);
   });
 
+  if (plan.launch_records?.length) {
+    console.log('');
+    console.log(chalk.bold('  Launch records:'));
+    for (const rec of plan.launch_records) {
+      const statusTag = rec.status === 'completed' ? chalk.green('completed')
+        : rec.status === 'failed' ? chalk.red('failed')
+        : chalk.cyan('launched');
+      console.log(`    ${chalk.cyan(rec.workstream_id)} → ${rec.chain_id} [${statusTag}]`);
+    }
+  }
+
   if (plan.workstreams.some((ws) => ws.acceptance_checks?.length)) {
     console.log('');
     console.log(chalk.bold('  Acceptance checks:'));
@@ -507,6 +591,7 @@ function formatLaunchStatus(status) {
     case 'ready': return chalk.green('ready');
     case 'blocked': return chalk.yellow('blocked');
     case 'launched': return chalk.cyan('launched');
+    case 'completed': return chalk.green('completed');
     case 'needs_attention': return chalk.red('attention');
     default: return status;
   }

@@ -89,6 +89,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission plan` | Planning | Generate a decomposition plan for a mission using LLM-assisted workstream decomposition |
 | `mission plan show` | Planning | Show a decomposition plan with workstream details and dependency state |
 | `mission plan approve` | Planning | Approve the latest proposed mission plan and supersede older active revisions |
+| `mission plan launch` | Planning | Launch a workstream from an approved plan, recording chain linkage |
 | `mission plan list` | Planning | List all plans for a mission, newest first |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
@@ -200,6 +201,7 @@ For the full operator model, see [Missions](/docs/missions). That page keeps the
 agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
 agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--json] [--dir <path>]
 agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
 ```
 
@@ -217,6 +219,9 @@ agentxchain mission plan show latest
 # Approve the latest proposed plan before any workstream launch
 agentxchain mission plan approve latest
 
+# Launch a ready workstream from the approved plan
+agentxchain mission plan launch latest --workstream ws-alignment
+
 # List all plans for a specific mission
 agentxchain mission plan list --mission mission-release-hardening
 ```
@@ -226,6 +231,8 @@ The planner uses LLM-assisted one-shot generation with strict schema validation.
 Plan revision works by supersession: generating a new plan sets `supersedes_plan_id` to the prior plan. Earlier plans remain durable for auditability. The system never mutates an existing plan artifact.
 
 Approval is latest-only and fail-closed. `mission plan approve` may approve only the newest `proposed` plan for a mission. Approving a newer plan supersedes any older active `proposed` or `approved` plan artifacts so one approved revision remains current.
+
+Launch is per-workstream and dependency-aware. `mission plan launch --workstream <id>` validates that the plan is approved and the target workstream's dependencies are satisfied (all depended-on workstreams must have completed chains). Launch records bind `workstream_id` → `chain_id` and attach the chain to the parent mission. If a launched workstream's chain fails, the workstream is marked `needs_attention` and dependent workstreams remain blocked.
 
 ### `init`
 
