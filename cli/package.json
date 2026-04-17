@@ -27,6 +27,7 @@
     "test:node": "node --test test/*.test.js",
     "preflight:release": "bash scripts/release-preflight.sh",
     "preflight:release:strict": "bash scripts/release-preflight.sh --strict",
+    "check:release-alignment": "node scripts/check-release-alignment.mjs",
     "postflight:release": "bash scripts/release-postflight.sh",
     "postflight:downstream": "bash scripts/release-downstream-truth.sh",
     "bump:release": "bash scripts/release-bump.sh",
