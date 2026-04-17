@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.120.0
+# Show HN Draft — AgentXchain v2.121.0
 
-> Ready-to-post draft. Updated 2026-04-17 for v2.120.0.
+> Ready-to-post draft. Updated 2026-04-17 for v2.121.0.
 
 ---
 
@@ -48,7 +48,7 @@ The point is not “more agents.” The point is better convergence: disagreemen
 
 Latest shipped operator slice: schedule-owned continuous mode in `schedule daemon`, so repo-local scheduling can own a persistent vision-driven session instead of firing only one governed run per due interval.
 
-5,470 tests / 1,150 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
+5,478 tests / 1,152 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
 
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 npm: https://www.npmjs.com/package/agentxchain

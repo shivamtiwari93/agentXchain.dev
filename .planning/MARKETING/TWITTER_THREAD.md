@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.120.0
+# Twitter/X Thread — AgentXchain v2.121.0
 
-> Ready-to-post thread. Updated 2026-04-17 to reflect v2.120.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-17 to reflect v2.121.0 shipped reality.
 
 ---
 
@@ -54,7 +54,7 @@ All 5 adapter types proven live:
 
 New in this release: schedule-owned continuous mode in `schedule daemon`, one shared `advanceContinuousRunOnce(...)` primitive across both continuous entrypoints, and hardened multi-entry continuous selection.
 
-5,470 tests / 1,150 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
+5,478 tests / 1,152 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
 
 **Tweet 5 (the insight):**
 

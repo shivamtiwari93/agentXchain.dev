@@ -1,0 +1,46 @@
+---
+sidebar_position: 0
+title: "v2.121.0 Release Notes"
+---
+
+# AgentXchain v2.121.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Orchestrator State Files Allowlist Fix
+
+Fixed a governance correctness bug that blocked every `review_only` role in continuous mode from completing a single turn. The orchestrator-owned state files `.agentxchain/continuous-session.json`, `.agentxchain/human-escalations.jsonl`, and `.agentxchain/sla-reminders.json` were missing from the `ORCHESTRATOR_STATE_FILES` allowlist, causing false-positive artifact mismatch rejections.
+
+**Root cause:** When the continuous engine created the session file before the first turn dispatch, the `acceptTurn()` governance check saw it in the git diff and blamed the `review_only` role for "modifying product files." This class of bug is only detectable by full end-to-end proof in a fresh project — every mock-based E2E missed it because fixtures start with a clean baseline.
+
+### Export/Restore Continuity Preservation
+
+Orchestrator-owned runtime state that affects blocked continuous recovery is now preserved by both `agentxchain export` and `agentxchain restore`. Previously, an operator could run continuous mode, hit a blocker, export the workspace, restore on another checkout, and silently lose the exact recovery state the runtime depends on.
+
+**Files now preserved:**
+- `.agentxchain/continuous-session.json` — continuous session state, budget, runs completed
+- `.agentxchain/human-escalations.jsonl` — structured human escalation records
+- `.agentxchain/sla-reminders.json` — SLA reminder state
+
+### Live-Adapter Dogfood Proof
+
+First real-model continuous mode proof using Anthropic Haiku 4.5 via the `api_proxy` adapter in a temp governed project. The proof dispatched 16 real API calls, all accepted by governance, with correct budget tracking ($0.208 spent) and truthful session state. This is the first time the product has been proven end-to-end with a real model producing real artifacts — not just mock-based E2E tests.
+
+### Lights-Out Operator Runbook
+
+New cohesive operator guide (`/docs/lights-out-operation`) covering the full repo-local lights-out lifecycle: preflight, bounded proof run, daemon launch, session observation, blocked recovery, priority injection, budget stops, and SIGINT behavior. Previously, operators had to reconstruct the lifecycle from scattered per-feature docs.
+
+## What Changed
+
+- **Orchestrator state allowlist**: added `continuous-session.json`, `human-escalations.jsonl`, `sla-reminders.json` to `ORCHESTRATOR_STATE_FILES` (`DEC-ORCHESTRATOR-STATE-FILES-001`)
+- **Export/restore continuity**: all three orchestrator state files now round-trip through `export` and `restore` (`DEC-CONTINUITY-EXPORT-001`)
+- **Live dogfood proof**: first real-model continuous mode execution with Anthropic API (`DEC-LIVE-DOGFOOD-001`)
+- **Lights-out runbook**: dedicated operator guide for repo-local continuous operation (`DEC-LIGHTS-OUT-DOCS-001`)
+
+## Evidence
+
+- 5,478 tests / 1,152 suites / 0 failures
+- Website build: clean
+- Live dogfood: 16 Anthropic API calls, $0.208 spent, all turns accepted by governance

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.121.0
+
+`2.121.0` ships orchestrator state files allowlist fix, export/restore continuity preservation, live-adapter dogfood proof, and the lights-out operator runbook.
+
+- Orchestrator state allowlist: added `.agentxchain/continuous-session.json`, `.agentxchain/human-escalations.jsonl`, `.agentxchain/sla-reminders.json` to `ORCHESTRATOR_STATE_FILES` — fixes false-positive artifact mismatch rejections for `review_only` roles in continuous mode (`DEC-ORCHESTRATOR-STATE-FILES-001`)
+- Export/restore continuity: all three orchestrator state files now round-trip through `agentxchain export` and `agentxchain restore`, preserving blocked continuous recovery state across workspaces (`DEC-CONTINUITY-EXPORT-001`)
+- Live-adapter dogfood proof: first real-model continuous mode execution with Anthropic Haiku 4.5 via `api_proxy` — 16 API calls, $0.208 spent, all turns accepted by governance (`DEC-LIVE-DOGFOOD-001`)
+- Lights-out operator runbook: new cohesive guide covering preflight, bounded proof run, daemon launch, observation, blocked recovery, priority injection, budget stops, and SIGINT behavior (`DEC-LIGHTS-OUT-DOCS-001`)
+- 5,478 tests / 1,152 suites / 0 failures
+
 ## 2.120.0
 
 `2.120.0` ships continuous failure recovery hardening, paused-session re-entry guards, and multi-schedule continuous coexistence proof.
