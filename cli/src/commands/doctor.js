@@ -423,7 +423,7 @@ function getConnectorProbeRecommendation(runtimes) {
   return {
     recommended: true,
     runtimeIds,
-    detail: 'run `agentxchain connector check` to live-probe api / remote HTTP runtimes before the first governed turn.',
+    detail: 'run `agentxchain connector check` to live-probe api / remote HTTP runtimes, then `agentxchain connector validate <runtime_id>` to prove one binding produces valid governed turn results.',
   };
 }
 

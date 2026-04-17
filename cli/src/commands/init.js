@@ -990,6 +990,10 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.bold('agentxchain doctor')} ${chalk.dim('# verify runtimes, config, and readiness')}`);
   if (hasLiveConnectorProbe) {
     console.log(`    ${chalk.bold('agentxchain connector check')} ${chalk.dim('# live-probe configured runtimes before the first turn')}`);
+    const firstNonManualRtId = Object.entries(config.runtimes || {}).find(([, rt]) => rt?.type && rt.type !== 'manual')?.[0];
+    if (firstNonManualRtId) {
+      console.log(`    ${chalk.bold(`agentxchain connector validate ${firstNonManualRtId}`)} ${chalk.dim('# prove the runtime produces valid governed turn results')}`);
+    }
   }
   console.log(`    ${chalk.bold('git add -A')} ${chalk.dim('# stage the governed scaffold')}`);
   console.log(`    ${chalk.bold('git commit -m "initial governed scaffold"')} ${chalk.dim('# checkpoint the starting state')}`);

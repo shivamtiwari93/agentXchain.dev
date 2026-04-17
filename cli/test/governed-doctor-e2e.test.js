@@ -271,6 +271,7 @@ describe('Governed Doctor E2E', () => {
     assert.equal(output.connector_probe_recommended, true);
     assert.deepEqual(output.connector_probe_runtime_ids, ['api-live']);
     assert.match(output.connector_probe_detail, /connector check/);
+    assert.match(output.connector_probe_detail, /connector validate/);
   });
 
   it('AT-GD-009: text output prints connector-check handoff when readiness passes', () => {
@@ -280,6 +281,7 @@ describe('Governed Doctor E2E', () => {
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Next: run `agentxchain connector check`/);
+    assert.match(result.stdout, /connector validate/);
   });
 
   it('AT-GD-010: local-only runtimes do not recommend connector check', () => {

@@ -58,5 +58,9 @@ describe('connector check docs/content surface', () => {
     assert.match(VALIDATE_SPEC, /Connector Validate Command Spec/);
     assert.match(VALIDATE_SPEC, /AT-CCV-001/);
     assert.match(VALIDATE_SPEC, /AT-CCV-008/);
+    assert.match(GETTING_STARTED, /connector validate/,
+      'getting-started docs must mention connector validate');
+    assert.match(INIT_CMD, /connector validate/,
+      'init --governed next-step output must include connector validate for non-manual scaffolds');
   });
 });

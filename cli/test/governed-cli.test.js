@@ -250,6 +250,7 @@ describe('governed CLI support', () => {
       assert.match(result.stdout, /Dev runtime:\s+manual-dev \(manual\)/);
       assert.match(result.stdout, /Use agentxchain step for the first governed turn; run requires automatable runtimes\./);
       assert.doesNotMatch(result.stdout, /agentxchain connector check/);
+      assert.doesNotMatch(result.stdout, /agentxchain connector validate/);
 
       const doctor = runCli(join(dir, 'my-agentxchain-project'), ['doctor', '--json']);
       assert.equal(doctor.status, 0, doctor.stderr);
@@ -360,6 +361,7 @@ describe('governed CLI support', () => {
       assert.equal(config.runtimes['local-dev'].prompt_transport, 'dispatch_bundle_only');
       assert.match(result.stdout, /Dev runtime:\s+\.\/scripts\/dev-agent\.sh\s+\(dispatch_bundle_only\)/);
       assert.match(result.stdout, /agentxchain connector check/);
+      assert.match(result.stdout, /agentxchain connector validate local-dev/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

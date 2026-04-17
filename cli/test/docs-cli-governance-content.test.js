@@ -30,9 +30,21 @@ const governedStateSource = readFileSync(governedStatePath, 'utf8');
  * every `--<flag>` from `.option(` calls.
  */
 function extractBinFlags(commandName) {
-  // Find the .command('name') registration
-  const cmdPattern = new RegExp(`\\.command\\('${commandName}(?: [^']+)?'\\)`);
-  const cmdMatch = cmdPattern.exec(bin);
+  // Find the top-level program.command('name') registration.
+  // Use a global regex to skip subcommand registrations (e.g., connectorCmd.command('validate'))
+  // when a top-level program.command() exists for the same name.
+  const cmdPattern = new RegExp(`\\.command\\('${commandName}(?: [^']+)?'\\)`, 'g');
+  let cmdMatch = null;
+  let m;
+  while ((m = cmdPattern.exec(bin)) !== null) {
+    // Check if this is a top-level registration (preceded by 'program\n' within ~40 chars)
+    const preceding = bin.slice(Math.max(0, m.index - 40), m.index);
+    if (/program\s*$/.test(preceding)) {
+      cmdMatch = m;
+      break; // prefer top-level program.command() match
+    }
+    if (!cmdMatch) cmdMatch = m; // fallback to first match
+  }
   if (!cmdMatch) return null; // command not found
   const start = cmdMatch.index;
   // Find the next .action( after the command
@@ -41,10 +53,10 @@ function extractBinFlags(commandName) {
   const block = bin.slice(start, start + actionMatch.index);
   const flags = [];
   const optionRe = /\.(?:option|requiredOption)\(\s*'([^']+)'/g;
-  let m;
-  while ((m = optionRe.exec(block)) !== null) {
+  let m2;
+  while ((m2 = optionRe.exec(block)) !== null) {
     // Extract the long flag (e.g., from '-j, --json' get '--json')
-    const parts = m[1].split(',').map(s => s.trim());
+    const parts = m2[1].split(',').map(s => s.trim());
     const long = parts.find(p => p.startsWith('--'));
     if (long) {
       // Strip value placeholder: '--turn <id>' -> '--turn'
