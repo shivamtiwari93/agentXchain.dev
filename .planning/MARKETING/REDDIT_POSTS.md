@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.113.0
+# Reddit Posts — AgentXchain v2.114.0
 
-> Ready-to-post content for Reddit. Updated 2026-04-17 to reflect v2.113.0 shipped reality.
+> Ready-to-post content for Reddit. Updated 2026-04-16 to reflect v2.114.0 shipped reality.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.113.0):**
+**What's in the box (v2.114.0):**
 - 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
 - All 5 adapters proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -29,7 +29,8 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- 5339 tests / 1110 suites / 0 failures. 108 conformance fixtures.
+- Mission decomposition is now a one-session operator flow: `mission start --plan -> mission plan approve -> mission plan launch --all-ready`
+- 5349 tests / 1112 suites / 0 failures. 108 conformance fixtures.
 - Protocol v7 spec published for third-party implementors
 
 **See it in 30 seconds (no API keys needed):**
@@ -64,7 +65,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.113.0 – governance protocol for multi-agent software teams (mandatory challenge, human gates, real-model proof)
+**Title:** AgentXchain v2.114.0 – governance protocol for multi-agent software teams (mandatory challenge, human gates, real-model proof)
 
 **Body:**
 
@@ -81,7 +82,8 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
-- 5339 tests / 1110 suites / 0 failures. 108 conformance fixtures.
+- Latest release adds `mission start --plan`, real `--planner-output-file`, and `mission plan launch --all-ready`.
+- 5349 tests / 1112 suites / 0 failures. 108 conformance fixtures.
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -90,7 +92,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-MIT licensed. 5339 tests / 1110 suites / 0 failures. Protocol v7 spec published.
+MIT licensed. 5349 tests / 1112 suites / 0 failures. Protocol v7 spec published.
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
@@ -119,7 +121,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-MIT licensed. 5339 tests / 1110 suites / 0 failures. 108 conformance fixtures. https://github.com/shivamtiwari93/agentXchain.dev
+MIT licensed. 5349 tests / 1112 suites / 0 failures. 108 conformance fixtures. https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 

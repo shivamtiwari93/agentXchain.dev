@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.113.0
+# Show HN Draft — AgentXchain v2.114.0
 
-> Ready-to-post draft. Updated 2026-04-17 to current release truth.
+> Ready-to-post draft. Updated 2026-04-16 to current release truth.
 
 ---
 
@@ -46,7 +46,9 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-5339 tests / 1110 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
+Latest shipped operator slice: `mission start --plan`, real `--planner-output-file` support, and `mission plan launch --all-ready` for approved plans.
+
+5349 tests / 1112 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
 
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 npm: https://www.npmjs.com/package/agentxchain

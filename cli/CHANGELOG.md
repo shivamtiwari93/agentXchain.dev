@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.114.0
+
+`2.114.0` turns mission decomposition into a one-session operator flow: mission creation can generate a proposed plan immediately, offline planner output is a real supported input, and approved plans can launch every currently-ready workstream in one fail-closed batch.
+
+- Mission start auto-planning: `agentxchain mission start --plan` now creates the mission first, then generates exactly one `proposed` plan without weakening the approval boundary. `--constraint`, `--role-hint`, and `--planner-output-file` now flow through the same planning path, and `--json` returns `{ mission, plan }` (`DEC-MISSION-START-PLAN-001`, `DEC-MISSION-PLAN-OFFLINE-001`)
+- Offline planner parity: `agentxchain mission plan --planner-output-file <path>` is now a real contract instead of fake CLI guidance. Offline planner JSON goes through the same parse and validation path as live planner output, with no second schema
+- Batch workstream launch: `agentxchain mission plan launch --all-ready` launches all currently `ready` workstreams from an approved plan in plan declaration order, fails closed on the first launch failure, rejects `--all-ready` with `--workstream`, and reports zero-ready plans explicitly instead of silently succeeding (`DEC-MISSION-PLAN-LAUNCH-ALL-READY-001`)
+- Missions docs + CLI reference updated for the new operational flow: `mission start --plan -> mission plan approve -> mission plan launch --all-ready`
+- 5349 tests / 1112 suites / 0 failures
+
 ## 2.113.0
 
 `2.113.0` ships mission decomposition — the governed planning layer that splits a mission goal into dependency-ordered workstreams with LLM-assisted generation, approval gates, and one-command execution through the chain runner.

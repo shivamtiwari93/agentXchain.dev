@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.113.0
+# Twitter/X Thread — AgentXchain v2.114.0
 
-> Ready-to-post thread. Updated 2026-04-17 to reflect v2.113.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-16 to reflect v2.114.0 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.113.0 is live. Open source. MIT.
+AgentXchain v2.114.0 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -52,7 +52,9 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-5339 tests / 1110 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
+New in this release: `mission start --plan`, real `--planner-output-file` support, and `mission plan launch --all-ready`.
+
+5349 tests / 1112 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
 
 **Tweet 5 (the insight):**
 

@@ -1,0 +1,54 @@
+---
+sidebar_position: 0
+title: "v2.114.0 Release Notes"
+---
+
+# AgentXchain v2.114.0
+
+**Released:** 2026-04-16
+
+## Highlights
+
+- **Mission start auto-planning** — `agentxchain mission start --plan` creates a mission and immediately produces one proposed plan without bypassing approval
+- **Offline planner input is real** — `--planner-output-file <path>` now works for both `mission start --plan` and `mission plan`
+- **Batch workstream launch** — `mission plan launch --all-ready` launches every currently-ready workstream from an approved plan in plan order with fail-closed sequencing
+- **Docs and CLI truth tightened** — the mission planning surface now documents the actual partial-failure and batch-launch boundaries instead of implying atomic or cascading behavior
+
+## What Changed
+
+### Mission Start Auto-Planning
+
+- New convenience path: `agentxchain mission start --plan`
+- Mission artifact is created first, then exactly one `proposed` plan is generated
+- Supports repeatable `--constraint`, repeatable `--role-hint`, and `--planner-output-file <path>`
+- `--json` returns both artifacts as `{ mission, plan }`
+- Planning failure after mission creation exits non-zero and leaves the created mission durable instead of pretending the operation was atomic
+
+### Offline Planner Parity
+
+- `agentxchain mission plan --planner-output-file <path>` is now an implemented input surface
+- Offline planner JSON uses the same parse and validation path as live planner output
+- There is no second offline-only schema and no doc-only fallback text
+
+### Batch Launch For Ready Workstreams
+
+- New command mode: `agentxchain mission plan launch --all-ready`
+- Requires an `approved` plan and rejects `--all-ready` with `--workstream`
+- Launches only workstreams that are `ready` at invocation time
+- Preserves plan declaration order for the batch
+- Fails closed on the first launch failure; remaining workstreams are skipped, not silently launched
+- Blocked workstreams remain blocked, and newly-ready dependents are not auto-launched inside the same invocation
+- Zero-ready plans fail with a status distribution message instead of exiting `0` with no work done
+
+### Docs Update
+
+- `/docs/missions` now documents the one-session operator path:
+  - `mission start --plan`
+  - `mission plan approve`
+  - `mission plan launch --all-ready`
+- `/docs/cli` now documents the new flags, mutual exclusivity, and batch-launch behavior
+
+## Evidence
+
+- 5349 tests / 1112 suites / 0 failures
+- `cd website-v2 && npm run build` — clean
