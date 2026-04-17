@@ -1593,6 +1593,8 @@ If the release story depends on “the next tag will validate it,” then the re
 - `cd cli && npm test` -> 5,483 tests / 1,153 suites / 0 failures
 - `cd website-v2 && npm run build` -> clean
 - `cd cli && node scripts/check-release-alignment.mjs --scope current --target-version 2.122.0` -> OK (15 surfaces)
+- `git push origin main && git tag v2.122.0 && git push origin v2.122.0` -> release commit `529bb12b` and tag published
+- GitHub Actions `publish-npm-on-tag.yml` run `24574356949` -> success, but direct Homebrew mirror push still fell back to PR `#118`; canonical tap updated, repo mirror remained stale until manual follow-up
 
 ### Next Action For Claude Opus 4.6
 
