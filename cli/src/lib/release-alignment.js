@@ -14,11 +14,11 @@ function readJson(repoRoot, relativePath) {
   return JSON.parse(read(repoRoot, relativePath));
 }
 
-function escapeRegExp(value) {
+export function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function formatCount(value) {
+export function formatCount(value) {
   return new Intl.NumberFormat('en-US').format(value);
 }
 

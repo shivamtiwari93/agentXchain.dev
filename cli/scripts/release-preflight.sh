@@ -85,7 +85,7 @@ fi
 echo ""
 
 # 1. Clean working tree
-echo "[1/6] Git status"
+echo "[1/7] Git status"
 if git diff --quiet HEAD 2>/dev/null && [ -z "$(git ls-files --others --exclude-standard 2>/dev/null)" ]; then
   pass "Working tree is clean"
 else
@@ -97,7 +97,7 @@ else
 fi
 
 # 2. Dependencies
-echo "[2/6] Dependencies"
+echo "[2/7] Dependencies"
 if run_and_capture NPM_CI_OUTPUT npm ci --ignore-scripts; then
   pass "npm ci succeeded"
 else
@@ -107,7 +107,7 @@ fi
 
 # 3. Tests
 if [[ "$PUBLISH_GATE" -eq 1 ]]; then
-  echo "[3/6] Release-gate tests (targeted subset)"
+  echo "[3/7] Release-gate tests (targeted subset)"
   # In publish-gate mode, run only release-critical tests to avoid CI hangs.
   # The full test suite is a pre-tag responsibility, not a publish-time gate.
   GATE_TESTS=(
@@ -142,7 +142,7 @@ if [[ "$PUBLISH_GATE" -eq 1 ]]; then
     fi
   fi
 else
-  echo "[3/6] Test suite"
+  echo "[3/7] Test suite"
   # Install MCP example deps — tests start example servers as subprocesses
   for example_dir in "${CLI_DIR}/../examples/mcp-echo-agent" "${CLI_DIR}/../examples/mcp-http-echo-agent"; do
     if [[ -f "${example_dir}/package.json" && ! -d "${example_dir}/node_modules" ]]; then
@@ -189,7 +189,7 @@ else
 fi
 
 # 4. CHANGELOG has target version
-echo "[4/6] CHANGELOG"
+echo "[4/7] CHANGELOG"
 if grep -Fxq "## ${TARGET_VERSION}" CHANGELOG.md 2>/dev/null; then
   pass "CHANGELOG.md contains ${TARGET_VERSION} entry"
 else
@@ -197,7 +197,7 @@ else
 fi
 
 # 5. Package version
-echo "[5/6] Package version"
+echo "[5/7] Package version"
 PKG_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json','utf8')).version)")
 echo "  Current version: ${PKG_VERSION}"
 if [ "$PKG_VERSION" = "${TARGET_VERSION}" ]; then
@@ -210,8 +210,23 @@ else
   fi
 fi
 
-# 6. Pack dry-run
-echo "[6/6] npm pack --dry-run"
+# 6. Release-alignment surfaces (shared manifest)
+echo "[6/7] Release alignment (shared manifest)"
+ALIGNMENT_SCRIPT="${SCRIPT_DIR}/check-release-alignment.mjs"
+if [[ -f "$ALIGNMENT_SCRIPT" ]]; then
+  if run_and_capture ALIGNMENT_OUTPUT node "$ALIGNMENT_SCRIPT" --scope current --target-version "$TARGET_VERSION"; then
+    ALIGNED_COUNT="$(printf '%s\n' "$ALIGNMENT_OUTPUT" | awk -F'[,)]' '/surfaces/ { for (i=1;i<=NF;i++) if ($i ~ /[0-9]+ surfaces/) { gsub(/[^0-9]/,"",$i); print $i; exit } }')"
+    pass "Release alignment OK (${ALIGNED_COUNT:-all} surfaces)"
+  else
+    fail "Release alignment failed"
+    printf '%s\n' "$ALIGNMENT_OUTPUT" | head -20
+  fi
+else
+  warn "check-release-alignment.mjs not found — skipping manifest validation"
+fi
+
+# 7. Pack dry-run
+echo "[7/7] npm pack --dry-run"
 if run_and_capture PACK_OUTPUT npm pack --dry-run; then
   pass "npm pack --dry-run succeeded"
   PACK_SIZE_LINE="$(printf '%s\n' "$PACK_OUTPUT" | awk '/total files:/ { print; found=1 } END { if (!found) exit 1 }')"

@@ -151,7 +151,7 @@ describe('release-preflight.sh', () => {
       result.stdout,
       /WARN: package\.json is at 0\.9\.0, not yet bumped to 2\.0\.0/,
     );
-    assert.match(result.stdout, /Results: 4 passed, 0 failed, 2 warnings/);
+    assert.match(result.stdout, /Results: 4 passed, 0 failed, 3 warnings/);
   });
 
   it('elevates dirty tree and wrong version to failures in strict mode', () => {
@@ -165,7 +165,7 @@ describe('release-preflight.sh', () => {
     assert.match(result.stdout, /Mode: STRICT/);
     assert.match(result.stdout, /FAIL: Working tree is not clean/);
     assert.match(result.stdout, /FAIL: package\.json is at 0\.9\.0, expected 2\.0\.0/);
-    assert.match(result.stdout, /Results: 4 passed, 2 failed, 0 warnings/);
+    assert.match(result.stdout, /Results: 4 passed, 2 failed, 1 warnings/);
   });
 
   it('passes in strict mode after bump when the tree is clean', () => {
@@ -177,7 +177,7 @@ describe('release-preflight.sh', () => {
     assert.equal(result.status, 0);
     assert.match(result.stdout, /PASS: Working tree is clean/);
     assert.match(result.stdout, /PASS: package\.json is at 2\.0\.0/);
-    assert.match(result.stdout, /Results: 6 passed, 0 failed, 0 warnings/);
+    assert.match(result.stdout, /Results: 6 passed, 0 failed, 1 warnings/);
   });
 
   it('continues after npm test failure and still evaluates later checks', () => {
@@ -189,9 +189,9 @@ describe('release-preflight.sh', () => {
     });
 
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /\[4\/6\] CHANGELOG/);
-    assert.match(result.stdout, /\[5\/6\] Package version/);
-    assert.match(result.stdout, /\[6\/6\] npm pack --dry-run/);
+    assert.match(result.stdout, /\[4\/7\] CHANGELOG/);
+    assert.match(result.stdout, /\[5\/7\] Package version/);
+    assert.match(result.stdout, /\[7\/7\] npm pack --dry-run/);
     assert.match(result.stdout, /FAIL: npm test failed/);
   });
 
@@ -216,7 +216,7 @@ describe('release-preflight.sh', () => {
     );
     assert.match(result.stdout, /PASS: CHANGELOG\.md contains 1\.1\.0 entry/);
     assert.match(result.stdout, /PASS: package\.json is at 1\.1\.0/);
-    assert.match(result.stdout, /Results: 6 passed, 0 failed, 0 warnings/);
+    assert.match(result.stdout, /Results: 6 passed, 0 failed, 1 warnings/);
   });
 
   it('summarizes dual-runner npm test output without losing the pass count', () => {
@@ -232,7 +232,7 @@ describe('release-preflight.sh', () => {
 
     assert.equal(result.status, 0);
     assert.match(result.stdout, /PASS: 3132 tests passed, 0 failures/);
-    assert.match(result.stdout, /Results: 6 passed, 0 failed, 0 warnings/);
+    assert.match(result.stdout, /Results: 6 passed, 0 failed, 1 warnings/);
   });
 
   it('rejects invalid semver values for --target-version', () => {
@@ -291,6 +291,16 @@ describe('release-preflight.sh', () => {
     const script = readFileSync(SOURCE_SCRIPT, 'utf8');
     assert.match(script, /test\/release-docs-content\.test\.js/);
     assert.match(script, /test\/release-preflight\.test\.js/);
+  });
+
+  it('integrates shared release-alignment validator as a preflight step', () => {
+    const script = readFileSync(SOURCE_SCRIPT, 'utf8');
+    assert.match(script, /check-release-alignment\.mjs/,
+      'preflight must call the shared release-alignment validator');
+    assert.match(script, /--scope current/,
+      'preflight must use the current scope to validate post-bump surfaces');
+    assert.match(script, /Release alignment/,
+      'preflight must label the alignment step clearly');
   });
 
   it('--publish-gate implies strict mode', () => {

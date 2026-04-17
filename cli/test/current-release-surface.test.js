@@ -3,6 +3,11 @@ import { describe, it } from 'node:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  extractAggregateEvidenceLine as _extractAggregateEvidenceLine,
+  formatCount,
+  escapeRegExp,
+} from '../src/lib/release-alignment.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -37,30 +42,16 @@ const CURRENT_TARBALL_URL = `https://registry.npmjs.org/agentxchain/-/agentxchai
 const CURRENT_RELEASE_ROUTE = `/docs/${CURRENT_RELEASE_DOC_ID}`;
 
 function extractAggregateEvidenceLine(text, label) {
-  const matches = [...text.matchAll(/^-\s+.*\b(\d+)\s+tests\b.*\b0 failures\b.*$/gm)];
-  assert.ok(matches.length > 0, `${label} must include a concrete test-count evidence line with 0 failures`);
-  const aggregate = matches.reduce((best, match) => {
-    const count = Number(match[1]);
-    if (!best || count > best.count) {
-      return { count, line: match[0] };
-    }
-    return best;
-  }, null);
-  return aggregate.line
-    .replace(/\*\*/g, '')
-    .replace(/`/g, '')
-    .trim();
+  const line = _extractAggregateEvidenceLine(text);
+  assert.ok(line, `${label} must include a concrete test-count evidence line with 0 failures`);
+  return line;
 }
 
 function extractAggregateEvidenceCount(text, label) {
   const line = extractAggregateEvidenceLine(text, label);
-  const match = line.match(/\b(\d+)\s+tests\b/);
+  const match = line.match(/\b(\d[\d,]*)\s+tests\b/);
   assert.ok(match, `${label} must contain a concrete test count`);
-  return Number(match[1]);
-}
-
-function formatCount(value) {
-  return new Intl.NumberFormat('en-US').format(value);
+  return Number(match[1].replace(/,/g, ''));
 }
 
 function extractReleaseSummaryParagraph(text, version) {

@@ -3,6 +3,11 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
+import {
+  extractTopReleaseSection as _extractTopReleaseSection,
+  extractAggregateEvidenceLine,
+  escapeRegExp,
+} from '../src/lib/release-alignment.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -27,21 +32,16 @@ function countFixtures(dir) {
   return total;
 }
 
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function extractTopReleaseSection(changelog, version) {
-  const heading = `## ${version}`;
-  const start = changelog.indexOf(heading);
-  assert.notEqual(start, -1, `CHANGELOG must contain heading ${heading}`);
-  const afterStart = changelog.slice(start + heading.length);
-  const nextHeadingOffset = afterStart.search(/\n##\s+\d+\.\d+\.\d+/);
-  return nextHeadingOffset === -1 ? afterStart : afterStart.slice(0, nextHeadingOffset);
+  const section = _extractTopReleaseSection(changelog, version);
+  assert.ok(section != null, `CHANGELOG must contain heading ## ${version}`);
+  return section;
 }
 
 function extractEvidenceLine(section, version) {
-  const match = section.match(/(\d+ tests \/ \d+ suites \/ 0 failures)/);
+  const line = extractAggregateEvidenceLine(section);
+  assert.ok(line, `top changelog section for ${version} must contain an aggregate evidence line`);
+  const match = line.match(/(\d[\d,]* tests \/ \d[\d,]* suites \/ 0 failures)/);
   assert.ok(match, `top changelog section for ${version} must contain an aggregate evidence line`);
   return match[1];
 }
