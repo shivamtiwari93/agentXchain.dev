@@ -82,6 +82,10 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `chain latest` | Observability | Show the most recent chain report from auto-chained governed runs |
 | `chain list` | Observability | List all chain reports with summary metadata |
 | `chain show` | Observability | Show a specific chain report by chain ID |
+| `mission start` | Observability | Create a single-repo mission artifact above chained runs |
+| `mission list` | Observability | List mission artifacts with aggregate run, turn, and repo-decision counts |
+| `mission show` | Observability | Show the latest mission or one mission by ID, including attached chain summaries |
+| `mission attach-chain` | Observability | Bind a chain report to a mission so long-horizon work has a durable grouping layer |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
@@ -144,6 +148,33 @@ agentxchain verify diff \
 ```
 
 If you later run `verify diff` on coordinator exports outside the benchmark flow, keep the same truth boundary explicit: `summary.repo_run_statuses` remains raw coordinator snapshot metadata, while coordinator repo-status changes and regressions come from authority-first child repo status when nested child exports are readable.
+
+### `mission`
+
+```bash
+agentxchain mission start --title <text> --goal <text> [--id <mission_id>] [--json] [--dir <path>]
+agentxchain mission list [--limit <n>] [--json] [--dir <path>]
+agentxchain mission show [mission_id] [--json] [--dir <path>]
+agentxchain mission attach-chain [chain_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
+```
+
+`mission` is the single-repo hierarchy layer above chained runs. It exists because AgentXchain already uses **initiative** for multi-repo coordination. Reusing `initiative` inside one repo would create split-brain operator language, so the single-repo noun is **mission**.
+
+Use it when one repo needs a durable long-horizon grouping across multiple chain sessions:
+
+```bash
+agentxchain mission start \
+  --title "Release hardening" \
+  --goal "Eliminate version-surface drift across release tooling"
+
+agentxchain run --chain --max-chains 2
+agentxchain mission attach-chain latest
+agentxchain mission show
+```
+
+Mission summaries derive aggregate chain count, total runs, total turns, latest chain terminal reason, and active repo-decision count. That last field matters: repo decisions already carry across chained runs, and the mission surface keeps that continuity visible instead of pretending each chain starts from zero.
+
+`mission attach-chain` defaults to attaching the latest chain report to the latest mission. Use `--mission <mission_id>` when you need to bind a chain to an older or non-latest mission explicitly.
 
 ### `init`
 

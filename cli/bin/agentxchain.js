@@ -122,6 +122,7 @@ import { eventsCommand } from '../src/commands/events.js';
 import { connectorCheckCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
+import { missionAttachChainCommand, missionListCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -418,6 +419,43 @@ chainCmd
   .option('-j, --json', 'Output as JSON')
   .option('-d, --dir <path>', 'Project directory')
   .action(chainShowCommand);
+
+const missionCmd = program
+  .command('mission')
+  .description('Group chained runs under a single-repo long-horizon mission');
+
+missionCmd
+  .command('start')
+  .description('Create a durable mission artifact for a single repo')
+  .requiredOption('--title <text>', 'Mission title')
+  .requiredOption('--goal <text>', 'Mission goal')
+  .option('--id <mission_id>', 'Override the derived mission ID')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionStartCommand);
+
+missionCmd
+  .command('list')
+  .description('List mission artifacts newest first')
+  .option('-l, --limit <n>', 'Max missions to show (default: 20)')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionListCommand);
+
+missionCmd
+  .command('show [mission_id]')
+  .description('Show one mission, or the latest mission when no ID is provided')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionShowCommand);
+
+missionCmd
+  .command('attach-chain [chain_id]')
+  .description('Attach a chain report to a mission (default: latest chain on latest mission)')
+  .option('-m, --mission <mission_id>', 'Explicit mission ID (defaults to latest mission)')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionAttachChainCommand);
 
 program
   .command('validate')

@@ -89,6 +89,7 @@ describe('CLI command map docs contract', () => {
     ['diff', ['diff']],
     ['events', ['events']],
     ['chain', ['chain latest', 'chain list', 'chain show']],
+    ['mission', ['mission start', 'mission list', 'mission show', 'mission attach-chain']],
     ['doctor', ['doctor']],
     ['connector', ['connector check']],
   ]);
@@ -113,6 +114,7 @@ describe('CLI command map docs contract', () => {
       'diff',
       'events',
       'chain',
+      'mission',
       'validate',
       'verify',
       'replay',
