@@ -20,7 +20,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 
@@ -47,25 +47,33 @@ function startMockAnthropicServer() {
       req.on('end', () => {
         try {
           const parsed = JSON.parse(body);
-          requestLog.push({
-            headers: { ...req.headers },
-            body: parsed,
-            timestamp: new Date().toISOString(),
-          });
-
-          // Extract run_id and turn_id from the prompt text
-          // The dispatch bundle embeds ASSIGNMENT.json content in the prompt
           const userMsg = parsed.messages?.find(m => m.role === 'user');
           const promptText = userMsg?.content || '';
-          const runIdMatch = promptText.match(/"run_id"\s*:\s*"([^"]+)"/);
-          const turnIdMatch = promptText.match(/"turn_id"\s*:\s*"([^"]+)"/);
-          const runtimeIdMatch = promptText.match(/"runtime_id"\s*:\s*"([^"]+)"/);
-          const roleMatch = promptText.match(/"assigned_role"\s*:\s*"([^"]+)"/);
+          const runIdMatch = promptText.match(/\*\*Run:\*\*\s+(run_[a-f0-9]+)/);
+          const turnIdMatch = promptText.match(/\*\*Turn:\*\*\s+(turn_[a-f0-9]+)/);
+          const runtimeIdMatch = promptText.match(/\*\*Runtime:\*\*\s+(\S+)/);
+          const roleMatch = promptText.match(/# Turn Assignment:.*?\((\w+)\)/);
+          const phaseMatch = promptText.match(/\*\*Phase:\*\*\s+(\w+)/);
 
           const runId = runIdMatch?.[1] || 'run_mock';
           const turnId = turnIdMatch?.[1] || 'turn_mock';
           const runtimeId = runtimeIdMatch?.[1] || 'api-qa';
           const roleId = roleMatch?.[1] || 'qa';
+          const phase = phaseMatch?.[1] || 'qa';
+
+          requestLog.push({
+            headers: { ...req.headers },
+            body: parsed,
+            timestamp: new Date().toISOString(),
+            extracted: {
+              runId,
+              turnId,
+              runtimeId,
+              roleId,
+              phase,
+              promptText,
+            },
+          });
 
           // Build a governed turn result that requests run completion
           const turnResult = {
@@ -301,6 +309,20 @@ describe('agentxchain run — review_only api_proxy integration', () => {
     // Anthropic version header
     assert.ok(firstReq.headers['anthropic-version'],
       'API proxy should send anthropic-version header');
+    assert.match(firstReq.extracted.runId, /^run_[a-f0-9]+$/,
+      'Mock server should extract the real run id from markdown prompt content');
+    assert.match(firstReq.extracted.turnId, /^turn_[a-f0-9]+$/,
+      'Mock server should extract the real turn id from markdown prompt content');
+    assert.equal(firstReq.extracted.runtimeId, 'api-qa',
+      'Mock server should extract the runtime id from markdown prompt content');
+    assert.equal(firstReq.extracted.roleId, 'qa',
+      'Mock server should extract the assigned role from markdown prompt content');
+    assert.equal(firstReq.extracted.phase, 'qa',
+      'QA dispatch should preserve phase context in the markdown prompt');
+    assert.ok(firstReq.extracted.promptText.includes('**Run:**'),
+      'Prompt should include markdown Run metadata');
+    assert.ok(firstReq.extracted.promptText.includes('# Turn Assignment:'),
+      'Prompt should include markdown role assignment');
 
     // State file should reflect completion
     const statePath = join(root, '.agentxchain', 'state.json');
@@ -334,14 +356,27 @@ describe('agentxchain run — review_only api_proxy integration', () => {
     const result = await runCliAsync(root, ['run', '--auto-approve', '--max-turns', '3']);
 
     // Should have received an API request
-    if (mock.requestLog.length > 0) {
-      const req = mock.requestLog[0];
-      assert.ok(req.body.model, 'Request should include model');
-      assert.equal(req.body.model, 'claude-sonnet-4-6');
-      assert.ok(Array.isArray(req.body.messages), 'Request should have messages array');
-      assert.ok(req.body.max_tokens > 0, 'Request should have max_tokens');
-      assert.ok(req.body.messages.some(m => m.role === 'user'), 'Should have user message');
-    }
+    assert.ok(mock.requestLog.length > 0, 'Expected api_proxy dispatch to reach the mock server');
+    const req = mock.requestLog[0];
+    assert.ok(req.body.model, 'Request should include model');
+    assert.equal(req.body.model, 'claude-sonnet-4-6');
+    assert.ok(Array.isArray(req.body.messages), 'Request should have messages array');
+    assert.ok(req.body.max_tokens > 0, 'Request should have max_tokens');
+    assert.ok(req.body.messages.some(m => m.role === 'user'), 'Should have user message');
+    assert.equal(req.extracted.runId, state.run_id,
+      'Mock server should extract the same run id the runner dispatched');
+    assert.match(req.extracted.turnId, /^turn_[a-f0-9]+$/,
+      'Mock server should extract the real turn id from markdown prompt content');
+    assert.equal(req.extracted.runtimeId, 'api-qa',
+      'Mock server should extract the runtime id from markdown prompt content');
+    assert.equal(req.extracted.roleId, 'qa',
+      'Mock server should extract the assigned role from markdown prompt content');
+    assert.equal(req.extracted.phase, 'qa',
+      'Mock server should extract the phase from markdown prompt content');
+    assert.ok(req.extracted.promptText.includes('**Run:**'),
+      'Prompt should carry markdown run metadata');
+    assert.ok(req.extracted.promptText.includes('# Turn Assignment:'),
+      'Prompt should carry markdown role metadata');
 
     assert.ok(result.status !== null, 'Process should exit cleanly');
   });
