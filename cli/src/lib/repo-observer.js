@@ -45,6 +45,9 @@ const ORCHESTRATOR_STATE_FILES = [
   '.agentxchain/notification-audit.jsonl',
   '.agentxchain/schedule-state.json',
   '.agentxchain/schedule-daemon.json',
+  '.agentxchain/continuous-session.json',
+  '.agentxchain/human-escalations.jsonl',
+  '.agentxchain/sla-reminders.json',
   'TALK.md',
 ];
 

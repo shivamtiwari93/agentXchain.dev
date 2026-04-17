@@ -568,6 +568,9 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('.agentxchain/history.jsonl'), true);
     assert.equal(isOperationalPath('.agentxchain/decision-ledger.jsonl'), true);
     assert.equal(isOperationalPath('.agentxchain/lock.json'), true);
+    assert.equal(isOperationalPath('.agentxchain/continuous-session.json'), true);
+    assert.equal(isOperationalPath('.agentxchain/human-escalations.jsonl'), true);
+    assert.equal(isOperationalPath('.agentxchain/sla-reminders.json'), true);
   });
 
   it('identifies TALK.md as operational (orchestrator-owned collaboration log)', () => {
