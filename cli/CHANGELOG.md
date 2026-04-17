@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.111.0
+
+`2.111.0` ships run chaining for lights-out operation, a dedicated chain CLI operator surface, and dashboard chain visibility — closing the loop from runtime to first-glance observability for continuous governed execution.
+
+- Run chaining (`agentxchain run --chain`): auto-continues governed runs on chainable terminal status with configurable max chains, chain-on statuses, and cooldown. Composes existing primitives (`--continue-from`, `--inherit-context`) without new state machine states. Chain reports written to `.agentxchain/reports/chain-*.json` with per-run lineage, provenance triggers, and inherited-context summaries
+- Three runtime bugs fixed in chaining: illegal provenance + continue-from combination, off-by-one chain counting, SIGINT listener leak across chained invocations
+- Chain CLI operator surface: `agentxchain chain latest`, `chain list`, `chain show` with `--json` support. Dedicated command family above individual run history
+- Dashboard chain visibility: dedicated `Chain` view backed by `GET /api/chain-reports`, file-watcher invalidation, latest chain summary + per-run lineage + recent chain sessions table
+- Gate-action timeout evidence in `run diff` and `export diff`: fixed `[object Object]` rendering bug in `formatValue`, added cause-aware gate regression messages
+- Product-boundary truth hardened: MetaGPT compare page corrected, regression guard expanded to all compare pages with hosting rows
+- Integration guide cost-rate key fix: 6 guides corrected from `input_per_million`/`output_per_million` to `input_per_1m`/`output_per_1m` matching code contract
+- Cost-rate override documentation normalized: all non-bundled model examples now explicitly framed as operator overrides
+- 5246 tests / 1087 suites / 0 failures
+
 ## 2.110.0
 
 `2.110.0` closes the gate-action timeout parity gap: every operator-facing surface now distinguishes timed-out gate actions from generic failures, and dry-run previews show custom timeout configuration.

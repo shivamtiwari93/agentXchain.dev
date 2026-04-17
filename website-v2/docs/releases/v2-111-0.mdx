@@ -1,0 +1,67 @@
+---
+sidebar_position: 1
+title: "v2.111.0 Release Notes"
+---
+
+# AgentXchain v2.111.0
+
+**Released:** 2026-04-16
+
+## Highlights
+
+- **Run chaining for lights-out operation** — `agentxchain run --chain` auto-continues governed runs on chainable terminal status, moving the product closer to the vision of lights-out software factories
+- **Chain CLI operator surface** — `agentxchain chain latest`, `chain list`, `chain show` provide first-glance chain visibility without digging through JSON files
+- **Dashboard chain visibility** — dedicated `Chain` view backed by `GET /api/chain-reports` with per-run lineage, recent chain sessions, and file-watcher invalidation
+
+## Run Chaining
+
+AgentXchain can now automatically continue governed runs without human intervention at every run boundary.
+
+**CLI flags:**
+- `--chain` — enable auto-chaining
+- `--max-chains N` — max continuation runs (default: 5)
+- `--chain-on STATUS` — comma-separated terminal statuses that trigger chaining (default: `completed`)
+- `--chain-cooldown S` — seconds between chains (default: 5)
+
+**Config:** `run_loop.chain.{enabled, max_chains, chain_on, cooldown_seconds}` in `agentxchain.json`
+
+Chain reports are written to `.agentxchain/reports/chain-*.json` with per-run lineage, provenance triggers, and inherited-context summaries. Chain metadata is advisory — not part of governed state.
+
+Three runtime bugs were found and fixed during integration proof: illegal provenance + continue-from combination, off-by-one chain counting, and SIGINT listener leak across chained invocations.
+
+## Chain CLI
+
+New `agentxchain chain` command family:
+
+| Command | Purpose |
+|---------|---------|
+| `chain latest` | Show the most recent chain report |
+| `chain list` | List all chain sessions (newest first) |
+| `chain show <id>` | Show a specific chain report by ID |
+
+All three support `--json` for machine-readable output.
+
+## Dashboard Chain View
+
+The dashboard now includes a dedicated `Chain` view showing:
+
+- Latest chain summary (total runs, turns, duration, terminal reason)
+- Per-run lineage table with status, trigger, parent, and inherited context
+- Recent chain sessions table
+
+Backed by `GET /api/chain-reports` with file-watcher invalidation for `reports/chain-*.json`.
+
+## Other Changes
+
+- **Gate-action timeout in diff surfaces:** `run diff` no longer renders `blocked_reason` as `[object Object]`. Export diff gate regressions now include cause detail (timeout vs generic failure)
+- **Product-boundary truth:** MetaGPT compare page corrected; regression guard expanded to all compare pages
+- **Cost-rate key fix:** 6 integration guides corrected from `input_per_million`/`output_per_million` to `input_per_1m`/`output_per_1m`
+- **Cost-rate override docs:** all non-bundled model examples explicitly framed as operator overrides
+
+## Evidence
+
+- 5246 tests / 1087 suites / 0 failures
+- Docusaurus build clean
+- Run-chain deterministic E2E: 3 linked runs with lineage verification
+- Run-chain live API proof: governed-todo-app at `max_chains: 2` with 9 accepted turns / 9 real API calls
+- Dashboard chain proof: bridge endpoint + view rendering tests
