@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.115.0
+# Launch Evidence Report — AgentXchain v2.116.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.115.0 release: plan auto-completion, workstream retry, mission-show plan health, cascade rejection. 5359 tests / 1114 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.116.0 release: mission plan autopilot for unattended wave execution, continue-on-failure with plan_incomplete terminal state, hardened autopilot E2E proof. 5370 tests / 1116 suites / 0 failures.
 
 ---
 

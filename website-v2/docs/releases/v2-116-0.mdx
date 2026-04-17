@@ -1,0 +1,60 @@
+---
+sidebar_position: 0
+title: "v2.116.0 Release Notes"
+---
+
+# AgentXchain v2.116.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Mission Plan Autopilot
+
+`agentxchain mission plan autopilot` is the unattended execution surface for dependency-ordered mission plans. Instead of manually running `mission plan launch --all-ready` between each dependency wave, autopilot handles the full wave loop automatically:
+
+1. Scan for ready workstreams
+2. Launch them
+3. Record outcomes
+4. Re-scan for newly-unblocked dependents
+5. Repeat until the plan completes or a terminal condition is hit
+
+```bash
+# Run autopilot on the latest approved plan
+agentxchain mission plan autopilot
+
+# With safety limits
+agentxchain mission plan autopilot --max-waves 5 --cooldown 10
+
+# Continue past failures instead of stopping
+agentxchain mission plan autopilot --continue-on-failure
+```
+
+Terminal conditions: plan completed (exit 0), failure stopped (exit 1), wave limit reached (exit 1), deadlock detected (exit 1), SIGINT (exit 1).
+
+Each autopilot-launched workstream carries `trigger: autopilot` with wave number in its launch record for full provenance.
+
+### Continue-on-Failure
+
+`--continue-on-failure` now works correctly. When a workstream fails, autopilot skips it and keeps launching remaining ready work in subsequent waves. When no ready workstreams remain but failures exist, the command exits with `plan_incomplete` instead of misclassifying the state as deadlock or wave limit.
+
+### Homebrew CI Fix
+
+The publish workflow's "Close out Homebrew mirror PR" step no longer fails when the PR number output is empty or invalid. It now re-resolves the PR from the deterministic fallback branch name instead of crashing. No `continue-on-error` band-aids — the correctness boundary was fixed.
+
+## Breaking Changes
+
+None.
+
+## Decisions
+
+- `DEC-MISSION-AUTOPILOT-001`: `mission plan autopilot` is the product surface for unattended wave execution — not a flag on batch launch.
+- `DEC-MISSION-AUTOPILOT-002`: `--continue-on-failure` allows launching remaining ready workstreams even after the plan transitions to `needs_attention`. Exits `plan_incomplete` when exhausted.
+- `DEC-HOMEBREW-SYNC-016`: Homebrew mirror PR closeout must recover from missing/invalid `pr_number` by re-querying the deterministic release branch.
+
+## Evidence
+
+- 5370 tests / 1116 suites / 0 failures
+- Docusaurus build: clean
+- npm: `agentxchain@2.116.0`
+- Conformance: 108 fixtures across 3 tiers

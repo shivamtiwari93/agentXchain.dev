@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.116.0
+
+`2.116.0` ships mission plan autopilot — unattended lights-out execution of dependency-ordered mission plans with wave-by-wave progression, failure policies, and safety limits.
+
+- Mission plan autopilot: `agentxchain mission plan autopilot [plan_id]` executes approved mission plans unattended. Scans for ready workstreams, launches them, records outcomes, re-scans for newly-unblocked dependents, and repeats until the plan completes or a terminal condition is hit (`DEC-MISSION-AUTOPILOT-001`)
+- Wave execution model: autopilot processes dependency waves sequentially. Each wave launches all currently-ready workstreams, waits for outcomes, then re-evaluates. Reloads plan from disk between waves to pick up dependency-unblocked workstreams
+- Failure policies: default fail-stop halts on first workstream failure. `--continue-on-failure` skips failed workstreams and keeps launching remaining ready work. When no ready workstreams remain but failures exist, exits `plan_incomplete` instead of misclassifying as deadlock (`DEC-MISSION-AUTOPILOT-002`)
+- Safety limits: `--max-waves <n>` caps wave count (default: 10). `--cooldown <seconds>` between waves (default: 5). Deadlock detection when no workstreams are ready and none completed in the current wave
+- Provenance: each autopilot-launched workstream carries `trigger: autopilot` with wave number in its launch record
+- JSON output: `--json` returns full wave structure with per-wave workstream details and terminal reason
+- Hardened Homebrew mirror PR closeout: re-resolves PR number from deterministic fallback branch instead of masking with `continue-on-error` (`DEC-HOMEBREW-SYNC-016`)
+- 5370 tests / 1116 suites / 0 failures
+
 ## 2.115.0
 
 `2.115.0` completes the mission plan lifecycle with auto-completion, workstream retry, and single-command mission health visibility — closing the loop from plan creation through governed recovery.
