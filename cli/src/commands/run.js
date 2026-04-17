@@ -56,7 +56,9 @@ export async function runCommand(opts) {
   const chainOpts = resolveChainOptions(opts, context.config);
   if (chainOpts.enabled) {
     console.log(chalk.cyan.bold('agentxchain run --chain'));
-    console.log(chalk.dim(`  Chain mode: enabled (max ${chainOpts.maxChains} continuations, on: ${chainOpts.chainOn.join(',')}, cooldown: ${chainOpts.cooldownSeconds}s)`));
+    const chainParts = [`max ${chainOpts.maxChains} continuations`, `on: ${chainOpts.chainOn.join(',')}`, `cooldown: ${chainOpts.cooldownSeconds}s`];
+    if (chainOpts.mission) chainParts.push(`mission: ${chainOpts.mission}`);
+    console.log(chalk.dim(`  Chain mode: enabled (${chainParts.join(', ')})`));
     const { exitCode } = await executeChainedRun(context, opts, chainOpts, executeGovernedRun);
     process.exit(exitCode);
   }

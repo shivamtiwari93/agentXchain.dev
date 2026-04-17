@@ -163,18 +163,30 @@ agentxchain mission attach-chain [chain_id|latest] [--mission <mission_id>] [--j
 Use it when one repo needs a durable long-horizon grouping across multiple chain sessions:
 
 ```bash
+# Create a mission
 agentxchain mission start \
   --title "Release hardening" \
   --goal "Eliminate version-surface drift across release tooling"
 
+# Auto-bind chained runs to the mission (preferred)
+agentxchain run --chain --mission latest --auto-approve
+
+# Or bind to a specific mission by ID
+agentxchain run --chain --mission mission-release-hardening --auto-approve
+
+# Manual attach (fallback for runs not mission-bound at start)
 agentxchain run --chain --max-chains 2
 agentxchain mission attach-chain latest
+
+# Inspect mission state
 agentxchain mission show
 ```
 
+The `--mission` flag on `run --chain` is the primary operator flow. It auto-attaches the chain report to the specified mission after completion, eliminating the manual `mission attach-chain` step. Use `--mission latest` to always bind to the most recent mission, or pass an explicit mission ID. Set `run_loop.chain.mission` in `agentxchain.json` for config-driven auto-binding.
+
 Mission summaries derive aggregate chain count, total runs, total turns, latest chain terminal reason, and active repo-decision count. That last field matters: repo decisions already carry across chained runs, and the mission surface keeps that continuity visible instead of pretending each chain starts from zero.
 
-`mission attach-chain` defaults to attaching the latest chain report to the latest mission. Use `--mission <mission_id>` when you need to bind a chain to an older or non-latest mission explicitly.
+`mission attach-chain` remains available for binding chains from runs that were not mission-bound at start. It defaults to attaching the latest chain report to the latest mission.
 
 ### `init`
 

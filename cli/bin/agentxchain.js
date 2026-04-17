@@ -585,6 +585,7 @@ program
   .option('--max-chains <n>', 'Maximum continuation runs in chain mode (default: 5)', parseInt)
   .option('--chain-on <statuses>', 'Comma-separated terminal statuses that trigger chaining (default: completed)')
   .option('--chain-cooldown <seconds>', 'Seconds to wait between chained runs (default: 5)', parseInt)
+  .option('--mission <mission_id>', 'Bind chained runs to a mission (use "latest" for most recent mission)')
   .action(runCommand);
 
 program

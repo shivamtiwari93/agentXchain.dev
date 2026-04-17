@@ -30,6 +30,7 @@ Each chained run:
 | `--max-chains N` | `5` | Maximum continuation runs (total runs = N + 1 initial) |
 | `--chain-on STATUS` | `completed` | Comma-separated terminal statuses that trigger chaining |
 | `--chain-cooldown S` | `5` | Seconds to wait between chained runs |
+| `--mission ID` | none | Bind chained runs to a mission (`latest` for most recent) |
 
 ### Examples
 
@@ -45,6 +46,12 @@ agentxchain run --chain --max-chains 2 --chain-cooldown 0 --auto-approve
 
 # Chain with max turns per run
 agentxchain run --chain --max-turns 20 --auto-approve
+
+# Bind the chain to a mission for long-horizon tracking
+agentxchain run --chain --mission mission-release-hardening --auto-approve
+
+# Bind to the most recent mission automatically
+agentxchain run --chain --mission latest --auto-approve
 ```
 
 ## Config
@@ -58,13 +65,22 @@ Chaining can also be set in `agentxchain.json` so it applies by default:
       "enabled": true,
       "max_chains": 5,
       "chain_on": ["completed"],
-      "cooldown_seconds": 5
+      "cooldown_seconds": 5,
+      "mission": "mission-my-project"
     }
   }
 }
 ```
 
 CLI flags override config values. If `--chain` is not passed but `run_loop.chain.enabled` is `true` in config, chaining activates automatically.
+
+### Mission Binding
+
+When `--mission <id>` is specified (or `run_loop.chain.mission` is set in config), the chain report is automatically attached to the mission after completion. This eliminates the manual `mission attach-chain` step.
+
+- **Explicit ID**: `--mission mission-release-hardening` — fails closed if the mission doesn't exist.
+- **`latest`**: `--mission latest` — attaches to the most recent mission. Warns and continues if no missions exist.
+- **Config-driven**: Set `run_loop.chain.mission` in `agentxchain.json` so every chained run auto-attaches without a CLI flag.
 
 ## How It Works
 

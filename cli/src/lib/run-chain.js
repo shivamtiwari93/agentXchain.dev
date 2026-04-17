@@ -13,6 +13,7 @@ import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { recordRunHistory, validateParentRun } from './run-history.js';
+import { loadMissionArtifact, loadLatestMissionArtifact, attachChainToMission } from './missions.js';
 
 const DEFAULT_MAX_CHAINS = 5;
 const DEFAULT_CHAIN_ON = ['completed'];
@@ -23,7 +24,7 @@ const DEFAULT_COOLDOWN_SECONDS = 5;
  *
  * @param {object} opts - CLI options
  * @param {object} config - agentxchain.json config
- * @returns {{ enabled: boolean, maxChains: number, chainOn: string[], cooldownSeconds: number }}
+ * @returns {{ enabled: boolean, maxChains: number, chainOn: string[], cooldownSeconds: number, mission: string|null }}
  */
 export function resolveChainOptions(opts, config) {
   const configChain = config?.run_loop?.chain || {};
@@ -43,7 +44,9 @@ export function resolveChainOptions(opts, config) {
     chainOn = DEFAULT_CHAIN_ON;
   }
 
-  return { enabled, maxChains, chainOn, cooldownSeconds };
+  const mission = opts.mission ?? configChain.mission ?? null;
+
+  return { enabled, maxChains, chainOn, cooldownSeconds, mission };
 }
 
 /**
@@ -61,6 +64,27 @@ export async function executeChainedRun(context, opts, chainOpts, executeGoverne
   const chainOnSet = new Set(chainOpts.chainOn);
   const maxRuns = chainOpts.maxChains + 1; // initial + continuations
   const startedAt = new Date().toISOString();
+
+  // ── Mission binding validation ─────────────────────────────────────────
+  let missionTarget = null;
+  if (chainOpts.mission) {
+    const missionId = chainOpts.mission;
+    if (missionId === 'latest') {
+      missionTarget = loadLatestMissionArtifact(context.root);
+      if (!missionTarget) {
+        log(`  ⚠ --mission latest: no missions found. Chain will not be attached.`);
+      }
+    } else {
+      missionTarget = loadMissionArtifact(context.root, missionId);
+      if (!missionTarget) {
+        log(`  Mission not found: ${missionId}. Aborting chain.`);
+        return { exitCode: 1, chainReport: null };
+      }
+    }
+    if (missionTarget) {
+      log(`  Mission: ${missionTarget.mission_id} — "${missionTarget.title}"`);
+    }
+  }
 
   const chainReport = {
     chain_id: chainId,
@@ -172,6 +196,16 @@ export async function executeChainedRun(context, opts, chainOpts, executeGoverne
 
   // Write chain report
   writeChainReport(context.root, chainReport);
+
+  // Auto-attach to mission if binding is active
+  if (missionTarget) {
+    const attachResult = attachChainToMission(context.root, missionTarget.mission_id, chainReport.chain_id);
+    if (attachResult.ok) {
+      log(`  Chain attached to mission: ${missionTarget.mission_id}`);
+    } else {
+      log(`  ⚠ Mission attachment failed: ${attachResult.error}`);
+    }
+  }
 
   // Print chain summary
   printChainSummary(chainReport, log);
