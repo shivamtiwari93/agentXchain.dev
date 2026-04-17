@@ -70,6 +70,7 @@ const sidebars: SidebarsConfig = {
         'continuous-delivery-intake',
         'lights-out-scheduling',
         'run-chaining',
+        'missions',
         'parallel-turns',
         'delegation-chains',
         'multi-repo',

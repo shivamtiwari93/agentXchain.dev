@@ -1,0 +1,192 @@
+---
+title: Missions
+description: "Single-repo mission hierarchy above chained runs — durable grouping for long-horizon repo-local delivery."
+---
+
+# Missions
+
+`mission` is the single-repo hierarchy layer above chained runs.
+
+That distinction matters because AgentXchain already uses **initiative** for multi-repo coordination. These nouns are not interchangeable:
+
+- **Mission**: repo-local long-horizon grouping inside one repository
+- **Initiative**: multi-repo coordinator grouping across repositories
+
+If the product blurs those terms, the operator loses the hierarchy boundary. This page keeps the repo-local mission model explicit.
+
+## Why Missions Exist
+
+One governed run is often too small for the actual delivery goal. Chained runs solve the execution problem by continuing work with inherited context, but they still need a durable grouping layer so the repo can answer a basic operator question:
+
+> What long-horizon goal are these chains advancing?
+
+Mission artifacts provide that grouping layer. They let one repository track:
+
+- the mission identity and goal
+- attached chain lineage
+- aggregate run and turn counts across those chains
+- active repo-decision carryover
+- derived mission status without opening raw chain reports one by one
+
+## Artifact And API Surfaces
+
+Mission data is repo-local and file-backed:
+
+| Surface | Purpose |
+|---|---|
+| `.agentxchain/missions/<mission_id>.json` | Durable mission artifact with title, goal, timestamps, and attached `chain_ids` |
+| `.agentxchain/reports/chain-<id>.json` | Chain report referenced by a mission |
+| `GET /api/missions` | Dashboard/API surface returning newest-first mission snapshots plus the latest mission summary |
+
+The dashboard `Mission` view reads `GET /api/missions`. It is intentionally separate from the coordinator `Initiative` view.
+
+## Primary Operator Flow
+
+This is the preferred mission workflow. Do not default to manual chain attachment if the chain can be mission-bound at run start.
+
+### 1. Start a mission
+
+```bash
+agentxchain mission start \
+  --title "Release hardening" \
+  --goal "Eliminate version-surface drift across release tooling"
+```
+
+This creates a durable mission artifact under `.agentxchain/missions/`.
+
+### 2. Run chained work bound to the mission
+
+```bash
+# Bind to the most recent mission
+agentxchain run --chain --mission latest --auto-approve
+
+# Or bind to an explicit mission ID
+agentxchain run --chain --mission mission-release-hardening --auto-approve
+```
+
+This is the main operator path. When mission binding is active, AgentXchain auto-attaches the emitted chain report after completion. The operator does not need to remember a separate `mission attach-chain` step.
+
+### 3. Inspect mission state
+
+```bash
+agentxchain mission show
+agentxchain dashboard
+```
+
+Use `mission show` for terminal inspection and the dashboard `Mission` view for a repo-local overview of the latest mission, attached-chain lineage, and recent missions.
+
+## CLI Commands
+
+```bash
+agentxchain mission start --title <text> --goal <text> [--id <mission_id>] [--json] [--dir <path>]
+agentxchain mission list [--limit <n>] [--json] [--dir <path>]
+agentxchain mission show [mission_id] [--json] [--dir <path>]
+agentxchain mission attach-chain [chain_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
+```
+
+### `mission start`
+
+Creates a single-repo mission artifact. Mission IDs are slugged and normalized to the `mission-...` form unless you override them with `--id`.
+
+### `mission list`
+
+Lists mission artifacts newest-first by `updated_at`.
+
+### `mission show`
+
+Shows one mission by ID or the latest mission when no ID is provided. The summary includes attached chain counts, aggregate run and turn totals, latest terminal reason, and active repo-decision count.
+
+### `mission attach-chain`
+
+Manual fallback for chains that were not mission-bound when `run --chain` started.
+
+```bash
+# Fallback path only
+agentxchain run --chain --max-chains 2
+agentxchain mission attach-chain latest
+```
+
+If no explicit `--mission` is passed here, the command defaults to attaching the latest chain report to the latest mission.
+
+## Run Chaining Integration
+
+Mission binding is part of the chained-run surface, not an afterthought:
+
+```bash
+agentxchain run --chain --mission <mission_id|latest>
+```
+
+You can also set the binding in config:
+
+```json title="agentxchain.json"
+{
+  "run_loop": {
+    "chain": {
+      "enabled": true,
+      "mission": "latest"
+    }
+  }
+}
+```
+
+CLI flags override config values.
+
+### Binding Failure Behavior
+
+These cases are intentionally asymmetric:
+
+- **Explicit mission ID**: `--mission mission-release-hardening` fails closed if the mission does not exist. That is a configuration error, so the chain aborts.
+- **`latest` binding**: `--mission latest` warns and continues if no missions exist. That is a bootstrapping condition, not a reason to discard the chain work.
+
+If you want the repo-local hierarchy from the beginning, create the mission first. If you forget, use `mission attach-chain` afterward as a repair path.
+
+## Derived Mission Status
+
+Mission status is evidence-backed. The current shipped surface derives status from attached chain reports rather than inventing a separate hidden lifecycle:
+
+| Status | Meaning |
+|---|---|
+| `planned` | Mission exists but has no attached chain reports yet |
+| `progressing` | Attached chains exist and none show attention or degradation signals |
+| `needs_attention` | At least one attached chain reports `operator_abort`, `parent_validation_failed`, or contains a run with `blocked` or `failed` status |
+| `degraded` | The mission references one or more missing chain reports |
+
+The dashboard and `mission show` surfaces summarize these derived states so operators can see the mission condition without opening every chain report manually.
+
+## Dashboard Mission View
+
+The dashboard `Mission` view is the browser surface for repo-local mission inspection. It shows:
+
+- latest mission identity and goal
+- derived mission status
+- aggregate chain, run, and turn counts
+- latest chain ID and latest terminal reason
+- active repo-decision count
+- attached-chain lineage summaries
+- newest-first recent missions
+
+This is not the coordinator `Initiative` view with a renamed label. `Mission` is repo-local. `Initiative` remains the multi-repo coordinator surface.
+
+## Error Cases And Recovery
+
+### No missions exist yet
+
+`agentxchain run --chain --mission latest` warns and continues. The chain still runs, but there is no mission grouping until you create one.
+
+### Explicit mission ID does not exist
+
+The chained run fails closed before execution. Fix the mission ID or create the mission first.
+
+### Chain report missing from a mission
+
+The mission snapshot degrades instead of crashing. The `Mission` dashboard/API surface reports the missing chain IDs so operators can see the drift.
+
+### Malformed mission artifact
+
+Malformed mission JSON is skipped rather than blanking the whole mission surface.
+
+## See Also
+
+- [Run Chaining](/docs/run-chaining)
+- [CLI Reference](/docs/cli)
+- [Multi-Repo Orchestration](/docs/multi-repo)
