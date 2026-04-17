@@ -71,12 +71,34 @@ This slice introduces the operator floor for roadmap item 3:
 - Escalation id does not match the current blocked state: `unblock` exits non-zero and shows the current blocker id
 - Existing `HUMAN_TASKS.md` without managed markers: AgentXchain appends managed sections instead of overwriting the file
 
+### Events & Notifications (added Turn 71)
+
+- `ensureHumanEscalation()` emits `human_escalation_raised` to `.agentxchain/events.jsonl` with full escalation metadata (escalation_id, type, service, action, resolution_command, detail).
+- `resolveHumanEscalation()` emits `human_escalation_resolved` to `.agentxchain/events.jsonl` with escalation_id, type, service, resolved_via.
+- Webhook notification events `human_escalation_raised` and `human_escalation_resolved` are valid subscription targets in `agentxchain.json` notifications config.
+- `emitBlockedNotification()` in `governed-state.js` emits `human_escalation_raised` to webhooks when a new escalation is created (alongside the existing `run_blocked` notification).
+- `reactivateGovernedRun()` emits `human_escalation_resolved` to webhooks when escalations are resolved.
+
+### Local Notifier Floor (added Turn 71)
+
+- `emitLocalEscalationNotice()` prints a structured stderr notice for every human escalation raise and resolve event. No config required — always fires.
+- On macOS, when `AGENTXCHAIN_LOCAL_NOTIFY=1` is set, an AppleScript `display notification` is also emitted.
+- `notifications.local` is a valid config key in `agentxchain.json` (reserved for future local notifier configuration).
+
+### Events Command Display (added Turn 71)
+
+- `agentxchain events` renders `human_escalation_raised` in red bold and `human_escalation_resolved` in green.
+- `human_escalation_raised` text entries show escalation ID, type, and service inline.
+- `human_escalation_resolved` text entries show escalation ID and resolved_via inline.
+
 ## Acceptance Tests
 
 - `AT-HESC-001`: blocked human-owned runs create one structured escalation record and a managed `HUMAN_TASKS.md` projection
 - `AT-HESC-002`: `agentxchain unblock <id>` resolves the open escalation and resumes governed execution
+- `AT-HESC-003`: `ensureHumanEscalation` emits `human_escalation_raised` to `events.jsonl` with full metadata
+- `AT-HESC-004`: `agentxchain unblock` emits `human_escalation_resolved` to `events.jsonl`
+- `AT-HESC-005`: local stderr notifier fires on escalation raise with type, action, and unblock command
 
 ## Open Questions
 
-- The JSONL + markdown surface exists now, but event-log promotion into `.agentxchain/events.jsonl` and notifier fan-out beyond enriched `run_blocked` payloads remains a follow-on slice.
 - Continuous auto-resume from the scheduler/daemon after `unblock` is still a separate contract from this operator-facing unblock surface.

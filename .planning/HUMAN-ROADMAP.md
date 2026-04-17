@@ -9,9 +9,122 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: pricing-model surface correction and product-boundary clarity
+Current focus: full-auto vision-driven operation with human priority injection and blocker escalation
 
 ## Priority Queue
+
+- [ ] **Full-auto vision-driven operation across all agents (VISION.md as sole input)** — AgentXchain must be able to run in a mode where the only human-supplied input is `.planning/VISION.md`, and the full agent fleet (PM, Dev, QA, Eng Director, and any additional dev runtimes like `dev_gpt`) continues driving work forward toward that vision indefinitely without per-turn human intervention.
+  - **Do not reinvent the wheel.** The scaffolding already exists — use it. The relevant surfaces:
+    - `agentxchain run` (the governed run loop) already handles turn dispatch, phase gates, validation, acceptance, recovery.
+    - `agentxchain intake record/triage/approve/plan/start/resolve` already turns signals into governed work.
+    - `agentxchain schedule daemon` already provides lights-out scheduling for repo-local operation.
+    - `agentxchain chain` (v2.111.0) and `agentxchain mission` (v2.112.0–v2.115.0) already handle multi-run orchestration, dependency-aware workstream launch, auto-planning, and auto-completion.
+    - `.agentxchain/state.json`, `history.jsonl`, `decision-ledger.jsonl`, `repo-decisions.jsonl` already persist durable state and cross-run decisions.
+  - **What's missing** (for agents to debate and decide):
+    1. A vision-reader that parses `.planning/VISION.md` and seeds initial intake signals when the queue is empty (e.g., auto-generates a backlog of candidate work from vision sections that don't yet have matching shipped artifacts).
+    2. An idle-detection loop in the scheduler/daemon that, when no governed run is active and no intake queue has ready work, consults vision + existing artifacts to propose the next mission or intent automatically.
+    3. A "continuous mode" flag (e.g., `agentxchain run --continuous --vision .planning/VISION.md`) that chains runs together: on `run_completion`, automatically pick the next approved intent or propose a new one, then start a fresh run.
+  - **Acceptance criteria:**
+    - Launch via a single command (e.g., `agentxchain run --continuous --vision .planning/VISION.md --max-runs 100`) and observe at least 3 back-to-back governed runs complete without human input on turn dispatch, intake triage, or phase handoff.
+    - Every run's provenance traces back to a vision section or a derived intent.
+    - Human can stop the loop cleanly at any time (Ctrl+C or `agentxchain stop`).
+    - `agentxchain status` shows the continuous session and the current vision-derived objective.
+  - **Constraints:**
+    - VISION.md stays human-owned — agents never modify it.
+    - Human approval gates (`planning_signoff`, `qa_ship_verdict`) are respected if `requires_human_approval: true` — the continuous mode may pause and escalate at those gates (see item 3 below).
+    - Agents debate the triage-without-human approach in AGENT-TALK.md before implementing. Default triage approval policy (auto vs. human) should be configurable.
+
+- [ ] **Human can inject tasks/priorities into the roadmap/queue at any time based on judgment** — Even in full-auto mode, the human operator must be able to interrupt the agent fleet with a new priority that the agents pick up on their next turn without restarting the run.
+  - **Do not reinvent the wheel.** The scaffolding already exists:
+    - `agentxchain intake record --source manual --signal '...' --evidence '...'` already accepts ad-hoc signals from the operator.
+    - `agentxchain intake triage --priority p0 ...` already supports priority assignment (p0–p3).
+    - `.planning/HUMAN-ROADMAP.md` itself is the current markdown-based injection channel — agents read it at the start of every turn.
+    - The mission/plan surface (v2.112.0+) supports dependency-aware reordering, so an injected `p0` can preempt lower-priority workstreams.
+  - **What's missing** (for agents to debate and decide):
+    1. A standard CLI wrapper that combines `intake record` + `triage --priority p0` + `approve --approver human` into one command (e.g., `agentxchain inject "Fix the sidebar ordering"` or `agentxchain priority add --p0 "..."`) so operator ergonomics match the use case.
+    2. A preemption contract: when a `p0` intent is injected mid-run, the current turn completes, then the run loop consults the intake queue before selecting the next turn. The protocol already has `next_recommended_role` — extend with `next_recommended_intent` or similar.
+    3. Visible operator feedback: `agentxchain status` must surface pending injected intents and their effect on the queue (e.g., "p0 injection will preempt current workstream after this turn completes").
+    4. Intent-to-mission promotion: if the injected work is large enough, auto-propose it as a new mission (reusing v2.112.0 mission decomposition) rather than a flat intent.
+  - **Acceptance criteria:**
+    - While a continuous run is executing, run `agentxchain inject "..." --priority p0` in a separate terminal.
+    - Within one turn, agents acknowledge the injection in AGENT-TALK.md and shift work toward the injected priority.
+    - `agentxchain status` shows the injected item in the queue with clear preemption semantics.
+    - If rejected by the triage layer (e.g., out of scope per VISION.md), the rejection is recorded as a decision with rationale.
+
+- [ ] **Last-resort human-required tasks must be communicated back to the human via an escalation mechanism** — When agents genuinely cannot proceed (API key missing, OAuth login required, CLI auth expired, payment/legal action needed, physical device test, etc.), AgentXchain must surface a clear, actionable pending-task signal to the human without relying on the human watching logs.
+  - Delivery split:
+    - [x] **Foundation surface shipped (2026-04-17)** — structured `.agentxchain/human-escalations.jsonl`, managed `HUMAN_TASKS.md`, blocker taxonomy (`needs_credential`, `needs_oauth`, `needs_payment`, `needs_legal`, `needs_physical_access`, `needs_decision`), `status` linkage, enriched `run_blocked` notifications, and `agentxchain unblock <id>` now exist. Proof: `cli/test/human-escalation.test.js`, `cli/test/notifications-lifecycle.test.js`, docs tests, and `cd website-v2 && npm run build`.
+    - [x] **Promote escalation records into `events.jsonl` and notifier fan-out** — completed 2026-04-17: added `human_escalation_raised` and `human_escalation_resolved` event types to `events.jsonl` (emitted from `ensureHumanEscalation()` and `resolveHumanEscalation()`), added same types to webhook notification events, added non-webhook local notifier floor (always-on stderr notice with escalation ID/type/action/unblock command, optional macOS AppleScript notification via `AGENTXCHAIN_LOCAL_NOTIFY=1`), added `notifications.local` config key, updated `agentxchain events` display with color and detail rendering, updated docs (notifications.mdx, recovery.mdx, cli.mdx). 5 tests / 0 failures in `human-escalation.test.js`, 4 tests / 0 failures in `notifications-lifecycle.test.js`, 38 tests / 0 failures in docs content tests. Website build clean.
+    - [ ] **Daemon/continuous-mode auto-resume on unblock** — after `agentxchain unblock <id>`, the continuous scheduler/run loop must continue within one polling interval without requiring a separate operator command.
+  - **Do not reinvent the wheel.** The scaffolding already exists:
+    - The protocol already has `status: "needs_human"` and `needs_human_reason` in turn results.
+    - `.agentxchain/state.json` already has `blocked_on` and `blocked_reason` fields.
+    - `HUMAN_TASKS.md` is the current human-readable blocker surface (the li-browser LinkedIn re-auth task is a live example).
+    - `agentxchain notifications` runs plugin-based notifiers (plugin-slack-notify, plugin-github-issues, plugin-json-report are already shipping built-in plugins).
+    - The governed run loop already halts and surfaces blockers via `deriveRecoveryDescriptor()` in `cli/src/lib/blocked-state.js`.
+  - **What's missing** (for agents to debate and decide):
+    1. A unified human-blocker type taxonomy: `needs_credential`, `needs_oauth`, `needs_payment`, `needs_legal`, `needs_physical_access`, `needs_decision`, etc. Each type carries structured metadata (service name, doc URL, exact command to run if known, eta guidance).
+    2. Automatic promotion from `status: "needs_human"` to a first-class escalation record: when a turn surfaces a blocker, the run loop:
+       - Appends a structured entry to `HUMAN_TASKS.md` (not just free-form markdown — use a parseable format or JSONL beside it)
+       - Records a `human_escalation` event in `events.jsonl`
+       - Fires a notification through the configured notifier plugins (Slack, email, GitHub issue, JSON webhook, macOS notification, etc.)
+       - Updates `agentxchain status` to show the blocker prominently
+    3. A resolution contract: the human marks the blocker resolved via a single command (e.g., `agentxchain unblock <id>` or `agentxchain intake resolve <id> --unblock`), and the run loop automatically retries the blocked turn or reroutes.
+    4. Optional macOS-native notification via the existing `agentxchain-autonudge.applescript` surface so the human gets a desktop ping, not just a log entry.
+  - **Acceptance criteria:**
+    - Simulate a blocked turn (e.g., Dev role requires `ANTHROPIC_API_KEY` that isn't set) and observe:
+      - `HUMAN_TASKS.md` gets a structured entry with type, service, action, and command.
+      - A notification fires through at least one configured channel (stdout notifier minimally, plugin-slack-notify or AppleScript if configured).
+      - `agentxchain status` shows the blocker at the top with a clear resolution command.
+      - After the human resolves (sets the key + runs `agentxchain unblock <id>`), the run loop resumes the blocked turn automatically within one polling interval.
+    - The continuous full-auto mode (item 1) integrates cleanly: when blocked, the loop pauses, escalates, and resumes on unblock without losing continuity state.
+
+---
+
+**Implementation debate prompt for agents:**
+
+These three items are interdependent. Item 1 (full-auto) requires items 2 (injection) and 3 (escalation) to work safely. Debate in AGENT-TALK.md:
+- Which item to tackle first (my lean: item 3 escalation → item 2 injection → item 1 continuous, because escalation is the safety floor for the other two).
+- Whether any of the three should be split into smaller roadmap items.
+- What existing modules must be extended vs. what genuinely new surfaces are needed.
+- Whether this should be one mission (using v2.112.0 mission hierarchy) or three separate missions.
+
+Reminder: use the existing agentxchain scaffolding wherever possible. Every piece of infrastructure listed under "Do not reinvent the wheel" is already shipping in production — extend, don't rebuild.
+
+---
+
+**CRITICAL — VISION.md scope clarification (do not confuse these two contexts):**
+
+When implementing item 1 (full-auto vision-driven operation), the agents MUST treat VISION.md as a **project-relative artifact**, not a hard-coded path to `.planning/VISION.md` inside the agentxchain.dev repo.
+
+There are two distinct VISION.md contexts, and the implementation must separate them cleanly:
+
+1. **This repo's VISION.md** (`/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/.planning/VISION.md`)
+   - Human-owned vision for **agentXchain itself** (the product you are building)
+   - Used by the self-hosted governed run of agentXchain.dev only
+   - Agents working on agentXchain.dev read this as their north star
+   - This file is NOT a template, reference, or default for any other project
+
+2. **Downstream project VISION.md** (any future project that adopts agentxchain for governed delivery)
+   - Lives in that project's own `.planning/VISION.md` (or whatever path the project configures)
+   - Describes THAT project's product vision — totally unrelated to agentxchain's vision
+   - Agents working on that project must read THAT project's VISION.md, never this repo's VISION.md
+   - The agentxchain CLI must resolve VISION.md relative to the governed project's root, not its own installation path
+
+**Implementation implications:**
+- The `--vision` flag (or config key) must accept an absolute or project-relative path, resolved against the governed project's root (same as how `agentxchain.json` is resolved today)
+- The vision-reader module must operate on the provided path, never reach back to the agentxchain.dev repo
+- The `init --governed` scaffold should optionally create a `.planning/VISION.md` template for new projects with placeholder sections — this template is the starting point a downstream human fills in, NOT a copy of agentxchain.dev's VISION.md
+- Tests for the vision-reader must use fixture VISION.md files in temp dirs, never the live `.planning/VISION.md` from this repo
+- Documentation must explicitly state: "Each governed project has its own VISION.md. The agentxchain.dev repo's VISION.md is the vision for agentxchain the product, not a template for your project."
+
+**Acceptance criteria addition for item 1:**
+- Add a test that runs `agentxchain run --continuous --vision <temp-project>/.planning/VISION.md` from a different repo and verifies the agents reference only the temp project's vision, never agentxchain.dev's vision.
+- Add a test that verifies if VISION.md is missing in the governed project, the command exits with a clear error pointing the user to create one (rather than defaulting to any bundled fallback).
+
+This separation is the difference between a useful product and a confused one. Do not merge these contexts.
+
+---
 
 - [x] Fix Release Notes sidebar ordering: must be reverse-chronological (newest first) — completed 2026-04-15: assigned unique `sidebar_position` values to all 91 release note `.mdx` files (v2-92-0 = 1, v2-91-0 = 2, ..., v2-11-0 = 91) so Docusaurus autogenerated sidebar renders newest-first. Previously many files shared `sidebar_position: 1`, causing broken mixed ordering. All tests pass (0 failures), Docusaurus build clean, deployed via GCS workflow, verified live at `https://agentxchain.dev/docs/releases/v2-92-0/` — sidebar shows v2.92.0 at top through v2.11.0 at bottom in correct reverse-chronological order.
   - **Currently broken on live site:** The "Release Notes" collapsible sidebar menu lists versions in a broken order — v2.83.0 is at the top, then v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.90.0, v2.91.0, then jumps back to v2.82.0, v2.84.0, v2.85.0, v2.81.0, v2.80.0, etc.

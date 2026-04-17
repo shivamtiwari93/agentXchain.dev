@@ -57,12 +57,27 @@ The shipped event set is intentionally small and code-backed:
 - `run_blocked`
 - `operator_escalation_raised`
 - `escalation_resolved`
+- `human_escalation_raised` — emitted when a human-owned blocker is promoted to a first-class escalation record
+- `human_escalation_resolved` — emitted when a human escalation is resolved via `agentxchain unblock`
 - `phase_transition_pending`
 - `run_completion_pending`
 - `run_completed`
 - `approval_sla_reminder`
 
 `run_failed` is **not** documented here because the current governed runner does not expose a first-class persistent run-failed operator surface yet. Do not build consumers against undocumented event names.
+
+## Local Notifier Floor
+
+Human escalation events always emit a structured stderr notice regardless of webhook configuration. This ensures operators see escalation signals even with zero webhooks configured:
+
+```
+[agentxchain] ⚠ HUMAN ESCALATION RAISED: hesc_abc12345
+  Type:    needs_oauth
+  Action:  Reconnect Linear OAuth and verify the session.
+  Unblock: agentxchain unblock hesc_abc12345
+```
+
+On macOS, set `AGENTXCHAIN_LOCAL_NOTIFY=1` to also receive native desktop notifications via AppleScript when escalations are raised or resolved.
 
 ## Approval SLA Reminders
 

@@ -26,6 +26,8 @@ export const VALID_RUN_EVENTS = [
   'gate_approved',
   'gate_failed',
   'budget_exceeded_warn',
+  'human_escalation_raised',
+  'human_escalation_resolved',
 ];
 
 /**

@@ -1,6 +1,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { randomBytes } from 'crypto';
 import { dirname, join } from 'path';
+import { emitRunEvent } from './run-events.js';
 
 export const HUMAN_ESCALATIONS_PATH = '.agentxchain/human-escalations.jsonl';
 export const HUMAN_TASKS_PATH = 'HUMAN_TASKS.md';
@@ -115,6 +117,54 @@ export function classifyHumanEscalation({ blockedOn, typedReason, detail, catego
   }
 
   return { type: 'needs_decision', service };
+}
+
+/**
+ * Emit a local (non-webhook) escalation notice to stderr.
+ * Always fires — no config required. This is the notifier floor:
+ * operators see escalation signals even with zero webhook configuration.
+ *
+ * On macOS, optionally emits an AppleScript notification if
+ * AGENTXCHAIN_LOCAL_NOTIFY=1 is set.
+ */
+function emitLocalEscalationNotice(kind, record) {
+  try {
+    if (kind === 'raised') {
+      const svc = record.service ? ` (${record.service})` : '';
+      process.stderr.write(
+        `\n[agentxchain] ⚠ HUMAN ESCALATION RAISED: ${record.escalation_id}${svc}\n` +
+        `  Type:    ${record.type}\n` +
+        `  Action:  ${record.action}\n` +
+        `  Unblock: ${record.resolution_command}\n\n`
+      );
+    } else if (kind === 'resolved') {
+      process.stderr.write(
+        `\n[agentxchain] ✓ HUMAN ESCALATION RESOLVED: ${record.escalation_id}\n` +
+        `  Resolved via: ${record.resolved_via || 'unknown'}\n\n`
+      );
+    }
+
+    if (process.env.AGENTXCHAIN_LOCAL_NOTIFY === '1' && process.platform === 'darwin') {
+      emitAppleScriptNotification(kind, record);
+    }
+  } catch {
+    // Best-effort — never interrupt governed operations for local notices.
+  }
+}
+
+function emitAppleScriptNotification(kind, record) {
+  try {
+    const title = kind === 'raised'
+      ? `AgentXchain: Escalation ${record.escalation_id}`
+      : `AgentXchain: Resolved ${record.escalation_id}`;
+    const body = kind === 'raised'
+      ? `${record.type}${record.service ? ` — ${record.service}` : ''}: ${record.action}`
+      : `Resolved via ${record.resolved_via || 'unknown'}`;
+    const script = `display notification "${body.replace(/"/g, '\\"')}" with title "${title.replace(/"/g, '\\"')}"`;
+    spawnSync('osascript', ['-e', script], { timeout: 3000, stdio: 'ignore' });
+  } catch {
+    // Best-effort.
+  }
 }
 
 function summarizeAction(type, service) {
@@ -324,6 +374,24 @@ export function ensureHumanEscalation(root, state, turn = null) {
 
   appendJsonl(root, HUMAN_ESCALATIONS_PATH, record);
   rewriteHumanTasks(root, summarize(root));
+
+  emitRunEvent(root, 'human_escalation_raised', {
+    run_id: state.run_id || null,
+    phase: state.phase || null,
+    status: state.status || null,
+    payload: {
+      escalation_id: escalationId,
+      type: classification.type,
+      service: classification.service,
+      action: record.action,
+      blocked_on: state.blocked_on || null,
+      resolution_command: record.resolution_command,
+      detail: record.detail,
+    },
+  });
+
+  emitLocalEscalationNotice('raised', record);
+
   return { record, created: true };
 }
 
@@ -333,15 +401,32 @@ export function resolveHumanEscalation(root, escalationId, resolution = {}) {
     return { ok: false, error: `No open human escalation found for ${escalationId}` };
   }
 
+  const resolvedAt = resolution.resolved_at || new Date().toISOString();
+  const resolvedVia = resolution.resolved_via || 'unknown';
   appendJsonl(root, HUMAN_ESCALATIONS_PATH, {
     kind: 'resolved',
     escalation_id: escalationId,
-    resolved_at: resolution.resolved_at || new Date().toISOString(),
-    resolved_via: resolution.resolved_via || 'unknown',
+    resolved_at: resolvedAt,
+    resolved_via: resolvedVia,
     resolution_notes: trimToNull(resolution.resolution_notes),
   });
   const summary = summarize(root);
   rewriteHumanTasks(root, summary);
+
+  emitRunEvent(root, 'human_escalation_resolved', {
+    run_id: current.run_id || null,
+    phase: current.phase || null,
+    status: 'active',
+    payload: {
+      escalation_id: escalationId,
+      type: current.type,
+      service: current.service,
+      resolved_via: resolvedVia,
+    },
+  });
+
+  emitLocalEscalationNotice('resolved', { ...current, resolved_via: resolvedVia });
+
   return {
     ok: true,
     record: summary.byId.get(escalationId) || null,

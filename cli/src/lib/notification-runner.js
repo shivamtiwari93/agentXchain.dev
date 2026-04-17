@@ -10,6 +10,8 @@ export const VALID_NOTIFICATION_EVENTS = [
   'run_blocked',
   'operator_escalation_raised',
   'escalation_resolved',
+  'human_escalation_raised',
+  'human_escalation_resolved',
   'phase_transition_pending',
   'run_completion_pending',
   'run_completed',
@@ -170,7 +172,7 @@ export function validateNotificationsConfig(notifications) {
     return { ok: false, errors, warnings: [] };
   }
 
-  const allowedKeys = new Set(['webhooks', 'approval_sla']);
+  const allowedKeys = new Set(['webhooks', 'approval_sla', 'local']);
   for (const key of Object.keys(notifications)) {
     if (!allowedKeys.has(key)) {
       errors.push(`notifications contains unknown field "${key}"`);

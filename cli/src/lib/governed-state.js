@@ -173,6 +173,14 @@ function emitBlockedNotification(root, config, state, details = {}, turn = null)
     return;
   }
 
+  const escalationPayload = humanEscalation?.record ? {
+    escalation_id: humanEscalation.record.escalation_id,
+    type: humanEscalation.record.type,
+    service: humanEscalation.record.service,
+    action: humanEscalation.record.action,
+    resolution_command: humanEscalation.record.resolution_command,
+  } : null;
+
   emitNotifications(root, config, state, 'run_blocked', {
     category: state?.blocked_reason?.category || details.category || 'unknown_block',
     blocked_on: state?.blocked_on || details.blockedOn || null,
@@ -180,14 +188,12 @@ function emitBlockedNotification(root, config, state, details = {}, turn = null)
     owner: recovery?.owner || null,
     recovery_action: recovery?.recovery_action || null,
     detail: recovery?.detail || null,
-    human_escalation: humanEscalation?.record ? {
-      escalation_id: humanEscalation.record.escalation_id,
-      type: humanEscalation.record.type,
-      service: humanEscalation.record.service,
-      action: humanEscalation.record.action,
-      resolution_command: humanEscalation.record.resolution_command,
-    } : null,
+    human_escalation: escalationPayload,
   }, turn);
+
+  if (humanEscalation?.created && escalationPayload) {
+    emitNotifications(root, config, state, 'human_escalation_raised', escalationPayload, turn);
+  }
 }
 
 function emitPendingLifecycleNotification(root, config, state, eventType, payload, turn = null) {
@@ -1941,6 +1947,13 @@ export function reactivateGovernedRun(root, state, details = {}) {
       resolved_via: details.via || 'unknown',
       resolution_notes: details.note || null,
     });
+
+    emitPendingLifecycleNotification(details.root || root, details.notificationConfig, nextState, 'human_escalation_resolved', {
+      escalation_id: humanEscalation.escalation_id,
+      type: humanEscalation.type,
+      service: humanEscalation.service,
+      resolved_via: details.via || 'unknown',
+    }, getActiveTurn(state));
   }
 
   if (wasEscalation) {

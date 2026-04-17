@@ -73,7 +73,12 @@ function printEvent(evt) {
   const gateFailedDetail = evt.event_type === 'gate_failed' && evt.payload?.from_phase
     ? ` ${evt.payload.from_phase} → ${evt.payload.to_phase || '?'}${evt.payload.reasons?.length ? ` — ${evt.payload.reasons[0]}` : ''}${evt.payload.gate_id ? ` (${evt.payload.gate_id})` : ''}`
     : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${conflictDetail}${rejectionDetail}${phaseTransitionDetail}${gateFailedDetail}`);
+  const humanEscalationDetail = evt.event_type === 'human_escalation_raised' && evt.payload?.escalation_id
+    ? ` ${evt.payload.escalation_id} [${evt.payload.type || '?'}]${evt.payload.service ? ` (${evt.payload.service})` : ''}`
+    : evt.event_type === 'human_escalation_resolved' && evt.payload?.escalation_id
+      ? ` ${evt.payload.escalation_id} via ${evt.payload.resolved_via || '?'}`
+      : '';
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${conflictDetail}${rejectionDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}`);
 }
 
 function formatConflictDetail(evt) {
@@ -115,6 +120,8 @@ function colorEventType(type) {
     phase_entered: chalk.magenta,
     escalation_raised: chalk.red.bold,
     escalation_resolved: chalk.green,
+    human_escalation_raised: chalk.red.bold,
+    human_escalation_resolved: chalk.green,
     gate_pending: chalk.yellow,
     gate_approved: chalk.green,
     gate_failed: chalk.red,

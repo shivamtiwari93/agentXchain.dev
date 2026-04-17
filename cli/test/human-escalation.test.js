@@ -18,6 +18,7 @@ import {
   HUMAN_TASKS_PATH,
   readHumanEscalations,
 } from '../src/lib/human-escalations.js';
+import { readRunEvents, RUN_EVENTS_PATH } from '../src/lib/run-events.js';
 import { getTurnStagingResultPath } from '../src/lib/turn-paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -201,5 +202,58 @@ describe('human escalation surface', () => {
 
     const rawAudit = readFileSync(join(dir, HUMAN_ESCALATIONS_PATH), 'utf8').trim().split('\n');
     assert.equal(rawAudit.length, 2, 'expected raised + resolved JSONL entries');
+  });
+
+  it('AT-HESC-003: ensureHumanEscalation emits human_escalation_raised to events.jsonl', () => {
+    const { dir } = blockRunForHumanOauth();
+
+    const events = readRunEvents(dir, { type: 'human_escalation_raised' });
+    assert.equal(events.length, 1, 'expected exactly one human_escalation_raised event');
+    assert.equal(events[0].event_type, 'human_escalation_raised');
+    assert.ok(events[0].payload.escalation_id, 'payload must include escalation_id');
+    assert.equal(events[0].payload.type, 'needs_oauth');
+    assert.equal(events[0].payload.service, 'Linear');
+    assert.match(events[0].payload.resolution_command, /^agentxchain unblock hesc_/);
+    assert.ok(events[0].run_id, 'event must carry run_id');
+  });
+
+  it('AT-HESC-004: unblock emits human_escalation_resolved to events.jsonl', () => {
+    const { dir } = blockRunForHumanOauth();
+    const [record] = readHumanEscalations(dir);
+
+    const result = runCli(dir, ['unblock', record.escalation_id]);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+
+    const events = readRunEvents(dir, { type: 'human_escalation_resolved' });
+    assert.equal(events.length, 1, 'expected exactly one human_escalation_resolved event');
+    assert.equal(events[0].event_type, 'human_escalation_resolved');
+    assert.equal(events[0].payload.escalation_id, record.escalation_id);
+    assert.equal(events[0].payload.type, 'needs_oauth');
+    assert.equal(events[0].payload.service, 'Linear');
+    assert.equal(events[0].payload.resolved_via, 'operator_unblock');
+  });
+
+  it('AT-HESC-005: local stderr notifier fires on escalation raise', () => {
+    const { dir, config } = createProject();
+    const initialized = initializeGovernedRun(dir, config);
+    assert.equal(initialized.ok, true, initialized.error);
+    const assigned = assignGovernedTurn(dir, config, 'dev');
+    assert.equal(assigned.ok, true, assigned.error);
+    const state = JSON.parse(readFileSync(join(dir, STATE_PATH), 'utf8'));
+    const turn = getActiveTurn(state);
+    writeJson(
+      join(dir, getTurnStagingResultPath(turn.turn_id)),
+      makeTurnResult(state, turn, {
+        status: 'needs_human',
+        needs_human_reason: 'GitHub OAuth session expired for push access.',
+      }),
+    );
+
+    // Capture stderr from the accept call by running via CLI
+    const result = runCli(dir, ['accept-turn', '--turn', turn.turn_id]);
+    // The CLI should emit a stderr notice about the escalation
+    assert.match(result.stderr, /HUMAN ESCALATION RAISED/, 'stderr must contain local escalation notice');
+    assert.match(result.stderr, /needs_oauth/, 'stderr must show escalation type');
+    assert.match(result.stderr, /agentxchain unblock/, 'stderr must show unblock command');
   });
 });

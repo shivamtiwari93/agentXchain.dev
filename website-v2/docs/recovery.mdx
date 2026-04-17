@@ -66,6 +66,16 @@ Operator escalations record `decision = "operator_escalated"` in the decision le
 
 The normal `needs_human` path accepts the turn that raised the issue and clears it, so recovery assigns the next turn after `unblock` instead of trying to wait on a non-existent retained turn.
 
+When a human escalation is raised, three notification surfaces fire automatically:
+
+1. **events.jsonl** — a `human_escalation_raised` event is appended with full escalation metadata (type, service, action, resolution command).
+2. **stderr** — a structured local notice prints the escalation ID, type, action, and unblock command. This fires regardless of webhook configuration.
+3. **webhooks** — if configured, a `human_escalation_raised` notification is delivered to all subscribed webhooks.
+
+When the escalation is resolved via `agentxchain unblock <id>`, the corresponding `human_escalation_resolved` event is emitted to all three surfaces.
+
+Set `AGENTXCHAIN_LOCAL_NOTIFY=1` on macOS to also receive native desktop notifications.
+
 ### Hook Failures
 
 | State | Cause | Recovery |

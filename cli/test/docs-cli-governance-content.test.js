@@ -277,7 +277,7 @@ describe('CLI governance docs contract — events observability', () => {
   it('documents the full governed event set including turn_conflicted and budget_exceeded_warn', () => {
     assert.match(
       docs,
-      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`/,
+      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `human_escalation_raised`, `human_escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`/,
     );
   });
 
