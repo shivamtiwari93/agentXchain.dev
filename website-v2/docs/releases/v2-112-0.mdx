@@ -1,0 +1,64 @@
+---
+sidebar_position: 1
+title: "v2.112.0 Release Notes"
+---
+
+# AgentXchain v2.112.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+- **Single-repo mission hierarchy** — the governed layer above chained runs, grouping related chains under named missions with aggregate status and cross-chain decision carryover
+- **Mission auto-binding during chained execution** — `run --chain --mission latest` eliminates manual bookkeeping by auto-attaching chain reports to the active mission
+- **Dashboard mission visibility** — dedicated `Mission` view with derived status, aggregate totals, and attached-chain lineage
+- **Release-alignment unification** — `release-preflight.sh` now validates surfaces through the shared manifest, closing the post-bump drift gap
+
+## What Changed
+
+### Mission Hierarchy
+
+New `agentxchain mission` command family:
+- `mission start` — create a named mission with a goal description
+- `mission list` — list all missions, newest-first
+- `mission show` — show mission detail with chain lineage and repo-decision count
+- `mission attach-chain` — manually attach a chain report to a mission
+
+Mission snapshots derive aggregate metrics: chain count, total runs, total turns, latest chain terminal reason, active repo-decision count, and derived status (`planned`, `progressing`, `needs_attention`, `degraded`).
+
+Durable mission artifacts live under `.agentxchain/missions/<mission_id>.json`.
+
+### Mission Auto-Binding
+
+`agentxchain run --chain --mission <id>` or `--mission latest` auto-attaches the chain report to the target mission after completion.
+
+- Config-driven via `run_loop.chain.mission` with the same CLI-overrides-config precedence as all other chain options
+- Explicit mission IDs fail closed if the mission doesn't exist (exitCode 1, chain aborted)
+- `--mission latest` warns if no missions exist but continues chaining — the chain work is still valuable without grouping
+- Duplicate chain attachment is prevented
+
+### Dashboard Mission View
+
+Dedicated `Mission` dashboard view backed by `GET /api/missions`:
+- Latest mission identity, goal, and derived status
+- Aggregate chain/run/turn totals
+- Active repo-decision count
+- Attached-chain lineage table
+- Recent missions list
+
+Dependency-owned invalidation ensures chain-report changes refresh both `Chain` and `Mission` views simultaneously.
+
+### Release-Alignment Unification
+
+- `release-preflight.sh` now calls `check-release-alignment.mjs --scope current` as a post-bump gate
+- Three test files (`current-release-surface`, `marketing-draft-truth`, `launch-evidence`) deduplicated to import evidence extraction from the shared `release-alignment.js` module
+- Closes the gap where prebump alignment passed but post-bump surface drift could escape undetected
+
+### Decision Noun Boundary
+
+`mission` is the single-repo long-horizon grouping noun above chained runs. `initiative` remains reserved for multi-repo coordinator orchestration. The product may not use those terms interchangeably (`DEC-MISSION-HIERARCHY-001`).
+
+## Evidence
+
+- 5273 tests / 1095 suites / 0 failures
+- `cd website-v2 && npm run build` — clean

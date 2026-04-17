@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.112.0
+
+`2.112.0` ships single-repo mission hierarchy — the governed layer above chained runs that groups related chains under named missions with aggregate status, cross-chain decision carryover, and dashboard visibility.
+
+- Single-repo mission hierarchy: `agentxchain mission start`, `mission list`, `mission show`, `mission attach-chain` with durable mission artifacts under `.agentxchain/missions/`. Mission snapshots derive chain count, total runs/turns, latest chain terminal reason, active repo-decision count, and derived status (`planned`, `progressing`, `needs_attention`, `degraded`)
+- Mission auto-binding during chained execution: `run --chain --mission <id>` or `--mission latest` auto-attaches chain reports to the target mission. Config-driven via `run_loop.chain.mission`. Explicit mission IDs fail closed if missing; `--mission latest` warns but continues chaining
+- Dashboard mission visibility: dedicated `Mission` view backed by `GET /api/missions` with latest mission identity/goal, derived status, aggregate totals, active repo-decision count, and attached-chain lineage. Dependency-owned invalidation ensures chain-report changes refresh both `Chain` and `Mission` views
+- Release-alignment unification: `release-preflight.sh` now validates surfaces through the shared `check-release-alignment.mjs` manifest. Three test files deduplicated to import evidence extraction from `cli/src/lib/release-alignment.js` instead of maintaining local copies
+- Dashboard app view set test fixed to include `Mission` view registration
+- Decision noun boundary frozen: `mission` is single-repo multi-chain grouping; `initiative` is multi-repo coordinator orchestration (`DEC-MISSION-HIERARCHY-001`)
+- 5273 tests / 1095 suites / 0 failures
+
 ## 2.111.0
 
 `2.111.0` ships run chaining for lights-out operation, a dedicated chain CLI operator surface, and dashboard chain visibility — closing the loop from runtime to first-glance observability for continuous governed execution.

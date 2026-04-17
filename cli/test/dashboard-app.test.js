@@ -438,6 +438,7 @@ describe('App Shell — VIEWS registry', () => {
                    name === 'hooks' ? { audit: null, annotations: null } :
                    name === 'initiative' ? { coordinatorState: null, coordinatorBarriers: null, barrierLedger: null, coordinatorBlockers: null, coordinatorRepoStatusRows: null } :
                    name === 'blockers' ? { coordinatorBlockers: null } :
+                   name === 'mission' ? { missions: null } :
                    name === 'chain' ? { chainReports: null } :
                    name === 'timeouts' ? { timeouts: null } :
                    name === 'coordinator-timeouts' ? { coordinatorTimeouts: null } :
@@ -461,6 +462,7 @@ describe('App Shell — VIEWS registry', () => {
       'cross-repo',
       'blockers',
       'artifacts',
+      'mission',
       'chain',
       'run-history',
       'timeouts',
