@@ -121,7 +121,7 @@ import { historyCommand } from '../src/commands/history.js';
 import { decisionsCommand } from '../src/commands/decisions.js';
 import { diffCommand } from '../src/commands/diff.js';
 import { eventsCommand } from '../src/commands/events.js';
-import { connectorCheckCommand } from '../src/commands/connector.js';
+import { connectorCheckCommand, connectorValidateCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
 import { missionAttachChainCommand, missionListCommand, missionPlanApproveCommand, missionPlanAutopilotCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
@@ -296,6 +296,15 @@ connectorCmd
   .option('-j, --json', 'Output as JSON')
   .option('--timeout <ms>', 'Per-probe timeout in milliseconds', '8000')
   .action(connectorCheckCommand);
+
+connectorCmd
+  .command('validate <runtime_id>')
+  .description('Dispatch one synthetic governed turn through a runtime and validate the staged turn result')
+  .option('--role <role_id>', 'Validate a specific role binding for the runtime')
+  .option('-j, --json', 'Output as JSON')
+  .option('--timeout <ms>', 'Synthetic dispatch timeout in milliseconds', '120000')
+  .option('--keep-artifacts', 'Keep the scratch validation workspace even on success')
+  .action(connectorValidateCommand);
 
 program
   .command('demo')

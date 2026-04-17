@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 
 import { loadProjectContext } from '../lib/config.js';
+import { DEFAULT_VALIDATE_TIMEOUT_MS, validateConfiguredConnector } from '../lib/connector-validate.js';
 import { DEFAULT_TIMEOUT_MS, probeConfiguredConnectors } from '../lib/connector-probe.js';
 
 function printJson(result, exitCode) {
@@ -119,4 +120,96 @@ export async function connectorCheckCommand(runtimeId, options = {}) {
   }
 
   printText(payload, result.exitCode);
+}
+
+function printValidateText(result, exitCode) {
+  console.log('');
+  console.log(chalk.bold('  AgentXchain Connector Validate'));
+  console.log(chalk.dim('  ' + '─'.repeat(47)));
+  console.log(`  ${chalk.dim(`Runtime:`)} ${result.runtime_id} (${result.runtime_type})`);
+  console.log(`  ${chalk.dim(`Role:`)}    ${result.role_id}`);
+  console.log(`  ${chalk.dim(`Timeout:`)} ${result.timeout_ms}ms`);
+  console.log('');
+
+  const badge = result.overall === 'pass'
+    ? chalk.green('PASS')
+    : result.overall === 'error'
+      ? chalk.red('ERROR')
+      : chalk.red('FAIL');
+  const summary = result.overall === 'pass'
+    ? 'Synthetic governed dispatch produced a valid turn result'
+    : (result.error || result.dispatch?.error || result.validation?.errors?.[0] || 'Connector validation failed');
+  console.log(`  ${badge}  ${summary}`);
+
+  if (Array.isArray(result.warnings) && result.warnings.length > 0) {
+    console.log('');
+    for (const warning of result.warnings) {
+      console.log(`  ${chalk.yellow('!')} ${warning}`);
+    }
+  }
+
+  if (result.dispatch) {
+    console.log('');
+    console.log(`  ${chalk.dim('Dispatch:')} ${result.dispatch.ok ? chalk.green('ok') : chalk.red('failed')}`);
+    if (result.dispatch.error) {
+      console.log(`  ${chalk.dim('Detail:')}   ${result.dispatch.error}`);
+    }
+  }
+
+  if (result.validation) {
+    console.log(`  ${chalk.dim('Validator:')} ${result.validation.ok ? chalk.green('ok') : chalk.red(result.validation.stage || 'failed')}`);
+    if (Array.isArray(result.validation.errors) && result.validation.errors.length > 0) {
+      console.log(`  ${chalk.dim('Errors:')}   ${result.validation.errors.join(' | ')}`);
+    }
+  }
+
+  if (typeof result.cost_usd === 'number') {
+    console.log(`  ${chalk.dim('Cost:')}     $${result.cost_usd.toFixed(3)}`);
+  }
+
+  if (result.scratch_root) {
+    console.log('');
+    console.log(`  ${chalk.dim('Scratch:')} ${result.scratch_root}`);
+  }
+
+  console.log('');
+  process.exit(exitCode);
+}
+
+export async function connectorValidateCommand(runtimeId, options = {}) {
+  const context = loadProjectContext();
+  if (!context) {
+    const payload = { overall: 'error', error: 'No governed agentxchain.json found.' };
+    if (options.json) {
+      printJson(payload, 2);
+      return;
+    }
+    console.error(chalk.red('No governed agentxchain.json found. Run this inside a governed project.'));
+    process.exit(2);
+  }
+
+  const timeoutMs = Number.parseInt(options.timeout || DEFAULT_VALIDATE_TIMEOUT_MS, 10);
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    const payload = { overall: 'error', error: 'Timeout must be a positive integer.' };
+    if (options.json) {
+      printJson(payload, 2);
+      return;
+    }
+    console.error(chalk.red('Timeout must be a positive integer.'));
+    process.exit(2);
+  }
+
+  const result = await validateConfiguredConnector(context.root, {
+    runtimeId,
+    roleId: options.role || null,
+    timeoutMs,
+    keepArtifacts: options.keepArtifacts === true,
+  });
+
+  if (options.json) {
+    printJson(result, result.exitCode ?? 1);
+    return;
+  }
+
+  printValidateText(result, result.exitCode ?? 1);
 }

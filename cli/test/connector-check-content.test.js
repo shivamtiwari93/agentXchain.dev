@@ -10,6 +10,7 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const CLI_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'cli.mdx'), 'utf8');
 const GETTING_STARTED = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'getting-started.mdx'), 'utf8');
 const PROBE_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'CONNECTOR_PROBE_COMMAND_SPEC.md'), 'utf8');
+const VALIDATE_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'CONNECTOR_VALIDATE_COMMAND_SPEC.md'), 'utf8');
 const README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 const INIT_CMD = readFileSync(join(REPO_ROOT, 'cli', 'src', 'commands', 'init.js'), 'utf8');
 const DEMO_CMD = readFileSync(join(REPO_ROOT, 'cli', 'src', 'commands', 'demo.js'), 'utf8');
@@ -45,5 +46,17 @@ describe('connector check docs/content surface', () => {
     assert.match(PROBE_SPEC, /AT-CCP-008/);
     assert.match(PROBE_SPEC, /AT-CCP-009/);
     assert.match(PROBE_SPEC, /AT-CCP-010/);
+  });
+
+  it('AT-CCV-007: docs distinguish connector reachability from connector validation proof', () => {
+    assert.match(CLI_DOCS, /`connector validate` \| Readiness \| Dispatch one synthetic governed turn/i);
+    assert.match(CLI_DOCS, /`connector check` proves transport reachability/i);
+    assert.match(CLI_DOCS, /`connector validate` proves one runtime\+role binding can survive dispatch and validator acceptance/i);
+    assert.match(CLI_DOCS, /scratch copy of the repo/i);
+    assert.match(README, /agentxchain connector validate local-dev/);
+    assert.match(README, /connector validate <runtime_id>/);
+    assert.match(VALIDATE_SPEC, /Connector Validate Command Spec/);
+    assert.match(VALIDATE_SPEC, /AT-CCV-001/);
+    assert.match(VALIDATE_SPEC, /AT-CCV-008/);
   });
 });

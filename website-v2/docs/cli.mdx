@@ -97,6 +97,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission plan list` | Planning | List all plans for a mission, newest first |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
+| `connector validate` | Readiness | Dispatch one synthetic governed turn through a runtime and prove the staged turn-result contract before the first automated run |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
 
 ## Turn lifecycle commands
@@ -1374,6 +1375,29 @@ Runs active connector probes for governed non-manual runtimes. Unlike `doctor`, 
 Text output prints a `Probing <runtime_id>...` line before each check starts so slow endpoints do not leave the terminal looking hung. Use `--timeout` to lower or raise the per-connector wait budget when debugging reachability problems.
 
 Successful probes return exit code 0. Any connector failure returns exit code 1. Command or project-boundary errors return exit code 2.
+
+### `connector validate`
+
+```bash
+agentxchain connector validate <runtime_id> [--role <role_id>] [--json] [--timeout <ms>] [--keep-artifacts]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `<runtime_id>` | required | Validate one configured non-manual runtime |
+| `--role <role_id>` | first role bound to the runtime | Validate a specific runtime+role binding |
+| `--json` | `false` | Output structured JSON instead of text |
+| `--timeout <ms>` | `120000` | Synthetic dispatch timeout in milliseconds |
+| `--keep-artifacts` | `false` | Keep the scratch validation workspace even on success |
+
+Use `connector validate` when reachability is not enough and you want one bounded proof that a configured runtime can actually stage a protocol-valid governed turn result. This command is stricter than `connector check`:
+
+- `connector check` proves transport reachability
+- `connector validate` proves one runtime+role binding can survive dispatch and validator acceptance
+
+The command runs in a scratch copy of the repo so `local_cli` validation does not mutate your real workspace. On failure, the scratch workspace is kept automatically and surfaced in the output so you can inspect the exact dispatch bundle, adapter logs, and staged artifact that failed.
+
+This validation can incur real spend for live runtimes such as `api_proxy`, `remote_agent`, or MCP connectors backed by real model services. That is why the command validates one runtime at a time instead of silently dispatching every configured connector.
 
 ## Dashboard
 

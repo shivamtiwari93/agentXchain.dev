@@ -117,6 +117,7 @@ git init
 agentxchain template validate
 agentxchain doctor
 agentxchain connector check
+agentxchain connector validate local-dev
 git add -A
 git commit -m "initial governed scaffold"
 agentxchain status
@@ -445,6 +446,7 @@ See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - `gate show <gate> --evaluate`: evaluate a gate's current pass/fail state against live project state
 - `doctor`: governed project health check (config, roles, runtimes, state, schedules, plugins, workflow-kit)
 - `connector check`: live health probes for all configured connectors (api_proxy, remote_agent, MCP)
+- `connector validate <runtime_id>`: one bounded synthetic dispatch proving a runtime can stage a valid governed turn result
 - `export`: export the portable raw governed/coordinator artifact for continuity or offline review (`restore` remains run-export-only; coordinator exports are for audit/report/replay)
 
 `dashboard` and `audit` read the live current repo/workspace. `report --input` and `replay export` read an existing verified export artifact instead: `report` renders a derived governance document, while `replay export` opens the read-only dashboard. Partial coordinator artifacts are first-class here too: `report` and `replay export` keep repo rows plus `repo_ok_count` / `repo_error_count` export-health totals when a child export fails, and they do not fabricate child drill-down for the failed repo.

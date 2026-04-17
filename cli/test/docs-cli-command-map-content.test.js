@@ -93,7 +93,7 @@ describe('CLI command map docs contract', () => {
     ['chain', ['chain latest', 'chain list', 'chain show']],
     ['mission', ['mission start', 'mission list', 'mission show', 'mission attach-chain', 'mission plan', 'mission plan show', 'mission plan approve', 'mission plan autopilot', 'mission plan list']],
     ['doctor', ['doctor']],
-    ['connector', ['connector check']],
+    ['connector', ['connector check', 'connector validate']],
   ]);
 
   it('documents every governed-scope top-level command family from the CLI registration', () => {
