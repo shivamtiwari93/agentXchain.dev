@@ -123,6 +123,13 @@ When a run is active and `timeouts` are configured, `agentxchain status` shows r
 - When within limits: remaining time, limit, and deadline (e.g., `Budget: 18m 30s remaining of 30m (deadline 2:30:00 PM)`)
 - When exceeded: `Budget: EXCEEDED — was 30m, over by 5m`
 
+**Dispatch activity** is shown when an adapter is actively dispatching a turn:
+- When producing output: `Activity: Producing output (142 lines, last 2s ago)`
+- When silent: `Activity: Silent for 45s (142 lines total, last output 45s ago)`
+- When API request in flight: `Activity: API request in flight (8s ago)`
+
+This lets operators distinguish "adapter is working" from "adapter is hung" without waiting for the timeout to fire. Progress tracking writes to `.agentxchain/dispatch-progress.json` (best-effort, never blocks dispatch).
+
 **Phase/run-level budget** is shown in the Timeouts section:
 - When within limits: elapsed/limit and remaining time with `✓` (e.g., `✓ phase (planning): 15m/120m — 105m remaining`)
 - When exceeded: `⚠ EXCEEDED phase: 135m/120m (action: escalate)`

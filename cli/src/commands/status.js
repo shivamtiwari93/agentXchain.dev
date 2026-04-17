@@ -23,6 +23,7 @@ import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { readPreemptionMarker } from '../lib/intake.js';
 import { readContinuousSession } from '../lib/continuous-run.js';
+import { readDispatchProgress } from '../lib/dispatch-progress.js';
 
 export async function statusCommand(opts) {
   const context = loadStatusContext();
@@ -339,6 +340,24 @@ function renderGovernedStatus(context, opts) {
           const remLabel = remMins > 0 ? `${remMins}m ${remSecs}s` : `${remSecs}s`;
           console.log(`  ${chalk.dim('Budget:')}   ${chalk.green(`${remLabel} remaining`)} of ${turnBudget.limit_minutes}m (deadline ${new Date(turnBudget.deadline_iso).toLocaleTimeString()})`);
         }
+      }
+    }
+    // Dispatch progress activity line (DEC-DISPATCH-PROGRESS-001)
+    const progress = readDispatchProgress(root);
+    if (progress && progress.turn_id === singleActiveTurn.turn_id) {
+      const lastAct = progress.last_activity_at ? new Date(progress.last_activity_at) : null;
+      const agoSec = lastAct ? Math.round((Date.now() - lastAct.getTime()) / 1000) : null;
+      if (progress.activity_type === 'silent') {
+        const silentSec = progress.silent_since ? Math.round((Date.now() - new Date(progress.silent_since).getTime()) / 1000) : agoSec;
+        console.log(`  ${chalk.dim('Activity:')} ${chalk.yellow(`Silent for ${silentSec}s`)} (${progress.output_lines} lines total, last output ${agoSec}s ago)`);
+      } else if (progress.activity_type === 'request') {
+        console.log(`  ${chalk.dim('Activity:')} ${chalk.cyan('API request in flight')} (${agoSec}s ago)`);
+      } else if (progress.activity_type === 'response') {
+        console.log(`  ${chalk.dim('Activity:')} ${chalk.green('API response received')}`);
+      } else {
+        // 'output' — actively producing
+        const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
+        console.log(`  ${chalk.dim('Activity:')} ${chalk.green(`Producing output`)} (${progress.output_lines} lines${agoLabel})`);
       }
     }
     if (singleActiveTurn.status === 'conflicted' && singleActiveTurn.conflict_state) {

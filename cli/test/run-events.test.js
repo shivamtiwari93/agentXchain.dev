@@ -134,8 +134,8 @@ describe('run-events', () => {
   });
 
   // Additional: VALID_RUN_EVENTS is complete
-  it('VALID_RUN_EVENTS contains all 16 event types', () => {
-    assert.equal(VALID_RUN_EVENTS.length, 16);
+  it('VALID_RUN_EVENTS contains all 17 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 17);
     assert.ok(VALID_RUN_EVENTS.includes('run_started'));
     assert.ok(VALID_RUN_EVENTS.includes('run_completed'));
     assert.ok(VALID_RUN_EVENTS.includes('run_blocked'));
@@ -152,6 +152,7 @@ describe('run-events', () => {
     assert.ok(VALID_RUN_EVENTS.includes('budget_exceeded_warn'));
     assert.ok(VALID_RUN_EVENTS.includes('human_escalation_raised'));
     assert.ok(VALID_RUN_EVENTS.includes('human_escalation_resolved'));
+    assert.ok(VALID_RUN_EVENTS.includes('dispatch_progress'));
   });
 
   // Additional: creates .agentxchain directory if missing

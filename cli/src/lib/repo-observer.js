@@ -48,6 +48,7 @@ const ORCHESTRATOR_STATE_FILES = [
   '.agentxchain/continuous-session.json',
   '.agentxchain/human-escalations.jsonl',
   '.agentxchain/sla-reminders.json',
+  '.agentxchain/dispatch-progress.json',
   'TALK.md',
 ];
 

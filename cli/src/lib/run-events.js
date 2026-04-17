@@ -28,6 +28,7 @@ export const VALID_RUN_EVENTS = [
   'budget_exceeded_warn',
   'human_escalation_raised',
   'human_escalation_resolved',
+  'dispatch_progress',
 ];
 
 /**

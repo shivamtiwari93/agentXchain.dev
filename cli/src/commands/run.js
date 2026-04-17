@@ -46,6 +46,8 @@ import {
 } from '../lib/turn-paths.js';
 import { resolveChainOptions, executeChainedRun } from '../lib/run-chain.js';
 import { resolveContinuousOptions, executeContinuousRun } from '../lib/continuous-run.js';
+import { createDispatchProgressTracker, deleteProgressFile } from '../lib/dispatch-progress.js';
+import { emitRunEvent } from '../lib/run-events.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
@@ -299,6 +301,10 @@ export async function executeGovernedRun(context, opts = {}) {
       }
 
       // ── Route to adapter ──────────────────────────────────────────────
+      const tracker = createDispatchProgressTracker(projectRoot, turn, {
+        adapter_type: runtimeType,
+      });
+
       const adapterOpts = {
         signal: combineAbortSignals(controller.signal, ctx.dispatchAbortSignal),
         onStatus: (msg) => log(chalk.dim(`  ${msg}`)),
@@ -307,29 +313,85 @@ export async function executeGovernedRun(context, opts = {}) {
       };
 
       if (verbose) {
-        adapterOpts.onStdout = (text) => process.stdout.write(chalk.dim(text));
-        adapterOpts.onStderr = (text) => process.stderr.write(chalk.yellow(text));
+        adapterOpts.onStdout = (text) => {
+          process.stdout.write(chalk.dim(text));
+          const lines = text.split('\n').length - 1 || 1;
+          tracker.onOutput('stdout', lines);
+        };
+        adapterOpts.onStderr = (text) => {
+          process.stderr.write(chalk.yellow(text));
+          const lines = text.split('\n').length - 1 || 1;
+          tracker.onOutput('stderr', lines);
+        };
+      } else {
+        // Even in non-verbose mode, track output activity for progress visibility
+        adapterOpts.onStdout = (text) => {
+          const lines = text.split('\n').length - 1 || 1;
+          tracker.onOutput('stdout', lines);
+        };
+        adapterOpts.onStderr = (text) => {
+          const lines = text.split('\n').length - 1 || 1;
+          tracker.onOutput('stderr', lines);
+        };
       }
 
       let adapterResult;
 
-      if (runtimeType === 'api_proxy') {
-        log(chalk.dim(`  Dispatching to API proxy: ${runtime?.provider || '?'} / ${runtime?.model || '?'}`));
-        adapterResult = await dispatchApiProxy(projectRoot, state, cfg, adapterOpts);
-      } else if (runtimeType === 'mcp') {
-        const transport = resolveMcpTransport(runtime);
-        log(chalk.dim(`  Dispatching to MCP ${transport}: ${describeMcpRuntimeTarget(runtime)}`));
-        adapterResult = await dispatchMcp(projectRoot, state, cfg, adapterOpts);
-      } else if (runtimeType === 'local_cli') {
-        const transport = runtime ? resolvePromptTransport(runtime) : 'dispatch_bundle_only';
-        log(chalk.dim(`  Dispatching to local CLI: ${runtime?.command || '(default)'}  transport: ${transport}`));
-        adapterResult = await dispatchLocalCli(projectRoot, state, cfg, adapterOpts);
-      } else if (runtimeType === 'remote_agent') {
-        log(chalk.dim(`  Dispatching to remote agent: ${describeRemoteAgentTarget(runtime)}`));
-        adapterResult = await dispatchRemoteAgent(projectRoot, state, cfg, adapterOpts);
-      } else {
-        return { accept: false, reason: `unknown runtime type "${runtimeType}"` };
+      // Emit dispatch_progress started event and begin tracking
+      tracker.start();
+      emitRunEvent(projectRoot, 'dispatch_progress', {
+        run_id: state.run_id,
+        phase: state.phase,
+        status: state.status,
+        turn: { turn_id: turn.turn_id, assigned_role: roleId },
+        payload: { milestone: 'started', output_lines: 0, elapsed_seconds: 0, silent_seconds: 0 },
+      });
+
+      try {
+        if (runtimeType === 'api_proxy') {
+          log(chalk.dim(`  Dispatching to API proxy: ${runtime?.provider || '?'} / ${runtime?.model || '?'}`));
+          tracker.requestStarted();
+          adapterResult = await dispatchApiProxy(projectRoot, state, cfg, adapterOpts);
+          if (adapterResult.ok) tracker.responseReceived();
+        } else if (runtimeType === 'mcp') {
+          const transport = resolveMcpTransport(runtime);
+          log(chalk.dim(`  Dispatching to MCP ${transport}: ${describeMcpRuntimeTarget(runtime)}`));
+          tracker.requestStarted();
+          adapterResult = await dispatchMcp(projectRoot, state, cfg, adapterOpts);
+          if (adapterResult.ok) tracker.responseReceived();
+        } else if (runtimeType === 'local_cli') {
+          const transport = runtime ? resolvePromptTransport(runtime) : 'dispatch_bundle_only';
+          log(chalk.dim(`  Dispatching to local CLI: ${runtime?.command || '(default)'}  transport: ${transport}`));
+          adapterResult = await dispatchLocalCli(projectRoot, state, cfg, adapterOpts);
+        } else if (runtimeType === 'remote_agent') {
+          log(chalk.dim(`  Dispatching to remote agent: ${describeRemoteAgentTarget(runtime)}`));
+          tracker.requestStarted();
+          adapterResult = await dispatchRemoteAgent(projectRoot, state, cfg, adapterOpts);
+          if (adapterResult.ok) tracker.responseReceived();
+        } else {
+          tracker.fail();
+          return { accept: false, reason: `unknown runtime type "${runtimeType}"` };
+        }
+      } catch (err) {
+        tracker.fail();
+        emitRunEvent(projectRoot, 'dispatch_progress', {
+          run_id: state.run_id, phase: state.phase, status: state.status,
+          turn: { turn_id: turn.turn_id, assigned_role: roleId },
+          payload: { milestone: 'failed', output_lines: tracker.getState().output_lines, elapsed_seconds: Math.round((Date.now() - new Date(tracker.getState().started_at)) / 1000), silent_seconds: 0 },
+        });
+        throw err;
       }
+
+      // Emit completion/failure progress event and clean up tracker
+      const progressState = tracker.getState();
+      const elapsedSec = Math.round((Date.now() - new Date(progressState.started_at)) / 1000);
+      const milestone = adapterResult.ok ? 'completed' : (adapterResult.timedOut ? 'timed_out' : 'failed');
+      if (adapterResult.ok) { tracker.complete(); } else { tracker.fail(); }
+      emitRunEvent(projectRoot, 'dispatch_progress', {
+        run_id: state.run_id, phase: state.phase, status: state.status,
+        turn: { turn_id: turn.turn_id, assigned_role: roleId },
+        payload: { milestone, output_lines: progressState.output_lines, elapsed_seconds: elapsedSec, silent_seconds: progressState.silent_since ? Math.round((Date.now() - new Date(progressState.silent_since)) / 1000) : 0 },
+      });
 
       // Save adapter logs
       if (adapterResult.logs?.length) {
