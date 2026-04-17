@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join, basename, resolve as pathResolve } from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { safeWriteJson } from './safe-write.js';
@@ -1371,7 +1371,134 @@ export function scanSource(root, source, snapshot) {
 }
 
 // ---------------------------------------------------------------------------
+// Inject — composed record + triage + approve in one operation
+// ---------------------------------------------------------------------------
+
+const PREEMPTION_MARKER_PATH = '.agentxchain/intake/injected-priority.json';
+
+function preemptionMarkerPath(root) {
+  return join(root, PREEMPTION_MARKER_PATH);
+}
+
+export function readPreemptionMarker(root) {
+  const p = preemptionMarkerPath(root);
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+export function clearPreemptionMarker(root) {
+  const p = preemptionMarkerPath(root);
+  if (existsSync(p)) {
+    try {
+      unlinkSync(p);
+    } catch {
+      // best-effort
+    }
+  }
+}
+
+export function injectIntent(root, description, options = {}) {
+  if (!description || typeof description !== 'string' || !description.trim()) {
+    return { ok: false, error: 'description is required', exitCode: 1 };
+  }
+
+  const priority = options.priority || 'p0';
+  if (!VALID_PRIORITIES.includes(priority)) {
+    return { ok: false, error: `priority must be one of: ${VALID_PRIORITIES.join(', ')}`, exitCode: 1 };
+  }
+
+  const template = options.template || 'generic';
+  if (!VALID_GOVERNED_TEMPLATE_IDS.includes(template)) {
+    return { ok: false, error: `template must be one of: ${VALID_GOVERNED_TEMPLATE_IDS.join(', ')}`, exitCode: 1 };
+  }
+
+  const charter = options.charter || description.trim();
+  const acceptance_contract = options.acceptance
+    ? options.acceptance.split(',').map(s => s.trim()).filter(Boolean)
+    : [description.trim()];
+  const approver = options.approver || 'human';
+  const noApprove = options.noApprove === true;
+
+  // Step 1: Record event
+  const recordResult = recordEvent(root, {
+    source: 'manual',
+    category: 'operator_injection',
+    signal: { description: description.trim(), injected: true, priority },
+    evidence: [{ type: 'text', value: description.trim() }],
+  });
+
+  if (!recordResult.ok) {
+    return recordResult;
+  }
+
+  // If deduplicated, return existing intent
+  if (recordResult.deduplicated) {
+    return {
+      ok: true,
+      intent: recordResult.intent,
+      event: recordResult.event,
+      deduplicated: true,
+      preemption_marker: false,
+      exitCode: 0,
+    };
+  }
+
+  const intentId = recordResult.intent.intent_id;
+
+  // Step 2: Triage
+  const triageResult = triageIntent(root, intentId, {
+    priority,
+    template,
+    charter,
+    acceptance_contract,
+  });
+
+  if (!triageResult.ok) {
+    return { ok: false, error: `triage failed: ${triageResult.error}`, exitCode: 1 };
+  }
+
+  // Step 3: Approve (unless --no-approve)
+  if (!noApprove) {
+    const approveResult = approveIntent(root, intentId, { approver, reason: 'operator injection' });
+    if (!approveResult.ok) {
+      return { ok: false, error: `approve failed: ${approveResult.error}`, exitCode: 1 };
+    }
+  }
+
+  // Step 4: Write preemption marker for p0
+  let preemptionMarker = false;
+  if (priority === 'p0' && !noApprove) {
+    const marker = {
+      intent_id: intentId,
+      priority,
+      description: description.trim(),
+      injected_at: nowISO(),
+    };
+    ensureIntakeDirs(root);
+    safeWriteJson(preemptionMarkerPath(root), marker);
+    preemptionMarker = true;
+  }
+
+  // Re-read final intent state
+  const finalRead = readIntent(root, intentId);
+  const finalIntent = finalRead.ok ? finalRead.intent : triageResult.intent;
+
+  return {
+    ok: true,
+    intent: finalIntent,
+    event: recordResult.event,
+    deduplicated: false,
+    preemption_marker: preemptionMarker,
+    exitCode: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Exports for testing
 // ---------------------------------------------------------------------------
 
-export { VALID_SOURCES, VALID_PRIORITIES, VALID_TRANSITIONS, S1_STATES, TERMINAL_STATES, SCAN_SOURCES };
+export { VALID_SOURCES, VALID_PRIORITIES, VALID_TRANSITIONS, S1_STATES, TERMINAL_STATES, SCAN_SOURCES, PREEMPTION_MARKER_PATH };

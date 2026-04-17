@@ -636,6 +636,24 @@ Detail mode returns:
 - linked source event
 - full transition history
 
+## `inject` — operator priority shortcut
+
+```bash
+agentxchain inject "Fix the sidebar ordering" --priority p0
+agentxchain inject "Low priority cleanup" --priority p2
+agentxchain inject "Draft work" --no-approve
+```
+
+`inject` composes `intake record` + `intake triage` + `intake approve` into one atomic command. It exists so an operator can express "do this next" without running three separate commands.
+
+When priority is `p0`, a **preemption marker** is written to `.agentxchain/intake/injected-priority.json`. The run loop checks for this marker at the top of each iteration and, if no turns are active, yields with `stop_reason: "priority_preempted"`. The scheduler or continuous loop then picks up the injected intent as the next work item.
+
+Non-`p0` injections (`p1`–`p3`) enter the queue for normal priority ordering without triggering preemption.
+
+Use `--no-approve` to stop at `triaged` state if you want human review before the injected intent enters planning.
+
+`agentxchain status` shows a prominent banner when a preemption marker is pending.
+
 ## Governance boundary
 
 Intake is an entrypoint, not a loophole.

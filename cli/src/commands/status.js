@@ -21,6 +21,7 @@ import { deriveConflictedTurnResolutionActions } from '../lib/conflict-actions.j
 import { summarizeLatestGateActionAttempt } from '../lib/gate-actions.js';
 import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
+import { readPreemptionMarker } from '../lib/intake.js';
 
 export async function statusCommand(opts) {
   const context = loadStatusContext();
@@ -129,6 +130,7 @@ function renderGovernedStatus(context, opts) {
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
   const humanEscalation = findCurrentHumanEscalation(root, state);
+  const preemptionMarker = readPreemptionMarker(root);
   const gateActionAttempt = state?.pending_phase_transition
     ? summarizeLatestGateActionAttempt(root, 'phase_transition', state.pending_phase_transition.gate)
     : state?.pending_run_completion
@@ -165,6 +167,7 @@ function renderGovernedStatus(context, opts) {
       connector_health: connectorHealth,
       recent_event_summary: recentEventSummary,
       human_escalation: humanEscalation,
+      preemption_marker: preemptionMarker,
       gate_action_attempt: gateActionAttempt,
       workflow_kit_artifacts: workflowKitArtifacts,
       dashboard_session: dashboardSessionObj,
@@ -176,6 +179,22 @@ function renderGovernedStatus(context, opts) {
   console.log(chalk.bold('  AgentXchain Status'));
   console.log(chalk.dim('  ' + '─'.repeat(44)));
   console.log('');
+
+  // Priority injection banner — above all other status
+  if (preemptionMarker) {
+    console.log(chalk.red.bold('  ⚡ Priority injection pending'));
+    console.log(chalk.dim(`  Intent:      ${preemptionMarker.intent_id}`));
+    console.log(`  Priority:    ${chalk.red.bold(preemptionMarker.priority)}`);
+    if (preemptionMarker.description) {
+      console.log(chalk.dim(`  Description: ${preemptionMarker.description}`));
+    }
+    if (preemptionMarker.injected_at) {
+      console.log(chalk.dim(`  Injected at: ${preemptionMarker.injected_at}`));
+    }
+    console.log(chalk.dim('  Effect:      Will preempt current workstream after this turn completes'));
+    console.log(chalk.dim('  ' + '─'.repeat(44)));
+    console.log('');
+  }
 
   console.log(`  ${chalk.dim('Project:')}  ${config.project.name}`);
   if (config.project.goal) {

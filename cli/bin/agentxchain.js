@@ -68,6 +68,7 @@ import { branchCommand } from '../src/commands/branch.js';
 import { migrateCommand } from '../src/commands/migrate.js';
 import { resumeCommand } from '../src/commands/resume.js';
 import { unblockCommand } from '../src/commands/unblock.js';
+import { injectCommand } from '../src/commands/inject.js';
 import { escalateCommand } from '../src/commands/escalate.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
 import { rejectTurnCommand } from '../src/commands/reject-turn.js';
@@ -605,6 +606,18 @@ program
   .command('unblock <escalation-id>')
   .description('Resolve the current human escalation record and continue the governed run')
   .action(unblockCommand);
+
+program
+  .command('inject <description>')
+  .description('Inject a priority work item into the intake queue (composed record + triage + approve)')
+  .option('--priority <level>', 'Priority level (p0, p1, p2, p3)', 'p0')
+  .option('--template <id>', 'Governed template (generic, api-service, cli-tool, library, web-app, enterprise-app)', 'generic')
+  .option('--charter <text>', 'Delivery charter (defaults to description)')
+  .option('--acceptance <text>', 'Comma-separated acceptance criteria')
+  .option('--approver <name>', 'Approver identity', 'human')
+  .option('--no-approve', 'Stop at triaged state instead of auto-approving')
+  .option('-j, --json', 'Output as JSON')
+  .action(injectCommand);
 
 program
   .command('escalate')

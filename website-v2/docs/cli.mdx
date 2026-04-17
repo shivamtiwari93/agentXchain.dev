@@ -56,6 +56,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `restart` | Turn lifecycle | Restart a governed run from the last checkpoint after a session boundary (terminal close, machine restart, context loss) |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
 | `unblock` | Turn lifecycle | Resolve the current human escalation record and continue the governed run |
+| `inject` | Intake | Inject a priority work item into the intake queue (composed record + triage + approve) |
 | `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
 | `run` | Turn lifecycle | Drive a governed run to completion: multi-turn execution with adapter dispatch and gate prompting |
@@ -739,6 +740,28 @@ agentxchain unblock <escalation-id>
 No flags.
 
 Resolves the current open human escalation record from `.agentxchain/human-escalations.jsonl`, updates `HUMAN_TASKS.md`, and continues the governed run through the same recovery path `resume` would use. This is the operator-focused command when `status` shows a concrete human task id such as `hesc_abcd1234`.
+
+### `inject`
+
+```bash
+agentxchain inject "<description>" [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--priority <level>` | `p0` | Priority level: `p0`, `p1`, `p2`, `p3` |
+| `--template <id>` | `generic` | Governed template for the injected work |
+| `--charter <text>` | (description) | Delivery charter — defaults to the description |
+| `--acceptance <text>` | (description) | Comma-separated acceptance criteria |
+| `--approver <name>` | `human` | Approver identity recorded on the intent |
+| `--no-approve` | `false` | Stop at `triaged` instead of auto-approving |
+| `-j, --json` | `false` | Output as JSON |
+
+Injects a priority work item into the intake queue in one atomic operation. Composes `intake record` + `intake triage` + `intake approve` so the operator can express "do this next" without running three separate commands.
+
+When priority is `p0`, a preemption marker is written to `.agentxchain/intake/injected-priority.json`. The run loop checks for this marker at the top of each iteration. If present and no turns are active, the current run yields with `stop_reason: "priority_preempted"` so the scheduler or continuous loop can pick up the injected work next. Non-`p0` injections enter the queue for normal priority ordering without triggering preemption.
+
+`agentxchain status` shows a prominent "Priority injection pending" banner when a preemption marker exists.
 
 ### `escalate`
 

@@ -36,6 +36,7 @@ import { runAdmissionControl } from './admission-control.js';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { evaluateApprovalSlaReminders } from './notification-runner.js';
+import { readPreemptionMarker } from './intake.js';
 
 const DEFAULT_MAX_TURNS = 50;
 
@@ -126,6 +127,22 @@ export async function runLoop(root, config, callbacks, options = {}) {
     // Safety limit
     if (turnsExecuted >= maxTurns) {
       return makeResult(false, 'max_turns_reached', state, turnsExecuted, turnHistory, gatesApproved, errors);
+    }
+
+    // ── Priority preemption check ────────────────────────────────────────
+    // If a p0 intent was injected via `agentxchain inject`, yield the run
+    // so the scheduler/continuous loop can pick up the injected work.
+    // Only preempt when no turns are currently active (avoid mid-dispatch
+    // interruption).
+    const activeTurnCount = getActiveTurnCount(state);
+    if (activeTurnCount === 0) {
+      const marker = readPreemptionMarker(root);
+      if (marker && marker.priority === 'p0') {
+        emit({ type: 'priority_injected', intent_id: marker.intent_id, priority: marker.priority });
+        const result = makeResult(false, 'priority_preempted', state, turnsExecuted, turnHistory, gatesApproved, errors);
+        result.preempted_by = marker.intent_id;
+        return result;
+      }
     }
 
     // ── Determine concurrency mode ────────────────────────────────────────
