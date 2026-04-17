@@ -264,6 +264,7 @@ describe('E2E release gate — subprocess proof', () => {
       const devState = readJson(root, STATE_PATH);
       stageTurnResult(root, devState, {
         files_changed: ['index.js', '.planning/IMPLEMENTATION_NOTES.md'],
+        artifact: { type: 'workspace', ref: null },
         phase_transition_request: 'qa',
         proposed_next_role: 'qa',
         verification: { status: 'pass', commands: ['node index.js'], evidence_summary: 'Works.', machine_evidence: [{ command: 'node index.js', exit_code: 0 }] },

@@ -925,6 +925,7 @@ describe('acceptGovernedTurn', () => {
     mkdirSync(join(dir, '.agentxchain', 'staging', secondTurnId), { recursive: true });
     const secondResult = makeTurnResult(secondAssign.state, secondTurn);
     secondResult.files_changed = [sharedFile, 'TALK.md'];
+    secondResult.artifact = { type: 'workspace', ref: null };
     writeFileSync(join(dir, getTurnStagingResultPath(secondTurnId)), JSON.stringify(secondResult, null, 2));
 
     const result = acceptGovernedTurn(dir, config, { turnId: secondTurnId });

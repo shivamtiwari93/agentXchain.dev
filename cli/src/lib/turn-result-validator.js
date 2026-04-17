@@ -513,6 +513,20 @@ function validateArtifact(tr, config) {
     }
   }
 
+  // Authoritative roles with product-file changes must not claim artifact.type "review".
+  // "review" signals observation-only, but non-empty product files_changed means the actor
+  // wrote to the repo.  Allowing the mismatch makes accepted_integration_ref look clean
+  // when the workspace is actually dirty — hiding state from the next authoritative turn.
+  if (writeAuthority === 'authoritative' && tr.artifact?.type === 'review') {
+    const productFiles = (tr.files_changed || []).filter(f => !isAllowedReviewPath(f));
+    if (productFiles.length > 0) {
+      errors.push(
+        `Role "${tr.role}" has authoritative write authority and changed product files (${productFiles.join(', ')}), but artifact type is "review". ` +
+        'Use "workspace" or "commit" when product files are modified.'
+      );
+    }
+  }
+
   // Warn if files_changed is empty for authoritative + completed turns
   if (writeAuthority === 'authoritative' && tr.status === 'completed' && (tr.files_changed || []).length === 0) {
     warnings.push('Authoritative role completed with no files_changed — is this intentional?');

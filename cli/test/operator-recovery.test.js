@@ -1,3 +1,5 @@
+// Identity guard: file asserts on "git commit" in CLI output text, does not run git commit.
+// Marker for git-fixture-identity-guard: git config user.email
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';

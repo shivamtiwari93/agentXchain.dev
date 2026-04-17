@@ -1128,4 +1128,61 @@ describe('turn-result-validator', () => {
       assert.equal(res.ok, true, `Expected ok but got: ${res.errors.join(', ')}`);
     });
   });
+
+  // ─── Authoritative + review artifact type mismatch (AT-AUTH-REV) ──────────
+
+  describe('authoritative review artifact type mismatch', () => {
+    it('rejects authoritative role using artifact.type "review" with product files_changed (AT-AUTH-REV-001)', () => {
+      const tr = makeValidTurnResult({
+        artifact: { type: 'review', ref: null },
+        files_changed: ['src/feature.ts', 'tests/feature.test.ts'],
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(
+        res.errors.some(e => e.includes('authoritative write authority') && e.includes('artifact type is "review"') && e.includes('src/feature.ts')),
+        `Expected authoritative+review mismatch error but got: ${res.errors.join('; ')}`
+      );
+    });
+
+    it('allows authoritative role using artifact.type "review" with only review-path files (AT-AUTH-REV-002)', () => {
+      const tr = makeValidTurnResult({
+        artifact: { type: 'review', ref: null },
+        files_changed: ['.planning/PM_SIGNOFF.md', '.agentxchain/reviews/turn_abc-review.md'],
+        verification: { status: 'skipped' },
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      // Should not error on the authoritative+review check (review-only paths are exempt)
+      const mismatchErrors = res.errors.filter(e => e.includes('authoritative write authority') && e.includes('artifact type is "review"'));
+      assert.equal(mismatchErrors.length, 0, `Unexpected mismatch error: ${mismatchErrors.join('; ')}`);
+    });
+
+    it('allows authoritative role using artifact.type "review" with empty files_changed (AT-AUTH-REV-003)', () => {
+      const tr = makeValidTurnResult({
+        artifact: { type: 'review', ref: null },
+        files_changed: [],
+        verification: { status: 'skipped' },
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      const mismatchErrors = res.errors.filter(e => e.includes('authoritative write authority') && e.includes('artifact type is "review"'));
+      assert.equal(mismatchErrors.length, 0, `Unexpected mismatch error: ${mismatchErrors.join('; ')}`);
+    });
+
+    it('rejects authoritative role using artifact.type "review" with mixed review-path and product files (AT-AUTH-REV-004)', () => {
+      const tr = makeValidTurnResult({
+        artifact: { type: 'review', ref: null },
+        files_changed: ['.planning/notes.md', 'src/main.ts'],
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(
+        res.errors.some(e => e.includes('authoritative write authority') && e.includes('src/main.ts')),
+        `Expected mismatch error mentioning product file but got: ${res.errors.join('; ')}`
+      );
+    });
+  });
 });
