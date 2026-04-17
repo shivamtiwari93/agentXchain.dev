@@ -1,4 +1,6 @@
 import chalk from 'chalk';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { findProjectRoot, loadProjectContext } from '../lib/config.js';
 import {
   attachChainToMission,
@@ -54,6 +56,26 @@ export async function missionStartCommand(opts) {
   }
 
   const snapshot = buildMissionSnapshot(root, result.mission);
+  if (opts.plan) {
+    try {
+      const plan = await createMissionPlan(root, result.mission, opts);
+      if (opts.json) {
+        console.log(JSON.stringify({ mission: snapshot, plan }, null, 2));
+        return;
+      }
+
+      console.log(chalk.green(`Created mission ${snapshot.mission_id}`));
+      console.log(chalk.dim(`  Goal: ${snapshot.goal}`));
+      console.log(chalk.green(`Created plan ${plan.plan_id} for mission ${snapshot.mission_id}`));
+      renderPlan(plan);
+      return;
+    } catch (error) {
+      console.error(chalk.yellow(`Mission ${snapshot.mission_id} was created, but automatic plan generation failed.`));
+      renderMissionPlanError(error);
+      process.exit(1);
+    }
+  }
+
   if (opts.json) {
     console.log(JSON.stringify(snapshot, null, 2));
     return;
@@ -211,66 +233,21 @@ export async function missionPlanCommand(missionTarget, opts) {
     console.error(chalk.red(`Mission "${mission.mission_id}" has no goal text. The planner cannot operate on missing mission intent.`));
     process.exit(1);
   }
-
-  const constraints = Array.isArray(opts.constraint) ? opts.constraint : (opts.constraint ? [opts.constraint] : []);
-  const roleHints = Array.isArray(opts.roleHint) ? opts.roleHint : (opts.roleHint ? [opts.roleHint] : []);
-
-  // Build prompt and attempt LLM call, or use deterministic fallback
-  let plannerOutput;
-  const { systemPrompt, userPrompt } = buildPlannerPrompt(mission, constraints, roleHints);
-
-  if (opts._plannerOutput) {
-    // Injected planner output for testing — skip LLM call
-    plannerOutput = opts._plannerOutput;
-  } else {
-    // Attempt to use the configured api_proxy adapter for decomposition
-    try {
-      const { loadConfig } = await import('../lib/config.js');
-      const config = loadConfig(root);
-      const plannerConfig = config?.mission_planner || config?.api_proxy;
-
-      if (plannerConfig && plannerConfig.base_url && plannerConfig.model) {
-        const response = await callPlannerLLM(plannerConfig, systemPrompt, userPrompt);
-        const parsed = parsePlannerResponse(response);
-        if (!parsed.ok) {
-          console.error(chalk.red(`Planner response parse error: ${parsed.error}`));
-          process.exit(1);
-        }
-        plannerOutput = parsed.data;
-      } else {
-        console.error(chalk.red('No mission planner or api_proxy configured.'));
-        console.error(chalk.dim('  Add "mission_planner" or "api_proxy" to agentxchain.json with base_url and model.'));
-        console.error(chalk.dim('  Or pass planner output via --planner-output-file <path> for offline use.'));
-        process.exit(1);
-      }
-    } catch (err) {
-      console.error(chalk.red(`Planner call failed: ${err.message}`));
-      process.exit(1);
-    }
-  }
-
-  // Validate and create plan artifact
-  const result = createPlanArtifact(root, mission, {
-    constraints,
-    roleHints,
-    plannerOutput,
-  });
-
-  if (!result.ok) {
-    console.error(chalk.red('Plan validation failed:'));
-    for (const err of result.errors) {
-      console.error(chalk.red(`  • ${err}`));
-    }
+  let plan;
+  try {
+    plan = await createMissionPlan(root, mission, opts);
+  } catch (error) {
+    renderMissionPlanError(error);
     process.exit(1);
   }
 
   if (opts.json) {
-    console.log(JSON.stringify(result.plan, null, 2));
+    console.log(JSON.stringify(plan, null, 2));
     return;
   }
 
-  console.log(chalk.green(`Created plan ${result.plan.plan_id} for mission ${mission.mission_id}`));
-  renderPlan(result.plan);
+  console.log(chalk.green(`Created plan ${plan.plan_id} for mission ${mission.mission_id}`));
+  renderPlan(plan);
 }
 
 /**
@@ -689,6 +666,84 @@ async function callPlannerLLM(config, systemPrompt, userPrompt) {
   }
 
   return content;
+}
+
+async function createMissionPlan(root, mission, opts = {}) {
+  const { constraints, roleHints } = normalizePlannerOptions(opts);
+  const plannerOutput = await resolvePlannerOutput(root, mission, constraints, roleHints, opts);
+  const result = createPlanArtifact(root, mission, {
+    constraints,
+    roleHints,
+    plannerOutput,
+  });
+
+  if (!result.ok) {
+    const error = new Error('Plan validation failed.');
+    error.validationErrors = result.errors;
+    throw error;
+  }
+
+  return result.plan;
+}
+
+function normalizePlannerOptions(opts = {}) {
+  return {
+    constraints: Array.isArray(opts.constraint) ? opts.constraint : (opts.constraint ? [opts.constraint] : []),
+    roleHints: Array.isArray(opts.roleHint) ? opts.roleHint : (opts.roleHint ? [opts.roleHint] : []),
+  };
+}
+
+async function resolvePlannerOutput(root, mission, constraints, roleHints, opts = {}) {
+  const { systemPrompt, userPrompt } = buildPlannerPrompt(mission, constraints, roleHints);
+
+  if (opts._plannerOutput) {
+    return opts._plannerOutput;
+  }
+
+  if (opts.plannerOutputFile) {
+    const plannerOutputPath = resolve(opts.plannerOutputFile);
+    let raw;
+    try {
+      raw = readFileSync(plannerOutputPath, 'utf8');
+    } catch (error) {
+      throw new Error(`Planner output file read error: ${error.message}`);
+    }
+
+    const parsed = parsePlannerResponse(raw);
+    if (!parsed.ok) {
+      throw new Error(`Planner output file parse error: ${parsed.error}`);
+    }
+    return parsed.data;
+  }
+
+  const { loadConfig } = await import('../lib/config.js');
+  const config = loadConfig(root);
+  const plannerConfig = config?.mission_planner || config?.api_proxy;
+
+  if (!plannerConfig || !plannerConfig.base_url || !plannerConfig.model) {
+    throw new Error('No mission planner or api_proxy configured.\n  Add "mission_planner" or "api_proxy" to agentxchain.json with base_url and model.\n  Or pass planner output via --planner-output-file <path> for offline use.');
+  }
+
+  const response = await callPlannerLLM(plannerConfig, systemPrompt, userPrompt);
+  const parsed = parsePlannerResponse(response);
+  if (!parsed.ok) {
+    throw new Error(`Planner response parse error: ${parsed.error}`);
+  }
+  return parsed.data;
+}
+
+function renderMissionPlanError(error) {
+  const message = error?.message || 'Mission planning failed.';
+  const [firstLine, ...rest] = String(message).split('\n');
+  console.error(chalk.red(firstLine));
+  for (const line of rest) {
+    console.error(chalk.dim(line));
+  }
+  if (Array.isArray(error?.validationErrors) && error.validationErrors.length > 0) {
+    for (const validationError of error.validationErrors) {
+      console.error(chalk.red(`  • ${validationError}`));
+    }
+  }
 }
 
 function renderMissionSnapshot(snapshot) {

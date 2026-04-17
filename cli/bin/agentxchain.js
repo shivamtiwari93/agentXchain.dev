@@ -430,6 +430,10 @@ missionCmd
   .requiredOption('--title <text>', 'Mission title')
   .requiredOption('--goal <text>', 'Mission goal')
   .option('--id <mission_id>', 'Override the derived mission ID')
+  .option('--plan', 'Generate a proposed mission plan immediately after mission creation')
+  .option('--constraint <text>', 'Add a constraint to the planner when using --plan (repeatable)', collectOption, [])
+  .option('--role-hint <role>', 'Hint available roles to the planner when using --plan (repeatable)', collectOption, [])
+  .option('--planner-output-file <path>', 'Read planner JSON output from a file instead of calling the configured planner')
   .option('-j, --json', 'Output as JSON')
   .option('-d, --dir <path>', 'Project directory')
   .action(missionStartCommand);
@@ -462,6 +466,7 @@ const missionPlanCmd = missionCmd
   .description('Generate a decomposition plan for a mission (default: latest mission)')
   .option('--constraint <text>', 'Add a constraint to the planner (repeatable)', collectOption, [])
   .option('--role-hint <role>', 'Hint available roles to the planner (repeatable)', collectOption, [])
+  .option('--planner-output-file <path>', 'Read planner JSON output from a file instead of calling the configured planner')
   .option('-j, --json', 'Output as JSON')
   .option('-d, --dir <path>', 'Project directory')
   .action(missionPlanCommand);

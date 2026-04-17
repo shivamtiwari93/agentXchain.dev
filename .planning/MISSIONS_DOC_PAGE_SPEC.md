@@ -32,6 +32,7 @@ website-v2/static/llms.txt
 ### Supporting product surfaces
 
 - `agentxchain mission start`
+- `agentxchain mission start --plan`
 - `agentxchain mission list`
 - `agentxchain mission show`
 - `agentxchain mission attach-chain`
@@ -60,7 +61,7 @@ The page must make both real operator paths explicit:
    - inspect the result through `mission show` or the dashboard `Mission` view
 
 2. **Decomposed planning flow**
-   - generate a mission plan
+   - create the mission and first proposed plan in one command with `mission start --plan`, or generate a plan later with `mission plan`
    - review and approve the latest plan
    - launch one approved workstream at a time
    - inspect workstream launch state and chain linkage in the dashboard Mission view
@@ -76,6 +77,10 @@ The page must reference the actual mission artifacts and derived dashboard/API s
 - `.agentxchain/reports/chain-<id>.json`
 - `GET /api/missions`
 - `GET /api/plans`
+
+The page must also document the real offline planning input path:
+
+- `--planner-output-file <path>` on `mission start --plan` and `mission plan`
 
 ### 4. Document derived status truthfully
 
@@ -119,6 +124,7 @@ The page must distinguish:
 | Operator confuses mission with initiative | State the repo-local vs multi-repo boundary explicitly. |
 | Operator thinks `mission attach-chain` is required every time | Make `run --chain --mission ...` the preferred flow and label manual attach as fallback. |
 | Operator thinks mission planning only writes bookkeeping | State that `mission plan launch` executes immediately through the governed run path and records real `chain_id` linkage. |
+| Operator wants deterministic or offline planning input | Document `--planner-output-file <path>` instead of implying planner calls are the only supported path. |
 | Operator looks for plan artifacts or dashboard data | Document `.agentxchain/missions/plans/<mission_id>/<plan_id>.json` and `GET /api/plans`. |
 | Operator passes a missing explicit mission ID | Document that the chain aborts fail-closed. |
 | Operator uses `--mission latest` before creating any missions | Document the warning-only bootstrap behavior. |
@@ -134,6 +140,7 @@ The page must distinguish:
 5. The page documents `.agentxchain/missions/<mission_id>.json`, mission-plan artifacts, chain reports, `GET /api/missions`, and `GET /api/plans`.
 6. The page documents `mission plan launch` as immediate execution with real `workstream_id -> chain_id` linkage and launch/workstream state visibility.
 7. `llms.txt` includes the missions page.
+8. The page documents `mission start --plan` and `--planner-output-file <path>` as shipped planning-entry surfaces.
 
 ## Open Questions
 

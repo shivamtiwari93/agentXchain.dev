@@ -157,7 +157,7 @@ If you later run `verify diff` on coordinator exports outside the benchmark flow
 ### `mission`
 
 ```bash
-agentxchain mission start --title <text> --goal <text> [--id <mission_id>] [--json] [--dir <path>]
+agentxchain mission start --title <text> --goal <text> [--id <mission_id>] [--plan] [--constraint <text>]... [--role-hint <role>]... [--planner-output-file <path>] [--json] [--dir <path>]
 agentxchain mission list [--limit <n>] [--json] [--dir <path>]
 agentxchain mission show [mission_id] [--json] [--dir <path>]
 agentxchain mission attach-chain [chain_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
@@ -172,6 +172,15 @@ Use it when one repo needs a durable long-horizon grouping across multiple chain
 agentxchain mission start \
   --title "Release hardening" \
   --goal "Eliminate version-surface drift across release tooling"
+
+# Or create the mission plus the first proposed plan in one pass
+agentxchain mission start \
+  --title "Release hardening" \
+  --goal "Eliminate version-surface drift across release tooling" \
+  --plan \
+  --constraint "Keep release automation idempotent" \
+  --role-hint dev \
+  --role-hint qa
 
 # Auto-bind chained runs to the mission (preferred)
 agentxchain run --chain --mission latest --auto-approve
@@ -189,6 +198,8 @@ agentxchain mission show
 
 The `--mission` flag on `run --chain` is the primary operator flow. It auto-attaches the chain report to the specified mission after completion, eliminating the manual `mission attach-chain` step. Use `--mission latest` to always bind to the most recent mission, or pass an explicit mission ID. Set `run_loop.chain.mission` in `agentxchain.json` for config-driven auto-binding.
 
+`mission start --plan` is a convenience layer over the shipped planner path, not a governance bypass. It creates the mission first, then writes exactly one `proposed` plan artifact. `mission start --plan --json` emits `{ mission, plan }`; the mission-only JSON shape remains unchanged when `--plan` is absent.
+
 Mission summaries derive aggregate chain count, total runs, total turns, latest chain terminal reason, and active repo-decision count. That last field matters: repo decisions already carry across chained runs, and the mission surface keeps that continuity visible instead of pretending each chain starts from zero.
 
 `mission attach-chain` remains available for binding chains from runs that were not mission-bound at start. It defaults to attaching the latest chain report to the latest mission.
@@ -198,7 +209,7 @@ For the full operator model, see [Missions](/docs/missions). That page keeps the
 ### `mission plan`
 
 ```bash
-agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
+agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--planner-output-file <path>] [--json] [--dir <path>]
 agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
@@ -213,6 +224,9 @@ Plans are advisory artifacts under `.agentxchain/missions/plans/<mission_id>/`. 
 # Generate a decomposition plan for the latest mission
 agentxchain mission plan latest --constraint "No protocol changes" --role-hint dev --role-hint qa
 
+# Or supply deterministic/offline planner JSON
+agentxchain mission plan latest --planner-output-file ./planner-output.json
+
 # Show the latest plan for the latest mission
 agentxchain mission plan show latest
 
@@ -226,7 +240,7 @@ agentxchain mission plan launch latest --workstream ws-alignment --auto-approve
 agentxchain mission plan list --mission mission-release-hardening
 ```
 
-The planner uses LLM-assisted one-shot generation with strict schema validation. Configure `mission_planner` or `api_proxy` in `agentxchain.json` with `base_url` and `model`. Malformed planner output fails validation closed — no partially-valid plan artifacts are created.
+The planner uses LLM-assisted one-shot generation with strict schema validation. Configure `mission_planner` or `api_proxy` in `agentxchain.json` with `base_url` and `model`, or pass `--planner-output-file <path>` with the same JSON shape the planner would have returned. Malformed planner output fails validation closed — no partially-valid plan artifacts are created.
 
 Plan revision works by supersession: generating a new plan sets `supersedes_plan_id` to the prior plan. Earlier plans remain durable for auditability. The system never mutates an existing plan artifact.
 

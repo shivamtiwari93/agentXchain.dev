@@ -19,10 +19,11 @@ This feature is advisory, not protocol-normative:
 ### CLI
 
 ```bash
-agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
-agentxchain mission plan show [plan_id|latest] [--json] [--dir <path>]
+agentxchain mission start --title <text> --goal <text> --plan [--constraint <text>]... [--role-hint <role>]... [--planner-output-file <path>] [--json] [--dir <path>]
+agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--planner-output-file <path>] [--json] [--dir <path>]
+agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
-agentxchain mission plan launch [plan_id|latest] --workstream <workstream_id> [--auto-approve] [--dir <path>]
+agentxchain mission plan launch [plan_id|latest] --workstream <workstream_id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 ```
 
 ### Repo Artifacts
@@ -121,9 +122,27 @@ The initial implementation is LLM-assisted with strict schema validation:
 - require structured JSON output matching the plan schema
 - reject malformed or incomplete planner output fail-closed
 
+Operators may bypass the live planner call with `--planner-output-file <path>`. That file is an offline input surface, not a different plan schema:
+
+- it must contain the same structured JSON the live planner would have returned
+- parse and validation failures still fail closed
+- the file path exists to support deterministic review, testing, and air-gapped planning workflows without inventing a second artifact format
+
 Rule-only decomposition is not sufficient for arbitrary repo goals. Mission decomposition is a product-specific planning surface and can justify custom planner logic.
 
-### 5. Approval is mandatory before launch
+### 5. Mission creation convenience must preserve the same boundary
+
+`mission start --plan` is a convenience layer above `mission plan`, not a different planner mode:
+
+- it creates the mission artifact first
+- it generates exactly one `proposed` plan for that mission using the same planner path and schema validation
+- it does not auto-approve or auto-launch work
+- `--constraint`, `--role-hint`, and `--planner-output-file` pass through unchanged
+- `--json` returns `{ mission, plan }` so operators can inspect both created artifacts together
+
+If planning fails after mission creation, the mission artifact remains durable and the command exits non-zero. The product must not pretend mission creation and plan generation are atomic when they are not.
+
+### 6. Approval is mandatory before launch
 
 `mission plan` never starts chains.
 
@@ -144,7 +163,7 @@ Approval behavior is strict:
 
 This keeps one current approved plan per mission and makes revision lineage explicit instead of implicit.
 
-### 6. Launch is per-ready-workstream
+### 7. Launch is per-ready-workstream
 
 `mission plan launch` starts one workstream at a time using the existing governed run path and mission binding.
 
@@ -158,7 +177,7 @@ Launch behavior:
 
 This keeps decomposition advisory and execution explicit. The product does not turn one plan approval into an uncontrolled swarm fan-out.
 
-### 7. Failure behavior is block-and-replan, not silent auto-retry
+### 8. Failure behavior is block-and-replan, not silent auto-retry
 
 If a launched workstream ends in failure or blocked state:
 
@@ -171,7 +190,7 @@ If a launched workstream's bound chain finishes successfully, that workstream is
 
 The operator may then create a new superseding plan revision. Replanning is explicit because automatic replanning would otherwise rewrite approved intent without review.
 
-### 8. Visibility surfaces
+### 9. Visibility surfaces
 
 At minimum, the plan surface must expose:
 
@@ -186,7 +205,9 @@ At minimum, the plan surface must expose:
 |---|---|
 | Mission target does not exist | Fail closed. No plan artifact is created. |
 | Mission has no goal text | Fail closed. The planner cannot operate on missing mission intent. |
+| `--planner-output-file` path cannot be read or parsed | Fail closed. No plan artifact is written. |
 | Planner returns malformed JSON or omits required workstream fields | Fail closed and surface validation errors. |
+| `mission start --plan` creates the mission but planning fails afterward | Keep the created mission artifact, exit non-zero, and state that no plan was created. |
 | Plan approve target does not exist | Fail closed. |
 | Plan approve target is not the latest plan artifact for the mission | Fail closed and direct the operator to the latest revision. |
 | Plan approve target is already approved or is no longer in `proposed` state | Fail closed. |
@@ -212,6 +233,8 @@ At minimum, the plan surface must expose:
 - `AT-MISSION-PLAN-011`: approving a newer plan supersedes any older active proposed/approved plans so only one approved plan remains current.
 - `AT-MISSION-PLAN-012`: attempting to approve an already-approved or older superseded plan fails closed.
 - `AT-MISSION-PLAN-013`: dependency satisfaction treats a launched dependency as complete when its bound chain's latest run completed successfully, even if the chain-loop terminal reason is not literally `"completed"`.
+- `AT-MISSION-PLAN-040`: `mission plan ... --planner-output-file <path>` accepts offline planner JSON and creates the same proposed artifact shape as the live planner path.
+- `AT-MISSION-PLAN-041`: `mission start --plan` creates the mission plus exactly one proposed plan using the same planner contract, and it never auto-approves or auto-launches that plan.
 
 ## Open Questions
 

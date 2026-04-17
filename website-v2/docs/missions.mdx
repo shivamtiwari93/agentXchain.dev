@@ -85,10 +85,25 @@ Use `mission show` for terminal inspection and the dashboard `Mission` view for 
 
 Use this path when the mission needs reviewed workstreams instead of one undifferentiated chain.
 
-#### 1. Generate a plan
+#### 1. Create the mission and first proposed plan
+
+```bash
+agentxchain mission start \
+  --title "Release hardening" \
+  --goal "Eliminate version-surface drift across release tooling" \
+  --plan \
+  --constraint "Keep release automation idempotent" \
+  --role-hint dev \
+  --role-hint qa
+```
+
+`mission start --plan` is a convenience layer, not a governance shortcut. It creates the mission artifact first, then generates exactly one `proposed` plan for that same mission. It does not auto-approve or auto-launch anything.
+
+If you already have a mission, or you want deterministic offline planner input, use the plan command directly:
 
 ```bash
 agentxchain mission plan latest \
+  --planner-output-file ./planner-output.json \
   --constraint "Keep release automation idempotent" \
   --role-hint dev \
   --role-hint qa
@@ -128,11 +143,11 @@ The dashboard `Mission` view now combines mission snapshots with the latest plan
 ## CLI Commands
 
 ```bash
-agentxchain mission start --title <text> --goal <text> [--id <mission_id>] [--json] [--dir <path>]
+agentxchain mission start --title <text> --goal <text> [--id <mission_id>] [--plan] [--constraint <text>]... [--role-hint <role>]... [--planner-output-file <path>] [--json] [--dir <path>]
 agentxchain mission list [--limit <n>] [--json] [--dir <path>]
 agentxchain mission show [mission_id] [--json] [--dir <path>]
 agentxchain mission attach-chain [chain_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
-agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
+agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--planner-output-file <path>] [--json] [--dir <path>]
 agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
 agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
 agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
@@ -142,6 +157,8 @@ agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <m
 ### `mission start`
 
 Creates a single-repo mission artifact. Mission IDs are slugged and normalized to the `mission-...` form unless you override them with `--id`.
+
+Add `--plan` when you want the CLI to create the mission and first proposed plan in one pass. `--constraint`, `--role-hint`, and `--planner-output-file` only apply in that mode. `mission start --plan --json` returns a combined `{ mission, plan }` payload instead of the mission-only snapshot.
 
 ### `mission list`
 
@@ -166,6 +183,8 @@ If no explicit `--mission` is passed here, the command defaults to attaching the
 ### `mission plan`
 
 Generates a decomposition plan for an existing mission. The planner uses the mission goal plus optional constraints and role hints to produce dependency-ordered workstreams. The output is a durable plan artifact, not a fake pre-created swarm of chains.
+
+Use `--planner-output-file <path>` when you want deterministic or offline planning input. The file must contain the same structured JSON the live planner would have returned. Parse and schema validation still fail closed.
 
 ### `mission plan show`
 

@@ -35,6 +35,12 @@ function writePlanArtifact(dir, missionId, plan) {
   writeFileSync(join(plansDir, `${plan.plan_id}.json`), JSON.stringify(plan, null, 2));
 }
 
+function writePlannerOutputFile(dir, plannerOutput) {
+  const filePath = join(dir, `planner-output-${randomUUID().slice(0, 8)}.json`);
+  writeFileSync(filePath, JSON.stringify(plannerOutput, null, 2));
+  return filePath;
+}
+
 function appendRepoDecision(dir, decision) {
   const decisionsPath = join(dir, '.agentxchain', 'repo-decisions.jsonl');
   mkdirSync(join(dir, '.agentxchain'), { recursive: true });
@@ -82,6 +88,8 @@ describe('mission CLI — structural guards', () => {
     assert.ok(bin.includes("command('list')"), 'mission list must be registered');
     assert.ok(bin.includes("command('show"), 'mission show must be registered');
     assert.ok(bin.includes("command('attach-chain"), 'mission attach-chain must be registered');
+    assert.ok(bin.includes('--plan'), 'mission start must expose --plan');
+    assert.ok(bin.includes('--planner-output-file <path>'), 'mission planning must expose --planner-output-file');
   });
 });
 
@@ -283,5 +291,78 @@ describe('mission CLI behavior', () => {
       () => runCli(['mission', 'plan', 'approve', 'plan-older', '-d', tmpDir], tmpDir),
       /superseded by newer plan/i
     );
+  });
+
+  it('AT-MISSION-CLI-009: mission start --plan creates mission and proposed plan from planner-output-file JSON', () => {
+    const plannerOutputPath = writePlannerOutputFile(tmpDir, {
+      workstreams: [
+        {
+          workstream_id: 'ws-plan',
+          title: 'Plan release hardening',
+          goal: 'Create the first proposed plan.',
+          roles: ['pm', 'dev'],
+          phases: ['planning', 'implementation'],
+          depends_on: [],
+          acceptance_checks: ['Plan artifact is created'],
+        },
+      ],
+    });
+
+    const output = runCli([
+      'mission',
+      'start',
+      '--title', 'Auto Plan Mission',
+      '--goal', 'Create mission and plan together',
+      '--plan',
+      '--planner-output-file', plannerOutputPath,
+      '--json',
+      '-d', tmpDir,
+    ], tmpDir);
+
+    const parsed = JSON.parse(output);
+    assert.equal(parsed.mission.mission_id, 'mission-auto-plan-mission');
+    assert.equal(parsed.plan.mission_id, 'mission-auto-plan-mission');
+    assert.equal(parsed.plan.status, 'proposed');
+    assert.equal(parsed.plan.workstreams.length, 1);
+
+    const planDir = join(tmpDir, '.agentxchain', 'missions', 'plans', 'mission-auto-plan-mission');
+    const planFiles = existsSync(planDir) ? readFileSync(join(planDir, `${parsed.plan.plan_id}.json`), 'utf8') : null;
+    assert.ok(planFiles, 'mission start --plan must write a durable plan artifact');
+  });
+
+  it('AT-MISSION-CLI-010: mission start --plan forwards constraints and role hints into plan input', () => {
+    const plannerOutputPath = writePlannerOutputFile(tmpDir, {
+      workstreams: [
+        {
+          workstream_id: 'ws-proof',
+          title: 'Generate proof',
+          goal: 'Preserve planner metadata in the artifact.',
+          roles: ['dev', 'qa'],
+          phases: ['implementation', 'qa'],
+          depends_on: [],
+          acceptance_checks: ['Constraints and role hints are preserved'],
+        },
+      ],
+    });
+
+    const output = runCli([
+      'mission',
+      'start',
+      '--title', 'Forward Planner Inputs',
+      '--goal', 'Keep planner inputs visible',
+      '--plan',
+      '--constraint', 'Keep releases idempotent',
+      '--constraint', 'Do not mutate protocol',
+      '--role-hint', 'dev',
+      '--role-hint', 'qa',
+      '--planner-output-file', plannerOutputPath,
+      '--json',
+      '-d', tmpDir,
+    ], tmpDir);
+
+    const parsed = JSON.parse(output);
+    assert.deepEqual(parsed.plan.input.constraints, ['Keep releases idempotent', 'Do not mutate protocol']);
+    assert.deepEqual(parsed.plan.input.role_hints, ['dev', 'qa']);
+    assert.equal(parsed.plan.status, 'proposed');
   });
 });

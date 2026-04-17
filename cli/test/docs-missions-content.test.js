@@ -46,10 +46,13 @@ describe('Missions docs surface', () => {
   it('documents the shipped mission CLI commands and preferred binding path', () => {
     for (const cmd of [
       'agentxchain mission start',
+      '--title "Release hardening"',
+      '--plan',
       'agentxchain mission list',
       'agentxchain mission show',
       'agentxchain mission attach-chain',
       'agentxchain mission plan latest',
+      '--planner-output-file ./planner-output.json',
       'agentxchain mission plan show latest',
       'agentxchain mission plan approve latest',
       'agentxchain mission plan launch latest',
@@ -63,6 +66,7 @@ describe('Missions docs surface', () => {
     assert.match(DOC, /primary operator flow/i);
     assert.match(DOC, /manual fallback/i);
     assert.match(DOC, /decomposed mission planning/i);
+    assert.match(DOC, /convenience layer/i);
   });
 
   it('documents real artifact and dashboard/api surfaces', () => {
@@ -98,6 +102,7 @@ describe('Missions docs surface', () => {
     assert.match(DOC, /not bookkeeping-only/i);
     assert.match(DOC, /workstream_id -> chain_id/i);
     assert.match(DOC, /executes the workstream immediately/i);
+    assert.match(DOC, /deterministic or offline/i);
     for (const status of ['`proposed`', '`approved`', '`superseded`', '`ready`', '`blocked`', '`launched`', '`completed`', '`needs_attention`']) {
       assert.ok(DOC.includes(status), `missions docs must mention ${status}`);
     }
@@ -116,6 +121,8 @@ describe('Missions docs cross-linking and implementation alignment', () => {
     assert.match(CLI_ENTRY, /\.command\('list'\)/);
     assert.match(CLI_ENTRY, /\.command\('show \[mission_id\]'\)/);
     assert.match(CLI_ENTRY, /\.command\('attach-chain \[chain_id\]'\)/);
+    assert.match(CLI_ENTRY, /Generate a proposed mission plan immediately after mission creation/);
+    assert.match(CLI_ENTRY, /Read planner JSON output from a file instead of calling the configured planner/);
     assert.match(CLI_ENTRY, /Group chained runs under a single-repo long-horizon mission/);
   });
 

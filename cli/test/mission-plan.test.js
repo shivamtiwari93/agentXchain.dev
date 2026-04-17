@@ -86,6 +86,12 @@ function writeChainReport(dir, report) {
   writeFileSync(join(reportsDir, `${report.chain_id}.json`), JSON.stringify(report, null, 2));
 }
 
+function writePlannerOutputFile(dir, plannerOutput) {
+  const plannerOutputPath = join(dir, `planner-output-${randomUUID().slice(0, 8)}.json`);
+  writeFileSync(plannerOutputPath, JSON.stringify(plannerOutput, null, 2));
+  return plannerOutputPath;
+}
+
 function validPlannerOutput() {
   return {
     workstreams: [
@@ -142,6 +148,7 @@ describe('mission-plans.js — structural guards', () => {
     assert.ok(bin.includes('missionPlanListCommand'), 'missionPlanListCommand must be imported');
     assert.ok(bin.includes('--constraint'), 'plan must accept --constraint');
     assert.ok(bin.includes('--role-hint'), 'plan must accept --role-hint');
+    assert.ok(bin.includes('--planner-output-file <path>'), 'plan must accept --planner-output-file');
     assert.ok(bin.includes("command('approve"), 'mission plan approve must be registered');
   });
 
@@ -919,6 +926,53 @@ describe('mission-plans.js — structural guards (launch)', () => {
     assert.ok(bin.includes("command('launch"), 'mission plan launch must be registered');
     assert.ok(bin.includes('--workstream'), 'launch must accept --workstream');
     assert.ok(bin.includes('--auto-approve'), 'launch must accept --auto-approve');
+  });
+});
+
+describe('missionPlanCommand — planner input surfaces', () => {
+  let tmpDir;
+  let missionMod;
+
+  beforeEach(async () => {
+    tmpDir = createTmpProject();
+    missionMod = await import(missionCommandPath);
+  });
+
+  afterEach(() => {
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  });
+
+  it('AT-MISSION-PLAN-040: missionPlanCommand accepts offline planner JSON via --planner-output-file', async () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-offline-plan',
+      title: 'Offline Plan',
+      goal: 'Create a plan without a live planner call.',
+    });
+    const plannerOutputPath = writePlannerOutputFile(tmpDir, validPlannerOutput());
+
+    const output = [];
+    const originalLog = console.log;
+    const originalError = console.error;
+    console.log = (line) => output.push(line);
+    console.error = () => {};
+    try {
+      await missionMod.missionPlanCommand('latest', {
+        dir: tmpDir,
+        json: true,
+        plannerOutputFile: plannerOutputPath,
+      });
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+    }
+
+    const parsed = JSON.parse(output.join('\n'));
+    assert.equal(parsed.mission_id, mission.mission_id);
+    assert.equal(parsed.status, 'proposed');
+    assert.equal(parsed.workstreams.length, 2);
+
+    const plansDir = join(tmpDir, '.agentxchain', 'missions', 'plans', mission.mission_id);
+    assert.equal(readdirSync(plansDir).length, 1, 'offline planner input must still create one durable plan artifact');
   });
 });
 
