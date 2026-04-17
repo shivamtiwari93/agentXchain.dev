@@ -215,6 +215,17 @@ function renderGovernedStatus(context, opts) {
     if (continuousSession.idle_cycles > 0) {
       console.log(chalk.dim(`  Idle cycles: ${continuousSession.idle_cycles}/${continuousSession.max_idle_cycles}`));
     }
+    if (continuousSession.per_session_max_usd != null) {
+      const spent = (continuousSession.cumulative_spent_usd || 0).toFixed(2);
+      const limit = continuousSession.per_session_max_usd.toFixed(2);
+      const pct = continuousSession.per_session_max_usd > 0
+        ? ((continuousSession.cumulative_spent_usd || 0) / continuousSession.per_session_max_usd * 100).toFixed(1)
+        : '0.0';
+      const budgetStr = continuousSession.budget_exhausted
+        ? chalk.red(`$${spent} / $${limit} (${pct}%) [EXHAUSTED]`)
+        : `$${spent} / $${limit} (${pct}%)`;
+      console.log(`  Budget:      ${budgetStr}`);
+    }
     console.log(chalk.dim('  ' + '─'.repeat(44)));
     console.log('');
   }

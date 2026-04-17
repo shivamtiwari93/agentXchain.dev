@@ -821,6 +821,7 @@ agentxchain run [options]
 | `--max-runs <n>` | `100` | Maximum consecutive governed runs in continuous mode |
 | `--poll-seconds <n>` | `30` | Seconds between idle-detection cycles in continuous mode |
 | `--max-idle-cycles <n>` | `3` | Stop after N consecutive idle cycles with no derivable work |
+| `--session-budget <usd>` | `null` | Cumulative session-level budget cap in USD for continuous mode. Stops the session cleanly when total spend across all runs reaches this limit |
 
 Drives a governed run to completion using the `runLoop` library. Continuously assigns turns, dispatches to adapters, handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). The manual adapter is not supported — use `step` for manual dispatch workflows. When a gate pause is reached, the command prompts interactively on stdin unless `--auto-approve` is set. In non-TTY environments (e.g., CI), gates fail closed unless `--auto-approve` is explicitly passed. If `project.goal` is set in `agentxchain.json`, every dispatched turn's `CONTEXT.md` includes a `## Project Goal` section so agents know what the project is trying to accomplish.
 
@@ -830,7 +831,7 @@ Drives a governed run to completion using the `runLoop` library. Continuously as
 
 **Context inheritance:** Add `--inherit-context` to either `--continue-from` or `--recover-from` to carry a read-only summary of the selected parent run into the child run. The inherited summary includes the parent's terminal status, phases completed, roles used, terminal retrospective, recent decisions, and recent accepted-turn summaries from that parent run's recorded `run-history.jsonl` snapshot. The child run remains a fresh run — no phase state, gate approvals, or mutable state is copied. The inherited summary is rendered in the first turn's `CONTEXT.md`, exposed in `status --json`, `report`, and `export`, and persists in `state.json` as `inherited_context`. If you target an older parent run recorded before inheritance snapshots existed, inheritance degrades to metadata-only with warnings instead of reading today's repo-global history and pretending it came from that parent.
 
-**Continuous vision-driven mode:** `--continuous` enables a lights-out loop where the only human-supplied input is VISION.md. The loop derives candidate intents from unaddressed vision goals, records them through the intake pipeline, and executes governed runs automatically. Each run's provenance traces back to a specific vision section (`trigger: "vision_scan"`). The loop stops on `--max-runs`, `--max-idle-cycles` (when all vision goals appear addressed), SIGINT, or a human-blocking escalation. Configure `triage_approval: "human"` in `run_loop.continuous` config to require operator approval for vision-derived intents instead of auto-approving. Use `agentxchain status` to view the continuous session and current vision-derived objective. VISION.md is project-relative — each governed project has its own VISION.md, never the agentxchain.dev repo's VISION.md.
+**Continuous vision-driven mode:** `--continuous` enables a lights-out loop where the only human-supplied input is VISION.md. The loop derives candidate intents from unaddressed vision goals, records them through the intake pipeline, and executes governed runs automatically. Each run's provenance traces back to a specific vision section (`trigger: "vision_scan"`). The loop stops on `--max-runs`, `--max-idle-cycles` (when all vision goals appear addressed), `--session-budget` (when cumulative spend exceeds the cap), SIGINT, or a human-blocking escalation. Configure `triage_approval: "human"` in `run_loop.continuous` config to require operator approval for vision-derived intents instead of auto-approving. Use `agentxchain status` to view the continuous session and current vision-derived objective. VISION.md is project-relative — each governed project has its own VISION.md, never the agentxchain.dev repo's VISION.md.
 
 ### `schedule`
 
@@ -871,6 +872,7 @@ Repo-local run scheduling is the narrow first step from "tool you invoke" to "sy
 | `continuous.max_runs` | `50` | Max governed runs before the continuous session exits |
 | `continuous.max_idle_cycles` | `5` | Max polls with no derivable work before idle exit |
 | `continuous.triage_approval` | `"auto"` | `"auto"` or `"human"` for vision-derived intent approval |
+| `continuous.per_session_max_usd` | `null` | Cumulative session-level budget cap in USD. Session stops cleanly when total spend reaches this limit |
 
 Behavior contract:
 

@@ -136,6 +136,8 @@ The turn that exhausts the budget IS accepted — its work is preserved. Only su
 
 To prevent hard stops on budget exhaustion, switch to warn mode with `agentxchain config --set budget.on_exceed warn`. In warn mode the run continues past budget with observable warnings in `status`, events, and notifications instead of blocking.
 
+**Session-level budget (continuous mode):** In addition to per-run budget caps, continuous mode supports a cumulative session-level budget via `--session-budget <usd>` or `continuous.per_session_max_usd` in config. When total spend across all runs in the session reaches this limit, the continuous loop exits cleanly with `session_budget_exhausted`. This is a terminal stop, not a blocker — start a new session to continue. Use `agentxchain status` to see cumulative spend and budget utilization for the active session.
+
 ### Other States
 
 | Condition | Recovery |

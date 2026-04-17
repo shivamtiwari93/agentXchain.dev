@@ -54,7 +54,7 @@ export function removeContinuousSession(root) {
   }
 }
 
-function createSession(visionPath, maxRuns, maxIdleCycles) {
+function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd) {
   return {
     session_id: `cont-${randomUUID().slice(0, 8)}`,
     started_at: new Date().toISOString(),
@@ -66,6 +66,9 @@ function createSession(visionPath, maxRuns, maxIdleCycles) {
     current_run_id: null,
     current_vision_objective: null,
     status: 'running',
+    per_session_max_usd: perSessionMaxUsd || null,
+    cumulative_spent_usd: 0,
+    budget_exhausted: false,
   };
 }
 
@@ -274,6 +277,7 @@ export function resolveContinuousOptions(opts, config) {
     maxIdleCycles: opts.maxIdleCycles ?? configCont.max_idle_cycles ?? 3,
     triageApproval: configCont.triage_approval ?? 'auto',
     cooldownSeconds: opts.cooldownSeconds ?? configCont.cooldown_seconds ?? 5,
+    perSessionMaxUsd: opts.sessionBudget ?? configCont.per_session_max_usd ?? null,
   };
 }
 
@@ -310,6 +314,16 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     session.status = 'completed';
     writeContinuousSession(root, session);
     return { ok: true, status: 'idle_exit', action: 'max_idle_reached', stop_reason: 'idle_exit' };
+  }
+
+  // Session budget check (cumulative spend across all runs)
+  const sessionBudget = session.per_session_max_usd ?? contOpts.perSessionMaxUsd ?? null;
+  if (sessionBudget != null && (session.cumulative_spent_usd || 0) >= sessionBudget) {
+    session.status = 'completed';
+    session.budget_exhausted = true;
+    writeContinuousSession(root, session);
+    log(`Session budget exhausted: $${(session.cumulative_spent_usd || 0).toFixed(2)} spent of $${sessionBudget.toFixed(2)} limit.`);
+    return { ok: true, status: 'completed', action: 'session_budget_exhausted', stop_reason: 'session_budget' };
   }
 
   // Validate vision file
@@ -390,6 +404,10 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   session.runs_completed += 1;
   session.current_run_id = execution.result?.state?.run_id || null;
 
+  // Accumulate cost from this run into the session total
+  const runSpentUsd = execution.result?.state?.budget_status?.spent_usd || 0;
+  session.cumulative_spent_usd = (session.cumulative_spent_usd || 0) + runSpentUsd;
+
   const stopReason = execution.result?.stop_reason;
   log(`Run ${session.runs_completed}/${contOpts.maxRuns} completed: ${stopReason || 'unknown'}`);
 
@@ -449,7 +467,7 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
     return { exitCode: 1, session: null };
   }
 
-  const session = createSession(contOpts.visionPath, contOpts.maxRuns, contOpts.maxIdleCycles);
+  const session = createSession(contOpts.visionPath, contOpts.maxRuns, contOpts.maxIdleCycles, contOpts.perSessionMaxUsd);
   writeContinuousSession(root, session);
 
   // SIGINT handler

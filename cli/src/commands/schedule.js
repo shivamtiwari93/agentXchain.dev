@@ -381,6 +381,9 @@ function createScheduleOwnedSession(schedule, scheduleId) {
     status: 'running',
     owner_type: 'schedule',
     owner_id: scheduleId,
+    per_session_max_usd: schedule.continuous.per_session_max_usd || null,
+    cumulative_spent_usd: 0,
+    budget_exhausted: false,
   };
 }
 
@@ -443,6 +446,7 @@ async function advanceScheduleContinuousSession(context, entry, opts = {}) {
     maxRuns: contConfig.max_runs,
     maxIdleCycles: contConfig.max_idle_cycles,
     triageApproval: contConfig.triage_approval,
+    perSessionMaxUsd: contConfig.per_session_max_usd || null,
   };
 
   // Advance one step

@@ -711,6 +711,13 @@ export function validateSchedulesConfig(schedules, roles) {
         if ('triage_approval' in cont && cont.triage_approval !== 'auto' && cont.triage_approval !== 'human') {
           errors.push(`Schedule "${scheduleId}": continuous.triage_approval must be "auto" or "human"`);
         }
+        if ('per_session_max_usd' in cont && cont.per_session_max_usd != null) {
+          if (typeof cont.per_session_max_usd !== 'number' || !Number.isFinite(cont.per_session_max_usd)) {
+            errors.push(`Schedule "${scheduleId}": continuous.per_session_max_usd must be a finite number when provided`);
+          } else if (cont.per_session_max_usd <= 0) {
+            errors.push(`Schedule "${scheduleId}": continuous.per_session_max_usd must be greater than 0 when provided`);
+          }
+        }
       }
     }
   }
@@ -1153,6 +1160,9 @@ function normalizeContinuousConfig(raw) {
     max_runs: Number.isInteger(raw.max_runs) && raw.max_runs >= 1 ? raw.max_runs : 50,
     max_idle_cycles: Number.isInteger(raw.max_idle_cycles) && raw.max_idle_cycles >= 1 ? raw.max_idle_cycles : 5,
     triage_approval: raw.triage_approval === 'human' ? 'human' : 'auto',
+    per_session_max_usd: Number.isFinite(raw.per_session_max_usd) && raw.per_session_max_usd > 0
+      ? raw.per_session_max_usd
+      : null,
   };
 }
 

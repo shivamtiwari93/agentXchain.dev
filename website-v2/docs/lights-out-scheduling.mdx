@@ -189,7 +189,8 @@ A schedule can opt into **continuous vision-driven execution** by adding a `cont
         "vision_path": ".planning/VISION.md",
         "max_runs": 100,
         "max_idle_cycles": 8,
-        "triage_approval": "auto"
+        "triage_approval": "auto",
+        "per_session_max_usd": 500.0
       }
     }
   }
@@ -203,6 +204,7 @@ A schedule can opt into **continuous vision-driven execution** by adding a `cont
 | `continuous.max_runs` | `50` | Max governed runs before the session exits terminally |
 | `continuous.max_idle_cycles` | `5` | Max daemon polls with no derivable work before idle exit |
 | `continuous.triage_approval` | `"auto"` | `"auto"` auto-approves vision-derived intents; `"human"` pauses for operator triage |
+| `continuous.per_session_max_usd` | `null` | Cumulative session-level budget cap in USD. When total spend across all runs reaches this limit, the session stops cleanly. `null` disables |
 
 ### How it works
 
@@ -210,7 +212,7 @@ A schedule can opt into **continuous vision-driven execution** by adding a `cont
 2. On **each subsequent poll**, the daemon advances the session by one step — even if the schedule's `every_minutes` hasn't elapsed again. Due-ness gates session creation, not session continuation.
 3. Each step checks the intake queue first. If queued work exists (including injected `p0` priorities), it runs that. Otherwise, it seeds a new intent from `vision_path`.
 4. Work flows through the real intake lifecycle: `planIntent()` → `startIntent()` → governed run → `resolveIntent()`.
-5. The session exits terminally when `max_runs` is reached, `max_idle_cycles` consecutive polls find no work, or the operator stops it.
+5. The session exits terminally when `max_runs` is reached, `max_idle_cycles` consecutive polls find no work, cumulative spend reaches `per_session_max_usd`, or the operator stops it.
 
 ### Blocked recovery
 

@@ -61,6 +61,9 @@ export async function runCommand(opts) {
     console.log(chalk.dim(`  Vision: ${contOpts.visionPath}`));
     console.log(chalk.dim(`  Max runs: ${contOpts.maxRuns}, Poll: ${contOpts.pollSeconds}s, Idle limit: ${contOpts.maxIdleCycles}`));
     console.log(chalk.dim(`  Triage approval: ${contOpts.triageApproval}`));
+    if (contOpts.perSessionMaxUsd != null) {
+      console.log(chalk.dim(`  Session budget: $${contOpts.perSessionMaxUsd.toFixed(2)}`));
+    }
     console.log('');
     const { exitCode } = await executeContinuousRun(context, contOpts, executeGovernedRun);
     process.exit(exitCode);
