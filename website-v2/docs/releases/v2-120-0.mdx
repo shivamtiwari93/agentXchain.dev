@@ -1,0 +1,62 @@
+---
+sidebar_position: 0
+title: "v2.120.0 Release Notes"
+---
+
+# AgentXchain v2.120.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Continuous Failure Recovery Hardening
+
+Continuous mode now classifies governed-run outcomes by state-machine truth instead of naive return completion. This fixes three state-machine bugs that could corrupt session accounting or permanently kill recoverable sessions.
+
+**Fixes:**
+- `priority_preempted` no longer increments `runs_completed` or resolves the executing intent
+- Blocked governed results pause the session based on governed state truth, not only top-level stop reason
+- Non-blocked executor failure marks the continuous session `failed` and leaves the intake intent `executing`
+- Failed runs still contribute visible `budget_status.spent_usd` to the session accumulator
+
+### Paused-Session Re-Entry Guard
+
+A paused continuous session no longer re-enters the intake pipeline on the next daemon poll. Previously, a recoverable paused session would be **permanently killed** because the continuous loop tried to start new work against a blocked governed state.
+
+**Behavior:**
+- If session is paused AND governed state is still blocked: return `still_blocked`, session stays paused
+- If session is paused AND governed state is unblocked: resume session with direct `executeGovernedRun()` continuation (skip intake pipeline)
+- The daemon keeps polling paused sessions without destroying them
+
+### SIGINT Semantics Fix
+
+First `SIGINT` in `executeGovernedRun()` now means "finish current in-flight work then stop" instead of "abort the active dispatch and convert operator stop into retries exhaustion." Hard abort remains second-SIGINT behavior.
+
+### Multi-Schedule Continuous Coexistence
+
+Sibling `continuous.enabled` schedules are now excluded from the normal `runDueSchedules()` path during daemon operation. Previously, a sibling continuous schedule could leak into the normal due-run lane on the same poll, violating the daemon's session ownership model.
+
+**Selection order (unchanged):**
+1. Active non-terminal schedule-owned session owner
+2. First due continuous schedule in declaration order
+3. No continuous schedule advanced on that poll
+
+## What Changed
+
+- **Continuous failure recovery**: outcome classification by state-machine truth instead of naive completion (`DEC-CONT-FAILURE-001`)
+- **Paused-session guard**: prevents re-entry into intake pipeline for blocked sessions (`DEC-CONT-PAUSED-GUARD-001`)
+- **SIGINT semantics**: first SIGINT finishes current work, second SIGINT hard-aborts (`DEC-RUN-SIGINT-001`)
+- **Multi-schedule coexistence**: sibling continuous schedules excluded from normal due-run path (`DEC-SCHEDULE-CONTINUOUS-003`)
+- **Daemon failure E2E**: `AT-SCHED-CONT-FAIL-001` proves block/unblock lifecycle through full daemon subprocess
+- **Multi-schedule E2E**: `AT-SDH-011` proves two continuous schedules coexist correctly
+- **Docs updated**: recovery docs cover paused-session guard and continuous blocked-vs-failed behavior
+- 5,470 tests / 1,150 suites / 0 failures
+
+## Evidence
+
+| Surface | Status |
+|---------|--------|
+| Protocol conformance | 53 fixtures passing |
+| Test suite | 5,470 tests / 1,150 suites / 0 failures |
+| Website build | Clean (0 warnings) |
+| Release preflight | Passing |

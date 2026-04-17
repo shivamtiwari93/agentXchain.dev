@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.120.0
+
+`2.120.0` ships continuous failure recovery hardening, paused-session re-entry guards, and multi-schedule continuous coexistence proof.
+
+- Continuous failure recovery: `advanceContinuousRunOnce()` now classifies governed-run outcomes by state-machine truth — `priority_preempted` no longer counts as a completed run, blocked governed results pause the session, and non-blocked failures fail the session without resolving the executing intent (`DEC-CONT-FAILURE-001`)
+- Paused-session guard: a paused continuous session no longer re-enters the intake pipeline — the guard checks governed state on every poll, returns `still_blocked` while blocked, and resumes with direct `executeGovernedRun()` continuation when unblocked (`DEC-CONT-PAUSED-GUARD-001`)
+- SIGINT semantics fix: first SIGINT in `executeGovernedRun()` now means "finish current in-flight work then stop", not "abort active dispatch" (`DEC-RUN-SIGINT-001`)
+- Multi-schedule continuous coexistence: sibling `continuous.enabled` schedules are excluded from the normal `runDueSchedules()` path during daemon operation, preventing ownership model violations (`DEC-SCHEDULE-CONTINUOUS-003`)
+- Daemon failure recovery E2E: `AT-SCHED-CONT-FAIL-001` proves schedule-owned session block/unblock lifecycle through the full daemon subprocess
+- Multi-schedule E2E: `AT-SDH-011` proves two continuous schedules coexist with correct selection, session ownership, and sequential completion
+- 5,470 tests / 1,150 suites / 0 failures
+
 ## 2.119.0
 
 `2.119.0` ships session-level budget enforcement for continuous mode, adapter-level continuous E2E proof, and api_proxy prompt contract hardening.
