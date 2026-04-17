@@ -71,6 +71,7 @@ describe('mission-plans.js — structural guards', () => {
     const mod = await import(missionPlansPath);
     assert.equal(typeof mod.validatePlannerOutput, 'function');
     assert.equal(typeof mod.createPlanArtifact, 'function');
+    assert.equal(typeof mod.approvePlanArtifact, 'function');
     assert.equal(typeof mod.loadAllPlans, 'function');
     assert.equal(typeof mod.loadLatestPlan, 'function');
     assert.equal(typeof mod.loadPlan, 'function');
@@ -82,6 +83,7 @@ describe('mission-plans.js — structural guards', () => {
     const mod = await import(missionCommandPath);
     assert.equal(typeof mod.missionPlanCommand, 'function');
     assert.equal(typeof mod.missionPlanShowCommand, 'function');
+    assert.equal(typeof mod.missionPlanApproveCommand, 'function');
     assert.equal(typeof mod.missionPlanListCommand, 'function');
   });
 
@@ -90,9 +92,11 @@ describe('mission-plans.js — structural guards', () => {
     assert.ok(bin.includes("command('plan"), 'mission plan must be registered');
     assert.ok(bin.includes('missionPlanCommand'), 'missionPlanCommand must be imported');
     assert.ok(bin.includes('missionPlanShowCommand'), 'missionPlanShowCommand must be imported');
+    assert.ok(bin.includes('missionPlanApproveCommand'), 'missionPlanApproveCommand must be imported');
     assert.ok(bin.includes('missionPlanListCommand'), 'missionPlanListCommand must be imported');
     assert.ok(bin.includes('--constraint'), 'plan must accept --constraint');
     assert.ok(bin.includes('--role-hint'), 'plan must accept --role-hint');
+    assert.ok(bin.includes("command('approve"), 'mission plan approve must be registered');
   });
 
   it('AT-MISSION-PLAN-S04: mission decomposition spec exists', () => {
@@ -101,6 +105,132 @@ describe('mission-plans.js — structural guards', () => {
     const content = readFileSync(specPath, 'utf8');
     assert.ok(content.includes('workstreams'), 'spec must reference workstreams');
     assert.ok(content.includes('Approval is mandatory'), 'spec must document approval gate');
+  });
+});
+
+describe('mission-plans.js — plan approval', () => {
+  let tmpDir;
+  let mod;
+
+  beforeEach(async () => {
+    tmpDir = createTmpProject();
+    mod = await import(missionPlansPath);
+  });
+
+  afterEach(() => {
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  });
+
+  it('AT-MISSION-PLAN-024: approvePlanArtifact approves the latest proposed plan', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-approve-latest',
+      title: 'Approve Latest',
+      goal: 'Approve the current revision.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    assert.equal(created.ok, true);
+
+    const approved = mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+    assert.equal(approved.ok, true);
+    assert.equal(approved.plan.status, 'approved');
+    assert.ok(approved.plan.approved_at);
+    assert.deepEqual(approved.supersededPlanIds, []);
+  });
+
+  it('AT-MISSION-PLAN-025: approvePlanArtifact rejects double approval', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-double-approve',
+      title: 'Double Approval',
+      goal: 'Reject duplicate approval.',
+    });
+
+    const created = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    assert.equal(created.ok, true);
+    assert.equal(mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id).ok, true);
+
+    const second = mod.approvePlanArtifact(tmpDir, mission.mission_id, created.plan.plan_id);
+    assert.equal(second.ok, false);
+    assert.match(second.error, /already approved/i);
+  });
+
+  it('AT-MISSION-PLAN-026: older plan cannot be approved when a newer revision exists', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-superseded-approval',
+      title: 'Superseded Approval',
+      goal: 'Reject stale approval targets.',
+    });
+
+    const first = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    const second = mod.createPlanArtifact(tmpDir, mission, {
+      constraints: ['Refined plan'],
+      plannerOutput: validPlannerOutput(),
+    });
+
+    assert.equal(first.ok, true);
+    assert.equal(second.ok, true);
+
+    const rejected = mod.approvePlanArtifact(tmpDir, mission.mission_id, first.plan.plan_id);
+    assert.equal(rejected.ok, false);
+    assert.match(rejected.error, /superseded by newer plan/i);
+  });
+
+  it('AT-MISSION-PLAN-027: approving a newer plan supersedes older active plans', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-supersede-active',
+      title: 'Supersede Active',
+      goal: 'Keep one current approved plan.',
+    });
+
+    const first = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    assert.equal(mod.approvePlanArtifact(tmpDir, mission.mission_id, first.plan.plan_id).ok, true);
+
+    const second = mod.createPlanArtifact(tmpDir, mission, {
+      constraints: ['Refined scope'],
+      plannerOutput: validPlannerOutput(),
+    });
+    const approved = mod.approvePlanArtifact(tmpDir, mission.mission_id, second.plan.plan_id);
+    assert.equal(approved.ok, true);
+    assert.deepEqual(approved.supersededPlanIds, [first.plan.plan_id]);
+
+    const reloadedFirst = mod.loadPlan(tmpDir, mission.mission_id, first.plan.plan_id);
+    assert.equal(reloadedFirst.status, 'superseded');
+    assert.equal(reloadedFirst.superseded_by_plan_id, second.plan.plan_id);
+  });
+
+  it('AT-MISSION-PLAN-028: new revisions supersede the latest plan artifact, not an older approved plan', () => {
+    const mission = writeMission(tmpDir, {
+      missionId: 'mission-supersede-latest',
+      title: 'Supersede Latest',
+      goal: 'Revision lineage follows recency.',
+    });
+
+    const first = mod.createPlanArtifact(tmpDir, mission, {
+      plannerOutput: validPlannerOutput(),
+    });
+    assert.equal(mod.approvePlanArtifact(tmpDir, mission.mission_id, first.plan.plan_id).ok, true);
+
+    const second = mod.createPlanArtifact(tmpDir, mission, {
+      constraints: ['First revision'],
+      plannerOutput: validPlannerOutput(),
+    });
+    const third = mod.createPlanArtifact(tmpDir, mission, {
+      constraints: ['Second revision'],
+      plannerOutput: validPlannerOutput(),
+    });
+
+    assert.equal(second.ok, true);
+    assert.equal(third.ok, true);
+    assert.equal(second.plan.supersedes_plan_id, first.plan.plan_id);
+    assert.equal(third.plan.supersedes_plan_id, second.plan.plan_id);
   });
 });
 

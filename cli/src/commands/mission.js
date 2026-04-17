@@ -11,6 +11,7 @@ import {
   loadMissionSnapshot,
 } from '../lib/missions.js';
 import {
+  approvePlanArtifact,
   createPlanArtifact,
   loadAllPlans,
   loadLatestPlan,
@@ -372,6 +373,53 @@ export async function missionPlanListCommand(opts) {
   console.log(chalk.dim(`\n${limited.length} plan(s) shown`));
 }
 
+/**
+ * agentxchain mission plan approve [plan_id|latest] — approve a decomposition plan.
+ */
+export async function missionPlanApproveCommand(planTarget, opts) {
+  const root = findProjectRoot(opts.dir || process.cwd());
+  if (!root) {
+    console.error(chalk.red('No AgentXchain project found. Run this inside a governed project.'));
+    process.exit(1);
+  }
+
+  const mission = opts.mission
+    ? loadMissionArtifact(root, opts.mission)
+    : loadLatestMissionArtifact(root);
+
+  if (!mission) {
+    console.error(chalk.red('No mission found.'));
+    console.error(chalk.dim('  Use --mission <id> or create a mission first.'));
+    process.exit(1);
+  }
+
+  const plan = planTarget && planTarget !== 'latest'
+    ? loadPlan(root, mission.mission_id, planTarget)
+    : loadLatestPlan(root, mission.mission_id);
+
+  if (!plan) {
+    if (planTarget && planTarget !== 'latest') {
+      console.error(chalk.red(`Plan not found: ${planTarget}`));
+    } else {
+      console.error(chalk.red(`No plans found for mission ${mission.mission_id}.`));
+      console.error(chalk.dim('  Run `agentxchain mission plan latest` to generate one.'));
+    }
+    process.exit(1);
+  }
+
+  const result = approvePlanArtifact(root, mission.mission_id, plan.plan_id);
+  if (!result.ok) {
+    console.error(chalk.red(result.error));
+    process.exit(1);
+  }
+
+  console.log(chalk.green(`Approved plan ${result.plan.plan_id} for mission ${mission.mission_id}`));
+  if (result.supersededPlanIds.length > 0) {
+    console.log(chalk.dim(`  Superseded: ${result.supersededPlanIds.join(', ')}`));
+  }
+  renderPlan(result.plan);
+}
+
 // ── Plan rendering ───────────────────────────────────────────────────────────
 
 function renderPlan(plan) {
@@ -383,6 +431,12 @@ function renderPlan(plan) {
   console.log(`  Constraints:  ${plan.input?.constraints?.length ? plan.input.constraints.join('; ') : 'none'}`);
   console.log(`  Role hints:   ${plan.input?.role_hints?.length ? plan.input.role_hints.join(', ') : 'none'}`);
   console.log(`  Supersedes:   ${plan.supersedes_plan_id || '—'}`);
+  if (plan.superseded_by_plan_id) {
+    console.log(`  Superseded by:${plan.superseded_by_plan_id}`);
+  }
+  if (plan.approved_at) {
+    console.log(`  Approved:     ${plan.approved_at}`);
+  }
   console.log(`  Created:      ${plan.created_at || '—'}`);
   console.log('');
 
@@ -440,6 +494,7 @@ function formatPlanStatus(status) {
   switch (status) {
     case 'proposed': return chalk.blue('proposed');
     case 'approved': return chalk.green('approved');
+    case 'superseded': return chalk.dim('superseded');
     case 'needs_attention': return chalk.yellow('needs_attention');
     case 'completed': return chalk.green('completed');
     default: return status;

@@ -15,12 +15,22 @@ export function getPlansDir(root, missionId) {
   return join(root, '.agentxchain', 'missions', 'plans', missionId);
 }
 
+export function getPlanPath(root, missionId, planId) {
+  return join(getPlansDir(root, missionId), `${planId}.json`);
+}
+
+function writePlanArtifact(root, missionId, plan) {
+  mkdirSync(getPlansDir(root, missionId), { recursive: true });
+  writeFileSync(getPlanPath(root, missionId, plan.plan_id), JSON.stringify(plan, null, 2));
+}
+
 // ── Plan ID generation ───────────────────────────────────────────────────────
 
-export function generatePlanId() {
-  const ts = new Date().toISOString().replace(/[:.]/g, '-').replace('Z', 'Z');
-  const suffix = Math.random().toString(36).slice(2, 8);
-  return `plan-${ts}-${suffix}`;
+export function generatePlanId(now = new Date()) {
+  const iso = now.toISOString().replace(/[:.]/g, '-').replace('Z', 'Z');
+  const epochMs = String(now.getTime()).padStart(13, '0');
+  const monotonic = process.hrtime.bigint().toString().slice(-10).padStart(10, '0');
+  return `plan-${iso}-${epochMs}-${monotonic}`;
 }
 
 // ── Schema validation ────────────────────────────────────────────────────────
@@ -143,17 +153,12 @@ export function createPlanArtifact(root, mission, { constraints = [], roleHints 
   }
 
   const missionId = mission.mission_id;
-  const plansDir = getPlansDir(root, missionId);
-  mkdirSync(plansDir, { recursive: true });
-
-  // Check for existing approved plan to set supersedes_plan_id
   const existingPlans = loadAllPlans(root, missionId);
-  const latestApproved = existingPlans.find((p) => p.status === 'approved');
-  const latestProposed = existingPlans.find((p) => p.status === 'proposed');
-  const supersedes = latestApproved || latestProposed || null;
+  const supersedes = existingPlans[0] || null;
 
-  const planId = generatePlanId();
-  const now = new Date().toISOString();
+  const createdAt = new Date();
+  const planId = generatePlanId(createdAt);
+  const now = createdAt.toISOString();
 
   const workstreams = validation.workstreams.map((ws) => ({
     workstream_id: ws.workstream_id,
@@ -186,8 +191,67 @@ export function createPlanArtifact(root, mission, { constraints = [], roleHints 
     launch_records: [],
   };
 
-  writeFileSync(join(plansDir, `${planId}.json`), JSON.stringify(plan, null, 2));
+  writePlanArtifact(root, missionId, plan);
   return { ok: true, plan };
+}
+
+export function approvePlanArtifact(root, missionId, planId) {
+  const plans = loadAllPlans(root, missionId);
+  if (plans.length === 0) {
+    return { ok: false, error: `No plans found for mission ${missionId}.` };
+  }
+
+  const target = plans.find((plan) => plan.plan_id === planId);
+  if (!target) {
+    return { ok: false, error: `Plan not found: ${planId}` };
+  }
+
+  if (target.status === 'approved') {
+    return { ok: false, error: `Plan ${planId} is already approved.` };
+  }
+
+  if (target.status !== 'proposed') {
+    return { ok: false, error: `Plan ${planId} cannot be approved from status "${target.status}".` };
+  }
+
+  const latestPlan = plans[0];
+  if (latestPlan?.plan_id !== target.plan_id) {
+    return {
+      ok: false,
+      error: `Plan ${planId} has been superseded by newer plan ${latestPlan.plan_id}. Approve the latest plan instead.`,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const supersededPlanIds = [];
+  let approvedPlan = null;
+
+  for (const plan of plans) {
+    if (plan.plan_id === target.plan_id) {
+      const { superseded_by_plan_id, ...rest } = plan;
+      approvedPlan = {
+        ...rest,
+        status: 'approved',
+        approved_at: now,
+        updated_at: now,
+      };
+      writePlanArtifact(root, missionId, approvedPlan);
+      continue;
+    }
+
+    if (plan.status === 'approved' || plan.status === 'proposed') {
+      const nextPlan = {
+        ...plan,
+        status: 'superseded',
+        superseded_by_plan_id: target.plan_id,
+        updated_at: now,
+      };
+      supersededPlanIds.push(plan.plan_id);
+      writePlanArtifact(root, missionId, nextPlan);
+    }
+  }
+
+  return { ok: true, plan: approvedPlan, supersededPlanIds };
 }
 
 // ── Plan artifact loading ────────────────────────────────────────────────────
@@ -226,7 +290,7 @@ export function loadLatestPlan(root, missionId) {
 
 export function loadPlan(root, missionId, planId) {
   const plansDir = getPlansDir(root, missionId);
-  const exactPath = join(plansDir, `${planId}.json`);
+  const exactPath = getPlanPath(root, missionId, planId);
   if (existsSync(exactPath)) {
     try {
       return JSON.parse(readFileSync(exactPath, 'utf8'));

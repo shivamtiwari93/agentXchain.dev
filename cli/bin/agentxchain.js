@@ -122,7 +122,7 @@ import { eventsCommand } from '../src/commands/events.js';
 import { connectorCheckCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
-import { missionAttachChainCommand, missionListCommand, missionPlanCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
+import { missionAttachChainCommand, missionListCommand, missionPlanApproveCommand, missionPlanCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -473,6 +473,13 @@ missionPlanCmd
   .option('-j, --json', 'Output as JSON')
   .option('-d, --dir <path>', 'Project directory')
   .action(missionPlanShowCommand);
+
+missionPlanCmd
+  .command('approve [plan_id]')
+  .description('Approve a decomposition plan (default: latest plan)')
+  .option('-m, --mission <mission_id>', 'Explicit mission ID')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionPlanApproveCommand);
 
 missionPlanCmd
   .command('list')

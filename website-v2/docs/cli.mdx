@@ -88,6 +88,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission attach-chain` | Observability | Bind a chain report to a mission so long-horizon work has a durable grouping layer |
 | `mission plan` | Planning | Generate a decomposition plan for a mission using LLM-assisted workstream decomposition |
 | `mission plan show` | Planning | Show a decomposition plan with workstream details and dependency state |
+| `mission plan approve` | Planning | Approve the latest proposed mission plan and supersede older active revisions |
 | `mission plan list` | Planning | List all plans for a mission, newest first |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
@@ -198,6 +199,7 @@ For the full operator model, see [Missions](/docs/missions). That page keeps the
 ```bash
 agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
 agentxchain mission plan show [plan_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
+agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
 agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
 ```
 
@@ -212,6 +214,9 @@ agentxchain mission plan latest --constraint "No protocol changes" --role-hint d
 # Show the latest plan for the latest mission
 agentxchain mission plan show latest
 
+# Approve the latest proposed plan before any workstream launch
+agentxchain mission plan approve latest
+
 # List all plans for a specific mission
 agentxchain mission plan list --mission mission-release-hardening
 ```
@@ -219,6 +224,8 @@ agentxchain mission plan list --mission mission-release-hardening
 The planner uses LLM-assisted one-shot generation with strict schema validation. Configure `mission_planner` or `api_proxy` in `agentxchain.json` with `base_url` and `model`. Malformed planner output fails validation closed — no partially-valid plan artifacts are created.
 
 Plan revision works by supersession: generating a new plan sets `supersedes_plan_id` to the prior plan. Earlier plans remain durable for auditability. The system never mutates an existing plan artifact.
+
+Approval is latest-only and fail-closed. `mission plan approve` may approve only the newest `proposed` plan for a mission. Approving a newer plan supersedes any older active `proposed` or `approved` plan artifacts so one approved revision remains current.
 
 ### `init`
 

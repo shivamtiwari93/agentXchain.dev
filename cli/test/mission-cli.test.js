@@ -29,6 +29,12 @@ function writeChainReport(dir, report) {
   writeFileSync(join(reportsDir, `${report.chain_id}.json`), JSON.stringify(report, null, 2));
 }
 
+function writePlanArtifact(dir, missionId, plan) {
+  const plansDir = join(dir, '.agentxchain', 'missions', 'plans', missionId);
+  mkdirSync(plansDir, { recursive: true });
+  writeFileSync(join(plansDir, `${plan.plan_id}.json`), JSON.stringify(plan, null, 2));
+}
+
 function appendRepoDecision(dir, decision) {
   const decisionsPath = join(dir, '.agentxchain', 'repo-decisions.jsonl');
   mkdirSync(join(dir, '.agentxchain'), { recursive: true });
@@ -210,5 +216,72 @@ describe('mission CLI behavior', () => {
     const newerPos = output.indexOf('mission-newer-mission');
     const olderPos = output.indexOf('mission-older-mission');
     assert.ok(newerPos >= 0 && olderPos >= 0 && newerPos < olderPos, 'newest mission should render first');
+  });
+
+  it('AT-MISSION-CLI-007: mission plan approve approves the latest proposed plan', () => {
+    runCli([
+      'mission',
+      'start',
+      '--title', 'Plan Approval',
+      '--goal', 'Approve a proposed plan',
+      '-d', tmpDir,
+    ], tmpDir);
+
+    writePlanArtifact(tmpDir, 'mission-plan-approval', {
+      plan_id: 'plan-2026-04-16T21-00-00Z-a',
+      mission_id: 'mission-plan-approval',
+      status: 'proposed',
+      supersedes_plan_id: null,
+      created_at: '2026-04-16T21:00:00.000Z',
+      updated_at: '2026-04-16T21:00:00.000Z',
+      input: { goal: 'Approve a proposed plan', constraints: [], role_hints: [] },
+      planner: { mode: 'llm_one_shot', model: 'test' },
+      workstreams: [],
+      launch_records: [],
+    });
+
+    const output = runCli(['mission', 'plan', 'approve', 'latest', '-d', tmpDir], tmpDir);
+    assert.match(output, /Approved plan plan-2026-04-16T21-00-00Z-a/);
+    assert.match(output, /Status:\s+approved/);
+  });
+
+  it('AT-MISSION-CLI-008: mission plan approve rejects an older superseded plan', () => {
+    runCli([
+      'mission',
+      'start',
+      '--title', 'Superseded Approval',
+      '--goal', 'Reject stale plan approval',
+      '-d', tmpDir,
+    ], tmpDir);
+
+    writePlanArtifact(tmpDir, 'mission-superseded-approval', {
+      plan_id: 'plan-older',
+      mission_id: 'mission-superseded-approval',
+      status: 'proposed',
+      supersedes_plan_id: null,
+      created_at: '2026-04-16T21:00:00.000Z',
+      updated_at: '2026-04-16T21:00:00.000Z',
+      input: { goal: 'Reject stale plan approval', constraints: [], role_hints: [] },
+      planner: { mode: 'llm_one_shot', model: 'test' },
+      workstreams: [],
+      launch_records: [],
+    });
+    writePlanArtifact(tmpDir, 'mission-superseded-approval', {
+      plan_id: 'plan-newer',
+      mission_id: 'mission-superseded-approval',
+      status: 'proposed',
+      supersedes_plan_id: 'plan-older',
+      created_at: '2026-04-16T22:00:00.000Z',
+      updated_at: '2026-04-16T22:00:00.000Z',
+      input: { goal: 'Reject stale plan approval', constraints: [], role_hints: [] },
+      planner: { mode: 'llm_one_shot', model: 'test' },
+      workstreams: [],
+      launch_records: [],
+    });
+
+    assert.throws(
+      () => runCli(['mission', 'plan', 'approve', 'plan-older', '-d', tmpDir], tmpDir),
+      /superseded by newer plan/i
+    );
   });
 });

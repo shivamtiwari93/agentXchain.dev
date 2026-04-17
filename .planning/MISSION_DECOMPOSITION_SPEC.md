@@ -21,7 +21,7 @@ This feature is advisory, not protocol-normative:
 ```bash
 agentxchain mission plan [mission_id|latest] [--constraint <text>]... [--role-hint <role>]... [--json] [--dir <path>]
 agentxchain mission plan show [plan_id|latest] [--json] [--dir <path>]
-agentxchain mission plan approve [plan_id|latest] [--json] [--dir <path>]
+agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --workstream <workstream_id> [--auto-approve] [--dir <path>]
 ```
 
@@ -39,8 +39,10 @@ Plan artifact shape:
   "mission_id": "mission-release-hardening",
   "status": "proposed",
   "supersedes_plan_id": null,
+  "superseded_by_plan_id": null,
   "created_at": "2026-04-16T21:36:15.000Z",
   "updated_at": "2026-04-16T21:36:15.000Z",
+  "approved_at": null,
   "input": {
     "goal": "Eliminate release-surface drift across CLI, docs, website, and downstream channels.",
     "constraints": [
@@ -133,6 +135,15 @@ The operator must approve a specific plan artifact before any workstream can lau
 
 This is the governance boundary. Any attempt to launch from an unapproved plan fails closed.
 
+Approval behavior is strict:
+
+- only the latest plan artifact for a mission may be approved
+- approving a plan transitions `status: "proposed"` → `status: "approved"`
+- approving a newer plan marks any older active `proposed` or `approved` plans as `status: "superseded"`
+- an already-approved, superseded, completed, or needs-attention plan cannot be approved again
+
+This keeps one current approved plan per mission and makes revision lineage explicit instead of implicit.
+
 ### 6. Launch is per-ready-workstream
 
 `mission plan launch` starts one workstream at a time using the existing governed run path and mission binding.
@@ -173,6 +184,8 @@ At minimum, the plan surface must expose:
 | Mission has no goal text | Fail closed. The planner cannot operate on missing mission intent. |
 | Planner returns malformed JSON or omits required workstream fields | Fail closed and surface validation errors. |
 | Plan approve target does not exist | Fail closed. |
+| Plan approve target is not the latest plan artifact for the mission | Fail closed and direct the operator to the latest revision. |
+| Plan approve target is already approved or is no longer in `proposed` state | Fail closed. |
 | Launch requested for an unapproved plan | Fail closed. |
 | Launch requested for a blocked workstream with unsatisfied dependencies | Fail closed and list blocking workstream IDs. |
 | Launch requested for a nonexistent workstream ID | Fail closed. |
@@ -190,6 +203,9 @@ At minimum, the plan surface must expose:
 - `AT-MISSION-PLAN-007`: successful launch records `workstream_id` → `chain_id` linkage in `launch_records` and attaches the chain to the mission.
 - `AT-MISSION-PLAN-008`: failed launched workstreams mark the plan `needs_attention` and leave dependent workstreams blocked.
 - `AT-MISSION-PLAN-009`: generating a revised plan writes a new artifact with `supersedes_plan_id` instead of mutating the prior plan.
+- `AT-MISSION-PLAN-010`: `mission plan approve` approves only the latest proposed plan for a mission and stamps approval metadata on that artifact.
+- `AT-MISSION-PLAN-011`: approving a newer plan supersedes any older active proposed/approved plans so only one approved plan remains current.
+- `AT-MISSION-PLAN-012`: attempting to approve an already-approved or older superseded plan fails closed.
 
 ## Open Questions
 
