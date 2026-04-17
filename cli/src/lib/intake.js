@@ -680,6 +680,18 @@ export function startIntent(root, intentId, options = {}) {
     return { ok: false, error: 'Failed to parse governed state.json', exitCode: 2 };
   }
 
+  const allowCompletedRestart = options.allowTerminalRestart === true
+    && state.status === 'completed'
+    && getActiveTurnCount(state) === 0;
+
+  const startProvenance = {
+    trigger: 'intake',
+    intake_intent_id: intent.intent_id,
+    trigger_reason: intent.charter || null,
+    created_by: 'operator',
+    ...(options.provenance && typeof options.provenance === 'object' ? options.provenance : {}),
+  };
+
   // Check busy-run conditions
   const activeTurns = getActiveTurns(state);
   const activeCount = getActiveTurnCount(state);
@@ -698,7 +710,7 @@ export function startIntent(root, intentId, options = {}) {
     return { ok: false, error: `cannot start: run is blocked (${reason})`, exitCode: 1 };
   }
 
-  if (state.status === 'completed') {
+  if (state.status === 'completed' && !allowCompletedRestart) {
     return {
       ok: false,
       error: 'cannot start: governed run is already completed. S3 does not reopen completed runs.',
@@ -719,14 +731,10 @@ export function startIntent(root, intentId, options = {}) {
   }
 
   // Bootstrap: idle with no run → initialize
-  if (state.status === 'idle' && !state.run_id) {
+  if ((state.status === 'idle' && !state.run_id) || allowCompletedRestart) {
     const initResult = initializeGovernedRun(root, config, {
-      provenance: {
-        trigger: 'intake',
-        intake_intent_id: intent.intent_id,
-        trigger_reason: intent.charter || null,
-        created_by: 'operator',
-      },
+      provenance: startProvenance,
+      allow_terminal_restart: allowCompletedRestart,
     });
     if (!initResult.ok) {
       return { ok: false, error: `run initialization failed: ${initResult.error}`, exitCode: 1 };

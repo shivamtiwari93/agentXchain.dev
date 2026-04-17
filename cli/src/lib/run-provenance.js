@@ -3,12 +3,14 @@ const VALID_TRIGGERS = new Set([
   'continuation',
   'recovery',
   'intake',
+  'vision_scan',
   'schedule',
   'coordinator',
 ]);
 
 const VALID_CREATORS = new Set([
   'operator',
+  'continuous_loop',
   'coordinator',
 ]);
 
@@ -71,6 +73,8 @@ export function summarizeRunProvenance(provenance) {
     : normalized.trigger;
   const creatorSuffix = normalized.created_by === 'coordinator'
     ? ' (created by coordinator)'
+    : normalized.created_by === 'continuous_loop'
+      ? ' (created by continuous loop)'
     : '';
   const reasonSuffix = normalized.trigger_reason
     ? ` ("${normalized.trigger_reason}")`

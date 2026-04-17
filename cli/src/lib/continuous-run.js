@@ -9,7 +9,7 @@
  * Decision: DEC-VISION-CONTINUOUS-001
  */
 
-import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { resolveVisionPath, deriveVisionCandidates } from './vision-reader.js';
@@ -17,8 +17,10 @@ import {
   recordEvent,
   triageIntent,
   approveIntent,
+  planIntent,
+  startIntent,
+  resolveIntent,
 } from './intake.js';
-import { loadProjectState } from './config.js';
 import { safeWriteJson } from './safe-write.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
@@ -103,6 +105,72 @@ export function findNextQueuedIntent(root) {
   if (bestPlanned) return { ok: true, ...bestPlanned };
   if (bestApproved) return { ok: true, ...bestApproved };
   return { ok: false };
+}
+
+function readIntent(root, intentId) {
+  const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`);
+  if (!existsSync(intentPath)) return null;
+  try {
+    return JSON.parse(readFileSync(intentPath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function buildContinuousProvenance(intentId, options = {}) {
+  const { trigger = 'intake', triggerReason = null } = options;
+  return {
+    trigger,
+    intake_intent_id: intentId,
+    trigger_reason: triggerReason,
+    created_by: 'continuous_loop',
+  };
+}
+
+function prepareIntentForRun(root, intentId, options = {}) {
+  let intent = readIntent(root, intentId);
+  if (!intent) {
+    return { ok: false, error: `intent ${intentId} not found` };
+  }
+
+  if (intent.status === 'approved') {
+    const planned = planIntent(root, intentId);
+    if (!planned.ok) {
+      return { ok: false, error: `plan failed: ${planned.error}` };
+    }
+    intent = planned.intent;
+  }
+
+  if (intent.status === 'planned') {
+    const started = startIntent(root, intentId, {
+      allowTerminalRestart: true,
+      provenance: options.provenance,
+    });
+    if (!started.ok) {
+      return { ok: false, error: `start failed: ${started.error}` };
+    }
+    intent = started.intent;
+    return {
+      ok: true,
+      intent,
+      runId: started.run_id,
+      turnId: started.turn_id,
+    };
+  }
+
+  if (intent.status === 'executing') {
+    return {
+      ok: true,
+      intent,
+      runId: intent.target_run || null,
+      turnId: intent.target_turn || null,
+    };
+  }
+
+  return {
+    ok: false,
+    error: `intent ${intentId} is in unsupported status "${intent.status}" for continuous execution`,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +293,7 @@ export function resolveContinuousOptions(opts, config) {
 export async function executeContinuousRun(context, contOpts, executeGovernedRun, log = console.log) {
   const { root } = context;
   const absVisionPath = resolveVisionPath(root, contOpts.visionPath);
+  let exitCode = 0;
 
   // Validate vision file exists
   if (!existsSync(absVisionPath)) {
@@ -264,6 +333,7 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
       const queued = findNextQueuedIntent(root);
       let targetIntentId = null;
       let visionObjective = null;
+      let preparedIntent = null;
 
       if (queued.ok) {
         targetIntentId = queued.intentId;
@@ -278,6 +348,7 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
         if (!seeded.ok) {
           log(`Vision scan error: ${seeded.error}`);
           session.status = 'stopped';
+          exitCode = 1;
           break;
         }
 
@@ -305,28 +376,27 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
         log(`Vision-derived: ${visionObjective}`);
       }
 
-      // Step 3: Execute governed run
-      // Note: intake seeding records provenance. The governed run initializes its
-      // own state via initializeGovernedRun(). We do NOT try to advance the intent
-      // through plan/start — that path requires an already-active run. Instead, the
-      // run itself is the execution surface, and the seeded intent provides the audit
-      // trail linking each run back to a vision goal.
-      session.current_run_id = null;
-      session.current_vision_objective = visionObjective;
+      const provenance = buildContinuousProvenance(targetIntentId, {
+        trigger: visionObjective ? 'vision_scan' : 'intake',
+        triggerReason: visionObjective || readIntent(root, targetIntentId)?.charter || null,
+      });
+      preparedIntent = prepareIntentForRun(root, targetIntentId, { provenance });
+      if (!preparedIntent.ok) {
+        log(`Continuous start error: ${preparedIntent.error}`);
+        session.status = 'stopped';
+        exitCode = 1;
+        break;
+      }
+
+      // Step 3: Execute the prepared governed run.
+      session.current_run_id = preparedIntent.runId;
+      session.current_vision_objective = visionObjective || preparedIntent.intent?.charter || null;
       session.status = 'running';
       writeContinuousSession(root, session);
-
-      const provenance = {
-        trigger: 'vision_scan',
-        created_by: 'continuous_loop',
-        vision_path: contOpts.visionPath,
-        ...(visionObjective ? { trigger_reason: `vision:${visionObjective}` } : {}),
-      };
 
       const execution = await executeGovernedRun(context, {
         autoApprove: true,
         report: true,
-        provenance,
         log,
       });
 
@@ -335,6 +405,14 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
 
       const stopReason = execution.result?.stop_reason;
       log(`Run ${session.runs_completed}/${contOpts.maxRuns} completed: ${stopReason || 'unknown'}`);
+
+      const resolved = resolveIntent(root, targetIntentId);
+      if (!resolved.ok) {
+        log(`Continuous resolve error: ${resolved.error}`);
+        session.status = 'stopped';
+        writeContinuousSession(root, session);
+        return { exitCode: 1, session };
+      }
 
       if (stopReason === 'blocked') {
         session.status = 'paused';
@@ -362,10 +440,9 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
     }
 
     writeContinuousSession(root, session);
-    return { exitCode: 0, session };
+    return { exitCode, session };
 
   } finally {
     process.removeListener('SIGINT', sigHandler);
   }
 }
-

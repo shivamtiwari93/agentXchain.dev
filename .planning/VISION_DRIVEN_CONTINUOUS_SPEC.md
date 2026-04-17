@@ -59,9 +59,14 @@ agentxchain run --continuous --vision <path> [--max-runs N] [--auto-approve] [--
 2. **Loop iteration**:
    a. Check for pending approved/planned intents in the intake queue. If found, start next run from queue.
    b. If queue empty, run **vision scan**: parse VISION.md sections, compare against completed intents/runs, derive candidate work.
-   c. If vision scan produces candidates, record → triage → approve (if auto) through the existing intake pipeline. Start the highest-priority candidate as a governed run.
-   d. If no candidates (vision fully satisfied or unable to derive work), increment idle counter.
-   e. After run completes: record outcome, loop back to step 2.
+   c. If vision scan produces candidates, record → triage → approve (if auto) through the existing intake pipeline.
+   d. Before each governed run, the loop must consume the target intent through the real intake lifecycle:
+      - `approved` → `planIntent()`
+      - `planned` → `startIntent()`
+      - `executing` → continue the already-started run
+   e. After the run completes, the loop must call `resolveIntent()` so the intake artifact lands in `completed` or `blocked` instead of lingering in `approved`/`executing`.
+   f. If no candidates (vision fully satisfied or unable to derive work), increment idle counter.
+   g. Loop back to step 2.
 3. **Terminal conditions** (any one stops the loop):
    - `max_runs` reached → exit 0
    - `max_idle_cycles` consecutive idle cycles → exit 0
@@ -93,11 +98,9 @@ Every vision-derived run must trace back to a specific vision section:
 ```json
 {
   "trigger": "vision_scan",
+  "intake_intent_id": "intent_...",
   "created_by": "continuous_loop",
-  "vision_path": ".planning/VISION.md",
-  "vision_section": "Core Thesis",
-  "vision_goal": "explicit decision history",
-  "trigger_reason": "vision:unaddressed_goal"
+  "trigger_reason": "Core Thesis: explicit decision history"
 }
 ```
 
@@ -133,7 +136,7 @@ Persisted to `.agentxchain/continuous-session.json`:
 
 ## Acceptance Tests
 
-- `AT-VCONT-001`: Launch `run --continuous --vision <temp>` with a 2-section VISION.md in a temp project. Observe at least 2 consecutive runs, each traced to a different vision section.
+- `AT-VCONT-001`: Launch `agentxchain run --continuous --vision <temp-project>/.planning/VISION.md --max-runs 3` in a temp governed project with runnable mock runtimes. Observe 3 consecutive governed runs complete without human input. Verify each run-history entry carries `trigger: "vision_scan"`, `created_by: "continuous_loop"`, and an `intake_intent_id`.
 - `AT-VCONT-002`: Launch with all vision goals already addressed (intake has matching completed intents). Observe idle → idle → idle → exit with "All vision goals appear addressed."
 - `AT-VCONT-003`: Verify VISION.md missing exits with clear error, never falls back to bundled file.
 - `AT-VCONT-004`: Verify `agentxchain status` shows continuous session and current vision objective.
@@ -142,6 +145,7 @@ Persisted to `.agentxchain/continuous-session.json`:
 - `AT-VCONT-007`: SIGINT stops the loop cleanly (exit 0, not crash).
 - `AT-VCONT-008`: Verify vision path is project-relative, not hardcoded to agentxchain.dev's VISION.md. Run from a different temp dir with its own VISION.md.
 - `AT-VCONT-009`: Verify `triage_approval: "human"` leaves derived intents in `triaged` status instead of auto-approving.
+- `AT-VCONT-010`: Verify each vision-derived intake intent is resolved to `completed` (or `blocked` on failure) after its governed run, rather than lingering in `approved` or `executing`.
 
 ## Open Questions
 

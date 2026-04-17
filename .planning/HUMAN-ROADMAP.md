@@ -13,7 +13,7 @@ Current focus: full-auto vision-driven operation with human priority injection a
 
 ## Priority Queue
 
-- [ ] **Full-auto vision-driven operation across all agents (VISION.md as sole input)** — AgentXchain must be able to run in a mode where the only human-supplied input is `.planning/VISION.md`, and the full agent fleet (PM, Dev, QA, Eng Director, and any additional dev runtimes like `dev_gpt`) continues driving work forward toward that vision indefinitely without per-turn human intervention.
+- [x] **Full-auto vision-driven operation across all agents (VISION.md as sole input)** — completed 2026-04-17: shipped `agentxchain run --continuous --vision <path>` with project-relative VISION resolution, queue-empty vision seeding, idle detection, continuous session state/status visibility, real intake lifecycle consumption (`planIntent` → `startIntent` → `resolveIntent`), continuous-loop provenance (`vision_scan`, `continuous_loop`), and CLI E2E proof for 3 back-to-back governed runs plus clean SIGINT stop behavior.
   - **Do not reinvent the wheel.** The scaffolding already exists — use it. The relevant surfaces:
     - `agentxchain run` (the governed run loop) already handles turn dispatch, phase gates, validation, acceptance, recovery.
     - `agentxchain intake record/triage/approve/plan/start/resolve` already turns signals into governed work.

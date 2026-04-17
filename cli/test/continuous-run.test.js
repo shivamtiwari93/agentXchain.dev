@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { randomUUID } from 'crypto';
@@ -34,6 +34,25 @@ function createTmpProject() {
     gates: { done: {} },
     rules: { challenge_required: false, max_turn_retries: 1 },
   }, null, 2));
+  mkdirSync(join(dir, '.agentxchain', 'dispatch', 'turns'), { recursive: true });
+  mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify({
+    schema_version: '1.0',
+    run_id: null,
+    project_id: 'ct-001',
+    status: 'idle',
+    phase: 'implementation',
+    accepted_integration_ref: null,
+    active_turns: {},
+    turn_sequence: 0,
+    last_completed_turn_id: null,
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+    phase_gate_status: {},
+  }, null, 2));
+  writeFileSync(join(dir, '.agentxchain', 'history.jsonl'), '');
+  writeFileSync(join(dir, '.agentxchain', 'decision-ledger.jsonl'), '');
   return dir;
 }
 
@@ -191,7 +210,7 @@ describe('Continuous Run', () => {
   });
 
   describe('executeContinuousRun', () => {
-    it('AT-VCONT-001: executes back-to-back runs from vision goals', async () => {
+    it('AT-VCONT-001: executes back-to-back runs from vision goals and resolves intents', async () => {
       writeVision(tmpDir, `## Core
 
 - explicit role definitions
@@ -205,16 +224,23 @@ describe('Continuous Run', () => {
       ), cooldownSeconds: 0 };
 
       let runCount = 0;
-      const mockExecutor = async (ctx, opts) => {
+      const mockExecutor = async () => {
         runCount += 1;
-        // Verify vision provenance
-        assert.equal(opts.provenance.trigger, 'vision_scan');
-        assert.equal(opts.provenance.created_by, 'continuous_loop');
+        const statePath = join(tmpDir, '.agentxchain', 'state.json');
+        const current = JSON.parse(readFileSync(statePath, 'utf8'));
+        assert.equal(current.provenance.trigger, 'vision_scan');
+        assert.equal(current.provenance.created_by, 'continuous_loop');
+        assert.ok(current.provenance.intake_intent_id);
+        current.status = 'completed';
+        current.completed_at = new Date().toISOString();
+        current.last_completed_turn_id = Object.keys(current.active_turns || {})[0] || null;
+        current.active_turns = {};
+        writeFileSync(statePath, JSON.stringify(current, null, 2));
         return {
           exitCode: 0,
           result: {
             stop_reason: 'completed',
-            state: { run_id: `run-${runCount}`, status: 'completed' },
+            state: { run_id: current.run_id, status: 'completed' },
           },
         };
       };
@@ -229,10 +255,23 @@ describe('Continuous Run', () => {
       assert.equal(session.status, 'completed');
       assert.equal(runCount, 2);
 
+      const intentsDir = join(tmpDir, '.agentxchain', 'intake', 'intents');
+
       // Session file should exist
       const savedSession = readContinuousSession(tmpDir);
       assert.ok(savedSession);
       assert.equal(savedSession.runs_completed, 2);
+
+      const intents = existsSync(intentsDir)
+        ? readdirSync(intentsDir)
+          .filter((file) => file.endsWith('.json'))
+          .map((file) => JSON.parse(readFileSync(join(intentsDir, file), 'utf8')))
+        : [];
+      assert.equal(intents.length, 2);
+      for (const intent of intents) {
+        assert.equal(intent.status, 'completed');
+        assert.ok(intent.target_run);
+      }
     });
 
     it('AT-VCONT-002: exits on max idle cycles when all goals addressed', async () => {
@@ -279,7 +318,14 @@ describe('Continuous Run', () => {
       let runCount = 0;
       const mockExecutor = async () => {
         runCount += 1;
-        return { exitCode: 0, result: { stop_reason: 'completed', state: { run_id: `r-${runCount}` } } };
+        const statePath = join(tmpDir, '.agentxchain', 'state.json');
+        const current = JSON.parse(readFileSync(statePath, 'utf8'));
+        current.status = 'completed';
+        current.completed_at = new Date().toISOString();
+        current.last_completed_turn_id = Object.keys(current.active_turns || {})[0] || null;
+        current.active_turns = {};
+        writeFileSync(statePath, JSON.stringify(current, null, 2));
+        return { exitCode: 0, result: { stop_reason: 'completed', state: { run_id: current.run_id } } };
       };
 
       const { session } = await executeContinuousRun(
