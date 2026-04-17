@@ -90,6 +90,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission plan show` | Planning | Show a decomposition plan with workstream details and dependency state |
 | `mission plan approve` | Planning | Approve the latest proposed mission plan and supersede older active revisions |
 | `mission plan launch` | Planning | Launch workstream(s) from an approved plan — single `--workstream`, batch `--all-ready`, or `--retry` failed |
+| `mission plan autopilot` | Planning | Unattended wave execution of an approved plan — launches dependency waves until plan completes or failure stops execution |
 | `mission plan list` | Planning | List all plans for a mission, newest first |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
@@ -215,6 +216,7 @@ agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--di
 agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --workstream <id> --retry [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --all-ready [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
+agentxchain mission plan autopilot [plan_id|latest] [--mission <mission_id>] [--max-waves <n>] [--continue-on-failure] [--cooldown <seconds>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan list [--mission <mission_id>] [--limit <n>] [--json] [--dir <path>]
 ```
 
@@ -243,6 +245,12 @@ agentxchain mission plan launch latest --workstream ws-alignment --retry --auto-
 
 # Launch all ready workstreams sequentially (stops on first failure)
 agentxchain mission plan launch latest --all-ready --auto-approve
+
+# Unattended execution: autopilot launches dependency waves until plan completes
+agentxchain mission plan autopilot latest --auto-approve
+
+# Autopilot with safety limits and failure tolerance
+agentxchain mission plan autopilot latest --max-waves 5 --continue-on-failure --cooldown 10
 
 # List all plans for a specific mission
 agentxchain mission plan list --mission mission-release-hardening

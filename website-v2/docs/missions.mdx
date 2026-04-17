@@ -147,6 +147,28 @@ agentxchain mission plan launch latest \
 
 Retry preserves the older launch record for audit, allocates a new `chain_id`, and returns the plan from `needs_attention` to active execution. When every workstream reaches `completed`, the plan auto-transitions to `completed` too.
 
+#### Autopilot — unattended wave execution
+
+For lights-out execution of a full plan across dependency waves, use `mission plan autopilot`:
+
+```bash
+# Execute the entire plan unattended — launches waves until completion or failure
+agentxchain mission plan autopilot latest --auto-approve
+
+# With safety limits: max 5 waves, 10s cooldown between waves, skip failures
+agentxchain mission plan autopilot latest \
+  --max-waves 5 \
+  --continue-on-failure \
+  --cooldown 10 \
+  --auto-approve
+```
+
+Autopilot loops: scan for ready workstreams → launch wave → wait for outcomes → re-scan → repeat. It stops when the plan completes, a workstream fails (unless `--continue-on-failure`), the wave limit is reached, or the operator sends SIGINT.
+
+Each wave launches all currently `ready` workstreams in declaration order. Between waves, the autopilot reloads the plan from disk to pick up dependency-unblocked workstreams. The `--max-waves` flag (default: 10) prevents runaway execution. The `--cooldown` flag (default: 5 seconds) adds a pause between waves for operator visibility.
+
+Autopilot records `trigger: autopilot` in provenance with the wave number, so every launched run is traceable back to the autopilot invocation and its specific wave.
+
 #### 4. Inspect plan and launch state
 
 ```bash
@@ -171,6 +193,7 @@ agentxchain mission plan approve [plan_id|latest] [--mission <mission_id>] [--di
 agentxchain mission plan launch [plan_id|latest] --workstream <id> [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --workstream <id> --retry [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
 agentxchain mission plan launch [plan_id|latest] --all-ready [--mission <mission_id>] [--auto-approve] [--json] [--dir <path>]
+agentxchain mission plan autopilot [plan_id|latest] [--mission <mission_id>] [--max-waves <n>] [--continue-on-failure] [--cooldown <seconds>] [--auto-approve] [--json] [--dir <path>]
 ```
 
 ### `mission start`
@@ -246,6 +269,29 @@ Shipped plan states relevant to execution and follow-up:
 | `superseded` | Newer plan revision replaced this one |
 | `needs_attention` | At least one launched workstream failed or blocked |
 | `completed` | Every workstream reached `completed` and the plan auto-closed |
+
+### `mission plan autopilot`
+
+Unattended wave execution of an approved plan. Autopilot loops through dependency waves — launching all ready workstreams, recording outcomes, and re-scanning for newly-unblocked workstreams — until the plan completes, a failure stops execution, or a safety limit is reached.
+
+Options:
+
+- **`--max-waves <n>`** — maximum dependency waves before stopping (default: 10).
+- **`--continue-on-failure`** — skip failed workstreams and keep launching ready ones instead of stopping on first failure.
+- **`--cooldown <seconds>`** — pause between waves for operator visibility (default: 5).
+- **`--auto-approve`** — auto-approve run gates during execution.
+
+Terminal conditions:
+
+| Condition | Exit | Reason |
+|-----------|------|--------|
+| All workstreams completed | 0 | `plan_completed` |
+| Workstream failed (no `--continue-on-failure`) | 1 | `failure_stopped` |
+| Wave limit reached | 1 | `wave_limit_reached` |
+| Blocked with unsatisfiable dependencies | 1 | `deadlock` |
+| Operator SIGINT | 1 | `interrupted` |
+
+JSON output (`--json`) includes the full wave structure: which workstreams launched in each wave, their outcomes, and a summary with total counts and terminal reason.
 
 ## Run Chaining Integration
 

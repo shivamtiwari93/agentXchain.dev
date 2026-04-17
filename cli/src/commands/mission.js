@@ -740,6 +740,314 @@ async function missionPlanLaunchAllReady(planTarget, opts, context) {
   }
 }
 
+// ── Autopilot (unattended wave execution) ───────────────────────────────────
+
+export async function missionPlanAutopilotCommand(planTarget, opts) {
+  const context = loadProjectContext(opts.dir || process.cwd());
+  if (!context) {
+    console.error(chalk.red('No AgentXchain project found. Run this inside a governed project.'));
+    process.exit(1);
+  }
+  const { root } = context;
+
+  const mission = opts.mission
+    ? loadMissionArtifact(root, opts.mission)
+    : loadLatestMissionArtifact(root);
+
+  if (!mission) {
+    console.error(chalk.red('No mission found.'));
+    console.error(chalk.dim('  Use --mission <id> or create a mission first.'));
+    process.exit(1);
+  }
+
+  const plan = planTarget && planTarget !== 'latest'
+    ? loadPlan(root, mission.mission_id, planTarget)
+    : loadLatestPlan(root, mission.mission_id);
+
+  if (!plan) {
+    if (planTarget && planTarget !== 'latest') {
+      console.error(chalk.red(`Plan not found: ${planTarget}`));
+    } else {
+      console.error(chalk.red(`No plans found for mission ${mission.mission_id}.`));
+      console.error(chalk.dim('  Run `agentxchain mission plan latest` to generate one.'));
+    }
+    process.exit(1);
+  }
+
+  const continueOnFailure = !!opts.continueOnFailure;
+
+  if (plan.status === 'completed') {
+    if (opts.json) {
+      console.log(JSON.stringify({
+        plan_id: plan.plan_id,
+        mission_id: mission.mission_id,
+        waves: [],
+        summary: { total_waves: 0, total_launched: 0, completed: 0, failed: 0, terminal_reason: 'plan_completed' },
+      }, null, 2));
+    } else {
+      console.log(chalk.green(`Plan ${plan.plan_id} is already completed. Nothing to do.`));
+    }
+    return;
+  }
+
+  if (plan.status !== 'approved' && !(plan.status === 'needs_attention' && continueOnFailure)) {
+    console.error(chalk.red(`Plan ${plan.plan_id} status is "${plan.status}". Autopilot requires an approved plan${continueOnFailure ? ' (or needs_attention with --continue-on-failure)' : ''}.`));
+    process.exit(1);
+  }
+
+  const maxWaves = Math.max(1, parseInt(opts.maxWaves, 10) || 10);
+  const cooldownSeconds = Math.max(0, parseInt(opts.cooldown, 10) || 5);
+  const executor = opts._executeGovernedRun || executeGovernedRun;
+  const logger = opts._log || console.log;
+  const sleep = opts._sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+
+  const waves = [];
+  let totalLaunched = 0;
+  let totalCompleted = 0;
+  let totalFailed = 0;
+  let terminalReason = null;
+  let interrupted = false;
+
+  // SIGINT handler
+  const onSigint = () => { interrupted = true; };
+  process.on('SIGINT', onSigint);
+
+  try {
+    for (let waveNum = 1; waveNum <= maxWaves; waveNum++) {
+      if (interrupted) {
+        terminalReason = 'interrupted';
+        break;
+      }
+
+      // Reload plan from disk to pick up outcomes from previous waves
+      const currentPlan = loadPlan(root, mission.mission_id, plan.plan_id);
+      if (!currentPlan) {
+        terminalReason = 'plan_read_error';
+        break;
+      }
+
+      if (currentPlan.status === 'completed') {
+        terminalReason = 'plan_completed';
+        break;
+      }
+
+      const readyWorkstreams = getReadyWorkstreams(currentPlan);
+      if (readyWorkstreams.length === 0) {
+        const summary = getWorkstreamStatusSummary(currentPlan);
+        const allCompleted = currentPlan.workstreams.every((ws) => ws.launch_status === 'completed');
+        if (allCompleted) {
+          terminalReason = 'plan_completed';
+        } else {
+          const hasNeedsAttention = (summary.needs_attention || 0) > 0;
+          const hasBlocked = (summary.blocked || 0) > 0;
+          const hasLaunched = (summary.launched || 0) > 0;
+          if (hasNeedsAttention && !continueOnFailure) {
+            terminalReason = 'failure_stopped';
+          } else if (hasBlocked && !hasLaunched) {
+            terminalReason = 'deadlock';
+          } else {
+            terminalReason = 'no_ready_workstreams';
+          }
+        }
+        break;
+      }
+
+      if (!opts.json) {
+        console.log(chalk.bold(`\n━━━ Wave ${waveNum} — launching ${readyWorkstreams.length} workstream(s) ━━━\n`));
+      }
+
+      const waveResults = [];
+      let waveHadFailure = false;
+
+      for (let i = 0; i < readyWorkstreams.length; i++) {
+        if (interrupted) break;
+
+        const ws = readyWorkstreams[i];
+        const prefix = `[${i + 1}/${readyWorkstreams.length}]`;
+
+        // Skip remaining in wave if failure and not continue-on-failure
+        if (waveHadFailure && !continueOnFailure) {
+          waveResults.push({ workstream_id: ws.workstream_id, status: 'skipped', skip_reason: 'prior workstream failed' });
+          if (!opts.json) {
+            console.log(`${prefix} ${chalk.dim(ws.workstream_id)} — ${chalk.dim('skipped (prior workstream failed)')}`);
+          }
+          continue;
+        }
+
+        const launch = launchWorkstream(root, mission.mission_id, plan.plan_id, ws.workstream_id);
+        if (!launch.ok) {
+          waveHadFailure = true;
+          totalFailed++;
+          waveResults.push({ workstream_id: ws.workstream_id, status: 'launch_error', error: launch.error });
+          if (!opts.json) {
+            console.log(`${prefix} ${chalk.red(ws.workstream_id)} — launch error: ${launch.error}`);
+          }
+          continue;
+        }
+
+        totalLaunched++;
+        if (!opts.json) {
+          process.stdout.write(`${prefix} ${chalk.cyan(ws.workstream_id)} → ${launch.chainId} ... `);
+        }
+
+        const chainOpts = {
+          enabled: true,
+          maxChains: 0,
+          chainOn: ['completed'],
+          cooldownSeconds: 0,
+          mission: mission.mission_id,
+          chainId: launch.chainId,
+        };
+        const runOpts = {
+          autoApprove: !!opts.autoApprove,
+          provenance: {
+            trigger: 'autopilot',
+            created_by: 'operator',
+            trigger_reason: `mission:${mission.mission_id} workstream:${ws.workstream_id} autopilot:wave-${waveNum}`,
+          },
+        };
+
+        let execution;
+        try {
+          execution = await executeChainedRun(context, runOpts, chainOpts, executor, logger);
+        } catch (error) {
+          markWorkstreamOutcome(root, mission.mission_id, plan.plan_id, ws.workstream_id, {
+            terminalReason: 'execution_error',
+            completedAt: new Date().toISOString(),
+          });
+          waveHadFailure = true;
+          totalFailed++;
+          waveResults.push({ workstream_id: ws.workstream_id, chain_id: launch.chainId, status: 'needs_attention', error: error.message });
+          if (!opts.json) {
+            console.log(chalk.red(`needs_attention ✗ (${error.message})`));
+          }
+          continue;
+        }
+
+        const lastRun = execution?.chainReport?.runs?.[execution.chainReport.runs.length - 1] || null;
+        const wsTerminalReason = lastRun?.status === 'completed'
+          ? 'completed'
+          : (lastRun?.status || execution?.chainReport?.terminal_reason || 'execution_error');
+
+        markWorkstreamOutcome(root, mission.mission_id, plan.plan_id, ws.workstream_id, {
+          terminalReason: wsTerminalReason,
+          completedAt: execution?.chainReport?.completed_at || new Date().toISOString(),
+        });
+
+        const wsStatus = wsTerminalReason === 'completed' ? 'completed' : 'needs_attention';
+        if (wsStatus === 'completed') {
+          totalCompleted++;
+        } else {
+          totalFailed++;
+          waveHadFailure = true;
+        }
+
+        waveResults.push({ workstream_id: ws.workstream_id, chain_id: launch.chainId, status: wsStatus });
+
+        if (!opts.json) {
+          if (wsStatus === 'completed') {
+            console.log(chalk.green('completed ✓'));
+          } else {
+            console.log(chalk.red('needs_attention ✗'));
+          }
+        }
+      }
+
+      waves.push({ wave: waveNum, launched: waveResults.filter((r) => r.chain_id).map((r) => r.workstream_id), results: waveResults });
+
+      if (interrupted) {
+        terminalReason = 'interrupted';
+        break;
+      }
+
+      // Check if plan is now complete after this wave
+      const afterWavePlan = loadPlan(root, mission.mission_id, plan.plan_id);
+      if (afterWavePlan?.status === 'completed') {
+        terminalReason = 'plan_completed';
+        break;
+      }
+
+      if (waveHadFailure && !continueOnFailure) {
+        terminalReason = 'failure_stopped';
+        break;
+      }
+
+      if (waveNum === maxWaves) {
+        terminalReason = 'wave_limit_reached';
+        break;
+      }
+
+      // Cooldown between waves
+      if (cooldownSeconds > 0 && !interrupted) {
+        if (!opts.json) {
+          console.log(chalk.dim(`\nCooldown: ${cooldownSeconds}s before next wave...\n`));
+        }
+        await sleep(cooldownSeconds * 1000);
+      }
+    }
+  } finally {
+    process.removeListener('SIGINT', onSigint);
+  }
+
+  if (!terminalReason) {
+    terminalReason = totalFailed > 0 ? 'failure_stopped' : 'plan_completed';
+  }
+
+  const jsonOutput = {
+    plan_id: plan.plan_id,
+    mission_id: mission.mission_id,
+    waves,
+    summary: {
+      total_waves: waves.length,
+      total_launched: totalLaunched,
+      completed: totalCompleted,
+      failed: totalFailed,
+      terminal_reason: terminalReason,
+    },
+  };
+
+  if (opts.json) {
+    console.log(JSON.stringify(jsonOutput, null, 2));
+  } else {
+    console.log('');
+    console.log(chalk.bold('━━━ Autopilot Summary ━━━'));
+    console.log(`  Waves:      ${waves.length}`);
+    console.log(`  Launched:   ${totalLaunched}`);
+    console.log(`  Completed:  ${totalCompleted}`);
+    console.log(`  Failed:     ${totalFailed}`);
+    console.log(`  Outcome:    ${formatTerminalReason(terminalReason)}`);
+    if (terminalReason === 'plan_completed') {
+      console.log(chalk.green('\n  Plan completed successfully.'));
+    } else if (terminalReason === 'deadlock') {
+      console.log(chalk.red('\n  Deadlock: remaining workstreams are blocked with unsatisfiable dependencies.'));
+      console.log(chalk.dim('  Inspect with `agentxchain mission plan show latest`.'));
+    } else if (terminalReason === 'wave_limit_reached') {
+      console.log(chalk.yellow(`\n  Wave limit reached. Run autopilot again to continue.`));
+    } else if (terminalReason === 'failure_stopped') {
+      console.log(chalk.red('\n  Stopped due to workstream failure.'));
+      console.log(chalk.dim('  Use --continue-on-failure to skip failures, or retry with `mission plan launch --workstream <id> --retry`.'));
+    } else if (terminalReason === 'interrupted') {
+      console.log(chalk.yellow('\n  Interrupted by operator.'));
+    }
+  }
+
+  if (terminalReason !== 'plan_completed') {
+    process.exit(1);
+  }
+}
+
+function formatTerminalReason(reason) {
+  switch (reason) {
+    case 'plan_completed': return chalk.green('plan completed');
+    case 'failure_stopped': return chalk.red('stopped on failure');
+    case 'deadlock': return chalk.red('deadlock');
+    case 'wave_limit_reached': return chalk.yellow('wave limit reached');
+    case 'interrupted': return chalk.yellow('interrupted');
+    case 'no_ready_workstreams': return chalk.yellow('no ready workstreams');
+    default: return reason || '—';
+  }
+}
+
 // ── Plan rendering ───────────────────────────────────────────────────────────
 
 function renderPlan(plan) {

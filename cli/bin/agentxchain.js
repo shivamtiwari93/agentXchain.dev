@@ -122,7 +122,7 @@ import { eventsCommand } from '../src/commands/events.js';
 import { connectorCheckCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
-import { missionAttachChainCommand, missionListCommand, missionPlanApproveCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
+import { missionAttachChainCommand, missionListCommand, missionPlanApproveCommand, missionPlanAutopilotCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -497,6 +497,18 @@ missionPlanCmd
   .option('-j, --json', 'Output as JSON')
   .option('-d, --dir <path>', 'Project directory')
   .action(missionPlanLaunchCommand);
+
+missionPlanCmd
+  .command('autopilot [plan_id]')
+  .description('Run unattended wave execution of an approved plan (default: latest plan)')
+  .option('-m, --mission <mission_id>', 'Explicit mission ID')
+  .option('--max-waves <n>', 'Maximum number of dependency waves (default: 10)')
+  .option('--continue-on-failure', 'Skip failed workstreams and keep launching ready ones')
+  .option('--cooldown <seconds>', 'Pause between waves in seconds (default: 5)')
+  .option('--auto-approve', 'Auto-approve run gates during execution')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionPlanAutopilotCommand);
 
 missionPlanCmd
   .command('list')
