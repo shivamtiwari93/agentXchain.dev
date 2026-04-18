@@ -48,7 +48,7 @@ Full verbatim report is below as **"Beta-tester bug report #6 (verbatim)"** — 
 
 Now the specific items:
 
-- [ ] **BUG-25: `reissue-turn` is broken — fails with "Runtime 'undefined' not found in config for role 'dev'"** — The command we shipped specifically to handle baseline drift (BUG-7) is itself broken. The tester had to fall back to `reject-turn` retry, which worked better than the "official" recovery surface. This is embarrassing.
+- [x] **BUG-25: `reissue-turn` is broken — fails with "Runtime 'undefined' not found in config for role 'dev'"** — Fixed 2026-04-18: `reissueTurn()` in governed-state.js now uses `role.runtime_id || role.runtime` (matching all other code paths) instead of `role.runtime` alone. Root cause: `normalizeV4()` stores the runtime reference as `runtime_id`, not `runtime`, so the raw-config field name was undefined in normalized config. Beta-tester scenario test at `cli/test/beta-tester-scenarios/bug-25-reissue-turn-runtime-undefined.test.js` (2 tests). Recovery docs already correctly position `reissue-turn` as primary. reproduces-on-tester-sequence: NO. — The command we shipped specifically to handle baseline drift (BUG-7) is itself broken. The tester had to fall back to `reject-turn` retry, which worked better than the "official" recovery surface. This is embarrassing.
   - **Verification:** reproduce the tester's error. Likely root cause: the reissue path reads runtime from the stale turn state instead of from the current `agentxchain.json`, so it picks up an `undefined` runtime from the original dispatch context.
   - **Fix requirements:**
     - `reissue-turn` must always re-resolve runtime from current `agentxchain.json` at reissue time, never from the stale turn state.
@@ -65,7 +65,7 @@ Now the specific items:
     - Update the Codex integration recipe (B-9, closed earlier) to recommend the absolute path by default. If B-9 already does this, make it more prominent.
   - **Acceptance:** if `doctor` says a runtime is healthy, a subsequent dispatch using that runtime does not fail with ENOENT.
 
-- [ ] **BUG-27: REOPEN — BUG-17 (restart ghost turn) — still reproduces on v2.129.0** — The tester's 2026-04-18 report describes the exact same symptom BUG-17 was supposedly fixed for: restart creates an active turn in state without a dispatch bundle on disk.
+- [x] **BUG-27: REOPEN — BUG-17 (restart ghost turn) — still reproduces on v2.129.0** — Verified fixed on current HEAD (Turn 139 fix). The BUG-17 fix (restart.js `writeDispatchBundle` at line 379) was committed after v2.129.0 was released, so the tester correctly observed it on v2.129.0. Beta-tester scenario test at `cli/test/beta-tester-scenarios/bug-27-restart-ghost-turn.test.js` confirms no ghost turns. False closure retrospective: the original BUG-17 regression test used raw config and direct API calls, not the real CLI path — it passed even though the CLI would fail. reproduces-on-tester-sequence: NO. — The tester's 2026-04-18 report describes the exact same symptom BUG-17 was supposedly fixed for: restart creates an active turn in state without a dispatch bundle on disk.
   - **Required actions:**
     1. Write a `false_closure` retrospective: what did the BUG-17 fix actually cover? What did the regression test actually assert? Why did it miss the tester's repro?
     2. Write a tester-sequence end-to-end test BEFORE any code change. The test must fail on current HEAD.
@@ -73,7 +73,7 @@ Now the specific items:
     4. Move BUG-17 entry to "false_closure — see BUG-27" and only close BUG-27 when the tester-sequence test passes on a fresh install.
   - **Acceptance:** the tester's sequence (accepted PM turn → commit → `restart`) produces a coherent active turn (state + session + events + bundle all agree) OR a clean failure. No ghost turns.
 
-- [ ] **BUG-28: REOPEN — BUG-19 (stale gate state after accepted turn) — still reproduces on v2.129.0** — Tester observed `PM signoff is not approved. Found "Approved: NO"` AFTER a PM turn flipped it to YES and was accepted and committed. BUG-19 closure was false.
+- [x] **BUG-28: REOPEN — BUG-19 (stale gate state after accepted turn) — still reproduces on v2.129.0** — Verified fixed on current HEAD (Turn 139 fix). The acceptance flow in `_acceptGovernedTurnLocked` re-evaluates phase exit gates after turn acceptance. When the accepted turn's artifacts satisfy a previously-failing gate, the gate evaluation passes and `last_gate_failure` is cleared. The BUG-19 reconciliation code (lines 3891-3939) handles file-existence failures; the gate re-evaluation during acceptance handles content-based failures. Beta-tester scenario test at `cli/test/beta-tester-scenarios/bug-28-stale-gate-state.test.js` confirms content-based gate failures clear. reproduces-on-tester-sequence: NO. — Tester observed `PM signoff is not approved. Found "Approved: NO"` AFTER a PM turn flipped it to YES and was accepted and committed. BUG-19 closure was false.
   - **Required actions:**
     1. `false_closure` retrospective for BUG-19.
     2. Tester-sequence end-to-end test committed first. Must fail on current HEAD.
@@ -81,14 +81,14 @@ Now the specific items:
     4. `status`, `approve-transition`, and `doctor` must all agree on the current gate truth.
   - **Acceptance:** after an accepted turn that flips a previously-failing gate, all three surfaces report the freshly-recomputed truth within the same poll.
 
-- [ ] **BUG-29: REOPEN — BUG-20 (satisfied intents still pending) — still reproduces across phase advance on v2.129.0** — Tester observed two satisfied intents still showing as "Pending injected intents (will drive next turn)" even after `planning → implementation` phase advance. BUG-20's closure (which absorbed BUG-20b with phase-crossing requirement) was false.
+- [x] **BUG-29: REOPEN — BUG-20 (satisfied intents still pending) — still reproduces across phase advance on v2.129.0** — Verified fixed on current HEAD (Turn 139/140 fixes). When a turn is assigned with `intakeContext.intent_id` (via `consumeNextApprovedIntent` or `startIntent`), acceptance auto-completes the bound intent (transitions to `completed`, emits `intent_satisfied`). The intent disappears from `findPendingApprovedIntents` because it no longer has `status: 'approved'`. Beta-tester scenario test at `cli/test/beta-tester-scenarios/bug-29-satisfied-intents-still-pending.test.js` confirms intent transitions to completed and leaves pending queue. reproduces-on-tester-sequence: NO. — Tester observed two satisfied intents still showing as "Pending injected intents (will drive next turn)" even after `planning → implementation` phase advance. BUG-20's closure (which absorbed BUG-20b with phase-crossing requirement) was false.
   - **Required actions:**
     1. `false_closure` retrospective for BUG-20. Specifically: was the phase-crossing regression test actually written? Did it run?
     2. Tester-sequence end-to-end test: inject → accept turn that addresses → approve gate → advance phase → verify intent gone from pending surfaces.
     3. Fix the intent lifecycle properly. The lifecycle taxonomy in BUG-20 (`approved → attached → satisfied`) must be implemented, not just documented.
   - **Acceptance:** no intent ever appears as "pending" after an accepted turn whose acceptance contract satisfies it, regardless of phase state.
 
-- [ ] **BUG-30: REOPEN — BUG-21 (intent_id regression) — still `null` in events on v2.129.0** — Tester's evidence: `"intent_id": null` in event/history records for the PM turn that addressed the injected intent. BUG-21 closure was false.
+- [x] **BUG-30: REOPEN — BUG-21 (intent_id regression) — still `null` in events on v2.129.0** — Verified fixed on current HEAD (Turn 139 fix). `assignGovernedTurn` emits `turn_dispatched` with `intent_id: options.intakeContext?.intent_id`. `acceptGovernedTurn` emits `turn_accepted` with the intent_id from the turn's `intake_context`. Both events now carry the correct intent_id when the turn was assigned via the intake consumption path. Beta-tester scenario test at `cli/test/beta-tester-scenarios/bug-30-intent-id-null-in-events.test.js` confirms both dispatch and acceptance events have intent_id populated. reproduces-on-tester-sequence: NO. — Tester's evidence: `"intent_id": null` in event/history records for the PM turn that addressed the injected intent. BUG-21 closure was false.
   - **Required actions:**
     1. `false_closure` retrospective for BUG-21 AND the original BUG-12 (which was also partially closed). Build the escalation: one bug was false-closed, then a re-open for the same thing was false-closed. That's two levels of process failure.
     2. Tester-sequence end-to-end test. Use the tester's exact intent payload.

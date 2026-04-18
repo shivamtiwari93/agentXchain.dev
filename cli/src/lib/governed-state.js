@@ -2488,7 +2488,8 @@ export function reissueTurn(root, config, opts = {}) {
   const oldRuntimeId = oldTurn.runtime_id;
 
   // Resolve current runtime binding (may have changed in config)
-  const currentRuntimeId = role.runtime;
+  // BUG-25 fix: normalized config uses runtime_id, raw config uses runtime
+  const currentRuntimeId = role.runtime_id || role.runtime;
   const currentRuntime = config.runtimes?.[currentRuntimeId];
   if (!currentRuntime) {
     return { ok: false, error: `Runtime "${currentRuntimeId}" not found in config for role "${roleId}"` };
