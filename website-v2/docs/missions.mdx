@@ -169,6 +169,73 @@ Each wave launches all currently `ready` workstreams in declaration order. Betwe
 
 Autopilot records `trigger: autopilot` in provenance with the wave number, so every launched run is traceable back to the autopilot invocation and its specific wave.
 
+#### Coordinator-bound mission plans
+
+When a mission is bound to a multi-repo coordinator (`mission start --multi`), the plan system operates differently. Instead of allocating a repo-local `chain_id` and running a single-repo chain, `mission plan launch` dispatches through the coordinator and writes coordinator-mode launch records.
+
+```bash
+# Launch a coordinator-backed workstream
+agentxchain mission plan launch latest --workstream ws-auth-rollout
+```
+
+This does **not** run a local chain. Instead it:
+
+1. Loads the coordinator config and state from the mission's bound workspace.
+2. Selects the next assignable repo for the workstream via coordinator routing rules (phase alignment, dependency satisfaction, repo availability).
+3. Dispatches the repo-local turn through the coordinator dispatcher.
+4. Writes a coordinator-mode launch record instead of a chain-based one.
+
+Subsequent dispatches for the same workstream append to the same launch record. Each repo dispatch is an entry in `repo_dispatches[]`:
+
+```json
+{
+  "workstream_id": "ws-auth-rollout",
+  "dispatch_mode": "coordinator",
+  "super_run_id": "srun_1713400000_abc12345",
+  "launched_at": "2026-04-18T00:10:00.000Z",
+  "status": "launched",
+  "completion_barrier": {
+    "barrier_id": "ws-auth-rollout_completion",
+    "type": "all_repos_accepted"
+  },
+  "repo_dispatches": [
+    {
+      "repo_id": "api",
+      "repo_turn_id": "turn_abc123",
+      "role": "dev",
+      "dispatched_at": "2026-04-18T00:10:00.000Z",
+      "bundle_path": "/path/.agentxchain/dispatch/turns/turn_abc123",
+      "context_ref": "ctx_..."
+    },
+    {
+      "repo_id": "web",
+      "repo_turn_id": "turn_def456",
+      "role": "dev",
+      "dispatched_at": "2026-04-18T00:12:00.000Z",
+      "bundle_path": "/path/.agentxchain/dispatch/turns/turn_def456",
+      "context_ref": null
+    }
+  ]
+}
+```
+
+**Completion synchronization.** Coordinator-backed workstreams do not complete from chain reports. Instead, `mission plan show` synchronizes the plan against coordinator history and barrier state:
+
+- Accepted repo projections count toward workstream progress.
+- A satisfied completion barrier marks the workstream `completed`.
+- Once completed, dependent blocked workstreams become `ready`.
+- If all workstreams complete, the plan auto-transitions to `completed`.
+
+The synchronized view exposes `coordinator_progress` per workstream: `accepted_repo_ids`, `pending_repo_ids`, `repo_count`, `accepted_repo_count`, and `completion_barrier_status`.
+
+**Fail-closed boundaries.** Coordinator-bound missions intentionally block batch operations that do not yet have a real multi-repo wave contract:
+
+- `mission plan launch --all-ready` — **not supported** for coordinator-bound missions. Use `--workstream <id>` to dispatch one workstream at a time.
+- `mission plan autopilot` — **not supported** for coordinator-bound missions.
+- `mission plan launch --retry` — remains single-repo chain only.
+
+These guards prevent the system from faking multi-repo batch execution by silently falling back to single-repo chain semantics.
+
 #### 4. Inspect plan and launch state
 
 ```bash
@@ -232,6 +299,8 @@ Use `--planner-output-file <path>` when you want deterministic or offline planni
 
 Shows one plan by ID or the latest plan revision for a mission. The summary includes workstreams, dependencies, acceptance checks, `launch_status`, and any recorded `launch_records`.
 
+For coordinator-bound plans, `mission plan show` synchronizes the plan against the coordinator's acceptance projection history and barrier state before rendering. This surfaces real-time `coordinator_progress` per workstream including accepted and pending repo IDs, completion barrier status, and aggregated repo counts. Workstreams auto-transition to `completed` when their completion barrier is satisfied, and downstream blocked workstreams become `ready`.
+
 ### `mission plan list`
 
 Lists plan artifacts newest-first for the target mission. This is the audit surface when a newer approved plan supersedes an older proposal.
@@ -242,13 +311,23 @@ Approves only the latest `proposed` plan for a mission and supersedes older acti
 
 ### `mission plan launch`
 
-Launches approved workstreams with two modes:
+Launches approved workstreams. Behavior depends on whether the mission is coordinator-bound:
 
-- **`--workstream <id>`** — launch one specific workstream.
+**Single-repo missions (default):**
+
+- **`--workstream <id>`** — launch one specific workstream. Allocates a `chain_id`, records a chain-mode launch record, and executes through the governed run path.
 - **`--workstream <id> --retry`** — retry one `needs_attention` workstream with a new launch record and chain ID while preserving the previous failed attempt for audit.
 - **`--all-ready`** — launch all currently `ready` workstreams sequentially. Stops on first failure — remaining workstreams are skipped. Blocked workstreams are never included.
 
-All modes validate the approval boundary and dependency satisfaction, record preallocated `workstream_id -> chain_id` launch records, execute through the governed run path, and reconcile outcomes from real chain results. The launch modes are mutually exclusive where they would conflict.
+All single-repo modes validate the approval boundary and dependency satisfaction, record preallocated `workstream_id -> chain_id` launch records, execute through the governed run path, and reconcile outcomes from real chain results.
+
+**Coordinator-bound missions:**
+
+- **`--workstream <id>`** — dispatches the next assignable repo for the workstream through the coordinator. Writes a coordinator-mode launch record with `dispatch_mode: "coordinator"` and an append-only `repo_dispatches[]` array. Does not run a local chain — returns immediately with dispatch metadata.
+- **`--all-ready`** — not supported. Exits with an error directing the operator to use `--workstream <id>`.
+- **`--retry`** — not supported for coordinator workstreams.
+
+The launch modes are mutually exclusive where they would conflict.
 
 Shipped workstream launch states:
 
@@ -349,6 +428,7 @@ Mission decomposition adds its own repo-local planning states. These are evidenc
 | `approved` | The latest reviewed plan may launch workstreams |
 | `superseded` | A newer plan revision replaced this artifact |
 | `needs_attention` | A launched workstream failed or blocked and the plan requires intervention |
+| `completed` | Every workstream reached `completed` and the plan auto-closed |
 
 The dashboard `Mission` view exposes the latest plan plus older revisions so operators can see which plan is current without diffing raw JSON files.
 
@@ -395,6 +475,23 @@ If any workstream fails during a batch launch, the remaining workstreams are ski
 ### Launched workstream execution fails
 
 The workstream is marked `needs_attention`, the plan becomes `needs_attention`, and dependents remain `blocked`. AgentXchain does not silently auto-replan around a failed approved workstream.
+
+### Coordinator-bound launch blocked
+
+`mission plan launch --workstream <id>` on a coordinator-bound mission fails when:
+
+- The coordinator workspace is missing or unreadable.
+- The coordinator state is not `active`.
+- The workstream exists in the plan but not in the coordinator config.
+- The coordinator is in a different phase than the workstream requires.
+- The target workstream is already completed.
+- No repo is assignable (entry repo is busy, blocked, or a barrier prevents dispatch).
+
+The error message includes the specific block reason from the coordinator so the operator can diagnose without inspecting raw coordinator state.
+
+### `--all-ready` or autopilot on a coordinator-bound mission
+
+Both exit immediately with an error directing the operator to `mission plan launch --workstream <id>`. This is a deliberate fail-closed boundary — multi-repo batch execution requires a real coordinator wave contract that does not yet exist.
 
 ### Chain report missing from a mission
 

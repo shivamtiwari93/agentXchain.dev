@@ -114,6 +114,58 @@ describe('Missions docs surface', () => {
   });
 });
 
+describe('Missions docs coordinator-bound launch surface', () => {
+  it('documents coordinator-bound mission plan launch behavior', () => {
+    assert.match(DOC, /coordinator-bound mission plan/i);
+    assert.match(DOC, /dispatch_mode.*coordinator/);
+    assert.match(DOC, /repo_dispatches/);
+    assert.match(DOC, /super_run_id/);
+    assert.match(DOC, /completion_barrier/);
+  });
+
+  it('documents the coordinator launch record shape with required fields', () => {
+    for (const field of [
+      'dispatch_mode',
+      'super_run_id',
+      'repo_dispatches',
+      'repo_id',
+      'repo_turn_id',
+      'completion_barrier',
+      'barrier_id',
+    ]) {
+      assert.ok(DOC.includes(field), `coordinator launch record docs must mention ${field}`);
+    }
+  });
+
+  it('documents coordinator completion synchronization', () => {
+    assert.match(DOC, /completion synchronization/i);
+    assert.match(DOC, /coordinator_progress/);
+    assert.match(DOC, /accepted_repo_ids/);
+    assert.match(DOC, /pending_repo_ids/);
+    assert.match(DOC, /completion_barrier_status/);
+    assert.match(DOC, /accepted_repo_count/);
+  });
+
+  it('documents fail-closed boundaries for coordinator-bound missions', () => {
+    assert.match(DOC, /--all-ready.*not supported.*coordinator/i);
+    assert.match(DOC, /autopilot.*not supported.*coordinator/i);
+    assert.match(DOC, /fail-closed/i);
+  });
+
+  it('documents coordinator-specific error cases', () => {
+    assert.match(DOC, /coordinator.*workspace.*missing/i);
+    assert.match(DOC, /coordinator.*state.*not.*active/i);
+    assert.match(DOC, /coordinator.*config/i);
+    assert.match(DOC, /phase/i);
+  });
+
+  it('documents mission plan show coordinator synchronization', () => {
+    assert.match(DOC, /mission plan show.*synchronize/i);
+    assert.match(DOC, /acceptance projection/i);
+    assert.match(DOC, /barrier state/i);
+  });
+});
+
 describe('Missions docs cross-linking and implementation alignment', () => {
   it('is linked from CLI and run-chaining docs', () => {
     assert.match(CLI_DOC, /\[Missions\]\(\/docs\/missions\)/);
