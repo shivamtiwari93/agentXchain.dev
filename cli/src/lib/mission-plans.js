@@ -140,18 +140,79 @@ export function validatePlannerOutput(output) {
 
 // ── Plan artifact creation ───────────────────────────────────────────────────
 
+// ── Coordinator phase alignment ─────────────────────────────────────────────
+
+/**
+ * Validate that plan workstream phases align with coordinator config phases.
+ * Returns { ok: true } or { ok: false, errors: string[] }.
+ */
+export function validatePlanCoordinatorPhaseAlignment(workstreams, coordinatorConfig) {
+  if (!coordinatorConfig) return { ok: true };
+
+  const errors = [];
+  const coordinatorPhases = coordinatorConfig.routing
+    ? new Set(Object.keys(coordinatorConfig.routing))
+    : new Set(['planning', 'implementation', 'qa']);
+
+  for (let i = 0; i < workstreams.length; i++) {
+    const ws = workstreams[i];
+    if (!Array.isArray(ws.phases)) continue;
+    for (const phase of ws.phases) {
+      if (!coordinatorPhases.has(phase)) {
+        errors.push(
+          `workstreams[${i}] ("${ws.workstream_id}"): phase "${phase}" is not defined in coordinator config. ` +
+          `Valid phases: ${[...coordinatorPhases].join(', ')}`,
+        );
+      }
+    }
+  }
+
+  return errors.length > 0 ? { ok: false, errors } : { ok: true };
+}
+
+/**
+ * Build coordinator_scope metadata for a plan artifact.
+ */
+function buildCoordinatorScope(mission, coordinatorConfig) {
+  if (!mission.coordinator || !coordinatorConfig) return null;
+
+  const repoIds = coordinatorConfig.repos ? Object.keys(coordinatorConfig.repos) : [];
+  const phases = coordinatorConfig.routing
+    ? Object.keys(coordinatorConfig.routing)
+    : ['planning', 'implementation', 'qa'];
+  const coordinatorWorkstreams = coordinatorConfig.workstreams
+    ? Object.keys(coordinatorConfig.workstreams)
+    : [];
+
+  return {
+    super_run_id: mission.coordinator.super_run_id || null,
+    repo_ids: repoIds,
+    phases,
+    coordinator_workstream_ids: coordinatorWorkstreams,
+    bound_at: new Date().toISOString(),
+  };
+}
+
 /**
  * Create a plan artifact from validated planner output.
  *
  * @param {string} root - project root
  * @param {object} mission - mission artifact (must have mission_id, goal)
- * @param {object} options - { constraints, roleHints, plannerOutput }
+ * @param {object} options - { constraints, roleHints, plannerOutput, coordinatorConfig }
  * @returns {{ ok: boolean, plan?: object, errors?: string[] }}
  */
-export function createPlanArtifact(root, mission, { constraints = [], roleHints = [], plannerOutput }) {
+export function createPlanArtifact(root, mission, { constraints = [], roleHints = [], plannerOutput, coordinatorConfig = null }) {
   const validation = validatePlannerOutput(plannerOutput);
   if (!validation.ok) {
     return { ok: false, errors: validation.errors };
+  }
+
+  // Validate phase alignment with coordinator when mission is coordinator-bound
+  if (coordinatorConfig) {
+    const phaseCheck = validatePlanCoordinatorPhaseAlignment(validation.workstreams, coordinatorConfig);
+    if (!phaseCheck.ok) {
+      return { ok: false, errors: phaseCheck.errors };
+    }
   }
 
   const missionId = mission.mission_id;
@@ -173,6 +234,8 @@ export function createPlanArtifact(root, mission, { constraints = [], roleHints 
     launch_status: Array.isArray(ws.depends_on) && ws.depends_on.length > 0 ? 'blocked' : 'ready',
   }));
 
+  const coordinatorScope = buildCoordinatorScope(mission, coordinatorConfig);
+
   const plan = {
     plan_id: planId,
     mission_id: missionId,
@@ -189,6 +252,7 @@ export function createPlanArtifact(root, mission, { constraints = [], roleHints 
       mode: 'llm_one_shot',
       model: 'configured mission planner',
     },
+    ...(coordinatorScope ? { coordinator_scope: coordinatorScope } : {}),
     workstreams,
     launch_records: [],
   };
@@ -314,7 +378,7 @@ export function buildPlanProgressSummary(plan) {
   const workstreamStatusCounts = getWorkstreamStatusSummary(plan);
   const completedCount = workstreamStatusCounts.completed || 0;
 
-  return {
+  const summary = {
     plan_id: plan.plan_id,
     mission_id: plan.mission_id,
     status: plan.status,
@@ -336,6 +400,14 @@ export function buildPlanProgressSummary(plan) {
       ? 0
       : Math.round((completedCount / workstreams.length) * 100),
   };
+
+  if (plan.coordinator_scope) {
+    summary.coordinator_bound = true;
+    summary.coordinator_repo_count = (plan.coordinator_scope.repo_ids || []).length;
+    summary.coordinator_phases = plan.coordinator_scope.phases || [];
+  }
+
+  return summary;
 }
 
 // ── Workstream launch ───────────────────────────────────────────────────────
@@ -579,9 +651,16 @@ export function getWorkstreamStatusSummary(plan) {
 
 /**
  * Build the system+user prompt for the mission planner LLM call.
+ *
+ * @param {object} mission - mission artifact
+ * @param {string[]} constraints - user constraints
+ * @param {string[]} roleHints - available role names
+ * @param {object} [coordinatorConfig] - coordinator config when mission is multi-repo
  */
-export function buildPlannerPrompt(mission, constraints, roleHints) {
-  const systemPrompt = `You are a mission decomposition planner for AgentXchain, a governed multi-agent software delivery system.
+export function buildPlannerPrompt(mission, constraints, roleHints, coordinatorConfig = null) {
+  const isMultiRepo = !!coordinatorConfig;
+
+  let systemPrompt = `You are a mission decomposition planner for AgentXchain, a governed multi-agent software delivery system.
 
 Given a mission goal, optional constraints, and optional role hints, produce a JSON object with a single "workstreams" array.
 
@@ -599,7 +678,24 @@ Rules:
 - Do NOT include chain_id — chain IDs are runtime artifacts.
 - Keep workstream count between 2 and 8.
 - Each workstream should be a meaningful delivery slice, not a single task.
-- Use concrete, testable acceptance checks.
+- Use concrete, testable acceptance checks.`;
+
+  if (isMultiRepo) {
+    const validPhases = coordinatorConfig.routing
+      ? Object.keys(coordinatorConfig.routing)
+      : ['planning', 'implementation', 'qa'];
+    const repoIds = coordinatorConfig.repos ? Object.keys(coordinatorConfig.repos) : [];
+
+    systemPrompt += `
+
+Multi-repo coordinator context:
+- This mission spans multiple repositories: ${repoIds.join(', ')}.
+- Valid phases are: ${validPhases.join(', ')}. Use ONLY these phases in workstream phase arrays.
+- Workstreams should account for cross-repo coordination needs (interface alignment, shared decisions, phased rollout).
+- Prefer workstreams that map cleanly to coordinator barrier types (all_repos_accepted, interface_alignment, named_decisions).`;
+  }
+
+  systemPrompt += `
 
 Respond with ONLY valid JSON. No markdown, no explanation.`;
 
@@ -609,6 +705,19 @@ Respond with ONLY valid JSON. No markdown, no explanation.`;
   }
   if (roleHints.length > 0) {
     parts.push(`Available roles: ${roleHints.join(', ')}`);
+  }
+
+  if (isMultiRepo) {
+    const repoEntries = Object.entries(coordinatorConfig.repos || {});
+    if (repoEntries.length > 0) {
+      const repoLines = repoEntries.map(([id, repo]) => `- ${id}: ${repo.path || id}`);
+      parts.push(`Repos in coordinator scope:\n${repoLines.join('\n')}`);
+    }
+    const wsEntries = Object.entries(coordinatorConfig.workstreams || {});
+    if (wsEntries.length > 0) {
+      const wsLines = wsEntries.map(([id, ws]) => `- ${id} (phase: ${ws.phase}, repos: ${(ws.repos || []).join(', ')})`);
+      parts.push(`Coordinator workstreams (reference — plan workstreams may differ):\n${wsLines.join('\n')}`);
+    }
   }
 
   const userPrompt = parts.join('\n\n');

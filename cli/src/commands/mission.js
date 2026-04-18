@@ -1135,6 +1135,10 @@ function renderPlan(plan) {
     console.log(`  Approved:     ${plan.approved_at}`);
   }
   console.log(`  Created:      ${plan.created_at || '—'}`);
+  if (plan.coordinator_scope) {
+    const cs = plan.coordinator_scope;
+    console.log(`  Coordinator:  ${chalk.cyan('bound')} (${(cs.repo_ids || []).length} repos, phases: ${(cs.phases || []).join(', ')})`);
+  }
   console.log('');
 
   if (!plan.workstreams || plan.workstreams.length === 0) {
@@ -1262,11 +1266,22 @@ async function callPlannerLLM(config, systemPrompt, userPrompt) {
 
 async function createMissionPlan(root, mission, opts = {}) {
   const { constraints, roleHints } = normalizePlannerOptions(opts);
-  const plannerOutput = await resolvePlannerOutput(root, mission, constraints, roleHints, opts);
+
+  // Load coordinator config when mission is coordinator-bound
+  let coordinatorConfig = null;
+  if (mission.coordinator && mission.coordinator.workspace_path) {
+    const coordResult = loadCoordinatorConfig(mission.coordinator.workspace_path);
+    if (coordResult.ok) {
+      coordinatorConfig = coordResult.config;
+    }
+  }
+
+  const plannerOutput = await resolvePlannerOutput(root, mission, constraints, roleHints, opts, coordinatorConfig);
   const result = createPlanArtifact(root, mission, {
     constraints,
     roleHints,
     plannerOutput,
+    coordinatorConfig,
   });
 
   if (!result.ok) {
@@ -1285,8 +1300,8 @@ function normalizePlannerOptions(opts = {}) {
   };
 }
 
-async function resolvePlannerOutput(root, mission, constraints, roleHints, opts = {}) {
-  const { systemPrompt, userPrompt } = buildPlannerPrompt(mission, constraints, roleHints);
+async function resolvePlannerOutput(root, mission, constraints, roleHints, opts = {}, coordinatorConfig = null) {
+  const { systemPrompt, userPrompt } = buildPlannerPrompt(mission, constraints, roleHints, coordinatorConfig);
 
   if (opts._plannerOutput) {
     return opts._plannerOutput;
