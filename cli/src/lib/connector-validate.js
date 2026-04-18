@@ -106,6 +106,12 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
   const tempBase = mkdtempSync(join(tmpdir(), 'axc-connector-validate-'));
   const scratchRoot = join(tempBase, 'workspace');
   const warnings = [...roleSelection.warnings];
+
+  // Surface capability declaration warnings for self-declared connectors
+  const { getCapabilityDeclarationWarnings } = await import('./runtime-capabilities.js');
+  const capWarnings = getCapabilityDeclarationWarnings(runtime);
+  warnings.push(...capWarnings);
+
   let keepArtifacts = options.keepArtifacts === true;
   let dispatch = null;
   let validation = null;

@@ -4,10 +4,28 @@ function normalizeMcpTransport(runtime) {
     : 'stdio';
 }
 
+const DECLARABLE_CAPABILITY_FIELDS = new Set([
+  'can_write_files',
+  'proposal_support',
+  'workflow_artifact_ownership',
+]);
+
+function mergeExplicitCapabilities(base, runtime) {
+  const declared = runtime?.capabilities;
+  if (!declared || typeof declared !== 'object' || Array.isArray(declared)) return base;
+  const merged = { ...base };
+  for (const field of DECLARABLE_CAPABILITY_FIELDS) {
+    if (typeof declared[field] === 'string' && declared[field].length > 0) {
+      merged[field] = declared[field];
+    }
+  }
+  return merged;
+}
+
 export function getRuntimeCapabilityContract(runtime = {}) {
   switch (runtime?.type) {
     case 'manual':
-      return {
+      return mergeExplicitCapabilities({
         runtime_type: 'manual',
         transport: 'manual',
         can_write_files: 'direct',
@@ -15,10 +33,10 @@ export function getRuntimeCapabilityContract(runtime = {}) {
         proposal_support: 'none',
         requires_local_binary: false,
         workflow_artifact_ownership: 'yes',
-      };
+      }, runtime);
 
     case 'local_cli':
-      return {
+      return mergeExplicitCapabilities({
         runtime_type: 'local_cli',
         transport: 'local_cli',
         can_write_files: 'direct',
@@ -26,10 +44,10 @@ export function getRuntimeCapabilityContract(runtime = {}) {
         proposal_support: 'optional',
         requires_local_binary: true,
         workflow_artifact_ownership: 'yes',
-      };
+      }, runtime);
 
     case 'api_proxy':
-      return {
+      return mergeExplicitCapabilities({
         runtime_type: 'api_proxy',
         transport: 'provider_api',
         can_write_files: 'proposal_only',
@@ -37,10 +55,10 @@ export function getRuntimeCapabilityContract(runtime = {}) {
         proposal_support: 'native',
         requires_local_binary: false,
         workflow_artifact_ownership: 'proposal_apply_required',
-      };
+      }, runtime);
 
     case 'remote_agent':
-      return {
+      return mergeExplicitCapabilities({
         runtime_type: 'remote_agent',
         transport: 'remote_http',
         can_write_files: 'proposal_only',
@@ -48,13 +66,13 @@ export function getRuntimeCapabilityContract(runtime = {}) {
         proposal_support: 'native',
         requires_local_binary: false,
         workflow_artifact_ownership: 'proposal_apply_required',
-      };
+      }, runtime);
 
     case 'mcp': {
       const transport = normalizeMcpTransport(runtime) === 'streamable_http'
         ? 'mcp_streamable_http'
         : 'mcp_stdio';
-      return {
+      return mergeExplicitCapabilities({
         runtime_type: 'mcp',
         transport,
         can_write_files: 'tool_defined',
@@ -62,11 +80,11 @@ export function getRuntimeCapabilityContract(runtime = {}) {
         proposal_support: 'tool_defined',
         requires_local_binary: transport === 'mcp_stdio',
         workflow_artifact_ownership: 'tool_defined',
-      };
+      }, runtime);
     }
 
     default:
-      return {
+      return mergeExplicitCapabilities({
         runtime_type: runtime?.type || 'unknown',
         transport: 'unknown',
         can_write_files: 'unknown',
@@ -74,7 +92,7 @@ export function getRuntimeCapabilityContract(runtime = {}) {
         proposal_support: 'unknown',
         requires_local_binary: false,
         workflow_artifact_ownership: 'unknown',
-      };
+      }, runtime);
   }
 }
 
@@ -211,6 +229,18 @@ export function summarizeRuntimeCapabilityContract(contract) {
     `owned_by=${contract.workflow_artifact_ownership}`,
     `binary=${contract.requires_local_binary ? 'yes' : 'no'}`,
   ].join('; ');
+}
+
+export { DECLARABLE_CAPABILITY_FIELDS };
+
+export function getCapabilityDeclarationWarnings(runtime = {}) {
+  const warnings = [];
+  const declared = runtime?.capabilities;
+  if (!declared || typeof declared !== 'object' || Array.isArray(declared)) return warnings;
+  if (declared.can_write_files === 'direct' && (runtime.type === 'api_proxy' || runtime.type === 'remote_agent')) {
+    warnings.push(`Runtime type "${runtime.type}" declares can_write_files=direct, which the reference runner does not support in v1. A third-party runner may.`);
+  }
+  return warnings;
 }
 
 export function summarizeRoleRuntimeCapability(contract) {
