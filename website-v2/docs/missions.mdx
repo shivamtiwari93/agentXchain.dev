@@ -233,7 +233,7 @@ The synchronized view exposes `coordinator_progress` per workstream: `accepted_r
 
 - `mission plan launch --all-ready` — dispatches all `ready` workstreams sequentially, executing one repo-local turn per workstream, and syncing barrier state after each dispatch.
 - `mission plan autopilot` — runs wave-based unattended execution. Each wave dispatches all ready workstreams, executes repo-local turns, and syncs coordinator barriers. Dependent workstreams are unblocked across wave boundaries as barriers are satisfied. A 2-repo workstream needs at least 2 waves to complete (one repo per workstream per wave).
-- `mission plan launch --retry` — remains single-repo chain only.
+- `mission plan launch --workstream <id> --retry` — reissues one failed repo-local turn inside a `needs_attention` coordinator workstream, appends retry metadata to the coordinator launch record, and executes the reissued repo-local turn immediately.
 
 Wave execution respects coordinator barrier semantics — completion comes from barrier satisfaction, not chain reports.
 
@@ -327,7 +327,8 @@ All single-repo modes validate the approval boundary and dependency satisfaction
 - **`--workstream <id>`** — dispatches the next assignable repo for the workstream through the coordinator. Writes a coordinator-mode launch record with `dispatch_mode: "coordinator"` and an append-only `repo_dispatches[]` array. Does not run a local chain — returns immediately with dispatch metadata.
 - Coordinator launch records may also surface `repo_failures[]` when the latest repo-local dispatch for a repo fails. Those failures are projected from repo-local governed state/history, not guessed from pending barriers.
 - **`--all-ready`** — dispatches all ready coordinator workstreams sequentially, executing one repo-local turn per workstream, and syncing barrier state between dispatches. Stops on first failure unless `--continue-on-failure`.
-- **`--retry`** — not supported for coordinator workstreams.
+- **`--workstream <id> --retry`** — retries one retryable repo-local failure inside a `needs_attention` coordinator workstream. The CLI reissues the failed repo-local turn from current HEAD, rewrites its dispatch bundle, appends a new `repo_dispatches[]` entry with `is_retry` / `retry_of`, marks the old dispatch with `retried_at` / `retry_reason`, and executes the reissued turn immediately.
+- Coordinator `--retry` is deliberately narrow: it only supports one active retryable repo failure at a time, it fails closed when a dependent workstream has already dispatched since the failed repo turn, and it does **not** add unattended `--auto-retry` to `mission plan autopilot`.
 
 The launch modes are mutually exclusive where they would conflict.
 
@@ -502,19 +503,32 @@ These commands do **not** allocate repo-local `chain_id` values for coordinator 
 
 ### Recovering a failed coordinator workstream
 
-Coordinator retry stays manual on purpose. When a repo-local dispatch inside a coordinator workstream fails, the workstream becomes `needs_attention`, `mission plan show` exposes `repo_failures[]`, and autopilot either stops (`failure_stopped`) or exits `plan_incomplete` after exhausting other launchable work.
+When a repo-local dispatch inside a coordinator workstream fails, the workstream becomes `needs_attention`, `mission plan show` exposes `repo_failures[]`, and autopilot either stops (`failure_stopped`) or exits `plan_incomplete` after exhausting other launchable work.
 
 Use this recovery path:
 
 1. Run `agentxchain mission plan show latest --json` and identify the failed `workstream_id`, `repo_id`, and any `repo_failures[]` details.
 2. Open the affected child repo and inspect its governed state with `agentxchain status`, `agentxchain events`, or `agentxchain doctor`.
-3. Repair the repo-local problem using the normal governed recovery surface for that repo:
+3. If the failed repo-local turn is still active and the failure is retryable (`failed` or `failed_acceptance`), use targeted coordinator retry from the workspace root:
+
+```bash
+agentxchain mission plan launch latest --workstream <id> --retry
+```
+
+This fails closed when:
+
+- the workstream is not in `needs_attention`
+- the latest repo failure is `conflicted`, `retrying`, or another non-retryable state
+- the failed repo-local turn is no longer active
+- a dependent workstream has already dispatched since the failed repo turn
+
+4. Otherwise repair the repo-local problem using the normal governed recovery surface for that repo:
    - `agentxchain reissue-turn --turn <turn_id>` when the work is valid but the dispatch baseline drifted
    - `agentxchain reject-turn --turn <turn_id> --reassign --reason "<reason>"` when the staged result must be retried
    - `agentxchain step --resume --turn <turn_id>` after clearing a retained block or escalation
-4. Return to the mission surface and resume coordinator execution with either `agentxchain mission plan launch latest --workstream <id>` for a targeted restart or `agentxchain mission plan autopilot latest --continue-on-failure` to continue waves after the repo-local fix.
+5. Return to the mission surface and resume coordinator execution with either `agentxchain mission plan launch latest --workstream <id>` for a targeted restart or `agentxchain mission plan autopilot latest --continue-on-failure` to continue waves after the repo-local fix.
 
-Coordinator workstreams do **not** support `--retry`. The retry boundary remains repo-local until a separate coordinator retry contract exists.
+Coordinator workstreams now support targeted `--retry`, but autopilot still has no unattended coordinator `--auto-retry` surface. Retry remains operator-initiated.
 
 ### Chain report missing from a mission
 

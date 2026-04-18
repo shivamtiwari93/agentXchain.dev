@@ -6,11 +6,15 @@
  * Plans are NOT protocol-normative.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 import { loadChainReport } from './chain-reports.js';
-import { readBarriers, readCoordinatorHistory } from './coordinator-state.js';
+import { writeDispatchBundle } from './dispatch-bundle.js';
+import { loadProjectContext, loadProjectState } from './config.js';
+import { reissueTurn } from './governed-state.js';
+import { emitRunEvent } from './run-events.js';
+import { readBarriers, readCoordinatorHistory, recordCoordinatorDecision } from './coordinator-state.js';
 import { loadCoordinatorConfig } from './coordinator-config.js';
 
 // ── Plan artifact directory ──────────────────────────────────────────────────
@@ -486,6 +490,7 @@ function isAcceptedRepoHistoryEntry(entry) {
 }
 
 const REPO_FAILURE_STATUSES = new Set(['failed_acceptance', 'failed', 'rejected', 'retrying', 'conflicted']);
+const RETRYABLE_COORDINATOR_FAILURE_STATUSES = new Set(['failed', 'failed_acceptance']);
 
 function getLatestRepoDispatches(launchRecord) {
   const latestByRepo = new Map();
@@ -552,6 +557,76 @@ function buildCoordinatorRepoFailures(coordinatorConfig, launchRecord) {
     });
   }
   return failures;
+}
+
+function appendCoordinatorHistoryEntry(workspacePath, entry) {
+  const historyPath = join(workspacePath, '.agentxchain', 'multirepo', 'history.jsonl');
+  mkdirSync(join(workspacePath, '.agentxchain', 'multirepo'), { recursive: true });
+  appendFileSync(historyPath, `${JSON.stringify(entry)}\n`);
+}
+
+function findDependentDispatchAfter(plan, workstreamId, timestamp) {
+  const since = new Date(timestamp || 0).getTime();
+  if (Number.isNaN(since)) return null;
+
+  for (const candidate of plan.workstreams || []) {
+    if (!Array.isArray(candidate.depends_on) || !candidate.depends_on.includes(workstreamId)) {
+      continue;
+    }
+
+    for (const record of plan.launch_records || []) {
+      if (record?.workstream_id !== candidate.workstream_id) {
+        continue;
+      }
+
+      if (record.dispatch_mode === 'coordinator') {
+        for (const dispatch of record.repo_dispatches || []) {
+          const dispatchedAt = new Date(dispatch?.dispatched_at || 0).getTime();
+          if (!Number.isNaN(dispatchedAt) && dispatchedAt > since) {
+            return {
+              workstream_id: candidate.workstream_id,
+              repo_id: dispatch.repo_id || null,
+              dispatched_at: dispatch.dispatched_at || null,
+            };
+          }
+        }
+        continue;
+      }
+
+      const launchedAt = new Date(record.launched_at || 0).getTime();
+      if (!Number.isNaN(launchedAt) && launchedAt > since) {
+        return {
+          workstream_id: candidate.workstream_id,
+          repo_id: null,
+          dispatched_at: record.launched_at || null,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function loadRepoTurnForRetry(repoPath, repoTurnId) {
+  const context = loadProjectContext(repoPath);
+  if (!context) {
+    return { ok: false, error: `Repo at "${repoPath}" is not a loadable governed project.` };
+  }
+
+  const state = loadProjectState(context.root, context.config);
+  if (!state) {
+    return { ok: false, error: `Repo at "${repoPath}" has no governed state.` };
+  }
+
+  const activeTurn = state.active_turns?.[repoTurnId] || null;
+  if (!activeTurn) {
+    return {
+      ok: false,
+      error: `Repo turn "${repoTurnId}" is no longer active. Use repo-local recovery instead of coordinator --retry.`,
+    };
+  }
+
+  return { ok: true, root: context.root, config: context.config, state, activeTurn };
 }
 
 function buildCoordinatorWorkstreamProgress(coordinatorConfig, history, barriers, workstreamId) {
@@ -902,6 +977,188 @@ export function launchCoordinatorWorkstream(root, mission, planId, workstreamId,
 
   const synced = synchronizeCoordinatorPlanState(root, mission, plan);
   return { ok: true, plan: synced.ok ? synced.plan : plan, workstream: ws, launchRecord };
+}
+
+export function retryCoordinatorWorkstream(root, mission, planId, workstreamId, coordinatorConfig, options = {}) {
+  const plan = loadPlan(root, mission.mission_id, planId);
+  if (!plan) {
+    return { ok: false, error: `Plan not found: ${planId}` };
+  }
+  if (!mission?.coordinator?.workspace_path || !mission?.coordinator?.super_run_id) {
+    return { ok: false, error: 'Mission is not bound to a coordinator run.' };
+  }
+
+  const synced = synchronizeCoordinatorPlanState(root, mission, plan);
+  const workingPlan = synced.ok ? synced.plan : plan;
+  const ws = workingPlan.workstreams.find((candidate) => candidate.workstream_id === workstreamId);
+  if (!ws) {
+    return { ok: false, error: `Workstream not found: ${workstreamId}` };
+  }
+  if (ws.launch_status !== 'needs_attention') {
+    return {
+      ok: false,
+      error: `Workstream ${workstreamId} is not in needs_attention state. Nothing to retry.`,
+    };
+  }
+
+  const launchRecord = getLatestCoordinatorLaunchRecord(workingPlan, workstreamId);
+  if (!launchRecord) {
+    return { ok: false, error: `No coordinator launch record found for workstream ${workstreamId}.` };
+  }
+
+  const latestDispatchesByRepo = new Map(
+    getLatestRepoDispatches(launchRecord).map((dispatch) => [dispatch.repo_id, dispatch]),
+  );
+  const repoFailures = buildCoordinatorRepoFailures(coordinatorConfig, launchRecord);
+  launchRecord.repo_failures = repoFailures;
+
+  if (repoFailures.length === 0) {
+    return { ok: false, error: `Workstream ${workstreamId} has no retryable repo failures.` };
+  }
+
+  const retryableFailures = [];
+  const blockedFailures = [];
+
+  for (const failure of repoFailures) {
+    if (!RETRYABLE_COORDINATOR_FAILURE_STATUSES.has(failure.failure_status)) {
+      blockedFailures.push(`${failure.repo_id} (${failure.failure_status})`);
+      continue;
+    }
+    retryableFailures.push(failure);
+  }
+
+  if (retryableFailures.length === 0) {
+    return {
+      ok: false,
+      error: `No retryable repo failures in workstream ${workstreamId}. Manual intervention required: ${blockedFailures.join(', ')}`,
+    };
+  }
+
+  if (retryableFailures.length > 1) {
+    return {
+      ok: false,
+      error: `Workstream ${workstreamId} has multiple retryable repo failures. Recover them repo-locally one at a time before relaunching the coordinator workstream.`,
+    };
+  }
+
+  const failure = retryableFailures[0];
+  const failedDispatch = latestDispatchesByRepo.get(failure.repo_id);
+  if (!failedDispatch) {
+    return { ok: false, error: `Missing launch metadata for failed repo ${failure.repo_id}.` };
+  }
+
+  const downstreamBlocker = findDependentDispatchAfter(workingPlan, workstreamId, failedDispatch.dispatched_at);
+  if (downstreamBlocker) {
+    return {
+      ok: false,
+      error: `Cannot retry workstream ${workstreamId}: dependent workstream "${downstreamBlocker.workstream_id}" has already dispatched since the failed repo turn.`,
+    };
+  }
+
+  const repoPath = coordinatorConfig?.repos?.[failure.repo_id]?.resolved_path;
+  if (!repoPath) {
+    return { ok: false, error: `Coordinator config has no resolved_path for repo "${failure.repo_id}".` };
+  }
+
+  const repoTurn = loadRepoTurnForRetry(repoPath, failure.repo_turn_id);
+  if (!repoTurn.ok) {
+    return repoTurn;
+  }
+
+  const reason = options.reason || `coordinator retry: ${workstreamId}/${failure.repo_id}`;
+  const reissued = reissueTurn(repoTurn.root, repoTurn.config, {
+    turnId: failure.repo_turn_id,
+    reason,
+  });
+  if (!reissued.ok) {
+    return { ok: false, error: reissued.error };
+  }
+
+  const bundleResult = writeDispatchBundle(repoTurn.root, reissued.state, repoTurn.config, {
+    turnId: reissued.newTurn.turn_id,
+  });
+  if (!bundleResult.ok) {
+    return { ok: false, error: `Turn reissued but dispatch bundle failed: ${bundleResult.error}` };
+  }
+
+  const now = new Date().toISOString();
+  failedDispatch.retried_at = now;
+  failedDispatch.retry_reason = failure.failure_status;
+  launchRecord.repo_dispatches.push({
+    repo_id: failure.repo_id,
+    repo_turn_id: reissued.newTurn.turn_id,
+    role: reissued.newTurn.assigned_role,
+    dispatched_at: now,
+    bundle_path: bundleResult.bundlePath,
+    context_ref: failedDispatch.context_ref || null,
+    is_retry: true,
+    retry_of: failure.repo_turn_id,
+  });
+  launchRecord.status = 'launched';
+  launchRecord.repo_failures = [];
+  ws.launch_status = 'launched';
+
+  const otherNeedsAttention = (workingPlan.workstreams || []).some(
+    (candidate) => candidate.workstream_id !== workstreamId && candidate.launch_status === 'needs_attention',
+  );
+  workingPlan.status = otherNeedsAttention ? 'needs_attention' : 'approved';
+  workingPlan.updated_at = now;
+  writePlanArtifact(root, mission.mission_id, workingPlan);
+
+  appendCoordinatorHistoryEntry(mission.coordinator.workspace_path, {
+    type: 'coordinator_retry',
+    timestamp: now,
+    super_run_id: mission.coordinator.super_run_id,
+    workstream_id: workstreamId,
+    repo_id: failure.repo_id,
+    failed_turn_id: failure.repo_turn_id,
+    reissued_turn_id: reissued.newTurn.turn_id,
+    retry_reason: failure.failure_status,
+  });
+  recordCoordinatorDecision(mission.coordinator.workspace_path, {
+    super_run_id: mission.coordinator.super_run_id,
+    phase: coordinatorConfig?.workstreams?.[workstreamId]?.phase || null,
+  }, {
+    category: 'retry',
+    statement: `Retried ${failure.repo_id} for workstream ${workstreamId}`,
+    repo_id: failure.repo_id,
+    repo_turn_id: reissued.newTurn.turn_id,
+    workstream_id: workstreamId,
+    reason: failure.failure_status,
+    context_ref: failedDispatch.context_ref || null,
+  });
+  emitRunEvent(mission.coordinator.workspace_path, 'coordinator_retry', {
+    run_id: mission.coordinator.super_run_id,
+    phase: coordinatorConfig?.workstreams?.[workstreamId]?.phase || null,
+    status: 'active',
+    turn: { turn_id: reissued.newTurn.turn_id, role_id: reissued.newTurn.assigned_role },
+    payload: {
+      workstream_id: workstreamId,
+      repo_id: failure.repo_id,
+      failed_turn_id: failure.repo_turn_id,
+      reissued_turn_id: reissued.newTurn.turn_id,
+      retry_reason: failure.failure_status,
+      retry_count: launchRecord.repo_dispatches.filter((dispatch) => dispatch.repo_id === failure.repo_id && dispatch.is_retry).length,
+    },
+  });
+
+  const afterRetry = synchronizeCoordinatorPlanState(root, mission, workingPlan);
+  return {
+    ok: true,
+    plan: afterRetry.ok ? afterRetry.plan : workingPlan,
+    workstream: ws,
+    launchRecord,
+    retryResult: {
+      repo_id: failure.repo_id,
+      failed_turn_id: failure.repo_turn_id,
+      reissued_turn_id: reissued.newTurn.turn_id,
+      role: reissued.newTurn.assigned_role,
+      repo_path: repoTurn.root,
+      bundle_path: bundleResult.bundlePath,
+      context_ref: failedDispatch.context_ref || null,
+      retry_reason: failure.failure_status,
+    },
+  };
 }
 
 /**

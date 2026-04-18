@@ -22,6 +22,7 @@ import {
   getWorkstreamStatusSummary,
   launchCoordinatorWorkstream,
   launchWorkstream,
+  retryCoordinatorWorkstream,
   retryWorkstream,
   markWorkstreamOutcome,
   loadAllPlans,
@@ -541,11 +542,6 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
   }
 
   if (mission.coordinator && plan.coordinator_scope) {
-    if (opts.retry) {
-      console.error(chalk.red('--retry is not supported for coordinator-bound mission plans yet.'));
-      process.exit(1);
-    }
-
     const coordinatorConfigResult = loadCoordinatorConfig(mission.coordinator.workspace_path);
     if (!coordinatorConfigResult.ok) {
       console.error(chalk.red('Coordinator config validation failed:'));
@@ -563,6 +559,113 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
     if (coordinatorState.status !== 'active') {
       console.error(chalk.red(`Coordinator run ${coordinatorState.super_run_id} is not active (status: "${coordinatorState.status}").`));
       process.exit(1);
+    }
+
+    if (opts.retry) {
+      const retry = retryCoordinatorWorkstream(
+        root,
+        mission,
+        plan.plan_id,
+        opts.workstream,
+        coordinatorConfigResult.config,
+        {
+          reason: `mission plan retry ${opts.workstream}`,
+        },
+      );
+      if (!retry.ok) {
+        console.error(chalk.red(retry.error));
+        process.exit(1);
+      }
+
+      const executor = opts._executeGovernedRun || executeGovernedRun;
+      const repoContext = loadProjectContext(retry.retryResult.repo_path);
+      if (!repoContext) {
+        console.error(chalk.red(`Cannot load project context for retried repo at ${retry.retryResult.repo_path}.`));
+        process.exit(1);
+      }
+
+      const runOpts = {
+        autoApprove: !!opts.autoApprove,
+        provenance: {
+          trigger: 'manual',
+          created_by: 'operator',
+          trigger_reason: `mission:${mission.mission_id} workstream:${opts.workstream} coordinator-retry:${retry.retryResult.repo_id}`,
+        },
+      };
+
+      let execution;
+      try {
+        execution = await executor(repoContext, runOpts);
+      } catch (error) {
+        const syncedRetryFailure = synchronizeCoordinatorPlanState(root, mission, retry.plan);
+        console.error(chalk.red(`Coordinator retry execution failed: ${error.message}`));
+        if (opts.json) {
+          console.log(JSON.stringify({
+            dispatch_mode: 'coordinator',
+            retry: true,
+            mission_id: mission.mission_id,
+            plan_id: retry.plan.plan_id,
+            workstream_id: opts.workstream,
+            repo_id: retry.retryResult.repo_id,
+            retried_repo_turn_id: retry.retryResult.failed_turn_id,
+            repo_turn_id: retry.retryResult.reissued_turn_id,
+            workstream_status: syncedRetryFailure.ok
+              ? syncedRetryFailure.plan.workstreams.find((ws) => ws.workstream_id === opts.workstream)?.launch_status || 'needs_attention'
+              : 'needs_attention',
+            launch_record: retry.launchRecord,
+            error: error.message,
+          }, null, 2));
+        }
+        process.exit(1);
+      }
+
+      const syncedRetry = synchronizeCoordinatorPlanState(root, mission, retry.plan);
+      const retriedPlan = syncedRetry.ok ? syncedRetry.plan : retry.plan;
+      const retriedWorkstream = retriedPlan.workstreams.find((ws) => ws.workstream_id === opts.workstream);
+      const retriedLaunchRecord = retriedPlan.launch_records.find(
+        (record) => record.workstream_id === opts.workstream && record.dispatch_mode === 'coordinator',
+      ) || retry.launchRecord;
+
+      if (opts.json) {
+        console.log(JSON.stringify({
+          dispatch_mode: 'coordinator',
+          retry: true,
+          mission_id: mission.mission_id,
+          plan_id: retriedPlan.plan_id,
+          workstream_id: opts.workstream,
+          super_run_id: mission.coordinator.super_run_id,
+          repo_id: retry.retryResult.repo_id,
+          retried_repo_turn_id: retry.retryResult.failed_turn_id,
+          repo_turn_id: retry.retryResult.reissued_turn_id,
+          role: retry.retryResult.role,
+          bundle_path: retry.retryResult.bundle_path,
+          context_ref: retry.retryResult.context_ref,
+          workstream_status: retriedWorkstream?.launch_status || 'launched',
+          launch_record: retriedLaunchRecord,
+          exit_code: execution?.exitCode ?? 0,
+        }, null, 2));
+        if ((execution?.exitCode ?? 0) !== 0) {
+          process.exit(execution.exitCode);
+        }
+        return;
+      }
+
+      console.log(chalk.green(`Retried coordinator workstream ${chalk.bold(opts.workstream)} in ${chalk.bold(retry.retryResult.repo_id)}`));
+      console.log('');
+      console.log(chalk.dim(`  Mission:      ${mission.mission_id}`));
+      console.log(chalk.dim(`  Plan:         ${retriedPlan.plan_id}`));
+      console.log(chalk.dim(`  Super Run:    ${mission.coordinator.super_run_id}`));
+      console.log(chalk.dim(`  Repo:         ${retry.retryResult.repo_id}`));
+      console.log(chalk.dim(`  Old Turn:     ${retry.retryResult.failed_turn_id}`));
+      console.log(chalk.dim(`  New Turn:     ${retry.retryResult.reissued_turn_id}`));
+      console.log(chalk.dim(`  Workstream:   ${retriedWorkstream?.launch_status || 'launched'}`));
+      console.log('');
+      renderPlan(retriedPlan);
+      if ((execution?.exitCode ?? 0) !== 0) {
+        console.error(chalk.red(`Coordinator retry execution ended with exit code ${execution.exitCode}.`));
+        process.exit(execution.exitCode);
+      }
+      return;
     }
 
     const assignment = selectAssignmentForWorkstream(

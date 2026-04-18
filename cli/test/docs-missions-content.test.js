@@ -189,10 +189,12 @@ describe('Missions docs coordinator-bound launch surface', () => {
     assert.match(DOC, /agentxchain status/);
     assert.match(DOC, /agentxchain events/);
     assert.match(DOC, /agentxchain doctor/);
+    assert.match(DOC, /agentxchain mission plan launch latest --workstream <id> --retry/);
     assert.match(DOC, /agentxchain reissue-turn --turn <turn_id>/);
     assert.match(DOC, /agentxchain reject-turn --turn <turn_id> --reassign --reason/);
     assert.match(DOC, /agentxchain step --resume --turn <turn_id>/);
-    assert.match(DOC, /do \*\*not\*\* support `--retry`/i);
+    assert.match(DOC, /support targeted `--retry`/i);
+    assert.match(DOC, /no unattended coordinator `--auto-retry` surface/i);
   });
 });
 

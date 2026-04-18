@@ -141,14 +141,14 @@ When the repo-level failure is later cleared (for example, the repo-local turn i
 
 ### Fail-closed boundaries for this slice
 
-This slice does **not** productize full coordinator wave execution.
+This spec was written before coordinator wave execution and coordinator-targeted retry both shipped. The current fail-closed boundary is narrower:
 
-Until that exists:
-- `mission plan launch --all-ready` is invalid for coordinator-bound missions
-- `mission plan autopilot` is invalid for coordinator-bound missions
-- `mission plan launch --retry` remains single-repo only
+- `mission plan launch --all-ready` is shipped for coordinator-bound missions
+- `mission plan autopilot` is shipped for coordinator-bound missions
+- `mission plan launch --workstream <id> --retry` is shipped for one active retryable repo failure
+- unattended coordinator `--auto-retry` remains unshipped
 
-Do not fake batch multi-repo execution by reusing the repo-local chain launcher.
+Do not fake broader coordinator recovery semantics than the code actually implements.
 
 ## Error Cases
 
