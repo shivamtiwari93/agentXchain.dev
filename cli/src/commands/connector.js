@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { loadProjectContext } from '../lib/config.js';
 import { DEFAULT_VALIDATE_TIMEOUT_MS, validateConfiguredConnector } from '../lib/connector-validate.js';
 import { DEFAULT_TIMEOUT_MS, probeConfiguredConnectors } from '../lib/connector-probe.js';
+import { getRuntimeCapabilityContract, getRoleRuntimeCapabilityContract, getCapabilityDeclarationWarnings } from '../lib/runtime-capabilities.js';
 
 function printJson(result, exitCode) {
   console.log(JSON.stringify(result, null, 2));
@@ -190,6 +191,141 @@ function printValidateText(result, exitCode) {
 
   console.log('');
   process.exit(exitCode);
+}
+
+function buildCapabilityReport(runtimeId, runtime, roles) {
+  const mergedContract = getRuntimeCapabilityContract(runtime);
+  const declaredCapabilities = (runtime.capabilities && typeof runtime.capabilities === 'object' && !Array.isArray(runtime.capabilities))
+    ? { ...runtime.capabilities }
+    : {};
+  const declarationWarnings = getCapabilityDeclarationWarnings(runtime);
+
+  const roleBindings = [];
+  for (const [roleId, role] of Object.entries(roles)) {
+    const boundRuntime = role.runtime_id || role.runtime;
+    if (boundRuntime !== runtimeId) continue;
+    const roleContract = getRoleRuntimeCapabilityContract(roleId, role, runtime);
+    roleBindings.push({
+      role_id: roleContract.role_id,
+      role_write_authority: roleContract.role_write_authority,
+      effective_write_path: roleContract.effective_write_path,
+      workflow_artifact_ownership: roleContract.workflow_artifact_ownership,
+      notes: roleContract.notes,
+    });
+  }
+
+  return {
+    runtime_id: runtimeId,
+    runtime_type: runtime.type || 'unknown',
+    declared_capabilities: declaredCapabilities,
+    merged_contract: mergedContract,
+    declaration_warnings: declarationWarnings,
+    role_bindings: roleBindings,
+  };
+}
+
+function printCapabilitiesText(report) {
+  console.log('');
+  console.log(chalk.bold(`  ${report.runtime_id}`) + chalk.dim(` (${report.runtime_type})`));
+  console.log(chalk.dim('  ' + '-'.repeat(44)));
+
+  const c = report.merged_contract;
+  console.log(`  ${chalk.dim('Transport:')}         ${c.transport}`);
+  console.log(`  ${chalk.dim('Write files:')}       ${c.can_write_files}`);
+  console.log(`  ${chalk.dim('Proposals:')}         ${c.proposal_support}`);
+  console.log(`  ${chalk.dim('Artifact ownership:')} ${c.workflow_artifact_ownership}`);
+  console.log(`  ${chalk.dim('Local binary:')}      ${c.requires_local_binary ? 'yes' : 'no'}`);
+
+  if (Object.keys(report.declared_capabilities).length > 0) {
+    console.log('');
+    console.log(`  ${chalk.dim('Declared overrides:')}`);
+    for (const [k, v] of Object.entries(report.declared_capabilities)) {
+      console.log(`    ${k}: ${v}`);
+    }
+  }
+
+  if (report.declaration_warnings.length > 0) {
+    console.log('');
+    for (const w of report.declaration_warnings) {
+      console.log(`  ${chalk.yellow('!')} ${w}`);
+    }
+  }
+
+  if (report.role_bindings.length > 0) {
+    console.log('');
+    console.log(`  ${chalk.dim('Role bindings:')}`);
+    for (const rb of report.role_bindings) {
+      const badge = rb.effective_write_path.startsWith('invalid') ? chalk.red('INVALID') : chalk.green('OK');
+      console.log(`    ${badge}  ${rb.role_id} (${rb.role_write_authority}) -> ${rb.effective_write_path}`);
+      for (const note of rb.notes) {
+        console.log(`         ${chalk.dim(note)}`);
+      }
+    }
+  }
+}
+
+export async function connectorCapabilitiesCommand(runtimeId, options = {}) {
+  const context = loadProjectContext();
+  if (!context) {
+    const payload = { error: 'No governed agentxchain.json found.' };
+    if (options.json) { printJson(payload, 2); return; }
+    console.error(chalk.red('No governed agentxchain.json found. Run this inside a governed project.'));
+    process.exit(2);
+  }
+
+  const config = context.config;
+  const runtimes = config.runtimes || {};
+  const roles = config.roles || {};
+
+  if (options.all) {
+    const reports = [];
+    for (const [id, runtime] of Object.entries(runtimes)) {
+      reports.push(buildCapabilityReport(id, runtime, roles));
+    }
+    const payload = { runtimes: reports };
+    if (options.json) { printJson(payload, 0); return; }
+
+    console.log('');
+    console.log(chalk.bold('  AgentXchain Connector Capabilities'));
+    console.log(chalk.dim('  ' + '='.repeat(44)));
+    if (reports.length === 0) {
+      console.log('  No runtimes configured.');
+    } else {
+      for (const r of reports) { printCapabilitiesText(r); }
+    }
+    console.log('');
+    process.exit(0);
+  }
+
+  if (!runtimeId) {
+    const payload = { error: 'Runtime ID required. Use --all to list all runtimes.', available_runtimes: Object.keys(runtimes) };
+    if (options.json) { printJson(payload, 2); return; }
+    console.error(chalk.red('Runtime ID required. Use --all to list all runtimes.'));
+    if (Object.keys(runtimes).length > 0) {
+      console.error(chalk.dim(`Available: ${Object.keys(runtimes).join(', ')}`));
+    }
+    process.exit(2);
+  }
+
+  if (!runtimes[runtimeId]) {
+    const payload = { error: `Runtime "${runtimeId}" not found.`, available_runtimes: Object.keys(runtimes) };
+    if (options.json) { printJson(payload, 2); return; }
+    console.error(chalk.red(`Runtime "${runtimeId}" not found.`));
+    if (Object.keys(runtimes).length > 0) {
+      console.error(chalk.dim(`Available: ${Object.keys(runtimes).join(', ')}`));
+    }
+    process.exit(2);
+  }
+
+  const report = buildCapabilityReport(runtimeId, runtimes[runtimeId], roles);
+  if (options.json) { printJson(report, 0); return; }
+
+  console.log('');
+  console.log(chalk.bold('  AgentXchain Connector Capabilities'));
+  console.log(chalk.dim('  ' + '='.repeat(44)));
+  printCapabilitiesText(report);
+  console.log('');
+  process.exit(0);
 }
 
 export async function connectorValidateCommand(runtimeId, options = {}) {

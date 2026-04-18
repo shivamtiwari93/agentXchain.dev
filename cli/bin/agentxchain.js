@@ -123,7 +123,7 @@ import { historyCommand } from '../src/commands/history.js';
 import { decisionsCommand } from '../src/commands/decisions.js';
 import { diffCommand } from '../src/commands/diff.js';
 import { eventsCommand } from '../src/commands/events.js';
-import { connectorCheckCommand, connectorValidateCommand } from '../src/commands/connector.js';
+import { connectorCapabilitiesCommand, connectorCheckCommand, connectorValidateCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
 import { missionAttachChainCommand, missionBindCoordinatorCommand, missionListCommand, missionPlanApproveCommand, missionPlanAutopilotCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
@@ -298,6 +298,13 @@ connectorCmd
   .option('-j, --json', 'Output as JSON')
   .option('--timeout <ms>', 'Per-probe timeout in milliseconds', '8000')
   .action(connectorCheckCommand);
+
+connectorCmd
+  .command('capabilities [runtime_id]')
+  .description('Show merged capability contract for a runtime or all runtimes (machine-readable handshake)')
+  .option('-j, --json', 'Output as JSON')
+  .option('--all', 'Show capabilities for all configured runtimes')
+  .action(connectorCapabilitiesCommand);
 
 connectorCmd
   .command('validate <runtime_id>')
