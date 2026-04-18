@@ -11,7 +11,7 @@
  * - cross-repo context propagation into the downstream repo
  *
  * Usage:
- *   node examples/live-governed-proof/run-multi-repo-proof.mjs [--json]
+ *   node examples/live-governed-proof/run-multi-repo-proof.mjs [--json] [--keep-temp] [--output <path>]
  *
  * Environment:
  *   ANTHROPIC_API_KEY — required for child repo api_proxy turns
@@ -22,7 +22,7 @@
  */
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -33,11 +33,28 @@ const repoRoot = join(__dirname, '..', '..');
 const cliRoot = join(repoRoot, 'cli');
 const binPath = join(cliRoot, 'bin', 'agentxchain.js');
 const cliPkg = JSON.parse(readFileSync(join(cliRoot, 'package.json'), 'utf8'));
-const jsonMode = process.argv.includes('--json');
+const args = process.argv.slice(2);
+const jsonMode = args.includes('--json');
+const keepTemp = args.includes('--keep-temp');
+const authEnv = process.env.AXC_PROOF_AUTH_ENV || 'ANTHROPIC_API_KEY';
+const providerKey = process.env[authEnv];
+let shouldCleanup = !keepTemp;
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 const MAX_REPO_ATTEMPTS = 3;
 const MAX_COORDINATOR_STEPS = 12;
+
+function readFlagValue(flag) {
+  const index = args.indexOf(flag);
+  if (index === -1) return null;
+  const value = args[index + 1];
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${flag} requires a path value`);
+  }
+  return value;
+}
+
+const outputPath = readFlagValue('--output');
 
 function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
@@ -320,8 +337,11 @@ function extractAcceptedRoles(repoRoot) {
 function buildPayload({ result, errors, artifacts, traces }) {
   return {
     runner: 'multi-repo-live-proof',
+    recorded_at: new Date().toISOString(),
     cli_version: cliPkg.version,
-    cli_path: binPath,
+    cli_path: 'cli/bin/agentxchain.js',
+    script_path: 'examples/live-governed-proof/run-multi-repo-proof.mjs',
+    command: 'node examples/live-governed-proof/run-multi-repo-proof.mjs --json',
     result,
     traces,
     artifacts,
@@ -329,7 +349,15 @@ function buildPayload({ result, errors, artifacts, traces }) {
   };
 }
 
+function writePayloadFile(payload) {
+  if (!outputPath) return;
+  const absolutePath = resolve(process.cwd(), outputPath);
+  mkdirSync(dirname(absolutePath), { recursive: true });
+  writeJson(absolutePath, payload);
+}
+
 function printPayload(payload) {
+  writePayloadFile(payload);
   if (jsonMode) {
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
     return;
@@ -343,6 +371,9 @@ function printPayload(payload) {
     console.log(`  Dispatch:  ${payload.artifacts.coordinator.turn_dispatched} coordinator dispatches / ${payload.artifacts.coordinator.acceptance_projections} acceptance projections`);
     console.log(`  Cost:      $${payload.artifacts.cost.total_usd.toFixed(4)} total`);
     console.log('  Result:    PASS — real coordinator run completed across two repos');
+  } else if (payload.result === 'skip') {
+    console.log('  Result:    SKIP');
+    console.log(`  Reason:    ${payload.reason}`);
   } else {
     console.log('  Result:    FAIL');
     for (const error of payload.errors) {
@@ -351,10 +382,40 @@ function printPayload(payload) {
   }
 }
 
+function sanitizeTrace(payload) {
+  if (!payload?.bundle_path) return payload;
+  const repoMarker = '/repos/';
+  const repoIndex = payload.bundle_path.lastIndexOf(repoMarker);
+  if (repoIndex !== -1) {
+    return {
+      ...payload,
+      bundle_path: `repos/${payload.bundle_path.slice(repoIndex + repoMarker.length)}`,
+    };
+  }
+  return {
+    ...payload,
+    bundle_path: payload.bundle_path,
+  };
+}
+
 async function main() {
   const root = join(tmpdir(), `axc-multi-live-${randomBytes(6).toString('hex')}`);
   const errors = [];
   const traces = [];
+
+  if (!providerKey) {
+    const payload = buildPayload({
+      result: 'skip',
+      errors: [],
+      artifacts: null,
+      traces: [],
+    });
+    payload.reason = `Multi-repo live proof requires ${authEnv}`;
+    payload.missing_env = [authEnv];
+    printPayload(payload);
+    process.exitCode = 0;
+    return;
+  }
 
   try {
     mkdirSync(root, { recursive: true });
@@ -373,10 +434,10 @@ async function main() {
         throw new Error(`multi step failed on iteration ${i + 1}:\n${step.stdout}\n${step.stderr}`);
       }
 
-      const payload = JSON.parse(step.stdout);
-      traces.push(payload);
+      const rawPayload = JSON.parse(step.stdout);
+      traces.push(sanitizeTrace(rawPayload));
 
-      if (payload.action === 'phase_transition_requested' || payload.action === 'run_completion_requested') {
+      if (rawPayload.action === 'phase_transition_requested' || rawPayload.action === 'run_completion_requested') {
         const approve = runCli(root, ['multi', 'approve-gate']);
         if (approve.status !== 0) {
           throw new Error(`multi approve-gate failed:\n${approve.stdout}\n${approve.stderr}`);
@@ -388,12 +449,12 @@ async function main() {
         continue;
       }
 
-      if (!payload.repo_id || !payload.bundle_path) {
-        throw new Error(`unexpected multi step payload: ${JSON.stringify(payload)}`);
+      if (!rawPayload.repo_id || !rawPayload.bundle_path) {
+        throw new Error(`unexpected multi step payload: ${JSON.stringify(rawPayload)}`);
       }
 
-      if (payload.repo_id === 'web' && contextSnapshot === null) {
-        const contextPath = join(payload.bundle_path, 'COORDINATOR_CONTEXT.json');
+      if (rawPayload.repo_id === 'web' && contextSnapshot === null) {
+        const contextPath = join(rawPayload.bundle_path, 'COORDINATOR_CONTEXT.json');
         const context = readJson(contextPath);
         contextSnapshot = {
           upstream_acceptances: context.upstream_acceptances.length,
@@ -402,7 +463,7 @@ async function main() {
         };
       }
 
-      executeRepoTurn(payload.repo_id === 'api' ? apiRoot : webRoot);
+      executeRepoTurn(rawPayload.repo_id === 'api' ? apiRoot : webRoot);
 
       const coordinatorState = readJson(join(root, '.agentxchain', 'multirepo', 'state.json'));
       if (coordinatorState.status === 'completed') {
@@ -478,6 +539,9 @@ async function main() {
         total_usd: apiCost + webCost,
       },
     };
+    if (keepTemp) {
+      artifacts.proof_workspace = root;
+    }
 
     const payload = buildPayload({
       result: errors.length === 0 ? 'pass' : 'fail',
@@ -488,16 +552,21 @@ async function main() {
     printPayload(payload);
     process.exitCode = errors.length === 0 ? 0 : 1;
   } catch (error) {
+    shouldCleanup = false;
     const payload = buildPayload({
       result: 'fail',
       errors: [error.message],
-      artifacts: null,
+      artifacts: {
+        proof_workspace: root,
+      },
       traces,
     });
     printPayload(payload);
     process.exitCode = 1;
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    if (shouldCleanup) {
+      rmSync(root, { recursive: true, force: true });
+    }
   }
 }
 

@@ -1,0 +1,97 @@
+{
+  "runner": "multi-repo-live-proof",
+  "recorded_at": "2026-04-18T17:11:57.795Z",
+  "cli_version": "2.134.1",
+  "cli_path": "cli/bin/agentxchain.js",
+  "script_path": "examples/live-governed-proof/run-multi-repo-proof.mjs",
+  "command": "node examples/live-governed-proof/run-multi-repo-proof.mjs --json",
+  "result": "pass",
+  "traces": [
+    {
+      "repo_id": "api",
+      "turn_id": "turn_4fbd4378cb88424e",
+      "workstream_id": "planning_sync",
+      "role": "pm",
+      "bundle_path": "repos/api/.agentxchain/dispatch/turns/turn_4fbd4378cb88424e"
+    },
+    {
+      "repo_id": "web",
+      "turn_id": "turn_5d54520d17b179b0",
+      "workstream_id": "planning_sync",
+      "role": "pm",
+      "bundle_path": "repos/web/.agentxchain/dispatch/turns/turn_5d54520d17b179b0"
+    },
+    {
+      "action": "phase_transition_requested",
+      "gate": "phase_transition:planning->implementation",
+      "gate_type": "phase_transition",
+      "from": "planning",
+      "to": "implementation"
+    },
+    {
+      "repo_id": "api",
+      "turn_id": "turn_9e958aab200c78a7",
+      "workstream_id": "implementation_sync",
+      "role": "dev",
+      "bundle_path": "repos/api/.agentxchain/dispatch/turns/turn_9e958aab200c78a7"
+    },
+    {
+      "repo_id": "web",
+      "turn_id": "turn_c93842e0ae004d69",
+      "workstream_id": "implementation_sync",
+      "role": "dev",
+      "bundle_path": "repos/web/.agentxchain/dispatch/turns/turn_c93842e0ae004d69"
+    },
+    {
+      "action": "run_completion_requested",
+      "gate": "initiative_ship",
+      "gate_type": "run_completion"
+    }
+  ],
+  "artifacts": {
+    "coordinator": {
+      "super_run_id": "srun_1776532275887_1c3cf362",
+      "status": "completed",
+      "phase": "implementation",
+      "turn_dispatched": 4,
+      "acceptance_projections": 4
+    },
+    "context": {
+      "upstream_acceptances": 1,
+      "upstream_repo_ids": [
+        "api"
+      ],
+      "required_followups": [
+        "Review api acceptance: Produced API rollout plan for shared todo system with endpoint definitions, data schema, and web repo integration dependency; raised objection regarding test coverage gaps before recommending planning signoff."
+      ]
+    },
+    "repos": {
+      "api": {
+        "run_id": "run_84bef97066bed522",
+        "status": "completed",
+        "roles": [
+          "pm",
+          "dev"
+        ]
+      },
+      "web": {
+        "run_id": "run_f0b067cfebbf6ad7",
+        "status": "completed",
+        "roles": [
+          "pm",
+          "dev"
+        ]
+      }
+    },
+    "barriers": {
+      "planning_sync_completion": "satisfied",
+      "implementation_sync_completion": "satisfied"
+    },
+    "cost": {
+      "api_usd": 0.015,
+      "web_usd": 0.015,
+      "total_usd": 0.03
+    }
+  },
+  "errors": []
+}

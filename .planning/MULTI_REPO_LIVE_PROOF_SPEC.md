@@ -9,6 +9,7 @@ The repo already proves coordinator behavior with subprocess fixtures. That is n
 ## Interface
 
 - Live proof script: `examples/live-governed-proof/run-multi-repo-proof.mjs`
+- Checked-in evidence artifact: `examples/live-governed-proof/evidence/multi-repo-proof.latest.json`
 - Public docs page: `website-v2/docs/multi-repo.mdx`
 - Content proof: `cli/test/multi-repo-live-proof-content.test.js`
 
@@ -32,7 +33,11 @@ The repo already proves coordinator behavior with subprocess fixtures. That is n
    - coordinator history contains at least 4 `turn_dispatched` and 4 `acceptance_projection` entries
    - downstream `web` dispatch receives `COORDINATOR_CONTEXT.json` with upstream acceptance from `api`
    - both repos incur real API cost
-6. The docs page must publish a dated case study with:
+6. The script must support repo-native evidence capture:
+   - `--output <path>` writes the JSON payload to a caller-specified file
+   - `--keep-temp` preserves the temp coordinator workspace for inspection
+   - missing live credentials return a truthful `skip` payload instead of a fake pass/fail
+7. The docs page must publish a dated case study with:
    - execution date
    - CLI version
    - `super_run_id`
@@ -40,6 +45,8 @@ The repo already proves coordinator behavior with subprocess fixtures. That is n
    - context proof summary
    - total real API cost
    - script path and command
+   - the checked-in evidence artifact path
+8. The docs page and content proof must read from the checked-in evidence artifact rather than letting proof numbers live only as hand-edited prose.
 
 ## Error Cases
 
@@ -48,6 +55,8 @@ The repo already proves coordinator behavior with subprocess fixtures. That is n
 - Publishing invented metrics because a live run failed
 - Treating coordinator completion as sufficient without verifying downstream context generation
 - Generalizing this proof into “all multi-repo topologies are proven”
+- Requiring live credentials just to read the published evidence already checked into the repo
+- Letting docs drift from the recorded proof artifact because the evidence is duplicated manually
 
 ## Acceptance Tests
 
@@ -57,6 +66,9 @@ The repo already proves coordinator behavior with subprocess fixtures. That is n
 - `AT-MRLP-004`: `multi-repo.mdx` includes a dated live-proof section naming the script and command
 - `AT-MRLP-005`: `multi-repo.mdx` records CLI version, `super_run_id`, accepted projection count, and total cost
 - `AT-MRLP-006`: `multi-repo.mdx` explicitly says repo-local approvals remain required inside the live proof
+- `AT-MRLP-007`: the script supports `--output <path>` and the repo carries a checked-in `multi-repo-proof.latest.json` artifact
+- `AT-MRLP-008`: the script returns `skip` when the required auth env var is absent
+- `AT-MRLP-009`: the docs page names the checked-in evidence artifact and matches its recorded date, CLI version, `super_run_id`, accepted projection count, and total API cost
 
 ## Open Questions
 
