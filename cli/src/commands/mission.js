@@ -1245,6 +1245,33 @@ function deriveAutopilotIdleOutcome(plan, continueOnFailure) {
   return 'no_ready_workstreams';
 }
 
+function getCoordinatorWaveWorkstreams(plan) {
+  if (!plan || !Array.isArray(plan.workstreams)) {
+    return [];
+  }
+
+  return plan.workstreams.filter((ws) => {
+    if (ws.launch_status === 'ready') {
+      return true;
+    }
+
+    if (ws.launch_status !== 'launched') {
+      return false;
+    }
+
+    const progress = ws.coordinator_progress;
+    if (!progress || !Array.isArray(progress.pending_repo_ids) || progress.pending_repo_ids.length === 0) {
+      return false;
+    }
+
+    if ((progress.repo_failure_count || 0) > 0) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 // ── Coordinator wave execution ──────────────────────────────────────────────
 
 /**
@@ -1567,7 +1594,7 @@ async function coordinatorAutopilot(planTarget, opts, context, mission) {
         break;
       }
 
-      const readyWorkstreams = getReadyWorkstreams(plan);
+      const readyWorkstreams = getCoordinatorWaveWorkstreams(plan);
       if (readyWorkstreams.length === 0) {
         terminalReason = deriveAutopilotIdleOutcome(plan, continueOnFailure);
         break;
