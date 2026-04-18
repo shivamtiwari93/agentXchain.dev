@@ -1,0 +1,30 @@
+{
+  "runner": "continuous-mixed-runtime-live-proof",
+  "recorded_at": "2026-04-18T17:40:23.676Z",
+  "cli_version": "2.134.1",
+  "cli_path": "cli/bin/agentxchain.js",
+  "script_path": "examples/live-governed-proof/run-continuous-mixed-proof.mjs",
+  "result": "pass",
+  "proof": {
+    "workdir": "<tmp>/axc-live-cont-proof-DFNxML",
+    "session_id": "cont-8ff8f453",
+    "current_run_id": "run_cf946998e955cd52",
+    "status": "completed",
+    "runs_completed": 1,
+    "cumulative_spent_usd": 0.008,
+    "continuous_provenance": {
+      "trigger": "vision_scan",
+      "parent_run_id": null,
+      "trigger_reason": "Goal: complete one truthful governed run through the continuous loop",
+      "intake_intent_id": "intent_1776534005902_7932",
+      "created_by": "continuous_loop"
+    },
+    "qa_turn_id": "turn_5d9a22900da92237",
+    "qa_runtime_id": "api-qa",
+    "review_artifact": ".agentxchain/reviews/turn_5d9a22900da92237-qa-review.md",
+    "stdout_tail": "ching to local CLI: <node>  transport: dispatch_bundle_only\nTurn accepted: turn_6212759a92dff39e\nGate paused: phase_transition\n  Auto-approved phase_transition gate\nGate approved: phase_transition\nTurn assigned: turn_46ac7ac7df8136b7 → dev\n  Dispatching to local CLI: <node>  transport: dispatch_bundle_only\nTurn accepted: turn_46ac7ac7df8136b7\nTurn assigned: turn_5d9a22900da92237 → qa\n  Dispatching to API proxy: anthropic / claude-haiku-4-5-20251001\n  Sending request to anthropic (claude-haiku-4-5-20251001)...\n  Turn result staged successfully.\nTurn accepted: turn_5d9a22900da92237\nGate paused: run_completion\n  Auto-approved run_completion gate\nGate approved: run_completion\nRun completed\n\n─── Run Summary ───\n  Status:  completed\n  Turns:   3\n  Gates:   2 approved\n  Errors:  none\n\n  Governance report: .agentxchain/reports/report-run_cf946998e955cd52.md\nRun 1/1 completed: completed\nMax runs reached (1). Stopping."
+  },
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "command": "agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 1 --poll-seconds 0 --session-budget 2.00"
+}

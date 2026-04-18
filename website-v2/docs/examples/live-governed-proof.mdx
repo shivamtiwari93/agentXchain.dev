@@ -66,16 +66,27 @@ This is the strongest proof in the repo. It exercises the real `agentxchain run 
 - vision-driven intake seeding from a project-local `VISION.md`
 - continuous session lifecycle: start → governed run → intake resolution → session completion
 
-**Verified evidence from a real run (2026-04-18):**
+**Verified evidence — continuous mixed-runtime (2026-04-18):**
 
 | Metric | Value |
 |---|---|
 | Model | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) |
 | Runtime | `api_proxy` (Anthropic) for QA, `local_cli` for authoring roles |
+| Session ID | `cont-8ff8f453` |
+| Runs completed | 1 |
+| Total spend | $0.008 |
+| CLI version | `2.134.1` |
+| Review artifact | `.agentxchain/reviews/turn_*-qa-review.md` |
+| Session status | `completed` |
+| Evidence artifact | [`continuous-mixed-proof.latest.json`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/examples/live-governed-proof/evidence/continuous-mixed-proof.latest.json) |
+
+**Verified evidence — continuous 3-run (2026-04-18):**
+
+| Metric | Value |
+|---|---|
 | Runs completed | 3 |
 | Total spend | $0.023 |
 | CLI version | `2.134.1` |
-| Review artifact | `.agentxchain/reviews/turn_*-qa-review.md` |
 | Session status | `completed` |
 | Evidence artifact | [`continuous-3run-proof.latest.json`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/examples/live-governed-proof/evidence/continuous-3run-proof.latest.json) |
 
@@ -119,7 +130,7 @@ No credentials required. Self-contained with mock agent by default.
 **Continuous mixed-runtime proof:**
 
 ```bash
-node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json
+node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json --output examples/live-governed-proof/evidence/continuous-mixed-proof.latest.json
 node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --output examples/live-governed-proof/evidence/continuous-3run-proof.latest.json
 ```
 

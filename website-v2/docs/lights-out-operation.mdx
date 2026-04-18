@@ -107,10 +107,10 @@ That is the real contract today. A `review_only` `api_proxy` QA role can validat
 If you want the repo-owned live proof harness for this exact shape, run:
 
 ```bash
-node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json
+node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json --output examples/live-governed-proof/evidence/continuous-mixed-proof.latest.json
 ```
 
-That harness drives the real `run --continuous` CLI surface, uses a real Anthropic-backed `api_proxy` QA turn, and validates the continuous session, intake provenance, review artifact, and recorded spend.
+That harness drives the real `run --continuous` CLI surface, uses a real Anthropic-backed `api_proxy` QA turn, and validates the continuous session, intake provenance, review artifact, and recorded spend. The checked-in evidence artifact at [`continuous-mixed-proof.latest.json`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/examples/live-governed-proof/evidence/continuous-mixed-proof.latest.json) backs this claim.
 
 ## 4. Start the daemon
 

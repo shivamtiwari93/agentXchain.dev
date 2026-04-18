@@ -11,7 +11,7 @@
  */
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { execSync, spawnSync } from 'child_process';
@@ -21,12 +21,26 @@ import { scaffoldGoverned } from '../../cli/src/commands/init.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, '..', '..');
 const cliRoot = join(repoRoot, 'cli');
+const cliPkg = JSON.parse(readFileSync(join(cliRoot, 'package.json'), 'utf8'));
 const binPath = join(cliRoot, 'bin', 'agentxchain.js');
 const proofAgentPath = join(cliRoot, 'test-support', 'committing-proof-agent.mjs');
 
-const jsonMode = process.argv.includes('--json');
-const keepTemp = process.argv.includes('--keep-temp');
-let shouldCleanup = true;
+const args = process.argv.slice(2);
+const jsonMode = args.includes('--json');
+const keepTemp = args.includes('--keep-temp');
+let shouldCleanup = !keepTemp;
+
+function readFlagValue(flag) {
+  const index = args.indexOf(flag);
+  if (index === -1) return null;
+  const value = args[index + 1];
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${flag} requires a path value`);
+  }
+  return value;
+}
+
+const outputPath = readFlagValue('--output');
 
 if (!process.env.ANTHROPIC_API_KEY) {
   output({
@@ -42,18 +56,22 @@ const root = mkdtempSync(join(tmpdir(), 'axc-live-cont-proof-'));
 
 try {
   const proof = runProof(root);
-  output({ result: 'pass', ...proof });
+  const payload = buildPayload({ result: 'pass', ...proof });
+  writePayloadFile(payload);
+  output(payload);
   process.exit(0);
 } catch (error) {
   shouldCleanup = false;
-  output({
+  const payload = buildPayload({
     result: 'fail',
     reason: error instanceof Error ? error.message : String(error),
     workdir: root,
   });
+  writePayloadFile(payload);
+  output(payload);
   process.exit(1);
 } finally {
-  if (shouldCleanup && !keepTemp) {
+  if (shouldCleanup) {
     rmSync(root, { recursive: true, force: true });
   }
 }
@@ -247,6 +265,60 @@ function readJsonl(root, relativePath) {
 
 function trim(value) {
   return String(value || '').trim();
+}
+
+function sanitizePath(value) {
+  if (typeof value !== 'string') return value;
+  const marker = '/examples/live-governed-proof/';
+  const idx = value.indexOf(marker);
+  if (idx !== -1) return value.slice(idx + 1);
+  const tmpMarker = '/axc-live-cont-proof-';
+  const tmpIdx = value.indexOf(tmpMarker);
+  if (tmpIdx !== -1) return '<tmp>' + value.slice(tmpIdx);
+  // Strip absolute paths from stdout_tail (node binary, temp dirs, etc.)
+  return value
+    .replace(/\/opt\/[^\s]+/g, '<node>')
+    .replace(/\/private\/var\/[^\s]+/g, '<tmp>')
+    .replace(/\/var\/folders\/[^\s]+/g, '<tmp>')
+    .replace(/\/Users\/[^\s]+/g, '<home>');
+}
+
+function sanitizePayload(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return sanitizePath(obj);
+  if (Array.isArray(obj)) return obj.map(sanitizePayload);
+  if (typeof obj === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = sanitizePayload(v);
+    }
+    return out;
+  }
+  return obj;
+}
+
+function buildPayload(raw) {
+  const base = {
+    runner: 'continuous-mixed-runtime-live-proof',
+    recorded_at: new Date().toISOString(),
+    cli_version: cliPkg.version,
+    cli_path: 'cli/bin/agentxchain.js',
+    script_path: 'examples/live-governed-proof/run-continuous-mixed-proof.mjs',
+    result: raw.result,
+  };
+  if (raw.reason) base.reason = raw.reason;
+  if (raw.proof) base.proof = sanitizePayload(raw.proof);
+  if (raw.provider) base.provider = raw.provider;
+  if (raw.model) base.model = raw.model;
+  if (raw.command) base.command = raw.command;
+  return base;
+}
+
+function writePayloadFile(payload) {
+  if (!outputPath) return;
+  const absolutePath = resolve(process.cwd(), outputPath);
+  mkdirSync(dirname(absolutePath), { recursive: true });
+  writeFileSync(absolutePath, JSON.stringify(payload, null, 2) + '\n');
 }
 
 function output(data) {
