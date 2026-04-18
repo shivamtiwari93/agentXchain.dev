@@ -1426,6 +1426,8 @@ Use `connector capabilities` when you need the structured capability handshake, 
 
 This is the correct machine-readable surface for connector portability work. External tooling should not scrape `doctor` or `role show` to reconstruct the same contract.
 
+The output shape is governed by a JSON Schema artifact at `agentxchain/schemas/connector-capabilities-output`. Third-party tooling can validate both the input config (`agentxchain/schemas/agentxchain-config`) and the handshake output against published schemas.
+
 ### `connector validate`
 
 ```bash

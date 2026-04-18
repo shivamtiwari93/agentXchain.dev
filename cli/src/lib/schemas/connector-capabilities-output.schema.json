@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxchain.dev/schemas/connector-capabilities-output.schema.json",
+  "title": "AgentXchain Connector Capabilities Output",
+  "description": "Output schema for `connector capabilities [runtime_id] --json`. Covers single-runtime, multi-runtime (--all), and error responses.",
+  "oneOf": [
+    { "$ref": "#/$defs/single_runtime_response" },
+    { "$ref": "#/$defs/multi_runtime_response" },
+    { "$ref": "#/$defs/error_response" }
+  ],
+  "$defs": {
+    "write_capability": {
+      "enum": ["direct", "proposal_only", "tool_defined", "unknown"]
+    },
+    "proposal_capability": {
+      "enum": ["none", "optional", "native", "tool_defined", "unknown"]
+    },
+    "ownership_capability": {
+      "enum": ["yes", "no", "proposal_apply_required", "tool_defined", "unknown"]
+    },
+    "merged_contract": {
+      "type": "object",
+      "required": ["runtime_type", "transport", "can_write_files", "proposal_support", "requires_local_binary", "workflow_artifact_ownership"],
+      "properties": {
+        "runtime_type": { "type": "string" },
+        "transport": { "type": "string" },
+        "can_write_files": { "$ref": "#/$defs/write_capability" },
+        "review_only_behavior": { "type": "string" },
+        "proposal_support": { "$ref": "#/$defs/proposal_capability" },
+        "requires_local_binary": { "type": "boolean" },
+        "workflow_artifact_ownership": { "$ref": "#/$defs/ownership_capability" }
+      },
+      "additionalProperties": false
+    },
+    "declared_capabilities": {
+      "type": "object",
+      "properties": {
+        "can_write_files": { "$ref": "#/$defs/write_capability" },
+        "proposal_support": { "$ref": "#/$defs/proposal_capability" },
+        "workflow_artifact_ownership": { "$ref": "#/$defs/ownership_capability" }
+      },
+      "additionalProperties": false
+    },
+    "role_binding": {
+      "type": "object",
+      "required": ["role_id", "role_write_authority", "effective_write_path", "workflow_artifact_ownership", "notes"],
+      "properties": {
+        "role_id": { "type": "string" },
+        "role_write_authority": {
+          "enum": ["authoritative", "proposed", "review_only", "unknown"]
+        },
+        "effective_write_path": { "type": "string" },
+        "workflow_artifact_ownership": { "type": "string" },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "single_runtime_response": {
+      "type": "object",
+      "required": ["runtime_id", "runtime_type", "declared_capabilities", "merged_contract", "declaration_warnings", "role_bindings"],
+      "properties": {
+        "runtime_id": { "type": "string" },
+        "runtime_type": { "type": "string" },
+        "declared_capabilities": { "$ref": "#/$defs/declared_capabilities" },
+        "merged_contract": { "$ref": "#/$defs/merged_contract" },
+        "declaration_warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "role_bindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/role_binding" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "multi_runtime_response": {
+      "type": "object",
+      "required": ["runtimes"],
+      "properties": {
+        "runtimes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/single_runtime_response" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "error_response": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": { "type": "string" },
+        "available_runtimes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

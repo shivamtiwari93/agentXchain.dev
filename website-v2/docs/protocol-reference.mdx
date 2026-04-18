@@ -14,7 +14,7 @@ Neither one was clean enough to answer the narrower question: what is actually p
 
 The canonical versioned repo-native source is [`PROTOCOL-v7.md`](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v7.md).
 
-The governed config schema is also shipped as a machine-readable package artifact at `agentxchain/schemas/agentxchain-config`.
+The governed config schema is also shipped as a machine-readable package artifact at `agentxchain/schemas/agentxchain-config`. The connector capabilities handshake output schema is at `agentxchain/schemas/connector-capabilities-output`.
 
 ## Versioning Model
 
@@ -67,6 +67,12 @@ These repo-local concepts are protocol v7, not UI sugar:
 - Source file: `cli/src/lib/schemas/agentxchain-config.schema.json`
 - Current purpose: freeze the raw governed config shape for `project`, `roles`, `runtimes`, and the raw role-to-runtime binding contract so non-reference runners do not have to infer it from normalized reference-runner state.
 - Runtime capability declarations live under `runtimes.<id>.capabilities` in raw config. Those declarations affect the runtime capability contract and the `connector capabilities` handshake, but they do not rename the raw role binding field.
+
+### Connector capabilities output schema artifact
+
+- Package export: `agentxchain/schemas/connector-capabilities-output`
+- Source file: `cli/src/lib/schemas/connector-capabilities-output.schema.json`
+- Current purpose: freeze the `connector capabilities --json` output shape so third-party tooling can validate the handshake response without parsing prose or inferring shapes from tests. Covers single-runtime, multi-runtime (`--all`), and error responses.
 
 ## Normative Coordinator Contract
 

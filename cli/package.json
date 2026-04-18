@@ -11,7 +11,8 @@
     "./adapter-interface": "./src/lib/adapter-interface.js",
     "./runner-interface": "./src/lib/runner-interface.js",
     "./run-loop": "./src/lib/run-loop.js",
-    "./schemas/agentxchain-config": "./src/lib/schemas/agentxchain-config.schema.json"
+    "./schemas/agentxchain-config": "./src/lib/schemas/agentxchain-config.schema.json",
+    "./schemas/connector-capabilities-output": "./src/lib/schemas/connector-capabilities-output.schema.json"
   },
   "files": [
     "bin/",
