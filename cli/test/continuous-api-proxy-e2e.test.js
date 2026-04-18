@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 
 import { scaffoldGoverned } from '../src/commands/init.js';
+import { gitInit } from '../test-support/git-test-helpers.js';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const binPath = join(cliRoot, 'bin', 'agentxchain.js');
@@ -40,7 +41,8 @@ const servers = [];
  * Build a turn result for the given phase, role, and turn metadata.
  * Planning creates gate files via files_changed.
  * Implementation creates source artifacts.
- * QA requests run completion.
+ * QA requests run completion without claiming repo writes because the
+ * api_proxy QA role is review_only.
  */
 function buildTurnResult({ runId, turnId, runtimeId, roleId, phase }) {
   let phaseTransitionRequest = null;
@@ -57,7 +59,7 @@ function buildTurnResult({ runId, turnId, runtimeId, roleId, phase }) {
     filesChanged = ['src/output.js', '.planning/IMPLEMENTATION_NOTES.md'];
   } else if (phase === 'qa') {
     runCompletionRequest = true;
-    filesChanged = ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'];
+    filesChanged = [];
   }
 
   return {
@@ -236,6 +238,7 @@ function makeProject(mockServerUrl) {
   // Pre-seed QA gate files since api_proxy review_only cannot write workspace.
   // Planning and implementation gate files are created by the mock agent.
   seedQaGateFiles(root);
+  gitInit(root);
 
   return root;
 }

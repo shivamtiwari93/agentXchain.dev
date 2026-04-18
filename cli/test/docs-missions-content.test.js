@@ -171,6 +171,29 @@ describe('Missions docs coordinator-bound launch surface', () => {
     assert.match(DOC, /failed_acceptance/i);
     assert.match(DOC, /needs_attention/i);
   });
+
+  it('does not regress to the obsolete fail-closed coordinator wave story', () => {
+    assert.doesNotMatch(
+      DOC,
+      /Both exit immediately with an error directing the operator to `mission plan launch --workstream <id>`/i,
+    );
+    assert.match(DOC, /--all-ready.*dispatches one repo-local turn for each currently `ready` workstream/i);
+    assert.match(DOC, /autopilot.*repeats that wave loop until the plan completes/i);
+    assert.match(DOC, /barrier satisfaction rather than synthetic chain reports/i);
+  });
+
+  it('documents repo-local recovery for failed coordinator workstreams', () => {
+    assert.match(DOC, /Recovering a failed coordinator workstream/i);
+    assert.match(DOC, /repo_failures\[\]/);
+    assert.match(DOC, /agentxchain mission plan show latest --json/);
+    assert.match(DOC, /agentxchain status/);
+    assert.match(DOC, /agentxchain events/);
+    assert.match(DOC, /agentxchain doctor/);
+    assert.match(DOC, /agentxchain reissue-turn --turn <turn_id>/);
+    assert.match(DOC, /agentxchain reject-turn --turn <turn_id> --reassign --reason/);
+    assert.match(DOC, /agentxchain step --resume --turn <turn_id>/);
+    assert.match(DOC, /do \*\*not\*\* support `--retry`/i);
+  });
 });
 
 describe('Missions docs cross-linking and implementation alignment', () => {

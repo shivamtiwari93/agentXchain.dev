@@ -119,6 +119,8 @@ The page must distinguish:
 - `--mission latest` warns and continues when no missions exist
 - `mission plan launch` fails closed for unapproved plans, missing workstream IDs, and unsatisfied dependencies
 - missing referenced chain reports degrade the mission view instead of crashing it
+- coordinator wave execution (`--all-ready` and `mission plan autopilot`) is shipped, not fail-closed
+- coordinator workstream recovery remains repo-local first: diagnose `repo_failures[]`, fix the child repo with governed recovery commands, then re-run targeted launch or autopilot
 
 ## Error Cases
 
@@ -132,6 +134,8 @@ The page must distinguish:
 | Operator passes a missing explicit mission ID | Document that the chain aborts fail-closed. |
 | Operator uses `--mission latest` before creating any missions | Document the warning-only bootstrap behavior. |
 | Operator launches a blocked or unapproved workstream | Document the fail-closed dependency/approval boundary. |
+| Operator assumes coordinator `--all-ready` or autopilot is still unavailable | Document the shipped coordinator wave behavior instead of the obsolete fail-closed boundary. |
+| Operator hits a failed coordinator workstream | Document the repo-local recovery path and state explicitly that coordinator `--retry` is unsupported. |
 | Attached chain report goes missing | Document degraded mission visibility instead of silent omission. |
 
 ## Acceptance Tests
@@ -145,6 +149,7 @@ The page must distinguish:
 7. `llms.txt` includes the missions page.
 8. The page documents `mission start --plan` and `--planner-output-file <path>` as shipped planning-entry surfaces.
 9. The page documents explicit retry, plan auto-completion, and `mission show` latest-plan summary truthfully.
+10. The page documents shipped coordinator wave execution truthfully and explains the repo-local recovery path for failed coordinator workstreams.
 
 ## Open Questions
 

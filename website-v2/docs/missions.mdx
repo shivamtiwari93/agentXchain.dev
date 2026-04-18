@@ -493,7 +493,28 @@ The error message includes the specific block reason from the coordinator so the
 
 ### `--all-ready` or autopilot on a coordinator-bound mission
 
-Both exit immediately with an error directing the operator to `mission plan launch --workstream <id>`. This is a deliberate fail-closed boundary — multi-repo batch execution requires a real coordinator wave contract that does not yet exist.
+Both are shipped coordinator wave surfaces now:
+
+- `mission plan launch --all-ready` dispatches one repo-local turn for each currently `ready` workstream, synchronizes coordinator barrier state between dispatches, and stops on first failure unless `--continue-on-failure` is set.
+- `mission plan autopilot` repeats that wave loop until the plan completes, a failure stops execution, launchable work is exhausted (`plan_incomplete` with `--continue-on-failure`), the wave limit is hit, or the operator interrupts the run.
+
+These commands do **not** allocate repo-local `chain_id` values for coordinator workstreams. The coordinator remains the control plane, and workstream completion still comes from synchronized barrier satisfaction rather than synthetic chain reports.
+
+### Recovering a failed coordinator workstream
+
+Coordinator retry stays manual on purpose. When a repo-local dispatch inside a coordinator workstream fails, the workstream becomes `needs_attention`, `mission plan show` exposes `repo_failures[]`, and autopilot either stops (`failure_stopped`) or exits `plan_incomplete` after exhausting other launchable work.
+
+Use this recovery path:
+
+1. Run `agentxchain mission plan show latest --json` and identify the failed `workstream_id`, `repo_id`, and any `repo_failures[]` details.
+2. Open the affected child repo and inspect its governed state with `agentxchain status`, `agentxchain events`, or `agentxchain doctor`.
+3. Repair the repo-local problem using the normal governed recovery surface for that repo:
+   - `agentxchain reissue-turn --turn <turn_id>` when the work is valid but the dispatch baseline drifted
+   - `agentxchain reject-turn --turn <turn_id> --reassign --reason "<reason>"` when the staged result must be retried
+   - `agentxchain step --resume --turn <turn_id>` after clearing a retained block or escalation
+4. Return to the mission surface and resume coordinator execution with either `agentxchain mission plan launch latest --workstream <id>` for a targeted restart or `agentxchain mission plan autopilot latest --continue-on-failure` to continue waves after the repo-local fix.
+
+Coordinator workstreams do **not** support `--retry`. The retry boundary remains repo-local until a separate coordinator retry contract exists.
 
 ### Chain report missing from a mission
 
