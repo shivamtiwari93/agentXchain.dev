@@ -7,6 +7,8 @@ description: "Use AgentXchain inside VS Code with the official extension and loc
 
 VS Code connects to AgentXchain in two ways: the **official VS Code extension** for in-editor governance (status, approvals, notifications) and a **local CLI agent** (Claude Code, Codex, Copilot CLI, or Cline) for the actual coding work.
 
+Read the [Authority Model](/docs/authority-model) before you configure the terminal-side runtime. The extension UI does not set repo-write authority; the governed runtime config does.
+
 ## The extension
 
 The [AgentXchain VS Code extension](https://marketplace.visualstudio.com/items?itemName=agentXchaindev.agentxchain) adds governed operations directly inside VS Code:
@@ -28,8 +30,8 @@ The extension activates automatically when it detects an `agentxchain.json` in y
 
 The extension provides governance UI, but the actual coding work is done by a local CLI agent. Configure any of these as your `local_cli` runtime:
 
-- [Claude Code](/docs/integrations/claude-code) — `claude --print`
-- [OpenAI Codex CLI](/docs/integrations/openai-codex-cli) — `codex --full-auto`
+- [Claude Code](/docs/integrations/claude-code) — `claude --print --dangerously-skip-permissions`
+- [OpenAI Codex CLI](/docs/integrations/openai-codex-cli) — `codex --dangerously-bypass-approvals-and-sandbox`
 - [Cline](https://github.com/cline/cline) — Cline's CLI mode
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line) — `gh copilot`
 
@@ -55,9 +57,9 @@ The extension provides governance UI, but the actual coding work is done by a lo
     }
   },
   "roles": {
-    "pm": { "runtime": "manual-pm", "mandate": "Define requirements", "authority": "authoritative" },
-    "dev": { "runtime": "local-dev", "mandate": "Implement features", "authority": "proposed" },
-    "qa": { "runtime": "api-qa", "mandate": "Review and test", "authority": "review_only" }
+    "pm": { "runtime": "manual-pm", "mandate": "Define requirements", "write_authority": "authoritative" },
+    "dev": { "runtime": "local-dev", "mandate": "Implement features", "write_authority": "authoritative" },
+    "qa": { "runtime": "api-qa", "mandate": "Review and test", "write_authority": "review_only" }
   }
 }
 ```

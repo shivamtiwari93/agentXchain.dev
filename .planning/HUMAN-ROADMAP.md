@@ -13,6 +13,202 @@ Current focus: close adoption-friction gaps surfaced by the first real beta test
 
 ## Priority Queue
 
+### P1 — Live beta bug #3 — approved `inject` intents are not bound to subsequent manual PM turns (2026-04-17)
+
+Third bug from the same beta tester. This is a **cross-cutting integration bug between the intake system and the manual `resume` / `step --resume` dispatch path.** The intake surface works in isolation — `inject` creates the intent, `approve` marks it approved, the JSON record is written correctly — but the approved intent is not foregrounded to the next PM turn. The PM keeps optimizing for generic doc consistency while the operator's explicit acceptance contract is silently ignored.
+
+**Pattern emerging across the three beta bugs:**
+- BUG-1..6 — acceptance/validation breaks when workspace is dirty (integration between subprocess result and acceptance validator)
+- BUG-7..10 — recovery breaks when HEAD drifts after dispatch (integration between baseline capture and replay/retry)
+- BUG-11..16 — intake steering breaks in manual mode (integration between intake queue and dispatch bundle)
+
+Each is the happy path working but a cross-cutting integration point being weak. Treat this as a **systemic test gap**, not three isolated bugs. The real fix is integration coverage — every dispatch path must exercise intake consumption, baseline drift, and dirty-workspace scenarios, not just a clean-start fixture.
+
+Full verbatim bug report in **"Beta-tester bug report #3 (verbatim)"** below.
+
+- [x] **BUG-11: Manual `resume` / `step --resume` must consume approved intake intents as primary charter** — FIXED: manual `resume` / `step` now use shared intake preparation semantics with continuous mode, prefer queued `approved` intents over `planned` work, auto-plan approved intents before dispatch, and support operator override via `--no-intent`. Regression covers inject -> resume binding plus `--no-intent`.
+  - **Fix requirements:**
+    - When `resume` or `step --resume` is called and there is at least one `approved` intent in the intake queue, the dispatch path must:
+      1. Select the highest-priority approved intent (p0 > p1 > p2 > p3, then FIFO within priority).
+      2. Bind it to the next turn as the turn's primary charter — not as background context.
+      3. Record the intent_id in turn metadata (see BUG-12) and in the dispatched turn's dispatch bundle.
+    - If the operator wants to override (run a turn NOT bound to any pending intent), there should be an explicit flag (e.g., `step --resume --no-intent` or similar) — default must be intent-consuming.
+    - Scheduler/continuous mode is already doing this correctly per the `inject` command output ("scheduler will pick this up next"). Unify the two paths: manual and scheduler must call the same intake-consumption function.
+    - Add a regression test reproducing the tester's flow: `inject` → `unblock` → `resume --role pm` → `step --resume` → verify turn charter is the injected intent and not the prior PM drift.
+  - **Acceptance:** injecting an approved intent before a manual `step --resume` causes that intent to be the turn's charter; turn result addresses the acceptance contract.
+
+- [x] **BUG-12: `turn_dispatched` payload must include `intent_id` when turn is fulfilling an injected/approved intent** — FIXED: `intent_id` now propagates through dispatched / accepted / acceptance-failed / rejected / reissued event paths, `events` CLI renders it inline, and `history.jsonl` accepted-turn entries persist it. Regression covers dispatch + accept lifecycle visibility for an inject-driven turn.
+  - **Fix requirements:**
+    - Add optional `intent_id` field to `turn_dispatched` event schema.
+    - Populate it whenever the turn's dispatch was triggered by an approved intake intent (BUG-11).
+    - Same for `turn_completed`, `turn_accepted`, `turn_failed`, `acceptance_failed`, `turn_reissued` events — the intent_id must carry through the full lifecycle so you can trace "which injected instruction did turn X service?"
+    - Update `agentxchain events` rendering to display intent_id when present.
+    - Add a matching field to `history.jsonl` turn records so provenance is durable across runs.
+    - Add a regression test asserting the intent_id propagates through the full event chain for an inject-driven turn.
+  - **Acceptance:** `agentxchain events | grep intent_1776474414878_c28b` finds every lifecycle event for that intent's servicing turn.
+
+- [x] **BUG-13: Dispatch bundle must embed approved intent charter + acceptance contract verbatim** — FIXED: dispatch `PROMPT.md` now foregrounds bound intent charter under `### Active Injected Intent — respond to this as your primary charter` and renders acceptance items as a numbered governing checklist. Regression asserts prompt content-contract directly.
+  - **Fix requirements:**
+    - When a turn is bound to an intent (BUG-11), the dispatch bundle (`PROMPT.md` or equivalent under `.agentxchain/dispatch/turns/<turn_id>/`) must include a dedicated section with:
+      - The verbatim intent charter
+      - The full acceptance contract items as numbered checklist
+      - A clear header: "### Active Injected Intent — respond to this as your primary charter"
+    - Must NOT be silently appended as "background context" — treat it as the governing instruction.
+    - The role prompt template should include guidance to explicitly address each acceptance item in the turn result.
+    - Add a content-contract test asserting the bundle format.
+  - **Acceptance:** open `PROMPT.md` for an inject-driven turn and the injected acceptance contract is visible as the primary charter, not buried in context.
+
+- [ ] **BUG-14: Turn result validator must check injected acceptance items are addressed** — Even if the role sees the intent, there's no enforcement that the turn result actually responds to it. Tester's PM turn completed "successfully" while ignoring every injected acceptance item.
+  - **Fix requirements:**
+    - When a turn is bound to an intent (BUG-11), the acceptance validator must check whether the turn result references or resolves each acceptance item.
+    - Implementation options (agents debate):
+      1. **Structural:** require turn result to include `intent_response` field with one entry per acceptance item (status: addressed / deferred / rejected with reason).
+      2. **Semantic:** parse summary/artifacts for references to acceptance keywords and warn on un-addressed items.
+      3. **Hybrid:** structural requirement with semantic fallback for lenient mode.
+    - Non-addressed items must be surfaced: either block acceptance (strict mode) or emit a `turn_incomplete_intent_coverage` warning event (lenient mode). Make this configurable but DEFAULT TO STRICT for p0 intents.
+    - The turn validator already has a stage system (see BUG-1's `artifact_observation` stage) — add a new `intent_coverage` stage.
+  - **Acceptance:** a turn that ignores an acceptance item either fails acceptance or emits a visible warning event. Operator sees which items were addressed and which weren't.
+
+- [ ] **BUG-15: `agentxchain status` must surface active approved intent** — Currently status shows phase, active turn, gates, etc. but not "there's an injected p0 intent the next turn should address." Operators can't see the intent queue without reading `.agentxchain/intake/` directly.
+  - **Fix requirements:**
+    - `agentxchain status` output must include a dedicated section when there are approved-but-unconsumed intents:
+      ```
+      Pending injected intents (will drive next turn):
+        [p0] intent_1776474414878_c28b — <charter one-liner>
+             Acceptance: 3 items
+      ```
+    - `status --json` must include a `pending_intents` array with full metadata.
+    - The dashboard should display the same information prominently.
+    - `doctor` should flag "N approved intents in queue, next turn will consume them" as informational.
+  - **Acceptance:** running `status` after `inject` + `approve` shows the intent at the top of the output with priority, charter, and acceptance count.
+
+- [ ] **BUG-16: Unify manual `resume` path with scheduler/continuous intake semantics** — The tester's smoking-gun quote from the `inject` command output: **"The scheduler/continuous loop will pick up this intent next."** That wording reveals the two paths are not symmetric. Manual mode is second-class. Fix the asymmetry.
+  - **Fix requirements:**
+    - Audit the scheduler/continuous-run intake consumption path (`cli/src/lib/continuous-run.js` + related intake functions). Extract the approved-intent-consumption logic into a pure function (e.g., `consumeNextApprovedIntent()`).
+    - Refactor manual `resume` / `step --resume` to call the same function.
+    - Update the `inject` command output message to reflect the fix: both manual and scheduler modes consume intents; no longer say "scheduler will pick up next" as if it's the only consumer.
+    - Add an integration test that runs the same intent through both paths and verifies equivalent dispatch behavior.
+  - **Acceptance:** no matter which dispatch path (manual `step --resume`, `run --continuous`, `schedule daemon`) consumes the intent, the turn is bound identically and the audit trail is identical.
+
+### Implementation notes for BUG-11 through BUG-16
+
+- **BUG-11 is the atom.** Everything else is scaffolding around it (provenance, prompt shape, validation, visibility, parity). Ship BUG-11 + BUG-12 + BUG-13 as one coherent PR — they're the minimum viable fix. BUG-14 (enforcement), BUG-15 (visibility), BUG-16 (parity) can follow in sequence.
+- **This is the systemic test gap.** The fact that the intake happy path (scheduler consumes intents correctly) diverged from the manual path (manual doesn't) means there was no integration test exercising the injected-intent-via-manual-resume flow. Add that test as part of BUG-11 and make it a required scenario in the live-proof case study so it cannot regress.
+- **Reuse don't rebuild:** the scheduler already knows how to consume intents. Extract the logic and share it. Do NOT write a second consumption path in the manual code — that's how the divergence happened in the first place.
+- **Proof discipline (consistent with BUG-1..10):** commit the failing reproduction test FIRST in a separate commit, then the fix. Include the beta tester's exact intent payload as a fixture.
+- **Merge with B-5 if possible:** B-5 (the "all local_cli authoritative, human-gated" canonical example) should include an inject-then-resume walkthrough so this class of bug is captured in the operator's mental model, not just in the internal tests.
+
+---
+
+### Beta-tester bug report #3 (verbatim)
+
+> **Title**
+>
+> Approved `inject` intents are not strongly bound to subsequent PM planning turns in manual governed flow
+>
+> **Summary**
+>
+> In a governed repo using manual `resume` / `step --resume`, approved human intake items created with `agentxchain inject` appear to be recorded in repo state but are not being surfaced strongly enough to the next PM turn.
+>
+> The PM turns continue to optimize for local document consistency rather than the injected acceptance contract. Turn/event provenance also does not clearly show that the PM turn is satisfying a specific approved intent.
+>
+> This makes the intake system unreliable for human-directed planning revisions unless the continuous scheduler path is used, or unless the operator inspects the turn prompt manually.
+>
+> **Environment**
+>
+> - CLI: `agentxchain@2.128.0`
+> - Protocol: governed v4 / protocol v7 surfaces
+> - Repo: `tusq.dev`
+> - Runtime setup:
+>   - PM = `authoritative + local_cli`
+>   - manual human governance at phase gates
+> - Flow used:
+>   - `agentxchain inject`
+>   - `agentxchain unblock ...`
+>   - `agentxchain resume --role pm`
+>   - `agentxchain step --resume`
+>
+> **Problem**
+>
+> I injected a high-priority PM revision request with explicit acceptance criteria:
+>
+> - V1 should include minimal domain grouping instead of pure 1:1 capability mapping
+> - docs should honestly clarify whether `tusq serve` proves AI-callable execution or only describe-only MCP exposure
+> - PM signoff should explicitly frame runtime learning as a deferred core pillar
+>
+> The intent was successfully created and approved.
+>
+> But the subsequent PM turns did not address those items. Instead, they fixed unrelated internal contradictions such as:
+> - non-interactive review wording
+> - explicit prior scan requirement
+> - approval mechanism documentation
+> - scan persistence file location
+>
+> Those are valid fixes, but they do not satisfy the injected acceptance contract.
+>
+> **Why I think this is a framework issue**
+>
+> The intake item definitely exists in governed state.
+>
+> Example approved intent record:
+> - `intent_1776474414878_c28b`
+> - status: `approved`
+>
+> Its charter and acceptance contract are present in:
+> - `.agentxchain/intake/intents/intent_1776474414878_c28b.json`
+>
+> But turn provenance/events do not clearly show the next PM turn being attached to that intent.
+>
+> Examples from `events.jsonl`:
+> - `turn_dispatched` for PM turns exists
+> - but payload does not include `intent_id`
+> - there is no visible evidence that the PM dispatch bundle was explicitly driven by the approved injected intent
+>
+> Also, the `inject` command output says:
+>
+> > "Preemption marker written"
+> > "The scheduler/continuous loop will pick up this intent next."
+>
+> That wording suggests intake handling may be primarily designed for scheduler/continuous mode, while the manual `resume` / `step --resume` flow may not be consuming or foregrounding the approved intent equivalently.
+>
+> **Observed behavior**
+>
+> 1. Create approved intent with `agentxchain inject`
+> 2. Unblock current human escalation
+> 3. Run `agentxchain resume --role pm`
+> 4. Run `agentxchain step --resume`
+> 5. PM turn completes
+> 6. PM turn result does not address the injected acceptance contract
+> 7. PM turn/event history gives no clear trace that the turn was fulfilling the injected intent
+>
+> **Expected behavior**
+>
+> When an approved intent exists and the operator resumes PM work manually:
+>
+> - the next PM turn should be explicitly bound to that intent
+> - the PM prompt/context should include the intent charter and acceptance contract verbatim
+> - turn metadata and event history should record which `intent_id` the turn is servicing
+> - the PM result should be evaluated against the injected acceptance items, not just generic planning completion
+> - `status` should show the active approved intent being worked
+>
+> **Recommended fixes**
+>
+> 1. Add `intent_id` to `turn_dispatched` payloads when a turn is fulfilling an injected/approved intent
+> 2. Include approved intent charter + acceptance contract verbatim in the dispatch bundle for the assigned role
+> 3. Make turn results explicitly respond to each acceptance item
+> 4. Show active approved intent in `agentxchain status`
+> 5. Ensure manual `resume` / `step --resume` consumes the same intake queue semantics as scheduler/continuous mode
+> 6. Optionally fail or warn if a turn completes without addressing the active injected acceptance contract
+>
+> **Severity**
+>
+> I would rate this `P1/P2`, leaning `P1` for human-governed planning reliability:
+> - it undermines human steering
+> - it makes intake feel non-deterministic
+> - it is hard to prove whether the PM saw the instruction at all
+
+---
+
 ### P1 — Live beta bug #2 — stale-baseline turn cannot be cleanly recovered after post-dispatch HEAD change (2026-04-17)
 
 Same beta tester, same first-run session, different defect class. After the BUG-1 acceptance failure, they tried every framework-native recovery path and none of them worked:
@@ -606,7 +802,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Add a content-contract test that the matrix lists all 5 current runtimes with current authority rules.
   - **Acceptance:** every runtime mention in the docs either links to the matrix or is flagged as historical.
 
-- [ ] **B-3: Three-axis authority model explained sharply (gap #3)** — Tester had to reason about three separate concepts that the docs don't clearly distinguish:
+- [x] **B-3: Three-axis authority model explained sharply (gap #3)** — completed 2026-04-17: shipped `website-v2/docs/authority-model.mdx`, linked it from runtime/integration surfaces, corrected local CLI guides to use `write_authority`, fixed Codex authoritative guidance to `--dangerously-bypass-approvals-and-sandbox`, and removed an invalid `review_only + local_cli` OpenClaw example.
     1. role `write_authority` (`review_only` vs `authoritative` vs `proposed`)
     2. runtime type (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`)
     3. downstream CLI sandbox/approval authority (e.g., `codex --full-auto` vs `--dangerously-bypass-approvals-and-sandbox`)

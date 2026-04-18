@@ -2061,7 +2061,7 @@ export function initializeGovernedRun(root, config, options = {}) {
  * @param {string} roleId - the role to assign
  * @returns {{ ok: boolean, error?: string, warnings?: string[], state?: object }}
  */
-export function assignGovernedTurn(root, config, roleId) {
+export function assignGovernedTurn(root, config, roleId, options = {}) {
   let state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
@@ -2245,6 +2245,9 @@ export function assignGovernedTurn(root, config, roleId) {
     assigned_sequence: nextSequence,
     concurrent_with: concurrentWith,
   };
+  if (options.intakeContext) {
+    newTurn.intake_context = options.intakeContext;
+  }
 
   // Attach delegation context if this turn fulfills a pending delegation
   const delegationQueue = state.delegation_queue || [];
@@ -2290,6 +2293,7 @@ export function assignGovernedTurn(root, config, roleId) {
     phase: updatedState.phase,
     status: updatedState.status,
     turn: { turn_id: turnId, role_id: roleId },
+    intent_id: options.intakeContext?.intent_id || null,
   });
 
   // Session checkpoint — non-fatal, written after every successful turn assignment.
@@ -2538,6 +2542,7 @@ export function reissueTurn(root, config, opts = {}) {
     phase: state.phase,
     status: state.status,
     turn: { turn_id: newTurnId, role_id: roleId },
+    intent_id: oldTurn.intake_context?.intent_id || null,
     payload: {
       old_turn_id: oldTurn.turn_id,
       reason,
@@ -2665,6 +2670,7 @@ function transitionToFailedAcceptance(root, state, turn, reason, details = {}) {
     phase: state.phase,
     status: state.status,
     turn: { turn_id: turn.turn_id, role_id: turn.assigned_role },
+    intent_id: turn.intake_context?.intent_id || null,
     payload: {
       reason,
       error_code: details.error_code || 'acceptance_failed',
@@ -3186,6 +3192,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     normalized_verification: normalizedVerification,
     ...(verificationReplay ? { verification_replay: summarizeVerificationReplay(verificationReplay) } : {}),
     artifact: turnResult.artifact || {},
+    intent_id: currentTurn.intake_context?.intent_id || null,
     observed_artifact: observedArtifact,
     proposed_next_role: turnResult.proposed_next_role,
     phase_transition_request: turnResult.phase_transition_request,
@@ -3896,6 +3903,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     phase: updatedState.phase,
     status: updatedState.status,
     turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+    intent_id: currentTurn.intake_context?.intent_id || null,
     payload: turnAcceptedPayload,
   });
 
@@ -3914,6 +3922,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       phase: updatedState.phase,
       status: 'blocked',
       turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      intent_id: currentTurn.intake_context?.intent_id || null,
       payload: { category: updatedState.blocked_reason?.category || 'needs_human' },
     });
   }
@@ -4138,6 +4147,7 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
       phase: updatedState.phase,
       status: updatedState.status,
       turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      intent_id: currentTurn.intake_context?.intent_id || null,
       payload: {
         attempt: currentAttempt,
         retrying: true,
@@ -4211,6 +4221,7 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
     phase: updatedState.phase,
     status: 'blocked',
     turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+    intent_id: currentTurn.intake_context?.intent_id || null,
     payload: {
       attempt: currentAttempt,
       retrying: false,
@@ -4224,6 +4235,7 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
     run_id: updatedState.run_id,
     phase: updatedState.phase,
     status: 'blocked',
+    intent_id: currentTurn.intake_context?.intent_id || null,
     payload: { category: 'retries_exhausted' },
   });
 

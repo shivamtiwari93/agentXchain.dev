@@ -11,6 +11,8 @@ import { integrationSections } from '@site/src/data/integrations.mjs';
 
 AgentXchain is agent/IDE/LLM agnostic by design. The five adapters (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) support virtually every connection pattern. These guides show you exactly how to connect your preferred platform.
 
+Before you copy a runtime config, read the [Authority Model](/docs/authority-model). `write_authority`, runtime type, and a local CLI tool's own sandbox/approval flags are separate choices.
+
 ## How it works
 
 Every agent connects through a **runtime** configured in your `agentxchain.json`. Each runtime uses one of five adapter types:
@@ -18,7 +20,7 @@ Every agent connects through a **runtime** configured in your `agentxchain.json`
 | Adapter | When to use | Transport |
 |---------|------------|-----------|
 | `manual` | Human-in-the-loop roles | Operator reads prompt, writes result file |
-| `local_cli` | Local CLI tools (Claude Code, Codex, Cursor) | Subprocess stdin/argv |
+| `local_cli` | Local CLI tools (Claude Code, Codex, OpenClaw) | Subprocess stdin/argv |
 | `api_proxy` | Direct LLM API calls | HTTP to provider endpoint |
 | `mcp` | MCP-compatible agent servers | stdio or Streamable HTTP |
 | `remote_agent` | External agent services (Devin, custom) | HTTP POST/response |

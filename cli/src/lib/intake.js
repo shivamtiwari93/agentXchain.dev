@@ -27,6 +27,8 @@ const INTENT_ID_RE = /^intent_\d+_[0-9a-f]{4}$/;
 // intent files, but current first-party intake writers do not transition into it.
 const S1_STATES = new Set(['detected', 'triaged', 'approved', 'planned', 'executing', 'blocked', 'completed', 'failed', 'suppressed', 'rejected']);
 const TERMINAL_STATES = new Set(['suppressed', 'rejected', 'completed', 'failed']);
+const DISPATCHABLE_STATUSES = new Set(['planned', 'approved']);
+const PRIORITY_RANK = { p0: 0, p1: 1, p2: 2, p3: 3 };
 
 const VALID_TRANSITIONS = {
   detected: ['triaged', 'suppressed'],
@@ -502,6 +504,129 @@ export function intakeStatus(root, intentId) {
   return { ok: true, summary, exitCode: 0 };
 }
 
+export function findNextDispatchableIntent(root) {
+  const dirs = intakeDirs(root);
+  if (!existsSync(dirs.intents)) {
+    return { ok: false, error: 'no intents directory' };
+  }
+
+  const intents = readJsonDir(dirs.intents)
+    .filter((intent) => intent && DISPATCHABLE_STATUSES.has(intent.status));
+
+  if (intents.length === 0) {
+    return { ok: false, error: 'no dispatchable intents' };
+  }
+
+  const approved = intents.filter((intent) => intent.status === 'approved');
+  const candidates = approved.length > 0 ? approved : intents;
+
+  candidates.sort((a, b) => {
+    const aPriority = PRIORITY_RANK[a.priority] ?? Number.MAX_SAFE_INTEGER;
+    const bPriority = PRIORITY_RANK[b.priority] ?? Number.MAX_SAFE_INTEGER;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    const aTime = Date.parse(a.approved_at || a.planned_at || a.created_at || a.updated_at || 0);
+    const bTime = Date.parse(b.approved_at || b.planned_at || b.created_at || b.updated_at || 0);
+    if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) {
+      return aTime - bTime;
+    }
+
+    return String(a.intent_id || '').localeCompare(String(b.intent_id || ''));
+  });
+
+  const intent = candidates[0];
+  return {
+    ok: true,
+    intentId: intent.intent_id,
+    status: intent.status,
+    priority: intent.priority || null,
+    charter: intent.charter || null,
+    acceptance_count: Array.isArray(intent.acceptance_contract) ? intent.acceptance_contract.length : 0,
+    intent,
+  };
+}
+
+export function prepareIntentForDispatch(root, intentId, options = {}) {
+  const loadedIntent = readIntent(root, intentId);
+  if (!loadedIntent.ok) {
+    return loadedIntent;
+  }
+
+  const startingStatus = loadedIntent.intent.status;
+  let intent = loadedIntent.intent;
+  let planned = false;
+
+  if (intent.status === 'approved') {
+    const plannedResult = planIntent(root, intent.intent_id, {
+      projectName: options.projectName,
+      force: options.forcePlan === true,
+    });
+    if (!plannedResult.ok) {
+      return {
+        ok: false,
+        error: `plan failed: ${plannedResult.error}`,
+        intent_status: intent.status,
+        exitCode: plannedResult.exitCode || 1,
+      };
+    }
+    intent = plannedResult.intent;
+    planned = true;
+  }
+
+  if (intent.status === 'planned') {
+    const startResult = startIntent(root, intent.intent_id, {
+      allowTerminalRestart: options.allowTerminalRestart === true,
+      provenance: options.provenance,
+      role: options.role || undefined,
+      writeDispatchBundle: options.writeDispatchBundle,
+    });
+    if (!startResult.ok) {
+      return {
+        ok: false,
+        error: `start failed: ${startResult.error}`,
+        intent_status: intent.status,
+        exitCode: startResult.exitCode || 1,
+      };
+    }
+    return {
+      ok: true,
+      intent_id: intent.intent_id,
+      starting_status: startingStatus,
+      final_status: startResult.intent.status,
+      planned,
+      started: true,
+      run_id: startResult.run_id,
+      turn_id: startResult.turn_id,
+      role: startResult.role,
+      intent: startResult.intent,
+      exitCode: 0,
+    };
+  }
+
+  if (intent.status === 'executing') {
+    return {
+      ok: true,
+      intent_id: intent.intent_id,
+      starting_status: startingStatus,
+      final_status: intent.status,
+      planned,
+      started: false,
+      run_id: intent.target_run || null,
+      turn_id: intent.target_turn || null,
+      role: options.role || null,
+      intent,
+      exitCode: 0,
+    };
+  }
+
+  return {
+    ok: false,
+    error: `intent ${intentId} is in unsupported status "${intent.status}" for dispatch preparation`,
+    intent_status: intent.status,
+    exitCode: 1,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Approve
 // ---------------------------------------------------------------------------
@@ -750,7 +875,9 @@ export function startIntent(root, intentId, options = {}) {
   }
 
   // Assign governed turn
-  const assignResult = assignGovernedTurn(root, config, roleId.role);
+  const assignResult = assignGovernedTurn(root, config, roleId.role, {
+    intakeContext,
+  });
   if (!assignResult.ok) {
     return { ok: false, error: `turn assignment failed: ${assignResult.error}`, exitCode: 1 };
   }
@@ -763,23 +890,17 @@ export function startIntent(root, intentId, options = {}) {
     return { ok: false, error: 'turn assignment succeeded but turn not found in state', exitCode: 1 };
   }
 
-  assignedTurn.intake_context = intakeContext;
-  if (state.active_turns?.[assignedTurn.turn_id]) {
-    state.active_turns[assignedTurn.turn_id].intake_context = intakeContext;
-    safeWriteJson(statePath, state);
-  }
+  if (options.writeDispatchBundle !== false) {
+    const bundleResult = writeDispatchBundle(root, state, config);
+    if (!bundleResult.ok) {
+      return { ok: false, error: `dispatch bundle failed: ${bundleResult.error}`, exitCode: 1 };
+    }
 
-  // Write dispatch bundle
-  const bundleResult = writeDispatchBundle(root, state, config);
-  if (!bundleResult.ok) {
-    return { ok: false, error: `dispatch bundle failed: ${bundleResult.error}`, exitCode: 1 };
+    finalizeDispatchManifest(root, assignedTurn.turn_id, {
+      run_id: state.run_id,
+      role: assignedTurn.assigned_role,
+    });
   }
-
-  // Finalize dispatch manifest
-  finalizeDispatchManifest(root, assignedTurn.turn_id, {
-    run_id: state.run_id,
-    role: assignedTurn.assigned_role,
-  });
 
   // Update intent: planned → executing
   const now = nowISO();
@@ -1426,83 +1547,39 @@ export function consumePreemptionMarker(root, options = {}) {
     };
   }
 
-  const startingStatus = loadedIntent.intent.status;
-  let intent = loadedIntent.intent;
-  let planned = false;
-  let started = false;
-
-  if (intent.status === 'approved') {
-    const plannedResult = planIntent(root, intent.intent_id, {
-      projectName: options.projectName,
-      force: options.forcePlan === true,
-    });
-    if (!plannedResult.ok) {
-      return {
-        ok: false,
-        error: `failed to plan injected intent ${intent.intent_id}: ${plannedResult.error}`,
-        marker,
-        intent_status: intent.status,
-        exitCode: plannedResult.exitCode || 1,
-      };
-    }
-    intent = plannedResult.intent;
-    planned = true;
-  }
-
-  if (intent.status === 'planned') {
-    const startResult = startIntent(root, intent.intent_id, {
-      role: options.role || undefined,
-    });
-    if (!startResult.ok) {
-      return {
-        ok: false,
-        error: `failed to start injected intent ${intent.intent_id}: ${startResult.error}`,
-        marker,
-        intent_status: intent.status,
-        exitCode: startResult.exitCode || 1,
-      };
-    }
-    clearPreemptionMarker(root);
+  const prepared = prepareIntentForDispatch(root, marker.intent_id, options);
+  if (!prepared.ok) {
     return {
-      ok: true,
+      ...prepared,
+      error: `failed to prepare injected intent ${marker.intent_id}: ${prepared.error}`,
       marker,
-      intent_id: intent.intent_id,
-      starting_status: startingStatus,
-      final_status: startResult.intent.status,
-      planned,
-      started: true,
-      run_id: startResult.run_id,
-      turn_id: startResult.turn_id,
-      role: startResult.role,
-      intent: startResult.intent,
-      exitCode: 0,
     };
   }
 
-  if (intent.status === 'executing') {
+  if (prepared.final_status === 'executing') {
     clearPreemptionMarker(root);
     return {
       ok: true,
       marker,
-      intent_id: intent.intent_id,
-      starting_status: startingStatus,
-      final_status: intent.status,
-      planned,
-      started: false,
-      run_id: intent.target_run || null,
-      turn_id: intent.target_turn || null,
-      role: options.role || null,
-      intent,
+      intent_id: prepared.intent_id,
+      starting_status: prepared.starting_status,
+      final_status: prepared.final_status,
+      planned: prepared.planned,
+      started: prepared.started,
+      run_id: prepared.run_id,
+      turn_id: prepared.turn_id,
+      role: prepared.role,
+      intent: prepared.intent,
       exitCode: 0,
     };
   }
 
   return {
     ok: false,
-    error: `cannot consume preemption marker from intent status "${intent.status}"`,
+    error: `cannot consume preemption marker from intent status "${prepared.final_status}"`,
     marker,
-    intent_id: intent.intent_id,
-    intent_status: intent.status,
+    intent_id: prepared.intent_id,
+    intent_status: prepared.final_status,
     exitCode: 1,
   };
 }

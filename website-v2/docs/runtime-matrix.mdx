@@ -8,6 +8,8 @@ description: "Canonical reference for all five runtimes, three authority levels,
 
 This is the single source of truth for AgentXchain runtimes and authority levels. Every runtime mention in the docs either links here or is flagged as historical.
 
+Before you wire a runtime into a role, read the [Authority Model](/docs/authority-model). `write_authority`, runtime type, and the downstream CLI's own sandbox/approval mode are separate choices.
+
 ## Runtimes
 
 AgentXchain supports five runtime types. Each runtime defines how an agent receives work and returns results.
@@ -15,7 +17,7 @@ AgentXchain supports five runtime types. Each runtime defines how an agent recei
 | Runtime | Transport | Local Binary? | Writes Files | Proposal Support | Example Use |
 |---------|-----------|:---:|---|---|---|
 | `manual` | Operator-driven | No | Direct | None | Human planning, review, manual QA |
-| `local_cli` | Local subprocess | Yes | Direct | Optional | Claude Code, Codex CLI, Cursor agent |
+| `local_cli` | Local subprocess | Yes | Direct | Optional | Claude Code, Codex CLI, OpenClaw |
 | `api_proxy` | Provider API | No | Proposal only | Native | Cloud model review, automated QA |
 | `mcp` | MCP stdio / HTTP | Depends | Tool-defined | Tool-defined | MCP tool servers, custom agents |
 | `remote_agent` | Remote HTTP | No | Proposal only | Native | External agent services, Devin, Jules |
@@ -151,6 +153,7 @@ agentxchain connector validate <runtime_id>  # runtime-specific probe
 
 ## Related
 
+- [Authority Model](/docs/authority-model) — how protocol authority, runtime type, and CLI sandbox mode interact
 - [Adapters](/docs/adapters) — adapter implementation details and filesystem contract
 - [Getting Started](/docs/getting-started) — first governed run with mixed runtimes
 - [Integration Guide](/docs/integration-guide) — connecting specific CLI tools

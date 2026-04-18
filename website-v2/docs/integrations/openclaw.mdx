@@ -7,6 +7,8 @@ description: "Connect OpenClaw to AgentXchain as a governed local CLI agent."
 
 [OpenClaw](https://openclaw.ai) is an open-source AI agent platform with 100K+ GitHub stars. It connects to AgentXchain via the `local_cli` adapter, running the `openclaw` CLI as a subprocess for each governed turn.
 
+Before you wire OpenClaw into a governed role, read the [Authority Model](/docs/authority-model). `write_authority`, `local_cli`, and the subprocess' own non-interactive mode are separate concerns.
+
 ## Which adapter?
 
 **`local_cli`** — AgentXchain spawns `openclaw` as a subprocess, pipes the governed prompt via stdin, and reads the turn result from the staged output.
@@ -39,7 +41,7 @@ Add a runtime to your `agentxchain.json`:
     "dev": {
       "runtime": "openclaw-dev",
       "mandate": "Implement features and fix bugs",
-      "authority": "proposed"
+      "write_authority": "authoritative"
     }
   }
 }
@@ -96,29 +98,26 @@ OpenClaw excels at agentic tasks. Use it alongside other agents in a multi-role 
       "cwd": ".",
       "prompt_transport": "stdin"
     },
-    "claude-review": {
-      "type": "local_cli",
-      "command": ["claude", "--print", "--dangerously-skip-permissions"],
-      "cwd": ".",
-      "prompt_transport": "stdin"
+    "manual-review": {
+      "type": "manual"
     }
   },
   "roles": {
     "dev": {
       "runtime": "openclaw-impl",
       "mandate": "Implement features, write tests, fix bugs",
-      "authority": "proposed"
+      "write_authority": "authoritative"
     },
     "reviewer": {
-      "runtime": "claude-review",
+      "runtime": "manual-review",
       "mandate": "Review code quality, challenge assumptions, verify correctness",
-      "authority": "review_only"
+      "write_authority": "review_only"
     }
   }
 }
 ```
 
-This gives you OpenClaw as the implementer and Claude Code as the reviewer — both governed by AgentXchain's turn structure, challenge requirements, and phase gates.
+This gives you OpenClaw as the implementer and a manual governed reviewer preserving the `review_only` contract. If you want automated review-only execution, move the reviewer to `api_proxy`, `remote_agent`, or a review-only MCP server.
 
 ## AgentXchain as an OpenClaw plugin
 
@@ -135,6 +134,7 @@ The plugin exposes three tools to OpenClaw:
 ## Gotchas
 
 - **`--non-interactive` is required** for governed subprocess execution. Without it, OpenClaw may prompt for user input and the subprocess will hang.
+- **Do not pair `review_only` with `local_cli`.** If you need review-only execution, keep the reviewer on `manual`, `api_proxy`, `remote_agent`, or a tool-constrained MCP runtime.
 - **Gateway mode is not yet supported.** The OpenClaw remote Gateway at `ws://127.0.0.1:18789` uses a WebSocket protocol. AgentXchain's `remote_agent` adapter expects HTTP. Do not configure `remote_agent` for OpenClaw until the Gateway publishes a stable REST contract.
 - **Model configuration is OpenClaw's responsibility.** AgentXchain dispatches the prompt; OpenClaw routes it to whatever model is configured in its own settings. AgentXchain's `budget.max_tokens_per_turn` controls the prompt size, not OpenClaw's internal token management.
 - **Long-running turns**: OpenClaw agent tasks can take several minutes. Set `timeouts.turn_timeout_ms` appropriately (default is 300000ms / 5 minutes).

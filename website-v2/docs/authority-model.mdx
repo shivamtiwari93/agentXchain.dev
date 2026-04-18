@@ -1,0 +1,138 @@
+---
+sidebar_position: 6
+title: Authority Model
+description: "How write_authority, runtime type, and CLI sandbox/approval mode interact."
+---
+
+# Authority Model
+
+The beta-tester confusion was justified: AgentXchain authority is not one setting. You must choose across three independent axes:
+
+1. **Protocol authority**: `write_authority`
+2. **Runtime transport**: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`
+3. **Tool execution authority**: the downstream CLI's own sandbox / approval mode
+
+If you collapse those into one idea, you will misconfigure the run.
+
+## The Three Axes
+
+| Axis | Config surface | What it answers | Typical values |
+|---|---|---|---|
+| Protocol authority | `roles.<id>.write_authority` | What kind of output the turn is allowed to produce | `authoritative`, `proposed`, `review_only` |
+| Runtime transport | `runtimes.<id>.type` | How the work is executed and whether the transport can physically write | `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent` |
+| Tool execution authority | runtime command flags or external sandbox | What the downstream tool can actually do at runtime | `claude --dangerously-skip-permissions`, `codex --dangerously-bypass-approvals-and-sandbox`, provider-side no-write APIs |
+
+## Axis 1: `write_authority`
+
+`write_authority` is the governed contract for the role:
+
+- `authoritative`: the role owns direct output and may complete workspace-writing turns.
+- `proposed`: the role may produce patch-shaped proposals that require explicit apply or acceptance.
+- `review_only`: the role may review, challenge, attest, and write review artifacts only.
+
+This is the protocol-level promise. It is not the same thing as the runtime's physical capabilities.
+
+## Axis 2: Runtime Type
+
+Runtime type determines how the turn is executed:
+
+- `manual`: human-in-the-loop; the operator performs the work.
+- `local_cli`: a local subprocess with direct access to the repo.
+- `api_proxy`: provider API call; no direct local repo writes.
+- `mcp`: tool-defined behavior; capability depends on the MCP server.
+- `remote_agent`: remote HTTP service; proposal/review only in the current contract.
+
+For the full valid binding matrix, see the [Runtime Matrix](/docs/runtime-matrix).
+
+## Axis 3: Downstream CLI Sandbox / Approval Mode
+
+This axis matters most for `local_cli`.
+
+AgentXchain can mark a role `authoritative`, but the downstream tool still needs enough permission to perform unattended writes. If the CLI keeps its own approval prompt or sandbox restriction, the governed turn is not truly unattended even if the config says `authoritative`.
+
+### Local CLI authority examples
+
+| Goal | Runtime | `write_authority` | Tool mode | Result |
+|---|---|---|---|---|
+| Human review only | `manual` | `review_only` | n/a | Valid |
+| Unattended Claude Code implementation | `local_cli` | `authoritative` | `claude --print --dangerously-skip-permissions` | Valid |
+| Unattended Codex implementation | `local_cli` | `authoritative` | `codex --quiet --dangerously-bypass-approvals-and-sandbox {prompt}` | Valid |
+| Codex with weaker approval mode | `local_cli` | `authoritative` | `codex --quiet --full-auto {prompt}` | Not sufficient for fully authoritative unattended local writes |
+| Remote model review | `api_proxy` | `review_only` | provider API | Valid |
+| Remote proposed patch flow | `api_proxy` | `proposed` | provider API | Valid |
+| Review-only local subprocess | `local_cli` | `review_only` | any flags | Invalid |
+
+### Why `codex --full-auto` is not enough for authoritative unattended turns
+
+`--full-auto` and "approval mode" settings are about Codex's own interaction model. They are not the same thing as giving the subprocess full governed write authority in the local repo. For authoritative unattended AgentXchain turns, use:
+
+```json
+{
+  "type": "local_cli",
+  "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+  "cwd": ".",
+  "prompt_transport": "argv"
+}
+```
+
+If you want a safer or more review-oriented flow, use `proposed` with a remote runtime, or keep the role on `manual`.
+
+### Why `review_only + local_cli` is invalid
+
+`local_cli` exposes a local subprocess with repo access. Even if the prompt says "review only", the runtime itself can write. That is why `agentxchain validate` rejects `review_only + local_cli`.
+
+Use one of these instead:
+
+- `review_only + manual`
+- `review_only + api_proxy`
+- `review_only + remote_agent`
+- `review_only + mcp` when the MCP tool contract is truly review-only
+
+## Recommended Patterns
+
+### Pattern A: Human planning, automated implementation
+
+- PM: `review_only + manual`
+- Dev: `authoritative + local_cli`
+- QA: `review_only + api_proxy`
+
+This is the mixed-mode default because each role's authority matches the transport realistically.
+
+### Pattern B: Full local CLI automation with human gates
+
+- PM: `authoritative + local_cli`
+- Dev: `authoritative + local_cli`
+- QA: `authoritative + local_cli`
+- Director: `authoritative + local_cli`
+- Human approvals stay at the phase gates
+
+This is the "all automated turns, human gate approvals only" pattern. The runtime commands must use real unattended authority flags.
+
+### Pattern C: Editor + terminal hybrid
+
+Tools like Cursor and Windsurf are editors, not governed runtimes. The editor does not set authority. The governed runtime is still the separate CLI tool running in the integrated terminal.
+
+Example:
+
+- Editor: Cursor
+- Runtime: `local_cli`
+- Tool: Claude Code or Codex
+- Authority outcome: determined by `write_authority` plus the CLI's own flags
+
+## Decision Rules
+
+Use this order when configuring a role:
+
+1. Choose the role's governed intent with `write_authority`.
+2. Choose a runtime that can honestly satisfy that intent.
+3. If the runtime is `local_cli`, choose downstream CLI flags that match the governed intent.
+
+If those three choices disagree, the config is wrong.
+
+## Related
+
+- [Runtime Matrix](/docs/runtime-matrix)
+- [Integration Guide](/docs/integration-guide)
+- [Claude Code](/docs/integrations/claude-code)
+- [OpenAI Codex CLI](/docs/integrations/openai-codex-cli)
+- [Cursor](/docs/integrations/cursor)

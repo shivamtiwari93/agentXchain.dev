@@ -148,12 +148,13 @@ describe('Continuous Run', () => {
       assert.equal(result.status, 'planned');
     });
 
-    it('prefers planned over approved', () => {
+    it('prefers approved over planned when any approved intent is queued', () => {
       writeIntent(tmpDir, { intentId: 'intent_a', status: 'approved', charter: 'A' });
       writeIntent(tmpDir, { intentId: 'intent_p', status: 'planned', charter: 'P' });
       const result = findNextQueuedIntent(tmpDir);
       assert.ok(result.ok);
-      assert.equal(result.status, 'planned');
+      assert.equal(result.status, 'approved');
+      assert.equal(result.intentId, 'intent_a');
     });
   });
 

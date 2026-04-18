@@ -7,6 +7,8 @@ description: "Connect Claude Code to AgentXchain as a governed local CLI agent."
 
 [Claude Code](https://claude.ai/code) is Anthropic's agentic coding tool that runs in your terminal. It connects to AgentXchain via the `local_cli` adapter, running `claude` as a subprocess for each governed turn.
 
+Before you wire Claude Code into a governed role, read the [Authority Model](/docs/authority-model). `write_authority`, `local_cli`, and Claude's own permission mode are separate axes.
+
 ## Which adapter?
 
 **`local_cli`** — AgentXchain spawns `claude` as a subprocess, pipes the governed prompt via stdin, and reads the turn result from the staged output.
@@ -35,7 +37,7 @@ Add a runtime to your `agentxchain.json`:
     "dev": {
       "runtime": "claude-dev",
       "mandate": "Implement features and fix bugs",
-      "authority": "proposed"
+      "write_authority": "authoritative"
     }
   }
 }
@@ -48,6 +50,12 @@ Add a runtime to your `agentxchain.json`:
 | `command` | `["claude", "--print", "--dangerously-skip-permissions"]` | `--print` outputs to stdout (non-interactive). `--dangerously-skip-permissions` lets Claude write files without confirmation prompts. |
 | `prompt_transport` | `"stdin"` | The governed prompt is piped to Claude Code's stdin. |
 | `cwd` | `"."` | Run in the project root so Claude Code sees your repo. |
+
+### Authority mapping
+
+- **`write_authority`**: use `authoritative` when Claude Code is expected to write directly into the repo.
+- **Runtime type**: `local_cli`.
+- **Downstream CLI authority**: `--dangerously-skip-permissions` is the flag that makes unattended local writes possible.
 
 ## Verify the connection
 

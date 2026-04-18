@@ -84,6 +84,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'integration-guide',
         'runtime-matrix',
+        'authority-model',
         'adapters',
         'build-your-own-connector',
       ],

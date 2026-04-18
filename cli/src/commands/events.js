@@ -61,6 +61,7 @@ function printEvent(evt) {
   const runId = evt.run_id ? evt.run_id.slice(0, 12) : '—';
   const phase = evt.phase || '—';
   const turnInfo = evt.turn?.role_id ? ` [${evt.turn.role_id}]` : '';
+  const intentInfo = evt.intent_id ? ` intent=${evt.intent_id}` : '';
   const conflictDetail = evt.event_type === 'turn_conflicted'
     ? ` — ${formatConflictDetail(evt)}`
     : '';
@@ -81,7 +82,7 @@ function printEvent(evt) {
     : evt.event_type === 'human_escalation_resolved' && evt.payload?.escalation_id
       ? ` ${evt.payload.escalation_id} via ${evt.payload.resolved_via || '?'}`
       : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${conflictDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}`);
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${intentInfo}${conflictDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}`);
 }
 
 function formatConflictDetail(evt) {

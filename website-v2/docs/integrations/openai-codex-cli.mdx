@@ -7,6 +7,8 @@ description: "Connect OpenAI Codex CLI to AgentXchain as a governed local agent.
 
 [Codex CLI](https://github.com/openai/codex) is OpenAI's open-source agentic coding tool. It connects to AgentXchain via the `local_cli` adapter.
 
+Before you wire Codex into a governed role, read the [Authority Model](/docs/authority-model). `write_authority`, `local_cli`, and Codex's own approval/sandbox mode are separate axes.
+
 ## Which adapter?
 
 **`local_cli`** — AgentXchain spawns `codex` as a subprocess for each governed turn.
@@ -24,7 +26,7 @@ description: "Connect OpenAI Codex CLI to AgentXchain as a governed local agent.
   "runtimes": {
     "codex-dev": {
       "type": "local_cli",
-      "command": ["codex", "--quiet", "--full-auto"],
+      "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
       "cwd": ".",
       "prompt_transport": "argv"
     }
@@ -33,7 +35,7 @@ description: "Connect OpenAI Codex CLI to AgentXchain as a governed local agent.
     "dev": {
       "runtime": "codex-dev",
       "mandate": "Implement features and fix bugs",
-      "authority": "proposed"
+      "write_authority": "authoritative"
     }
   }
 }
@@ -43,8 +45,14 @@ description: "Connect OpenAI Codex CLI to AgentXchain as a governed local agent.
 
 | Field | Value | Why |
 |-------|-------|-----|
-| `command` | `["codex", "--quiet", "--full-auto"]` | `--quiet` suppresses interactive output. `--full-auto` allows file writes without confirmation. |
-| `prompt_transport` | `"argv"` | The prompt is passed as a command-line argument. Use `"stdin"` if your Codex version supports piped input. |
+| `command` | `["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"]` | `--quiet` suppresses interactive output. `--dangerously-bypass-approvals-and-sandbox` is the full-authority local CLI mode for unattended governed writes. |
+| `prompt_transport` | `"argv"` | The prompt is passed through the `{prompt}` placeholder as a command-line argument. |
+
+### Authority mapping
+
+- **`write_authority`**: use `authoritative` when Codex is expected to write directly into the repo.
+- **Runtime type**: `local_cli`.
+- **Downstream CLI authority**: `--dangerously-bypass-approvals-and-sandbox` is the required Codex mode for unattended authoritative local writes.
 
 ## Verify the connection
 
@@ -74,6 +82,6 @@ Then update `agentxchain.json` with the Codex runtime above, run `agentxchain do
 
 ## Gotchas
 
-- **`--full-auto` is required** for non-interactive governed execution. Without it, Codex will prompt for approval on file changes.
+- **Do not rely on `--full-auto` for authoritative unattended runs.** Use `--dangerously-bypass-approvals-and-sandbox` when the governed role is meant to have real local write authority.
 - **Model selection**: Codex CLI defaults to a Codex-optimized model. You can override with `--model gpt-5.4` if needed, but the default is usually better for coding tasks.
 - **Working directory**: Codex CLI operates on the current working directory. The `cwd` field ensures it runs in your project root.

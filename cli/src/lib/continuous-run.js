@@ -9,7 +9,7 @@
  * Decision: DEC-VISION-CONTINUOUS-001
  */
 
-import { existsSync, readFileSync, readdirSync, mkdirSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { resolveVisionPath, deriveVisionCandidates } from './vision-reader.js';
@@ -17,8 +17,8 @@ import {
   recordEvent,
   triageIntent,
   approveIntent,
-  planIntent,
-  startIntent,
+  findNextDispatchableIntent,
+  prepareIntentForDispatch,
   resolveIntent,
 } from './intake.js';
 import { loadProjectState } from './config.js';
@@ -112,40 +112,6 @@ function isBlockedContinuousExecution(execution) {
 // Intake queue check
 // ---------------------------------------------------------------------------
 
-/**
- * Find the next approved or planned intent in the intake queue.
- *
- * @param {string} root
- * @returns {{ ok: boolean, intentId?: string, status?: string }}
- */
-export function findNextQueuedIntent(root) {
-  const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
-  if (!existsSync(intentsDir)) return { ok: false };
-
-  const files = readdirSync(intentsDir).filter(f => f.endsWith('.json') && !f.startsWith('.tmp-'));
-
-  // Priority order: planned > approved (planned is closer to execution)
-  let bestPlanned = null;
-  let bestApproved = null;
-
-  for (const file of files) {
-    try {
-      const intent = JSON.parse(readFileSync(join(intentsDir, file), 'utf8'));
-      if (intent.status === 'planned' && !bestPlanned) {
-        bestPlanned = { intentId: intent.intent_id, status: 'planned' };
-      } else if (intent.status === 'approved' && !bestApproved) {
-        bestApproved = { intentId: intent.intent_id, status: 'approved' };
-      }
-    } catch {
-      // skip corrupt
-    }
-  }
-
-  if (bestPlanned) return { ok: true, ...bestPlanned };
-  if (bestApproved) return { ok: true, ...bestApproved };
-  return { ok: false };
-}
-
 function readIntent(root, intentId) {
   const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`);
   if (!existsSync(intentPath)) return null;
@@ -166,50 +132,8 @@ function buildContinuousProvenance(intentId, options = {}) {
   };
 }
 
-function prepareIntentForRun(root, intentId, options = {}) {
-  let intent = readIntent(root, intentId);
-  if (!intent) {
-    return { ok: false, error: `intent ${intentId} not found` };
-  }
-
-  if (intent.status === 'approved') {
-    const planned = planIntent(root, intentId);
-    if (!planned.ok) {
-      return { ok: false, error: `plan failed: ${planned.error}` };
-    }
-    intent = planned.intent;
-  }
-
-  if (intent.status === 'planned') {
-    const started = startIntent(root, intentId, {
-      allowTerminalRestart: true,
-      provenance: options.provenance,
-    });
-    if (!started.ok) {
-      return { ok: false, error: `start failed: ${started.error}` };
-    }
-    intent = started.intent;
-    return {
-      ok: true,
-      intent,
-      runId: started.run_id,
-      turnId: started.turn_id,
-    };
-  }
-
-  if (intent.status === 'executing') {
-    return {
-      ok: true,
-      intent,
-      runId: intent.target_run || null,
-      turnId: intent.target_turn || null,
-    };
-  }
-
-  return {
-    ok: false,
-    error: `intent ${intentId} is in unsupported status "${intent.status}" for continuous execution`,
-  };
+export function findNextQueuedIntent(root) {
+  return findNextDispatchableIntent(root);
 }
 
 // ---------------------------------------------------------------------------
@@ -420,7 +344,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   }
 
   // Step 1: Check intake queue for pending work
-  const queued = findNextQueuedIntent(root);
+  const queued = findNextDispatchableIntent(root);
   let targetIntentId = null;
   let visionObjective = null;
 
@@ -467,7 +391,10 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     trigger: visionObjective ? 'vision_scan' : 'intake',
     triggerReason: visionObjective || readIntent(root, targetIntentId)?.charter || null,
   });
-  const preparedIntent = prepareIntentForRun(root, targetIntentId, { provenance });
+  const preparedIntent = prepareIntentForDispatch(root, targetIntentId, {
+    allowTerminalRestart: true,
+    provenance,
+  });
   if (!preparedIntent.ok) {
     log(`Continuous start error: ${preparedIntent.error}`);
     session.status = 'failed';
@@ -476,7 +403,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   }
 
   // Execute the governed run
-  session.current_run_id = preparedIntent.runId;
+  session.current_run_id = preparedIntent.run_id;
   session.current_vision_objective = visionObjective || preparedIntent.intent?.charter || null;
   session.status = 'running';
   writeContinuousSession(root, session);
@@ -497,12 +424,12 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
       status: 'failed',
       action: 'run_failed',
       stop_reason: err.message,
-      run_id: preparedIntent.runId || null,
+      run_id: preparedIntent.run_id || null,
       intent_id: targetIntentId,
     };
   }
 
-  session.current_run_id = execution.result?.state?.run_id || preparedIntent.runId || null;
+  session.current_run_id = execution.result?.state?.run_id || preparedIntent.run_id || null;
   session.cumulative_spent_usd = (session.cumulative_spent_usd || 0) + getExecutionRunSpentUsd(execution);
 
   const stopReason = execution.result?.stop_reason;

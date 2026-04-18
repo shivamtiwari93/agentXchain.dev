@@ -639,6 +639,7 @@ program
   .description('Resume a governed project: initialize or continue a run and assign the next turn')
   .option('--role <role>', 'Override the target role (default: phase entry role)')
   .option('--turn <id>', 'Target a specific retained turn when multiple exist')
+  .option('--no-intent', 'Do not bind the next queued approved/planned intake intent to the next turn')
   .action(resumeCommand);
 
 program
@@ -695,6 +696,7 @@ program
   .option('--role <role>', 'Override the target role (default: phase entry role)')
   .option('--resume', 'Resume waiting for an already-active turn')
   .option('--turn <id>', 'Target a specific active turn (required with --resume when multiple turns exist)')
+  .option('--no-intent', 'Do not bind the next queued approved/planned intake intent to the next turn')
   .option('--poll <seconds>', 'Polling interval for manual adapter in seconds', '2')
   .option('--verbose', 'Stream local_cli subprocess output while the turn is running')
   .option('--stream', 'Stream live subprocess output to terminal (alias for --verbose)')

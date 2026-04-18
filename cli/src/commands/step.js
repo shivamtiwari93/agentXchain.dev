@@ -69,6 +69,7 @@ import { finalizeDispatchManifest, verifyDispatchManifest } from '../lib/dispatc
 import { resolveGovernedRole } from '../lib/role-resolution.js';
 import { shouldSuggestManualQaFallback } from '../lib/manual-qa-fallback.js';
 import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
+import { findNextDispatchableIntent, prepareIntentForDispatch } from '../lib/intake.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -314,16 +315,34 @@ export async function stepCommand(opts) {
         process.exit(1);
       }
 
-      const assignResult = assignGovernedTurn(root, config, roleId);
-      if (!assignResult.ok) {
-        if (assignResult.error_code?.startsWith('hook_') || assignResult.error_code === 'hook_blocked') {
-          printAssignmentHookFailure(assignResult, roleId, config);
+      const shouldBindIntent = opts.intent !== false;
+      const queuedIntent = shouldBindIntent ? findNextDispatchableIntent(root) : { ok: false };
+      if (queuedIntent.ok) {
+        const preparedIntent = prepareIntentForDispatch(root, queuedIntent.intentId, {
+          role: roleId,
+          writeDispatchBundle: false,
+        });
+        if (!preparedIntent.ok) {
+          console.log(chalk.red(`Failed to bind queued intent ${queuedIntent.intentId}: ${preparedIntent.error}`));
+          process.exit(1);
         }
-        console.log(chalk.red(`Failed to assign turn: ${assignResult.error}`));
-        process.exit(1);
+        state = loadProjectState(root, config);
+        if (!state) {
+          console.log(chalk.red('Failed to reload governed state after intake binding.'));
+          process.exit(1);
+        }
+      } else {
+        const assignResult = assignGovernedTurn(root, config, roleId);
+        if (!assignResult.ok) {
+          if (assignResult.error_code?.startsWith('hook_') || assignResult.error_code === 'hook_blocked') {
+            printAssignmentHookFailure(assignResult, roleId, config);
+          }
+          console.log(chalk.red(`Failed to assign turn: ${assignResult.error}`));
+          process.exit(1);
+        }
+        printAssignmentWarnings(assignResult);
+        state = assignResult.state;
       }
-      printAssignmentWarnings(assignResult);
-      state = assignResult.state;
 
       const bundleResult = writeDispatchBundle(root, state, config);
       if (!bundleResult.ok) {

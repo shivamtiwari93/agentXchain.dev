@@ -11,6 +11,8 @@ description: "Use Cursor as your editor while AgentXchain governs a CLI agent ru
 
 The closest supported path is to **use Cursor as your editing environment** while connecting a separate CLI agent as the governed runtime.
 
+Read the [Authority Model](/docs/authority-model) before you configure the terminal-side runtime. Cursor is the editor, not the governed runtime.
+
 ## Recommended setup: Cursor as editor + CLI agent runtime
 
 Edit your code in Cursor. Run AgentXchain in Cursor's integrated terminal with a proven CLI agent handling the governed turns.
@@ -31,7 +33,7 @@ Edit your code in Cursor. Run AgentXchain in Cursor's integrated terminal with a
     "dev": {
       "runtime": "claude-dev",
       "mandate": "Implement features following project conventions",
-      "authority": "proposed"
+      "write_authority": "authoritative"
     }
   }
 }
@@ -44,20 +46,26 @@ Edit your code in Cursor. Run AgentXchain in Cursor's integrated terminal with a
   "runtimes": {
     "codex-dev": {
       "type": "local_cli",
-      "command": ["codex", "--approval-mode", "full-auto"],
+      "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
       "cwd": ".",
-      "prompt_transport": "stdin"
+      "prompt_transport": "argv"
     }
   },
   "roles": {
     "dev": {
       "runtime": "codex-dev",
       "mandate": "Implement features following project conventions",
-      "authority": "proposed"
+      "write_authority": "authoritative"
     }
   }
 }
 ```
+
+### Authority mapping
+
+- **`write_authority`**: the governed role should usually be `authoritative` for local CLI implementation turns.
+- **Runtime type**: `local_cli` on the separate Claude Code or Codex runtime, not on Cursor itself.
+- **Downstream CLI authority**: the terminal-side tool still needs its own unattended-write flag (`--dangerously-skip-permissions` for Claude Code, `--dangerously-bypass-approvals-and-sandbox` for Codex).
 
 ## Minimal working example
 
@@ -85,6 +93,7 @@ Cursor's Composer, Chat, and agent mode work inside the editor while AgentXchain
 
 - **Cursor AI** — ad-hoc coding assistance within the editor (autocomplete, refactoring, chat)
 - **AgentXchain** — governed multi-agent turns, role enforcement, artifact tracking, phase gates
+- **Authority model** — still defined by the separate governed runtime in the terminal, not by Cursor itself
 
 ## Future: if Cursor adds a headless CLI mode
 

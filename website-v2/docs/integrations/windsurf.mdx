@@ -11,6 +11,8 @@ description: "Use Windsurf as your editor while AgentXchain governs a CLI agent 
 
 The closest supported path is to **use Windsurf as your editing environment** while connecting a separate CLI agent as the governed runtime.
 
+Read the [Authority Model](/docs/authority-model) before you configure the terminal-side runtime. Windsurf is the editor, not the governed runtime.
+
 ## Recommended setup: Windsurf as editor + CLI agent runtime
 
 Edit your code in Windsurf. Run AgentXchain in Windsurf's integrated terminal with a proven CLI agent handling the governed turns.
@@ -31,7 +33,7 @@ Edit your code in Windsurf. Run AgentXchain in Windsurf's integrated terminal wi
     "dev": {
       "runtime": "claude-dev",
       "mandate": "Implement features and fix bugs",
-      "authority": "proposed"
+      "write_authority": "authoritative"
     }
   }
 }
@@ -44,16 +46,16 @@ Edit your code in Windsurf. Run AgentXchain in Windsurf's integrated terminal wi
   "runtimes": {
     "codex-dev": {
       "type": "local_cli",
-      "command": ["codex", "--approval-mode", "full-auto"],
+      "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
       "cwd": ".",
-      "prompt_transport": "stdin"
+      "prompt_transport": "argv"
     }
   },
   "roles": {
     "dev": {
       "runtime": "codex-dev",
       "mandate": "Implement features and fix bugs",
-      "authority": "proposed"
+      "write_authority": "authoritative"
     }
   }
 }
@@ -79,6 +81,7 @@ Windsurf's Cascade (agentic mode) and autocomplete work inside the editor while 
 
 - **Windsurf Cascade** — ad-hoc coding assistance within the editor
 - **AgentXchain** — governed multi-agent turns, role enforcement, artifact tracking, phase gates
+- **Authority model** — still defined by the separate governed runtime in the terminal, not by Windsurf itself
 
 ## Future: if Windsurf adds a headless CLI
 

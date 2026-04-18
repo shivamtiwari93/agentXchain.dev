@@ -43,6 +43,7 @@ export const VALID_RUN_EVENTS = [
  * @param {string} [details.phase]   - Current phase
  * @param {string} [details.status]  - Current run status
  * @param {object} [details.turn]    - Turn context (turn_id, role_id, etc.)
+ * @param {string} [details.intent_id] - Intake intent id when the event services queued intake work
  * @param {object} [details.payload] - Additional event-specific data
  * @returns {{ ok: boolean, event_id: string }}
  */
@@ -56,6 +57,7 @@ export function emitRunEvent(root, eventType, details = {}) {
     phase: details.phase || null,
     status: details.status || null,
     turn: details.turn || null,
+    intent_id: details.intent_id || null,
     payload: details.payload || {},
   };
 
