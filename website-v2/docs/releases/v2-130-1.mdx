@@ -1,0 +1,54 @@
+---
+sidebar_position: 0
+title: "v2.130.1 Release Notes"
+---
+
+# AgentXchain v2.130.1
+
+`v2.130.1` fixes the false-closure discipline gap exposed by the beta tester's sixth report and corrects the Codex local CLI command contract. Every beta-tester bug (BUG-1 through BUG-30) now has a dedicated regression test exercising the actual operator command sequence, and the full scenario suite gates every release.
+
+**Released:** 2026-04-18
+
+## What Changed
+
+### BUG-25: `reissue-turn` runtime resolution
+
+`reissueTurn()` used `role.runtime` from normalized config where only `runtime_id` exists, producing `Runtime 'undefined' not found`. Fixed to use `role.runtime_id || role.runtime`, matching all other runtime resolution sites.
+
+### BUG-26: `doctor` spawn-context parity
+
+`doctor`, `connector check`, and `connector validate` now probe runtimes using the same `spawn` context as real governed dispatch. If `doctor` says a runtime is healthy, dispatch will not fail with ENOENT.
+
+### Codex local CLI command contract
+
+All docs, examples, and connector checks now use `codex exec --dangerously-bypass-approvals-and-sandbox` instead of the invalid `codex --quiet` recipe. Spawn-probe timeouts are treated as successful resolution for slow local CLIs.
+
+### 29 beta-tester scenario regression tests
+
+One test per BUG-1 through BUG-23 and BUG-25 through BUG-30, exercising actual operator command sequences with normalized configs and real git state. Gated in CI and release preflight. Completeness contract prevents drift.
+
+### BUG-23 checkpoint handoff multi-run E2E
+
+Proves `--continuous --auto-checkpoint` drives pm-dev-qa across separate governed runs with checkpoint commits between handoffs.
+
+### Coordinator-wave failure E2E
+
+Proves `--continue-on-failure` and failure-stops-wave semantics with real wave dispatch.
+
+### Missions docs corrected
+
+Coordinator `--all-ready` and `mission plan autopilot` documented as shipped wave surfaces. Repo-local recovery walkthrough added for failed coordinator workstreams.
+
+## Evidence
+
+- 5,844 tests / 1,250 suites / 0 failures
+- 29 beta-tester scenario regression tests
+- Website build clean
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.130.1
+# or
+brew upgrade agentxchain
+```

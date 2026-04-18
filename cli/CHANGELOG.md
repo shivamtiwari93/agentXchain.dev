@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.130.1
+
+### Beta-Fix Discipline + Codex Command Contract
+
+- **BUG-25 fix — `reissue-turn` runtime resolution:** `reissueTurn()` now uses `role.runtime_id || role.runtime` to match all other runtime resolution sites. Previously it read `role.runtime` from normalized config where only `runtime_id` exists, producing "Runtime 'undefined' not found." (`DEC-BUG25-RUNTIME-RESOLUTION-001`)
+- **BUG-26 fix — `doctor` spawn-context parity:** `doctor`, `connector check`, and `connector validate` now probe runtimes using the same `spawn` context as real governed dispatch instead of shell lookup. If `doctor` says a runtime is healthy, dispatch will not fail with ENOENT. (`DEC-BUG26-SPAWN-PARITY-001`)
+- **Codex local CLI command contract corrected:** all docs, examples, and connector checks now use `codex exec --dangerously-bypass-approvals-and-sandbox` instead of the invalid `codex --quiet` recipe. Spawn-probe timeouts are treated as successful resolution for slow local CLIs. (`DEC-CODEX-LOCAL-CLI-001`, `DEC-SPAWN-PROBE-TIMEOUT-001`)
+- **29 beta-tester scenario regression tests:** one test per BUG-1 through BUG-23 and BUG-25 through BUG-30, exercising actual operator command sequences with normalized configs and real git state. Gated in CI (`npm test`) and release preflight (`--publish-gate`). Completeness contract test prevents drift. (`DEC-BETA-RELEASE-GATE-001`, `DEC-SCENARIO-BACKFILL-001`)
+- **BUG-23 checkpoint handoff multi-run E2E proof:** proves `--continuous --auto-checkpoint` drives pm→dev→qa across separate governed runs with checkpoint commits between handoffs.
+- **Coordinator-wave failure E2E:** proves `--continue-on-failure` and failure-stops-wave semantics with real wave dispatch.
+- **Continuous api_proxy fixture fix:** `--continuous` fixtures now initialize git repos and respect `review_only` authority.
+- **Missions docs corrected:** coordinator `--all-ready` and `mission plan autopilot` documented as shipped wave surfaces, not fail-closed placeholders. Repo-local recovery walkthrough added.
+
+### Evidence
+
+- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
+
 ## 2.130.0
 
 ### Accepted-Turn State Reconciliation + Repo Checkpoint

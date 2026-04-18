@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.130.0
+# Launch Evidence Report — AgentXchain v2.130.1
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.130.0 correction release. Current aggregate release evidence: 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.130.1 beta-fix discipline release. Current aggregate release evidence: 5,844 tests / 1,250 suites / 0 failures. 108 conformance fixtures. 29 beta-tester scenario regressions. Website build clean.
 
 ---
 
