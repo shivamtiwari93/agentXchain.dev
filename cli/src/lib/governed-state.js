@@ -3143,6 +3143,70 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     }
   }
 
+  // ── Gate semantic coverage validation (BUG-36) ────────────────────────────
+  // When a turn proposes a phase transition, pre-evaluate the gate. If the gate
+  // would fail AND the failing files are not in files_changed, reject the turn
+  // early — the agent didn't do the work required for the transition.
+  if (turnResult.phase_transition_request) {
+    const preGateResult = evaluatePhaseExit({
+      state,
+      config,
+      acceptedTurn: turnResult,
+      root,
+    });
+
+    if (preGateResult.action === 'gate_failed') {
+      // Gate is failing. Check if any of the failing reasons reference files
+      // that this turn didn't modify.
+      const declaredFiles = new Set((turnResult.files_changed || []).map(f => f.replace(/^\.\//, '')));
+      const exitGateId = preGateResult.gate_id || 'unknown_gate';
+
+      // Extract file paths from gate failure reasons and missing_files
+      const failingFiles = [
+        ...(preGateResult.missing_files || []),
+      ];
+
+      // Also extract file paths from failure reasons (e.g., ".planning/IMPLEMENTATION_NOTES.md: ...")
+      for (const reason of (preGateResult.reasons || [])) {
+        const fileMatch = reason.match(/(?:Required file missing|file): ([^\s,]+)/);
+        if (fileMatch) failingFiles.push(fileMatch[1]);
+        // Also catch paths at the start of semantic failure messages
+        const semanticMatch = reason.match(/^([^\s:]+\.md):/);
+        if (semanticMatch) failingFiles.push(semanticMatch[1]);
+      }
+
+      const uniqueFailingFiles = [...new Set(failingFiles.map(f => f.replace(/^\.\//, '')))];
+      const uncoveredFiles = uniqueFailingFiles.filter(f => !declaredFiles.has(f));
+
+      const gateSemanticMode = config.gate_semantic_coverage_mode || 'strict';
+      if (uncoveredFiles.length > 0 && gateSemanticMode === 'strict') {
+        const coverageError = `Gate "${exitGateId}" is failing on ${uncoveredFiles.join(', ')}. Your turn did not modify ${uncoveredFiles.length === 1 ? 'that file' : 'those files'}. Either edit the file(s) to satisfy the gate, or remove the phase transition request.`;
+        transitionToFailedAcceptance(root, state, currentTurn, coverageError, {
+          error_code: 'gate_semantic_coverage',
+          stage: 'gate_semantic_coverage',
+          extra: {
+            gate_id: exitGateId,
+            uncovered_files: uncoveredFiles,
+            declared_files: [...declaredFiles],
+            gate_reasons: preGateResult.reasons,
+          },
+        });
+        return {
+          ok: false,
+          error: coverageError,
+          validation: {
+            ...validation,
+            ok: false,
+            stage: 'gate_semantic_coverage',
+            error_class: 'gate_coverage_error',
+            errors: uncoveredFiles.map(f => `Gate "${exitGateId}" is failing on "${f}". Your turn did not modify that file.`),
+            warnings: [],
+          },
+        };
+      }
+    }
+  }
+
   const observedArtifact = buildObservedArtifact(observation, baseline);
   const normalizedVerification = normalizeVerification(turnResult.verification, runtimeType);
   const artifactType = turnResult.artifact?.type || 'review';
