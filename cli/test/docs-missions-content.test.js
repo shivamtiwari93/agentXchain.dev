@@ -198,6 +198,26 @@ describe('Missions docs coordinator-bound launch surface', () => {
   });
 });
 
+describe('CLI docs retry description distinguishes single-repo vs coordinator behavior', () => {
+  it('cli.mdx --retry section describes coordinator append-to-same-launch-record behavior', () => {
+    assert.match(CLI_DOC, /coordinator-bound missions.*appends.*repo_dispatches/i);
+    assert.match(CLI_DOC, /no new launch record or chain ID/i);
+  });
+
+  it('cli.mdx --retry section describes single-repo new-launch-record behavior', () => {
+    assert.match(CLI_DOC, /single-repo missions.*new launch record.*new chain ID/i);
+  });
+
+  it('cli.mdx --retry section does not claim coordinator retry creates a new launch record', () => {
+    // Guard: the old text said "creates a new launch record with a new chain ID" without
+    // distinguishing single-repo from coordinator. Ensure that claim is scoped.
+    assert.doesNotMatch(
+      CLI_DOC,
+      /`--retry`[^.]*creates a new launch record[^.]*(?!single-repo|For single)/i
+    );
+  });
+});
+
 describe('Missions docs cross-linking and implementation alignment', () => {
   it('is linked from CLI and run-chaining docs', () => {
     assert.match(CLI_DOC, /\[Missions\]\(\/docs\/missions\)/);
