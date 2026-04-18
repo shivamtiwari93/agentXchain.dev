@@ -2154,6 +2154,42 @@ export function initializeGovernedRun(root, config, options = {}) {
   };
 
   writeState(root, updatedState);
+
+  // BUG-34: retroactive migration — archive stale intents from prior runs.
+  // Intents with an approved_run_id from a DIFFERENT run are archived.
+  // Intents with no approved_run_id are adopted into the current run
+  // (they were created while the project was idle or pre-run).
+  try {
+    const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
+    if (existsSync(intentsDir)) {
+      const DISPATCHABLE = new Set(['planned', 'approved']);
+      const intNow = new Date().toISOString();
+      for (const f of readdirSync(intentsDir).filter(x => x.endsWith('.json') && !x.startsWith('.tmp-'))) {
+        const ip = join(intentsDir, f);
+        try {
+          const intent = JSON.parse(readFileSync(ip, 'utf8'));
+          if (!intent || !DISPATCHABLE.has(intent.status)) continue;
+          if (intent.cross_run_durable === true) continue;
+          if (intent.approved_run_id === runId) continue;
+
+          if (intent.approved_run_id && intent.approved_run_id !== runId) {
+            // Intent from a different run — archive it
+            intent.status = 'suppressed';
+            intent.updated_at = intNow;
+            intent.archived_reason = `stale: approved under run ${intent.approved_run_id}, archived on run ${runId} initialization`;
+            if (!intent.history) intent.history = [];
+            intent.history.push({ from: 'approved', to: 'suppressed', at: intNow, reason: intent.archived_reason });
+          } else if (!intent.approved_run_id) {
+            // Legacy intent with no run binding — adopt into current run
+            intent.approved_run_id = runId;
+            intent.updated_at = intNow;
+          }
+          safeWriteJson(ip, intent);
+        } catch { /* non-fatal per-intent */ }
+      }
+    }
+  } catch { /* non-fatal — intent migration is best-effort */ }
+
   emitRunEvent(root, 'run_started', {
     run_id: runId,
     phase: updatedState.phase,

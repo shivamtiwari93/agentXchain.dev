@@ -350,8 +350,8 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     return { ok: false, status: 'failed', action: 'vision_missing', stop_reason: `VISION.md not found at ${absVisionPath}` };
   }
 
-  // Step 1: Check intake queue for pending work
-  const queued = findNextDispatchableIntent(root);
+  // Step 1: Check intake queue for pending work (BUG-34: scope to current run)
+  const queued = findNextDispatchableIntent(root, { run_id: session.current_run_id });
   let targetIntentId = null;
   let visionObjective = null;
 

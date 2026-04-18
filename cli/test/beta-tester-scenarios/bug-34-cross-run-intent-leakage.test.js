@@ -158,7 +158,7 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     const state1 = readState(root);
     const run1Id = state1.run_id;
 
-    // Inject intent in run 1
+    // Inject intent in run 1 — gets approved_run_id = run1Id
     const inject1 = injectIntent(root, 'Run 1 intent', {
       priority: 'p0',
       charter: 'Run 1 work',
@@ -166,7 +166,7 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     });
     assert.ok(inject1.ok);
 
-    // Start run 2
+    // Start run 2 — migration archives run 1's intent
     const stateForReset = readState(root);
     stateForReset.status = 'idle';
     stateForReset.run_id = null;
@@ -175,7 +175,13 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     const state2 = readState(root);
     const run2Id = state2.run_id;
 
-    // Inject intent in run 2
+    // Run 1's intent should already be archived by the migration
+    const run1IntentPath = join(root, '.agentxchain', 'intake', 'intents', `${inject1.intent.intent_id}.json`);
+    const archivedIntent = JSON.parse(readFileSync(run1IntentPath, 'utf8'));
+    assert.equal(archivedIntent.status, 'suppressed', 'run 1 intent should be archived on run 2 init');
+    assert.ok(archivedIntent.archived_reason, 'archived intent should have an archival reason');
+
+    // Inject intent in run 2 — gets approved_run_id = run2Id
     const inject2 = injectIntent(root, 'Run 2 intent', {
       priority: 'p0',
       charter: 'Run 2 work',
@@ -183,19 +189,19 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     });
     assert.ok(inject2.ok);
 
-    // Without scoping: both intents visible
+    // findPendingApprovedIntents without scoping: only run 2's intent
+    // (run 1's intent was archived)
     const allPending = findPendingApprovedIntents(root);
-    assert.ok(allPending.length >= 2, 'both intents should be visible without scoping');
+    assert.equal(allPending.length, 1, 'only run 2 intent should be approved');
+    assert.equal(allPending[0].intent_id, inject2.intent.intent_id);
 
-    // With run_id scoping: only run 2's intent visible
+    // With run_id scoping: still only run 2's intent
     const scopedPending = findPendingApprovedIntents(root, { run_id: run2Id });
-    assert.ok(
-      scopedPending.every(i => i.intent_id !== inject1.intent.intent_id),
-      'BUG-34: run 1 intent should not appear in run 2 scoped results'
-    );
+    assert.equal(scopedPending.length, 1, 'scoped results should show only run 2 intent');
+    assert.equal(scopedPending[0].intent_id, inject2.intent.intent_id);
   });
 
-  it('retroactive migration archives unbound intents from prior runs', () => {
+  it('retroactive migration: intents from a prior run are archived, pre-run intents are adopted', () => {
     const config = makeConfig();
     const root = createProject();
 
@@ -204,14 +210,19 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     const state1 = readState(root);
     const run1Id = state1.run_id;
 
-    // Inject intent without run_id binding (pre-migration format)
-    const inject1 = injectIntent(root, 'Legacy unbound intent', {
+    // Inject intent in run 1 — gets approved_run_id = run1Id
+    const inject1 = injectIntent(root, 'Run 1 bound intent', {
       priority: 'p1',
-      charter: 'Old work',
+      charter: 'Run 1 work',
       acceptance: 'Legacy check',
     });
     assert.ok(inject1.ok);
-    const legacyIntentId = inject1.intent.intent_id;
+    const run1IntentId = inject1.intent.intent_id;
+
+    // Verify it got stamped with run1's run_id
+    const intent1Path = join(root, '.agentxchain', 'intake', 'intents', `${run1IntentId}.json`);
+    const intent1Before = JSON.parse(readFileSync(intent1Path, 'utf8'));
+    assert.equal(intent1Before.approved_run_id, run1Id, 'intent should be stamped with run 1 id');
 
     // Simulate run 1 completion
     const stateForReset = readState(root);
@@ -219,28 +230,34 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     stateForReset.run_id = null;
     writeFileSync(join(root, '.agentxchain/state.json'), JSON.stringify(stateForReset, null, 2));
 
-    // Start run 2 — migration should archive the unbound intent
+    // Inject a pre-run intent while idle (no run_id in state)
+    const inject2 = injectIntent(root, 'Pre-run unbound intent', {
+      priority: 'p0',
+      charter: 'Unbound work',
+      acceptance: 'Pre-run check',
+    });
+    assert.ok(inject2.ok);
+    const unboundIntentId = inject2.intent.intent_id;
+
+    // Start run 2 — migration should archive run 1's intent and adopt the unbound one
     initializeGovernedRun(root, config);
     const state2 = readState(root);
     const run2Id = state2.run_id;
 
-    // After migration, the legacy intent should not be dispatchable in run 2
-    const result = findNextDispatchableIntent(root, { run_id: run2Id });
-    assert.ok(
-      !result.ok || result.intentId !== legacyIntentId,
-      'BUG-34: legacy unbound intent should be archived/filtered after migration'
-    );
+    // Run 1's intent should be archived (suppressed)
+    const intent1After = JSON.parse(readFileSync(intent1Path, 'utf8'));
+    assert.equal(intent1After.status, 'suppressed', 'run 1 intent should be archived');
+    assert.ok(intent1After.archived_reason, 'archived intent should have a reason');
 
-    // The legacy intent should have been archived (status != approved)
-    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${legacyIntentId}.json`);
-    if (existsSync(intentPath)) {
-      const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
-      // After migration, either archived or still approved but with a prior run_id marker
-      // that makes it filterable
-      const isFilterable = intent.status !== 'approved' ||
-        (intent.approved_run_id && intent.approved_run_id !== run2Id) ||
-        intent.cross_run_durable === false;
-      assert.ok(isFilterable, 'BUG-34: legacy intent must be archivable or filterable after migration');
-    }
+    // Pre-run intent should be adopted into run 2
+    const intent2Path = join(root, '.agentxchain', 'intake', 'intents', `${unboundIntentId}.json`);
+    const intent2After = JSON.parse(readFileSync(intent2Path, 'utf8'));
+    assert.equal(intent2After.status, 'approved', 'pre-run intent should remain approved');
+    assert.equal(intent2After.approved_run_id, run2Id, 'pre-run intent should be adopted into run 2');
+
+    // The adopted intent should be dispatchable in run 2
+    const result = findNextDispatchableIntent(root, { run_id: run2Id });
+    assert.ok(result.ok, 'adopted intent should be dispatchable');
+    assert.equal(result.intentId, unboundIntentId, 'should return the adopted intent');
   });
 });

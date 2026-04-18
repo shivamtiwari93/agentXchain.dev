@@ -504,14 +504,34 @@ export function intakeStatus(root, intentId) {
   return { ok: true, summary, exitCode: 0 };
 }
 
-export function findNextDispatchableIntent(root) {
+export function findNextDispatchableIntent(root, options = {}) {
   const dirs = intakeDirs(root);
   if (!existsSync(dirs.intents)) {
     return { ok: false, error: 'no intents directory' };
   }
 
-  const intents = readJsonDir(dirs.intents)
+  const scopeRunId = options.run_id || null;
+
+  let intents = readJsonDir(dirs.intents)
     .filter((intent) => intent && DISPATCHABLE_STATUSES.has(intent.status));
+
+  // BUG-34: when run_id scoping is active, filter out intents that belong to
+  // a different run. An intent belongs to the current run if:
+  //   (a) it has approved_run_id matching the current run, OR
+  //   (b) it has no approved_run_id AND is marked cross_run_durable, OR
+  //   (c) it was injected in the current run (approved_run_id matches)
+  // Legacy intents (no approved_run_id, no cross_run_durable) are excluded
+  // because they are stale leftovers from prior runs.
+  if (scopeRunId) {
+    intents = intents.filter((intent) => {
+      if (intent.approved_run_id === scopeRunId) return true;
+      if (intent.cross_run_durable === true) return true;
+      // Legacy intent with no run binding — stale, skip it
+      if (!intent.approved_run_id) return false;
+      // Intent bound to a different run — stale, skip it
+      return false;
+    });
+  }
 
   if (intents.length === 0) {
     return { ok: false, error: 'no dispatchable intents' };
@@ -550,12 +570,23 @@ export function findNextDispatchableIntent(root) {
  * Return all approved-but-unconsumed intents sorted by priority (BUG-15).
  * Used by `status` to surface the pending intent queue.
  */
-export function findPendingApprovedIntents(root) {
+export function findPendingApprovedIntents(root, options = {}) {
   const dirs = intakeDirs(root);
   if (!existsSync(dirs.intents)) return [];
 
+  const scopeRunId = options.run_id || null;
+
   return readJsonDir(dirs.intents)
-    .filter((intent) => intent && intent.status === 'approved')
+    .filter((intent) => {
+      if (!intent || intent.status !== 'approved') return false;
+      // BUG-34: run_id scoping — same logic as findNextDispatchableIntent
+      if (scopeRunId) {
+        if (intent.approved_run_id === scopeRunId) return true;
+        if (intent.cross_run_durable === true) return true;
+        return false;
+      }
+      return true;
+    })
     .sort((a, b) => {
       const aPriority = PRIORITY_RANK[a.priority] ?? Number.MAX_SAFE_INTEGER;
       const bPriority = PRIORITY_RANK[b.priority] ?? Number.MAX_SAFE_INTEGER;
@@ -575,6 +606,59 @@ export function findPendingApprovedIntents(root) {
 }
 
 /**
+ * BUG-34: Archive stale intents from prior runs.
+ * Called during run initialization to prevent cross-run intent leakage.
+ * Transitions approved/planned intents that don't belong to the new run into
+ * 'suppressed' status with an archival reason.
+ *
+ * @param {string} root
+ * @param {string} newRunId - the run_id of the newly initialized run
+ * @returns {{ archived: number }}
+ */
+export function archiveStaleIntents(root, newRunId) {
+  const dirs = intakeDirs(root);
+  if (!existsSync(dirs.intents)) return { archived: 0, adopted: 0 };
+
+  const now = nowISO();
+  let archived = 0;
+  let adopted = 0;
+
+  const files = readdirSync(dirs.intents).filter(f => f.endsWith('.json') && !f.startsWith('.tmp-'));
+  for (const file of files) {
+    const intentPath = join(dirs.intents, file);
+    let intent;
+    try {
+      intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    } catch {
+      continue;
+    }
+
+    if (!intent || !DISPATCHABLE_STATUSES.has(intent.status)) continue;
+    if (intent.cross_run_durable === true) continue;
+    if (intent.approved_run_id === newRunId) continue;
+
+    if (intent.approved_run_id && intent.approved_run_id !== newRunId) {
+      // Intent from a different run — archive it
+      intent.status = 'suppressed';
+      intent.updated_at = now;
+      intent.archived_reason = `stale: approved under run ${intent.approved_run_id}, archived on run ${newRunId} initialization`;
+      if (!intent.history) intent.history = [];
+      intent.history.push({ from: 'approved', to: 'suppressed', at: now, reason: intent.archived_reason });
+      safeWriteJson(intentPath, intent);
+      archived++;
+    } else if (!intent.approved_run_id) {
+      // Legacy intent with no run binding — adopt into current run
+      intent.approved_run_id = newRunId;
+      intent.updated_at = now;
+      safeWriteJson(intentPath, intent);
+      adopted++;
+    }
+  }
+
+  return { archived, adopted };
+}
+
+/**
  * Unified intent consumption entry point (BUG-16).
  * Both manual (resume/step --resume) and continuous/scheduler paths should call
  * this single function to consume the next approved intent.
@@ -584,7 +668,7 @@ export function findPendingApprovedIntents(root) {
  * @returns {{ ok: boolean, intentId?: string, intent?: object, error?: string }}
  */
 export function consumeNextApprovedIntent(root, options = {}) {
-  const queued = findNextDispatchableIntent(root);
+  const queued = findNextDispatchableIntent(root, { run_id: options.run_id });
   if (!queued.ok) {
     return { ok: false, error: queued.error || 'no dispatchable intents' };
   }
@@ -716,6 +800,23 @@ export function approveIntent(root, intentId, options = {}) {
   const previousStatus = intent.status;
   const reason = options.reason || (previousStatus === 'blocked' ? 're-approved after block resolution' : 'approved for planning');
   const now = nowISO();
+
+  // BUG-34: stamp the current run_id on approval so the intent is scoped to
+  // the run that approved it. Intents without approved_run_id are treated as
+  // legacy/unbound and filtered out by run-scoped queries.
+  if (!intent.approved_run_id) {
+    const statePath = join(root, '.agentxchain', 'state.json');
+    if (existsSync(statePath)) {
+      try {
+        const state = JSON.parse(readFileSync(statePath, 'utf8'));
+        if (state.run_id) {
+          intent.approved_run_id = state.run_id;
+        }
+      } catch {
+        // non-fatal — stamp is best-effort during approval
+      }
+    }
+  }
 
   intent.status = 'approved';
   intent.approved_by = approver;
