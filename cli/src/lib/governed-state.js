@@ -2049,6 +2049,7 @@ export function reactivateGovernedRun(root, state, details = {}) {
 
   const now = new Date().toISOString();
   const wasEscalation = state.status === 'blocked' && typeof state.blocked_on === 'string' && state.blocked_on.startsWith('escalation:');
+  const wasNonProgress = state.blocked_on === 'non_progress';
   const humanEscalation = findCurrentHumanEscalation(root, state);
   const nextState = {
     ...state,
@@ -2057,6 +2058,12 @@ export function reactivateGovernedRun(root, state, details = {}) {
     blocked_reason: null,
     escalation: null,
   };
+
+  // BUG-38: reset non-progress tracking when acknowledging non-progress block
+  if (wasNonProgress || details.acknowledge_non_progress) {
+    nextState.non_progress_signature = null;
+    nextState.non_progress_count = 0;
+  }
 
   writeState(root, nextState);
 
@@ -2155,10 +2162,12 @@ export function initializeGovernedRun(root, config, options = {}) {
 
   writeState(root, updatedState);
 
-  // BUG-34: retroactive migration — archive stale intents from prior runs.
-  // Intents with an approved_run_id from a DIFFERENT run are archived.
-  // Intents with no approved_run_id are adopted into the current run
-  // (they were created while the project was idle or pre-run).
+  // BUG-34 + BUG-39: retroactive migration — archive stale intents from prior runs.
+  // Intents with an approved_run_id from a DIFFERENT run are archived (BUG-34).
+  // BUG-39: Intents with approved_run_id: null are pre-BUG-34 legacy files that
+  // must be archived with status "archived_migration", NOT adopted into the current
+  // run. Silently adopting them caused continuous mode to pick up stale intents.
+  const archivedMigrationIntentIds = [];
   try {
     const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
     if (existsSync(intentsDir)) {
@@ -2172,17 +2181,23 @@ export function initializeGovernedRun(root, config, options = {}) {
           if (intent.cross_run_durable === true) continue;
           if (intent.approved_run_id === runId) continue;
 
+          const prevStatus = intent.status;
           if (intent.approved_run_id && intent.approved_run_id !== runId) {
-            // Intent from a different run — archive it
+            // Intent from a different run — archive it (BUG-34)
             intent.status = 'suppressed';
             intent.updated_at = intNow;
             intent.archived_reason = `stale: approved under run ${intent.approved_run_id}, archived on run ${runId} initialization`;
             if (!intent.history) intent.history = [];
-            intent.history.push({ from: 'approved', to: 'suppressed', at: intNow, reason: intent.archived_reason });
+            intent.history.push({ from: prevStatus, to: 'suppressed', at: intNow, reason: intent.archived_reason });
           } else if (!intent.approved_run_id) {
-            // Legacy intent with no run binding — adopt into current run
-            intent.approved_run_id = runId;
+            // BUG-39: pre-BUG-34 legacy intent with no run binding — archive it
+            // with explicit migration reason. Do NOT adopt into current run.
+            intent.status = 'archived_migration';
             intent.updated_at = intNow;
+            intent.archived_reason = `pre-BUG-34 intent with no run scope; archived during v${updatedState.protocol_version || '2.x'} migration on run ${runId}`;
+            if (!intent.history) intent.history = [];
+            intent.history.push({ from: prevStatus, to: 'archived_migration', at: intNow, reason: intent.archived_reason });
+            if (intent.intent_id) archivedMigrationIntentIds.push(intent.intent_id);
           }
           safeWriteJson(ip, intent);
         } catch { /* non-fatal per-intent */ }
@@ -2190,13 +2205,32 @@ export function initializeGovernedRun(root, config, options = {}) {
     }
   } catch { /* non-fatal — intent migration is best-effort */ }
 
+  // BUG-39: emit intents_migrated event when pre-BUG-34 intents were archived
+  if (archivedMigrationIntentIds.length > 0) {
+    emitRunEvent(root, 'intents_migrated', {
+      run_id: runId,
+      phase: updatedState.phase,
+      status: 'active',
+      payload: {
+        archived_count: archivedMigrationIntentIds.length,
+        archived_intent_ids: archivedMigrationIntentIds,
+        reason: 'pre-BUG-34 intents with approved_run_id: null archived during run initialization',
+      },
+    });
+  }
+
   emitRunEvent(root, 'run_started', {
     run_id: runId,
     phase: updatedState.phase,
     status: 'active',
     payload: { provenance: provenance || {} },
   });
-  return { ok: true, state: attachLegacyCurrentTurnAlias(updatedState) };
+  // BUG-39: return migration notice so callers can display it
+  const migrationNotice = archivedMigrationIntentIds.length > 0
+    ? `Archived ${archivedMigrationIntentIds.length} pre-BUG-34 intent(s). Review: agentxchain intake status --archived.`
+    : null;
+
+  return { ok: true, state: attachLegacyCurrentTurnAlias(updatedState), migration_notice: migrationNotice };
 }
 
 /**
@@ -4192,6 +4226,118 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       }
     } catch {
       // Non-fatal — intent satisfaction is advisory
+    }
+  }
+
+  // ── BUG-38: Non-progress convergence guard ─────────────────────────────
+  // Track whether consecutive accepted turns leave the same gate failure
+  // intact without modifying the gated files. When the count reaches the
+  // configurable threshold, block the run to prevent infinite loops.
+  // Proactively evaluates the current phase exit gate on every accepted turn
+  // — not just when a transition is requested — to detect stalled patterns.
+  if (updatedState.status === 'active') {
+    const declaredFiles = new Set((turnResult.files_changed || []).map(f => f.replace(/^\.\//, '')));
+    const npThreshold = config.run_loop?.non_progress_threshold ?? 3;
+
+    // Proactively evaluate the exit gate for the current phase.
+    // evaluatePhaseExit requires a phase_transition_request, so we synthesize
+    // one pointing to the next phase from routing for probing purposes.
+    let proactiveGateFailure = null;
+    try {
+      const currentRouting = config.routing?.[updatedState.phase];
+      if (currentRouting?.exit_gate) {
+        // Find the next phase to use as synthetic transition target
+        const phases = config.phases || [];
+        const currentIdx = phases.findIndex(p => p.id === updatedState.phase);
+        const nextPhaseId = currentIdx >= 0 && currentIdx < phases.length - 1
+          ? phases[currentIdx + 1].id
+          : (currentRouting.allowed_next_roles ? Object.keys(config.routing).find(k => k !== updatedState.phase) : null);
+
+        if (nextPhaseId) {
+          const probeTurn = { ...turnResult, phase_transition_request: nextPhaseId };
+          const probeResult = evaluatePhaseExit({
+            state: updatedState,
+            config,
+            acceptedTurn: probeTurn,
+            root,
+          });
+          if (probeResult.action === 'gate_failed') {
+            proactiveGateFailure = probeResult;
+          }
+        }
+      }
+    } catch { /* non-fatal — probe is advisory */ }
+
+    // Fall back to last_gate_failure if proactive evaluation didn't find one
+    const effectiveGateFailure = proactiveGateFailure || updatedState.last_gate_failure;
+
+    if (effectiveGateFailure && (effectiveGateFailure.gate_id || effectiveGateFailure.gate_type)) {
+      const gateId = effectiveGateFailure.gate_id || effectiveGateFailure.gate_type || 'unknown';
+      // Compute gate failure signature: gate_id + sorted failing files + sorted reasons
+      const failingFiles = [...(effectiveGateFailure.missing_files || effectiveGateFailure.failing_files || [])].sort();
+      const reasons = [...(effectiveGateFailure.reasons || [])].sort();
+      const signature = `${gateId}::${failingFiles.join(',')}::${reasons.join(',')}`;
+
+      // Check if any of the gated files were modified by this turn
+      const gatedFilesModified = failingFiles.some(f => declaredFiles.has(f.replace(/^\.\//, '')));
+
+      const prevSignature = state.non_progress_signature || null;
+      const prevCount = state.non_progress_count || 0;
+
+      if (signature === prevSignature && !gatedFilesModified) {
+        // Same gate failure, gated files untouched — increment counter
+        const newCount = prevCount + 1;
+        updatedState.non_progress_signature = signature;
+        updatedState.non_progress_count = newCount;
+
+        if (newCount >= npThreshold) {
+          // Threshold reached — block the run
+          updatedState.status = 'blocked';
+          updatedState.blocked_on = 'non_progress';
+          updatedState.blocked_reason = buildBlockedReason({
+            category: 'non_progress',
+            recovery: {
+              typed_reason: `Non-progress detected: ${newCount} accepted turns have not reduced gate failure "${gateId}".`,
+              recovery_action: 'agentxchain resume --acknowledge-non-progress',
+              detail: `Gate "${gateId}" has been failing on ${failingFiles.join(', ')} for ${newCount} consecutive turns. The gated file(s) were never modified.`,
+            },
+            turnId: currentTurn.turn_id,
+            blockedAt: now,
+          });
+
+          ledgerEntries.push({
+            type: 'non_progress_block',
+            gate_id: gateId,
+            consecutive_turns: newCount,
+            threshold: npThreshold,
+            failing_files: failingFiles,
+            signature,
+            timestamp: now,
+          });
+
+          emitRunEvent(root, 'run_stalled', {
+            run_id: updatedState.run_id,
+            phase: updatedState.phase,
+            status: 'blocked',
+            turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+            payload: {
+              consecutive_non_progress_turns: newCount,
+              threshold: npThreshold,
+              gate_id: gateId,
+              failing_files: failingFiles,
+              signature,
+            },
+          });
+        }
+      } else {
+        // Gate failure changed or gated files were modified — reset counter
+        updatedState.non_progress_signature = signature;
+        updatedState.non_progress_count = 1;
+      }
+    } else {
+      // No gate failure — reset non-progress tracking
+      updatedState.non_progress_signature = null;
+      updatedState.non_progress_count = 0;
     }
   }
 

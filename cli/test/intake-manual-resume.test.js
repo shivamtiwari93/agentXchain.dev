@@ -134,6 +134,13 @@ describe('manual resume intake binding', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'axc-intake-manual-resume-'));
     scaffoldGoverned(root, 'Manual Resume Intake Fixture', `manual-resume-${Date.now()}`);
+    // Set gate_semantic_coverage_mode to lenient — this test exercises intake
+    // binding, not gate coverage validation. Pre-existing strict-mode conflict
+    // with scaffolded planning_signoff gate.
+    const configPath = join(root, 'agentxchain.json');
+    const cfg = JSON.parse(readFileSync(configPath, 'utf8'));
+    cfg.gate_semantic_coverage_mode = 'lenient';
+    writeFileSync(configPath, JSON.stringify(cfg, null, 2));
   });
 
   afterEach(() => {
@@ -141,11 +148,23 @@ describe('manual resume intake binding', () => {
   });
 
   it('binds the highest-priority queued intent to the next manual resume turn and foregrounds it in the dispatch bundle', () => {
+    // BUG-39: Intents injected while idle (approved_run_id: null) are now
+    // archived during run initialization. Mark intents as cross_run_durable
+    // to survive the migration — this simulates the correct operator flow
+    // where intents are explicitly declared to outlive run boundaries.
     const lower = inject('Handle lower-priority cleanup', 'p1', ['cleanup docs']);
     const higher = inject('Ship the injected PM charter', 'p0', [
       'address the injected charter directly',
       'preserve the acceptance contract in the prompt',
     ]);
+
+    // Mark both intents as cross-run-durable so they survive BUG-39 migration
+    for (const intentId of [lower.intent_id, higher.intent_id]) {
+      const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`);
+      const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+      intent.cross_run_durable = true;
+      writeFileSync(intentPath, JSON.stringify(intent, null, 2));
+    }
 
     const resume = runCli(['resume', '--role', 'pm']);
     assert.equal(resume.status, 0, resume.combined);
@@ -201,7 +220,12 @@ describe('manual resume intake binding', () => {
   });
 
   it('supports operator override with --no-intent', () => {
+    // BUG-39: Mark intent as cross_run_durable to survive migration
     const injected = inject('Do not bind me automatically', 'p0', ['leave queue untouched']);
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${injected.intent_id}.json`);
+    const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    intent.cross_run_durable = true;
+    writeFileSync(intentPath, JSON.stringify(intent, null, 2));
 
     const resume = runCli(['resume', '--role', 'pm', '--no-intent']);
     assert.equal(resume.status, 0, resume.combined);
@@ -212,8 +236,8 @@ describe('manual resume intake binding', () => {
     assert.equal(turn.assigned_role, 'pm');
     assert.equal(turn.intake_context, undefined);
 
-    const intent = readJson(join('.agentxchain', 'intake', 'intents', `${injected.intent_id}.json`));
-    assert.equal(intent.status, 'approved', 'intent must remain queued when --no-intent is used');
+    const postIntent = readJson(join('.agentxchain', 'intake', 'intents', `${injected.intent_id}.json`));
+    assert.equal(postIntent.status, 'approved', 'intent must remain queued when --no-intent is used');
   });
 
   it('ignores and archives stale prior-run intents when resuming an active run', () => {

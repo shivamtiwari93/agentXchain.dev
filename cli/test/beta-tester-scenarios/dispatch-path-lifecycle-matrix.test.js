@@ -230,6 +230,37 @@ function stageValidRetryCandidate(root, turn) {
 }
 
 function seedRetryingTurn(root, commandName) {
+  // BUG-39: inject the intent AFTER the run starts, so it gets stamped with
+  // the current run_id and isn't archived during migration.
+  // Start the run first via resume (which calls initializeGovernedRun for idle state).
+  const initRun = runCli(root, ['resume', '--role', 'dev']);
+  assert.equal(initRun.status, 0, initRun.combined);
+
+  // Accept the initial turn quickly so we can inject + re-dispatch
+  const initialTurn = getSingleActiveTurn(root);
+  const state = readState(root);
+  writeTurnScopedResult(root, initialTurn.turn_id, {
+    schema_version: '1.0',
+    run_id: state.run_id,
+    turn_id: initialTurn.turn_id,
+    role: initialTurn.assigned_role,
+    runtime_id: initialTurn.runtime_id,
+    status: 'completed',
+    summary: 'Initial bootstrap turn.',
+    decisions: [],
+    objections: [],
+    files_changed: [],
+    artifacts_created: [],
+    verification: { status: 'pass', evidence_summary: 'bootstrap' },
+    artifact: { type: 'review', ref: null },
+    proposed_next_role: 'dev',
+    phase_transition_request: null,
+    cost: { usd: 0.001 },
+  });
+  const acceptInit = runCli(root, ['accept-turn']);
+  assert.equal(acceptInit.status, 0, acceptInit.combined);
+
+  // Now inject the intent (run is active, intent gets stamped with run_id)
   const injected = injectIntent(
     root,
     'Edit .planning/IMPLEMENTATION_NOTES.md to add the missing repair note',
@@ -239,6 +270,7 @@ function seedRetryingTurn(root, commandName) {
     ],
   );
 
+  // Dispatch a new turn that will pick up the intent
   const dispatch = runCli(root, [commandName, '--role', 'dev']);
   assert.equal(dispatch.status, 0, dispatch.combined);
 

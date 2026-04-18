@@ -1259,6 +1259,9 @@ describe('acceptGovernedTurn', () => {
       requires_files: ['.planning/PM_SIGNOFF.md'],
       requires_human_approval: false,
     };
+    // This test exercises gate failure persistence, not gate_semantic_coverage.
+    // Use lenient mode so BUG-36 strict rejection doesn't interfere.
+    config.gate_semantic_coverage_mode = 'lenient';
 
     const firstAssign = assignGovernedTurn(dir, config, 'pm');
     const secondAssign = assignGovernedTurn(dir, config, 'dev');

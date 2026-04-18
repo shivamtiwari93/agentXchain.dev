@@ -647,11 +647,16 @@ export function archiveStaleIntents(root, newRunId) {
       safeWriteJson(intentPath, intent);
       archived++;
     } else if (!intent.approved_run_id) {
-      // Legacy intent with no run binding — adopt into current run
-      intent.approved_run_id = newRunId;
+      // BUG-39: pre-BUG-34 legacy intent with no run binding — archive it
+      // with explicit migration reason. Do NOT adopt into current run.
+      const prevStatus = intent.status;
+      intent.status = 'archived_migration';
       intent.updated_at = now;
+      intent.archived_reason = `pre-BUG-34 intent with no run scope; archived during migration on run ${newRunId}`;
+      if (!intent.history) intent.history = [];
+      intent.history.push({ from: prevStatus, to: 'archived_migration', at: now, reason: intent.archived_reason });
       safeWriteJson(intentPath, intent);
-      adopted++;
+      archived++;
     }
   }
 

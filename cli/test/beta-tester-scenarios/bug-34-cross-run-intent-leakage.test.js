@@ -202,7 +202,7 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     assert.equal(scopedPending[0].intent_id, inject2.intent.intent_id);
   });
 
-  it('retroactive migration: intents from a prior run are archived, pre-run intents are adopted', () => {
+  it('retroactive migration: run-bound intents are suppressed, pre-run intents are archived (BUG-39)', () => {
     const config = makeConfig();
     const root = createProject();
 
@@ -240,7 +240,8 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     assert.ok(inject2.ok);
     const unboundIntentId = inject2.intent.intent_id;
 
-    // Start run 2 — migration should archive run 1's intent and adopt the unbound one
+    // Start run 2 — migration should archive both: run 1's intent (suppressed)
+    // and the unbound pre-run intent (archived_migration per BUG-39)
     initializeGovernedRun(root, config);
     const state2 = readState(root);
     const run2Id = state2.run_id;
@@ -250,16 +251,16 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     assert.equal(intent1After.status, 'suppressed', 'run 1 intent should be archived');
     assert.ok(intent1After.archived_reason, 'archived intent should have a reason');
 
-    // Pre-run intent should be adopted into run 2
+    // BUG-39: Pre-run intent (approved_run_id: null) must be archived, NOT adopted
     const intent2Path = join(root, '.agentxchain', 'intake', 'intents', `${unboundIntentId}.json`);
     const intent2After = JSON.parse(readFileSync(intent2Path, 'utf8'));
-    assert.equal(intent2After.status, 'approved', 'pre-run intent should remain approved');
-    assert.equal(intent2After.approved_run_id, run2Id, 'pre-run intent should be adopted into run 2');
+    assert.equal(intent2After.status, 'archived_migration', 'pre-run intent should be archived_migration (BUG-39)');
+    assert.ok(intent2After.archived_reason && intent2After.archived_reason.includes('pre-BUG-34'),
+      'archived intent should have pre-BUG-34 reason');
 
-    // The adopted intent should be dispatchable in run 2
+    // The archived intent should NOT be dispatchable in run 2
     const result = findNextDispatchableIntent(root, { run_id: run2Id });
-    assert.ok(result.ok, 'adopted intent should be dispatchable');
-    assert.equal(result.intentId, unboundIntentId, 'should return the adopted intent');
+    assert.ok(!result.ok || result.intentId !== unboundIntentId, 'archived_migration intent must not be dispatchable');
   });
 
   it('resume/restart consumption path infers current run scope and archives stale intents', () => {

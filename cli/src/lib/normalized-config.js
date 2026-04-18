@@ -1178,6 +1178,11 @@ export function normalizeV4(raw) {
       state: '.agentxchain/state.json',
       log: null,
     },
+    // Passthrough fields — these are runtime behavior overrides that don't
+    // need normalization but must survive the config pipeline.
+    ...(raw.gate_semantic_coverage_mode ? { gate_semantic_coverage_mode: raw.gate_semantic_coverage_mode } : {}),
+    ...(raw.intent_coverage_mode ? { intent_coverage_mode: raw.intent_coverage_mode } : {}),
+    ...(raw.run_loop ? { run_loop: raw.run_loop } : {}),
     compat: {
       next_owner_source: 'state-json',
       lock_based_coordination: false,
