@@ -669,8 +669,7 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
           loadCoordinatorState(mission.coordinator.workspace_path),
         );
         if (!projection.ok) {
-          console.error(chalk.red(`Coordinator retry projection failed: ${projection.error}`));
-          process.exit(1);
+          console.error(chalk.yellow(`Coordinator retry projection warning: ${projection.error}`));
         }
       }
 
