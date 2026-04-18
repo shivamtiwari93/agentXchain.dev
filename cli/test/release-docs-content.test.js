@@ -21,6 +21,12 @@ describe('release planning surface classification', () => {
     assert.match(playbook, /Homebrew/i, 'playbook must include Homebrew update sequencing');
     assert.match(playbook, /fails before npm publication/i,
       'playbook must document the pre-publish canonical-tap prereq gate');
+    assert.match(playbook, /release-preflight\.sh --dry-run/,
+      'playbook must document --dry-run preview as the recommended first step');
+    assert.match(playbook, /check-release-alignment\.mjs.*--report/,
+      'playbook must document the alignment reporter');
+    assert.match(playbook, /--dry-run.*mutually exclusive.*--strict.*--publish-gate/,
+      'playbook must document --dry-run flag exclusivity');
   });
 
   // -- Current contracts: these must NOT be marked SUPERSEDED --

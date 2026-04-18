@@ -106,6 +106,27 @@ This checks: GitHub release exists, the canonical Homebrew tap formula SHA match
 
 ## Behavior
 
+### 0. Preview Release Surface Readiness (Recommended First Step)
+
+Before touching version bumps or tags, preview what manual release surfaces still need updates:
+
+```bash
+cd cli
+bash scripts/release-preflight.sh --dry-run --target-version <semver>
+```
+
+This prints the full release-alignment surface report and exits `0` regardless of pending work. It shows every manual surface (changelog, release notes, homepage badge, marketing drafts, `llms.txt`, etc.) with a `ready` or `needs update` status. Use this to discover what needs attention BEFORE entering the release-cut path.
+
+Alternatively, run the alignment reporter directly for more detail:
+
+```bash
+node cli/scripts/check-release-alignment.mjs --scope prebump --target-version <semver> --report
+```
+
+**This is informational, not a gate.** It does not run tests, mutate files, or block the release. The real gates are steps 1 and 3.
+
+**`--dry-run` is mutually exclusive with `--strict` and `--publish-gate`.** Combining them exits `1` with a usage error.
+
 ### 1. Preflight Before Version Bump (Optional)
 
 Run:
@@ -279,6 +300,9 @@ If the repo mirror is already current but the canonical tap is stale, `--push-ta
 10. The playbook documents the three-phase Homebrew lifecycle (pre-publish, post-publish pre-sync, post-sync) with explicit state transitions.
 11. The playbook provides `verify:post-publish` as the executable contract for Phase 2 → Phase 3 transition.
 12. The playbook states that main is not green until the repo mirror reaches Phase 3.
+13. The playbook documents `release-preflight.sh --dry-run` as the recommended first preview step before any release-cut work.
+14. The playbook documents `check-release-alignment.mjs --report` as the detailed alignment reporter.
+15. The playbook states that `--dry-run` is mutually exclusive with `--strict` and `--publish-gate`.
 
 ---
 
