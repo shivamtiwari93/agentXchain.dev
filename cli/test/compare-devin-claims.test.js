@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..', '..');
-const vsDevinPage = readFileSync(resolve(root, 'website-v2/src/pages/compare/vs-devin.mdx'), 'utf8');
+const vsDevinPage = readFileSync(resolve(root, 'website-v2/docs/compare/vs-devin.mdx'), 'utf8');
 
 describe('Devin comparison claims truth boundary', () => {
   it('AT-DEVIN-003: acknowledges current Devin Knowledge/Playbooks surface', () => {

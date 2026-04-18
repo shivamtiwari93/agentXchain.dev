@@ -5,7 +5,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const page = readFileSync(resolve(__dirname, '../../website-v2/src/pages/compare/vs-openhands.mdx'), 'utf8');
+const page = readFileSync(resolve(__dirname, '../../website-v2/docs/compare/vs-openhands.mdx'), 'utf8');
 
 describe('OpenHands comparison claims truth boundary', () => {
   it('AT-OH-001: acknowledges composable SDK', () => {

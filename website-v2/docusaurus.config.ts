@@ -80,6 +80,30 @@ const config: Config = {
     },
   ],
 
+  plugins: [
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        redirects: [
+          // Old standalone compare pages → new docs/compare/ location
+          {from: '/compare/vs-autogen', to: '/docs/compare/vs-autogen'},
+          {from: '/compare/vs-codegen', to: '/docs/compare/vs-codegen'},
+          {from: '/compare/vs-crewai', to: '/docs/compare/vs-crewai'},
+          {from: '/compare/vs-devin', to: '/docs/compare/vs-devin'},
+          {from: '/compare/vs-langgraph', to: '/docs/compare/vs-langgraph'},
+          {from: '/compare/vs-metagpt', to: '/docs/compare/vs-metagpt'},
+          {from: '/compare/vs-openai-agents-sdk', to: '/docs/compare/vs-openai-agents-sdk'},
+          {from: '/compare/vs-openhands', to: '/docs/compare/vs-openhands'},
+          {from: '/compare/vs-warp', to: '/docs/compare/vs-warp'},
+          // Old docs compare pages → new docs/compare/ location
+          {from: '/docs/compare-autogen', to: '/docs/compare/vs-autogen'},
+          {from: '/docs/compare-crewai', to: '/docs/compare/vs-crewai'},
+          {from: '/docs/compare-langgraph', to: '/docs/compare/vs-langgraph'},
+        ],
+      },
+    ],
+  ],
+
   themeConfig: {
     image: 'img/agentXchain.dev_rectangle_600x120px.png',
     metadata: [
@@ -111,15 +135,15 @@ const config: Config = {
           label: 'Compare',
           position: 'left',
           items: [
-            {to: '/compare/vs-devin', label: 'vs Devin'},
-            {to: '/compare/vs-metagpt', label: 'vs MetaGPT'},
-            {to: '/compare/vs-codegen', label: 'vs Codegen'},
-            {to: '/compare/vs-openhands', label: 'vs OpenHands'},
-            {to: '/compare/vs-warp', label: 'vs Warp.dev'},
-            {to: '/compare/vs-crewai', label: 'vs CrewAI'},
-            {to: '/compare/vs-langgraph', label: 'vs LangGraph'},
-            {to: '/compare/vs-openai-agents-sdk', label: 'vs OpenAI Agents SDK'},
-            {to: '/compare/vs-autogen', label: 'vs AutoGen'},
+            {to: '/docs/compare/vs-devin', label: 'vs Devin'},
+            {to: '/docs/compare/vs-metagpt', label: 'vs MetaGPT'},
+            {to: '/docs/compare/vs-codegen', label: 'vs Codegen'},
+            {to: '/docs/compare/vs-openhands', label: 'vs OpenHands'},
+            {to: '/docs/compare/vs-warp', label: 'vs Warp.dev'},
+            {to: '/docs/compare/vs-crewai', label: 'vs CrewAI'},
+            {to: '/docs/compare/vs-langgraph', label: 'vs LangGraph'},
+            {to: '/docs/compare/vs-openai-agents-sdk', label: 'vs OpenAI Agents SDK'},
+            {to: '/docs/compare/vs-autogen', label: 'vs AutoGen'},
           ],
         },
         {
@@ -183,16 +207,16 @@ const config: Config = {
         {
           title: 'Product',
           items: [
-            {label: 'vs Devin', to: '/compare/vs-devin'},
-            {label: 'vs MetaGPT', to: '/compare/vs-metagpt'},
-            {label: 'vs Codegen', to: '/compare/vs-codegen'},
-            {label: 'vs OpenHands', to: '/compare/vs-openhands'},
-            {label: 'vs Warp.dev', to: '/compare/vs-warp'},
+            {label: 'vs Devin', to: '/docs/compare/vs-devin'},
+            {label: 'vs MetaGPT', to: '/docs/compare/vs-metagpt'},
+            {label: 'vs Codegen', to: '/docs/compare/vs-codegen'},
+            {label: 'vs OpenHands', to: '/docs/compare/vs-openhands'},
+            {label: 'vs Warp.dev', to: '/docs/compare/vs-warp'},
             {label: 'Why AgentXchain', to: '/why'},
-            {label: 'vs CrewAI', to: '/compare/vs-crewai'},
-            {label: 'vs LangGraph', to: '/compare/vs-langgraph'},
-            {label: 'vs OpenAI Agents SDK', to: '/compare/vs-openai-agents-sdk'},
-            {label: 'vs AutoGen', to: '/compare/vs-autogen'},
+            {label: 'vs CrewAI', to: '/docs/compare/vs-crewai'},
+            {label: 'vs LangGraph', to: '/docs/compare/vs-langgraph'},
+            {label: 'vs OpenAI Agents SDK', to: '/docs/compare/vs-openai-agents-sdk'},
+            {label: 'vs AutoGen', to: '/docs/compare/vs-autogen'},
           ],
         },
         {

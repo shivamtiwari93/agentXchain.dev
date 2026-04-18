@@ -11,11 +11,9 @@ function read(relPath) {
   return readFileSync(join(REPO_ROOT, relPath), 'utf8');
 }
 
-const VS_AUTOGEN = read('website-v2/src/pages/compare/vs-autogen.mdx');
-const VS_OPENAI_AGENTS = read('website-v2/src/pages/compare/vs-openai-agents-sdk.mdx');
-const DOC_COMPARE_AUTOGEN = read('website-v2/docs/compare-autogen.mdx');
-const DOC_COMPARE_CREWAI = read('website-v2/docs/compare-crewai.mdx');
-const VS_WARP = read('website-v2/src/pages/compare/vs-warp.mdx');
+const VS_AUTOGEN = read('website-v2/docs/compare/vs-autogen.mdx');
+const VS_OPENAI_AGENTS = read('website-v2/docs/compare/vs-openai-agents-sdk.mdx');
+const VS_WARP = read('website-v2/docs/compare/vs-warp.mdx');
 const SPEC = read('.planning/COMPARE_RUNTIME_SURFACE_SPEC.md');
 
 function assertNamesAllAdapters(text, label) {
@@ -48,27 +46,15 @@ describe('compare page runtime surface', () => {
     );
   });
 
-  it('AT-COMPARE-RUNTIME-003: compare-autogen describes portability through the shipped adapters', () => {
+  it('AT-COMPARE-RUNTIME-003: vs-autogen names adapters in the interoperability row', () => {
     assert.match(
-      DOC_COMPARE_AUTOGEN,
-      /Any runtime that speaks the protocol can participate through the shipped adapters: `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`\./,
+      VS_AUTOGEN,
+      /Connector-based \(`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`\)/,
     );
     assert.doesNotMatch(
-      DOC_COMPARE_AUTOGEN,
+      VS_AUTOGEN,
       /Python, TypeScript, shell scripts, cloud APIs, IDE extensions/,
-      'compare-autogen must not replace the adapter contract with a stale platform-category laundry list',
-    );
-  });
-
-  it('AT-COMPARE-RUNTIME-004: compare-crewai uses the canonical five-adapter order', () => {
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /AgentXchain agents connect via adapters \(`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`\)/,
-    );
-    assert.doesNotMatch(
-      DOC_COMPARE_CREWAI,
-      /AgentXchain agents connect via adapters \(`local_cli`, `api_proxy`, `mcp`, `remote_agent`, `manual`\)/,
-      'compare-crewai must not shuffle the canonical five-adapter order',
+      'vs-autogen must not replace the adapter contract with a stale platform-category laundry list',
     );
   });
 

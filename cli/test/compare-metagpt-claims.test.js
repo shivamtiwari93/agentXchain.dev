@@ -11,7 +11,7 @@ function read(relPath) {
   return readFileSync(join(REPO_ROOT, relPath), 'utf8');
 }
 
-const VS_METAGPT = read('website-v2/src/pages/compare/vs-metagpt.mdx');
+const VS_METAGPT = read('website-v2/docs/compare/vs-metagpt.mdx');
 const SPEC = read('.planning/COMPARE_VS_METAGPT_SPEC.md');
 const MATRIX = read('.planning/COMPETITIVE_POSITIONING_MATRIX.md');
 

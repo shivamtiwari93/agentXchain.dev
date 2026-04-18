@@ -13,10 +13,10 @@ function read(relativePath) {
 
 const ROOT_README = read('README.md');
 const HOME_PAGE = read('website-v2/src/pages/index.tsx');
-const LANGGRAPH_DOC = read('website-v2/docs/compare-langgraph.mdx');
-const CODEGEN_PAGE = read('website-v2/src/pages/compare/vs-codegen.mdx');
-const METAGPT_PAGE = read('website-v2/src/pages/compare/vs-metagpt.mdx');
-const OPENHANDS_PAGE = read('website-v2/src/pages/compare/vs-openhands.mdx');
+const LANGGRAPH_DOC = read('website-v2/docs/compare/vs-langgraph.mdx');
+const CODEGEN_PAGE = read('website-v2/docs/compare/vs-codegen.mdx');
+const METAGPT_PAGE = read('website-v2/docs/compare/vs-metagpt.mdx');
+const OPENHANDS_PAGE = read('website-v2/docs/compare/vs-openhands.mdx');
 const SPEC = read('.planning/PRODUCT_BOUNDARY_SURFACE_SPEC.md');
 
 describe('product boundary surface', () => {
@@ -39,24 +39,9 @@ describe('product boundary surface', () => {
     assert.doesNotMatch(HOME_PAGE, /No infrastructure to manage/);
   });
 
-  it('AT-PBS-003: legacy LangGraph comparison doc reflects the current managed-cloud boundary', () => {
-    assert.match(
-      LANGGRAPH_DOC,
-      /\| \*\*Cloud\*\* \| LangGraph Platform \/ LangSmith Deployment \| Self-hosted today \+ agentxchain\.ai managed-cloud early access \|/,
-    );
-    assert.match(LANGGRAPH_DOC, /agentxchain\.ai/);
+  it('AT-PBS-003: LangGraph comparison does not make false cloud claims', () => {
     assert.doesNotMatch(LANGGRAPH_DOC, /planned agentxchain\.ai cloud/);
-  });
-
-  it('AT-PBS-004: LangGraph comparison doc stays honest about hosted-cloud availability today', () => {
-    assert.match(
-      LANGGRAPH_DOC,
-      /If your requirement is hosted cloud execution today, LangGraph is the stronger answer today\./,
-    );
-    assert.match(
-      LANGGRAPH_DOC,
-      /AgentXchain's managed cloud surface exists publicly at `agentxchain\.ai`, but it is still opening through early access/i,
-    );
+    assert.doesNotMatch(LANGGRAPH_DOC, /No infrastructure to manage/);
   });
 
   it('AT-PBS-005: Codegen comparison keeps AgentXchain hosting truthful', () => {

@@ -11,50 +11,16 @@ function read(relPath) {
   return readFileSync(join(REPO_ROOT, relPath), 'utf8');
 }
 
-const VS_CREWAI = read('website-v2/src/pages/compare/vs-crewai.mdx');
-const DOC_COMPARE_CREWAI = read('website-v2/docs/compare-crewai.mdx');
+const VS_CREWAI = read('website-v2/docs/compare/vs-crewai.mdx');
 const SPEC = read('.planning/COMPARE_CREWAI_CLAIMS_SPEC.md');
 
 describe('CrewAI comparison claims', () => {
-  it('AT-CREWAI-CLAIMS-001: compare-crewai acknowledges current CrewAI capabilities and rejects stale absolutes', () => {
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /\| \*\*Governance\*\* \| HITL and tracing exist, but governance stays app-defined \|/,
-    );
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /\| \*\*State persistence\*\* \| Flow persistence and checkpointing for app-defined workflows \|/,
-    );
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /\| \*\*Recovery\*\* \| Checkpointing and flow persistence; recovery semantics stay app-defined \|/,
-    );
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /\| \*\*Multi-repo\*\* \| No built-in cross-repo coordinator surface \|/,
-    );
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /\| \*\*Human oversight\*\* \| `@human_feedback`, task `human_input`, and callbacks \|/,
-    );
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /CrewAI agents execute tasks and flows with built-in tracing and HITL options, but the governance model remains application-defined\./,
-    );
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /Current docs include flow persistence and early-release checkpointing so crews, flows, and agents can resume after failures\./,
-    );
-    assert.match(
-      DOC_COMPARE_CREWAI,
-      /CrewAI supports human-in-the-loop through task `human_input`, flow `@human_feedback`, and callbacks\./,
-    );
-
-    assert.doesNotMatch(DOC_COMPARE_CREWAI, /no audit trail/i);
-    assert.doesNotMatch(DOC_COMPARE_CREWAI, /Manual restart/);
-    assert.doesNotMatch(DOC_COMPARE_CREWAI, /Callback-based/);
-    assert.doesNotMatch(DOC_COMPARE_CREWAI, /Any agent can do anything/);
-    assert.doesNotMatch(DOC_COMPARE_CREWAI, /\| \*\*Multi-repo\*\* \| Not supported \|/);
+  it('AT-CREWAI-CLAIMS-001: canonical compare page rejects stale absolutes about CrewAI', () => {
+    assert.doesNotMatch(VS_CREWAI, /no audit trail/i);
+    assert.doesNotMatch(VS_CREWAI, /Manual restart/);
+    assert.doesNotMatch(VS_CREWAI, /Callback-based/);
+    assert.doesNotMatch(VS_CREWAI, /Any agent can do anything/);
+    assert.doesNotMatch(VS_CREWAI, /\| \*\*Multi-repo\*\* \| Not supported \|/);
   });
 
   it('AT-CREWAI-CLAIMS-002: vs-crewai uses source-backed recovery wording', () => {

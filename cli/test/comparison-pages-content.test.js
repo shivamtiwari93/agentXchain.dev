@@ -17,15 +17,15 @@ const POSITIONING_MATRIX = read('.planning/COMPETITIVE_POSITIONING_MATRIX.md');
 const FRONTDOOR_SPEC = read('.planning/COMPARISON_LAUNCH_FRONTDOOR_SPEC.md');
 
 const pages = {
-  crewai: read('website-v2/src/pages/compare/vs-crewai.mdx'),
-  langgraph: read('website-v2/src/pages/compare/vs-langgraph.mdx'),
-  openai: read('website-v2/src/pages/compare/vs-openai-agents-sdk.mdx'),
-  autogen: read('website-v2/src/pages/compare/vs-autogen.mdx'),
-  warp: read('website-v2/src/pages/compare/vs-warp.mdx'),
-  devin: read('website-v2/src/pages/compare/vs-devin.mdx'),
-  metagpt: read('website-v2/src/pages/compare/vs-metagpt.mdx'),
-  codegen: read('website-v2/src/pages/compare/vs-codegen.mdx'),
-  openhands: read('website-v2/src/pages/compare/vs-openhands.mdx'),
+  crewai: read('website-v2/docs/compare/vs-crewai.mdx'),
+  langgraph: read('website-v2/docs/compare/vs-langgraph.mdx'),
+  openai: read('website-v2/docs/compare/vs-openai-agents-sdk.mdx'),
+  autogen: read('website-v2/docs/compare/vs-autogen.mdx'),
+  warp: read('website-v2/docs/compare/vs-warp.mdx'),
+  devin: read('website-v2/docs/compare/vs-devin.mdx'),
+  metagpt: read('website-v2/docs/compare/vs-metagpt.mdx'),
+  codegen: read('website-v2/docs/compare/vs-codegen.mdx'),
+  openhands: read('website-v2/docs/compare/vs-openhands.mdx'),
 };
 
 const REQUIRED_ROUTES = [
