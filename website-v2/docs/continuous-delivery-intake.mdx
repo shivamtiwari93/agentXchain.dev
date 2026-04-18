@@ -161,6 +161,18 @@ Current triage actions:
 - `detected -> suppressed`
 - `triaged -> rejected`
 
+Governed triage accepts the full built-in template set:
+
+- `generic`
+- `api-service`
+- `cli-tool`
+- `library`
+- `web-app`
+- `full-local-cli`
+- `enterprise-app`
+
+Use the product-shape templates (`api-service`, `cli-tool`, `library`, `web-app`) when the planning artifact bundle should mirror the repo you are about to change. Use `full-local-cli` when the intent is targeting the human-gated all-automation posture, and `enterprise-app` when the governed repo needs the heavier multi-role planning scaffold from the start.
+
 Examples:
 
 ```bash
