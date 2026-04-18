@@ -833,14 +833,23 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   // TALK.md
   writeFileSync(join(dir, 'TALK.md'), `# ${projectName} — Team Talk File\n\nCanonical human-readable handoff log for all agents.\n\n---\n\n`);
 
-  // .gitignore additions
+  // .gitignore additions with inline comments so operators know what to commit vs. ignore
   const gitignorePath = join(dir, '.gitignore');
-  const requiredIgnores = ['.env', '.agentxchain/staging/', '.agentxchain/dispatch/'];
+  const gitignoreContent = [
+    '# AgentXchain — secrets',
+    '.env',
+    '',
+    '# AgentXchain — transient execution artifacts (never commit)',
+    '.agentxchain/staging/',
+    '.agentxchain/dispatch/',
+    '.agentxchain/transactions/',
+  ].join('\n') + '\n';
+  const requiredPaths = ['.env', '.agentxchain/staging/', '.agentxchain/dispatch/', '.agentxchain/transactions/'];
   if (!existsSync(gitignorePath)) {
-    writeFileSync(gitignorePath, requiredIgnores.join('\n') + '\n');
+    writeFileSync(gitignorePath, gitignoreContent);
   } else {
     const existingIgnore = readFileSync(gitignorePath, 'utf8');
-    const missing = requiredIgnores.filter(entry => !existingIgnore.split(/\r?\n/).includes(entry));
+    const missing = requiredPaths.filter(entry => !existingIgnore.split(/\r?\n/).includes(entry));
     if (missing.length > 0) {
       const prefix = existingIgnore.endsWith('\n') ? '' : '\n';
       writeFileSync(gitignorePath, existingIgnore + prefix + missing.join('\n') + '\n');

@@ -61,7 +61,11 @@ git commit -m "initial governed scaffold"
 
 If you skipped `--goal` during scaffold, run `agentxchain config --set project.goal "Build a CLI that lints decision logs"` before the first governed turn. Do not re-run `init --governed` in place just to add the goal.
 
-`doctor` checks config, binaries, env vars, and repo state. `connector check` is the live transport probe: it actively checks configured non-manual runtimes before the first turn and prints `Probing ...` progress lines while it works. `connector validate <runtime_id>` goes further: it sends a synthetic turn dispatch to the specified runtime in a scratch workspace and validates the response against the governed turn-result schema. This proves the runtime can produce valid governed output before you commit to a real run. If any of these commands fail, fix the issue before execution starts — it is cheaper to catch contract mismatches now than mid-run.
+`doctor` checks config, binaries, env vars, and repo state. `connector check` is the live transport probe: it actively checks configured non-manual runtimes before the first turn and prints `Probing ...` progress lines while it works. For known CLIs (Claude Code, Codex), it also validates that the command flags match the role's authority intent — e.g., it warns if an authoritative role's command is missing `--dangerously-skip-permissions` or uses `--full-auto` instead of `--dangerously-bypass-approvals-and-sandbox`. `connector validate <runtime_id>` goes further: it sends a synthetic turn dispatch to the specified runtime in a scratch workspace and validates the response against the governed turn-result schema. This proves the runtime can produce valid governed output before you commit to a real run. If any of these commands fail, fix the issue before execution starts — it is cheaper to catch contract mismatches now than mid-run.
+
+:::caution Clean working tree required for authoritative turns
+Authoritative and proposed turns require a **clean git baseline** — the framework compares `files_changed` in the turn result against the diff from the dispatch baseline. If you have uncommitted changes in actor-owned files when you try to assign a turn, the assignment will fail. Always **commit scaffold and config changes before running your first automated turn**. This is why the scaffold instructions above end with `git add -A && git commit`.
+:::
 
 At this point the repo is scaffolded, but the planning gate is intentionally closed. `PM_SIGNOFF.md` starts at `Approved: NO`.
 

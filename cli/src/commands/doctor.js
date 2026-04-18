@@ -19,6 +19,7 @@ import {
 } from '../lib/runtime-capabilities.js';
 import { detectActiveTurnBindingDrift } from '../lib/governed-state.js';
 import { findPendingApprovedIntents } from '../lib/intake.js';
+import { checkCleanBaseline } from '../lib/repo-observer.js';
 
 export async function doctorCommand(opts = {}) {
   const root = findProjectRoot(process.cwd());
@@ -148,6 +149,31 @@ function governedDoctor(root, rawConfig, opts) {
       }
     } catch {
       // State couldn't be loaded — skip drift check
+    }
+  }
+
+  // 5c. Clean working tree pre-flight for authoritative/proposed roles
+  if (normalized?.roles) {
+    const writableRoles = Object.entries(normalized.roles)
+      .filter(([, role]) => role.write_authority === 'authoritative' || role.write_authority === 'proposed')
+      .map(([id]) => id);
+    if (writableRoles.length > 0) {
+      const cleanCheck = checkCleanBaseline(root, 'authoritative');
+      if (cleanCheck.clean) {
+        checks.push({
+          id: 'clean_baseline',
+          name: 'Clean working tree',
+          level: 'pass',
+          detail: 'Working tree is clean for authoritative/proposed turns',
+        });
+      } else {
+        checks.push({
+          id: 'clean_baseline',
+          name: 'Clean working tree',
+          level: 'warn',
+          detail: `${cleanCheck.reason} Writable roles: ${writableRoles.join(', ')}`,
+        });
+      }
     }
   }
 

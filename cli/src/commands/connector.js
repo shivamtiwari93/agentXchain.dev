@@ -27,7 +27,11 @@ function printText(result, exitCode) {
   console.log('');
 
   for (const connector of result.connectors) {
-    const badge = connector.level === 'pass' ? chalk.green('PASS') : chalk.red('FAIL');
+    const badge = connector.level === 'pass'
+      ? chalk.green('PASS')
+      : connector.level === 'warn'
+        ? chalk.yellow('WARN')
+        : chalk.red('FAIL');
     console.log(`  ${badge}  ${connector.runtime_id} (${connector.type})`);
     console.log(`        ${chalk.dim('Target:')} ${connector.target}`);
     console.log(`        ${chalk.dim('Probe:')}  ${connector.probe_kind}`);
@@ -44,12 +48,22 @@ function printText(result, exitCode) {
       console.log(`        ${chalk.dim('Time:')}   ${connector.latency_ms}ms`);
     }
     console.log(`        ${chalk.dim('Detail:')} ${connector.detail}`);
+    if (Array.isArray(connector.authority_warnings) && connector.authority_warnings.length > 0) {
+      for (const warning of connector.authority_warnings) {
+        console.log(`        ${chalk.yellow('⚠')} ${warning.detail}`);
+        if (warning.fix) {
+          console.log(`          ${chalk.dim('Fix:')} ${warning.fix}`);
+        }
+      }
+    }
   }
 
   console.log('');
   const summary = result.overall === 'pass'
     ? chalk.green(`  ✓ ${result.pass_count}/${result.connectors.length} connectors passed`)
-    : chalk.red(`  ${result.fail_count} connector failure(s), ${result.pass_count} passed`);
+    : result.overall === 'warn'
+      ? chalk.yellow(`  ⚠ ${result.warn_count} connector warning(s), ${result.pass_count} passed`)
+      : chalk.red(`  ${result.fail_count} connector failure(s), ${result.pass_count} passed`);
   console.log(summary);
   console.log('');
   process.exit(exitCode);
@@ -110,6 +124,7 @@ export async function connectorCheckCommand(runtimeId, options = {}) {
     overall: result.overall,
     timeout_ms: result.timeout_ms,
     pass_count: result.pass_count,
+    warn_count: result.warn_count,
     fail_count: result.fail_count,
     connectors: result.connectors,
   };

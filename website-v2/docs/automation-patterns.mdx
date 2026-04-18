@@ -48,6 +48,8 @@ Those commands map to different prompt transports:
 
 If you scaffold `full-local-cli` with `--dev-command` and `--dev-prompt-transport`, AgentXchain applies that local CLI contract across the template's default local runtimes instead of silently customizing only `dev`.
 
+For complete per-CLI recipes including troubleshooting, see [Local CLI Recipes](/docs/local-cli-recipes).
+
 ## Fast path
 
 ```bash
@@ -96,6 +98,15 @@ What happens:
 That is the whole point of the pattern: automated turns, human gates.
 
 Do not skip the commits between accepted authoritative turns. The next code-writing turn will fail closed on a dirty tree.
+
+### Why authoritative turns require a clean working tree
+
+AgentXchain validates turn results by comparing `files_changed` against the diff between the dispatch baseline (the git state when the turn was assigned) and the post-turn working tree. If uncommitted files exist before dispatch, the acceptance validator cannot distinguish "files the agent changed" from "files that were already dirty." This causes false-negative rejections where the turn is correct but the validator rejects it for undeclared changes.
+
+The clean-baseline rule exists to make artifact observation reliable:
+- **Before every authoritative turn:** commit all scaffold, config, and prior-turn changes.
+- **If you hit a dirty-tree refusal:** run `git status`, commit or stash the listed files, then retry.
+- `doctor` will warn you if the working tree is dirty and the next expected role is authoritative.
 
 ## Human steering during automation
 

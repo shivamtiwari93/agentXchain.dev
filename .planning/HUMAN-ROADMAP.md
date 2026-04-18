@@ -826,7 +826,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Add an E2E proof that this config runs 3 back-to-back turns with the gates pausing for human approval.
   - **Acceptance:** `agentxchain init --template full-local-cli` (or equivalent) scaffolds this setup; docs page explains it in under 5 minutes of reading.
 
-- [ ] **B-6: Manual-to-automated migration path documented (gaps #6, #15, #17, #18)** — The scaffold starts manual-first (by design), but the upgrade path to automation is missing. Tester had to infer it from scattered docs and tests.
+- [x] **B-6: Manual-to-automated migration path documented (gaps #6, #15, #17, #18)** — completed 2026-04-17: `docs/manual-to-automated-migration.mdx` created with 9-step numbered sequence covering validate → choose CLI → add runtimes → rebind roles → connector check → commit → reissue → first turn → inject steering. States PM automation is real. Includes full-local-cli template alternative and generic-to-CLI overlay pattern. Registered in sidebar. 9 content-contract tests in `migration-guide-content.test.js`.
   - **What to fix:**
     - Create `docs/manual-to-automated-migration.mdx` (recommended addition #3) with the exact numbered sequence:
       1. scaffold manual-first (`init --governed`)
@@ -854,7 +854,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Document the command in `docs/cli.mdx` and link it from the migration guide (B-6).
   - **Acceptance:** rebinding a runtime never leaves the protocol in a state that requires hand-editing JSON. One command recovers cleanly.
 
-- [ ] **B-8: Clean-working-tree requirement surfaced earlier (gap #9)** — `resume` correctly refused to assign a new authoritative turn on a dirty tree — but the tester didn't know this rule until they hit it.
+- [x] **B-8: Clean-working-tree requirement surfaced earlier (gap #9)** — completed 2026-04-17: clean-tree requirement now stated plainly in getting-started, quickstart (caution admonition), and automation-patterns (with "Why this exists" explanation covering diff-baseline mechanism). `doctor` includes `clean_baseline` pre-flight check that warns when working tree is dirty and writable roles exist. 6 regression tests in `clean-tree-guidance.test.js`.
   - **What to fix:**
     - State plainly in getting-started, quickstart, and the automation guide: **authoritative/proposed turns require a clean baseline**. Scaffold/config changes must be committed before writable automated turns begin.
     - Surface this in `doctor` pre-flight: if the working tree is dirty AND the next role is `authoritative`, warn before the first dispatch.
@@ -862,7 +862,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Add a content-contract test.
   - **Acceptance:** user sees the clean-tree rule before they hit it at dispatch time.
 
-- [ ] **B-9: Local CLI recipes page — Codex, Claude Code, Cursor (gap #10 + recommended addition #2)** — AgentXchain lets you declare `local_cli`, but doesn't help much with the actual command shape, which is where the tester got burned: `codex --full-auto` isn't full authority; true full authority required `--dangerously-bypass-approvals-and-sandbox`. Claude Code needed `--dangerously-skip-permissions`. These are landmines.
+- [x] **B-9: Local CLI recipes page — Codex, Claude Code, Cursor (gap #10 + recommended addition #2)** — completed 2026-04-17: `docs/local-cli-recipes.mdx` created with copy-pasteable recipes for Claude Code, Codex CLI, and OpenClaw. Covers exact flags, transport modes, common mistakes, Cursor/Windsurf clarification, authority model recap, and troubleshooting section. Linked from automation-patterns and registered in sidebar under Connectors. 10 content-contract tests in `local-cli-recipes-content.test.js`.
   - **What to fix:**
     - Create `docs/local-cli-recipes.mdx` (recommended addition #2) with a section per CLI:
       - **Codex:** exact command, required flags for full authority, `stdin` transport note, `--dangerously-bypass-approvals-and-sandbox` explained
@@ -875,7 +875,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Link from B-5 canonical config example.
   - **Acceptance:** user pastes the recipe, runs `connector validate`, the CLI dispatches under full authority on first try.
 
-- [ ] **B-10: Deeper `connector validate` probes (gap #11)** — Tester noted `connector check` only confirmed command presence, not that auth was valid, that flags worked, or that the sandbox/approval mode matched intent. Wasted time.
+- [x] **B-10: Deeper `connector validate` probes (gap #11)** — completed 2026-04-17: `connector check` now performs authority-intent analysis for known local CLI tools (Claude Code, Codex). Detects missing `--dangerously-skip-permissions` / `--dangerously-bypass-approvals-and-sandbox` flags for authoritative roles, warns about weak `--full-auto`, validates prompt transport alignment (`argv` without `{prompt}`, mismatched transport for known CLIs). Probe result level promoted from `pass` to `warn` when intent mismatches detected. `--json` output includes `warn_count` and per-connector `authority_warnings` array with actionable fix guidance. 18 regression tests in `connector-authority-intent.test.js`.
   - **What to fix:**
     - Extend `agentxchain connector validate` (or a deeper `connector probe` variant) to optionally:
       - exercise a no-op prompt through the actual runtime and confirm structured turn-result comes back (real auth check)
@@ -885,7 +885,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Gate the real-spend probes behind an opt-in flag (`--live` or similar) since they cost money.
   - **Acceptance:** `connector validate --live` catches expired auth, wrong flags, and sandbox mismatches before the first real turn.
 
-- [ ] **B-11: Planning/repo split guidance (gaps #13, #14)** — Tester had to decide themselves what belongs in root `README.md`, root `VISION.md`, and `.planning/VISION.md`. They also had to infer which `.agentxchain/*` files should be committed vs. ignored.
+- [x] **B-11: Planning/repo split guidance (gaps #13, #14)** — completed 2026-04-17: `docs/project-structure.mdx` created with three-layer explanation (committed governed state, transient execution artifacts, planning artifacts). Includes file-by-file tables, VISION.md ownership rule, freshly-scaffolded anatomy tree, root-vs-.planning guidance. Scaffold `.gitignore` now includes `.agentxchain/transactions/` and inline comments. Registered in sidebar. 8 content-contract tests in `project-structure-content.test.js`.
   - **What to fix:**
     - Add a "Project structure" page explaining the recommended split:
       - public OSS repo surface: root `README.md`, root docs

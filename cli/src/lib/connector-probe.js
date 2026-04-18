@@ -9,6 +9,36 @@ import {
 const PROBEABLE_RUNTIME_TYPES = new Set(['local_cli', 'api_proxy', 'mcp', 'remote_agent']);
 const DEFAULT_TIMEOUT_MS = 8_000;
 
+/**
+ * Known local CLI tools and their authoritative-mode flags.
+ * Each entry maps a binary name pattern to the flag required for true
+ * unattended authoritative writes and any flags that look similar but
+ * do NOT grant full authority.
+ */
+const KNOWN_CLI_AUTHORITY_FLAGS = [
+  {
+    binary: 'claude',
+    authoritative_flag: '--dangerously-skip-permissions',
+    weak_flags: [],
+    label: 'Claude Code',
+  },
+  {
+    binary: 'codex',
+    authoritative_flag: '--dangerously-bypass-approvals-and-sandbox',
+    weak_flags: ['--full-auto'],
+    label: 'OpenAI Codex CLI',
+  },
+];
+
+/**
+ * Known prompt transport requirements per CLI binary.
+ * Maps binary name to expected transport.
+ */
+const KNOWN_CLI_TRANSPORTS = {
+  claude: 'stdin',
+  codex: 'argv',
+};
+
 function formatCommand(command, args = []) {
   if (Array.isArray(command)) {
     return command.join(' ');
@@ -274,8 +304,103 @@ async function probeHttpRuntime(runtimeId, runtime, timeoutMs) {
   };
 }
 
+/**
+ * Analyze a local_cli runtime's command shape for authority-intent alignment.
+ * Returns an array of warnings (may be empty).
+ *
+ * @param {string} runtimeId
+ * @param {object} runtime - runtime config entry
+ * @param {object} roles - map of roleId → role config (to determine write_authority)
+ * @returns {{ warnings: Array<{probe_kind: string, level: string, detail: string, fix?: string}> }}
+ */
+function analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles) {
+  const warnings = [];
+  if (runtime?.type !== 'local_cli') return { warnings };
+
+  const commandTokens = normalizeCommandTokens(runtime);
+  if (commandTokens.length === 0) return { warnings };
+
+  const binaryName = commandTokens[0].toLowerCase();
+  const allFlags = commandTokens.slice(1).join(' ');
+
+  // Find roles that use this runtime
+  const boundRoles = Object.entries(roles || {})
+    .filter(([, role]) => role?.runtime === runtimeId)
+    .map(([roleId, role]) => ({ roleId, write_authority: role.write_authority }));
+
+  if (boundRoles.length === 0) return { warnings };
+
+  const authoritativeRoles = boundRoles.filter((r) => r.write_authority === 'authoritative');
+
+  // Check known CLI authority flags
+  const knownCli = KNOWN_CLI_AUTHORITY_FLAGS.find((entry) => binaryName === entry.binary || binaryName.endsWith(`/${entry.binary}`));
+  if (knownCli && authoritativeRoles.length > 0) {
+    const hasAuthFlag = commandTokens.some((token) => token === knownCli.authoritative_flag);
+    if (!hasAuthFlag) {
+      const usesWeakFlag = knownCli.weak_flags.find((wf) => commandTokens.some((token) => token === wf));
+      const roleNames = authoritativeRoles.map((r) => r.roleId).join(', ');
+      if (usesWeakFlag) {
+        warnings.push({
+          probe_kind: 'authority_intent',
+          level: 'warn',
+          detail: `${knownCli.label} uses "${usesWeakFlag}" which does NOT grant full unattended authority — role(s) [${roleNames}] require authoritative writes`,
+          fix: `Replace "${usesWeakFlag}" with "${knownCli.authoritative_flag}" in the command array`,
+        });
+      } else {
+        warnings.push({
+          probe_kind: 'authority_intent',
+          level: 'warn',
+          detail: `${knownCli.label} command is missing "${knownCli.authoritative_flag}" — role(s) [${roleNames}] require authoritative writes but the subprocess may block on approval prompts`,
+          fix: `Add "${knownCli.authoritative_flag}" to the command array`,
+        });
+      }
+    }
+  }
+
+  // Prompt transport validation
+  const transport = runtime.prompt_transport || 'dispatch_bundle_only';
+  const knownTransport = KNOWN_CLI_TRANSPORTS[binaryName];
+
+  if (transport === 'argv' && !commandTokens.some((token) => token.includes('{prompt}'))) {
+    warnings.push({
+      probe_kind: 'transport_intent',
+      level: 'warn',
+      detail: `prompt_transport is "argv" but no {prompt} placeholder found in command — the prompt will not be delivered`,
+      fix: `Add a "{prompt}" placeholder to the command array, e.g. ["${binaryName}", ..., "{prompt}"]`,
+    });
+  }
+
+  if (knownTransport && transport !== knownTransport && transport !== 'dispatch_bundle_only') {
+    const transportLabel = knownCli ? knownCli.label : binaryName;
+    warnings.push({
+      probe_kind: 'transport_intent',
+      level: 'warn',
+      detail: `${transportLabel} typically uses "${knownTransport}" transport, but this runtime is configured with "${transport}"`,
+      fix: `Set prompt_transport to "${knownTransport}" or "dispatch_bundle_only"`,
+    });
+  }
+
+  return { warnings };
+}
+
+/**
+ * Normalize a runtime's command field into an array of tokens.
+ */
+function normalizeCommandTokens(runtime) {
+  if (Array.isArray(runtime?.command)) {
+    return runtime.command.flatMap((element) =>
+      typeof element === 'string' ? element.trim().split(/\s+/).filter(Boolean) : []
+    );
+  }
+  if (typeof runtime?.command === 'string' && runtime.command.trim()) {
+    return runtime.command.trim().split(/\s+/).filter(Boolean);
+  }
+  return [];
+}
+
 export async function probeConnectorRuntime(runtimeId, runtime, options = {}) {
   const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT_MS;
+  const roles = options.roles || null;
 
   if (!runtime || !PROBEABLE_RUNTIME_TYPES.has(runtime.type)) {
     return {
@@ -289,7 +414,19 @@ export async function probeConnectorRuntime(runtimeId, runtime, options = {}) {
   }
 
   if (runtime.type === 'local_cli') {
-    return probeLocalCommand(runtimeId, runtime, 'command_presence');
+    const result = await probeLocalCommand(runtimeId, runtime, 'command_presence');
+    // Add authority-intent and transport analysis when roles are available
+    if (roles) {
+      const { warnings } = analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles);
+      if (warnings.length > 0) {
+        result.authority_warnings = warnings;
+        // Promote result level to 'warn' if binary is present but authority intent is wrong
+        if (result.level === 'pass') {
+          result.level = 'warn';
+        }
+      }
+    }
+    return result;
   }
 
   if (runtime.type === 'api_proxy') {
@@ -310,6 +447,7 @@ export async function probeConfiguredConnectors(config, options = {}) {
   const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT_MS;
   const requestedRuntimeId = options.runtimeId || null;
   const onProbeStart = typeof options.onProbeStart === 'function' ? options.onProbeStart : null;
+  const roles = config?.roles || null;
 
   const runtimeEntries = Object.entries(config?.runtimes || {})
     .filter(([, runtime]) => PROBEABLE_RUNTIME_TYPES.has(runtime?.type))
@@ -326,30 +464,33 @@ export async function probeConfiguredConnectors(config, options = {}) {
     }
     const [runtimeId, runtime] = match;
     onProbeStart?.(runtimeId, runtime);
-    const connector = await probeConnectorRuntime(runtimeId, runtime, { timeoutMs });
+    const connector = await probeConnectorRuntime(runtimeId, runtime, { timeoutMs, roles });
     return summarizeResults([connector], timeoutMs);
   }
 
   const connectors = [];
   for (const [runtimeId, runtime] of runtimeEntries) {
     onProbeStart?.(runtimeId, runtime);
-    connectors.push(await probeConnectorRuntime(runtimeId, runtime, { timeoutMs }));
+    connectors.push(await probeConnectorRuntime(runtimeId, runtime, { timeoutMs, roles }));
   }
   return summarizeResults(connectors, timeoutMs);
 }
 
 function summarizeResults(connectors, timeoutMs) {
   const failCount = connectors.filter((item) => item.level === 'fail').length;
+  const warnCount = connectors.filter((item) => item.level === 'warn').length;
   const passCount = connectors.filter((item) => item.level === 'pass').length;
+  const overall = failCount > 0 ? 'fail' : warnCount > 0 ? 'warn' : 'pass';
   return {
     ok: failCount === 0,
     exitCode: failCount === 0 ? 0 : 1,
-    overall: failCount === 0 ? 'pass' : 'fail',
+    overall,
     timeout_ms: timeoutMs,
     pass_count: passCount,
+    warn_count: warnCount,
     fail_count: failCount,
     connectors,
   };
 }
 
-export { DEFAULT_TIMEOUT_MS, PROBEABLE_RUNTIME_TYPES };
+export { DEFAULT_TIMEOUT_MS, PROBEABLE_RUNTIME_TYPES, KNOWN_CLI_AUTHORITY_FLAGS, KNOWN_CLI_TRANSPORTS, analyzeLocalCliAuthorityIntent, normalizeCommandTokens };

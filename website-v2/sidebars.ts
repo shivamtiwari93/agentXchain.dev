@@ -30,6 +30,8 @@ const sidebars: SidebarsConfig = {
     'templates',
     'choosing-a-template',
     'automation-patterns',
+    'manual-to-automated-migration',
+    'project-structure',
     'case-study-self-build',
     {
       type: 'category',
@@ -86,6 +88,7 @@ const sidebars: SidebarsConfig = {
         'integration-guide',
         'runtime-matrix',
         'authority-model',
+        'local-cli-recipes',
         'adapters',
         'build-your-own-connector',
       ],

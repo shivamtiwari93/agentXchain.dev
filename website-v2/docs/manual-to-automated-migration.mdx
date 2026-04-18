@@ -1,0 +1,192 @@
+---
+sidebar_position: 14
+title: Manual to Automated Migration
+description: "Step-by-step guide to upgrade a manual-first governed scaffold to fully automated local CLI turns."
+---
+
+# Manual to automated migration
+
+The default governed scaffold starts manual-first — all roles use `manual` runtimes and `review_only` authority. This is intentional: it lets you understand the protocol before handing write access to agents.
+
+When you are ready to automate, follow this numbered sequence. Each step builds on the previous one.
+
+## Step 1: Validate the manual scaffold
+
+Before changing anything, confirm the current scaffold is healthy:
+
+```bash
+agentxchain validate
+agentxchain doctor
+```
+
+Both should report clean. If they do not, fix the issues first.
+
+## Step 2: Choose your local CLI tool
+
+Pick one:
+- **Claude Code:** `claude --print --dangerously-skip-permissions` with `stdin` transport
+- **Codex CLI:** `codex --quiet --dangerously-bypass-approvals-and-sandbox {prompt}` with `argv` transport
+
+See [Local CLI Recipes](/docs/local-cli-recipes) for the full recipe per tool.
+
+## Step 3: Add local CLI runtimes
+
+Edit `agentxchain.json` to add local CLI runtime entries alongside the existing manual ones:
+
+```json
+{
+  "runtimes": {
+    "manual-pm": { "type": "manual" },
+    "local-pm": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    },
+    "local-dev": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    },
+    "local-qa": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  }
+}
+```
+
+You can also use `agentxchain config --set` to add runtimes one at a time.
+
+## Step 4: Rebind roles to local CLI runtimes
+
+Update each role to point at the new local CLI runtime and change `write_authority` from `review_only` to `authoritative`:
+
+```bash
+agentxchain config --set roles.pm.runtime=local-pm
+agentxchain config --set roles.pm.write_authority=authoritative
+
+agentxchain config --set roles.dev.runtime=local-dev
+agentxchain config --set roles.dev.write_authority=authoritative
+
+agentxchain config --set roles.qa.runtime=local-qa
+agentxchain config --set roles.qa.write_authority=authoritative
+```
+
+**PM automation is real.** The manual-first scaffold makes PM look like "PM planning is always manual," but it is not. PM planning can be fully automated with a local CLI runtime. The manual scaffold just defaults that way for safety.
+
+## Step 5: Run connector checks
+
+Verify the new bindings before committing:
+
+```bash
+agentxchain connector check
+```
+
+Look for:
+- `PASS` on all local CLI runtimes (binary found)
+- No `WARN` for `authority_intent` (flags match role authority)
+- No `WARN` for `transport_intent` (transport matches CLI expectations)
+
+If you see warnings, fix the command array per [Local CLI Recipes](/docs/local-cli-recipes).
+
+For a deeper check, run a synthetic governed dispatch:
+
+```bash
+agentxchain connector validate local-dev
+```
+
+This sends a no-op turn to the runtime in a scratch workspace and validates the turn result schema.
+
+## Step 6: Commit the config changes
+
+**This is not optional.** Authoritative turns require a clean git baseline. If you skip this commit, the first automated turn will refuse to assign.
+
+```bash
+git add agentxchain.json
+git commit -m "chore: migrate roles to local CLI automation"
+```
+
+See [Why clean baseline is required](/docs/automation-patterns#why-authoritative-turns-require-a-clean-working-tree).
+
+## Step 7: Reissue any active turns
+
+If you have active turns that were assigned under the old manual runtime, they now have stale bindings. Reissue them:
+
+```bash
+agentxchain status         # check for binding drift warnings
+agentxchain reissue-turn   # reissues the active turn against current config
+```
+
+`doctor` also reports stale bindings:
+
+```bash
+agentxchain doctor         # look for binding_drift warnings
+```
+
+## Step 8: Run the first automated turn
+
+```bash
+agentxchain step
+```
+
+The CLI will dispatch the PM turn through the local CLI runtime. Watch the output — the subprocess should start, run, and produce a governed turn result.
+
+After the turn completes:
+
+```bash
+agentxchain accept-turn    # or let step auto-accept
+git add -A
+git commit -m "orchestrator: accept automated pm turn"
+```
+
+Then approve the planning gate and continue:
+
+```bash
+agentxchain approve-transition
+agentxchain step --role dev
+```
+
+## Step 9: Inject human steering (optional)
+
+If you need to redirect the next turn without switching back to manual:
+
+```bash
+agentxchain inject "Revise the roadmap for the new API surface" \
+  --priority p0 \
+  --charter "Update PM plan" \
+  --acceptance "V2 API surface is reflected in ROADMAP.md" \
+  --acceptance "Acceptance criteria are concrete"
+
+agentxchain resume --role pm
+agentxchain step --resume
+```
+
+The injected intent becomes the turn's primary charter. See the [intake documentation](/docs/continuous-delivery-intake).
+
+## Alternative: start with the full-local-cli template
+
+If you are starting fresh (not migrating an existing manual scaffold), skip all the above and scaffold directly:
+
+```bash
+agentxchain init --governed --template full-local-cli \
+  --goal "Build a governed product slice" \
+  --dev-command "claude --print --dangerously-skip-permissions" \
+  --dev-prompt-transport stdin \
+  --dir my-project -y
+```
+
+This scaffolds all roles as `authoritative + local_cli` with human gate approvals. See [Automation Patterns](/docs/automation-patterns) for the full walkthrough.
+
+## Generic to CLI-tool template overlay
+
+If you initially scaffolded with `--template web-app` or another generic template and want to switch all runtimes to local CLI without re-scaffolding:
+
+1. Follow Steps 3-6 above to add runtimes and rebind roles
+2. The template's planning artifacts, workflow kit, and gate structure remain intact
+3. Only the runtime and authority bindings change
+
+This is the recommended path when you want to keep your existing planning context but upgrade the execution model.

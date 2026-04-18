@@ -1,0 +1,169 @@
+---
+sidebar_position: 13
+title: Local CLI Recipes
+description: "Copy-pasteable command shapes, transport modes, and troubleshooting for Claude Code, Codex CLI, and other local agent runtimes."
+---
+
+# Local CLI recipes
+
+This page collects the exact command shapes, transports, and gotchas for every supported local CLI agent runtime. Stop guessing flags — paste the recipe, run `connector validate`, dispatch your first turn.
+
+## Claude Code
+
+```json title="agentxchain.json (runtime entry)"
+{
+  "local-dev": {
+    "type": "local_cli",
+    "command": ["claude", "--print", "--dangerously-skip-permissions"],
+    "cwd": ".",
+    "prompt_transport": "stdin"
+  }
+}
+```
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| `--print` | Required | Sends output to stdout instead of interactive mode |
+| `--dangerously-skip-permissions` | Required for authoritative | Grants unattended file writes — without it the subprocess hangs on approval prompts |
+| `prompt_transport` | `stdin` | Claude Code reads the prompt from standard input in `--print` mode |
+
+**Common mistakes:**
+- Omitting `--dangerously-skip-permissions` → subprocess hangs waiting for user approval, turn times out.
+- Using `prompt_transport: "argv"` → Claude Code does not accept prompts as CLI arguments in `--print` mode.
+- `connector check` now warns about both of these: look for `authority_intent` and `transport_intent` warnings.
+
+**Verify:**
+```bash
+agentxchain connector check local-dev    # binary + authority intent + transport
+agentxchain connector validate local-dev  # full synthetic governed turn
+```
+
+## OpenAI Codex CLI
+
+```json title="agentxchain.json (runtime entry)"
+{
+  "local-dev": {
+    "type": "local_cli",
+    "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+    "cwd": ".",
+    "prompt_transport": "argv"
+  }
+}
+```
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| `--quiet` | Recommended | Suppresses progress output for cleaner logs |
+| `--dangerously-bypass-approvals-and-sandbox` | Required for authoritative | Grants full unattended authority — `--full-auto` is **NOT** sufficient |
+| `{prompt}` | Required | Placeholder that AgentXchain replaces with the full dispatch prompt |
+| `prompt_transport` | `argv` | Codex accepts the prompt as a command-line argument |
+
+**Common mistakes:**
+- Using `--full-auto` instead of `--dangerously-bypass-approvals-and-sandbox` → Codex still blocks on some operations. `connector check` will warn: "does NOT grant full unattended authority."
+- Forgetting `{prompt}` in the command array → the prompt is never delivered. `connector check` warns: "no \{prompt\} placeholder found."
+- Using `prompt_transport: "stdin"` → Codex does not read prompts from stdin.
+
+**Verify:**
+```bash
+agentxchain connector check local-dev
+agentxchain connector validate local-dev
+```
+
+## OpenClaw
+
+```json title="agentxchain.json (runtime entry)"
+{
+  "local-dev": {
+    "type": "local_cli",
+    "command": ["openclaw", "run", "--non-interactive"],
+    "cwd": ".",
+    "prompt_transport": "stdin"
+  }
+}
+```
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| `--non-interactive` | Required | Runs in headless mode without terminal UI |
+| `prompt_transport` | `stdin` | OpenClaw reads the prompt from standard input |
+
+## Custom / Other CLIs
+
+Any local binary that can:
+1. Accept a prompt (via stdin, argv placeholder, or by reading `PROMPT.md` from disk)
+2. Write files to the working directory
+3. Exit with status 0 on success
+
+...can be used as a `local_cli` runtime.
+
+```json title="agentxchain.json (runtime entry)"
+{
+  "local-dev": {
+    "type": "local_cli",
+    "command": ["my-agent", "--headless"],
+    "cwd": ".",
+    "prompt_transport": "dispatch_bundle_only"
+  }
+}
+```
+
+Use `dispatch_bundle_only` when the agent reads its own prompt from the dispatch directory rather than from stdin or argv.
+
+## Prompt transport reference
+
+| Transport | Mechanism | When to use |
+|-----------|-----------|-------------|
+| `stdin` | Prompt piped to process standard input | Claude Code, OpenClaw, any tool that reads from stdin |
+| `argv` | `{prompt}` placeholder replaced in command array | Codex CLI, any tool accepting prompt as CLI argument |
+| `dispatch_bundle_only` | No prompt delivery; agent reads `PROMPT.md` from disk | Self-managing agents, custom runners |
+
+## Cursor, Windsurf, and other editors
+
+Cursor and Windsurf are editor extensions, not headless CLI tools. They do not have a governed local CLI runtime.
+
+To use AgentXchain with Cursor or Windsurf:
+- Install Claude Code or Codex CLI separately
+- Configure the `local_cli` runtime to point at the CLI tool, not the editor
+- Use the editor for interactive development; use the CLI runtime for governed automated turns
+
+See the [Cursor integration guide](/docs/integrations/cursor) and [Windsurf integration guide](/docs/integrations/windsurf) for details.
+
+## Authority model recap
+
+The command flags above only control the **downstream tool's** sandbox/approval behavior. AgentXchain has a separate `write_authority` setting on each role:
+
+| `write_authority` | What it means |
+|-------------------|---------------|
+| `authoritative` | Turn writes directly to the repo. Requires full-authority CLI flags. |
+| `proposed` | Turn authors patches. Does not require dangerous flags. |
+| `review_only` | **Invalid with `local_cli`** — local CLI has repo write access, so review_only is a contradiction. Use `api_proxy`, `mcp`, or `manual` instead. |
+
+See the [Authority Model](/docs/authority-model) page for the full three-axis explanation.
+
+## Troubleshooting
+
+### Turn times out or hangs
+
+The subprocess is likely waiting for approval input.
+
+**Fix:** Add the full-authority flag for your CLI:
+- Claude Code: `--dangerously-skip-permissions`
+- Codex: `--dangerously-bypass-approvals-and-sandbox`
+
+### `connector check` shows WARN for authority_intent
+
+Your command array is missing the flag required for the role's `write_authority: authoritative` setting.
+
+**Fix:** Follow the `Fix:` guidance printed by `connector check`.
+
+### `connector check` shows WARN for transport_intent
+
+The configured `prompt_transport` does not match what the CLI expects.
+
+**Fix:** Use the transport listed in the recipe above for your CLI.
+
+### Undeclared file changes on acceptance
+
+Your working tree had uncommitted files before the turn was dispatched. The acceptance validator sees them as "new files the agent touched" but they were not in `files_changed`.
+
+**Fix:** Commit all changes before dispatching the next authoritative turn. See the [clean baseline rule](/docs/automation-patterns#why-authoritative-turns-require-a-clean-working-tree).
