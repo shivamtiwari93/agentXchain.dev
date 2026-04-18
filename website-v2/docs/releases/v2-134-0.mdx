@@ -1,0 +1,61 @@
+---
+sidebar_position: 0
+title: "v2.134.0 Release Notes"
+---
+
+# AgentXchain v2.134.0
+
+`v2.134.0` hardens coordinator mission execution with real child-runtime proofs, fixes three coordinator dispatch bugs that were hidden behind mocked tests, consolidates the compare-page architecture for full docs search coverage, and corrects stale protocol-v6 references to the current v7 normative spec.
+
+**Released:** 2026-04-18
+
+## What Changed
+
+### Coordinator mission execution fixes
+
+Three coordinator dispatch bugs were exposed when the mocked `_executeGovernedRun` tests were replaced with real `local_cli` child runtimes:
+
+- **Acceptance projection:** successful coordinator-dispatched child-repo turns are now projected into coordinator history immediately, so plan sync reflects actual progress instead of stale state. (`DEC-COORD-MISSION-ACCEPTANCE-001`)
+- **Retry reactivation:** targeted `mission plan launch --retry` now reactivates the blocked child run and executes the reissued turn, instead of leaving the child repo in a stale state. (`DEC-COORD-MISSION-RETRY-001`)
+- **Terminal-restart dispatch:** coordinator dispatch can now initialize or restart child-repo governed runs when later workstreams target repos whose previous run already completed. (`DEC-COORD-MISSION-DISPATCH-001`)
+
+### Coordinator real-agent proof surface
+
+Every coordinator lifecycle path now has a real-agent E2E test using `local_cli` child runtimes and `step --resume` instead of synthetic state surgery:
+
+| Path | Test |
+|---|---|
+| Happy path | `e2e-coordinator-child-run.test.js` |
+| Blocked / recovery | `e2e-coordinator-recovery-real-agent.test.js` |
+| Failure / retry | `e2e-coordinator-retry-real-agent.test.js` |
+| Wave failure | `coordinator-wave-failure-e2e.test.js` |
+
+### Compare-page consolidation
+
+All 9 compare pages now live under `docs/compare/` as the single canonical location. The duplicate `src/pages/compare/` standalone pages are eliminated. Old URLs redirect via `@docusaurus/plugin-client-redirects`. All compare pages are now searchable via the offline docs search shipped in v2.133.0. (`DEC-COMPARE-PAGE-ARCHITECTURE-001`)
+
+7 of 9 compare pages now carry governance posture, recovery posture, and multi-repo posture decision rows. (`DEC-COMPARE-PAGE-DECISION-SURFACE-001`, `DEC-COMPARE-PAGE-DECISION-SURFACE-002`)
+
+### Protocol v8 boundary frozen
+
+Mission hierarchy, mission plans, dashboard UX, and export/report/release operator surfaces remain reference-runner workflow features. Shipping those features alone does not create protocol v8. A future v8 requires promoted conformance or a new normative artifact/state contract. (`DEC-PROTOCOL-V8-BOUNDARY-001`)
+
+### Stale protocol-v6 references corrected
+
+`PROTOCOL-v3.md`, `CI_RUNNER_PROOF_SPEC.md`, `RUNNER_INTERFACE_SPEC.md`, and the CI runner proof example all anchored on `PROTOCOL-v6.md` as the current normative reference. Corrected to `PROTOCOL-v7.md`.
+
+### Release postflight operator smoke
+
+Release postflight now verifies the published tarball can scaffold and validate a fresh governed workspace, not just start. (`DEC-RELEASE-POSTFLIGHT-OPERATOR-001`)
+
+## Evidence
+
+- 6,910 tests / 1,300 suites / 0 failures. Website build clean.
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.134.0
+# or
+npx agentxchain@2.134.0
+```

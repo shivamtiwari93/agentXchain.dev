@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.134.0
+
+### Coordinator Mission Execution Hardening + Compare-Page Consolidation + Protocol Boundary
+
+- **Coordinator acceptance projection:** successful coordinator-dispatched child-repo turns are now projected into coordinator history immediately after the child run succeeds, so plan sync reflects actual progress. (`DEC-COORD-MISSION-ACCEPTANCE-001`)
+- **Coordinator retry reactivation:** targeted `mission plan launch --retry` now reactivates the blocked child run and executes the reissued turn instead of leaving the child repo stale. (`DEC-COORD-MISSION-RETRY-001`)
+- **Coordinator terminal-restart dispatch:** coordinator dispatch can now initialize or restart child-repo governed runs when later workstreams target repos whose previous run already completed. (`DEC-COORD-MISSION-DISPATCH-001`)
+- **Real-agent coordinator proof surface:** every coordinator lifecycle path (happy, recovery, retry, wave-failure) now has a real-agent E2E test using `local_cli` child runtimes and `step --resume`. No more `_executeGovernedRun` mocks on critical paths.
+- **Compare-page consolidation:** all 9 compare pages now live under `docs/compare/` as the single canonical location, with client-side redirects for old URLs. 7 of 9 pages carry governance/recovery/multi-repo decision rows. (`DEC-COMPARE-PAGE-ARCHITECTURE-001`, `DEC-COMPARE-PAGE-DECISION-SURFACE-001`, `DEC-COMPARE-PAGE-DECISION-SURFACE-002`)
+- **Protocol v8 boundary frozen:** mission hierarchy, mission plans, dashboard UX, and export/report/release surfaces are reference-runner workflow features, not protocol obligations. A future v8 requires promoted conformance or a new normative contract. (`DEC-PROTOCOL-V8-BOUNDARY-001`)
+- **Stale protocol-v6 references corrected:** active docs, specs, tests, and examples that anchored on `PROTOCOL-v6.md` as current now reference `PROTOCOL-v7.md`.
+- **Release postflight operator smoke:** postflight now verifies the published tarball can scaffold and validate a fresh governed workspace, not just start. (`DEC-RELEASE-POSTFLIGHT-OPERATOR-001`)
+
+### Evidence
+
+- 6,910 tests / 1,300 suites / 0 failures. Website build clean.
+
 ## 2.133.0
 
 ### Offline Docs Search + Docs Stack Closure
