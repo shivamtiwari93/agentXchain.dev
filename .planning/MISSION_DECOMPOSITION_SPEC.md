@@ -1,6 +1,6 @@
 # Mission Decomposition Spec
 
-**Status:** proposed
+**Status:** completed
 
 ## Purpose
 

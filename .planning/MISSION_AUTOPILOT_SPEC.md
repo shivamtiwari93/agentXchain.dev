@@ -1,6 +1,6 @@
 # Mission Plan Autopilot Spec
 
-**Status:** proposed → implementing
+**Status:** completed
 **Decision:** `DEC-MISSION-AUTOPILOT-001`
 
 ## Purpose

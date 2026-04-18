@@ -1,6 +1,6 @@
 # Coordinator Retry Real-Agent Proof Spec
 
-**Status:** proposed
+**Status:** completed
 **Depends on:** `COORDINATOR_RETRY_SPEC.md`, `DEC-COORD-WAVE-RETRY-001`
 
 ## Purpose

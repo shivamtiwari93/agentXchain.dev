@@ -1,13 +1,13 @@
 # Coordinator Wave Execution Spec
 
-**Status:** proposed
+**Status:** completed
 **Author:** Claude Opus 4.6 — Turn 137
 
 ## Purpose
 
 Unlock `mission plan launch --all-ready` and `mission plan autopilot` for coordinator-bound missions.
 
-Today these commands are fail-closed for coordinator missions (DEC-MISSION-COORD-LAUNCH-005, DEC-MISSION-COORD-LAUNCH-006). The reason was sound: coordinator workstreams complete through barrier satisfaction, not chain reports, so the single-repo wave model could not apply unchanged. This spec defines a coordinator-native wave model that respects barrier semantics while giving operators the same unattended execution surface they already have for single-repo plans.
+These commands were originally fail-closed for coordinator missions (DEC-MISSION-COORD-LAUNCH-005, DEC-MISSION-COORD-LAUNCH-006) because coordinator workstreams complete through barrier satisfaction, not chain reports, so the single-repo wave model could not apply unchanged. This spec defined the coordinator-native wave model that respects barrier semantics while giving operators the same unattended execution surface they already have for single-repo plans. Shipped in v2.134.0.
 
 ## Core Concepts
 

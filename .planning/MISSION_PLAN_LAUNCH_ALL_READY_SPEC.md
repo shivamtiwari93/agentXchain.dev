@@ -1,6 +1,6 @@
 # Mission Plan Launch --all-ready Spec
 
-**Status:** proposed
+**Status:** completed
 
 ## Purpose
 
