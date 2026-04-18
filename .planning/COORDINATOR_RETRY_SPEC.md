@@ -18,6 +18,7 @@ This spec defines the safety boundaries, invalidation rules, and barrier interac
 - retry metadata on the coordinator launch record (`retried_at`, `retry_reason`, `is_retry`, `retry_of`)
 - `coordinator_retry` event emission and coordinator history/decision ledger entries
 - explicit retry-output warning metadata when repo-local retry succeeds but coordinator acceptance projection cannot be recorded immediately
+- persisted `coordinator_retry_projection_warning` event in `events.jsonl` for durable operator visibility beyond stderr/JSON command output
 
 **Deferred**
 
@@ -225,6 +226,7 @@ This is not a hard failure because the child repo execution already completed. I
 - `AT-COORD-RETRY-009`: Retry record structure includes `retried_at`, `retry_reason`, `is_retry`, and `retry_of` fields.
 - `AT-COORD-RETRY-010`: `coordinator_retry` event is emitted with correct provenance fields.
 - `AT-COORD-RETRY-011`: When retry execution succeeds but `acceptance_projection` cannot be recorded immediately, JSON output includes a warning entry with code `coordinator_acceptance_projection_incomplete` and sets `reconciliation_required: true`.
+- `AT-COORD-RETRY-012`: When projection fails, a `coordinator_retry_projection_warning` event is persisted in `events.jsonl` with `workstream_id`, `repo_id`, `reissued_turn_id`, `warning_code`, and `warning_message` in the payload. This event survives beyond stderr and is inspectable via `readRunEvents()`, dashboard, and report surfaces.
 
 ## Open Questions
 

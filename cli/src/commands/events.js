@@ -88,7 +88,10 @@ function printEvent(evt) {
   const coordinatorRetryDetail = evt.event_type === 'coordinator_retry' && evt.payload
     ? ` — ws ${evt.payload.workstream_id || '?'} repo ${evt.payload.repo_id || '?'} (retry of ${evt.payload.failed_turn_id || '?'})`
     : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${intentInfo}${conflictDetail}${conflictResolvedDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}${coordinatorRetryDetail}`);
+  const projectionWarningDetail = evt.event_type === 'coordinator_retry_projection_warning' && evt.payload
+    ? ` — ws ${evt.payload.workstream_id || '?'} repo ${evt.payload.repo_id || '?'} (reconciliation required)`
+    : '';
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${intentInfo}${conflictDetail}${conflictResolvedDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}${coordinatorRetryDetail}${projectionWarningDetail}`);
 }
 
 function formatConflictDetail(evt) {
@@ -150,6 +153,7 @@ function colorEventType(type) {
     gate_failed: chalk.red,
     budget_exceeded_warn: chalk.yellowBright,
     coordinator_retry: chalk.cyan.bold,
+    coordinator_retry_projection_warning: chalk.yellow.bold,
     turn_checkpointed: chalk.green,
     dispatch_progress: chalk.blue.dim,
   };

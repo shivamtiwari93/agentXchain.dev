@@ -385,6 +385,10 @@ describe('Coordinator retry with real agent execution', () => {
     assert.ok(retryEvents.length >= 1, 'coordinator retry event must be emitted');
     assert.equal(retryEvents.at(-1).payload.reissued_turn_id, retryJson.repo_turn_id);
 
+    const projWarningEvents = readJsonl(join(workspace, '.agentxchain', 'events.jsonl'))
+      .filter((event) => event.event_type === 'coordinator_retry_projection_warning');
+    assert.equal(projWarningEvents.length, 0, 'successful retry with clean projection must NOT emit a projection warning event');
+
     const secondAutopilot = await runCoordinatorAutopilot(planId, {
       dir: workspace,
       mission: missionId,

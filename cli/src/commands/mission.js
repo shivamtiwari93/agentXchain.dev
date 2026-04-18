@@ -38,6 +38,7 @@ import { executeGovernedRun } from './run.js';
 import { dispatchCoordinatorTurn, selectAssignmentForWorkstream } from '../lib/coordinator-dispatch.js';
 import { loadCoordinatorState } from '../lib/coordinator-state.js';
 import { projectRepoAcceptance } from '../lib/coordinator-acceptance.js';
+import { emitRunEvent } from '../lib/run-events.js';
 
 export async function missionStartCommand(opts) {
   const root = findProjectRoot(opts.dir || process.cwd());
@@ -680,6 +681,18 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
           const warning = buildCoordinatorProjectionWarning(projection.error);
           retryWarnings.push(warning);
           console.error(chalk.yellow(`Coordinator retry projection warning: ${warning.message}`));
+          emitRunEvent(mission.coordinator.workspace_path, 'coordinator_retry_projection_warning', {
+            run_id: mission.coordinator.super_run_id,
+            phase: coordinatorConfigResult.config?.workstreams?.[opts.workstream]?.phase || null,
+            status: 'active',
+            payload: {
+              workstream_id: opts.workstream,
+              repo_id: retry.retryResult.repo_id,
+              reissued_turn_id: retry.retryResult.reissued_turn_id,
+              warning_code: warning.code,
+              warning_message: warning.message,
+            },
+          });
         }
       }
 

@@ -183,19 +183,21 @@ describe('conflict_resolved visibility', () => {
     const eventsWithContext = [
       'turn_dispatched', 'turn_accepted', 'turn_rejected',
       'turn_conflicted', 'conflict_resolved',
-      'turn_checkpointed', 'coordinator_retry', 'dispatch_progress',
+      'turn_checkpointed', 'coordinator_retry', 'coordinator_retry_projection_warning', 'dispatch_progress',
     ];
 
     for (const eventType of eventsWithContext) {
+      let payload = {};
+      if (eventType === 'coordinator_retry' || eventType === 'coordinator_retry_projection_warning') {
+        payload = { workstream_id: 'ws-test', repo_id: 'repo-test' };
+      } else if (eventType === 'conflict_resolved') {
+        payload = { resolution: 'human_merge' };
+      }
       const entry = {
         event_type: eventType,
         timestamp: new Date().toISOString(),
         turn: { turn_id: 'turn_test', role_id: 'dev' },
-        payload: eventType === 'coordinator_retry'
-          ? { workstream_id: 'ws-test', repo_id: 'repo-test' }
-          : eventType === 'conflict_resolved'
-            ? { resolution: 'human_merge' }
-            : {},
+        payload,
       };
 
       const normalized = normalizeRecentEventEntry(entry);
@@ -225,5 +227,37 @@ describe('conflict_resolved visibility', () => {
     const parsed = JSON.parse(raw);
     assert.equal(parsed.event_type, 'conflict_resolved');
     assert.equal(parsed.payload.resolution, 'forward_revision');
+  });
+
+  // AT-CONFLICT-VIS-011: coordinator_retry_projection_warning event persists and describes correctly
+  it('AT-CONFLICT-VIS-011: coordinator_retry_projection_warning event persists with payload and describes with reconciliation hint', () => {
+    const result = emitRunEvent(root, 'coordinator_retry_projection_warning', {
+      run_id: 'run_proj_warn',
+      phase: 'implementation',
+      status: 'active',
+      payload: {
+        workstream_id: 'ws-main',
+        repo_id: 'repo-b',
+        reissued_turn_id: 'turn_reissued_123',
+        warning_code: 'coordinator_acceptance_projection_incomplete',
+        warning_message: 'Accepted turn turn_reissued_123 not found in repo-local history for repo-b.',
+      },
+    });
+
+    assert.equal(result.ok, true);
+    const events = readRunEvents(root, { type: 'coordinator_retry_projection_warning' });
+    assert.equal(events.length, 1);
+    const evt = events[0];
+    assert.equal(evt.event_type, 'coordinator_retry_projection_warning');
+    assert.equal(evt.payload.workstream_id, 'ws-main');
+    assert.equal(evt.payload.repo_id, 'repo-b');
+    assert.equal(evt.payload.reissued_turn_id, 'turn_reissued_123');
+    assert.equal(evt.payload.warning_code, 'coordinator_acceptance_projection_incomplete');
+
+    const normalized = normalizeRecentEventEntry(evt);
+    assert.ok(normalized.summary.includes('coordinator_retry_projection_warning'));
+    assert.ok(normalized.summary.includes('reconciliation required'), 'summary must hint at reconciliation');
+    assert.ok(normalized.summary.includes('ws-main'), 'summary must include workstream id');
+    assert.ok(normalized.summary.includes('repo-b'), 'summary must include repo id');
   });
 });

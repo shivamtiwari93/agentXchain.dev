@@ -762,6 +762,14 @@ describe('mission plan coordinator launch', () => {
     assert.equal(retryEvents[0].payload.failed_turn_id, secondDispatch.turn_id);
     assert.equal(retryEvents[0].payload.reissued_turn_id, parsed.repo_turn_id);
     assert.equal(retryEvents[0].payload.retry_reason, 'failed_acceptance');
+
+    const projWarningEvents = readRunEvents(setup.workspace).filter((entry) => entry.event_type === 'coordinator_retry_projection_warning');
+    assert.equal(projWarningEvents.length, 1, 'projection warning event must be persisted in events.jsonl');
+    assert.equal(projWarningEvents[0].payload.workstream_id, 'ws-main');
+    assert.equal(projWarningEvents[0].payload.repo_id, 'repo-b');
+    assert.equal(projWarningEvents[0].payload.reissued_turn_id, parsed.repo_turn_id);
+    assert.equal(projWarningEvents[0].payload.warning_code, 'coordinator_acceptance_projection_incomplete');
+    assert.ok(projWarningEvents[0].payload.warning_message, 'warning message must be non-empty');
   });
 
   it('AT-COORD-RETRY-002: coordinator --retry refuses to proceed when a dependent workstream already dispatched after the failed repo turn', async () => {

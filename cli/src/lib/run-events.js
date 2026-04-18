@@ -23,6 +23,7 @@ export const VALID_RUN_EVENTS = [
   'turn_reissued',
   'turn_checkpointed',
   'coordinator_retry',
+  'coordinator_retry_projection_warning',
   'run_blocked',
   'run_completed',
   'escalation_raised',

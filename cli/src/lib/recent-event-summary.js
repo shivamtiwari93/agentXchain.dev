@@ -47,6 +47,11 @@ function describeEvent(eventType, entry) {
       const retryRepo = trimToNull(entry.payload?.repo_id);
       return `${prefix}${eventType}${wsId ? ` ${wsId}` : ''}${retryRepo ? ` (${retryRepo})` : ''}`;
     }
+    case 'coordinator_retry_projection_warning': {
+      const wsIdWarn = trimToNull(entry.payload?.workstream_id);
+      const warnRepo = trimToNull(entry.payload?.repo_id);
+      return `${prefix}${eventType}${wsIdWarn ? ` ${wsIdWarn}` : ''}${warnRepo ? ` (${warnRepo})` : ''} — reconciliation required`;
+    }
     case 'turn_checkpointed':
       return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
     case 'dispatch_progress':
