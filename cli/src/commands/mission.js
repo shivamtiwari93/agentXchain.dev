@@ -737,9 +737,7 @@ async function missionPlanLaunchAllReady(planTarget, opts, context) {
   }
 
   if (mission.coordinator) {
-    console.error(chalk.red('--all-ready is not supported for coordinator-bound mission plans yet.'));
-    console.error(chalk.dim('  Dispatch specific coordinator workstreams with `agentxchain mission plan launch --workstream <id>`.'));
-    process.exit(1);
+    return coordinatorLaunchAllReady(planTarget, opts, context, mission);
   }
 
   const plan = planTarget && planTarget !== 'latest'
@@ -937,9 +935,7 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
   }
 
   if (mission.coordinator) {
-    console.error(chalk.red('mission plan autopilot is not supported for coordinator-bound missions yet.'));
-    console.error(chalk.dim('  Use `agentxchain mission plan launch --workstream <id>` for coordinator dispatch until multi-repo wave execution lands.'));
-    process.exit(1);
+    return coordinatorAutopilot(planTarget, opts, context, mission);
   }
 
   const plan = planTarget && planTarget !== 'latest'
@@ -1247,6 +1243,482 @@ function deriveAutopilotIdleOutcome(plan, continueOnFailure) {
     return 'deadlock';
   }
   return 'no_ready_workstreams';
+}
+
+// ── Coordinator wave execution ──────────────────────────────────────────────
+
+/**
+ * Dispatch a single coordinator workstream, execute the repo-local turn,
+ * and synchronize plan state. Returns { ok, status, repo_id, turn_id, error }.
+ */
+async function dispatchAndExecuteCoordinatorWorkstream(
+  root, mission, plan, workstreamId, coordinatorConfig, coordinatorState, opts,
+) {
+  const executor = opts._executeGovernedRun || executeGovernedRun;
+  const logger = opts._log || console.log;
+
+  // 1. Select assignment
+  const assignment = selectAssignmentForWorkstream(
+    mission.coordinator.workspace_path,
+    coordinatorState,
+    coordinatorConfig,
+    workstreamId,
+  );
+  if (!assignment.ok) {
+    return { ok: false, status: 'assignment_blocked', error: assignment.detail || assignment.reason };
+  }
+
+  // 2. Dispatch coordinator turn (writes bundle, does not execute)
+  const dispatch = dispatchCoordinatorTurn(
+    mission.coordinator.workspace_path,
+    coordinatorState,
+    coordinatorConfig,
+    assignment,
+  );
+  if (!dispatch.ok) {
+    return { ok: false, status: 'dispatch_error', error: dispatch.error };
+  }
+
+  // 3. Record launch in plan
+  const launch = launchCoordinatorWorkstream(
+    root,
+    mission,
+    plan.plan_id,
+    workstreamId,
+    { ...dispatch, role: assignment.role },
+    coordinatorConfig,
+  );
+  if (!launch.ok) {
+    return { ok: false, status: 'launch_record_error', error: launch.error };
+  }
+
+  // 4. Execute the repo-local turn in the target repo
+  const repoPath = coordinatorConfig.repos?.[dispatch.repo_id]?.resolved_path;
+  if (!repoPath) {
+    return { ok: false, status: 'repo_path_error', error: `No resolved_path for repo "${dispatch.repo_id}"` };
+  }
+
+  const repoContext = loadProjectContext(repoPath);
+  if (!repoContext) {
+    return { ok: false, status: 'repo_context_error', error: `Cannot load project context for repo "${dispatch.repo_id}" at "${repoPath}"` };
+  }
+
+  const runOpts = {
+    autoApprove: !!opts.autoApprove,
+    log: logger,
+    provenance: {
+      trigger: opts.trigger || 'manual',
+      created_by: 'operator',
+      trigger_reason: `mission:${mission.mission_id} workstream:${workstreamId} coordinator:${mission.coordinator.super_run_id} repo:${dispatch.repo_id}`,
+    },
+  };
+
+  let execution;
+  try {
+    execution = await executor(repoContext, runOpts);
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'needs_attention',
+      repo_id: dispatch.repo_id,
+      turn_id: dispatch.turn_id,
+      error: error.message,
+    };
+  }
+
+  // 5. Sync plan state from coordinator (updates barriers, accepted repos, failures)
+  const synced = synchronizeCoordinatorPlanState(root, mission, launch.plan);
+
+  const exitCode = execution?.exitCode || 0;
+  const wsStatus = exitCode === 0 ? 'dispatched' : 'needs_attention';
+
+  return {
+    ok: true,
+    status: wsStatus,
+    repo_id: dispatch.repo_id,
+    turn_id: dispatch.turn_id,
+    exit_code: exitCode,
+    plan: synced.ok ? synced.plan : launch.plan,
+  };
+}
+
+/**
+ * Load coordinator config and state for a mission. Returns { ok, config, state, error }.
+ */
+function loadCoordinatorForMission(mission) {
+  const coordinatorConfigResult = loadCoordinatorConfig(mission.coordinator.workspace_path);
+  if (!coordinatorConfigResult.ok) {
+    return { ok: false, error: `Coordinator config validation failed: ${(coordinatorConfigResult.errors || []).join(', ')}` };
+  }
+
+  const coordinatorState = loadCoordinatorState(mission.coordinator.workspace_path);
+  if (!coordinatorState) {
+    return { ok: false, error: `Coordinator state not found at ${mission.coordinator.workspace_path}` };
+  }
+  if (coordinatorState.status !== 'active') {
+    return { ok: false, error: `Coordinator run ${coordinatorState.super_run_id} is not active (status: "${coordinatorState.status}")` };
+  }
+
+  return { ok: true, config: coordinatorConfigResult.config, state: coordinatorState };
+}
+
+/**
+ * Coordinator-aware --all-ready: dispatches all ready workstreams sequentially,
+ * executing each repo-local turn and syncing barrier state between dispatches.
+ */
+async function coordinatorLaunchAllReady(planTarget, opts, context, mission) {
+  const { root } = context;
+
+  let plan = planTarget && planTarget !== 'latest'
+    ? loadPlan(root, mission.mission_id, planTarget)
+    : loadLatestPlan(root, mission.mission_id);
+
+  if (!plan) {
+    console.error(chalk.red('No plan found.'));
+    process.exit(1);
+  }
+
+  // Sync plan state first
+  const synced = synchronizeCoordinatorPlanState(root, mission, plan);
+  if (synced.ok) plan = synced.plan;
+
+  if (plan.status !== 'approved') {
+    console.error(chalk.red(`Plan ${plan.plan_id} is not approved (status: "${plan.status}").`));
+    process.exit(1);
+  }
+
+  const coord = loadCoordinatorForMission(mission);
+  if (!coord.ok) {
+    console.error(chalk.red(coord.error));
+    process.exit(1);
+  }
+
+  const readyWorkstreams = getReadyWorkstreams(plan);
+  if (readyWorkstreams.length === 0) {
+    const summary = getWorkstreamStatusSummary(plan);
+    const parts = Object.entries(summary).map(([status, count]) => `${count} ${status}`);
+    console.error(chalk.red(`No ready workstreams. Distribution: ${parts.join(', ')}.`));
+    process.exit(1);
+  }
+
+  if (!opts.json) {
+    console.log(chalk.bold(`Coordinator --all-ready: launching ${readyWorkstreams.length} workstream(s) from plan ${plan.plan_id}...\n`));
+  }
+
+  const results = [];
+  let hadFailure = false;
+
+  for (let i = 0; i < readyWorkstreams.length; i++) {
+    const ws = readyWorkstreams[i];
+    const prefix = `[${i + 1}/${readyWorkstreams.length}]`;
+
+    if (hadFailure) {
+      results.push({ workstream_id: ws.workstream_id, status: 'skipped', skip_reason: 'prior workstream failed' });
+      if (!opts.json) {
+        console.log(`${prefix} ${chalk.dim(ws.workstream_id)} — ${chalk.dim('skipped (prior workstream failed)')}`);
+      }
+      continue;
+    }
+
+    if (!opts.json) {
+      process.stdout.write(`${prefix} ${chalk.cyan(ws.workstream_id)} ... `);
+    }
+
+    const result = await dispatchAndExecuteCoordinatorWorkstream(
+      root, mission, plan, ws.workstream_id, coord.config, coord.state, { ...opts, trigger: 'manual' },
+    );
+
+    if (!result.ok) {
+      hadFailure = true;
+      results.push({ workstream_id: ws.workstream_id, status: 'needs_attention', error: result.error });
+      if (!opts.json) {
+        console.log(chalk.red(`needs_attention ✗ (${result.error})`));
+      }
+      continue;
+    }
+
+    // Update plan reference for subsequent dispatches
+    if (result.plan) plan = result.plan;
+
+    const wsStatus = result.status === 'needs_attention' ? 'needs_attention' : 'dispatched';
+    if (wsStatus === 'needs_attention') hadFailure = true;
+
+    results.push({
+      workstream_id: ws.workstream_id,
+      status: wsStatus,
+      repo_id: result.repo_id,
+      turn_id: result.turn_id,
+      exit_code: result.exit_code,
+    });
+
+    if (!opts.json) {
+      if (wsStatus === 'needs_attention') {
+        console.log(chalk.red('needs_attention ✗'));
+      } else {
+        console.log(chalk.green(`→ ${result.repo_id} ✓`));
+      }
+    }
+  }
+
+  // Summary
+  const dispatched = results.filter((r) => r.status === 'dispatched').length;
+  const failed = results.filter((r) => r.status === 'needs_attention').length;
+  const skipped = results.filter((r) => r.status === 'skipped').length;
+
+  if (opts.json) {
+    console.log(JSON.stringify({
+      plan_id: plan.plan_id,
+      mission_id: mission.mission_id,
+      dispatch_mode: 'coordinator',
+      results,
+      summary: { total: results.length, dispatched, failed, skipped },
+    }, null, 2));
+  } else {
+    console.log('');
+    console.log(chalk.bold(`Summary: ${dispatched} dispatched, ${failed} failed, ${skipped} skipped`));
+    if (hadFailure) {
+      console.log(chalk.dim('  Inspect plan state with `agentxchain mission plan show latest`'));
+    }
+  }
+
+  if (hadFailure) process.exit(1);
+}
+
+/**
+ * Coordinator-aware autopilot: wave-based unattended execution for coordinator-bound missions.
+ * Each wave dispatches all ready workstreams, executes repo-local turns, and syncs barrier state.
+ */
+async function coordinatorAutopilot(planTarget, opts, context, mission) {
+  const { root } = context;
+
+  let plan = planTarget && planTarget !== 'latest'
+    ? loadPlan(root, mission.mission_id, planTarget)
+    : loadLatestPlan(root, mission.mission_id);
+
+  if (!plan) {
+    console.error(chalk.red('No plan found.'));
+    process.exit(1);
+  }
+
+  const continueOnFailure = !!opts.continueOnFailure;
+
+  // Sync plan state
+  const initialSync = synchronizeCoordinatorPlanState(root, mission, plan);
+  if (initialSync.ok) plan = initialSync.plan;
+
+  if (plan.status === 'completed') {
+    if (opts.json) {
+      console.log(JSON.stringify({
+        plan_id: plan.plan_id,
+        mission_id: mission.mission_id,
+        dispatch_mode: 'coordinator',
+        waves: [],
+        summary: { total_waves: 0, total_launched: 0, completed: 0, failed: 0, terminal_reason: 'plan_completed' },
+      }, null, 2));
+    } else {
+      console.log(chalk.green(`Plan ${plan.plan_id} is already completed. Nothing to do.`));
+    }
+    return;
+  }
+
+  if (plan.status !== 'approved' && !(plan.status === 'needs_attention' && continueOnFailure)) {
+    console.error(chalk.red(`Plan ${plan.plan_id} status is "${plan.status}". Autopilot requires an approved plan${continueOnFailure ? ' (or needs_attention with --continue-on-failure)' : ''}.`));
+    process.exit(1);
+  }
+
+  const coord = loadCoordinatorForMission(mission);
+  if (!coord.ok) {
+    console.error(chalk.red(coord.error));
+    process.exit(1);
+  }
+
+  const maxWaves = Math.max(1, parseInt(opts.maxWaves, 10) || 10);
+  const cooldownSeconds = Math.max(0, parseInt(opts.cooldown, 10) || 5);
+  const sleep = opts._sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+
+  const waves = [];
+  let totalLaunched = 0;
+  let totalCompleted = 0;
+  let totalFailed = 0;
+  let terminalReason = null;
+  let interrupted = false;
+
+  const onSigint = () => { interrupted = true; };
+  process.on('SIGINT', onSigint);
+
+  try {
+    for (let waveNum = 1; waveNum <= maxWaves; waveNum++) {
+      if (interrupted) {
+        terminalReason = 'interrupted';
+        break;
+      }
+
+      // Re-sync plan from disk + coordinator state
+      const currentPlan = loadPlan(root, mission.mission_id, plan.plan_id);
+      if (!currentPlan) {
+        terminalReason = 'plan_read_error';
+        break;
+      }
+      const coordSync = synchronizeCoordinatorPlanState(root, mission, currentPlan);
+      plan = coordSync.ok ? coordSync.plan : currentPlan;
+
+      if (plan.status === 'completed') {
+        terminalReason = 'plan_completed';
+        break;
+      }
+
+      const readyWorkstreams = getReadyWorkstreams(plan);
+      if (readyWorkstreams.length === 0) {
+        terminalReason = deriveAutopilotIdleOutcome(plan, continueOnFailure);
+        break;
+      }
+
+      if (!opts.json) {
+        console.log(chalk.bold(`\n━━━ Wave ${waveNum} — coordinator: ${readyWorkstreams.length} workstream(s) ━━━\n`));
+      }
+
+      const waveResults = [];
+      let waveHadFailure = false;
+
+      for (let i = 0; i < readyWorkstreams.length; i++) {
+        if (interrupted) break;
+
+        const ws = readyWorkstreams[i];
+        const prefix = `[${i + 1}/${readyWorkstreams.length}]`;
+
+        if (waveHadFailure && !continueOnFailure) {
+          waveResults.push({ workstream_id: ws.workstream_id, status: 'skipped', skip_reason: 'prior workstream failed' });
+          if (!opts.json) {
+            console.log(`${prefix} ${chalk.dim(ws.workstream_id)} — ${chalk.dim('skipped (prior workstream failed)')}`);
+          }
+          continue;
+        }
+
+        if (!opts.json) {
+          process.stdout.write(`${prefix} ${chalk.cyan(ws.workstream_id)} ... `);
+        }
+
+        const result = await dispatchAndExecuteCoordinatorWorkstream(
+          root, mission, plan, ws.workstream_id, coord.config, coord.state, { ...opts, trigger: 'autopilot' },
+        );
+
+        if (!result.ok) {
+          waveHadFailure = true;
+          totalFailed++;
+          waveResults.push({ workstream_id: ws.workstream_id, status: 'needs_attention', error: result.error });
+          if (!opts.json) {
+            console.log(chalk.red(`needs_attention ✗ (${result.error})`));
+          }
+          continue;
+        }
+
+        if (result.plan) plan = result.plan;
+        totalLaunched++;
+
+        if (result.status === 'needs_attention') {
+          waveHadFailure = true;
+          totalFailed++;
+          waveResults.push({ workstream_id: ws.workstream_id, status: 'needs_attention', repo_id: result.repo_id, turn_id: result.turn_id });
+          if (!opts.json) {
+            console.log(chalk.red(`→ ${result.repo_id} needs_attention ✗`));
+          }
+        } else {
+          totalCompleted++;
+          waveResults.push({ workstream_id: ws.workstream_id, status: 'dispatched', repo_id: result.repo_id, turn_id: result.turn_id });
+          if (!opts.json) {
+            console.log(chalk.green(`→ ${result.repo_id} ✓`));
+          }
+        }
+      }
+
+      waves.push({ wave: waveNum, results: waveResults });
+
+      if (interrupted) {
+        terminalReason = 'interrupted';
+        break;
+      }
+
+      // Re-sync and check plan completion
+      const afterSync = synchronizeCoordinatorPlanState(root, mission, plan);
+      if (afterSync.ok) plan = afterSync.plan;
+
+      if (plan.status === 'completed') {
+        terminalReason = 'plan_completed';
+        break;
+      }
+
+      if (waveHadFailure && !continueOnFailure) {
+        terminalReason = 'failure_stopped';
+        break;
+      }
+
+      if (waveNum === maxWaves) {
+        terminalReason = 'wave_limit_reached';
+        break;
+      }
+
+      // Cooldown between waves
+      if (cooldownSeconds > 0 && !interrupted) {
+        if (!opts.json) {
+          console.log(chalk.dim(`\nCooldown: ${cooldownSeconds}s before next wave...\n`));
+        }
+        await sleep(cooldownSeconds * 1000);
+      }
+    }
+  } finally {
+    process.removeListener('SIGINT', onSigint);
+  }
+
+  if (!terminalReason) {
+    terminalReason = totalFailed > 0
+      ? (continueOnFailure ? 'plan_incomplete' : 'failure_stopped')
+      : 'plan_completed';
+  }
+
+  const jsonOutput = {
+    plan_id: plan.plan_id,
+    mission_id: mission.mission_id,
+    dispatch_mode: 'coordinator',
+    waves,
+    summary: {
+      total_waves: waves.length,
+      total_launched: totalLaunched,
+      completed: totalCompleted,
+      failed: totalFailed,
+      terminal_reason: terminalReason,
+    },
+  };
+
+  if (opts.json) {
+    console.log(JSON.stringify(jsonOutput, null, 2));
+  } else {
+    console.log('');
+    console.log(chalk.bold('━━━ Coordinator Autopilot Summary ━━━'));
+    console.log(`  Waves:      ${waves.length}`);
+    console.log(`  Launched:   ${totalLaunched}`);
+    console.log(`  Completed:  ${totalCompleted}`);
+    console.log(`  Failed:     ${totalFailed}`);
+    console.log(`  Outcome:    ${formatTerminalReason(terminalReason)}`);
+    if (terminalReason === 'plan_completed') {
+      console.log(chalk.green('\n  Plan completed successfully.'));
+    } else if (terminalReason === 'deadlock') {
+      console.log(chalk.red('\n  Deadlock: remaining workstreams are blocked with unsatisfiable dependencies.'));
+      console.log(chalk.dim('  Inspect with `agentxchain mission plan show latest`.'));
+    } else if (terminalReason === 'wave_limit_reached') {
+      console.log(chalk.yellow(`\n  Wave limit reached. Run autopilot again to continue.`));
+    } else if (terminalReason === 'failure_stopped') {
+      console.log(chalk.red('\n  Stopped due to workstream failure.'));
+      console.log(chalk.dim('  Use --continue-on-failure to skip failures, or resolve the issue and rerun autopilot.'));
+    } else if (terminalReason === 'plan_incomplete') {
+      console.log(chalk.yellow('\n  Autopilot exhausted all launchable work, but failed workstreams still need attention.'));
+    } else if (terminalReason === 'interrupted') {
+      console.log(chalk.yellow('\n  Interrupted by operator.'));
+    }
+  }
+
+  if (terminalReason !== 'plan_completed') {
+    process.exit(1);
+  }
 }
 
 // ── Plan rendering ───────────────────────────────────────────────────────────

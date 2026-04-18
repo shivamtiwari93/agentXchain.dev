@@ -229,13 +229,13 @@ Subsequent dispatches for the same workstream append to the same launch record. 
 
 The synchronized view exposes `coordinator_progress` per workstream: `accepted_repo_ids`, `pending_repo_ids`, `failed_repo_ids`, `repo_count`, `accepted_repo_count`, `repo_failure_count`, and `completion_barrier_status`.
 
-**Fail-closed boundaries.** Coordinator-bound missions intentionally block batch operations that do not yet have a real multi-repo wave contract:
+**Coordinator wave execution.** Coordinator-bound missions support batch operations with coordinator-native wave semantics:
 
-- `mission plan launch --all-ready` — **not supported** for coordinator-bound missions. Use `--workstream <id>` to dispatch one workstream at a time.
-- `mission plan autopilot` — **not supported** for coordinator-bound missions.
+- `mission plan launch --all-ready` — dispatches all `ready` workstreams sequentially, executing one repo-local turn per workstream, and syncing barrier state after each dispatch.
+- `mission plan autopilot` — runs wave-based unattended execution. Each wave dispatches all ready workstreams, executes repo-local turns, and syncs coordinator barriers. Dependent workstreams are unblocked across wave boundaries as barriers are satisfied. A 2-repo workstream needs at least 2 waves to complete (one repo per workstream per wave).
 - `mission plan launch --retry` — remains single-repo chain only.
 
-These guards prevent the system from faking multi-repo batch execution by silently falling back to single-repo chain semantics.
+Wave execution respects coordinator barrier semantics — completion comes from barrier satisfaction, not chain reports.
 
 #### 4. Inspect plan and launch state
 
@@ -326,7 +326,7 @@ All single-repo modes validate the approval boundary and dependency satisfaction
 
 - **`--workstream <id>`** — dispatches the next assignable repo for the workstream through the coordinator. Writes a coordinator-mode launch record with `dispatch_mode: "coordinator"` and an append-only `repo_dispatches[]` array. Does not run a local chain — returns immediately with dispatch metadata.
 - Coordinator launch records may also surface `repo_failures[]` when the latest repo-local dispatch for a repo fails. Those failures are projected from repo-local governed state/history, not guessed from pending barriers.
-- **`--all-ready`** — not supported. Exits with an error directing the operator to use `--workstream <id>`.
+- **`--all-ready`** — dispatches all ready coordinator workstreams sequentially, executing one repo-local turn per workstream, and syncing barrier state between dispatches. Stops on first failure unless `--continue-on-failure`.
 - **`--retry`** — not supported for coordinator workstreams.
 
 The launch modes are mutually exclusive where they would conflict.

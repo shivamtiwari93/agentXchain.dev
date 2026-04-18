@@ -149,10 +149,11 @@ describe('Missions docs coordinator-bound launch surface', () => {
     assert.match(DOC, /accepted_repo_count/);
   });
 
-  it('documents fail-closed boundaries for coordinator-bound missions', () => {
-    assert.match(DOC, /--all-ready.*not supported.*coordinator/i);
-    assert.match(DOC, /autopilot.*not supported.*coordinator/i);
-    assert.match(DOC, /fail-closed/i);
+  it('documents coordinator wave execution for batch operations', () => {
+    assert.match(DOC, /coordinator.*wave/i);
+    assert.match(DOC, /--all-ready.*dispatches.*ready.*workstreams/i);
+    assert.match(DOC, /autopilot.*wave.*based/i);
+    assert.match(DOC, /barrier.*semantics/i);
   });
 
   it('documents coordinator-specific error cases', () => {
