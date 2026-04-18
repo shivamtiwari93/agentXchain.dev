@@ -7,6 +7,7 @@
 
 import { buildPlanProgressSummary, loadAllPlans } from '../mission-plans.js';
 import { loadAllMissionArtifacts } from '../missions.js';
+import { readRunEvents } from '../run-events.js';
 
 /**
  * Build a dashboard-ready plan snapshot across all missions.
@@ -49,12 +50,29 @@ export function readPlanSnapshot(workspacePath, { limit, missionId } = {}) {
     latestSummary = buildPlanSummary(latest);
   }
 
+  // Surface coordinator projection warnings for dashboard consumers
+  const projectionWarnings = readRunEvents(workspacePath, { type: 'coordinator_retry_projection_warning' });
+  const coordinatorWarnings = projectionWarnings.length > 0
+    ? {
+      count: projectionWarnings.length,
+      reconciliation_required: true,
+      warnings: projectionWarnings.map((e) => ({
+        event_id: e.event_id,
+        timestamp: e.timestamp,
+        workstream_id: e.payload?.workstream_id || null,
+        repo_id: e.payload?.repo_id || null,
+        warning_code: e.payload?.warning_code || 'coordinator_acceptance_projection_incomplete',
+      })),
+    }
+    : { count: 0, reconciliation_required: false, warnings: [] };
+
   return {
     ok: true,
     status: 200,
     body: {
       latest: latestSummary,
       plans: plans.map(buildPlanSummary),
+      coordinator_warnings: coordinatorWarnings,
     },
   };
 }

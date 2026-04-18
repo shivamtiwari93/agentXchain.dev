@@ -24,6 +24,7 @@ import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { readPreemptionMarker, findPendingApprovedIntents } from '../lib/intake.js';
 import { readContinuousSession } from '../lib/continuous-run.js';
 import { readAllDispatchProgress } from '../lib/dispatch-progress.js';
+import { readRunEvents } from '../lib/run-events.js';
 
 export async function statusCommand(opts) {
   const context = loadStatusContext();
@@ -147,6 +148,9 @@ function renderGovernedStatus(context, opts) {
   const activeTurns = getActiveTurns(state);
   const dispatchProgress = filterDispatchProgressForActiveTurns(readAllDispatchProgress(root), activeTurns);
 
+  // Coordinator warning surfacing — DEC-COORD-RETRY-PROJECTION-EVENT-001
+  const coordinatorWarnings = readCoordinatorWarnings(root);
+
   if (opts.json) {
     const dashPid = getDashboardPid(root);
     const dashSession = getDashboardSession(root);
@@ -183,6 +187,7 @@ function renderGovernedStatus(context, opts) {
       dashboard_session: dashboardSessionObj,
       binding_drift: detectActiveTurnBindingDrift(state, config),
       bundle_integrity: detectStateBundleDesync(root, state),
+      coordinator_warnings: coordinatorWarnings,
     }, null, 2));
     return;
   }
@@ -284,6 +289,7 @@ function renderGovernedStatus(context, opts) {
   renderContinuityStatus(continuity, state);
   renderConnectorHealthStatus(connectorHealth);
   renderRecentEventSummary(recentEventSummary);
+  renderCoordinatorWarnings(coordinatorWarnings);
 
   // BUG-18: State/bundle integrity check
   const desync = detectStateBundleDesync(root, state);
@@ -907,4 +913,40 @@ function timeSince(iso) {
 function formatUsd(value) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '0.00';
   return value.toFixed(2);
+}
+
+/**
+ * Read coordinator retry projection warnings from the event log.
+ * Returns a structured summary for both JSON and CLI output.
+ */
+function readCoordinatorWarnings(root) {
+  const events = readRunEvents(root, { type: 'coordinator_retry_projection_warning' });
+  if (events.length === 0) {
+    return { count: 0, reconciliation_required: false, warnings: [] };
+  }
+  return {
+    count: events.length,
+    reconciliation_required: true,
+    warnings: events.map((e) => ({
+      event_id: e.event_id,
+      timestamp: e.timestamp,
+      workstream_id: e.payload?.workstream_id || null,
+      repo_id: e.payload?.repo_id || null,
+      warning_code: e.payload?.warning_code || 'coordinator_acceptance_projection_incomplete',
+      warning_message: e.payload?.warning_message || null,
+    })),
+  };
+}
+
+function renderCoordinatorWarnings(warnings) {
+  if (!warnings || warnings.count === 0) return;
+  console.log(chalk.yellow.bold(`  ⚠ Coordinator reconciliation required (${warnings.count} projection warning${warnings.count !== 1 ? 's' : ''})`));
+  for (const w of warnings.warnings) {
+    const wsLabel = w.workstream_id ? `ws:${w.workstream_id}` : '';
+    const repoLabel = w.repo_id ? `repo:${w.repo_id}` : '';
+    const parts = [wsLabel, repoLabel].filter(Boolean).join(' ');
+    console.log(`    ${chalk.yellow('●')} ${parts} — ${w.warning_code}`);
+  }
+  console.log(chalk.dim('  Run `agentxchain mission plan show latest --json` to force plan sync and verify.'));
+  console.log('');
 }
