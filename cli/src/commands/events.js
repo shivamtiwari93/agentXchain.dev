@@ -65,6 +65,9 @@ function printEvent(evt) {
   const conflictDetail = evt.event_type === 'turn_conflicted'
     ? ` — ${formatConflictDetail(evt)}`
     : '';
+  const conflictResolvedDetail = evt.event_type === 'conflict_resolved'
+    ? ` — ${formatConflictResolvedDetail(evt)}`
+    : '';
   const rejectionDetail = evt.event_type === 'turn_rejected' && evt.payload?.reason
     ? ` — ${evt.payload.reason}${evt.payload.failed_stage ? ` (${evt.payload.failed_stage})` : ''}`
     : '';
@@ -82,7 +85,7 @@ function printEvent(evt) {
     : evt.event_type === 'human_escalation_resolved' && evt.payload?.escalation_id
       ? ` ${evt.payload.escalation_id} via ${evt.payload.resolved_via || '?'}`
       : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${intentInfo}${conflictDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}`);
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${intentInfo}${conflictDetail}${conflictResolvedDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}`);
 }
 
 function formatConflictDetail(evt) {
@@ -105,6 +108,16 @@ function formatConflictDetail(evt) {
   return parts.filter(Boolean).join(' | ');
 }
 
+function formatConflictResolvedDetail(evt) {
+  const payload = evt.payload || {};
+  const fileSummary = summarizeList(payload.conflicting_files, 3) || 'resolved conflict';
+  const resolvedVia = payload.resolution ? `via ${payload.resolution}` : null;
+  const overlapRatio = typeof payload.overlap_ratio === 'number'
+    ? `${Math.round(payload.overlap_ratio * 100)}% overlap`
+    : null;
+  return [fileSummary, resolvedVia, overlapRatio].filter(Boolean).join(' | ');
+}
+
 function summarizeList(items, limit) {
   if (!Array.isArray(items) || items.length === 0) return '';
   const shown = items.slice(0, limit).join(', ');
@@ -123,6 +136,7 @@ function colorEventType(type) {
     acceptance_failed: chalk.red.bold,
     turn_reissued: chalk.cyan,
     turn_conflicted: chalk.redBright,
+    conflict_resolved: chalk.greenBright,
     phase_entered: chalk.magenta,
     escalation_raised: chalk.red.bold,
     escalation_resolved: chalk.green,

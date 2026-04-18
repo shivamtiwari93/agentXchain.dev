@@ -1523,11 +1523,13 @@ agentxchain events [--follow] [--type <type>] [--since <timestamp>] [--json] [--
 | `--limit <n>` | `50` | Max events to show (0 = all) |
 | `--dir <path>` | `.` | Project directory |
 
-Shows repo-local run lifecycle events from `.agentxchain/events.jsonl`. Events are emitted automatically during governed runs at key lifecycle transitions: `run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `human_escalation_raised`, `human_escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`.
+Shows repo-local run lifecycle events from `.agentxchain/events.jsonl`. Events are emitted automatically during governed runs at key lifecycle transitions: `run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `conflict_resolved`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `human_escalation_raised`, `human_escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`.
 
 Use `--follow` to stream events in real-time as they occur. Use `--type run_blocked,run_completed` to filter by event type. Use `--json` for machine-readable output.
 
 `turn_conflicted` text entries include the conflicting files, overlap percentage, detection count, accepted-since turn IDs, and `run blocked` when the run has exhausted conflict retries. That gives operators a first-glance CLI view of overlap severity without opening the dashboard or digging through `.agentxchain/state.json`.
+
+`conflict_resolved` text entries show the conflicting files, the chosen resolution mode, and the overlap percentage that was resolved, so operators can verify that a `human_merge` completed without diffing state files manually.
 
 `turn_rejected` text entries include the rejection reason inline and append the failed stage when it is known, so operators can see why a turn failed without cross-referencing `.agentxchain/state.json`.
 
@@ -1840,7 +1842,7 @@ agentxchain status --json
 # Option A: reject and immediately re-dispatch with conflict context
 agentxchain reject-turn --turn <turn_id> --reassign
 
-# Option B: manually merge the conflict, then re-accept the turn
+# Option B: accept the current staged result as the authoritative merge in one command
 agentxchain accept-turn --turn <turn_id> --resolution human_merge
 ```
 

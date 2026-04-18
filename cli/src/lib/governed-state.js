@@ -1088,15 +1088,63 @@ function cleanupTurnArtifacts(root, turnId) {
   } catch { /* best-effort */ }
 }
 
-function detectAcceptanceConflict(targetTurn, conflictFiles, historyEntries) {
+function getWorkflowArtifactOwners(config, filePath) {
+  const owners = new Set();
+  const phases = config?.workflow_kit?.phases;
+  if (!phases || typeof phases !== 'object') {
+    return owners;
+  }
+
+  for (const phaseConfig of Object.values(phases)) {
+    const artifacts = Array.isArray(phaseConfig?.artifacts) ? phaseConfig.artifacts : [];
+    for (const artifact of artifacts) {
+      if (artifact?.path !== filePath) {
+        continue;
+      }
+      if (typeof artifact.owned_by === 'string' && artifact.owned_by.length > 0) {
+        owners.add(artifact.owned_by);
+      }
+    }
+  }
+
+  return owners;
+}
+
+function isForwardRevisionFile(targetTurn, historyEntry, filePath, config) {
+  if (!targetTurn || !historyEntry) {
+    return false;
+  }
+  if (historyEntry.role !== targetTurn.assigned_role) {
+    return false;
+  }
+
+  const explicitOwners = getWorkflowArtifactOwners(config, filePath);
+  if (explicitOwners.size > 0) {
+    return explicitOwners.size === 1 && explicitOwners.has(targetTurn.assigned_role);
+  }
+
+  if (!filePath.startsWith('.planning/')) {
+    return false;
+  }
+
+  return config?.routing?.planning?.entry_role === targetTurn.assigned_role;
+}
+
+function classifyAcceptanceOverlap(targetTurn, conflictFiles, historyEntries, config) {
   const observedFiles = [...new Set(Array.isArray(conflictFiles) ? conflictFiles : [])];
   if (observedFiles.length === 0) {
-    return null;
+    return {
+      conflict: null,
+      forward_revision_files: [],
+      forward_revision_turns: [],
+    };
   }
 
   const observedFileSet = new Set(observedFiles);
   const acceptedSince = [];
   const conflictingFiles = new Set();
+  const forwardRevisionFiles = new Set();
+  const forwardRevisionTurns = new Map();
 
   for (const entry of historyEntries) {
     if ((entry.accepted_sequence || 0) <= (targetTurn.assigned_sequence || 0)) {
@@ -1108,35 +1156,77 @@ function detectAcceptanceConflict(targetTurn, conflictFiles, historyEntries) {
       continue;
     }
 
-    overlap.forEach(file => conflictingFiles.add(file));
-    acceptedSince.push({
-      turn_id: entry.turn_id,
-      role: entry.role,
-      accepted_sequence: entry.accepted_sequence,
-      files_changed: overlap,
-    });
+    const destructiveFiles = [];
+    const forwardFiles = [];
+    for (const file of overlap) {
+      if (isForwardRevisionFile(targetTurn, entry, file, config)) {
+        forwardFiles.push(file);
+      } else {
+        destructiveFiles.push(file);
+      }
+    }
+
+    if (destructiveFiles.length > 0) {
+      destructiveFiles.forEach(file => conflictingFiles.add(file));
+      acceptedSince.push({
+        turn_id: entry.turn_id,
+        role: entry.role,
+        accepted_sequence: entry.accepted_sequence,
+        files_changed: destructiveFiles,
+      });
+    }
+
+    if (forwardFiles.length > 0) {
+      forwardFiles.forEach(file => forwardRevisionFiles.add(file));
+      const existing = forwardRevisionTurns.get(entry.turn_id) || {
+        turn_id: entry.turn_id,
+        role: entry.role,
+        accepted_sequence: entry.accepted_sequence,
+        files_changed: [],
+      };
+      existing.files_changed = [...new Set([...existing.files_changed, ...forwardFiles])];
+      forwardRevisionTurns.set(entry.turn_id, existing);
+    }
   }
 
+  const forwardRevisionContext = {
+    files: [...forwardRevisionFiles],
+    accepted_since_turn_ids: [...forwardRevisionTurns.values()].map((entry) => entry.turn_id),
+    accepted_since: [...forwardRevisionTurns.values()],
+  };
+
   if (acceptedSince.length === 0) {
-    return null;
+    return {
+      conflict: null,
+      forward_revision_files: forwardRevisionContext.files,
+      forward_revision_turns: forwardRevisionContext.accepted_since,
+    };
   }
 
   const conflicting = [...conflictingFiles];
   const overlapRatio = observedFiles.length > 0 ? conflicting.length / observedFiles.length : 0;
 
   return {
-    type: 'file_conflict',
-    conflicting_turn: {
-      turn_id: targetTurn.turn_id,
-      role: targetTurn.assigned_role,
-      attempt: targetTurn.attempt,
-      files_changed: observedFiles,
+    conflict: {
+      type: 'file_conflict',
+      conflicting_turn: {
+        turn_id: targetTurn.turn_id,
+        role: targetTurn.assigned_role,
+        attempt: targetTurn.attempt,
+        files_changed: observedFiles,
+      },
+      accepted_since: acceptedSince,
+      conflicting_files: conflicting,
+      non_conflicting_files: observedFiles.filter(
+        (file) => !conflictingFiles.has(file) && !forwardRevisionFiles.has(file),
+      ),
+      forward_revision_files: forwardRevisionContext.files,
+      forward_revision_turns: forwardRevisionContext.accepted_since,
+      overlap_ratio: overlapRatio,
+      suggested_resolution: overlapRatio < 0.5 ? 'reject_and_reassign' : 'human_merge',
     },
-    accepted_since: acceptedSince,
-    conflicting_files: conflicting,
-    non_conflicting_files: observedFiles.filter(file => !conflictingFiles.has(file)),
-    overlap_ratio: overlapRatio,
-    suggested_resolution: overlapRatio < 0.5 ? 'reject_and_reassign' : 'human_merge',
+    forward_revision_files: forwardRevisionContext.files,
+    forward_revision_turns: forwardRevisionContext.accepted_since,
   };
 }
 
@@ -2749,40 +2839,6 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         error_code: 'protocol_error',
       };
     }
-
-    if (currentTurn.conflict_state.status !== 'human_merging') {
-      appendJsonl(root, LEDGER_PATH, {
-        timestamp: new Date().toISOString(),
-        decision: 'conflict_resolution_selected',
-        turn_id: currentTurn.turn_id,
-        attempt: currentTurn.attempt,
-        role: currentTurn.assigned_role,
-        phase: state.phase,
-        conflict: {
-          conflicting_files: currentTurn.conflict_state.conflict_error?.conflicting_files || [],
-          accepted_since_turn_ids: (currentTurn.conflict_state.conflict_error?.accepted_since || []).map((entry) => entry.turn_id),
-          overlap_ratio: currentTurn.conflict_state.conflict_error?.overlap_ratio ?? 0,
-        },
-        resolution_chosen: 'human_merge',
-      });
-
-      state = {
-        ...state,
-        active_turns: {
-          ...getActiveTurns(state),
-          [currentTurn.turn_id]: {
-            ...currentTurn,
-            status: 'conflicted',
-            conflict_state: {
-              ...currentTurn.conflict_state,
-              status: 'human_merging',
-            },
-          },
-        },
-      };
-      writeState(root, state);
-      currentTurn = state.active_turns[currentTurn.turn_id];
-    }
   }
 
   const turnStagingPath = getTurnStagingResultPath(currentTurn.turn_id);
@@ -3142,11 +3198,29 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     };
   }
 
-  const conflict = detectAcceptanceConflict(
+  const overlapClassification = classifyAcceptanceOverlap(
     currentTurn,
     buildConflictCandidateFiles(rawObservation, observation, turnResult.files_changed || []),
     historyEntries,
+    config,
   );
+  const forwardRevision = overlapClassification.forward_revision_files.length > 0
+    ? {
+        files: overlapClassification.forward_revision_files,
+        accepted_since_turn_ids: overlapClassification.forward_revision_turns.map((entry) => entry.turn_id),
+        accepted_since: overlapClassification.forward_revision_turns,
+      }
+    : null;
+  const conflict = resolutionMode === 'human_merge' ? null : overlapClassification.conflict;
+  const conflictResolution = resolutionMode === 'human_merge'
+    ? {
+        mode: 'human_merge',
+        merge_strategy: 'operator_authoritative_staged_result',
+        conflicting_files: currentTurn.conflict_state?.conflict_error?.conflicting_files || [],
+        accepted_since_turn_ids: (currentTurn.conflict_state?.conflict_error?.accepted_since || []).map((entry) => entry.turn_id),
+        overlap_ratio: currentTurn.conflict_state?.conflict_error?.overlap_ratio ?? 0,
+      }
+    : null;
 
   if (conflict) {
     const detectionCount = (currentTurn.conflict_state?.detection_count || 0) + 1;
@@ -3301,6 +3375,8 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     assigned_sequence: Number.isInteger(currentTurn.assigned_sequence) ? currentTurn.assigned_sequence : acceptedSequence,
     accepted_sequence: acceptedSequence,
     concurrent_with: Array.isArray(currentTurn.concurrent_with) ? currentTurn.concurrent_with : [],
+    ...(forwardRevision ? { forward_revision: forwardRevision } : {}),
+    ...(conflictResolution ? { conflict_resolution: conflictResolution } : {}),
     cost: turnResult.cost || {},
     ...(currentTurn.started_at ? { started_at: currentTurn.started_at } : {}),
     accepted_at: now,
@@ -3356,6 +3432,49 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         created_at: now,
       });
     }
+  }
+  if (forwardRevision) {
+    ledgerEntries.push({
+      timestamp: now,
+      decision: 'forward_revision_accepted',
+      turn_id: currentTurn.turn_id,
+      attempt: currentTurn.attempt,
+      role: currentTurn.assigned_role,
+      phase: state.phase,
+      forward_revision: {
+        files: forwardRevision.files,
+        accepted_since_turn_ids: forwardRevision.accepted_since_turn_ids,
+      },
+    });
+  }
+  if (conflictResolution) {
+    const conflictSummary = {
+      conflicting_files: conflictResolution.conflicting_files,
+      accepted_since_turn_ids: conflictResolution.accepted_since_turn_ids,
+      overlap_ratio: conflictResolution.overlap_ratio,
+    };
+    ledgerEntries.push({
+      timestamp: now,
+      decision: 'conflict_resolution_selected',
+      turn_id: currentTurn.turn_id,
+      attempt: currentTurn.attempt,
+      role: currentTurn.assigned_role,
+      phase: state.phase,
+      conflict: conflictSummary,
+      resolution_chosen: conflictResolution.mode,
+      merge_strategy: conflictResolution.merge_strategy,
+    });
+    ledgerEntries.push({
+      timestamp: now,
+      decision: 'conflict_resolved',
+      turn_id: currentTurn.turn_id,
+      attempt: currentTurn.attempt,
+      role: currentTurn.assigned_role,
+      phase: state.phase,
+      conflict: conflictSummary,
+      resolution_chosen: conflictResolution.mode,
+      merge_strategy: conflictResolution.merge_strategy,
+    });
   }
 
   const turnNumber = turnResult.turn_id.replace(/^turn_/, '').slice(0, 8);
@@ -4107,6 +4226,22 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     intent_id: currentTurn.intake_context?.intent_id || null,
     payload: turnAcceptedPayload,
   });
+  if (conflictResolution) {
+    emitRunEvent(root, 'conflict_resolved', {
+      run_id: updatedState.run_id,
+      phase: updatedState.phase,
+      status: updatedState.status,
+      turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      intent_id: currentTurn.intake_context?.intent_id || null,
+      payload: {
+        resolution: conflictResolution.mode,
+        merge_strategy: conflictResolution.merge_strategy,
+        conflicting_files: conflictResolution.conflicting_files,
+        accepted_since_turn_ids: conflictResolution.accepted_since_turn_ids,
+        overlap_ratio: conflictResolution.overlap_ratio,
+      },
+    });
+  }
 
   if (updatedState.status === 'blocked') {
     // DEC-RHTR-SPEC: Record blocked outcome in cross-run history (non-fatal)

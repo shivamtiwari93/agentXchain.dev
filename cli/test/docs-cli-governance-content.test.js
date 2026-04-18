@@ -289,14 +289,18 @@ describe('CLI governance docs contract — events observability', () => {
   it('documents the full governed event set including turn_conflicted and budget_exceeded_warn', () => {
     assert.match(
       docs,
-      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `human_escalation_raised`, `human_escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`/,
+      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `conflict_resolved`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `human_escalation_raised`, `human_escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`/,
     );
   });
 
-  it('documents inline text rendering for turn_conflicted, phase_entered, and gate_failed', () => {
+  it('documents inline text rendering for turn_conflicted, conflict_resolved, phase_entered, and gate_failed', () => {
     assert.match(
       docs,
       /`turn_conflicted` text entries include the conflicting files, overlap percentage, detection count, accepted-since turn IDs, and `run blocked`/i,
+    );
+    assert.match(
+      docs,
+      /`conflict_resolved` text entries show the conflicting files, the chosen resolution mode, and the overlap percentage/i,
     );
     assert.match(
       docs,

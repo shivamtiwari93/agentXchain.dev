@@ -1,0 +1,72 @@
+# BUG 31-33 Coverage Gap Postmortem
+
+## Purpose
+
+Document why the iterative planning conflict loop shipped through `v2.130.1`, what was missing from the tester-sequence suite, and what coverage still needs to be audited.
+
+## What Failed
+
+- `accept-turn --resolution human_merge` did not resolve anything. It only flipped `conflict_state.status` to `human_merging` and then reran the same overlap detector.
+- Acceptance conflict detection did not explicitly distinguish durable same-role planning revisions from destructive overlap. Some flows were green only because `assigned_sequence` happened to advance, not because the policy was encoded.
+- The beta suite had no scenario for iterative PM repair on durable `.planning/` artifacts and no scenario asserting that the advertised `human_merge` operator path ended in terminal acceptance.
+
+## Root Causes
+
+1. The suite covered conflict detection and conflict-loop messaging, but not the operator completion path.
+   - We had tests for `turn_conflicted`, `reject-turn --reassign`, and status messaging.
+   - We did not have a beta-tester scenario that executed `accept-turn --resolution human_merge` and asserted accepted terminal state.
+
+2. Forward revision behavior was accidental, not explicit.
+   - Fresh sequential PM turns could accept because `assigned_sequence` advanced.
+   - That hid the policy gap: same-role PM-owned planning rewrites were not classified as forward revision anywhere in the conflict detector.
+
+3. We trusted indirect green paths instead of testing the exact beta report.
+   - The bug report was about durable planning repair across turns and a broken documented escape hatch.
+   - The suite did not include either exact operator flow.
+
+## What Shipped In The Fix
+
+- `accept-turn --resolution human_merge` now accepts the active staged result in one invocation, records `conflict_resolution_selected` and `conflict_resolved`, and emits `conflict_resolved` to `.agentxchain/events.jsonl`.
+- Acceptance overlap classification now distinguishes:
+  - `forward_revision`: same role, PM-owned planning artifact rewrite
+  - `file_conflict`: destructive overlap that still requires operator resolution
+- New regression coverage:
+  - `cli/test/beta-tester-scenarios/bug-31-human-merge-completion.test.js`
+  - `cli/test/beta-tester-scenarios/iterative-planning-repair.test.js`
+  - governed-state regression asserting stale same-role PM planning edits are treated as forward revision
+
+## Why The Old Coverage Missed It
+
+- We over-indexed on state transitions inside `governed-state.test.js` and under-indexed on beta-tester scenario files that mirror real operator commands.
+- We validated that conflict banners existed but not that every documented recovery command had a terminal outcome.
+- We treated “fresh turn accepts” as evidence that iterative planning was handled, even though the durable policy was not encoded.
+
+## Remaining Coverage Gaps To Audit
+
+- Conflict resolution after mixed forward-revision plus cross-role destructive overlap in the same acceptance attempt.
+- `human_merge` on turns that were already stuck in persisted `human_merging` state from older repos.
+- Dashboard/API exposure for `conflict_resolved` timeline events.
+- Recovery/report/audit surfaces that summarize forward-revision acceptance without surfacing false conflict severity.
+
+## Coverage Audit Plan
+
+1. Audit every documented recovery command and confirm there is a beta-tester scenario for its terminal success path.
+2. Audit every durable event listed in `VALID_RUN_EVENTS` and confirm at least one contract test reads and asserts it.
+3. Audit every durable decision-ledger conflict transition:
+   - `conflict_detected`
+   - `conflict_rejected`
+   - `conflict_resolution_selected`
+   - `conflict_resolved`
+   - `forward_revision_accepted`
+4. Add a dashboard/API contract test for `conflict_resolved`.
+
+## Acceptance Tests
+
+- [x] `bug-31-human-merge-completion.test.js` proves single-invocation terminal acceptance.
+- [x] `iterative-planning-repair.test.js` proves repeated PM repair turns on durable planning files accept cleanly.
+- [x] governed-state regression proves stale same-role PM planning overlap is classified as forward revision.
+
+## Open Questions
+
+- Should `forward_revision_accepted` be surfaced in dashboard/report UX, or stay decision-ledger-only for now?
+- Do we want a dedicated CLI report view for forward revisions, or is decision/event evidence sufficient?

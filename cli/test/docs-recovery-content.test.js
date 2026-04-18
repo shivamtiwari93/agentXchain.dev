@@ -189,6 +189,11 @@ describe('Recovery docs — conflict-loop operator contract (AT-CLR-003, AT-CLR-
       /overlap.*50%|50%.*overlap/i,
       'must document the 50% overlap heuristic boundary'
     );
+    assert.match(
+      DOC,
+      /one command|single-step merge path|one-step acceptance/i,
+      'must document that human_merge completes in one invocation'
+    );
   });
 });
 
