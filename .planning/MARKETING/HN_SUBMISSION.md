@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.134.1
+# Hacker News Submission — AgentXchain v2.135.0
 
-> Ready-to-post. Updated 2026-04-18 for v2.134.1.
+> Ready-to-post. Updated 2026-04-18 for v2.135.0.
 
 ---
 

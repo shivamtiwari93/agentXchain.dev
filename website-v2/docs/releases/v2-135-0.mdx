@@ -1,0 +1,44 @@
+---
+sidebar_position: 0
+title: "v2.135.0 Release Notes"
+---
+
+# AgentXchain v2.135.0
+
+`v2.135.0` closes three beta-tester-reported bugs: cross-run intent leakage (BUG-34), retry prompt section ordering (BUG-35), and a gate semantic coverage validator that enforces exit-gate file coverage pre-checks on phase transitions (BUG-36).
+
+**Released:** 2026-04-18
+
+## What Changed
+
+### BUG-34: Cross-run intent leakage fixed
+
+Intents are now scoped to their originating run via `approved_run_id`. Previously, intents approved in one run could surface in a subsequent run's context, causing unexpected behavior when a stale intent matched a new run's phase. The fix:
+
+1. **Run-scoped intent approval** — every approved intent now carries the `approved_run_id` of the run that approved it. (`BUG-34`)
+2. **Stale intent archival on run init** — when a new run starts, any intents whose `approved_run_id` does not match the new run are archived so they cannot be consumed. (`BUG-34`)
+3. **All consume paths enforce run scoping** — intent consume logic in the run loop, step, and manual-resume paths all gate on `approved_run_id` matching the active run. (`BUG-34`)
+
+### BUG-35: Retry prompt section ordering fixed
+
+Gate failure content now renders **before** injected intent in the retry `PROMPT.md`. Previously, the injected intent block appeared above the gate failure block, meaning a reviewing agent saw the directive before the failure rationale. The ordering is now: gate failure → injected intent. (`BUG-35`)
+
+### BUG-36: Gate semantic coverage validator
+
+The acceptance pre-check now validates that every file listed in an exit gate's failing conditions is present in `files_changed` for the turn being accepted. This prevents phantom gate failures on phase transitions where the gated file was edited in a prior turn but not in the current one.
+
+- **Strict by default** — the validator exits the gate check with an explanatory error if a gated file is absent from `files_changed`. (`BUG-36`)
+- **Lenient mode available** — set `gate_semantic_coverage_mode: lenient` in the gate config to downgrade the missing-file check to a warning and allow the gate to proceed. (`BUG-36`)
+
+## Evidence
+
+- Aggregate evidence: 6992 tests / 0 failures (5998 node + 994 vitest). Website build clean.
+- All CI workflows green on `c986f74b`
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.135.0
+# or
+brew upgrade agentxchain
+```

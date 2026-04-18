@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.135.0
+
+### Cross-Run Intent Leakage Fix + Retry Prompt Ordering + Gate Semantic Coverage Validator
+
+- **BUG-34: Cross-run intent leakage fixed:** intents are now scoped to their originating run via `approved_run_id`. Stale intents from prior runs are archived during run init. All consume paths enforce run scoping so one run's approved intents cannot bleed into a subsequent run's context. (`BUG-34`)
+- **BUG-35: Retry prompt section ordering fixed:** gate failure content now renders BEFORE injected intent in the retry `PROMPT.md`, matching the intended operator read order and preventing reviewers from seeing the intent before the failure context. (`BUG-35`)
+- **BUG-36: Gate semantic coverage validator:** the acceptance pre-check now validates that every file listed in an exit gate's failing conditions is present in `files_changed`. Strict by default; lenient mode available via `gate_semantic_coverage_mode: lenient`. Prevents phantom gate failures on phase transitions where the gated file was not part of the edit set. (`BUG-36`)
+
+### Evidence
+
+- Aggregate evidence: 6992 tests / 0 failures (5998 node + 994 vitest)
+
 ## 2.134.1
 
 ### Coordinator Retry Observability + Spec Status Alignment
