@@ -82,6 +82,9 @@ ALLOWED_RELEASE_PATHS=(
   ".planning/MARKETING/REDDIT_POSTS.md"
   ".planning/MARKETING/HN_SUBMISSION.md"
   "website-v2/static/llms.txt"
+  "website-v2/docs/getting-started.mdx"
+  "website-v2/docs/quickstart.mdx"
+  "website-v2/docs/five-minute-tutorial.mdx"
   "cli/homebrew/agentxchain.rb"
   "cli/homebrew/README.md"
 )

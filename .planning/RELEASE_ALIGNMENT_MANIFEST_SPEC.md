@@ -92,6 +92,11 @@ The shared validator must cover at least:
 - `.planning/MARKETING/REDDIT_POSTS.md` current version and aggregate evidence line
 - `.planning/MARKETING/HN_SUBMISSION.md` current version and aggregate evidence line
 - `website-v2/static/llms.txt` current release route
+- onboarding prereq blocks in:
+  - `website-v2/docs/getting-started.mdx`
+  - `website-v2/docs/quickstart.mdx`
+  - `website-v2/docs/five-minute-tutorial.mdx`
+  - each must carry the target-version `Minimum CLI version: agentxchain X.Y.Z or newer` line and the safe upgrade/fallback commands
 
 ### Auto-aligned surfaces (`current` only)
 
@@ -119,6 +124,7 @@ The playbook must describe:
 - `release-bump.sh` and `current-release-surface.test.js` disagree on which surfaces are required
 - homepage version is updated but homepage proof count still reflects the previous release
 - launch evidence and marketing drafts still carry the previous release evidence line
+- onboarding docs still pin the previous CLI version, so release-bump passes preflight only to fail at the inline test gate after the bump commit already exists
 - playbook still tells operators to update a static sitemap file that no longer exists
 - a new release-truth surface is added to tests but not to the release script, or vice versa
 
@@ -128,6 +134,7 @@ The playbook must describe:
 - `AT-RAM-002`: `check-release-alignment.mjs --scope prebump --target-version <semver>` fails with actionable surface-level errors when a prepared target-version fixture still has stale homepage or marketing truth
 - `AT-RAM-003`: `release-bump.sh` uses `check-release-alignment.mjs --scope prebump` instead of duplicating shell-only version-surface checks
 - `AT-RAM-004`: `RELEASE_PLAYBOOK.md` documents manifest-validated manual surfaces, treats Homebrew as auto-aligned, and does not claim a manual static sitemap artifact
+- `AT-RAM-005`: `check-release-alignment.mjs --scope prebump --target-version <semver>` fails with actionable `onboarding_prereqs` errors when `getting-started.mdx`, `quickstart.mdx`, or `five-minute-tutorial.mdx` still pins the previous CLI version
 
 ## Open Questions
 

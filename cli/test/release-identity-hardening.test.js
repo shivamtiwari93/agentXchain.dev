@@ -31,6 +31,25 @@ const RELEASE_SIDEBAR_FIXTURE = `export default {
 };
 `;
 
+function writeOnboardingPrereqDocs(root, version) {
+  const prereqBlock = [
+    '# Onboarding',
+    '',
+    '## Prerequisites',
+    '',
+    `- Minimum CLI version: \`agentxchain ${version}\` or newer`,
+    '- Check your installed binary: `agentxchain --version`',
+    '- Upgrade with npm: `npm install -g agentxchain@latest`',
+    '- Upgrade with Homebrew: `brew upgrade agentxchain`',
+    '- If the binary on `PATH` and these docs disagree, use the safe fallback: `npx --yes -p agentxchain@latest -c "agentxchain <command>"`',
+    '',
+  ].join('\n');
+
+  writeFileSync(join(root, 'website-v2', 'docs', 'getting-started.mdx'), prereqBlock);
+  writeFileSync(join(root, 'website-v2', 'docs', 'quickstart.mdx'), prereqBlock);
+  writeFileSync(join(root, 'website-v2', 'docs', 'five-minute-tutorial.mdx'), prereqBlock);
+}
+
 after(() => {
   for (const fixture of FIXTURES) {
     rmSync(fixture.root, { recursive: true, force: true });
@@ -95,6 +114,7 @@ function createReleaseBumpFixture({ version = '2.19.0', existingTagVersion = nul
   writeFileSync(join(websitePagesDir, 'index.tsx'), `<div className="hero-badge">v${version}</div>\n<div className="stat-number">10</div>\n<div className="stat-label">Tests / 0 failures</div>\n`);
   writeFileSync(join(conformanceDir, 'capabilities.json'), JSON.stringify({ version }, null, 2) + '\n');
   writeFileSync(join(websiteDocsDir, 'protocol-implementor-guide.mdx'), `{"version": "${version}"}\n`);
+  writeOnboardingPrereqDocs(root, version);
   writeFileSync(join(planningDir, 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
   writeFileSync(join(planningDir, 'SHOW_HN_DRAFT.md'), `# Show HN Draft — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
   writeFileSync(join(marketingDir, 'TWITTER_THREAD.md'), `# Twitter/X Thread — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
@@ -152,6 +172,7 @@ function prepareTargetSurfaces(root, targetVersion) {
   writeFileSync(join(root, 'website-v2', 'src', 'pages', 'index.tsx'), `<div className="hero-badge">v${targetVersion}</div>\n<div className="stat-number">11</div>\n<div className="stat-label">Tests / 0 failures</div>\n`);
   writeFileSync(join(root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: targetVersion }, null, 2) + '\n');
   writeFileSync(join(root, 'website-v2', 'docs', 'protocol-implementor-guide.mdx'), `{"version": "${targetVersion}"}\n`);
+  writeOnboardingPrereqDocs(root, targetVersion);
   writeFileSync(join(root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'SHOW_HN_DRAFT.md'), `# Show HN Draft — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'MARKETING', 'TWITTER_THREAD.md'), `# Twitter/X Thread — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
@@ -339,6 +360,10 @@ describe('Release identity hardening', () => {
       assert.ok(
         script.includes('--scope prebump'),
         'script must validate manual target-version surfaces through the prebump scope',
+      );
+      assert.ok(
+        script.includes('website-v2/docs/getting-started.mdx'),
+        'script must allow onboarding docs as release surfaces when the shared checker flags stale prereq version pins',
       );
     });
 
@@ -549,6 +574,18 @@ describe('Release identity hardening', () => {
       const result = runReleaseBump(fixture.cliDir, '2.20.0');
       assert.equal(result.status, 1);
       assert.match(result.stderr, /capabilities\.json/);
+      assert.match(result.stderr, /Release alignment FAILED/);
+    });
+
+    it('fails when onboarding prereq docs still pin the previous CLI version', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+      writeOnboardingPrereqDocs(fixture.root, '2.19.0');
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /\[onboarding_prereqs\]/);
+      assert.match(result.stderr, /website-v2\/docs\/quickstart\.mdx/);
       assert.match(result.stderr, /Release alignment FAILED/);
     });
 
@@ -769,6 +806,7 @@ end
       writeFileSync(join(fixture.root, 'website-v2', 'src', 'pages', 'index.tsx'), '<div className="hero-badge">v2.20.0</div>\n<div className="stat-number">11</div>\n<div className="stat-label">Tests / 0 failures</div>\n');
       writeFileSync(join(fixture.root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: '2.20.0' }, null, 2) + '\n');
       writeFileSync(join(fixture.root, 'website-v2', 'docs', 'protocol-implementor-guide.mdx'), '{"version": "2.20.0"}\n');
+      writeOnboardingPrereqDocs(fixture.root, '2.20.0');
       writeFileSync(join(fixture.root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), '# Launch Evidence Report — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
       writeFileSync(join(fixture.root, '.planning', 'SHOW_HN_DRAFT.md'), '# Show HN Draft — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
       writeFileSync(join(fixture.root, '.planning', 'MARKETING', 'TWITTER_THREAD.md'), '# Twitter/X Thread — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
@@ -793,6 +831,9 @@ end
       assert.ok(changedFiles.includes('website-v2/src/pages/index.tsx'));
       assert.ok(changedFiles.includes('.agentxchain-conformance/capabilities.json'));
       assert.ok(changedFiles.includes('website-v2/docs/protocol-implementor-guide.mdx'));
+      assert.ok(changedFiles.includes('website-v2/docs/getting-started.mdx'));
+      assert.ok(changedFiles.includes('website-v2/docs/quickstart.mdx'));
+      assert.ok(changedFiles.includes('website-v2/docs/five-minute-tutorial.mdx'));
       assert.ok(changedFiles.includes('.planning/LAUNCH_EVIDENCE_REPORT.md'));
       assert.ok(changedFiles.includes('.planning/SHOW_HN_DRAFT.md'));
       assert.ok(changedFiles.includes('.planning/MARKETING/TWITTER_THREAD.md'));

@@ -22,6 +22,12 @@ export function formatCount(value) {
   return new Intl.NumberFormat('en-US').format(value);
 }
 
+const ONBOARDING_PREREQ_DOCS = [
+  'website-v2/docs/getting-started.mdx',
+  'website-v2/docs/quickstart.mdx',
+  'website-v2/docs/five-minute-tutorial.mdx',
+];
+
 function normalizeEvidenceText(value) {
   return value
     .replace(/^\s*-\s*/, '')
@@ -135,6 +141,28 @@ function validateTextIncludesVersionAndEvidence(relativePath, label) {
       return errors;
     },
   };
+}
+
+function validateOnboardingPrereqs(ctx, repoRoot) {
+  const errors = [];
+  const requiredTokens = [
+    `Minimum CLI version: \`agentxchain ${ctx.targetVersion}\` or newer`,
+    'agentxchain --version',
+    'npm install -g agentxchain@latest',
+    'brew upgrade agentxchain',
+    'npx --yes -p agentxchain@latest -c "agentxchain <command>"',
+  ];
+
+  for (const relativePath of ONBOARDING_PREREQ_DOCS) {
+    const content = read(repoRoot, relativePath);
+    for (const token of requiredTokens) {
+      if (!content.includes(token)) {
+        errors.push(`${relativePath} must include: ${token}`);
+      }
+    }
+  }
+
+  return errors;
 }
 
 export const RELEASE_ALIGNMENT_SURFACES = [
@@ -273,6 +301,12 @@ export const RELEASE_ALIGNMENT_SURFACES = [
         ? []
         : [`website-v2/static/llms.txt must list ${ctx.releaseRoute}`];
     },
+  },
+  {
+    id: 'onboarding_prereqs',
+    label: 'onboarding docs CLI-version prerequisites',
+    scopes: [RELEASE_ALIGNMENT_SCOPES.PREBUMP, RELEASE_ALIGNMENT_SCOPES.CURRENT],
+    check: validateOnboardingPrereqs,
   },
   {
     id: 'homebrew_formula_url',
