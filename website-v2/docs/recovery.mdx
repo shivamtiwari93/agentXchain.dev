@@ -169,8 +169,31 @@ See also: [Runtime Matrix](/docs/runtime-matrix) for valid runtime/authority com
 
 | Condition | Recovery |
 |---|---|
-| Dirty authoritative tree | `git commit` or `git stash`, then `agentxchain step` |
+| Latest accepted authoritative turn is not checkpointed | `agentxchain checkpoint-turn --turn <id>` |
+| Dirty authoritative tree unrelated to the latest accepted turn | `git commit` or `git stash`, then `agentxchain step` |
 | Unknown block | Inspect `.agentxchain/state.json`, resolve manually, then `agentxchain step` |
+
+## Accepted-turn checkpointing
+
+Accepted authoritative turns are valid governed state, but they still leave the repo dirty until that state is checkpointed into git. AgentXchain now has a first-class checkpoint model for that boundary:
+
+- `agentxchain checkpoint-turn --turn <id>` commits exactly the accepted turn's declared `files_changed`
+- `agentxchain accept-turn --checkpoint` accepts the turn and immediately attempts the checkpoint
+- `agentxchain run --continuous` enables `--auto-checkpoint` by default so role handoffs do not stop on manual repo commits
+
+If the next authoritative assignment refuses with:
+
+```text
+Accepted turn <id> is not checkpointed yet. Run agentxchain checkpoint-turn --turn <id> before assigning the next code-writing turn.
+```
+
+that means the repo only contains the accepted turn's uncheckpointed files. Checkpoint that turn first. Do not paper over it with `git add -A`; that risks mixing unrelated dirt into the acceptance boundary.
+
+If `accept-turn --checkpoint` fails after acceptance, the accepted turn is preserved and the recovery path is explicit:
+
+```bash
+agentxchain checkpoint-turn --turn <id>
+```
 
 ## Command Reference
 
@@ -187,6 +210,7 @@ The recovery surface uses these existing commands — no dedicated `recover` com
 | `reject-turn` | Reject a failed turn and trigger retry or reassignment |
 | `reissue-turn` | Invalidate a stale turn and reissue against current state (baseline, runtime, or authority drift) |
 | `accept-turn` | Manually accept a turn after validation failure and manual fix |
+| `checkpoint-turn` | Commit the latest accepted authoritative turn so the next writable role starts from a clean baseline |
 | `escalate` | Raise an operator escalation on an active or blocked turn |
 | `status` | View current blocked state and recovery action |
 

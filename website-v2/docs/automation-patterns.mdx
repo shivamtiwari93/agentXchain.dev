@@ -62,50 +62,67 @@ agentxchain doctor
 agentxchain connector check
 agentxchain connector validate local-pm
 agentxchain connector validate local-dev
-
-git add -A
-git commit -m "initial governed scaffold"
 ```
 
-Then drive the lifecycle:
+Then choose one of the two truthful operating modes.
+
+### Continuous mode: preferred
+
+`run --continuous` now auto-checkpoints accepted authoritative turns by default, so Dev and QA handoffs do not stall on manual git commits.
+
+```bash
+agentxchain run --continuous --vision .planning/VISION.md --max-runs 1
+agentxchain approve-transition
+agentxchain run --continuous --vision .planning/VISION.md --max-runs 1
+agentxchain approve-completion
+```
+
+What happens:
+
+1. The first continuous run drives the automated PM turn, checkpoints it, and pauses only for the planning gate.
+2. `approve-transition` opens implementation.
+3. The second continuous run drives Dev and QA, checkpointing each accepted authoritative turn before the next writable handoff.
+4. `approve-completion` closes the run.
+
+### Step-by-step mode: manual checkpoint boundary
+
+If you prefer `step`, you must checkpoint after each accepted authoritative turn.
 
 ```bash
 agentxchain step
-git add -A
-git commit -m "accept pm turn"
+agentxchain checkpoint-turn
 agentxchain status
 agentxchain approve-transition
 agentxchain step
-git add -A
-git commit -m "accept dev turn"
+agentxchain checkpoint-turn
 agentxchain step
-git add -A
-git commit -m "accept qa turn"
+agentxchain checkpoint-turn
 agentxchain approve-completion
 ```
 
 What happens:
 
 1. The first `step` dispatches the automated PM turn and auto-accepts it.
-2. Commit the accepted PM artifacts so the next authoritative turn starts from a clean baseline.
+2. `checkpoint-turn` records the accepted PM artifacts so the next authoritative turn starts from a clean baseline.
 3. The run pauses at the planning gate because human approval is still required.
 4. `approve-transition` opens implementation.
 5. The next `step` dispatches Dev automatically.
-6. Commit the accepted Dev artifacts before the next authoritative turn.
+6. `checkpoint-turn` records the accepted Dev artifacts before the next authoritative turn.
 7. The next `step` dispatches QA automatically.
-8. Commit the accepted QA artifacts, then approve completion.
+8. `checkpoint-turn` records the accepted QA artifacts, then approve completion.
 
 That is the whole point of the pattern: automated turns, human gates.
 
-Do not skip the commits between accepted authoritative turns. The next code-writing turn will fail closed on a dirty tree.
+Do not skip the checkpoint between accepted authoritative turns. The next code-writing turn will fail closed if the latest accepted writable turn is still only in the working tree.
 
 ### Why authoritative turns require a clean working tree
 
 AgentXchain validates turn results by comparing `files_changed` against the diff between the dispatch baseline (the git state when the turn was assigned) and the post-turn working tree. If uncommitted files exist before dispatch, the acceptance validator cannot distinguish "files the agent changed" from "files that were already dirty." This causes false-negative rejections where the turn is correct but the validator rejects it for undeclared changes.
 
 The clean-baseline rule exists to make artifact observation reliable:
-- **Before every authoritative turn:** commit all scaffold, config, and prior-turn changes.
-- **If you hit a dirty-tree refusal:** run `git status`, commit or stash the listed files, then retry.
+- **Before every authoritative turn:** checkpoint the latest accepted turn or commit/stash unrelated repo dirt.
+- **If you hit a dirty-tree refusal naming an accepted turn:** run `agentxchain checkpoint-turn --turn <id>`.
+- **If you hit a dirty-tree refusal for unrelated files:** run `git status`, commit or stash the listed files, then retry.
 - `doctor` will warn you if the working tree is dirty and the next expected role is authoritative.
 
 ## Human steering during automation

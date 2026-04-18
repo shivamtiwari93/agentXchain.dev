@@ -1155,6 +1155,18 @@ export function resolveIntent(root, intentId) {
 
   const { intent, intentPath, dirs } = loadedIntent;
 
+  if (intent.status === 'completed') {
+    return {
+      ok: true,
+      intent,
+      previous_status: 'completed',
+      new_status: 'completed',
+      run_outcome: 'completed',
+      no_change: true,
+      exitCode: 0,
+    };
+  }
+
   if (intent.status !== 'executing' && intent.status !== 'blocked') {
     return {
       ok: false,

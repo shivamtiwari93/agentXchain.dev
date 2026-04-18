@@ -20,6 +20,7 @@ export const VALID_RUN_EVENTS = [
   'turn_conflicted',
   'acceptance_failed',
   'turn_reissued',
+  'turn_checkpointed',
   'run_blocked',
   'run_completed',
   'escalation_raised',

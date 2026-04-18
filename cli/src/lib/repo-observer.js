@@ -622,6 +622,7 @@ export function checkCleanBaseline(root, writeAuthority) {
 
   return {
     clean: false,
+    dirty_files: actorDirtyFiles,
     reason: `Working tree has uncommitted changes in actor-owned files: ${actorDirtyFiles.slice(0, 5).join(', ')}${actorDirtyFiles.length > 5 ? '...' : ''}. Authoritative/proposed turns require a clean baseline in v1. Commit or stash those changes before assigning the next code-writing turn.`,
   };
 }

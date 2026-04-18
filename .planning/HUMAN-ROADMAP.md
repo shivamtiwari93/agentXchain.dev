@@ -87,6 +87,41 @@ Full verbatim report in **"Beta-tester bug report #4 (verbatim)"** below.
     - Add an integration test that fails if any lifecycle event of an intent-bound turn is missing the intent_id.
   - **Acceptance:** `grep intent_id .agentxchain/events.jsonl` after a full inject→accept lifecycle shows the intent_id populated in every relevant event.
 
+- [x] **BUG-23: Accepted writable turns require manual repo checkpoint before next authoritative turn — breaks true full-auto multi-role flow** — FIXED: shipped `checkpoint-turn`, `accept-turn --checkpoint`, `run --continuous --auto-checkpoint`, assignment guard messaging, `turn_checkpointed` events, checkpoint metadata in state/history, docs updates, and E2E proof with checkpoint commits visible in `git log`. **Verified legit.** Code confirms the exact enforcement at `cli/src/lib/repo-observer.js:625` ("Authoritative/proposed turns require a clean baseline in v1") and the v1 rule comment at `cli/src/lib/governed-state.js:2188`. No existing `checkpoint` command. No auto-commit logic in `continuous-run.js`. So the framework automates work generation and validation, but NOT post-acceptance checkpointing — leaving a manual `git commit` step required between every authoritative role handoff (dev → qa, qa → dev, etc.). Breaks the "full auto" promise for multi-role writable flows.
+  - **Observed flow gap (from beta tester, 2026-04-18):**
+    1. dev turn completes, artifacts staged in working tree
+    2. dev turn accepted (governed state updated)
+    3. **GAP**: operator must manually `git add` + `git commit` or the next turn fails
+    4. qa turn dispatch refuses with: "Working tree has uncommitted changes in actor-owned files... Authoritative/proposed turns require a clean baseline in v1"
+    5. Only after manual commit does qa dispatch succeed
+  - **Why not just loosen the pre-flight check?** The clean-baseline rule exists for a reason — it lets the framework track `files_changed` deltas cleanly for the NEXT turn (BUG-1's delta-validation semantics working correctly on the dispatch side). If we loosen dispatch, we re-break acceptance. The right fix is to **close the handoff loop** so acceptance → checkpoint → next dispatch happens atomically without human involvement.
+  - **Fix — 3 coherent surfaces (ship all three, they compose):**
+    1. **`agentxchain checkpoint-turn` first-class command** — commits the accepted turn's artifacts to git with a structured commit message (e.g., `checkpoint: turn_<id> (role=<role>, phase=<phase>)` + turn summary as body + co-author attribution). Commit SHA is recorded back in `.agentxchain/state.json` under the turn's `checkpoint_sha` field. Idempotent — running it twice on an already-checkpointed turn is a no-op with a clear message. This is the operator-controlled entry point.
+    2. **`accept-turn --checkpoint` flag** — when set, automatically runs `checkpoint-turn` after successful acceptance, in the same command invocation, atomically. If acceptance fails, no checkpoint. If checkpoint fails (e.g., pre-commit hook rejects), the accepted turn state is preserved but the user is told "accepted but checkpoint failed: <reason>. Run `agentxchain checkpoint-turn` after fixing." This is the opt-in automation entry point for single-command-per-turn operators.
+    3. **`run --continuous --auto-checkpoint` flag** (default-on for `--continuous`, explicit `--no-auto-checkpoint` to opt out) — the continuous loop automatically checkpoints between roles. This is the full-auto entry point. **Must be default-on for `--continuous`** — if continuous mode doesn't auto-checkpoint, it's not continuous, it's "continuous with manual interruptions."
+  - **Safety requirements:**
+    - Auto-checkpoint must NEVER commit anything outside the accepted turn's `files_changed`. If the working tree has pre-existing dirty files that weren't part of the turn (see BUG-1's delta semantics), the checkpoint includes ONLY the turn's declared files — `git add` by path, not `git add -A`.
+    - Auto-checkpoint must respect pre-commit hooks. If a hook fails, the run pauses and surfaces the hook failure as an escalation (reusing the BUG-4 event machinery + existing `human-escalations.jsonl` surface). Operator fixes the hook issue, then resumes.
+    - Commit message must include provenance: turn_id, role, phase, runtime, and intent_id (if the turn was intent-driven — BUG-12/BUG-21 must be shipped so this is populated).
+    - Checkpoint failures must never leave state inconsistent: if `accept-turn --checkpoint` accepts but fails to commit, the accepted state is preserved and the next dispatch is blocked with a clear "checkpoint required" message pointing at `agentxchain checkpoint-turn`.
+    - Auto-checkpoint must be observable: emit `turn_checkpointed` event with the commit SHA. Include this event in notifier fan-out (Slack/GitHub/webhook/stderr) so multi-role continuous sessions are visible externally.
+  - **Artifact-isolated handoff (rejected as primary fix, but noted):** the tester's option #4 ("next role can start from accepted artifact state without requiring the repo to be manually committed first") is an alternative that bypasses git entirely. Reject it as the primary fix because git is the source of truth for governed history — reading files from staging without committing would make recovery, replay, and multi-machine continuity fragile. Checkpoint-to-git is the right boundary.
+  - **Fix requirements:**
+    - Add `cli/src/commands/checkpoint-turn.js` implementing the first-class command.
+    - Add `--checkpoint` flag wiring to `cli/src/commands/accept-turn.js`.
+    - Add `--auto-checkpoint` flag (default: true in `--continuous`, false elsewhere) to `cli/src/commands/run.js`.
+    - Wire through `cli/src/lib/continuous-run.js` so the loop calls `checkpoint-turn` between role handoffs.
+    - Add `turn_checkpointed` event type to the event schema.
+    - Add `checkpoint_sha` field to the turn record in `.agentxchain/state.json` and `history.jsonl`.
+    - Add three regression tests:
+      1. `checkpoint-turn` standalone — commits exactly the turn's `files_changed`, no more, no less.
+      2. `accept-turn --checkpoint` atomic — accept + commit happen together; if commit fails, state is preserved with clear recovery path.
+      3. End-to-end continuous multi-role — `run --continuous` drives dev → qa → dev → qa handoffs with no manual intervention, each role handoff automatically checkpointed, final git log shows the chain.
+    - Update `docs/recovery.mdx` with the checkpoint model.
+    - Update `docs/automation-patterns.mdx` with the continuous checkpoint flow.
+    - Update the B-5 "all local_cli authoritative, human-gated" canonical example to include the auto-checkpoint pattern.
+  - **Acceptance:** operator runs `agentxchain run --continuous --vision .planning/VISION.md` on a governed repo with PM/dev/qa/director roles and observes ≥3 role handoffs occur automatically with `git log` showing checkpoint commits at each boundary. Zero manual `git commit` required between roles.
+
 - [x] **BUG-22: `reject-turn` must not consume stale turn-result files from unrelated earlier turns** — FIXED: both `reject-turn` and `accept-turn` now verify the legacy staging file's `turn_id` matches the active turn before consuming. Mismatches are refused with a clear diagnostic. — The tester's `reject-turn` surfaced `turn_id mismatch: turn result has "turn_5bcc56d876e10a47", state has "turn_5008de0a50936226"` — meaning the reject command read a staged result file from a previous turn (turn_5bcc...) even though the active turn was a different one (turn_5008...).
   - **Root cause (likely):** `reject-turn` scans `.agentxchain/staging/` for turn-result JSON without verifying the staged result's turn_id matches the currently-active turn. Any leftover staging file from a prior turn gets consumed.
   - **Fix requirements:**
@@ -108,6 +143,71 @@ Full verbatim report in **"Beta-tester bug report #4 (verbatim)"** below.
 - **Deeper structural fix:** The common thread is **post-acceptance reconciliation**. After accepting a turn, every derivative state surface (gate cache, intent queue, dispatch bundle, session, status) must be reconciled. Consider adding a single `reconcileStateAfterAcceptance(state, acceptedTurn, root)` function that all derivative surfaces subscribe to. This would also prevent the next integration-weakness bug of the same class.
 - **Honest retro required for BUG-21:** If intent_id is truly `null` in events, BUG-12 was marked closed on partial evidence. The retrospective pattern from the 3-run proof (which was ALSO marked closed on partial evidence the first time) is repeating. Build a linter or CI gate that asserts all BUG-N items have a regression test committed BEFORE the fix, so the "shipped on partial evidence" failure mode dies permanently.
 - **Proof discipline (consistent):** failing reproduction test committed first, then fix. Beta tester's exact command sequence goes in the fixture.
+
+---
+
+### Beta-tester bug report #5 (verbatim) — full-auto handoff blocker (BUG-23)
+
+> **Title**
+>
+> Accepted writable turns require manual repo checkpoint before next authoritative turn, blocking continuous multi-role automation
+>
+> **Summary**
+>
+> In a governed `authoritative + local_cli` run, when a writable turn is accepted, AgentXchain leaves the repo dirty and then refuses to assign the next authoritative role until the operator manually commits or stashes the accepted changes.
+>
+> This makes multi-role continuous automation impossible without operator checkpoint intervention between roles, even when the accepted artifacts are valid and the next role handoff is straightforward.
+>
+> **Why this is a problem**
+>
+> This breaks the expected automation model.
+>
+> A realistic automated flow should be:
+> 1. dev turn completes
+> 2. dev turn accepted
+> 3. framework checkpoints accepted state
+> 4. qa turn starts
+>
+> Instead, the actual flow is:
+> 1. dev turn completes
+> 2. dev turn accepted
+> 3. operator must manually `git add` + `git commit`
+> 4. only then can qa start
+>
+> So the framework currently automates work generation and validation, but not accepted-state checkpointing.
+>
+> **Observed behavior**
+>
+> After accepted dev turn:
+> - implementation artifacts remain uncommitted in working tree
+> - next QA turn fails with:
+>   - "Working tree has uncommitted changes in actor-owned files..."
+>   - "Authoritative/proposed turns require a clean baseline in v1"
+>
+> **Expected behavior**
+>
+> One of these should exist:
+>
+> 1. automatic checkpoint after accepted turn — framework auto-commits accepted turn state before next writable role assignment
+> 2. staged checkpoint command — a first-class `agentxchain checkpoint-turn` or `agentxchain checkpoint-accepted` should record accepted artifacts and clear the baseline cleanly
+> 3. continuous-mode checkpoint option — e.g. `run --continuous --auto-checkpoint` safe only after acceptance succeeds
+> 4. artifact-isolated handoff mode — next role can start from accepted artifact state without requiring the repo to be manually committed first
+>
+> **Why this matters**
+>
+> Without this, "full auto" is not really full auto for multi-role implementation flows. It becomes:
+> - auto-execute
+> - human commit
+> - auto-execute
+> - human commit
+>
+> That is too much operator friction for the workflow AgentXchain is otherwise trying to enable.
+>
+> **Severity**
+>
+> I'd call this `P1/P2 boundary`, probably `P1` for automation usability.
+>
+> It does not corrupt state, but it prevents true autonomous progression across roles.
 
 ---
 

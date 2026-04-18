@@ -239,6 +239,7 @@ export function resolveContinuousOptions(opts, config) {
     triageApproval: opts.triageApproval ?? configCont.triage_approval ?? 'auto',
     cooldownSeconds: opts.cooldownSeconds ?? configCont.cooldown_seconds ?? 5,
     perSessionMaxUsd: opts.sessionBudget ?? configCont.per_session_max_usd ?? null,
+    autoCheckpoint: opts.autoCheckpoint ?? configCont.auto_checkpoint ?? true,
   };
 }
 
@@ -307,7 +308,12 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
 
     let execution;
     try {
-      execution = await executeGovernedRun(context, { autoApprove: true, report: true, log });
+      execution = await executeGovernedRun(context, {
+        autoApprove: true,
+        autoCheckpoint: contOpts.autoCheckpoint,
+        report: true,
+        log,
+      });
     } catch (err) {
       session.status = 'failed';
       writeContinuousSession(root, session);
@@ -413,6 +419,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   try {
     execution = await executeGovernedRun(context, {
       autoApprove: true,
+      autoCheckpoint: contOpts.autoCheckpoint,
       report: true,
       log,
     });

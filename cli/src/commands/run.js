@@ -48,6 +48,7 @@ import { resolveChainOptions, executeChainedRun } from '../lib/run-chain.js';
 import { resolveContinuousOptions, executeContinuousRun } from '../lib/continuous-run.js';
 import { createDispatchProgressTracker } from '../lib/dispatch-progress.js';
 import { emitRunEvent } from '../lib/run-events.js';
+import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
@@ -148,6 +149,7 @@ export async function executeGovernedRun(context, opts = {}) {
 
   const maxTurns = opts.maxTurns || 50;
   const autoApprove = !!opts.autoApprove;
+  const autoCheckpoint = opts.autoCheckpoint === true;
   const verbose = !!opts.verbose;
   const overrideResolution = opts.role
     ? resolveGovernedRole({ override: opts.role, state: null, config })
@@ -497,6 +499,17 @@ export async function executeGovernedRun(context, opts = {}) {
       const answer = await promptUser(`  Approve? [y/N] `);
       const approved = /^y(es)?$/i.test(answer.trim());
       return approved;
+    },
+
+    async afterAccept({ turn }) {
+      if (!autoCheckpoint) {
+        return { ok: true };
+      }
+      const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
+      if (!checkpoint.ok) {
+        return { ok: false, error: checkpoint.error || `checkpoint failed for ${turn.turn_id}` };
+      }
+      return { ok: true };
     },
 
     onEvent(event) {

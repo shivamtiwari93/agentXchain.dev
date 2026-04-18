@@ -71,6 +71,7 @@ import { unblockCommand } from '../src/commands/unblock.js';
 import { injectCommand } from '../src/commands/inject.js';
 import { escalateCommand } from '../src/commands/escalate.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
+import { checkpointTurnCommand } from '../src/commands/checkpoint-turn.js';
 import { rejectTurnCommand } from '../src/commands/reject-turn.js';
 import { reissueTurnCommand } from '../src/commands/reissue-turn.js';
 import { proposalListCommand, proposalDiffCommand, proposalApplyCommand, proposalRejectCommand } from '../src/commands/proposal.js';
@@ -672,8 +673,15 @@ program
   .command('accept-turn')
   .description('Accept the currently staged governed turn result')
   .option('--turn <id>', 'Target a specific active turn when multiple turns exist')
+  .option('--checkpoint', 'Checkpoint the accepted turn to git immediately after acceptance')
   .option('--resolution <mode>', 'Conflict resolution mode for conflicted turns (standard, human_merge)', 'standard')
   .action(acceptTurnCommand);
+
+program
+  .command('checkpoint-turn')
+  .description('Checkpoint the latest accepted turn into git so the next writable turn has a clean baseline')
+  .option('--turn <id>', 'Checkpoint a specific accepted turn from history')
+  .action(checkpointTurnCommand);
 
 program
   .command('reject-turn')
@@ -727,6 +735,8 @@ program
   .option('--triage-approval <mode>', 'Triage policy for vision-derived intents: auto or human (default: config or auto)')
   .option('--max-idle-cycles <n>', 'Stop after N consecutive idle cycles with no derivable work (default: 3)', parseInt)
   .option('--session-budget <usd>', 'Cumulative session-level budget cap in USD for continuous mode', parseFloat)
+  .option('--auto-checkpoint', 'Auto-commit accepted writable turns after acceptance')
+  .option('--no-auto-checkpoint', 'Disable automatic checkpointing after accepted writable turns')
   .action(runCommand);
 
 program

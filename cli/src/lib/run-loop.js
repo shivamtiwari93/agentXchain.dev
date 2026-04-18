@@ -396,6 +396,16 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
 
       acceptedCount++;
       history.push({ role: roleId, turn_id: turn.turn_id, accepted: true });
+      if (callbacks.afterAccept) {
+        const afterAcceptResult = await callbacks.afterAccept({ turn, acceptResult });
+        if (afterAcceptResult?.ok === false) {
+          errors.push(`afterAccept(${roleId}): ${afterAcceptResult.error}`);
+          if (afterAcceptResult.state) {
+            emit({ type: 'blocked', state: afterAcceptResult.state, reason: 'after_accept_failed' });
+          }
+          return { terminal: true, ok: false, stop_reason: 'blocked', history, acceptedCount };
+        }
+      }
       emit({ type: 'turn_accepted', turn, role: roleId, state: acceptResult.state });
     } else {
       const validationResult = {
@@ -512,6 +522,16 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
     }
 
     history.push({ role: roleId, turn_id: turn.turn_id, accepted: true });
+    if (callbacks.afterAccept) {
+      const afterAcceptResult = await callbacks.afterAccept({ turn, acceptResult });
+      if (afterAcceptResult?.ok === false) {
+        errors.push(`afterAccept(${roleId}): ${afterAcceptResult.error}`);
+        if (afterAcceptResult.state) {
+          emit({ type: 'blocked', state: afterAcceptResult.state, reason: 'after_accept_failed' });
+        }
+        return { terminal: true, ok: false, stop_reason: 'blocked', history };
+      }
+    }
     emit({ type: 'turn_accepted', turn, role: roleId, state: acceptResult.state });
     return { terminal: false, accepted: true, history };
   }

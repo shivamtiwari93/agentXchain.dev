@@ -62,6 +62,7 @@ import {
   summarizeVerificationReplay,
 } from './verification-replay.js';
 import { executeGateActions } from './gate-actions.js';
+import { detectPendingCheckpoint } from './turn-checkpoint.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -2189,6 +2190,10 @@ export function assignGovernedTurn(root, config, roleId, options = {}) {
   const writeAuthority = role.write_authority || 'review_only';
   const cleanCheck = checkCleanBaseline(root, writeAuthority);
   if (!cleanCheck.clean) {
+    const pendingCheckpoint = detectPendingCheckpoint(root, cleanCheck.dirty_files || []);
+    if (pendingCheckpoint.required) {
+      return { ok: false, error: pendingCheckpoint.message, error_code: 'checkpoint_required' };
+    }
     return { ok: false, error: cleanCheck.reason };
   }
 
@@ -3944,6 +3949,8 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         if (intent.status === 'executing') {
           intent.status = 'completed';
           intent.completed_at = now;
+          intent.run_completed_at = updatedState.completed_at || now;
+          intent.run_final_turn = currentTurn.turn_id;
           intent.updated_at = now;
           intent.satisfying_turn = currentTurn.turn_id;
           if (!Array.isArray(intent.history)) intent.history = [];

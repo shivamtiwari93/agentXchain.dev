@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { loadProjectContext } from '../lib/config.js';
 import { acceptGovernedTurn } from '../lib/governed-state.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
 
 export async function acceptTurnCommand(opts = {}) {
   const context = loadProjectContext();
@@ -165,6 +166,19 @@ export async function acceptTurnCommand(opts = {}) {
   }
   if (accepted?.cost?.usd != null) {
     console.log(`  ${chalk.dim('Cost:')}     $${formatUsd(accepted.cost.usd)}`);
+  }
+  if (opts.checkpoint) {
+    const checkpoint = checkpointAcceptedTurn(root, { turnId });
+    if (!checkpoint.ok) {
+      console.log(`  ${chalk.yellow('Checkpoint:')} accepted but checkpoint failed`);
+      console.log(`  ${chalk.dim('Action:')}   ${checkpoint.error}`);
+      console.log(`  ${chalk.dim('Retry:')}    agentxchain checkpoint-turn --turn ${turnId}`);
+      console.log('');
+      process.exit(1);
+    }
+    if (!checkpoint.skipped) {
+      console.log(`  ${chalk.dim('Checkpoint:')} ${checkpoint.checkpoint_sha}`);
+    }
   }
   if (accepted?.verification_replay) {
     const verifiedAt = accepted.verification_replay.verified_at

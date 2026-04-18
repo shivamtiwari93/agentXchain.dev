@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawn, spawnSync } from 'node:child_process';
+import { execSync, spawn, spawnSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -34,7 +34,7 @@ function writeFailingAgent(root) {
   return agentPath;
 }
 
-function makeProject({ slowAgent = false, failingAgent = false } = {}) {
+function makeProject({ slowAgent = false, failingAgent = false, changingAgent = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-continuous-e2e-'));
   tempDirs.push(root);
   scaffoldGoverned(root, 'Continuous Vision E2E', `continuous-e2e-${Date.now()}`);
@@ -47,6 +47,9 @@ function makeProject({ slowAgent = false, failingAgent = false } = {}) {
     writeFileSync(agentEntry, `import { setTimeout as sleep } from 'node:timers/promises';\nawait sleep(1500);\nawait import(${JSON.stringify(MOCK_AGENT)});\n`);
   } else if (failingAgent) {
     agentEntry = writeFailingAgent(root);
+  } else if (changingAgent) {
+    agentEntry = join(root, '_changing-mock-agent.mjs');
+    writeFileSync(agentEntry, `import { appendFileSync, readFileSync } from 'node:fs';\nimport { join } from 'node:path';\nconst root = process.cwd();\nconst index = JSON.parse(readFileSync(join(root, '.agentxchain/dispatch/index.json'), 'utf8'));\nconst entry = Object.values(index.active_turns || {})[0] || {};\nconst turnId = entry.turn_id || 'unknown';\nconst phase = index.phase || 'unknown';\nawait import(${JSON.stringify(MOCK_AGENT)});\nif (phase === 'planning') appendFileSync(join(root, '.planning/ROADMAP.md'), \`\\n- checkpoint \${turnId}\\n\`);\nif (phase === 'implementation') appendFileSync(join(root, 'src/output.js'), \`// checkpoint \${turnId}\\n\`);\nif (phase === 'qa') appendFileSync(join(root, '.planning/RELEASE_NOTES.md'), \`\\n- checkpoint \${turnId}\\n\`);\n`);
   }
   const mockRuntime = {
     type: 'local_cli',
@@ -76,6 +79,12 @@ function makeProject({ slowAgent = false, failingAgent = false } = {}) {
 - explicit phase gates
 - recovery-first blocked state handling
 `, 'utf8');
+
+  execSync('git init', { cwd: root, stdio: 'ignore' });
+  execSync('git config user.email "continuous@test.local"', { cwd: root, stdio: 'ignore' });
+  execSync('git config user.name "Continuous Test"', { cwd: root, stdio: 'ignore' });
+  execSync('git add .', { cwd: root, stdio: 'ignore' });
+  execSync('git commit -m "initial"', { cwd: root, stdio: 'ignore' });
   return root;
 }
 
@@ -236,6 +245,51 @@ describe('continuous run E2E', () => {
     const parsedStatus = JSON.parse(status.stdout);
     assert.equal(parsedStatus.continuous_session.runs_completed, 3);
     assert.equal(parsedStatus.continuous_session.status, 'completed');
+  });
+
+  it('AT-CONT-CKPT-001: run --continuous auto-checkpoints accepted authoritative turns between role handoffs', () => {
+    const root = makeProject({ changingAgent: true });
+
+    const run = runCli(root, [
+      'run',
+      '--continuous',
+      '--vision',
+      '.planning/VISION.md',
+      '--max-runs',
+      '1',
+      '--max-idle-cycles',
+      '1',
+      '--poll-seconds',
+      '0',
+    ]);
+
+    assert.equal(run.status, 0, `continuous auto-checkpoint run failed:\n${run.combined}`);
+    assert.doesNotMatch(run.combined, /Authoritative\/proposed turns require a clean baseline/);
+    assert.doesNotMatch(run.combined, /checkpoint-turn --turn/);
+
+    const session = readJson(root, '.agentxchain/continuous-session.json');
+    assert.equal(session.status, 'completed');
+    assert.equal(session.runs_completed, 1);
+
+    const runHistory = readJsonl(root, '.agentxchain/run-history.jsonl');
+    assert.equal(runHistory.length, 1);
+    for (const entry of runHistory) {
+      assert.equal(entry.status, 'completed');
+    }
+
+    const events = readJsonl(root, '.agentxchain/events.jsonl');
+    const checkpointEvents = events.filter((entry) => entry.event_type === 'turn_checkpointed');
+    assert.ok(checkpointEvents.length >= 3, `expected checkpoint events for each accepted turn, got ${checkpointEvents.length}`);
+
+    const logSubjects = execSync('git log --pretty=%s', { cwd: root, encoding: 'utf8' })
+      .trim()
+      .split('\n')
+      .filter(Boolean);
+    const checkpointSubjects = logSubjects.filter((line) => line.startsWith('checkpoint: '));
+    assert.ok(checkpointSubjects.length >= 3, `expected checkpoint commits in git log, got ${checkpointSubjects.length}`);
+    assert.ok(checkpointSubjects.some((line) => line.includes('(role=pm, phase=planning)')));
+    assert.ok(checkpointSubjects.some((line) => line.includes('(role=dev, phase=implementation)')));
+    assert.ok(checkpointSubjects.some((line) => line.includes('(role=qa, phase=qa)')));
   });
 
   it('AT-VCONT-007: SIGINT stops the continuous loop cleanly after the current in-flight turn', async () => {
