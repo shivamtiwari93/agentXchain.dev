@@ -36,6 +36,21 @@ function describeEvent(eventType, entry) {
     case 'gate_approved':
     case 'gate_failed':
       return `${prefix}${eventType}${gateId ? ` (${gateId})` : ''}`;
+    case 'turn_conflicted':
+      return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
+    case 'conflict_resolved': {
+      const resolution = trimToNull(entry.payload?.resolution);
+      return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}${resolution ? ` via ${resolution}` : ''}`;
+    }
+    case 'coordinator_retry': {
+      const wsId = trimToNull(entry.payload?.workstream_id);
+      const retryRepo = trimToNull(entry.payload?.repo_id);
+      return `${prefix}${eventType}${wsId ? ` ${wsId}` : ''}${retryRepo ? ` (${retryRepo})` : ''}`;
+    }
+    case 'turn_checkpointed':
+      return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
+    case 'dispatch_progress':
+      return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
     case 'run_blocked':
     case 'run_completed':
     case 'run_started':

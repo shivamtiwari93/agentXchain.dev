@@ -85,7 +85,10 @@ function printEvent(evt) {
     : evt.event_type === 'human_escalation_resolved' && evt.payload?.escalation_id
       ? ` ${evt.payload.escalation_id} via ${evt.payload.resolved_via || '?'}`
       : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${intentInfo}${conflictDetail}${conflictResolvedDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}`);
+  const coordinatorRetryDetail = evt.event_type === 'coordinator_retry' && evt.payload
+    ? ` — ws ${evt.payload.workstream_id || '?'} repo ${evt.payload.repo_id || '?'} (retry of ${evt.payload.failed_turn_id || '?'})`
+    : '';
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${intentInfo}${conflictDetail}${conflictResolvedDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}${coordinatorRetryDetail}`);
 }
 
 function formatConflictDetail(evt) {
@@ -146,6 +149,9 @@ function colorEventType(type) {
     gate_approved: chalk.green,
     gate_failed: chalk.red,
     budget_exceeded_warn: chalk.yellowBright,
+    coordinator_retry: chalk.cyan.bold,
+    turn_checkpointed: chalk.green,
+    dispatch_progress: chalk.blue.dim,
   };
   const colorFn = colors[type] || chalk.white;
   return colorFn(pad(type, 22));
