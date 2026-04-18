@@ -1,6 +1,6 @@
 # Adapter Docs Contract Spec
 
-**Status:** Proposed
+**Status:** Shipped — all 13 documented defects fixed, contract test in `cli/test/docs-adapters-content.test.js`
 **Scope:** `/docs/adapters` deep-dive page truthfulness against shipped runtime code
 **Files under audit:**
 - `website-v2/docs/adapters.mdx` (docs)

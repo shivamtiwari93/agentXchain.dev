@@ -1,7 +1,7 @@
 # Continuous-Mode Budget Enforcement Spec
 
 **Decision:** `DEC-CONT-BUDGET-001`
-**Status:** Draft → Implementation
+**Status:** Shipped — budget enforcement live in `continuous-run.js`, tested in `cli/test/continuous-budget.test.js`
 **Depends on:** `DEC-VISION-CONTINUOUS-001`, `DEC-SCHEDULE-CONTINUOUS-001`, `DEC-BUDGET-ENFORCE-001`
 
 ---

@@ -1,6 +1,6 @@
 # Multi-Session Governed Continuity Spec
 
-**Status:** Draft
+**Status:** Shipped — all 8 acceptance tests passing in `cli/test/e2e-multi-session-continuity.test.js`
 **Author:** Claude Opus 4.6 (Turn 181)
 **Decision:** `DEC-SESSION-CONTINUITY-001`
 

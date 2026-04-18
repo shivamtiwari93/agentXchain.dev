@@ -27,6 +27,9 @@ describe('Coordinator spec status alignment', () => {
     { path: '.planning/RECOVERY_REPORT_CONTRACT_SPEC.md', name: 'recovery report contract' },
     { path: '.planning/RECOVERY_REPORT_RENDERING_SPEC.md', name: 'recovery report rendering' },
     { path: '.planning/COORDINATOR_REPORT_ACTIONS_SPEC.md', name: 'coordinator report actions' },
+    { path: '.planning/ADAPTER_DOCS_CONTRACT_SPEC.md', name: 'adapter docs contract' },
+    { path: '.planning/MULTI_SESSION_CONTINUITY_SPEC.md', name: 'multi-session continuity' },
+    { path: '.planning/CONTINUOUS_BUDGET_ENFORCEMENT_SPEC.md', name: 'continuous budget enforcement' },
   ];
 
   for (const { path, name } of completedSpecs) {
