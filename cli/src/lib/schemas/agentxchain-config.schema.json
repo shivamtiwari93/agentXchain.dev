@@ -1,0 +1,391 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxchain.dev/schemas/agentxchain-config.schema.json",
+  "title": "AgentXchain Governed Config",
+  "description": "Raw governed agentxchain.json config. Canonical role bindings use roles.<role>.runtime. runtime_id is a normalized runtime artifact, not a raw config field.",
+  "type": "object",
+  "required": ["schema_version", "project", "roles", "runtimes"],
+  "properties": {
+    "schema_version": {
+      "description": "Governed config schema version. Raw governed repos use \"1.0\"; numeric 4 is accepted for compatibility with older reference-runner artifacts.",
+      "enum": ["1.0", 4]
+    },
+    "template": {
+      "type": "string"
+    },
+    "project": {
+      "$ref": "#/$defs/project"
+    },
+    "roles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "runtimes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/runtime"
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/route_phase"
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/gate"
+      }
+    },
+    "hooks": {
+      "type": "object"
+    },
+    "notifications": {
+      "type": "object"
+    },
+    "schedules": {
+      "type": "object"
+    },
+    "budget": {
+      "type": "object"
+    },
+    "policies": {
+      "type": ["array", "object"]
+    },
+    "approval_policy": {
+      "type": ["object", "null"]
+    },
+    "timeouts": {
+      "type": ["object", "null"]
+    },
+    "workflow_kit": {
+      "type": "object"
+    },
+    "retention": {
+      "type": "object"
+    },
+    "rules": {
+      "type": "object"
+    },
+    "prompts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "files": {
+      "type": "object"
+    },
+    "run_loop": {
+      "type": "object"
+    },
+    "mission_planner": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "command_value": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "runtime_capabilities": {
+      "type": "object",
+      "properties": {
+        "can_write_files": {
+          "enum": ["direct", "proposal_only", "tool_defined", "unknown"]
+        },
+        "proposal_support": {
+          "enum": ["none", "optional", "native", "tool_defined", "unknown"]
+        },
+        "workflow_artifact_ownership": {
+          "enum": ["yes", "no", "proposal_apply_required", "tool_defined", "unknown"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "project": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "default_branch": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "role": {
+      "type": "object",
+      "required": ["title", "mandate", "write_authority", "runtime"],
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "mandate": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "write_authority": {
+          "enum": ["authoritative", "proposed", "review_only"]
+        },
+        "decision_authority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "runtime": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "Canonical raw config field. The reference runner normalizes this to runtime_id in memory."
+        }
+      },
+      "additionalProperties": false
+    },
+    "route_phase": {
+      "type": "object",
+      "properties": {
+        "entry_role": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "allowed_next_roles": {
+          "$ref": "#/$defs/string_array"
+        },
+        "exit_gate": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "gate": {
+      "type": "object",
+      "properties": {
+        "requires_files": {
+          "$ref": "#/$defs/string_array"
+        },
+        "requires_human_approval": {
+          "type": "boolean"
+        },
+        "requires_verification_pass": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "manual_runtime": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "manual"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/runtime_capabilities"
+        }
+      },
+      "additionalProperties": true
+    },
+    "local_cli_runtime": {
+      "type": "object",
+      "required": ["type", "command"],
+      "properties": {
+        "type": {
+          "const": "local_cli"
+        },
+        "command": {
+          "$ref": "#/$defs/command_value"
+        },
+        "args": {
+          "$ref": "#/$defs/string_array"
+        },
+        "cwd": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "prompt_transport": {
+          "enum": ["argv", "stdin", "dispatch_bundle_only"]
+        },
+        "capabilities": {
+          "$ref": "#/$defs/runtime_capabilities"
+        }
+      },
+      "additionalProperties": true
+    },
+    "api_proxy_runtime": {
+      "type": "object",
+      "required": ["type", "provider", "model"],
+      "properties": {
+        "type": {
+          "const": "api_proxy"
+        },
+        "provider": {
+          "enum": ["anthropic", "openai", "google", "ollama"]
+        },
+        "model": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "auth_env": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "base_url": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "context_window_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_output_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retry_policy": {
+          "type": "object"
+        },
+        "preflight_tokenization": {
+          "type": "object"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/runtime_capabilities"
+        }
+      },
+      "additionalProperties": true
+    },
+    "mcp_runtime": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "mcp"
+        },
+        "transport": {
+          "enum": ["stdio", "streamable_http"]
+        },
+        "command": {
+          "$ref": "#/$defs/command_value"
+        },
+        "args": {
+          "$ref": "#/$defs/string_array"
+        },
+        "cwd": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "url": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "tool_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/runtime_capabilities"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "transport": {
+                "const": "streamable_http"
+              }
+            },
+            "required": ["transport"]
+          },
+          "then": {
+            "required": ["url"]
+          },
+          "else": {
+            "required": ["command"]
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "remote_agent_runtime": {
+      "type": "object",
+      "required": ["type", "url"],
+      "properties": {
+        "type": {
+          "const": "remote_agent"
+        },
+        "url": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "capabilities": {
+          "$ref": "#/$defs/runtime_capabilities"
+        }
+      },
+      "additionalProperties": true
+    },
+    "runtime": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/manual_runtime"
+        },
+        {
+          "$ref": "#/$defs/local_cli_runtime"
+        },
+        {
+          "$ref": "#/$defs/api_proxy_runtime"
+        },
+        {
+          "$ref": "#/$defs/mcp_runtime"
+        },
+        {
+          "$ref": "#/$defs/remote_agent_runtime"
+        }
+      ]
+    }
+  }
+}

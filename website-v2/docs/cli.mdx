@@ -99,6 +99,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission plan autopilot` | Planning | Unattended wave execution of an approved plan — launches dependency waves until plan completes or failure stops execution |
 | `mission plan list` | Planning | List all plans for a mission, newest first |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
+| `connector capabilities` | Readiness | Show the merged capability contract for one runtime or all configured runtimes |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
 | `connector validate` | Readiness | Dispatch one synthetic governed turn through a runtime and prove the staged turn-result contract before the first automated run |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
@@ -1403,6 +1404,27 @@ Runs active connector probes for governed non-manual runtimes. Unlike `doctor`, 
 Text output prints a `Probing <runtime_id>...` line before each check starts so slow endpoints do not leave the terminal looking hung. Use `--timeout` to lower or raise the per-connector wait budget when debugging reachability problems.
 
 Successful probes return exit code 0. Any connector failure returns exit code 1. Command or project-boundary errors return exit code 2.
+
+### `connector capabilities`
+
+```bash
+agentxchain connector capabilities [runtime_id] [--all] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `[runtime_id]` | none | Show one configured runtime's merged capability contract |
+| `--all` | `false` | Show all configured runtimes |
+| `--json` | `false` | Emit machine-readable JSON instead of text |
+
+Use `connector capabilities` when you need the structured capability handshake, not a live probe. This surface resolves:
+
+- `declared_capabilities` from raw `agentxchain.json`
+- `merged_contract` after type defaults and declarations are combined
+- `declaration_warnings` for known-incompatible declarations
+- `role_bindings` showing each bound role's effective write path and workflow-artifact ownership
+
+This is the correct machine-readable surface for connector portability work. External tooling should not scrape `doctor` or `role show` to reconstruct the same contract.
 
 ### `connector validate`
 

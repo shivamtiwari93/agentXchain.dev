@@ -10,7 +10,8 @@
     ".": "./bin/agentxchain.js",
     "./adapter-interface": "./src/lib/adapter-interface.js",
     "./runner-interface": "./src/lib/runner-interface.js",
-    "./run-loop": "./src/lib/run-loop.js"
+    "./run-loop": "./src/lib/run-loop.js",
+    "./schemas/agentxchain-config": "./src/lib/schemas/agentxchain-config.schema.json"
   },
   "files": [
     "bin/",

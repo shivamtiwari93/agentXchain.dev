@@ -14,6 +14,8 @@ Neither one was clean enough to answer the narrower question: what is actually p
 
 The canonical versioned repo-native source is [`PROTOCOL-v7.md`](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v7.md).
 
+The governed config schema is also shipped as a machine-readable package artifact at `agentxchain/schemas/agentxchain-config`.
+
 ## Versioning Model
 
 Do not flatten these into one number:
@@ -51,12 +53,20 @@ These repo-local concepts are protocol v7, not UI sugar:
 ### Artifact and lifecycle rules
 
 - Governed config is repo-native in `agentxchain.json`.
+- Raw governed role bindings use `roles.<role>.runtime`. The reference runner normalizes that field to `runtime_id` in memory and in turn/state artifacts, but `runtime_id` is not the canonical raw config field.
 - Accepted turn history is append-only in `.agentxchain/history.jsonl`.
 - Accepted decisions and selected governance events are append-only in `.agentxchain/decision-ledger.jsonl`.
 - Turn dispatch is turn-scoped under `.agentxchain/dispatch/turns/<turn_id>/`.
 - Staged results are turn-scoped under `.agentxchain/staging/<turn_id>/turn-result.json`.
 - Gate requests are queued first and only become human-approvable when they materialize as `pending_phase_transition` or `pending_run_completion`.
 - `review_only` turns must raise at least one objection. That is a protocol rule, not a documentation preference.
+
+### Governed config schema artifact
+
+- Package export: `agentxchain/schemas/agentxchain-config`
+- Source file: `cli/src/lib/schemas/agentxchain-config.schema.json`
+- Current purpose: freeze the raw governed config shape for `project`, `roles`, `runtimes`, and the raw role-to-runtime binding contract so non-reference runners do not have to infer it from normalized reference-runner state.
+- Runtime capability declarations live under `runtimes.<id>.capabilities` in raw config. Those declarations affect the runtime capability contract and the `connector capabilities` handshake, but they do not rename the raw role binding field.
 
 ## Normative Coordinator Contract
 
