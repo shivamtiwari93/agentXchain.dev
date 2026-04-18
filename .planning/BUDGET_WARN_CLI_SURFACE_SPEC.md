@@ -1,6 +1,6 @@
 # Budget Warn CLI Surface Spec
 
-**Status:** implementing
+**Status:** Shipped
 **Decision:** DEC-BUDGET-WARN-003
 **Depends on:** DEC-BUDGET-WARN-001, DEC-CONFIG-GET-001, DEC-RUN-EVENTS-001
 

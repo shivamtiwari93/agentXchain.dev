@@ -30,6 +30,9 @@ describe('Coordinator spec status alignment', () => {
     { path: '.planning/ADAPTER_DOCS_CONTRACT_SPEC.md', name: 'adapter docs contract' },
     { path: '.planning/MULTI_SESSION_CONTINUITY_SPEC.md', name: 'multi-session continuity' },
     { path: '.planning/CONTINUOUS_BUDGET_ENFORCEMENT_SPEC.md', name: 'continuous budget enforcement' },
+    { path: '.planning/BUDGET_WARN_ON_EXCEED_SPEC.md', name: 'budget warn on exceed' },
+    { path: '.planning/BUDGET_WARN_CLI_SURFACE_SPEC.md', name: 'budget warn CLI surface' },
+    { path: '.planning/PHASE_TRANSITION_INTENT_SPEC.md', name: 'phase transition intent' },
   ];
 
   for (const { path, name } of completedSpecs) {
@@ -89,6 +92,11 @@ describe('Coordinator spec status alignment', () => {
       path: '.planning/COORDINATOR_REPORT_ACTIONS_SPEC.md',
       name: 'coordinator report actions',
       stalePattern: /It still fails the most practical operator question/i,
+    },
+    {
+      path: '.planning/PHASE_TRANSITION_INTENT_SPEC.md',
+      name: 'phase transition intent',
+      stalePattern: /Currently the prompt lists all valid phase names but never tells/,
     },
   ];
 

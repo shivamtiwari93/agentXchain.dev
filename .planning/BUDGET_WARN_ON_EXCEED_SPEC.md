@@ -1,6 +1,6 @@
 # Budget `on_exceed: "warn"` Policy Spec
 
-**Status:** implementing
+**Status:** Shipped
 **Decision:** DEC-BUDGET-WARN-001
 **Depends on:** DEC-BUDGET-ENFORCE-001, DEC-BUDGET-CONFIG-001–003, DEC-CONFIG-GOV-001–003
 

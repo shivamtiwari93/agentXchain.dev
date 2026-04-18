@@ -1,11 +1,11 @@
 # Phase-Transition Intent Prompt Spec
 
-**Status:** Implementing
+**Status:** Shipped
 **Decision:** DEC-PTI-001 through DEC-PTI-003
 
 ## Purpose
 
-Fix the repeated live dev-turn omission of `phase_transition_request: "qa"` by making the prompt phase-aware for authoritative roles. Currently the prompt lists all valid phase names but never tells the dev role which phase it is in or which phase comes next. The model must guess the correct next phase from generic instructions.
+Fixed the repeated live dev-turn omission of `phase_transition_request: "qa"` by making the prompt phase-aware for authoritative roles. The prompt now tells each authoritative role which phase it is in and which phase comes next, instead of requiring the model to guess from a generic list of valid phase names.
 
 ## Problem
 
