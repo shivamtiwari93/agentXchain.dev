@@ -689,6 +689,7 @@ program
   .option('--turn <id>', 'Target a specific active turn (required with --resume when multiple turns exist)')
   .option('--poll <seconds>', 'Polling interval for manual adapter in seconds', '2')
   .option('--verbose', 'Stream local_cli subprocess output while the turn is running')
+  .option('--stream', 'Stream live subprocess output to terminal (alias for --verbose)')
   .option('--auto-reject', 'Auto-reject and retry on validation failure')
   .action(stepCommand);
 

@@ -272,12 +272,14 @@ function renderGovernedStatus(context, opts) {
   if (activeTurnCount > 1) {
     console.log(`  ${chalk.dim('Turns:')}    ${activeTurnCount} active`);
     for (const turn of Object.values(activeTurns)) {
-      const marker = turn.status === 'conflicted'
+      const marker = (turn.status === 'conflicted' || turn.status === 'failed_acceptance')
         ? chalk.red('✗')
         : chalk.yellow('●');
       const statusLabel = turn.status === 'conflicted'
         ? chalk.red('conflicted')
-        : turn.status;
+        : turn.status === 'failed_acceptance'
+          ? chalk.red('failed_acceptance')
+          : turn.status;
       let elapsedTag = '';
       if (turn.started_at) {
         const elMs = Date.now() - new Date(turn.started_at).getTime();
@@ -317,6 +319,11 @@ function renderGovernedStatus(context, opts) {
         console.log(`      ${chalk.dim('Suggested:')} ${suggestion}`);
         console.log(`      ${chalk.dim('Resolve:')}   ${chalk.cyan(reassignAction.command)}`);
         console.log(`      ${chalk.dim('     or:')}   ${chalk.cyan(mergeAction.command)}`);
+      }
+      if (turn.status === 'failed_acceptance') {
+        console.log(`      ${chalk.dim('Reason:')}  ${turn.failure_reason || 'unknown'}`);
+        console.log(`      ${chalk.dim('Recover:')} ${chalk.cyan(`agentxchain reject-turn --turn ${turn.turn_id}`)} — reject and retry`);
+        console.log(`      ${chalk.dim('     or:')} ${chalk.cyan(`agentxchain accept-turn --turn ${turn.turn_id}`)} — re-attempt acceptance`);
       }
     }
   } else if (singleActiveTurn) {

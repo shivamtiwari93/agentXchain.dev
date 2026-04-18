@@ -35,6 +35,7 @@ import {
   getActiveTurnCount,
   getActiveTurns,
   reactivateGovernedRun,
+  refreshTurnBaselineSnapshot,
   STATE_PATH,
 } from '../lib/governed-state.js';
 import { getMaxConcurrentTurns } from '../lib/normalized-config.js';
@@ -213,6 +214,17 @@ export async function stepCommand(opts) {
         process.exit(1);
       }
 
+      // If the target turn failed acceptance, print recovery guidance (BUG-3 fix)
+      if (targetTurn.status === 'failed_acceptance') {
+        console.log(chalk.red(`Turn ${targetTurn.turn_id} (${targetTurn.assigned_role}) failed acceptance.`));
+        console.log(chalk.dim(`Reason: ${targetTurn.failure_reason || 'unknown'}`));
+        console.log('');
+        console.log(chalk.dim('Recovery options:'));
+        console.log(`  ${chalk.cyan(`agentxchain reject-turn --turn ${targetTurn.turn_id}`)}  — reject and retry`);
+        console.log(`  ${chalk.cyan(`agentxchain accept-turn --turn ${targetTurn.turn_id}`)}  — re-attempt acceptance after fixing`);
+        process.exit(1);
+      }
+
       console.log(chalk.yellow(`Re-dispatching blocked turn: ${targetTurn.turn_id}`));
       const reactivated = reactivateGovernedRun(root, state, { via: 'step --resume', notificationConfig: config });
       if (!reactivated.ok) {
@@ -221,6 +233,10 @@ export async function stepCommand(opts) {
       }
       state = reactivated.state;
       skipAssignment = true;
+
+      // BUG-1 fix: refresh baseline snapshot to capture files dirtied between assignment and dispatch
+      refreshTurnBaselineSnapshot(root, targetTurn.turn_id);
+      state = JSON.parse(readFileSync(join(root, '.agentxchain/state.json'), 'utf8'));
 
       const bundleResult = writeDispatchBundle(root, state, config);
       if (!bundleResult.ok) {
@@ -244,6 +260,10 @@ export async function stepCommand(opts) {
         }
         state = reactivated.state;
         skipAssignment = true;
+
+        // BUG-1 fix: refresh baseline snapshot to capture files dirtied between assignment and dispatch
+        refreshTurnBaselineSnapshot(root, pausedTurn.turn_id);
+        state = JSON.parse(readFileSync(join(root, '.agentxchain/state.json'), 'utf8'));
 
         const bundleResult = writeDispatchBundle(root, state, config);
         if (!bundleResult.ok) {
@@ -587,13 +607,21 @@ export async function stepCommand(opts) {
       console.log(chalk.yellow(`The subprocess must independently read from .agentxchain/dispatch/turns/${turn.turn_id}/PROMPT.md`));
       console.log(chalk.dim('To enable automatic prompt delivery, set prompt_transport to "argv" or "stdin" in the runtime config.'));
     }
+    // BUG-6: always show log file path so operators know where to watch
+    const logPath = `.agentxchain/dispatch/turns/${turn.turn_id}/stdout.log`;
+    console.log(chalk.dim(`Log: ${logPath}`));
+    if (!opts.stream && !opts.verbose) {
+      console.log(chalk.dim(`  Watch live: tail -f ${logPath}`));
+    }
     console.log(chalk.dim('Press Ctrl+C to abort and leave the turn assigned.'));
     console.log('');
 
+    // BUG-6: stream subprocess output by default (--stream or --verbose), suppress with --quiet
+    const shouldStream = opts.stream || opts.verbose || false;
     const cliResult = await dispatchLocalCli(root, state, config, {
       signal: controller.signal,
-      onStdout: opts.verbose ? (text) => process.stdout.write(chalk.dim(text)) : undefined,
-      onStderr: opts.verbose ? (text) => process.stderr.write(chalk.yellow(text)) : undefined,
+      onStdout: shouldStream ? (text) => process.stdout.write(chalk.dim(text)) : undefined,
+      onStderr: shouldStream ? (text) => process.stderr.write(chalk.yellow(text)) : undefined,
       verifyManifest: true,
     });
 

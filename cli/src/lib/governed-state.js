@@ -26,6 +26,7 @@ import { evaluatePolicies } from './policy-evaluator.js';
 import { buildTimeoutBlockedReason, evaluateTimeouts } from './timeout-evaluator.js';
 import {
   captureBaseline,
+  captureDirtyWorkspaceSnapshot,
   observeChanges,
   attributeObservedChangesToTurn,
   buildConflictCandidateFiles,
@@ -35,6 +36,7 @@ import {
   compareDeclaredVsObserved,
   deriveAcceptedRef,
   checkCleanBaseline,
+  isOperationalPath,
 } from './repo-observer.js';
 import { getMaxConcurrentTurns } from './normalized-config.js';
 import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir, getReviewArtifactPath } from './turn-paths.js';
@@ -2290,10 +2292,12 @@ export function assignGovernedTurn(root, config, roleId) {
     turn: { turn_id: turnId, role_id: roleId },
   });
 
-  // Session checkpoint — non-fatal, written after every successful turn assignment
+  // Session checkpoint — non-fatal, written after every successful turn assignment.
+  // Pass the captured baseline so session.json agrees with state.json (BUG-2 fix).
   writeSessionCheckpoint(root, updatedState, 'turn_assigned', {
     role: roleId,
     dispatch_dir: `.agentxchain/dispatch/turns/${turnId}`,
+    turn_baseline: baseline,
   });
 
   const assignedTurn = updatedState.active_turns[turnId];
@@ -2302,6 +2306,70 @@ export function assignGovernedTurn(root, config, roleId) {
     result.warnings = warnings;
   }
   return result;
+}
+
+/**
+ * Refresh a turn's baseline dirty_snapshot to include files that became dirty
+ * between assignment and dispatch. This prevents acceptance from blaming the
+ * turn for operator edits made while the turn was pending (BUG-1 fix).
+ *
+ * Merges new dirty entries into the existing snapshot — existing entries are
+ * preserved, new entries are added. The baseline.clean flag is updated to
+ * reflect the merged snapshot.
+ *
+ * @param {string} root - project root
+ * @param {string} [turnId] - specific turn to refresh (defaults to single active turn)
+ * @returns {{ ok: boolean, refreshed_files?: string[], error?: string }}
+ */
+export function refreshTurnBaselineSnapshot(root, turnId) {
+  const state = readState(root);
+  if (!state) return { ok: false, error: 'No governed state found' };
+
+  const activeTurns = getActiveTurns(state);
+  const resolvedTurnId = turnId || Object.keys(activeTurns)[0];
+  if (!resolvedTurnId) return { ok: false, error: 'No active turn to refresh' };
+
+  const turn = activeTurns[resolvedTurnId];
+  if (!turn) return { ok: false, error: `Turn ${resolvedTurnId} not found in active turns` };
+  if (!turn.baseline) return { ok: false, error: 'Turn has no baseline to refresh' };
+
+  const currentSnapshot = captureDirtyWorkspaceSnapshot(root);
+  const existingSnapshot = turn.baseline.dirty_snapshot || {};
+  const merged = { ...existingSnapshot };
+  const refreshedFiles = [];
+
+  for (const [filePath, marker] of Object.entries(currentSnapshot)) {
+    if (!(filePath in merged)) {
+      merged[filePath] = marker;
+      refreshedFiles.push(filePath);
+    }
+  }
+
+  if (refreshedFiles.length === 0) {
+    return { ok: true, refreshed_files: [] };
+  }
+
+  // Update the turn's baseline with the merged snapshot
+  const updatedTurn = {
+    ...turn,
+    baseline: {
+      ...turn.baseline,
+      dirty_snapshot: merged,
+      // Recalculate clean: filter out operational and baseline-exempt paths
+      clean: Object.keys(merged).filter(f => !isOperationalPath(f)).length === 0,
+    },
+  };
+
+  const updatedState = {
+    ...state,
+    active_turns: {
+      ...activeTurns,
+      [resolvedTurnId]: updatedTurn,
+    },
+  };
+  writeState(root, updatedState);
+
+  return { ok: true, refreshed_files: refreshedFiles };
 }
 
 /**
@@ -2364,6 +2432,50 @@ export function acceptGovernedTurn(root, config, opts = {}) {
   } finally {
     releaseAcceptanceLock(root);
   }
+}
+
+/**
+ * Transition an active turn to failed_acceptance and emit the corresponding
+ * event. Called from acceptance failure paths so the turn is never left stuck
+ * in 'running' after the subprocess has exited (BUG-3 + BUG-4 fix).
+ */
+function transitionToFailedAcceptance(root, state, turn, reason, details = {}) {
+  const activeTurns = getActiveTurns(state);
+  const updatedTurn = {
+    ...turn,
+    status: 'failed_acceptance',
+    failed_at: new Date().toISOString(),
+    failure_reason: reason,
+  };
+  const updatedState = {
+    ...state,
+    active_turns: {
+      ...activeTurns,
+      [turn.turn_id]: updatedTurn,
+    },
+  };
+  writeState(root, updatedState);
+
+  // BUG-4: emit acceptance_failed event
+  emitRunEvent(root, 'acceptance_failed', {
+    run_id: state.run_id,
+    phase: state.phase,
+    status: state.status,
+    turn: { turn_id: turn.turn_id, role_id: turn.assigned_role },
+    payload: {
+      reason,
+      error_code: details.error_code || 'acceptance_failed',
+      stage: details.stage || 'unknown',
+      ...details.extra,
+    },
+  });
+
+  // Session checkpoint for recovery
+  writeSessionCheckpoint(root, updatedState, 'acceptance_failed', {
+    role: turn.assigned_role,
+  });
+
+  return updatedState;
 }
 
 function _acceptGovernedTurnLocked(root, config, opts) {
@@ -2526,9 +2638,15 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   if (!validation.ok) {
+    const failError = `Validation failed at stage ${validation.stage}: ${validation.errors.join('; ')}`;
+    transitionToFailedAcceptance(root, state, currentTurn, failError, {
+      error_code: 'validation_failed',
+      stage: validation.stage,
+      extra: { errors: validation.errors },
+    });
     return {
       ok: false,
-      error: `Validation failed at stage ${validation.stage}: ${validation.errors.join('; ')}`,
+      error: failError,
       validation,
     };
   }
@@ -2541,9 +2659,14 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       if (dec.overrides) {
         const overrideCheck = validateOverride(root, { ...dec, role: dec.role || turnResult.role }, config);
         if (!overrideCheck.ok) {
+          const overrideError = `Override validation failed: ${overrideCheck.error}`;
+          transitionToFailedAcceptance(root, state, currentTurn, overrideError, {
+            error_code: 'override_validation_failed',
+            stage: 'override_validation',
+          });
           return {
             ok: false,
-            error: `Override validation failed: ${overrideCheck.error}`,
+            error: overrideError,
             error_code: 'override_validation_failed',
           };
         }
@@ -2598,9 +2721,15 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     },
   );
   if (diffComparison.errors.length > 0) {
+    const mismatchError = `Observed artifact mismatch: ${diffComparison.errors.join('; ')}`;
+    transitionToFailedAcceptance(root, state, currentTurn, mismatchError, {
+      error_code: 'artifact_mismatch',
+      stage: 'artifact_observation',
+      extra: { undeclared_files: diffComparison.errors, warnings: diffComparison.warnings },
+    });
     return {
       ok: false,
-      error: `Observed artifact mismatch: ${diffComparison.errors.join('; ')}`,
+      error: mismatchError,
       validation: {
         ...validation,
         ok: false,
@@ -2632,9 +2761,15 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
   if (policyResult.blocks.length > 0) {
     const blockMessages = policyResult.blocks.map((v) => v.message);
+    const policyError = `Policy violation: ${blockMessages.join('; ')}`;
+    transitionToFailedAcceptance(root, state, currentTurn, policyError, {
+      error_code: 'policy_violation',
+      stage: 'policy_evaluation',
+      extra: { violations: policyResult.violations },
+    });
     return {
       ok: false,
-      error: `Policy violation: ${blockMessages.join('; ')}`,
+      error: policyError,
       error_code: 'policy_violation',
       policy_violations: policyResult.violations,
     };

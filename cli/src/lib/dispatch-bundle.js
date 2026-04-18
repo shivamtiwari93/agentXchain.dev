@@ -16,8 +16,10 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
 import { getActiveTurn, getActiveTurns } from './governed-state.js';
 import { renderInheritedContextMarkdown } from './run-context-inheritance.js';
+import { isOperationalPath } from './repo-observer.js';
 import { renderRepoDecisionsMarkdown } from './repo-decisions.js';
 import {
   DISPATCH_INDEX_PATH,
@@ -82,6 +84,25 @@ export function writeDispatchBundle(root, state, config, opts = {}) {
 
   const bundleDir = join(root, getDispatchTurnDir(turn.turn_id));
   const warnings = [...(opts.warnings || [])];
+
+  // BUG-5: Warn operator about dirty workspace files at dispatch time
+  try {
+    const statusOutput = execSync('git status --porcelain', { cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    if (statusOutput) {
+      const dirtyFiles = statusOutput.split('\n').map(l => l.slice(3).trim()).filter(Boolean);
+      const nonOperationalDirty = dirtyFiles.filter(f => !isOperationalPath(f));
+      if (nonOperationalDirty.length > 0) {
+        const baseline = turn.baseline;
+        const snapshotKeys = baseline?.dirty_snapshot ? Object.keys(baseline.dirty_snapshot) : [];
+        const unsnapshotted = nonOperationalDirty.filter(f => !snapshotKeys.includes(f));
+        if (unsnapshotted.length > 0) {
+          warnings.push(
+            `Workspace has ${unsnapshotted.length} uncommitted file(s) not in the dispatch baseline: ${unsnapshotted.slice(0, 5).join(', ')}${unsnapshotted.length > 5 ? '...' : ''}. These will be excluded from files_changed validation. If the subprocess modifies them, add them to files_changed.`,
+          );
+        }
+      }
+    }
+  } catch { /* non-fatal — skip if git unavailable */ }
 
   // Clear and recreate only the targeted turn bundle
   try {

@@ -23,6 +23,7 @@ import {
   rejectTurn,
   markRunBlocked,
   writeDispatchBundle,
+  refreshTurnBaselineSnapshot,
   getTurnStagingResultPath,
   approvePhaseGate,
   approveCompletionGate,
@@ -308,6 +309,8 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
   // ── Build dispatch contexts ──────────────────────────────────────────
   const contexts = [];
   for (const { turn, state: turnState } of turnsToDispatch) {
+    // BUG-1 fix: refresh baseline to capture files dirtied between assignment and dispatch
+    refreshTurnBaselineSnapshot(root, turn.turn_id);
     const bundleResult = writeDispatchBundle(root, turnState, config, { turnId: turn.turn_id });
     if (!bundleResult.ok) {
       errors.push(`writeDispatchBundle(${turn.assigned_role}): ${bundleResult.error}`);
@@ -442,6 +445,8 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
   const roleId = turn.assigned_role;
   const history = [];
 
+  // BUG-1 fix: refresh baseline to capture files dirtied between assignment and dispatch
+  refreshTurnBaselineSnapshot(root, turn.turn_id);
   const bundleResult = writeDispatchBundle(root, assignState, config);
   if (!bundleResult.ok) {
     errors.push(`writeDispatchBundle(${roleId}): ${bundleResult.error}`);

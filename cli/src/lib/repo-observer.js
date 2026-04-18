@@ -540,7 +540,7 @@ export function compareDeclaredVsObserved(declared, observed, writeAuthority, op
         // The attribution system will handle later-accepted siblings correctly.
         warnings.push(`Undeclared file changes detected (likely from concurrent sibling turns): ${undeclared.join(', ')}`);
       } else {
-        errors.push(`Undeclared file changes detected (observed but not in files_changed): ${undeclared.join(', ')}`);
+        errors.push(`Undeclared file changes detected (observed but not in files_changed): ${undeclared.join(', ')}. If these files were changed by the operator (not the turn), add them to the dispatch baseline by committing or stashing them before dispatch.`);
       }
     }
     if (phantom.length > 0) {
@@ -701,7 +701,12 @@ function getWorkingTreeChanges(root) {
   }
 }
 
-function captureDirtyWorkspaceSnapshot(root) {
+/**
+ * Capture hashes of all non-operational dirty files in the workspace.
+ * Used at baseline time AND at dispatch time to snapshot pre-existing dirt
+ * so acceptance can filter unchanged files (BUG-1 fix).
+ */
+export function captureDirtyWorkspaceSnapshot(root) {
   const snapshot = {};
   for (const filePath of getWorkingTreeChanges(root).filter((filePath) => !isOperationalPath(filePath))) {
     snapshot[filePath] = getWorkspaceFileMarker(root, filePath);

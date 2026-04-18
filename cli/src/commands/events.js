@@ -67,6 +67,9 @@ function printEvent(evt) {
   const rejectionDetail = evt.event_type === 'turn_rejected' && evt.payload?.reason
     ? ` — ${evt.payload.reason}${evt.payload.failed_stage ? ` (${evt.payload.failed_stage})` : ''}`
     : '';
+  const acceptanceFailedDetail = evt.event_type === 'acceptance_failed' && evt.payload?.reason
+    ? ` — ${evt.payload.reason}${evt.payload.stage ? ` (${evt.payload.stage})` : ''}`
+    : '';
   const phaseTransitionDetail = evt.event_type === 'phase_entered' && evt.payload?.from && evt.payload?.to
     ? ` ${evt.payload.from} → ${evt.payload.to}${evt.payload.trigger ? ` (${evt.payload.trigger})` : ''}`
     : '';
@@ -78,7 +81,7 @@ function printEvent(evt) {
     : evt.event_type === 'human_escalation_resolved' && evt.payload?.escalation_id
       ? ` ${evt.payload.escalation_id} via ${evt.payload.resolved_via || '?'}`
       : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${conflictDetail}${rejectionDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}`);
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${conflictDetail}${rejectionDetail}${acceptanceFailedDetail}${phaseTransitionDetail}${gateFailedDetail}${humanEscalationDetail}`);
 }
 
 function formatConflictDetail(evt) {
@@ -116,6 +119,7 @@ function colorEventType(type) {
     turn_dispatched: chalk.blue,
     turn_accepted: chalk.green,
     turn_rejected: chalk.yellow,
+    acceptance_failed: chalk.red.bold,
     turn_conflicted: chalk.redBright,
     phase_entered: chalk.magenta,
     escalation_raised: chalk.red.bold,

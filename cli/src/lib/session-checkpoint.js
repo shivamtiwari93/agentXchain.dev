@@ -103,8 +103,24 @@ export function writeSessionCheckpoint(root, state, reason, extra = {}) {
     const pendingGate = state.pending_phase_transition?.gate || state.pending_transition?.gate || null;
     const pendingRunCompletion = state.pending_run_completion?.gate || null;
 
-    // Capture git baseline for repo-drift detection
-    const baselineRef = extra.baseline_ref || captureBaselineRef(root);
+    // Capture git baseline for repo-drift detection.
+    // When a turn_baseline from captureBaseline() is provided, derive
+    // baseline_ref from it so session.json and state.json always agree
+    // on workspace-dirty status (BUG-2 fix).
+    let baselineRef;
+    if (extra.turn_baseline) {
+      baselineRef = {
+        git_head: extra.turn_baseline.head_ref || null,
+        git_branch: null,
+        workspace_dirty: !extra.turn_baseline.clean,
+      };
+      // Fill in git_branch if available
+      try {
+        baselineRef.git_branch = shellExec('git rev-parse --abbrev-ref HEAD', { cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+      } catch { /* non-fatal */ }
+    } else {
+      baselineRef = extra.baseline_ref || captureBaselineRef(root);
+    }
 
     const checkpoint = {
       session_id: sessionId,
