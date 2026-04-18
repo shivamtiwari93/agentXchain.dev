@@ -58,7 +58,7 @@ Full verbatim bug report in **"Beta-tester bug report #3 (verbatim)"** below.
     - Add a content-contract test asserting the bundle format.
   - **Acceptance:** open `PROMPT.md` for an inject-driven turn and the injected acceptance contract is visible as the primary charter, not buried in context.
 
-- [ ] **BUG-14: Turn result validator must check injected acceptance items are addressed** — Even if the role sees the intent, there's no enforcement that the turn result actually responds to it. Tester's PM turn completed "successfully" while ignoring every injected acceptance item.
+- [x] **BUG-14: Turn result validator must check injected acceptance items are addressed** — FIXED: `intent_coverage` validation stage added to acceptance flow. Hybrid approach: structural (`intent_response` field) + semantic fallback (keyword overlap in summary/decisions). Strict mode (default for p0) blocks acceptance; lenient mode emits `turn_incomplete_intent_coverage` warning event. Configurable via `intent_coverage_mode` in config. Regression tests cover reject-on-miss, semantic-pass, and structural-pass paths.
   - **Fix requirements:**
     - When a turn is bound to an intent (BUG-11), the acceptance validator must check whether the turn result references or resolves each acceptance item.
     - Implementation options (agents debate):
@@ -69,7 +69,7 @@ Full verbatim bug report in **"Beta-tester bug report #3 (verbatim)"** below.
     - The turn validator already has a stage system (see BUG-1's `artifact_observation` stage) — add a new `intent_coverage` stage.
   - **Acceptance:** a turn that ignores an acceptance item either fails acceptance or emits a visible warning event. Operator sees which items were addressed and which weren't.
 
-- [ ] **BUG-15: `agentxchain status` must surface active approved intent** — Currently status shows phase, active turn, gates, etc. but not "there's an injected p0 intent the next turn should address." Operators can't see the intent queue without reading `.agentxchain/intake/` directly.
+- [x] **BUG-15: `agentxchain status` must surface active approved intent** — FIXED: `status` now shows "Pending injected intents (will drive next turn)" section with priority, charter snippet, and acceptance count for each approved-but-unconsumed intent. `status --json` includes `pending_intents` array. `doctor` surfaces an informational check when approved intents are queued. Regression tests cover CLI rendering, JSON output, empty-queue, and doctor surface.
   - **Fix requirements:**
     - `agentxchain status` output must include a dedicated section when there are approved-but-unconsumed intents:
       ```
@@ -82,7 +82,7 @@ Full verbatim bug report in **"Beta-tester bug report #3 (verbatim)"** below.
     - `doctor` should flag "N approved intents in queue, next turn will consume them" as informational.
   - **Acceptance:** running `status` after `inject` + `approve` shows the intent at the top of the output with priority, charter, and acceptance count.
 
-- [ ] **BUG-16: Unify manual `resume` path with scheduler/continuous intake semantics** — The tester's smoking-gun quote from the `inject` command output: **"The scheduler/continuous loop will pick up this intent next."** That wording reveals the two paths are not symmetric. Manual mode is second-class. Fix the asymmetry.
+- [x] **BUG-16: Unify manual `resume` path with scheduler/continuous intake semantics** — FIXED: Extracted `consumeNextApprovedIntent()` as the single entry point in `intake.js`. `resume`, `step --resume`, and continuous-run all call the same function. `inject` command output updated from "scheduler/continuous loop will pick up" to "next dispatch (manual resume, step --resume, or continuous loop) will consume". Integration test verifies manual path produces identical binding. Both `findNextDispatchableIntent` and `prepareIntentForDispatch` remain as lower-level building blocks.
   - **Fix requirements:**
     - Audit the scheduler/continuous-run intake consumption path (`cli/src/lib/continuous-run.js` + related intake functions). Extract the approved-intent-consumption logic into a pure function (e.g., `consumeNextApprovedIntent()`).
     - Refactor manual `resume` / `step --resume` to call the same function.

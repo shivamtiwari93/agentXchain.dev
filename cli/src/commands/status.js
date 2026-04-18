@@ -21,7 +21,7 @@ import { deriveConflictedTurnResolutionActions } from '../lib/conflict-actions.j
 import { summarizeLatestGateActionAttempt } from '../lib/gate-actions.js';
 import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
-import { readPreemptionMarker } from '../lib/intake.js';
+import { readPreemptionMarker, findPendingApprovedIntents } from '../lib/intake.js';
 import { readContinuousSession } from '../lib/continuous-run.js';
 import { readAllDispatchProgress } from '../lib/dispatch-progress.js';
 
@@ -133,6 +133,7 @@ function renderGovernedStatus(context, opts) {
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
   const humanEscalation = findCurrentHumanEscalation(root, state);
   const preemptionMarker = readPreemptionMarker(root);
+  const pendingIntents = findPendingApprovedIntents(root);
   const continuousSession = readContinuousSession(root);
   const gateActionAttempt = state?.pending_phase_transition
     ? summarizeLatestGateActionAttempt(root, 'phase_transition', state.pending_phase_transition.gate)
@@ -175,6 +176,7 @@ function renderGovernedStatus(context, opts) {
       dispatch_progress: dispatchProgress,
       human_escalation: humanEscalation,
       preemption_marker: preemptionMarker,
+      pending_intents: pendingIntents,
       continuous_session: continuousSession,
       gate_action_attempt: gateActionAttempt,
       workflow_kit_artifacts: workflowKitArtifacts,
@@ -201,6 +203,21 @@ function renderGovernedStatus(context, opts) {
       console.log(chalk.dim(`  Injected at: ${preemptionMarker.injected_at}`));
     }
     console.log(chalk.dim('  Effect:      Will preempt current workstream after this turn completes'));
+    console.log(chalk.dim('  ' + '─'.repeat(44)));
+    console.log('');
+  }
+
+  // Pending injected intents (BUG-15)
+  if (pendingIntents.length > 0) {
+    console.log(chalk.yellow.bold('  📋 Pending injected intents (will drive next turn):'));
+    for (const pi of pendingIntents) {
+      const priorityColor = pi.priority === 'p0' ? chalk.red.bold : pi.priority === 'p1' ? chalk.yellow.bold : chalk.dim;
+      const charterSnippet = pi.charter
+        ? (pi.charter.length > 60 ? pi.charter.slice(0, 57) + '...' : pi.charter)
+        : '(no charter)';
+      console.log(`    ${priorityColor(`[${pi.priority}]`)} ${chalk.dim(pi.intent_id)} — ${charterSnippet}`);
+      console.log(chalk.dim(`         Acceptance: ${pi.acceptance_count} item${pi.acceptance_count !== 1 ? 's' : ''}`));
+    }
     console.log(chalk.dim('  ' + '─'.repeat(44)));
     console.log('');
   }

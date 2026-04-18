@@ -2950,6 +2950,57 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     };
   }
 
+  // ── Intent coverage validation (BUG-14) ──────────────────────────────────
+  // When a turn is bound to an injected intent, verify the turn result
+  // addresses each acceptance item.  Default: strict for p0, lenient for others.
+  const intakeCtx = currentTurn.intake_context;
+  if (intakeCtx && Array.isArray(intakeCtx.acceptance_contract) && intakeCtx.acceptance_contract.length > 0) {
+    const intentCoverage = evaluateIntentCoverage(turnResult, intakeCtx);
+    const priority = intakeCtx.priority || currentTurn.intake_context?.priority || 'p0';
+    const intentCoverageMode = config.intent_coverage_mode
+      || (priority === 'p0' ? 'strict' : 'lenient');
+
+    if (intentCoverage.unaddressed.length > 0) {
+      if (intentCoverageMode === 'strict') {
+        const coverageError = `Intent coverage incomplete: ${intentCoverage.unaddressed.length} acceptance item(s) not addressed: ${intentCoverage.unaddressed.join('; ')}`;
+        transitionToFailedAcceptance(root, state, currentTurn, coverageError, {
+          error_code: 'intent_coverage_incomplete',
+          stage: 'intent_coverage',
+          extra: {
+            intent_id: intakeCtx.intent_id,
+            addressed: intentCoverage.addressed,
+            unaddressed: intentCoverage.unaddressed,
+          },
+        });
+        return {
+          ok: false,
+          error: coverageError,
+          validation: {
+            ...validation,
+            ok: false,
+            stage: 'intent_coverage',
+            error_class: 'intent_coverage_error',
+            errors: [`Unaddressed acceptance items: ${intentCoverage.unaddressed.join('; ')}`],
+            warnings: [],
+          },
+        };
+      }
+      // Lenient mode — emit warning event but allow acceptance to proceed
+      emitRunEvent(root, 'turn_incomplete_intent_coverage', {
+        run_id: state.run_id,
+        phase: state.phase,
+        status: state.status,
+        turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+        intent_id: intakeCtx.intent_id,
+        payload: {
+          addressed: intentCoverage.addressed,
+          unaddressed: intentCoverage.unaddressed,
+          mode: 'lenient',
+        },
+      });
+    }
+  }
+
   const observedArtifact = buildObservedArtifact(observation, baseline);
   const normalizedVerification = normalizeVerification(turnResult.verification, runtimeType);
   const artifactType = turnResult.artifact?.type || 'review';
@@ -4620,6 +4671,65 @@ function deriveNextRecommendedRole(turnResult, state, config) {
 
   // Fall back to phase entry_role
   return routing?.entry_role || null;
+}
+
+// ── Intent coverage evaluation (BUG-14) ──────────────────────────────────────
+//
+// Checks whether a turn result addresses the acceptance items from an injected
+// intent.  Uses a hybrid approach: structural (`intent_response` field) first,
+// with semantic fallback scanning `summary`, `decisions`, and `files_changed`.
+
+function evaluateIntentCoverage(turnResult, intakeContext) {
+  const acceptanceItems = intakeContext.acceptance_contract || [];
+  const addressed = [];
+  const unaddressed = [];
+
+  // Build the structural response map if present
+  const responseMap = new Map();
+  if (Array.isArray(turnResult.intent_response)) {
+    for (const entry of turnResult.intent_response) {
+      if (entry && typeof entry.item === 'string' && typeof entry.status === 'string') {
+        responseMap.set(entry.item.toLowerCase().trim(), entry);
+      }
+    }
+  }
+
+  // Build a searchable corpus from the turn result for semantic fallback
+  const corpus = [
+    turnResult.summary || '',
+    ...(turnResult.decisions || []).map(d => `${d.statement || ''} ${d.rationale || ''}`),
+    ...(turnResult.objections || []).map(o => o.statement || ''),
+    ...(turnResult.files_changed || []),
+    ...(turnResult.artifacts_created || []),
+    ...(Array.isArray(turnResult.intent_response) ? turnResult.intent_response.map(r => `${r.item || ''} ${r.detail || ''}`) : []),
+  ].join('\n').toLowerCase();
+
+  for (const item of acceptanceItems) {
+    const normalizedItem = item.toLowerCase().trim();
+
+    // Check 1: Structural — intent_response field with explicit status
+    const structuralEntry = responseMap.get(normalizedItem);
+    if (structuralEntry && ['addressed', 'deferred', 'rejected'].includes(structuralEntry.status)) {
+      addressed.push(item);
+      continue;
+    }
+
+    // Check 2: Semantic fallback — significant keyword overlap
+    const words = normalizedItem.split(/\s+/).filter(w => w.length > 3);
+    if (words.length === 0) {
+      addressed.push(item);
+      continue;
+    }
+    const matchedWords = words.filter(w => corpus.includes(w));
+    const coverage = matchedWords.length / words.length;
+    if (coverage >= 0.5) {
+      addressed.push(item);
+    } else {
+      unaddressed.push(item);
+    }
+  }
+
+  return { addressed, unaddressed };
 }
 
 export {

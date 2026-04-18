@@ -546,6 +546,73 @@ export function findNextDispatchableIntent(root) {
   };
 }
 
+/**
+ * Return all approved-but-unconsumed intents sorted by priority (BUG-15).
+ * Used by `status` to surface the pending intent queue.
+ */
+export function findPendingApprovedIntents(root) {
+  const dirs = intakeDirs(root);
+  if (!existsSync(dirs.intents)) return [];
+
+  return readJsonDir(dirs.intents)
+    .filter((intent) => intent && intent.status === 'approved')
+    .sort((a, b) => {
+      const aPriority = PRIORITY_RANK[a.priority] ?? Number.MAX_SAFE_INTEGER;
+      const bPriority = PRIORITY_RANK[b.priority] ?? Number.MAX_SAFE_INTEGER;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      const aTime = Date.parse(a.approved_at || a.created_at || 0);
+      const bTime = Date.parse(b.approved_at || b.created_at || 0);
+      if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return aTime - bTime;
+      return String(a.intent_id || '').localeCompare(String(b.intent_id || ''));
+    })
+    .map((intent) => ({
+      intent_id: intent.intent_id,
+      priority: intent.priority || 'p0',
+      charter: intent.charter || intent.description || null,
+      acceptance_count: Array.isArray(intent.acceptance_contract) ? intent.acceptance_contract.length : 0,
+      approved_at: intent.approved_at || null,
+    }));
+}
+
+/**
+ * Unified intent consumption entry point (BUG-16).
+ * Both manual (resume/step --resume) and continuous/scheduler paths should call
+ * this single function to consume the next approved intent.
+ *
+ * @param {string} root
+ * @param {{ role?: string, writeDispatchBundle?: boolean, allowTerminalRestart?: boolean, provenance?: object }} options
+ * @returns {{ ok: boolean, intentId?: string, intent?: object, error?: string }}
+ */
+export function consumeNextApprovedIntent(root, options = {}) {
+  const queued = findNextDispatchableIntent(root);
+  if (!queued.ok) {
+    return { ok: false, error: queued.error || 'no dispatchable intents' };
+  }
+
+  const prepared = prepareIntentForDispatch(root, queued.intentId, {
+    role: options.role,
+    writeDispatchBundle: options.writeDispatchBundle ?? false,
+    allowTerminalRestart: options.allowTerminalRestart ?? false,
+    provenance: options.provenance,
+  });
+
+  if (!prepared.ok) {
+    return { ok: false, error: prepared.error, intentId: queued.intentId };
+  }
+
+  return {
+    ok: true,
+    intentId: queued.intentId,
+    status: queued.status,
+    priority: queued.priority,
+    charter: queued.charter,
+    intent: prepared.intent,
+    run_id: prepared.run_id,
+    turn_id: prepared.turn_id,
+    role: prepared.role,
+  };
+}
+
 export function prepareIntentForDispatch(root, intentId, options = {}) {
   const loadedIntent = readIntent(root, intentId);
   if (!loadedIntent.ok) {

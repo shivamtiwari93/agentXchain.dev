@@ -39,7 +39,7 @@ import {
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { runHooks } from '../lib/hook-runner.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
-import { findNextDispatchableIntent, prepareIntentForDispatch } from '../lib/intake.js';
+import { consumeNextApprovedIntent } from '../lib/intake.js';
 
 export async function resumeCommand(opts) {
   const context = loadProjectContext();
@@ -267,22 +267,14 @@ export async function resumeCommand(opts) {
   }
 
   const shouldBindIntent = opts.intent !== false;
-  const queuedIntent = shouldBindIntent ? findNextDispatchableIntent(root) : { ok: false };
-  if (queuedIntent.ok) {
-    const preparedIntent = prepareIntentForDispatch(root, queuedIntent.intentId, {
-      role: roleId,
-      writeDispatchBundle: false,
-    });
-    if (!preparedIntent.ok) {
-      console.log(chalk.red(`Failed to bind queued intent ${queuedIntent.intentId}: ${preparedIntent.error}`));
-      process.exit(1);
-    }
+  const consumed = shouldBindIntent ? consumeNextApprovedIntent(root, { role: roleId }) : { ok: false };
+  if (consumed.ok) {
     state = loadProjectState(root, config);
     if (!state) {
       console.log(chalk.red('Failed to reload governed state after intake binding.'));
       process.exit(1);
     }
-    console.log(chalk.green(`Bound ${queuedIntent.status} intent to next turn: ${queuedIntent.intentId}`));
+    console.log(chalk.green(`Bound approved intent to next turn: ${consumed.intentId}`));
   } else {
     const assignResult = assignGovernedTurn(root, config, roleId);
     if (!assignResult.ok) {

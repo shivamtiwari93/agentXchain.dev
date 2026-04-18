@@ -19,6 +19,7 @@ import {
   approveIntent,
   findNextDispatchableIntent,
   prepareIntentForDispatch,
+  consumeNextApprovedIntent,
   resolveIntent,
 } from './intake.js';
 import { loadProjectState } from './config.js';

@@ -74,7 +74,7 @@ export async function injectCommand(description, opts) {
     console.log('');
     console.log(chalk.red.bold('  ⚡ Preemption marker written'));
     console.log(chalk.dim('  The current run will yield after the active turn completes.'));
-    console.log(chalk.dim('  The scheduler/continuous loop will pick up this intent next.'));
+    console.log(chalk.dim('  The next dispatch (manual resume, step --resume, or continuous loop) will consume this intent.'));
   }
 
   console.log('');

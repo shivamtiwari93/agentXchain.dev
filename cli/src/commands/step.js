@@ -69,7 +69,7 @@ import { finalizeDispatchManifest, verifyDispatchManifest } from '../lib/dispatc
 import { resolveGovernedRole } from '../lib/role-resolution.js';
 import { shouldSuggestManualQaFallback } from '../lib/manual-qa-fallback.js';
 import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
-import { findNextDispatchableIntent, prepareIntentForDispatch } from '../lib/intake.js';
+import { consumeNextApprovedIntent } from '../lib/intake.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -316,16 +316,8 @@ export async function stepCommand(opts) {
       }
 
       const shouldBindIntent = opts.intent !== false;
-      const queuedIntent = shouldBindIntent ? findNextDispatchableIntent(root) : { ok: false };
-      if (queuedIntent.ok) {
-        const preparedIntent = prepareIntentForDispatch(root, queuedIntent.intentId, {
-          role: roleId,
-          writeDispatchBundle: false,
-        });
-        if (!preparedIntent.ok) {
-          console.log(chalk.red(`Failed to bind queued intent ${queuedIntent.intentId}: ${preparedIntent.error}`));
-          process.exit(1);
-        }
+      const consumed = shouldBindIntent ? consumeNextApprovedIntent(root, { role: roleId }) : { ok: false };
+      if (consumed.ok) {
         state = loadProjectState(root, config);
         if (!state) {
           console.log(chalk.red('Failed to reload governed state after intake binding.'));

@@ -18,6 +18,7 @@ import {
   summarizeRuntimeCapabilityContract,
 } from '../lib/runtime-capabilities.js';
 import { detectActiveTurnBindingDrift } from '../lib/governed-state.js';
+import { findPendingApprovedIntents } from '../lib/intake.js';
 
 export async function doctorCommand(opts = {}) {
   const root = findProjectRoot(process.cwd());
@@ -292,6 +293,20 @@ function governedDoctor(root, rawConfig, opts) {
       checks.push({ id: 'admission_control', name: 'Admission control', level: 'info', detail: infoSummary });
     } else {
       checks.push({ id: 'admission_control', name: 'Admission control', level: 'pass', detail: 'No dead-end configs detected' });
+    }
+  }
+
+  // 11. Pending intake intents (BUG-15 — informational)
+  {
+    const pendingIntents = findPendingApprovedIntents(root);
+    if (pendingIntents.length > 0) {
+      const summary = pendingIntents.map(pi => `[${pi.priority}] ${pi.intent_id}`).join(', ');
+      checks.push({
+        id: 'pending_intents',
+        name: 'Pending intents',
+        level: 'info',
+        detail: `${pendingIntents.length} approved intent(s) in queue, next turn will consume them: ${summary}`,
+      });
     }
   }
 
