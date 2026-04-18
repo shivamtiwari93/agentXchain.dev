@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const SOURCE_SCRIPT = join(REPO_ROOT, 'cli', 'scripts', 'release-preflight.sh');
+const ALIGNMENT_SCRIPT = join(REPO_ROOT, 'cli', 'scripts', 'check-release-alignment.mjs');
+const ALIGNMENT_LIB = join(REPO_ROOT, 'cli', 'src', 'lib', 'release-alignment.js');
 
 function writeExecutable(path, content) {
   writeFileSync(path, content);
@@ -21,6 +23,7 @@ function createFixture({
   changelogVersions = ['2.0.0'],
   withGateTest = false,
   withBetaScenarioTest = false,
+  withAlignmentScript = false,
 } = {}) {
   const root = join(
     tmpdir(),
@@ -28,15 +31,21 @@ function createFixture({
   );
   const cliDir = join(root, 'cli');
   const scriptsDir = join(cliDir, 'scripts');
+  const libDir = join(cliDir, 'src', 'lib');
   const fakeBinDir = join(root, 'fake-bin');
 
   mkdirSync(scriptsDir, { recursive: true });
   mkdirSync(fakeBinDir, { recursive: true });
   cpSync(SOURCE_SCRIPT, join(scriptsDir, 'release-preflight.sh'));
+  if (withAlignmentScript) {
+    mkdirSync(libDir, { recursive: true });
+    cpSync(ALIGNMENT_SCRIPT, join(scriptsDir, 'check-release-alignment.mjs'));
+    cpSync(ALIGNMENT_LIB, join(libDir, 'release-alignment.js'));
+  }
 
   writeFileSync(
     join(cliDir, 'package.json'),
-    JSON.stringify({ name: 'agentxchain', version }, null, 2),
+    JSON.stringify({ name: 'agentxchain', version, type: 'module' }, null, 2),
   );
   const changelog = ['# Changelog', '']
     .concat(
@@ -263,7 +272,7 @@ describe('release-preflight.sh', () => {
     assert.match(result.stderr, /Invalid semver: v1\.1\.0/);
     assert.match(
       result.stderr,
-      /Usage: bash scripts\/release-preflight\.sh \[--strict\] \[--publish-gate\] \[--target-version <semver>\]/,
+      /Usage: bash scripts\/release-preflight\.sh \[--strict\] \[--publish-gate\] \[--dry-run\] \[--target-version <semver>\]/,
     );
   });
 
@@ -281,7 +290,7 @@ describe('release-preflight.sh', () => {
     assert.match(result.stderr, /Error: --target-version requires a semver argument/);
     assert.match(
       result.stderr,
-      /Usage: bash scripts\/release-preflight\.sh \[--strict\] \[--publish-gate\] \[--target-version <semver>\]/,
+      /Usage: bash scripts\/release-preflight\.sh \[--strict\] \[--publish-gate\] \[--dry-run\] \[--target-version <semver>\]/,
     );
   });
 
@@ -343,5 +352,48 @@ describe('release-preflight.sh', () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FAIL: No beta-tester scenario tests found for release-gate verification/);
+  });
+
+  it('dry-run previews manual release-alignment surfaces without failing the preflight', () => {
+    const fixture = createFixture({
+      version: '2.0.0',
+      changelogVersions: ['2.0.0'],
+      withAlignmentScript: true,
+    });
+    fixtures.push(fixture);
+
+    const result = runPreflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--dry-run', '--target-version', '2.0.0'],
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Release Preflight Preview/);
+    assert.match(result.stdout, /Mode: DRY RUN/);
+    assert.match(result.stdout, /Release alignment report for 2\.0\.0 \(prebump,/);
+    assert.match(result.stdout, /\[needs update\] \(changelog\)/);
+    assert.match(result.stdout, /\[needs update\] \(release_notes\)/);
+    assert.match(
+      result.stdout,
+      /PREVIEW COMPLETE: manual release-alignment surfaces still need updates before a real preflight\/tag push\./,
+    );
+  });
+
+  it('rejects combining --dry-run with strict-mode paths', () => {
+    const fixture = createFixture({ version: '2.0.0' });
+    fixtures.push(fixture);
+
+    const result = runPreflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--dry-run', '--strict'],
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /Error: --dry-run cannot be combined with --strict or --publish-gate/,
+    );
   });
 });

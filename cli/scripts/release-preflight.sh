@@ -10,11 +10,13 @@ cd "$CLI_DIR"
 
 STRICT_MODE=0
 PUBLISH_GATE=0
+DRY_RUN=0
 TARGET_VERSION="2.0.0"
 
 usage() {
-  echo "Usage: bash scripts/release-preflight.sh [--strict] [--publish-gate] [--target-version <semver>]" >&2
+  echo "Usage: bash scripts/release-preflight.sh [--strict] [--publish-gate] [--dry-run] [--target-version <semver>]" >&2
   echo "  --publish-gate  Run only release-critical checks (no full test suite). Use in CI publish workflows." >&2
+  echo "  --dry-run       Preview manual release-alignment surfaces without running the full gate." >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -26,6 +28,10 @@ while [[ $# -gt 0 ]]; do
     --publish-gate)
       PUBLISH_GATE=1
       STRICT_MODE=1
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=1
       shift
       ;;
     --target-version)
@@ -48,6 +54,12 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$DRY_RUN" -eq 1 && "$STRICT_MODE" -eq 1 ]]; then
+  echo "Error: --dry-run cannot be combined with --strict or --publish-gate" >&2
+  usage
+  exit 1
+fi
 
 PASS=0
 FAIL=0
@@ -83,6 +95,31 @@ else
   echo "Mode: DEFAULT (dirty tree and pre-bump package version are warnings)"
 fi
 echo ""
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "Release Preflight Preview"
+  echo "========================="
+  echo "Mode: DRY RUN (manual release-alignment surfaces only; no git/npm gate checks executed)"
+  echo ""
+  ALIGNMENT_SCRIPT="${SCRIPT_DIR}/check-release-alignment.mjs"
+  if [[ ! -f "$ALIGNMENT_SCRIPT" ]]; then
+    echo "Error: release alignment preview requires ${ALIGNMENT_SCRIPT}" >&2
+    exit 1
+  fi
+  if run_and_capture ALIGNMENT_REPORT node "$ALIGNMENT_SCRIPT" --scope prebump --target-version "$TARGET_VERSION" --report; then
+    ALIGNMENT_STATUS=0
+  else
+    ALIGNMENT_STATUS=$?
+  fi
+  printf '%s\n' "$ALIGNMENT_REPORT"
+  echo ""
+  if [[ "$ALIGNMENT_STATUS" -eq 0 ]]; then
+    echo "PREVIEW COMPLETE: manual release-alignment surfaces are ready for ${TARGET_VERSION}."
+  else
+    echo "PREVIEW COMPLETE: manual release-alignment surfaces still need updates before a real preflight/tag push."
+  fi
+  exit 0
+fi
 
 # 1. Clean working tree
 echo "[1/7] Git status"

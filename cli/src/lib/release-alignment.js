@@ -311,9 +311,23 @@ export function validateReleaseAlignment(repoRoot, { targetVersion, scope = RELE
   const context = getReleaseAlignmentContext(repoRoot, { targetVersion });
   const surfaces = RELEASE_ALIGNMENT_SURFACES.filter((surface) => surface.scopes.includes(scope));
   const errors = [];
+  const surfaceResults = [];
 
   for (const surface of surfaces) {
-    const surfaceErrors = surface.check(context, repoRoot) || [];
+    let surfaceErrors = [];
+    try {
+      surfaceErrors = surface.check(context, repoRoot) || [];
+    } catch (error) {
+      surfaceErrors = [
+        error instanceof Error ? error.message : String(error),
+      ];
+    }
+    surfaceResults.push({
+      surface_id: surface.id,
+      label: surface.label,
+      ok: surfaceErrors.length === 0,
+      errors: surfaceErrors,
+    });
     for (const error of surfaceErrors) {
       errors.push({
         surface_id: surface.id,
@@ -331,6 +345,12 @@ export function validateReleaseAlignment(repoRoot, { targetVersion, scope = RELE
     aggregateEvidenceLine: context.aggregateEvidenceLine,
     checkedSurfaceCount: surfaces.length,
     checkedSurfaceIds: surfaces.map((surface) => surface.id),
+    checkedSurfaces: surfaces.map((surface) => ({
+      id: surface.id,
+      label: surface.label,
+      scopes: [...surface.scopes],
+    })),
+    surfaceResults,
     errors,
   };
 }

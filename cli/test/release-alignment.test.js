@@ -95,6 +95,22 @@ describe('release alignment manifest', () => {
     assert.match(result.stderr, /\[twitter_thread\]/);
   });
 
+  it('prints a human-readable per-surface report without hiding ready surfaces', () => {
+    const fixture = createFixture({ homepageProof: '23', twitterVersion: '2.199.0' });
+    const result = spawnSync(
+      'node',
+      ['cli/scripts/check-release-alignment.mjs', '--target-version', '2.200.0', '--scope', 'prebump', '--report'],
+      { cwd: fixture.root, encoding: 'utf8' },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /Release alignment report for 2\.200\.0 \(prebump,/);
+    assert.match(result.stdout, /\[ready\] \(changelog\)/);
+    assert.match(result.stdout, /\[needs update\] \(homepage_proof_stat\)/);
+    assert.match(result.stdout, /\[needs update\] \(twitter_thread\)/);
+    assert.match(result.stdout, /Summary: \d+ ready, \d+ need update\./);
+  });
+
   it('AT-RAM-003: release-bump.sh uses the shared prebump release-alignment checker', () => {
     const source = readFileSync(join(REPO_ROOT, 'cli', 'scripts', 'release-bump.sh'), 'utf8');
     assert.match(source, /check-release-alignment\.mjs/);
