@@ -129,6 +129,35 @@ describe('agentxchain role command', () => {
     }
   });
 
+  it('AT-ROLE-004E: role show surfaces declared direct-write MCP truth for authoritative roles', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      config.runtimes['mcp-dev'] = {
+        type: 'mcp',
+        command: ['node', '-e', 'process.exit(0)'],
+        capabilities: {
+          can_write_files: 'direct',
+          workflow_artifact_ownership: 'yes',
+        },
+      };
+      config.roles.dev.runtime = 'mcp-dev';
+      config.roles.dev.write_authority = 'authoritative';
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      const result = runCli(dir, ['role', 'show', 'dev', '--json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const role = JSON.parse(result.stdout);
+      assert.equal(role.runtime_contract.transport, 'mcp_stdio');
+      assert.equal(role.runtime_contract.can_write_files, 'direct');
+      assert.equal(role.effective_runtime_contract.effective_write_path, 'direct');
+      assert.equal(role.effective_runtime_contract.workflow_artifact_ownership, 'yes');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('AT-ROLE-004A: role show prints decision authority when configured', () => {
     const dir = createDecisionAuthorityProject();
     try {

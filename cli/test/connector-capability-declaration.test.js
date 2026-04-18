@@ -4,6 +4,7 @@ import {
   getRuntimeCapabilityContract,
   getCapabilityDeclarationWarnings,
   DECLARABLE_CAPABILITY_FIELDS,
+  getRoleRuntimeCapabilityContract,
 } from '../src/lib/runtime-capabilities.js';
 
 describe('Connector capability self-declaration', () => {
@@ -139,5 +140,41 @@ describe('Connector capability self-declaration', () => {
       capabilities: { proposal_support: 'native' },
     });
     assert.equal(warnings2.length, 0, 'local_cli with native proposals is valid');
+  });
+
+  it('AT-CAP-DECL-011: authoritative role consumes declared direct-write capability for MCP runtime', () => {
+    const contract = getRoleRuntimeCapabilityContract(
+      'dev',
+      { write_authority: 'authoritative' },
+      {
+        type: 'mcp',
+        command: ['my-tool'],
+        capabilities: {
+          can_write_files: 'direct',
+          workflow_artifact_ownership: 'yes',
+        },
+      }
+    );
+    assert.equal(contract.runtime_contract.can_write_files, 'direct');
+    assert.equal(contract.effective_write_path, 'direct');
+    assert.equal(contract.workflow_artifact_ownership, 'yes');
+  });
+
+  it('AT-CAP-DECL-012: proposed role consumes declared direct-write capability for MCP runtime', () => {
+    const contract = getRoleRuntimeCapabilityContract(
+      'dev',
+      { write_authority: 'proposed' },
+      {
+        type: 'mcp',
+        command: ['my-tool'],
+        capabilities: {
+          can_write_files: 'direct',
+          workflow_artifact_ownership: 'yes',
+        },
+      }
+    );
+    assert.equal(contract.runtime_contract.can_write_files, 'direct');
+    assert.equal(contract.effective_write_path, 'patch_authoring');
+    assert.equal(contract.workflow_artifact_ownership, 'yes');
   });
 });

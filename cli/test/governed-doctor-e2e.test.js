@@ -367,6 +367,35 @@ describe('Governed Doctor E2E', () => {
     assert.equal(mcpCheck.bound_roles[0].effective_write_path, 'tool_defined');
   });
 
+  it('AT-GD-012B: doctor bound-role summaries consume declared direct-write MCP capabilities', () => {
+    const root = makeGoverned();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.runtimes['mcp-dev'] = {
+      type: 'mcp',
+      transport: 'streamable_http',
+      url: 'https://example.com/mcp-dev',
+      capabilities: {
+        can_write_files: 'direct',
+        workflow_artifact_ownership: 'yes',
+      },
+    };
+    config.roles.dev.runtime = 'mcp-dev';
+    config.roles.dev.write_authority = 'authoritative';
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const result = runCli(root, ['doctor', '--json']);
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+
+    const mcpCheck = output.checks.find((c) => c.id === 'runtime_mcp-dev');
+    assert.ok(mcpCheck, 'Should include runtime_mcp-dev check');
+    assert.equal(mcpCheck.runtime_contract.can_write_files, 'direct');
+    assert.equal(mcpCheck.bound_roles[0].role_id, 'dev');
+    assert.equal(mcpCheck.bound_roles[0].effective_write_path, 'direct');
+    assert.equal(mcpCheck.bound_roles[0].workflow_artifact_ownership, 'yes');
+  });
+
   it('AT-GD-013: mcp review_only gate topology does not false-fail admission control', () => {
     const root = makeGoverned();
     const configPath = join(root, 'agentxchain.json');

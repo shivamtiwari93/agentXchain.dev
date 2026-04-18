@@ -109,79 +109,69 @@ export function getRoleRuntimeCapabilityContract(roleId, role = {}, runtime = {}
   let workflowArtifactOwnership = 'unknown';
 
   if (authority === 'review_only') {
-    switch (runtime?.type) {
-      case 'manual':
-        effectiveWritePath = 'planning_only';
-        workflowArtifactOwnership = 'yes';
-        appendNote(notes, 'Manual review roles can satisfy workflow-kit ownership for planning artifacts.');
-        break;
-      case 'local_cli':
-        effectiveWritePath = 'invalid_review_only_binding';
-        workflowArtifactOwnership = 'invalid';
-        appendNote(notes, 'review_only + local_cli is invalid because local_cli exposes direct repo writes.');
-        break;
-      case 'api_proxy':
-      case 'remote_agent':
-        effectiveWritePath = 'review_artifact_only';
-        workflowArtifactOwnership = 'no';
-        appendNote(notes, 'Review-only remote turns can attest and produce review artifacts, not workflow-kit files.');
-        break;
-      case 'mcp':
-        effectiveWritePath = 'tool_defined';
-        workflowArtifactOwnership = 'tool_defined';
-        appendNote(notes, 'MCP review-only file production depends on the configured tool, not runtime type alone.');
-        break;
-      default:
-        effectiveWritePath = 'unknown';
-        workflowArtifactOwnership = 'unknown';
-        break;
+    if (runtime?.type === 'manual') {
+      effectiveWritePath = 'planning_only';
+      workflowArtifactOwnership = 'yes';
+      appendNote(notes, 'Manual review roles can satisfy workflow-kit ownership for planning artifacts.');
+    } else if (base.can_write_files === 'direct' && runtime?.type === 'local_cli') {
+      effectiveWritePath = 'invalid_review_only_binding';
+      workflowArtifactOwnership = 'invalid';
+      appendNote(notes, 'review_only + local_cli is invalid because local_cli exposes direct repo writes.');
+    } else if (base.can_write_files === 'tool_defined' || base.workflow_artifact_ownership === 'tool_defined') {
+      effectiveWritePath = 'tool_defined';
+      workflowArtifactOwnership = 'tool_defined';
+      appendNote(notes, 'Review-only file production depends on the configured tool contract, not runtime type alone.');
+    } else if (base.can_write_files === 'proposal_only') {
+      effectiveWritePath = 'review_artifact_only';
+      workflowArtifactOwnership = 'no';
+      appendNote(notes, 'Review-only remote turns can attest and produce review artifacts, not workflow-kit files.');
+    } else if (base.can_write_files === 'direct') {
+      effectiveWritePath = base.workflow_artifact_ownership === 'yes' ? 'planning_only' : 'review_artifact_only';
+      workflowArtifactOwnership = base.workflow_artifact_ownership === 'yes' ? 'yes' : 'no';
+      appendNote(notes, 'Review-only roles constrain direct-write runtimes to planning or review artifact production only.');
+    } else {
+      effectiveWritePath = 'unknown';
+      workflowArtifactOwnership = 'unknown';
     }
   } else if (authority === 'proposed') {
-    switch (runtime?.type) {
-      case 'manual':
-      case 'local_cli':
-        effectiveWritePath = 'patch_authoring';
-        workflowArtifactOwnership = 'yes';
-        appendNote(notes, 'This role can prepare patch-shaped work while still satisfying workflow-kit artifact ownership.');
-        break;
-      case 'api_proxy':
-      case 'remote_agent':
-        effectiveWritePath = 'proposal_apply_required';
-        workflowArtifactOwnership = 'proposal_apply_required';
-        appendNote(notes, 'Accepted proposals are staged under .agentxchain/proposed and require proposal apply before gate files exist in the repo.');
-        break;
-      case 'mcp':
-        effectiveWritePath = 'tool_defined';
-        workflowArtifactOwnership = 'tool_defined';
-        appendNote(notes, 'MCP proposed-authoring behavior depends on the governed tool implementation.');
-        break;
-      default:
-        effectiveWritePath = 'unknown';
-        workflowArtifactOwnership = 'unknown';
-        break;
+    if (runtime?.type === 'manual') {
+      effectiveWritePath = 'patch_authoring';
+      workflowArtifactOwnership = 'yes';
+      appendNote(notes, 'This role can prepare patch-shaped work while still satisfying workflow-kit artifact ownership.');
+    } else if (base.can_write_files === 'direct') {
+      effectiveWritePath = 'patch_authoring';
+      workflowArtifactOwnership = base.workflow_artifact_ownership;
+      appendNote(notes, 'This role can prepare patch-shaped work while still satisfying workflow-kit artifact ownership.');
+    } else if (base.can_write_files === 'proposal_only') {
+      effectiveWritePath = 'proposal_apply_required';
+      workflowArtifactOwnership = 'proposal_apply_required';
+      appendNote(notes, 'Accepted proposals are staged under .agentxchain/proposed and require proposal apply before gate files exist in the repo.');
+    } else if (base.can_write_files === 'tool_defined' || base.workflow_artifact_ownership === 'tool_defined') {
+      effectiveWritePath = 'tool_defined';
+      workflowArtifactOwnership = 'tool_defined';
+      appendNote(notes, 'Proposed-authoring behavior depends on the governed tool implementation.');
+    } else {
+      effectiveWritePath = 'unknown';
+      workflowArtifactOwnership = 'unknown';
     }
   } else if (authority === 'authoritative') {
-    switch (runtime?.type) {
-      case 'manual':
-      case 'local_cli':
-        effectiveWritePath = 'direct';
-        workflowArtifactOwnership = 'yes';
-        break;
-      case 'api_proxy':
-      case 'remote_agent':
-        effectiveWritePath = 'invalid_authoritative_binding';
-        workflowArtifactOwnership = 'invalid';
-        appendNote(notes, `${runtime.type} does not support authoritative roles in v1.`);
-        break;
-      case 'mcp':
-        effectiveWritePath = 'tool_defined';
-        workflowArtifactOwnership = 'tool_defined';
-        appendNote(notes, 'MCP authoritative repo writes are tool-defined, not guaranteed by runtime type.');
-        break;
-      default:
-        effectiveWritePath = 'unknown';
-        workflowArtifactOwnership = 'unknown';
-        break;
+    if (base.can_write_files === 'direct') {
+      effectiveWritePath = 'direct';
+      workflowArtifactOwnership = base.workflow_artifact_ownership;
+      if (runtime?.type === 'mcp') {
+        appendNote(notes, 'Authoritative MCP repo writes are accepted because the connector declared a direct write path.');
+      }
+    } else if (base.can_write_files === 'proposal_only') {
+      effectiveWritePath = 'invalid_authoritative_binding';
+      workflowArtifactOwnership = 'invalid';
+      appendNote(notes, `${runtime.type} does not support authoritative roles in v1.`);
+    } else if (base.can_write_files === 'tool_defined' || base.workflow_artifact_ownership === 'tool_defined') {
+      effectiveWritePath = 'tool_defined';
+      workflowArtifactOwnership = 'tool_defined';
+      appendNote(notes, 'Authoritative repo writes are tool-defined, not guaranteed by runtime type alone.');
+    } else {
+      effectiveWritePath = 'unknown';
+      workflowArtifactOwnership = 'unknown';
     }
   }
 
