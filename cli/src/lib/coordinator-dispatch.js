@@ -1,7 +1,7 @@
 import { appendFileSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadProjectContext, loadProjectState } from './config.js';
-import { assignGovernedTurn, getActiveTurnCount } from './governed-state.js';
+import { assignGovernedTurn, getActiveTurnCount, initializeGovernedRun } from './governed-state.js';
 import { writeDispatchBundle } from './dispatch-bundle.js';
 import { getDispatchTurnDir } from './turn-paths.js';
 import { readBarriers, readCoordinatorHistory, recordCoordinatorDecision } from './coordinator-state.js';
@@ -251,6 +251,17 @@ export function dispatchCoordinatorTurn(workspacePath, state, config, assignment
   const runtime = loadRepoRuntime(repo.resolved_path);
   if (!runtime.ok) {
     return { ok: false, error: runtime.detail };
+  }
+
+  let repoState = runtime.state;
+  if (repoState.status === 'idle' || repoState.status === 'completed') {
+    const initResult = initializeGovernedRun(runtime.root, runtime.config, {
+      allow_terminal_restart: repoState.status === 'completed',
+    });
+    if (!initResult.ok) {
+      return { ok: false, error: initResult.error };
+    }
+    repoState = initResult.state;
   }
 
   const assignResult = assignGovernedTurn(runtime.root, runtime.config, assignment.role);

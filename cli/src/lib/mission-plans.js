@@ -12,7 +12,7 @@ import { join } from 'path';
 import { loadChainReport } from './chain-reports.js';
 import { writeDispatchBundle } from './dispatch-bundle.js';
 import { loadProjectContext, loadProjectState } from './config.js';
-import { reissueTurn } from './governed-state.js';
+import { reactivateGovernedRun, reissueTurn } from './governed-state.js';
 import { emitRunEvent } from './run-events.js';
 import { readBarriers, readCoordinatorHistory, recordCoordinatorDecision } from './coordinator-state.js';
 import { loadCoordinatorConfig } from './coordinator-config.js';
@@ -1074,7 +1074,19 @@ export function retryCoordinatorWorkstream(root, mission, planId, workstreamId, 
     return { ok: false, error: reissued.error };
   }
 
-  const bundleResult = writeDispatchBundle(repoTurn.root, reissued.state, repoTurn.config, {
+  let repoStateForBundle = reissued.state;
+  if (reissued.state?.status === 'blocked' || reissued.state?.status === 'paused') {
+    const reactivated = reactivateGovernedRun(repoTurn.root, reissued.state, {
+      via: 'mission plan launch --retry',
+      notificationConfig: repoTurn.config,
+    });
+    if (!reactivated.ok) {
+      return { ok: false, error: `Turn reissued but blocked run could not be reactivated: ${reactivated.error}` };
+    }
+    repoStateForBundle = reactivated.state;
+  }
+
+  const bundleResult = writeDispatchBundle(repoTurn.root, repoStateForBundle, repoTurn.config, {
     turnId: reissued.newTurn.turn_id,
   });
   if (!bundleResult.ok) {

@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { join, resolve } from 'path';
 import { findProjectRoot, loadProjectContext } from '../lib/config.js';
 import {
   attachChainToMission,
@@ -37,6 +37,7 @@ import { executeChainedRun } from '../lib/run-chain.js';
 import { executeGovernedRun } from './run.js';
 import { dispatchCoordinatorTurn, selectAssignmentForWorkstream } from '../lib/coordinator-dispatch.js';
 import { loadCoordinatorState } from '../lib/coordinator-state.js';
+import { projectRepoAcceptance } from '../lib/coordinator-acceptance.js';
 
 export async function missionStartCommand(opts) {
   const root = findProjectRoot(opts.dir || process.cwd());
@@ -142,6 +143,43 @@ export async function missionStartCommand(opts) {
   console.log(chalk.green(`Created mission ${snapshot.mission_id}`));
   console.log(chalk.dim(`  Goal: ${snapshot.goal}`));
   renderMissionSnapshot(snapshot);
+}
+
+function loadAcceptedRepoTurn(repoPath, turnId) {
+  try {
+    const historyPath = join(repoPath, '.agentxchain', 'history.jsonl');
+    const content = readFileSync(historyPath, 'utf8').trim();
+    if (!content) return null;
+    const entries = content
+      .split('\n')
+      .map((line) => JSON.parse(line))
+      .filter((entry) => entry?.turn_id === turnId)
+      .filter((entry) => Boolean(entry?.accepted_at) || entry?.status === 'accepted' || entry?.status === 'completed');
+    return entries.at(-1) || null;
+  } catch {
+    return null;
+  }
+}
+
+function projectAcceptedCoordinatorTurn(workspacePath, coordinatorConfig, repoId, turnId, workstreamId, fallbackState) {
+  const acceptedTurn = loadAcceptedRepoTurn(coordinatorConfig.repos?.[repoId]?.resolved_path, turnId);
+  if (!acceptedTurn) {
+    return { ok: false, error: `Accepted turn ${turnId} not found in repo-local history for ${repoId}.` };
+  }
+
+  const currentState = loadCoordinatorState(workspacePath) || fallbackState;
+  if (!currentState) {
+    return { ok: false, error: `Coordinator state not found at ${workspacePath}.` };
+  }
+
+  return projectRepoAcceptance(
+    workspacePath,
+    currentState,
+    coordinatorConfig,
+    repoId,
+    acceptedTurn,
+    workstreamId,
+  );
 }
 
 export async function missionListCommand(opts) {
@@ -578,6 +616,7 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
       }
 
       const executor = opts._executeGovernedRun || executeGovernedRun;
+      const childLog = opts.json ? noop : (opts._log || console.log);
       const repoContext = loadProjectContext(retry.retryResult.repo_path);
       if (!repoContext) {
         console.error(chalk.red(`Cannot load project context for retried repo at ${retry.retryResult.repo_path}.`));
@@ -586,6 +625,7 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
 
       const runOpts = {
         autoApprove: !!opts.autoApprove,
+        log: childLog,
         provenance: {
           trigger: 'manual',
           created_by: 'operator',
@@ -617,6 +657,21 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
           }, null, 2));
         }
         process.exit(1);
+      }
+
+      if ((execution?.exitCode ?? 0) === 0) {
+        const projection = projectAcceptedCoordinatorTurn(
+          mission.coordinator.workspace_path,
+          coordinatorConfigResult.config,
+          retry.retryResult.repo_id,
+          retry.retryResult.reissued_turn_id,
+          opts.workstream,
+          loadCoordinatorState(mission.coordinator.workspace_path),
+        );
+        if (!projection.ok) {
+          console.error(chalk.red(`Coordinator retry projection failed: ${projection.error}`));
+          process.exit(1);
+        }
       }
 
       const syncedRetry = synchronizeCoordinatorPlanState(root, mission, retry.plan);
@@ -1385,7 +1440,7 @@ async function dispatchAndExecuteCoordinatorWorkstream(
   root, mission, plan, workstreamId, coordinatorConfig, coordinatorState, opts,
 ) {
   const executor = opts._executeGovernedRun || executeGovernedRun;
-  const logger = opts._log || console.log;
+  const logger = opts.json ? noop : (opts._log || console.log);
 
   // 1. Select assignment
   const assignment = selectAssignmentForWorkstream(
@@ -1454,6 +1509,26 @@ async function dispatchAndExecuteCoordinatorWorkstream(
       turn_id: dispatch.turn_id,
       error: error.message,
     };
+  }
+
+  if ((execution?.exitCode ?? 0) === 0) {
+    const projection = projectAcceptedCoordinatorTurn(
+      mission.coordinator.workspace_path,
+      coordinatorConfig,
+      dispatch.repo_id,
+      dispatch.turn_id,
+      workstreamId,
+      loadCoordinatorState(mission.coordinator.workspace_path) || coordinatorState,
+    );
+    if (!projection.ok) {
+      return {
+        ok: false,
+        status: 'projection_error',
+        repo_id: dispatch.repo_id,
+        turn_id: dispatch.turn_id,
+        error: projection.error,
+      };
+    }
   }
 
   // 5. Sync plan state from coordinator (updates barriers, accepted repos, failures)
@@ -2285,3 +2360,5 @@ function formatTimestamp(value) {
 function pad(value, width) {
   return String(value).padEnd(width);
 }
+
+function noop() {}
