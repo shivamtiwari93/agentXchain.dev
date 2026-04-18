@@ -25,6 +25,32 @@ This directory contains two categories of live proof:
 - `run-escalation-recovery-proof.mjs` — blocked-state recovery proof
 - `run-mcp-real-model-proof.mjs` — real-model MCP proof
 
+### Checkpoint Handoff Proof (BUG-23)
+
+- `run-checkpoint-handoff-proof.mjs` — proves that `run --continuous --auto-checkpoint` emits a git checkpoint commit after every accepted authoritative turn, and that no "clean baseline" errors surface between role handoffs
+
+This proof exercises the complete pm → dev → qa role progression with all roles using `local_cli` authoritative runtimes. Each role produces working-tree changes that must be checkpointed before the next authoritative turn can start. The proof verifies:
+
+- 3 `checkpoint: <turn_id> (role=<role>, phase=<phase>)` git commits in the log
+- 3 `turn_checkpointed` events in `events.jsonl` with SHA references
+- zero "clean baseline" errors in CLI output
+- zero manual `checkpoint-turn --turn` prompts
+
+**Verified evidence (2026-04-18):**
+
+| Metric | Value |
+|---|---|
+| Runtime | `local_cli` (mock changingAgent) for all roles |
+| Roles checkpointed | pm (planning), dev (implementation), qa (qa) |
+| Checkpoint commits | 3 |
+| Checkpoint events | 3 |
+| Clean baseline errors | 0 |
+| Session status | `completed` |
+
+Run it: `node examples/live-governed-proof/run-checkpoint-handoff-proof.mjs --json`
+
+Pass `--runtime-command <cmd>` to use a real local runtime (e.g., `codex exec --dangerously-bypass-approvals-and-sandbox`) instead of the mock.
+
 ### Continuous Mixed-Runtime Proof
 
 - `run-continuous-mixed-proof.mjs` — **full continuous session** with mixed local + remote runtimes
@@ -75,6 +101,15 @@ node examples/live-governed-proof/run-proposed-authority-proof.mjs --json
 node examples/live-governed-proof/run-escalation-recovery-proof.mjs --json
 node examples/live-governed-proof/run-mcp-real-model-proof.mjs --json
 ```
+
+**Checkpoint handoff proof (BUG-23):**
+
+```bash
+node examples/live-governed-proof/run-checkpoint-handoff-proof.mjs --json
+node examples/live-governed-proof/run-checkpoint-handoff-proof.mjs --runtime-command "codex exec --dangerously-bypass-approvals-and-sandbox"
+```
+
+No credentials required. Self-contained with mock agent by default.
 
 **Continuous mixed-runtime proof:**
 
