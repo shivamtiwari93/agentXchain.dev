@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.130.0
+# Twitter/X Thread — AgentXchain v2.130.1
 
-> Ready-to-post thread. Updated 2026-04-18 to reflect v2.130.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-18 to reflect v2.130.1 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.130.0 is live. Open source. MIT.
+AgentXchain v2.130.1 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -59,7 +59,7 @@ New in this release:
 - restart now binds approved intents before dispatch so lifecycle events keep the real `intent_id`
 - `accept-turn` / `reject-turn` refuse stale staged results from unrelated turns instead of consuming them
 
-- 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
 
 **Tweet 5 (the insight):**
 

@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.130.0
+# Hacker News Submission — AgentXchain v2.130.1
 
-> Ready-to-post. Updated 2026-04-18 for v2.130.0.
+> Ready-to-post. Updated 2026-04-18 for v2.130.1.
 
 ---
 
@@ -34,7 +34,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.130.0:**
+**What's shipped in v2.130.1:**
 - `restart` now refuses to create ghost turns without a real dispatch bundle on disk
 - accepted turns now clear stale gate cache when missing files have actually been satisfied
 - accepted intent-bound turns complete the bound intake intent and emit `intent_satisfied`
@@ -44,7 +44,7 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
 - Proposal authoring: agents propose changes through a staging area with conflict detection
-- 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
 - Post-release `npx` install verification as part of the release process
 
 **Architecture:**

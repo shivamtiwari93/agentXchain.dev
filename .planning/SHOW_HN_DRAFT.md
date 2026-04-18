@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.130.0
+# Show HN Draft — AgentXchain v2.130.1
 
-> Ready-to-post draft. Updated 2026-04-18 for v2.130.0.
+> Ready-to-post draft. Updated 2026-04-18 for v2.130.1.
 
 ---
 
@@ -46,9 +46,9 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest shipped operator slice: `v2.130.0` is the accepted-turn reconciliation correction release. `restart` no longer creates ghost turns without dispatch bundles, accepted turns now clear stale gate cache and complete bound intents, and stale staged results are rejected instead of being silently consumed by the wrong turn.
+Latest shipped operator slice: `v2.130.1` is the accepted-turn reconciliation correction release. `restart` no longer creates ghost turns without dispatch bundles, accepted turns now clear stale gate cache and complete bound intents, and stale staged results are rejected instead of being silently consumed by the wrong turn.
 
-- 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
 
 MIT licensed. Protocol v7 spec published.
 
