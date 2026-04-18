@@ -332,25 +332,8 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('');
   }
 
-  if (turn.intake_context) {
-    lines.push('### Active Injected Intent — respond to this as your primary charter');
-    lines.push('');
-    if (turn.intake_context.charter) {
-      lines.push(turn.intake_context.charter);
-      lines.push('');
-    }
-    if (Array.isArray(turn.intake_context.acceptance_contract) && turn.intake_context.acceptance_contract.length > 0) {
-      lines.push('Acceptance contract:');
-      turn.intake_context.acceptance_contract.forEach((requirement, index) => {
-        lines.push(`${index + 1}. ${requirement}`);
-      });
-      lines.push('');
-    }
-    lines.push('You must explicitly address every acceptance item in your turn summary, artifacts, or verification evidence. Do not treat this as background context.');
-    lines.push('');
-  }
-
-  // Retry context
+  // BUG-35: retry context must appear BEFORE the injected intent so the agent
+  // sees the blocker (gate failure) first and the repair guidance (intent) second.
   if (turn.attempt > 1 && turn.last_rejection) {
     lines.push('## Previous Attempt Failed');
     lines.push('');
@@ -366,6 +349,24 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     }
     lines.push('');
     lines.push('Fix the issues above before proceeding.');
+    lines.push('');
+  }
+
+  if (turn.intake_context) {
+    lines.push('### Active Injected Intent — respond to this as your primary charter');
+    lines.push('');
+    if (turn.intake_context.charter) {
+      lines.push(turn.intake_context.charter);
+      lines.push('');
+    }
+    if (Array.isArray(turn.intake_context.acceptance_contract) && turn.intake_context.acceptance_contract.length > 0) {
+      lines.push('Acceptance contract:');
+      turn.intake_context.acceptance_contract.forEach((requirement, index) => {
+        lines.push(`${index + 1}. ${requirement}`);
+      });
+      lines.push('');
+    }
+    lines.push('You must explicitly address every acceptance item in your turn summary, artifacts, or verification evidence. Do not treat this as background context.');
     lines.push('');
   }
 
