@@ -26,7 +26,7 @@ If you want your own governed project after that, install the CLI once, then jum
 - Records accepted history in append-only JSONL plus `TALK.md`
 - Surfaces checkpointed continuity in `agentxchain status` and rebuilds lost session context with `agentxchain restart`
 - Supports cross-machine continuity via governed run `agentxchain export` + `agentxchain restore` for same-repo, same-commit checkouts
-- Supports `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent` runtimes under the same workflow
+- Supports `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent` runtimes under the same workflow — see [Runtime Matrix](https://agentxchain.dev/docs/runtime-matrix/) for the canonical authority/runtime binding reference
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
 - Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi resume`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
 - Adds continuous-delivery intake (`intake record`, `triage`, `approve`, `plan`, `start`, `scan`, `resolve`) for turning delivery signals into governed work

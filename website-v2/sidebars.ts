@@ -83,6 +83,7 @@ const sidebars: SidebarsConfig = {
       label: 'Connectors',
       items: [
         'integration-guide',
+        'runtime-matrix',
         'adapters',
         'build-your-own-connector',
       ],

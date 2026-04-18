@@ -598,7 +598,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Add a content test that asserts the prerequisites block exists on all three onboarding pages and contains the npx fallback string.
   - **Acceptance:** fresh machine + old CLI on PATH follows the docs → sees a loud warning and a one-liner to fix it, does not silently get stale-flag errors.
 
-- [ ] **B-2: Canonical runtime matrix — kill the split-source-of-truth problem (gap #2)** — README says 5 runtimes (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`). The governed spec the tester read centered on 3. Both are "true" but the doc surface isn't aligned.
+- [x] **B-2: Canonical runtime matrix — kill the split-source-of-truth problem (gap #2)** — completed 2026-04-17: shipped `website-v2/docs/runtime-matrix.mdx` as canonical source of truth covering all 5 runtimes, 3 authority levels, 15-cell binding matrix, invalid combo docs, common config patterns. Linked from README, getting-started, adapters, integration-guide, sidebar. Content-contract test (`runtime-matrix-content.test.js`) freezes all 5 runtimes, 3 authorities, cross-references, and invalid combos.
   - **What to fix:**
     - Create one canonical runtime matrix page (e.g., `website-v2/docs/runtime-matrix.mdx`) as the source of truth: each runtime, which authority levels it supports, when to use it, example config.
     - Deprecate / mark historical any older specs that only cover 3 runtimes.
@@ -645,7 +645,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Add a first-real-automation walkthrough (recommended addition, gap #18) matching the 8-step sequence the tester wished they'd had.
   - **Acceptance:** a new user can go from empty directory → running automated PM turns in under 20 minutes of doc reading.
 
-- [ ] **B-7: Runtime rebinding mid-run — stale turn detection + reissue command (gaps #7, #8)** — Tester rebound PM runtime after a PM turn was already assigned. The dispatch bundle stayed stale (still referenced `manual-pm` + `review_only`), there was no clean recovery command, and they had to manually edit governed state. This is the single worst friction point the tester hit because it required hand-editing protocol internals.
+- [x] **B-7: Runtime rebinding mid-run — stale turn detection + reissue command (gaps #7, #8)** — completed 2026-04-17: `reissue-turn` command shipped in BUG-7 (commit 09542664). Now closed fully: `status` and `doctor` detect runtime/authority binding drift on active turns and surface `reissue-turn` recovery commands. `status --json` includes `binding_drift` array. Doctor check `binding_drift` warns on stale bindings. E2E test (`binding-drift-detection.test.js`, 8 tests) covers runtime rebinding, authority drift, multi-turn drift, and recovery command surface. `reissue-turn` documented in `cli.mdx` command map and `recovery.mdx` post-dispatch drift section.
   - **What to fix:**
     - Detect the mismatch: when an active turn's dispatch bundle references a runtime/authority that no longer matches `agentxchain.json`, surface a blocker in `status`, `doctor`, and the dashboard. Text should read something like: "Active turn `<id>` was assigned under runtime `manual-pm` + `review_only`; config now says `local-pm` + `authoritative`. Reissue required: `agentxchain reissue-turn <id>`."
     - Ship the `agentxchain reissue-turn <turn-id>` command (or `cancel-turn --reassign`) that atomically:

@@ -142,6 +142,29 @@ To prevent hard stops on budget exhaustion, switch to warn mode with `agentxchai
 
 **Paused-session guard:** When a continuous session is paused (awaiting unblock), the daemon keeps polling but does not attempt to start new work. On each poll cycle, `advanceContinuousRunOnce()` checks the governed project state: if still blocked, it returns `still_blocked` and stays paused; if the block has been resolved (via `agentxchain unblock <id>`), the session resumes automatically by continuing the existing governed run. The session ID stays stable across the block/unblock cycle — no state is lost.
 
+### Post-Dispatch Drift
+
+When repo state changes after a turn is dispatched — HEAD moves, runtime is rebound in `agentxchain.json`, or authority changes — the active turn becomes stale. `agentxchain status` and `agentxchain doctor` detect this drift and surface actionable recovery commands.
+
+| Drift Type | Cause | Detection | Recovery |
+|---|---|---|---|
+| Baseline drift | `HEAD` changed after dispatch (e.g., unrelated commit) | `status` shows `Stale binding` warning | `agentxchain reissue-turn --turn <id> --reason "baseline drift"` |
+| Runtime drift | Runtime rebound in `agentxchain.json` after turn was assigned | `status` and `doctor` show runtime mismatch | `agentxchain reissue-turn --turn <id> --reason "runtime rebinding"` |
+| Authority drift | `write_authority` changed on the assigned role | `status` shows authority mismatch | `agentxchain reissue-turn --turn <id> --reason "authority change"` |
+
+`reissue-turn` atomically:
+1. Invalidates the active turn and archives it to `history.jsonl`
+2. Captures a fresh baseline from current repo state
+3. Creates a new turn with the same role and phase under the updated binding
+4. Emits a `turn_reissued` event with old and new baseline details
+5. Writes a decision ledger entry for auditability
+
+After reissue, run `agentxchain step --resume` to dispatch the fresh turn.
+
+`reject-turn` also refreshes the baseline when retrying, so a simple reject-and-retry path works for baseline drift without explicit reissue. However, `reissue-turn` is the canonical recovery command because it covers all drift types and produces a cleaner audit trail.
+
+See also: [Runtime Matrix](/docs/runtime-matrix) for valid runtime/authority combinations.
+
 ### Other States
 
 | Condition | Recovery |
@@ -162,6 +185,7 @@ The recovery surface uses these existing commands — no dedicated `recover` com
 | `approve-transition` | Approve a phase gate |
 | `approve-completion` | Approve run completion |
 | `reject-turn` | Reject a failed turn and trigger retry or reassignment |
+| `reissue-turn` | Invalidate a stale turn and reissue against current state (baseline, runtime, or authority drift) |
 | `accept-turn` | Manually accept a turn after validation failure and manual fix |
 | `escalate` | Raise an operator escalation on an active or blocked turn |
 | `status` | View current blocked state and recovery action |

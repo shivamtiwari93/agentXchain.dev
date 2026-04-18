@@ -8,6 +8,8 @@ description: "Five adapters, one contract. manual, local_cli, api_proxy, mcp, an
 
 Adapters are the bridge between the orchestrator and the agent that does the work. Every adapter implements the same contract: receive a dispatch bundle, produce a staged turn result. The orchestrator does not care whether the work is done by a human, a local subprocess, an MCP stdio server, a remote API, or an external agent service — it only cares that the result conforms to the protocol.
 
+For the canonical reference of all five runtimes, three authority levels, and which combinations are valid, see the [Runtime Matrix](/docs/runtime-matrix).
+
 ## Package export
 
 If you are building a non-CLI runner and want to reuse the shipped adapters, import them through the public package boundary:

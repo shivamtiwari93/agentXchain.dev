@@ -63,6 +63,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `schedule` | Automation | Evaluate repo-local run schedules, execute due governed runs, poll in a local daemon loop, or check daemon health |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
 | `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
+| `reissue-turn` | Turn lifecycle | Invalidate an active turn and reissue it against current repo state — covers baseline drift, runtime rebinding, authority changes, and operator-initiated redo |
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
 | `approve-completion` | Approval | Approve run completion — the final human gate before a run closes |
 | `validate` | Validation | Validate config, state, or full run integrity |

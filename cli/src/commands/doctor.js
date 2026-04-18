@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import { execFileSync, execSync } from 'child_process';
 import { join } from 'path';
 import chalk from 'chalk';
-import { loadConfig, loadLock, findProjectRoot } from '../lib/config.js';
+import { loadConfig, loadLock, findProjectRoot, loadProjectState } from '../lib/config.js';
 import { validateProject } from '../lib/validation.js';
 import { runAdmissionControl } from '../lib/admission-control.js';
 import { getWatchPid } from './watch.js';
@@ -17,6 +17,7 @@ import {
   summarizeRoleRuntimeCapability,
   summarizeRuntimeCapabilityContract,
 } from '../lib/runtime-capabilities.js';
+import { detectActiveTurnBindingDrift } from '../lib/governed-state.js';
 
 export async function doctorCommand(opts = {}) {
   const root = findProjectRoot(process.cwd());
@@ -115,6 +116,38 @@ function governedDoctor(root, rawConfig, opts) {
     }
   } else {
     checks.push({ id: 'state_health', name: 'State health', level: 'warn', detail: 'No state file yet (first run pending)' });
+  }
+
+  // 5b. Active turn binding drift (B-7: detect runtime rebinding mid-run)
+  if (normalized && existsSync(join(root, '.agentxchain', 'state.json'))) {
+    try {
+      const stateData = loadProjectState(root, normalized);
+      const drifts = detectActiveTurnBindingDrift(stateData, normalized);
+      if (drifts.length > 0) {
+        const driftSummary = drifts.map(d => {
+          const parts = [];
+          if (d.runtime_changed) parts.push(`runtime ${d.old_runtime} → ${d.new_runtime}`);
+          if (d.authority_changed) parts.push(`authority ${d.old_authority} → ${d.new_authority}`);
+          return `${d.turn_id} (${d.role_id}): ${parts.join(', ')}`;
+        }).join('; ');
+        checks.push({
+          id: 'binding_drift',
+          name: 'Active turn binding',
+          level: 'warn',
+          detail: `Stale binding: ${driftSummary}. Run: agentxchain reissue-turn`,
+          drifts,
+        });
+      } else if (Object.keys(stateData?.active_turns || {}).length > 0) {
+        checks.push({
+          id: 'binding_drift',
+          name: 'Active turn binding',
+          level: 'pass',
+          detail: 'Active turns match current config bindings',
+        });
+      }
+    } catch {
+      // State couldn't be loaded — skip drift check
+    }
   }
 
   // 6. Schedule health (only when schedules configured)

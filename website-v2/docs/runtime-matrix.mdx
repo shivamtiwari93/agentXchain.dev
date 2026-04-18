@@ -1,0 +1,157 @@
+---
+sidebar_position: 5
+title: Runtime Matrix
+description: "Canonical reference for all five runtimes, three authority levels, and their valid combinations."
+---
+
+# Runtime Matrix
+
+This is the single source of truth for AgentXchain runtimes and authority levels. Every runtime mention in the docs either links here or is flagged as historical.
+
+## Runtimes
+
+AgentXchain supports five runtime types. Each runtime defines how an agent receives work and returns results.
+
+| Runtime | Transport | Local Binary? | Writes Files | Proposal Support | Example Use |
+|---------|-----------|:---:|---|---|---|
+| `manual` | Operator-driven | No | Direct | None | Human planning, review, manual QA |
+| `local_cli` | Local subprocess | Yes | Direct | Optional | Claude Code, Codex CLI, Cursor agent |
+| `api_proxy` | Provider API | No | Proposal only | Native | Cloud model review, automated QA |
+| `mcp` | MCP stdio / HTTP | Depends | Tool-defined | Tool-defined | MCP tool servers, custom agents |
+| `remote_agent` | Remote HTTP | No | Proposal only | Native | External agent services, Devin, Jules |
+
+### manual
+
+The operator performs work directly. No automation, no subprocess. The orchestrator writes a dispatch bundle and waits for the operator to stage a result manually.
+
+**When to use:** Planning roles, human review, manual QA, any role where a human does the work.
+
+### local_cli
+
+The orchestrator spawns a local subprocess (e.g., `claude`, `codex`, `cursor`) that has direct filesystem access to the repo. The subprocess reads the dispatch bundle, does work, and writes a staged turn result.
+
+**When to use:** Automated implementation with local coding agents. This is the most common automation runtime.
+
+**Requires:** The CLI binary must be installed and reachable on `PATH`. Use `agentxchain connector validate <runtime_id>` to verify.
+
+### api_proxy
+
+The orchestrator calls a cloud model API (Anthropic, OpenAI, Google, Ollama, etc.) and collects a structured response. The model cannot write files directly — it produces proposals that must be explicitly applied.
+
+**When to use:** Automated review, QA attestation, or any role where the agent produces structured output without direct repo writes.
+
+### mcp
+
+The orchestrator communicates with an MCP (Model Context Protocol) server via stdio or streamable HTTP. Write behavior, proposal support, and artifact ownership depend entirely on the MCP tool contract.
+
+**When to use:** Custom tool servers, specialized agent workflows, any integration that speaks the MCP protocol.
+
+### remote_agent
+
+The orchestrator dispatches work to an external agent service over HTTP. Like `api_proxy`, the remote agent produces proposals, not direct writes.
+
+**When to use:** External agent platforms (Devin, Jules, custom services) that run outside the local environment.
+
+## Authority Levels
+
+Every role has a `write_authority` that determines what it is allowed to do with the repo:
+
+| Authority | Meaning | Who Uses It |
+|-----------|---------|-------------|
+| `authoritative` | Direct repo writes. The role owns its output. | Implementation roles, authoritative planners |
+| `proposed` | Patch-shaped work or proposals that require explicit apply. | Roles that suggest changes for human review |
+| `review_only` | No repo writes. Produces review artifacts, attestations, or planning docs only. | QA reviewers, security auditors, read-only analysts |
+
+## Binding Matrix
+
+Not every runtime × authority combination is valid. The table below shows all 15 combinations:
+
+| | `manual` | `local_cli` | `api_proxy` | `mcp` | `remote_agent` |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **`authoritative`** | ✅ Direct | ✅ Direct | ❌ Invalid | ✅ Tool-defined | ❌ Invalid |
+| **`proposed`** | ✅ Patch authoring | ✅ Patch authoring | ✅ Proposal apply | ✅ Tool-defined | ✅ Proposal apply |
+| **`review_only`** | ✅ Planning only | ❌ Invalid | ✅ Review artifact | ✅ Tool-defined | ✅ Review artifact |
+
+### Invalid combinations
+
+**`review_only` + `local_cli`** — Local CLI exposes direct filesystem writes. A review-only role must not have that access. Fix: change `write_authority` to `authoritative` for local CLI automation, or move the role to `manual`, `api_proxy`, `mcp`, or `remote_agent`.
+
+**`authoritative` + `api_proxy`** — API proxy runtimes only support proposals and review in v1. They cannot perform direct authoritative writes. Fix: change `write_authority` to `proposed` or `review_only`, or move the role to `manual` or `local_cli`.
+
+**`authoritative` + `remote_agent`** — Same constraint as `api_proxy`. Remote agents produce proposals, not direct writes.
+
+These invalid combinations are caught at config validation time by `agentxchain validate` and `agentxchain doctor`.
+
+## Write Path Behaviors
+
+Each valid binding produces a specific write path:
+
+| Write Path | Description | Bindings |
+|---|---|---|
+| `direct` | Authoritative repo writes | `authoritative` + `manual` or `local_cli` |
+| `planning_only` | Planning/review artifacts only | `review_only` + `manual` |
+| `patch_authoring` | Patch-shaped work, satisfies ownership | `proposed` + `manual` or `local_cli` |
+| `review_artifact_only` | Structured review output, no repo writes | `review_only` + `api_proxy` or `remote_agent` |
+| `proposal_apply_required` | Proposals staged in `.agentxchain/proposed/`, require explicit apply | `proposed` + `api_proxy` or `remote_agent` |
+| `tool_defined` | Depends on MCP tool contract | Any authority + `mcp` |
+
+## Common Patterns
+
+### All-manual (default scaffold)
+
+Every role uses `manual` runtime. No automation, no API keys. Good for learning the protocol.
+
+```json
+{
+  "roles": {
+    "pm":  { "write_authority": "review_only",   "runtime": "manual-pm" },
+    "dev": { "write_authority": "authoritative",  "runtime": "manual-dev" },
+    "qa":  { "write_authority": "review_only",   "runtime": "manual-qa" }
+  }
+}
+```
+
+### Mixed-mode (getting-started default)
+
+PM is manual, dev uses local CLI, QA uses API proxy. Covers the most common operator scenario.
+
+```json
+{
+  "roles": {
+    "pm":  { "write_authority": "review_only",   "runtime": "manual-pm" },
+    "dev": { "write_authority": "authoritative",  "runtime": "local-dev" },
+    "qa":  { "write_authority": "review_only",   "runtime": "api-qa" }
+  }
+}
+```
+
+### Full local CLI automation
+
+All roles automated with local CLI agents and `authoritative` authority. Human gates control phase transitions. See the [Quickstart automated path](/docs/quickstart#automated-path-use-agentxchain-run) for the full walkthrough.
+
+```json
+{
+  "roles": {
+    "pm":  { "write_authority": "authoritative",  "runtime": "local-pm" },
+    "dev": { "write_authority": "authoritative",  "runtime": "local-dev" },
+    "qa":  { "write_authority": "authoritative",  "runtime": "local-qa" }
+  }
+}
+```
+
+## Validation
+
+Run `agentxchain validate` to check your config against these rules. Run `agentxchain doctor` for a comprehensive health check including runtime reachability and authority binding validation.
+
+```bash
+agentxchain validate          # config-only validation
+agentxchain doctor            # full health check
+agentxchain connector validate <runtime_id>  # runtime-specific probe
+```
+
+## Related
+
+- [Adapters](/docs/adapters) — adapter implementation details and filesystem contract
+- [Getting Started](/docs/getting-started) — first governed run with mixed runtimes
+- [Integration Guide](/docs/integration-guide) — connecting specific CLI tools
+- [Recovery](/docs/recovery) — recovering from runtime drift and stale turns

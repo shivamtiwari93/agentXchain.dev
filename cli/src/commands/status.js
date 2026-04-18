@@ -8,7 +8,7 @@ import {
   deriveRecoveryDescriptor,
   deriveRuntimeBlockedGuidance,
 } from '../lib/blocked-state.js';
-import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
+import { getActiveTurn, getActiveTurnCount, getActiveTurns, detectActiveTurnBindingDrift } from '../lib/governed-state.js';
 import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
 import { readRepoDecisions, summarizeRepoDecisions } from '../lib/repo-decisions.js';
@@ -179,6 +179,7 @@ function renderGovernedStatus(context, opts) {
       gate_action_attempt: gateActionAttempt,
       workflow_kit_artifacts: workflowKitArtifacts,
       dashboard_session: dashboardSessionObj,
+      binding_drift: detectActiveTurnBindingDrift(state, config),
     }, null, 2));
     return;
   }
@@ -377,6 +378,23 @@ function renderGovernedStatus(context, opts) {
     }
   } else {
     console.log(`  ${chalk.dim('Turn:')}     ${chalk.yellow('No active turn')}`);
+  }
+
+  // Runtime/authority binding drift detection (B-7)
+  const bindingDrifts = detectActiveTurnBindingDrift(state, config);
+  if (bindingDrifts.length > 0) {
+    console.log('');
+    console.log(`  ${chalk.red.bold('⚠ Stale binding detected')}`);
+    for (const drift of bindingDrifts) {
+      if (drift.runtime_changed) {
+        console.log(`  ${chalk.dim('Turn:')}     ${drift.turn_id} (${drift.role_id})`);
+        console.log(`  ${chalk.dim('Runtime:')}  ${chalk.yellow(drift.old_runtime)} → ${chalk.green(drift.new_runtime)} (config changed)`);
+      }
+      if (drift.authority_changed) {
+        console.log(`  ${chalk.dim('Authority:')} ${chalk.yellow(drift.old_authority)} → ${chalk.green(drift.new_authority)} (config changed)`);
+      }
+      console.log(`  ${chalk.dim('Recover:')}  ${chalk.cyan(drift.recovery_command)}`);
+    }
   }
 
   // Queued phase/completion requests

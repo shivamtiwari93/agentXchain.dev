@@ -2387,6 +2387,49 @@ export function refreshTurnBaselineSnapshot(root, turnId) {
  * @param {string} [opts.reason] - reason for reissue
  * @returns {{ ok: boolean, state?: object, newTurn?: object, baselineDelta?: object, error?: string }}
  */
+/**
+ * Detect runtime/authority drift for all active turns against current config.
+ * Returns an array of drift descriptors. Empty array = no drift.
+ */
+export function detectActiveTurnBindingDrift(state, config) {
+  const activeTurns = getActiveTurns(state);
+  const drifts = [];
+
+  for (const turn of Object.values(activeTurns)) {
+    const roleId = turn.assigned_role;
+    const role = config.roles?.[roleId];
+    if (!role) continue;
+
+    const currentRuntimeId = role.runtime_id || role.runtime;
+    const currentAuthority = role.write_authority;
+    const turnRuntimeId = turn.runtime_id;
+
+    const runtimeChanged = currentRuntimeId && turnRuntimeId && currentRuntimeId !== turnRuntimeId;
+    const authorityChanged = currentAuthority && turn.write_authority && currentAuthority !== turn.write_authority;
+
+    // Check runtime type change even if runtime_id matches
+    const currentRuntimeType = config.runtimes?.[currentRuntimeId]?.type;
+    const turnRuntimeType = config.runtimes?.[turnRuntimeId]?.type;
+    const runtimeTypeChanged = currentRuntimeType && turnRuntimeType && currentRuntimeType !== turnRuntimeType;
+
+    if (runtimeChanged || authorityChanged || runtimeTypeChanged) {
+      drifts.push({
+        turn_id: turn.turn_id,
+        role_id: roleId,
+        runtime_changed: Boolean(runtimeChanged || runtimeTypeChanged),
+        old_runtime: turnRuntimeId,
+        new_runtime: currentRuntimeId,
+        authority_changed: Boolean(authorityChanged),
+        old_authority: turn.write_authority,
+        new_authority: currentAuthority,
+        recovery_command: `agentxchain reissue-turn --turn ${turn.turn_id} --reason "config rebinding"`,
+      });
+    }
+  }
+
+  return drifts;
+}
+
 export function reissueTurn(root, config, opts = {}) {
   const state = readState(root);
   if (!state) return { ok: false, error: 'No governed state found' };
