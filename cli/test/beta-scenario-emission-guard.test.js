@@ -37,56 +37,79 @@ const REAL_EVALUATOR_IMPORTS = [
   /require\s*\(\s*['"].*gate-evaluator/,
 ];
 
+const REAL_EVALUATOR_CALLS = [
+  /\bevaluatePhaseExit\s*\(/,
+  /\bevaluateRunCompletion\s*\(/,
+];
+
 function isInComment(line) {
   const trimmed = line.trim();
   return trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*');
+}
+
+function collectGateReasonMatches(content) {
+  const matches = [];
+
+  for (const line of content.split('\n')) {
+    if (isInComment(line)) continue;
+    for (const pattern of GATE_REASON_PATTERNS) {
+      if (pattern.test(line)) {
+        matches.push({ line: line.trim(), pattern: pattern.source });
+      }
+    }
+  }
+
+  return matches;
+}
+
+function analyzeScenarioContent(content) {
+  const matches = collectGateReasonMatches(content);
+  const usesGateReasonStrings = matches.length > 0;
+  const importsEvaluator = REAL_EVALUATOR_IMPORTS.some(pattern => pattern.test(content));
+  const callsEvaluator = REAL_EVALUATOR_CALLS.some(pattern => pattern.test(content));
+
+  return {
+    usesGateReasonStrings,
+    importsEvaluator,
+    callsEvaluator,
+    satisfiesGuard: !usesGateReasonStrings || (importsEvaluator && callsEvaluator),
+    matches,
+  };
 }
 
 describe('beta-scenario emission guard', () => {
   const scenarioFiles = readdirSync(SCENARIOS_DIR)
     .filter(f => f.endsWith('.test.js'));
 
-  it('every scenario file that uses gate reason strings must import the real evaluator', () => {
+  it('every scenario file that uses gate reason strings must import and call the real evaluator', () => {
     const violations = [];
 
     for (const file of scenarioFiles) {
       const content = readFileSync(join(SCENARIOS_DIR, file), 'utf8');
-      const lines = content.split('\n');
+      const analysis = analyzeScenarioContent(content);
 
-      // Check if this file uses any gate reason patterns in non-comment lines
-      let usesGateReasonStrings = false;
-      const matchedPatterns = [];
+      if (!analysis.usesGateReasonStrings) continue;
 
-      for (const line of lines) {
-        if (isInComment(line)) continue;
-        for (const pattern of GATE_REASON_PATTERNS) {
-          if (pattern.test(line)) {
-            usesGateReasonStrings = true;
-            matchedPatterns.push({ line: line.trim(), pattern: pattern.source });
-          }
-        }
-      }
-
-      if (!usesGateReasonStrings) continue;
-
-      // File uses gate reason strings — verify it imports the real evaluator
-      const importsEvaluator = REAL_EVALUATOR_IMPORTS.some(p => p.test(content));
-
-      if (!importsEvaluator) {
+      if (!analysis.satisfiesGuard) {
         violations.push({
           file,
-          matches: matchedPatterns,
+          matches: analysis.matches,
+          importsEvaluator: analysis.importsEvaluator,
+          callsEvaluator: analysis.callsEvaluator,
         });
       }
     }
 
     if (violations.length > 0) {
       const details = violations.map(v =>
-        `  ${v.file}:\n${v.matches.map(m => `    - "${m.line}" (pattern: ${m.pattern})`).join('\n')}`
+        `  ${v.file}:\n` +
+        `    - imports evaluator: ${v.importsEvaluator}\n` +
+        `    - calls evaluator: ${v.callsEvaluator}\n` +
+        `${v.matches.map(m => `    - "${m.line}" (pattern: ${m.pattern})`).join('\n')}`
       ).join('\n\n');
       assert.fail(
         `${violations.length} beta-tester-scenario test(s) use hardcoded gate reason ` +
-        `strings without importing the real gate evaluator.\n\n` +
+        `strings without both importing and calling the real gate evaluator.\n\n` +
         `This is the exact pattern that caused BUG-36's false closure. ` +
         `Either call evaluatePhaseExit()/evaluateRunCompletion() to produce ` +
         `the reason string, or verify the hardcoded string matches the real ` +
@@ -111,5 +134,47 @@ describe('beta-scenario emission guard', () => {
       'Production code must contain "must define" pattern');
     assert.match(productionCode, /Document must contain sections/,
       'Production code must contain "Document must contain sections" pattern');
+  });
+
+  it('fails dead-import scenarios that never call the evaluator', () => {
+    const content = `
+      import { evaluatePhaseExit } from '../../src/lib/gate-evaluator.js';
+      const expectedReason = '.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.';
+    `;
+
+    assert.deepEqual(analyzeScenarioContent(content), {
+      usesGateReasonStrings: true,
+      importsEvaluator: true,
+      callsEvaluator: false,
+      satisfiesGuard: false,
+      matches: [
+        {
+          line: "const expectedReason = '.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.';",
+          pattern: 'must define\\s+##',
+        },
+        {
+          line: "const expectedReason = '.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.';",
+          pattern: 'must define .* before .* can exit',
+        },
+      ],
+    });
+  });
+
+  it('allows scenarios that call the evaluator for the emitted reason', () => {
+    const content = `
+      import { evaluatePhaseExit } from '../../src/lib/gate-evaluator.js';
+      const gateResult = evaluatePhaseExit({ gates: {} });
+      assert.deepEqual(
+        gateResult.reasons,
+        ['.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.']
+      );
+    `;
+
+    const analysis = analyzeScenarioContent(content);
+
+    assert.equal(analysis.usesGateReasonStrings, true);
+    assert.equal(analysis.importsEvaluator, true);
+    assert.equal(analysis.callsEvaluator, true);
+    assert.equal(analysis.satisfiesGuard, true);
   });
 });
