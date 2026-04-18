@@ -7,8 +7,7 @@ Freeze the public comparison contract for how AgentXchain describes CrewAI. The 
 ## Interface
 
 - Files:
-  - `website-v2/src/pages/compare/vs-crewai.mdx`
-  - `website-v2/docs/compare-crewai.mdx`
+  - `website-v2/docs/compare/vs-crewai.mdx`
   - `.planning/COMPETITIVE_POSITIONING_MATRIX.md`
 - Guard:
   - `cli/test/compare-crewai-claims.test.js`
@@ -33,8 +32,8 @@ Freeze the public comparison contract for how AgentXchain describes CrewAI. The 
 
 ## Acceptance Tests
 
-1. `AT-CREWAI-CLAIMS-001`: `website-v2/docs/compare-crewai.mdx` must acknowledge tracing, HITL, checkpointing, and app-defined governance while rejecting the stale absolute claims.
-2. `AT-CREWAI-CLAIMS-002`: `website-v2/src/pages/compare/vs-crewai.mdx` must acknowledge A2A delegation, webhook-based HITL review/resume, and exportable AMP tracing while keeping the product contrast on governed delivery.
+1. `AT-CREWAI-CLAIMS-001`: `website-v2/docs/compare/vs-crewai.mdx` must acknowledge tracing, HITL, checkpointing, and app-defined governance while rejecting the stale absolute claims.
+2. `AT-CREWAI-CLAIMS-002`: `website-v2/docs/compare/vs-crewai.mdx` must acknowledge A2A delegation, webhook-based HITL review/resume, and exportable AMP tracing while keeping the product contrast on governed delivery.
 3. `AT-CREWAI-CLAIMS-003`: `node --test cli/test/compare-crewai-claims.test.js` passes.
 4. `AT-CREWAI-CLAIMS-004`: `cd website-v2 && npm run build` succeeds after the comparison copy changes.
 

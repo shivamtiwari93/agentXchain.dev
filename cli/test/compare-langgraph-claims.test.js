@@ -26,7 +26,19 @@ describe('LangGraph comparison claims', () => {
   it('AT-LANGGRAPH-CLAIMS-002: vs-langgraph names current human-oversight capabilities precisely', () => {
     assert.match(
       VS_LANGGRAPH,
+      /\| \*\*Governance posture\*\* \| App-defined orchestration; no built-in delivery-governance layer \|/,
+    );
+    assert.match(
+      VS_LANGGRAPH,
       /\| \*\*Human authority\*\* \| Interrupts with checkpoint-backed resume and state inspection\/modification \|/,
+    );
+    assert.match(
+      VS_LANGGRAPH,
+      /\| \*\*Recovery posture\*\* \| Durable checkpoints, time travel, and interrupt\/resume flows \|/,
+    );
+    assert.match(
+      VS_LANGGRAPH,
+      /\| \*\*Multi-repo posture\*\* \| No built-in cross-repo coordinator surface \|/,
     );
     assert.match(
       VS_LANGGRAPH,

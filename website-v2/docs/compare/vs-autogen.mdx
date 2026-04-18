@@ -20,8 +20,11 @@ AutoGen is also a branding trap if you compare it lazily. The current project is
 | **Primary job** | Multi-agent conversation and orchestration patterns | Governed software delivery |
 | **Interaction model** | AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern, Swarm-style handoffs, custom routing | Role-based turns and governed phases |
 | **Quality controls** | Guardrails and safeguards on agent outputs; no mandatory cross-role challenge | Mandatory protocol-enforced challenge between roles |
+| **Governance posture** | App-defined safeguards and approval patterns; no built-in repository-delivery governance layer | Protocol-native role authority, objections, and gate enforcement |
 | **Human involvement** | `human_input_mode`, user agents, and A2A/AG-UI human approval patterns | Phase-transition and run-completion gates |
+| **Recovery posture** | Resume-from-history and app-managed conversation durability | Turn recovery plus append-only delivery state |
 | **Interoperability** | A2A and AG-UI protocol support | Connector-based (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
+| **Multi-repo posture** | No built-in cross-repo coordinator surface | Coordinator-backed repo missions and barrier tracking |
 | **Audit surface** | Conversation history, safeguard events, and OpenTelemetry tracing | Append-only decision and objection ledgers |
 | **Best fit** | Flexible agent conversations and workflows | Auditable code convergence |
 

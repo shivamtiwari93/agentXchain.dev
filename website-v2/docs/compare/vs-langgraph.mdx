@@ -19,7 +19,10 @@ They operate at different layers. LangGraph is stronger for runtime orchestratio
 |---|---|---|
 | **Primary job** | Graph/state-machine orchestration | Governed software delivery |
 | **Control flow** | Developer-defined graphs with conditional edges, `Command`, parallel branches, and subgraphs | Role-based turns and protocol gates |
+| **Governance posture** | App-defined orchestration; no built-in delivery-governance layer | Protocol-native role authority, objections, and ship gates |
 | **Human authority** | Interrupts with checkpoint-backed resume and state inspection/modification | Explicit phase and completion approvals |
+| **Recovery posture** | Durable checkpoints, time travel, and interrupt/resume flows | Turn recovery plus accepted delivery history |
+| **Multi-repo posture** | No built-in cross-repo coordinator surface | Coordinator-backed repo missions and barrier tracking |
 | **Observability** | Durable checkpoints, time travel, and LangSmith | Append-only local delivery ledgers |
 | **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
 | **Best fit** | Long-running agent apps | Auditable code convergence |

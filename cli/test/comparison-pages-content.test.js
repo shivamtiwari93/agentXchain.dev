@@ -73,6 +73,8 @@ describe('comparison pages content', () => {
     assertCommonPageContract(pages.crewai, 'CrewAI');
     assert.match(pages.crewai, /observability|provider support|flows/i);
     assert.match(pages.crewai, /governed software delivery|auditable repo delivery/i);
+    assert.match(pages.crewai, /\| \*\*Governance posture\*\* \| App-defined workflows and approvals; no built-in repository-delivery constitution \|/);
+    assert.match(pages.crewai, /\| \*\*Multi-repo posture\*\* \| No built-in cross-repo coordinator surface \|/);
     // CrewAI has guardrails and checkpoint/resume — page must acknowledge them
     assert.match(pages.crewai, /guardrail/i, 'CrewAI page must acknowledge task-level guardrails');
     assert.match(pages.crewai, /checkpoint|resume/i, 'CrewAI page must acknowledge checkpoint/resume capability');
@@ -82,6 +84,9 @@ describe('comparison pages content', () => {
   it('keeps the LangGraph page honest and code-backed', () => {
     assertCommonPageContract(pages.langgraph, 'LangGraph');
     assert.match(pages.langgraph, /durable execution|time-travel|interrupts/i);
+    assert.match(pages.langgraph, /\| \*\*Governance posture\*\* \| App-defined orchestration; no built-in delivery-governance layer \|/);
+    assert.match(pages.langgraph, /\| \*\*Recovery posture\*\* \| Durable checkpoints, time travel, and interrupt\/resume flows \|/);
+    assert.match(pages.langgraph, /\| \*\*Multi-repo posture\*\* \| No built-in cross-repo coordinator surface \|/);
     assert.match(pages.langgraph, /Command/i, 'LangGraph page must acknowledge Command-based routing');
     assert.match(pages.langgraph, /subgraph|parallel/i, 'LangGraph page must acknowledge subgraphs or parallel fan-out');
     assert.match(pages.langgraph, /governed convergence|human-gated phase transitions|protocol-backed convergence/i);
@@ -100,6 +105,9 @@ describe('comparison pages content', () => {
   it('keeps the AutoGen page honest about AG2 branding and orchestration patterns', () => {
     assertCommonPageContract(pages.autogen, 'AG2 / AutoGen');
     assert.match(pages.autogen, /AG2/i);
+    assert.match(pages.autogen, /\| \*\*Governance posture\*\* \| App-defined safeguards and approval patterns; no built-in repository-delivery governance layer \|/);
+    assert.match(pages.autogen, /\| \*\*Recovery posture\*\* \| Resume-from-history and app-managed conversation durability \|/);
+    assert.match(pages.autogen, /\| \*\*Multi-repo posture\*\* \| No built-in cross-repo coordinator surface \|/);
     assert.match(pages.autogen, /AutoPattern|RoundRobinPattern|ManualPattern|human_input_mode/i);
     assert.match(pages.autogen, /governed software delivery|auditable code convergence/i);
     // AG2 has guardrails and A2A/AG-UI — page must acknowledge them

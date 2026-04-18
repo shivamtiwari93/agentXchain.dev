@@ -7,8 +7,7 @@ Freeze the public comparison contract for how AgentXchain describes LangGraph. T
 ## Interface
 
 - Files:
-  - `website-v2/src/pages/compare/vs-langgraph.mdx`
-  - `website-v2/docs/compare-langgraph.mdx`
+  - `website-v2/docs/compare/vs-langgraph.mdx`
 - Guard:
   - `cli/test/compare-langgraph-claims.test.js`
 
@@ -31,8 +30,8 @@ Freeze the public comparison contract for how AgentXchain describes LangGraph. T
 
 ## Acceptance Tests
 
-1. `AT-LANGGRAPH-CLAIMS-001`: `website-v2/docs/compare-langgraph.mdx` must use scoped governance, HITL, recovery, and multi-repo wording while rejecting the stale absolutes.
-2. `AT-LANGGRAPH-CLAIMS-002`: `website-v2/src/pages/compare/vs-langgraph.mdx` must describe LangGraph human authority with checkpoint-backed resume plus state inspection/modification.
+1. `AT-LANGGRAPH-CLAIMS-001`: `website-v2/docs/compare/vs-langgraph.mdx` must use scoped governance, HITL, recovery, and multi-repo wording while rejecting the stale absolutes.
+2. `AT-LANGGRAPH-CLAIMS-002`: `website-v2/docs/compare/vs-langgraph.mdx` must describe LangGraph human authority with checkpoint-backed resume plus state inspection/modification.
 3. `AT-LANGGRAPH-CLAIMS-003`: `node --test cli/test/compare-langgraph-claims.test.js` passes.
 4. `AT-LANGGRAPH-CLAIMS-004`: `cd website-v2 && npm run build` succeeds after the comparison copy changes.
 

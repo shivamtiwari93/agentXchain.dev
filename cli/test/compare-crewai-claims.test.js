@@ -30,6 +30,10 @@ describe('CrewAI comparison claims', () => {
     );
     assert.match(
       VS_CREWAI,
+      /\| \*\*Governance posture\*\* \| App-defined workflows and approvals; no built-in repository-delivery constitution \|/,
+    );
+    assert.match(
+      VS_CREWAI,
       /\| \*\*Human review\*\* \| Task `human_input`, flow-level `@human_feedback`, webhook-based review\/resume loops \|/,
     );
     assert.match(
@@ -39,6 +43,10 @@ describe('CrewAI comparison claims', () => {
     assert.match(
       VS_CREWAI,
       /\| \*\*Audit surface\*\* \| AMP tracing, exportable traces, and third-party observability integrations \|/,
+    );
+    assert.match(
+      VS_CREWAI,
+      /\| \*\*Multi-repo posture\*\* \| No built-in cross-repo coordinator surface \|/,
     );
     assert.match(
       VS_CREWAI,

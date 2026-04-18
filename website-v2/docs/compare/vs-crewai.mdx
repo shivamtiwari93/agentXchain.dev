@@ -19,9 +19,11 @@ They solve different problems. If your stack needs both runtime orchestration an
 |---|---|---|
 | **Primary job** | Orchestrate agent crews and flows | Govern software delivery |
 | **Workflow model** | Sequential or hierarchical crews, event-driven flows, A2A delegation | Role-based turns, objections, and phase gates |
+| **Governance posture** | App-defined workflows and approvals; no built-in repository-delivery constitution | Protocol-native role authority, objections, and gate enforcement |
 | **Quality gates** | Task-level guardrails with retry limits | Protocol-enforced mandatory challenge |
 | **Human review** | Task `human_input`, flow-level `@human_feedback`, webhook-based review/resume loops | Phase-transition and run-completion gates |
 | **Failure recovery** | Checkpointing for crews, flows, and agents; replay/resume from saved state | Blocked-state recovery, `multi resume`, coordinator handoff |
+| **Multi-repo posture** | No built-in cross-repo coordinator surface | Coordinator-backed repo missions and barrier tracking |
 | **Audit surface** | AMP tracing, exportable traces, and third-party observability integrations | Append-only history, decision ledger, and objection trail |
 | **Best fit** | Agent applications and workflows | Auditable repo delivery |
 

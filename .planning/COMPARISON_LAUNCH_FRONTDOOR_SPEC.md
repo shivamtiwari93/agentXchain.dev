@@ -8,15 +8,15 @@ Keep comparison pages and the `/launch` page aligned with the governed-ready onb
 
 Public surfaces:
 
-- `website-v2/src/pages/compare/vs-crewai.mdx`
-- `website-v2/src/pages/compare/vs-langgraph.mdx`
-- `website-v2/src/pages/compare/vs-openai-agents-sdk.mdx`
-- `website-v2/src/pages/compare/vs-autogen.mdx`
-- `website-v2/src/pages/compare/vs-warp.mdx`
-- `website-v2/src/pages/compare/vs-devin.mdx`
-- `website-v2/src/pages/compare/vs-metagpt.mdx`
-- `website-v2/src/pages/compare/vs-codegen.mdx`
-- `website-v2/src/pages/compare/vs-openhands.mdx`
+- `website-v2/docs/compare/vs-crewai.mdx`
+- `website-v2/docs/compare/vs-langgraph.mdx`
+- `website-v2/docs/compare/vs-openai-agents-sdk.mdx`
+- `website-v2/docs/compare/vs-autogen.mdx`
+- `website-v2/docs/compare/vs-warp.mdx`
+- `website-v2/docs/compare/vs-devin.mdx`
+- `website-v2/docs/compare/vs-metagpt.mdx`
+- `website-v2/docs/compare/vs-codegen.mdx`
+- `website-v2/docs/compare/vs-openhands.mdx`
 - `website-v2/src/pages/launch.mdx`
 
 Guard surfaces:

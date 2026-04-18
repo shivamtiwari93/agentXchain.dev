@@ -7,8 +7,7 @@ Freeze the public comparison contract for how AgentXchain describes AG2 / AutoGe
 ## Interface
 
 - Files:
-  - `website-v2/src/pages/compare/vs-autogen.mdx`
-  - `website-v2/docs/compare-autogen.mdx`
+  - `website-v2/docs/compare/vs-autogen.mdx`
 - Guard:
   - `cli/test/compare-autogen-claims.test.js`
 
@@ -32,8 +31,8 @@ Freeze the public comparison contract for how AgentXchain describes AG2 / AutoGe
 
 ## Acceptance Tests
 
-1. `AT-AUTOGEN-CLAIMS-001`: `website-v2/docs/compare-autogen.mdx` must use scoped governance, HITL, recovery, and multi-repo wording while rejecting the stale absolutes.
-2. `AT-AUTOGEN-CLAIMS-002`: `website-v2/src/pages/compare/vs-autogen.mdx` must describe AG2 oversight/observability with current guardrails, tracing, and HITL wording.
+1. `AT-AUTOGEN-CLAIMS-001`: `website-v2/docs/compare/vs-autogen.mdx` must use scoped governance, HITL, recovery, and multi-repo wording while rejecting the stale absolutes.
+2. `AT-AUTOGEN-CLAIMS-002`: `website-v2/docs/compare/vs-autogen.mdx` must describe AG2 oversight/observability with current guardrails, tracing, and HITL wording.
 3. `AT-AUTOGEN-CLAIMS-003`: `node --test cli/test/compare-autogen-claims.test.js` passes.
 4. `AT-AUTOGEN-CLAIMS-004`: `cd website-v2 && npm run build` succeeds after the comparison copy changes.
 

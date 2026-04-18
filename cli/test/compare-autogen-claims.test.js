@@ -27,7 +27,19 @@ describe('AutoGen comparison claims', () => {
   it('AT-AUTOGEN-CLAIMS-002: vs-autogen names current AG2 oversight and observability precisely', () => {
     assert.match(
       VS_AUTOGEN,
+      /\| \*\*Governance posture\*\* \| App-defined safeguards and approval patterns; no built-in repository-delivery governance layer \|/,
+    );
+    assert.match(
+      VS_AUTOGEN,
       /\| \*\*Human involvement\*\* \| `human_input_mode`, user agents, and A2A\/AG-UI human approval patterns \|/,
+    );
+    assert.match(
+      VS_AUTOGEN,
+      /\| \*\*Recovery posture\*\* \| Resume-from-history and app-managed conversation durability \|/,
+    );
+    assert.match(
+      VS_AUTOGEN,
+      /\| \*\*Multi-repo posture\*\* \| No built-in cross-repo coordinator surface \|/,
     );
     assert.match(
       VS_AUTOGEN,
