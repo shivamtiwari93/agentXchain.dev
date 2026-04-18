@@ -127,12 +127,14 @@ describe('status command — coordinator projection warnings', () => {
       event_id: 'evt_test002',
       event_type: 'coordinator_retry_projection_warning',
       timestamp: new Date().toISOString(),
+      run_id: 'run-test',
       payload: { workstream_id: 'ws-1', repo_id: 'r1', warning_code: 'coordinator_acceptance_projection_incomplete' },
     });
     appendEvent(root, {
       event_id: 'evt_test003',
       event_type: 'coordinator_retry_projection_warning',
       timestamp: new Date().toISOString(),
+      run_id: 'run-test',
       payload: { workstream_id: 'ws-2', repo_id: 'r2', warning_code: 'coordinator_acceptance_projection_incomplete' },
     });
     // Also append a non-warning event to prove filtering works
@@ -147,5 +149,40 @@ describe('status command — coordinator projection warnings', () => {
     assert.equal(output.coordinator_warnings.reconciliation_required, true);
     assert.equal(output.coordinator_warnings.warnings[0].workstream_id, 'ws-1');
     assert.equal(output.coordinator_warnings.warnings[1].workstream_id, 'ws-2');
+  });
+
+  it('AT-STATUS-COORD-WARN-004: JSON output ignores projection warnings from prior runs', () => {
+    const root = makeGovernedWorkspace();
+    appendEvent(root, {
+      event_id: 'evt_old_run',
+      event_type: 'coordinator_retry_projection_warning',
+      timestamp: new Date().toISOString(),
+      run_id: 'run-old',
+      payload: {
+        workstream_id: 'ws-old',
+        repo_id: 'repo-old',
+        warning_code: 'coordinator_acceptance_projection_incomplete',
+      },
+    });
+    appendEvent(root, {
+      event_id: 'evt_current_run',
+      event_type: 'coordinator_retry_projection_warning',
+      timestamp: new Date().toISOString(),
+      run_id: 'run-test',
+      payload: {
+        workstream_id: 'ws-current',
+        repo_id: 'repo-current',
+        reissued_turn_id: 'turn-current',
+        warning_code: 'coordinator_acceptance_projection_incomplete',
+        warning_message: 'Projection incomplete for current run',
+      },
+    });
+
+    const output = runStatusJson(root);
+    assert.equal(output.coordinator_warnings.count, 1);
+    assert.equal(output.coordinator_warnings.warnings[0].workstream_id, 'ws-current');
+    assert.equal(output.coordinator_warnings.warnings[0].repo_id, 'repo-current');
+    assert.equal(output.coordinator_warnings.warnings[0].reissued_turn_id, 'turn-current');
+    assert.equal(output.coordinator_warnings.warnings[0].warning_message, 'Projection incomplete for current run');
   });
 });

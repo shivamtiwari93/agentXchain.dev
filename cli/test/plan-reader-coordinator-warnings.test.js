@@ -14,6 +14,7 @@ function writeJson(path, value) {
 function makeWorkspaceWithMission() {
   const root = mkdtempSync(join(tmpdir(), 'axc-plan-reader-warn-'));
   mkdirSync(join(root, '.agentxchain/missions/m1/plans'), { recursive: true });
+  mkdirSync(join(root, '.agentxchain/multirepo'), { recursive: true });
   mkdirSync(join(root, '.agentxchain'), { recursive: true });
 
   writeJson(join(root, '.agentxchain/missions/m1/mission.json'), {
@@ -32,6 +33,14 @@ function makeWorkspaceWithMission() {
       { workstream_id: 'ws-1', title: 'WS 1', goal: 'Test', roles: ['dev'], phases: ['implementation'], depends_on: [] },
     ],
     launch_records: [],
+  });
+
+  writeJson(join(root, '.agentxchain/multirepo/state.json'), {
+    schema_version: '0.1',
+    super_run_id: 'srun-current',
+    status: 'active',
+    phase: 'implementation',
+    repo_runs: {},
   });
 
   return root;
@@ -62,6 +71,7 @@ describe('plan-reader — coordinator warning visibility', () => {
       event_id: 'evt_pr001',
       event_type: 'coordinator_retry_projection_warning',
       timestamp: new Date().toISOString(),
+      run_id: 'srun-current',
       payload: {
         workstream_id: 'ws-1',
         repo_id: 'repo-a',
@@ -94,5 +104,41 @@ describe('plan-reader — coordinator warning visibility', () => {
     assert.ok(result.ok);
     assert.equal(result.body.coordinator_warnings.count, 0);
     assert.equal(result.body.coordinator_warnings.reconciliation_required, false);
+  });
+
+  it('AT-PLAN-WARN-004: plan snapshot ignores projection warnings from prior coordinator runs', () => {
+    const root = makeWorkspaceWithMission();
+    appendEvent(root, {
+      event_id: 'evt_old_srun',
+      event_type: 'coordinator_retry_projection_warning',
+      timestamp: new Date().toISOString(),
+      run_id: 'srun-old',
+      payload: {
+        workstream_id: 'ws-old',
+        repo_id: 'repo-old',
+        warning_code: 'coordinator_acceptance_projection_incomplete',
+      },
+    });
+    appendEvent(root, {
+      event_id: 'evt_current_srun',
+      event_type: 'coordinator_retry_projection_warning',
+      timestamp: new Date().toISOString(),
+      run_id: 'srun-current',
+      payload: {
+        workstream_id: 'ws-1',
+        repo_id: 'repo-a',
+        reissued_turn_id: 'turn-retry-001',
+        warning_code: 'coordinator_acceptance_projection_incomplete',
+        warning_message: 'Projection incomplete for current super-run',
+      },
+    });
+
+    const result = readPlanSnapshot(root);
+    assert.ok(result.ok);
+    assert.equal(result.body.coordinator_warnings.count, 1);
+    assert.equal(result.body.coordinator_warnings.warnings[0].workstream_id, 'ws-1');
+    assert.equal(result.body.coordinator_warnings.warnings[0].repo_id, 'repo-a');
+    assert.equal(result.body.coordinator_warnings.warnings[0].reissued_turn_id, 'turn-retry-001');
+    assert.equal(result.body.coordinator_warnings.warnings[0].warning_message, 'Projection incomplete for current super-run');
   });
 });

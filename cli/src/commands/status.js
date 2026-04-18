@@ -24,7 +24,7 @@ import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { readPreemptionMarker, findPendingApprovedIntents } from '../lib/intake.js';
 import { readContinuousSession } from '../lib/continuous-run.js';
 import { readAllDispatchProgress } from '../lib/dispatch-progress.js';
-import { readRunEvents } from '../lib/run-events.js';
+import { readCoordinatorWarnings } from '../lib/coordinator-warnings.js';
 
 export async function statusCommand(opts) {
   const context = loadStatusContext();
@@ -112,10 +112,22 @@ function loadStatusContext(dir = process.cwd()) {
     return null;
   }
 
+  const fallbackConfig = {
+    ...rawConfig,
+    files: {
+      talk: rawConfig.files?.talk || 'TALK.md',
+      history: rawConfig.files?.history || '.agentxchain/history.jsonl',
+      state: rawConfig.files?.state || '.agentxchain/state.json',
+      log: Object.prototype.hasOwnProperty.call(rawConfig.files || {}, 'log')
+        ? rawConfig.files.log
+        : null,
+    },
+  };
+
   return {
     root,
     rawConfig,
-    config: rawConfig,
+    config: fallbackConfig,
     version: 4,
   };
 }
@@ -123,6 +135,7 @@ function loadStatusContext(dir = process.cwd()) {
 function renderGovernedStatus(context, opts) {
   const { root, config, version } = context;
   const state = loadProjectState(root, config);
+  const stateRunId = state?.run_id || readRawStateRunId(root, config);
   const continuity = getContinuityStatus(root, state);
   const connectorHealth = getConnectorHealth(root, config, state);
   const recovery = deriveRecoveryDescriptor(state, config);
@@ -149,7 +162,7 @@ function renderGovernedStatus(context, opts) {
   const dispatchProgress = filterDispatchProgressForActiveTurns(readAllDispatchProgress(root), activeTurns);
 
   // Coordinator warning surfacing — DEC-COORD-RETRY-PROJECTION-EVENT-001
-  const coordinatorWarnings = readCoordinatorWarnings(root);
+  const coordinatorWarnings = readCoordinatorWarnings(root, { runId: stateRunId || null });
 
   if (opts.json) {
     const dashPid = getDashboardPid(root);
@@ -919,25 +932,6 @@ function formatUsd(value) {
  * Read coordinator retry projection warnings from the event log.
  * Returns a structured summary for both JSON and CLI output.
  */
-function readCoordinatorWarnings(root) {
-  const events = readRunEvents(root, { type: 'coordinator_retry_projection_warning' });
-  if (events.length === 0) {
-    return { count: 0, reconciliation_required: false, warnings: [] };
-  }
-  return {
-    count: events.length,
-    reconciliation_required: true,
-    warnings: events.map((e) => ({
-      event_id: e.event_id,
-      timestamp: e.timestamp,
-      workstream_id: e.payload?.workstream_id || null,
-      repo_id: e.payload?.repo_id || null,
-      warning_code: e.payload?.warning_code || 'coordinator_acceptance_projection_incomplete',
-      warning_message: e.payload?.warning_message || null,
-    })),
-  };
-}
-
 function renderCoordinatorWarnings(warnings) {
   if (!warnings || warnings.count === 0) return;
   console.log(chalk.yellow.bold(`  ⚠ Coordinator reconciliation required (${warnings.count} projection warning${warnings.count !== 1 ? 's' : ''})`));
@@ -949,4 +943,21 @@ function renderCoordinatorWarnings(warnings) {
   }
   console.log(chalk.dim('  Run `agentxchain mission plan show latest --json` to force plan sync and verify.'));
   console.log('');
+}
+
+function readRawStateRunId(root, config) {
+  const relPath = config?.files?.state || '.agentxchain/state.json';
+  const filePath = join(root, relPath);
+  if (!existsSync(filePath)) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+    return typeof parsed?.run_id === 'string' && parsed.run_id.trim().length > 0
+      ? parsed.run_id.trim()
+      : null;
+  } catch {
+    return null;
+  }
 }

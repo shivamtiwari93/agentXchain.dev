@@ -228,6 +228,7 @@ This is not a hard failure because the child repo execution already completed. I
 - `AT-COORD-RETRY-011`: When retry execution succeeds but `acceptance_projection` cannot be recorded immediately, JSON output includes a warning entry with code `coordinator_acceptance_projection_incomplete` and sets `reconciliation_required: true`.
 - `AT-COORD-RETRY-012`: When projection fails, a `coordinator_retry_projection_warning` event is persisted in `events.jsonl` with `workstream_id`, `repo_id`, `reissued_turn_id`, `warning_code`, and `warning_message` in the payload. This event survives beyond stderr and is inspectable via `readRunEvents()`, dashboard, and report surfaces.
 - `AT-COORD-RETRY-013`: `agentxchain status --json` includes `coordinator_warnings` with `count`, `reconciliation_required`, and `warnings[]` derived from persisted `coordinator_retry_projection_warning` events. Dashboard plan snapshot (`readPlanSnapshot`) includes the same `coordinator_warnings` field for dashboard consumers.
+- `AT-COORD-RETRY-014`: `coordinator_warnings` is scoped to the current run only. Historical projection warnings from prior `run_id` / `super_run_id` values must not keep later healthy runs in a perpetual `reconciliation_required: true` state. `status --json` must still recover the current `run_id` from raw `.agentxchain/state.json` when schema validation is degraded so warning scoping remains truthful in diagnostic mode.
 
 ## Open Questions
 
