@@ -59,7 +59,7 @@ New in v2.133.0:
 - Docs-stack evaluation now enforced by contract test instead of planning-only prose
 - The current Docusaurus path now closes all three identified docs pain points: sidebar automation, sitemap generation, and search
 
-- 6,875 tests / 0 failures. Website build clean.
+- 6,875 tests / 1,257 suites / 0 failures. Website build clean.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

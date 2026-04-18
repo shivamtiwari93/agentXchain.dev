@@ -33,7 +33,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Offline full-text docs search with a hashed static index and no external search service
 - Docs-stack evaluation is now backed by a contract test instead of planning-only prose
 - The accepted Docusaurus path now closes the three identified docs pain points: sidebar automation, sitemap generation, and search
-- 6,875 tests / 0 failures. Website build clean.
+- 6,875 tests / 1,257 suites / 0 failures. Website build clean.
 
 **See it in 30 seconds (no API keys needed):**
 
@@ -86,7 +86,7 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
 - Latest release adds offline docs search, closes the final docs usability gap in the Docusaurus evaluation, and makes the accepted docs-stack posture executable through a contract test.
-- 6,875 tests / 0 failures. Website build clean.
+- 6,875 tests / 1,257 suites / 0 failures. Website build clean.
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -124,7 +124,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- 6,875 tests / 0 failures. Website build clean.
+- 6,875 tests / 1,257 suites / 0 failures. Website build clean.
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
