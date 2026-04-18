@@ -4,6 +4,7 @@ import { resolve } from 'path';
 import { findProjectRoot, loadProjectContext } from '../lib/config.js';
 import {
   attachChainToMission,
+  bindCoordinatorToMission,
   buildMissionListSummary,
   buildMissionSnapshot,
   createMission,
@@ -12,6 +13,8 @@ import {
   loadMissionArtifact,
   loadMissionSnapshot,
 } from '../lib/missions.js';
+import { loadCoordinatorConfig } from '../lib/coordinator-config.js';
+import { initializeCoordinatorRun } from '../lib/coordinator-state.js';
 import {
   approvePlanArtifact,
   createPlanArtifact,
@@ -48,6 +51,22 @@ export async function missionStartCommand(opts) {
     process.exit(1);
   }
 
+  // Multi-repo: validate coordinator config before creating mission (fail-fast)
+  let coordinatorConfig = null;
+  let coordinatorWorkspacePath = null;
+  if (opts.multi) {
+    coordinatorWorkspacePath = resolve(opts.coordinatorWorkspace || opts.coordinatorConfig || root);
+    coordinatorConfig = loadCoordinatorConfig(coordinatorWorkspacePath);
+    if (!coordinatorConfig.ok) {
+      console.error(chalk.red('Coordinator config validation failed:'));
+      console.error(chalk.dim(`  Expected agentxchain-multi.json at: ${coordinatorWorkspacePath}`));
+      for (const err of coordinatorConfig.errors || []) {
+        console.error(chalk.red(`  ${err}`));
+      }
+      process.exit(1);
+    }
+  }
+
   const result = createMission(root, {
     missionId: opts.id,
     title,
@@ -56,6 +75,37 @@ export async function missionStartCommand(opts) {
   if (!result.ok) {
     console.error(chalk.red(result.error));
     process.exit(1);
+  }
+
+  // Multi-repo: initialize coordinator and bind to mission
+  if (opts.multi && coordinatorConfig) {
+    const initResult = initializeCoordinatorRun(coordinatorWorkspacePath, coordinatorConfig.config);
+    if (!initResult.ok) {
+      // Atomic rollback: delete the mission artifact
+      const { getMissionsDir } = await import('../lib/missions.js');
+      const { unlinkSync, existsSync: fileExists } = await import('fs');
+      const { join: joinPath } = await import('path');
+      const missionFile = joinPath(getMissionsDir(root), `${result.mission.mission_id}.json`);
+      if (fileExists(missionFile)) {
+        try { unlinkSync(missionFile); } catch { /* best effort */ }
+      }
+      console.error(chalk.red('Coordinator initialization failed:'));
+      for (const err of initResult.errors || []) {
+        console.error(chalk.red(`  ${err}`));
+      }
+      process.exit(1);
+    }
+
+    const bindResult = bindCoordinatorToMission(root, result.mission.mission_id, {
+      super_run_id: initResult.super_run_id,
+      config_path: opts.coordinatorConfig || null,
+      workspace_path: coordinatorWorkspacePath,
+    });
+    if (!bindResult.ok) {
+      console.error(chalk.yellow(`Mission created but coordinator binding failed: ${bindResult.error}`));
+    } else {
+      result.mission = bindResult.mission;
+    }
   }
 
   const snapshot = buildMissionSnapshot(root, result.mission);
@@ -1288,6 +1338,54 @@ function renderMissionPlanError(error) {
   }
 }
 
+// ── Mission Bind-Coordinator Command ───────────────────────────────────────
+
+export async function missionBindCoordinatorCommand(missionId, opts) {
+  const root = findProjectRoot(opts.dir || process.cwd());
+  if (!root) {
+    console.error(chalk.red('No AgentXchain project found. Run this inside a governed project.'));
+    process.exit(1);
+  }
+
+  const superRunId = String(opts.superRunId || '').trim();
+  const configPath = String(opts.coordinatorConfig || '').trim();
+  if (!superRunId) {
+    console.error(chalk.red('--super-run-id is required.'));
+    process.exit(1);
+  }
+
+  const mission = missionId
+    ? loadMissionArtifact(root, missionId)
+    : loadLatestMissionArtifact(root);
+  if (!mission) {
+    console.error(chalk.red(missionId ? `Mission not found: ${missionId}` : 'No mission found.'));
+    process.exit(1);
+  }
+
+  const workspacePath = resolve(opts.coordinatorWorkspace || root);
+  const result = bindCoordinatorToMission(root, mission.mission_id, {
+    super_run_id: superRunId,
+    config_path: configPath || null,
+    workspace_path: workspacePath,
+  });
+
+  if (!result.ok) {
+    console.error(chalk.red(result.error));
+    process.exit(1);
+  }
+
+  const snapshot = buildMissionSnapshot(root, result.mission);
+  if (opts.json) {
+    console.log(JSON.stringify(snapshot, null, 2));
+    return;
+  }
+
+  console.log(chalk.green(`Bound coordinator ${superRunId} to ${snapshot.mission_id}`));
+  renderMissionSnapshot(snapshot);
+}
+
+// ── Rendering ──────────────────────────────────────────────────────────────
+
 function renderMissionSnapshot(snapshot) {
   const latestPlan = snapshot.latest_plan || null;
 
@@ -1307,6 +1405,36 @@ function renderMissionSnapshot(snapshot) {
 
   if (snapshot.missing_chain_ids?.length) {
     console.log(`  Missing chains:        ${snapshot.missing_chain_ids.join(', ')}`);
+  }
+
+  // Coordinator (multi-repo) section
+  if (snapshot.coordinator_status) {
+    const cs = snapshot.coordinator_status;
+    console.log('');
+    console.log(chalk.bold('  Coordinator (multi-repo):'));
+    if (cs.unreachable) {
+      console.log(`    Super Run:           ${cs.super_run_id || '—'}`);
+      console.log(`    Status:              ${chalk.red('unreachable')}`);
+    } else {
+      console.log(`    Super Run:           ${cs.super_run_id || '—'}`);
+      console.log(`    Status:              ${formatCoordinatorStatus(cs.status)}`);
+      console.log(`    Phase:               ${cs.phase || '—'}`);
+      if (cs.repo_runs && Object.keys(cs.repo_runs).length > 0) {
+        console.log('    Repos:');
+        for (const [repoId, repo] of Object.entries(cs.repo_runs)) {
+          console.log(`      ${pad(repoId, 16)} ${pad(repo.status || '—', 14)} ${pad(repo.phase || '—', 18)} ${repo.run_id || '—'}`);
+        }
+      }
+      if (cs.pending_barriers && cs.pending_barriers.length > 0) {
+        console.log('    Barriers:');
+        for (const barrier of cs.pending_barriers) {
+          console.log(`      ${pad(barrier.id, 28)} ${pad(barrier.type || '—', 24)} ${barrier.status || '—'}`);
+        }
+      }
+      if (cs.blocked_reason) {
+        console.log(`    Blocked:             ${chalk.yellow(cs.blocked_reason)}`);
+      }
+    }
   }
 
   if (latestPlan) {
@@ -1369,6 +1497,20 @@ function formatMissionStatus(status) {
       return chalk.yellow('needs_attention');
     case 'degraded':
       return chalk.red('degraded');
+    default:
+      return status;
+  }
+}
+
+function formatCoordinatorStatus(status) {
+  if (!status) return '—';
+  switch (status) {
+    case 'active':
+      return chalk.green('active');
+    case 'blocked':
+      return chalk.red('blocked');
+    case 'completed':
+      return chalk.cyan('completed');
     default:
       return status;
   }

@@ -124,7 +124,7 @@ import { eventsCommand } from '../src/commands/events.js';
 import { connectorCheckCommand, connectorValidateCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
-import { missionAttachChainCommand, missionListCommand, missionPlanApproveCommand, missionPlanAutopilotCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
+import { missionAttachChainCommand, missionBindCoordinatorCommand, missionListCommand, missionPlanApproveCommand, missionPlanAutopilotCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -445,9 +445,22 @@ missionCmd
   .option('--constraint <text>', 'Add a constraint to the planner when using --plan (repeatable)', collectOption, [])
   .option('--role-hint <role>', 'Hint available roles to the planner when using --plan (repeatable)', collectOption, [])
   .option('--planner-output-file <path>', 'Read planner JSON output from a file instead of calling the configured planner')
+  .option('--multi', 'Create a multi-repo mission with coordinator initialization')
+  .option('--coordinator-config <path>', 'Path to agentxchain-multi.json (required with --multi)')
+  .option('--coordinator-workspace <path>', 'Coordinator workspace path (defaults to project root)')
   .option('-j, --json', 'Output as JSON')
   .option('-d, --dir <path>', 'Project directory')
   .action(missionStartCommand);
+
+missionCmd
+  .command('bind-coordinator [mission_id]')
+  .description('Bind an existing coordinator super_run to a mission')
+  .requiredOption('--super-run-id <id>', 'Coordinator super_run_id to bind')
+  .option('--coordinator-config <path>', 'Path to agentxchain-multi.json')
+  .option('--coordinator-workspace <path>', 'Coordinator workspace path')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(missionBindCoordinatorCommand);
 
 missionCmd
   .command('list')

@@ -3,6 +3,7 @@ import { join } from 'path';
 import { loadAllChainReports, loadChainReport, loadLatestChainReport } from './chain-reports.js';
 import { buildPlanProgressSummary, loadLatestPlan } from './mission-plans.js';
 import { getActiveRepoDecisions } from './repo-decisions.js';
+import { getCoordinatorStatus } from './coordinator-state.js';
 
 const MISSION_ATTENTION_TERMINALS = new Set(['operator_abort', 'parent_validation_failed']);
 const MISSION_ATTENTION_RUN_STATUSES = new Set(['blocked', 'failed']);
@@ -143,9 +144,21 @@ export function buildMissionSnapshot(root, missionArtifact) {
   const latestPlan = loadLatestPlan(root, missionArtifact.mission_id);
   const activeRepoDecisions = getActiveRepoDecisions(root);
 
+  // Load coordinator status if mission is bound to a multi-repo coordinator
+  let coordinatorStatus = null;
+  if (missionArtifact.coordinator && missionArtifact.coordinator.super_run_id) {
+    const workspacePath = missionArtifact.coordinator.workspace_path || root;
+    try {
+      const cs = getCoordinatorStatus(workspacePath);
+      coordinatorStatus = cs || { unreachable: true, super_run_id: missionArtifact.coordinator.super_run_id };
+    } catch {
+      coordinatorStatus = { unreachable: true, super_run_id: missionArtifact.coordinator.super_run_id };
+    }
+  }
+
   return {
     ...missionArtifact,
-    derived_status: deriveMissionStatus(missionArtifact, chains, missingChainIds),
+    derived_status: deriveMissionStatus(missionArtifact, chains, missingChainIds, coordinatorStatus),
     chain_count: chainIds.length,
     attached_chain_count: chains.length,
     missing_chain_ids: missingChainIds,
@@ -155,6 +168,7 @@ export function buildMissionSnapshot(root, missionArtifact) {
     latest_terminal_reason: latestChain?.terminal_reason || null,
     latest_plan: buildPlanProgressSummary(latestPlan),
     active_repo_decisions_count: activeRepoDecisions.length,
+    coordinator_status: coordinatorStatus,
     chains,
   };
 }
@@ -163,19 +177,24 @@ export function loadAllMissionSnapshots(root) {
   return loadAllMissionArtifacts(root).map((mission) => buildMissionSnapshot(root, mission));
 }
 
-function deriveMissionStatus(missionArtifact, chains, missingChainIds) {
+function deriveMissionStatus(missionArtifact, chains, missingChainIds, coordinatorStatus) {
   if (missionArtifact.status && missionArtifact.status !== 'active') {
     return missionArtifact.status;
   }
+  // Coordinator-bound missions: check coordinator health
+  if (coordinatorStatus && !coordinatorStatus.unreachable && coordinatorStatus.status === 'blocked') {
+    return 'needs_attention';
+  }
   if (missingChainIds.length > 0) return 'degraded';
-  if (chains.length === 0) return 'planned';
+  if (chains.length === 0 && !coordinatorStatus) return 'planned';
   if (chains.some((chain) => (
     MISSION_ATTENTION_TERMINALS.has(chain.terminal_reason)
     || (chain.runs || []).some((run) => MISSION_ATTENTION_RUN_STATUSES.has(run.status))
   ))) {
     return 'needs_attention';
   }
-  return 'progressing';
+  if (coordinatorStatus && !coordinatorStatus.unreachable) return 'progressing';
+  return chains.length > 0 ? 'progressing' : 'planned';
 }
 
 export function loadLatestMissionSnapshot(root) {
@@ -195,4 +214,37 @@ export function buildMissionListSummary(root, limit = 20) {
 export function loadMissionAttachmentTarget(root, missionId) {
   if (missionId) return loadMissionArtifact(root, missionId);
   return loadLatestMissionArtifact(root);
+}
+
+/**
+ * Bind a coordinator super_run_id to a mission artifact.
+ *
+ * @param {string} root - project root
+ * @param {string} missionId - mission to bind
+ * @param {{ super_run_id: string, config_path: string, workspace_path?: string }} coordinatorRef
+ * @returns {{ ok: boolean, mission?: object, error?: string }}
+ */
+export function bindCoordinatorToMission(root, missionId, coordinatorRef) {
+  const mission = loadMissionArtifact(root, missionId);
+  if (!mission) {
+    return { ok: false, error: `Mission not found: ${missionId}` };
+  }
+
+  if (!coordinatorRef || typeof coordinatorRef.super_run_id !== 'string') {
+    return { ok: false, error: 'coordinator super_run_id is required' };
+  }
+
+  const updated = {
+    ...mission,
+    coordinator: {
+      super_run_id: coordinatorRef.super_run_id,
+      config_path: coordinatorRef.config_path || null,
+      workspace_path: coordinatorRef.workspace_path || '.',
+    },
+    updated_at: new Date().toISOString(),
+  };
+
+  mkdirSync(getMissionsDir(root), { recursive: true });
+  writeFileSync(join(getMissionsDir(root), `${updated.mission_id}.json`), JSON.stringify(updated, null, 2));
+  return { ok: true, mission: updated };
 }
