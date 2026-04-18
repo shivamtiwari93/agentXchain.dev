@@ -85,6 +85,17 @@ function buildPlanSummary(plan) {
       completed_at: lr.completed_at || null,
       status: lr.status,
       terminal_reason: lr.terminal_reason || null,
+      dispatch_mode: lr.dispatch_mode || null,
+      ...(lr.dispatch_mode === 'coordinator' && Array.isArray(lr.repo_dispatches) ? {
+        repo_dispatches: lr.repo_dispatches.map((rd) => ({
+          repo_id: rd.repo_id,
+          repo_turn_id: rd.repo_turn_id,
+          role: rd.role,
+          dispatched_at: rd.dispatched_at,
+          ...(rd.is_retry ? { is_retry: true, retry_of: rd.retry_of } : {}),
+          ...(rd.retried_at ? { retried_at: rd.retried_at, retry_reason: rd.retry_reason } : {}),
+        })),
+      } : {}),
     })),
   };
 }
