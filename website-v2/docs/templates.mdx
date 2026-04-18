@@ -24,9 +24,12 @@ This is the contract:
 | `cli-tool` | Command-line tools and packaged CLIs | `command-surface.md`, `platform-support.md`, `distribution-checklist.md` |
 | `library` | Reusable packages and shared modules | `public-api.md`, `compatibility-policy.md`, `release-adoption.md` |
 | `web-app` | Product UIs and browser-facing apps | `user-flows.md`, `ui-acceptance.md`, `browser-support.md` |
+| `full-local-cli` | Human-gated automation with all core roles on `local_cli` | No extra planning files; changes the runtime/authority topology at init time |
 | `enterprise-app` | Multi-role delivery with architecture and security review | `integration-boundaries.md`, `data-classification.md`, `risk-register.md` |
 
 If you cannot justify one of the specialized templates honestly, stay on `generic`. The point is clearer planning, not decorative metadata. `generic` is also the lowest-friction cold-start option: it keeps `pm`, `dev`, and `qa` on manual runtimes until you opt into automation.
+
+`full-local-cli` and `enterprise-app` are blueprint-backed init-time templates. They are intentionally init-only because they change governed team topology or runtime authority posture instead of merely appending planning files.
 
 ## Use a template at init time
 
@@ -212,7 +215,11 @@ Registry, workflow-kit, and artifact failures are errors. Unchecked acceptance h
 
 ### Blueprint-backed templates — custom roles and phases
 
-`enterprise-app` is intentionally not just another artifact bundle. It is an init-only **blueprint-backed** template that scaffolds a full custom governed team:
+`enterprise-app` and `full-local-cli` are intentionally not just artifact bundles. They are init-only **blueprint-backed** templates.
+
+`full-local-cli` keeps the standard 4-role team but moves every role onto authoritative `local_cli` execution while preserving human gate approvals. See [Automation Patterns](/docs/automation-patterns) for the exact operator path.
+
+`enterprise-app` scaffolds a full custom governed team:
 
 | Role | Phase owned | Gate artifact |
 |---|---|---|

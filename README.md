@@ -57,6 +57,7 @@ The protocol is the durable layer. Runners enforce it. Connectors bridge to agen
 - [CLI reference](https://agentxchain.dev/docs/cli/)
 - [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - [Templates](https://agentxchain.dev/docs/templates/)
+- [Automation Patterns](https://agentxchain.dev/docs/automation-patterns/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Multi-session continuity](https://agentxchain.dev/docs/multi-session/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
@@ -152,6 +153,7 @@ Built-in governed templates:
 - `cli-tool`: adds command-surface, platform-support, and distribution planning files
 - `library`: adds public-API, compatibility-policy, and release-adoption planning files
 - `web-app`: adds user-flow, UI acceptance, and browser-support planning files
+- `full-local-cli`: human-gated automation pattern with PM, Dev, QA, and Director all on authoritative `local_cli`
 - `enterprise-app`: adds enterprise planning artifacts plus blueprint-backed `architect` and `security_reviewer` phases
 
 Inspect the shipped template surfaces instead of guessing:

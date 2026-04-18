@@ -33,6 +33,7 @@ Supported template ids for the first release of this system:
 - `cli-tool`
 - `library`
 - `web-app`
+- `full-local-cli`
 - `enterprise-app`
 
 Non-goals for v1 of the template system:
@@ -117,6 +118,12 @@ Each template adds or customizes the human-readable planning files under `.plann
 - `ui-acceptance.md`
 - `browser-support.md`
 
+`full-local-cli` adds:
+
+- no extra planning artifacts
+- authoritative `local_cli` bindings for `pm`, `dev`, `qa`, and `eng_director`
+- human-gated approvals preserved at planning and completion
+
 `enterprise-app` adds:
 
 - `integration-boundaries.md`
@@ -198,6 +205,7 @@ These minimums are scaffold guidance first. In v1 they are represented as `accep
 - AT-SDLC-TEMPLATE-006: the packaged npm tarball contains every built-in template asset required by its manifest.
 - AT-SDLC-TEMPLATE-007: `agentxchain template validate` proves both the built-in registry and the current project's configured template binding.
 - AT-SDLC-TEMPLATE-008: `init --governed --template enterprise-app` proves the scaffold can emit a governed team beyond the default `pm/dev/qa` loop.
+- AT-SDLC-TEMPLATE-009: `init --governed --template full-local-cli` proves the scaffold can emit a human-gated all-local authoritative topology without manual runtime roles.
 
 ## Open Questions
 

@@ -19,11 +19,12 @@ describe('Choosing a template docs page', () => {
     assert.ok(page.includes('manual'), 'must mention manual runtimes');
   });
 
-  it('AT-CHTEMPL-003: lists all six templates', () => {
-    const templates = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app'];
+  it('AT-CHTEMPL-003: lists all shipped templates including the automation-pattern blueprint', () => {
+    const templates = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'full-local-cli', 'enterprise-app'];
     for (const t of templates) {
       assert.ok(page.includes(t), `must mention template: ${t}`);
     }
+    assert.ok(page.includes('Automation-pattern template'), 'must name the automation-pattern category');
   });
 
   it('AT-CHTEMPL-004: explains when to pick generic vs project-type', () => {

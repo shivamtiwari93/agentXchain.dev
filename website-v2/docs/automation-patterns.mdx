@@ -1,0 +1,138 @@
+---
+sidebar_position: 12
+title: Automation Patterns
+description: "Canonical governed runtime patterns, including the all-local authoritative setup with human gate approvals."
+---
+
+# Automation patterns
+
+This page names the runtime patterns operators actually try to build, instead of forcing them to infer everything from scattered examples.
+
+## Pattern: all automated turns, human gate approvals only
+
+This is the beta tester's natural target setup:
+
+- PM, Dev, QA, and Director all run through `local_cli`
+- every governed role is `authoritative`
+- humans do **not** author turns manually
+- humans **do** approve phase/completion gates
+
+Use the dedicated scaffold for it:
+
+```bash
+agentxchain init --governed --template full-local-cli --goal "Ship a governed product slice" --dir my-project -y
+```
+
+What that means in practice:
+
+- `pm -> local-pm`
+- `dev -> local-dev`
+- `qa -> local-qa`
+- `eng_director -> local-director`
+- planning still pauses for `approve-transition`
+- completion still pauses for `approve-completion`
+
+This is **not** the same as lights-out `run --auto-approve`. Humans still hold the constitutional approvals. The difference is that humans approve gates instead of manually writing turn results.
+
+## Exact local CLI command shapes
+
+Use truthful unattended-write commands. Anything weaker is a false-positive setup.
+
+- Claude Code: `claude --print --dangerously-skip-permissions`
+- Codex CLI: `codex --quiet --dangerously-bypass-approvals-and-sandbox {prompt}`
+
+Those commands map to different prompt transports:
+
+- Claude Code -> `prompt_transport: "stdin"`
+- Codex CLI -> `prompt_transport: "argv"`
+
+If you scaffold `full-local-cli` with `--dev-command` and `--dev-prompt-transport`, AgentXchain applies that local CLI contract across the template's default local runtimes instead of silently customizing only `dev`.
+
+## Fast path
+
+```bash
+agentxchain init --governed --template full-local-cli --goal "Ship a governed docs linter" --dir my-project -y
+cd my-project
+
+git init
+agentxchain template validate
+agentxchain doctor
+agentxchain connector check
+agentxchain connector validate local-pm
+agentxchain connector validate local-dev
+
+git add -A
+git commit -m "initial governed scaffold"
+```
+
+Then drive the lifecycle:
+
+```bash
+agentxchain step
+git add -A
+git commit -m "accept pm turn"
+agentxchain status
+agentxchain approve-transition
+agentxchain step
+git add -A
+git commit -m "accept dev turn"
+agentxchain step
+git add -A
+git commit -m "accept qa turn"
+agentxchain approve-completion
+```
+
+What happens:
+
+1. The first `step` dispatches the automated PM turn and auto-accepts it.
+2. Commit the accepted PM artifacts so the next authoritative turn starts from a clean baseline.
+3. The run pauses at the planning gate because human approval is still required.
+4. `approve-transition` opens implementation.
+5. The next `step` dispatches Dev automatically.
+6. Commit the accepted Dev artifacts before the next authoritative turn.
+7. The next `step` dispatches QA automatically.
+8. Commit the accepted QA artifacts, then approve completion.
+
+That is the whole point of the pattern: automated turns, human gates.
+
+Do not skip the commits between accepted authoritative turns. The next code-writing turn will fail closed on a dirty tree.
+
+## Human steering during automation
+
+If the operator needs to redirect the next PM turn without dropping back to manual runtimes, inject the work item and then resume PM dispatch explicitly:
+
+```bash
+agentxchain inject "Revise the roadmap around the new acceptance contract" \
+  --priority p0 \
+  --charter "Revise the PM plan before more implementation turns" \
+  --acceptance "roadmap reflects the new scope,system spec reflects the new interface"
+
+agentxchain resume --role pm
+agentxchain step --resume
+```
+
+The injected charter is foregrounded into the next PM dispatch bundle as the primary instruction, not buried as background context. Use this path when a human wants to steer the run between automated turns.
+
+If the repo is blocked on a human escalation first, clear that blocker with `agentxchain unblock <id>` before resuming PM dispatch.
+
+## When to use this pattern
+
+Use `full-local-cli` when:
+
+- you want automated planning, implementation, and QA turns
+- you trust local CLI agents to write directly in the repo
+- you still want humans approving major transitions
+- you want the shortest path to a governed automation loop without manual runtime roles
+
+Do **not** use it when:
+
+- you are still learning the artifact contract and want the manual-first `generic` scaffold
+- QA or PM must stay non-writing by policy
+- you need remote/provider review paths instead of local subprocesses
+
+## Related docs
+
+- [Runtime Matrix](/docs/runtime-matrix)
+- [Authority Model](/docs/authority-model)
+- [Quickstart](/docs/quickstart)
+- [Continuous Delivery Intake](/docs/continuous-delivery-intake)

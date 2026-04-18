@@ -6,7 +6,7 @@ description: "Decide between the manual-first generic baseline and the project-t
 
 # Choosing a template
 
-AgentXchain ships six governed templates. Picking the right one at `init` time sets up planning artifacts, prompt guidance, and role runtimes. This page helps you decide.
+AgentXchain ships governed templates across three categories: manual-first baseline, project-type scaffolds, and automation-pattern blueprints. This page helps you decide.
 
 ## The two categories
 
@@ -16,10 +16,13 @@ Templates split into two categories based on runtime posture:
 |---|---|---|---|---|
 | **Manual-first baseline** | `generic` | All roles use `manual` runtimes | None | Learning governance, manual-only teams, cold-start exploration |
 | **Project-type templates** | `api-service`, `cli-tool`, `library`, `web-app`, `enterprise-app` | Inherited from operator flags or defaults | Project-specific planning files + prompt overrides + acceptance hints | Teams building a specific kind of software with automation |
+| **Automation-pattern template** | `full-local-cli` | PM, Dev, QA, and Director all start on `local_cli` | No extra planning files; runtime/authority topology changes at init time | Human-gated automation where all governed turns are automated |
 
 The key difference: **`generic` requires zero dependencies**. No API keys, no local coding CLI, no model provider. Every role is manual. You can run the full governance flow (plan → implement → QA → ship) with nothing but a text editor and `agentxchain step`.
 
 Project-type templates add structure (planning artifacts like `api-contract.md`, `user-flows.md`, `command-surface.md`) and opinionated prompt guidance. They do **not** change the protocol, gate model, or role schema.
+
+`full-local-cli` is different. It is not about product shape. It is about runtime posture: all governed turns are automated, but humans still approve the major gates. See [Automation Patterns](/docs/automation-patterns) for the exact operator flow.
 
 ## Decision guide
 
@@ -60,6 +63,7 @@ This scaffolds `api-contract.md`, `operational-readiness.md`, and `error-budget.
 | `cli-tool` | `command-surface.md`, `platform-support.md`, `distribution-checklist.md` | Command surface, platform scope, distribution plan | Cross-platform behavior, help output, install paths | Command surface documented, platform matrix verified, distribution checklist complete |
 | `library` | `public-api.md`, `compatibility-policy.md`, `release-adoption.md` | Public API surface, compatibility guarantees | API contract stability, breaking change detection | Public API reviewed, compatibility policy set, release plan documented |
 | `web-app` | `user-flows.md`, `ui-acceptance.md`, `browser-support.md` | User flows, minimum browser/device support | Primary flows, responsive behavior, accessibility, copy regressions | Primary user flow reviewed, mobile+desktop checked, accessibility smoke passed |
+| `full-local-cli` | None | Automated PM planning with human approvals preserved | Automated QA and Director intervention without manual runtime roles | Human-gated automation loop proven before lights-out operation |
 | `enterprise-app` | `integration-boundaries.md`, `data-classification.md`, `risk-register.md` | Integration boundaries, security review scope | Security, data handling, integration contract compliance | Integration boundaries documented, data classification set, risk register reviewed |
 
 ## Upgrading from `generic` to a project template

@@ -12,6 +12,7 @@ export const VALID_GOVERNED_TEMPLATE_IDS = Object.freeze([
   'cli-tool',
   'library',
   'web-app',
+  'full-local-cli',
   'enterprise-app',
 ]);
 

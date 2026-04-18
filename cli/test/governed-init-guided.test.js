@@ -66,10 +66,11 @@ describe('guided governed init prompts', () => {
     const choices = buildGovernedTemplateChoices();
     const ids = choices.map((choice) => choice.value);
 
-    assert.deepEqual(ids, ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app']);
+    assert.deepEqual(ids, ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'full-local-cli', 'enterprise-app']);
     assert.match(choices[0].name, /Generic/);
     assert.match(choices[4].name, /Web App/);
-    assert.match(choices[5].name, /Enterprise App/);
+    assert.match(choices[5].name, /Full Local CLI/);
+    assert.match(choices[6].name, /Enterprise App/);
   });
 });
 

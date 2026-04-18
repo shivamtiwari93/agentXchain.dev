@@ -66,8 +66,8 @@ describe('template validate command', () => {
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.ok, true);
     assert.equal(payload.registry.ok, true);
-    assert.deepEqual(payload.registry.registered_ids, ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app']);
-    assert.deepEqual(payload.registry.manifest_ids, ['api-service', 'cli-tool', 'enterprise-app', 'generic', 'library', 'web-app']);
+    assert.deepEqual(payload.registry.registered_ids, ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'full-local-cli', 'enterprise-app']);
+    assert.deepEqual(payload.registry.manifest_ids, ['api-service', 'cli-tool', 'enterprise-app', 'full-local-cli', 'generic', 'library', 'web-app']);
     assert.equal(payload.project.present, false);
   });
 
@@ -601,6 +601,7 @@ describe('template registry drift detection', () => {
           'api-service.json',
           'cli-tool.json',
           'enterprise-app.json',
+          'full-local-cli.json',
           'generic.json',
           'library.json',
           'orphan-template.json',

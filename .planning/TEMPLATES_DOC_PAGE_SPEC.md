@@ -107,6 +107,7 @@ The page must list every built-in template from `VALID_GOVERNED_TEMPLATE_IDS` an
 - `cli-tool`
 - `library`
 - `web-app`
+- `full-local-cli`
 - `enterprise-app`
 
 `generic` must be described as the baseline governed scaffold with no extra project-type files and a manual-only cold-start runtime mix.
@@ -228,8 +229,8 @@ It must state the real extension path:
 3. The page documents `init --governed --template <id>`, `template list`, `template list --json`, and `template set <id> [--yes] [--dry-run]`.
 4. The page documents `template validate` and `template validate --json`.
 5. The page documents `status` and `status --json` template visibility.
-6. The page lists `generic`, `api-service`, `cli-tool`, `library`, and `web-app`.
-6a. The page lists `enterprise-app` and explains its init-only blueprint boundary.
+6. The page lists `generic`, `api-service`, `cli-tool`, `library`, `web-app`, and `full-local-cli`.
+6a. The page lists `enterprise-app` and explains the init-only blueprint boundary for both `enterprise-app` and `full-local-cli`.
 7. The page lists the real planning artifact filenames from governed template manifests.
 8. The page explains additive `template set` semantics and records `template_set` in `.agentxchain/decision-ledger.jsonl`.
 9. The page does not mention `template set --force` or fake conflict-detection semantics.

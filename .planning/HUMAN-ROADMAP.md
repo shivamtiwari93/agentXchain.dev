@@ -818,7 +818,7 @@ These items are interlocking — many are docs fixes, several are product fixes,
     - Add a guard test for the error message.
   - **Acceptance:** a user who tries `review_only + local_cli` sees the error before their first turn runs, not during dispatch.
 
-- [ ] **B-5: "All local_cli authoritative, human-gated" canonical example (gap #5 + #16 + recommended addition #7)** — This is the natural operator goal the tester was chasing. It's not currently documented as a first-class pattern. It also overlaps with "human-gated automation with zero manual roles" from gap #16.
+- [x] **B-5: "All local_cli authoritative, human-gated" canonical example (gap #5 + #16 + recommended addition #7)** — completed 2026-04-17: shipped blueprint-backed `full-local-cli` template, `/docs/automation-patterns/`, and subprocess E2E proving PM -> Dev -> QA with human gate pauses. Init-time local CLI overrides now fan out across all default local runtimes in the template, and docs include exact Claude Code / Codex command shapes plus the inject -> resume -> `step --resume` steering path.
   - **What to fix:**
     - Ship a canonical example config file (e.g., `cli/src/templates/governed-full-local-cli.json` or similar) where PM/Dev/QA/Director are all bound to `local_cli` runtimes with `authoritative` authority, and phase gates keep `requires_human_approval: true`.
     - Add a docs page `/docs/automation-patterns/` (from recommended addition #1) that names this pattern: "all automated turns, human gate approvals only."

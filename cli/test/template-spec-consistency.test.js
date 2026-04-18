@@ -15,7 +15,7 @@ const CLI_SPEC = readFileSync(join(PLANNING, 'CLI_SPEC.md'), 'utf8');
 const ROADMAP = readFileSync(join(PLANNING, 'POST_V1_ROADMAP.md'), 'utf8');
 
 // Canonical template IDs defined in the implementation spec
-const CANONICAL_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app'];
+const CANONICAL_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'full-local-cli', 'enterprise-app'];
 
 describe('Template spec consistency', () => {
 

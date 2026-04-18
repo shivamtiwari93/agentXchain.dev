@@ -573,6 +573,49 @@ describe('governed CLI support', () => {
     }
   });
 
+  it('init --governed --template full-local-cli scaffolds authoritative local_cli roles and applies --dev-command to every default local runtime', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-full-local-template-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      const result = runCli(dir, [
+        'init',
+        '--governed',
+        '--template',
+        'full-local-cli',
+        '--dev-command',
+        'codex --quiet --dangerously-bypass-approvals-and-sandbox {prompt}',
+        '--dev-prompt-transport',
+        'argv',
+        '-y',
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Template:\s+full-local-cli/);
+
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.template, 'full-local-cli');
+
+      for (const roleId of ['pm', 'dev', 'qa', 'eng_director']) {
+        assert.equal(config.roles[roleId].write_authority, 'authoritative');
+      }
+
+      for (const runtimeId of ['local-pm', 'local-dev', 'local-qa', 'local-director']) {
+        assert.equal(config.runtimes[runtimeId].type, 'local_cli');
+        assert.deepEqual(
+          config.runtimes[runtimeId].command,
+          ['codex', '--quiet', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
+        );
+        assert.equal(config.runtimes[runtimeId].prompt_transport, 'argv');
+      }
+
+      const qaPrompt = readFileSync(join(projectDir, '.agentxchain', 'prompts', 'qa.md'), 'utf8');
+      const directorPrompt = readFileSync(join(projectDir, '.agentxchain', 'prompts', 'eng_director.md'), 'utf8');
+      assert.match(qaPrompt, /You have direct write access for this role/);
+      assert.match(directorPrompt, /You have direct write access for this role/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('init --governed rejects unknown templates before writing files', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-bad-template-'));
     const projectDir = join(dir, 'my-agentxchain-project');

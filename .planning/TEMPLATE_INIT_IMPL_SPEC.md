@@ -38,6 +38,7 @@ cli/src/templates/governed/
   cli-tool.json
   library.json
   web-app.json
+  full-local-cli.json
   enterprise-app.json
 ```
 
@@ -135,7 +136,7 @@ function loadGovernedTemplate(templateId) {
 The template ID is validated against a hardcoded allowlist BEFORE any filesystem access:
 
 ```javascript
-const VALID_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app'];
+const VALID_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'full-local-cli', 'enterprise-app'];
 ```
 
 This prevents path traversal even though the templates directory is read-only packaged data.
@@ -160,6 +161,7 @@ Available templates:
   cli-tool      Governed scaffold for a CLI tool
   library       Governed scaffold for a reusable package
   web-app       Governed scaffold for a web application
+  full-local-cli Human-gated automation pattern with all roles on local_cli
   enterprise-app Governed scaffold for multi-role enterprise delivery
 ```
 
@@ -212,7 +214,7 @@ New behavior:
 In `bin/agentxchain.js`, the `init` command gains:
 
 ```javascript
-.option('--template <id>', 'project template for governed scaffold (generic, api-service, cli-tool, library, web-app, enterprise-app)')
+.option('--template <id>', 'project template for governed scaffold (generic, api-service, cli-tool, library, web-app, full-local-cli, enterprise-app)')
 ```
 
 ### Config loader changes
@@ -252,6 +254,7 @@ It must **not** infer `api-service`, `cli-tool`, `library`, `web-app`, or `enter
 - **AT-TEMPLATE-INIT-002**: `init --governed --template api-service` writes `"template": "api-service"` to `agentxchain.json` and creates `api-contract.md`, `operational-readiness.md`, `error-budget.md` in `.planning/`.
 - **AT-TEMPLATE-INIT-002b**: `init --governed --template library` writes `"template": "library"` to `agentxchain.json` and creates `public-api.md`, `compatibility-policy.md`, `release-adoption.md` in `.planning/`.
 - **AT-TEMPLATE-INIT-002c**: `init --governed --template enterprise-app` writes custom roles/routing/gates/workflow_kit into `agentxchain.json`, creates prompt files for `architect` and `security_reviewer`, and scaffolds enterprise workflow-kit artifacts.
+- **AT-TEMPLATE-INIT-002ca**: `init --governed --template full-local-cli` writes authoritative `local_cli` bindings for `pm`, `dev`, `qa`, and `eng_director`, preserving human approvals on planning/completion gates.
 - **AT-TEMPLATE-INIT-002d**: The `enterprise-app` scaffolded `ROADMAP.md` and `SYSTEM_SPEC.md` must be runtime-usable without manual repair. Charter-enforcement E2E must assert the generated 5-phase roadmap and then advance planning using those scaffolded files rather than overwriting them with hand-built fixtures.
 - **AT-TEMPLATE-INIT-003**: `init --governed --template unknown-id` exits with code 1, prints available templates, writes no files.
 - **AT-TEMPLATE-INIT-004**: All built-in template manifests parse as valid JSON and contain required fields (`id`, `display_name`, `description`, `version`, `protocol_compatibility`, `planning_artifacts`).

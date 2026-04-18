@@ -1,0 +1,64 @@
+{
+  "id": "full-local-cli",
+  "display_name": "Full Local CLI",
+  "description": "Human-gated automation pattern with PM, Dev, QA, and Director all running as authoritative local_cli roles.",
+  "version": "1",
+  "protocol_compatibility": ["1.0", "1.1"],
+  "planning_artifacts": [],
+  "prompt_overrides": {},
+  "acceptance_hints": [],
+  "scaffold_blueprint": {
+    "roles": {
+      "pm": {
+        "title": "Product Manager",
+        "mandate": "Protect user value, scope clarity, and acceptance criteria.",
+        "write_authority": "authoritative",
+        "runtime": "local-pm"
+      },
+      "dev": {
+        "title": "Developer",
+        "mandate": "Implement approved work safely and verify behavior.",
+        "write_authority": "authoritative",
+        "runtime": "local-dev"
+      },
+      "qa": {
+        "title": "QA",
+        "mandate": "Challenge correctness, acceptance coverage, and ship readiness.",
+        "write_authority": "authoritative",
+        "runtime": "local-qa"
+      },
+      "eng_director": {
+        "title": "Engineering Director",
+        "mandate": "Resolve tactical deadlocks and enforce technical coherence.",
+        "write_authority": "authoritative",
+        "runtime": "local-director"
+      }
+    },
+    "runtimes": {
+      "local-pm": {
+        "type": "local_cli",
+        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      },
+      "local-dev": {
+        "type": "local_cli",
+        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      },
+      "local-qa": {
+        "type": "local_cli",
+        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      },
+      "local-director": {
+        "type": "local_cli",
+        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      }
+    }
+  }
+}

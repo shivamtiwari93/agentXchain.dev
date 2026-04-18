@@ -257,9 +257,11 @@ You are QA. Your mandate: **${role.mandate}**
    - \`.planning/ship-verdict.md\` — your overall ship/no-ship recommendation
    - \`.planning/RELEASE_NOTES.md\` — user-facing release notes with impact and verification summary
 
-## You Cannot Modify Code
+## File Access
 
-You have \`review_only\` write authority. You may NOT modify product files. You may only create/modify files under \`.planning/\` and \`.agentxchain/reviews/\`. Your artifact type must be \`review\`.
+${role.write_authority === 'review_only'
+    ? 'You have `review_only` write authority. You may NOT modify product files. You may only create/modify files under `.planning/` and `.agentxchain/reviews/`. Your artifact type must be `review`.'
+    : 'You have direct write access for this role. Use it to create or update QA-owned evidence and verification artifacts directly in the repo. Do not make unrelated product changes. Your artifact type should normally be `workspace` when you modify repo files directly.'}
 
 ## Runtime Truth
 
@@ -337,9 +339,11 @@ You are invoked when the normal PM → Dev → QA loop is stuck:
 - You may NOT override human decisions — escalate to \`human\` if needed
 - Every override must be recorded as a decision with clear rationale
 
-## You Cannot Modify Code
+## File Access
 
-You have \`review_only\` write authority. Like QA, you must raise at least one objection (protocol requirement). Your artifact type is \`review\`.
+${role.write_authority === 'review_only'
+    ? 'You have `review_only` write authority. Like QA, you must raise at least one objection (protocol requirement). Your artifact type is `review`.'
+    : 'You have direct write access for this role. Use it sparingly to resolve tactical deadlocks or correct governance artifacts when necessary. Do not use Director authority as a shortcut around the normal PM -> Dev -> QA loop.'}
 
 ## Objection Requirement
 
@@ -513,6 +517,16 @@ function formatRuntimeSummary(runtimeId, runtime) {
   return `${command} (${runtime.prompt_transport || runtime.type})`;
 }
 
+function runtimeMatchesDefaultGovernedLocalCli(runtime) {
+  if (!runtime || runtime.type !== 'local_cli') return false;
+  const command = Array.isArray(runtime.command) ? runtime.command : [];
+  return (
+    runtime.cwd === DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME.cwd
+    && runtime.prompt_transport === DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME.prompt_transport
+    && JSON.stringify(command) === JSON.stringify(DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME.command)
+  );
+}
+
 function hasTemplateDefinedRouting(template) {
   return Boolean(template?.scaffold_blueprint?.routing && Object.keys(template.scaffold_blueprint.routing).length > 0);
 }
@@ -620,9 +634,15 @@ function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitC
     (Array.isArray(runtimeOptions.devCommand) && runtimeOptions.devCommand.length > 0)
     || (typeof runtimeOptions.devPromptTransport === 'string' && runtimeOptions.devPromptTransport.trim())
   );
+  const defaultLocalRuntimeIds = Object.entries(runtimes)
+    .filter(([, runtime]) => runtimeMatchesDefaultGovernedLocalCli(runtime))
+    .map(([runtimeId]) => runtimeId);
 
-  if (!blueprint || Object.values(roles).some((role) => role?.runtime === 'local-dev') || explicitLocalDevRequested) {
-    runtimes['local-dev'] = localDevRuntime;
+  if (!blueprint || defaultLocalRuntimeIds.length > 0 || explicitLocalDevRequested) {
+    const runtimeIdsToReplace = defaultLocalRuntimeIds.length > 0 ? defaultLocalRuntimeIds : ['local-dev'];
+    for (const runtimeId of runtimeIdsToReplace) {
+      runtimes[runtimeId] = cloneJsonCompatible(localDevRuntime);
+    }
   }
 
   if (explicitLocalDevRequested && roles?.dev?.runtime === 'manual-dev') {
@@ -864,6 +884,8 @@ async function initGoverned(opts) {
     console.error('    cli-tool      Governed scaffold for a CLI tool');
     console.error('    library       Governed scaffold for a reusable package');
     console.error('    web-app       Governed scaffold for a web application');
+    console.error('    full-local-cli Human-gated automation pattern with all roles on local_cli');
+    console.error('    enterprise-app Governed scaffold for multi-role enterprise delivery');
     process.exit(1);
   }
   selectedTemplate = loadGovernedTemplate(templateId);

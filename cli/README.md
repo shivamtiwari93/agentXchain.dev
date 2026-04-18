@@ -15,6 +15,7 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 - [CLI reference](https://agentxchain.dev/docs/cli/)
 - [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - [Templates](https://agentxchain.dev/docs/templates/)
+- [Automation Patterns](https://agentxchain.dev/docs/automation-patterns/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
 - [Protocol v7](https://agentxchain.dev/docs/protocol/)
@@ -107,6 +108,7 @@ Built-in governed templates:
 - `cli-tool`: command surface, platform support, distribution checklist
 - `library`: public API, compatibility policy, release and adoption checklist
 - `web-app`: user flows, UI acceptance, browser support
+- `full-local-cli`: human-gated automation pattern with PM, Dev, QA, and Director all on authoritative `local_cli`
 - `enterprise-app`: enterprise planning artifacts plus blueprint-backed `architect` and `security_reviewer` phases
 
 Inspect the shipped template surfaces instead of inferring them from docs:
