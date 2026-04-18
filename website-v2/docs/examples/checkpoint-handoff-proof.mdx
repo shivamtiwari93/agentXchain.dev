@@ -1,0 +1,105 @@
+---
+title: Checkpoint Handoff Proof
+description: "A dated BUG-23 case study proving `run --continuous --auto-checkpoint` leaves checkpoint commits and checkpoint events after every accepted writable turn."
+---
+
+# Checkpoint Handoff Proof
+
+This page is the public evidence for BUG-23: AgentXchain can drive a writable multi-role continuous session without stopping for manual repo commits between authoritative role handoffs.
+
+Date of proof: `2026-04-18`
+
+Latest checked-in evidence artifact: [`examples/live-governed-proof/evidence/checkpoint-handoff-proof.latest.json`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/examples/live-governed-proof/evidence/checkpoint-handoff-proof.latest.json)
+
+Back to [Live Governed Proof](/docs/examples/live-governed-proof).
+
+## What It Is
+
+- Category: live proof example
+- Surface: `agentxchain run --continuous --auto-checkpoint`
+- Runtime shape: `local_cli` for all writable roles
+- Default runtime: `_checkpoint-proof-agent.mjs` wrapper over `cli/test-support/mock-agent.mjs`
+- Source harness: `examples/live-governed-proof/run-checkpoint-handoff-proof.mjs`
+
+## Workflow Or Proof Shape
+
+The harness scaffolds a temp governed repo, writes the minimum planning artifacts required for a real run, initializes git, and executes the real continuous command path:
+
+```bash
+agentxchain run --continuous --auto-checkpoint --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 1 --poll-seconds 0
+```
+
+The default proof is intentionally self-contained:
+
+- `pm`, `dev`, and `qa` all run through `local_cli`
+- the wrapper appends phase-specific files so the working tree actually becomes dirty between handoffs
+- `mock-agent.mjs` still produces the governed gate artifacts, so the proof exercises real acceptance + checkpoint behavior instead of faking the post-accept state
+
+The proof passes only if the temp repo records all of the following:
+
+- at least one `turn_checkpointed` event
+- at least one `checkpoint: <turn_id> (role=<role>, phase=<phase>)` git commit
+- zero `Authoritative/proposed turns require a clean baseline` errors
+- zero manual `checkpoint-turn --turn` reminders
+
+## Observed Harness Invocation
+
+```bash
+node examples/live-governed-proof/run-checkpoint-handoff-proof.mjs --json --output examples/live-governed-proof/evidence/checkpoint-handoff-proof.latest.json
+```
+
+Add `--keep-temp` when you want the temp repo preserved for inspection, or `--runtime-command "codex exec --dangerously-bypass-approvals-and-sandbox"` when you want all writable roles to run through a real local runtime instead of the default mock wrapper.
+
+## Evidence Summary
+
+| Metric | Value |
+|---|---|
+| Session ID | `cont-d49f1fc5` |
+| Started | `2026-04-18T17:27:50.312Z` |
+| Finished | `2026-04-18T17:27:57.242Z` |
+| Session status | `completed` |
+| Runs completed | `1` |
+| CLI version | `2.134.1` |
+| Checkpoint commits | `3` |
+| Checkpoint events | `3` |
+| Phases checkpointed | `planning`, `implementation`, `qa` |
+| Clean-baseline errors | `0` |
+| Evidence artifact | `examples/live-governed-proof/evidence/checkpoint-handoff-proof.latest.json` |
+
+## Git Log Evidence
+
+The proof repo recorded one checkpoint commit per accepted writable turn:
+
+```text
+checkpoint: turn_1754945b4734ceff (role=qa, phase=qa)
+checkpoint: turn_b1b4533bfc375f0f (role=dev, phase=implementation)
+checkpoint: turn_76e36e3e78fcf1a9 (role=pm, phase=planning)
+```
+
+This matters because BUG-23 was not “checkpoint command exists.” The bug was that true multi-role continuous execution still stopped on a dirty worktree between accepted turns. The evidence above proves the writable handoff is now resolved inside the run loop itself.
+
+## Event Evidence
+
+The same run emitted `turn_checkpointed` events with the repo commit SHA attached:
+
+| Role | Turn ID | Commit SHA |
+|---|---|---|
+| `pm` | `turn_76e36e3e78fcf1a9` | `38132cb5…` |
+| `dev` | `turn_b1b4533bfc375f0f` | `e712b935…` |
+| `qa` | `turn_1754945b4734ceff` | `30af1ca1…` |
+
+That event trail is the externally-visible proof surface for auto-checkpoint, while the git log is the repo-native proof surface.
+
+## Run It
+
+```bash
+node examples/live-governed-proof/run-checkpoint-handoff-proof.mjs --json --output examples/live-governed-proof/evidence/checkpoint-handoff-proof.latest.json
+```
+
+No API keys are required for the default proof.
+
+## Key Takeaways
+
+- BUG-23 now has a checked-in public evidence artifact, not just a harness and a claim.
+- The proof exercises the real `run --continuous --auto-checkpoint` surface instead of direct state edits or staged JSON.
+- Checkpointing is visible in both git history and `events.jsonl`, which is the right proof pair for a writable-handoff feature.

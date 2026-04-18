@@ -28,6 +28,7 @@ This directory contains two categories of live proof:
 ### Checkpoint Handoff Proof (BUG-23)
 
 - `run-checkpoint-handoff-proof.mjs` — proves that `run --continuous --auto-checkpoint` emits a git checkpoint commit after every accepted authoritative turn, and that no "clean baseline" errors surface between role handoffs
+- Full case study: [Checkpoint Handoff Proof](/docs/examples/checkpoint-handoff-proof)
 
 This proof exercises the complete pm → dev → qa role progression with all roles using `local_cli` authoritative runtimes. Each role produces working-tree changes that must be checkpointed before the next authoritative turn can start. The proof verifies:
 
@@ -42,12 +43,14 @@ This proof exercises the complete pm → dev → qa role progression with all ro
 |---|---|
 | Runtime | `local_cli` (mock changingAgent) for all roles |
 | Roles checkpointed | pm (planning), dev (implementation), qa (qa) |
+| Session ID | `cont-d49f1fc5` |
 | Checkpoint commits | 3 |
 | Checkpoint events | 3 |
 | Clean baseline errors | 0 |
 | Session status | `completed` |
+| Evidence artifact | [`checkpoint-handoff-proof.latest.json`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/examples/live-governed-proof/evidence/checkpoint-handoff-proof.latest.json) |
 
-Run it: `node examples/live-governed-proof/run-checkpoint-handoff-proof.mjs --json`
+Run it: `node examples/live-governed-proof/run-checkpoint-handoff-proof.mjs --json --output examples/live-governed-proof/evidence/checkpoint-handoff-proof.latest.json`
 
 Pass `--runtime-command <cmd>` to use a real local runtime (e.g., `codex exec --dangerously-bypass-approvals-and-sandbox`) instead of the mock.
 

@@ -8,15 +8,16 @@
  * accepted authoritative turn, and that no "clean baseline" errors surface
  * between role handoffs inside the same continuous session.
  *
- * Self-contained: uses the committing-proof-agent mock for all roles by
- * default.  Pass `--runtime-command <cmd>` to drive all roles through a real
- * local runtime instead.
+ * Self-contained: uses a checkpoint-changing wrapper around `mock-agent.mjs`
+ * for all roles by default. Pass `--runtime-command <cmd>` to drive all roles
+ * through a real local runtime instead.
  *
  * Flags
  *   --json               Machine-readable JSON output
+ *   --output             Persist the JSON payload to a file
  *   --keep-temp          Preserve the temp directory for post-mortem inspection
  *   --runtime-command    Path (or shell command) to use as the local_cli runtime
- *                        instead of the built-in committing-proof-agent
+ *                        instead of the built-in mock runtime
  */
 
 import {
@@ -27,7 +28,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { execSync, spawnSync } from 'child_process';
@@ -41,6 +42,7 @@ import { scaffoldGoverned } from '../../cli/src/commands/init.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, '..', '..');
 const cliRoot = join(repoRoot, 'cli');
+const cliPkg = JSON.parse(readFileSync(join(cliRoot, 'package.json'), 'utf8'));
 const binPath = join(cliRoot, 'bin', 'agentxchain.js');
 const defaultMockAgentPath = join(cliRoot, 'test-support', 'mock-agent.mjs');
 
@@ -52,8 +54,18 @@ const args = process.argv.slice(2);
 const jsonMode = args.includes('--json');
 const keepTemp = args.includes('--keep-temp');
 
-const runtimeCmdIdx = args.indexOf('--runtime-command');
-const customRuntimeCommand = runtimeCmdIdx !== -1 ? args[runtimeCmdIdx + 1] : null;
+function readFlagValue(flag) {
+  const index = args.indexOf(flag);
+  if (index === -1) return null;
+  const value = args[index + 1];
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${flag} requires a path value`);
+  }
+  return value;
+}
+
+const outputPath = readFlagValue('--output');
+const customRuntimeCommand = readFlagValue('--runtime-command');
 
 let shouldCleanup = !keepTemp;
 
@@ -69,15 +81,19 @@ const root = mkdtempSync(join(tmpdir(), 'axc-ckpt-handoff-proof-'));
 
 try {
   const proof = runProof(root);
-  output({ result: 'pass', ...proof });
+  const payload = buildPayload({ result: 'pass', ...proof });
+  writePayloadFile(payload);
+  output(payload);
   process.exit(0);
 } catch (error) {
   shouldCleanup = false;
-  output({
+  const payload = buildPayload({
     result: 'fail',
     reason: error instanceof Error ? error.message : String(error),
     workdir: root,
   });
+  writePayloadFile(payload);
+  output(payload);
   process.exit(1);
 } finally {
   if (shouldCleanup) {
@@ -284,10 +300,16 @@ function runProof(projectRoot) {
     description: 'continuous checkpoint handoff proof',
     runtime: customRuntimeCommand
       ? { type: 'custom', command: customRuntimeCommand }
-      : { type: 'mock', agent: defaultMockAgentPath },
-    command: `node ${binPath} ${command.slice(1).join(' ')}`,
+      : {
+        type: 'mock',
+        wrapper: '_checkpoint-proof-agent.mjs',
+        agent: 'cli/test-support/mock-agent.mjs',
+      },
+    command: ['agentxchain', ...command.slice(1)].join(' '),
     proof: {
       workdir: projectRoot,
+      started_at: session.started_at || null,
+      finished_at: new Date().toISOString(),
       session_id: session.session_id,
       session_status: session.status,
       runs_completed: session.runs_completed,
@@ -377,6 +399,61 @@ function readJsonl(root, relativePath) {
 
 function trim(value) {
   return String(value || '').trim();
+}
+
+function sanitizePath(value) {
+  if (typeof value !== 'string') return value;
+  const repoMarkers = [
+    '/examples/live-governed-proof/',
+    '/cli/bin/agentxchain.js',
+    '/cli/test-support/mock-agent.mjs',
+  ];
+  for (const marker of repoMarkers) {
+    const idx = value.indexOf(marker);
+    if (idx !== -1) return value.slice(idx + 1);
+  }
+  const tmpMarker = '/axc-ckpt-handoff-proof-';
+  const tmpIdx = value.indexOf(tmpMarker);
+  if (tmpIdx !== -1) return '<tmp>' + value.slice(tmpIdx);
+  return value;
+}
+
+function sanitizePayload(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return sanitizePath(obj);
+  if (Array.isArray(obj)) return obj.map(sanitizePayload);
+  if (typeof obj === 'object') {
+    const out = {};
+    for (const [key, value] of Object.entries(obj)) {
+      out[key] = sanitizePayload(value);
+    }
+    return out;
+  }
+  return obj;
+}
+
+function buildPayload(raw) {
+  const base = {
+    runner: 'checkpoint-handoff-live-proof',
+    recorded_at: new Date().toISOString(),
+    cli_version: cliPkg.version,
+    cli_path: 'cli/bin/agentxchain.js',
+    script_path: 'examples/live-governed-proof/run-checkpoint-handoff-proof.mjs',
+    result: raw.result,
+  };
+  if (raw.reason) base.reason = raw.reason;
+  if (raw.runtime) base.runtime = sanitizePayload(raw.runtime);
+  if (raw.command) base.command = raw.command;
+  if (raw.proof) base.proof = sanitizePayload(raw.proof);
+  if (raw.workdir) base.workdir = sanitizePath(raw.workdir);
+  return base;
+}
+
+function writePayloadFile(payload) {
+  if (!outputPath) return;
+  const absolutePath = resolve(process.cwd(), outputPath);
+  mkdirSync(dirname(absolutePath), { recursive: true });
+  writeFileSync(absolutePath, JSON.stringify(payload, null, 2) + '\n');
 }
 
 // ---------------------------------------------------------------------------

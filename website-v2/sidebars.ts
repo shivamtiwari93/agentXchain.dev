@@ -47,6 +47,7 @@ const sidebars: SidebarsConfig = {
         'examples/ci-runner-proof',
         'examples/external-runner-starter',
         'examples/live-governed-proof',
+        'examples/checkpoint-handoff-proof',
         'examples/live-continuous-3run-proof',
         'examples/mcp-echo-agent',
         'examples/mcp-http-echo-agent',

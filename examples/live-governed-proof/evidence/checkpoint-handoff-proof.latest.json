@@ -1,0 +1,81 @@
+{
+  "runner": "checkpoint-handoff-live-proof",
+  "recorded_at": "2026-04-18T17:27:57.243Z",
+  "cli_version": "2.134.1",
+  "cli_path": "cli/bin/agentxchain.js",
+  "script_path": "examples/live-governed-proof/run-checkpoint-handoff-proof.mjs",
+  "result": "pass",
+  "runtime": {
+    "type": "mock",
+    "wrapper": "_checkpoint-proof-agent.mjs",
+    "agent": "cli/test-support/mock-agent.mjs"
+  },
+  "command": "agentxchain run --continuous --auto-checkpoint --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 1 --poll-seconds 0",
+  "proof": {
+    "workdir": "<tmp>/axc-ckpt-handoff-proof-AFizVK",
+    "started_at": "2026-04-18T17:27:50.312Z",
+    "finished_at": "2026-04-18T17:27:57.242Z",
+    "session_id": "cont-d49f1fc5",
+    "session_status": "completed",
+    "runs_completed": 1,
+    "clean_baseline_errors": 0,
+    "checkpoint_commit_count": 3,
+    "checkpoint_commits": [
+      {
+        "subject": "checkpoint: turn_1754945b4734ceff (role=qa, phase=qa)",
+        "turn_id": "turn_1754945b4734ceff",
+        "role": "qa",
+        "phase": "qa"
+      },
+      {
+        "subject": "checkpoint: turn_b1b4533bfc375f0f (role=dev, phase=implementation)",
+        "turn_id": "turn_b1b4533bfc375f0f",
+        "role": "dev",
+        "phase": "implementation"
+      },
+      {
+        "subject": "checkpoint: turn_76e36e3e78fcf1a9 (role=pm, phase=planning)",
+        "turn_id": "turn_76e36e3e78fcf1a9",
+        "role": "pm",
+        "phase": "planning"
+      }
+    ],
+    "checkpoint_event_count": 3,
+    "checkpoint_events": [
+      {
+        "event_id": "evt_acdbad9a3c6210da",
+        "turn_id": "turn_76e36e3e78fcf1a9",
+        "role": "pm",
+        "phase": "planning",
+        "run_id": "run_1a2e91b8f076ada5",
+        "checkpoint_sha": "38132cb557d40cb317d9a5d6328bc5b12b0e707f",
+        "checkpointed_at": "2026-04-18T17:27:50.919Z"
+      },
+      {
+        "event_id": "evt_ac31aa1ba3edcffd",
+        "turn_id": "turn_b1b4533bfc375f0f",
+        "role": "dev",
+        "phase": "qa",
+        "run_id": "run_1a2e91b8f076ada5",
+        "checkpoint_sha": "e712b935f25483eeb770b26fcb4b7065aaea437f",
+        "checkpointed_at": "2026-04-18T17:27:51.520Z"
+      },
+      {
+        "event_id": "evt_a56a0b400b2a5661",
+        "turn_id": "turn_1754945b4734ceff",
+        "role": "qa",
+        "phase": "qa",
+        "run_id": "run_1a2e91b8f076ada5",
+        "checkpoint_sha": "30af1ca1714a5d8a0f6e4155d1041053e0dadd6e",
+        "checkpointed_at": "2026-04-18T17:27:52.055Z"
+      }
+    ],
+    "completed_runs": 1,
+    "phases_checkpointed": [
+      "qa",
+      "implementation",
+      "planning"
+    ],
+    "stdout_tail": "agentxchain run --continuous\n  Vision: .planning/VISION.md\n  Max runs: 1, Poll: 0s, Idle limit: 1\n  Triage approval: auto\n\nVision-derived: Goal: prove that auto-checkpoint emits a git commit after every accepted authoritative turn\nagentxchain run\n  Max turns: 50  Gate mode: auto-approve\n\n  Dispatching to local CLI: /opt/homebrew/Cellar/node@20/20.20.2/bin/node  transport: dispatch_bundle_only\nTurn accepted: turn_76e36e3e78fcf1a9\nGate paused: phase_transition\n  Auto-approved phase_transition gate\nGate approved: phase_transition\nTurn assigned: turn_b1b4533bfc375f0f → dev\n  Dispatching to local CLI: /opt/homebrew/Cellar/node@20/20.20.2/bin/node  transport: dispatch_bundle_only\nTurn accepted: turn_b1b4533bfc375f0f\nTurn assigned: turn_1754945b4734ceff → qa\n  Dispatching to local CLI: /opt/homebrew/Cellar/node@20/20.20.2/bin/node  transport: dispatch_bundle_only\nTurn accepted: turn_1754945b4734ceff\nGate paused: run_completion\n  Auto-approved run_completion gate\nGate approved: run_completion\nRun completed\n\n─── Run Summary ───\n  Status:  completed\n  Turns:   3\n  Gates:   2 approved\n  Errors:  none\n\n  Governance report: .agentxchain/reports/report-run_1a2e91b8f076ada5.md\nRun 1/1 completed: completed\nMax runs reached (1). Stopping."
+  }
+}
