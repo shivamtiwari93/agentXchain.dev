@@ -49,4 +49,46 @@ describe('Coordinator spec status alignment', () => {
       'Wave execution spec still claims fail-closed as current behavior'
     );
   });
+
+  // Guard against stale present-tense "Today" problem statements in completed specs.
+  // Completed specs must use past tense for pre-implementation problem descriptions.
+  const specsWithShippedFeatures = [
+    {
+      path: '.planning/MISSION_PLAN_LAUNCH_ALL_READY_SPEC.md',
+      name: '--all-ready',
+      stalePattern: /Today `mission plan launch` launches one workstream/,
+    },
+    {
+      path: '.planning/COORDINATOR_RETRY_SPEC.md',
+      name: 'coordinator retry',
+      stalePattern: /Today, coordinator workstream failures are terminal/,
+    },
+  ];
+
+  for (const { path, name, stalePattern } of specsWithShippedFeatures) {
+    it(`${name} spec does not describe shipped behavior as present-tense "Today" problem`, () => {
+      const content = readSpec(path);
+      assert.doesNotMatch(
+        content,
+        stalePattern,
+        `${path} still uses stale "Today" language for a shipped feature`
+      );
+    });
+  }
+
+  // Guard: missions.mdx must describe coordinator --all-ready, autopilot, and --retry as shipped
+  it('missions docs describe coordinator wave execution as shipped, not fail-closed', () => {
+    const missionsDoc = readFileSync(
+      join(REPO_ROOT, 'website-v2/docs/missions.mdx'),
+      'utf8'
+    );
+    assert.match(missionsDoc, /--all-ready/, 'missions.mdx must document --all-ready');
+    assert.match(missionsDoc, /autopilot/, 'missions.mdx must document autopilot');
+    assert.match(missionsDoc, /--retry/, 'missions.mdx must document --retry');
+    assert.doesNotMatch(
+      missionsDoc,
+      /coordinator.*--all-ready.*fail.closed|coordinator.*autopilot.*fail.closed/i,
+      'missions.mdx must not claim coordinator wave execution is fail-closed'
+    );
+  });
 });

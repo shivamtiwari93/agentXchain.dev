@@ -8,7 +8,7 @@
 
 Define when and how retry is safe for coordinator-backed mission workstreams. Phase 1 ships targeted `mission plan launch --workstream <id> --retry`. Coordinator autopilot `--auto-retry` remains deferred until the retry safety model is proven in operator-initiated flows.
 
-Today, coordinator workstream failures are terminal within a wave session. When a repo-local turn fails acceptance or execution, the workstream enters `needs_attention`, autopilot either stops (`failure_stopped`) or skips (`plan_incomplete`), and the operator must manually diagnose, fix, reissue in the child repo, and re-run autopilot. This is correct-by-default (DEC-COORD-WAVE-RETRY-001) because repo B may depend on repo A's failed output.
+Before Phase 1 shipped, coordinator workstream failures were terminal within a wave session. When a repo-local turn failed acceptance or execution, the workstream entered `needs_attention`, autopilot either stopped (`failure_stopped`) or skipped (`plan_incomplete`), and the operator had to manually diagnose, fix, reissue in the child repo, and re-run autopilot. Phase 1 targeted retry (`--retry`) now provides operator-initiated retry for one active failed repo. Autopilot auto-retry remains deferred (DEC-COORD-WAVE-RETRY-001) because repo B may depend on repo A's failed output.
 
 This spec defines the safety boundaries, invalidation rules, and barrier interactions that make coordinator retry safe under constrained conditions.
 

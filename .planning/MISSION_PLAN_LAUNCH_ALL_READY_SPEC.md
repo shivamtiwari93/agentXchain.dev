@@ -6,7 +6,7 @@
 
 Enable launching all currently `ready` workstreams from an approved plan in a single command with dependency-aware ordering and fail-closed partial-failure behavior.
 
-Today `mission plan launch` launches one workstream at a time via `--workstream <id>`. When a plan has multiple independent workstreams (no dependencies between them), the operator must issue N separate launch commands. `--all-ready` removes that ceremony while preserving the fail-closed governance boundary.
+Before this spec shipped, `mission plan launch` launched one workstream at a time via `--workstream <id>`. When a plan had multiple independent workstreams (no dependencies between them), the operator had to issue N separate launch commands. `--all-ready` removes that ceremony while preserving the fail-closed governance boundary.
 
 ## Interface
 
