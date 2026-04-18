@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.132.0
+# Show HN Draft — AgentXchain v2.133.0
 
-> Ready-to-post draft. Updated 2026-04-18 for v2.132.0.
+> Ready-to-post draft. Updated 2026-04-18 for v2.133.0.
 
 ---
 
@@ -47,9 +47,9 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest shipped operator slice: `v2.132.0` fixes the iterative-planning conflict loop on durable planning artifacts, makes `accept-turn --resolution human_merge` a one-command recovery path, surfaces `conflict_resolved` context across dashboard and CLI event views, hardens release alignment for onboarding docs, and corrects the CLI `--retry` docs distinction.
+Latest shipped operator slice: `v2.133.0` adds offline full-text docs search with a hashed static index, closes the last usability gap in the docs-stack evaluation, and turns the Docusaurus docs-system decision into an executable contract test instead of a planning-only claim.
 
-- 5,876 tests / 1,256 suites / 0 failures. Website build clean.
+- 5,881 tests / 1,257 suites / 0 failures. Website build clean.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.
