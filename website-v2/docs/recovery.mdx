@@ -212,6 +212,7 @@ The recovery surface uses these existing commands — no dedicated `recover` com
 | `accept-turn` | Manually accept a turn after validation failure and manual fix |
 | `checkpoint-turn` | Commit the latest accepted authoritative turn so the next writable role starts from a clean baseline |
 | `escalate` | Raise an operator escalation on an active or blocked turn |
+| `mission plan launch --retry` | Retry one failed repo-local turn inside a coordinator workstream |
 | `status` | View current blocked state and recovery action |
 
 ## Recovery Descriptor Contract
@@ -234,6 +235,42 @@ The `deriveRecoveryDescriptor()` function in `blocked-state.js` is the canonical
 - `unknown_block`
 
 The `unknown_block` fallback ensures that even unrecognized `blocked_on` values produce a recovery action (manual inspection).
+
+## Coordinator-Level Recovery
+
+When repo-local governed runs are orchestrated through a multi-repo coordinator (via coordinator-bound mission plans), failures surface at both the repo level and the coordinator workstream level. The recovery model is layered:
+
+### Targeted coordinator retry
+
+If a repo-local dispatch inside a coordinator workstream fails with a retryable state (`failed` or `failed_acceptance`), the operator can retry directly from the mission surface:
+
+```bash
+agentxchain mission plan launch latest --workstream <id> --retry
+```
+
+This reissues the failed repo-local turn from current HEAD, rewrites the dispatch bundle, appends retry metadata to the coordinator launch record, and executes the retried turn immediately. The original failed dispatch is preserved for audit with `retried_at` and `retry_reason` fields.
+
+**Safety guards — retry fails closed when:**
+
+- The workstream is not in `needs_attention`
+- Multiple repo failures exist in the same workstream (only single-failure retry is supported)
+- The failed repo-local turn is no longer active
+- The failure state is non-retryable (`conflicted`, `retrying`, `needs_human`)
+- A dependent workstream has already dispatched since the failed repo turn
+
+### Repo-local recovery fallback
+
+When coordinator `--retry` cannot be used (non-retryable state, multi-failure, or dependent dispatch conflict), fall back to repo-local recovery in the affected child repo:
+
+1. Inspect the failure: `agentxchain status` / `agentxchain doctor` in the child repo
+2. Apply the appropriate repo-local fix: `reissue-turn`, `reject-turn`, or `step --resume`
+3. Return to the mission surface and resume with `mission plan launch --workstream <id>` or `mission plan autopilot --continue-on-failure`
+
+### Dashboard visibility
+
+The dashboard `GET /api/plans` endpoint exposes `repo_dispatches[]` with retry metadata (`is_retry`, `retry_of`, `retried_at`, `retry_reason`) for coordinator launch records, so operators can see retry history without inspecting raw plan artifacts.
+
+See [Missions — Recovering a failed coordinator workstream](/docs/missions#recovering-a-failed-coordinator-workstream) for the full operator walkthrough.
 
 ## Auditable Recovery
 
