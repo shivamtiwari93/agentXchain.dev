@@ -98,8 +98,8 @@ function writeBlockingMockAgent(root) {
     "if (phase === 'planning' && !existsSync(blockedMarker)) {",
     "  writeFileSync(blockedMarker, '1\\n');",
     "  status = 'needs_human';",
-    "  summary = 'Mock agent requires human unblock before continuing.';",
-    "  needsHumanReason = 'Linear OAuth expired for governed intake sync. Reconnect the OAuth session before continuing.';",
+    "  summary = 'Mock agent requires operator unblock before continuing.';",
+    "  needsHumanReason = 'Operator approval is required before continuing the blocked-run recovery test.';",
     "  proposedNextRole = 'human';",
     '} else if (phase === "planning") {',
     "  ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\\n\\nApproved: YES\\n');",
@@ -531,7 +531,7 @@ describe('run schedule E2E', () => {
           continuous: {
             enabled: true,
             vision_path: '.planning/VISION.md',
-            max_runs: 5,
+            max_runs: 1,
             max_idle_cycles: 3,
             triage_approval: 'auto',
           },
@@ -540,7 +540,7 @@ describe('run schedule E2E', () => {
     });
 
     mkdirSync(join(root, '.planning'), { recursive: true });
-    writeFileSync(join(root, '.planning', 'VISION.md'), '# Vision\n\n## Goals\n\n- Set up OAuth integration\n');
+    writeFileSync(join(root, '.planning', 'VISION.md'), '# Vision\n\n## Goals\n\n- Verify blocked-run recovery resumes and completes cleanly\n');
 
     const configPath = join(root, 'agentxchain.json');
     const config = JSON.parse(readFileSync(configPath, 'utf8'));
@@ -571,8 +571,19 @@ describe('run schedule E2E', () => {
     // Daemon must keep polling while blocked
     assert.equal(daemon.child.exitCode, null, 'daemon must not exit while waiting for unblock');
 
-    // Wait for at least one still_blocked cycle to prove the guard works
-    await new Promise((r) => setTimeout(r, 2500));
+    // Wait for at least one still_blocked cycle before unblocking.
+    // Sleeping here is too weak under a saturated full-suite run: the daemon
+    // can be between polls, which makes the test race the unblock boundary.
+    await waitFor(() => {
+      const cycles = daemon.getStdout().trim().split('\n').filter(Boolean).map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      }).filter(Boolean);
+      return cycles.some((cycle) => cycle.results?.some((entry) => entry.action === 'still_blocked'));
+    }, { timeoutMs: 15000, intervalMs: 200 });
     assert.equal(daemon.child.exitCode, null, 'daemon must keep polling during still_blocked cycles');
 
     // Verify schedule-state records continuous_blocked
