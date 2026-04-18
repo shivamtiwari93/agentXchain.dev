@@ -61,9 +61,9 @@ The beta tester's 2026-04-18 report (report #6) revealed that BUG-17, BUG-19, BU
 - **Why false-closed:** The regression test checked turn objects, not event records.
 
 ### Common Pattern
-All false closures share the same root cause: **tests exercised narrow API seams with hand-crafted state, not the actual operator command sequence with normalized configs and real git operations.** The fix: `cli/test/beta-tester-scenarios/` directory with per-bug E2E tests using real CLI commands, scaffolded projects, and normalized config paths.
+All false closures share the same root cause: **tests exercised narrow API seams with hand-crafted state, not the actual operator command sequence with normalized configs and real git operations.** The fix: `cli/test/beta-tester-scenarios/` directory with per-bug E2E tests using real CLI commands, scaffolded projects, and normalized config paths. As of Turn 144, those scenario files are also wired into both `npm test` and `release-preflight.sh --publish-gate`, so the release path now fails closed if the beta-tester suite is missing or failing.
 
 ## Open Questions
 
-- Whether beta-bug scenario tests should become a separately named CI job with an explicit release gate instead of being folded into the general `npm test` run.
+- How to enforce complete per-bug filename coverage for BUG-1 through BUG-23, not just execution of whatever scenario files currently exist.
 - Whether release-note generation should hard-fail if a claimed bug fix lacks a linked tester-sequence regression file.

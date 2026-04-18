@@ -16,7 +16,12 @@ function writeExecutable(path, content) {
   chmodSync(path, 0o755);
 }
 
-function createFixture({ version = '0.9.0', changelogVersions = ['2.0.0'], withGateTest = false } = {}) {
+function createFixture({
+  version = '0.9.0',
+  changelogVersions = ['2.0.0'],
+  withGateTest = false,
+  withBetaScenarioTest = false,
+} = {}) {
   const root = join(
     tmpdir(),
     `axc-release-preflight-${randomBytes(6).toString('hex')}`,
@@ -46,6 +51,15 @@ function createFixture({ version = '0.9.0', changelogVersions = ['2.0.0'], withG
     writeFileSync(
       join(testDir, 'release-preflight.test.js'),
       "import { describe, it } from 'node:test';\nimport assert from 'node:assert/strict';\ndescribe('gate', () => { it('passes', () => { assert.ok(true); }); });\n",
+    );
+  }
+
+  if (withBetaScenarioTest) {
+    const scenarioDir = join(cliDir, 'test', 'beta-tester-scenarios');
+    mkdirSync(scenarioDir, { recursive: true });
+    writeFileSync(
+      join(scenarioDir, 'bug-99-fixture.test.js'),
+      "import { describe, it } from 'node:test';\nimport assert from 'node:assert/strict';\ndescribe('beta scenario gate', () => { it('passes', () => { assert.ok(true); }); });\n",
     );
   }
 
@@ -272,7 +286,7 @@ describe('release-preflight.sh', () => {
   });
 
   it('runs targeted test subset in --publish-gate mode', () => {
-    const fixture = createFixture({ version: '2.0.0', withGateTest: true });
+    const fixture = createFixture({ version: '2.0.0', withGateTest: true, withBetaScenarioTest: true });
     fixtures.push(fixture);
 
     const result = runPreflight(fixture.cliDir, fixture.fakeBinDir, [
@@ -291,6 +305,7 @@ describe('release-preflight.sh', () => {
     const script = readFileSync(SOURCE_SCRIPT, 'utf8');
     assert.match(script, /test\/release-docs-content\.test\.js/);
     assert.match(script, /test\/release-preflight\.test\.js/);
+    assert.match(script, /test\/beta-tester-scenarios\/\*\.test\.js/);
   });
 
   it('integrates shared release-alignment validator as a preflight step', () => {
@@ -304,7 +319,7 @@ describe('release-preflight.sh', () => {
   });
 
   it('--publish-gate implies strict mode', () => {
-    const fixture = createFixture({ version: '0.9.0', withGateTest: true });
+    const fixture = createFixture({ version: '0.9.0', withGateTest: true, withBetaScenarioTest: true });
     fixtures.push(fixture);
 
     const result = runPreflight(fixture.cliDir, fixture.fakeBinDir, [
@@ -314,5 +329,19 @@ describe('release-preflight.sh', () => {
     // --publish-gate implies --strict, so wrong version should be a FAIL not WARN
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FAIL: package\.json is at 0\.9\.0, expected 2\.0\.0/);
+  });
+
+  it('fails closed when no beta-tester scenario tests are available in publish-gate mode', () => {
+    const fixture = createFixture({ version: '2.0.0', withGateTest: true });
+    fixtures.push(fixture);
+
+    const result = runPreflight(fixture.cliDir, fixture.fakeBinDir, [
+      '--publish-gate',
+      '--target-version',
+      '2.0.0',
+    ]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL: No beta-tester scenario tests found for release-gate verification/);
   });
 });

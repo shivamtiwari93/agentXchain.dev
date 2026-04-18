@@ -110,24 +110,37 @@ if [[ "$PUBLISH_GATE" -eq 1 ]]; then
   echo "[3/7] Release-gate tests (targeted subset)"
   # In publish-gate mode, run only release-critical tests to avoid CI hangs.
   # The full test suite is a pre-tag responsibility, not a publish-time gate.
-  GATE_TESTS=(
+  GATE_TEST_PATTERNS=(
     test/release-preflight.test.js
     test/release-docs-content.test.js
     test/release-notes-gate.test.js
     test/release-identity-hardening.test.js
     test/normalized-config.test.js
     test/conformance.test.js
+    test/beta-tester-scenarios/*.test.js
   )
   GATE_TEST_ARGS=()
-  for t in "${GATE_TESTS[@]}"; do
-    if [[ -f "$t" ]]; then
+  shopt -s nullglob
+  for pattern in "${GATE_TEST_PATTERNS[@]}"; do
+    for t in $pattern; do
       GATE_TEST_ARGS+=("$t")
-    fi
+    done
   done
+  shopt -u nullglob
   if [[ ${#GATE_TEST_ARGS[@]} -eq 0 ]]; then
     fail "No release-gate test files found"
   else
-    if run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 node --test "${GATE_TEST_ARGS[@]}"; then
+    BETA_TEST_COUNT=0
+    for t in "${GATE_TEST_ARGS[@]}"; do
+      if [[ "$t" == test/beta-tester-scenarios/*.test.js ]]; then
+        BETA_TEST_COUNT=$((BETA_TEST_COUNT + 1))
+      fi
+    done
+    if [[ "$BETA_TEST_COUNT" -eq 0 ]]; then
+      fail "No beta-tester scenario tests found for release-gate verification"
+      TEST_OUTPUT=""
+      TEST_STATUS=1
+    elif run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 node --test "${GATE_TEST_ARGS[@]}"; then
       TEST_STATUS=0
     else
       TEST_STATUS=$?

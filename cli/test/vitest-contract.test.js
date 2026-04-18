@@ -40,7 +40,8 @@ describe('Vitest coverage contract', () => {
 
   it('keeps the package scripts aligned with the shipped Vitest contract', () => {
     assert.equal(PACKAGE_JSON.scripts['test:vitest'], 'vitest run --reporter=verbose');
-    assert.equal(PACKAGE_JSON.scripts['test:node'], 'node --test test/*.test.js');
+    assert.equal(PACKAGE_JSON.scripts['test:beta'], 'node --test test/beta-tester-scenarios/*.test.js');
+    assert.equal(PACKAGE_JSON.scripts['test:node'], 'node --test test/*.test.js test/beta-tester-scenarios/*.test.js');
     assert.equal(PACKAGE_JSON.scripts.test, 'npm run test:vitest && npm run test:node');
   });
 
@@ -84,16 +85,28 @@ describe('Vitest coverage contract', () => {
 describe('Test-surface hygiene — DEC-TEST-HYGIENE-001', () => {
   const TEST_DIR = join(__dirname);
   const entries = readdirSync(TEST_DIR, { withFileTypes: true });
+  const allowedDirectories = new Set(['fixtures', 'beta-tester-scenarios']);
 
-  it('cli/test/ contains only .test.js files and the fixtures directory', () => {
+  it('cli/test/ contains only .test.js files and the shipped data/scenario directories', () => {
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        assert.equal(entry.name, 'fixtures',
+        assert.ok(allowedDirectories.has(entry.name),
           `Unexpected directory in cli/test/: ${entry.name} — support dirs belong in cli/test-support/`);
       } else {
         assert.ok(entry.name.endsWith('.test.js'),
           `Non-test file in cli/test/: ${entry.name} — support files belong in cli/test-support/`);
       }
+    }
+  });
+
+  it('cli/test/beta-tester-scenarios/ contains only .test.js files', () => {
+    const scenarioDir = join(TEST_DIR, 'beta-tester-scenarios');
+    const scenarioEntries = readdirSync(scenarioDir, { withFileTypes: true });
+    assert.ok(scenarioEntries.length > 0, 'beta-tester-scenarios/ should not be empty');
+    for (const entry of scenarioEntries) {
+      assert.ok(entry.isFile(), `Unexpected nested path in beta-tester-scenarios/: ${entry.name}`);
+      assert.ok(entry.name.endsWith('.test.js'),
+        `Non-test file in beta-tester-scenarios/: ${entry.name}`);
     }
   });
 
