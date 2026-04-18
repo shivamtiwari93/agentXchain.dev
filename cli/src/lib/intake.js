@@ -516,16 +516,14 @@ export function findNextDispatchableIntent(root, options = {}) {
     .filter((intent) => intent && DISPATCHABLE_STATUSES.has(intent.status));
 
   // BUG-34: when run_id scoping is active, filter out intents that belong to
-  // a different run. An intent belongs to the current run if:
-  //   (a) it has approved_run_id matching the current run, OR
-  //   (b) it has no approved_run_id AND is marked cross_run_durable, OR
-  //   (c) it was injected in the current run (approved_run_id matches)
-  // Legacy intents (no approved_run_id, no cross_run_durable) are excluded
-  // because they are stale leftovers from prior runs.
+  // a different run. `cross_run_durable` is only a pre-run holding state for
+  // freshly approved idle intents. Once a run starts, those intents must be
+  // rebound onto that run and the flag cleared; it must never override an
+  // existing run binding.
   if (scopeRunId) {
     intents = intents.filter((intent) => {
       if (intent.approved_run_id === scopeRunId) return true;
-      if (intent.cross_run_durable === true) return true;
+      if (!intent.approved_run_id && intent.cross_run_durable === true) return true;
       // Legacy intent with no run binding — stale, skip it
       if (!intent.approved_run_id) return false;
       // Intent bound to a different run — stale, skip it
@@ -579,10 +577,11 @@ export function findPendingApprovedIntents(root, options = {}) {
   return readJsonDir(dirs.intents)
     .filter((intent) => {
       if (!intent || intent.status !== 'approved') return false;
-      // BUG-34: run_id scoping — same logic as findNextDispatchableIntent
+      // BUG-34: run_id scoping — same logic as findNextDispatchableIntent.
+      // `cross_run_durable` only applies before the first run binding exists.
       if (scopeRunId) {
         if (intent.approved_run_id === scopeRunId) return true;
-        if (intent.cross_run_durable === true) return true;
+        if (!intent.approved_run_id && intent.cross_run_durable === true) return true;
         return false;
       }
       return true;
@@ -634,7 +633,30 @@ export function archiveStaleIntents(root, newRunId) {
     }
 
     if (!intent || !DISPATCHABLE_STATUSES.has(intent.status)) continue;
-    if (intent.cross_run_durable === true) continue;
+
+    if (intent.cross_run_durable === true && !intent.approved_run_id) {
+      intent.approved_run_id = newRunId;
+      delete intent.cross_run_durable;
+      intent.updated_at = now;
+      if (!intent.history) intent.history = [];
+      intent.history.push({
+        from: intent.status,
+        to: intent.status,
+        at: now,
+        reason: `pre-run durable approval bound to run ${newRunId}`,
+      });
+      safeWriteJson(intentPath, intent);
+      adopted++;
+      continue;
+    }
+
+    if (intent.cross_run_durable === true && intent.approved_run_id === newRunId) {
+      delete intent.cross_run_durable;
+      intent.updated_at = now;
+      safeWriteJson(intentPath, intent);
+      continue;
+    }
+
     if (intent.approved_run_id === newRunId) continue;
 
     if (intent.approved_run_id && intent.approved_run_id !== newRunId) {
@@ -823,9 +845,9 @@ export function approveIntent(root, intentId, options = {}) {
 
   // BUG-34/39: stamp the current run_id on approval so the intent is scoped
   // to the run that approved it. When approval happens before any governed
-  // run exists, mark the intent as cross_run_durable so the next run init
-  // preserves this freshly approved work instead of archiving it as legacy
-  // migration debt.
+  // run exists, hold the intent in a pre-run durable state so the *next* run
+  // initialization can bind it to that run. The flag is not an evergreen
+  // cross-run bypass; it exists only until first run binding happens.
   if (!intent.approved_run_id) {
     const statePath = join(root, '.agentxchain', 'state.json');
     if (existsSync(statePath)) {

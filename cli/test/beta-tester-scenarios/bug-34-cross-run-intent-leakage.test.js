@@ -90,6 +90,48 @@ afterEach(() => {
 });
 
 describe('BUG-34: cross-run intent leakage in continuous mode', () => {
+  it('binds pre-run durable approvals to the first run only', () => {
+    const config = makeConfig();
+    const root = createProject();
+
+    const injected = injectIntent(root, 'Pre-run approved work', {
+      priority: 'p0',
+      charter: 'Approved before any governed run exists',
+      acceptance: 'Bind this intent to the first run',
+    });
+    assert.ok(injected.ok, `inject failed: ${injected.error}`);
+
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${injected.intent.intent_id}.json`);
+    const beforeRun = JSON.parse(readFileSync(intentPath, 'utf8'));
+    assert.equal(beforeRun.approved_run_id, undefined, 'pre-run approval should not have a run binding yet');
+    assert.equal(beforeRun.cross_run_durable, true, 'pre-run approval should carry the durable marker');
+
+    initializeGovernedRun(root, config);
+    const state1 = readState(root);
+    const run1Id = state1.run_id;
+    const boundIntent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    assert.equal(boundIntent.approved_run_id, run1Id, 'first run must bind the pre-run approval');
+    assert.equal(boundIntent.cross_run_durable, undefined, 'durable marker must be cleared after first binding');
+    assert.equal(boundIntent.status, 'approved', 'binding must not change dispatchable status');
+
+    const stateAfterRun1 = readState(root);
+    stateAfterRun1.status = 'idle';
+    stateAfterRun1.run_id = null;
+    writeFileSync(join(root, '.agentxchain/state.json'), JSON.stringify(stateAfterRun1, null, 2));
+
+    initializeGovernedRun(root, config);
+    const state2 = readState(root);
+    const run2Id = state2.run_id;
+    assert.notEqual(run1Id, run2Id, 'second run should be distinct');
+
+    const archivedIntent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    assert.equal(archivedIntent.status, 'suppressed', 'unconsumed first-run intent must be archived on run 2 init');
+    assert.match(archivedIntent.archived_reason || '', new RegExp(run1Id), 'archival reason must name the original run binding');
+
+    const scopedPending = findPendingApprovedIntents(root, { run_id: run2Id });
+    assert.equal(scopedPending.length, 0, 'run 2 must not inherit the run 1 pre-run approval');
+  });
+
   it('findNextDispatchableIntent does not return intents from a prior run', () => {
     const config = makeConfig();
     const root = createProject();

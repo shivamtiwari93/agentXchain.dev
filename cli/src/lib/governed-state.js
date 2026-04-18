@@ -2166,7 +2166,9 @@ export function initializeGovernedRun(root, config, options = {}) {
   // Intents with an approved_run_id from a DIFFERENT run are archived (BUG-34).
   // BUG-39: Intents with approved_run_id: null are pre-BUG-34 legacy files that
   // must be archived with status "archived_migration", NOT adopted into the current
-  // run. Silently adopting them caused continuous mode to pick up stale intents.
+  // run. The only exception is a freshly approved idle intent carrying the
+  // explicit `cross_run_durable` pre-run marker; those are rebound onto this
+  // run immediately and the marker is cleared.
   const archivedMigrationIntentIds = [];
   try {
     const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
@@ -2178,7 +2180,26 @@ export function initializeGovernedRun(root, config, options = {}) {
         try {
           const intent = JSON.parse(readFileSync(ip, 'utf8'));
           if (!intent || !DISPATCHABLE.has(intent.status)) continue;
-          if (intent.cross_run_durable === true) continue;
+          if (intent.cross_run_durable === true && !intent.approved_run_id) {
+            intent.approved_run_id = runId;
+            delete intent.cross_run_durable;
+            intent.updated_at = intNow;
+            if (!intent.history) intent.history = [];
+            intent.history.push({
+              from: intent.status,
+              to: intent.status,
+              at: intNow,
+              reason: `pre-run durable approval bound to run ${runId}`,
+            });
+            safeWriteJson(ip, intent);
+            continue;
+          }
+          if (intent.cross_run_durable === true && intent.approved_run_id === runId) {
+            delete intent.cross_run_durable;
+            intent.updated_at = intNow;
+            safeWriteJson(ip, intent);
+            continue;
+          }
           if (intent.approved_run_id === runId) continue;
 
           const prevStatus = intent.status;
