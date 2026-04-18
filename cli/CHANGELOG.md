@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.134.1
+
+### Coordinator Retry Observability + Spec Status Alignment
+
+- **Coordinator retry projection warning event:** when a coordinator retry executes successfully but immediate `acceptance_projection` fails, a durable `coordinator_retry_projection_warning` event is now persisted in `events.jsonl` with workstream, repo, and reissued turn metadata. Previously the warning only existed in stderr and JSON command output. (`DEC-COORD-RETRY-PROJECTION-EVENT-001`)
+- **JSON warning contract for retry projection:** successful coordinator retries with incomplete projection now include `warnings[]` with code `coordinator_acceptance_projection_incomplete` and `reconciliation_required: true` in JSON output. (`DEC-COORD-RETRY-WARNING-001`)
+- **Status and dashboard visibility:** `agentxchain status --json` now includes a `coordinator_warnings` field, and the dashboard plan snapshot (`readPlanSnapshot`) surfaces coordinator projection warnings. Operators no longer need to explicitly query `agentxchain events` to discover incomplete reconciliation. (`DEC-COORD-WARNING-OPERATOR-VISIBILITY-001`)
+- **Current-run scoping:** coordinator warnings are scoped to the active `run_id` (status) and `super_run_id` (dashboard), so historical projection warnings from prior runs do not poison later healthy runs. Status recovers `run_id` from raw state when validation is degraded. (`DEC-COORD-WARNING-RUN-SCOPE-001`)
+- **Operator docs for retry warnings:** `cli.mdx` and `recovery.mdx` now document the retry warning contract, the `coordinator_retry_projection_warning` event, and the follow-up sync command. (`DEC-COORD-RETRY-DOCS-001`)
+- **Coordinator/mission spec status alignment:** 6 planning specs corrected from `proposed`/`in-progress` to `completed` for fully shipped features. Class-level regression guard prevents future drift. (`DEC-SPEC-STATUS-ALIGNMENT-001`)
+
+### Evidence
+
+- 5,942 tests / 1,268 suites / 0 failures. Website build clean.
+
 ## 2.134.0
 
 ### Coordinator Mission Execution Hardening + Compare-Page Consolidation + Protocol Boundary

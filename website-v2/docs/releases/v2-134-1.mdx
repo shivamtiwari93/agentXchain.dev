@@ -1,0 +1,43 @@
+---
+sidebar_position: 0
+title: "v2.134.1 Release Notes"
+---
+
+# AgentXchain v2.134.1
+
+`v2.134.1` makes coordinator retry projection warnings durable, machine-readable, and operator-visible across status, dashboard, and docs surfaces — with current-run scoping so historical warnings don't pollute healthy runs.
+
+**Released:** 2026-04-18
+
+## What Changed
+
+### Coordinator retry projection observability
+
+When a coordinator retry executes successfully but the coordinator cannot immediately project the accepted turn into its acceptance projection, the framework now:
+
+1. **Persists a durable event** — `coordinator_retry_projection_warning` is written to `events.jsonl` with workstream, repo, reissued turn, and warning code metadata. (`DEC-COORD-RETRY-PROJECTION-EVENT-001`)
+2. **Includes machine-readable warnings in JSON output** — the retry command's JSON response includes `warnings[]` with code `coordinator_acceptance_projection_incomplete` and `reconciliation_required: true`. (`DEC-COORD-RETRY-WARNING-001`)
+3. **Surfaces warnings in status and dashboard** — `agentxchain status --json` now includes `coordinator_warnings`, and the dashboard plan snapshot exposes the same field. (`DEC-COORD-WARNING-OPERATOR-VISIBILITY-001`)
+4. **Scopes warnings to the current run** — warnings are filtered by the active `run_id` (status) and `super_run_id` (dashboard), so prior runs' warnings don't produce false `reconciliation_required: true` on healthy runs. (`DEC-COORD-WARNING-RUN-SCOPE-001`)
+
+### Operator docs
+
+- `cli.mdx` documents the full event inventory including the new event type and its rendering contract
+- `recovery.mdx` provides the operator recovery path: inspect the warning, then run `agentxchain mission plan show latest --json` to force sync
+
+### Spec status alignment
+
+Six coordinator and mission planning specs were corrected from `proposed` or `in-progress` to `completed` for features that shipped in v2.131.0–v2.134.0. A class-level regression guard prevents future status drift. (`DEC-SPEC-STATUS-ALIGNMENT-001`)
+
+## Evidence
+
+- 5,942 tests / 1,268 suites / 0 failures. Website build clean.
+- All CI workflows green on `6e0ce179`
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.134.1
+# or
+brew upgrade agentxchain
+```
