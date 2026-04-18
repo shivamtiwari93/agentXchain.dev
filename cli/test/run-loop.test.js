@@ -310,7 +310,7 @@ describe('run-loop', () => {
 
     before(async () => {
       root = makeTempRoot();
-      config = makeConfig();
+      config = makeConfig({ gate_semantic_coverage_mode: 'lenient' });
       scaffoldProject(root, config);
       const cbs = makeStandardCallbacks(root);
       cbs.onEvent = (evt) => { events.push(evt); gitCommitAfterTurn(root, evt); };
@@ -509,17 +509,35 @@ describe('run-loop', () => {
 
     before(async () => {
       root = makeTempRoot();
-      config = makeConfig();
+      config = makeConfig({
+        roles: {
+          pm: {
+            title: 'PM',
+            mandate: 'Plan.',
+            write_authority: 'review_only',
+            runtime_class: 'manual',
+            runtime_id: 'manual-pm',
+          },
+        },
+        runtimes: {
+          'manual-pm': { type: 'manual' },
+        },
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['pm'] },
+          implementation: { entry_role: 'pm', allowed_next_roles: ['pm'] },
+          qa: { entry_role: 'pm', allowed_next_roles: ['pm'] },
+        },
+        gates: {},
+      });
       scaffoldProject(root, config);
 
-      // Keep assigning PM in planning until max_turns hit
       const cbs = {
         selectRole() { return 'pm'; },
         async dispatch(ctx) {
           return {
             accept: true,
             turnResult: makeTurnResult(ctx.turn, ctx.state, {
-              summary: 'PM turn.',
+              summary: `PM progressed ${ctx.state.phase}.`,
               proposedNextRole: 'pm',
               artifactType: 'review',
             }),

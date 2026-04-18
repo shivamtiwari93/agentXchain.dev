@@ -147,7 +147,7 @@ function renderGovernedStatus(context, opts) {
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
   const humanEscalation = findCurrentHumanEscalation(root, state);
   const preemptionMarker = readPreemptionMarker(root);
-  const pendingIntents = findPendingApprovedIntents(root);
+  const pendingIntents = findPendingApprovedIntents(root, { run_id: stateRunId || null });
   const continuousSession = readContinuousSession(root);
   const gateActionAttempt = state?.pending_phase_transition
     ? summarizeLatestGateActionAttempt(root, 'phase_transition', state.pending_phase_transition.gate)

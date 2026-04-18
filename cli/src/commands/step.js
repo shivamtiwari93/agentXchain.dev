@@ -316,7 +316,9 @@ export async function stepCommand(opts) {
       }
 
       const shouldBindIntent = opts.intent !== false;
-      const consumed = shouldBindIntent ? consumeNextApprovedIntent(root, { role: roleId }) : { ok: false };
+      const consumed = shouldBindIntent
+        ? consumeNextApprovedIntent(root, { role: roleId, run_id: state?.run_id || null })
+        : { ok: false };
       if (consumed.ok) {
         state = loadProjectState(root, config);
         if (!state) {

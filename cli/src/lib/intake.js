@@ -668,7 +668,22 @@ export function archiveStaleIntents(root, newRunId) {
  * @returns {{ ok: boolean, intentId?: string, intent?: object, error?: string }}
  */
 export function consumeNextApprovedIntent(root, options = {}) {
-  const queued = findNextDispatchableIntent(root, { run_id: options.run_id });
+  let runId = options.run_id || null;
+  if (!runId) {
+    try {
+      const context = loadProjectContext(root);
+      const state = context ? loadProjectState(root, context.config) : null;
+      runId = state?.run_id || null;
+    } catch {
+      runId = null;
+    }
+  }
+
+  if (runId && options.auto_archive_stale !== false) {
+    archiveStaleIntents(root, runId);
+  }
+
+  const queued = findNextDispatchableIntent(root, { run_id: runId });
   if (!queued.ok) {
     return { ok: false, error: queued.error || 'no dispatchable intents' };
   }

@@ -61,6 +61,7 @@ export async function doctorCommand(opts = {}) {
 function governedDoctor(root, rawConfig, opts) {
   const checks = [];
   const cliVersionHealth = getCliVersionHealth();
+  let stateRunId = null;
 
   checks.push(buildCliVersionCheck(cliVersionHealth));
 
@@ -109,6 +110,7 @@ function governedDoctor(root, rawConfig, opts) {
   if (existsSync(statePath)) {
     try {
       const stateData = JSON.parse(readFileSync(statePath, 'utf8'));
+      stateRunId = stateData.run_id || null;
       if (stateData.schema_version) {
         checks.push({ id: 'state_health', name: 'State health', level: 'pass', detail: `schema_version: ${stateData.schema_version}, status: ${stateData.status || 'unknown'}` });
       } else {
@@ -354,7 +356,7 @@ function governedDoctor(root, rawConfig, opts) {
 
   // 11. Pending intake intents (BUG-15 — informational)
   {
-    const pendingIntents = findPendingApprovedIntents(root);
+    const pendingIntents = findPendingApprovedIntents(root, { run_id: stateRunId });
     if (pendingIntents.length > 0) {
       const summary = pendingIntents.map(pi => `[${pi.priority}] ${pi.intent_id}`).join(', ');
       checks.push({

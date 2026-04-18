@@ -72,6 +72,7 @@ function makeAutoAdvanceConfig() {
 function makeGateFailConfig() {
   return {
     ...makeAutoAdvanceConfig(),
+    gate_semantic_coverage_mode: 'lenient',
     gates: {
       planning_signoff: {
         requires_files: ['SPEC.md'],

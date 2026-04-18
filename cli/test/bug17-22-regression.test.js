@@ -79,7 +79,7 @@ function makeNormalizedConfig(overrides = {}) {
 }
 
 function initGovernedDir(dir) {
-  const config = makeNormalizedConfig();
+  const config = makeNormalizedConfig({ gate_semantic_coverage_mode: 'lenient' });
   writeFileSync(join(dir, 'agentxchain.json'), JSON.stringify(config, null, 2));
   mkdirSync(join(dir, '.agentxchain'), { recursive: true });
   mkdirSync(join(dir, '.planning'), { recursive: true });

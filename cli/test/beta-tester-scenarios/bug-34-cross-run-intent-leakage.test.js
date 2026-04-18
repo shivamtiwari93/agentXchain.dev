@@ -33,6 +33,7 @@ import {
   injectIntent,
   findNextDispatchableIntent,
   findPendingApprovedIntents,
+  consumeNextApprovedIntent,
 } from '../../src/lib/intake.js';
 
 const tempDirs = [];
@@ -259,5 +260,48 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     const result = findNextDispatchableIntent(root, { run_id: run2Id });
     assert.ok(result.ok, 'adopted intent should be dispatchable');
     assert.equal(result.intentId, unboundIntentId, 'should return the adopted intent');
+  });
+
+  it('resume/restart consumption path infers current run scope and archives stale intents', () => {
+    const config = makeConfig();
+    const root = createProject();
+
+    initializeGovernedRun(root, config);
+    const state1 = readState(root);
+    const run1Id = state1.run_id;
+
+    const stale = injectIntent(root, 'Old run work', {
+      priority: 'p1',
+      charter: 'stale prior-run intent',
+      acceptance: 'ignore this in current run',
+    });
+    assert.ok(stale.ok);
+    const staleIntentId = stale.intent.intent_id;
+
+    const stateForReset = readState(root);
+    stateForReset.status = 'idle';
+    stateForReset.run_id = null;
+    stateForReset.active_turns = {};
+    writeFileSync(join(root, '.agentxchain/state.json'), JSON.stringify(stateForReset, null, 2));
+
+    initializeGovernedRun(root, config);
+    const state2 = readState(root);
+    const run2Id = state2.run_id;
+    assert.notEqual(run1Id, run2Id, 'must have a fresh current run');
+
+    const fresh = injectIntent(root, 'Current run work', {
+      priority: 'p0',
+      charter: 'fresh current-run intent',
+      acceptance: 'dispatch this one',
+    });
+    assert.ok(fresh.ok);
+
+    const consumed = consumeNextApprovedIntent(root, { role: 'pm' });
+    assert.ok(consumed.ok, `consumeNextApprovedIntent failed: ${consumed.error}`);
+    assert.equal(consumed.intentId, fresh.intent.intent_id, 'must bind the current-run intent');
+
+    const staleAfter = JSON.parse(readFileSync(join(root, '.agentxchain', 'intake', 'intents', `${staleIntentId}.json`), 'utf8'));
+    assert.equal(staleAfter.status, 'suppressed', 'stale intent must be archived during consume path');
+    assert.match(staleAfter.archived_reason || '', new RegExp(run2Id));
   });
 });

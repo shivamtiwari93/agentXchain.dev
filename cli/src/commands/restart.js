@@ -342,7 +342,7 @@ export async function restartCommand(opts) {
   if (activeTurnCount === 0) {
     // BUG-21 fix: consume approved intents (same as resume path) so intent_id
     // propagates into turn metadata and all lifecycle events.
-    const consumed = consumeNextApprovedIntent(root, { role: roleId });
+    const consumed = consumeNextApprovedIntent(root, { role: roleId, run_id: state?.run_id || null });
     let assignedState;
     let turnId;
     let assignedRole = roleId;

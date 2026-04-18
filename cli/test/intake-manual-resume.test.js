@@ -31,6 +31,34 @@ function readJson(relPath) {
   return JSON.parse(readFileSync(join(root, relPath), 'utf8'));
 }
 
+function writeIntent(intent) {
+  const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
+  const eventsDir = join(root, '.agentxchain', 'intake', 'events');
+  mkdirSync(eventsDir, { recursive: true });
+  mkdirSync(intentsDir, { recursive: true });
+  const eventId = intent.event_id || `evt_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`;
+  writeFileSync(join(eventsDir, `${eventId}.json`), JSON.stringify({
+    schema_version: '1.0',
+    event_id: eventId,
+    source: 'manual',
+    category: 'operator_injected',
+    signal: { description: intent.charter || intent.intent_id },
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }, null, 2));
+  writeFileSync(join(intentsDir, `${intent.intent_id}.json`), JSON.stringify({
+    schema_version: '1.0',
+    event_id: eventId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    history: [],
+    priority: 'p0',
+    template: 'generic',
+    acceptance_contract: ['do the work'],
+    ...intent,
+  }, null, 2));
+}
+
 function getSingleActiveTurn(state) {
   const turns = Object.values(state.active_turns || {});
   assert.equal(turns.length, 1, 'expected exactly one active turn');
@@ -186,5 +214,39 @@ describe('manual resume intake binding', () => {
 
     const intent = readJson(join('.agentxchain', 'intake', 'intents', `${injected.intent_id}.json`));
     assert.equal(intent.status, 'approved', 'intent must remain queued when --no-intent is used');
+  });
+
+  it('ignores and archives stale prior-run intents when resuming an active run', () => {
+    const state = readJson('.agentxchain/state.json');
+    state.run_id = 'run_current_resume_scope';
+    state.status = 'active';
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+
+    writeIntent({
+      intent_id: 'intent_stale_resume',
+      status: 'approved',
+      charter: 'Stale prior-run work',
+      approved_run_id: 'run_old_resume_scope',
+    });
+    writeIntent({
+      intent_id: 'intent_current_resume',
+      status: 'approved',
+      charter: 'Current-run work',
+      approved_run_id: 'run_current_resume_scope',
+      acceptance_contract: ['complete the current-run work'],
+    });
+
+    const resume = runCli(['resume', '--role', 'pm']);
+    assert.equal(resume.status, 0, resume.combined);
+    assert.match(resume.stdout, /Bound approved intent to next turn: intent_current_resume/);
+    assert.doesNotMatch(resume.stdout, /intent_stale_resume/);
+
+    const resumedState = readJson('.agentxchain/state.json');
+    const turn = getSingleActiveTurn(resumedState);
+    assert.equal(turn.intake_context.intent_id, 'intent_current_resume');
+
+    const staleIntent = readJson(join('.agentxchain', 'intake', 'intents', 'intent_stale_resume.json'));
+    assert.equal(staleIntent.status, 'suppressed', 'stale prior-run intent must be archived on resume');
+    assert.match(staleIntent.archived_reason || '', /run_current_resume_scope/);
   });
 });

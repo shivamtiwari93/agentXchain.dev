@@ -775,7 +775,7 @@ describe('acceptGovernedTurn — gate integration', () => {
   }
 
   it('infers forward progress for a completed turn with no phase_transition_request', () => {
-    const config = makeConfig();
+    const config = makeConfig({ gate_semantic_coverage_mode: 'lenient' });
     const state = setupRun(config, 'planning', 'pm');
     stageTurnResult(state);
 
@@ -788,7 +788,7 @@ describe('acceptGovernedTurn — gate integration', () => {
   });
 
   it('stays in current phase when gate fails (missing files)', () => {
-    const config = makeConfig();
+    const config = makeConfig({ gate_semantic_coverage_mode: 'lenient' });
     const state = setupRun(config, 'planning', 'pm');
     stageTurnResult(state, { phase_transition_request: 'implementation' });
 
@@ -850,7 +850,7 @@ describe('acceptGovernedTurn — gate integration', () => {
   });
 
   it('does not evaluate gate when turn status is needs_human', () => {
-    const config = makeConfig();
+    const config = makeConfig({ gate_semantic_coverage_mode: 'lenient' });
     const state = setupRun(config, 'planning', 'pm');
     stageTurnResult(state, {
       status: 'needs_human',
@@ -867,7 +867,7 @@ describe('acceptGovernedTurn — gate integration', () => {
   });
 
   it('accepts turn but stays in phase on unknown target phase', () => {
-    const config = makeConfig();
+    const config = makeConfig({ gate_semantic_coverage_mode: 'lenient' });
     const state = setupRun(config, 'planning', 'pm');
     // Note: protocol validator would catch this, but test the gate evaluator path
     // We need to bypass protocol validation by using a valid-looking request
