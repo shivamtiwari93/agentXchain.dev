@@ -408,6 +408,7 @@ describe('template list', () => {
     assert.ok(result.stdout.includes('cli-tool'));
     assert.ok(result.stdout.includes('library'));
     assert.ok(result.stdout.includes('web-app'));
+    assert.ok(result.stdout.includes('full-local-cli'));
     assert.ok(result.stdout.includes('enterprise-app'));
   });
 
@@ -416,13 +417,14 @@ describe('template list', () => {
     assert.equal(result.status, 0, result.stderr);
     const templates = JSON.parse(result.stdout);
     assert.ok(Array.isArray(templates));
-    assert.equal(templates.length, 6);
+    assert.equal(templates.length, 7);
     const ids = templates.map(t => t.id);
     assert.ok(ids.includes('generic'));
     assert.ok(ids.includes('api-service'));
     assert.ok(ids.includes('cli-tool'));
     assert.ok(ids.includes('library'));
     assert.ok(ids.includes('web-app'));
+    assert.ok(ids.includes('full-local-cli'));
     assert.ok(ids.includes('enterprise-app'));
     // Check structure
     const apiService = templates.find(t => t.id === 'api-service');

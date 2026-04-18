@@ -5,6 +5,13 @@
   "version": "1",
   "protocol_compatibility": ["1.0", "1.1"],
   "planning_artifacts": [],
+  "system_spec_overlay": {
+    "purpose_guidance": "Describe the repo as a human-gated all-local automation system. Clarify that PM, Dev, QA, and Engineering Director execute through local CLI runtimes while humans retain approval authority at phase and completion gates.",
+    "interface_guidance": "Document the governed operator boundary: which local CLI runtimes are expected, how prompts are delivered, and which approvals remain human-gated even though all core roles are automated.",
+    "behavior_guidance": "Explain the dispatch rhythm for authoritative local CLI turns, the clean-working-tree requirement between accepted automated turns, and how injected intents or reissued turns change the next dispatch charter.",
+    "error_cases_guidance": "Call out weak authority flags, stale runtime bindings, dirty-baseline failures, and post-dispatch drift as first-class operational risks for this template.",
+    "acceptance_tests_guidance": "- [ ] PM, Dev, QA, and Engineering Director all bind to authoritative local_cli runtimes\n- [ ] Human approval remains required for phase transitions and run completion\n- [ ] Operator docs include the clean-tree checkpoint rule between accepted automated turns\n- [ ] Connector validation confirms the downstream CLI authority mode is strong enough for unattended governed execution"
+  },
   "prompt_overrides": {},
   "acceptance_hints": [],
   "scaffold_blueprint": {

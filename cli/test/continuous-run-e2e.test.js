@@ -61,6 +61,7 @@ function makeProject({ slowAgent = false, failingAgent = false } = {}) {
   for (const role of Object.values(config.roles || {})) {
     role.write_authority = 'authoritative';
   }
+  config.intent_coverage_mode = 'lenient';
   if (failingAgent) {
     config.rules = { ...(config.rules || {}), max_turn_retries: 1 };
   }

@@ -202,8 +202,8 @@ describe('Conflict-loop recovery — subprocess E2E', () => {
     assert.match(result.stdout, /human_merge/, 'must show suggested resolution');
   });
 
-  // AT-CLR-005: reject-turn --reassign fails on a non-conflicted turn
-  it('AT-CLR-005: reject-turn --reassign rejects non-conflicted turns', () => {
+  // AT-CLR-005: reject-turn --reassign no longer hard-fails on a non-conflicted turn
+  it('AT-CLR-005: reject-turn --reassign proceeds on non-conflicted turns', () => {
     const turnId = 'turn_normal_01';
     const { dir } = createGovernedProject({
       turnId,
@@ -239,10 +239,8 @@ describe('Conflict-loop recovery — subprocess E2E', () => {
     }, null, 2));
 
     const result = runCli(dir, ['reject-turn', '--turn', turnId, '--reassign', '--reason', 'test']);
-    // Must fail — reassign requires conflict_state
-    assert.notEqual(result.status, 0, 'reject-turn --reassign must fail on non-conflicted turn');
-    // Error message should indicate why
+    assert.equal(result.status, 0, `reject-turn --reassign should proceed on non-conflicted turns:\n${result.stdout}\n${result.stderr}`);
     const combined = result.stdout + result.stderr;
-    assert.match(combined, /conflict/i, 'error must mention conflict requirement');
+    assert.match(combined, /rejected|retrying|re-dispatch/i, 'output must reflect successful reject/retry handling');
   });
 });

@@ -1,7 +1,7 @@
 class Agentxchain < Formula
   desc "CLI for AgentXchain governed multi-agent software delivery"
   homepage "https://agentxchain.dev"
-  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.128.0.tgz"
+  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.129.0.tgz"
   sha256 "95d14a04515e15522ed2bff9350e1e3187071a4fe1524314c6cfe373390aea8a"
   license "MIT"
 

@@ -209,6 +209,7 @@ function makeProject(mockServerUrl) {
   config.roles.dev.write_authority = 'authoritative';
   config.roles.eng_director.runtime = 'local-director';
   config.roles.eng_director.write_authority = 'authoritative';
+  config.intent_coverage_mode = 'lenient';
 
   // QA gets api_proxy (review_only) — the adapter we're proving
   config.runtimes['api-qa'] = { ...apiRuntime };

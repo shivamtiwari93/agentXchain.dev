@@ -99,6 +99,14 @@ if (phase === 'planning') {
   proposedNextRole = 'human';
 }
 
+const intentResponse = Array.isArray(assignment?.intake_context?.acceptance_contract)
+  ? assignment.intake_context.acceptance_contract.map((item) => ({
+      item,
+      status: 'addressed',
+      detail: `Mock agent handled acceptance item during ${phase}.`,
+    }))
+  : undefined;
+
 // ── Write turn result ───────────────────────────────────────────────────────
 const turnResult = {
   schema_version: '1.0',
@@ -140,6 +148,7 @@ const turnResult = {
   phase_transition_request: phaseTransitionRequest,
   run_completion_request: runCompletionRequest,
   needs_human_reason: null,
+  intent_response: intentResponse,
   cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
 };
 

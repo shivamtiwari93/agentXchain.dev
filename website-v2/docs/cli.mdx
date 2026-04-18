@@ -732,6 +732,7 @@ agentxchain resume [options]
 |------|---------|-------------|
 | `--role <role>` | (phase entry role) | Override the target role for the next assignment or re-dispatch |
 | `--turn <id>` | (selected retained turn) | Target a specific retained turn when multiple blocked, failed, or retrying turns exist |
+| `--no-intent` | `false` | Ignore approved injected intents for this dispatch and keep the existing routing/default charter |
 
 Initializes or resumes a governed run and then assigns or re-dispatches one turn without waiting for completion. Use it when you want a fresh dispatch bundle now, or when a retained turn must be re-dispatched after a `failed`, `retrying`, or operator-escalated blocked state. If a turn is already active and you need to continue waiting on it, use `agentxchain step --resume` instead.
 
@@ -795,7 +796,9 @@ agentxchain step [options]
 | `--role <role>` | (phase entry role) | Override the target role for this turn |
 | `--resume` | `false` | Resume waiting for an already-active turn instead of creating a new one |
 | `--turn <id>` | (current active) | Target a specific active turn (required with `--resume` when multiple turns exist) |
+| `--no-intent` | `false` | Ignore approved injected intents for this dispatch and keep the existing routing/default charter |
 | `--poll <seconds>` | `2` | Polling interval for the manual adapter |
+| `--stream` | `false` | Stream live subprocess output to the terminal (alias for `--verbose`) |
 | `--verbose` | `false` | Stream `local_cli` subprocess output while the turn is running |
 | `--auto-reject` | `false` | Auto-reject and retry on validation failure |
 

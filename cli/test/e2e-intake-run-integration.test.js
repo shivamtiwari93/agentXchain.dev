@@ -51,6 +51,7 @@ function makeProject() {
   for (const role of Object.values(config.roles || {})) {
     role.write_authority = 'authoritative';
   }
+  config.intent_coverage_mode = 'lenient';
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
   return root;

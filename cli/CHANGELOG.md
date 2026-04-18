@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.129.0
+
+### Beta-Tester Adoption Hardening
+
+- **Injected intent binding is now authoritative across every dispatch path:** approved `inject` intents are consumed by manual `resume`, `step --resume`, and continuous mode through one shared intake path. Dispatch bundles foreground the active injected charter, lifecycle events now carry `intent_id`, and acceptance can enforce intent coverage instead of silently drifting to unrelated PM cleanup. (`DEC-INTENT-COVERAGE-001`, `DEC-UNIFIED-INTAKE-CONSUME-001`)
+- **Turn recovery is now a first-class operator surface:** `agentxchain reissue-turn` reissues stale turns against current repo state after HEAD drift, runtime rebinding, or authority drift. `reject-turn`, `restart`, `status`, and `doctor` now point at the same recovery story instead of leaving operators in poisoned-baseline dead ends. (`DEC-TURN-REISSUE-001`, `DEC-BINDING-DRIFT-DETECTION-001`)
+- **Connector and doctor checks now validate the operator contract, not just binary presence:** stale CLI binaries are flagged against the published docs floor, dirty-tree warnings surface before authoritative turns, and `connector check` now warns on weak `local_cli` authority flags and prompt-transport mismatches instead of passing a configuration that will fail on first real use. (`DEC-CLI-VERSION-FLOOR-001`, `DEC-AUTHORITY-INTENT-PROBE-001`, `DEC-CLEAN-BASELINE-DOCTOR-001`)
+- **Canonical operator docs and template path added:** new `full-local-cli` init template, runtime matrix, authority model, automation patterns, manual-to-automated migration guide, local CLI recipes, and project-structure docs close the first-run setup gaps surfaced by the beta tester. (`DEC-FULL-LOCAL-CLI-001`, `DEC-FULL-LOCAL-CLI-002`, `DEC-ADOPTION-QUEUE-CLOSED-001`)
+
+### Evidence
+
+- 5,754 tests / 1,206 suites / 0 failures. 108 conformance fixtures. Website build clean.
+
 ## 2.128.0
 
 ### Conformance Check as First-Class CLI Surface

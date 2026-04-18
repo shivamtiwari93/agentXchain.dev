@@ -1,0 +1,61 @@
+---
+sidebar_position: 0
+title: "v2.129.0 Release Notes"
+---
+
+# AgentXchain v2.129.0
+
+**Released:** 2026-04-17
+
+## Highlights
+
+### Beta-Tester Adoption Queue Closed
+
+This release closes the full beta-tester adoption queue: the first-run bugs, the manual-intent drift gaps, and the onboarding/docs mismatches that made governed local CLI execution feel less deterministic than it actually is.
+
+- **Injected intent binding is now real on manual paths:** approved `inject` intents are consumed by `resume`, `step --resume`, and continuous mode through one shared path. The active intent is promoted to the dispatch charter instead of being buried as background context.
+- **Intent provenance is durable:** `intent_id` now travels through dispatch, completion, acceptance, failure, reissue, history, and `events`.
+- **Intent coverage is validated:** intent-bound turns can now fail or warn when they do not actually address the injected acceptance contract.
+- **Status surfaces pending intents:** operators can see approved-but-unconsumed injected intents directly in `status` and `doctor`.
+
+### Drift Recovery and Operator Safety
+
+The other major gap from live beta usage was recovery after the repo moved underneath an active turn.
+
+- **`agentxchain reissue-turn`:** first-class turn invalidation + reissue against current HEAD/runtime/authority state.
+- **Retry and restart now tell the truth:** stale baseline retries are no longer silently poisoned, and `restart` prints actionable recovery commands instead of only detecting drift.
+- **Binding drift detection:** `status` and `doctor` now warn when an active turn is stale because a role was rebound to a different runtime or authority mode after dispatch.
+- **Clean-baseline and stale-binary warnings:** `doctor` now surfaces dirty-tree preflight warnings for writable roles and warns when the installed CLI is older than the published docs floor.
+
+### First-Run Local CLI Path Made Explicit
+
+This release also hardens the public operator path for governed local CLI automation instead of forcing users to reverse-engineer it from scattered docs.
+
+- **`full-local-cli` template:** a first-class init-time blueprint for human-gated automation with PM, Dev, QA, and Director on `authoritative + local_cli`.
+- **Runtime + authority docs:** new Runtime Matrix and Authority Model pages explain all five runtimes, the valid authority bindings, and downstream CLI sandbox/approval expectations.
+- **Practical operator guides:** new Automation Patterns, Manual-to-Automated Migration, Local CLI Recipes, and Project Structure docs close the copy-paste and repo-layout gaps.
+- **Truthful validation and probing:** invalid `review_only + local_cli` configs now fail with repair guidance, and `connector check` warns when a CLI command exists but is missing the authority flags needed for unattended execution.
+
+## What Changed
+
+- Shared approved-intent consumption path across manual and continuous dispatch.
+- Added intent lifecycle provenance (`intent_id`) to event/history surfaces.
+- Added intent-coverage validation stage to governed acceptance.
+- Added `reissue-turn` and related recovery guidance across CLI surfaces.
+- Added binding-drift detection, clean-baseline doctor checks, and stale CLI version warnings.
+- Added authority-intent and prompt-transport analysis to local CLI connector probes.
+- Added `full-local-cli` template plus the operator docs needed to use it safely.
+- Added canonical docs for runtime matrix, authority model, automation posture, migration, local CLI recipes, and project structure.
+
+## Key Decisions
+
+- `DEC-TURN-REISSUE-001`: one `reissue-turn` command covers baseline drift, runtime drift, authority drift, and operator-initiated redo.
+- `DEC-INTENT-COVERAGE-001`: intent-bound acceptance includes a dedicated `intent_coverage` validation stage.
+- `DEC-UNIFIED-INTAKE-CONSUME-001`: all dispatch paths consume approved intents through a shared function.
+- `DEC-FULL-LOCAL-CLI-001`: ship `full-local-cli` as the canonical human-gated all-local automation template.
+- `DEC-AUTHORITY-INTENT-PROBE-001`: local CLI connector checks must validate downstream authority intent, not only command existence.
+- `DEC-ADOPTION-QUEUE-CLOSED-001`: the beta-tester adoption queue is fully closed before resuming broader backlog work.
+
+## Evidence
+
+- 5,754 tests / 1,206 suites / 0 failures. 108 conformance fixtures. Website build clean.

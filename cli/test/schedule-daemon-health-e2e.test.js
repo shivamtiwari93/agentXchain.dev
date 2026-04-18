@@ -41,6 +41,7 @@ function makeProject({ schedules, mockAgentPath = MOCK_AGENT } = {}) {
   for (const role of Object.values(config.roles || {})) {
     role.write_authority = 'authoritative';
   }
+  config.intent_coverage_mode = 'lenient';
 
   config.schedules = schedules || {
     health_check: {
