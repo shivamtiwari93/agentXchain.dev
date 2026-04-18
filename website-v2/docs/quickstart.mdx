@@ -8,6 +8,14 @@ description: "Run an automated governed flow with agentxchain run, or use step f
 
 Governed mode is staged and gate-driven. `agentxchain run` is the primary automated workflow, but `review_only + local_cli` is invalid: if you want CLI-driven automation, that role must be `authoritative`, or you must keep the role on `manual`, `api_proxy`, `mcp`, or `remote_agent`. The scaffold created by `init --governed -y` is manual-only by default:
 
+## Prerequisites
+
+- Minimum CLI version: `agentxchain 2.128.0` or newer
+- Check your installed binary: `agentxchain --version`
+- Upgrade with npm: `npm install -g agentxchain@latest`
+- Upgrade with Homebrew: `brew upgrade agentxchain`
+- If the binary on `PATH` and these docs disagree, use the safe fallback: `npx --yes -p agentxchain@latest -c "agentxchain <command>"`
+
 - `pm` uses `manual-pm`
 - `dev` uses `manual-dev`
 - `qa` uses `manual-qa`

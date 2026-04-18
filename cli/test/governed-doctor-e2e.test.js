@@ -142,6 +142,24 @@ function runCli(root, args, opts = {}) {
   return result;
 }
 
+function createStubNpmDir(version) {
+  const dir = mkdtempSync(join(tmpdir(), 'axc-doctor-npm-'));
+  tempDirs.push(dir);
+  const binDir = join(dir, 'bin');
+  mkdirSync(binDir, { recursive: true });
+  const stub = join(binDir, 'npm');
+  writeFileSync(stub, `#!/usr/bin/env node
+const args = process.argv.slice(2).join(' ');
+if (args === 'view agentxchain version') {
+  process.stdout.write('${version}\\n');
+  process.exit(0);
+}
+process.exit(1);
+`);
+  spawnSync('chmod', ['+x', stub], { encoding: 'utf8' });
+  return binDir;
+}
+
 afterEach(() => {
   while (tempDirs.length) {
     const d = tempDirs.pop();
@@ -389,5 +407,25 @@ describe('Governed Doctor E2E', () => {
     assert.match(configCheck.detail, /invalid review_only \+ local_cli binding/);
     assert.match(configCheck.detail, /change write_authority to "authoritative"/);
     assert.match(configCheck.detail, /manual", "api_proxy", "mcp", or "remote_agent"/);
+  });
+
+  it('AT-B1-001: doctor warns when the running CLI is older than the published docs floor', () => {
+    const root = makeGoverned();
+    const binDir = createStubNpmDir('99.99.99');
+    const result = runCli(root, ['doctor', '--json'], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.cli_version_status, 'stale');
+    assert.equal(output.docs_min_cli_version, '99.99.99');
+    const versionCheck = output.checks.find((c) => c.id === 'cli_version');
+    assert.ok(versionCheck, 'Should include cli_version check');
+    assert.equal(versionCheck.level, 'warn');
+    assert.match(versionCheck.detail, /npm install -g agentxchain@latest/);
+    assert.match(versionCheck.detail, /brew upgrade agentxchain/);
+    assert.match(versionCheck.detail, /npx --yes -p agentxchain@latest -c "agentxchain doctor"/);
   });
 });

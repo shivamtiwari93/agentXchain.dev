@@ -10,6 +10,7 @@ import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { loadNormalizedConfig, detectConfigVersion } from '../lib/normalized-config.js';
 import { readDaemonState, evaluateDaemonStatus } from '../lib/run-schedule.js';
 import { getGovernedVersionSurface, formatGovernedVersionLabel } from '../lib/protocol-version.js';
+import { getCliVersionHealth } from '../lib/cli-version.js';
 import { PLUGIN_MANIFEST_FILE } from '../lib/plugins.js';
 import {
   getRoleRuntimeCapabilityContract,
@@ -55,6 +56,9 @@ export async function doctorCommand(opts = {}) {
 
 function governedDoctor(root, rawConfig, opts) {
   const checks = [];
+  const cliVersionHealth = getCliVersionHealth();
+
+  checks.push(buildCliVersionCheck(cliVersionHealth));
 
   // 1. Config validation
   const configResult = loadNormalizedConfig(rawConfig, root);
@@ -270,6 +274,10 @@ function governedDoctor(root, rawConfig, opts) {
       project: projectId,
       ...versionSurface,
       config_version: versionSurface.config_generation,
+      cli_version: cliVersionHealth.current_version,
+      docs_min_cli_version: cliVersionHealth.docs_min_cli_version,
+      cli_version_status: cliVersionHealth.status,
+      cli_version_source: cliVersionHealth.source,
       overall,
       connector_probe_recommended: connectorProbe.recommended,
       connector_probe_runtime_ids: connectorProbe.runtimeIds,
@@ -312,6 +320,11 @@ function governedDoctor(root, rawConfig, opts) {
     } else {
       console.log(chalk.red(`  Not ready: ${failCount} failure${failCount > 1 ? 's' : ''}, ${warnCount} warning${warnCount > 1 ? 's' : ''}.`));
     }
+    if (cliVersionHealth.stale) {
+      console.log(chalk.yellow('  Fix: npm install -g agentxchain@latest'));
+      console.log(chalk.yellow('       brew upgrade agentxchain'));
+      console.log(chalk.yellow('       npx --yes -p agentxchain@latest -c "agentxchain doctor"'));
+    }
     if (failCount === 0 && connectorProbe.recommended) {
       console.log(chalk.dim(`  Next: ${connectorProbe.detail}`));
     }
@@ -338,6 +351,33 @@ function attachRuntimeContract(baseCheck, rtId, rt, boundRoleEntries) {
     runtime_type: rt?.type || 'unknown',
     runtime_contract: bound_roles[0]?.runtime_contract || getRoleRuntimeCapabilityContract('__unbound__', { write_authority: 'unknown' }, rt).runtime_contract,
     bound_roles,
+  };
+}
+
+function buildCliVersionCheck(cliVersionHealth) {
+  if (cliVersionHealth.status === 'stale') {
+    return {
+      id: 'cli_version',
+      name: 'CLI version',
+      level: 'warn',
+      detail: `${cliVersionHealth.detail} Fix with npm install -g agentxchain@latest, brew upgrade agentxchain, or npx --yes -p agentxchain@latest -c "agentxchain doctor".`,
+    };
+  }
+
+  if (cliVersionHealth.status === 'ok') {
+    return {
+      id: 'cli_version',
+      name: 'CLI version',
+      level: 'pass',
+      detail: cliVersionHealth.detail,
+    };
+  }
+
+  return {
+    id: 'cli_version',
+    name: 'CLI version',
+    level: 'info',
+    detail: cliVersionHealth.detail,
   };
 }
 
@@ -449,8 +489,10 @@ function legacyDoctor(root, opts) {
 
   const { config } = result;
   const lock = loadLock(root);
+  const cliVersionHealth = getCliVersionHealth();
   const checks = [];
 
+  checks.push(buildCliVersionCheck(cliVersionHealth));
   checks.push(checkFile('agentxchain.json', existsSync(join(root, 'agentxchain.json')), 'Project config exists'));
   checks.push(checkFile('lock.json', !!lock, 'Lock file exists'));
   checks.push(checkBinary('cursor', 'Cursor CLI available (optional for non-macOS launch)'));
@@ -488,6 +530,11 @@ function legacyDoctor(root, opts) {
     console.log(chalk.yellow(`  Ready with warnings (${warnCount}).`));
   } else {
     console.log(chalk.red(`  Not ready: ${failCount} blocking issue(s).`));
+  }
+  if (cliVersionHealth.stale) {
+    console.log(chalk.yellow('  Fix: npm install -g agentxchain@latest'));
+    console.log(chalk.yellow('       brew upgrade agentxchain'));
+    console.log(chalk.yellow('       npx --yes -p agentxchain@latest -c "agentxchain doctor"'));
   }
   console.log('');
 }

@@ -591,7 +591,7 @@ Context: first external beta tester ran AgentXchain end-to-end on a fresh machin
 
 These items are interlocking — many are docs fixes, several are product fixes, a few require new CLI surfaces. Debate grouping and ordering in AGENT-TALK.md. My suggested ordering (escalation-first mindset): fix the landmines (items B-5, B-7) before the polish (items B-10 through B-15).
 
-- [ ] **B-1: CLI version mismatch safety — docs + doctor output (gap #1)** — Beta tester had an older `agentxchain` binary on PATH than the docs described. They had to discover this the hard way and work around it with `npx -p agentxchain@latest`.
+- [x] **B-1: CLI version mismatch safety — docs + doctor output (gap #1)** — completed 2026-04-17: added prerequisites blocks to `getting-started`, `quickstart`, and `five-minute-tutorial` with minimum CLI version + npm/Homebrew/npx upgrade guidance; `doctor` now probes the published docs floor, warns on stale local CLI versions, and exposes `cli_version` / `docs_min_cli_version` / `cli_version_status` in JSON; regression tests freeze both the docs copy and stale-version warning contract.
   - **What to fix:**
     - Add a "Prerequisites" block at the top of getting-started, quickstart, and five-minute-tutorial: minimum required CLI version, how to check (`agentxchain --version`), how to upgrade (npm + Homebrew), and the `npx --yes -p agentxchain@latest -c "agentxchain ..."` safe-fallback incantation.
     - Update `agentxchain doctor` to detect a stale CLI version against the docs' minimum and warn loudly (it already has version surface from `DEC-PROTOCOL-VERSION-SURFACE-*`).
