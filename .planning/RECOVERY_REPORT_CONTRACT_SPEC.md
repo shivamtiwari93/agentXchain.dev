@@ -1,10 +1,12 @@
 # Recovery Report Contract Spec
 
+**Status:** Implemented
+
 ## Purpose
 
-When a coordinator enters `blocked` state and an operator runs `multi resume`, there is currently no artifact requirement. The operator can clear the blocked state without documenting what caused it, what the impact was, or how it was mitigated. This makes the blocked→recovered transition the only unaudited lifecycle edge in the governed coordinator.
+Before this slice shipped, a coordinator could enter `blocked` state and later clear through `multi resume` without any required artifact documenting what caused the block, what the impact was, or how it was mitigated. That made the blocked→recovered transition the only unaudited lifecycle edge in the governed coordinator.
 
-This spec defines a **required recovery report artifact** that operators must create before `multi resume` can succeed, creating a governed audit trail for blocked-state recovery.
+This spec defines the now-required recovery report artifact that operators must create before `multi resume` can succeed, creating a governed audit trail for blocked-state recovery.
 
 ## Interface
 

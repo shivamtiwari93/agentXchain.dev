@@ -23,6 +23,10 @@ describe('Coordinator spec status alignment', () => {
     { path: '.planning/MISSION_COORDINATOR_LAUNCH_SPEC.md', name: 'coordinator launch' },
     { path: '.planning/MISSION_DECOMPOSITION_SPEC.md', name: 'mission decomposition' },
     { path: '.planning/MULTI_REPO_MISSION_BRIDGE_SPEC.md', name: 'multi-repo mission bridge' },
+    { path: '.planning/COORDINATOR_BLOCKED_RECOVERY_SPEC.md', name: 'blocked recovery' },
+    { path: '.planning/RECOVERY_REPORT_CONTRACT_SPEC.md', name: 'recovery report contract' },
+    { path: '.planning/RECOVERY_REPORT_RENDERING_SPEC.md', name: 'recovery report rendering' },
+    { path: '.planning/COORDINATOR_REPORT_ACTIONS_SPEC.md', name: 'coordinator report actions' },
   ];
 
   for (const { path, name } of completedSpecs) {
@@ -30,8 +34,8 @@ describe('Coordinator spec status alignment', () => {
       const content = readSpec(path);
       assert.doesNotMatch(
         content,
-        /\*\*Status:\*\*\s*(proposed|in.progress)/i,
-        `${path} still claims proposed/in-progress status but the feature is shipped`
+        /\*\*Status:\*\*\s*(proposed|in.progress|draft)/i,
+        `${path} still claims proposed/in-progress/draft status but the feature is shipped`
       );
     });
   }
@@ -63,6 +67,26 @@ describe('Coordinator spec status alignment', () => {
       name: 'coordinator retry',
       stalePattern: /Today, coordinator workstream failures are terminal/,
     },
+    {
+      path: '.planning/COORDINATOR_BLOCKED_RECOVERY_SPEC.md',
+      name: 'blocked recovery',
+      stalePattern: /Today the coordinator can enter `status: "blocked"`/,
+    },
+    {
+      path: '.planning/RECOVERY_REPORT_CONTRACT_SPEC.md',
+      name: 'recovery report contract',
+      stalePattern: /there is currently no artifact requirement/i,
+    },
+    {
+      path: '.planning/RECOVERY_REPORT_RENDERING_SPEC.md',
+      name: 'recovery report rendering',
+      stalePattern: /agentxchain export does not include this file/i,
+    },
+    {
+      path: '.planning/COORDINATOR_REPORT_ACTIONS_SPEC.md',
+      name: 'coordinator report actions',
+      stalePattern: /It still fails the most practical operator question/i,
+    },
   ];
 
   for (const { path, name, stalePattern } of specsWithShippedFeatures) {
@@ -89,6 +113,24 @@ describe('Coordinator spec status alignment', () => {
       missionsDoc,
       /coordinator.*--all-ready.*fail.closed|coordinator.*autopilot.*fail.closed/i,
       'missions.mdx must not claim coordinator wave execution is fail-closed'
+    );
+  });
+
+  it('multi-repo docs describe blocked recovery as a shipped operator path', () => {
+    const multiRepoDoc = readFileSync(
+      join(REPO_ROOT, 'website-v2/docs/multi-repo.mdx'),
+      'utf8'
+    );
+    assert.match(multiRepoDoc, /agentxchain multi resume/, 'multi-repo docs must document multi resume');
+    assert.match(
+      multiRepoDoc,
+      /RECOVERY_REPORT\.md/,
+      'multi-repo docs must document the recovery report requirement'
+    );
+    assert.doesNotMatch(
+      multiRepoDoc,
+      /no shipped recovery path|no corresponding CLI command/i,
+      'multi-repo docs must not describe blocked recovery as unshipped'
     );
   });
 });

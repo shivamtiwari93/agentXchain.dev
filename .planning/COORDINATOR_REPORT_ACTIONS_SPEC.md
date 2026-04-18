@@ -1,10 +1,12 @@
 # Coordinator Report Action Guidance Spec
 
+**Status:** Implemented
+
 > `DEC-COORD-ACTIONS-001` — coordinator governance reports must surface deterministic next actions from verified coordinator state, not just historical narrative
 
 ## Purpose
 
-The coordinator governance report now explains what happened, when it happened, and how barriers changed. It still fails the most practical operator question:
+Before this slice shipped, the coordinator governance report explained what happened, when it happened, and how barriers changed, but it still failed the most practical operator question:
 
 **What should I do next?**
 
@@ -15,7 +17,7 @@ That gap is real. The report already has enough verified state to answer some ne
 - coordinator active with no pending gate
 - coordinator state drifted from child repo truth
 
-This spec adds a narrow, deterministic action-guidance surface to the `coordinator_workspace` report. It does **not** try to prescribe every possible operator workflow. It only surfaces commands that can be derived directly from the verified export artifact.
+This spec defines the shipped narrow, deterministic action-guidance surface for the `coordinator_workspace` report. It does **not** try to prescribe every possible operator workflow. It only surfaces commands that can be derived directly from the verified export artifact.
 
 ## Interface
 

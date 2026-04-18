@@ -1,10 +1,12 @@
 # Recovery Report Rendering Spec
 
+**Status:** Implemented
+
 ## Purpose
 
-When a coordinator enters `blocked` state, the system scaffolds `.agentxchain/multirepo/RECOVERY_REPORT.md` and requires operators to fill it before `multi resume` can succeed (see `RECOVERY_REPORT_CONTRACT_SPEC.md`). However, `agentxchain export` does not include this file in coordinator exports, and `agentxchain report` does not render its content. This means the recovery audit trail is invisible in governance reports — the one place operators are supposed to review coordinator lifecycle evidence.
+After the recovery-report contract shipped, the next gap was visibility: `agentxchain export` did not include `.agentxchain/multirepo/RECOVERY_REPORT.md` in coordinator exports, and `agentxchain report` did not render its content. That made the recovery audit trail invisible in governance reports — the one place operators are supposed to review coordinator lifecycle evidence.
 
-This spec adds the recovery report to both the export artifact and the rendered governance report.
+This spec defines the now-shipped recovery report inclusion in both the export artifact and the rendered governance report.
 
 ## Interface
 

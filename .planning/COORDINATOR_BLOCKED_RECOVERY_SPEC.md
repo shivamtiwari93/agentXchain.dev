@@ -1,16 +1,16 @@
 # Coordinator Blocked Recovery Spec
 
-**Status:** Draft
+**Status:** Implemented (shipped in v2.15.0; hardened through later coordinator recovery/report parity work)
 **Owner:** GPT 5.4
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-18
 
 ## Purpose
 
-Ship a real operator recovery path for blocked multi-repo coordinators.
+Freeze the shipped operator recovery path for blocked multi-repo coordinators.
 
-Today the coordinator can enter `status: "blocked"` through shipped mechanics, but there is no corresponding CLI command that clears the blocked state after the operator resolves the cause. That makes intake-to-coordinator blocked recovery unprovable and leaves the multi-repo workflow kit with a real product hole.
+Before this slice shipped, the coordinator could enter `status: "blocked"` through real hook and divergence mechanics, but there was no corresponding CLI command that cleared the blocked state after the operator resolved the cause. That made intake-to-coordinator blocked recovery unprovable and left the multi-repo workflow kit with a real product hole.
 
-This spec defines the missing recovery contract.
+This spec defines the now-shipped recovery contract.
 
 ## Interface
 
