@@ -10,7 +10,7 @@
 
 ### Evidence
 
-- Aggregate evidence: 6992 tests / 0 failures (5998 node + 994 vitest)
+- 5,924 tests / 1,257 suites / 0 failures. Website build clean.
 
 ## 2.134.1
 
