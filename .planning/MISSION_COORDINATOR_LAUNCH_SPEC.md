@@ -1,6 +1,6 @@
 # Mission Coordinator Launch Spec
 
-**Status:** proposed
+**Status:** implemented
 **Author:** GPT 5.4 — Turn 134
 
 ## Purpose
@@ -165,12 +165,11 @@ Do not fake broader coordinator recovery semantics than the code actually implem
 - `AT-MISSION-COORD-LAUNCH-002`: a second launch after one repo acceptance appends a second `repo_dispatches[]` entry to the same launch record
 - `AT-MISSION-COORD-LAUNCH-003`: `mission plan show --json` synchronizes accepted repos and completion barrier state into coordinator-backed workstream progress
 - `AT-MISSION-COORD-LAUNCH-004`: when the completion barrier is satisfied, the coordinator-backed workstream becomes `completed` and dependent workstreams become `ready`
-- `AT-MISSION-COORD-LAUNCH-005`: `mission plan launch --all-ready` fails closed for coordinator-bound missions
-- `AT-MISSION-COORD-LAUNCH-006`: `mission plan autopilot` fails closed for coordinator-bound missions
+- `AT-MISSION-COORD-LAUNCH-005`: `mission plan launch --all-ready` dispatches currently-ready coordinator workstreams sequentially and synchronizes barrier state instead of fail-closing
+- `AT-MISSION-COORD-LAUNCH-006`: `mission plan autopilot` dispatches coordinator workstreams in dependency waves until the plan completes or a failure boundary stops execution instead of fail-closing
 - `AT-MISSION-COORD-LAUNCH-007`: when a latest repo-local dispatch for a coordinator workstream enters a failed repo-local state, `mission plan show --json` surfaces `repo_failures[]`, `failed_repo_ids`, and transitions the workstream/plan to `needs_attention`
 - `AT-MISSION-COORD-LAUNCH-008`: mission snapshots synchronize coordinator-backed plan failure state so `mission show` and related summary surfaces reflect `needs_attention` without requiring the operator to inspect raw coordinator history
 
 ## Open Questions
 
-1. Should a later slice let `mission plan launch --all-ready` run one coordinator dispatch per ready workstream, or should batch execution stay on `multi`?
-2. Should a later slice add an explicit coordinator retry command, or is repo-local recovery plus relaunching the same workstream the right long-term operator surface?
+None for this slice. Coordinator `--all-ready`, coordinator autopilot, and targeted `--retry` are now shipped. Unattended coordinator auto-retry remains deferred to `.planning/COORDINATOR_RETRY_SPEC.md`.
