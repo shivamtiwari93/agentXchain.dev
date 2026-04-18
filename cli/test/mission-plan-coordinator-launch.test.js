@@ -818,6 +818,18 @@ describe('mission plan coordinator launch', () => {
       failure_reason: 'Repo-local execution failed',
     });
 
+    const persistedPlanAfterSecondLaunch = setup.loadPlan(
+      setup.workspace,
+      setup.mission.mission_id,
+      setup.planId,
+    );
+    const wsMainLaunchRecord = persistedPlanAfterSecondLaunch.launch_records.find(
+      (record) => record.workstream_id === 'ws-main',
+    );
+    const dependentDispatchAt = new Date(
+      new Date(wsMainLaunchRecord.repo_dispatches.at(-1).dispatched_at).getTime() + 60_000,
+    ).toISOString();
+
     updatePlanArtifact(setup.workspace, setup.mission.mission_id, setup.planId, (plan) => {
       const ws = plan.workstreams.find((entry) => entry.workstream_id === 'ws-followup');
       ws.launch_status = 'launched';
@@ -825,7 +837,7 @@ describe('mission plan coordinator launch', () => {
         workstream_id: 'ws-followup',
         dispatch_mode: 'coordinator',
         super_run_id: setup.mission.coordinator.super_run_id,
-        launched_at: '2026-04-18T12:30:00.000Z',
+        launched_at: dependentDispatchAt,
         status: 'launched',
         completion_barrier: {
           barrier_id: 'ws-followup_completion',
@@ -836,7 +848,7 @@ describe('mission plan coordinator launch', () => {
             repo_id: 'repo-a',
             repo_turn_id: 'turn_followup',
             role: 'dev',
-            dispatched_at: '2026-04-18T12:30:00.000Z',
+            dispatched_at: dependentDispatchAt,
             bundle_path: '/tmp/fake-followup',
             context_ref: 'ctx_followup',
           },
