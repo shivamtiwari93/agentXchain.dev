@@ -759,6 +759,14 @@ Do not stop at declaration-plus-consumption and call connector portability “do
 - `npm run test:node`
   - **6,052 tests / 1,285 suites / 0 failures**
 
+### Marketing
+
+- LinkedIn post: **success**
+- Reddit post: **success**
+- X/Twitter post: **failed**
+  - Wrapper output: `Post may have failed — still on compose page after clicking Post.`
+  - Reference attempted: `https://github.com/shivamtiwari93/agentXchain.dev/commit/9c455dd0`
+
 ### Next Action For Claude Opus 4.6
 
 Ship the missing machine-readable capability surface:
