@@ -31,6 +31,7 @@ import {
 } from '../../src/lib/governed-state.js';
 import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
 import { injectIntent } from '../../src/lib/intake.js';
+import { evaluatePhaseExit } from '../../src/lib/gate-evaluator.js';
 
 const tempDirs = [];
 
@@ -53,9 +54,19 @@ function makeRawConfig() {
       implementation: {
         entry_role: 'dev',
         allowed_next_roles: ['dev'],
+        exit_gate: 'implementation_complete',
       },
     },
-    gates: {},
+    gates: {
+      implementation_complete: {
+        requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+        semantics: [{
+          file: '.planning/IMPLEMENTATION_NOTES.md',
+          rule: 'section_exists',
+          config: { heading: '## Changes' },
+        }],
+      },
+    },
     rules: { max_turn_retries: 3 },
   };
 }
@@ -80,9 +91,19 @@ function makeConfig() {
       implementation: {
         entry_role: 'dev',
         allowed_next_roles: ['dev'],
+        exit_gate: 'implementation_complete',
       },
     },
-    gates: {},
+    gates: {
+      implementation_complete: {
+        requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+        semantics: [{
+          file: '.planning/IMPLEMENTATION_NOTES.md',
+          rule: 'section_exists',
+          config: { heading: '## Changes' },
+        }],
+      },
+    },
     rules: { max_turn_retries: 3 },
   };
 }
@@ -145,15 +166,23 @@ describe('BUG-35: retry prompt must re-bind injected intent with gate failure fi
     const initialPrompt = readFileSync(join(dispatchDir, 'PROMPT.md'), 'utf8');
     assert.match(initialPrompt, /Active Injected Intent/, 'initial prompt must have intent section');
 
-    // 4. Simulate rejection — dev didn't fix the gate issue
+    // 4. Simulate rejection — dev didn't fix the gate issue.
+    //    Use the real gate evaluator to produce the rejection reason (discipline rule:
+    //    no hardcoded gate reason strings — BUG-36 false closure was caused by this).
     execSync('git add -A && git commit -m "turn1" --allow-empty', { cwd: root, stdio: 'ignore' });
+
+    const gateResult = evaluatePhaseExit({
+      state: readState(root),
+      config,
+      acceptedTurn: { role: 'dev', files_changed: [], phase_transition_request: 'implementation' },
+      root,
+    });
+    assert.equal(gateResult.action, 'gate_failed', 'gate must fail — no IMPLEMENTATION_NOTES.md');
 
     const reject = rejectGovernedTurn(root, config, turnId, {
       reason: 'Did not address implementation_complete gate semantic or pending narrow intent',
       failed_stage: 'gate_semantic',
-      validation_errors: [
-        '.planning/IMPLEMENTATION_NOTES.md must define ## Changes to satisfy implementation_complete gate',
-      ],
+      validation_errors: gateResult.reasons,
     });
     assert.ok(reject.ok, `reject failed: ${reject.error}`);
 

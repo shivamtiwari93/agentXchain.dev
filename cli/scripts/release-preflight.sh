@@ -154,6 +154,8 @@ if [[ "$PUBLISH_GATE" -eq 1 ]]; then
     test/release-identity-hardening.test.js
     test/normalized-config.test.js
     test/conformance.test.js
+    test/beta-scenario-emission-guard.test.js
+    test/claim-reality-preflight.test.js
     test/beta-tester-scenarios/*.test.js
   )
   GATE_TEST_ARGS=()
