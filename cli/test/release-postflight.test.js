@@ -164,9 +164,43 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       '    exit 0',
       '  fi',
       '  mkdir -p "${prefix}/bin"',
-      '  cat > "${prefix}/bin/agentxchain" <<EOF',
+      '  cat > "${prefix}/bin/agentxchain" <<\'EOF\'',
       '#!/usr/bin/env bash',
-      'printf "%s\\n" "${FAKE_INSTALL_VERSION:-2.0.1}"',
+      'set -euo pipefail',
+      'printf "%s\\n" "$*" >> "${FAKE_COUNTER_DIR:?}/installed-bin-args.txt"',
+      'case "${1:-}" in',
+      '  --version)',
+      '    printf "%s\\n" "${FAKE_INSTALL_VERSION:-2.0.1}"',
+      '    ;;',
+      '  init)',
+      '    target_dir=""',
+      '    shift',
+      '    while [[ $# -gt 0 ]]; do',
+      '      if [[ "$1" == "--dir" ]]; then',
+      '        target_dir="$2"',
+      '        shift 2',
+      '        continue',
+      '      fi',
+      '      shift',
+      '    done',
+      '    if [[ -z "${target_dir}" ]]; then',
+      '      echo "missing --dir" >&2',
+      '      exit 1',
+      '    fi',
+      '    mkdir -p "${target_dir}/.planning"',
+      '    cat > "${target_dir}/agentxchain.json" <<JSON',
+      '{ "version": 4, "protocol_mode": "governed" }',
+      'JSON',
+      '    printf "Initialized governed scaffold\\n"',
+      '    ;;',
+      '  validate)',
+      '    printf "%s\\n" "${FAKE_VALIDATE_JSON:-{\\"ok\\":true,\\"mode\\":\\"kickoff\\",\\"errors\\":[],\\"warnings\\":[],\\"protocol_mode\\":\\"governed\\",\\"version\\":4}}"',
+      '    ;;',
+      '  *)',
+      '    echo "unexpected installed binary args: $*" >&2',
+      '    exit 1',
+      '    ;;',
+      'esac',
       'EOF',
       '  chmod 755 "${prefix}/bin/agentxchain"',
       '  exit 0',
@@ -279,6 +313,7 @@ describe('release-postflight.sh', () => {
     assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
     assert.match(result.stdout, /PASS: published runner exports import with interface 0\.2/);
     assert.match(result.stdout, /PASS: published adapter exports import with interface 0\.1/);
+    assert.match(result.stdout, /PASS: published CLI scaffolds and validates a governed workspace/);
     assert.match(result.stdout, /Tarball: https:\/\/registry\.npmjs\.org\/agentxchain\/-\/agentxchain-2\.0\.1\.tgz/);
     assert.match(result.stdout, /POSTFLIGHT PASSED/);
   });
@@ -295,14 +330,16 @@ describe('release-postflight.sh', () => {
     );
 
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /\[3\/7\] Registry tarball metadata/);
-    assert.match(result.stdout, /\[5\/7\] npx smoke/);
-    assert.match(result.stdout, /\[6\/7\] Install smoke/);
-    assert.match(result.stdout, /\[7\/7\] Package export smoke/);
+    assert.match(result.stdout, /\[3\/8\] Registry tarball metadata/);
+    assert.match(result.stdout, /\[5\/8\] npx smoke/);
+    assert.match(result.stdout, /\[6\/8\] Install smoke/);
+    assert.match(result.stdout, /\[7\/8\] Package export smoke/);
+    assert.match(result.stdout, /\[8\/8\] Operator front-door smoke/);
     assert.match(result.stdout, /FAIL: npm registry does not serve agentxchain@2\.0\.1/);
     assert.match(result.stdout, /FAIL: published npx smoke failed/);
     assert.match(result.stdout, /FAIL: published CLI install smoke failed/);
     assert.match(result.stdout, /FAIL: published runner\/adapter exports install smoke failed/);
+    assert.match(result.stdout, /FAIL: published operator front-door smoke failed/);
     assert.match(result.stdout, /POSTFLIGHT FAILED/);
   });
 
@@ -452,5 +489,39 @@ describe('release-postflight.sh', () => {
     assert.match(result.stdout, /PASS: published npx command resolves and reports 2\.0\.1/);
     assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
     assert.doesNotMatch(result.stdout, /0\.8\.7/);
+  });
+
+  it('runs init and kickoff validation from the installed published binary', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+    );
+
+    assert.equal(result.status, 0);
+    const installedArgs = readFileSync(join(fixture.fakeBinDir, 'installed-bin-args.txt'), 'utf8');
+    assert.match(installedArgs, /--version/);
+    assert.match(installedArgs, /init --governed --template cli-tool --goal Release operator smoke --dir .* -y/);
+    assert.match(installedArgs, /validate --mode kickoff --json/);
+  });
+
+  it('fails when the installed CLI cannot validate a fresh governed scaffold', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+      {
+        FAKE_VALIDATE_JSON: '{"ok":false,"mode":"kickoff","errors":["kickoff failed"],"warnings":[],"protocol_mode":"governed","version":4}',
+      },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL: published operator front-door smoke did not validate a governed workspace/);
   });
 });

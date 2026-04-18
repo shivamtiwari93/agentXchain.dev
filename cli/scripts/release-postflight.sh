@@ -2,8 +2,9 @@
 # Release postflight — run this after publish succeeds.
 # Verifies: release tag exists, npm registry serves the version, metadata is present,
 # the published package resolves through npx, the published package can execute its
-# CLI entrypoint from the tarball, and runner package exports are importable in a
-# clean consumer project.
+# CLI entrypoint from the tarball, runner package exports are importable in a
+# clean consumer project, and the installed CLI can scaffold and validate a fresh
+# governed workspace.
 # Usage: bash scripts/release-postflight.sh --target-version <semver> [--tag vX.Y.Z]
 set -uo pipefail
 
@@ -260,6 +261,64 @@ EOF
   return "$node_status"
 }
 
+run_operator_frontdoor_smoke() {
+  if [[ -z "$TARBALL_URL" ]]; then
+    echo "registry tarball metadata unavailable for operator front-door smoke" >&2
+    return 1
+  fi
+
+  local smoke_root
+  local workspace
+  local bin_path
+  local smoke_npmrc
+  local install_status
+  local init_output
+  local init_status
+  local validate_output
+  local validate_status
+
+  smoke_root="$(mktemp -d "${TMPDIR:-/tmp}/agentxchain-operator-postflight.XXXXXX")"
+  workspace="${smoke_root}/workspace"
+  bin_path="${smoke_root}/bin/${PACKAGE_BIN_NAME}"
+  smoke_npmrc="${smoke_root}/.npmrc"
+  echo "registry=https://registry.npmjs.org/" > "$smoke_npmrc"
+
+  env -u NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG="$smoke_npmrc" \
+    npm install --global --prefix "$smoke_root" "$TARBALL_URL" >/dev/null 2>&1
+  install_status=$?
+  if [[ "$install_status" -ne 0 ]]; then
+    rm -rf "$smoke_root"
+    return "$install_status"
+  fi
+
+  if [[ ! -x "$bin_path" ]]; then
+    echo "installed binary missing at ${bin_path}" >&2
+    rm -rf "$smoke_root"
+    return 1
+  fi
+
+  init_output="$(
+    env -u NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG="$smoke_npmrc" \
+      "$bin_path" init --governed --template cli-tool --goal "Release operator smoke" --dir "$workspace" -y 2>&1
+  )"
+  init_status=$?
+  if [[ "$init_status" -ne 0 ]]; then
+    printf '%s\n' "$init_output"
+    rm -rf "$smoke_root"
+    return "$init_status"
+  fi
+
+  validate_output="$(
+    cd "$workspace" || exit 1
+    env -u NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG="$smoke_npmrc" \
+      "$bin_path" validate --mode kickoff --json 2>&1
+  )"
+  validate_status=$?
+  printf '%s\n' "$validate_output"
+  rm -rf "$smoke_root"
+  return "$validate_status"
+}
+
 run_with_retry() {
   local __output_var="$1"
   local description="$2"
@@ -313,17 +372,17 @@ run_with_retry() {
 
 echo "AgentXchain v${TARGET_VERSION} Release Postflight"
 echo "====================================="
-echo "Checks release truth after publish: tag, registry visibility, metadata, npx smoke, CLI install smoke, and package export smoke."
+echo "Checks release truth after publish: tag, registry visibility, metadata, npx smoke, CLI install smoke, package export smoke, and operator front-door smoke."
 echo ""
 
-echo "[1/7] Git tag"
+echo "[1/8] Git tag"
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
   pass "Git tag ${TAG} exists locally"
 else
   fail "Git tag ${TAG} is missing locally"
 fi
 
-echo "[2/7] Registry version"
+echo "[2/8] Registry version"
 if run_with_retry VERSION_OUTPUT "registry version" equals "${TARGET_VERSION}" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" version; then
   PUBLISHED_VERSION="$(trim_last_line "$VERSION_OUTPUT")"
   if [[ "$PUBLISHED_VERSION" == "$TARGET_VERSION" ]]; then
@@ -336,7 +395,7 @@ else
   printf '%s\n' "$VERSION_OUTPUT" | tail -20
 fi
 
-echo "[3/7] Registry tarball metadata"
+echo "[3/8] Registry tarball metadata"
 if run_with_retry TARBALL_OUTPUT "registry tarball metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.tarball; then
   TARBALL_URL="$(trim_last_line "$TARBALL_OUTPUT")"
   if [[ -n "$TARBALL_URL" ]]; then
@@ -349,7 +408,7 @@ else
   printf '%s\n' "$TARBALL_OUTPUT" | tail -20
 fi
 
-echo "[4/7] Registry checksum metadata"
+echo "[4/8] Registry checksum metadata"
 if run_with_retry INTEGRITY_OUTPUT "registry checksum metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.integrity; then
   REGISTRY_CHECKSUM="$(trim_last_line "$INTEGRITY_OUTPUT")"
 fi
@@ -364,7 +423,7 @@ else
   fail "registry did not return checksum metadata"
 fi
 
-echo "[5/7] npx smoke"
+echo "[5/8] npx smoke"
 if run_with_retry NPX_OUTPUT "npx smoke" nonempty "" run_npx_smoke; then
   NPX_VERSION="$(extract_matching_line "$NPX_OUTPUT" "$TARGET_VERSION" 2>/dev/null || trim_last_line "$NPX_OUTPUT")"
   if [[ "$NPX_VERSION" == "$TARGET_VERSION" ]]; then
@@ -377,7 +436,7 @@ else
   printf '%s\n' "$NPX_OUTPUT" | tail -20
 fi
 
-echo "[6/7] Install smoke"
+echo "[6/8] Install smoke"
 if run_with_retry EXEC_OUTPUT "install smoke" nonempty "" run_install_smoke; then
   EXEC_VERSION="$(trim_last_line "$EXEC_OUTPUT")"
   if [[ "$EXEC_VERSION" == "$TARGET_VERSION" ]]; then
@@ -390,7 +449,7 @@ else
   printf '%s\n' "$EXEC_OUTPUT" | tail -20
 fi
 
-echo "[7/7] Package export smoke"
+echo "[7/8] Package export smoke"
 if run_with_retry RUNNER_EXPORT_OUTPUT "runner export smoke" nonempty "" run_runner_export_smoke; then
   RUNNER_EXPORT_JSON="$(trim_last_line "$RUNNER_EXPORT_OUTPUT")"
   RUNNER_EXPORT_VERSION="$(printf '%s' "$RUNNER_EXPORT_JSON" | node --input-type=module -e "process.stdin.setEncoding('utf8'); let raw=''; process.stdin.on('data', (chunk) => raw += chunk); process.stdin.on('end', () => { const parsed = JSON.parse(raw); console.log(parsed.runner_interface_version || ''); });")"
@@ -408,6 +467,20 @@ if run_with_retry RUNNER_EXPORT_OUTPUT "runner export smoke" nonempty "" run_run
 else
   fail "published runner/adapter exports install smoke failed"
   printf '%s\n' "$RUNNER_EXPORT_OUTPUT" | tail -20
+fi
+
+echo "[8/8] Operator front-door smoke"
+if run_with_retry OPERATOR_OUTPUT "operator front-door smoke" nonempty "" run_operator_frontdoor_smoke; then
+  OPERATOR_OK="$(printf '%s' "$OPERATOR_OUTPUT" | node --input-type=module -e "process.stdin.setEncoding('utf8'); let raw=''; process.stdin.on('data', (chunk) => raw += chunk); process.stdin.on('end', () => { const parsed = JSON.parse(raw); console.log(parsed.ok ? 'true' : 'false'); });" 2>/dev/null || true)"
+  OPERATOR_PROTOCOL_MODE="$(printf '%s' "$OPERATOR_OUTPUT" | node --input-type=module -e "process.stdin.setEncoding('utf8'); let raw=''; process.stdin.on('data', (chunk) => raw += chunk); process.stdin.on('end', () => { const parsed = JSON.parse(raw); console.log(parsed.protocol_mode || ''); });" 2>/dev/null || true)"
+  if [[ "$OPERATOR_OK" == "true" && "$OPERATOR_PROTOCOL_MODE" == "governed" ]]; then
+    pass "published CLI scaffolds and validates a governed workspace"
+  else
+    fail "published operator front-door smoke did not validate a governed workspace"
+  fi
+else
+  fail "published operator front-door smoke failed"
+  printf '%s\n' "$OPERATOR_OUTPUT" | tail -20
 fi
 
 echo ""

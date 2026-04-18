@@ -34,7 +34,7 @@ RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS # optional, default 10
 The script prints:
 
 1. A short header identifying the check as release postflight
-2. Seven numbered checks in a stable order
+2. Eight numbered checks in a stable order
 3. A per-check status line using `PASS` or `FAIL`
 4. A summary line with totals
 5. The resolved tarball URL and checksum metadata when available
@@ -59,6 +59,11 @@ The script evaluates these checks in order:
    - The smoke check must install the exact `dist.tarball` into an isolated temporary prefix and execute the installed binary by explicit path.
    - Ambient `PATH` entries or previously installed global `agentxchain` binaries must not influence the result.
 7. Package export smoke from a clean consumer project
+8. Operator front-door smoke from the published CLI binary
+   - The smoke check must install the exact `dist.tarball` into an isolated temporary prefix.
+   - It must execute `agentxchain init --governed --template cli-tool --goal "Release operator smoke" --dir <workspace> -y` with the installed binary, not the repo checkout.
+   - It must then execute `agentxchain validate --mode kickoff --json` inside the freshly scaffolded workspace.
+   - The validation result must parse as JSON and report `ok: true` with `protocol_mode: "governed"`.
 
 ---
 
@@ -71,10 +76,11 @@ The script is a **local/networked postflight**. It intentionally depends on regi
 ### Failure Model
 
 - The script is fail-closed: any missing registry signal or install-smoke mismatch exits non-zero.
-- The script continues through all seven checks even if early ones fail so the operator gets a complete picture.
+- The script continues through all eight checks even if early ones fail so the operator gets a complete picture.
 - A present git tag is not enough. The release remains incomplete until the registry and executable artifact both agree with the tag.
 - Network-backed checks retry with a bounded budget because registry metadata and install resolution can lag the initial publish by several seconds.
 - `npx` proof and tarball-install proof are intentionally separate. `npx` proves the public registry resolution path users copy from docs. Tarball-install proof proves the exact published artifact executes even when bypassing ambient PATH state.
+- The operator front-door smoke is intentionally separate from raw install smoke. `--version` only proves the binary starts. `init` plus `validate` proves the published CLI can scaffold and validate the governed workflow operators are told to start with.
 
 ### Metadata Output
 
@@ -103,6 +109,9 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 | `npx` prints npm notice lines in addition to the version | Accept the smoke when one output line exactly matches the target version. Do not require the final line to be the version. |
 | install smoke executes but prints wrong version | Mark check as `FAIL`, continue |
 | install smoke fails entirely | Mark check as `FAIL`, continue |
+| operator front-door smoke cannot scaffold a governed workspace | Mark check as `FAIL`, continue |
+| operator front-door smoke emits invalid JSON from `validate --mode kickoff --json` | Mark check as `FAIL`, continue |
+| operator front-door smoke reports `ok: false` or a non-governed protocol | Mark check as `FAIL`, continue |
 | registry metadata appears shortly after publish | Retry bounded by `RELEASE_POSTFLIGHT_RETRY_ATTEMPTS` / `RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS` before failing |
 | registry install smoke lags metadata on CI runners | Keep the workflow fail-closed, but allow a higher CI retry budget via environment instead of assuming the local default is sufficient |
 
@@ -118,6 +127,8 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 6. The script retries registry metadata, `npx` smoke, and install smoke checks before failing closed.
 7. The script ignores an older ambient `agentxchain` binary on `PATH` and still proves both the `npx` path and the published tarball path.
 8. The script passes when `npx` prints the target version plus extra npm notice lines.
+9. The script passes only when the published CLI can scaffold a governed workspace and `validate --mode kickoff --json` reports `ok: true`.
+10. The script fails when operator front-door smoke returns invalid JSON or a failed governed validation result.
 
 ---
 

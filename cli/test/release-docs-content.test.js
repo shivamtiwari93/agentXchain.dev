@@ -45,6 +45,7 @@ describe('release planning surface classification', () => {
     assert.doesNotMatch(spec, /\*\*SUPERSEDED/i, 'postflight spec must not be superseded');
     assert.match(spec, /--target-version/, 'must document --target-version flag');
     assert.match(spec, /Install smoke/, 'must document install smoke check');
+    assert.match(spec, /Operator front-door smoke/, 'must document operator front-door smoke check');
     assert.match(spec, /isolated/, 'must require isolated install, not ambient PATH');
     assert.match(spec, /npm run postflight:release -- --target-version 2\.0\.1/,
       'must document the actual npm script entrypoint');
@@ -52,6 +53,10 @@ describe('release planning surface classification', () => {
       'postflight spec must document the exact npx smoke command');
     assert.match(spec, /ambiguous operator error/,
       'postflight spec must explicitly reject the ambiguous npx shorthand when it mentions it');
+    assert.match(spec, /init --governed --template cli-tool --goal "Release operator smoke"/,
+      'postflight spec must document the scaffolded operator smoke path');
+    assert.match(spec, /validate --mode kickoff --json/,
+      'postflight spec must document the governed validation smoke command');
   });
 
   // -- Superseded specs: these MUST be marked SUPERSEDED --
