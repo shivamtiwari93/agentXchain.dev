@@ -46,7 +46,7 @@ Edit your code in Cursor. Run AgentXchain in Cursor's integrated terminal with a
   "runtimes": {
     "codex-dev": {
       "type": "local_cli",
-      "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+      "command": ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
       "cwd": ".",
       "prompt_transport": "argv"
     }

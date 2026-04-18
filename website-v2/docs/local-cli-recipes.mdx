@@ -44,7 +44,7 @@ agentxchain connector validate local-dev  # full synthetic governed turn
 {
   "local-dev": {
     "type": "local_cli",
-    "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+    "command": ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
     "cwd": ".",
     "prompt_transport": "argv"
   }
@@ -57,7 +57,7 @@ If you installed Codex through the macOS app bundle, or `doctor` says bare `code
 {
   "local-dev": {
     "type": "local_cli",
-    "command": ["/Applications/Codex.app/Contents/Resources/codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+    "command": ["/Applications/Codex.app/Contents/Resources/codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
     "cwd": ".",
     "prompt_transport": "argv"
   }
@@ -66,15 +66,16 @@ If you installed Codex through the macOS app bundle, or `doctor` says bare `code
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| `--quiet` | Recommended | Suppresses progress output for cleaner logs |
+| `exec` | Required | Runs Codex non-interactively for governed execution |
 | `--dangerously-bypass-approvals-and-sandbox` | Required for authoritative | Grants full unattended authority — `--full-auto` is **NOT** sufficient |
 | `{prompt}` | Required | Placeholder that AgentXchain replaces with the full dispatch prompt |
-| `prompt_transport` | `argv` | Codex accepts the prompt as a command-line argument |
+| `prompt_transport` | `argv` | Recommended when you want AgentXchain to replace `{prompt}` inline |
 
 **Common mistakes:**
 - Using `--full-auto` instead of `--dangerously-bypass-approvals-and-sandbox` → Codex still blocks on some operations. `connector check` will warn: "does NOT grant full unattended authority."
+- Omitting `exec` or keeping an old `--quiet` flag → current Codex CLI exits before the turn starts. `connector check` now warns with `command_intent`.
 - Forgetting `{prompt}` in the command array → the prompt is never delivered. `connector check` warns: "no \{prompt\} placeholder found."
-- Using `prompt_transport: "stdin"` → Codex does not read prompts from stdin.
+- Using `prompt_transport: "stdin"` is also valid with `codex exec` if you intentionally omit `{prompt}` and pipe the prompt instead of passing it on argv.
 
 **Verify:**
 ```bash

@@ -445,7 +445,7 @@ describe('Adapter docs contract', () => {
       assert.match(adapterDocs, /"command":\s*\["my-agent run \{prompt\}"\]/,
         'argv example must show command as a single string in an array');
       // stdin custom example: single string
-      assert.match(adapterDocs, /"command":\s*\["codex --quiet"\]/,
+      assert.match(adapterDocs, /"command":\s*\["claude --print --dangerously-skip-permissions"\]/,
         'stdin custom example must show command as a single string in an array');
     });
   });

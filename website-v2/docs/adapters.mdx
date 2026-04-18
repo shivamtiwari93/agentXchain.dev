@@ -292,13 +292,13 @@ The agent script receives no prompt on stdin or argv — it reads `PROMPT.md` an
 **Tool that reads prompt from stdin (like the Claude default):**
 
 ```bash
-agentxchain init --governed --dev-command "codex --quiet" --dev-prompt-transport stdin -y
+agentxchain init --governed --dev-command "claude --print --dangerously-skip-permissions" --dev-prompt-transport stdin -y
 ```
 
 ```json
 {
   "type": "local_cli",
-  "command": ["codex --quiet"],
+  "command": ["claude --print --dangerously-skip-permissions"],
   "cwd": ".",
   "prompt_transport": "stdin"
 }

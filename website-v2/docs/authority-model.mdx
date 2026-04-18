@@ -56,8 +56,8 @@ AgentXchain can mark a role `authoritative`, but the downstream tool still needs
 |---|---|---|---|---|
 | Human review only | `manual` | `review_only` | n/a | Valid |
 | Unattended Claude Code implementation | `local_cli` | `authoritative` | `claude --print --dangerously-skip-permissions` | Valid |
-| Unattended Codex implementation | `local_cli` | `authoritative` | `codex --quiet --dangerously-bypass-approvals-and-sandbox {prompt}` | Valid |
-| Codex with weaker approval mode | `local_cli` | `authoritative` | `codex --quiet --full-auto {prompt}` | Not sufficient for fully authoritative unattended local writes |
+| Unattended Codex implementation | `local_cli` | `authoritative` | `codex exec --dangerously-bypass-approvals-and-sandbox {prompt}` | Valid |
+| Codex with weaker approval mode | `local_cli` | `authoritative` | `codex exec --full-auto {prompt}` | Not sufficient for fully authoritative unattended local writes |
 | Remote model review | `api_proxy` | `review_only` | provider API | Valid |
 | Remote proposed patch flow | `api_proxy` | `proposed` | provider API | Valid |
 | Review-only local subprocess | `local_cli` | `review_only` | any flags | Invalid |
@@ -69,7 +69,7 @@ AgentXchain can mark a role `authoritative`, but the downstream tool still needs
 ```json
 {
   "type": "local_cli",
-  "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+  "command": ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
   "cwd": ".",
   "prompt_transport": "argv"
 }

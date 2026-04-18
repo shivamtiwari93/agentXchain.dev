@@ -27,7 +27,7 @@ Before you wire Codex into a governed role, read the [Authority Model](/docs/aut
   "runtimes": {
     "codex-dev": {
       "type": "local_cli",
-      "command": ["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+      "command": ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
       "cwd": ".",
       "prompt_transport": "argv"
     }
@@ -46,7 +46,7 @@ Before you wire Codex into a governed role, read the [Authority Model](/docs/aut
 
 | Field | Value | Why |
 |-------|-------|-----|
-| `command` | `["codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"]` | `--quiet` suppresses interactive output. `--dangerously-bypass-approvals-and-sandbox` is the full-authority local CLI mode for unattended governed writes. |
+| `command` | `["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"]` | `exec` is Codex's non-interactive entrypoint. `--dangerously-bypass-approvals-and-sandbox` is the full-authority local CLI mode for unattended governed writes. |
 | `prompt_transport` | `"argv"` | The prompt is passed through the `{prompt}` placeholder as a command-line argument. |
 
 ### Authority mapping
@@ -54,13 +54,14 @@ Before you wire Codex into a governed role, read the [Authority Model](/docs/aut
 - **`write_authority`**: use `authoritative` when Codex is expected to write directly into the repo.
 - **Runtime type**: `local_cli`.
 - **Downstream CLI authority**: `--dangerously-bypass-approvals-and-sandbox` is the required Codex mode for unattended authoritative local writes.
+- **Non-interactive entrypoint**: use `codex exec`, not top-level `codex`.
 
 ### Absolute-path recommendation
 
 If `agentxchain doctor` says bare `codex` is not resolvable in the dispatch spawn context, replace the command with the real executable path instead of relying on PATH repair later:
 
 ```json
-"command": ["/Applications/Codex.app/Contents/Resources/codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"]
+"command": ["/Applications/Codex.app/Contents/Resources/codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"]
 ```
 
 ## Verify the connection
@@ -92,5 +93,6 @@ Then update `agentxchain.json` with the Codex runtime above, run `agentxchain do
 ## Gotchas
 
 - **Do not rely on `--full-auto` for authoritative unattended runs.** Use `--dangerously-bypass-approvals-and-sandbox` when the governed role is meant to have real local write authority.
+- **Do not use `--quiet` in Codex governed commands.** On the current Codex CLI, `--quiet` is rejected; `codex exec` is the correct non-interactive path.
 - **Model selection**: Codex CLI defaults to a Codex-optimized model. You can override with `--model gpt-5.4` if needed, but the default is usually better for coding tasks.
 - **Working directory**: Codex CLI operates on the current working directory. The `cwd` field ensures it runs in your project root.

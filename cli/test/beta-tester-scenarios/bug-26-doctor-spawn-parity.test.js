@@ -80,7 +80,7 @@ function createProject(commandValue) {
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
   config.runtimes['codex-dev'] = {
     type: 'local_cli',
-    command: [commandValue, '--quiet', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
+    command: [commandValue, 'exec', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
     cwd: '.',
     prompt_transport: 'argv',
   };

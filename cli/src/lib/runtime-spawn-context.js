@@ -113,6 +113,16 @@ export function probeRuntimeSpawnContext(root, runtime, options = {}) {
 
   if (probe.error) {
     const errorCode = probe.error.code || 'spawn_error';
+    if (errorCode === 'ETIMEDOUT') {
+      return {
+        ok: true,
+        runtime_id: runtimeId,
+        command,
+        cwd,
+        timed_out: true,
+        detail: `"${command}" launched in the dispatch spawn context but exceeded the short probe timeout. Treating this as resolvable.`,
+      };
+    }
     if (errorCode === 'ENOENT') {
       return {
         ok: false,

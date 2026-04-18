@@ -34,8 +34,8 @@ const KNOWN_CLI_AUTHORITY_FLAGS = [
  * Maps binary name to expected transport.
  */
 const KNOWN_CLI_TRANSPORTS = {
-  claude: 'stdin',
-  codex: 'argv',
+  claude: ['stdin'],
+  codex: ['argv', 'stdin'],
 };
 
 function formatCommand(command, args = []) {
@@ -325,6 +325,27 @@ function analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles) {
   if (boundRoles.length === 0) return { warnings };
 
   const authoritativeRoles = boundRoles.filter((r) => r.write_authority === 'authoritative');
+  const isCodex = binaryName === 'codex' || binaryName.endsWith('/codex');
+
+  if (isCodex) {
+    if (commandTokens[1] !== 'exec') {
+      warnings.push({
+        probe_kind: 'command_intent',
+        level: 'warn',
+        detail: 'OpenAI Codex CLI governed local runs should use the non-interactive "exec" subcommand. Top-level "codex" is the interactive entrypoint.',
+        fix: 'Use ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"]',
+      });
+    }
+
+    if (commandTokens.includes('--quiet')) {
+      warnings.push({
+        probe_kind: 'command_intent',
+        level: 'warn',
+        detail: 'OpenAI Codex CLI rejects "--quiet" in governed local_cli commands on the current CLI. The command exits before the turn starts.',
+        fix: 'Remove "--quiet" and use ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"]',
+      });
+    }
+  }
 
   // Check known CLI authority flags
   const knownCli = KNOWN_CLI_AUTHORITY_FLAGS.find((entry) => binaryName === entry.binary || binaryName.endsWith(`/${entry.binary}`));
@@ -353,7 +374,7 @@ function analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles) {
 
   // Prompt transport validation
   const transport = runtime.prompt_transport || 'dispatch_bundle_only';
-  const knownTransport = KNOWN_CLI_TRANSPORTS[binaryName];
+  const knownTransports = KNOWN_CLI_TRANSPORTS[binaryName];
 
   if (transport === 'argv' && !commandTokens.some((token) => token.includes('{prompt}'))) {
     warnings.push({
@@ -364,13 +385,13 @@ function analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles) {
     });
   }
 
-  if (knownTransport && transport !== knownTransport && transport !== 'dispatch_bundle_only') {
+  if (knownTransports && !knownTransports.includes(transport) && transport !== 'dispatch_bundle_only') {
     const transportLabel = knownCli ? knownCli.label : binaryName;
     warnings.push({
       probe_kind: 'transport_intent',
       level: 'warn',
-      detail: `${transportLabel} typically uses "${knownTransport}" transport, but this runtime is configured with "${transport}"`,
-      fix: `Set prompt_transport to "${knownTransport}" or "dispatch_bundle_only"`,
+      detail: `${transportLabel} typically uses ${knownTransports.map((value) => `"${value}"`).join(' or ')} transport, but this runtime is configured with "${transport}"`,
+      fix: `Set prompt_transport to ${knownTransports.map((value) => `"${value}"`).join(' or ')} or "dispatch_bundle_only"`,
     });
   }
 

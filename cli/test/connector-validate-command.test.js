@@ -132,6 +132,60 @@ writeFileSync(stagingPath, JSON.stringify(result, null, 2) + '\\n');
     assert.equal(output.scratch_root, null);
   });
 
+  it('AT-CCV-004b: slow local_cli runtimes do not fail closed at the short spawn-probe stage', () => {
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['node', 'scripts/slow-valid-agent.mjs', '{prompt}'],
+        cwd: '.',
+        prompt_transport: 'argv',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    }, (projectRoot) => {
+      writeValidationAgent(projectRoot, 'slow-valid-agent.mjs', `
+import { setTimeout as sleep } from 'node:timers/promises';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+await sleep(800);
+const turnId = process.env.AGENTXCHAIN_TURN_ID;
+const assignmentPath = join(process.cwd(), '.agentxchain', 'dispatch', 'turns', turnId, 'ASSIGNMENT.json');
+const assignment = JSON.parse(readFileSync(assignmentPath, 'utf8'));
+const result = {
+  schema_version: '1.0',
+  run_id: assignment.run_id,
+  turn_id: assignment.turn_id,
+  role: assignment.role,
+  runtime_id: assignment.runtime_id,
+  status: 'completed',
+  summary: 'Slow synthetic connector validation turn completed.',
+  decisions: [{
+    id: 'DEC-902',
+    category: 'process',
+    statement: 'The runtime stayed alive past the short spawn probe and still produced a valid result.',
+    rationale: 'Slow-start local runtimes must not be treated as unresolved.'
+  }],
+  objections: [],
+  files_changed: [],
+  verification: { status: 'skipped', evidence_summary: 'slow synthetic validation' },
+  artifact: { type: 'review', ref: null },
+  proposed_next_role: 'human'
+};
+const stagingPath = join(process.cwd(), assignment.staging_result_path);
+mkdirSync(dirname(stagingPath), { recursive: true });
+writeFileSync(stagingPath, JSON.stringify(result, null, 2) + '\\n');
+`);
+    });
+
+    const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json']);
+    assert.equal(result.status, 0, result.stdout);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'pass');
+    assert.equal(output.dispatch.ok, true);
+    assert.equal(output.validation.ok, true);
+  });
+
   it('AT-DEV-CMD-003: init preserves a path-with-spaces arg that stays runnable through connector validate', () => {
     const root = mkdtempSync(join(tmpdir(), 'axc-connector-validate-init-'));
     tempDirs.push(root);

@@ -68,7 +68,7 @@ describe('authority intent analysis (unit)', () => {
   it('AT-B10-002: Codex with --full-auto warns about weak authority flag', () => {
     const runtime = {
       type: 'local_cli',
-      command: ['codex', '--quiet', '--full-auto', '{prompt}'],
+      command: ['codex', 'exec', '--full-auto', '{prompt}'],
       prompt_transport: 'argv',
     };
     const roles = {
@@ -94,10 +94,10 @@ describe('authority intent analysis (unit)', () => {
     assert.equal(warnings.length, 0);
   });
 
-  it('AT-B10-004: Codex with correct flags produces no authority warnings', () => {
+  it('AT-B10-004: Codex with correct flags produces no warnings', () => {
     const runtime = {
       type: 'local_cli',
-      command: ['codex', '--quiet', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
+      command: ['codex', 'exec', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
       prompt_transport: 'argv',
     };
     const roles = {
@@ -123,7 +123,7 @@ describe('authority intent analysis (unit)', () => {
   it('AT-B10-006: argv transport without {prompt} placeholder warns', () => {
     const runtime = {
       type: 'local_cli',
-      command: ['codex', '--quiet'],
+      command: ['codex', 'exec'],
       prompt_transport: 'argv',
     };
     const roles = {
@@ -135,10 +135,10 @@ describe('authority intent analysis (unit)', () => {
     assert.match(transportWarning.detail, /no \{prompt\} placeholder/);
   });
 
-  it('AT-B10-007: codex with stdin transport warns about expected argv', () => {
+  it('AT-B10-007: codex exec accepts stdin transport without mismatch warning', () => {
     const runtime = {
       type: 'local_cli',
-      command: ['codex', '--quiet', '--dangerously-bypass-approvals-and-sandbox'],
+      command: ['codex', 'exec', '--dangerously-bypass-approvals-and-sandbox'],
       prompt_transport: 'stdin',
     };
     const roles = {
@@ -146,14 +146,13 @@ describe('authority intent analysis (unit)', () => {
     };
     const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
     const transportWarning = warnings.find((w) => w.probe_kind === 'transport_intent');
-    assert.ok(transportWarning, 'should have transport_intent warning');
-    assert.match(transportWarning.detail, /typically uses "argv"/);
+    assert.ok(!transportWarning, 'codex exec should allow stdin transport');
   });
 
   it('AT-B10-008: dispatch_bundle_only transport does not trigger transport mismatch', () => {
     const runtime = {
       type: 'local_cli',
-      command: ['codex', '--quiet', '--dangerously-bypass-approvals-and-sandbox'],
+      command: ['codex', 'exec', '--dangerously-bypass-approvals-and-sandbox'],
       prompt_transport: 'dispatch_bundle_only',
     };
     const roles = {
@@ -164,7 +163,37 @@ describe('authority intent analysis (unit)', () => {
     assert.ok(!transportWarning, 'dispatch_bundle_only should not trigger transport warning');
   });
 
-  it('AT-B10-009: unknown CLI binary with authoritative role produces no authority warning', () => {
+  it('AT-B10-009: codex without exec warns about command_intent', () => {
+    const runtime = {
+      type: 'local_cli',
+      command: ['codex', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
+      prompt_transport: 'argv',
+    };
+    const roles = {
+      dev: { runtime: 'local-dev', write_authority: 'authoritative' },
+    };
+    const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
+    const commandWarning = warnings.find((w) => w.probe_kind === 'command_intent');
+    assert.ok(commandWarning, 'missing exec should produce a command_intent warning');
+    assert.match(commandWarning.detail, /non-interactive "exec" subcommand/);
+  });
+
+  it('AT-B10-010: codex with --quiet warns about command_intent', () => {
+    const runtime = {
+      type: 'local_cli',
+      command: ['codex', 'exec', '--quiet', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
+      prompt_transport: 'argv',
+    };
+    const roles = {
+      dev: { runtime: 'local-dev', write_authority: 'authoritative' },
+    };
+    const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
+    const commandWarning = warnings.find((w) => w.probe_kind === 'command_intent');
+    assert.ok(commandWarning, 'invalid --quiet should produce a command_intent warning');
+    assert.match(commandWarning.detail, /rejects "--quiet"/);
+  });
+
+  it('AT-B10-011: unknown CLI binary with authoritative role produces no authority warning', () => {
     const runtime = {
       type: 'local_cli',
       command: ['my-custom-agent', '--headless'],
@@ -177,7 +206,7 @@ describe('authority intent analysis (unit)', () => {
     assert.equal(warnings.length, 0, 'unknown binaries should not produce authority warnings');
   });
 
-  it('AT-B10-010: multiple authoritative roles listed in warning', () => {
+  it('AT-B10-012: multiple authoritative roles listed in warning', () => {
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--print'],
@@ -198,7 +227,7 @@ describe('authority intent analysis (unit)', () => {
 });
 
 describe('probeConnectorRuntime with authority analysis', () => {
-  it('AT-B10-011: local_cli probe with weak Codex flags returns warn level, not pass', async () => {
+  it('AT-B10-013: local_cli probe with weak Codex flags returns warn level, not pass', async () => {
     const runtime = {
       type: 'local_cli',
       command: ['node', '--full-auto', '{prompt}'],  // node exists on PATH; simulates codex
@@ -217,7 +246,7 @@ describe('probeConnectorRuntime with authority analysis', () => {
     assert.ok(!result.authority_warnings || result.authority_warnings.length === 0);
   });
 
-  it('AT-B10-012: local_cli probe surfaces authority_warnings in result', async () => {
+  it('AT-B10-014: local_cli probe surfaces authority_warnings in result', async () => {
     // We simulate a claude binary missing --dangerously-skip-permissions
     // claude may or may not exist on PATH — we only care about the authority_warnings
     const runtime = {
@@ -242,24 +271,24 @@ describe('probeConnectorRuntime with authority analysis', () => {
 });
 
 describe('normalizeCommandTokens', () => {
-  it('AT-B10-013: normalizes array command with spaces', () => {
+  it('AT-B10-015: normalizes array command with spaces', () => {
     const tokens = normalizeCommandTokens({ command: ['echo test', '--flag'] });
     assert.deepEqual(tokens, ['echo', 'test', '--flag']);
   });
 
-  it('AT-B10-014: normalizes string command', () => {
+  it('AT-B10-016: normalizes string command', () => {
     const tokens = normalizeCommandTokens({ command: 'claude --print --dangerously-skip-permissions' });
     assert.deepEqual(tokens, ['claude', '--print', '--dangerously-skip-permissions']);
   });
 
-  it('AT-B10-015: returns empty for missing command', () => {
+  it('AT-B10-017: returns empty for missing command', () => {
     assert.deepEqual(normalizeCommandTokens({}), []);
     assert.deepEqual(normalizeCommandTokens({ command: [] }), []);
   });
 });
 
 describe('connector check CLI with authority intent (E2E)', () => {
-  it('AT-B10-016: connector check warns when Claude Code lacks --dangerously-skip-permissions for authoritative role', () => {
+  it('AT-B10-018: connector check warns when Claude Code lacks --dangerously-skip-permissions for authoritative role', () => {
     const root = createProject((config) => {
       config.runtimes['local-dev'] = {
         type: 'local_cli',
@@ -278,7 +307,7 @@ describe('connector check CLI with authority intent (E2E)', () => {
     assert.equal(output.connectors[0].level, 'pass');
   });
 
-  it('AT-B10-017: connector check --json includes warn_count in output', () => {
+  it('AT-B10-019: connector check --json includes warn_count in output', () => {
     const root = createProject((config) => {
       config.runtimes['local-dev'] = {
         type: 'local_cli',
@@ -297,7 +326,7 @@ describe('connector check CLI with authority intent (E2E)', () => {
     assert.equal(typeof output.warn_count, 'number');
   });
 
-  it('AT-B10-018: false-positive "binary exists" cannot survive — argv without {prompt} warns', () => {
+  it('AT-B10-020: false-positive "binary exists" cannot survive — argv without {prompt} warns', () => {
     const root = createProject((config) => {
       config.runtimes['local-dev'] = {
         type: 'local_cli',

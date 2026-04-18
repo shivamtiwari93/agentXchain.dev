@@ -583,7 +583,7 @@ describe('governed CLI support', () => {
         '--template',
         'full-local-cli',
         '--dev-command',
-        'codex --quiet --dangerously-bypass-approvals-and-sandbox {prompt}',
+        'codex exec --dangerously-bypass-approvals-and-sandbox {prompt}',
         '--dev-prompt-transport',
         'argv',
         '-y',
@@ -602,7 +602,7 @@ describe('governed CLI support', () => {
         assert.equal(config.runtimes[runtimeId].type, 'local_cli');
         assert.deepEqual(
           config.runtimes[runtimeId].command,
-          ['codex', '--quiet', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
+          ['codex', 'exec', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
         );
         assert.equal(config.runtimes[runtimeId].prompt_transport, 'argv');
       }
