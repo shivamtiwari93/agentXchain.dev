@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.130.0
+
+### Accepted-Turn State Reconciliation + Repo Checkpoint
+
+- **`restart` no longer creates ghost active turns:** the restart path now refuses to surface a newly assigned turn unless the matching dispatch bundle is durable on disk, and `restart`, `status`, and `doctor` all detect state/bundle desync instead of letting operators stack more work on corrupted state. (`DEC-RESTART-BUNDLE-001`, `DEC-BUNDLE-INTEGRITY-001`)
+- **Accepted turns now reconcile derivative state instead of leaving stale caches behind:** gate cache truth is recomputed when previously-missing files now exist, intent-bound accepted turns mark the bound intake intent completed and emit `intent_satisfied`, and restart now consumes approved intents so lifecycle events keep the real `intent_id` instead of `null`. (`DEC-GATE-RECONCILIATION-001`, `DEC-INTENT-SATISFACTION-001`)
+- **Stale staging data is fail-closed:** `accept-turn` and `reject-turn` now verify that any legacy staged turn result actually belongs to the active turn before consuming it, so old staging artifacts cannot silently repair or corrupt a different turn. (`DEC-STALE-STAGING-001`)
+- **Repo checkpointing is now a first-class governed boundary:** `checkpoint-turn` commits the accepted turn's declared `files_changed` to git with turn provenance. `accept-turn --checkpoint` checkpoints atomically after acceptance. `run --continuous` defaults to auto-checkpoint so multi-role handoffs no longer stall on manual `git commit`. Uncheckpointed accepted turns block next authoritative assignment with a `checkpoint_required` error and recovery command. No-op accepted turns are treated as a successful checkpoint skip, not a failure. (`DEC-CKPT-001`, `DEC-CKPT-002`, `DEC-CKPT-003`)
+
+### Evidence
+
+- 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.
+
 ## 2.129.0
 
 ### Beta-Tester Adoption Hardening

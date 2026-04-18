@@ -62,6 +62,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `run` | Turn lifecycle | Drive a governed run to completion: multi-turn execution with adapter dispatch and gate prompting |
 | `schedule` | Automation | Evaluate repo-local run schedules, execute due governed runs, poll in a local daemon loop, or check daemon health |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
+| `checkpoint-turn` | Turn lifecycle | Checkpoint the latest accepted turn into git so the next writable turn has a clean baseline |
 | `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
 | `reissue-turn` | Turn lifecycle | Invalidate an active turn and reissue it against current repo state — covers baseline drift, runtime rebinding, authority changes, and operator-initiated redo |
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
@@ -916,8 +917,25 @@ agentxchain accept-turn [options]
 |------|---------|-------------|
 | `--turn <id>` | (current active) | Target a specific active turn when multiple turns exist |
 | `--resolution <mode>` | `standard` | Conflict resolution mode for conflicted turns: `standard` or `human_merge` |
+| `--checkpoint` | `false` | Automatically checkpoint (git commit) the accepted turn's artifacts after successful acceptance |
 
 Accepts the most recent staged turn result. The result is committed to `.agentxchain/history.jsonl` and the decision ledger is updated. If the turn included a `phase_transition_request`, the run enters a `blocked:gate` state pending `approve-transition`.
+
+Use `--checkpoint` to atomically commit the accepted turn's `files_changed` to git after acceptance, so the next authoritative turn starts from a clean baseline without manual `git commit`.
+
+### `checkpoint-turn`
+
+```bash
+agentxchain checkpoint-turn [--turn <id>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--turn <id>` | (latest accepted) | Checkpoint a specific accepted turn from history |
+
+Commits the accepted turn's declared `files_changed` to git with a structured commit message including turn provenance (turn_id, role, phase, intent_id). Records `checkpoint_sha` and `checkpointed_at` in history and state. Idempotent — running on an already-checkpointed turn is a no-op.
+
+Use this when an authoritative turn was accepted but not yet committed, and the next writable turn is blocked with a `checkpoint_required` error. In continuous mode (`run --continuous`), auto-checkpoint is enabled by default so this command is only needed for manual recovery.
 
 ### `reject-turn`
 

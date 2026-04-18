@@ -213,7 +213,8 @@ describe('E2E intake -> run integration', () => {
     );
 
     const intentBeforeResolve = readIntent(root, intentId);
-    assert.equal(intentBeforeResolve.status, 'executing', 'intent must stay executing until resolve');
+    // BUG-20 fix: accepted intent-bound turns auto-complete the intent
+    assert.equal(intentBeforeResolve.status, 'completed', 'intent auto-completed by accepted turn (BUG-20)');
     assert.equal(intentBeforeResolve.target_run, startOut.run_id);
     assert.equal(intentBeforeResolve.target_turn, startOut.turn_id);
 
@@ -222,23 +223,24 @@ describe('E2E intake -> run integration', () => {
       '--intent', intentId,
       '--json',
     ]), 'intake resolve after run completion');
-    assert.equal(resolveAfterRun.no_change, false);
+    // BUG-20: intent was auto-completed during acceptance of the PM turn,
+    // so resolve is idempotent — run_final_turn points to the PM turn, not the last QA turn
+    assert.equal(resolveAfterRun.no_change, true);
     assert.equal(resolveAfterRun.new_status, 'completed');
     assert.equal(resolveAfterRun.run_outcome, 'completed');
     assert.equal(resolveAfterRun.intent.target_run, startOut.run_id);
-    assert.equal(resolveAfterRun.intent.run_final_turn, completedState.last_completed_turn_id);
+    assert.equal(resolveAfterRun.intent.run_final_turn, startOut.turn_id, 'run_final_turn is the accepted intent-bound turn');
     assert.ok(resolveAfterRun.intent.run_completed_at, 'completed intent must record run_completed_at');
     assert.ok(
       existsSync(join(root, '.agentxchain', 'intake', 'observations', intentId)),
-      'observation scaffold must exist after resolve',
+      'observation scaffold must exist after auto-completion',
     );
     assert.ok(
       resolveAfterRun.intent.history.some((entry) =>
         entry.from === 'executing'
         && entry.to === 'completed'
-        && entry.run_id === startOut.run_id
-        && entry.run_status === 'completed'),
-      'intent history must record executing -> completed against the same run',
+        && entry.turn_id === startOut.turn_id),
+      'intent history must record executing -> completed against the accepted turn',
     );
   });
 });

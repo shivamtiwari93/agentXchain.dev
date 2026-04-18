@@ -680,7 +680,12 @@ describe('run schedule E2E', () => {
     assert.equal(daemonResult.status, 0, daemonResult.combined);
 
     const injectedIntent = readIntent(root, injected.intent_id);
-    assert.equal(injectedIntent.status, 'executing');
+    // BUG-20 fix: accepted intent-bound turns auto-complete the intent,
+    // so after daemon acceptance it may already be 'completed'
+    assert.ok(
+      injectedIntent.status === 'executing' || injectedIntent.status === 'completed',
+      `injected intent must be executing or completed, got: ${injectedIntent.status}`,
+    );
     assert.ok(injectedIntent.target_turn, 'injected intent must be started by the daemon');
 
     const markerPath = join(root, '.agentxchain', 'intake', 'injected-priority.json');

@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.129.0
+# Twitter/X Thread — AgentXchain v2.130.0
 
-> Ready-to-post thread. Updated 2026-04-17 to reflect v2.129.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-18 to reflect v2.130.0 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.129.0 is live. Open source. MIT.
+AgentXchain v2.130.0 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -54,12 +54,12 @@ All 5 adapter types proven live:
 
 New in this release:
 
-- approved `inject` intents now bind to manual `resume` / `step --resume`, not just continuous mode
-- `reissue-turn` recovers stale turns after HEAD/runtime/authority drift instead of leaving poisoned retries
-- `connector check` warns when Claude Code / Codex commands are missing the downstream authority flags needed for unattended governed execution
-- `full-local-cli` gives you a first-class human-gated all-local automation template instead of a docs scavenger hunt
+- `restart` now refuses to create ghost active turns without a real dispatch bundle on disk
+- accepted turns now clear stale gate cache when files now satisfy the gate and complete bound intents with `intent_satisfied`
+- restart now binds approved intents before dispatch so lifecycle events keep the real `intent_id`
+- `accept-turn` / `reject-turn` refuse stale staged results from unrelated turns instead of consuming them
 
-- 5,754 tests / 1,206 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.
 
 **Tweet 5 (the insight):**
 

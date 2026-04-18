@@ -9,9 +9,238 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: close adoption-friction gaps surfaced by the first real beta tester (2026-04-17). Shipping more features before first-time operators can succeed is premature.
+Current focus: **Stop shipping features. Fix the product.** The beta tester's 2026-04-18 full-workflow report exposed that multiple bugs marked CLOSED (BUG-17, BUG-19, BUG-20, BUG-21) still reproduce on v2.129.0. The agents have been optimizing for checkmarks instead of correctness. Ship real fixes, with real end-to-end tests, quietly. No public mea culpas — just make the product do what we say it does.
 
 ## Priority Queue
+
+### P0 — Ship real fixes with real end-to-end proof (2026-04-18)
+
+**This is the most serious entry in this roadmap. Read it completely before picking anything else up.**
+
+The beta tester ran a full 5-role workflow (pm → dev → qa → product_marketing, plus a custom `launch` phase). **The individual protocol pieces work.** What does NOT work reliably is continuous multi-role execution with `local_cli` authoritative turns — which is the customer flow we've been claiming the product handles.
+
+Full verbatim report is below as **"Beta-tester bug report #6 (verbatim)"** — treat it as ground truth. If a fix appears to contradict the report, the report wins.
+
+**The damning finding — multiple FALSE CLOSURES on the same tester's repro:**
+- BUG-17 (restart ghost turn) — tester observed it AGAIN on v2.129.0. Marked closed, still broken.
+- BUG-19 (stale gate state after accept-turn) — tester observed "PM signoff is not approved. Found 'Approved: NO'" AFTER the turn setting YES was accepted. Marked closed, still broken.
+- BUG-20 (intent lifecycle) — tester observed satisfied intents still "pending" across phase advance. Marked closed (with the fatter BUG-20b acceptance criteria), still broken.
+- BUG-21 (intent_id regression) — tester observed `intent_id: null` in event history for the PM turn that addressed the injected intent. Marked closed, still broken.
+
+**Every one of those closures was declared with a passing test and a release note. Yet the product still fails on the tester's reproduction. This means:**
+- the test coverage does not exercise the real operator flow
+- the "regression test" for each bug tested a pure unit/integration seam, not the live end-to-end experience
+- the release notes overstated the fix — described a partial fix as a complete one
+
+**Hard discipline changes required alongside the bug fixes below. These are INTERNAL discipline changes. Do NOT publish them. Just apply them:**
+
+1. **No bug closes without live end-to-end repro.** The failing test must exercise the beta tester's exact command sequence in a temp governed repo with real runtimes. Unit tests + "the code path is covered" is not sufficient evidence. If the tester's sequence still reproduces the defect on the freshly-built CLI, the bug is not fixed. Period.
+
+2. **Every previously-closed beta bug becomes a permanent regression test.** Build a `cli/test/beta-tester-scenarios/` directory. One file per beta bug (BUG-1 through BUG-23). Each test is a full-flow test against the tester's exact sequence. CI must run these every release. A single failure blocks the release.
+
+3. **Release notes describe exactly what shipped — no more, no less.** Keep them accurate. Don't claim coverage you didn't build. Don't invent "partial fix" marketing language. Just list what actually changed and let the tests speak for themselves.
+
+4. **Internal `false_closure` retrospectives live in `.planning/`, NOT on the website.** When a closed bug reopens, write `.planning/BUG_NN_FALSE_CLOSURE.md` with the gap analysis privately. Do not post it to the docs site, release notes, or marketing surface. The learning is for the team; the product surface shows only what works.
+
+5. **Pause net-new feature work.** Every feature cycle between now and beta tester report #6 being fully closed gets deferred. No v2.130.0 feature release. Cut release numbers to patch versions (v2.129.1, v2.129.2, ...) and use them ONLY for these fixes until the cluster is closed.
+
+6. **Do NOT broadcast limitations publicly.** No "known limitations" callouts on the website. No blog posts about what doesn't work. No scoping-down of the case study or comparison pages to admit current gaps. The answer to "the product doesn't do what we say" is to make the product do what we say — quietly, quickly — not to tell the world we've been wrong. Ship the fixes, then the claims are true again.
+
+Now the specific items:
+
+- [ ] **BUG-25: `reissue-turn` is broken — fails with "Runtime 'undefined' not found in config for role 'dev'"** — The command we shipped specifically to handle baseline drift (BUG-7) is itself broken. The tester had to fall back to `reject-turn` retry, which worked better than the "official" recovery surface. This is embarrassing.
+  - **Verification:** reproduce the tester's error. Likely root cause: the reissue path reads runtime from the stale turn state instead of from the current `agentxchain.json`, so it picks up an `undefined` runtime from the original dispatch context.
+  - **Fix requirements:**
+    - `reissue-turn` must always re-resolve runtime from current `agentxchain.json` at reissue time, never from the stale turn state.
+    - Add the tester-sequence test (BUG-7 should have had this from day one; it didn't, which is why this slipped through).
+    - Update the recovery docs to point at `reissue-turn` as the primary path, with `reject-turn` retry as an explicit fallback.
+  - **Acceptance:** tester's exact flow — dispatch turn → change HEAD → `reissue-turn` — succeeds cleanly. No "Runtime undefined" error.
+
+- [ ] **BUG-26: `doctor` / connector validation gives false positives — `doctor` passes for `codex`, but dispatch fails with `spawn codex ENOENT`** — The tester had to hand-patch runtime commands from `codex` to `/Applications/Codex.app/Contents/Resources/codex` because the bundled binary is not on PATH. `doctor` said healthy. Dispatch said ENOENT.
+  - **Root cause:** `doctor` checks if the binary is resolvable in its own environment (which may include shell aliases, PATH augmentations). Dispatch spawns via `child_process.spawn` which uses a clean environment. The two resolution paths disagree.
+  - **Fix requirements:**
+    - `doctor` and `connector validate` must probe runtimes using the same `spawn` context that the real dispatch uses — same environment, same working directory, same resolution rules. No shell augmentation.
+    - If the binary is not resolvable in the spawn context, fail loudly with actionable fix ("`codex` is not on PATH in spawn context. Set `command` to the absolute path, e.g., `/Applications/Codex.app/Contents/Resources/codex`. Or add Codex to PATH.").
+    - Add the tester-sequence test: configure runtime with bare `codex`, run `doctor`, then run a dispatch. If `doctor` passed, dispatch must succeed. If dispatch would fail, `doctor` must have failed first.
+    - Update the Codex integration recipe (B-9, closed earlier) to recommend the absolute path by default. If B-9 already does this, make it more prominent.
+  - **Acceptance:** if `doctor` says a runtime is healthy, a subsequent dispatch using that runtime does not fail with ENOENT.
+
+- [ ] **BUG-27: REOPEN — BUG-17 (restart ghost turn) — still reproduces on v2.129.0** — The tester's 2026-04-18 report describes the exact same symptom BUG-17 was supposedly fixed for: restart creates an active turn in state without a dispatch bundle on disk.
+  - **Required actions:**
+    1. Write a `false_closure` retrospective: what did the BUG-17 fix actually cover? What did the regression test actually assert? Why did it miss the tester's repro?
+    2. Write a tester-sequence end-to-end test BEFORE any code change. The test must fail on current HEAD.
+    3. Fix the remaining gap. Likely the fix only covered one restart code path but not all of them.
+    4. Move BUG-17 entry to "false_closure — see BUG-27" and only close BUG-27 when the tester-sequence test passes on a fresh install.
+  - **Acceptance:** the tester's sequence (accepted PM turn → commit → `restart`) produces a coherent active turn (state + session + events + bundle all agree) OR a clean failure. No ghost turns.
+
+- [ ] **BUG-28: REOPEN — BUG-19 (stale gate state after accepted turn) — still reproduces on v2.129.0** — Tester observed `PM signoff is not approved. Found "Approved: NO"` AFTER a PM turn flipped it to YES and was accepted and committed. BUG-19 closure was false.
+  - **Required actions:**
+    1. `false_closure` retrospective for BUG-19.
+    2. Tester-sequence end-to-end test committed first. Must fail on current HEAD.
+    3. Fix the `reconcileStateAfterAcceptance()` flow (if it exists) or add it (if it doesn't). Every `last_gate_failure` entry must be invalidated when an accepted turn's artifacts change the gate's truth.
+    4. `status`, `approve-transition`, and `doctor` must all agree on the current gate truth.
+  - **Acceptance:** after an accepted turn that flips a previously-failing gate, all three surfaces report the freshly-recomputed truth within the same poll.
+
+- [ ] **BUG-29: REOPEN — BUG-20 (satisfied intents still pending) — still reproduces across phase advance on v2.129.0** — Tester observed two satisfied intents still showing as "Pending injected intents (will drive next turn)" even after `planning → implementation` phase advance. BUG-20's closure (which absorbed BUG-20b with phase-crossing requirement) was false.
+  - **Required actions:**
+    1. `false_closure` retrospective for BUG-20. Specifically: was the phase-crossing regression test actually written? Did it run?
+    2. Tester-sequence end-to-end test: inject → accept turn that addresses → approve gate → advance phase → verify intent gone from pending surfaces.
+    3. Fix the intent lifecycle properly. The lifecycle taxonomy in BUG-20 (`approved → attached → satisfied`) must be implemented, not just documented.
+  - **Acceptance:** no intent ever appears as "pending" after an accepted turn whose acceptance contract satisfies it, regardless of phase state.
+
+- [ ] **BUG-30: REOPEN — BUG-21 (intent_id regression) — still `null` in events on v2.129.0** — Tester's evidence: `"intent_id": null` in event/history records for the PM turn that addressed the injected intent. BUG-21 closure was false.
+  - **Required actions:**
+    1. `false_closure` retrospective for BUG-21 AND the original BUG-12 (which was also partially closed). Build the escalation: one bug was false-closed, then a re-open for the same thing was false-closed. That's two levels of process failure.
+    2. Tester-sequence end-to-end test. Use the tester's exact intent payload.
+    3. Fix intent_id propagation through the ACTUAL event emission code path. Not the dispatch bundle render. Not the history append. The live event emission, for every lifecycle event (`turn_dispatched`, `turn_completed`, `turn_accepted`, `turn_failed`, `acceptance_failed`, `turn_reissued`, `turn_checkpointed`, `intent_satisfied`).
+  - **Acceptance:** `grep '"intent_id":null' .agentxchain/events.jsonl` returns nothing after an inject → accept lifecycle. Every event that should have an intent_id does.
+
+### Implementation notes for BUG-25 through BUG-30 (and the REOPENED items)
+
+- **Ordering:**
+  1. **BUG-26 (doctor spawn parity)** — ship first. If `doctor` lies about runtimes, every downstream "it works" claim is suspect. This one unblocks real verification for everything else.
+  2. **BUG-25 (reissue-turn broken)** — the official recovery path must work before you can claim anything is recoverable.
+  3. **BUG-27, BUG-28, BUG-29, BUG-30 (the false-closures)** — work these in parallel AFTER the first two structural fixes, with the tester-sequence tests committed BEFORE the fixes.
+  4. **BUG-23 (full-auto checkpoint handoff)** — the big one. Land this only after BUG-25 through BUG-30 are truly closed. BUG-23 is what makes the product do what the vision says it does. Prove it with a fresh end-to-end run that drives dev → qa → dev → qa through real `local_cli` with real git checkpoint commits between roles. Put the proof on the live-proof page. Do not make noise about the fix — just make the page better.
+
+- **Zero false closures going forward.** Every bug close from this point on must include:
+  - The tester-sequence test file (committed BEFORE the fix)
+  - A copy of the test output showing PASS on a fresh install
+  - The exact CLI version and commit SHA the test was run against
+  - A line in the closure note saying "reproduces-on-tester-sequence: NO"
+
+- **Internal meta-retrospective required before any of these close.** One document in `.planning/BETA_FALSE_CLOSURE_POSTMORTEM.md`. Covers what went wrong in the discipline (why did BUG-17/19/20/21 all ship false closures?), what systemic change prevents it in the future (the tester-sequence suite + release process gate). **This document stays in `.planning/` — it is never posted to the website, the release notes, or any public surface.** It is a private team artifact that proves the agents learned from the failure. The public surface only shows what works.
+
+- **The bar is now higher.** This roadmap was previously closing items in hours. That velocity created the false-closure problem. Slow down. A bug that takes 3 days to close correctly is vastly better than one that takes 1 day and reopens in 2.
+
+- **When the cluster is closed, the public surface resumes normal cadence.** No public apologies, no "we listened and fixed things" marketing beat, no release-notes contrition. Just ship v2.130.0 when the product actually does what it says, with a normal feature-release voice. The proof that we fixed this lives in the live-proof page showing the multi-role continuous run, not in any acknowledgment that we broke it.
+
+---
+
+### Beta-tester bug report #6 (verbatim) — AgentXchain is not continuous autonomous execution (2026-04-18)
+
+> **Title**
+>
+> AgentXchain is not yet capable of reliable continuous multi-role full-auto execution because accepted turns, baseline management, recovery, and intent state still require repeated operator intervention
+>
+> **Summary**
+>
+> We successfully ran a full governed multi-role workflow in `tusq.dev` with 5 roles and a custom `launch` phase: `pm`, `dev`, `qa`, `product_marketing`, `eng_director` (configured but not needed).
+>
+> The framework proved that custom roles work, custom phases work, local CLI execution works, human phase gates work. But it also revealed a broader limitation:
+>
+> **AgentXchain is not yet capable of reliable continuous multi-role "full auto" execution toward a long-horizon product vision.**
+>
+> The system currently automates individual turns, but continuous progression across writable turns still depends on repeated operator intervention for: checkpointing accepted state, retrying/rebasing stale turns, recovering from restart inconsistencies, resolving stale intent/gate state.
+>
+> This means the framework is currently better described as **human-governed turn automation**, not **continuous autonomous execution until the vision is met**.
+>
+> **The user expectation for a multi-role automated system is:**
+> 1. role turn executes
+> 2. turn is accepted
+> 3. framework checkpoints accepted state
+> 4. next role continues automatically
+> 5. human only intervenes at explicit governance gates or real blockers
+>
+> **The actual observed behavior was repeatedly:**
+> 1. role turn executes
+> 2. turn is accepted
+> 3. repo remains dirty
+> 4. next authoritative role cannot start
+> 5. operator must manually commit/stash
+> 6. if commit happens after dispatch, next turn baseline can become poisoned
+> 7. retries/restarts sometimes recover, sometimes introduce new inconsistencies
+>
+> That is too much operator friction to count as true continuous automation.
+>
+> ---
+>
+> ## Detailed limitations observed
+>
+> ### 1. Accepted writable turns require manual checkpointing before the next authoritative turn
+>
+> After accepted `pm`, `dev`, and `qa` turns, the repo remained dirty and the next authoritative role could not start. Typical error: "Failed to assign turn: Working tree has uncommitted changes in actor-owned files... Authoritative/proposed turns require a clean baseline in v1."
+>
+> ### 2. Baseline invalidation is too easy and too destructive
+>
+> If `HEAD` changes after dispatch but before acceptance, the turn can become invalid even when the produced work is good. Saw this multiple times: PM turn after config commit, dev turn after runtime-path fix commit, QA turn after implementation checkpoint commit.
+>
+> ### 3. Retry/reissue recovery is not fully dependable
+>
+> `reissue-turn` failed with `Runtime "undefined" not found in config for role "dev"`. `reject-turn` retry worked more reliably than `reissue-turn`. Retry had to be used repeatedly to repair stale baselines.
+>
+> ### 4. `restart` can create ghost turns and inconsistent state
+>
+> `restart` created an active PM turn in state/session/events with no dispatch bundle on disk. Only after `reject-turn` did the dispatch bundle get rewritten.
+>
+> ### 5. Gate state can remain stale after accepted truth has changed
+>
+> Even after `.planning/PM_SIGNOFF.md` was `Approved: YES` and accepted, `status` continued to show `PM signoff is not approved. Found "Approved: NO"`.
+>
+> ### 6. Injected intent lifecycle is incomplete
+>
+> Injected planning revisions with explicit acceptance criteria. Eventually PM did satisfy them, but `status` kept showing the intents as pending even after the accepted PM summary said they were addressed, planning moved forward, and later phases began.
+>
+> ### 7. Intent provenance is still weak or absent
+>
+> Despite v2.129.0 claiming better intent propagation, the accepted PM turn that addressed the injected planning request still showed `"intent_id": null` in event/history records.
+>
+> ### 8. Runtime validation does not fully match real dispatch behavior
+>
+> `doctor` passed for `codex`, but the actual dev turn failed with `Subprocess error: spawn codex ENOENT`. Had to manually change runtime commands from `codex` to `/Applications/Codex.app/Contents/Resources/codex`.
+>
+> ### 9. Recovery and retry still depend on operator repo hygiene
+>
+> The framework repeatedly surfaced warnings about files not in dispatch baseline, excluded-from-validation files, operator-changed files not in `files_changed`. Operator must carefully manage repo cleanliness mid-run.
+>
+> ### 10. Human-governed automation works; full-auto long-horizon automation does not
+>
+> **What worked:** 5-role workflow, custom `launch` phase, PM → dev → QA → product_marketing progression, human approvals at planning and QA gates, final run completion.
+>
+> **What did not work:** uninterrupted autonomous progression, self-checkpointing between accepted turns, trustworthy recovery/restart, automatic cleanup of stale intent/gate state.
+>
+> So the current product truth is:
+>
+> **AgentXchain is good at governed role orchestration, but not yet good enough for reliable continuous autonomous multi-role execution toward a long-horizon vision.**
+>
+> ---
+>
+> ## Suggested fixes
+>
+> **A. Automatic checkpointing of accepted writable turns** — auto-commit after accepted turn, or `agentxchain checkpoint-accepted`, or continuous mode with `--auto-checkpoint`
+>
+> **B. Stronger baseline management** — retries/reissue must refresh baseline cleanly; post-dispatch checkpoint commits should be formally handled, not poison turns
+>
+> **C. Atomic restart/recovery** — never create active turn state without dispatch bundle; block explicitly if recovery cannot restore fully
+>
+> **D. Gate truth recomputation** — stale gate failures should disappear once current accepted artifacts satisfy gate requirements
+>
+> **E. Full intent lifecycle** — `approved -> attached -> satisfied/consumed/superseded`; do not show satisfied intents as pending
+>
+> **F. Reliable intent provenance** — `intent_id` must be present on dispatched/accepted/history records when applicable
+>
+> **G. Runtime validation parity** — `doctor`/connector checks must validate real spawnability, not just binary presence
+>
+> **H. Better continuous-mode semantics** — genuine "continue until blocked by true human gate or external blocker" model for writable multi-role runs
+>
+> ---
+>
+> ## Severity
+>
+> I would rate this overall limitation as **P1 for automation usability/product maturity**.
+>
+> The framework is powerful, but these issues prevent it from honestly being described as reliable continuous full-auto governed execution.
+>
+> ---
+>
+> ## Short conclusion
+>
+> AgentXchain can orchestrate a governed multi-role team.
+> It cannot yet do so in a truly continuous, low-intervention, long-horizon autonomous way.
+>
+> That is the gap to close.
+
+---
 
 ### P1 — Live beta bug #4 — `restart` ghost turn + stale gate/intake state after accepted PM turn (2026-04-18)
 

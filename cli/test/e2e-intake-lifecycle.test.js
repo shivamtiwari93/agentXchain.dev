@@ -296,10 +296,12 @@ describe('E2E intake lifecycle', () => {
     assert.equal(resolve.exitCode, 0, resolve.combined);
     const resolveOut = JSON.parse(resolve.stdout);
     assert.equal(resolveOut.ok, true);
-    assert.equal(resolveOut.previous_status, 'executing');
+    // BUG-20 fix: accepted intent-bound turns now auto-complete the intent,
+    // so resolve sees 'completed' → 'completed' (idempotent no-op)
+    assert.equal(resolveOut.previous_status, 'completed');
     assert.equal(resolveOut.new_status, 'completed');
     assert.equal(resolveOut.run_outcome, 'completed');
-    assert.equal(resolveOut.no_change, false);
+    assert.equal(resolveOut.no_change, true);
     assert.equal(resolveOut.intent.intent_id, intentId);
     assert.equal(resolveOut.intent.event_id, eventId);
     assert.equal(resolveOut.intent.target_run, startOut.run_id);

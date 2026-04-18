@@ -3960,9 +3960,14 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             at: now,
             turn_id: currentTurn.turn_id,
             role: currentTurn.assigned_role,
+            run_id: updatedState.run_id,
             reason: 'turn accepted — acceptance contract satisfied',
           });
           writeFileSync(intentPath, JSON.stringify(intent, null, 2));
+
+          // Create observation scaffold (same as resolve path)
+          const obsDir = join(root, '.agentxchain', 'intake', 'observations', intentId);
+          mkdirSync(obsDir, { recursive: true });
 
           // Emit intent_satisfied event
           emitRunEvent(root, 'intent_satisfied', {

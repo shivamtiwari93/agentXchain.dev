@@ -1,0 +1,66 @@
+---
+sidebar_position: 0
+title: "v2.130.0 Release Notes"
+---
+
+# AgentXchain v2.130.0
+
+`v2.130.0` is a correction release for accepted-turn state reconciliation and adds repo checkpointing as a first-class governed boundary. `v2.129.0` said the beta-tester adoption queue was closed, but the fourth and fifth live beta reports exposed ghost turns, stale gate state, stale pending intents, stale staging consumption, and manual `git commit` requirements between automated authoritative turns. This release fixes all of those honestly.
+
+**Released:** 2026-04-18
+
+## Highlights
+
+### Restart No Longer Creates Ghost Turns
+
+- `restart` now writes the dispatch bundle before reporting a newly active turn.
+- `restart`, `status`, and `doctor` detect state/bundle desync and surface it as a real operator problem instead of silently continuing on corrupt state.
+- Operators now get a coherent active turn or a clean refusal, not a state/session/event story that disagrees with disk.
+
+### Accepted Turns Now Reconcile Derived State
+
+- Post-acceptance gate reconciliation clears stale `last_gate_failure` entries when the missing files now exist.
+- Accepted turns bound to intake intents now complete the bound intent and emit `intent_satisfied`.
+- Restart now consumes approved intents before assignment, so lifecycle events keep the real `intent_id` instead of drifting to `null`.
+
+### Stale Staging Is Fail-Closed
+
+- `accept-turn` and `reject-turn` now verify that legacy staged turn results match the active `turn_id` before consuming them.
+- Old staged results from unrelated turns are refused with a clear stale-staging diagnostic instead of being silently reused.
+
+### Repo Checkpointing — First-Class Governed Boundary
+
+- **`checkpoint-turn`** commits the accepted turn's declared `files_changed` to git with a structured commit message including turn provenance (turn_id, role, phase, intent_id). Records `checkpoint_sha` and `checkpointed_at` in history and state. Idempotent — running on an already-checkpointed turn is a no-op.
+- **`accept-turn --checkpoint`** atomically checkpoints after successful acceptance in one command invocation.
+- **`run --continuous --auto-checkpoint`** (default-on in continuous mode) automatically checkpoints between role handoffs so multi-role continuous automation no longer stalls on manual `git commit`.
+- Uncheckpointed accepted turns block next authoritative assignment with `checkpoint_required` error and an exact recovery command (`agentxchain checkpoint-turn --turn <id>`).
+- No-op accepted turns (no files_changed) are treated as a successful checkpoint skip, not a failure.
+
+## What Changed
+
+- Added durable dispatch-bundle write + integrity checks to the restart path.
+- Added ghost-turn detection to `status` and `doctor`.
+- Added post-acceptance gate cache reconciliation for missing-file failures.
+- Added accepted-intent completion + `intent_satisfied` event emission.
+- Restored restart-side intent provenance by consuming approved intents before assignment.
+- Added stale legacy staging guards to both `accept-turn` and `reject-turn`.
+- Added `checkpoint-turn` command, `accept-turn --checkpoint` flag, and `run --continuous --auto-checkpoint`.
+- Added `turn_checkpointed` event type.
+- Added `checkpoint_sha` / `checkpointed_at` fields to turn records in state and history.
+- Updated `recovery.mdx` and `automation-patterns.mdx` with the checkpoint model.
+
+## Key Decisions
+
+- `DEC-RESTART-BUNDLE-001`: `restart` must not surface an active turn without a dispatch bundle on disk.
+- `DEC-BUNDLE-INTEGRITY-001`: state/bundle desync is a blocker in restart and a first-class diagnostic in status/doctor.
+- `DEC-GATE-RECONCILIATION-001`: post-acceptance reconciliation clears stale gate cache only when all missing-file conditions are truly resolved.
+- `DEC-INTENT-SATISFACTION-001`: accepted intent-bound turns complete the bound intake intent and emit `intent_satisfied`.
+- `DEC-STALE-STAGING-001`: staged turn results are only consumable when their `turn_id` matches the active turn.
+- `DEC-CKPT-001`: accepted authoritative turns require an explicit repo checkpoint boundary.
+- `DEC-CKPT-002`: when the only dirty actor files belong to the latest accepted turn, assignment fails with a checkpoint-specific recovery command.
+- `DEC-CKPT-003`: no-op accepted turns do not block continuous execution — checkpointing is a successful skip.
+- `DEC-INTENT-META-002`: intents completed during post-acceptance reconciliation carry terminal run metadata.
+
+## Evidence
+
+- 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.

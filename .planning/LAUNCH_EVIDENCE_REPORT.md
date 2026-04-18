@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.129.0
+# Launch Evidence Report — AgentXchain v2.130.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-17 for the v2.129.0 release. Current aggregate release evidence: 5,754 tests / 1,206 suites / 0 failures. 108 conformance fixtures. Website build clean.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.130.0 correction release. Current aggregate release evidence: 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.
 
 ---
 
@@ -295,7 +295,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 
 | Claim | Evidence | Notes |
 |-------|----------|-------|
-| "5,754 tests / 1,206 suites / 0 failures. 108 conformance fixtures. Website build clean." | E1 (current release verification through 2026-04-17) | Use the current aggregate release evidence line; do not inflate beyond the verified count. |
+| "5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean." | E1 (current release verification through 2026-04-18) | Use the current aggregate release evidence line; do not inflate beyond the verified count. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
@@ -345,7 +345,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-17 release verification is 5,754 tests / 1,206 suites / 0 failures. 108 conformance fixtures. Website build clean. Public launch copy must use this current aggregate evidence line instead of stale launch-era floors.
+- **Test count verified**: 2026-04-18 release verification is 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean. Public launch copy must use this current aggregate evidence line instead of stale launch-era floors.
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
 - **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. This expanded the launch-era live CLI total from the original three-adapter path to four adapters before later `remote_agent` proof completed the current five-adapter surface. Evidence gap E2b closed.

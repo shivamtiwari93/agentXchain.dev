@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.129.0
+# Show HN Draft — AgentXchain v2.130.0
 
-> Ready-to-post draft. Updated 2026-04-17 for v2.129.0.
+> Ready-to-post draft. Updated 2026-04-18 for v2.130.0.
 
 ---
 
@@ -46,9 +46,9 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest shipped operator slice: the beta-tester adoption queue is closed. Manual `resume` now honors approved injected intents as the primary charter, `reissue-turn` recovers stale turns against current state, `connector check` warns on weak local CLI authority flags, and `full-local-cli` provides a first-class human-gated automation template instead of forcing operators to stitch that posture together by hand.
+Latest shipped operator slice: `v2.130.0` is the accepted-turn reconciliation correction release. `restart` no longer creates ghost turns without dispatch bundles, accepted turns now clear stale gate cache and complete bound intents, and stale staged results are rejected instead of being silently consumed by the wrong turn.
 
-- 5,754 tests / 1,206 suites / 0 failures. 108 conformance fixtures. Website build clean.
+- 5,795 tests / 1,218 suites / 0 failures. 108 conformance fixtures. Website build clean.
 
 MIT licensed. Protocol v7 spec published.
 
