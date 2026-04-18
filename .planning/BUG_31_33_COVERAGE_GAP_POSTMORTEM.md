@@ -110,7 +110,6 @@ Every newly documented dispatch path or retry path must add one matrix row here 
 - [x] `dispatch-path-lifecycle-matrix.test.js` proves `step --resume` retry rebinding, `restart` retained retry-bundle preservation, and manual `resume` -> `accept-turn` gate-semantic rejection.
 - [x] `bug-37-gate-semantic-real-emissions.test.js` proves all real gate file-emission formats reject turns that did not touch the gated artifact.
 
-## Open Questions
+## Closed Questions
 
-- Should `forward_revision_accepted` be surfaced in dashboard/report UX, or stay decision-ledger-only for now?
-- Do we want a dedicated CLI report view for forward revisions, or is decision/event evidence sufficient?
+- **Forward-revision visibility boundary (DEC-FORWARD-REVISION-VISIBILITY-001):** `forward_revision_accepted` stays decision-ledger-only. No status/report/dashboard surface. Rationale: forward revision is a success-path signal (same-role edits correctly classified as non-destructive). Surfacing it in operator-facing UX adds noise without actionable value. The two paths where it IS visible — retry guidance (dispatch bundle) and decision ledger (audit) — cover the only scenarios where an operator or auditor needs the information. Revisit only if operators report confusion about why same-role file edits don't appear as conflicts.

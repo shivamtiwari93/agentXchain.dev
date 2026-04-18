@@ -40,4 +40,4 @@ Without this split, retry prompts collapse two different situations into one "fi
 
 ## Open Questions
 
-- None for this slice. Forward revision remains low-severity guidance, not a new durable run event.
+None. `DEC-FORWARD-REVISION-VISIBILITY-001` settled the visibility boundary: forward revision stays decision-ledger-only. No status/report/dashboard surface. Retry guidance (dispatch bundle) is the only operator-facing path.
