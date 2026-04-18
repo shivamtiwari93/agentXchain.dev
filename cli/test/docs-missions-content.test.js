@@ -202,6 +202,9 @@ describe('CLI docs retry description distinguishes single-repo vs coordinator be
   it('cli.mdx --retry section describes coordinator append-to-same-launch-record behavior', () => {
     assert.match(CLI_DOC, /coordinator-bound missions.*appends.*repo_dispatches/i);
     assert.match(CLI_DOC, /no new launch record or chain ID/i);
+    assert.match(CLI_DOC, /reconciliation_required: true/i);
+    assert.match(CLI_DOC, /coordinator_acceptance_projection_incomplete/i);
+    assert.match(CLI_DOC, /coordinator_retry_projection_warning/i);
   });
 
   it('cli.mdx --retry section describes single-repo new-launch-record behavior', () => {

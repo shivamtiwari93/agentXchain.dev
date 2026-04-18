@@ -250,6 +250,17 @@ agentxchain mission plan launch latest --workstream <id> --retry
 
 This reissues the failed repo-local turn from current HEAD, rewrites the dispatch bundle, appends retry metadata to the coordinator launch record, and executes the retried turn immediately. The original failed dispatch is preserved for audit with `retried_at` and `retry_reason` fields.
 
+If the repo-local retry succeeds but the coordinator cannot append the matching `acceptance_projection` immediately, the command still exits as a retry success. In that case the JSON payload includes `warnings[]`, warning code `coordinator_acceptance_projection_incomplete`, and `reconciliation_required: true`. That means the repo-local retry already succeeded, but the coordinator view still needs a sync before you treat downstream work as unblocked.
+
+Inspect the durable warning with:
+
+```bash
+agentxchain events --type coordinator_retry_projection_warning
+agentxchain mission plan show latest --json
+```
+
+The first command shows the persisted warning event after the terminal output is gone. The second command forces plan synchronization so you can confirm whether the accepted retry has now projected cleanly.
+
 **Safety guards — retry fails closed when:**
 
 - The workstream is not in `needs_attention`

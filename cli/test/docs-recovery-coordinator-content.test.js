@@ -77,6 +77,18 @@ describe('Recovery docs coordinator retry contract', () => {
     assert.match(MISSION_DOC, /Recovering a failed coordinator workstream/);
   });
 
+  it('documents projection-warning visibility and the operator sync path', () => {
+    assert.match(MISSION_CMD, /coordinator_acceptance_projection_incomplete/);
+    assert.match(MISSION_CMD, /reconciliation_required:/);
+    assert.match(MISSION_CMD, /coordinator_retry_projection_warning/);
+
+    assert.match(DOC, /reconciliation_required: true/);
+    assert.match(DOC, /coordinator_acceptance_projection_incomplete/);
+    assert.match(DOC, /agentxchain events --type coordinator_retry_projection_warning/);
+    assert.match(DOC, /agentxchain mission plan show latest --json/);
+    assert.match(DOC, /repo-local retry already succeeded/i);
+  });
+
   it('does not invent an unattended coordinator auto-retry surface', () => {
     assert.match(MISSION_CMD, /--retry requires --workstream <id>/);
     assert.doesNotMatch(DOC, /--auto-retry/);

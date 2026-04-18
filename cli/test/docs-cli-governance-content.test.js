@@ -286,14 +286,14 @@ describe('CLI governance docs contract — admission control truth', () => {
 });
 
 describe('CLI governance docs contract — events observability', () => {
-  it('documents the full governed event set including turn_conflicted and budget_exceeded_warn', () => {
+  it('documents the full governed event set including coordinator retry visibility', () => {
     assert.match(
       docs,
-      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `conflict_resolved`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `human_escalation_raised`, `human_escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`/,
+      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `conflict_resolved`, `acceptance_failed`, `turn_reissued`, `turn_checkpointed`, `coordinator_retry`, `coordinator_retry_projection_warning`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`, `human_escalation_raised`, `human_escalation_resolved`, `dispatch_progress`/,
     );
   });
 
-  it('documents inline text rendering for turn_conflicted, conflict_resolved, phase_entered, and gate_failed', () => {
+  it('documents inline text rendering for turn_conflicted, conflict_resolved, coordinator_retry_projection_warning, phase_entered, and gate_failed', () => {
     assert.match(
       docs,
       /`turn_conflicted` text entries include the conflicting files, overlap percentage, detection count, accepted-since turn IDs, and `run blocked`/i,
@@ -301,6 +301,10 @@ describe('CLI governance docs contract — events observability', () => {
     assert.match(
       docs,
       /`conflict_resolved` text entries show the conflicting files, the chosen resolution mode, and the overlap percentage/i,
+    );
+    assert.match(
+      docs,
+      /`coordinator_retry_projection_warning` text entries show the affected workstream, repo, warning code, and that reconciliation is still required/i,
     );
     assert.match(
       docs,
