@@ -1,10 +1,9 @@
-import { execFileSync } from 'node:child_process';
-
 import {
   buildProviderHeaders,
   buildProviderRequest,
   PROVIDER_ENDPOINTS,
 } from './adapters/api-proxy-adapter.js';
+import { probeRuntimeSpawnContext } from './runtime-spawn-context.js';
 
 const PROBEABLE_RUNTIME_TYPES = new Set(['local_cli', 'api_proxy', 'mcp', 'remote_agent']);
 const DEFAULT_TIMEOUT_MS = 8_000;
@@ -78,11 +77,6 @@ function commandHead(runtime) {
   return null;
 }
 
-function resolveBinary(command) {
-  const resolver = process.platform === 'win32' ? 'where' : 'which';
-  execFileSync(resolver, [command], { stdio: 'ignore' });
-}
-
 function resolveProviderEndpoint(runtime) {
   if (typeof runtime?.base_url === 'string' && runtime.base_url.trim()) {
     return runtime.base_url.trim();
@@ -153,7 +147,7 @@ async function probeHttp({ url, method = 'GET', headers = {}, body, timeoutMs })
   }
 }
 
-async function probeLocalCommand(runtimeId, runtime, probeKindLabel) {
+async function probeLocalCommand(runtimeId, runtime, probeKindLabel, options = {}) {
   const head = commandHead(runtime);
   const base = {
     runtime_id: runtimeId,
@@ -170,22 +164,22 @@ async function probeLocalCommand(runtimeId, runtime, probeKindLabel) {
     };
   }
 
-  try {
-    resolveBinary(head);
+  const spawnProbe = probeRuntimeSpawnContext(options.root || process.cwd(), runtime, { runtimeId });
+  if (spawnProbe.ok) {
     return {
       ...base,
       level: 'pass',
-      command: head,
-      detail: `${head} is available on PATH`,
-    };
-  } catch {
-    return {
-      ...base,
-      level: 'fail',
-      command: head,
-      detail: `${head} was not found on PATH`,
+      command: spawnProbe.command || head,
+      detail: spawnProbe.detail,
     };
   }
+
+  return {
+    ...base,
+    level: 'fail',
+    command: spawnProbe.command || head,
+    detail: spawnProbe.detail,
+  };
 }
 
 async function probeApiProxy(runtimeId, runtime, timeoutMs) {
@@ -414,7 +408,7 @@ export async function probeConnectorRuntime(runtimeId, runtime, options = {}) {
   }
 
   if (runtime.type === 'local_cli') {
-    const result = await probeLocalCommand(runtimeId, runtime, 'command_presence');
+    const result = await probeLocalCommand(runtimeId, runtime, 'command_presence', options);
     // Add authority-intent and transport analysis when roles are available
     if (roles) {
       const { warnings } = analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles);
@@ -437,7 +431,7 @@ export async function probeConnectorRuntime(runtimeId, runtime, options = {}) {
     if (runtime.transport === 'streamable_http') {
       return probeHttpRuntime(runtimeId, runtime, timeoutMs);
     }
-    return probeLocalCommand(runtimeId, runtime, 'command_presence');
+    return probeLocalCommand(runtimeId, runtime, 'command_presence', options);
   }
 
   return probeHttpRuntime(runtimeId, runtime, timeoutMs);

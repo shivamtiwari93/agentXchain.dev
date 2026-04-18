@@ -51,6 +51,19 @@ agentxchain connector validate local-dev  # full synthetic governed turn
 }
 ```
 
+If you installed Codex through the macOS app bundle, or `doctor` says bare `codex` is not resolvable in the dispatch spawn context, prefer the absolute executable path:
+
+```json title="agentxchain.json (runtime entry, absolute path)"
+{
+  "local-dev": {
+    "type": "local_cli",
+    "command": ["/Applications/Codex.app/Contents/Resources/codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+    "cwd": ".",
+    "prompt_transport": "argv"
+  }
+}
+```
+
 | Setting | Value | Why |
 |---------|-------|-----|
 | `--quiet` | Recommended | Suppresses progress output for cleaner logs |

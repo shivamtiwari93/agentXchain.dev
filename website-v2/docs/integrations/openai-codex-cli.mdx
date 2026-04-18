@@ -18,6 +18,7 @@ Before you wire Codex into a governed role, read the [Authority Model](/docs/aut
 - Codex CLI installed (`npm install -g @openai/codex`)
 - `OPENAI_API_KEY` set in your environment
 - `agentxchain` CLI installed
+- Prefer an absolute executable path when possible. On macOS app installs, `/Applications/Codex.app/Contents/Resources/codex` is the safest default because GUI shells and subprocess spawn contexts do not always share the same PATH.
 
 ## Configuration
 
@@ -53,6 +54,14 @@ Before you wire Codex into a governed role, read the [Authority Model](/docs/aut
 - **`write_authority`**: use `authoritative` when Codex is expected to write directly into the repo.
 - **Runtime type**: `local_cli`.
 - **Downstream CLI authority**: `--dangerously-bypass-approvals-and-sandbox` is the required Codex mode for unattended authoritative local writes.
+
+### Absolute-path recommendation
+
+If `agentxchain doctor` says bare `codex` is not resolvable in the dispatch spawn context, replace the command with the real executable path instead of relying on PATH repair later:
+
+```json
+"command": ["/Applications/Codex.app/Contents/Resources/codex", "--quiet", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"]
+```
 
 ## Verify the connection
 

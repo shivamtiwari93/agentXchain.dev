@@ -105,6 +105,7 @@ export async function connectorCheckCommand(runtimeId, options = {}) {
   const result = await probeConfiguredConnectors(context.config, {
     runtimeId: runtimeId || null,
     timeoutMs,
+    root: context.root,
     onProbeStart: options.json ? null : (probeRuntimeId, runtime) => {
       console.log(`  ${chalk.dim('…')} Probing ${chalk.bold(probeRuntimeId)} ${chalk.dim(`(${runtime.type})`)}`);
     },

@@ -56,7 +56,7 @@ Now the specific items:
     - Update the recovery docs to point at `reissue-turn` as the primary path, with `reject-turn` retry as an explicit fallback.
   - **Acceptance:** tester's exact flow — dispatch turn → change HEAD → `reissue-turn` — succeeds cleanly. No "Runtime undefined" error.
 
-- [ ] **BUG-26: `doctor` / connector validation gives false positives — `doctor` passes for `codex`, but dispatch fails with `spawn codex ENOENT`** — The tester had to hand-patch runtime commands from `codex` to `/Applications/Codex.app/Contents/Resources/codex` because the bundled binary is not on PATH. `doctor` said healthy. Dispatch said ENOENT.
+- [x] **BUG-26: `doctor` / connector validation gives false positives — `doctor` passes for `codex`, but dispatch fails with `spawn codex ENOENT`** — Fixed 2026-04-18: `doctor`, `connector check`, and `connector validate` now use real dispatch spawn-context probing instead of shell lookup, `connector validate` fails before synthetic dispatch on unresolved local runtimes, BUG-26 beta-tester scenario coverage landed, and Codex docs now foreground the absolute `/Applications/Codex.app/Contents/Resources/codex` path.
   - **Root cause:** `doctor` checks if the binary is resolvable in its own environment (which may include shell aliases, PATH augmentations). Dispatch spawns via `child_process.spawn` which uses a clean environment. The two resolution paths disagree.
   - **Fix requirements:**
     - `doctor` and `connector validate` must probe runtimes using the same `spawn` context that the real dispatch uses — same environment, same working directory, same resolution rules. No shell augmentation.

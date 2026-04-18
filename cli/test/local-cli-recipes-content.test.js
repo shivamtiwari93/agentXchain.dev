@@ -69,4 +69,10 @@ describe('B-9: Local CLI recipes page content contracts', () => {
     const content = readFileSync(recipesPath, 'utf8');
     assert.match(content, /review_only.*Invalid.*local_cli|Invalid.*local_cli.*review_only/i);
   });
+
+  it('AT-B9-011: recommends the absolute macOS Codex path when PATH lookup is unreliable', () => {
+    const content = readFileSync(recipesPath, 'utf8');
+    assert.match(content, /Applications\/Codex\.app\/Contents\/Resources\/codex/);
+    assert.match(content, /absolute executable path|absolute path/i);
+  });
 });

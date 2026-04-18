@@ -173,6 +173,6 @@ describe('agentxchain connector check', () => {
     const output = JSON.parse(result.stdout);
     const localDev = output.connectors.find((c) => c.runtime_id === 'local-dev');
     assert.equal(localDev.level, 'pass');
-    assert.match(localDev.detail, /echo is available on PATH/);
+    assert.match(localDev.detail, /"echo" is resolvable in the dispatch spawn context/);
   });
 });

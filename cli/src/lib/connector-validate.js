@@ -22,6 +22,7 @@ import { dispatchMcp } from './adapters/mcp-adapter.js';
 import { dispatchRemoteAgent } from './adapters/remote-agent-adapter.js';
 import { getDispatchPromptPath, getTurnStagingResultPath } from './turn-paths.js';
 import { validateStagedTurnResult } from './turn-result-validator.js';
+import { probeRuntimeSpawnContext } from './runtime-spawn-context.js';
 
 const VALIDATABLE_RUNTIME_TYPES = new Set(['local_cli', 'api_proxy', 'mcp', 'remote_agent']);
 const DEFAULT_VALIDATE_TIMEOUT_MS = 120_000;
@@ -128,6 +129,26 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
         error: 'Failed to load governed config inside scratch workspace.',
         scratch_root: scratchRoot,
       };
+    }
+
+    if (runtime.type === 'local_cli' || (runtime.type === 'mcp' && (runtime.transport || 'stdio') !== 'streamable_http')) {
+      const spawnProbe = probeRuntimeSpawnContext(scratchRoot, scratchContext.config.runtimes[runtimeId], { runtimeId });
+      if (!spawnProbe.ok) {
+        return {
+          ok: false,
+          exitCode: 1,
+          overall: 'fail',
+          runtime_id: runtimeId,
+          runtime_type: runtime.type,
+          role_id: roleSelection.roleId,
+          timeout_ms: timeoutMs,
+          warnings,
+          dispatch: null,
+          validation: null,
+          error: spawnProbe.detail,
+          scratch_root: scratchRoot,
+        };
+      }
     }
 
     const initResult = initializeGovernedRun(scratchRoot, scratchContext.config, {

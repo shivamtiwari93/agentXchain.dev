@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, findProjectRoot, loadProjectState } from '../lib/config.js';
@@ -20,6 +20,7 @@ import {
 import { detectActiveTurnBindingDrift, detectStateBundleDesync } from '../lib/governed-state.js';
 import { findPendingApprovedIntents } from '../lib/intake.js';
 import { checkCleanBaseline } from '../lib/repo-observer.js';
+import { probeRuntimeSpawnContext } from '../lib/runtime-spawn-context.js';
 
 export async function doctorCommand(opts = {}) {
   const root = findProjectRoot(process.cwd());
@@ -90,7 +91,7 @@ function governedDoctor(root, rawConfig, opts) {
   const runtimes = (normalized && normalized.runtimes) || rawConfig.runtimes || {};
   const rolesByRuntime = buildRolesByRuntime(normalized?.roles || {});
   for (const [rtId, rt] of Object.entries(runtimes)) {
-    const check = checkRuntimeReachable(rtId, rt, rolesByRuntime[rtId] || []);
+    const check = checkRuntimeReachable(root, rtId, rt, rolesByRuntime[rtId] || []);
     checks.push(check);
   }
   const connectorProbe = getConnectorProbeRecommendation(runtimes);
@@ -484,7 +485,7 @@ function buildCliVersionCheck(cliVersionHealth) {
   };
 }
 
-function checkRuntimeReachable(rtId, rt, boundRoleEntries = []) {
+function checkRuntimeReachable(root, rtId, rt, boundRoleEntries = []) {
   const base = { id: `runtime_${rtId}`, name: `Runtime: ${rtId}` };
 
   if (!rt || !rt.type) {
@@ -496,14 +497,8 @@ function checkRuntimeReachable(rtId, rt, boundRoleEntries = []) {
       return attachRuntimeContract({ ...base, level: 'pass', detail: 'Manual runtime (no binary needed)' }, rtId, rt, boundRoleEntries);
 
     case 'local_cli': {
-      const cmd = Array.isArray(rt.command) ? rt.command[0] : (typeof rt.command === 'string' ? rt.command.split(/\s+/)[0] : null);
-      if (!cmd) return attachRuntimeContract({ ...base, level: 'warn', detail: 'No command configured' }, rtId, rt, boundRoleEntries);
-      try {
-        execSync(`command -v ${cmd}`, { stdio: 'ignore' });
-        return attachRuntimeContract({ ...base, level: 'pass', detail: `${cmd} binary found` }, rtId, rt, boundRoleEntries);
-      } catch {
-        return attachRuntimeContract({ ...base, level: 'fail', detail: `${cmd} not found in PATH` }, rtId, rt, boundRoleEntries);
-      }
+      const probe = probeRuntimeSpawnContext(root, rt, { runtimeId: rtId });
+      return attachRuntimeContract({ ...base, level: probe.ok ? 'pass' : 'fail', detail: probe.detail }, rtId, rt, boundRoleEntries);
     }
 
     case 'api_proxy': {
@@ -523,14 +518,8 @@ function checkRuntimeReachable(rtId, rt, boundRoleEntries = []) {
       if (transport === 'streamable_http') {
         return attachRuntimeContract({ ...base, level: 'warn', detail: 'Remote MCP endpoint (cannot verify at doctor time)' }, rtId, rt, boundRoleEntries);
       }
-      const cmd = Array.isArray(rt.command) ? rt.command[0] : (typeof rt.command === 'string' ? rt.command.split(/\s+/)[0] : null);
-      if (!cmd) return attachRuntimeContract({ ...base, level: 'warn', detail: 'No MCP command configured' }, rtId, rt, boundRoleEntries);
-      try {
-        execSync(`command -v ${cmd}`, { stdio: 'ignore' });
-        return attachRuntimeContract({ ...base, level: 'pass', detail: `${cmd} binary found` }, rtId, rt, boundRoleEntries);
-      } catch {
-        return attachRuntimeContract({ ...base, level: 'fail', detail: `${cmd} not found in PATH` }, rtId, rt, boundRoleEntries);
-      }
+      const probe = probeRuntimeSpawnContext(root, rt, { runtimeId: rtId });
+      return attachRuntimeContract({ ...base, level: probe.ok ? 'pass' : 'fail', detail: probe.detail }, rtId, rt, boundRoleEntries);
     }
 
     case 'remote_agent':
