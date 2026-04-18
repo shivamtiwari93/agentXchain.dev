@@ -19,10 +19,15 @@ import {
   getActiveTurns,
   getActiveTurnCount,
   reactivateGovernedRun,
+  detectStateBundleDesync,
   STATE_PATH,
   HISTORY_PATH,
   LEDGER_PATH,
 } from '../lib/governed-state.js';
+import { writeDispatchBundle } from '../lib/dispatch-bundle.js';
+import { getDispatchTurnDir } from '../lib/turn-paths.js';
+import { consumeNextApprovedIntent } from '../lib/intake.js';
+import { loadProjectState } from '../lib/config.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { deriveRecommendedContinuityAction } from '../lib/continuity-status.js';
 import { readSessionCheckpoint, writeSessionCheckpoint, captureBaselineRef, SESSION_PATH } from '../lib/session-checkpoint.js';
@@ -213,6 +218,25 @@ export async function restartCommand(opts) {
     process.exit(1);
   }
 
+  // ── BUG-18: State/bundle integrity check ─────────────────────────────────
+  const desync = detectStateBundleDesync(root, state);
+  if (!desync.ok) {
+    console.log(chalk.red('State/bundle integrity failure detected:'));
+    for (const entry of desync.desynced) {
+      console.log(chalk.red(`  Active turn ${entry.turn_id} (${entry.role}) has no dispatch bundle at ${entry.expected_path}`));
+    }
+    console.log('');
+    console.log(chalk.dim('This is a ghost turn — state references an active turn but the dispatch files are missing.'));
+    console.log(chalk.dim('Recovery options:'));
+    for (const entry of desync.desynced) {
+      console.log(`  ${chalk.cyan(`agentxchain reissue-turn --turn ${entry.turn_id} --reason "missing dispatch bundle"`)}`);
+    }
+    console.log(`  ${chalk.cyan('agentxchain reject-turn --reason "ghost turn — missing dispatch bundle"')}`);
+    console.log('');
+    console.log(chalk.dim('Run `agentxchain doctor` for a full diagnostic.'));
+    process.exit(1);
+  }
+
   // ── Repo-drift detection ────────────────────────────────────────────────
   const driftWarnings = [];
   if (checkpoint?.baseline_ref) {
@@ -316,21 +340,61 @@ export async function restartCommand(opts) {
 
   // Assign next turn if no active turn exists
   if (activeTurnCount === 0) {
-    const assignment = assignGovernedTurn(root, config, roleId);
-    if (!assignment.ok) {
-      console.log(chalk.red(`Failed to assign turn: ${assignment.error}`));
-      process.exit(1);
+    // BUG-21 fix: consume approved intents (same as resume path) so intent_id
+    // propagates into turn metadata and all lifecycle events.
+    const consumed = consumeNextApprovedIntent(root, { role: roleId });
+    let assignedState;
+    let turnId;
+    let assignedRole = roleId;
+
+    if (consumed.ok) {
+      // Intake path handled the turn assignment with intakeContext
+      assignedState = loadProjectState(root, config);
+      if (!assignedState) {
+        console.log(chalk.red('Failed to reload governed state after intake binding.'));
+        process.exit(1);
+      }
+      turnId = consumed.turn_id;
+      assignedRole = consumed.role || roleId;
+      console.log(chalk.green(`Bound approved intent to next turn: ${consumed.intentId}`));
+    } else {
+      // No approved intents — plain assignment
+      const assignment = assignGovernedTurn(root, config, roleId);
+      if (!assignment.ok) {
+        console.log(chalk.red(`Failed to assign turn: ${assignment.error}`));
+        process.exit(1);
+      }
+      for (const warning of assignment.warnings || []) {
+        console.log(chalk.yellow(`Warning: ${warning}`));
+      }
+      assignedState = assignment.state;
+      turnId = assignment.turn?.turn_id || assignment.turn?.id;
+      assignedRole = assignment.turn?.assigned_role || roleId;
     }
-    for (const warning of assignment.warnings || []) {
-      console.log(chalk.yellow(`Warning: ${warning}`));
+
+    // BUG-17 fix: write dispatch bundle AFTER state assignment succeeds.
+    // The bundle must exist on disk before we report success, otherwise the
+    // operator sees a "ghost turn" in state with no dispatch directory.
+    if (turnId) {
+      const bundleResult = writeDispatchBundle(root, assignedState, config, { turnId });
+      if (!bundleResult.ok) {
+        console.log(chalk.red(`Turn assigned but dispatch bundle write failed: ${bundleResult.error}`));
+        console.log(chalk.dim('The turn is assigned in state but has no dispatch context.'));
+        console.log(chalk.dim('Run `agentxchain reissue-turn` to reissue with a fresh bundle.'));
+        process.exit(1);
+      }
+      for (const bw of bundleResult.warnings || []) {
+        console.log(chalk.yellow(`Dispatch bundle warning: ${bw}`));
+      }
     }
 
     // assignGovernedTurn already writes a checkpoint at turn_assigned
 
     console.log(chalk.green(`✓ Restarted run ${state.run_id}`));
     console.log(chalk.dim(`  Phase: ${phase}`));
-    console.log(chalk.dim(`  Turn: ${assignment.turn?.id || 'assigned'}`));
-    console.log(chalk.dim(`  Role: ${assignment.turn?.role || roleId || 'routing default'}`));
+    console.log(chalk.dim(`  Turn: ${turnId || 'assigned'}`));
+    console.log(chalk.dim(`  Role: ${assignedRole || 'routing default'}`));
+    console.log(chalk.dim(`  Dispatch: ${getDispatchTurnDir(turnId || 'unknown')}/`));
     if (checkpoint) {
       console.log(chalk.dim(`  Last checkpoint: ${checkpoint.checkpoint_reason} at ${checkpoint.last_checkpoint_at}`));
     }

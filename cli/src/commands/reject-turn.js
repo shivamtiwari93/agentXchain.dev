@@ -153,8 +153,21 @@ function buildRejectionValidation(root, state, config, opts) {
       [resolution.turn.turn_id]: resolution.turn,
     },
   };
+  const stagingPath = resolveStagingPath(root, resolution.turn.turn_id);
+  // BUG-22: If resolveStagingPath returns null, a stale result from another turn
+  // was detected. Reject with a clear diagnostic instead of consuming it.
+  if (stagingPath === null) {
+    return {
+      ok: true,
+      turn: resolution.turn,
+      validationResult: {
+        errors: [`Stale staging data: .agentxchain/staging/turn-result.json belongs to a different turn. Clean up with: rm .agentxchain/staging/turn-result.json`],
+        failed_stage: 'stale_staging',
+      },
+    };
+  }
   const validation = validateStagedTurnResult(root, projectedState, config, {
-    stagingPath: resolveStagingPath(root, resolution.turn.turn_id),
+    stagingPath,
   });
   if (!validation.ok) {
     return {
@@ -213,8 +226,29 @@ function resolveTargetTurn(state, turnId) {
 }
 
 function resolveStagingPath(root, turnId) {
+  // BUG-22: Prefer turn-scoped staging path. Only fall back to legacy global
+  // staging if the global result's turn_id matches the active turn.
   const turnScopedPath = getTurnStagingResultPath(turnId);
-  return existsSync(join(root, turnScopedPath)) ? turnScopedPath : '.agentxchain/staging/turn-result.json';
+  if (existsSync(join(root, turnScopedPath))) {
+    return turnScopedPath;
+  }
+
+  const legacyPath = '.agentxchain/staging/turn-result.json';
+  const legacyAbs = join(root, legacyPath);
+  if (existsSync(legacyAbs)) {
+    try {
+      const raw = JSON.parse(require('fs').readFileSync(legacyAbs, 'utf8'));
+      if (raw.turn_id && raw.turn_id !== turnId) {
+        // Stale result from a different turn — do not consume
+        return null;
+      }
+    } catch {
+      // Parse error — let the validator handle it
+    }
+    return legacyPath;
+  }
+
+  return legacyPath; // File doesn't exist — validator will report "not found"
 }
 
 function printDispatchBundleWarnings(bundleResult) {

@@ -8,7 +8,7 @@ import {
   deriveRecoveryDescriptor,
   deriveRuntimeBlockedGuidance,
 } from '../lib/blocked-state.js';
-import { getActiveTurn, getActiveTurnCount, getActiveTurns, detectActiveTurnBindingDrift } from '../lib/governed-state.js';
+import { getActiveTurn, getActiveTurnCount, getActiveTurns, detectActiveTurnBindingDrift, detectStateBundleDesync } from '../lib/governed-state.js';
 import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
 import { readRepoDecisions, summarizeRepoDecisions } from '../lib/repo-decisions.js';
@@ -182,6 +182,7 @@ function renderGovernedStatus(context, opts) {
       workflow_kit_artifacts: workflowKitArtifacts,
       dashboard_session: dashboardSessionObj,
       binding_drift: detectActiveTurnBindingDrift(state, config),
+      bundle_integrity: detectStateBundleDesync(root, state),
     }, null, 2));
     return;
   }
@@ -283,6 +284,17 @@ function renderGovernedStatus(context, opts) {
   renderContinuityStatus(continuity, state);
   renderConnectorHealthStatus(connectorHealth);
   renderRecentEventSummary(recentEventSummary);
+
+  // BUG-18: State/bundle integrity check
+  const desync = detectStateBundleDesync(root, state);
+  if (!desync.ok) {
+    console.log(chalk.red.bold('  ⚠ Ghost turn(s) detected — dispatch bundle missing'));
+    for (const entry of desync.desynced) {
+      console.log(chalk.red(`    ${entry.turn_id} (${entry.role}): ${entry.expected_path} not found`));
+    }
+    console.log(chalk.dim('  Run `agentxchain reissue-turn` to recover, or `agentxchain doctor` for diagnostics.'));
+    console.log('');
+  }
 
   const activeTurnCount = getActiveTurnCount(state);
   const singleActiveTurn = getActiveTurn(state);

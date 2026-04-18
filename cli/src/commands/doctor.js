@@ -17,7 +17,7 @@ import {
   summarizeRoleRuntimeCapability,
   summarizeRuntimeCapabilityContract,
 } from '../lib/runtime-capabilities.js';
-import { detectActiveTurnBindingDrift } from '../lib/governed-state.js';
+import { detectActiveTurnBindingDrift, detectStateBundleDesync } from '../lib/governed-state.js';
 import { findPendingApprovedIntents } from '../lib/intake.js';
 import { checkCleanBaseline } from '../lib/repo-observer.js';
 
@@ -152,7 +152,36 @@ function governedDoctor(root, rawConfig, opts) {
     }
   }
 
-  // 5c. Clean working tree pre-flight for authoritative/proposed roles
+  // 5c. BUG-18: State/bundle integrity — active turns must have dispatch bundles
+  if (normalized && existsSync(join(root, '.agentxchain', 'state.json'))) {
+    try {
+      const stateData = loadProjectState(root, normalized);
+      const desync = detectStateBundleDesync(root, stateData);
+      if (!desync.ok) {
+        const desyncSummary = desync.desynced
+          .map(d => `${d.turn_id} (${d.role}): missing ${d.expected_path}`)
+          .join('; ');
+        checks.push({
+          id: 'bundle_integrity',
+          name: 'Dispatch bundle integrity',
+          level: 'fail',
+          detail: `Ghost turn(s): ${desyncSummary}. Run: agentxchain reissue-turn`,
+          desynced: desync.desynced,
+        });
+      } else if (Object.keys(stateData?.active_turns || {}).length > 0) {
+        checks.push({
+          id: 'bundle_integrity',
+          name: 'Dispatch bundle integrity',
+          level: 'pass',
+          detail: 'All active turns have dispatch bundles on disk',
+        });
+      }
+    } catch {
+      // State couldn't be loaded — skip integrity check
+    }
+  }
+
+  // 5d. Clean working tree pre-flight for authoritative/proposed roles
   if (normalized?.roles) {
     const writableRoles = Object.entries(normalized.roles)
       .filter(([, role]) => role.write_authority === 'authoritative' || role.write_authority === 'proposed')

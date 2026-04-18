@@ -405,6 +405,32 @@ export function getActiveTurn(state) {
   return turns.length === 1 ? turns[0] : null;
 }
 
+/**
+ * BUG-18: Detect state/bundle desync — every active turn referenced in
+ * state.json must have a corresponding dispatch bundle directory on disk.
+ *
+ * @param {string} root - project root
+ * @param {object} state - governed state
+ * @returns {{ ok: boolean, desynced: Array<{ turn_id: string, role: string, expected_path: string }> }}
+ */
+export function detectStateBundleDesync(root, state) {
+  const activeTurns = getActiveTurns(state);
+  const desynced = [];
+
+  for (const [turnId, turn] of Object.entries(activeTurns)) {
+    const bundleDir = join(root, '.agentxchain', 'dispatch', 'turns', turnId);
+    if (!existsSync(bundleDir)) {
+      desynced.push({
+        turn_id: turnId,
+        role: turn.assigned_role || 'unknown',
+        expected_path: `.agentxchain/dispatch/turns/${turnId}`,
+      });
+    }
+  }
+
+  return { ok: desynced.length === 0, desynced };
+}
+
 function resolveRecoveryTurnId(state, preferredTurnId = null) {
   const activeTurns = getActiveTurns(state);
   if (preferredTurnId && activeTurns[preferredTurnId]) {
@@ -2754,7 +2780,25 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   const turnStagingPath = getTurnStagingResultPath(currentTurn.turn_id);
-  const resolvedStagingPath = existsSync(join(root, turnStagingPath)) ? turnStagingPath : STAGING_PATH;
+  let resolvedStagingPath = existsSync(join(root, turnStagingPath)) ? turnStagingPath : STAGING_PATH;
+  // BUG-22: verify legacy staging file belongs to the active turn before consuming
+  if (resolvedStagingPath === STAGING_PATH) {
+    try {
+      const legacyAbs = join(root, STAGING_PATH);
+      if (existsSync(legacyAbs)) {
+        const raw = JSON.parse(readFileSync(legacyAbs, 'utf8'));
+        if (raw.turn_id && raw.turn_id !== currentTurn.turn_id) {
+          return {
+            ok: false,
+            error: `Stale staging data: ${STAGING_PATH} contains turn_id "${raw.turn_id}" but active turn is "${currentTurn.turn_id}". Remove the stale file or use the turn-scoped staging path.`,
+            error_code: 'stale_staging',
+          };
+        }
+      }
+    } catch {
+      // Parse error handled by downstream validation
+    }
+  }
   const stagedTurn = loadHookStagedTurn(root, resolvedStagingPath);
   const validationState = attachLegacyCurrentTurnAlias({
     ...state,
@@ -3835,6 +3879,99 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         blockedAt: now,
       });
       ledgerEntries.push(buildTimeoutLedgerEntry(timeoutResult, now, currentTurn.turn_id, updatedState.phase));
+    }
+  }
+
+  // ── BUG-19: Post-acceptance gate reconciliation ────────────────────────
+  // If a previous gate failure is cached in last_gate_failure, re-evaluate
+  // whether the conditions are now satisfied after this turn's artifacts.
+  // This prevents stale gate failures from surviving after a turn fixes them.
+  // Only clear if ALL failure conditions are now resolved.
+  if (updatedState.last_gate_failure && updatedState.status !== 'completed' && updatedState.status !== 'blocked') {
+    const staleGate = updatedState.last_gate_failure;
+    let allConditionsResolved = true;
+
+    // Check if missing_files are now present
+    if (Array.isArray(staleGate.missing_files) && staleGate.missing_files.length > 0) {
+      const stillMissing = staleGate.missing_files.filter(f => !existsSync(join(root, f)));
+      if (stillMissing.length > 0) {
+        allConditionsResolved = false;
+      }
+    }
+
+    // Check if missing_verification is still an issue
+    // Verification failures can only be resolved by the specific gate re-evaluation
+    // during a phase_transition_request, not by post-acceptance reconciliation,
+    // because verification is turn-specific — the prior turn's verification status
+    // is what the gate evaluated, and a different turn's pass doesn't retroactively
+    // fix the prior turn's failure.
+    if (staleGate.missing_verification) {
+      allConditionsResolved = false;
+    }
+
+    // Only clear if there were resolvable conditions and they are all resolved
+    const hadResolvableConditions = Array.isArray(staleGate.missing_files) && staleGate.missing_files.length > 0;
+    if (allConditionsResolved && hadResolvableConditions) {
+      updatedState.last_gate_failure = null;
+      if (staleGate.gate_id) {
+        updatedState.phase_gate_status = {
+          ...(updatedState.phase_gate_status || {}),
+          [staleGate.gate_id]: 'cleared_by_reconciliation',
+        };
+      }
+      ledgerEntries.push({
+        type: 'gate_reconciliation',
+        gate_id: staleGate.gate_id,
+        gate_type: staleGate.gate_type,
+        phase: updatedState.phase,
+        reason: 'post_acceptance_reconciliation',
+        previously_missing_files: staleGate.missing_files || [],
+        reconciled_at: now,
+        reconciled_by_turn: currentTurn.turn_id,
+      });
+    }
+  }
+
+  // ── BUG-20: Post-acceptance intent satisfaction ─────────────────────────
+  // When a turn bound to an injected intent is accepted successfully, transition
+  // the intent to 'completed' so it disappears from the pending queue.
+  if (currentTurn.intake_context?.intent_id) {
+    const intentId = currentTurn.intake_context.intent_id;
+    try {
+      const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`);
+      if (existsSync(intentPath)) {
+        const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+        if (intent.status === 'executing') {
+          intent.status = 'completed';
+          intent.completed_at = now;
+          intent.updated_at = now;
+          intent.satisfying_turn = currentTurn.turn_id;
+          if (!Array.isArray(intent.history)) intent.history = [];
+          intent.history.push({
+            from: 'executing',
+            to: 'completed',
+            at: now,
+            turn_id: currentTurn.turn_id,
+            role: currentTurn.assigned_role,
+            reason: 'turn accepted — acceptance contract satisfied',
+          });
+          writeFileSync(intentPath, JSON.stringify(intent, null, 2));
+
+          // Emit intent_satisfied event
+          emitRunEvent(root, 'intent_satisfied', {
+            run_id: updatedState.run_id,
+            phase: updatedState.phase,
+            status: updatedState.status,
+            turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+            intent_id: intentId,
+            payload: {
+              satisfying_turn: currentTurn.turn_id,
+            },
+          });
+        }
+      }
+    } catch {
+      // Non-fatal — intent satisfaction is advisory
     }
   }
 

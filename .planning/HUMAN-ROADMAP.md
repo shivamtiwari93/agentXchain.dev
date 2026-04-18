@@ -13,6 +13,245 @@ Current focus: close adoption-friction gaps surfaced by the first real beta test
 
 ## Priority Queue
 
+### P1 — Live beta bug #4 — `restart` ghost turn + stale gate/intake state after accepted PM turn (2026-04-18)
+
+**Verified legit.** Code inspection confirms multiple defects in v2.129.0. Headline finding: **`cli/src/commands/restart.js` never calls `writeDispatchBundle`** — only `cli/src/commands/resume.js` does (lines 149, 208, 292). That directly explains the tester's "ghost turn in state without a bundle on disk" report. This is the fourth P1 bug cluster from the same beta tester, on the same first-run journey.
+
+**Pattern continuing** (noted in prior bug clusters):
+- BUG-1..6 — acceptance/validation integration weakness
+- BUG-7..10 — drift-recovery integration weakness
+- BUG-11..16 — intake-steering integration weakness
+- **BUG-17..22 (THIS CLUSTER) — accepted-turn state reconciliation weakness**
+
+The common thread is that state transitions don't fan out to all derivative surfaces atomically. Accepting a turn updates one thing but leaves stale state in another. Fix this cluster + add a "post-acceptance reconciliation" discipline as the deeper structural fix.
+
+Full verbatim report in **"Beta-tester bug report #4 (verbatim)"** below.
+
+- [x] **BUG-17: Restart atomicity — never mark a turn active without writing the dispatch bundle** — FIXED: `restart.js` now calls `writeDispatchBundle` after `assignGovernedTurn`, exits with error if bundle write fails. `cli/src/commands/restart.js` writes state/session/event records for a new active turn but never calls `writeDispatchBundle(root, state, config)`. Operator sees `turn_dispatched` in events and active turn in state, but `.agentxchain/dispatch/turns/<turn_id>/` does not exist.
+  - **Fix requirements:**
+    - Audit `cli/src/commands/restart.js` end-to-end. Every code path that transitions state to "turn assigned" must also write the dispatch bundle BEFORE the state write commits. Order: write bundle → write state → emit event.
+    - Use the same `writeDispatchBundle` helper that `resume.js` uses (don't write a second one — same-shape divergence is how BUG-11..16 happened).
+    - If bundle write fails, roll back the state change instead of leaving the run in a ghost state.
+    - Emit `turn_dispatched` ONLY after both state + bundle are durable.
+    - Add a regression test: mock `writeDispatchBundle` to fail; verify state does NOT transition to "turn assigned"; verify no `turn_dispatched` event fires.
+    - Add a second regression test: normal `restart` → verify bundle exists on disk AND state references the same turn_id AND event has been emitted.
+  - **Acceptance:** the tester's exact repro sequence ends with either a coherent active turn (state + session + events + bundle all agree on turn_id) OR a clean failure (no state change, actionable error).
+
+- [x] **BUG-18: Integrity check — detect state/bundle desync and fail run recovery** — FIXED: `detectStateBundleDesync` added to governed-state.js, integrated into restart (blocks), status (surfaces), and doctor (fail-level diagnostic). — Even after BUG-17 is fixed, operators may hit pre-existing corrupt state from earlier versions. AgentXchain should refuse to treat a run as active when state says "turn X assigned" but `.agentxchain/dispatch/turns/X/` is missing.
+  - **Fix requirements:**
+    - Add an integrity check in `restart`, `status`, and `doctor`: for every active turn referenced in `state.json`, verify the dispatch bundle exists on disk and matches the turn_id.
+    - If a mismatch is detected:
+      - `doctor` reports it as a blocker with a recommended recovery command (likely `reissue-turn` from BUG-7)
+      - `status` surfaces the mismatch prominently
+      - `restart` refuses to add more work on top and instead calls out the inconsistency
+    - Do NOT silently self-repair — the operator should decide whether to reissue, reject, or investigate.
+    - Add a regression test covering a hand-crafted inconsistent state.
+  - **Acceptance:** operator with an inherited ghost turn from pre-fix v2.129.0 sees a clear diagnostic and one command to recover.
+
+- [x] **BUG-19: `accept-turn` must recompute gate truth from current artifacts, not reuse cached `last_gate_failure`** — FIXED: post-acceptance gate reconciliation clears `last_gate_failure` when previously-missing files now exist. Verification failures are not cleared (turn-specific). — After the tester's PM turn set `PM_SIGNOFF.md` to `Approved: YES` and the turn was accepted + committed, `status` still showed the old `Approved: NO` gate failure as the live message. `last_gate_failure` was cached and never invalidated by the artifact change.
+  - **Fix requirements:**
+    - On turn acceptance, recompute every gate's truth from current artifact state. If a previously-failed gate now passes, clear `last_gate_failure` (or, if multiple gates are tracked, clear the specific one that was satisfied).
+    - `governed-state.js` already has clearing logic (lines 3557, 3578, 3600) — ensure the accepted-turn acceptance path actually hits one of those branches when relevant. Currently it looks like `last_gate_failure = null` only clears on specific trigger paths, not on every artifact change.
+    - Add a regression test: seed `last_gate_failure` referencing `PM_SIGNOFF: NO`, run a turn that flips it to YES, verify acceptance clears the cached failure.
+    - Ensure `approve-transition` reflects the freshly-recomputed gate truth: if the gate just became satisfied, `approve-transition` should discover a pending transition instead of saying "No pending phase transition to approve."
+  - **Acceptance:** after accepting a turn that satisfies a previously-failing gate, `status` and `approve-transition` both reflect the new reality within the same command invocation.
+
+- [x] **BUG-20: Accepted intent lifecycle — mark intents as satisfied/consumed when a turn addresses their acceptance contract** — FIXED: accepted turns with `intake_context.intent_id` transition the bound intent to `completed`, emit `intent_satisfied` event. — The tester accepted a PM turn whose summary said "Addressed injected planning revision intent..." but the intent stayed `approved` in the intake queue and `status` kept listing it as pending. Intents are never transitioning out of `approved` when their contract is satisfied. **Re-confirmed 2026-04-18 with stronger evidence** — the same intents (`intent_1776473633943_0543`, `intent_1776474414878_c28b`) persisted as pending in `status` even AFTER the planning gate was approved AND the run advanced to `implementation` phase. See "Beta-tester bug report #4b (verbatim)" below.
+  - **Fix requirements:**
+    - This is the natural extension of BUG-14 (intent coverage validation). BUG-14 checked whether acceptance items were addressed. BUG-20 acts on that check: when addressed, transition the intent to `satisfied` (or `completed`) in its JSON record under `.agentxchain/intake/intents/<id>.json`.
+    - The lifecycle transition must be atomic with turn acceptance — same commit/write as the accepted turn artifacts.
+    - Emit an `intent_satisfied` event to `events.jsonl` with the intent_id and the satisfying turn_id.
+    - `agentxchain status` must stop listing satisfied intents as pending.
+    - `agentxchain intake status` must show the intent in its new terminal state.
+    - **Explicit lifecycle taxonomy** (from the 2026-04-18 re-report): intents transition through well-defined states — `detected → triaged → approved → attached → consumed → satisfied` (or `superseded` / `rejected` as terminal branches). Document these transitions in the intake schema and enforce them in the validator. Intents stuck in `approved` after an accepted turn with coverage is a bug, not a valid state.
+    - **Phase-crossing behavior**: once the run advances to a later phase (e.g., `planning → implementation`), any intent that was relevant only to the earlier phase must be either:
+      - marked `satisfied` if the accepted turn addressed it, OR
+      - marked `superseded` with a reason, OR
+      - explicitly retained as cross-phase (with a flag and rationale)
+      Intents MUST NOT silently remain "pending — will drive next turn" after the phase they targeted has already exited.
+    - **`status` output must distinguish** true-pending intents (those that still need a turn) from historical-satisfied intents (those already consumed). Two separate sections, clearly labeled. Current output conflates them.
+    - **Explanatory hint when stuck**: if an accepted turn claimed to address an intent but the intent remains `approved`, `status` must explain why — e.g., "intent not yet satisfied because acceptance coverage failed on items: [A, B]". Silent staleness is the worst failure mode; make it loud.
+    - Add a regression test covering the full flow: inject → approve → dispatch → acceptance with coverage → verify intent transitions to satisfied + event emitted + status updated.
+    - **Phase-crossing regression test**: extended flow — inject during planning, accept turn that satisfies intent, approve planning gate, advance to implementation, verify intent no longer appears as pending in `status` at any point.
+  - **Acceptance:** a PM turn that addresses a 3-item acceptance contract causes the matching intent to transition to `satisfied`, emit the corresponding event, and disappear from the pending queue — AND the intent does not reappear as pending after phase progression.
+
+- [x] **BUG-21: `intent_id` regression — still `null` in `events.jsonl` despite v2.129.0 release notes claiming durable intent provenance** — FIXED: root cause was `restart.js` calling `assignGovernedTurn` without `intakeContext`. Restart now consumes approved intents (same as resume/step paths). — The tester observed `intent_id: null` in accepted/dispatched events after v2.129.0, which was the release that shipped BUG-12's fix for "intent_id in turn_dispatched payload + all lifecycle events." Either the fix shipped incompletely, or this is a new regression.
+  - **Verification first:**
+    - Reproduce: in a fresh governed repo on v2.129.0, run `inject` → `approve` → `resume --role pm` → `step --resume`. Read `.agentxchain/events.jsonl`. Verify whether `turn_dispatched` payload contains `intent_id: <the_injected_id>` or `intent_id: null`.
+    - If `null`, this is a shipping-on-partial-evidence bug — BUG-12 was marked closed but the event emission path wasn't actually wired through.
+    - Grep `cli/src/lib/run-loop.js` and `cli/src/lib/governed-state.js` for where `turn_dispatched` is emitted. The intent_id must be attached at that emit point, not just at the dispatch bundle render point (`cli/src/lib/dispatch-bundle.js:588` is the bundle — that's not enough).
+  - **Fix requirements:**
+    - If the regression is confirmed, add a test that asserts `intent_id` is present AND equals the source intent's id in every event that BUG-12 claimed coverage for.
+    - Back-propagate the fix through `turn_completed`, `turn_accepted`, `turn_failed`, `acceptance_failed`, `turn_reissued` — all the events BUG-12 listed.
+    - Update the v2.129.0 release notes (or cut a correction release v2.130.0) honestly documenting that BUG-12 coverage was incomplete and what the follow-up shipped.
+    - Add an integration test that fails if any lifecycle event of an intent-bound turn is missing the intent_id.
+  - **Acceptance:** `grep intent_id .agentxchain/events.jsonl` after a full inject→accept lifecycle shows the intent_id populated in every relevant event.
+
+- [x] **BUG-22: `reject-turn` must not consume stale turn-result files from unrelated earlier turns** — FIXED: both `reject-turn` and `accept-turn` now verify the legacy staging file's `turn_id` matches the active turn before consuming. Mismatches are refused with a clear diagnostic. — The tester's `reject-turn` surfaced `turn_id mismatch: turn result has "turn_5bcc56d876e10a47", state has "turn_5008de0a50936226"` — meaning the reject command read a staged result file from a previous turn (turn_5bcc...) even though the active turn was a different one (turn_5008...).
+  - **Root cause (likely):** `reject-turn` scans `.agentxchain/staging/` for turn-result JSON without verifying the staged result's turn_id matches the currently-active turn. Any leftover staging file from a prior turn gets consumed.
+  - **Fix requirements:**
+    - `reject-turn` must verify the staged turn result's `turn_id` matches the active turn's id before consuming it. If there's a mismatch, the command must either:
+      - **Refuse** with a clear message ("Staged result is for turn X, active turn is Y. Stale staging data detected. Clean up with `agentxchain reissue-turn` or manually remove `.agentxchain/staging/<old_turn_id>/`.")
+      - **Skip stale** and proceed only if a matching result exists for the active turn
+    - Same fix applies to `accept-turn` (audit the read path there too).
+    - Add a regression test: stage a result for turn X, transition active turn to Y, run `reject-turn`, verify it does not consume the stale X result.
+    - Add cleanup logic: when a turn is reissued (BUG-7's `reissue-turn`), the old staging directory should be archived, not left in place.
+  - **Acceptance:** `reject-turn` and `accept-turn` both refuse to consume staging results that don't match the active turn.
+
+### Implementation notes for BUG-17 through BUG-22
+
+- **Execution order:**
+  1. BUG-17 (restart atomicity) + BUG-18 (integrity check) — ship together. Restart without integrity is unsafe; integrity without restart fix is insufficient.
+  2. BUG-21 (intent_id regression) — verify first. If it's real, ship the fix alongside BUG-17/18 as v2.130.0.
+  3. BUG-19 (gate re-evaluation) + BUG-20 (intent satisfaction lifecycle) — the "post-acceptance reconciliation" theme. Ship together.
+  4. BUG-22 (reject-turn stale staging) — can ship independently or bundled with any of the above.
+- **Deeper structural fix:** The common thread is **post-acceptance reconciliation**. After accepting a turn, every derivative state surface (gate cache, intent queue, dispatch bundle, session, status) must be reconciled. Consider adding a single `reconcileStateAfterAcceptance(state, acceptedTurn, root)` function that all derivative surfaces subscribe to. This would also prevent the next integration-weakness bug of the same class.
+- **Honest retro required for BUG-21:** If intent_id is truly `null` in events, BUG-12 was marked closed on partial evidence. The retrospective pattern from the 3-run proof (which was ALSO marked closed on partial evidence the first time) is repeating. Build a linter or CI gate that asserts all BUG-N items have a regression test committed BEFORE the fix, so the "shipped on partial evidence" failure mode dies permanently.
+- **Proof discipline (consistent):** failing reproduction test committed first, then fix. Beta tester's exact command sequence goes in the fixture.
+
+---
+
+### Beta-tester bug report #4b (verbatim) — intent-pending-after-phase-advance (re-confirms BUG-20)
+
+> **Title**
+>
+> Accepted/consumed planning intents remain visible as pending in `status` during later phases
+>
+> **Summary**
+>
+> After a PM turn successfully addressed an injected planning revision and was accepted, `agentxchain status` continued to show the injected planning intents as pending:
+>
+> - `intent_1776473633943_0543`
+> - `intent_1776474414878_c28b`
+>
+> This persisted even after:
+> - the relevant planning artifacts were updated
+> - the accepted planning state was committed
+> - the planning gate was approved
+> - the run advanced into `implementation`
+>
+> The stale intent display does not appear to block execution, but it misrepresents the real run state and makes the operator think unresolved planning work is still queued.
+>
+> **Environment**
+>
+> - AgentXchain: `2.129.0`
+> - Repo: governed single-repo local CLI run
+> - Project: `tusq.dev`
+> - OS: macOS
+> - Flow involved: `inject`, `step --resume`, accepted PM turn, `approve-transition`, `step` into implementation
+>
+> **Expected behavior**
+>
+> Once an injected intent has been satisfied by an accepted turn, it should no longer appear in `status` as:
+> - `Priority injection pending`
+> - `Pending injected intents (will drive next turn)`
+>
+> At minimum, it should become one of: `consumed`, `satisfied`, `superseded`, `closed`.
+>
+> And it should not continue to claim it "will drive next turn" after the repo has already moved to a later phase.
+>
+> **Observed behavior**
+>
+> Even after the accepted PM planning turn explicitly summarized that it addressed the injected planning revision, `status` still showed:
+> - the same p0 planning revision as "Priority injection pending"
+> - the same two intents under "Pending injected intents (will drive next turn)"
+>
+> This remained true even once the project had advanced to `implementation`.
+>
+> **Concrete evidence**
+>
+> Accepted PM turn: `turn_c81c316e2f04f6b2`
+> Accepted summary: "Addressed injected planning revision intent: added minimal domain grouping to V1 scope, clarified tusq serve proves MCP exposure not executable delivery, and framed runtime learning as a deferred core pillar across all planning artifacts."
+> Planning gate later passed: `planning_signoff: passed`
+> Run later advanced: phase `planning -> implementation`
+>
+> But `status` still showed `Priority injection pending` and both prior planning intents in the "will drive next turn" list.
+>
+> **Possible causes**
+>
+> 1. accepted turns are not marking the intent as consumed/satisfied
+> 2. intent satisfaction is not being inferred from accepted turn results
+> 3. the intent queue shown in `status` is reading stale intake state instead of effective remaining work
+> 4. phase advancement is not clearing phase-local intents that have already been satisfied
+>
+> **Suggested fix**
+>
+> 1. Add explicit intent lifecycle states such as: `approved`, `attached`, `consumed`, `satisfied`, `superseded`
+> 2. When an accepted turn satisfies the injected acceptance contract: mark the intent as satisfied/consumed; stop showing it as pending in `status`.
+> 3. In `status`, distinguish true pending intents that still need work from historical satisfied intents.
+> 4. If an intent remains pending after an accepted turn that claims to address it, explain why — e.g. "intent not yet satisfied because acceptance coverage failed".
+>
+> **Severity**
+>
+> I'd call this `P2`. Not currently blocking execution, but creates misleading operator state and undermines trust in the new intent-tracking features.
+
+---
+
+### Beta-tester bug report #4 (verbatim)
+
+> **Title**
+>
+> `restart` can create a ghost active turn, leave stale gate/intake state behind, and desynchronize status from accepted planning state
+>
+> **Environment**
+>
+> - AgentXchain: `2.129.0`
+> - Repo: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+> - Flow type: governed single-repo, `local_cli`, all roles `authoritative`
+> - Active phase: `planning`
+> - OS: macOS
+> - Time observed: April 18, 2026
+>
+> **Summary**
+>
+> After an accepted PM planning turn aligned the planning docs and set `Approved: YES` in `.planning/PM_SIGNOFF.md`, AgentXchain still kept stale planning-gate failure state, stale pending injected intents, and after `restart` created a new PM turn in state without a real dispatch bundle on disk.
+>
+> This led to a "ghost turn":
+> - present in `state.json`
+> - marked active/running
+> - shown in session recovery
+> - but missing its dispatch files
+>
+> A later `reject-turn` partially repaired that ghost turn by writing a retry bundle, but the underlying state remained inconsistent.
+>
+> **What happened**
+>
+> 1. PM turn `turn_c81c316e2f04f6b2` was accepted successfully.
+> 2. The accepted planning changes correctly updated:
+>    - `.planning/PM_SIGNOFF.md` to `Approved: YES`
+>    - `.planning/ROADMAP.md`
+>    - `.planning/SYSTEM_SPEC.md`
+> 3. Those accepted changes were committed:
+>    - commit `c012dce`
+> 4. Running `approve-transition` returned "No pending phase transition to approve. Current phase: planning"
+> 5. `status` still showed old planning gate failure / old pending injected intents / old accepted integration ref
+> 6. Running `restart` reported success and said "Turn: assigned, Role: pm"
+> 7. After restart: `state.json` + `session.json` + events referenced active turn `turn_5008de0a50936226`, BUT `.agentxchain/dispatch/turns/turn_5008de0a50936226/` did not exist.
+> 8. Running `reject-turn` returned "turn_id mismatch: turn result has 'turn_5bcc56d876e10a47', state has 'turn_5008de0a50936226'." Only THEN did a retry bundle appear on disk.
+>
+> **Likely defects involved**
+>
+> 1. **Accepted-turn state not re-evaluating gate truth** — stale `last_gate_failure` remains authoritative even when artifacts changed and were accepted
+> 2. **Pending injected intents not being cleared/consumed** — even after a PM turn explicitly addressed them
+> 3. **Intent provenance still missing** — `intent_id` remained `null` in event history despite `v2.129.0` claiming durable intent provenance
+> 4. **Restart recovery bug** — `restart` can write active-turn state/event/session records before the dispatch bundle is actually written
+> 5. **Reject-turn assignment mismatch bug** — rejecting the ghost turn referenced a stale old turn result id
+>
+> **Suggested fixes**
+>
+> 1. On accepted turn integration, recompute gate truth from current artifacts instead of keeping stale `last_gate_failure` as the live status message.
+> 2. Clear or mark satisfied injected intents when an accepted turn's content satisfies the acceptance contract.
+> 3. Ensure `intent_id` is populated in dispatch events, accepted events, history.
+> 4. Make `restart` atomic: do not mark a turn active/assigned unless the dispatch bundle is already written.
+> 5. Add an integrity check: if `state.json` references an active turn whose dispatch bundle is missing, mark run recovery as failed or blocked, not active.
+> 6. Ensure `reject-turn` on a recovered turn does not consult stale turn-result ids from unrelated earlier turns.
+>
+> **Severity**
+>
+> I'd rate this `P1` for governed recovery/state integrity.
+
+---
+
 ### P1 — Live beta bug #3 — approved `inject` intents are not bound to subsequent manual PM turns (2026-04-17)
 
 Third bug from the same beta tester. This is a **cross-cutting integration bug between the intake system and the manual `resume` / `step --resume` dispatch path.** The intake surface works in isolation — `inject` creates the intent, `approve` marks it approved, the JSON record is written correctly — but the approved intent is not foregrounded to the next PM turn. The PM keeps optimizing for generic doc consistency while the operator's explicit acceptance contract is silently ignored.
