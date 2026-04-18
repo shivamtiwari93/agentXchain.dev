@@ -654,6 +654,25 @@ describe('governed CLI support', () => {
     }
   });
 
+  it('surfaces actionable review_only + local_cli validation errors instead of pretending the config is missing', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      config.roles.dev.write_authority = 'review_only';
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+      const result = runCli(dir, ['validate', '--mode', 'kickoff']);
+      assert.equal(result.status, 1, 'validate must exit non-zero for invalid governed config');
+      assert.match(result.stdout, /invalid review_only \+ local_cli binding/);
+      assert.match(result.stdout, /change write_authority to "authoritative"/);
+      assert.match(result.stdout, /manual", "api_proxy", "mcp", or "remote_agent"/);
+      assert.doesNotMatch(result.stdout + result.stderr, /No agentxchain\.json found/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('accept-turn accepts a valid staged result and clears the current turn', () => {
     const dir = createGovernedProject();
     try {

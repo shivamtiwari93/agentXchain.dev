@@ -59,6 +59,12 @@ describe('quickstart single-repo content contract', () => {
     assert.match(QUICKSTART, /--dry-run/);
   });
 
+  it('front-loads the review_only + local_cli automation constraint', () => {
+    assert.match(QUICKSTART, /review_only \+ local_cli.*invalid/i);
+    assert.match(QUICKSTART, /that role must be `authoritative`/i);
+    assert.match(QUICKSTART, /`manual`, `api_proxy`, `mcp`, or `remote_agent`/);
+  });
+
   it('documents the three scaffold gate files correctly', () => {
     assert.match(QUICKSTART, /PM_SIGNOFF\.md/);
     assert.match(QUICKSTART, /ROADMAP\.md/);

@@ -9,9 +9,617 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: full-auto vision-driven operation with human priority injection and blocker escalation
+Current focus: close adoption-friction gaps surfaced by the first real beta tester (2026-04-17). Shipping more features before first-time operators can succeed is premature.
 
 ## Priority Queue
+
+### P1 — Live beta bug — acceptance compares against dirty workspace, not turn delta (2026-04-17)
+
+The same beta tester hit a **real product bug on their very first governed run**. This is P1 because it causes false-negative turn rejection, leaves state inconsistent, breaks recovery, and breaks trust in full-auto execution. Fix this BEFORE the B-1 through B-11 adoption-quality items — a broken first-run experience erases all docs polish.
+
+Full verbatim bug report is captured below in **"Beta-tester bug report (verbatim)"**. Treat that as ground truth.
+
+- [ ] **BUG-1: Delta-based artifact validation — stop comparing `files_changed` against the whole dirty workspace** — This is the main defect. When a turn's staged result correctly lists only the files it changed, AgentXchain rejects the turn because the comparison includes pre-existing dirty files (e.g., an uncommitted `agentxchain.json` edit that the PM turn never touched).
+  - **Reproducible steps (from beta tester):**
+    1. Start with a governed repo using `local_cli`.
+    2. Leave one non-turn file already dirty in the workspace (tester had a dirty `agentxchain.json` from reconfiguring the Codex flag).
+    3. Dispatch a turn whose actual work only changes a known set of files (e.g., PM planning artifacts).
+    4. Have the subprocess write a correct staged result with `files_changed` only listing the files it actually changed.
+    5. Run `agentxchain step --resume`.
+  - **Observed:**
+    - Subprocess completes normally.
+    - `.agentxchain/staging/<turn_id>/turn-result.json` is written correctly.
+    - Acceptance fails with: `Observed artifact mismatch: Undeclared file changes detected (observed but not in files_changed): agentxchain.json`.
+    - `agentxchain.json` was NOT touched by the turn — it was dirty before dispatch.
+  - **Expected:**
+    - Acceptance compares `files_changed` against the **diff from dispatch baseline to post-turn state**, not against the entire current dirty workspace.
+    - Pre-existing dirty files that the turn did not modify MUST NOT cause acceptance to fail.
+    - OR, if pre-dispatch dirty files are intentionally unsupported, dispatch should **refuse to start** with a clear message before the turn ever runs.
+  - **Fix requirements:**
+    - Locate the acceptance validator (likely in `cli/src/lib/turn-result-validator.js` or adjacent modules — check `cli/src/lib/dispatch-bundle.js` for baseline capture and `cli/src/lib/governed-state.js` for acceptance flow).
+    - Change the "observed artifact" computation to be **delta-based**: diff the post-turn workspace against the dispatch baseline snapshot, not against the current HEAD.
+    - If the baseline snapshot already captured the pre-dispatch dirty state, use that; if not, fix baseline capture (see BUG-2).
+    - Add a regression test that reproduces the exact tester scenario: dispatch with a pre-existing dirty non-turn file, verify the turn accepts cleanly when `files_changed` is correct.
+  - **Acceptance:** the reproduction steps above end with a successful turn acceptance, not a rejection.
+
+- [ ] **BUG-2: Consistent baseline capture — `state.json` and `session.json` must agree on workspace-dirty status** — The tester's live protocol state showed contradictory facts from AgentXchain itself:
+    - `.agentxchain/state.json` active turn baseline: `"clean": true, "dirty_snapshot": {}`
+    - `.agentxchain/session.json` baseline ref: `"workspace_dirty": true`
+  - These two must never disagree. One of them is lying about reality. Likely root cause: the baseline capture path writes to one surface but not the other, or they capture at different moments.
+  - **Fix requirements:**
+    - Find both baseline capture paths (grep for `baseline` writes in `cli/src/lib/`).
+    - Make them share a single capture function so they cannot diverge.
+    - If the workspace is actually dirty at dispatch, both must record `dirty: true` AND capture the dirty snapshot (file list + content hashes or diff) so BUG-1's delta-based validator can use it.
+    - Add a test that asserts `state.json` and `session.json` baseline agreement for a representative set of workspace states (clean, dirty with staged, dirty with unstaged, both).
+  - **Acceptance:** there is no possible code path where `state.json` says `clean: true` while `session.json` says `workspace_dirty: true`.
+
+- [ ] **BUG-3: Failure-path state transition — stuck-in-`running` after acceptance failure** — When acceptance failed, the turn stayed marked `status: "running"` even though the subprocess had already exited and the staged result existed on disk. `agentxchain status` still reported an active turn that had no live process. Recovery was ambiguous.
+  - **Fix requirements:**
+    - When acceptance rejects a turn result, transition the turn to a terminal/recoverable status: `failed_acceptance`, `needs_operator_reconciliation`, or similar. Do NOT leave it `running`.
+    - The status transition must be atomic with the acceptance rejection — same code path.
+    - `agentxchain status` and `doctor` must surface the failed-acceptance state clearly, with a recommended recovery command (retry, reissue, or abort).
+    - `agentxchain step --resume` against a `failed_acceptance` turn must not silently re-dispatch or claim the turn is still running.
+    - Add a regression test covering the full failure-path state machine.
+  - **Acceptance:** after an acceptance failure, `status` reports a terminal-or-recoverable state, not `running`; there is exactly one documented command to recover; running `step --resume` does not loop or lie.
+
+- [ ] **BUG-4: Failure event logging — `turn_failed` / `acceptance_failed` never written to `events.jsonl`** — The CLI surfaced a terminal error message, but `.agentxchain/events.jsonl` showed only `run_started` + `turn_dispatched`. No `turn_failed`, no `acceptance_failed`, no `turn_needs_human`, no `turn_completed`. The event ledger lied about what happened.
+  - **Fix requirements:**
+    - Add `acceptance_failed` and/or `turn_failed` event types to the events schema.
+    - Emit one whenever acceptance rejects a turn, with structured payload including: turn_id, role, runtime, reason, offending files, remediation hint.
+    - Same for the stuck-in-`running` case once BUG-3 is fixed — any state transition must emit a corresponding event.
+    - Update webhook / notifier fan-out so BUG-4 events propagate through the existing notifier plugins (Slack, GitHub issue, JSON webhook, local stderr).
+    - Update `agentxchain events` display to render the new event types with color/detail.
+    - Add a regression test asserting that the failure path emits the expected event sequence.
+  - **Acceptance:** after a failed acceptance, `agentxchain events` shows the full lifecycle: `run_started` → `turn_dispatched` → `acceptance_failed` (with reason). Notifier plugins fire.
+
+- [ ] **BUG-5: Operator messaging for dirty-workspace-at-dispatch** — Even after BUG-1 is fixed, the framework should help the operator avoid the confusion in the first place.
+  - **Fix requirements:**
+    - If the workspace has uncommitted changes unrelated to governed artifacts at dispatch time, `doctor` and the pre-dispatch path should warn clearly: "Workspace has N uncommitted files. The dispatch baseline will snapshot these; they will be excluded from `files_changed` validation." Show the file list.
+    - If the workspace dirty snapshot cannot be safely captured for any reason, fail **before** dispatch with an actionable message, not after the subprocess runs.
+    - After BUG-1 lands, ensure the error message text for actual (legitimate) undeclared file changes is sharper: name the file, show how it differs from the baseline, and offer the one-line fix (add to `files_changed` OR revert the undeclared change).
+  - **Acceptance:** a first-time operator with a dirty workspace sees helpful pre-dispatch guidance, not a cryptic post-dispatch acceptance failure.
+
+- [ ] **BUG-6: Optional live subprocess streaming — tee `stdout.log` to terminal** — UX, not correctness, but contributed to the "looks hung" feeling. AgentXchain captures PM subprocess output to `.agentxchain/dispatch/turns/<turn_id>/stdout.log` but does not tee to the operator's terminal.
+  - **Fix requirements:**
+    - Add a `--stream` (or default-on) flag to `step --resume` / `run --continuous` that tees subprocess stdout to the terminal in addition to the log file.
+    - At minimum, immediately after dispatch, print the log file path and a tail command operators can run in another terminal (e.g., `tail -f .agentxchain/dispatch/turns/<turn_id>/stdout.log`).
+    - Document this in the CLI help and the automation guide.
+  - **Acceptance:** operator can see live subprocess output (or knows exactly where to watch it) without guessing.
+
+### Implementation notes for agents (BUG-1 through BUG-6)
+
+- **Execution order:** BUG-2 (baseline consistency) is a prerequisite for BUG-1 (delta validation) — you cannot diff against a baseline that wasn't captured reliably. Do BUG-2 first. Then BUG-1. Then BUG-3, BUG-4, BUG-5 in parallel. BUG-6 last (UX, not correctness).
+- **Severity:** BUG-1, BUG-2, BUG-3, BUG-4 are P1 — they break first-run trust. Cut a dedicated fix release (e.g., v2.129.0) once all four land. Do not bundle these with the docs-only B-1 through B-11 work.
+- **Proof discipline:** each bug gets a failing test that reproduces the tester's exact scenario BEFORE the fix lands, then the same test passes after. Commit the failing test first in a separate commit so the defect is trace-preserved in git history.
+- **Honest retrospective:** Turn 75 shipped `run --continuous` with a 2-run mock proof + 1-run real proof. The 3-run proof in Turn 105 used fixture VISION.md with `api_proxy` only. **None of these proofs exercised a pre-existing dirty workspace at dispatch** — which is why this landmine survived. Update the 3-run proof or add a parallel proof scenario that covers dirty-workspace-at-dispatch, so this class of bug cannot regress.
+- **Do not paraphrase the bug report.** The verbatim block below is the source of truth. If the fix appears to contradict the report, the report wins — escalate instead of re-interpreting.
+
+---
+
+### Beta-tester bug report (verbatim)
+
+> I found the cause. This is a real AgentXchain bug, and there are actually **three** separate issues exposed by this run.
+>
+> **What happened**
+>
+> You ran:
+>
+> ```bash
+> cd "/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev"
+> npx --yes -p agentxchain@latest -c "agentxchain step --resume"
+> ```
+>
+> The PM subprocess actually **did complete** and staged a turn result at:
+>
+> `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.agentxchain/staging/turn_5bcc56d876e10a47/turn-result.json`
+>
+> But AgentXchain then failed acceptance with:
+>
+> ```text
+> Acceptance failed: Observed artifact mismatch: Undeclared file changes detected (observed but not in files_changed): agentxchain.json
+> ```
+>
+> **Root cause**
+>
+> The undeclared file was **not** a PM planning artifact. It was a **pre-existing uncommitted config diff** in `agentxchain.json`.
+>
+> Current dirty files:
+>
+> ```text
+> M .agentxchain/events.jsonl
+> M .agentxchain/session.json
+> M .agentxchain/state.json
+> M .planning/PM_SIGNOFF.md
+> M .planning/ROADMAP.md
+> M .planning/SYSTEM_SPEC.md
+> M .planning/command-surface.md
+> M agentxchain.json
+> ```
+>
+> The specific `agentxchain.json` diff is:
+>
+> ```diff
+> + "--permission-mode", "bypassPermissions"
+> - "--full-auto"
+> + "--dangerously-bypass-approvals-and-sandbox"
+> ```
+>
+> So the PM turn correctly reported only these files in `files_changed`:
+>
+> - `.planning/PM_SIGNOFF.md`
+> - `.planning/SYSTEM_SPEC.md`
+> - `.planning/ROADMAP.md`
+> - `.planning/command-surface.md`
+>
+> But AgentXchain compared against the **whole dirty workspace**, saw `agentxchain.json`, and rejected the turn.
+>
+> That means the acceptance logic is behaving like:
+>
+> - "all current dirty files must appear in `files_changed`"
+>
+> instead of:
+>
+> - "only files changed **by this turn since dispatch/baseline** must appear in `files_changed`"
+>
+> That is the main bug.
+>
+> **Why this is a framework bug, not just operator error**
+>
+> AgentXchain's own state is inconsistent:
+>
+> In `.agentxchain/state.json`, the active turn baseline says:
+>
+> ```json
+> "baseline": {
+>   "kind": "git_worktree",
+>   "head_ref": "77083d12880c4b4f964f4b555a69da9b0a52cf32",
+>   "clean": true,
+>   "dirty_snapshot": {}
+> }
+> ```
+>
+> But `.agentxchain/session.json` says:
+>
+> ```json
+> "baseline_ref": {
+>   "git_head": "77083d12880c4b4f964f4b555a69da9b0a52cf32",
+>   "git_branch": "main",
+>   "workspace_dirty": true
+> }
+> ```
+>
+> So AgentXchain itself recorded contradictory facts:
+> - turn baseline = `clean: true`
+> - session baseline = `workspace_dirty: true`
+>
+> That should never happen.
+>
+> **Second bug**
+>
+> After the subprocess exited and staged a result, AgentXchain still left the turn marked as running.
+>
+> Current status still reports:
+>
+> - active turn: `turn_5bcc56d876e10a47`
+> - role: `pm`
+> - runtime: `local-pm`
+> - status: `running`
+>
+> But there is **no live `claude` process** for this turn anymore, and the turn already wrote:
+> - `stdout.log`
+> - `turn-result.json`
+>
+> So the failure path did not cleanly transition state.
+>
+> **Third bug**
+>
+> No failure event was appended to `.agentxchain/events.jsonl`.
+>
+> The events log still only contains:
+> - `run_started`
+> - old `turn_dispatched`
+> - current `turn_dispatched`
+>
+> There is no:
+> - `turn_failed`
+> - `acceptance_failed`
+> - `turn_needs_human`
+> - `turn_completed`
+>
+> So the CLI surfaced a terminal error, but the repo state/event ledger did not record it.
+>
+> **What the PM actually did**
+>
+> The subprocess output is in:
+>
+> `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.agentxchain/dispatch/turns/turn_5bcc56d876e10a47/stdout.log`
+>
+> It shows the PM completed normally and filled the planning docs.
+>
+> The staged result is here:
+>
+> `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.agentxchain/staging/turn_5bcc56d876e10a47/turn-result.json`
+>
+> It explicitly says:
+>
+> - `status: "needs_human"`
+> - summary says planning artifacts were filled
+> - `files_changed` lists only the planning docs
+> - `needs_human_reason` says the planning gate is waiting on human approval
+>
+> So the PM completed successfully. The failure was in AgentXchain acceptance/state handling after completion.
+>
+> **Why you saw no streamed PM output**
+>
+> AgentXchain is capturing subprocess output to:
+>
+> `.agentxchain/dispatch/turns/turn_5bcc56d876e10a47/stdout.log`
+>
+> It is not teeing Claude's stdout live into the terminal. So from the operator's point of view it looks hung, then suddenly returns a final acceptance error. That is not the main bug, but it is a UX/documentation problem.
+>
+> **Reproduction report for AgentXchain team**
+>
+> Use this:
+>
+> 1. Start with a governed repo using `local_cli`.
+> 2. Leave one non-turn file already dirty in the workspace, e.g. `agentxchain.json`.
+> 3. Dispatch a turn whose actual work only changes a known set of files.
+> 4. Have the subprocess write a correct staged result with `files_changed` only listing the files it actually changed.
+> 5. Run `agentxchain step --resume`.
+>
+> Observed:
+> - subprocess completes
+> - staged result exists
+> - acceptance fails because AgentXchain compares against all dirty workspace files, including pre-existing dirty files
+> - turn remains stuck in `running`
+> - no failure/completion event is appended
+>
+> Expected:
+> - acceptance should compare against the turn baseline/delta, not the entire current dirty workspace
+> - or dispatch should refuse to start if the workspace is not acceptably clean
+> - if acceptance fails, state should move to a terminal/error/blocked status and record an event
+>
+> **What AgentXchain should fix**
+>
+> 1. **Delta-based artifact validation**
+>    - Validate `files_changed` against the diff from dispatch baseline to post-turn state.
+>    - Do not compare against unrelated pre-existing dirty files.
+>
+> 2. **Consistent baseline capture**
+>    - `state.json` and `session.json` must agree on whether the workspace was clean at dispatch.
+>
+> 3. **Failure-path state transition**
+>    - If acceptance fails after subprocess completion, the turn must not remain `running`.
+>    - It should become something like `failed_acceptance`, `blocked`, or `needs_operator_reconciliation`.
+>
+> 4. **Failure event logging**
+>    - Append an event such as `acceptance_failed` or `turn_failed` with reason and offending files.
+>
+> 5. **Better operator messaging**
+>    - If pre-existing dirty files are unsupported, fail before dispatch with a clear message.
+>    - If supported, show which files were excluded from the turn baseline.
+>
+> 6. **Optional live subprocess streaming**
+>    - Tee `stdout.log` to terminal, or at least print where live output is being written.
+>
+> **Severity**
+>
+> I'd call this `P1/P2 boundary`, leaning `P1` for automation reliability:
+> - it causes false negative turn rejection
+> - it leaves state inconsistent
+> - it makes rerun/recovery ambiguous
+> - it breaks trust in full-auto execution
+>
+> **Practical workaround right now**
+>
+> Before rerunning:
+> - either commit or revert the dirty `agentxchain.json` change
+> - then recover the stuck turn state before starting again
+
+---
+
+### Beta-tester adoption friction (MUST FIX before growth)
+
+Context: first external beta tester ran AgentXchain end-to-end on a fresh machine. They succeeded but hit 18 distinct friction points and had to work around several of them manually. The full raw feedback is captured below in **"Beta-tester feedback (verbatim)"** and should be the single source of truth. Every item in this section references specific numbered gaps from that block.
+
+These items are interlocking — many are docs fixes, several are product fixes, a few require new CLI surfaces. Debate grouping and ordering in AGENT-TALK.md. My suggested ordering (escalation-first mindset): fix the landmines (items B-5, B-7) before the polish (items B-10 through B-15).
+
+- [ ] **B-1: CLI version mismatch safety — docs + doctor output (gap #1)** — Beta tester had an older `agentxchain` binary on PATH than the docs described. They had to discover this the hard way and work around it with `npx -p agentxchain@latest`.
+  - **What to fix:**
+    - Add a "Prerequisites" block at the top of getting-started, quickstart, and five-minute-tutorial: minimum required CLI version, how to check (`agentxchain --version`), how to upgrade (npm + Homebrew), and the `npx --yes -p agentxchain@latest -c "agentxchain ..."` safe-fallback incantation.
+    - Update `agentxchain doctor` to detect a stale CLI version against the docs' minimum and warn loudly (it already has version surface from `DEC-PROTOCOL-VERSION-SURFACE-*`).
+    - Add a content test that asserts the prerequisites block exists on all three onboarding pages and contains the npx fallback string.
+  - **Acceptance:** fresh machine + old CLI on PATH follows the docs → sees a loud warning and a one-liner to fix it, does not silently get stale-flag errors.
+
+- [ ] **B-2: Canonical runtime matrix — kill the split-source-of-truth problem (gap #2)** — README says 5 runtimes (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`). The governed spec the tester read centered on 3. Both are "true" but the doc surface isn't aligned.
+  - **What to fix:**
+    - Create one canonical runtime matrix page (e.g., `website-v2/docs/runtime-matrix.mdx`) as the source of truth: each runtime, which authority levels it supports, when to use it, example config.
+    - Deprecate / mark historical any older specs that only cover 3 runtimes.
+    - Link the matrix from README, getting-started, adapters doc, and `agentxchain.json` schema docs.
+    - Add a content-contract test that the matrix lists all 5 current runtimes with current authority rules.
+  - **Acceptance:** every runtime mention in the docs either links to the matrix or is flagged as historical.
+
+- [ ] **B-3: Three-axis authority model explained sharply (gap #3)** — Tester had to reason about three separate concepts that the docs don't clearly distinguish:
+    1. role `write_authority` (`review_only` vs `authoritative` vs `proposed`)
+    2. runtime type (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`)
+    3. downstream CLI sandbox/approval authority (e.g., `codex --full-auto` vs `--dangerously-bypass-approvals-and-sandbox`)
+  - **What to fix:**
+    - Add an "Authority model" page or section with a clear 3-axis diagram/table showing how these interact, including which combinations are valid and which are not.
+    - Reference the authority model from the runtime matrix and from each integration guide.
+  - **Acceptance:** reader can identify the correct values for all 3 axes for their setup before running `init`.
+
+- [x] **B-4: `review_only + local_cli` invalid combination — flag it loudly and early (gap #4)** — completed 2026-04-17: `validate` now surfaces the invalid governed config directly instead of collapsing to "No agentxchain.json found", `doctor` reports the same actionable repair guidance, `quickstart` front-loads the rule in the automation intro, and regression tests freeze the message contract.
+  - **What to fix:**
+    - `agentxchain validate` and `agentxchain doctor` must detect `review_only + local_cli` combinations and produce a specific, actionable error pointing at the fix (change authority to `authoritative` OR change runtime to `manual`/`api_proxy`/`mcp`/`remote_agent`).
+    - First paragraph of the automation guide must state this constraint in plain English with the workaround.
+    - Add a guard test for the error message.
+  - **Acceptance:** a user who tries `review_only + local_cli` sees the error before their first turn runs, not during dispatch.
+
+- [ ] **B-5: "All local_cli authoritative, human-gated" canonical example (gap #5 + #16 + recommended addition #7)** — This is the natural operator goal the tester was chasing. It's not currently documented as a first-class pattern. It also overlaps with "human-gated automation with zero manual roles" from gap #16.
+  - **What to fix:**
+    - Ship a canonical example config file (e.g., `cli/src/templates/governed-full-local-cli.json` or similar) where PM/Dev/QA/Director are all bound to `local_cli` runtimes with `authoritative` authority, and phase gates keep `requires_human_approval: true`.
+    - Add a docs page `/docs/automation-patterns/` (from recommended addition #1) that names this pattern: "all automated turns, human gate approvals only."
+    - Include the exact command shape for Codex (`--dangerously-bypass-approvals-and-sandbox`) and Claude Code (`--dangerously-skip-permissions`) inline.
+    - Add an E2E proof that this config runs 3 back-to-back turns with the gates pausing for human approval.
+  - **Acceptance:** `agentxchain init --template full-local-cli` (or equivalent) scaffolds this setup; docs page explains it in under 5 minutes of reading.
+
+- [ ] **B-6: Manual-to-automated migration path documented (gaps #6, #15, #17, #18)** — The scaffold starts manual-first (by design), but the upgrade path to automation is missing. Tester had to infer it from scattered docs and tests.
+  - **What to fix:**
+    - Create `docs/manual-to-automated-migration.mdx` (recommended addition #3) with the exact numbered sequence:
+      1. scaffold manual-first (`init --governed`)
+      2. validate (`validate`)
+      3. bind runtimes (`config --set roles.pm.runtime=local-pm`, etc.)
+      4. run connector checks (`connector validate`)
+      5. commit scaffold changes BEFORE running writable turns (see B-7 clean-tree requirement)
+      6. reissue any active turns bound to old runtimes (see B-7 reissue flow)
+      7. assign first automated turn
+    - Explicitly state that **PM planning can be automated** — it only looks like "PM automation isn't a thing" because the manual-first scaffold defaults to `manual-pm` (gap #17).
+    - Include the generic → cli-tool template overlay pattern (gap #15) as a recommended path when product shape is still TBD.
+    - Add a first-real-automation walkthrough (recommended addition, gap #18) matching the 8-step sequence the tester wished they'd had.
+  - **Acceptance:** a new user can go from empty directory → running automated PM turns in under 20 minutes of doc reading.
+
+- [ ] **B-7: Runtime rebinding mid-run — stale turn detection + reissue command (gaps #7, #8)** — Tester rebound PM runtime after a PM turn was already assigned. The dispatch bundle stayed stale (still referenced `manual-pm` + `review_only`), there was no clean recovery command, and they had to manually edit governed state. This is the single worst friction point the tester hit because it required hand-editing protocol internals.
+  - **What to fix:**
+    - Detect the mismatch: when an active turn's dispatch bundle references a runtime/authority that no longer matches `agentxchain.json`, surface a blocker in `status`, `doctor`, and the dashboard. Text should read something like: "Active turn `<id>` was assigned under runtime `manual-pm` + `review_only`; config now says `local-pm` + `authoritative`. Reissue required: `agentxchain reissue-turn <id>`."
+    - Ship the `agentxchain reissue-turn <turn-id>` command (or `cancel-turn --reassign`) that atomically:
+      - cancels the stale assigned turn
+      - invalidates the stale dispatch bundle
+      - re-assigns under the current runtime binding
+      - writes a decision ledger entry so the reissue is auditable
+    - Prompt ordering matters: the command must not lose the turn's intent/phase context during reissue.
+    - Add an E2E test that: assigns a turn, rebinds the runtime, observes the stale-turn blocker, runs `reissue-turn`, confirms the turn now dispatches under the new binding.
+    - Document the command in `docs/cli.mdx` and link it from the migration guide (B-6).
+  - **Acceptance:** rebinding a runtime never leaves the protocol in a state that requires hand-editing JSON. One command recovers cleanly.
+
+- [ ] **B-8: Clean-working-tree requirement surfaced earlier (gap #9)** — `resume` correctly refused to assign a new authoritative turn on a dirty tree — but the tester didn't know this rule until they hit it.
+  - **What to fix:**
+    - State plainly in getting-started, quickstart, and the automation guide: **authoritative/proposed turns require a clean baseline**. Scaffold/config changes must be committed before writable automated turns begin.
+    - Surface this in `doctor` pre-flight: if the working tree is dirty AND the next role is `authoritative`, warn before the first dispatch.
+    - Add a "Why this exists" blurb explaining the `files_changed` diff-baseline contract.
+    - Add a content-contract test.
+  - **Acceptance:** user sees the clean-tree rule before they hit it at dispatch time.
+
+- [ ] **B-9: Local CLI recipes page — Codex, Claude Code, Cursor (gap #10 + recommended addition #2)** — AgentXchain lets you declare `local_cli`, but doesn't help much with the actual command shape, which is where the tester got burned: `codex --full-auto` isn't full authority; true full authority required `--dangerously-bypass-approvals-and-sandbox`. Claude Code needed `--dangerously-skip-permissions`. These are landmines.
+  - **What to fix:**
+    - Create `docs/local-cli-recipes.mdx` (recommended addition #2) with a section per CLI:
+      - **Codex:** exact command, required flags for full authority, `stdin` transport note, `--dangerously-bypass-approvals-and-sandbox` explained
+      - **Claude Code:** exact command, `--dangerously-skip-permissions`, `--print`, `stdin` transport
+      - **Cursor agent / Cline / etc:** one entry each if supported, or mark "community-contributed recipe" with a link
+    - Explain the three prompt transports (`argv`, `stdin`, `dispatch_bundle_only`) with operator-friendly guidance (gap #12):
+      - `stdin` — default for Codex + Claude Code in automated cases
+      - `dispatch_bundle_only` — only when you intentionally want operator handoff
+      - `argv` — only if the CLI is designed for it
+    - Link from B-5 canonical config example.
+  - **Acceptance:** user pastes the recipe, runs `connector validate`, the CLI dispatches under full authority on first try.
+
+- [ ] **B-10: Deeper `connector validate` probes (gap #11)** — Tester noted `connector check` only confirmed command presence, not that auth was valid, that flags worked, or that the sandbox/approval mode matched intent. Wasted time.
+  - **What to fix:**
+    - Extend `agentxchain connector validate` (or a deeper `connector probe` variant) to optionally:
+      - exercise a no-op prompt through the actual runtime and confirm structured turn-result comes back (real auth check)
+      - assert the CLI accepts the declared flags (parse `--help` output or run a trivial dry-run)
+      - sanity-check sandbox/approval mode matches the declared authority
+    - Output must be actionable: which probe failed, why, and how to fix.
+    - Gate the real-spend probes behind an opt-in flag (`--live` or similar) since they cost money.
+  - **Acceptance:** `connector validate --live` catches expired auth, wrong flags, and sandbox mismatches before the first real turn.
+
+- [ ] **B-11: Planning/repo split guidance (gaps #13, #14)** — Tester had to decide themselves what belongs in root `README.md`, root `VISION.md`, and `.planning/VISION.md`. They also had to infer which `.agentxchain/*` files should be committed vs. ignored.
+  - **What to fix:**
+    - Add a "Project structure" page explaining the recommended split:
+      - public OSS repo surface: root `README.md`, root docs
+      - governed source of truth: `.planning/` (VISION.md, specs, roadmaps)
+      - transient execution artifacts: `.agentxchain/dispatch/`, `.agentxchain/staging/` (ignored)
+      - committed governed history: `.agentxchain/prompts/`, `.agentxchain/state.json`, `.agentxchain/history.jsonl`, `.agentxchain/decision-ledger.jsonl`, `.agentxchain/repo-decisions.jsonl`
+    - Update the scaffold `.gitignore` to match this split explicitly and add inline comments.
+    - State plainly: **website/docs should point to root docs, not to `.planning/*` files.**
+    - Add a content-contract test asserting the commit/ignore guidance exists.
+  - **Acceptance:** user can look at a freshly-scaffolded repo and know exactly which files to commit.
+
+### Implementation notes for agents
+
+- **Do not reinvent the wheel.** Every item above extends existing surfaces: `doctor`, `validate`, `connector validate`, `status`, dashboard, docs system, content-contract tests, existing CLI commands. The one net-new surface is `reissue-turn` in B-7.
+- **Prioritize landmines:** B-4 (invalid combo detection), B-7 (stale-turn reissue), B-10 (deeper connector probes) catch real product defects that corrupted the tester's experience. These should ship before the docs-only items.
+- **Docs-only items (B-1, B-2, B-3, B-6, B-8, B-9, B-11) can parallelize:** different agents can take different pages. But they all share one atom — the runtime matrix in B-2. Build B-2 first so every other docs item can link to it.
+- **Each item gets its own spec in `.planning/` plus a regression test.** Standard discipline.
+- **Bundle for release:** these are a coherent "operator adoption quality" release train. Consider tagging each release in this group with an `adoption-quality` label in release notes so the beta tester (and future testers) can see the gap-to-fix trace.
+
+---
+
+### Beta-tester feedback (verbatim)
+
+This is the raw feedback from the first external beta tester (2026-04-17). Every lettered item above (B-1 through B-11) maps to specific numbered gaps in this block. Do not paraphrase this or trim it — it is the ground truth for what a first-time operator actually hits.
+
+> Yes. Here's the clean record of what AgentXchain could have documented or surfaced better based on this exact setup.
+>
+> **Main Gaps**
+>
+> 1. Version mismatch was too easy to hit.
+>    - The public docs reflect the current governed CLI, but the machine had an older `agentxchain` binary on `PATH`.
+>    - I had to discover that the installed binary did not support the documented flags, then work around it with `npx -p agentxchain@latest`.
+>    - The docs should explicitly say:
+>      - minimum required CLI version
+>      - how to verify it
+>      - what to do if local binary and docs disagree
+>      - a safe fallback like `npx --yes -p agentxchain@latest -c "agentxchain ..."`
+>
+> 2. Runtime documentation is split across incompatible layers.
+>    - The README says the framework supports `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
+>    - The governed spec I checked still centered on `manual`, `local_cli`, and `api_proxy`.
+>    - That makes it unclear which runtime contract is canonical today.
+>    - The docs should have one current runtime matrix and clearly label older specs as historical.
+>
+> 3. "Automation authority" vs "governance authority" is not explained sharply enough.
+>    - The framework does support automated turns and human-governed gates.
+>    - But the docs do not make the distinction obvious enough:
+>      - role write authority
+>      - runtime type
+>      - downstream CLI sandbox/approval authority
+>    - Those are three different things, and you have to reason about all three to configure a real automated setup.
+>
+> 4. `review_only + local_cli` being invalid is important, but not explained early enough.
+>    - This ended up being the key constraint.
+>    - If someone wants "all agents automatic via CLI," they need to know immediately that `review_only` roles cannot use `local_cli`.
+>    - The framework should say this in the first automation guide, not only deep in spec material or tests.
+>
+> 5. There is no obvious official recipe for "all CLI, all automatic, still human-gated."
+>    - This is a very natural operator goal.
+>    - The framework should have a first-class example for:
+>      - PM = `local_cli`
+>      - Dev = `local_cli`
+>      - QA = `local_cli`
+>      - Director = `local_cli`
+>      - human phase gates still required
+>    - Right now you have to infer that shape from scattered docs and tests.
+>
+> **Bootstrap Friction**
+>
+> 6. Manual-first scaffold is good, but the docs should explain how to graduate from it.
+>    - The scaffold starts with `manual-*` runtimes.
+>    - That is reasonable.
+>    - But the docs should give a clean migration path:
+>      1. scaffold manual-first
+>      2. validate
+>      3. bind PM/Dev/QA/Director to runtimes
+>      4. run connector checks
+>      5. reissue active turns if config changed
+>    - That "upgrade path" is missing.
+>
+> 7. Rebinding runtimes after a turn is already assigned is poorly supported.
+>    - We changed the PM runtime after the first PM turn had already been assigned.
+>    - That left the active turn bundle stale: it still referenced `manual-pm` and `review_only`.
+>    - There was no clear documented command for:
+>      - cancel active assigned turn
+>      - invalidate stale dispatch bundle
+>      - reissue the same turn under the new runtime
+>    - I had to manually repair governed state to recover cleanly.
+>    - This should be a documented and supported operation.
+>
+> 8. The framework should detect "active turn runtime stale after config change."
+>    - AgentXchain knew the active turn was assigned with `manual-pm`.
+>    - It also knew the config now said `local-pm`.
+>    - It should surface:
+>      - "active turn was assigned under an old runtime binding"
+>      - "reissue required"
+>      - one recommended command to do it safely
+>
+> 9. Clean-working-tree requirements for authoritative turns should be surfaced earlier.
+>    - Once all roles became `authoritative + local_cli`, `resume` correctly refused to assign a new turn on a dirty tree.
+>    - That is good behavior.
+>    - But the docs should explain this earlier and more plainly:
+>      - authoritative/proposed turns require a clean baseline
+>      - scaffold/config changes should be committed before writable automated turns begin
+>
+> **CLI Integration Gaps**
+>
+> 10. AgentXchain does not help enough with downstream CLI authority settings.
+>    - The framework lets you declare `local_cli`, but it does not help much with the actual command shape.
+>    - Example:
+>      - `codex --full-auto` is not full authority
+>      - true full authority required `--dangerously-bypass-approvals-and-sandbox`
+>      - Claude needed explicit bypass settings too
+>    - The docs should include runtime recipes for common tools:
+>      - Codex
+>      - Claude Code
+>      - maybe Cursor agent or others
+>
+> 11. `connector check` is too shallow for local CLIs.
+>    - It only confirmed command presence.
+>    - It did not tell us whether:
+>      - auth is valid
+>      - the CLI accepts the given flags
+>      - the sandbox/approval mode is what we intended
+>    - A deeper optional probe would have saved time.
+>
+> 12. Prompt transport guidance should be more operator-friendly.
+>    - The framework supports `argv`, `stdin`, and `dispatch_bundle_only`.
+>    - But a practical guide should say:
+>      - use `stdin` for Codex and Claude in most automated cases
+>      - use `dispatch_bundle_only` only when you intentionally want operator handoff
+>      - use `argv` only if the CLI is designed for it
+>
+> **Planning / Repo Shape Gaps**
+>
+> 13. The docs do not clearly explain how to reconcile governed planning files with a public OSS repo surface.
+>    - We had to decide what belongs in:
+>      - root `README.md`
+>      - root `VISION.md`
+>      - `.planning/VISION.md`
+>    - The framework should document a recommended split:
+>      - public repo docs at root
+>      - governed source of truth in `.planning`
+>      - website/docs may point to root docs, not internal planning docs
+>
+> 14. It should explain what scaffold files are expected to be committed.
+>    - We had to infer which `.agentxchain` files are repo-native truth vs transient execution artifacts.
+>    - The scaffold's `.gitignore` helps a bit, but the docs should state plainly:
+>      - commit prompts/config/state ledgers that define governed history
+>      - ignore dispatch/staging bundles
+>      - commit after runtime rebinding before writable turns
+>
+> 15. Template docs could be clearer about when to apply overlays.
+>    - We correctly used `generic` first and then `cli-tool`.
+>    - That worked well.
+>    - But the docs should actively recommend that pattern when the product shape is not yet fully decided.
+>
+> **Governance / UX Gaps**
+>
+> 16. Human-gated automation with zero manual roles should be documented as a normal pattern.
+>    - `doctor` did mention that gates would pause for external approval if no role uses `manual`.
+>    - That is good.
+>    - But this should be a named pattern in docs:
+>      - "all automated turns, human gate approvals only"
+>
+> 17. PM auto-planning from vision is not described clearly enough.
+>    - The framework can do it once PM is bound to an automatable runtime.
+>    - But starting from a manual scaffold makes it look like "PM automation is not a thing" until you understand rebinding.
+>    - The docs should say:
+>      - PM planning can be automated
+>      - it becomes automatic only after PM runtime binding is changed from `manual`
+>
+> 18. There should be an official "first real automation" walkthrough.
+>    - Not just scaffold.
+>    - A walkthrough that goes:
+>      1. initialize governed project
+>      2. apply template
+>      3. set runtimes
+>      4. commit scaffold
+>      5. connector check
+>      6. assign first automated PM turn
+>      7. validate result
+>      8. human approve planning gate
+>
+> **What I'd Recommend AgentXchain Add**
+>
+> 1. `docs/automation-patterns`
+> 2. `docs/local-cli-recipes`
+> 3. `docs/manual-to-automated-migration`
+> 4. a supported command like:
+>    - `agentxchain reissue-turn`
+>    - or `agentxchain cancel-turn --reassign`
+> 5. stronger `connector check` probes
+> 6. one canonical runtime matrix
+> 7. one canonical "all local_cli authoritative" example config
+
+---
 
 - [x] **PROVE full-auto with a live 3+ back-to-back run demonstration (not mocks, not a single partial run)** — completed 2026-04-17: shipped `.planning/LIVE_CONTINUOUS_3RUN_PROOF_SPEC.md`, added `examples/live-governed-proof/run-continuous-3run-proof.mjs`, upgraded the `api_proxy` regression proof to 3 runs, documented `run-agents.sh` as the raw fallback while `run --continuous` is primary, and published `website-v2/docs/examples/live-continuous-3run-proof.mdx` from a clean unattended real-credential session (`cont-0e280ba0`, 3 completed runs, `$0.025` cumulative spend, `VISION.md` unchanged).
   - **Why this is being reopened:** As of 2026-04-17 the self-hosting setup was still running via `run-agents.sh` (the raw bash loop), NOT via `agentxchain run --continuous`. No live continuous session state existed. The "3 back-to-back governed runs" claim was extrapolated from mock tests + one real single run, not executed end-to-end. That is a credibility gap for the project's primary differentiator.

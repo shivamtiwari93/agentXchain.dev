@@ -330,6 +330,53 @@ export function detectConfigVersion(raw) {
   return null;
 }
 
+function formatInvalidReviewOnlyLocalCliBindingError(roleId, runtimeId) {
+  return `Role "${roleId}" uses invalid review_only + local_cli binding on runtime "${runtimeId}" — change write_authority to "authoritative" for local CLI automation, or move the role to "manual", "api_proxy", "mcp", or "remote_agent"`;
+}
+
+function formatInvalidAuthoritativeBindingError(roleId, runtimeId, runtimeType, writeAuthority) {
+  return `Role "${roleId}" has write_authority "${writeAuthority}" but uses ${runtimeType} runtime "${runtimeId}" — ${runtimeType} only supports review_only and proposed roles`;
+}
+
+export function findAuthorityRuntimeBindingIssues(data) {
+  const issues = [];
+
+  if (!data?.roles || !data?.runtimes) {
+    return issues;
+  }
+
+  for (const [roleId, role] of Object.entries(data.roles)) {
+    if (!role?.runtime || !data.runtimes[role.runtime]) {
+      continue;
+    }
+
+    const runtime = data.runtimes[role.runtime];
+    const contract = getRoleRuntimeCapabilityContract(roleId, role, runtime);
+
+    if (contract.effective_write_path === 'invalid_review_only_binding') {
+      issues.push({
+        role_id: roleId,
+        runtime_id: role.runtime,
+        runtime_type: runtime.type,
+        write_authority: role.write_authority,
+        effective_write_path: contract.effective_write_path,
+        message: formatInvalidReviewOnlyLocalCliBindingError(roleId, role.runtime),
+      });
+    } else if (contract.effective_write_path === 'invalid_authoritative_binding') {
+      issues.push({
+        role_id: roleId,
+        runtime_id: role.runtime,
+        runtime_type: runtime.type,
+        write_authority: role.write_authority,
+        effective_write_path: contract.effective_write_path,
+        message: formatInvalidAuthoritativeBindingError(roleId, role.runtime, runtime.type, role.write_authority),
+      });
+    }
+  }
+
+  return issues;
+}
+
 /**
  * Validate a governed config.
  * Returns { ok, errors }.
@@ -458,21 +505,9 @@ export function validateV4Config(data, projectRoot) {
     }
   }
 
-  // Cross-reference: review_only roles should not use authoritative runtimes
-  if (data.roles && data.runtimes) {
-    for (const [id, role] of Object.entries(data.roles)) {
-      if (role.runtime && data.runtimes[role.runtime]) {
-        const rt = data.runtimes[role.runtime];
-        const contract = getRoleRuntimeCapabilityContract(id, role, rt);
-        if (contract.effective_write_path === 'invalid_review_only_binding') {
-          errors.push(`Role "${id}" is review_only but uses local_cli runtime "${role.runtime}" — review_only roles should not have authoritative write access`);
-        } else if (contract.effective_write_path === 'invalid_authoritative_binding') {
-          errors.push(
-            `Role "${id}" has write_authority "${role.write_authority}" but uses ${rt.type} runtime "${role.runtime}" — ${rt.type} only supports review_only and proposed roles`
-          );
-        }
-      }
-    }
+  // Cross-reference: role authority must match the runtime's write contract
+  for (const issue of findAuthorityRuntimeBindingIssues(data)) {
+    errors.push(issue.message);
   }
 
   // Routing (optional but validated if present)

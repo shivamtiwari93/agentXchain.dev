@@ -372,4 +372,22 @@ describe('Governed Doctor E2E', () => {
     assert.ok(admissionCheck, 'Should include admission_control check');
     assert.notEqual(admissionCheck.level, 'fail', JSON.stringify(admissionCheck, null, 2));
   });
+
+  it('AT-B4-002: doctor surfaces actionable review_only + local_cli repair guidance', () => {
+    const root = makeGoverned();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.roles.dev.write_authority = 'review_only';
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const result = runCli(root, ['doctor', '--json']);
+    assert.equal(result.status, 1, 'doctor must fail for invalid governed config');
+    const output = JSON.parse(result.stdout);
+    const configCheck = output.checks.find((c) => c.id === 'config_valid');
+    assert.ok(configCheck, 'Should include config_valid check');
+    assert.equal(configCheck.level, 'fail');
+    assert.match(configCheck.detail, /invalid review_only \+ local_cli binding/);
+    assert.match(configCheck.detail, /change write_authority to "authoritative"/);
+    assert.match(configCheck.detail, /manual", "api_proxy", "mcp", or "remote_agent"/);
+  });
 });

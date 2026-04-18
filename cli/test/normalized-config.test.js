@@ -210,7 +210,9 @@ describe('validateV4Config', () => {
       runtimes: { 'local-qa': { type: 'local_cli' } },
     });
     assert.equal(result.ok, false);
-    assert.ok(result.errors.some(e => e.includes('review_only') && e.includes('local_cli')));
+    assert.ok(result.errors.some(e => e.includes('invalid review_only + local_cli binding')));
+    assert.ok(result.errors.some(e => e.includes('change write_authority to "authoritative"')));
+    assert.ok(result.errors.some(e => e.includes('"manual", "api_proxy", "mcp", or "remote_agent"')));
   });
 
   it('accepts review_only role with mcp runtime without false binding errors', () => {
