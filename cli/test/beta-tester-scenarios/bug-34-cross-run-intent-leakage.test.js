@@ -231,17 +231,27 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     stateForReset.run_id = null;
     writeFileSync(join(root, '.agentxchain/state.json'), JSON.stringify(stateForReset, null, 2));
 
-    // Inject a pre-run intent while idle (no run_id in state)
-    const inject2 = injectIntent(root, 'Pre-run unbound intent', {
+    // Simulate a pre-BUG-34 legacy intent while idle: approved with no run scope
+    // and no cross_run_durable marker. New approvals now get cross_run_durable=true,
+    // so BUG-39 must use a manual legacy fixture instead of the current inject path.
+    const unboundIntentId = 'intent_legacy_unbound_bug39';
+    const intent2Path = join(root, '.agentxchain', 'intake', 'intents', `${unboundIntentId}.json`);
+    writeFileSync(intent2Path, JSON.stringify({
+      schema_version: '1.0',
+      intent_id: unboundIntentId,
+      event_id: 'evt_legacy_bug39',
+      status: 'approved',
       priority: 'p0',
-      charter: 'Unbound work',
-      acceptance: 'Pre-run check',
-    });
-    assert.ok(inject2.ok);
-    const unboundIntentId = inject2.intent.intent_id;
+      charter: 'Legacy unbound work',
+      acceptance_contract: ['Pre-run check'],
+      approved_run_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      history: [],
+    }, null, 2));
 
     // Start run 2 — migration should archive both: run 1's intent (suppressed)
-    // and the unbound pre-run intent (archived_migration per BUG-39)
+    // and the manual legacy intent (archived_migration per BUG-39)
     initializeGovernedRun(root, config);
     const state2 = readState(root);
     const run2Id = state2.run_id;
@@ -252,7 +262,6 @@ describe('BUG-34: cross-run intent leakage in continuous mode', () => {
     assert.ok(intent1After.archived_reason, 'archived intent should have a reason');
 
     // BUG-39: Pre-run intent (approved_run_id: null) must be archived, NOT adopted
-    const intent2Path = join(root, '.agentxchain', 'intake', 'intents', `${unboundIntentId}.json`);
     const intent2After = JSON.parse(readFileSync(intent2Path, 'utf8'));
     assert.equal(intent2After.status, 'archived_migration', 'pre-run intent should be archived_migration (BUG-39)');
     assert.ok(intent2After.archived_reason && intent2After.archived_reason.includes('pre-BUG-34'),

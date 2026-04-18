@@ -32,6 +32,13 @@ function readJson(relPath) {
   return JSON.parse(readFileSync(join(root, relPath), 'utf8'));
 }
 
+function setLenientGateSemanticCoverage() {
+  const configPath = join(root, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.gate_semantic_coverage_mode = 'lenient';
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+}
+
 function getSingleActiveTurn(state) {
   const turns = Object.values(state.active_turns || {});
   assert.equal(turns.length, 1, 'expected exactly one active turn');
@@ -63,6 +70,7 @@ describe('BUG-14: intent coverage validation', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'axc-intent-coverage-'));
     scaffoldGoverned(root, 'Intent Coverage Fixture', `intent-coverage-${Date.now()}`);
+    setLenientGateSemanticCoverage();
   });
 
   afterEach(() => {
@@ -200,6 +208,7 @@ describe('BUG-15: status surfaces pending intents', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'axc-status-intents-'));
     scaffoldGoverned(root, 'Status Intents Fixture', `status-intents-${Date.now()}`);
+    setLenientGateSemanticCoverage();
   });
 
   afterEach(() => {
@@ -250,6 +259,7 @@ describe('BUG-16: unified intake consumption', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'axc-unified-intake-'));
     scaffoldGoverned(root, 'Unified Intake Fixture', `unified-intake-${Date.now()}`);
+    setLenientGateSemanticCoverage();
   });
 
   afterEach(() => {

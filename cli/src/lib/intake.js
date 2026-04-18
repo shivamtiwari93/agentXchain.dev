@@ -821,9 +821,11 @@ export function approveIntent(root, intentId, options = {}) {
   const reason = options.reason || (previousStatus === 'blocked' ? 're-approved after block resolution' : 'approved for planning');
   const now = nowISO();
 
-  // BUG-34: stamp the current run_id on approval so the intent is scoped to
-  // the run that approved it. Intents without approved_run_id are treated as
-  // legacy/unbound and filtered out by run-scoped queries.
+  // BUG-34/39: stamp the current run_id on approval so the intent is scoped
+  // to the run that approved it. When approval happens before any governed
+  // run exists, mark the intent as cross_run_durable so the next run init
+  // preserves this freshly approved work instead of archiving it as legacy
+  // migration debt.
   if (!intent.approved_run_id) {
     const statePath = join(root, '.agentxchain', 'state.json');
     if (existsSync(statePath)) {
@@ -831,10 +833,14 @@ export function approveIntent(root, intentId, options = {}) {
         const state = JSON.parse(readFileSync(statePath, 'utf8'));
         if (state.run_id) {
           intent.approved_run_id = state.run_id;
+        } else {
+          intent.cross_run_durable = true;
         }
       } catch {
         // non-fatal — stamp is best-effort during approval
       }
+    } else {
+      intent.cross_run_durable = true;
     }
   }
 

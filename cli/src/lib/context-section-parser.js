@@ -10,6 +10,8 @@ const SECTION_DEFINITIONS = [
   { id: 'last_turn_summary', header: null, required: false },
   { id: 'last_turn_decisions', header: null, required: false },
   { id: 'last_turn_objections', header: null, required: false },
+  { id: 'last_turn_files_changed', header: null, required: false },
+  { id: 'last_turn_changed_file_previews', header: null, required: false },
   { id: 'last_turn_verification', header: null, required: false },
   { id: 'decision_history', header: 'Decision History', required: false },
   { id: 'blockers', header: 'Blockers', required: true },
@@ -54,6 +56,8 @@ export function parseContextSections(contextMd) {
       summaryLines,
       decisionsLines,
       objectionsLines,
+      filesChangedLines,
+      changedFilePreviewLines,
       verificationLines,
     } = splitLastAcceptedTurn(lastAcceptedTurnBody);
 
@@ -61,6 +65,8 @@ export function parseContextSections(contextMd) {
     pushSection(parsedSections, 'last_turn_summary', summaryLines);
     pushSection(parsedSections, 'last_turn_decisions', decisionsLines);
     pushSection(parsedSections, 'last_turn_objections', objectionsLines);
+    pushSection(parsedSections, 'last_turn_files_changed', filesChangedLines);
+    pushSection(parsedSections, 'last_turn_changed_file_previews', changedFilePreviewLines);
     pushSection(parsedSections, 'last_turn_verification', verificationLines);
   }
 
@@ -91,6 +97,8 @@ export function renderContextSections(sections) {
     sectionMap.get('last_turn_summary')?.content,
     sectionMap.get('last_turn_decisions')?.content,
     sectionMap.get('last_turn_objections')?.content,
+    sectionMap.get('last_turn_files_changed')?.content,
+    sectionMap.get('last_turn_changed_file_previews')?.content,
     sectionMap.get('last_turn_verification')?.content,
   ]);
 
@@ -157,6 +165,8 @@ function splitLastAcceptedTurn(lines) {
   let summaryLines = [];
   let decisionsLines = [];
   let objectionsLines = [];
+  let filesChangedLines = [];
+  let changedFilePreviewLines = [];
   let verificationLines = [];
 
   let inVerification = false;
@@ -200,6 +210,20 @@ function splitLastAcceptedTurn(lines) {
       continue;
     }
 
+    if (line.startsWith('### Files Changed')) {
+      const { blockLines, nextIndex } = consumeLevel3Block(lines, index);
+      filesChangedLines = blockLines;
+      index = nextIndex - 1;
+      continue;
+    }
+
+    if (line.startsWith('### Changed File Previews')) {
+      const { blockLines, nextIndex } = consumeLevel3Block(lines, index);
+      changedFilePreviewLines = blockLines;
+      index = nextIndex - 1;
+      continue;
+    }
+
     headerLines.push(line);
   }
 
@@ -208,6 +232,8 @@ function splitLastAcceptedTurn(lines) {
     summaryLines: trimBlankLines(summaryLines),
     decisionsLines: trimBlankLines(decisionsLines),
     objectionsLines: trimBlankLines(objectionsLines),
+    filesChangedLines: trimBlankLines(filesChangedLines),
+    changedFilePreviewLines: trimBlankLines(changedFilePreviewLines),
     verificationLines: trimBlankLines(verificationLines),
   };
 }
@@ -224,6 +250,32 @@ function consumeIndentedBlock(lines, startIndex) {
       continue;
     }
     break;
+  }
+
+  return {
+    blockLines: trimBlankLines(blockLines),
+    nextIndex: index,
+  };
+}
+
+function consumeLevel3Block(lines, startIndex) {
+  const blockLines = [lines[startIndex]];
+  let index = startIndex + 1;
+  let inCodeBlock = false;
+
+  while (index < lines.length) {
+    const line = lines[index];
+
+    if (line.startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+    }
+
+    if (!inCodeBlock && line.startsWith('### ')) {
+      break;
+    }
+
+    blockLines.push(line);
+    index += 1;
   }
 
   return {

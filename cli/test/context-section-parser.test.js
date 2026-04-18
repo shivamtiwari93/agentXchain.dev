@@ -85,6 +85,51 @@ function getSection(sections, id) {
   return sections.find((section) => section.id === id);
 }
 
+function acceptPmPlanningTurnAndEnterPhase(root, config, targetPhase) {
+  initializeGovernedRun(root, config);
+  assignGovernedTurn(root, config, 'pm');
+
+  const state = readJson(root, STATE_PATH);
+  writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), '# PM Signoff\n\nApproved: YES\n');
+  writeFileSync(
+    join(root, '.planning', 'ROADMAP.md'),
+    '# Roadmap\n\n## Phases\n\n| Phase | Goal | Status |\n| --- | --- | --- |\n| Planning | Sign off scope and acceptance | Complete |\n'
+  );
+
+  const turnResult = {
+    schema_version: '1.0',
+    run_id: state.run_id,
+    turn_id: state.current_turn.turn_id,
+    role: 'pm',
+    runtime_id: 'manual-pm',
+    status: 'completed',
+    summary: 'Updated planning artifacts and requested implementation.',
+    decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Focus on core workflow.', rationale: 'User value.' }],
+    objections: [{ id: 'OBJ-001', severity: 'low', statement: 'Implementation still needs delivery proof.', status: 'raised' }],
+    files_changed: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+    artifacts_created: [],
+    verification: { status: 'pass', commands: [], evidence_summary: 'Review complete.' },
+    artifact: { type: 'review', ref: null },
+    proposed_next_role: 'human',
+    phase_transition_request: 'implementation',
+    run_completion_request: null,
+    needs_human_reason: null,
+    cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+  };
+
+  mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+  writeFileSync(join(root, STAGING_PATH), JSON.stringify(turnResult));
+  assert.equal(acceptGovernedTurn(root, config).ok, true);
+
+  const rawState = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
+  rawState.phase = targetPhase;
+  rawState.status = 'active';
+  rawState.blocked_on = null;
+  rawState.pending_phase_transition = null;
+  rawState.queued_phase_transition = null;
+  writeFileSync(join(root, STATE_PATH), JSON.stringify(rawState, null, 2));
+}
+
 describe('context-section-parser', () => {
   it('round-trips Project Goal and Inherited Run Context as sticky sections', () => {
     const contextMd = [
@@ -313,36 +358,8 @@ describe('context-section-parser integration with dispatch bundle rendering', ()
   });
 
   it('round-trips the current orchestrator-generated CONTEXT.md without drift', () => {
-    initializeGovernedRun(root, config);
-    assignGovernedTurn(root, config, 'pm');
+    acceptPmPlanningTurnAndEnterPhase(root, config, 'qa');
     let state = readJson(root, STATE_PATH);
-
-    const turnResult = {
-      schema_version: '1.0',
-      run_id: state.run_id,
-      turn_id: state.current_turn.turn_id,
-      role: 'pm',
-      runtime_id: 'manual-pm',
-      status: 'completed',
-      summary: 'Defined MVP scope.',
-      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Focus on core workflow.', rationale: 'User value.' }],
-      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No concerns.', status: 'raised' }],
-      files_changed: [],
-      artifacts_created: [],
-      verification: { status: 'pass', commands: [], evidence_summary: 'Review complete.' },
-      artifact: { type: 'review', ref: null },
-      proposed_next_role: 'human',
-      phase_transition_request: null,
-      run_completion_request: null,
-      needs_human_reason: null,
-      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-    };
-
-    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
-    writeFileSync(join(root, STAGING_PATH), JSON.stringify(turnResult));
-    assert.equal(acceptGovernedTurn(root, config).ok, true);
-
-    state = readJson(root, STATE_PATH);
     state.phase = 'qa';
     state.blocked_on = 'escalation:retries-exhausted:qa';
     state.escalation = { from_role: 'qa', reason: 'retries_exhausted' };

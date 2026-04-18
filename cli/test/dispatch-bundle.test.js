@@ -97,6 +97,64 @@ function stagingPathFor(state) {
   return getTurnStagingResultPath(state.current_turn.turn_id);
 }
 
+function acceptPmPlanningTurnAndEnterPhase(root, config, targetPhase) {
+  initializeGovernedRun(root, config);
+  assignGovernedTurn(root, config, 'pm');
+
+  const pmState = readJson(root, STATE_PATH);
+  writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), '# PM Signoff\n\nApproved: YES\n');
+  writeFileSync(
+    join(root, '.planning', 'ROADMAP.md'),
+    '# Roadmap\n\n## Phases\n\n| Phase | Goal | Status |\n| --- | --- | --- |\n| Planning | Sign off scope and acceptance | Complete |\n'
+  );
+
+  const pmResult = {
+    schema_version: '1.0',
+    run_id: pmState.run_id,
+    turn_id: pmState.current_turn.turn_id,
+    role: 'pm',
+    runtime_id: 'manual-pm',
+    status: 'completed',
+    summary: 'Updated planning artifacts and requested implementation.',
+    decisions: [{
+      id: 'DEC-001',
+      category: 'scope',
+      statement: 'Planning artifacts are approved for implementation.',
+      rationale: 'PM signoff and roadmap were updated to satisfy the planning gate.',
+    }],
+    objections: [{
+      id: 'OBJ-001',
+      severity: 'low',
+      statement: 'Implementation still needs execution proof.',
+      status: 'raised',
+    }],
+    files_changed: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: [],
+      evidence_summary: 'Reviewed and updated the planning gate artifacts.',
+    },
+    artifact: { type: 'review', ref: null },
+    proposed_next_role: 'human',
+    phase_transition_request: 'implementation',
+    cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+  };
+
+  mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+  writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
+  const acceptResult = acceptGovernedTurn(root, config);
+  assert.equal(acceptResult.ok, true, acceptResult.error);
+
+  const rawState = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
+  rawState.phase = targetPhase;
+  rawState.status = 'active';
+  rawState.blocked_on = null;
+  rawState.pending_phase_transition = null;
+  rawState.queued_phase_transition = null;
+  writeFileSync(join(root, STATE_PATH), JSON.stringify(rawState, null, 2));
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('writeDispatchBundle', () => {
@@ -416,50 +474,14 @@ describe('resume workflow: full dispatch cycle', () => {
   });
 
   it('CONTEXT.md includes last turn info after a completed turn', () => {
-    // Init + assign + accept a PM turn
-    initializeGovernedRun(root, config);
-    assignGovernedTurn(root, config, 'pm');
-    const state = readJson(root, STATE_PATH);
-
-    // Write a staged turn result
-    const turnResult = {
-      schema_version: '1.0',
-      run_id: state.run_id,
-      turn_id: state.current_turn.turn_id,
-      role: 'pm',
-      runtime_id: 'manual-pm',
-      status: 'completed',
-      summary: 'Defined MVP scope.',
-      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Focus on core workflow.', rationale: 'User value.' }],
-      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No concerns.', status: 'raised' }],
-      files_changed: [],
-      artifacts_created: [],
-      verification: { status: 'pass', commands: [], evidence_summary: 'Review complete.' },
-      artifact: { type: 'review', ref: null },
-      proposed_next_role: 'human',
-      phase_transition_request: null,
-      needs_human_reason: null,
-      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-    };
-    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
-    writeFileSync(join(root, STAGING_PATH), JSON.stringify(turnResult));
-
-    // Accept the turn
-    const acceptResult = acceptGovernedTurn(root, config);
-    assert.ok(acceptResult.ok);
-
-    // Now assign a dev turn in implementation phase
-    const newState = readJson(root, STATE_PATH);
-    newState.phase = 'implementation';
-    writeFileSync(join(root, STATE_PATH), JSON.stringify(newState, null, 2));
-
+    acceptPmPlanningTurnAndEnterPhase(root, config, 'implementation');
     assignGovernedTurn(root, config, 'dev');
     const devState = readJson(root, STATE_PATH);
     writeDispatchBundle(root, devState, config);
 
     const context = readFileSync(join(root, bundleDirFor(devState), 'CONTEXT.md'), 'utf8');
     assert.match(context, /Last Accepted Turn/);
-    assert.match(context, /Defined MVP scope/);
+    assert.match(context, /Updated planning artifacts and requested implementation/);
     assert.match(context, /DEC-001/);
   });
 
@@ -752,36 +774,7 @@ describe('dispatch bundle: QA evidence visibility', () => {
   });
 
   function acceptPmTurnAndTransition() {
-    initializeGovernedRun(root, config);
-    assignGovernedTurn(root, config, 'pm');
-    const pmState = readJson(root, STATE_PATH);
-    const pmResult = {
-      schema_version: '1.0',
-      run_id: pmState.run_id,
-      turn_id: pmState.current_turn.turn_id,
-      role: 'pm',
-      runtime_id: 'manual-pm',
-      status: 'completed',
-      summary: 'Approved scope.',
-      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Build it.', rationale: 'User value.' }],
-      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No concerns.', status: 'raised' }],
-      files_changed: [],
-      artifacts_created: [],
-      verification: { status: 'pass', commands: [], evidence_summary: 'Review complete.' },
-      artifact: { type: 'review', ref: null },
-      proposed_next_role: 'human',
-      phase_transition_request: null,
-      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-    };
-    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
-    writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
-    const pmAccept = acceptGovernedTurn(root, config);
-    assert.ok(pmAccept.ok, `PM accept failed: ${pmAccept.error}`);
-
-    // Transition to implementation
-    const state = readJson(root, STATE_PATH);
-    state.phase = 'implementation';
-    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    acceptPmPlanningTurnAndEnterPhase(root, config, 'implementation');
   }
 
   function acceptDevTurn(overrides = {}) {
@@ -1208,37 +1201,7 @@ describe('dispatch bundle: QA evidence visibility', () => {
     const qaRoot = makeTmpDir();
     const qaConfig = makeNormalizedConfig();
     scaffoldGoverned(qaRoot, 'test-project');
-    initializeGovernedRun(qaRoot, qaConfig);
-    assignGovernedTurn(qaRoot, qaConfig, 'pm');
-
-    // Accept PM turn
-    const pmState = readJson(qaRoot, STATE_PATH);
-    const pmResult = {
-      schema_version: '1.0',
-      run_id: pmState.run_id,
-      turn_id: pmState.current_turn.turn_id,
-      role: 'pm',
-      runtime_id: 'manual-pm',
-      status: 'completed',
-      summary: 'Approved scope.',
-      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Build it.', rationale: 'User value.' }],
-      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No concerns.', status: 'raised' }],
-      files_changed: [],
-      artifacts_created: [],
-      verification: { status: 'pass', commands: [], evidence_summary: 'Review.' },
-      artifact: { type: 'review', ref: null },
-      proposed_next_role: 'human',
-      phase_transition_request: null,
-      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-    };
-    mkdirSync(join(qaRoot, '.agentxchain', 'staging'), { recursive: true });
-    writeFileSync(join(qaRoot, STAGING_PATH), JSON.stringify(pmResult));
-    acceptGovernedTurn(qaRoot, qaConfig);
-
-    // Force to QA phase and assign QA turn
-    const rawSt = JSON.parse(readFileSync(join(qaRoot, STATE_PATH), 'utf8'));
-    rawSt.phase = 'qa';
-    writeFileSync(join(qaRoot, STATE_PATH), JSON.stringify(rawSt, null, 2));
+    acceptPmPlanningTurnAndEnterPhase(qaRoot, qaConfig, 'qa');
     assignGovernedTurn(qaRoot, qaConfig, 'qa');
     const qaState = readJson(qaRoot, STATE_PATH);
 
@@ -1275,37 +1238,7 @@ describe('dispatch bundle: phase-transition intent prompt', () => {
   });
 
   it('AT-PTI-001: authoritative role in non-terminal phase sees explicit next-phase instruction', () => {
-    initializeGovernedRun(root, config);
-    assignGovernedTurn(root, config, 'pm');
-
-    // Accept PM turn to advance
-    const pmState = readJson(root, STATE_PATH);
-    const pmResult = {
-      schema_version: '1.0',
-      run_id: pmState.run_id,
-      turn_id: pmState.current_turn.turn_id,
-      role: 'pm',
-      runtime_id: 'manual-pm',
-      status: 'completed',
-      summary: 'Approved.',
-      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Go.', rationale: 'Yes.' }],
-      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'None.', status: 'raised' }],
-      files_changed: [],
-      artifacts_created: [],
-      verification: { status: 'pass', commands: [], evidence_summary: 'Review.' },
-      artifact: { type: 'review', ref: null },
-      proposed_next_role: 'human',
-      phase_transition_request: null,
-      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-    };
-    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
-    writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
-    acceptGovernedTurn(root, config);
-
-    // Force to implementation phase and assign dev turn
-    const rawSt = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
-    rawSt.phase = 'implementation';
-    writeFileSync(join(root, STATE_PATH), JSON.stringify(rawSt, null, 2));
+    acceptPmPlanningTurnAndEnterPhase(root, config, 'implementation');
     assignGovernedTurn(root, config, 'dev');
     const devState = readJson(root, STATE_PATH);
 
@@ -1323,38 +1256,7 @@ describe('dispatch bundle: phase-transition intent prompt', () => {
   });
 
   it('AT-PTI-002: authoritative role in terminal phase sees final-phase and run_completion guidance', () => {
-    initializeGovernedRun(root, config);
-    assignGovernedTurn(root, config, 'pm');
-
-    // Accept PM turn
-    const pmState = readJson(root, STATE_PATH);
-    const pmResult = {
-      schema_version: '1.0',
-      run_id: pmState.run_id,
-      turn_id: pmState.current_turn.turn_id,
-      role: 'pm',
-      runtime_id: 'manual-pm',
-      status: 'completed',
-      summary: 'Approved.',
-      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Go.', rationale: 'Yes.' }],
-      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'None.', status: 'raised' }],
-      files_changed: [],
-      artifacts_created: [],
-      verification: { status: 'pass', commands: [], evidence_summary: 'Review.' },
-      artifact: { type: 'review', ref: null },
-      proposed_next_role: 'human',
-      phase_transition_request: null,
-      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-    };
-    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
-    writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
-    acceptGovernedTurn(root, config);
-
-    // Force to qa phase (terminal) and assign dev turn (hypothetical authoritative role in terminal phase)
-    const rawSt = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
-    rawSt.phase = 'qa';
-    writeFileSync(join(root, STATE_PATH), JSON.stringify(rawSt, null, 2));
-    // Temporarily make dev authoritative in qa phase for this test
+    acceptPmPlanningTurnAndEnterPhase(root, config, 'qa');
     assignGovernedTurn(root, config, 'dev');
     const devState = readJson(root, STATE_PATH);
 
@@ -1370,37 +1272,7 @@ describe('dispatch bundle: phase-transition intent prompt', () => {
   });
 
   it('AT-PTI-003: review_only role does NOT see authoritative phase guidance', () => {
-    initializeGovernedRun(root, config);
-    assignGovernedTurn(root, config, 'pm');
-
-    // Accept PM turn
-    const pmState = readJson(root, STATE_PATH);
-    const pmResult = {
-      schema_version: '1.0',
-      run_id: pmState.run_id,
-      turn_id: pmState.current_turn.turn_id,
-      role: 'pm',
-      runtime_id: 'manual-pm',
-      status: 'completed',
-      summary: 'Approved.',
-      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Go.', rationale: 'Yes.' }],
-      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'None.', status: 'raised' }],
-      files_changed: [],
-      artifacts_created: [],
-      verification: { status: 'pass', commands: [], evidence_summary: 'Review.' },
-      artifact: { type: 'review', ref: null },
-      proposed_next_role: 'human',
-      phase_transition_request: null,
-      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-    };
-    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
-    writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
-    acceptGovernedTurn(root, config);
-
-    // Force to implementation and assign QA (review_only) turn
-    const rawSt = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
-    rawSt.phase = 'implementation';
-    writeFileSync(join(root, STATE_PATH), JSON.stringify(rawSt, null, 2));
+    acceptPmPlanningTurnAndEnterPhase(root, config, 'implementation');
     assignGovernedTurn(root, config, 'qa');
     const qaState = readJson(root, STATE_PATH);
 

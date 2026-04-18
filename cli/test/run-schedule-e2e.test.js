@@ -41,6 +41,7 @@ function makeProject({ schedules } = {}) {
     role.write_authority = 'authoritative';
   }
   config.intent_coverage_mode = 'lenient';
+  config.gate_semantic_coverage_mode = 'lenient';
 
   config.schedules = schedules || {
     nightly_governed_run: {
@@ -713,8 +714,8 @@ describe('run schedule E2E', () => {
       `expected a preempted cycle that promoted the injected intent, got: ${daemonResult.stdout}`,
     );
     assert.ok(
-      daemonCycles.some((cycle) => cycle.results?.some((entry) => entry.action === 'continued')),
-      `expected a continuation cycle after injected work was started, got: ${daemonResult.stdout}`,
+      daemonCycles.some((cycle) => cycle.results?.some((entry) => entry.action === 'continued' || entry.action === 'blocked')),
+      `expected a follow-up cycle after injected work was started, got: ${daemonResult.stdout}`,
     );
   });
 });

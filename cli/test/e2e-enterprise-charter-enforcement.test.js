@@ -194,6 +194,7 @@ describe('CLI subprocess E2E — enterprise-app charter enforcement', () => {
         role: 'architect',
         runtime_id: 'manual-architect',
         summary: 'Architecture review complete. Ready for implementation.',
+        files_changed: ['.planning/ARCHITECTURE.md'],
         artifacts_created: ['.planning/ARCHITECTURE.md'],
         proposed_next_role: 'dev',
         phase_transition_request: 'implementation',
