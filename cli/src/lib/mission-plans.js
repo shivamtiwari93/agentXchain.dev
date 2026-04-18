@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto';
 import { join } from 'path';
 import { loadChainReport } from './chain-reports.js';
 import { readBarriers, readCoordinatorHistory } from './coordinator-state.js';
+import { loadCoordinatorConfig } from './coordinator-config.js';
 
 // ── Plan artifact directory ──────────────────────────────────────────────────
 
@@ -460,6 +461,99 @@ function clonePlan(plan) {
   return JSON.parse(JSON.stringify(plan));
 }
 
+function readRepoLocalState(repoPath) {
+  if (!repoPath) return null;
+  try {
+    return JSON.parse(readFileSync(join(repoPath, '.agentxchain', 'state.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function readRepoLocalHistory(repoPath) {
+  if (!repoPath) return [];
+  try {
+    const content = readFileSync(join(repoPath, '.agentxchain', 'history.jsonl'), 'utf8').trim();
+    if (!content) return [];
+    return content.split('\n').map((line) => JSON.parse(line));
+  } catch {
+    return [];
+  }
+}
+
+function isAcceptedRepoHistoryEntry(entry) {
+  return Boolean(entry?.accepted_at) || entry?.status === 'accepted';
+}
+
+const REPO_FAILURE_STATUSES = new Set(['failed_acceptance', 'failed', 'rejected', 'retrying', 'conflicted']);
+
+function getLatestRepoDispatches(launchRecord) {
+  const latestByRepo = new Map();
+  for (const dispatch of launchRecord?.repo_dispatches || []) {
+    if (dispatch?.repo_id) {
+      latestByRepo.set(dispatch.repo_id, dispatch);
+    }
+  }
+  return [...latestByRepo.values()];
+}
+
+function classifyRepoDispatchOutcome(repoPath, repoTurnId) {
+  const repoState = readRepoLocalState(repoPath);
+  const activeTurn = repoState?.active_turns?.[repoTurnId] || null;
+  if (activeTurn) {
+    if (REPO_FAILURE_STATUSES.has(activeTurn.status)) {
+      return {
+        status: 'failed',
+        source: 'repo_state',
+        failure_status: activeTurn.status,
+        failure_reason: activeTurn.failure_reason || activeTurn.last_rejection?.reason || null,
+      };
+    }
+    return { status: 'in_flight', source: 'repo_state', failure_status: null, failure_reason: null };
+  }
+
+  const repoHistory = readRepoLocalHistory(repoPath);
+  const matchingEntries = repoHistory.filter((entry) => entry?.turn_id === repoTurnId);
+  if (matchingEntries.some((entry) => isAcceptedRepoHistoryEntry(entry))) {
+    return { status: 'accepted', source: 'repo_history', failure_status: null, failure_reason: null };
+  }
+
+  for (let i = matchingEntries.length - 1; i >= 0; i--) {
+    const entry = matchingEntries[i];
+    if (REPO_FAILURE_STATUSES.has(entry?.status)) {
+      return {
+        status: 'failed',
+        source: 'repo_history',
+        failure_status: entry.status,
+        failure_reason: entry.failure_reason || entry.reason || entry.summary || null,
+      };
+    }
+  }
+
+  return { status: 'unknown', source: 'repo_state', failure_status: null, failure_reason: null };
+}
+
+function buildCoordinatorRepoFailures(coordinatorConfig, launchRecord) {
+  const failures = [];
+  for (const dispatch of getLatestRepoDispatches(launchRecord)) {
+    const repoPath = coordinatorConfig?.repos?.[dispatch.repo_id]?.resolved_path || null;
+    const outcome = classifyRepoDispatchOutcome(repoPath, dispatch.repo_turn_id);
+    if (outcome.status !== 'failed') {
+      continue;
+    }
+
+    failures.push({
+      repo_id: dispatch.repo_id,
+      repo_turn_id: dispatch.repo_turn_id,
+      role: dispatch.role || null,
+      failure_status: outcome.failure_status,
+      failure_reason: outcome.failure_reason,
+      detected_from: outcome.source,
+    });
+  }
+  return failures;
+}
+
 function buildCoordinatorWorkstreamProgress(coordinatorConfig, history, barriers, workstreamId) {
   const coordinatorWorkstream = coordinatorConfig?.workstreams?.[workstreamId];
   if (!coordinatorWorkstream) {
@@ -494,11 +588,15 @@ function synchronizeCoordinatorWorkstreamStatuses(root, plan, coordinatorConfig,
     }
 
     const launchRecord = getLatestCoordinatorLaunchRecord(plan, ws.workstream_id);
+    const repoFailures = launchRecord
+      ? buildCoordinatorRepoFailures(coordinatorConfig, launchRecord)
+      : [];
     if (launchRecord) {
       launchRecord.accepted_repo_ids = [...progress.accepted_repo_ids];
       launchRecord.pending_repo_ids = [...progress.pending_repo_ids];
       launchRecord.repo_count = progress.repo_count;
       launchRecord.accepted_repo_count = progress.accepted_repo_count;
+      launchRecord.repo_failures = repoFailures;
       launchRecord.completion_barrier = {
         barrier_id: progress.completion_barrier_id,
         type: progress.completion_barrier_type,
@@ -519,9 +617,29 @@ function synchronizeCoordinatorWorkstreamStatuses(root, plan, coordinatorConfig,
       continue;
     }
 
+    if (repoFailures.length > 0) {
+      if (ws.launch_status !== 'needs_attention') {
+        ws.launch_status = 'needs_attention';
+        changed = true;
+      }
+      if (launchRecord && launchRecord.status !== 'needs_attention') {
+        launchRecord.status = 'needs_attention';
+        changed = true;
+      }
+      if (plan.status !== 'needs_attention') {
+        plan.status = 'needs_attention';
+        changed = true;
+      }
+      continue;
+    }
+
     if ((launchRecord?.repo_dispatches?.length || 0) > 0 || progress.accepted_repo_count > 0) {
       if (ws.launch_status !== 'launched') {
         ws.launch_status = 'launched';
+        changed = true;
+      }
+      if (launchRecord && launchRecord.status !== 'launched') {
+        launchRecord.status = 'launched';
         changed = true;
       }
     }
@@ -543,6 +661,9 @@ function synchronizeCoordinatorWorkstreamStatuses(root, plan, coordinatorConfig,
   if (allCompleted && plan.status !== 'completed') {
     plan.status = 'completed';
     changed = true;
+  } else if (plan.status === 'needs_attention' && !(plan.workstreams || []).some((ws) => ws.launch_status === 'needs_attention')) {
+    plan.status = 'approved';
+    changed = true;
   }
 
   if (changed) {
@@ -560,20 +681,11 @@ export function synchronizeCoordinatorPlanState(root, mission, plan) {
   const workspacePath = mission.coordinator.workspace_path;
   const history = readCoordinatorHistory(workspacePath);
   const barriers = readBarriers(workspacePath);
-
-  let coordinatorConfig = null;
-  try {
-    const configPath = join(workspacePath, 'agentxchain-multi.json');
-    if (existsSync(configPath)) {
-      coordinatorConfig = JSON.parse(readFileSync(configPath, 'utf8'));
-    }
-  } catch {
-    return { ok: false, error: `Coordinator config could not be read from ${workspacePath}` };
+  const coordinatorConfigResult = loadCoordinatorConfig(workspacePath);
+  if (!coordinatorConfigResult.ok) {
+    return { ok: false, error: `Coordinator config validation failed at ${workspacePath}: ${(coordinatorConfigResult.errors || []).join('; ')}` };
   }
-
-  if (!coordinatorConfig?.workstreams) {
-    return { ok: false, error: `Coordinator config missing workstreams at ${workspacePath}` };
-  }
+  const coordinatorConfig = coordinatorConfigResult.config;
 
   const persistedPlan = clonePlan(plan);
   const changed = synchronizeCoordinatorWorkstreamStatuses(root, persistedPlan, coordinatorConfig, history, barriers);
@@ -587,10 +699,21 @@ export function synchronizeCoordinatorPlanState(root, mission, plan) {
     if (!progress) {
       continue;
     }
-    ws.coordinator_progress = progress;
     const launchRecord = getLatestCoordinatorLaunchRecord(enrichedPlan, ws.workstream_id);
+    const repoFailures = launchRecord?.repo_failures || [];
+    ws.coordinator_progress = progress;
+    ws.coordinator_progress.failed_repo_ids = repoFailures.map((failure) => failure.repo_id);
+    ws.coordinator_progress.repo_failure_count = repoFailures.length;
+    if (repoFailures.length > 0) {
+      ws.coordinator_progress.repo_failures = repoFailures;
+    }
     if (launchRecord) {
       launchRecord.coordinator_progress = progress;
+      launchRecord.coordinator_progress.failed_repo_ids = ws.coordinator_progress.failed_repo_ids;
+      launchRecord.coordinator_progress.repo_failure_count = repoFailures.length;
+      if (repoFailures.length > 0) {
+        launchRecord.coordinator_progress.repo_failures = repoFailures;
+      }
     }
   }
 

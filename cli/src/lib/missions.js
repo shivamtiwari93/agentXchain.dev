@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadAllChainReports, loadChainReport, loadLatestChainReport } from './chain-reports.js';
-import { buildPlanProgressSummary, loadLatestPlan } from './mission-plans.js';
+import { buildPlanProgressSummary, loadLatestPlan, synchronizeCoordinatorPlanState } from './mission-plans.js';
 import { getActiveRepoDecisions } from './repo-decisions.js';
 import { getCoordinatorStatus } from './coordinator-state.js';
 
@@ -141,7 +141,7 @@ export function buildMissionSnapshot(root, missionArtifact) {
   const totalRuns = chains.reduce((sum, chain) => sum + (chain.runs?.length || 0), 0);
   const totalTurns = chains.reduce((sum, chain) => sum + (chain.total_turns || 0), 0);
   const latestChain = chains[0] || null;
-  const latestPlan = loadLatestPlan(root, missionArtifact.mission_id);
+  let latestPlan = loadLatestPlan(root, missionArtifact.mission_id);
   const activeRepoDecisions = getActiveRepoDecisions(root);
 
   // Load coordinator status if mission is bound to a multi-repo coordinator
@@ -153,6 +153,13 @@ export function buildMissionSnapshot(root, missionArtifact) {
       coordinatorStatus = cs || { unreachable: true, super_run_id: missionArtifact.coordinator.super_run_id };
     } catch {
       coordinatorStatus = { unreachable: true, super_run_id: missionArtifact.coordinator.super_run_id };
+    }
+  }
+
+  if (latestPlan && missionArtifact.coordinator && latestPlan.coordinator_scope) {
+    const syncedPlan = synchronizeCoordinatorPlanState(root, missionArtifact, latestPlan);
+    if (syncedPlan.ok) {
+      latestPlan = syncedPlan.plan;
     }
   }
 

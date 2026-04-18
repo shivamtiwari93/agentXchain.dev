@@ -219,14 +219,15 @@ Subsequent dispatches for the same workstream append to the same launch record. 
 }
 ```
 
-**Completion synchronization.** Coordinator-backed workstreams do not complete from chain reports. Instead, `mission plan show` synchronizes the plan against coordinator history and barrier state:
+**Completion synchronization.** Coordinator-backed workstreams do not complete from chain reports. Instead, `mission plan show` synchronizes the plan against coordinator history, barrier state, and repo-local turn outcomes:
 
 - Accepted repo projections count toward workstream progress.
+- Failed repo-local dispatches surface as `repo_failures[]` on the launch record.
 - A satisfied completion barrier marks the workstream `completed`.
 - Once completed, dependent blocked workstreams become `ready`.
 - If all workstreams complete, the plan auto-transitions to `completed`.
 
-The synchronized view exposes `coordinator_progress` per workstream: `accepted_repo_ids`, `pending_repo_ids`, `repo_count`, `accepted_repo_count`, and `completion_barrier_status`.
+The synchronized view exposes `coordinator_progress` per workstream: `accepted_repo_ids`, `pending_repo_ids`, `failed_repo_ids`, `repo_count`, `accepted_repo_count`, `repo_failure_count`, and `completion_barrier_status`.
 
 **Fail-closed boundaries.** Coordinator-bound missions intentionally block batch operations that do not yet have a real multi-repo wave contract:
 
@@ -299,7 +300,7 @@ Use `--planner-output-file <path>` when you want deterministic or offline planni
 
 Shows one plan by ID or the latest plan revision for a mission. The summary includes workstreams, dependencies, acceptance checks, `launch_status`, and any recorded `launch_records`.
 
-For coordinator-bound plans, `mission plan show` synchronizes the plan against the coordinator's acceptance projection history and barrier state before rendering. This surfaces real-time `coordinator_progress` per workstream including accepted and pending repo IDs, completion barrier status, and aggregated repo counts. Workstreams auto-transition to `completed` when their completion barrier is satisfied, and downstream blocked workstreams become `ready`.
+For coordinator-bound plans, `mission plan show` synchronizes the plan against the coordinator's acceptance projection history, barrier state, and the latest repo-local turn outcome for each dispatched repo before rendering. This surfaces real-time `coordinator_progress` per workstream including accepted, pending, and failed repo IDs, `repo_failure_count`, completion barrier status, and aggregated repo counts. When the latest repo-local dispatch for a repo enters `failed_acceptance`, `failed`, `conflicted`, `retrying`, or a rejected terminal state, the workstream transitions to `needs_attention` and the coordinator launch record exposes `repo_failures[]`. Workstreams auto-transition to `completed` when their completion barrier is satisfied, and downstream blocked workstreams become `ready`.
 
 ### `mission plan list`
 
@@ -324,6 +325,7 @@ All single-repo modes validate the approval boundary and dependency satisfaction
 **Coordinator-bound missions:**
 
 - **`--workstream <id>`** — dispatches the next assignable repo for the workstream through the coordinator. Writes a coordinator-mode launch record with `dispatch_mode: "coordinator"` and an append-only `repo_dispatches[]` array. Does not run a local chain — returns immediately with dispatch metadata.
+- Coordinator launch records may also surface `repo_failures[]` when the latest repo-local dispatch for a repo fails. Those failures are projected from repo-local governed state/history, not guessed from pending barriers.
 - **`--all-ready`** — not supported. Exits with an error directing the operator to use `--workstream <id>`.
 - **`--retry`** — not supported for coordinator workstreams.
 
@@ -337,7 +339,7 @@ Shipped workstream launch states:
 | `blocked` | Dependency workstreams have not completed successfully yet |
 | `launched` | Workstream has been launched and is still in flight |
 | `completed` | Bound chain finished successfully and unblocks dependents |
-| `needs_attention` | Bound chain failed or blocked; operator review is required |
+| `needs_attention` | Bound chain failed or blocked, or a coordinator-backed workstream has one or more failed repo-local dispatches |
 
 Shipped plan states relevant to execution and follow-up:
 

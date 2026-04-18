@@ -153,6 +153,17 @@ function setBarrierSatisfied(workspaceDir, workstreamId, repoIds) {
   writeFileSync(barrierPath, JSON.stringify(barriers, null, 2));
 }
 
+function setRepoTurnStatus(repoDir, turnId, status, extra = {}) {
+  const statePath = join(repoDir, '.agentxchain', 'state.json');
+  const state = JSON.parse(readFileSync(statePath, 'utf8'));
+  state.active_turns[turnId] = {
+    ...state.active_turns[turnId],
+    status,
+    ...extra,
+  };
+  writeFileSync(statePath, JSON.stringify(state, null, 2));
+}
+
 let tempDirs = [];
 beforeEach(() => { tempDirs = []; });
 afterEach(() => {
@@ -424,5 +435,163 @@ describe('mission plan coordinator launch', () => {
 
     assert.equal(exitCode, 1);
     assert.match(stderr, /not supported for coordinator-bound missions yet/i);
+  });
+
+  it('AT-MISSION-COORD-LAUNCH-007: mission plan show surfaces repo-level coordinator failures as needs_attention', async () => {
+    const setup = await setupCoordinatorMission();
+    const { missionPlanShowCommand } = await import('../src/commands/mission.js');
+
+    const firstAssignment = setup.selectAssignmentForWorkstream(
+      setup.workspace,
+      setup.loadCoordinatorState(setup.workspace),
+      setup.coordinatorConfig,
+      'ws-main',
+    );
+    const firstDispatch = setup.dispatchCoordinatorTurn(
+      setup.workspace,
+      setup.loadCoordinatorState(setup.workspace),
+      setup.coordinatorConfig,
+      firstAssignment,
+    );
+    assert.ok(firstDispatch.ok, firstDispatch.error);
+    assert.ok(
+      setup.launchCoordinatorWorkstream(
+        setup.workspace,
+        setup.mission,
+        setup.planId,
+        'ws-main',
+        { ...firstDispatch, role: firstAssignment.role },
+        setup.coordinatorConfig,
+      ).ok,
+      'first coordinator launch must succeed',
+    );
+
+    appendAcceptanceProjection(setup.workspace, 'repo-a', 'ws-main', firstDispatch.turn_id);
+
+    const secondAssignment = setup.selectAssignmentForWorkstream(
+      setup.workspace,
+      setup.loadCoordinatorState(setup.workspace),
+      setup.coordinatorConfig,
+      'ws-main',
+    );
+    const secondDispatch = setup.dispatchCoordinatorTurn(
+      setup.workspace,
+      setup.loadCoordinatorState(setup.workspace),
+      setup.coordinatorConfig,
+      secondAssignment,
+    );
+    assert.ok(secondDispatch.ok, secondDispatch.error);
+    assert.ok(
+      setup.launchCoordinatorWorkstream(
+        setup.workspace,
+        setup.mission,
+        setup.planId,
+        'ws-main',
+        { ...secondDispatch, role: secondAssignment.role },
+        setup.coordinatorConfig,
+      ).ok,
+      'second coordinator launch must succeed',
+    );
+
+    setRepoTurnStatus(join(setup.workspace, 'repo-b'), secondDispatch.turn_id, 'failed_acceptance', {
+      failure_reason: 'Acceptance validator rejected the repo-local turn',
+    });
+
+    const output = [];
+    const originalLog = console.log;
+    const originalError = console.error;
+    console.log = (line) => output.push(String(line));
+    console.error = () => {};
+    try {
+      await missionPlanShowCommand('latest', {
+        dir: setup.workspace,
+        mission: setup.mission.mission_id,
+        json: true,
+      });
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+    }
+
+    const parsed = JSON.parse(output.join('\n'));
+    const main = parsed.workstreams.find((ws) => ws.workstream_id === 'ws-main');
+    const launchRecord = parsed.launch_records.find((record) => record.workstream_id === 'ws-main');
+
+    assert.equal(parsed.status, 'needs_attention');
+    assert.equal(main.launch_status, 'needs_attention');
+    assert.equal(main.coordinator_progress.repo_failure_count, 1);
+    assert.deepEqual(main.coordinator_progress.failed_repo_ids, ['repo-b']);
+    assert.equal(launchRecord.status, 'needs_attention');
+    assert.equal(launchRecord.repo_failures.length, 1);
+    assert.equal(launchRecord.repo_failures[0].repo_id, 'repo-b');
+    assert.equal(launchRecord.repo_failures[0].repo_turn_id, secondDispatch.turn_id);
+    assert.equal(launchRecord.repo_failures[0].failure_status, 'failed_acceptance');
+  });
+
+  it('AT-MISSION-COORD-LAUNCH-008: mission snapshots synchronize coordinator repo failures into latest plan summary', async () => {
+    const setup = await setupCoordinatorMission();
+    const { buildMissionSnapshot } = await import('../src/lib/missions.js');
+
+    const firstAssignment = setup.selectAssignmentForWorkstream(
+      setup.workspace,
+      setup.loadCoordinatorState(setup.workspace),
+      setup.coordinatorConfig,
+      'ws-main',
+    );
+    const firstDispatch = setup.dispatchCoordinatorTurn(
+      setup.workspace,
+      setup.loadCoordinatorState(setup.workspace),
+      setup.coordinatorConfig,
+      firstAssignment,
+    );
+    assert.ok(firstDispatch.ok, firstDispatch.error);
+    assert.ok(
+      setup.launchCoordinatorWorkstream(
+        setup.workspace,
+        setup.mission,
+        setup.planId,
+        'ws-main',
+        { ...firstDispatch, role: firstAssignment.role },
+        setup.coordinatorConfig,
+      ).ok,
+      'first coordinator launch must succeed',
+    );
+
+    appendAcceptanceProjection(setup.workspace, 'repo-a', 'ws-main', firstDispatch.turn_id);
+
+    const secondAssignment = setup.selectAssignmentForWorkstream(
+      setup.workspace,
+      setup.loadCoordinatorState(setup.workspace),
+      setup.coordinatorConfig,
+      'ws-main',
+    );
+    const secondDispatch = setup.dispatchCoordinatorTurn(
+      setup.workspace,
+      setup.loadCoordinatorState(setup.workspace),
+      setup.coordinatorConfig,
+      secondAssignment,
+    );
+    assert.ok(secondDispatch.ok, secondDispatch.error);
+    assert.ok(
+      setup.launchCoordinatorWorkstream(
+        setup.workspace,
+        setup.mission,
+        setup.planId,
+        'ws-main',
+        { ...secondDispatch, role: secondAssignment.role },
+        setup.coordinatorConfig,
+      ).ok,
+      'second coordinator launch must succeed',
+    );
+
+    setRepoTurnStatus(join(setup.workspace, 'repo-b'), secondDispatch.turn_id, 'failed', {
+      failure_reason: 'Repo-local execution exhausted retries',
+    });
+
+    const snapshot = buildMissionSnapshot(setup.workspace, setup.mission);
+    assert.ok(snapshot.latest_plan, 'mission snapshot must include latest plan summary');
+    assert.equal(snapshot.latest_plan.status, 'needs_attention');
+    assert.equal(snapshot.latest_plan.needs_attention_count, 1);
+    assert.equal(snapshot.latest_plan.completed_count, 0);
   });
 });

@@ -1313,13 +1313,14 @@ function renderPlan(plan) {
     console.log(chalk.bold('  Launch records:'));
     for (const rec of plan.launch_records) {
       const statusTag = rec.status === 'completed' ? chalk.green('completed')
-        : rec.status === 'failed' ? chalk.red('failed')
+        : (rec.status === 'failed' || rec.status === 'needs_attention') ? chalk.red('needs_attention')
         : chalk.cyan('launched');
       if (rec.dispatch_mode === 'coordinator') {
         const dispatchCount = rec.repo_dispatches?.length || 0;
         const progress = rec.coordinator_progress;
         const accepted = progress ? `${progress.accepted_repo_count}/${progress.repo_count}` : '—';
-        console.log(`    ${chalk.cyan(rec.workstream_id)} → coordinator ${rec.super_run_id || '—'} [${statusTag}] dispatches=${dispatchCount} accepted=${accepted}`);
+        const failures = rec.repo_failures?.length || progress?.repo_failure_count || 0;
+        console.log(`    ${chalk.cyan(rec.workstream_id)} → coordinator ${rec.super_run_id || '—'} [${statusTag}] dispatches=${dispatchCount} accepted=${accepted} failed=${failures}`);
       } else {
         console.log(`    ${chalk.cyan(rec.workstream_id)} → ${rec.chain_id} [${statusTag}]`);
       }

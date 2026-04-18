@@ -142,6 +142,9 @@ describe('Missions docs coordinator-bound launch surface', () => {
     assert.match(DOC, /coordinator_progress/);
     assert.match(DOC, /accepted_repo_ids/);
     assert.match(DOC, /pending_repo_ids/);
+    assert.match(DOC, /failed_repo_ids/);
+    assert.match(DOC, /repo_failure_count/);
+    assert.match(DOC, /repo_failures/);
     assert.match(DOC, /completion_barrier_status/);
     assert.match(DOC, /accepted_repo_count/);
   });
@@ -163,6 +166,9 @@ describe('Missions docs coordinator-bound launch surface', () => {
     assert.match(DOC, /mission plan show.*synchronize/i);
     assert.match(DOC, /acceptance projection/i);
     assert.match(DOC, /barrier state/i);
+    assert.match(DOC, /repo-local turn outcome/i);
+    assert.match(DOC, /failed_acceptance/i);
+    assert.match(DOC, /needs_attention/i);
   });
 });
 
