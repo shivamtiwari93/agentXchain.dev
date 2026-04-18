@@ -60,6 +60,8 @@ describe('Missions docs surface', () => {
       'agentxchain mission plan autopilot',
       '--max-waves',
       '--continue-on-failure',
+      '--auto-retry',
+      '--max-retries',
       'agentxchain mission plan list',
       'agentxchain run --chain --mission latest',
       'agentxchain run --chain --mission mission-release-hardening',
@@ -193,8 +195,8 @@ describe('Missions docs coordinator-bound launch surface', () => {
     assert.match(DOC, /agentxchain reissue-turn --turn <turn_id>/);
     assert.match(DOC, /agentxchain reject-turn --turn <turn_id> --reassign --reason/);
     assert.match(DOC, /agentxchain step --resume --turn <turn_id>/);
-    assert.match(DOC, /support targeted `--retry`/i);
-    assert.match(DOC, /no unattended coordinator `--auto-retry` surface/i);
+    assert.match(DOC, /support both targeted `--retry` and unattended autopilot `--auto-retry`/i);
+    assert.match(DOC, /--max-retries 1/);
   });
 });
 

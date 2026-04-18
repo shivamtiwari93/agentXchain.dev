@@ -202,4 +202,4 @@ Same as single-repo autopilot:
 
 2. **Wave-level decision ledger entries.** Should each wave produce a `DEC-WAVE-*` entry, or is per-dispatch `DEC-*` sufficient? Proposal: per-dispatch is sufficient for now. Wave-level entries would be noise without wave-level retry.
 
-3. **Coordinator-level retry within autopilot.** Should a future `--auto-retry` flag allow autopilot to call `reissue-turn` on failed repo-local turns and retry within the same autopilot session? Answer: out of scope for this spec. Requires a separate coordinator retry spec that defines safety boundaries for auto-retry across repos.
+3. **Coordinator-level retry within autopilot.** Shipped via `.planning/COORDINATOR_RETRY_SPEC.md`. This wave-execution spec stays focused on dispatch ordering and wave progression; retry safety boundaries live in the coordinator retry spec.

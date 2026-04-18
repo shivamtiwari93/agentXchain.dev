@@ -1,14 +1,14 @@
 # Coordinator Retry Spec
 
-**Status:** partial
+**Status:** Shipped
 **Author:** Claude Opus 4.6 — Turn 151
 **Depends on:** `COORDINATOR_WAVE_EXECUTION_SPEC.md`, `DEC-COORD-WAVE-RETRY-001`, `DEC-MISSION-COORD-FAILURE-001`
 
 ## Purpose
 
-Define when and how retry is safe for coordinator-backed mission workstreams. Phase 1 ships targeted `mission plan launch --workstream <id> --retry`. Coordinator autopilot `--auto-retry` remains deferred until the retry safety model is proven in operator-initiated flows.
+Define when and how retry is safe for coordinator-backed mission workstreams. Phase 1 shipped targeted `mission plan launch --workstream <id> --retry`. Phase 2 ships coordinator autopilot `--auto-retry` with a narrow per-session retry budget and the same downstream-dispatch safety guard as operator-initiated retry.
 
-Before Phase 1 shipped, coordinator workstream failures were terminal within a wave session. When a repo-local turn failed acceptance or execution, the workstream entered `needs_attention`, autopilot either stopped (`failure_stopped`) or skipped (`plan_incomplete`), and the operator had to manually diagnose, fix, reissue in the child repo, and re-run autopilot. Phase 1 targeted retry (`--retry`) now provides operator-initiated retry for one active failed repo. Autopilot auto-retry remains deferred (DEC-COORD-WAVE-RETRY-001) because repo B may depend on repo A's failed output.
+Before Phase 1 shipped, coordinator workstream failures were terminal within a wave session. When a repo-local turn failed acceptance or execution, the workstream entered `needs_attention`, autopilot either stopped (`failure_stopped`) or skipped (`plan_incomplete`), and the operator had to manually diagnose, fix, reissue in the child repo, and re-run autopilot. Phase 1 targeted retry added operator-initiated recovery for one active failed repo. Phase 2 adds unattended `--auto-retry` inside coordinator autopilot, but only for one retryable repo failure at a time and only within the same safety boundaries already proven by the manual retry path.
 
 This spec defines the safety boundaries, invalidation rules, and barrier interactions that make coordinator retry safe under constrained conditions.
 
@@ -20,9 +20,15 @@ This spec defines the safety boundaries, invalidation rules, and barrier interac
 - explicit retry-output warning metadata when repo-local retry succeeds but coordinator acceptance projection cannot be recorded immediately
 - persisted `coordinator_retry_projection_warning` event in `events.jsonl` for durable operator visibility beyond stderr/JSON command output
 
-**Deferred**
+**Shipped in Phase 2**
 
 - unattended `mission plan autopilot --auto-retry`
+- per-session `--max-retries <N>` budget for coordinator autopilot retry attempts
+- same-wave retry execution that reuses `retryCoordinatorWorkstream()` instead of inventing a second retry path
+- wave output and summary metadata that expose successful auto-retries, exhausted retry budgets, and retry warnings
+
+**Still Deferred**
+
 - multi-failure coordinator retries in one command
 - retry support for repo-local failure states that do not map cleanly onto the active-turn `reissueTurn()` primitive
 
@@ -88,7 +94,7 @@ Flags:
 - `--retry` — required to enter retry mode. Without it, `launch --workstream` for a `needs_attention` workstream fails with guidance.
 - `--max-retries <N>` — per-repo retry ceiling within a single autopilot session (default: 1). Prevents infinite retry loops.
 
-### `mission plan autopilot --auto-retry` (unattended retry, deferred)
+### `mission plan autopilot --auto-retry` (unattended retry, shipped)
 
 ```bash
 agentxchain mission plan autopilot latest --auto-retry [--max-retries N]
@@ -105,7 +111,12 @@ Behavior within the wave loop once implemented:
 2. Track retry count per `(workstream, repo)` pair within the session.
 3. When `--max-retries` is exhausted for a repo: treat as permanent failure (same as no `--auto-retry`).
 
-`--auto-retry` is deliberately **not shipped** in Phase 1. The interaction matrix with `--continue-on-failure` remains open until targeted retry hardens.
+Phase 2 keeps the contract intentionally narrow:
+
+- only coordinator-bound autopilot supports `--auto-retry`
+- only one retryable repo failure may be retried for a workstream in a given attempt
+- retry counts are session-scoped and reset when the operator reruns autopilot
+- a workstream that exhausts its retry budget falls back to the existing `failure_stopped` / `plan_incomplete` boundary instead of looping forever
 
 ### Retry record structure
 
@@ -213,6 +224,7 @@ This is not a hard failure because the child repo execution already completed. I
 | `--retry` on a workstream with only non-retryable failures (`conflicted`, `needs_human`) | Error: "No retryable failures in workstream `ws-X`. Failed repos require manual intervention: [list]." |
 | `--retry` blocked by downstream dispatch | Error: "Cannot retry `ws-X` — dependent workstream `ws-Y` has dispatched since the failure. Resolve manually." |
 | `--auto-retry` with `--max-retries 0` | Error: "--max-retries must be >= 1 when --auto-retry is set." |
+| `--auto-retry` on a non-coordinator mission plan | Error: "--auto-retry is only supported for coordinator-bound missions." |
 | `reissueTurn` fails in child repo (e.g., dirty working tree) | Retry fails for that repo. Log the error. If other repos in the workstream are retryable, continue with those. |
 | Retry succeeds but the retried turn fails again | Workstream re-enters `needs_attention`. Retry count incremented. If budget exhausted, treated as permanent failure. |
 
@@ -221,7 +233,10 @@ This is not a hard failure because the child repo execution already completed. I
 - `AT-COORD-RETRY-001`: `mission plan launch --workstream ws-X --retry` reissues a failed repo turn, appends a new dispatch to the launch record, and transitions the workstream from `needs_attention` to `launched`.
 - `AT-COORD-RETRY-002`: `--retry` refuses to retry when a dependent workstream has dispatched since the failure.
 - `AT-COORD-RETRY-003`: `--retry` refuses to retry non-retryable failure states (`conflicted`, `needs_human`).
-- `AT-COORD-RETRY-004` through `AT-COORD-RETRY-007` are deferred with coordinator autopilot `--auto-retry`.
+- `AT-COORD-RETRY-004`: coordinator autopilot with `--auto-retry` immediately reissues one retryable repo failure in the same wave, then continues to later waves when the retry succeeds.
+- `AT-COORD-RETRY-005`: when the retry budget for a `(workstream, repo)` pair is exhausted, autopilot falls back to the normal failure boundary instead of looping forever.
+- `AT-COORD-RETRY-006`: `--auto-retry` rejects `--max-retries 0` and does not start the wave loop.
+- `AT-COORD-RETRY-007`: successful auto-retry is surfaced in wave JSON with retry metadata (`retried`, `retry_count`, `retried_repo_turn_id`) and summary counts (`total_retries`).
 - `AT-COORD-RETRY-008`: Barrier state is preserved through retry — accepted repos remain accepted, barrier progress is not reset.
 - `AT-COORD-RETRY-009`: Retry record structure includes `retried_at`, `retry_reason`, `is_retry`, and `retry_of` fields.
 - `AT-COORD-RETRY-010`: `coordinator_retry` event is emitted with correct provenance fields.
@@ -234,6 +249,6 @@ This is not a hard failure because the child repo execution already completed. I
 
 1. **Cross-repo retry ordering.** Phase 1 fails closed when a workstream has multiple retryable repo failures. If we later support multiple retries in one command, should it preserve original dispatch order or retry all simultaneously?
 
-2. **Persistent retry state.** Only relevant once unattended `--auto-retry` ships. Targeted coordinator retry is operator-initiated and intentionally has no session counter.
+2. **Persistent retry state.** Rejected for now. Autopilot retry counts are session-scoped only; rerunning autopilot starts a fresh budget.
 
 3. **Retry with changed code.** The reissued turn uses a fresh baseline from current HEAD. We do not yet record a baseline diff in the coordinator retry record. Add one only if operators actually need that audit detail.

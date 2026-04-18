@@ -46,9 +46,9 @@ describe('Coordinator spec status alignment', () => {
     });
   }
 
-  it('coordinator retry spec is correctly marked partial (phase 1 shipped, auto-retry deferred)', () => {
+  it('coordinator retry spec is marked shipped after autopilot auto-retry landed', () => {
     const content = readSpec('.planning/COORDINATOR_RETRY_SPEC.md');
-    assert.match(content, /\*\*Status:\*\*\s*partial/i);
+    assert.match(content, /\*\*Status:\*\*\s*Shipped/i);
   });
 
   it('wave execution spec does not claim fail-closed as current behavior', () => {

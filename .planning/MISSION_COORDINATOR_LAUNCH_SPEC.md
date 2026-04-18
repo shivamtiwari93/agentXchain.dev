@@ -146,7 +146,7 @@ This spec was written before coordinator wave execution and coordinator-targeted
 - `mission plan launch --all-ready` is shipped for coordinator-bound missions
 - `mission plan autopilot` is shipped for coordinator-bound missions
 - `mission plan launch --workstream <id> --retry` is shipped for one active retryable repo failure
-- unattended coordinator `--auto-retry` remains unshipped
+- unattended coordinator `--auto-retry` is shipped via `.planning/COORDINATOR_RETRY_SPEC.md`
 
 Do not fake broader coordinator recovery semantics than the code actually implements.
 
@@ -172,4 +172,4 @@ Do not fake broader coordinator recovery semantics than the code actually implem
 
 ## Open Questions
 
-None for this slice. Coordinator `--all-ready`, coordinator autopilot, and targeted `--retry` are now shipped. Unattended coordinator auto-retry remains deferred to `.planning/COORDINATOR_RETRY_SPEC.md`.
+None for this slice. Coordinator `--all-ready`, coordinator autopilot, targeted `--retry`, and unattended coordinator auto-retry are now shipped. Narrow retry safety boundaries live in `.planning/COORDINATOR_RETRY_SPEC.md`.

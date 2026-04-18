@@ -269,6 +269,23 @@ The first command shows the persisted warning event after the terminal output is
 - The failure state is non-retryable (`conflicted`, `retrying`, `needs_human`)
 - A dependent workstream has already dispatched since the failed repo turn
 
+### Coordinator autopilot auto-retry
+
+If you want the coordinator to spend a bounded retry budget during unattended waves, use:
+
+```bash
+agentxchain mission plan autopilot latest --auto-retry --max-retries 1
+```
+
+This does **not** create a second retry engine. Autopilot reuses the same narrow coordinator retry path as `mission plan launch --workstream <id> --retry`:
+
+- one retryable repo failure at a time
+- same downstream-dispatch safety guard
+- same `coordinator_acceptance_projection_incomplete` warning contract
+- per-session retry budget only (`--max-retries` resets when you rerun autopilot)
+
+If the retry budget is exhausted or the retry attempt fails again, autopilot falls back to the normal coordinator failure boundary (`failure_stopped` or `plan_incomplete`). It does not loop forever and it does not invent broader cross-repo rollback semantics.
+
 ### Repo-local recovery fallback
 
 When coordinator `--retry` cannot be used (non-retryable state, multi-failure, or dependent dispatch conflict), fall back to repo-local recovery in the affected child repo:

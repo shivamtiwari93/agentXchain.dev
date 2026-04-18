@@ -190,6 +190,121 @@ function buildCoordinatorProjectionWarning(message) {
   };
 }
 
+function formatAutoRetryBudgetError(workstreamId, repoId, maxRetries) {
+  return `Auto-retry budget exhausted for ${workstreamId}/${repoId} (max ${maxRetries} per autopilot session).`;
+}
+
+async function executeCoordinatorRetryRun(root, mission, workstreamId, coordinatorConfig, opts = {}) {
+  const retry = retryCoordinatorWorkstream(
+    root,
+    mission,
+    opts.planId,
+    workstreamId,
+    coordinatorConfig,
+    {
+      reason: opts.reason || `mission plan retry ${workstreamId}`,
+    },
+  );
+  if (!retry.ok) {
+    return { ok: false, error: retry.error, plan: opts.plan || null };
+  }
+
+  const executor = opts._executeGovernedRun || executeGovernedRun;
+  const childLog = opts.json ? noop : (opts._log || console.log);
+  const repoContext = loadProjectContext(retry.retryResult.repo_path);
+  if (!repoContext) {
+    return {
+      ok: false,
+      error: `Cannot load project context for retried repo at ${retry.retryResult.repo_path}.`,
+      plan: retry.plan,
+      retryResult: retry.retryResult,
+      launchRecord: retry.launchRecord,
+    };
+  }
+
+  const runOpts = {
+    autoApprove: !!opts.autoApprove,
+    log: childLog,
+    provenance: {
+      trigger: opts.trigger || 'manual',
+      created_by: 'operator',
+      trigger_reason: opts.triggerReasonPrefix
+        ? `${opts.triggerReasonPrefix} repo:${retry.retryResult.repo_id}`
+        : `mission:${mission.mission_id} workstream:${workstreamId} coordinator-retry:${retry.retryResult.repo_id}`,
+    },
+  };
+
+  const retryWarnings = [];
+  let execution;
+  try {
+    execution = await executor(repoContext, runOpts);
+  } catch (error) {
+    const syncedRetryFailure = synchronizeCoordinatorPlanState(root, mission, retry.plan);
+    return {
+      ok: false,
+      error: `Coordinator retry execution failed: ${error.message}`,
+      plan: syncedRetryFailure.ok ? syncedRetryFailure.plan : retry.plan,
+      retryResult: retry.retryResult,
+      launchRecord: retry.launchRecord,
+      warnings: retryWarnings,
+      reconciliation_required: false,
+      exit_code: 1,
+    };
+  }
+
+  if ((execution?.exitCode ?? 0) === 0) {
+    const projection = projectAcceptedCoordinatorTurn(
+      mission.coordinator.workspace_path,
+      coordinatorConfig,
+      retry.retryResult.repo_id,
+      retry.retryResult.reissued_turn_id,
+      workstreamId,
+      loadCoordinatorState(mission.coordinator.workspace_path),
+    );
+    if (!projection.ok) {
+      const warning = buildCoordinatorProjectionWarning(projection.error);
+      retryWarnings.push(warning);
+      console.error(chalk.yellow(`Coordinator retry projection warning: ${warning.message}`));
+      emitRunEvent(mission.coordinator.workspace_path, 'coordinator_retry_projection_warning', {
+        run_id: mission.coordinator.super_run_id,
+        phase: coordinatorConfig?.workstreams?.[workstreamId]?.phase || null,
+        status: 'active',
+        payload: {
+          workstream_id: workstreamId,
+          repo_id: retry.retryResult.repo_id,
+          reissued_turn_id: retry.retryResult.reissued_turn_id,
+          warning_code: warning.code,
+          warning_message: warning.message,
+        },
+      });
+    }
+  }
+
+  const syncedRetry = synchronizeCoordinatorPlanState(root, mission, retry.plan);
+  const retriedPlan = syncedRetry.ok ? syncedRetry.plan : retry.plan;
+  const retriedWorkstream = retriedPlan.workstreams.find((ws) => ws.workstream_id === workstreamId);
+  const retriedLaunchRecord = retriedPlan.launch_records.find(
+    (record) => record.workstream_id === workstreamId && record.dispatch_mode === 'coordinator',
+  ) || retry.launchRecord;
+  const retryCount = retriedLaunchRecord?.repo_dispatches?.filter(
+    (dispatch) => dispatch.repo_id === retry.retryResult.repo_id && dispatch.is_retry,
+  ).length || 0;
+
+  const success = (execution?.exitCode ?? 0) === 0;
+  return {
+    ok: success,
+    error: success ? null : `Coordinator retry execution ended with exit code ${execution?.exitCode ?? 1}.`,
+    plan: retriedPlan,
+    workstream: retriedWorkstream,
+    launchRecord: retriedLaunchRecord,
+    retryResult: retry.retryResult,
+    warnings: retryWarnings,
+    reconciliation_required: retryWarnings.length > 0,
+    exit_code: execution?.exitCode ?? 0,
+    retry_count: retryCount,
+  };
+}
+
 export async function missionListCommand(opts) {
   const root = findProjectRoot(opts.dir || process.cwd());
   if (!root) {
@@ -608,100 +723,28 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
     }
 
     if (opts.retry) {
-      const retry = retryCoordinatorWorkstream(
+      const retryExecution = await executeCoordinatorRetryRun(
         root,
         mission,
-        plan.plan_id,
         opts.workstream,
         coordinatorConfigResult.config,
         {
+          ...opts,
+          planId: plan.plan_id,
+          plan,
           reason: `mission plan retry ${opts.workstream}`,
+          trigger: 'manual',
+          triggerReasonPrefix: `mission:${mission.mission_id} workstream:${opts.workstream} coordinator-retry`,
         },
       );
-      if (!retry.ok) {
-        console.error(chalk.red(retry.error));
+      if (!retryExecution.retryResult) {
+        console.error(chalk.red(retryExecution.error));
         process.exit(1);
       }
 
-      const executor = opts._executeGovernedRun || executeGovernedRun;
-      const childLog = opts.json ? noop : (opts._log || console.log);
-      const repoContext = loadProjectContext(retry.retryResult.repo_path);
-      if (!repoContext) {
-        console.error(chalk.red(`Cannot load project context for retried repo at ${retry.retryResult.repo_path}.`));
-        process.exit(1);
-      }
-
-      const runOpts = {
-        autoApprove: !!opts.autoApprove,
-        log: childLog,
-        provenance: {
-          trigger: 'manual',
-          created_by: 'operator',
-          trigger_reason: `mission:${mission.mission_id} workstream:${opts.workstream} coordinator-retry:${retry.retryResult.repo_id}`,
-        },
-      };
-
-      let execution;
-      const retryWarnings = [];
-      try {
-        execution = await executor(repoContext, runOpts);
-      } catch (error) {
-        const syncedRetryFailure = synchronizeCoordinatorPlanState(root, mission, retry.plan);
-        console.error(chalk.red(`Coordinator retry execution failed: ${error.message}`));
-        if (opts.json) {
-          console.log(JSON.stringify({
-            dispatch_mode: 'coordinator',
-            retry: true,
-            mission_id: mission.mission_id,
-            plan_id: retry.plan.plan_id,
-            workstream_id: opts.workstream,
-            repo_id: retry.retryResult.repo_id,
-            retried_repo_turn_id: retry.retryResult.failed_turn_id,
-            repo_turn_id: retry.retryResult.reissued_turn_id,
-            workstream_status: syncedRetryFailure.ok
-              ? syncedRetryFailure.plan.workstreams.find((ws) => ws.workstream_id === opts.workstream)?.launch_status || 'needs_attention'
-              : 'needs_attention',
-            launch_record: retry.launchRecord,
-            error: error.message,
-          }, null, 2));
-        }
-        process.exit(1);
-      }
-
-      if ((execution?.exitCode ?? 0) === 0) {
-        const projection = projectAcceptedCoordinatorTurn(
-          mission.coordinator.workspace_path,
-          coordinatorConfigResult.config,
-          retry.retryResult.repo_id,
-          retry.retryResult.reissued_turn_id,
-          opts.workstream,
-          loadCoordinatorState(mission.coordinator.workspace_path),
-        );
-        if (!projection.ok) {
-          const warning = buildCoordinatorProjectionWarning(projection.error);
-          retryWarnings.push(warning);
-          console.error(chalk.yellow(`Coordinator retry projection warning: ${warning.message}`));
-          emitRunEvent(mission.coordinator.workspace_path, 'coordinator_retry_projection_warning', {
-            run_id: mission.coordinator.super_run_id,
-            phase: coordinatorConfigResult.config?.workstreams?.[opts.workstream]?.phase || null,
-            status: 'active',
-            payload: {
-              workstream_id: opts.workstream,
-              repo_id: retry.retryResult.repo_id,
-              reissued_turn_id: retry.retryResult.reissued_turn_id,
-              warning_code: warning.code,
-              warning_message: warning.message,
-            },
-          });
-        }
-      }
-
-      const syncedRetry = synchronizeCoordinatorPlanState(root, mission, retry.plan);
-      const retriedPlan = syncedRetry.ok ? syncedRetry.plan : retry.plan;
-      const retriedWorkstream = retriedPlan.workstreams.find((ws) => ws.workstream_id === opts.workstream);
-      const retriedLaunchRecord = retriedPlan.launch_records.find(
-        (record) => record.workstream_id === opts.workstream && record.dispatch_mode === 'coordinator',
-      ) || retry.launchRecord;
+      const retriedPlan = retryExecution.plan;
+      const retriedWorkstream = retryExecution.workstream;
+      const retriedLaunchRecord = retryExecution.launchRecord;
 
       if (opts.json) {
         console.log(JSON.stringify({
@@ -711,41 +754,41 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
           plan_id: retriedPlan.plan_id,
           workstream_id: opts.workstream,
           super_run_id: mission.coordinator.super_run_id,
-          repo_id: retry.retryResult.repo_id,
-          retried_repo_turn_id: retry.retryResult.failed_turn_id,
-          repo_turn_id: retry.retryResult.reissued_turn_id,
-          role: retry.retryResult.role,
-          bundle_path: retry.retryResult.bundle_path,
-          context_ref: retry.retryResult.context_ref,
+          repo_id: retryExecution.retryResult.repo_id,
+          retried_repo_turn_id: retryExecution.retryResult.failed_turn_id,
+          repo_turn_id: retryExecution.retryResult.reissued_turn_id,
+          role: retryExecution.retryResult.role,
+          bundle_path: retryExecution.retryResult.bundle_path,
+          context_ref: retryExecution.retryResult.context_ref,
           workstream_status: retriedWorkstream?.launch_status || 'launched',
           launch_record: retriedLaunchRecord,
-          exit_code: execution?.exitCode ?? 0,
-          warnings: retryWarnings,
-          reconciliation_required: retryWarnings.length > 0,
+          exit_code: retryExecution.exit_code ?? 0,
+          warnings: retryExecution.warnings || [],
+          reconciliation_required: retryExecution.reconciliation_required || false,
         }, null, 2));
-        if ((execution?.exitCode ?? 0) !== 0) {
-          process.exit(execution.exitCode);
+        if (!retryExecution.ok) {
+          process.exit(retryExecution.exit_code || 1);
         }
         return;
       }
 
-      console.log(chalk.green(`Retried coordinator workstream ${chalk.bold(opts.workstream)} in ${chalk.bold(retry.retryResult.repo_id)}`));
+      console.log(chalk.green(`Retried coordinator workstream ${chalk.bold(opts.workstream)} in ${chalk.bold(retryExecution.retryResult.repo_id)}`));
       console.log('');
       console.log(chalk.dim(`  Mission:      ${mission.mission_id}`));
       console.log(chalk.dim(`  Plan:         ${retriedPlan.plan_id}`));
       console.log(chalk.dim(`  Super Run:    ${mission.coordinator.super_run_id}`));
-      console.log(chalk.dim(`  Repo:         ${retry.retryResult.repo_id}`));
-      console.log(chalk.dim(`  Old Turn:     ${retry.retryResult.failed_turn_id}`));
-      console.log(chalk.dim(`  New Turn:     ${retry.retryResult.reissued_turn_id}`));
+      console.log(chalk.dim(`  Repo:         ${retryExecution.retryResult.repo_id}`));
+      console.log(chalk.dim(`  Old Turn:     ${retryExecution.retryResult.failed_turn_id}`));
+      console.log(chalk.dim(`  New Turn:     ${retryExecution.retryResult.reissued_turn_id}`));
       console.log(chalk.dim(`  Workstream:   ${retriedWorkstream?.launch_status || 'launched'}`));
-      if (retryWarnings.length > 0) {
-        console.log(chalk.yellow(`  Warning:      ${retryWarnings[0].message}`));
+      if ((retryExecution.warnings || []).length > 0) {
+        console.log(chalk.yellow(`  Warning:      ${retryExecution.warnings[0].message}`));
       }
       console.log('');
       renderPlan(retriedPlan);
-      if ((execution?.exitCode ?? 0) !== 0) {
-        console.error(chalk.red(`Coordinator retry execution ended with exit code ${execution.exitCode}.`));
-        process.exit(execution.exitCode);
+      if (!retryExecution.ok) {
+        console.error(chalk.red(retryExecution.error));
+        process.exit(retryExecution.exit_code || 1);
       }
       return;
     }
@@ -1116,6 +1159,11 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
   if (!mission) {
     console.error(chalk.red('No mission found.'));
     console.error(chalk.dim('  Use --mission <id> or create a mission first.'));
+    process.exit(1);
+  }
+
+  if (opts.autoRetry && !mission.coordinator) {
+    console.error(chalk.red('--auto-retry is only supported for coordinator-bound missions.'));
     process.exit(1);
   }
 
@@ -1766,14 +1814,25 @@ async function coordinatorAutopilot(planTarget, opts, context, mission) {
 
   const maxWaves = Math.max(1, parseInt(opts.maxWaves, 10) || 10);
   const cooldownSeconds = Math.max(0, parseInt(opts.cooldown, 10) || 5);
+  const autoRetryEnabled = !!opts.autoRetry;
+  const parsedMaxRetries = Number.parseInt(opts.maxRetries, 10);
+  const maxRetries = autoRetryEnabled
+    ? (Number.isFinite(parsedMaxRetries) ? parsedMaxRetries : 1)
+    : 0;
+  if (autoRetryEnabled && maxRetries < 1) {
+    console.error(chalk.red('--max-retries must be >= 1 when --auto-retry is set.'));
+    process.exit(1);
+  }
   const sleep = opts._sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
 
   const waves = [];
   let totalLaunched = 0;
   let totalCompleted = 0;
   let totalFailed = 0;
+  let totalRetries = 0;
   let terminalReason = null;
   let interrupted = false;
+  const retryCounts = new Map();
 
   const onSigint = () => { interrupted = true; };
   process.on('SIGINT', onSigint);
@@ -1848,6 +1907,92 @@ async function coordinatorAutopilot(planTarget, opts, context, mission) {
         totalLaunched++;
 
         if (result.status === 'needs_attention') {
+          if (autoRetryEnabled && result.repo_id) {
+            const retryKey = `${ws.workstream_id}:${result.repo_id}`;
+            const usedRetries = retryCounts.get(retryKey) || 0;
+
+            if (usedRetries < maxRetries) {
+              retryCounts.set(retryKey, usedRetries + 1);
+
+              const retryExecution = await executeCoordinatorRetryRun(
+                root,
+                mission,
+                ws.workstream_id,
+                coord.config,
+                {
+                  ...opts,
+                  planId: plan.plan_id,
+                  plan,
+                  trigger: 'autopilot',
+                  triggerReasonPrefix: `mission:${mission.mission_id} workstream:${ws.workstream_id} autopilot:wave-${waveNum} auto-retry`,
+                  reason: `mission autopilot auto-retry ${ws.workstream_id}/${result.repo_id}`,
+                },
+              );
+
+              if (retryExecution.plan) {
+                plan = retryExecution.plan;
+              }
+              if (retryExecution.retryResult) {
+                totalRetries++;
+              }
+
+              if (retryExecution.ok) {
+                totalCompleted++;
+                waveResults.push({
+                  workstream_id: ws.workstream_id,
+                  status: 'dispatched',
+                  repo_id: retryExecution.retryResult.repo_id,
+                  turn_id: retryExecution.retryResult.reissued_turn_id,
+                  retried: true,
+                  retry_count: retryExecution.retry_count,
+                  retried_repo_turn_id: retryExecution.retryResult.failed_turn_id,
+                  warnings: retryExecution.warnings || [],
+                  reconciliation_required: retryExecution.reconciliation_required || false,
+                });
+                if (!opts.json) {
+                  console.log(chalk.green(`→ ${retryExecution.retryResult.repo_id} retried ✓`));
+                }
+                continue;
+              }
+
+              waveHadFailure = true;
+              totalFailed++;
+              waveResults.push({
+                workstream_id: ws.workstream_id,
+                status: 'needs_attention',
+                repo_id: retryExecution.retryResult?.repo_id || result.repo_id,
+                turn_id: retryExecution.retryResult?.reissued_turn_id || result.turn_id,
+                retried: Boolean(retryExecution.retryResult),
+                retry_count: retryExecution.retry_count || usedRetries + 1,
+                retried_repo_turn_id: retryExecution.retryResult?.failed_turn_id || result.turn_id,
+                error: retryExecution.error,
+                warnings: retryExecution.warnings || [],
+                reconciliation_required: retryExecution.reconciliation_required || false,
+              });
+              if (!opts.json) {
+                console.log(chalk.red(`→ ${result.repo_id} auto-retry failed ✗ (${retryExecution.error})`));
+              }
+              continue;
+            }
+
+            waveHadFailure = true;
+            totalFailed++;
+            const budgetError = formatAutoRetryBudgetError(ws.workstream_id, result.repo_id, maxRetries);
+            waveResults.push({
+              workstream_id: ws.workstream_id,
+              status: 'needs_attention',
+              repo_id: result.repo_id,
+              turn_id: result.turn_id,
+              retry_budget_exhausted: true,
+              retry_count: usedRetries,
+              error: budgetError,
+            });
+            if (!opts.json) {
+              console.log(chalk.red(`→ ${result.repo_id} needs_attention ✗ (${budgetError})`));
+            }
+            continue;
+          }
+
           waveHadFailure = true;
           totalFailed++;
           waveResults.push({ workstream_id: ws.workstream_id, status: 'needs_attention', repo_id: result.repo_id, turn_id: result.turn_id });
@@ -1917,6 +2062,7 @@ async function coordinatorAutopilot(planTarget, opts, context, mission) {
       total_launched: totalLaunched,
       completed: totalCompleted,
       failed: totalFailed,
+      total_retries: totalRetries,
       terminal_reason: terminalReason,
     },
   };
@@ -1930,6 +2076,7 @@ async function coordinatorAutopilot(planTarget, opts, context, mission) {
     console.log(`  Launched:   ${totalLaunched}`);
     console.log(`  Completed:  ${totalCompleted}`);
     console.log(`  Failed:     ${totalFailed}`);
+    console.log(`  Retries:    ${totalRetries}`);
     console.log(`  Outcome:    ${formatTerminalReason(terminalReason)}`);
     if (terminalReason === 'plan_completed') {
       console.log(chalk.green('\n  Plan completed successfully.'));

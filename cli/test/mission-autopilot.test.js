@@ -417,7 +417,27 @@ describe('Mission plan autopilot', () => {
     assert.ok(binContent.includes("'autopilot [plan_id]'"), 'autopilot subcommand registered');
     assert.ok(binContent.includes('--max-waves'), '--max-waves option registered');
     assert.ok(binContent.includes('--continue-on-failure'), '--continue-on-failure option registered');
+    assert.ok(binContent.includes('--auto-retry'), '--auto-retry option registered');
+    assert.ok(binContent.includes('--max-retries'), '--max-retries option registered');
     assert.ok(binContent.includes('--cooldown'), '--cooldown option registered');
+  });
+
+  it('AT-AUTOPILOT-010: single-repo autopilot rejects coordinator-only --auto-retry', async () => {
+    const dir = trackDir(createTmpProject());
+    const missionId = 'mission-auto-retry-guard';
+    writeMission(dir, { missionId, title: 'Guard', goal: 'Reject coordinator-only flag' });
+    writeApprovedPlan(dir, missionId, 'plan-guard', [makeWorkstream('ws-a')]);
+
+    const result = await runAutopilot('plan-guard', {
+      dir,
+      mission: missionId,
+      json: true,
+      autoRetry: true,
+      _sleep: async () => {},
+    });
+
+    assert.equal(result.exitCode, 1);
+    assert.match(result.errors.join('\n'), /--auto-retry is only supported for coordinator-bound missions/);
   });
 });
 

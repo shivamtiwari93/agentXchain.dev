@@ -328,7 +328,7 @@ All single-repo modes validate the approval boundary and dependency satisfaction
 - Coordinator launch records may also surface `repo_failures[]` when the latest repo-local dispatch for a repo fails. Those failures are projected from repo-local governed state/history, not guessed from pending barriers.
 - **`--all-ready`** — dispatches all ready coordinator workstreams sequentially, executing one repo-local turn per workstream, and syncing barrier state between dispatches. Stops on first failure unless `--continue-on-failure`.
 - **`--workstream <id> --retry`** — retries one retryable repo-local failure inside a `needs_attention` coordinator workstream. The CLI reissues the failed repo-local turn from current HEAD, rewrites its dispatch bundle, appends a new `repo_dispatches[]` entry with `is_retry` / `retry_of`, marks the old dispatch with `retried_at` / `retry_reason`, and executes the reissued turn immediately.
-- Coordinator `--retry` is deliberately narrow: it only supports one active retryable repo failure at a time, it fails closed when a dependent workstream has already dispatched since the failed repo turn, and it does **not** add unattended `--auto-retry` to `mission plan autopilot`.
+- Coordinator retry remains deliberately narrow even after autopilot auto-retry shipped: it only supports one active retryable repo failure at a time, it fails closed when a dependent workstream has already dispatched since the failed repo turn, and autopilot will only spend a session-scoped `--max-retries` budget on that same narrow retry path instead of inventing broader coordinator recovery.
 
 The launch modes are mutually exclusive where they would conflict.
 
@@ -360,6 +360,8 @@ Options:
 
 - **`--max-waves <n>`** — maximum dependency waves before stopping (default: 10).
 - **`--continue-on-failure`** — skip failed workstreams and keep launching ready ones instead of stopping on first failure.
+- **`--auto-retry`** — coordinator-only: if a workstream enters `needs_attention` with one retryable repo-local failure, reissue it immediately inside the same autopilot session.
+- **`--max-retries <n>`** — coordinator-only per-session retry budget for each `(workstream_id, repo_id)` pair (default: 1).
 - **`--cooldown <seconds>`** — pause between waves for operator visibility (default: 5).
 - **`--auto-approve`** — auto-approve run gates during execution.
 
@@ -374,7 +376,7 @@ Terminal conditions:
 | Blocked with unsatisfiable dependencies | 1 | `deadlock` |
 | Operator SIGINT | 1 | `interrupted` |
 
-JSON output (`--json`) includes the full wave structure: which workstreams launched in each wave, their outcomes, and a summary with total counts and terminal reason.
+JSON output (`--json`) includes the full wave structure: which workstreams launched in each wave, their outcomes, retry metadata (`retried`, `retry_count`, `retried_repo_turn_id`), and a summary with total counts, `total_retries`, and terminal reason.
 
 ## Run Chaining Integration
 
@@ -526,9 +528,9 @@ This fails closed when:
    - `agentxchain reissue-turn --turn <turn_id>` when the work is valid but the dispatch baseline drifted
    - `agentxchain reject-turn --turn <turn_id> --reassign --reason "<reason>"` when the staged result must be retried
    - `agentxchain step --resume --turn <turn_id>` after clearing a retained block or escalation
-5. Return to the mission surface and resume coordinator execution with either `agentxchain mission plan launch latest --workstream <id>` for a targeted restart or `agentxchain mission plan autopilot latest --continue-on-failure` to continue waves after the repo-local fix.
+5. Return to the mission surface and resume coordinator execution with either `agentxchain mission plan launch latest --workstream <id>` for a targeted restart or `agentxchain mission plan autopilot latest --auto-retry --max-retries 1` to let the coordinator spend a bounded retry budget before falling back to the normal failure boundary.
 
-Coordinator workstreams now support targeted `--retry`, but autopilot still has no unattended coordinator `--auto-retry` surface. Retry remains operator-initiated.
+Coordinator workstreams now support both targeted `--retry` and unattended autopilot `--auto-retry`, but the unattended path is intentionally narrow: one retryable repo-local failure at a time, current-session budget only, same downstream-dispatch safety guard as targeted retry.
 
 ### Chain report missing from a mission
 

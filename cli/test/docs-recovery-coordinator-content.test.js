@@ -61,6 +61,14 @@ describe('Recovery docs coordinator retry contract', () => {
     }
   });
 
+  it('documents the unattended coordinator auto-retry surface truthfully', () => {
+    assert.match(DOC, /### Coordinator autopilot auto-retry/);
+    assert.match(DOC, /mission plan autopilot latest --auto-retry --max-retries 1/);
+    assert.match(DOC, /same downstream-dispatch safety guard/i);
+    assert.match(DOC, /per-session retry budget only/i);
+    assert.match(DOC, /failure_stopped|plan_incomplete/);
+  });
+
   it('documents dashboard visibility for retry metadata and cross-links to missions', () => {
     assert.match(PLAN_READER, /dispatch_mode:\s*lr\.dispatch_mode \|\| null/);
     assert.match(PLAN_READER, /repo_dispatches:/);
@@ -89,8 +97,10 @@ describe('Recovery docs coordinator retry contract', () => {
     assert.match(DOC, /repo-local retry already succeeded/i);
   });
 
-  it('does not invent an unattended coordinator auto-retry surface', () => {
+  it('documents the shipped unattended coordinator auto-retry surface without inventing broader semantics', () => {
     assert.match(MISSION_CMD, /--retry requires --workstream <id>/);
-    assert.doesNotMatch(DOC, /--auto-retry/);
+    assert.match(MISSION_CMD, /--max-retries must be >= 1 when --auto-retry is set/);
+    assert.match(DOC, /--auto-retry/);
+    assert.match(DOC, /does not invent broader cross-repo rollback semantics/i);
   });
 });

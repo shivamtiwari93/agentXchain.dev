@@ -530,6 +530,8 @@ missionPlanCmd
   .option('-m, --mission <mission_id>', 'Explicit mission ID')
   .option('--max-waves <n>', 'Maximum number of dependency waves (default: 10)')
   .option('--continue-on-failure', 'Skip failed workstreams and keep launching ready ones')
+  .option('--auto-retry', 'Coordinator-only: retry one retryable repo-local failure within the same autopilot session')
+  .option('--max-retries <n>', 'Coordinator-only: maximum auto-retries per workstream/repo pair in one autopilot session (default: 1)')
   .option('--cooldown <seconds>', 'Pause between waves in seconds (default: 5)')
   .option('--auto-approve', 'Auto-approve run gates during execution')
   .option('-j, --json', 'Output as JSON')

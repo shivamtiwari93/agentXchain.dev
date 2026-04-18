@@ -546,6 +546,149 @@ describe('Coordinator retry end-to-end', () => {
     assert.ok(retryLedgerEntries.length >= 1, 'decision ledger must have a retry entry');
   });
 
+  it('AT-COORD-RETRY-E2E-003/007: coordinator autopilot auto-retries a failed repo and completes the dependent plan', async () => {
+    const setup = await setupCoordinatorMission();
+    const repoAttempts = new Map();
+
+    const autopilotResult = await runCoordinatorAutopilot(setup.planId, {
+      dir: setup.workspace,
+      mission: setup.mission.mission_id,
+      json: true,
+      maxWaves: '5',
+      cooldown: '0',
+      autoRetry: true,
+      maxRetries: '1',
+      continueOnFailure: false,
+      _sleep: async () => {},
+      _executeGovernedRun: async (repoContext, runOpts) => {
+        const trigger = runOpts?.provenance?.trigger_reason || '';
+        const repoId = trigger.match(/repo:([^ ]+)/)?.[1];
+        const workstreamId = trigger.match(/workstream:([^ ]+)/)?.[1];
+        assert.ok(repoId, `repo id must be present in provenance: ${trigger}`);
+        assert.ok(workstreamId, `workstream id must be present in provenance: ${trigger}`);
+
+        const statePath = join(repoContext.root, '.agentxchain', 'state.json');
+        const state = JSON.parse(readFileSync(statePath, 'utf8'));
+        const turnId = Object.keys(state.active_turns || {})[0];
+        assert.ok(turnId, `active turn must exist for ${repoId}/${workstreamId}`);
+
+        const attemptKey = `${workstreamId}:${repoId}`;
+        const attempt = (repoAttempts.get(attemptKey) || 0) + 1;
+        repoAttempts.set(attemptKey, attempt);
+
+        if (repoId === 'repo-a') {
+          recordAcceptedRepoTurn(repoContext.root, turnId);
+          appendAcceptanceProjection(setup.workspace, repoId, workstreamId, turnId);
+          if (workstreamId === 'ws-followup') {
+            setBarrierSatisfied(setup.workspace, 'ws-followup', ['repo-a']);
+          }
+          return { exitCode: 0, result: { ok: true, stop_reason: 'completed', turns_executed: 1 } };
+        }
+
+        if (attempt === 1) {
+          recordFailedRepoTurn(repoContext.root, turnId);
+          return { exitCode: 1, result: { ok: false, stop_reason: 'failed', turns_executed: 1 } };
+        }
+
+        assert.match(trigger, /auto-retry/, 'retry attempt provenance must include auto-retry');
+        recordAcceptedRepoTurn(repoContext.root, turnId);
+        appendAcceptanceProjection(setup.workspace, repoId, workstreamId, turnId);
+        setBarrierSatisfied(setup.workspace, 'ws-main', ['repo-a', 'repo-b']);
+        return { exitCode: 0, result: { ok: true, stop_reason: 'completed', turns_executed: 1 } };
+      },
+    });
+
+    assert.equal(
+      autopilotResult.exitCode,
+      null,
+      `autopilot with auto-retry must complete cleanly, got ${autopilotResult.exitCode}`,
+    );
+    assert.equal(autopilotResult.parsed.summary.terminal_reason, 'plan_completed');
+    assert.equal(autopilotResult.parsed.summary.total_retries, 1, 'exactly one auto-retry must be recorded');
+
+    const allWaveEntries = autopilotResult.parsed.waves.flatMap((wave) => wave.results);
+    const wsMainRetryEntry = allWaveEntries.find((entry) => entry.workstream_id === 'ws-main' && entry.retried === true);
+    assert.ok(wsMainRetryEntry, 'ws-main must surface successful retry metadata');
+    assert.equal(wsMainRetryEntry.status, 'dispatched');
+    assert.equal(wsMainRetryEntry.repo_id, 'repo-b');
+    assert.equal(wsMainRetryEntry.retry_count, 1);
+    assert.ok(wsMainRetryEntry.retried_repo_turn_id, 'retry entry must reference the failed turn');
+
+    const missionPlans = await import(missionPlansPath);
+    const finalPlan = missionPlans.loadPlan(setup.workspace, setup.mission.mission_id, setup.planId);
+    assert.equal(finalPlan.status, 'completed', 'auto-retry path must complete the plan');
+    assert.equal(repoAttempts.get('ws-main:repo-b'), 2, 'repo-b must execute once and retry once');
+  });
+
+  it('AT-COORD-RETRY-E2E-004/005: coordinator autopilot stops after one failed auto-retry attempt instead of looping forever', async () => {
+    const setup = await setupCoordinatorMission();
+    const repoAttempts = new Map();
+
+    const autopilotResult = await runCoordinatorAutopilot(setup.planId, {
+      dir: setup.workspace,
+      mission: setup.mission.mission_id,
+      json: true,
+      maxWaves: '5',
+      cooldown: '0',
+      autoRetry: true,
+      maxRetries: '1',
+      continueOnFailure: false,
+      _sleep: async () => {},
+      _executeGovernedRun: async (repoContext, runOpts) => {
+        const trigger = runOpts?.provenance?.trigger_reason || '';
+        const repoId = trigger.match(/repo:([^ ]+)/)?.[1];
+        const workstreamId = trigger.match(/workstream:([^ ]+)/)?.[1];
+        assert.ok(repoId, `repo id must be present in provenance: ${trigger}`);
+        assert.ok(workstreamId, `workstream id must be present in provenance: ${trigger}`);
+
+        const statePath = join(repoContext.root, '.agentxchain', 'state.json');
+        const state = JSON.parse(readFileSync(statePath, 'utf8'));
+        const turnId = Object.keys(state.active_turns || {})[0];
+        assert.ok(turnId, `active turn must exist for ${repoId}/${workstreamId}`);
+
+        const attemptKey = `${workstreamId}:${repoId}`;
+        repoAttempts.set(attemptKey, (repoAttempts.get(attemptKey) || 0) + 1);
+
+        if (repoId === 'repo-a') {
+          recordAcceptedRepoTurn(repoContext.root, turnId);
+          appendAcceptanceProjection(setup.workspace, repoId, workstreamId, turnId);
+          return { exitCode: 0, result: { ok: true, stop_reason: 'completed', turns_executed: 1 } };
+        }
+
+        recordFailedRepoTurn(repoContext.root, turnId);
+        return { exitCode: 1, result: { ok: false, stop_reason: 'failed', turns_executed: 1 } };
+      },
+    });
+
+    assert.equal(autopilotResult.exitCode, 1, 'autopilot must still fail when the retry attempt also fails');
+    assert.equal(autopilotResult.parsed.summary.terminal_reason, 'failure_stopped');
+    assert.equal(autopilotResult.parsed.summary.total_retries, 1, 'auto-retry budget must be consumed exactly once');
+    assert.equal(repoAttempts.get('ws-main:repo-b'), 2, 'repo-b must execute once and retry once, then stop');
+
+    const allWaveEntries = autopilotResult.parsed.waves.flatMap((wave) => wave.results);
+    const wsMainFailureEntry = allWaveEntries.find((entry) => entry.workstream_id === 'ws-main' && entry.status === 'needs_attention');
+    assert.ok(wsMainFailureEntry, 'ws-main must remain needs_attention after a failed retry');
+    assert.equal(wsMainFailureEntry.retried, true, 'failed retry must still be surfaced as a retry attempt');
+    assert.equal(wsMainFailureEntry.retry_count, 1);
+  });
+
+  it('AT-COORD-RETRY-E2E-006: coordinator autopilot rejects --max-retries 0', async () => {
+    const setup = await setupCoordinatorMission();
+
+    const autopilotResult = await runCoordinatorAutopilot(setup.planId, {
+      dir: setup.workspace,
+      mission: setup.mission.mission_id,
+      maxWaves: '5',
+      cooldown: '0',
+      autoRetry: true,
+      maxRetries: '0',
+      _sleep: async () => {},
+    });
+
+    assert.equal(autopilotResult.exitCode, 1);
+    assert.match(autopilotResult.errors.join('\n'), /--max-retries must be >= 1 when --auto-retry is set/);
+  });
+
   it('AT-COORD-RETRY-E2E-002: dashboard plan snapshot exposes retry metadata in repo_dispatches', async () => {
     const setup = await setupCoordinatorMission();
 

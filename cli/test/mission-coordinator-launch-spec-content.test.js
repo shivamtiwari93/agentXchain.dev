@@ -40,7 +40,7 @@ describe('Mission coordinator launch spec', () => {
   it('does not leave already-shipped coordinator wave work as an open question', () => {
     assert.match(
       SPEC,
-      /None for this slice\. Coordinator `--all-ready`, coordinator autopilot, and targeted `--retry` are now shipped\./
+      /None for this slice\. Coordinator `--all-ready`, coordinator autopilot, targeted `--retry`, and unattended coordinator auto-retry are now shipped\./
     );
     assert.match(SPEC, /COORDINATOR_RETRY_SPEC\.md/);
     assert.doesNotMatch(SPEC, /Should a later slice let `mission plan launch --all-ready` run one coordinator dispatch per ready workstream/);
