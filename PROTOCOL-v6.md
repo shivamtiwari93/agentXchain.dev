@@ -358,7 +358,7 @@ Tamper protections:
 
 - `SPEC-GOVERNED-v4.md`: frozen v1.0 reference.
 - `SPEC-GOVERNED-v5.md`: frozen v1.1 single-repo reference.
-- `PROTOCOL-v6.md`: current multi-repo constitutional reference.
+- `PROTOCOL-v6.md`: frozen v6 multi-repo constitutional reference (superseded by `PROTOCOL-v7.md`).
 
 `/docs/protocol.html` is the latest published protocol reference.
 

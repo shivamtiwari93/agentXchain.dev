@@ -1,6 +1,6 @@
 # AgentXchain Protocol v3 (HISTORICAL)
 
-> **⚠️ This document is historical.** The current protocol is [v6](./PROTOCOL-v6.md). This file is preserved for reference only. Do not implement against v3.
+> **⚠️ This document is historical.** The current protocol is [v7](./PROTOCOL-v7.md). This file is preserved for reference only. Do not implement against v3.
 
 **Generalized agents. Claim-based turns. User-defined teams.**
 

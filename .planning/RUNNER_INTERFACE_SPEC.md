@@ -6,7 +6,7 @@ Define the formal boundary between **runners** (execution engines that drive gov
 
 ## Problem Statement
 
-PROTOCOL-v6.md §3 declares CLI command names non-normative and allows other runners. But there is no declared interface separating the runner layer from the execution engine. The CLI commands (`step.js`, `resume.js`, `accept-turn.js`) call `governed-state.js` directly. A second runner would need to reverse-engineer which library functions to call, in what order, and with what concurrency guarantees.
+PROTOCOL-v7.md §3 declares CLI command names non-normative and allows other runners. But there is no declared interface separating the runner layer from the execution engine. The CLI commands (`step.js`, `resume.js`, `accept-turn.js`) call `governed-state.js` directly. A second runner would need to reverse-engineer which library functions to call, in what order, and with what concurrency guarantees.
 
 This spec formalizes the boundary that already exists implicitly.
 

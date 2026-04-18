@@ -11,7 +11,7 @@ const read = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
 
 const DOC_PATH = 'website-v2/docs/protocol-reference.mdx';
 const DOC = read(DOC_PATH);
-const ROOT_SPEC = read('PROTOCOL-v6.md');
+const ROOT_SPEC = read('PROTOCOL-v7.md');
 const SIDEBARS = read('website-v2/sidebars.ts');
 const PLANNING_SPEC = read('.planning/PROTOCOL_REFERENCE_SPEC.md');
 const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
@@ -101,7 +101,7 @@ describe('Protocol reference contract', () => {
     ]) {
       assert.ok(DOC.includes(term), `protocol reference must mention ${term}`);
     }
-    assert.match(ROOT_SPEC, /Protocol version: `v6`/);
+    assert.match(ROOT_SPEC, /Protocol version: `v7`/);
     assert.match(ROOT_SPEC, /governed state: `1\.1`/);
   });
 

@@ -145,7 +145,7 @@ function makeTurnResult(runId, turn) {
         id: 'DEC-001',
         category: 'implementation',
         statement: 'Used runner interface directly — no CLI shell-out.',
-        rationale: 'Proving PROTOCOL-v6.md section 3: runner independence.',
+        rationale: 'Proving PROTOCOL-v7.md section 3: runner independence.',
       },
     ],
     objections: [

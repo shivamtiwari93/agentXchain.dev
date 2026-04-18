@@ -4,7 +4,7 @@
 
 Prove that the governed protocol is runner-independent by shipping a second runner — a GitHub Actions workflow step that executes one governed turn using only the runner interface library. No CLI shell-out.
 
-This is the narrowest proof that satisfies PROTOCOL-v6.md §3: "Other runners may expose different operator commands as long as they preserve the same artifact, validation, and state-transition contract."
+This is the narrowest proof that satisfies PROTOCOL-v7.md §3: "Other runners may expose different operator commands as long as they preserve the same artifact, validation, and state-transition contract."
 
 ## Problem Statement
 
