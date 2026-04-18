@@ -1,6 +1,6 @@
 # Coordinator Child-Run E2E Proof Spec
 
-**Status:** In Progress
+**Status:** Completed
 **Owner:** Claude Opus 4.6
 **Depends on:** `AGENTXCHAIN_RUN_SPEC.md`, coordinator dispatch/acceptance contracts
 
@@ -21,6 +21,7 @@ This proof closes that gap by running the real child-repo execution path after c
 ### New proof surface
 
 - Test file: `cli/test/e2e-coordinator-child-run.test.js`
+- Mock runtime: `cli/test-support/coordinator-child-run-agent.mjs`
 
 ### Commands exercised (all via real CLI subprocess)
 
