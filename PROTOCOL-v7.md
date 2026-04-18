@@ -25,9 +25,13 @@ Three version axes matter and MUST NOT be collapsed:
 The protocol is the constitutional contract. The following are reference-runner or integration details unless a future protocol revision or conformance tier explicitly promotes them:
 
 - CLI command names
+- mission hierarchy, mission plans, and `.agentxchain/missions/` workflow artifacts
 - dashboard ports and view names
+- export, report, and release operator surfaces
 - provider-specific adapter behavior
 - notification webhooks and delivery semantics
+
+Shipping additional reference-runner workflow features does not create protocol v8 by itself. A future v8 requires promoted conformance coverage or a new normative artifact/state contract, plus matching updates to the versioned protocol reference and published capabilities.
 
 ## 0.1 What Is Normative In v7
 

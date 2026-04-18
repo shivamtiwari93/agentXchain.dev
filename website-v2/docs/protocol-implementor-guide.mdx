@@ -23,6 +23,20 @@ The current corpus is split into three tiers:
 
 The verifier selects every fixture up to the requested tier. `--tier 2` runs Tier 1 plus Tier 2. `--tier 3` runs the entire corpus.
 
+## What You Do Not Need For v7 Conformance
+
+Do not let the reference CLI's product surface blur the protocol boundary.
+
+A non-reference runner can still claim protocol `v7` without implementing these reference-runner workflow surfaces:
+
+- mission hierarchy and mission plans under `.agentxchain/missions/`
+- dashboard APIs, ports, view names, and browser UX
+- export, report, and release operator surfaces
+
+Those surfaces matter for the reference runner, but they are not part of the current fixture-backed protocol-v7 requirement set.
+
+A future protocol-v8 cut needs promoted conformance or a new normative artifact/state contract. Shipping more reference-runner workflow features is not enough by itself.
+
 ## Required repo contract
 
 Your implementation target can expose either a repo-local conformance directory or a remote HTTP conformance endpoint.

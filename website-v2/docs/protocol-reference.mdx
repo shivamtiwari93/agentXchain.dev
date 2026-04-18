@@ -90,11 +90,26 @@ Current surfaces:
 
 That list is the current executable proof set. It is not a claim that every shipped product feature is part of protocol v7.
 
+## Why This Is Still v7
+
+The reference CLI ships workflow surfaces beyond the v7 conformance corpus. That does **not** automatically make them protocol-v8 requirements.
+
+These surfaces are still reference-runner or operator workflow features today:
+
+- mission hierarchy and mission plans under `.agentxchain/missions/`
+- dashboard APIs, ports, view names, and browser UX
+- export, report, and release operator surfaces
+
+A non-reference runner can truthfully claim protocol-v7 conformance without implementing those features. The current bar is the shipped fixture corpus plus the normative artifact contracts documented here.
+
+A future protocol-v8 cut needs durable promotion work: promoted fixtures or a new normative artifact/state contract, plus the matching versioned docs and capabilities updates. A changelog line is not enough.
+
 ## Not Normative In v7
 
 These are real product surfaces, but they are not part of protocol v7 conformance today:
 
 - CLI command names such as `step`, `resume`, or `multi approve-gate`
+- mission hierarchy, mission plans, and `.agentxchain/missions/` workflow artifacts
 - dashboard ports, view names, and browser UX
 - provider-specific adapter behavior such as Anthropic or OpenAI request wiring
 - `notifications.webhooks` delivery behavior and event transport
