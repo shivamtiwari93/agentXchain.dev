@@ -182,6 +182,13 @@ function projectAcceptedCoordinatorTurn(workspacePath, coordinatorConfig, repoId
   );
 }
 
+function buildCoordinatorProjectionWarning(message) {
+  return {
+    code: 'coordinator_acceptance_projection_incomplete',
+    message,
+  };
+}
+
 export async function missionListCommand(opts) {
   const root = findProjectRoot(opts.dir || process.cwd());
   if (!root) {
@@ -634,6 +641,7 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
       };
 
       let execution;
+      const retryWarnings = [];
       try {
         execution = await executor(repoContext, runOpts);
       } catch (error) {
@@ -669,7 +677,9 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
           loadCoordinatorState(mission.coordinator.workspace_path),
         );
         if (!projection.ok) {
-          console.error(chalk.yellow(`Coordinator retry projection warning: ${projection.error}`));
+          const warning = buildCoordinatorProjectionWarning(projection.error);
+          retryWarnings.push(warning);
+          console.error(chalk.yellow(`Coordinator retry projection warning: ${warning.message}`));
         }
       }
 
@@ -697,6 +707,8 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
           workstream_status: retriedWorkstream?.launch_status || 'launched',
           launch_record: retriedLaunchRecord,
           exit_code: execution?.exitCode ?? 0,
+          warnings: retryWarnings,
+          reconciliation_required: retryWarnings.length > 0,
         }, null, 2));
         if ((execution?.exitCode ?? 0) !== 0) {
           process.exit(execution.exitCode);
@@ -713,6 +725,9 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
       console.log(chalk.dim(`  Old Turn:     ${retry.retryResult.failed_turn_id}`));
       console.log(chalk.dim(`  New Turn:     ${retry.retryResult.reissued_turn_id}`));
       console.log(chalk.dim(`  Workstream:   ${retriedWorkstream?.launch_status || 'launched'}`));
+      if (retryWarnings.length > 0) {
+        console.log(chalk.yellow(`  Warning:      ${retryWarnings[0].message}`));
+      }
       console.log('');
       renderPlan(retriedPlan);
       if ((execution?.exitCode ?? 0) !== 0) {

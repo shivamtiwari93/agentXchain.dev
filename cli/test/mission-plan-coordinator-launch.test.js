@@ -739,6 +739,10 @@ describe('mission plan coordinator launch', () => {
     assert.notEqual(parsed.repo_turn_id, secondDispatch.turn_id, 'retry must create a fresh repo-local turn');
     assert.equal(executorRepo, join(setup.workspace, 'repo-b'));
     assert.equal(executorTurnId, parsed.repo_turn_id);
+    assert.equal(parsed.reconciliation_required, true);
+    assert.equal(parsed.warnings.length, 1);
+    assert.equal(parsed.warnings[0].code, 'coordinator_acceptance_projection_incomplete');
+    assert.match(parsed.warnings[0].message, /Accepted turn .* not found in repo-local history for repo-b\./);
 
     const persistedPlan = setup.loadPlan(setup.workspace, setup.mission.mission_id, setup.planId);
     const launchRecord = persistedPlan.launch_records.find((record) => record.workstream_id === 'ws-main');

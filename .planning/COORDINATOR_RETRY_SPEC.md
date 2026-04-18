@@ -17,6 +17,7 @@ This spec defines the safety boundaries, invalidation rules, and barrier interac
 - targeted coordinator `--retry` for one active retryable repo failure in a `needs_attention` workstream
 - retry metadata on the coordinator launch record (`retried_at`, `retry_reason`, `is_retry`, `retry_of`)
 - `coordinator_retry` event emission and coordinator history/decision ledger entries
+- explicit retry-output warning metadata when repo-local retry succeeds but coordinator acceptance projection cannot be recorded immediately
 
 **Deferred**
 
@@ -180,6 +181,29 @@ Retry emits:
 - `coordinator_retry` event to `events.jsonl` with: `workstream_id`, `repo_id`, `failed_turn_id`, `reissued_turn_id`, `retry_count`, `retry_reason`.
 - The reissued turn's normal lifecycle events (`turn_dispatched`, etc.) propagate as usual.
 
+### Projection warning visibility
+
+If the retried repo-local turn executes successfully but the coordinator cannot append the matching `acceptance_projection` entry immediately, the retry command must:
+
+1. keep the retry result as a success (the repo-local turn already ran),
+2. print a warning on stderr for human operators, and
+3. include machine-readable warning metadata in JSON output:
+
+```json
+{
+  "retry": true,
+  "warnings": [
+    {
+      "code": "coordinator_acceptance_projection_incomplete",
+      "message": "Accepted turn turn_123 not found in repo-local history for repo-b."
+    }
+  ],
+  "reconciliation_required": true
+}
+```
+
+This is not a hard failure because the child repo execution already completed. It is also not allowed to stay stderr-only because operators, tests, and downstream tooling need an explicit signal that the coordinator view still requires reconciliation.
+
 ## Error Cases
 
 | Condition | Behavior |
@@ -200,6 +224,7 @@ Retry emits:
 - `AT-COORD-RETRY-008`: Barrier state is preserved through retry — accepted repos remain accepted, barrier progress is not reset.
 - `AT-COORD-RETRY-009`: Retry record structure includes `retried_at`, `retry_reason`, `is_retry`, and `retry_of` fields.
 - `AT-COORD-RETRY-010`: `coordinator_retry` event is emitted with correct provenance fields.
+- `AT-COORD-RETRY-011`: When retry execution succeeds but `acceptance_projection` cannot be recorded immediately, JSON output includes a warning entry with code `coordinator_acceptance_projection_incomplete` and sets `reconciliation_required: true`.
 
 ## Open Questions
 
