@@ -333,6 +333,14 @@ describe('writeDispatchBundle', () => {
           files_changed: ['src/core/handler.ts'],
         },
       ],
+      forward_revision_files: ['.planning/SYSTEM_SPEC.md'],
+      forward_revision_turns_since: [
+        {
+          turn_id: 'turn_pm_prev',
+          role: 'pm',
+          files_changed: ['.planning/SYSTEM_SPEC.md'],
+        },
+      ],
       non_conflicting_files_preserved: ['src/core/types.ts'],
       guidance: 'Rebase on the current workspace state before retrying.',
     };
@@ -343,9 +351,13 @@ describe('writeDispatchBundle', () => {
     const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     assert.deepEqual(assignment.conflict_context.conflicting_files, ['src/core/handler.ts']);
+    assert.deepEqual(assignment.conflict_context.forward_revision_files, ['.planning/SYSTEM_SPEC.md']);
     assert.match(prompt, /File Conflict - Retry Required/);
     assert.match(prompt, /src\/core\/handler\.ts/);
     assert.match(prompt, /turn_prev/);
+    assert.match(prompt, /Forward-revision files already safe to carry forward/);
+    assert.match(prompt, /\.planning\/SYSTEM_SPEC\.md/);
+    assert.match(prompt, /turn_pm_prev/);
     assert.match(prompt, /src\/core\/types\.ts/);
   });
 

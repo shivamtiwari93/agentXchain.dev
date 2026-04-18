@@ -48,7 +48,6 @@ Document why the iterative planning conflict loop shipped through `v2.130.1`, wh
 
 ## Remaining Coverage Gaps To Audit
 
-- Conflict resolution after mixed forward-revision plus cross-role destructive overlap in the same acceptance attempt.
 - `human_merge` on turns that were already stuck in persisted `human_merging` state from older repos.
 - Dashboard/API exposure for `conflict_resolved` timeline events.
 - Recovery/report/audit surfaces that summarize forward-revision acceptance without surfacing false conflict severity.
@@ -107,6 +106,7 @@ Every newly documented dispatch path or retry path must add one matrix row here 
 - [x] `bug-31-human-merge-completion.test.js` proves single-invocation terminal acceptance.
 - [x] `iterative-planning-repair.test.js` proves repeated PM repair turns on durable planning files accept cleanly.
 - [x] governed-state regression proves stale same-role PM planning overlap is classified as forward revision.
+- [x] `mixed-forward-revision-conflict-guidance.test.js` proves the real `reject-turn --reassign` retry path keeps destructive conflict files distinct from safe forward revisions.
 - [x] `dispatch-path-lifecycle-matrix.test.js` proves `step --resume` retry rebinding, `restart` retained retry-bundle preservation, and manual `resume` -> `accept-turn` gate-semantic rejection.
 - [x] `bug-37-gate-semantic-real-emissions.test.js` proves all real gate file-emission formats reject turns that did not touch the gated artifact.
 

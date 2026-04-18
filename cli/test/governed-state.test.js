@@ -1171,6 +1171,106 @@ describe('acceptGovernedTurn', () => {
     assert.deepEqual(repairEntry.forward_revision.accepted_since_turn_ids, [firstTurn.turn_id]);
   });
 
+  it('preserves forward-revision guidance separately from destructive conflicts on retry', () => {
+    config.roles.pm.write_authority = 'review_only';
+    config.roles.pm.runtime_class = 'manual';
+    config.roles.pm.runtime_id = 'manual-pm';
+    config.runtimes['manual-pm'] = { type: 'manual' };
+    config.workflow_kit = {
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/SYSTEM_SPEC.md', required: true, semantics: 'system_spec', owned_by: 'pm' },
+          ],
+        },
+      },
+    };
+
+    execSync('git init', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.email \"test@example.com\"', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.name \"Test User\"', { cwd: dir, stdio: 'ignore' });
+    writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), '# base spec\n');
+    writeFileSync(join(dir, '.planning', 'shared-conflict.md'), '# base shared\n');
+    execSync('git add .', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m \"baseline\"', { cwd: dir, stdio: 'ignore' });
+
+    initializeGovernedRun(dir, config);
+
+    const firstPmAssign = assignGovernedTurn(dir, config, 'pm');
+    assert.ok(firstPmAssign.ok, firstPmAssign.error);
+    const firstPmTurn = firstPmAssign.turn;
+    writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), '# System Spec\n\n## Purpose\n\nInitial planning truth.\n');
+    mkdirSync(join(dir, '.agentxchain', 'staging', firstPmTurn.turn_id), { recursive: true });
+    const firstPmResult = makeTurnResult(firstPmAssign.state, firstPmTurn);
+    firstPmResult.role = 'pm';
+    firstPmResult.runtime_id = 'manual-pm';
+    firstPmResult.files_changed = ['.planning/SYSTEM_SPEC.md'];
+    writeFileSync(join(dir, getTurnStagingResultPath(firstPmTurn.turn_id)), JSON.stringify(firstPmResult, null, 2));
+    execSync('git add -A && git commit -m \"pm first planning turn\"', { cwd: dir, stdio: 'ignore' });
+    const firstPmAccept = acceptGovernedTurn(dir, config, { turnId: firstPmTurn.turn_id });
+    assert.ok(firstPmAccept.ok, firstPmAccept.error);
+
+    const devAssign = assignGovernedTurn(dir, config, 'dev');
+    assert.ok(devAssign.ok, devAssign.error);
+    const devTurn = devAssign.turn;
+    writeFileSync(join(dir, '.planning', 'shared-conflict.md'), '# shared from dev\n');
+    mkdirSync(join(dir, '.agentxchain', 'staging', devTurn.turn_id), { recursive: true });
+    const devResult = makeTurnResult(devAssign.state, devTurn);
+    devResult.files_changed = ['.planning/shared-conflict.md'];
+    writeFileSync(join(dir, getTurnStagingResultPath(devTurn.turn_id)), JSON.stringify(devResult, null, 2));
+    execSync('git add -A && git commit -m \"dev shared turn\"', { cwd: dir, stdio: 'ignore' });
+    const devAccept = acceptGovernedTurn(dir, config, { turnId: devTurn.turn_id });
+    assert.ok(devAccept.ok, devAccept.error);
+
+    const secondPmAssign = assignGovernedTurn(dir, config, 'pm');
+    assert.ok(secondPmAssign.ok, secondPmAssign.error);
+    const secondPmTurnId = secondPmAssign.turn.turn_id;
+
+    const mutatedState = readJson(dir, STATE_PATH);
+    mutatedState.active_turns[secondPmTurnId].assigned_sequence = 0;
+    writeFileSync(join(dir, STATE_PATH), JSON.stringify(mutatedState, null, 2));
+
+    writeFileSync(
+      join(dir, '.planning', 'SYSTEM_SPEC.md'),
+      '# System Spec\n\n## Purpose\n\nInitial planning truth.\n\n## Interface\n\n- Revised by PM.\n',
+    );
+    writeFileSync(join(dir, '.planning', 'shared-conflict.md'), '# shared from stale pm\n');
+    mkdirSync(join(dir, '.agentxchain', 'staging', secondPmTurnId), { recursive: true });
+    const secondPmState = readJson(dir, STATE_PATH);
+    const secondPmResult = makeTurnResult(secondPmState, secondPmState.active_turns[secondPmTurnId]);
+    secondPmResult.role = 'pm';
+    secondPmResult.runtime_id = 'manual-pm';
+    secondPmResult.files_changed = ['.planning/SYSTEM_SPEC.md', '.planning/shared-conflict.md'];
+    writeFileSync(join(dir, getTurnStagingResultPath(secondPmTurnId)), JSON.stringify(secondPmResult, null, 2));
+    execSync('git add -A && git commit -m \"pm mixed overlap turn\"', { cwd: dir, stdio: 'ignore' });
+
+    const conflictResult = acceptGovernedTurn(dir, config, { turnId: secondPmTurnId });
+    assert.equal(conflictResult.ok, false);
+    assert.equal(conflictResult.error_code, 'conflict');
+    assert.deepEqual(
+      conflictResult.state.active_turns[secondPmTurnId].conflict_state.conflict_error.conflicting_files,
+      ['.planning/shared-conflict.md'],
+    );
+    assert.deepEqual(
+      conflictResult.state.active_turns[secondPmTurnId].conflict_state.conflict_error.forward_revision_files,
+      ['.planning/SYSTEM_SPEC.md'],
+    );
+
+    const rejectResult = rejectGovernedTurn(
+      dir,
+      config,
+      { errors: ['File conflict detected'], failed_stage: 'conflict' },
+      { turnId: secondPmTurnId, reassign: true, reason: 'Rebase only the destructive overlap' },
+    );
+    assert.ok(rejectResult.ok, rejectResult.error);
+    assert.deepEqual(rejectResult.turn.conflict_context.conflicting_files, ['.planning/shared-conflict.md']);
+    assert.deepEqual(rejectResult.turn.conflict_context.forward_revision_files, ['.planning/SYSTEM_SPEC.md']);
+    assert.deepEqual(
+      rejectResult.turn.conflict_context.forward_revision_turns_since.map((entry) => entry.turn_id),
+      [firstPmTurn.turn_id],
+    );
+  });
+
   it('blocks the run on the third conflict detection for the same retained turn', () => {
     config.routing.planning.max_concurrent_turns = 2;
     config.roles.qa.write_authority = 'authoritative';

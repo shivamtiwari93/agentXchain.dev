@@ -1243,6 +1243,13 @@ function buildConflictContext(turn) {
         files_changed: Array.isArray(entry.files_changed) ? entry.files_changed : [],
       }))
     : [];
+  const forwardRevisionTurnsSince = Array.isArray(conflictError.forward_revision_turns)
+    ? conflictError.forward_revision_turns.map((entry) => ({
+        turn_id: entry.turn_id,
+        role: entry.role,
+        files_changed: Array.isArray(entry.files_changed) ? entry.files_changed : [],
+      }))
+    : [];
 
   return {
     prior_attempt_turn_id: turn.turn_id,
@@ -1250,6 +1257,8 @@ function buildConflictContext(turn) {
     conflict_type: conflictError.type || 'file_conflict',
     conflicting_files: Array.isArray(conflictError.conflicting_files) ? conflictError.conflicting_files : [],
     accepted_turns_since: acceptedTurnsSince,
+    forward_revision_files: Array.isArray(conflictError.forward_revision_files) ? conflictError.forward_revision_files : [],
+    forward_revision_turns_since: forwardRevisionTurnsSince,
     non_conflicting_files_preserved: Array.isArray(conflictError.non_conflicting_files)
       ? conflictError.non_conflicting_files
       : [],

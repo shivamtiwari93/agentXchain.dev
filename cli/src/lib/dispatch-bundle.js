@@ -389,6 +389,20 @@ function renderPrompt(role, roleId, turn, state, config, root) {
       }
       lines.push('');
     }
+    if (turn.conflict_context.forward_revision_files?.length) {
+      lines.push('Forward-revision files already safe to carry forward:');
+      for (const file of turn.conflict_context.forward_revision_files) {
+        lines.push(`- \`${file}\``);
+      }
+      if (turn.conflict_context.forward_revision_turns_since?.length) {
+        lines.push('');
+        lines.push('Forward-revision turns since assignment:');
+        for (const acceptedTurn of turn.conflict_context.forward_revision_turns_since) {
+          lines.push(`- \`${acceptedTurn.turn_id}\` (${acceptedTurn.role}) touched: ${acceptedTurn.files_changed.join(', ') || '(none)'}`);
+        }
+      }
+      lines.push('');
+    }
     if (turn.conflict_context.non_conflicting_files_preserved?.length) {
       lines.push('Non-conflicting files to preserve from your prior attempt:');
       for (const file of turn.conflict_context.non_conflicting_files_preserved) {
