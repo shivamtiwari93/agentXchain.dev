@@ -7,7 +7,9 @@ description: "A dated case study proving three unattended governed runs through 
 
 This page is the public evidence for the reopened roadmap claim: AgentXchain completed **three back-to-back governed runs** from a project-local `VISION.md` with no manual `accept-turn`, no manual gate approval, no HUMAN-ROADMAP edits mid-session, and at least one real-credential turn per run.
 
-Date of proof: `2026-04-17`
+Date of proof: `2026-04-18`
+
+Latest checked-in evidence artifact: [`examples/live-governed-proof/evidence/continuous-3run-proof.latest.json`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/examples/live-governed-proof/evidence/continuous-3run-proof.latest.json)
 
 ## What It Is
 
@@ -43,29 +45,25 @@ Observed harness invocation:
 
 ```bash
 set -a; source .env; set +a
-node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --keep-temp
-```
-
-Proof workspace:
-
-```text
-/var/folders/2c/vqqd_9tn4wd_flr5f0690yl80000gn/T/axc-live-cont-3run-BbcBIi
+node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --output examples/live-governed-proof/evidence/continuous-3run-proof.latest.json
 ```
 
 ## Evidence Summary
 
 | Metric | Value |
 |---|---|
-| Session ID | `cont-0e280ba0` |
-| Started | `2026-04-17T16:48:55.218Z` |
-| Finished | `2026-04-17T16:49:49.796Z` |
-| Wall clock | `54.578s` |
+| Session ID | `cont-0f7fc528` |
+| Started | `2026-04-18T17:18:40.792Z` |
+| Finished | `2026-04-18T17:19:28.530Z` |
+| Wall clock | `47.738s` |
 | Runs completed | `3` |
 | Final session status | `completed` |
-| Total cumulative spend | `$0.025` |
+| Total cumulative spend | `$0.023` |
 | Provider / model | `anthropic / claude-haiku-4-5-20251001` |
+| CLI version | `2.134.1` |
 | Blockers hit | `none` |
 | `VISION.md` changed | `no` |
+| Evidence artifact | `examples/live-governed-proof/evidence/continuous-3run-proof.latest.json` |
 
 ## Session Snapshots
 
@@ -75,8 +73,8 @@ Initial snapshot after the session materialized:
 
 ```json
 {
-  "session_id": "cont-0e280ba0",
-  "started_at": "2026-04-17T16:48:55.518Z",
+  "session_id": "cont-0f7fc528",
+  "started_at": "2026-04-18T17:18:41.551Z",
   "vision_path": ".planning/VISION.md",
   "runs_completed": 0,
   "max_runs": 3,
@@ -95,18 +93,18 @@ Final snapshot:
 
 ```json
 {
-  "session_id": "cont-0e280ba0",
-  "started_at": "2026-04-17T16:48:55.518Z",
+  "session_id": "cont-0f7fc528",
+  "started_at": "2026-04-18T17:18:41.551Z",
   "vision_path": ".planning/VISION.md",
   "runs_completed": 3,
   "max_runs": 3,
   "idle_cycles": 0,
   "max_idle_cycles": 3,
-  "current_run_id": "run_920d1193b9521850",
+  "current_run_id": "run_bb868ab3f3e4e947",
   "current_vision_objective": "Proof Queue: capture gamma escalation recovery drill",
   "status": "completed",
   "per_session_max_usd": null,
-  "cumulative_spent_usd": 0.025,
+  "cumulative_spent_usd": 0.023,
   "budget_exhausted": false
 }
 ```
@@ -117,9 +115,9 @@ Turn counts below are derived from accepted `.agentxchain/history.jsonl` entries
 
 | Run | Vision goal | Trigger | Model used | Accepted turns | Spend | QA artifact |
 |---|---|---|---|---:|---:|---|
-| `run_2d751d643cf6ba01` | `Proof Queue: capture alpha ledger evidence trail` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.008` | `.agentxchain/reviews/turn_4d196165f84b4485-qa-review.md` |
-| `run_2f48ef8a12614d13` | `Proof Queue: capture beta provenance dashboard slice` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.008` | `.agentxchain/reviews/turn_dcc77f924f63955b-qa-review.md` |
-| `run_920d1193b9521850` | `Proof Queue: capture gamma escalation recovery drill` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.009` | `.agentxchain/reviews/turn_8f0fcbf4de0f9d6f-qa-review.md` |
+| `run_22f4e44f4ae40444` | `Proof Queue: capture alpha ledger evidence trail` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.008` | `.agentxchain/reviews/turn_acfcde845070de1d-qa-review.md` |
+| `run_4e5642ada3bf8872` | `Proof Queue: capture beta provenance dashboard slice` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.008` | `.agentxchain/reviews/turn_58cc45c192891f24-qa-review.md` |
+| `run_bb868ab3f3e4e947` | `Proof Queue: capture gamma escalation recovery drill` | `vision_scan` | `claude-haiku-4-5-20251001` | `3` | `$0.007` | `.agentxchain/reviews/turn_a9de0726ac118b1c-qa-review.md` |
 
 Every run carried the same provenance shape:
 
@@ -132,19 +130,19 @@ Every run carried the same provenance shape:
 `git log --oneline` from the proof repo shows run-derived commits for all three runs, and every run-derived commit includes the session trailer `Continuous-Session: cont-0e280ba0`.
 
 ```text
-54689bc proof(implementation): run_920d1193b9521850 proof-queue-capture-gamma-escalation-recovery-drill
-f8279ea proof(planning): run_920d1193b9521850 proof-queue-capture-gamma-escalation-recovery-drill
-84508d8 proof(implementation): run_2f48ef8a12614d13 proof-queue-capture-beta-provenance-dashboard-slice
-66b5cf5 proof(planning): run_2f48ef8a12614d13 proof-queue-capture-beta-provenance-dashboard-slice
-2d8506a proof(implementation): run_2d751d643cf6ba01 proof-queue-capture-alpha-ledger-evidence-trail
-5f17e1e proof(planning): run_2d751d643cf6ba01 proof-queue-capture-alpha-ledger-evidence-trail
-df74d41 init proof repo
+423084a proof(implementation): run_bb868ab3f3e4e947 proof-queue-capture-gamma-escalation-recovery-drill
+3d6f9c8 proof(planning): run_bb868ab3f3e4e947 proof-queue-capture-gamma-escalation-recovery-drill
+94f9e02 proof(implementation): run_4e5642ada3bf8872 proof-queue-capture-beta-provenance-dashboard-slice
+3b39532 proof(planning): run_4e5642ada3bf8872 proof-queue-capture-beta-provenance-dashboard-slice
+1128158 proof(implementation): run_22f4e44f4ae40444 proof-queue-capture-alpha-ledger-evidence-trail
+fdb5200 proof(planning): run_22f4e44f4ae40444 proof-queue-capture-alpha-ledger-evidence-trail
+c1950de init proof repo
 ```
 
 Example commit trailer:
 
 ```text
-Continuous-Session: cont-0e280ba0
+Continuous-Session: cont-0f7fc528
 Co-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>
 ```
 
@@ -159,10 +157,10 @@ Co-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>
 
 ```bash
 export ANTHROPIC_API_KEY=...
-node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --keep-temp
+node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --output examples/live-governed-proof/evidence/continuous-3run-proof.latest.json
 ```
 
-The harness creates a temp governed repo, runs the exact `run --continuous` command shown above, and prints the evidence as JSON. Use `--keep-temp` when you want to inspect the proof repo's `.agentxchain/` artifacts and git history afterward.
+The harness creates a temp governed repo, runs the exact `run --continuous` command shown above, and prints the evidence as JSON. Use `--output <path>` to persist the evidence artifact to a checked-in file. Use `--keep-temp` when you want to inspect the proof repo's `.agentxchain/` artifacts and git history afterward.
 
 ## Key Takeaways
 

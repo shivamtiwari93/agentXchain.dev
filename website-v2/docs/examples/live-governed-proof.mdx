@@ -63,16 +63,18 @@ This is the strongest proof in the repo. It exercises the real `agentxchain run 
 - vision-driven intake seeding from a project-local `VISION.md`
 - continuous session lifecycle: start → governed run → intake resolution → session completion
 
-**Verified evidence from a real run (2026-04-17):**
+**Verified evidence from a real run (2026-04-18):**
 
 | Metric | Value |
 |---|---|
 | Model | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) |
 | Runtime | `api_proxy` (Anthropic) for QA, `local_cli` for authoring roles |
-| Runs completed | 1 |
-| Total spend | $0.007 |
+| Runs completed | 3 |
+| Total spend | $0.023 |
+| CLI version | `2.134.1` |
 | Review artifact | `.agentxchain/reviews/turn_*-qa-review.md` |
 | Session status | `completed` |
+| Evidence artifact | [`continuous-3run-proof.latest.json`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/examples/live-governed-proof/evidence/continuous-3run-proof.latest.json) |
 
 This proof confirms that AgentXchain can dispatch to real models, accept structured turn results, track budget, and complete a governed continuous session — not just pass mock-based tests.
 
@@ -115,7 +117,7 @@ No credentials required. Self-contained with mock agent by default.
 
 ```bash
 node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json
-node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --keep-temp
+node examples/live-governed-proof/run-continuous-3run-proof.mjs --json --output examples/live-governed-proof/evidence/continuous-3run-proof.latest.json
 ```
 
 Credential requirements: `ANTHROPIC_API_KEY` is required for the continuous proof and several single-turn scripts. `OPENAI_API_KEY` and `GOOGLE_API_KEY` are needed for the multi-provider proof. Scripts skip cleanly when their required credentials are absent.

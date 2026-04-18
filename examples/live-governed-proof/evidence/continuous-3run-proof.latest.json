@@ -1,0 +1,170 @@
+{
+  "runner": "continuous-3run-live-proof",
+  "recorded_at": "2026-04-18T17:19:28.530Z",
+  "cli_version": "2.134.1",
+  "cli_path": "cli/bin/agentxchain.js",
+  "script_path": "examples/live-governed-proof/run-continuous-3run-proof.mjs",
+  "result": "pass",
+  "proof": {
+    "workdir": "<tmp>/axc-live-cont-3run-p5Yk96",
+    "started_at": "2026-04-18T17:18:40.792Z",
+    "finished_at": "2026-04-18T17:19:28.530Z",
+    "wall_clock_seconds": 47.738,
+    "continuous_session_before": null,
+    "continuous_session_started": {
+      "session_id": "cont-0f7fc528",
+      "started_at": "2026-04-18T17:18:41.551Z",
+      "vision_path": ".planning/VISION.md",
+      "runs_completed": 0,
+      "max_runs": 3,
+      "idle_cycles": 0,
+      "max_idle_cycles": 3,
+      "current_run_id": null,
+      "current_vision_objective": null,
+      "status": "running",
+      "per_session_max_usd": null,
+      "cumulative_spent_usd": 0,
+      "budget_exhausted": false
+    },
+    "continuous_session_after": {
+      "session_id": "cont-0f7fc528",
+      "started_at": "2026-04-18T17:18:41.551Z",
+      "vision_path": ".planning/VISION.md",
+      "runs_completed": 3,
+      "max_runs": 3,
+      "idle_cycles": 0,
+      "max_idle_cycles": 3,
+      "current_run_id": "run_bb868ab3f3e4e947",
+      "current_vision_objective": "Proof Queue: capture gamma escalation recovery drill",
+      "status": "completed",
+      "per_session_max_usd": null,
+      "cumulative_spent_usd": 0.023,
+      "budget_exhausted": false
+    },
+    "run_summaries": [
+      {
+        "ordinal": 1,
+        "run_id": "run_22f4e44f4ae40444",
+        "turns_taken": 3,
+        "spend_usd": 0.008,
+        "provenance_trigger": "vision_scan",
+        "provenance_created_by": "continuous_loop",
+        "vision_goal": "Proof Queue: capture alpha ledger evidence trail",
+        "real_credential_turn": {
+          "role": "qa",
+          "turn_id": "turn_acfcde845070de1d",
+          "runtime_id": "api-qa",
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "review_artifact": ".agentxchain/reviews/turn_acfcde845070de1d-qa-review.md"
+        }
+      },
+      {
+        "ordinal": 2,
+        "run_id": "run_4e5642ada3bf8872",
+        "turns_taken": 3,
+        "spend_usd": 0.008,
+        "provenance_trigger": "vision_scan",
+        "provenance_created_by": "continuous_loop",
+        "vision_goal": "Proof Queue: capture beta provenance dashboard slice",
+        "real_credential_turn": {
+          "role": "qa",
+          "turn_id": "turn_58cc45c192891f24",
+          "runtime_id": "api-qa",
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "review_artifact": ".agentxchain/reviews/turn_58cc45c192891f24-qa-review.md"
+        }
+      },
+      {
+        "ordinal": 3,
+        "run_id": "run_bb868ab3f3e4e947",
+        "turns_taken": 3,
+        "spend_usd": 0.007,
+        "provenance_trigger": "vision_scan",
+        "provenance_created_by": "continuous_loop",
+        "vision_goal": "Proof Queue: capture gamma escalation recovery drill",
+        "real_credential_turn": {
+          "role": "qa",
+          "turn_id": "turn_a9de0726ac118b1c",
+          "runtime_id": "api-qa",
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "review_artifact": ".agentxchain/reviews/turn_a9de0726ac118b1c-qa-review.md"
+        }
+      }
+    ],
+    "git_log_oneline": [
+      "423084a (HEAD -> main) proof(implementation): run_bb868ab3f3e4e947 proof-queue-capture-gamma-escalation-recovery-drill",
+      "3d6f9c8 proof(planning): run_bb868ab3f3e4e947 proof-queue-capture-gamma-escalation-recovery-drill",
+      "94f9e02 proof(implementation): run_4e5642ada3bf8872 proof-queue-capture-beta-provenance-dashboard-slice",
+      "3b39532 proof(planning): run_4e5642ada3bf8872 proof-queue-capture-beta-provenance-dashboard-slice",
+      "1128158 proof(implementation): run_22f4e44f4ae40444 proof-queue-capture-alpha-ledger-evidence-trail",
+      "fdb5200 proof(planning): run_22f4e44f4ae40444 proof-queue-capture-alpha-ledger-evidence-trail",
+      "c1950de init proof repo"
+    ],
+    "run_commit_entries": [
+      {
+        "hash": "423084a800d547fa87769ccb41db989fa90c662c",
+        "subject": "proof(implementation): run_bb868ab3f3e4e947 proof-queue-capture-gamma-escalation-recovery-drill",
+        "body": "Continuous-Session: cont-0f7fc528\nCo-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>",
+        "phase": "implementation",
+        "run_id": "run_bb868ab3f3e4e947",
+        "objective_slug": "proof-queue-capture-gamma-escalation-recovery-drill",
+        "session_id": "cont-0f7fc528"
+      },
+      {
+        "hash": "3d6f9c8ab4a2903e6b2f4e17611d97f5a4417ede",
+        "subject": "proof(planning): run_bb868ab3f3e4e947 proof-queue-capture-gamma-escalation-recovery-drill",
+        "body": "Continuous-Session: cont-0f7fc528\nCo-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>",
+        "phase": "planning",
+        "run_id": "run_bb868ab3f3e4e947",
+        "objective_slug": "proof-queue-capture-gamma-escalation-recovery-drill",
+        "session_id": "cont-0f7fc528"
+      },
+      {
+        "hash": "94f9e025ca76a29c0e1d0521e94df14484fc9b5a",
+        "subject": "proof(implementation): run_4e5642ada3bf8872 proof-queue-capture-beta-provenance-dashboard-slice",
+        "body": "Continuous-Session: cont-0f7fc528\nCo-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>",
+        "phase": "implementation",
+        "run_id": "run_4e5642ada3bf8872",
+        "objective_slug": "proof-queue-capture-beta-provenance-dashboard-slice",
+        "session_id": "cont-0f7fc528"
+      },
+      {
+        "hash": "3b39532a6ffd2f524e5d0460c0ae2fd7ee37fd88",
+        "subject": "proof(planning): run_4e5642ada3bf8872 proof-queue-capture-beta-provenance-dashboard-slice",
+        "body": "Continuous-Session: cont-0f7fc528\nCo-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>",
+        "phase": "planning",
+        "run_id": "run_4e5642ada3bf8872",
+        "objective_slug": "proof-queue-capture-beta-provenance-dashboard-slice",
+        "session_id": "cont-0f7fc528"
+      },
+      {
+        "hash": "112815884cc1dd486f4146ab99e2c93e6512c612",
+        "subject": "proof(implementation): run_22f4e44f4ae40444 proof-queue-capture-alpha-ledger-evidence-trail",
+        "body": "Continuous-Session: cont-0f7fc528\nCo-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>",
+        "phase": "implementation",
+        "run_id": "run_22f4e44f4ae40444",
+        "objective_slug": "proof-queue-capture-alpha-ledger-evidence-trail",
+        "session_id": "cont-0f7fc528"
+      },
+      {
+        "hash": "fdb52006e3a2a56076283b977f2389992231c12a",
+        "subject": "proof(planning): run_22f4e44f4ae40444 proof-queue-capture-alpha-ledger-evidence-trail",
+        "body": "Continuous-Session: cont-0f7fc528\nCo-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>",
+        "phase": "planning",
+        "run_id": "run_22f4e44f4ae40444",
+        "objective_slug": "proof-queue-capture-alpha-ledger-evidence-trail",
+        "session_id": "cont-0f7fc528"
+      }
+    ],
+    "blockers": [],
+    "vision_unchanged": true,
+    "stdout_tail": "accepted: turn_3de0e91fc10a3446\nGate paused: phase_transition\n  Auto-approved phase_transition gate\nGate approved: phase_transition\nTurn assigned: turn_f745d375302131f1 → dev\n  Dispatching to local CLI: /opt/homebrew/Cellar/node@20/20.20.2/bin/node  transport: dispatch_bundle_only\nTurn accepted: turn_f745d375302131f1\nTurn assigned: turn_58cc45c192891f24 → qa\n  Dispatching to API proxy: anthropic / claude-haiku-4-5-20251001\n  Sending request to anthropic (claude-haiku-4-5-20251001)...\n  Turn result staged successfully.\nTurn accepted: turn_58cc45c192891f24\nGate paused: run_completion\n  Auto-approved run_completion gate\nGate approved: run_completion\nRun completed\n\n─── Run Summary ───\n  Status:  completed\n  Turns:   3\n  Gates:   2 approved\n  Errors:  none\n\n  Governance report: .agentxchain/reports/report-run_4e5642ada3bf8872.md\nRun 2/3 completed: completed\nVision-derived: Proof Queue: capture gamma escalation recovery drill\nagentxchain run\n  Max turns: 50  Gate mode: auto-approve\n\n  Dispatching to local CLI: /opt/homebrew/Cellar/node@20/20.20.2/bin/node  transport: dispatch_bundle_only\nTurn accepted: turn_2acc1d2ac3373f19\nGate paused: phase_transition\n  Auto-approved phase_transition gate\nGate approved: phase_transition\nTurn assigned: turn_5d4285a2cc605ff6 → dev\n  Dispatching to local CLI: /opt/homebrew/Cellar/node@20/20.20.2/bin/node  transport: dispatch_bundle_only\nTurn accepted: turn_5d4285a2cc605ff6\nTurn assigned: turn_a9de0726ac118b1c → qa\n  Dispatching to API proxy: anthropic / claude-haiku-4-5-20251001\n  Sending request to anthropic (claude-haiku-4-5-20251001)...\n  Turn result staged successfully.\nTurn accepted: turn_a9de0726ac118b1c\nGate paused: run_completion\n  Auto-approved run_completion gate\nGate approved: run_completion\nRun completed\n\n─── Run Summary ───\n  Status:  completed\n  Turns:   3\n  Gates:   2 approved\n  Errors:  none\n\n  Governance report: .agentxchain/reports/report-run_bb868ab3f3e4e947.md\nRun 3/3 completed: completed\nMax runs reached (3). Stopping.",
+    "stderr_tail": ""
+  },
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "command": "agentxchain run --continuous --vision .planning/VISION.md --max-runs 3 --poll-seconds 30 --triage-approval auto"
+}
