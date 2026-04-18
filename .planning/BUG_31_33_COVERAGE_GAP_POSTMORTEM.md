@@ -24,6 +24,11 @@ Document why the iterative planning conflict loop shipped through `v2.130.1`, wh
    - The bug report was about durable planning repair across turns and a broken documented escape hatch.
    - The suite did not include either exact operator flow.
 
+4. We repeated the same abstraction mistake on BUG-36.
+   - The shipped test covered only `Required file missing: <path>`.
+   - The beta tester hit the semantic emission `.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.`
+   - We treated “one file-shaped reason passed” as proof that all file-shaped reasons were covered. That was indefensible.
+
 ## What Shipped In The Fix
 
 - `accept-turn --resolution human_merge` now accepts the active staged result in one invocation, records `conflict_resolution_selected` and `conflict_resolved`, and emits `conflict_resolved` to `.agentxchain/events.jsonl`.
@@ -47,6 +52,7 @@ Document why the iterative planning conflict loop shipped through `v2.130.1`, wh
 - `human_merge` on turns that were already stuck in persisted `human_merging` state from older repos.
 - Dashboard/API exposure for `conflict_resolved` timeline events.
 - Recovery/report/audit surfaces that summarize forward-revision acceptance without surfacing false conflict severity.
+- Release preflight still does not prove beta fixes against the shipped binary.
 
 ## Coverage Audit Plan
 
@@ -82,12 +88,27 @@ The beta-tester reopen pattern is broader than BUG-31..33. The durable gap is th
 
 Every newly documented dispatch path or retry path must add one matrix row here and one executable proof per lifecycle stage it claims to support. Shared-library tests are useful, but they do not replace at least one real command-level proof for each operator-visible path.
 
+## Fourth False Closure Entry
+
+### BUG-36 reopened as BUG-37 on `v2.135.0`
+
+- **Shipped claim:** gate-semantic coverage rejection handled file-based gate failures.
+- **Actual shipped behavior:** only the `Required file missing:` reason shape was covered. Semantic gate reasons with `<path> must define ...` bypassed the regex extractor and were silently accepted.
+- **Beta evidence:** repeated accepted `dev` turns left `.planning/IMPLEMENTATION_NOTES.md` semantically unchanged while still proposing `qa`.
+- **Turn 198 correction:** gate evaluation now returns structured `failing_files`; acceptance consumes that field directly; beta tests cover all three real file-emission shapes.
+
+## Structural Discipline Rules Added After BUG-37
+
+1. **Real emitter rule.** Any beta-tester scenario asserting on gate reasons, event payloads, or operator-facing error text must call the production emitter and assert its real output. Synthetic strings do not count as coverage.
+2. **Claim-reality preflight rule.** A bug marked fixed is not releasable until its beta-tester scenario passes against the packaged CLI artifact that would actually ship, not just the source-tree test harness.
+
 ## Acceptance Tests
 
 - [x] `bug-31-human-merge-completion.test.js` proves single-invocation terminal acceptance.
 - [x] `iterative-planning-repair.test.js` proves repeated PM repair turns on durable planning files accept cleanly.
 - [x] governed-state regression proves stale same-role PM planning overlap is classified as forward revision.
 - [x] `dispatch-path-lifecycle-matrix.test.js` proves `step --resume` retry rebinding, `restart` retained retry-bundle preservation, and manual `resume` -> `accept-turn` gate-semantic rejection.
+- [x] `bug-37-gate-semantic-real-emissions.test.js` proves all real gate file-emission formats reject turns that did not touch the gated artifact.
 
 ## Open Questions
 

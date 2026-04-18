@@ -3160,22 +3160,10 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       // that this turn didn't modify.
       const declaredFiles = new Set((turnResult.files_changed || []).map(f => f.replace(/^\.\//, '')));
       const exitGateId = preGateResult.gate_id || 'unknown_gate';
-
-      // Extract file paths from gate failure reasons and missing_files
-      const failingFiles = [
-        ...(preGateResult.missing_files || []),
-      ];
-
-      // Also extract file paths from failure reasons (e.g., ".planning/IMPLEMENTATION_NOTES.md: ...")
-      for (const reason of (preGateResult.reasons || [])) {
-        const fileMatch = reason.match(/(?:Required file missing|file): ([^\s,]+)/);
-        if (fileMatch) failingFiles.push(fileMatch[1]);
-        // Also catch paths at the start of semantic failure messages
-        const semanticMatch = reason.match(/^([^\s:]+\.md):/);
-        if (semanticMatch) failingFiles.push(semanticMatch[1]);
-      }
-
-      const uniqueFailingFiles = [...new Set(failingFiles.map(f => f.replace(/^\.\//, '')))];
+      const uniqueFailingFiles = [...new Set(
+        (preGateResult.failing_files || preGateResult.missing_files || [])
+          .map(f => f.replace(/^\.\//, ''))
+      )];
       const uncoveredFiles = uniqueFailingFiles.filter(f => !declaredFiles.has(f));
 
       const gateSemanticMode = config.gate_semantic_coverage_mode || 'strict';

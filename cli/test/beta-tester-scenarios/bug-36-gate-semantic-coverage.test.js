@@ -28,6 +28,7 @@ import {
   normalizeGovernedStateShape,
 } from '../../src/lib/governed-state.js';
 import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
+import { evaluatePhaseExit } from '../../src/lib/gate-evaluator.js';
 
 const tempDirs = [];
 
@@ -138,6 +139,10 @@ function createProject() {
   mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
   mkdirSync(join(root, '.planning'), { recursive: true });
   writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(makeRawConfig(), null, 2));
+  writeFileSync(
+    join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+    '# Implementation Notes\n\n## Verification\n\n- Existing build is green.\n'
+  );
   writeFileSync(join(root, 'README.md'), '# Test\n');
   execSync('git init && git config user.email "test@test.com" && git config user.name "Test"', { cwd: root, stdio: 'ignore' });
   execSync('git add -A && git commit -m "init"', { cwd: root, stdio: 'ignore' });
@@ -169,8 +174,9 @@ describe('BUG-36: gate_semantic_coverage rejects phase transition when gated fil
 
     writeDispatchBundle(root, readState(root), config, { turnId });
 
-    // 3. Dev submits result proposing qa transition WITHOUT editing the gated file
-    //    files_changed only has a dummy file, NOT .planning/IMPLEMENTATION_NOTES.md
+    // 3. Dev submits result proposing qa transition WITHOUT editing the gated
+    //    file. The real gate failure is semantic, not "missing file":
+    //    IMPLEMENTATION_NOTES.md exists but still lacks ## Changes.
     const turnResultPath = join(root, '.agentxchain', 'staging', 'turn-result.json');
     writeFileSync(turnResultPath, JSON.stringify({
       schema_version: '1.0',
@@ -193,6 +199,20 @@ describe('BUG-36: gate_semantic_coverage rejects phase transition when gated fil
     mkdirSync(join(root, 'src'), { recursive: true });
     writeFileSync(join(root, 'src', 'index.js'), 'console.log("hello");\n'.padEnd(100));
     execSync('git add -A && git commit -m "dev turn"', { cwd: root, stdio: 'ignore' });
+
+    const preGate = evaluatePhaseExit({
+      state: readState(root),
+      config,
+      acceptedTurn: JSON.parse(readFileSync(turnResultPath, 'utf8')),
+      root,
+    });
+    assert.equal(preGate.action, 'gate_failed');
+    assert.deepEqual(preGate.failing_files, ['.planning/IMPLEMENTATION_NOTES.md']);
+    assert.deepEqual(
+      preGate.reasons,
+      ['.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.'],
+      'BUG-37 regression: test must use the exact semantic gate reason emitted by evaluatePhaseExit'
+    );
 
     // 4. Accept should reject with gate_semantic_coverage error
     const accept = acceptGovernedTurn(root, config, {

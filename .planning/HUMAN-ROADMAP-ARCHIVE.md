@@ -2345,3 +2345,102 @@ This separation is the difference between a useful product and a confused one. D
 > **Short conclusion**
 >
 > `2.134.1` fixed important earlier blockers, but still cannot reliably continue a real repo in full-auto mode. The remaining failures are stale queued intents poisoning continuous mode, and gate-repair turns not actually repairing the gated artifact even after explicit retries and a narrow injected repair intent. That is the current reason this run still needs operator babysitting.
+
+---
+
+### Beta-tester bug report #9 (verbatim) — BUG-36 false closure on v2.135.0 (2026-04-18)
+
+> **Title**
+>
+> `2.135.0` still allows deterministic gate-repair loops: accepted dev turns can repeatedly ignore a required artifact semantic, never satisfy the phase gate, and continuous mode still cannot recover the run
+>
+> **Summary**
+>
+> In a real governed single-repo run (`tusq.dev`), AgentXchain repeatedly dispatched and accepted `dev` turns that did not satisfy a simple, explicit implementation gate requirement: `.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.`
+>
+> Even after multiple retries, explicit human rejection reasons, injected p0 repair intents, and running the workflow under `agentxchain@2.135.0`, the dev role continued to rerun verification, propose transition to QA, get accepted, and leave the gated artifact unchanged.
+>
+> The run remains stuck in `implementation`. This is now a clear framework-level issue because (1) gate failure is explicit and machine-readable, (2) required file is known, (3) role owns the file, (4) repeated accepted turns never touch that file semantically, (5) the system still accepts those turns and loops.
+>
+> **Environment**
+> - Repo: `tusq.dev`, OS macOS, Protocol governed v4, Template `cli-tool`
+> - Run: `run_c8a4701ce0d4952d`, Phase `implementation`
+> - Roles: `pm`, `dev`, `qa`, `product_marketing`, `eng_director` — all authoritative + local CLI
+> - Tested: `/opt/homebrew/bin/agentxchain 2.134.1`, `npx -p agentxchain@2.135.0`
+> - Homebrew tap upgrade blocked by broken formula conflict; 2.135.0 tested via npx
+>
+> **Context**
+>
+> Implementing Docusaurus-based docs/blog/site migration. Implementation happened successfully: Docusaurus scaffold under `website/`, docs pages authored, blog posts authored, build and smoke checks pass. But phase exit blocked because implementation notes artifact is semantically incomplete.
+>
+> **Current gate failure**
+>
+> ```text
+> Gate: implementation_complete
+> Request: implementation -> qa
+> Reasons:
+> - .planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.
+> ```
+>
+> Current file has `## Challenge To Prior Turn`, `## What Was Implemented`, `## Verification`, `## Notes / Follow-ups` — no `## Changes`.
+>
+> **Observed behavior (multiple accepted dev turns did not fix gated artifact)**
+>
+> Examples: `turn_48b1c08ef3905243`, `turn_494964a9db3924e0`, `turn_67d4624e95eabff1`, `turn_40a159d90975714c`, `turn_f38c0b19b70c8cf6` (under 2.135.0).
+>
+> These turns consistently:
+> - reran verification commands
+> - summarized revalidation
+> - proposed `qa`
+> - left `.planning/IMPLEMENTATION_NOTES.md` unchanged with no `## Changes`
+>
+> Typical summary: "Revalidated implementation gate checks on the current workspace and recorded passing evidence for QA handoff." Verification: `cd website && npm install`, `cd website && npm run build`, `cd website && npm run typecheck`, `node tests/smoke.mjs`. `files_changed` either did not include the gated file or the file's semantic content still did not satisfy the gate.
+>
+> Yet these turns were still accepted, and the run remained blocked on the exact same reason.
+>
+> **Additional steering attempts that still failed**
+>
+> Injected narrow p0 repair intents:
+> 1. Add a literal `## Changes` section to `.planning/IMPLEMENTATION_NOTES.md`, preserve the implementation summary, do not redo broader website work
+> 2. Treat `websites/` as the live legacy site and consolidate it into `website/`; update `.planning/IMPLEMENTATION_NOTES.md` with a literal `## Changes` section describing that consolidation
+>
+> These intents were approved and visible in state, but the dev turns still did not make the required artifact change.
+>
+> **Continuous mode is also not a viable escape hatch**
+>
+> ```bash
+> agentxchain run --continue-from run_c8a4701ce0d4952d --continuous --auto-approve --auto-checkpoint --max-turns 20 --max-runs 5 --triage-approval auto
+> ```
+>
+> Under 2.135.0 via npx, still failed immediately:
+> ```text
+> Found queued intent: intent_1776473633943_0543 (approved)
+> Continuous start error: plan failed: existing planning artifacts would be overwritten
+> ```
+>
+> Intent files at `.agentxchain/intake/intents/*.json` still have `approved_run_id = null` and `run_id = null`. Migration/state gap for previously persisted intents in existing repos.
+>
+> **Why this is a framework bug**
+>
+> Not "model made a bad choice." Framework bug because system: knows gate failure exactly; knows file exactly; knows missing semantic exactly; keeps dispatching same owner role; keeps accepting turns that don't address that semantic; never escalates or hard-fails the loop. Framework lacks convergence guard for artifact-semantic gate repair.
+>
+> **Expected behavior**
+>
+> At least one of:
+> 1. Gate-aware acceptance rejection — if turn dispatched to repair failing gate doesn't modify the gated artifact to satisfy the named requirement, acceptance should fail
+> 2. Artifact-semantic coverage validator — when gate failure says "file X must define heading Y", turn should be checked for that exact semantic before acceptance
+> 3. Escalation after repeated non-progress — after N accepted turns with same unchanged gate reason, run should stop and raise clear escalation instead of looping indefinitely
+> 4. Prompt binding of gate repair — repair turn prompt should prominently include exact gate failure and make it the primary acceptance target, not merely background context
+>
+> **Suggested fixes**
+> 1. Add semantic gate coverage checks to acceptance
+> 2. Detect repeated non-progress — if same gate reason persists across accepted turns with no meaningful artifact delta, automatically escalate/block/reject
+> 3. Strengthen repair-turn prompting — gate failure first-class in prompt
+> 4. Track gate-repair effectiveness — compare previous/current gate reasons + gated file changes
+> 5. Fix existing-intent migration for continuous mode — old persisted intents with null run scoping should not poison current continuous runs
+>
+> **Severity: P1.** Causes deterministic non-converging loops, consumes turns without progress, blocks autonomous advancement on trivial artifact repair, undermines trust in both direct run mode and continuous mode.
+>
+> **Short conclusion**
+>
+> `2.135.0` still does not prevent a governed run from accepting repeated non-progressing repair turns against the same failing artifact gate. That is the current reason this `tusq.dev` run remains stuck in implementation.

@@ -85,6 +85,15 @@ function addMissingFile(result, filePath) {
   }
 }
 
+function addFailingFile(result, filePath) {
+  if (!filePath) {
+    return;
+  }
+  if (!result.failing_files.includes(filePath)) {
+    result.failing_files.push(filePath);
+  }
+}
+
 function prefixSemanticReason(filePath, reason) {
   if (!reason || reason.includes(filePath)) {
     return reason;
@@ -111,6 +120,7 @@ function evaluateGateArtifacts({ root, config, gateDef, phase, result, state }) 
     if (!existsSync(absPath)) {
       if (artifact.required) {
         addMissingFile(result, artifact.path);
+        addFailingFile(result, artifact.path);
         failures.push(`Required file missing: ${artifact.path}`);
       }
       continue;
@@ -119,6 +129,7 @@ function evaluateGateArtifacts({ root, config, gateDef, phase, result, state }) 
     if (artifact.useLegacySemantics) {
       const semanticCheck = evaluateWorkflowGateSemantics(root, artifact.path);
       if (semanticCheck && !semanticCheck.ok) {
+        addFailingFile(result, artifact.path);
         failures.push(semanticCheck.reason);
       }
     }
@@ -130,12 +141,14 @@ function evaluateGateArtifacts({ root, config, gateDef, phase, result, state }) 
         semantics_config: semantic.semantics_config,
       });
       if (semanticCheck && !semanticCheck.ok) {
+        addFailingFile(result, artifact.path);
         failures.push(prefixSemanticReason(artifact.path, semanticCheck.reason));
       }
     }
 
     // Charter enforcement: verify owning role participated in this phase
     if (artifact.owned_by && !hasRoleParticipationInPhase(state, phase, artifact.owned_by)) {
+      addFailingFile(result, artifact.path);
       failures.push(
         `"${artifact.path}" requires participation from role "${artifact.owned_by}" in phase "${phase}", but no accepted turn from that role was found`,
       );
@@ -161,11 +174,12 @@ function evaluateGateArtifacts({ root, config, gateDef, phase, result, state }) 
  * @property {boolean} blocked_by_human_approval - gate passed structurally but needs human sign-off
  * @property {string[]} reasons - human-readable failure reasons
  * @property {string[]} missing_files - files required by gate but not found
+ * @property {string[]} failing_files - files tied to gate failures
  * @property {boolean} missing_verification - verification required but not passed
  * @property {string|null} next_phase - the target phase if transition was requested and gate passed
  * @property {string|null} transition_request - the raw phase_transition_request value
  * @property {'no_request'|'unknown_phase'|'gate_failed'|'advance'|'awaiting_human_approval'|'no_gate'} action
- */
+*/
 export function evaluatePhaseExit({ state, config, acceptedTurn, root }) {
   const currentPhase = state.phase;
   const transitionRequest = acceptedTurn.phase_transition_request || null;
@@ -176,6 +190,7 @@ export function evaluatePhaseExit({ state, config, acceptedTurn, root }) {
     blocked_by_human_approval: false,
     reasons: [],
     missing_files: [],
+    failing_files: [],
     missing_verification: false,
     next_phase: null,
     transition_request: transitionRequest,
@@ -303,6 +318,7 @@ export function evaluatePhaseExit({ state, config, acceptedTurn, root }) {
  * @property {boolean} blocked_by_human_approval - gate passed structurally but needs human sign-off
  * @property {string[]} reasons - human-readable failure reasons
  * @property {string[]} missing_files - files required by gate but not found
+ * @property {string[]} failing_files - files tied to gate failures
  * @property {boolean} missing_verification - verification required but not passed
  * @property {'no_request'|'not_final_phase'|'gate_failed'|'complete'|'awaiting_human_approval'} action
  */
@@ -313,6 +329,7 @@ export function evaluateRunCompletion({ state, config, acceptedTurn, root }) {
     blocked_by_human_approval: false,
     reasons: [],
     missing_files: [],
+    failing_files: [],
     missing_verification: false,
     action: 'no_request',
   };

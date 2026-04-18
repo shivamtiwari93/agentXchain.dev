@@ -231,6 +231,87 @@ describe('evaluatePhaseExit — pure function', () => {
     assert.ok(result.missing_files.includes('.planning/SYSTEM_SPEC.md'));
   });
 
+  it('BUG-37: returns structured failing_files for real semantic failures', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Verification\n\n- build passed\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'implementation' }),
+      config: makeConfig({
+        gates: {
+          planning_signoff: {
+            requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
+            requires_human_approval: true,
+          },
+          implementation_complete: {
+            requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+          },
+          qa_ship_verdict: {
+            requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
+            requires_human_approval: true,
+          },
+        },
+      }),
+      acceptedTurn: makeTurnResult({
+        role: 'dev',
+        runtime_id: 'local-dev',
+        proposed_next_role: 'qa',
+        phase_transition_request: 'qa',
+      }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.deepEqual(result.failing_files, ['.planning/IMPLEMENTATION_NOTES.md']);
+    assert.deepEqual(
+      result.reasons,
+      ['.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.']
+    );
+  });
+
+  it('BUG-37: returns structured failing_files for prefixed workflow_kit semantic failures', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'CUSTOM_CHECK.md'), '# Custom Check\n\n## Todo\n\n- missing done\n');
+    writeFileSync(
+      join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Implementation Notes\n\n## Changes\n\n- completed\n\n## Verification\n\n- pass\n'
+    );
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'implementation' }),
+      config: makeConfig({
+        workflow_kit: {
+          phases: {
+            implementation: {
+              artifacts: [{
+                path: '.planning/CUSTOM_CHECK.md',
+                required: true,
+                semantics: 'section_check',
+                semantics_config: {
+                  required_sections: ['## Done'],
+                },
+              }],
+            },
+          },
+        },
+      }),
+      acceptedTurn: makeTurnResult({
+        role: 'dev',
+        runtime_id: 'local-dev',
+        proposed_next_role: 'qa',
+        phase_transition_request: 'qa',
+      }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.deepEqual(result.failing_files, ['.planning/CUSTOM_CHECK.md']);
+    assert.deepEqual(
+      result.reasons,
+      ['.planning/CUSTOM_CHECK.md: Document must contain sections: ## Done']
+    );
+  });
+
   it('AT-WKC-013: existing requires_files still work alongside additive workflow_kit artifacts', () => {
     const config = makeConfig({
       workflow_kit: {

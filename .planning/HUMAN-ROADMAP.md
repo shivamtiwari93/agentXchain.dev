@@ -9,9 +9,52 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: **P1 bug cluster #8 — continuous mode blocked by stale cross-run intents and dev retries ignore injected gate-repair intents on v2.134.1.** Beta tester's second post-upgrade report. Prior BUG-31/32/33 fixes shipped in v2.132.x–v2.134.1 and helped, but two deeper gaps remain that block true full-auto. Full verbatim report in `HUMAN-ROADMAP-ARCHIVE.md` under "Beta-tester bug report #8 (2026-04-18)". Apply Active Discipline rules below on every fix.
+Current focus: **P1 bug cluster #9 — BUG-36 false closure on v2.135.0, plus non-progress guard + intent migration gaps.** Fourth false closure in this beta cycle. The BUG-36 fix shipped with a regex that doesn't match real gate reasons, so the validator does nothing on the actual operator flow. Full verbatim report in `HUMAN-ROADMAP-ARCHIVE.md` under "Beta-tester bug report #9 (2026-04-18)". This is the discipline problem the roadmap has been flagging for days — agents are still writing tests that pass on synthetic inputs while the real flow breaks.
 
 ## Priority Queue
+
+- [x] **BUG-37: REOPEN BUG-36 — gate_semantic_coverage regex doesn't match real gate reason format (confirmed false closure)** — Fixed in Turn 198: `evaluatePhaseExit()`/`evaluateRunCompletion()` now return structured `failing_files`; `gate_semantic_coverage` consumes that field directly instead of regex-parsing `reasons`; `cli/test/beta-tester-scenarios/bug-36-gate-semantic-coverage.test.js` now reproduces the real semantic emission; `cli/test/beta-tester-scenarios/bug-37-gate-semantic-real-emissions.test.js` covers all real file-emission shapes; retrospective written in `.planning/BUG_36_FALSE_CLOSURE.md`. — Verified at `cli/src/lib/governed-state.js:3170-3175`. The two regexes (`(?:Required file missing|file): ([^\s,]+)` and `^([^\s:]+\.md):`) only match paths followed by a literal `:`. The actual gate reason emitted by the framework is `.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.` — no colon after the filename. Result: `failingFiles` stays empty, `uncoveredFiles.length > 0` is always false, validator never fires, turns get accepted despite not touching the gated file. Exactly what BUG-36 was supposed to prevent.
+  - **Required actions:**
+    1. Write `false_closure` retrospective `.planning/BUG_36_FALSE_CLOSURE.md`. Specifically: what did BUG-36's tester-sequence test assert? What input format did it use? Why didn't it use the real gate emission format?
+    2. Tester-sequence test must be updated (or a new one added) that uses the EXACT gate reason format produced by `evaluatePhaseExit` for semantic failures. Do not synthesize a fake reason. Call the real gate evaluator.
+    3. Rewrite the file-path extraction to handle all real-world emission formats. Options:
+       - Broader regex: `/^([^\s:]+\.md)(?:\s|:|$)/` — matches file followed by whitespace, colon, or end-of-line
+       - Structured approach (preferred): `evaluatePhaseExit` should return `failing_files` as a first-class field on its result object. The validator consumes that field directly instead of regex-parsing prose reasons. This eliminates the format-drift risk permanently.
+    4. Add assertions against all gate-semantics emission paths. Grep `workflow-gate-semantics.js` and adjacent modules for every place that produces a failure reason mentioning a file. Each one must be exercised by a tester-sequence test.
+  - **Acceptance:** beta tester's exact reproduction sequence (gate fails on "IMPLEMENTATION_NOTES.md must define ## Changes", dev proposes `qa` without editing the file) results in a rejected turn with the specific `gate_semantic_coverage` error naming the file.
+
+- [ ] **BUG-38: No convergence guard — framework accepts N consecutive turns that don't reduce the same gate failure** — Missing capability entirely, not a regression. Tester observed 5+ accepted dev turns (`turn_48b1c08ef3905243`, `turn_494964a9db3924e0`, `turn_67d4624e95eabff1`, `turn_40a159d90975714c`, `turn_f38c0b19b70c8cf6`) all leaving the same `## Changes` gate failure intact, never escalating, never stopping the loop. Even after BUG-37 lands (strict rejection), the framework should detect non-progress patterns for additional safety.
+  - **Fix requirements:**
+    - Track `gate_failure_signature` across accepted turns: hash of (gate_id + sorted failing_files + sorted failure_reasons).
+    - When N consecutive accepted turns produce the same signature AND the gated file wasn't modified (delta of gated file = 0), emit a `run_stalled` event and transition run status to `needs_human` with escalation reason "Non-progress detected: <N> accepted turns have not reduced gate failure <gate_id>."
+    - `N` must be configurable with a sane default (suggest 3). Name: `run_loop.non_progress_threshold`.
+    - Non-progress escalation must be visible in `status`, `doctor`, and `agentxchain events` as a first-class blocker.
+    - Operator resolution command: `agentxchain unblock-run <run_id> --acknowledge-non-progress` to reset the counter after fixing the underlying issue manually.
+    - Tester-sequence test: dispatch 3 dev turns that all decline to modify the gated file, verify the 3rd one triggers the non-progress block, verify `unblock-run` resumes.
+  - **Acceptance:** a repo in the tester's exact state cannot accept more than `N` turns with the same gate failure before the framework escalates.
+
+- [ ] **BUG-39: Cross-run intent migration doesn't run against pre-existing intent files — `approved_run_id: null` in on-disk JSON for pre-BUG-34 repos** — Confirmed from tester evidence: older intent files at `.agentxchain/intake/intents/*.json` still have `approved_run_id: null` and `run_id: null`. BUG-34's fix stamps these fields on NEW approvals but did not run a migration pass to populate them for existing intent files. Result: continuous mode still picks up stale intents from before the BUG-34 fix landed.
+  - **Fix requirements:**
+    - On `agentxchain run`/`restart`/`resume`/`continuous` startup, scan `.agentxchain/intake/intents/*.json`. For any `approved` intent with `approved_run_id: null`:
+      - If the intent has an associated `run_id` field (some may), use that
+      - Otherwise, archive it with an explicit migration note: `status: "archived_migration"`, `archived_reason: "pre-BUG-34 intent with no run scope; archived during v2.X.Y migration"`
+      - Do NOT silently re-bind to current run — operator should see the archival and explicitly re-inject if the work is still needed
+    - Emit `intents_migrated` event with count of archived intents and their IDs.
+    - Add a CLI notice at startup when migration runs: "Archived N pre-BUG-34 intents. Review: agentxchain intake status --archived."
+    - Tester-sequence test: seed a repo with intent files having `approved_run_id: null` (matching the tester's actual on-disk state), run `agentxchain run`, verify migration runs and those intents no longer appear as queue candidates.
+  - **Acceptance:** tester's repo can run `agentxchain run --continuous` without hitting "Found queued intent: intent_1776473633943_0543 (approved) → Continuous start error" because the old intents have been migrated to archived status.
+
+### Implementation notes
+
+- **This is the 4th false closure pattern in this beta cycle.** BUG-17/19/20/21 (v2.130.1), BUG-36 (v2.135.0), and the ongoing coverage-gap pattern across beta reports 6/7/8/9. The discipline rules have not been enough. Two structural fixes required alongside BUG-37/38/39:
+  1. **Mandatory: use REAL emission formats in tester-sequence tests.** Any test that asserts on error messages, gate reasons, or event payloads must call the real emitter, not construct synthetic strings. Add a lint rule or guard test that fails if a beta-tester-scenario test uses hardcoded reason strings instead of calling the production code path.
+  2. **Mandatory: add a "claim-reality" gate to release preflight.** For every BUG-N marked "fixed," the preflight must run the tester-sequence test against the shipped CLI binary (not the source tree) and verify the fix holds end-to-end. This catches the "built from source passes, published binary fails" class of bug.
+- **Ordering:**
+  1. BUG-37 first as v2.135.1 patch — highest-impact, single-file regex fix, unblocks the tester's immediate loop
+  2. BUG-39 next — unblocks continuous mode for tester's existing repo state
+  3. BUG-38 after — adds the defense-in-depth non-progress guard that would have caught BUG-37 symptoms anyway
+- **Internal postmortem required:** `.planning/BUG_36_FALSE_CLOSURE.md` AND extend the existing `BUG_31_33_COVERAGE_GAP_POSTMORTEM.md` with the fourth false-closure entry and the two new structural discipline rules above.
+- **Do not broadcast.** The fix ships as v2.135.1 with a matter-of-fact release note: "Fixed gate semantic coverage validator to handle all gate reason formats." No acknowledgment of the false-closure pattern in public surfaces.
 
 - [x] **BUG-34: Continuous mode aborts on stale cross-run intents — "existing planning artifacts would be overwritten"** — Fixed in Turn 191: `approved_run_id` stamped on approval, `findNextDispatchableIntent`/`findPendingApprovedIntents` accept `{ run_id }` for scoping, continuous mode passes `session.current_run_id`, run init archives stale intents from prior runs and adopts pre-run intents. Tester-sequence test: `cli/test/beta-tester-scenarios/bug-34-cross-run-intent-leakage.test.js` (3 assertions). — Verified gap. `governed-state.js:2667` reads intent_id from turn context but no code path archives or filters intents from prior runs. Old intents (`intent_1776473633943_0543`, `intent_1776474414878_c28b` from the tester's first run) still appear in the queue for a later run and `continuous-run.js` picks them up, tries to plan, and aborts with the existing-artifacts error.
   - **Root cause:** intent queue is repo-scoped, not run-scoped. When a new run starts (`run_c8a4701ce0d4952d`), old `approved` intents from previous runs are still visible because the lifecycle didn't mark them `consumed` / `superseded` / `run_bound`.
