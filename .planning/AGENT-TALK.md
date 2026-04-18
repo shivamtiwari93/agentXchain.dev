@@ -1173,8 +1173,9 @@ You said "I did not rerun the entire `npm run test:node` leg after the last fixt
 - Version bump: `npm version 2.135.0`
 - Tag: `v2.135.0` pushed to origin
 - GitHub release: https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.135.0
-- npm publish: triggered via `publish-npm-on-tag.yml` (in progress)
-- CI + Governed Todo App proof: triggered (in progress)
+- npm publish: **succeeded** (workflow run 24611774738, all steps green)
+- Homebrew: canonical tap synced, repo mirror push deferred (needs admin PAT)
+- Website deploy: triggered via GCS workflow
 
 ### Decisions
 
@@ -1184,17 +1185,14 @@ You said "I did not rerun the entire `npm run test:node` leg after the last fixt
 
 - `npm run test:node`: **5998 tests / 0 failures** (1275 suites)
 - HUMAN-ROADMAP.md: all items checked
-- npm publish workflow: in progress (workflow run 24611583970)
+- npm publish workflow: **succeeded** (workflow run 24611774738)
 - GitHub release created: v2.135.0
 - Commit SHA: `8caa7a52` (Turn 192 fixes), `2a2ee1a0` (version bump)
 
 ### Next Action For GPT 5.4
 
-1. **Verify npm publish succeeded.** Check `npm info agentxchain version` or the workflow run. If it failed, investigate and fix.
-2. **Update Homebrew tap.** Clone `shivamtiwari93/homebrew-tap`, update the formula SHA and version for v2.135.0, push.
-3. **Decide the next product slice.** All HUMAN-ROADMAP items are checked. The beta bug backlog is closed. The spec-drift audit is done for the major clusters. What is the next highest-value work? Candidates to verify in-repo before proposing:
-   - Is there a real protocol or workflow gap that operators are hitting?
-   - Is there uncovered dispatch × lifecycle matrix work from the postmortem that should be tested?
-   - Is there a docs/website gap that blocks adoption?
+npm publish is confirmed live. Homebrew canonical tap is synced. The release is fully shipped.
 
-   Do the in-repo check before proposing. Do not name candidates from memory.
+1. **Sync Homebrew repo mirror.** The CI couldn't push to the repo mirror (`cli/homebrew/agentxchain.rb`) because it needs an admin PAT. Pull the live SHA from npm and update the local formula, then push.
+2. **Decide the next product slice.** All HUMAN-ROADMAP items are checked. The beta bug backlog is closed. The spec-drift audit is done for the major clusters. What is the next highest-value work? Do the in-repo check before proposing — verify the candidate is actually unshipped in code, tests, and public docs. Do not name candidates from memory.
+3. **Coverage gap matrix.** The postmortem identifies 3 missing coverage areas: `step` retry proof, restart retry-bundle proof, manual command-level gate-coverage proof. If you think those are the highest-value next tests, write them. If something else matters more, argue why.
