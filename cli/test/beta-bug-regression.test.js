@@ -24,8 +24,11 @@ import {
   initializeGovernedRun,
   assignGovernedTurn,
   acceptGovernedTurn,
+  rejectGovernedTurn,
   refreshTurnBaselineSnapshot,
+  reissueTurn,
   getActiveTurn,
+  getActiveTurns,
   normalizeGovernedStateShape,
 } from '../src/lib/governed-state.js';
 
@@ -357,5 +360,116 @@ describe('BUG-6: --stream flag is recognized by step command', () => {
     const output = result.stdout || '';
     assert.ok(output.includes('--stream'),
       `step --help should mention --stream flag. Got: ${output.slice(0, 500)}`);
+  });
+});
+
+// ── BUG-7: reissue-turn ─────────────────────────────────────────────────────
+
+describe('BUG-7: reissueTurn produces a fresh turn against current state', () => {
+  let dir, config;
+  beforeEach(() => {
+    ({ dir, config } = createGovernedProject());
+  });
+  afterEach(() => {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  });
+
+  it('reissues a turn with fresh baseline after HEAD changes', () => {
+    const initResult = initializeGovernedRun(dir, config);
+    assert.ok(initResult.ok);
+
+    const assignResult = assignGovernedTurn(dir, config, 'pm');
+    assert.ok(assignResult.ok);
+
+    const oldTurn = getActiveTurn(assignResult.state);
+    const oldHead = oldTurn.baseline.head_ref;
+
+    // Simulate operator committing a file (changing HEAD)
+    writeFileSync(join(dir, 'new-file.txt'), 'content');
+    execSync('git add new-file.txt && git commit -m "operator commit"', { cwd: dir, stdio: 'ignore' });
+
+    const newHead = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim();
+    assert.notStrictEqual(oldHead, newHead, 'HEAD should have changed');
+
+    // Reissue
+    const reissueResult = reissueTurn(dir, config, {
+      turnId: oldTurn.turn_id,
+      reason: 'baseline drift',
+    });
+
+    assert.ok(reissueResult.ok, `Reissue failed: ${reissueResult.error}`);
+    assert.ok(reissueResult.newTurn, 'Should have a new turn');
+    assert.notStrictEqual(reissueResult.newTurn.turn_id, oldTurn.turn_id, 'New turn should have a different ID');
+    assert.strictEqual(reissueResult.newTurn.assigned_role, 'pm', 'Same role');
+    assert.strictEqual(reissueResult.newTurn.baseline.head_ref, newHead, 'New baseline should point to current HEAD');
+    assert.ok(reissueResult.baselineDelta.head_changed, 'Should detect HEAD change');
+
+    // Old turn should not be in active turns
+    const state = readState(dir);
+    const activeTurns = getActiveTurns(state);
+    assert.ok(!(oldTurn.turn_id in activeTurns), 'Old turn should be removed from active turns');
+    assert.ok(reissueResult.newTurn.turn_id in activeTurns, 'New turn should be in active turns');
+
+    // Check events
+    const events = readEvents(dir);
+    const reissueEvents = events.filter(e => e.event_type === 'turn_reissued');
+    assert.ok(reissueEvents.length > 0, 'Should emit turn_reissued event');
+  });
+
+  it('reissue-turn command is registered', () => {
+    const result = spawnSync('node', [CLI_BIN, 'reissue-turn', '--help'], {
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    const output = result.stdout || '';
+    assert.ok(output.includes('reissue'),
+      `reissue-turn --help should exist. Got: ${output.slice(0, 500)}`);
+  });
+});
+
+// ── BUG-8: reject-turn retry refreshes baseline ─────────────────────────────
+
+describe('BUG-8: reject-turn retry refreshes baseline', () => {
+  let dir, config;
+  beforeEach(() => {
+    ({ dir, config } = createGovernedProject());
+  });
+  afterEach(() => {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  });
+
+  it('retry baseline is refreshed after HEAD changes', () => {
+    const initResult = initializeGovernedRun(dir, config);
+    assert.ok(initResult.ok);
+
+    const assignResult = assignGovernedTurn(dir, config, 'pm');
+    assert.ok(assignResult.ok);
+
+    const turn = getActiveTurn(assignResult.state);
+    const oldHead = turn.baseline.head_ref;
+
+    // Change HEAD
+    writeFileSync(join(dir, 'new-file.txt'), 'content');
+    execSync('git add new-file.txt && git commit -m "operator commit"', { cwd: dir, stdio: 'ignore' });
+
+    const newHead = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim();
+
+    // Reject the turn
+    const rejectResult = rejectGovernedTurn(dir, config, {
+      errors: ['test rejection'],
+      failed_stage: 'test',
+    }, {
+      turnId: turn.turn_id,
+      reason: 'baseline drift test',
+    });
+
+    assert.ok(rejectResult.ok, `Reject failed: ${rejectResult.error}`);
+
+    // The retry turn should have a refreshed baseline
+    const state = readState(dir);
+    const retryTurn = getActiveTurn(state);
+    assert.ok(retryTurn, 'Should have a retry turn');
+    assert.strictEqual(retryTurn.baseline.head_ref, newHead,
+      `Retry baseline should point to current HEAD ${newHead}, got ${retryTurn.baseline.head_ref}`);
   });
 });

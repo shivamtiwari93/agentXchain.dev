@@ -13,13 +13,280 @@ Current focus: close adoption-friction gaps surfaced by the first real beta test
 
 ## Priority Queue
 
-### P1 — Live beta bug — acceptance compares against dirty workspace, not turn delta (2026-04-17)
+### P1 — Live beta bug #2 — stale-baseline turn cannot be cleanly recovered after post-dispatch HEAD change (2026-04-17)
+
+Same beta tester, same first-run session, different defect class. After the BUG-1 acceptance failure, they tried every framework-native recovery path and none of them worked:
+- `restart` reconnected but didn't rebase
+- `reject-turn --reassign` refused (requires persisted `conflict_state`)
+- plain `reject-turn` retried the turn but kept the poisoned old baseline
+- the framework detects drift (`status` shows `Git HEAD has moved since checkpoint: 77083d12 -> d7310af3`) but offers no clean way to act on it
+
+Full verbatim bug report in **"Beta-tester bug report #2 (verbatim)"** below.
+
+**This is tightly linked to BUG-1 and to the already-open B-7 adoption item (`reissue-turn` for runtime rebinding).** All three are symptoms of the same missing capability: **there is no unified way to invalidate an active turn and reissue it against current state.** Design the fix once, ship it under one command, wire it into all three trigger paths.
+
+- [x] **BUG-7: `agentxchain reissue-turn` — unified turn invalidation + reissue against current state** — SHIPPED: `reissue-turn` command invalidates active turn, archives state, re-captures baseline from current HEAD/workspace, creates new turn with same role/phase. Covers baseline/runtime/authority drift. Events `turn_reissued` emitted. E2E test covers HEAD-change scenario. The headline fix. Ship a single canonical command that:
+  1. Invalidates the active turn (records the invalidation reason in decision ledger + `events.jsonl`)
+  2. Deletes / archives the stale dispatch bundle
+  3. Recaptures the baseline from current repo state (current HEAD, current runtime binding, current workspace snapshot)
+  4. Re-dispatches the turn under the refreshed baseline — same role, same phase, same intent
+  - **Triggers this command must cover:**
+    - Baseline drift — HEAD changed after dispatch (THIS bug)
+    - Runtime drift — `agentxchain.json` rebinding after dispatch (already covered by B-7 adoption item)
+    - Authority drift — `write_authority` changed on the assigned role (related to B-4)
+    - Operator-initiated — operator explicitly wants to throw away the current attempt and redo it fresh
+  - **Interface:**
+    - `agentxchain reissue-turn [--turn <id>] [--reason <text>]` — reissues the active turn by default; `--turn` targets a specific one.
+    - Exits cleanly with a summary of what changed between old and new baseline (HEAD delta, runtime delta, workspace delta).
+    - Writes a `turn_reissued` event with old_baseline, new_baseline, reason.
+  - **Fix requirements:**
+    - Unify with existing B-7 roadmap item — do NOT ship two separate commands for rebinding vs drift. Same command, multiple trigger reasons.
+    - The old turn state must be preserved as a historical artifact (e.g., `.agentxchain/history.jsonl` entry with attempt number), not silently overwritten.
+    - Add a decision ledger entry (`DEC-TURN-REISSUE-*`) per invocation.
+    - Include an E2E test reproducing the beta tester's exact scenario: dispatch turn → commit unrelated file changing HEAD → `reissue-turn` → turn dispatches cleanly against new HEAD.
+    - Include a test for the runtime-rebinding scenario (B-7's trigger) exercising the same command.
+  - **Acceptance:** the beta tester's reproduction flow ends with one command (`reissue-turn`) producing a clean, accepted turn against current state. No manual JSON editing.
+
+- [x] **BUG-8: `reject-turn` retry path must refresh baseline (OR explicitly refuse if baseline is stale)** — FIXED: `rejectGovernedTurn` now always refreshes baseline on retry (Option A), not just for conflict rejects. E2E test verifies retry baseline points to current HEAD after drift. — Plain `reject-turn` succeeded and set the turn to `retrying`, but `.agentxchain/state.json` still carried the poisoned old baseline `head_ref`. The retry was doomed before it dispatched.
+  - **Fix requirements:**
+    - When `reject-turn` transitions a turn to `retrying`, the protocol must either:
+      - **Option A (preferred):** refresh the baseline to current state before the retry dispatches. The retry is a new attempt — it should start from current state, not the moment the failed attempt was dispatched.
+      - **Option B (acceptable fallback):** refuse to retry with a specific error pointing at `reissue-turn` when drift is detected. No silent poisoned retry.
+    - Do NOT retain the silent-poisoned-retry behavior that currently exists — it turns recoverable drift into unrecoverable drift.
+    - Add a test: dispatch turn → commit file changing HEAD → `reject-turn` → verify the retry's baseline is either refreshed (A) or the command refused with a helpful error (B).
+  - **Acceptance:** after `reject-turn`, the retried turn's baseline agrees with current repo state — or the command refuses with an actionable pointer to `reissue-turn`.
+
+- [x] **BUG-9: `reject-turn --reassign` must work without pre-existing `conflict_state`** — FIXED: `--reassign` gate removed. With drift detected, outputs actionable message pointing to `reissue-turn`. Without drift, falls through to normal reject+retry (which now refreshes baseline per BUG-8). — The `--reassign` flag currently rejects with: "--reassign is only valid for turns with persisted conflict_state." That's too narrow. An operator explicitly rejecting a turn for baseline drift is exactly the case `--reassign` should handle — but it doesn't, because no conflict_state was recorded (the drift was detected post-hoc, not mid-dispatch).
+  - **Fix requirements:**
+    - Remove the `conflict_state`-only gate on `--reassign`. Any rejected turn should support reassignment if the operator opts in.
+    - OR, redirect `--reassign` to call `reissue-turn` internally when there's no conflict_state but drift is detected — unified surface, multiple entry points.
+    - Ensure the error path produces a useful message: if `--reassign` truly cannot recover, say why and point at the command that can (e.g., `reissue-turn`).
+    - Add a test exercising `reject-turn --reassign` on a drift-induced failure with no pre-existing conflict_state.
+  - **Acceptance:** `reject-turn --reassign` is a valid recovery path for post-dispatch drift, not just mid-dispatch conflicts.
+
+- [x] **BUG-10: `restart` must surface actionable drift recovery, not just detect drift** — FIXED: when `restart` detects drift with active turns, it now prints ranked recovery commands: `reissue-turn` for each turn, `reject-turn` as alternative. — `restart` correctly detects `Git HEAD has moved since checkpoint: 77083d12 -> d7310af3`, but stops at detection. The operator is left holding a warning with no command to execute next.
+  - **Fix requirements:**
+    - When `restart` detects drift (HEAD, runtime, authority, or workspace-baseline mismatch), output must include:
+      - The specific drift type and values (old → new)
+      - A ranked list of recovery options: retain current baseline (if safe), discard the active turn, or reissue from current HEAD
+      - The exact command for each option (e.g., `agentxchain reissue-turn --turn <id> --reason "baseline drift"`)
+    - Optionally add `restart --rebase-active-turns` as a convenience that delegates to `reissue-turn` for every active turn with drift. Lower priority than the core `reissue-turn` in BUG-7.
+    - Add a test asserting `restart` output contains actionable recovery commands when drift is present.
+  - **Acceptance:** operator who runs `restart` after drift sees a clear next command, not just a warning.
+
+### Implementation notes for BUG-7 through BUG-10
+
+- **Single command, multiple triggers:** BUG-7 is the atom. Ship `reissue-turn` first. BUG-8, BUG-9, BUG-10 are thin wrappers / error-path redirections that all end up calling `reissue-turn` internally.
+- **Merge with B-7 adoption item:** the B-7 roadmap item (runtime rebinding) was proposing the same command. Collapse them — there is one `reissue-turn` command covering all drift reasons. Update B-7's entry to reference BUG-7 when it lands, and close B-7 with the same fix.
+- **This cross-pollinates with the BUG-1..BUG-6 work:** the baseline consistency fix (BUG-2) is a hard dependency here too — you cannot reliably reissue a turn against a baseline that isn't captured reliably in the first place. BUG-2 → BUG-1 → BUG-7 is the build order.
+- **Proof discipline:** each bug gets a failing test committed BEFORE the fix. Commit the reproduction first, then the fix. Preserve the beta tester's exact reproduction as a test fixture.
+- **Event coverage:** every new state transition (`turn_reissued`, `turn_baseline_refreshed`) gets an entry in `events.jsonl` (closes BUG-4's gap for this class of operation too).
+- **Documentation:** add a `docs/recovery.mdx` section or extend the existing one with a "Recovering from post-dispatch drift" walkthrough. The operator should have a cookbook entry for this scenario.
+
+---
+
+### Beta-tester bug report #2 (verbatim)
+
+> **Title**
+>
+> Stale-baseline turn cannot be cleanly recovered after post-dispatch `HEAD` change; `accept-turn` fails, `reject-turn` retry preserves poisoned baseline
+>
+> **Environment**
+>
+> - Project: `tusq.dev`
+> - Protocol: governed v4
+> - CLI used: `agentxchain@2.128.0` via `npx --yes -p agentxchain@latest -c "agentxchain ..."`
+> - Runtime type: `local_cli`
+> - Active role: `pm`
+> - OS: macOS
+> - Repo path: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+>
+> **Summary**
+>
+> A governed `local_cli` turn was dispatched from clean baseline commit `77083d12...`.
+> After dispatch, an unrelated but intentional config change in `agentxchain.json` was committed as new `HEAD` `d7310af3...`.
+>
+> The PM subprocess itself completed successfully and staged a valid result, but `accept-turn` failed because AgentXchain still treated `agentxchain.json` as an undeclared observed artifact. After that:
+>
+> - `restart` successfully reconnected the run
+> - `reject-turn` successfully moved the turn to `retrying`
+> - but the retried turn **kept the original baseline** (`77083d12...`) instead of rebasing to current `HEAD` (`d7310af3...`)
+>
+> This leaves the turn effectively poisoned with no clean framework-native way to reissue it from the current commit.
+>
+> **Expected behavior**
+>
+> If `HEAD` changes after dispatch and the operator intentionally wants to continue:
+> - either AgentXchain should provide a supported way to rebase/reissue the active turn against current `HEAD`
+> - or `reject-turn` retry should refresh the baseline when retrying after explicit operator rejection for baseline drift
+> - or `restart` should offer a `reissue from current head` path
+>
+> At minimum, once the operator has acknowledged the drift, there should be a framework-native way to recover and continue without manual state surgery.
+>
+> **Observed behavior**
+>
+> 1. Turn dispatched successfully.
+> 2. PM subprocess completed successfully and wrote staged result.
+> 3. `accept-turn` failed with undeclared file change mismatch.
+> 4. `status` showed drift: `Git HEAD has moved since checkpoint: 77083d12 -> d7310af3`
+> 5. `restart` reconnected run but retained stale active turn.
+> 6. `reject-turn --reassign` was rejected because `--reassign` only works for persisted `conflict_state`.
+> 7. plain `reject-turn --reason ...` worked and set turn to `retrying`
+> 8. but `.agentxchain/state.json` still retained the old baseline `head_ref: 77083d12...`
+> 9. therefore the retry did not actually recover the turn onto current `HEAD`
+>
+> **Commands run**
+>
+> Initial PM execution:
+> ```bash
+> cd "/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev"
+> npx --yes -p agentxchain@latest -c "agentxchain step --resume"
+> ```
+>
+> Intentional config commit after dispatch:
+> ```bash
+> git add agentxchain.json
+> git commit -m "chore: update local_cli authority flags"
+> ```
+>
+> Attempted acceptance:
+> ```bash
+> npx --yes -p agentxchain@latest -c "agentxchain accept-turn --turn turn_5bcc56d876e10a47"
+> ```
+>
+> Restart after drift warning:
+> ```bash
+> npx --yes -p agentxchain@latest -c "agentxchain restart"
+> ```
+>
+> Attempted reassign:
+> ```bash
+> npx --yes -p agentxchain@latest -c "agentxchain reject-turn --turn turn_5bcc56d876e10a47 --reason 'Baseline invalidated by intentional config commit after dispatch' --reassign"
+> ```
+>
+> Result:
+> ```text
+> --reassign is only valid for turns with persisted conflict_state.
+> ```
+>
+> Plain reject:
+> ```bash
+> npx --yes -p agentxchain@latest -c "agentxchain reject-turn --reason 'Baseline invalidated by intentional config commit after dispatch'"
+> ```
+>
+> **Acceptance failure message**
+>
+> ```text
+> Validation failed at stage artifact_observation
+>
+> Reason:   artifact_error
+> Owner:    human
+> Action:   Fix staged result and rerun agentxchain accept-turn, or reject with agentxchain reject-turn --reason "..."
+> Turn:     retained
+> Detail:   Undeclared file changes detected (observed but not in files_changed): agentxchain.json
+> ```
+>
+> **Evidence**
+>
+> Current `HEAD` after intentional config commit:
+> ```text
+> d7310af308a37f888375feaa8731cde6e7b6ef47
+> ```
+>
+> Active turn baseline in `.agentxchain/state.json` still points to old commit:
+> ```json
+> "baseline": {
+>   "kind": "git_worktree",
+>   "head_ref": "77083d12880c4b4f964f4b555a69da9b0a52cf32",
+>   "clean": true,
+>   "captured_at": "2026-04-17T23:59:36.476Z",
+>   "dirty_snapshot": {}
+> }
+> ```
+>
+> After `reject-turn`, turn is retried but baseline is unchanged:
+> ```json
+> "status": "retrying",
+> "attempt": 2,
+> "baseline": {
+>   "head_ref": "77083d12880c4b4f964f4b555a69da9b0a52cf32"
+> }
+> ```
+>
+> `status` clearly detects drift:
+> ```text
+> Drift: Git HEAD has moved since checkpoint: 77083d12 -> d7310af3
+> ```
+>
+> PM subprocess had actually completed and staged a result at:
+> - `.agentxchain/staging/turn_5bcc56d876e10a47/turn-result.json`
+>
+> That result correctly identified only planning-file changes:
+> - `.planning/PM_SIGNOFF.md`
+> - `.planning/SYSTEM_SPEC.md`
+> - `.planning/ROADMAP.md`
+> - `.planning/command-surface.md`
+>
+> The undeclared file was `agentxchain.json`, which was not a PM-authored planning artifact.
+>
+> **Why this is a problem**
+>
+> Once a turn's baseline becomes stale because `HEAD` changed:
+> - `accept-turn` cannot succeed cleanly
+> - `reject-turn` retry does not repair the baseline
+> - `restart` only reconnects, it does not rebase/reissue
+> - `reject-turn --reassign` is unavailable unless conflict state exists
+>
+> That leaves the run in a dead-end where the framework knows drift exists but offers no clean recovery path.
+>
+> **What I think should be added**
+>
+> One of these:
+>
+> 1. `agentxchain reissue-turn`
+>    - invalidate active turn
+>    - rebuild dispatch bundle
+>    - recapture baseline from current `HEAD`
+>
+> 2. `agentxchain reject-turn --reassign-from-head`
+>    - like retry, but explicitly refreshes baseline
+>
+> 3. `agentxchain restart --rebase-active-turns`
+>    - for post-checkpoint drift recovery
+>
+> 4. automatic operator prompt on restart:
+>    - drift detected
+>    - choose:
+>      - retain old baseline
+>      - discard turn
+>      - reissue from current `HEAD`
+>
+> **Severity**
+>
+> I would rate this `P1` for governed automation reliability because:
+> - it blocks progress after a common operator action
+> - the framework detects drift but cannot fully recover
+> - it leaves the active turn semantically invalid but still retained
+>
+> **Minimal reproducible pattern**
+>
+> 1. Dispatch a `local_cli` turn from a clean repo
+> 2. Let the subprocess finish and stage a result
+> 3. Before acceptance, commit an unrelated file so `HEAD` changes
+> 4. Try `accept-turn`
+> 5. Run `restart`
+> 6. Run `reject-turn`
+> 7. Observe that retry does not refresh baseline
+
+---
+
+### P1 — Live beta bug #1 — acceptance compares against dirty workspace, not turn delta (2026-04-17)
 
 The same beta tester hit a **real product bug on their very first governed run**. This is P1 because it causes false-negative turn rejection, leaves state inconsistent, breaks recovery, and breaks trust in full-auto execution. Fix this BEFORE the B-1 through B-11 adoption-quality items — a broken first-run experience erases all docs polish.
 
 Full verbatim bug report is captured below in **"Beta-tester bug report (verbatim)"**. Treat that as ground truth.
 
-- [ ] **BUG-1: Delta-based artifact validation — stop comparing `files_changed` against the whole dirty workspace** — This is the main defect. When a turn's staged result correctly lists only the files it changed, AgentXchain rejects the turn because the comparison includes pre-existing dirty files (e.g., an uncommitted `agentxchain.json` edit that the PM turn never touched).
+- [x] **BUG-1: Delta-based artifact validation — stop comparing `files_changed` against the whole dirty workspace** — FIXED in 47c5e312: `refreshTurnBaselineSnapshot()` re-snapshots dirty files at dispatch time; called before every `writeDispatchBundle()`. This is the main defect. When a turn's staged result correctly lists only the files it changed, AgentXchain rejects the turn because the comparison includes pre-existing dirty files (e.g., an uncommitted `agentxchain.json` edit that the PM turn never touched).
   - **Reproducible steps (from beta tester):**
     1. Start with a governed repo using `local_cli`.
     2. Leave one non-turn file already dirty in the workspace (tester had a dirty `agentxchain.json` from reconfiguring the Codex flag).
@@ -42,7 +309,7 @@ Full verbatim bug report is captured below in **"Beta-tester bug report (verbati
     - Add a regression test that reproduces the exact tester scenario: dispatch with a pre-existing dirty non-turn file, verify the turn accepts cleanly when `files_changed` is correct.
   - **Acceptance:** the reproduction steps above end with a successful turn acceptance, not a rejection.
 
-- [ ] **BUG-2: Consistent baseline capture — `state.json` and `session.json` must agree on workspace-dirty status** — The tester's live protocol state showed contradictory facts from AgentXchain itself:
+- [x] **BUG-2: Consistent baseline capture — `state.json` and `session.json` must agree on workspace-dirty status** — FIXED in 47c5e312: `writeSessionCheckpoint()` derives `baseline_ref` from `captureBaseline()` result at `turn_assigned`. — The tester's live protocol state showed contradictory facts from AgentXchain itself:
     - `.agentxchain/state.json` active turn baseline: `"clean": true, "dirty_snapshot": {}`
     - `.agentxchain/session.json` baseline ref: `"workspace_dirty": true`
   - These two must never disagree. One of them is lying about reality. Likely root cause: the baseline capture path writes to one surface but not the other, or they capture at different moments.
@@ -53,7 +320,7 @@ Full verbatim bug report is captured below in **"Beta-tester bug report (verbati
     - Add a test that asserts `state.json` and `session.json` baseline agreement for a representative set of workspace states (clean, dirty with staged, dirty with unstaged, both).
   - **Acceptance:** there is no possible code path where `state.json` says `clean: true` while `session.json` says `workspace_dirty: true`.
 
-- [ ] **BUG-3: Failure-path state transition — stuck-in-`running` after acceptance failure** — When acceptance failed, the turn stayed marked `status: "running"` even though the subprocess had already exited and the staged result existed on disk. `agentxchain status` still reported an active turn that had no live process. Recovery was ambiguous.
+- [x] **BUG-3: Failure-path state transition — stuck-in-`running` after acceptance failure** — FIXED in 47c5e312: acceptance failure paths transition turn to `failed_acceptance` status; `status` and `step --resume` surface recovery guidance. — When acceptance failed, the turn stayed marked `status: "running"` even though the subprocess had already exited and the staged result existed on disk. `agentxchain status` still reported an active turn that had no live process. Recovery was ambiguous.
   - **Fix requirements:**
     - When acceptance rejects a turn result, transition the turn to a terminal/recoverable status: `failed_acceptance`, `needs_operator_reconciliation`, or similar. Do NOT leave it `running`.
     - The status transition must be atomic with the acceptance rejection — same code path.
@@ -62,7 +329,7 @@ Full verbatim bug report is captured below in **"Beta-tester bug report (verbati
     - Add a regression test covering the full failure-path state machine.
   - **Acceptance:** after an acceptance failure, `status` reports a terminal-or-recoverable state, not `running`; there is exactly one documented command to recover; running `step --resume` does not loop or lie.
 
-- [ ] **BUG-4: Failure event logging — `turn_failed` / `acceptance_failed` never written to `events.jsonl`** — The CLI surfaced a terminal error message, but `.agentxchain/events.jsonl` showed only `run_started` + `turn_dispatched`. No `turn_failed`, no `acceptance_failed`, no `turn_needs_human`, no `turn_completed`. The event ledger lied about what happened.
+- [x] **BUG-4: Failure event logging — `turn_failed` / `acceptance_failed` never written to `events.jsonl`** — FIXED in 47c5e312: `acceptance_failed` event type added; emitted with structured payload on all acceptance failure paths; notifier fan-out inherited; events display renders with detail. — The CLI surfaced a terminal error message, but `.agentxchain/events.jsonl` showed only `run_started` + `turn_dispatched`. No `turn_failed`, no `acceptance_failed`, no `turn_needs_human`, no `turn_completed`. The event ledger lied about what happened.
   - **Fix requirements:**
     - Add `acceptance_failed` and/or `turn_failed` event types to the events schema.
     - Emit one whenever acceptance rejects a turn, with structured payload including: turn_id, role, runtime, reason, offending files, remediation hint.
@@ -72,14 +339,14 @@ Full verbatim bug report is captured below in **"Beta-tester bug report (verbati
     - Add a regression test asserting that the failure path emits the expected event sequence.
   - **Acceptance:** after a failed acceptance, `agentxchain events` shows the full lifecycle: `run_started` → `turn_dispatched` → `acceptance_failed` (with reason). Notifier plugins fire.
 
-- [ ] **BUG-5: Operator messaging for dirty-workspace-at-dispatch** — Even after BUG-1 is fixed, the framework should help the operator avoid the confusion in the first place.
+- [x] **BUG-5: Operator messaging for dirty-workspace-at-dispatch** — FIXED in 47c5e312: `writeDispatchBundle()` warns about uncommitted files not in baseline; undeclared-file error message includes remediation guidance. — Even after BUG-1 is fixed, the framework should help the operator avoid the confusion in the first place.
   - **Fix requirements:**
     - If the workspace has uncommitted changes unrelated to governed artifacts at dispatch time, `doctor` and the pre-dispatch path should warn clearly: "Workspace has N uncommitted files. The dispatch baseline will snapshot these; they will be excluded from `files_changed` validation." Show the file list.
     - If the workspace dirty snapshot cannot be safely captured for any reason, fail **before** dispatch with an actionable message, not after the subprocess runs.
     - After BUG-1 lands, ensure the error message text for actual (legitimate) undeclared file changes is sharper: name the file, show how it differs from the baseline, and offer the one-line fix (add to `files_changed` OR revert the undeclared change).
   - **Acceptance:** a first-time operator with a dirty workspace sees helpful pre-dispatch guidance, not a cryptic post-dispatch acceptance failure.
 
-- [ ] **BUG-6: Optional live subprocess streaming — tee `stdout.log` to terminal** — UX, not correctness, but contributed to the "looks hung" feeling. AgentXchain captures PM subprocess output to `.agentxchain/dispatch/turns/<turn_id>/stdout.log` but does not tee to the operator's terminal.
+- [x] **BUG-6: Optional live subprocess streaming — tee `stdout.log` to terminal** — FIXED in 47c5e312: step command prints log path + tail command immediately after dispatch; `--stream` flag added as alias for `--verbose`. — UX, not correctness, but contributed to the "looks hung" feeling. AgentXchain captures PM subprocess output to `.agentxchain/dispatch/turns/<turn_id>/stdout.log` but does not tee to the operator's terminal.
   - **Fix requirements:**
     - Add a `--stream` (or default-on) flag to `step --resume` / `run --continuous` that tees subprocess stdout to the terminal in addition to the log file.
     - At minimum, immediately after dispatch, print the log file path and a tail command operators can run in another terminal (e.g., `tail -f .agentxchain/dispatch/turns/<turn_id>/stdout.log`).

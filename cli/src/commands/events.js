@@ -120,6 +120,7 @@ function colorEventType(type) {
     turn_accepted: chalk.green,
     turn_rejected: chalk.yellow,
     acceptance_failed: chalk.red.bold,
+    turn_reissued: chalk.cyan,
     turn_conflicted: chalk.redBright,
     phase_entered: chalk.magenta,
     escalation_raised: chalk.red.bold,

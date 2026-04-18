@@ -265,10 +265,17 @@ export async function restartCommand(opts) {
     console.log(chalk.yellow(`Warning: ${activeTurnCount} turn(s) were assigned but never completed: ${turnIds.join(', ')}`));
     console.log(chalk.dim('These turns will be available for the next agent to complete.'));
 
-    // Fail closed if retained turn + irreconcilable drift
+    // Fail closed if retained turn + irreconcilable drift — BUG-10 fix: surface actionable recovery
     if (driftWarnings.length > 0) {
       console.log(chalk.yellow('Active turns exist with repo drift since checkpoint. Reconnecting with warnings.'));
-      console.log(chalk.dim('Inspect the drift before continuing work on the retained turns.'));
+      console.log('');
+      console.log(chalk.dim('Recovery options:'));
+      for (const turnId of turnIds) {
+        const turn = activeTurns[turnId];
+        console.log(`  ${chalk.cyan(`agentxchain reissue-turn --turn ${turnId} --reason "baseline drift"`)}  — reissue ${turn.assigned_role} from current HEAD`);
+      }
+      console.log(`  ${chalk.cyan('agentxchain reject-turn --reason "baseline drift"')}  — reject and retry with refreshed baseline`);
+      console.log(`  ${chalk.dim('Continue as-is if the drift does not affect the retained turns.')}`);
     }
   }
 

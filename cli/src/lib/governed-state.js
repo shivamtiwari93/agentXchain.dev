@@ -2373,6 +2373,166 @@ export function refreshTurnBaselineSnapshot(root, turnId) {
 }
 
 /**
+ * Reissue an active turn against current repo state.
+ *
+ * Invalidates the current turn, archives its state, captures a fresh baseline
+ * from current HEAD/workspace, and creates a new turn with the same role and
+ * phase. Covers baseline drift, runtime drift, authority drift, and operator-
+ * initiated reissue. (BUG-7 fix)
+ *
+ * @param {string} root - project root
+ * @param {object} config - normalized config
+ * @param {object} opts
+ * @param {string} [opts.turnId] - specific turn to reissue
+ * @param {string} [opts.reason] - reason for reissue
+ * @returns {{ ok: boolean, state?: object, newTurn?: object, baselineDelta?: object, error?: string }}
+ */
+export function reissueTurn(root, config, opts = {}) {
+  const state = readState(root);
+  if (!state) return { ok: false, error: 'No governed state found' };
+
+  const activeTurns = getActiveTurns(state);
+  const turnId = opts.turnId || Object.keys(activeTurns)[0];
+  if (!turnId) return { ok: false, error: 'No active turn to reissue' };
+
+  const oldTurn = activeTurns[turnId];
+  if (!oldTurn) return { ok: false, error: `Turn ${turnId} not found in active turns` };
+
+  const roleId = oldTurn.assigned_role;
+  const role = config.roles?.[roleId];
+  if (!role) return { ok: false, error: `Role "${roleId}" not found in config` };
+
+  const reason = opts.reason || 'operator-initiated reissue';
+  const now = new Date().toISOString();
+
+  // Capture old baseline for delta computation
+  const oldBaseline = oldTurn.baseline || {};
+  const oldRuntimeId = oldTurn.runtime_id;
+
+  // Resolve current runtime binding (may have changed in config)
+  const currentRuntimeId = role.runtime;
+  const currentRuntime = config.runtimes?.[currentRuntimeId];
+  if (!currentRuntime) {
+    return { ok: false, error: `Runtime "${currentRuntimeId}" not found in config for role "${roleId}"` };
+  }
+
+  // Capture fresh baseline
+  const newBaseline = captureBaseline(root);
+
+  // Archive the old turn as a history entry
+  appendJsonl(root, HISTORY_PATH, {
+    turn_id: oldTurn.turn_id,
+    run_id: state.run_id,
+    role: roleId,
+    phase: state.phase,
+    status: 'reissued',
+    summary: `Turn reissued: ${reason}`,
+    files_changed: [],
+    assigned_sequence: oldTurn.assigned_sequence,
+    accepted_at: now,
+    duration_ms: oldTurn.started_at ? Date.now() - new Date(oldTurn.started_at).getTime() : 0,
+    reissue_reason: reason,
+  });
+
+  // Decision ledger entry
+  appendJsonl(root, LEDGER_PATH, {
+    timestamp: now,
+    decision: 'turn_reissued',
+    turn_id: oldTurn.turn_id,
+    role: roleId,
+    phase: state.phase,
+    reason,
+    old_baseline: {
+      head_ref: oldBaseline.head_ref,
+      clean: oldBaseline.clean,
+    },
+    new_baseline: {
+      head_ref: newBaseline.head_ref,
+      clean: newBaseline.clean,
+    },
+  });
+
+  // Create the new turn
+  const newTurnId = `turn_${randomBytes(8).toString('hex')}`;
+  const timeoutMinutes = 20;
+  const nextSequence = (state.turn_sequence || 0) + 1;
+
+  const newTurn = {
+    turn_id: newTurnId,
+    assigned_role: roleId,
+    status: 'running',
+    attempt: (oldTurn.attempt || 1) + 1,
+    started_at: now,
+    deadline_at: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString(),
+    runtime_id: currentRuntimeId,
+    baseline: newBaseline,
+    assigned_sequence: nextSequence,
+    concurrent_with: Object.keys(activeTurns).filter(id => id !== turnId),
+    reissued_from: oldTurn.turn_id,
+  };
+
+  // Copy delegation context if present
+  if (oldTurn.delegation_context) {
+    newTurn.delegation_context = oldTurn.delegation_context;
+  }
+
+  // Remove old turn, add new turn
+  const newActiveTurns = { ...activeTurns };
+  delete newActiveTurns[turnId];
+  newActiveTurns[newTurnId] = newTurn;
+
+  const updatedState = {
+    ...state,
+    turn_sequence: nextSequence,
+    active_turns: newActiveTurns,
+  };
+
+  writeState(root, updatedState);
+
+  // Emit event
+  emitRunEvent(root, 'turn_reissued', {
+    run_id: state.run_id,
+    phase: state.phase,
+    status: state.status,
+    turn: { turn_id: newTurnId, role_id: roleId },
+    payload: {
+      old_turn_id: oldTurn.turn_id,
+      reason,
+      old_head: oldBaseline.head_ref,
+      new_head: newBaseline.head_ref,
+      old_runtime: oldRuntimeId,
+      new_runtime: currentRuntimeId,
+    },
+  });
+
+  // Session checkpoint
+  writeSessionCheckpoint(root, updatedState, 'turn_reissued', {
+    role: roleId,
+    turn_baseline: newBaseline,
+  });
+
+  // Compute baseline delta for display
+  const baselineDelta = {
+    head_changed: oldBaseline.head_ref !== newBaseline.head_ref,
+    old_head: oldBaseline.head_ref,
+    new_head: newBaseline.head_ref,
+    runtime_changed: oldRuntimeId !== currentRuntimeId,
+    old_runtime: oldRuntimeId,
+    new_runtime: currentRuntimeId,
+    dirty_files_changed: JSON.stringify(oldBaseline.dirty_snapshot || {}) !== JSON.stringify(newBaseline.dirty_snapshot || {}),
+    added_dirty_files: Object.keys(newBaseline.dirty_snapshot || {}).filter(f => !(f in (oldBaseline.dirty_snapshot || {}))),
+    removed_dirty_files: Object.keys(oldBaseline.dirty_snapshot || {}).filter(f => !(f in (newBaseline.dirty_snapshot || {}))),
+  };
+
+  return {
+    ok: true,
+    state: attachLegacyCurrentTurnAlias(updatedState),
+    newTurn,
+    baselineDelta,
+  };
+}
+
+/**
  * Estimate the budget for a single turn based on role/runtime configuration.
  * Used for DEC-PARALLEL-011 budget reservation.
  *
@@ -3900,15 +4060,19 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
       conflict_context: conflictContext,
     };
 
+    // BUG-8 fix: ALWAYS refresh the baseline on retry, not just for conflict rejects.
+    // A retry is a new attempt — it must start from current repo state, not the
+    // moment the failed attempt was originally dispatched.
+    const retryStartedAt = new Date().toISOString();
+    retryTurn.baseline = captureBaseline(root);
+    retryTurn.started_at = retryStartedAt;
+    retryTurn.deadline_at = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+
     if (isConflictReject) {
-      const retryStartedAt = new Date().toISOString();
-      retryTurn.baseline = captureBaseline(root);
       retryTurn.assigned_sequence = Math.max(
         state.turn_sequence || 0,
         currentTurn.assigned_sequence || 0,
       );
-      retryTurn.started_at = retryStartedAt;
-      retryTurn.deadline_at = new Date(Date.now() + 20 * 60 * 1000).toISOString();
       retryTurn.concurrent_with = Object.keys(getActiveTurns(state)).filter((turnId) => turnId !== currentTurn.turn_id);
     }
 

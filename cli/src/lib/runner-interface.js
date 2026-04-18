@@ -40,6 +40,7 @@ export {
   acquireAcceptanceLock as acquireLock,
   releaseAcceptanceLock as releaseLock,
   refreshTurnBaselineSnapshot,
+  reissueTurn,
 } from './governed-state.js';
 
 // ── Dispatch ────────────────────────────────────────────────────────────────

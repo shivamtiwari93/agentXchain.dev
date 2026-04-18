@@ -862,12 +862,16 @@ describe('governed CLI support', () => {
     }
   });
 
-  it('reject-turn --reassign fails when the targeted turn is not conflicted', () => {
+  it('reject-turn --reassign without conflict_state proceeds (BUG-9 fix)', () => {
     const dir = createGovernedProject();
     try {
+      // BUG-9: --reassign no longer hard-fails without conflict_state.
+      // With no drift, it falls through to normal reject behavior.
       const result = runCli(dir, ['reject-turn', '--turn', 'turn_01H', '--reassign']);
-      assert.equal(result.status, 1);
-      assert.match(result.stdout + result.stderr, /persisted conflict_state/);
+      // Should not crash with "persisted conflict_state" error anymore
+      const output = result.stdout + result.stderr;
+      assert.ok(!output.includes('persisted conflict_state'),
+        '--reassign should no longer require conflict_state');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

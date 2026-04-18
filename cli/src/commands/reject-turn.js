@@ -107,11 +107,31 @@ function buildRejectionValidation(root, state, config, opts) {
     return resolution;
   }
 
+  // BUG-9 fix: --reassign should work for any rejected turn, not just conflicted ones.
+  // For drift-induced failures with no conflict_state, redirect to reissue-turn.
   if (opts.reassign && !resolution.turn.conflict_state) {
-    return {
-      ok: false,
-      error: '--reassign is only valid for turns with persisted conflict_state.',
-    };
+    // Detect if baseline drift exists
+    const currentHead = (() => {
+      try {
+        return require('child_process').execSync('git rev-parse HEAD', {
+          cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
+        }).trim();
+      } catch { return null; }
+    })();
+    const turnHead = resolution.turn.baseline?.head_ref;
+    const hasDrift = currentHead && turnHead && currentHead !== turnHead;
+
+    if (hasDrift) {
+      console.log(chalk.yellow(`Baseline drift detected: HEAD moved from ${turnHead?.slice(0, 12)} to ${currentHead?.slice(0, 12)}.`));
+      console.log(chalk.dim(`Use: agentxchain reissue-turn --turn ${resolution.turn.turn_id} --reason "baseline drift"`));
+      return {
+        ok: false,
+        error: `--reassign detected baseline drift. Use reissue-turn instead for a clean reissue from current HEAD.`,
+      };
+    }
+
+    // No drift, no conflict_state — just do a normal reject + reassign
+    // (treat it as a fresh retry with refreshed baseline, which BUG-8 now handles)
   }
 
   if (resolution.turn.conflict_state) {

@@ -72,6 +72,7 @@ import { injectCommand } from '../src/commands/inject.js';
 import { escalateCommand } from '../src/commands/escalate.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
 import { rejectTurnCommand } from '../src/commands/reject-turn.js';
+import { reissueTurnCommand } from '../src/commands/reissue-turn.js';
 import { proposalListCommand, proposalDiffCommand, proposalApplyCommand, proposalRejectCommand } from '../src/commands/proposal.js';
 import { stepCommand } from '../src/commands/step.js';
 import { runCommand } from '../src/commands/run.js';
@@ -680,6 +681,13 @@ program
   .option('--reason <reason>', 'Operator reason for the rejection')
   .option('--reassign', 'Immediately re-dispatch a conflicted turn with conflict context')
   .action(rejectTurnCommand);
+
+program
+  .command('reissue-turn')
+  .description('Invalidate an active turn and reissue it against current repo state (baseline drift recovery)')
+  .option('--turn <id>', 'Target a specific active turn when multiple turns exist')
+  .option('--reason <reason>', 'Reason for the reissue (e.g., baseline drift, runtime rebinding)')
+  .action(reissueTurnCommand);
 
 program
   .command('step')
