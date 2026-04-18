@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.135.0
+# Launch Evidence Report — AgentXchain v2.135.1
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.135.0 cross-run intent leakage, retry prompt ordering, and gate semantic coverage release. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.135.1 gate semantic coverage fix, non-progress guard, and intent migration archival release. Current aggregate release evidence:
 >
-> - 5,924 tests / 1,257 suites / 0 failures. Website build clean.
+> - 6,024 tests / 1,280 suites / 0 failures. Website build clean.
 
 ---
 

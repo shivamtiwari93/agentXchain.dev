@@ -1,0 +1,55 @@
+---
+sidebar_position: 0
+title: "v2.135.1 Release Notes"
+---
+
+# AgentXchain v2.135.1
+
+`v2.135.1` fixes the false closure on BUG-36 (gate semantic coverage regex), adds a non-progress convergence guard (BUG-38), and archives pre-BUG-34 legacy intents during run initialization (BUG-39). Test fixtures updated for truthful planning acceptance under `gate_semantic_coverage`.
+
+**Released:** 2026-04-18
+
+## What Changed
+
+### BUG-37: Gate semantic coverage — structured failing_files replaces regex parsing
+
+The BUG-36 gate semantic coverage validator relied on regex-parsing prose `reasons` to extract file paths. The regex did not match the real gate emission format (e.g., `.planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.`), so the validator was a no-op on actual operator flows.
+
+- **Structured approach:** `evaluatePhaseExit()` and `evaluateRunCompletion()` now return `failing_files` as a first-class field. The `gate_semantic_coverage` validator consumes that field directly instead of regex-parsing reasons. This eliminates format-drift risk permanently.
+- **Regression tests:** `bug-36-gate-semantic-coverage.test.js` updated to use real semantic emission format. `bug-37-gate-semantic-real-emissions.test.js` covers all real file-emission shapes.
+
+### BUG-38: Non-progress convergence guard
+
+The framework now detects when N consecutive accepted turns leave the same gate failure intact without modifying the gated files.
+
+- **Proactive gate evaluation:** `acceptGovernedTurn()` evaluates the current phase exit gate after every accepted turn, not just on phase transition requests.
+- **Non-progress tracking:** state tracks `non_progress_signature` and `non_progress_count`. When N consecutive accepted turns produce the same gate failure signature, the run is blocked with `non_progress` category and a `run_stalled` event is emitted.
+- **Operator recovery:** `reactivateGovernedRun()` with `acknowledge_non_progress` resets the counter.
+- **Configurable threshold:** default 3, configurable via `run_loop.non_progress_threshold`.
+
+### BUG-39: Cross-run intent migration for pre-BUG-34 repos
+
+Pre-BUG-34 intent files with `approved_run_id: null` are now explicitly archived during run initialization instead of being silently adopted.
+
+- **Archival with provenance:** legacy intents get `status: "archived_migration"` and `archived_reason` explaining the migration.
+- **Event and CLI notice:** `intents_migrated` event emitted with count and IDs. CLI displays a startup notice when migration runs.
+
+### Test fixture truthfulness
+
+All PM planning acceptance fixtures updated to satisfy `gate_semantic_coverage` by declaring gated files in `files_changed`. Context section parser now models `Files Changed` and `Changed File Previews` as first-class last-turn subsections.
+
+### Config normalization passthrough
+
+`gate_semantic_coverage_mode`, `intent_coverage_mode`, and `run_loop` now survive `normalizeV4()` config normalization.
+
+## Evidence
+
+- 6,024 tests / 1,280 suites / 0 failures. Website build clean.
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.135.1
+# or
+brew upgrade agentxchain
+```

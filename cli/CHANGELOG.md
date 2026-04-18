@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.135.1
+
+### Gate Semantic Coverage Fix + Non-Progress Guard + Intent Migration Archival
+
+- **BUG-37: Gate semantic coverage — structured failing_files replaces regex parsing:** `evaluatePhaseExit()`/`evaluateRunCompletion()` now return `failing_files` as a first-class field. The `gate_semantic_coverage` validator consumes that field directly instead of regex-parsing prose reasons. Eliminates the false-closure caused by regex not matching real gate emission format. (`BUG-37`)
+- **BUG-38: Non-progress convergence guard:** `acceptGovernedTurn()` now evaluates the current phase exit gate after every accepted turn. Tracks `non_progress_signature` and `non_progress_count` on state. When N consecutive accepted turns leave the same gate failure intact without modifying gated files, blocks with `non_progress` and emits `run_stalled`. Default threshold: 3, configurable via `run_loop.non_progress_threshold`. Operator recovery via `reactivateGovernedRun()` with `acknowledge_non_progress`. (`BUG-38`)
+- **BUG-39: Cross-run intent migration archival:** `initializeGovernedRun()` now archives pre-BUG-34 intents (`approved_run_id: null`) with `status: "archived_migration"` instead of silently adopting them. Emits `intents_migrated` event. Returns `migration_notice` for CLI display. (`BUG-39`)
+- **Config normalization passthrough:** `gate_semantic_coverage_mode`, `intent_coverage_mode`, and `run_loop` now survive `normalizeV4()`. (`DEC-CONFIG-NORMALIZATION-PASSTHROUGH-001`)
+- **Test fixture truthfulness:** PM planning acceptance fixtures updated to satisfy `gate_semantic_coverage`. Context section parser preserves `Files Changed` and `Changed File Previews` as first-class last-turn subsections. (`DEC-TRUTHFUL-PLANNING-FIXTURES-001`)
+
+### Evidence
+
+- 6,024 tests / 1,280 suites / 0 failures. Website build clean.
+
 ## 2.135.0
 
 ### Cross-Run Intent Leakage Fix + Retry Prompt Ordering + Gate Semantic Coverage Validator
