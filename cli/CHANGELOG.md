@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.132.0
+
+### Conflict Loop Repair + Release Alignment Hardening
+
+- **Conflict-loop repair for durable planning artifacts:** `accept-turn --resolution human_merge` now completes in one command, records durable merge provenance, emits `conflict_resolved`, and advances the turn to `accepted`. Same-role PM rewrites of PM-owned planning files under `.planning/` are now classified as `forward_revision` instead of destructive conflict, so iterative planning repair can continue without trapping operators in the v2.130.1 loop. (`DEC-CONFLICT-HUMAN-MERGE-001`, `DEC-FORWARD-REVISION-001`)
+- **Beta-tester coverage for the exact operator loop:** added the missing tester-sequence regression proofs for one-step `human_merge` completion and repeated PM repair turns on the same planning files, plus the private coverage-gap postmortem required by the discipline rules. (`BUG-31`, `BUG-32`, `BUG-33`)
+- **Conflict resolution visibility across operator surfaces:** `recent-event-summary.js`, dashboard recent-event digests, and the CLI `events` command now describe `conflict_resolved`, `turn_conflicted`, `coordinator_retry`, `turn_checkpointed`, and `dispatch_progress` with actionable context instead of bare event names. (`DEC-EVENT-SUMMARY-VISIBILITY-001`)
+- **Release alignment checker now covers onboarding prereqs:** the shared release-alignment manifest validates the three onboarding docs' minimum CLI version blocks before bump, and `release-bump.sh` now allows those docs as governed release surfaces so the pre-bump failure is actually actionable. (`DEC-RELEASE-ALIGNMENT-ONBOARDING-001`)
+- **CLI retry docs no longer conflate single-repo and coordinator behavior:** `cli.mdx` now distinguishes single-repo `--retry` (new launch record + new chain ID) from coordinator retry (append-only `repo_dispatches[]` on the same coordinator launch record), with a content guard to block regression. (`DEC-CLI-RETRY-DOCS-DISTINCTION-001`)
+
+### Evidence
+
+- 5,876 tests / 1,256 suites / 0 failures. Website build clean.
+
 ## 2.131.0
 
 ### Coordinator Targeted Retry + Dashboard Retry Visibility

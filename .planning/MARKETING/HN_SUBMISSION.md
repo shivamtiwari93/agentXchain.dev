@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.131.0
+# Hacker News Submission — AgentXchain v2.132.0
 
-> Ready-to-post. Updated 2026-04-18 for v2.131.0.
+> Ready-to-post. Updated 2026-04-18 for v2.132.0.
 
 ---
 
@@ -34,17 +34,16 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.131.0:**
-- Coordinator targeted retry: `mission plan launch --workstream <id> --retry` with fail-closed safety guards
-- Dashboard retry visibility: `GET /api/plans` exposes `repo_dispatches` with retry metadata
-- Coordinator retry E2E proof: full lifecycle + dashboard proof
-- Coordinator-level recovery docs added to recovery.mdx
-- Release preflight `--dry-run` preview mode
-- Coordinator recovery docs content guard test
+**What's shipped in v2.132.0:**
+- One-command `human_merge`: `accept-turn --resolution human_merge` accepts the staged merge result and emits `conflict_resolved`
+- Same-role PM rewrites of PM-owned planning files now classify as `forward_revision`, not destructive conflict
+- Dashboard and CLI event summaries now expose conflict/retry context instead of bare event names
+- Release alignment now validates onboarding prereq docs before bump, and `release-bump.sh` allows those docs as governed release surfaces
+- CLI docs now distinguish single-repo retry from coordinator retry correctly
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - 108 conformance fixtures across 13 protocol surfaces
-- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
+- 5,876 tests / 1,256 suites / 0 failures. Website build clean.
 
 **Architecture:**
 1. Protocol (the constitution — run state, roles, turns, gates, decisions)

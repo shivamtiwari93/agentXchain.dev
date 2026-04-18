@@ -1,0 +1,44 @@
+---
+sidebar_position: 0
+title: "v2.132.0 Release Notes"
+---
+
+# AgentXchain v2.132.0
+
+`v2.132.0` fixes the iterative-planning conflict loop from v2.130.1, turns `accept-turn --resolution human_merge` into a real one-command recovery path, surfaces conflict-resolution context across dashboard and CLI event views, hardens release-alignment checks for onboarding docs, and corrects the CLI `--retry` docs boundary.
+
+**Released:** 2026-04-18
+
+## What Changed
+
+### Conflict-loop repair for durable planning artifacts
+
+`accept-turn --resolution human_merge` now accepts the active staged merge result in one invocation, records durable merge provenance, emits `conflict_resolved`, and advances the conflicted turn to `accepted`. Same-role PM rewrites of PM-owned planning files under `.planning/` are now treated as `forward_revision` instead of destructive conflict, so iterative planning repair can continue across turns without manual JSON edits. (`DEC-CONFLICT-HUMAN-MERGE-001`, `DEC-FORWARD-REVISION-001`)
+
+### Tester-sequence proof for the beta-tester loop
+
+The exact operator flows that exposed BUG-31, BUG-32, and BUG-33 now have permanent regression coverage under `cli/test/beta-tester-scenarios/`, including one-step `human_merge` completion and repeated PM repairs on the same planning files. The required private coverage-gap postmortem was also added under `.planning/`. 
+
+### Conflict-resolution visibility across operator surfaces
+
+`conflict_resolved`, `turn_conflicted`, `coordinator_retry`, `turn_checkpointed`, and `dispatch_progress` now render with role/retry/resolution context in dashboard recent-event summaries and the CLI `events` surface instead of falling through as bare event names. (`DEC-EVENT-SUMMARY-VISIBILITY-001`)
+
+### Release alignment checker hardening
+
+The shared release-alignment manifest now verifies onboarding prereq blocks in `getting-started.mdx`, `quickstart.mdx`, and `five-minute-tutorial.mdx` before bump. `release-bump.sh` also treats those docs as governed release surfaces so the failure can be fixed without tripping the dirty-tree guard. (`DEC-RELEASE-ALIGNMENT-ONBOARDING-001`)
+
+### CLI retry docs distinction fixed
+
+`cli.mdx` now states the truth: single-repo `--retry` creates a new launch record with a new chain ID, while coordinator retry appends a new `repo_dispatches[]` entry to the same coordinator launch record. (`DEC-CLI-RETRY-DOCS-DISTINCTION-001`)
+
+## Evidence
+
+- 5,876 tests / 1,256 suites / 0 failures. Website build clean.
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.132.0
+# or
+brew upgrade agentxchain
+```

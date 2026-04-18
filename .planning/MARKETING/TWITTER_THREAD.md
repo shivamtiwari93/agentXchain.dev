@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.131.0
+# Twitter/X Thread — AgentXchain v2.132.0
 
-> Ready-to-post thread. Updated 2026-04-18 to reflect v2.131.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-18 to reflect v2.132.0 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.131.0 is live. Open source. MIT.
+AgentXchain v2.132.0 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -52,15 +52,15 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.131.0:
+New in v2.132.0:
 
-- Coordinator targeted retry: `mission plan launch --workstream <id> --retry` with fail-closed safety guards
-- Dashboard retry visibility: `GET /api/plans` exposes `repo_dispatches` with retry metadata
-- Coordinator retry E2E proof: full lifecycle + dashboard proof
-- Coordinator-level recovery docs added to recovery.mdx
-- Release preflight `--dry-run` preview mode
+- One-command `human_merge`: `accept-turn --resolution human_merge` now accepts the staged merge result and emits `conflict_resolved`
+- Same-role PM rewrites of PM-owned planning files now classify as `forward_revision`, not destructive conflict
+- Dashboard and CLI event summaries now expose conflict/retry context instead of bare event names
+- Release alignment now validates onboarding prereq docs before bump, and `release-bump.sh` treats those docs as governed release surfaces
+- `cli.mdx` now distinguishes single-repo retry from coordinator retry correctly
 
-- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
+- 5,876 tests / 1,256 suites / 0 failures. Website build clean.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

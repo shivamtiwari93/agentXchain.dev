@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.131.0
+# Show HN Draft — AgentXchain v2.132.0
 
-> Ready-to-post draft. Updated 2026-04-18 for v2.131.0.
+> Ready-to-post draft. Updated 2026-04-18 for v2.132.0.
 
 ---
 
@@ -47,9 +47,9 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest shipped operator slice: `v2.131.0` adds coordinator targeted retry (`mission plan launch --workstream <id> --retry`) with fail-closed safety guards, dashboard retry visibility via `GET /api/plans`, coordinator retry E2E proof, coordinator-level recovery docs, release preflight `--dry-run` preview mode, and coordinator recovery docs content guard tests.
+Latest shipped operator slice: `v2.132.0` fixes the iterative-planning conflict loop on durable planning artifacts, makes `accept-turn --resolution human_merge` a one-command recovery path, surfaces `conflict_resolved` context across dashboard and CLI event views, hardens release alignment for onboarding docs, and corrects the CLI `--retry` docs distinction.
 
-- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
+- 5,876 tests / 1,256 suites / 0 failures. Website build clean.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.

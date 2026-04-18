@@ -29,17 +29,6 @@ function RedditIcon() {
   );
 }
 
-function XIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="community-icon">
-      <path
-        fill="currentColor"
-        d="M18.9 3H21l-4.59 5.25L21.8 21h-4.9l-3.84-8.79L8.46 21H6.34l4.91-5.61L2.2 3h5.02l3.48 8.02L18.9 3Zm-1.72 16.55h1.34L6.47 4.37H5.03l12.15 15.18Z"
-      />
-    </svg>
-  );
-}
-
 function Hero() {
   const logoSrc = useBaseUrl('/img/agentXchain.dev_square_250x250px.png');
   return (
@@ -50,7 +39,7 @@ function Hero() {
           alt="AgentXchain"
           className="hero-logo"
         />
-        <div className="hero-badge">Open source &middot; MIT &middot; v2.131.0</div>
+        <div className="hero-badge">Open source &middot; MIT &middot; v2.132.0</div>
         <h1>
           The <span className="text-green">governance protocol</span> for{' '}
           <span className="text-blue">lights-out software factories</span>
@@ -116,7 +105,7 @@ function Stats() {
         <div className="stat-label">Architecture layers</div>
       </div>
       <div>
-            <div className="stat-number">5,857</div>
+            <div className="stat-number">5,876</div>
         <div className="stat-label">Tests / 0 failures</div>
       </div>
       <div>
@@ -719,21 +708,6 @@ function Community() {
               Release callouts, product framing, and operator-facing updates from the company page.
             </p>
             <span className="community-link-text">Follow on LinkedIn &rarr;</span>
-          </a>
-          <a
-            className="community-card"
-            href="https://x.com/agentxchaindev"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <div className="community-card-header">
-              <XIcon />
-              <span>X / Twitter</span>
-            </div>
-            <p>
-              Fast release callouts, proof snapshots, and product changes as they ship.
-            </p>
-            <span className="community-link-text">Follow @agentxchaindev &rarr;</span>
           </a>
           <a
             className="community-card"

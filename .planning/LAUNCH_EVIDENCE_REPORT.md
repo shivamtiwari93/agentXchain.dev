@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.131.0
+# Launch Evidence Report — AgentXchain v2.132.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.131.0 coordinator targeted retry release. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.132.0 conflict-loop repair release. Current aggregate release evidence:
 >
-> - 5,857 tests / 1,252 suites / 0 failures. Website build clean.
+> - 5,876 tests / 1,256 suites / 0 failures. Website build clean.
 
 ---
 
