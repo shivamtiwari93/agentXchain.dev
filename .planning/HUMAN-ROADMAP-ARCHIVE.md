@@ -2232,3 +2232,116 @@ This separation is the difference between a useful product and a confused one. D
 > **Short conclusion**
 >
 > `2.130.1` improved recovery and state handling enough to surface the real planning gate problem. But once PM correctly fixes that problem, AgentXchain still traps the run in a planning-file conflict loop, and `human_merge` still does not resolve it. That is the current reason we cannot keep this repo moving in true full-auto mode.
+
+---
+
+### Beta-tester bug report #8 (verbatim) — continuous mode still blocked on v2.134.1 (2026-04-18)
+
+> **Title**
+>
+> `2.134.1` still cannot sustain continuous full-auto execution in a real single-repo governed run because stale queued intents block continuous mode and dev retries ignore explicit gate-repair instructions
+>
+> **Summary**
+>
+> Upgraded to `agentxchain 2.134.1` and retried governed multi-role repo (`tusq.dev`) with 5 authoritative `local_cli` roles, custom `launch` phase, prior successful end-to-end run, and a new run for Docusaurus docs/blog/website initiative.
+>
+> `2.134.1` improved some earlier issues: `human_merge` on planning conflicts finally worked, planning progressed into implementation, dev produced a real Docusaurus implementation under `website/`.
+>
+> But still blocked from continuous/full-auto progression. **Two remaining blockers**:
+> 1. Continuous mode is blocked by stale old queued intents
+> 2. Implementation repair turns keep ignoring the explicit gate semantic and narrow injected repair intent
+>
+> **Environment**
+> - AgentXchain: `2.134.1`
+> - Repo: `tusq.dev`
+> - Run: `run_c8a4701ce0d4952d`
+> - Phase: `implementation`
+> - Initiative: Docusaurus docs+blog+website migration, injected as `intent_1776489830072_6802`
+>
+> **What already worked**: PM planning recovery, implementation (Docusaurus scaffolded, docs/blog pages, custom homepage, build/smoke verification passed). Accepted implementation turn: `turn_3dbd2dc89d05c899`.
+>
+> **Blocker 1: Continuous mode blocked by stale queued intents**
+>
+> Ran:
+> ```bash
+> /opt/homebrew/bin/agentxchain run \
+>   --continue-from run_c8a4701ce0d4952d \
+>   --continuous \
+>   --auto-approve \
+>   --auto-checkpoint \
+>   --max-turns 20 \
+>   --max-runs 5 \
+>   --triage-approval auto \
+>   --verbose
+> ```
+>
+> Result:
+> ```text
+> Found queued intent: intent_1776473633943_0543 (approved)
+> Continuous start error: plan failed: existing planning artifacts would be overwritten
+> Continuous loop failed: plan failed: existing planning artifacts would be overwritten.
+> ```
+>
+> Old planning intents from earlier runs still appear pending:
+> - `intent_1776473633943_0543`, `intent_1776474414878_c28b`, `intent_1776489830072_6802`, `intent_1776534863659_5752`
+>
+> These still show in `status` as "Pending injected intents (will drive next turn)" even though earlier planning was accepted, repo moved beyond planning, and current run is in `implementation`.
+>
+> **Expected:** satisfied/superseded intents should not remain as active queue inputs; continuous mode should continue current run's unresolved work, not resurrect stale planning backlog.
+>
+> **Blocker 2: Dev repair turns ignore the gate semantic**
+>
+> After implementation was accepted, phase couldn't advance because gate reported:
+> ```text
+> .planning/IMPLEMENTATION_NOTES.md must define ## Changes before implementation can exit.
+> ```
+>
+> Current file has `## Challenge To Prior Turn`, `## What Was Implemented`, `## Verification`, `## Notes / Follow-ups` — no literal `## Changes`.
+>
+> Injected explicit high-priority repair intent `intent_1776534863659_5752`: add literal `## Changes` section to `.planning/IMPLEMENTATION_NOTES.md`, preserve existing implementation summary, do not redo broader website work, narrow artifact-semantic repair.
+>
+> But repeated dev turns still ignored that and only reran verification. Examples: `turn_f0eb39bc36682efb`, `turn_12093400ce188ed1`, `turn_67d5052ed0e5244d`, `turn_48b1c08ef3905243`.
+>
+> Example `turn_48b1c08ef3905243`:
+> - summary: "Revalidated implementation gate checks on the current workspace and recorded passing evidence for QA handoff."
+> - `files_changed`: only the staged turn-result file
+> - no actual repo artifact fix
+> - still proposes `qa` transition despite gate remaining unsatisfied
+>
+> The role is systematically failing to satisfy the explicit gate semantic.
+>
+> **Why this still blocks full-auto**
+>
+> Expected: gate says what artifact is incomplete → repair turn updates that artifact → turn accepted → phase advances.
+>
+> Actual: gate says `## Changes` missing → dev reruns verification → retry says previous attempt failed for not addressing gate → next retry does same thing → continuous mode can't help because stale intents block it.
+>
+> **Important additional evidence**
+>
+> Retry prompt DOES include rejection reason for `turn_48b1c08ef3905243`: "Previous attempt failed. Reason: Did not address implementation_complete gate semantic or pending narrow intent." So framework is partially surfacing operator feedback.
+>
+> But retry prompt does NOT strongly bind the specific repair intent into the prompt body. The narrow injected instruction isn't included verbatim. That likely explains why dev keeps optimizing for "fresh verification" instead of "fix the missing heading."
+>
+> **Status/reporting inconsistencies still exist:**
+> - `status` showing turn as running after it already accepted
+> - no dispatch `stdout.log` file on disk even when CLI printed a log path
+> - `restart` aggressively assigning a fresh replacement turn instead of only reconciling session state
+>
+> **Expected behavior**
+> 1. **Intent lifecycle**: old satisfied/superseded intents should not continue appearing as pending; continuous mode should operate on real unresolved work of current run
+> 2. **Gate-semantic repair binding**: when gate failure names specific artifact condition, retry prompt should strongly foreground that condition; when narrow injected repair intent exists, it should be bound into next dispatched prompt as primary objective
+> 3. **Turn validation discipline**: a turn that did not modify the required incomplete artifact should not be able to summarize itself as ready for QA; system should reject or strongly warn when claimed gate repair did not actually touch the gated file semantically
+>
+> **Suggested fixes**
+> 1. Add explicit lifecycle states: approved/attached/satisfied/consumed/superseded
+> 2. Make continuous mode ignore or archive stale satisfied intents from earlier runs/phases
+> 3. When gate fails on specific file semantic, inject that semantic failure into next role prompt in first-class binding way
+> 4. When operator injects narrow repair intent, include that intent directly in next dispatch bundle, not just in sidecar intake state
+> 5. Add validation comparing: gate failure reason + files changed + claimed summary + proposed transition; reject turns that never touched the gated artifact
+> 6. Fix status/restart/log consistency so active-turn reporting matches on-disk dispatch reality
+>
+> **Severity: P1 for continuous/full-auto governed execution.** `2.134.1` gets much further than earlier versions, but continuous mode still aborts on stale intent state, and repair turns can loop forever on a trivial gate-semantic issue. Together, those two issues still prevent genuine autonomous continuation toward the initiative goal.
+>
+> **Short conclusion**
+>
+> `2.134.1` fixed important earlier blockers, but still cannot reliably continue a real repo in full-auto mode. The remaining failures are stale queued intents poisoning continuous mode, and gate-repair turns not actually repairing the gated artifact even after explicit retries and a narrow injected repair intent. That is the current reason this run still needs operator babysitting.
