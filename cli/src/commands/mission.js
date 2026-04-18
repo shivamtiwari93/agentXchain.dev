@@ -20,6 +20,7 @@ import {
   createPlanArtifact,
   getReadyWorkstreams,
   getWorkstreamStatusSummary,
+  launchCoordinatorWorkstream,
   launchWorkstream,
   retryWorkstream,
   markWorkstreamOutcome,
@@ -28,10 +29,13 @@ import {
   loadPlan,
   buildPlannerPrompt,
   parsePlannerResponse,
+  synchronizeCoordinatorPlanState,
   validatePlannerOutput,
 } from '../lib/mission-plans.js';
 import { executeChainedRun } from '../lib/run-chain.js';
 import { executeGovernedRun } from './run.js';
+import { dispatchCoordinatorTurn, selectAssignmentForWorkstream } from '../lib/coordinator-dispatch.js';
+import { loadCoordinatorState } from '../lib/coordinator-state.js';
 
 export async function missionStartCommand(opts) {
   const root = findProjectRoot(opts.dir || process.cwd());
@@ -325,7 +329,7 @@ export async function missionPlanShowCommand(planTarget, opts) {
   }
 
   // Resolve plan target
-  const plan = planTarget && planTarget !== 'latest'
+  let plan = planTarget && planTarget !== 'latest'
     ? loadPlan(root, mission.mission_id, planTarget)
     : loadLatestPlan(root, mission.mission_id);
 
@@ -337,6 +341,15 @@ export async function missionPlanShowCommand(planTarget, opts) {
       console.log(chalk.dim('  Run `agentxchain mission plan latest` to generate one.'));
     }
     return;
+  }
+
+  if (mission.coordinator && plan.coordinator_scope) {
+    const synced = synchronizeCoordinatorPlanState(root, mission, plan);
+    if (!synced.ok) {
+      console.error(chalk.red(synced.error));
+      process.exit(1);
+    }
+    plan = synced.plan;
   }
 
   if (opts.json) {
@@ -504,7 +517,7 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
     process.exit(1);
   }
 
-  const plan = planTarget && planTarget !== 'latest'
+  let plan = planTarget && planTarget !== 'latest'
     ? loadPlan(root, mission.mission_id, planTarget)
     : loadLatestPlan(root, mission.mission_id);
 
@@ -516,6 +529,113 @@ export async function missionPlanLaunchCommand(planTarget, opts) {
       console.error(chalk.dim('  Run `agentxchain mission plan latest` to generate one.'));
     }
     process.exit(1);
+  }
+
+  if (mission.coordinator && plan.coordinator_scope) {
+    const synced = synchronizeCoordinatorPlanState(root, mission, plan);
+    if (!synced.ok) {
+      console.error(chalk.red(synced.error));
+      process.exit(1);
+    }
+    plan = synced.plan;
+  }
+
+  if (mission.coordinator && plan.coordinator_scope) {
+    if (opts.retry) {
+      console.error(chalk.red('--retry is not supported for coordinator-bound mission plans yet.'));
+      process.exit(1);
+    }
+
+    const coordinatorConfigResult = loadCoordinatorConfig(mission.coordinator.workspace_path);
+    if (!coordinatorConfigResult.ok) {
+      console.error(chalk.red('Coordinator config validation failed:'));
+      for (const err of coordinatorConfigResult.errors || []) {
+        console.error(chalk.red(`  ${err}`));
+      }
+      process.exit(1);
+    }
+
+    const coordinatorState = loadCoordinatorState(mission.coordinator.workspace_path);
+    if (!coordinatorState) {
+      console.error(chalk.red(`Coordinator state not found at ${mission.coordinator.workspace_path}.`));
+      process.exit(1);
+    }
+    if (coordinatorState.status !== 'active') {
+      console.error(chalk.red(`Coordinator run ${coordinatorState.super_run_id} is not active (status: "${coordinatorState.status}").`));
+      process.exit(1);
+    }
+
+    const assignment = selectAssignmentForWorkstream(
+      mission.coordinator.workspace_path,
+      coordinatorState,
+      coordinatorConfigResult.config,
+      opts.workstream,
+    );
+    if (!assignment.ok) {
+      console.error(chalk.red(`Coordinator launch blocked: ${assignment.detail || assignment.reason}`));
+      process.exit(1);
+    }
+
+    const dispatch = dispatchCoordinatorTurn(
+      mission.coordinator.workspace_path,
+      coordinatorState,
+      coordinatorConfigResult.config,
+      assignment,
+    );
+    if (!dispatch.ok) {
+      console.error(chalk.red(`Coordinator dispatch failed: ${dispatch.error}`));
+      process.exit(1);
+    }
+
+    const launch = launchCoordinatorWorkstream(
+      root,
+      mission,
+      plan.plan_id,
+      opts.workstream,
+      {
+        ...dispatch,
+        role: assignment.role,
+      },
+      coordinatorConfigResult.config,
+    );
+    if (!launch.ok) {
+      console.error(chalk.red(launch.error));
+      process.exit(1);
+    }
+
+    const syncedWorkstream = launch.plan.workstreams.find((ws) => ws.workstream_id === opts.workstream);
+    const jsonPayload = {
+      dispatch_mode: 'coordinator',
+      mission_id: mission.mission_id,
+      plan_id: launch.plan.plan_id,
+      workstream_id: opts.workstream,
+      super_run_id: mission.coordinator.super_run_id,
+      repo_id: dispatch.repo_id,
+      repo_turn_id: dispatch.turn_id,
+      role: assignment.role,
+      bundle_path: dispatch.bundle_path,
+      context_ref: dispatch.context_ref || null,
+      workstream_status: syncedWorkstream?.launch_status || 'launched',
+      launch_record: launch.launchRecord,
+    };
+
+    if (opts.json) {
+      console.log(JSON.stringify(jsonPayload, null, 2));
+      return;
+    }
+
+    console.log(chalk.green(`Dispatched coordinator workstream ${chalk.bold(opts.workstream)} to ${chalk.bold(dispatch.repo_id)}`));
+    console.log('');
+    console.log(chalk.dim(`  Mission:      ${mission.mission_id}`));
+    console.log(chalk.dim(`  Plan:         ${launch.plan.plan_id}`));
+    console.log(chalk.dim(`  Super Run:    ${mission.coordinator.super_run_id}`));
+    console.log(chalk.dim(`  Repo:         ${dispatch.repo_id}`));
+    console.log(chalk.dim(`  Repo Turn:    ${dispatch.turn_id}`));
+    console.log(chalk.dim(`  Role:         ${assignment.role}`));
+    console.log(chalk.dim(`  Workstream:   ${syncedWorkstream?.launch_status || 'launched'}`));
+    console.log('');
+    renderPlan(launch.plan);
+    return;
   }
 
   const launch = opts.retry
@@ -613,6 +733,12 @@ async function missionPlanLaunchAllReady(planTarget, opts, context) {
   if (!mission) {
     console.error(chalk.red('No mission found.'));
     console.error(chalk.dim('  Use --mission <id> or create a mission first.'));
+    process.exit(1);
+  }
+
+  if (mission.coordinator) {
+    console.error(chalk.red('--all-ready is not supported for coordinator-bound mission plans yet.'));
+    console.error(chalk.dim('  Dispatch specific coordinator workstreams with `agentxchain mission plan launch --workstream <id>`.'));
     process.exit(1);
   }
 
@@ -807,6 +933,12 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
   if (!mission) {
     console.error(chalk.red('No mission found.'));
     console.error(chalk.dim('  Use --mission <id> or create a mission first.'));
+    process.exit(1);
+  }
+
+  if (mission.coordinator) {
+    console.error(chalk.red('mission plan autopilot is not supported for coordinator-bound missions yet.'));
+    console.error(chalk.dim('  Use `agentxchain mission plan launch --workstream <id>` for coordinator dispatch until multi-repo wave execution lands.'));
     process.exit(1);
   }
 
@@ -1183,7 +1315,14 @@ function renderPlan(plan) {
       const statusTag = rec.status === 'completed' ? chalk.green('completed')
         : rec.status === 'failed' ? chalk.red('failed')
         : chalk.cyan('launched');
-      console.log(`    ${chalk.cyan(rec.workstream_id)} → ${rec.chain_id} [${statusTag}]`);
+      if (rec.dispatch_mode === 'coordinator') {
+        const dispatchCount = rec.repo_dispatches?.length || 0;
+        const progress = rec.coordinator_progress;
+        const accepted = progress ? `${progress.accepted_repo_count}/${progress.repo_count}` : '—';
+        console.log(`    ${chalk.cyan(rec.workstream_id)} → coordinator ${rec.super_run_id || '—'} [${statusTag}] dispatches=${dispatchCount} accepted=${accepted}`);
+      } else {
+        console.log(`    ${chalk.cyan(rec.workstream_id)} → ${rec.chain_id} [${statusTag}]`);
+      }
     }
   }
 

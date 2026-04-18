@@ -213,6 +213,31 @@ export function selectNextAssignment(workspacePath, state, config) {
   return firstFailure || { ok: false, reason: 'no_assignable_workstream', detail: 'No workstream is assignable in the current phase' };
 }
 
+export function selectAssignmentForWorkstream(workspacePath, state, config, workstreamId) {
+  const workstream = config.workstreams?.[workstreamId];
+  if (!workstream) {
+    return {
+      ok: false,
+      reason: 'workstream_missing',
+      detail: `Unknown workstream "${workstreamId}"`,
+      workstream_id: workstreamId,
+    };
+  }
+
+  if (workstream.phase !== state.phase) {
+    return {
+      ok: false,
+      reason: 'phase_mismatch',
+      detail: `Workstream "${workstreamId}" is in phase "${workstream.phase}", but coordinator is currently in phase "${state.phase}"`,
+      workstream_id: workstreamId,
+    };
+  }
+
+  const history = readCoordinatorHistory(workspacePath);
+  const barriers = readBarriers(workspacePath);
+  return evaluateWorkstream(workspacePath, state, config, workstreamId, history, barriers);
+}
+
 export function dispatchCoordinatorTurn(workspacePath, state, config, assignment) {
   if (!assignment?.ok) {
     return { ok: false, error: 'Assignment is required before dispatch' };

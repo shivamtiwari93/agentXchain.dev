@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 import { loadChainReport } from './chain-reports.js';
+import { readBarriers, readCoordinatorHistory } from './coordinator-state.js';
 
 // ── Plan artifact directory ──────────────────────────────────────────────────
 
@@ -421,6 +422,181 @@ export function didChainFinishSuccessfully(chainReport) {
   return lastRun?.status === 'completed';
 }
 
+function getCoordinatorCompletionBarrierId(workstreamId) {
+  return `${workstreamId}_completion`;
+}
+
+function getAcceptedRepoIdsFromHistory(history, workstreamId) {
+  return [
+    ...new Set(
+      history
+        .filter((entry) => entry?.type === 'acceptance_projection' && entry.workstream_id === workstreamId && entry.repo_id)
+        .map((entry) => entry.repo_id),
+    ),
+  ];
+}
+
+function getLatestLaunchRecord(plan, workstreamId) {
+  const records = Array.isArray(plan.launch_records) ? plan.launch_records : [];
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (records[i]?.workstream_id === workstreamId) {
+      return records[i];
+    }
+  }
+  return null;
+}
+
+function getLatestCoordinatorLaunchRecord(plan, workstreamId) {
+  const records = Array.isArray(plan.launch_records) ? plan.launch_records : [];
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (records[i]?.workstream_id === workstreamId && records[i]?.dispatch_mode === 'coordinator') {
+      return records[i];
+    }
+  }
+  return null;
+}
+
+function clonePlan(plan) {
+  return JSON.parse(JSON.stringify(plan));
+}
+
+function buildCoordinatorWorkstreamProgress(coordinatorConfig, history, barriers, workstreamId) {
+  const coordinatorWorkstream = coordinatorConfig?.workstreams?.[workstreamId];
+  if (!coordinatorWorkstream) {
+    return null;
+  }
+
+  const acceptedRepoIds = getAcceptedRepoIdsFromHistory(history, workstreamId);
+  const allRepos = Array.isArray(coordinatorWorkstream.repos) ? coordinatorWorkstream.repos : [];
+  const pendingRepoIds = allRepos.filter((repoId) => !acceptedRepoIds.includes(repoId));
+  const barrierId = getCoordinatorCompletionBarrierId(workstreamId);
+  const barrier = barriers?.[barrierId] || null;
+
+  return {
+    repo_ids: allRepos,
+    repo_count: allRepos.length,
+    accepted_repo_ids: acceptedRepoIds,
+    accepted_repo_count: acceptedRepoIds.length,
+    pending_repo_ids: pendingRepoIds,
+    completion_barrier_id: barrierId,
+    completion_barrier_type: coordinatorWorkstream.completion_barrier || barrier?.type || null,
+    completion_barrier_status: barrier?.status || (pendingRepoIds.length === 0 ? 'satisfied' : 'pending'),
+  };
+}
+
+function synchronizeCoordinatorWorkstreamStatuses(root, plan, coordinatorConfig, history, barriers) {
+  let changed = false;
+
+  for (const ws of plan.workstreams || []) {
+    const progress = buildCoordinatorWorkstreamProgress(coordinatorConfig, history, barriers, ws.workstream_id);
+    if (!progress) {
+      continue;
+    }
+
+    const launchRecord = getLatestCoordinatorLaunchRecord(plan, ws.workstream_id);
+    if (launchRecord) {
+      launchRecord.accepted_repo_ids = [...progress.accepted_repo_ids];
+      launchRecord.pending_repo_ids = [...progress.pending_repo_ids];
+      launchRecord.repo_count = progress.repo_count;
+      launchRecord.accepted_repo_count = progress.accepted_repo_count;
+      launchRecord.completion_barrier = {
+        barrier_id: progress.completion_barrier_id,
+        type: progress.completion_barrier_type,
+        status: progress.completion_barrier_status,
+      };
+    }
+
+    if (progress.completion_barrier_status === 'satisfied') {
+      if (ws.launch_status !== 'completed') {
+        ws.launch_status = 'completed';
+        changed = true;
+      }
+      if (launchRecord && launchRecord.status !== 'completed') {
+        launchRecord.status = 'completed';
+        launchRecord.completed_at = launchRecord.completed_at || new Date().toISOString();
+        changed = true;
+      }
+      continue;
+    }
+
+    if ((launchRecord?.repo_dispatches?.length || 0) > 0 || progress.accepted_repo_count > 0) {
+      if (ws.launch_status !== 'launched') {
+        ws.launch_status = 'launched';
+        changed = true;
+      }
+    }
+  }
+
+  for (const ws of plan.workstreams || []) {
+    if (ws.launch_status !== 'blocked') {
+      continue;
+    }
+    const stillBlocked = checkDependencySatisfaction(plan, ws, root);
+    if (stillBlocked.length === 0) {
+      ws.launch_status = 'ready';
+      changed = true;
+    }
+  }
+
+  const allCompleted = Array.isArray(plan.workstreams) && plan.workstreams.length > 0
+    && plan.workstreams.every((ws) => ws.launch_status === 'completed');
+  if (allCompleted && plan.status !== 'completed') {
+    plan.status = 'completed';
+    changed = true;
+  }
+
+  if (changed) {
+    plan.updated_at = new Date().toISOString();
+  }
+
+  return changed;
+}
+
+export function synchronizeCoordinatorPlanState(root, mission, plan) {
+  if (!mission?.coordinator?.workspace_path || !plan?.coordinator_scope) {
+    return { ok: true, plan };
+  }
+
+  const workspacePath = mission.coordinator.workspace_path;
+  const history = readCoordinatorHistory(workspacePath);
+  const barriers = readBarriers(workspacePath);
+
+  let coordinatorConfig = null;
+  try {
+    const configPath = join(workspacePath, 'agentxchain-multi.json');
+    if (existsSync(configPath)) {
+      coordinatorConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+    }
+  } catch {
+    return { ok: false, error: `Coordinator config could not be read from ${workspacePath}` };
+  }
+
+  if (!coordinatorConfig?.workstreams) {
+    return { ok: false, error: `Coordinator config missing workstreams at ${workspacePath}` };
+  }
+
+  const persistedPlan = clonePlan(plan);
+  const changed = synchronizeCoordinatorWorkstreamStatuses(root, persistedPlan, coordinatorConfig, history, barriers);
+  if (changed) {
+    writePlanArtifact(root, mission.mission_id, persistedPlan);
+  }
+
+  const enrichedPlan = clonePlan(persistedPlan);
+  for (const ws of enrichedPlan.workstreams || []) {
+    const progress = buildCoordinatorWorkstreamProgress(coordinatorConfig, history, barriers, ws.workstream_id);
+    if (!progress) {
+      continue;
+    }
+    ws.coordinator_progress = progress;
+    const launchRecord = getLatestCoordinatorLaunchRecord(enrichedPlan, ws.workstream_id);
+    if (launchRecord) {
+      launchRecord.coordinator_progress = progress;
+    }
+  }
+
+  return { ok: true, plan: enrichedPlan, changed };
+}
+
 /**
  * Check whether a workstream's dependencies are satisfied.
  * A dependency is satisfied when its launch_record exists AND the bound chain's
@@ -433,9 +609,20 @@ export function checkDependencySatisfaction(plan, workstream, root) {
   if (!Array.isArray(workstream.depends_on)) return unsatisfied;
 
   for (const depId of workstream.depends_on) {
+    const dependencyWorkstream = (plan.workstreams || []).find((candidate) => candidate.workstream_id === depId);
+    if (dependencyWorkstream?.launch_status === 'completed') {
+      continue;
+    }
+
     const depRecord = (plan.launch_records || []).find((r) => r.workstream_id === depId);
     if (!depRecord) {
       unsatisfied.push(depId);
+      continue;
+    }
+    if (depRecord.dispatch_mode === 'coordinator') {
+      if (depRecord.status !== 'completed') {
+        unsatisfied.push(depId);
+      }
       continue;
     }
     // Check that the dependency chain actually completed
@@ -493,6 +680,7 @@ export function launchWorkstream(root, missionId, planId, workstreamId, options 
   const now = new Date().toISOString();
   const launchRecord = {
     workstream_id: workstreamId,
+    dispatch_mode: 'chain',
     chain_id: chainId,
     launched_at: now,
     status: 'launched',
@@ -508,6 +696,89 @@ export function launchWorkstream(root, missionId, planId, workstreamId, options 
   writePlanArtifact(root, missionId, plan);
 
   return { ok: true, plan, workstream: ws, chainId, launchRecord };
+}
+
+export function launchCoordinatorWorkstream(root, mission, planId, workstreamId, dispatchResult, coordinatorConfig) {
+  const plan = loadPlan(root, mission.mission_id, planId);
+  if (!plan) {
+    return { ok: false, error: `Plan not found: ${planId}` };
+  }
+  if (!mission?.coordinator?.super_run_id) {
+    return { ok: false, error: 'Mission is not bound to a coordinator run.' };
+  }
+
+  const allowNeedsAttention = dispatchResult?.allowNeedsAttention === true;
+  if (plan.status !== 'approved' && !(allowNeedsAttention && plan.status === 'needs_attention')) {
+    return {
+      ok: false,
+      error: `Plan ${planId} is not approved (status: "${plan.status}"). Approve the plan before launching workstreams.`,
+    };
+  }
+
+  const ws = plan.workstreams.find((candidate) => candidate.workstream_id === workstreamId);
+  if (!ws) {
+    return { ok: false, error: `Workstream not found: ${workstreamId}` };
+  }
+  if (ws.launch_status === 'completed') {
+    return { ok: false, error: `Workstream ${workstreamId} is already completed.` };
+  }
+
+  const coordinatorWorkstream = coordinatorConfig?.workstreams?.[workstreamId];
+  if (!coordinatorWorkstream) {
+    return { ok: false, error: `Coordinator config does not declare workstream ${workstreamId}.` };
+  }
+
+  const unsatisfied = checkDependencySatisfaction(plan, ws, root);
+  if (unsatisfied.length > 0) {
+    return {
+      ok: false,
+      error: `Workstream ${workstreamId} has unsatisfied dependencies: ${unsatisfied.join(', ')}. Launch and complete those workstreams first.`,
+    };
+  }
+
+  const now = new Date().toISOString();
+  let launchRecord = getLatestCoordinatorLaunchRecord(plan, workstreamId);
+  if (!launchRecord || launchRecord.status === 'completed' || launchRecord.status === 'failed') {
+    launchRecord = {
+      workstream_id: workstreamId,
+      dispatch_mode: 'coordinator',
+      super_run_id: mission.coordinator.super_run_id,
+      launched_at: now,
+      status: 'launched',
+      completion_barrier: {
+        barrier_id: getCoordinatorCompletionBarrierId(workstreamId),
+        type: coordinatorWorkstream.completion_barrier || null,
+      },
+      repo_dispatches: [],
+    };
+    if (!Array.isArray(plan.launch_records)) {
+      plan.launch_records = [];
+    }
+    plan.launch_records.push(launchRecord);
+  }
+
+  launchRecord.status = 'launched';
+  if (!Array.isArray(launchRecord.repo_dispatches)) {
+    launchRecord.repo_dispatches = [];
+  }
+  launchRecord.repo_dispatches.push({
+    repo_id: dispatchResult.repo_id,
+    repo_turn_id: dispatchResult.turn_id,
+    role: dispatchResult.role,
+    dispatched_at: now,
+    bundle_path: dispatchResult.bundle_path,
+    context_ref: dispatchResult.context_ref || null,
+  });
+
+  ws.launch_status = 'launched';
+  if (plan.status === 'needs_attention') {
+    plan.status = 'approved';
+  }
+  plan.updated_at = now;
+  writePlanArtifact(root, mission.mission_id, plan);
+
+  const synced = synchronizeCoordinatorPlanState(root, mission, plan);
+  return { ok: true, plan: synced.ok ? synced.plan : plan, workstream: ws, launchRecord };
 }
 
 /**
@@ -601,6 +872,7 @@ export function retryWorkstream(root, missionId, planId, workstreamId, options =
   const now = new Date().toISOString();
   const launchRecord = {
     workstream_id: workstreamId,
+    dispatch_mode: 'chain',
     chain_id: chainId,
     launched_at: now,
     status: 'launched',
