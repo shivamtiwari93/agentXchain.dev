@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.131.0
+
+### Coordinator Targeted Retry + Dashboard Retry Visibility
+
+- **Coordinator targeted retry:** `mission plan launch --workstream <id> --retry` retries a failed workstream dispatch with fail-closed safety guards. Only dispatches that previously failed can be retried; healthy or in-progress workstreams are rejected. (`DEC-MISSION-COORD-RETRY-001`, `DEC-MISSION-COORD-RETRY-002`, `DEC-MISSION-COORD-RETRY-003`)
+- **Dashboard retry visibility:** `GET /api/plans` now exposes `repo_dispatches` with retry metadata so the dashboard can surface retry state and history. (`DEC-PLAN-READER-RETRY-VISIBILITY-001`)
+- **Coordinator retry E2E proof:** full lifecycle test proving targeted retry from failure through re-dispatch to dashboard visibility. (`DEC-MISSION-COORD-RETRY-003`)
+- **Recovery docs — coordinator-level recovery:** new coordinator-level recovery section added to `recovery.mdx`, covering workstream retry, partial-failure triage, and coordinator-level blocked state. (`DEC-RECOVERY-COORDINATOR-001`)
+- **Release preflight `--dry-run` preview mode:** `agentxchain release preflight --dry-run` previews what the release preflight would check without executing gates. (`DEC-RELEASE-PLAYBOOK-PREVIEW-001`)
+- **Coordinator recovery docs content guard test:** guards the coordinator recovery docs section against regression. (`DEC-RECOVERY-COORDINATOR-TEST-001`)
+
+### Evidence
+
+- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
+
 ## 2.130.1
 
 ### Beta-Fix Discipline + Codex Command Contract

@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.130.1
+# Reddit Posts — AgentXchain v2.131.0
 
-> Ready-to-post content for Reddit. Updated 2026-04-18 to reflect v2.130.1 shipped reality.
+> Ready-to-post content for Reddit. Updated 2026-04-18 to reflect v2.131.0 shipped reality.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.130.1):**
+**What's in the box (v2.131.0):**
 - 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
 - All 5 adapters proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -30,11 +30,13 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- `restart` now refuses to create ghost active turns without a real dispatch bundle on disk
-- accepted turns now reconcile stale gate cache and complete the bound intake intent instead of leaving status behind reality
-- restart now restores `intent_id` provenance on lifecycle events by consuming approved intents before assignment
-- `accept-turn` and `reject-turn` refuse stale staged turn results from unrelated earlier turns
-- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. 108 conformance fixtures. Website build clean.
+- Coordinator targeted retry: `mission plan launch --workstream <id> --retry` with fail-closed safety guards
+- Dashboard retry visibility: `GET /api/plans` exposes `repo_dispatches` with retry metadata
+- Coordinator retry E2E proof: full lifecycle + dashboard proof
+- Coordinator-level recovery docs added to recovery.mdx
+- Release preflight `--dry-run` preview mode
+- Coordinator recovery docs content guard test
+- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
 
 **See it in 30 seconds (no API keys needed):**
 
@@ -68,7 +70,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.130.1 – correction release for governed multi-agent turn recovery and accepted-turn state reconciliation
+**Title:** AgentXchain v2.131.0 – coordinator targeted retry, dashboard retry visibility, and recovery docs
 
 **Body:**
 
@@ -86,8 +88,8 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
-- Latest release is a correction cut: ghost-turn restart fixes, accepted-turn state reconciliation, restored intent provenance on restart, and stale staging rejection.
-- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. 108 conformance fixtures. Website build clean.
+- Latest release adds coordinator targeted retry with fail-closed safety guards, dashboard retry visibility, coordinator retry E2E proof, coordinator-level recovery docs, and release preflight `--dry-run` preview mode.
+- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -96,7 +98,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. 108 conformance fixtures. Website build clean.
+- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
@@ -125,7 +127,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
+- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 

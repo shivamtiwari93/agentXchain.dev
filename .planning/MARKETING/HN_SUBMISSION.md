@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.130.1
+# Hacker News Submission — AgentXchain v2.131.0
 
-> Ready-to-post. Updated 2026-04-18 for v2.130.1.
+> Ready-to-post. Updated 2026-04-18 for v2.131.0.
 
 ---
 
@@ -34,19 +34,17 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.130.1:**
-- `restart` now refuses to create ghost turns without a real dispatch bundle on disk
-- accepted turns now clear stale gate cache when missing files have actually been satisfied
-- accepted intent-bound turns complete the bound intake intent and emit `intent_satisfied`
-- restart restores lifecycle `intent_id` provenance by consuming approved intents before assignment
-- `accept-turn` and `reject-turn` now reject stale staged results from unrelated turns
+**What's shipped in v2.131.0:**
+- Coordinator targeted retry: `mission plan launch --workstream <id> --retry` with fail-closed safety guards
+- Dashboard retry visibility: `GET /api/plans` exposes `repo_dispatches` with retry metadata
+- Coordinator retry E2E proof: full lifecycle + dashboard proof
+- Coordinator-level recovery docs added to recovery.mdx
+- Release preflight `--dry-run` preview mode
+- Coordinator recovery docs content guard test
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - 108 conformance fixtures across 13 protocol surfaces
-- Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
-- Proposal authoring: agents propose changes through a staging area with conflict detection
-- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
-- Post-release `npx` install verification as part of the release process
+- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
 
 **Architecture:**
 1. Protocol (the constitution — run state, roles, turns, gates, decisions)

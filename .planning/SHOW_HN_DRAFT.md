@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.130.1
+# Show HN Draft — AgentXchain v2.131.0
 
-> Ready-to-post draft. Updated 2026-04-18 for v2.130.1.
+> Ready-to-post draft. Updated 2026-04-18 for v2.131.0.
 
 ---
 
@@ -47,9 +47,9 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest shipped operator slice: `v2.130.1` is the accepted-turn reconciliation correction release. `restart` no longer creates ghost turns without dispatch bundles, accepted turns now clear stale gate cache and complete bound intents, and stale staged results are rejected instead of being silently consumed by the wrong turn.
+Latest shipped operator slice: `v2.131.0` adds coordinator targeted retry (`mission plan launch --workstream <id> --retry`) with fail-closed safety guards, dashboard retry visibility via `GET /api/plans`, coordinator retry E2E proof, coordinator-level recovery docs, release preflight `--dry-run` preview mode, and coordinator recovery docs content guard tests.
 
-- 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
+- 5,857 tests / 1,252 suites / 0 failures. Website build clean.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.
