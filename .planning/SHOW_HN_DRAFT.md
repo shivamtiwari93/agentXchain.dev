@@ -24,6 +24,7 @@ AgentXchain is an open-source protocol + CLI for governed software delivery:
 - **Multi-repo orchestration.** v2 coordinates governed workflows across multiple repositories with cross-repo context, barrier evaluation, and coordinator-level hooks.
 - **Plugin system.** Install hook-based plugins for notifications (Slack) and reporting (JSON artifacts) without modifying the core workflow.
 - **All 5 adapters proven live.** `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent` all run under the same governed protocol. `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path.
+- **108 conformance fixtures** across 13 protocol surfaces.
 
 Fastest proof path:
 
@@ -49,6 +50,7 @@ The point is not “more agents.” The point is better convergence: disagreemen
 Latest shipped operator slice: `v2.130.1` is the accepted-turn reconciliation correction release. `restart` no longer creates ghost turns without dispatch bundles, accepted turns now clear stale gate cache and complete bound intents, and stale staged results are rejected instead of being silently consumed by the wrong turn.
 
 - 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
+- 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.
 

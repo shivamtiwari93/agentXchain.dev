@@ -60,6 +60,7 @@ New in this release:
 - `accept-turn` / `reject-turn` refuse stale staged results from unrelated turns instead of consuming them
 
 - 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
+- 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**
 

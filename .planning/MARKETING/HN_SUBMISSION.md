@@ -42,6 +42,7 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 - `accept-turn` and `reject-turn` now reject stale staged results from unrelated turns
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
+- 108 conformance fixtures across 13 protocol surfaces
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - 5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
