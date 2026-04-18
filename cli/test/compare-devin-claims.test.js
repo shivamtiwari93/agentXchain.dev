@@ -31,6 +31,18 @@ describe('Devin comparison claims truth boundary', () => {
     assert.ok(vsDevinPage.includes('**API / automation**'), 'must have API/automation row');
   });
 
+  it('AT-DEVIN-007: governance posture row exists', () => {
+    assert.ok(vsDevinPage.includes('**Governance posture**'), 'must have governance posture row');
+  });
+
+  it('AT-DEVIN-008: recovery posture row exists', () => {
+    assert.ok(vsDevinPage.includes('**Recovery posture**'), 'must have recovery posture row');
+  });
+
+  it('AT-DEVIN-009: multi-repo posture row exists', () => {
+    assert.ok(vsDevinPage.includes('**Multi-repo posture**'), 'must have multi-repo posture row');
+  });
+
   it('AT-DEVIN-006: rejects stale phrases', () => {
     assert.ok(!vsDevinPage.includes('Fine-tunable to specific codebases'), 'must not use stale fine-tunable phrasing');
     assert.ok(!vsDevinPage.includes('Human reviews PRs that Devin produces'), 'must not reduce Devin HITL to PR review only');

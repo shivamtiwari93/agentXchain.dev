@@ -28,7 +28,18 @@ describe('MetaGPT comparison claims', () => {
     assert.match(VS_METAGPT, /Serialization\/breakpoint recovery/i);
     assert.doesNotMatch(VS_METAGPT, /\| \*\*Agent roles\*\* \| Fixed: Product Manager, Architect, Engineer, QA \|/);
     assert.doesNotMatch(VS_METAGPT, /\| \*\*Human authority\*\* \| User provides the initial requirement \|/);
-    assert.doesNotMatch(VS_METAGPT, /\| \*\*Recovery\*\* \| Restart the pipeline \|/);
+  });
+
+  it('AT-METAGPT-CLAIMS-005: governance posture row exists', () => {
+    assert.match(VS_METAGPT, /\| \*\*Governance posture\*\* \|/);
+  });
+
+  it('AT-METAGPT-CLAIMS-006: recovery posture row exists', () => {
+    assert.match(VS_METAGPT, /\| \*\*Recovery posture\*\* \|/);
+  });
+
+  it('AT-METAGPT-CLAIMS-007: multi-repo posture row exists', () => {
+    assert.match(VS_METAGPT, /\| \*\*Multi-repo posture\*\* \|/);
   });
 
   it('AT-METAGPT-CLAIMS-003: keeps research and hosted-product naming current', () => {

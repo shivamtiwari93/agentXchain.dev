@@ -52,6 +52,18 @@ describe('OpenAI Agents SDK comparison claims', () => {
     assert.match(matrixRow, /durable execution/i);
   });
 
+  it('AT-OAI-006a: governance posture row exists', () => {
+    assert.match(VS_OPENAI, /\| \*\*Governance posture\*\* \|/);
+  });
+
+  it('AT-OAI-006b: recovery posture row exists', () => {
+    assert.match(VS_OPENAI, /\| \*\*Recovery posture\*\* \|/);
+  });
+
+  it('AT-OAI-006c: multi-repo posture row exists', () => {
+    assert.match(VS_OPENAI, /\| \*\*Multi-repo posture\*\* \|/);
+  });
+
   it('AT-OAI-006: sessions row acknowledges multiple backends', () => {
     assert.match(VS_OPENAI, /9\+ (?:storage )?backends/);
   });

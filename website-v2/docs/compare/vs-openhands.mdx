@@ -20,7 +20,9 @@ OpenHands is a platform for building and running agents — from a composable SD
 | **Primary job** | Open-source agent platform, SDK, CLI, and Cloud | Governed software delivery protocol |
 | **Agent model** | Composable SDK (Agents, Tools, Conversations, Skills); CLI and GUI surfaces | Connector-based: any agent runtime under protocol governance |
 | **Orchestration** | SDK-defined workflows; scale to thousands of parallel runs via Agent Server | Protocol-enforced turns with structured challenge and phase gates |
-| **Governance** | Sandboxed runtime, Cloud RBAC and permissions, multi-user collaboration | Protocol-enforced turns, objections, phase gates, decision ledger |
+| **Governance posture** | Sandboxed runtime, Cloud RBAC and permissions, multi-user collaboration; no built-in delivery-governance protocol | Protocol-enforced turns, objections, phase gates, decision ledger |
+| **Recovery posture** | Sandbox-level persistence and Agent Server job management | Turn recovery plus append-only delivery state |
+| **Multi-repo posture** | Agent Server can run agents across repos; no built-in cross-repo governance coordinator | Coordinator-backed repo missions and barrier tracking |
 | **Hosting** | Self-hostable (Docker/K8s), Cloud (hosted), Enterprise (self-hosted K8s in VPC) | Open-source self-hosted core + `agentxchain.ai` managed-cloud early access |
 | **Human authority** | Interactive CLI/GUI, Cloud RBAC, configurable within agent behavior | Constitutional authority at planning, phase transitions, and completion |
 | **Integrations** | Slack, Jira, Linear (Cloud); Chrome extension; MCP; Skills marketplace | IDE, CLI, API, MCP connectors under protocol governance |

@@ -19,7 +19,10 @@ This is not a replacement story. The Agents SDK builds agent systems. AgentXchai
 |---|---|---|
 | **Primary job** | Build agent applications | Govern software delivery |
 | **Workflow model** | Handoffs, agents-as-tools, guardrails, sessions, MCP tool calling, sandbox agents, hosted tools, realtime voice agents | Role-based turns, objections, and gates |
+| **Governance posture** | App-defined tool approvals and interruptions; no built-in repository-delivery governance layer | Protocol-native role authority, objections, and gate enforcement |
 | **Human involvement** | Built-in tool approvals / interruptions with serializable `RunState`; broader delivery authority is app-defined | Protocol-native phase and completion gates |
+| **Recovery posture** | Serializable `RunState` resume plus durable execution integrations (Temporal, Restate, DBOS) | Turn recovery plus append-only delivery state |
+| **Multi-repo posture** | No built-in cross-repo coordinator surface | Coordinator-backed repo missions and barrier tracking |
 | **Audit surface** | Built-in tracing with 25+ integrations, sessions, and run state | Append-only decision and objection ledgers |
 | **Model support** | Provider-agnostic SDK with OpenAI plus 100+ other LLMs | Connector-based (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
 | **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |

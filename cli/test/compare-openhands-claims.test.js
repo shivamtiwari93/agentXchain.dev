@@ -42,6 +42,18 @@ describe('OpenHands comparison claims truth boundary', () => {
     assert.doesNotMatch(page, /micro.agents/i, 'must not use stale "micro-agents" term');
   });
 
+  it('AT-OH-010: governance posture row exists', () => {
+    assert.match(page, /\| \*\*Governance posture\*\* \|/, 'must have governance posture row');
+  });
+
+  it('AT-OH-011: recovery posture row exists', () => {
+    assert.match(page, /\| \*\*Recovery posture\*\* \|/, 'must have recovery posture row');
+  });
+
+  it('AT-OH-012: multi-repo posture row exists', () => {
+    assert.match(page, /\| \*\*Multi-repo posture\*\* \|/, 'must have multi-repo posture row');
+  });
+
   it('AT-OH-009: does not contain stale import path', () => {
     assert.doesNotMatch(page, /from openhands import Agent, Sandbox/, 'must not use stale openhands import');
   });
