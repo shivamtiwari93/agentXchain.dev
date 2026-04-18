@@ -9,6 +9,7 @@
 - **Conflict resolution visibility across operator surfaces:** `recent-event-summary.js`, dashboard recent-event digests, and the CLI `events` command now describe `conflict_resolved`, `turn_conflicted`, `coordinator_retry`, `turn_checkpointed`, and `dispatch_progress` with actionable context instead of bare event names. (`DEC-EVENT-SUMMARY-VISIBILITY-001`)
 - **Release alignment checker now covers onboarding prereqs:** the shared release-alignment manifest validates the three onboarding docs' minimum CLI version blocks before bump, and `release-bump.sh` now allows those docs as governed release surfaces so the pre-bump failure is actually actionable. (`DEC-RELEASE-ALIGNMENT-ONBOARDING-001`)
 - **CLI retry docs no longer conflate single-repo and coordinator behavior:** `cli.mdx` now distinguishes single-repo `--retry` (new launch record + new chain ID) from coordinator retry (append-only `repo_dispatches[]` on the same coordinator launch record), with a content guard to block regression. (`DEC-CLI-RETRY-DOCS-DISTINCTION-001`)
+- **Homepage community links now include the canonical X/Twitter surface:** the homepage community section ships LinkedIn, X/Twitter, and Reddit cards with explicit new-tab external links, matching the navbar/footer community contract.
 
 ### Evidence
 

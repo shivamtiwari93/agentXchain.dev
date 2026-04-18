@@ -14,6 +14,17 @@ function LinkedInIcon() {
   );
 }
 
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="community-icon">
+      <path
+        fill="currentColor"
+        d="M18.9 3H21l-4.59 5.25L22 21h-4.38l-3.43-7.79L7.37 21H3.19l4.9-5.6L2 3h4.49l3.1 7.1L18.9 3Zm-1.53 15.4h1.17L5.98 5.5H4.73L17.37 18.4Z"
+      />
+    </svg>
+  );
+}
+
 function RedditIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="community-icon">
@@ -708,6 +719,21 @@ function Community() {
               Release callouts, product framing, and operator-facing updates from the company page.
             </p>
             <span className="community-link-text">Follow on LinkedIn &rarr;</span>
+          </a>
+          <a
+            className="community-card"
+            href="https://x.com/agentxchaindev"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div className="community-card-header">
+              <XIcon />
+              <span>X / Twitter</span>
+            </div>
+            <p>
+              Short-form release signals, docs drops, and governed-delivery proof as it ships.
+            </p>
+            <span className="community-link-text">Follow on X &rarr;</span>
           </a>
           <a
             className="community-card"
