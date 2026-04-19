@@ -70,6 +70,9 @@ Your connector must return a complete turn-result JSON object. Here is the minim
     "evidence_summary": "All tests pass.",
     "machine_evidence": [
       { "command": "npm test", "exit_code": 0 }
+    ],
+    "produced_files": [
+      { "path": "tests/fixtures/output.json", "disposition": "artifact" }
     ]
   },
   "artifact": { "type": "code", "ref": null },

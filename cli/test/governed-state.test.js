@@ -1034,8 +1034,13 @@ describe('acceptGovernedTurn', () => {
     assert.equal(conflictResult.error_code, 'conflict');
 
     writeFileSync(join(dir, sharedFile), '# base\n');
+    // After conflict resolution the QA turn keeps a non-operational actor-owned
+    // file so the workspace artifact declaration is coherent (BUG-46 rejects
+    // workspace artifacts with empty effective files_changed).
+    const qaOwnedFile = '.planning/qa-notes.md';
+    writeFileSync(join(dir, '.planning', 'qa-notes.md'), '# QA notes\n');
     const mergedResult = makeTurnResult(conflictResult.state, conflictResult.state.active_turns[secondTurnId]);
-    mergedResult.files_changed = ['TALK.md'];
+    mergedResult.files_changed = [qaOwnedFile];
     mergedResult.artifact = { type: 'workspace', ref: null };
     writeFileSync(join(dir, getTurnStagingResultPath(secondTurnId)), JSON.stringify(mergedResult, null, 2));
 
