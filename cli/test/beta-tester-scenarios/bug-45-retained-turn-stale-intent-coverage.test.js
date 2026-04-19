@@ -350,6 +350,71 @@ describe('BUG-45: retained-turn acceptance reconciles against live intent state'
     assert.equal(output.no_change, false);
   });
 
+  it('repo-decisions.jsonl written between assignment and acceptance does not trigger undeclared file changes', () => {
+    const { root, config, state } = createProject();
+
+    // Assign a retained turn (captures baseline at current HEAD)
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    // Simulate a framework-produced repo-decisions.jsonl write between turns.
+    // This happens during acceptance of a DIFFERENT turn when that turn has
+    // `durability: 'repo'` decisions. The file is framework-owned, so it must
+    // not poison the retained turn's artifact observation.
+    const repoDecPath = join(root, '.agentxchain', 'repo-decisions.jsonl');
+    const decEntry = JSON.stringify({
+      id: 'DEC-TEST-001',
+      run_id: state.run_id,
+      turn_id: 'turn_other_abc',
+      role: 'pm',
+      phase: 'qa',
+      category: 'product',
+      statement: 'Test decision for repo-decisions leak proof',
+      rationale: 'Testing framework write exclusion',
+      durability: 'repo',
+      overrides: null,
+      status: 'active',
+      overridden_by: null,
+      created_at: '2026-04-19T03:00:00.000Z',
+    });
+    writeFileSync(repoDecPath, decEntry + '\n');
+    execSync('git add .agentxchain/repo-decisions.jsonl && git commit -m "framework: repo decision from other turn"', {
+      cwd: root,
+      stdio: 'ignore',
+    });
+
+    // Stage a turn result for the retained turn
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: state.run_id,
+      turn_id: turnId,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'QA work complete.',
+      decisions: [],
+      objections: [],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      verification: { status: 'pass' },
+      artifact: { type: 'workspace', ref: null },
+    });
+
+    // Accept the retained turn via real CLI
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+
+    // Key assertion: repo-decisions.jsonl must not appear as an undeclared file change
+    if (accept.status !== 0) {
+      assert.doesNotMatch(accept.stdout + accept.stderr, /repo-decisions/,
+        'repo-decisions.jsonl should be excluded from artifact observation — framework writes must not poison retained-turn acceptance');
+    }
+    // If acceptance succeeded, that also proves repo-decisions.jsonl was not a blocker
+  });
+
   it('HUMAN_TASKS.md framework edits do not trigger undeclared file changes (defect 3)', () => {
     const { root, config, state } = createProject();
 
