@@ -19,9 +19,39 @@ function listIntentFiles(intentsDir) {
   return readdirSync(intentsDir).filter((file) => file.endsWith('.json') && !file.startsWith('.tmp-'));
 }
 
+function normalizeArtifactPaths(paths) {
+  return [...new Set(
+    (Array.isArray(paths) ? paths : [])
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  )];
+}
+
+function readPlanningGateFiles(root) {
+  const configPath = join(root, 'agentxchain.json');
+  if (!existsSync(configPath)) return [];
+
+  let config;
+  try {
+    config = JSON.parse(readFileSync(configPath, 'utf8'));
+  } catch {
+    return [];
+  }
+
+  const exitGateId = config?.routing?.planning?.exit_gate;
+  const requiresFiles = exitGateId ? config?.gates?.[exitGateId]?.requires_files : null;
+  return normalizeArtifactPaths(requiresFiles);
+}
+
 export function formatLegacyIntentMigrationNotice(intentIds) {
   if (!Array.isArray(intentIds) || intentIds.length === 0) return null;
   return `Archived ${intentIds.length} pre-BUG-34 intent(s): ${intentIds.join(', ')}`;
+}
+
+export function formatPhantomIntentSupersessionNotice(intentIds) {
+  if (!Array.isArray(intentIds) || intentIds.length === 0) return null;
+  return `Superseded ${intentIds.length} phantom intent(s): ${intentIds.join(', ')}`;
 }
 
 export function migratePreBug34Intents(root, runId, options = {}) {
@@ -31,6 +61,7 @@ export function migratePreBug34Intents(root, runId, options = {}) {
       archived_migration_count: 0,
       archived_migration_intent_ids: [],
       migration_notice: null,
+      phantom_supersession_notice: null,
     };
   }
 
@@ -78,24 +109,34 @@ export function migratePreBug34Intents(root, runId, options = {}) {
  * whose planning artifacts already exist on disk. These intents would fail with
  * "existing planning artifacts would be overwritten" if dispatched.
  */
-function isPhantomIntent(root, intent) {
-  if (intent.status !== 'approved') return false;
-  if (!intent.template) return false;
+export function listExpectedPlanningArtifacts(root, intent) {
+  const recordedArtifacts = normalizeArtifactPaths(intent?.planning_artifacts);
+  let templateArtifacts = [];
 
-  let manifest;
-  try {
-    manifest = loadGovernedTemplate(intent.template);
-  } catch {
-    return false;
+  if (intent?.template) {
+    try {
+      const manifest = loadGovernedTemplate(intent.template);
+      templateArtifacts = normalizeArtifactPaths(
+        (manifest.planning_artifacts || []).map((artifact) => `.planning/${artifact.filename}`),
+      );
+    } catch {
+      // Best-effort: unknown/broken template should not crash startup reconciliation.
+    }
   }
 
-  const artifacts = manifest.planning_artifacts || [];
+  return normalizeArtifactPaths([
+    ...recordedArtifacts,
+    ...templateArtifacts,
+    ...readPlanningGateFiles(root),
+  ]);
+}
+
+export function isPhantomIntent(root, intent) {
+  if (intent.status !== 'approved') return false;
+  const artifacts = listExpectedPlanningArtifacts(root, intent);
   if (artifacts.length === 0) return false;
 
-  const planningDir = join(root, '.planning');
-  return artifacts.some((artifact) =>
-    existsSync(join(planningDir, artifact.filename)),
-  );
+  return artifacts.some((artifact) => existsSync(join(root, artifact)));
 }
 
 export function archiveStaleIntentsForRun(root, runId, options = {}) {
@@ -106,6 +147,7 @@ export function archiveStaleIntentsForRun(root, runId, options = {}) {
       adopted: 0,
       phantom_superseded: 0,
       phantom_superseded_intent_ids: [],
+      phantom_supersession_notice: null,
       archived_migration_count: 0,
       archived_migration_intent_ids: [],
       migration_notice: null,
@@ -198,6 +240,7 @@ export function archiveStaleIntentsForRun(root, runId, options = {}) {
     adopted,
     phantom_superseded: phantomSuperseded,
     phantom_superseded_intent_ids: phantomSupersededIntentIds,
+    phantom_supersession_notice: formatPhantomIntentSupersessionNotice(phantomSupersededIntentIds),
     archived_migration_count: migration.archived_migration_count,
     archived_migration_intent_ids: migration.archived_migration_intent_ids,
     migration_notice: migration.migration_notice,

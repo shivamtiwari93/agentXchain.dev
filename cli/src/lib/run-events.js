@@ -14,6 +14,8 @@ export const RUN_EVENTS_PATH = '.agentxchain/events.jsonl';
 export const VALID_RUN_EVENTS = [
   'run_started',
   'phase_entered',
+  'intents_migrated',
+  'intents_superseded',
   'turn_dispatched',
   'turn_accepted',
   'turn_rejected',

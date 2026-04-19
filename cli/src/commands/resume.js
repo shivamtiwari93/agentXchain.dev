@@ -147,6 +147,9 @@ export async function resumeCommand(opts) {
       if (reactivated.migration_notice) {
         console.log(chalk.yellow(reactivated.migration_notice));
       }
+      if (reactivated.phantom_notice) {
+        console.log(chalk.yellow(reactivated.phantom_notice));
+      }
 
       // Write dispatch bundle for the existing turn
       const bundleResult = writeDispatchBundle(root, state, config);
@@ -210,6 +213,9 @@ export async function resumeCommand(opts) {
     if (reactivated.migration_notice) {
       console.log(chalk.yellow(reactivated.migration_notice));
     }
+    if (reactivated.phantom_notice) {
+      console.log(chalk.yellow(reactivated.phantom_notice));
+    }
 
     const bundleResult = writeDispatchBundle(root, state, config, { turnId: retainedTurn.turn_id });
     if (!bundleResult.ok) {
@@ -242,6 +248,9 @@ export async function resumeCommand(opts) {
     if (initResult.migration_notice) {
       console.log(chalk.yellow(initResult.migration_notice));
     }
+    if (initResult.phantom_notice) {
+      console.log(chalk.yellow(initResult.phantom_notice));
+    }
   }
 
   // §47: paused + run_id exists → resume same run
@@ -256,6 +265,9 @@ export async function resumeCommand(opts) {
     if (reactivated.migration_notice) {
       console.log(chalk.yellow(reactivated.migration_notice));
     }
+    if (reactivated.phantom_notice) {
+      console.log(chalk.yellow(reactivated.phantom_notice));
+    }
   }
 
   // §47: paused + run_id exists → resume same run
@@ -269,6 +281,9 @@ export async function resumeCommand(opts) {
     console.log(chalk.green(`Resumed governed run: ${state.run_id}`));
     if (reactivated.migration_notice) {
       console.log(chalk.yellow(reactivated.migration_notice));
+    }
+    if (reactivated.phantom_notice) {
+      console.log(chalk.yellow(reactivated.phantom_notice));
     }
   }
 

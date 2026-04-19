@@ -263,6 +263,9 @@ export async function stepCommand(opts) {
         if (reactivated.migration_notice) {
           console.log(chalk.yellow(reactivated.migration_notice));
         }
+        if (reactivated.phantom_notice) {
+          console.log(chalk.yellow(reactivated.phantom_notice));
+        }
         skipAssignment = true;
 
         // BUG-1 fix: refresh baseline snapshot to capture files dirtied between assignment and dispatch
@@ -291,6 +294,9 @@ export async function stepCommand(opts) {
       if (initResult.migration_notice) {
         console.log(chalk.yellow(initResult.migration_notice));
       }
+      if (initResult.phantom_notice) {
+        console.log(chalk.yellow(initResult.phantom_notice));
+      }
     }
 
     // paused → resume
@@ -305,6 +311,9 @@ export async function stepCommand(opts) {
       if (reactivated.migration_notice) {
         console.log(chalk.yellow(reactivated.migration_notice));
       }
+      if (reactivated.phantom_notice) {
+        console.log(chalk.yellow(reactivated.phantom_notice));
+      }
     }
 
     if (!skipAssignment && state.status === 'paused' && state.run_id) {
@@ -317,6 +326,9 @@ export async function stepCommand(opts) {
       console.log(chalk.green(`Resumed governed run: ${state.run_id}`));
       if (reactivated.migration_notice) {
         console.log(chalk.yellow(reactivated.migration_notice));
+      }
+      if (reactivated.phantom_notice) {
+        console.log(chalk.yellow(reactivated.phantom_notice));
       }
     }
 

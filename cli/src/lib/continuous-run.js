@@ -28,6 +28,7 @@ import { emitRunEvent } from './run-events.js';
 import {
   archiveStaleIntentsForRun,
   formatLegacyIntentMigrationNotice,
+  formatPhantomIntentSupersessionNotice,
 } from './intent-startup-migration.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
@@ -171,6 +172,20 @@ function reconcileContinuousStartupState(context, session, contOpts, log) {
       });
       const migrationNotice = formatLegacyIntentMigrationNotice(startupIntents.archived_migration_intent_ids);
       if (migrationNotice) log(migrationNotice);
+    }
+    if (startupIntents.phantom_superseded_intent_ids?.length > 0) {
+      emitRunEvent(root, 'intents_superseded', {
+        run_id: scopedRunId,
+        phase: governedState?.phase || null,
+        status: governedState?.status || 'active',
+        payload: {
+          superseded_count: startupIntents.phantom_superseded_intent_ids.length,
+          superseded_intent_ids: startupIntents.phantom_superseded_intent_ids,
+          reason: 'approved intents already satisfied by on-disk planning artifacts superseded during continuous startup',
+        },
+      });
+      const phantomNotice = formatPhantomIntentSupersessionNotice(startupIntents.phantom_superseded_intent_ids);
+      if (phantomNotice) log(phantomNotice);
     }
     if (session.startup_reconciled_run_id !== scopedRunId) {
       session.startup_reconciled_run_id = scopedRunId;

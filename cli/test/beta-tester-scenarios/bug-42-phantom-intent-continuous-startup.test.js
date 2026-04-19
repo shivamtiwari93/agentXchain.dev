@@ -17,7 +17,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -150,11 +150,25 @@ describe('BUG-42: phantom intent detection and supersession', () => {
   });
 
   it('non-phantom run-scoped intents are not affected', () => {
-    const { dir, RUN_ID } = seedTesterState();
+    const dir = mkdtempSync(join(tmpdir(), 'axc-bug42-non-phantom-'));
+    runCli(ROOT, ['init', '--governed', '--dir', dir, '-y']);
+    rmSync(join(dir, '.planning'), { recursive: true, force: true });
+    mkdirSync(join(dir, '.planning'), { recursive: true });
 
-    // Add a valid non-phantom intent (no planning artifacts exist for its template)
+    const RUN_ID = 'run_non_phantom_001';
+    const stateDir = join(dir, '.agentxchain');
+    mkdirSync(stateDir, { recursive: true });
+    writeFileSync(join(stateDir, 'state.json'), JSON.stringify({
+      run_id: RUN_ID,
+      phase: 'planning',
+      status: 'active',
+      protocol_version: '7',
+    }));
+
+    const intentsDir = join(stateDir, 'intake', 'intents');
+    mkdirSync(intentsDir, { recursive: true });
+
     const validIntentId = 'intent_valid_001';
-    const intentsDir = join(dir, '.agentxchain', 'intake', 'intents');
     writeFileSync(join(intentsDir, `${validIntentId}.json`), JSON.stringify({
       intent_id: validIntentId,
       status: 'approved',
@@ -166,8 +180,7 @@ describe('BUG-42: phantom intent detection and supersession', () => {
 
     const result = archiveStaleIntentsForRun(dir, RUN_ID);
 
-    // Phantom should be superseded, but valid intent should remain
-    assert.equal(result.phantom_superseded, 1);
+    assert.equal(result.phantom_superseded, 0);
 
     const after = findNextDispatchableIntent(dir, { run_id: RUN_ID });
     assert.ok(after.ok, 'valid intent should still be dispatchable');

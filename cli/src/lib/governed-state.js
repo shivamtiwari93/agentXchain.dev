@@ -49,6 +49,7 @@ import { buildDefaultRunProvenance } from './run-provenance.js';
 import {
   archiveStaleIntentsForRun,
   formatLegacyIntentMigrationNotice,
+  formatPhantomIntentSupersessionNotice,
 } from './intent-startup-migration.js';
 import {
   ensureHumanEscalation,
@@ -2098,6 +2099,18 @@ export function reactivateGovernedRun(root, state, details = {}) {
       },
     });
   }
+  if (startupIntents.phantom_superseded_intent_ids?.length > 0) {
+    emitRunEvent(root, 'intents_superseded', {
+      run_id: nextState.run_id,
+      phase: nextState.phase,
+      status: nextState.status,
+      payload: {
+        superseded_count: startupIntents.phantom_superseded_intent_ids.length,
+        superseded_intent_ids: startupIntents.phantom_superseded_intent_ids,
+        reason: 'approved intents already satisfied by on-disk planning artifacts superseded during run reactivation',
+      },
+    });
+  }
 
   if (humanEscalation) {
     resolveHumanEscalation(root, humanEscalation.escalation_id, {
@@ -2144,6 +2157,7 @@ export function reactivateGovernedRun(root, state, details = {}) {
     ok: true,
     state: attachLegacyCurrentTurnAlias(nextState),
     migration_notice: formatLegacyIntentMigrationNotice(startupIntents.archived_migration_intent_ids),
+    phantom_notice: formatPhantomIntentSupersessionNotice(startupIntents.phantom_superseded_intent_ids),
   };
 }
 
@@ -2216,6 +2230,18 @@ export function initializeGovernedRun(root, config, options = {}) {
       },
     });
   }
+  if (startupIntents.phantom_superseded_intent_ids?.length > 0) {
+    emitRunEvent(root, 'intents_superseded', {
+      run_id: runId,
+      phase: updatedState.phase,
+      status: 'active',
+      payload: {
+        superseded_count: startupIntents.phantom_superseded_intent_ids.length,
+        superseded_intent_ids: startupIntents.phantom_superseded_intent_ids,
+        reason: 'approved intents already satisfied by on-disk planning artifacts superseded during run initialization',
+      },
+    });
+  }
 
   emitRunEvent(root, 'run_started', {
     run_id: runId,
@@ -2225,8 +2251,14 @@ export function initializeGovernedRun(root, config, options = {}) {
   });
   // BUG-39: return migration notice so callers can display it
   const migrationNotice = startupIntents.migration_notice;
+  const phantomNotice = formatPhantomIntentSupersessionNotice(startupIntents.phantom_superseded_intent_ids);
 
-  return { ok: true, state: attachLegacyCurrentTurnAlias(updatedState), migration_notice: migrationNotice };
+  return {
+    ok: true,
+    state: attachLegacyCurrentTurnAlias(updatedState),
+    migration_notice: migrationNotice,
+    phantom_notice: phantomNotice,
+  };
 }
 
 /**

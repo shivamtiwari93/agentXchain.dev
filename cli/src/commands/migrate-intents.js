@@ -13,8 +13,7 @@ import { join } from 'node:path';
 import chalk from 'chalk';
 
 import { findProjectRoot } from '../lib/config.js';
-import { migratePreBug34Intents } from '../lib/intent-startup-migration.js';
-import { VALID_GOVERNED_TEMPLATE_IDS, loadGovernedTemplate } from '../lib/governed-templates.js';
+import { isPhantomIntent, migratePreBug34Intents } from '../lib/intent-startup-migration.js';
 import { safeWriteJson } from '../lib/safe-write.js';
 
 const MIGRATE_INTENTS_SCOPE = 'legacy_and_phantom';
@@ -81,25 +80,6 @@ function listRunScopedIntents(root) {
     });
   }
   return results;
-}
-
-function isPhantomIntent(root, intent) {
-  if (intent.status !== 'approved') return false;
-  if (!intent.template) return false;
-
-  let manifest;
-  try {
-    manifest = loadGovernedTemplate(intent.template);
-  } catch {
-    return false;
-  }
-
-  const artifacts = manifest.planning_artifacts || [];
-  if (artifacts.length === 0) return false;
-
-  const planningDir = join(root, '.planning');
-  const existing = artifacts.filter((a) => existsSync(join(planningDir, a.filename)));
-  return existing.length > 0;
 }
 
 function listPhantomIntents(root) {

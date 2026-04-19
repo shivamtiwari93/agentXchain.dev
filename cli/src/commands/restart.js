@@ -329,6 +329,9 @@ export async function restartCommand(opts) {
     if (reactivated.migration_notice) {
       console.log(chalk.yellow(reactivated.migration_notice));
     }
+    if (reactivated.phantom_notice) {
+      console.log(chalk.yellow(reactivated.phantom_notice));
+    }
   }
 
   // Determine role from option or routing

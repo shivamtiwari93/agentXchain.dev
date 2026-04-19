@@ -56,6 +56,13 @@ function describeEvent(eventType, entry) {
       return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
     case 'dispatch_progress':
       return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
+    case 'intents_migrated':
+    case 'intents_superseded': {
+      const count = Number.isFinite(entry.payload?.archived_count)
+        ? entry.payload.archived_count
+        : (Number.isFinite(entry.payload?.superseded_count) ? entry.payload.superseded_count : null);
+      return `${prefix}${eventType}${count !== null ? ` (${count})` : ''}`;
+    }
     case 'run_blocked':
     case 'run_completed':
     case 'run_started':
