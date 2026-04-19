@@ -419,7 +419,7 @@ describe('E2E — Mixed-runtime parallel lights-out proof', () => {
         role: 'integrator',
         runtime_id: 'proxy-integrator',
         summary: 'Integration review complete via api_proxy runtime.',
-        files_changed: [],
+        files_changed: ['.planning/INTEGRATION_REVIEW.md'],
         artifact: { type: 'review', ref: null },
         proposed_changes: [
           {

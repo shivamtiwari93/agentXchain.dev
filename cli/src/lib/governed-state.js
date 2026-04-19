@@ -3333,12 +3333,28 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const acceptedTurnIds = new Set(historyEntries.map(h => h.turn_id));
   const hasUnacceptedConcurrentSiblings = [...concurrentIds].some(id => !acceptedTurnIds.has(id));
 
+  // Files from accepted-but-uncheckpointed prior turns are expected to be
+  // dirty in the working tree until `checkpoint-turn` commits them.  These
+  // must not block the current turn's acceptance — they are known accepted
+  // mutations, not undeclared agent writes.
+  const uncheckpointedPriorFiles = [];
+  for (const historyEntry of historyEntries) {
+    if (historyEntry.checkpoint_sha) continue; // already committed
+    const priorFiles = Array.isArray(historyEntry?.files_changed)
+      ? historyEntry.files_changed
+      : [];
+    for (const filePath of priorFiles) {
+      uncheckpointedPriorFiles.push(filePath);
+    }
+  }
+
   const dirtyParity = detectDirtyFilesOutsideAllowed(
     root,
     writeAuthority,
     [
       ...(turnResult.files_changed || []),
       ...concurrentAllowedDirtyFiles,
+      ...uncheckpointedPriorFiles,
     ],
   );
   if (!dirtyParity.clean) {

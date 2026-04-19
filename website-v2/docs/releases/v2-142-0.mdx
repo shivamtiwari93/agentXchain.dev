@@ -1,0 +1,34 @@
+sidebar_position: -5
+title: "v2.142.0 Release Notes"
+---
+
+# AgentXchain v2.142.0
+
+`v2.142.0` completes the BUG-46 code hardening and fixes 4 regressions introduced by the dirty-tree parity check in parallel turn scenarios.
+
+## Bug Fixes (hardening shipped, awaiting tester verification)
+
+- **BUG-46 requirement #3 — dirty-tree parity with resume**: acceptance now calls the same actor-owned dirty-tree detector that `resume` uses (`checkCleanBaseline`), then subtracts the current turn's allowed files plus declared concurrent-sibling files. If unexpected dirty actor-owned files remain, acceptance fails before history persistence. Decision: `DEC-BUG46-DIRTY-TREE-PARITY-001`.
+
+- **BUG-46 requirement #4 — `verification.produced_files` classification**: verification-produced files are now explicitly classified as `artifact` (promoted into `files_changed` for checkpoint) or `ignore` (restored to dispatch baseline before acceptance). No ambiguous middle states. Decision: `DEC-BUG46-VERIFICATION-PRODUCED-FILES-001`.
+
+- **BUG-44 — phase-scoped intent retirement**: implementation-scoped repair intents are retired when the phase advances past their scope. Gate-satisfied acceptance items are also skipped during coverage evaluation. Awaiting tester verification.
+
+- **BUG-45 — retained-turn live intent reconciliation**: retained-turn acceptance re-reads the live intent state from disk instead of using the stale embedded copy. `HUMAN_TASKS.md` added to baseline exclusion list. Awaiting tester verification.
+
+## Regression Fixes
+
+- **Accepted-but-uncheckpointed prior turns no longer block subsequent acceptance**: the dirty-tree parity check now includes files from accepted-but-uncheckpointed history entries in the allowed set. Previously, a parallel retry after conflict rejection would fail because the accepted sibling's files were still dirty in the working tree.
+
+- **Mixed-runtime parallel test fixtures corrected**: integrator turns with `write_authority: proposed` that write files to disk now correctly declare those files in `files_changed`, matching the BUG-46 acceptance contract.
+
+## Status
+
+- **BUG-44**: code shipped, awaiting tester verification per discipline rule #12
+- **BUG-45**: code shipped, awaiting tester verification per discipline rule #12
+- **BUG-46**: all 7 roadmap requirements implemented, awaiting tester verification per discipline rule #12
+
+## Evidence
+
+- 6,184 tests / 1,308 suites / 0 failures
+- BUG-46 matrix: #1 baseline exclusion, #2 working-tree observation, #3 dirty-tree parity, #4 verification.produced_files, #5 write_authority respect, #6 loud workspace+empty failure, #7 tester-sequence test — all implemented
