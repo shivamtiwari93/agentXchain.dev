@@ -2764,3 +2764,91 @@ This evidence confirms the four-layered BUG-46 diagnosis:
 2. BUG-1 validator didn't fire because both declared and observed are empty
 3. Framework-owned file pollution beyond human-escalations.jsonl
 4. Verification-produced artifacts have no explicit classification
+
+---
+
+### Beta-tester bug report #16 (verbatim) — v2.144.0 state-consistency bugs (2026-04-19)
+
+> **Title:** `v2.144.0` still has state-consistency gaps in continuous continuation runs: stale-running turns require manual reissue, injected intents can be both `superseded` and pending, and fresh runs can retain stale accepted refs / inherited history after checkpoint
+>
+> **Summary:** Retested tusq.dev against agentxchain@2.144.0. Framework is materially better but 4 remaining orchestration/state issues:
+> 1. Stale-running turns still happen — launch `product_marketing` turn stayed running 15+ minutes with no staged result and no recent events. Required `restart` → `reissue-turn` → `step --resume`.
+> 2. Injected intent lifecycle contradictory — intent JSON marked `superseded` but `status` still shows `Priority injection pending`, next continuous run still acted on it.
+> 3. Fresh run bookkeeping/state inconsistent after checkpoint — new vision-driven run accepted + checkpointed first PM turn, but `status` still showed older accepted ref from previous run and claimed drift.
+> 4. `run-history.jsonl` for fresh run reports `phases_completed: ["planning","implementation","qa","launch"]` and `total_turns: 70` despite only one PM turn produced.
+>
+> v2.144.0 is usable but meaningful state-model bugs make continuous runs harder to trust.
+>
+> **Environment:** tusq.dev, macOS, governed v4, template cli-tool, agentxchain@2.144.0 via npx
+>
+> **What improved in v2.144.0:** continuous mode, new continuation runs start, real PM turns dispatch, accept/checkpoint works, vision-driven continuation run creation. Narrower follow-up about state consistency and recovery, not basic failure to run.
+>
+> **Issue 1 — stale-running turns:**
+> Completed continuation run `run_a47f1dd6629dba75`, launch turn `turn_88e2912c9b724d66` (role product_marketing, phase launch) remained `running` long time with no staged result, no new events, no progress artifact. Manual recovery: `restart` → `reissue-turn --turn turn_88e2912c9b724d66 --reason "stale running launch turn with no staged result or recent events"` → `step --resume`.
+>
+> Event log shows `turn_dispatched` at 19:33:42, `turn_reissued` at 19:50:39 (over 17 minutes later). History entry: `status: "reissued"`, `duration_ms: 1016836`, `files_changed: []`.
+>
+> **Issue 2 — injected intent contradiction:**
+> Injected `intent_1776631311439_ca68` — "Continue governed execution until goals in VISION.md materially satisfied..."
+>
+> Intent JSON: `"status": "superseded"`, `"approved_run_id": "run_a47f1dd6629dba75"`, `"archived_reason": "planning artifacts for this intent already exist on disk; intent superseded during approval"`. History inside JSON: `from: triaged → to: superseded, approver: human`.
+>
+> But `status` still shows:
+> ```
+> ⚡ Priority injection pending
+> Intent: intent_1776631311439_ca68
+> Priority: p0
+> Effect: Will preempt current workstream after this turn completes
+> ```
+>
+> Then continuous run created new run `run_7c529def79b94f51` with `trigger: "vision_scan"`, `trigger_reason: "The canonical artifact: input and output shapes"`. Framework behaved as if injected objective still live.
+>
+> **Issue 3 — fresh run accepted ref stale:**
+> Fresh run `run_7c529def79b94f51` dispatched PM turn `turn_449d52ce8856b875`, accepted and checkpointed at `c927214e286b7301f18305b4efd1f13bf8db6b7f`. History shows `status: needs_human`, `files_changed: [".planning/SYSTEM_SPEC.md", ".planning/ROADMAP.md", ".planning/PM_SIGNOFF.md"]`, real planning work.
+>
+> State `last_completed_turn.checkpoint_sha: "c927214e286b7301f18305b4efd1f13bf8db6b7f"`. But `status` says `Accepted: git:f77731523ff44248e7f99a407462142f3b404a37` (previous run's SHA) and `Drift: Git HEAD has moved since checkpoint: f7773152 -> c927214e`.
+>
+> Fresh run that just accepted and checkpointed its first turn should not report accepted baseline from previous run. Poisons drift reporting, restart/recovery, operator trust.
+>
+> **Issue 4 — run-history contamination:**
+> Fresh run `run_7c529def79b94f51` is new planning run with one PM turn, planning gate pending, no completed implementation/qa/launch phases. But `run-history.jsonl`:
+> ```json
+> {
+>   "run_id":"run_7c529def79b94f51",
+>   "status":"blocked",
+>   "phases_completed":["planning","implementation","qa","launch"],
+>   "total_turns":70,
+>   "blocked_reason":"human:Planning signoff gate requires human approval...",
+>   "gate_results":{"planning_signoff":"pending","implementation_complete":"pending","qa_ship_verdict":"pending","launch_ready":"pending"}
+> }
+> ```
+>
+> Internally inconsistent: `phases_completed` says all done, `gate_results` says all pending, live run state blocked in planning, `total_turns: 70` implausible. Cross-run inheritance contamination or bad roll-up logic.
+>
+> **Secondary — framework-generated dirty files:**
+> git status still shows `.agentxchain/SESSION_RECOVERY.md`, `.agentxchain/state.json`, `HUMAN_TASKS.md`, `TALK.md` modified after normal orchestration. Not main blocker but adds noise around drift/restart.
+>
+> **Severity: P1/P2.** No longer catastrophic but state inconsistencies directly affect recovery, operator trust, automation reliability, continuity correctness. Stale-running turn and stale accepted-ref especially important for real continuous use.
+>
+> **Short conclusion:** v2.144.0 materially better, carries real governed work much further. Still has important state-consistency bugs: stale-running turns need manual reissue, injected intents can be superseded+pending simultaneously, fresh runs retain stale accepted refs after checkpoint, run-history records impossible inherited phase history. Still framework issues worth fixing.
+
+---
+
+## BUG-44/45/46 closures — tester-verified on v2.144.0 (2026-04-19)
+
+**Tester's quoted verification:**
+
+> "BUG-44: appears fixed in 2.144.0 — I did not see the old behavior where an already-satisfied implementation intent kept blocking QA acceptance."
+>
+> "BUG-45: appears mostly fixed in 2.144.0 — I did not have to hand-edit `.agentxchain/state.json` or `ASSIGNMENT.json` to accept a retained turn. I was able to recover retained turns with normal commands like `accept-turn --resolution human_merge`, `checkpoint-turn`, `reissue-turn`, `resume`."
+>
+> "BUG-46: appears fixed or at least not reproducible in 2.144.0 — I saw multiple successful checkpoints:
+> - `turn_b8ceb95afce21a9d` -> `f77731523ff44248e7f99a407462142f3b404a37`
+> - `turn_449d52ce8856b875` -> `c927214e286b7301f18305b4efd1f13bf8db6b7f`
+> - `turn_d79bb1f0054adf1b` -> `dec633db449f3ea78ab18a682011c8aa6f471755`
+> - `turn_013f8052c75b2636` -> `6edfe92bb88a2098d3565f07e0879394037e0411`"
+
+**Discipline milestone:** First time in the 2026-04-18/19 beta cycle that three bugs close with tester-quoted verification in the same retest. Rule #12 (no close without tester-verified output) held continuously across BUG-44 (v2.139.0), BUG-45 (v2.140.0), and BUG-46 (v2.141.x–v2.143.0). The "shipped code, held the checkmark pending tester" pattern is the discipline that finally broke the 7-false-closure streak.
+
+**Tester's nuance on BUG-45:** "The run got stuck in QA again, but for a different reason: the human-approval gate loop, not stale implementation intent coverage." — the QA human-gate loop is adjacent to BUG-48 (intent lifecycle contradiction) but may be distinct. Agents should investigate during BUG-47..50 work.
+

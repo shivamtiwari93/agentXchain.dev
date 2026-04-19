@@ -91,7 +91,27 @@ const INTAKE_INTENTS_DIR = '.agentxchain/intake/intents';
 const STALE_LOCK_TIMEOUT_MS = 30_000;
 const GOVERNED_SCHEMA_VERSION = '1.1';
 
+const PREEMPTION_MARKER_REL = '.agentxchain/intake/injected-priority.json';
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * BUG-48: clear the preemption marker if it references the given intent.
+ * Inlined here to avoid a circular dependency with intake.js.
+ */
+function clearPreemptionMarkerIfMatchesIntent(root, intentId) {
+  if (!intentId) return;
+  const p = join(root, PREEMPTION_MARKER_REL);
+  if (!existsSync(p)) return;
+  try {
+    const marker = JSON.parse(readFileSync(p, 'utf8'));
+    if (marker && marker.intent_id === intentId) {
+      unlinkSync(p);
+    }
+  } catch {
+    // best-effort
+  }
+}
 
 function generateId(prefix) {
   return `${prefix}_${randomBytes(8).toString('hex')}`;
@@ -240,6 +260,8 @@ function retireApprovedPhaseScopedIntents(root, state, config, exitedPhase, now)
       entered_phase: state?.phase || null,
     });
     safeWriteJson(intentPath, intent);
+    // BUG-48: clear preemption marker if it references this now-satisfied intent
+    clearPreemptionMarkerIfMatchesIntent(root, intent.intent_id);
     retired.push(intent.intent_id);
   }
 

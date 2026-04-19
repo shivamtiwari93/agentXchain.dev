@@ -38,7 +38,7 @@ import { runAdmissionControl } from './admission-control.js';
 import { appendFileSync, mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { evaluateApprovalSlaReminders } from './notification-runner.js';
-import { readPreemptionMarker } from './intake.js';
+import { validatePreemptionMarker } from './intake.js';
 import { buildTimeoutBlockedReason, evaluateTimeouts } from './timeout-evaluator.js';
 
 const DEFAULT_MAX_TURNS = 50;
@@ -139,7 +139,8 @@ export async function runLoop(root, config, callbacks, options = {}) {
     // interruption).
     const activeTurnCount = getActiveTurnCount(state);
     if (activeTurnCount === 0) {
-      const marker = readPreemptionMarker(root);
+      // BUG-48: validate marker against live intent state before preempting
+      const marker = validatePreemptionMarker(root);
       if (marker && marker.priority === 'p0') {
         emit({ type: 'priority_injected', intent_id: marker.intent_id, priority: marker.priority });
         const result = makeResult(false, 'priority_preempted', state, turnsExecuted, turnHistory, gatesApproved, errors);

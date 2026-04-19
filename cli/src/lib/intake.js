@@ -839,6 +839,8 @@ export function approveIntent(root, intentId, options = {}) {
     intent.archived_reason = phantomReason;
     intent.history.push({ from: previousStatus, to: 'superseded', at: now, reason: phantomReason, approver });
     safeWriteJson(intentPath, intent);
+    // BUG-48: clear preemption marker if it references this now-superseded intent
+    clearPreemptionMarkerForIntent(root, intentId);
     return { ok: true, intent, superseded: true, exitCode: 0 };
   }
 
@@ -1319,6 +1321,8 @@ export function resolveIntent(root, intentId, opts = {}) {
     mkdirSync(obsDir, { recursive: true });
 
     safeWriteJson(intentPath, intent);
+    // BUG-48: clear preemption marker if it references this now-completed intent
+    clearPreemptionMarkerForIntent(root, intentId);
     return {
       ok: true,
       intent,
@@ -1763,6 +1767,49 @@ export function clearPreemptionMarker(root) {
       // best-effort
     }
   }
+}
+
+/**
+ * BUG-48: Clear the preemption marker if it references a specific intent.
+ * Called when an intent transitions to a non-actionable terminal state so the
+ * marker cannot outlive the intent it points at.
+ */
+export function clearPreemptionMarkerForIntent(root, intentId) {
+  if (!intentId) return;
+  const marker = readPreemptionMarker(root);
+  if (marker && marker.intent_id === intentId) {
+    clearPreemptionMarker(root);
+  }
+}
+
+/**
+ * BUG-48: Validate the preemption marker against the live intent state.
+ * If the marker references an intent whose on-disk status is non-actionable
+ * (superseded, satisfied, completed, rejected, suppressed, failed,
+ * archived_migration), auto-clear the marker and return null.
+ * Otherwise return the marker as-is.
+ */
+const NON_ACTIONABLE_STATUSES = new Set([
+  'superseded', 'satisfied', 'completed', 'rejected', 'suppressed', 'failed', 'archived_migration',
+]);
+
+export function validatePreemptionMarker(root) {
+  const marker = readPreemptionMarker(root);
+  if (!marker?.intent_id) return marker;
+
+  const loaded = readIntent(root, marker.intent_id);
+  if (!loaded.ok) {
+    // intent file missing — stale marker
+    clearPreemptionMarker(root);
+    return null;
+  }
+
+  if (NON_ACTIONABLE_STATUSES.has(loaded.intent?.status)) {
+    clearPreemptionMarker(root);
+    return null;
+  }
+
+  return marker;
 }
 
 export function consumePreemptionMarker(root, options = {}) {

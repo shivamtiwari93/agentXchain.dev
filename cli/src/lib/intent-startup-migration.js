@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { queryAcceptedTurnHistory } from './accepted-turn-history.js';
@@ -6,6 +6,25 @@ import { safeWriteJson } from './safe-write.js';
 import { VALID_GOVERNED_TEMPLATE_IDS, loadGovernedTemplate } from './governed-templates.js';
 
 const DISPATCHABLE_STATUSES = new Set(['planned', 'approved']);
+const PREEMPTION_MARKER_REL = '.agentxchain/intake/injected-priority.json';
+
+/**
+ * BUG-48: clear preemption marker if it references the given intent.
+ * Inlined to avoid circular dependency with intake.js.
+ */
+function clearPreemptionMarkerIfMatchesIntent(root, intentId) {
+  if (!intentId) return;
+  const p = join(root, PREEMPTION_MARKER_REL);
+  if (!existsSync(p)) return;
+  try {
+    const marker = JSON.parse(readFileSync(p, 'utf8'));
+    if (marker && marker.intent_id === intentId) {
+      unlinkSync(p);
+    }
+  } catch {
+    // best-effort
+  }
+}
 
 function nowISO() {
   return new Date().toISOString();
@@ -260,6 +279,8 @@ export function archiveStaleIntentsForRun(root, runId, options = {}) {
         reason: intent.archived_reason,
       });
       safeWriteJson(intentPath, intent);
+      // BUG-48: clear preemption marker if it references this now-superseded intent
+      clearPreemptionMarkerIfMatchesIntent(root, intent.intent_id);
       phantomSuperseded += 1;
       if (intent.intent_id) phantomSupersededIntentIds.push(intent.intent_id);
       continue;

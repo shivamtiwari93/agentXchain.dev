@@ -21,10 +21,11 @@ import { deriveConflictedTurnResolutionActions } from '../lib/conflict-actions.j
 import { summarizeLatestGateActionAttempt } from '../lib/gate-actions.js';
 import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
-import { readPreemptionMarker, findPendingApprovedIntents } from '../lib/intake.js';
+import { readPreemptionMarker, validatePreemptionMarker, findPendingApprovedIntents } from '../lib/intake.js';
 import { readContinuousSession } from '../lib/continuous-run.js';
 import { readAllDispatchProgress } from '../lib/dispatch-progress.js';
 import { readCoordinatorWarnings } from '../lib/coordinator-warnings.js';
+import { detectAndEmitStaleTurns } from '../lib/stale-turn-watchdog.js';
 
 export async function statusCommand(opts) {
   const context = loadStatusContext();
@@ -146,7 +147,8 @@ function renderGovernedStatus(context, opts) {
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
   const humanEscalation = findCurrentHumanEscalation(root, state);
-  const preemptionMarker = readPreemptionMarker(root);
+  // BUG-48: validate the marker against live intent state; auto-clear stale markers
+  const preemptionMarker = validatePreemptionMarker(root);
   const pendingIntents = findPendingApprovedIntents(root, { run_id: stateRunId || null });
   const continuousSession = readContinuousSession(root);
   const gateActionAttempt = state?.pending_phase_transition
@@ -163,6 +165,9 @@ function renderGovernedStatus(context, opts) {
 
   // Coordinator warning surfacing — DEC-COORD-RETRY-PROJECTION-EVENT-001
   const coordinatorWarnings = readCoordinatorWarnings(root, { runId: stateRunId || null });
+
+  // BUG-47: detect stale running turns and emit turn_stalled events
+  const staleTurns = detectAndEmitStaleTurns(root, state, config);
 
   if (opts.json) {
     const dashPid = getDashboardPid(root);
@@ -201,6 +206,7 @@ function renderGovernedStatus(context, opts) {
       binding_drift: detectActiveTurnBindingDrift(state, config),
       bundle_integrity: detectStateBundleDesync(root, state),
       coordinator_warnings: coordinatorWarnings,
+      stale_turns: staleTurns,
     }, null, 2));
     return;
   }
@@ -442,6 +448,19 @@ function renderGovernedStatus(context, opts) {
         console.log(`  ${chalk.dim('Authority:')} ${chalk.yellow(drift.old_authority)} → ${chalk.green(drift.new_authority)} (config changed)`);
       }
       console.log(`  ${chalk.dim('Recover:')}  ${chalk.cyan(drift.recovery_command)}`);
+    }
+  }
+
+  // BUG-47: Stale turn warning
+  if (staleTurns.length > 0) {
+    console.log('');
+    for (const st of staleTurns) {
+      const mins = Math.floor(st.running_ms / 60000);
+      console.log(`  ${chalk.red.bold('⚠ Stale turn detected')}`);
+      console.log(`  ${chalk.dim('Turn:')}     ${st.turn_id} (${st.role})`);
+      console.log(`  ${chalk.dim('Runtime:')}  ${st.runtime_id}`);
+      console.log(`  ${chalk.dim('Running:')}  ${mins}m with no output`);
+      console.log(`  ${chalk.dim('Recover:')}  ${chalk.cyan(`agentxchain reissue-turn --turn ${st.turn_id} --reason stale`)}`);
     }
   }
 

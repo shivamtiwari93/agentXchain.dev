@@ -267,6 +267,10 @@ export function checkpointAcceptedTurn(root, opts = {}) {
   if (state) {
     writeState(root, {
       ...state,
+      // BUG-49: advance accepted_integration_ref to the new checkpoint SHA
+      // so drift detection compares against the current checkpoint, not a
+      // stale ref from the parent run or the pre-checkpoint state.
+      accepted_integration_ref: `git:${checkpointSha}`,
       last_completed_turn: {
         turn_id: entry.turn_id,
         role: entry.role || null,

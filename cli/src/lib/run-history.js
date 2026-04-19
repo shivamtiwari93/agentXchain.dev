@@ -42,10 +42,18 @@ export function recordRunHistory(root, state, config, status) {
     const filePath = join(root, RUN_HISTORY_PATH);
     mkdirSync(dirname(filePath), { recursive: true });
 
-    const historyEntries = readJsonlSafe(root, HISTORY_PATH);
+    const allHistoryEntries = readJsonlSafe(root, HISTORY_PATH);
     const ledgerEntries = readJsonlSafe(root, LEDGER_PATH);
 
-    // Extract unique phases and roles from turn history
+    // BUG-50: filter history entries to the current run only.
+    // history.jsonl accumulates across runs; using all entries causes fresh
+    // run records to inherit parent run phases_completed/total_turns.
+    const currentRunId = state?.run_id || null;
+    const historyEntries = currentRunId
+      ? allHistoryEntries.filter(e => e.run_id === currentRunId)
+      : allHistoryEntries;
+
+    // Extract unique phases and roles from THIS run's turn history only
     const phasesCompleted = [...new Set(historyEntries.map(e => e.phase).filter(Boolean))];
     const rolesUsed = [...new Set(historyEntries.map(e => e.role).filter(Boolean))];
 
