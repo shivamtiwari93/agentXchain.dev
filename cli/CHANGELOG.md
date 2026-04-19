@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.143.0
+
+### Bug Fixes
+- **Framework write exclusion hardened**: all framework-owned write paths now properly excluded from agent-attributed observation, preventing BUG-46-class dirty-tree pollution (DEC-FRAMEWORK-WRITE-EXHAUSTION-001).
+- **Run export/restore continuity roots centralized**: `RUN_EXPORT_INCLUDED_ROOTS` and `RUN_RESTORE_ROOTS` now derive from `repo-observer.js` constants instead of maintaining separate path lists.
+- **Release-note normalizer hardened** against duplicate `sidebar_position` keys.
+
+### Tests
+- diff_summary combined regression test added (DEC-DIFF-SUMMARY-REGRESSION-001)
+- BUG-46 tester-sequence test pinned with exact tester state
+- Packaged claim-reality smoke test added for BUG-46
+
+### Status
+- BUG-44/45/46 remain open pending tester verification
+
+### Evidence
+- 6,218 tests / 1,310 suites / 0 failures
+
 ## 2.142.0
 
 ### Bug Fixes

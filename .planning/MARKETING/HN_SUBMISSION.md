@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.142.0
+# Hacker News Submission — AgentXchain v2.143.0
 
-> Ready-to-post. Updated 2026-04-19 for v2.142.0.
+> Ready-to-post. Updated 2026-04-19 for v2.143.0.
 
 ---
 
@@ -34,7 +34,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.142.0:**
+**What's shipped in v2.143.0:**
 - BUG-46 post-acceptance deadlock hardening shipped for tester verification: accepted turns no longer strand replay-only repo dirt that blocks `resume`
 - Verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
 - Mixed-files proof added so checkpoint commits still preserve real repo mutations after replay cleanup
@@ -42,7 +42,7 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - 108 conformance fixtures across 13 protocol surfaces
-- 6184 tests / 1308 suites / 0 failures
+- 6,218 tests / 1,310 suites / 0 failures
 
 **Architecture:**
 1. Protocol (the constitution — run state, roles, turns, gates, decisions)

@@ -1,0 +1,34 @@
+---
+sidebar_position: 0
+title: "v2.143.0 Release Notes"
+---
+
+# AgentXchain v2.143.0
+
+`v2.143.0` hardens framework write exclusion, centralizes run export/restore continuity roots, and adds regression and smoke tests for BUG-46.
+
+## Bug Fixes
+
+- **Framework write exclusion hardened**: all framework-owned write paths now properly excluded from agent-attributed observation, preventing BUG-46-class dirty-tree pollution. Decision: `DEC-FRAMEWORK-WRITE-EXHAUSTION-001`.
+
+- **Run export/restore continuity roots centralized**: `RUN_EXPORT_INCLUDED_ROOTS` and `RUN_RESTORE_ROOTS` now derive from `repo-observer.js` constants instead of maintaining separate path lists.
+
+- **Release-note normalizer hardened** against duplicate `sidebar_position` keys.
+
+## Tests
+
+- diff_summary combined regression test added (DEC-DIFF-SUMMARY-REGRESSION-001)
+- BUG-46 tester-sequence test pinned with exact tester state
+- Packaged claim-reality smoke test added for BUG-46
+- BUG-44/45 packaged-smoke audit and symlink assumption documented (DEC-PACKAGED-SMOKE-SCOPE-001)
+- BUG-46 proposed patch proof completed with arbitrary-role coverage
+
+## Status
+
+- **BUG-44**: code shipped, awaiting tester verification per discipline rule #12
+- **BUG-45**: code shipped, awaiting tester verification per discipline rule #12
+- **BUG-46**: code shipped, awaiting tester verification per discipline rule #12
+
+## Evidence
+
+- 6,218 tests / 1,310 suites / 0 failures
