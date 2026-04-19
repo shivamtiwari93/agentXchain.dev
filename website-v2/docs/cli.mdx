@@ -1350,6 +1350,8 @@ One-shot repair command for repos that have legacy intents stuck with `approved_
 
 Use this when continuous mode aborts with "existing planning artifacts would be overwritten" due to stale legacy intents that were never migrated by the automatic startup path.
 
+Scope boundary: `migrate-intents` only archives legacy null-scoped intents. It does **not** archive run-scoped intents that already have `approved_run_id` set. Those remain under startup reconciliation for the active run, and the command reports them as skipped instead of mutating them silently.
+
 ## Readiness
 
 ### `doctor`

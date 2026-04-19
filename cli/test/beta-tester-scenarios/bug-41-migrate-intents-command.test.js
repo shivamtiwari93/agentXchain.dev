@@ -36,6 +36,9 @@ describe('BUG-41: migrate-intents one-shot repair command', () => {
 
     assert.equal(result.archived_count, 3);
     assert.equal(result.dry_run, false);
+    assert.equal(result.scope, 'legacy_null_run_only');
+    assert.equal(result.skipped_run_scoped_count, 0);
+    assert.deepStrictEqual(result.warnings, []);
     assert.deepStrictEqual(result.archived_intent_ids.sort(), [
       'intent-legacy-a',
       'intent-legacy-b',
@@ -60,6 +63,8 @@ describe('BUG-41: migrate-intents one-shot repair command', () => {
 
     assert.equal(result.archived_count, 0);
     assert.deepStrictEqual(result.archived_intent_ids, []);
+    assert.equal(result.scope, 'legacy_null_run_only');
+    assert.equal(result.skipped_run_scoped_count, 0);
   });
 
   // AT-MI-003: dry-run does not modify
@@ -73,6 +78,7 @@ describe('BUG-41: migrate-intents one-shot repair command', () => {
 
     assert.equal(result.archived_count, 2);
     assert.equal(result.dry_run, true);
+    assert.equal(result.scope, 'legacy_null_run_only');
 
     // Files should NOT be modified
     const a = readIntent(root, 'intent-dry-a');
@@ -96,8 +102,62 @@ describe('BUG-41: migrate-intents one-shot repair command', () => {
     const result = JSON.parse(output);
 
     assert.equal(result.archived_count, 0);
+    assert.equal(result.skipped_run_scoped_count, 0);
     // Verify it was NOT modified
     const after = readIntent(root, 'intent-durable');
     assert.equal(after.status, 'approved');
+  });
+
+  // AT-MI-005: run-scoped intents are skipped and reported explicitly
+  it('does not archive run-scoped intents and reports the boundary explicitly', () => {
+    const root = createLegacyIntentRepo('axc-mi-005-');
+    seedLegacyIntent(root, 'intent-legacy');
+    seedLegacyIntent(root, 'intent-run-bound');
+
+    const runBound = readIntent(root, 'intent-run-bound');
+    runBound.approved_run_id = 'run_prior';
+    writeFileSync(
+      join(root, '.agentxchain', 'intake', 'intents', 'intent-run-bound.json'),
+      JSON.stringify(runBound, null, 2),
+    );
+
+    const output = run(['migrate-intents', '--json'], root);
+    const result = JSON.parse(output);
+
+    assert.equal(result.scope, 'legacy_null_run_only');
+    assert.equal(result.archived_count, 1);
+    assert.deepStrictEqual(result.archived_intent_ids, ['intent-legacy']);
+    assert.equal(result.skipped_run_scoped_count, 1);
+    assert.deepStrictEqual(result.skipped_run_scoped_intent_ids, ['intent-run-bound']);
+    assert.match(result.warnings[0], /only archives legacy intents with no approved_run_id/i);
+
+    const legacy = readIntent(root, 'intent-legacy');
+    assert.equal(legacy.status, 'archived_migration');
+
+    const after = readIntent(root, 'intent-run-bound');
+    assert.equal(after.status, 'approved');
+    assert.equal(after.approved_run_id, 'run_prior');
+  });
+
+  // AT-MI-006: dry-run exposes the same boundary for external tooling
+  it('reports scope and skipped run-scoped intents in dry-run output', () => {
+    const root = createLegacyIntentRepo('axc-mi-006-');
+    seedLegacyIntent(root, 'intent-run-bound');
+
+    const runBound = readIntent(root, 'intent-run-bound');
+    runBound.approved_run_id = 'run_existing';
+    writeFileSync(
+      join(root, '.agentxchain', 'intake', 'intents', 'intent-run-bound.json'),
+      JSON.stringify(runBound, null, 2),
+    );
+
+    const output = run(['migrate-intents', '--json', '--dry-run'], root);
+    const result = JSON.parse(output);
+
+    assert.equal(result.scope, 'legacy_null_run_only');
+    assert.equal(result.archived_count, 0);
+    assert.equal(result.skipped_run_scoped_count, 1);
+    assert.deepStrictEqual(result.skipped_run_scoped_intent_ids, ['intent-run-bound']);
+    assert.equal(result.dry_run, true);
   });
 });
