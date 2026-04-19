@@ -3547,6 +3547,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   // protocol violation for authoritative completed turns. A workspace artifact
   // declares "I mutated repo files" — if files_changed is empty, the declaration
   // is incoherent and must be rejected before replay or history persistence.
+  // proposed turns cannot use workspace artifacts (validator rejects earlier).
   if (artifactType === 'workspace'
     && writeAuthority === 'authoritative'
     && turnResult.status === 'completed'

@@ -76,6 +76,7 @@ function makeConfig({
   roleTitle = 'QA',
   roleMandate = 'Verify and ship.',
   runtimeId = `local-${roleId}`,
+  writeAuthority = 'authoritative',
 } = {}) {
   return {
     schema_version: '1.0',
@@ -86,7 +87,7 @@ function makeConfig({
       [roleId]: {
         title: roleTitle,
         mandate: roleMandate,
-        write_authority: 'authoritative',
+        write_authority: writeAuthority,
         runtime: runtimeId,
       },
     },
@@ -501,5 +502,315 @@ describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint
     });
     assert.equal(resume.status, 0,
       `resume must succeed after arbitrary-role review acceptance:\n${resume.stdout}\n${resume.stderr}`);
+  });
+
+  it('proposed + local_cli rejects workspace artifact (validator requires authoritative for workspace)', () => {
+    const roleId = 'patch_author';
+    const runtimeId = 'local-patch-author';
+    const { root, turnId, runId } = createProject({
+      roleId,
+      roleTitle: 'Patch Author',
+      roleMandate: 'Prepare proposed code changes for review.',
+      runtimeId,
+      writeAuthority: 'proposed',
+    });
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: roleId,
+      runtime_id: runtimeId,
+      status: 'completed',
+      summary: 'Patch author incorrectly declared workspace artifact.',
+      decisions: [],
+      objections: [],
+      files_changed: ['src/fix.js'],
+      verification: { status: 'pass', machine_evidence: [] },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: roleId,
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.notEqual(accept.status, 0,
+      `proposed + local_cli must reject workspace artifact type:\n${accept.stdout}\n${accept.stderr}`);
+    assert.match(accept.stdout + accept.stderr,
+      /workspace.*requires authoritative/i,
+      'rejection must explain the authority mismatch');
+  });
+
+  it('proposed + local_cli with patch artifact accepts, checkpoints, and resumes cleanly', () => {
+    const roleId = 'patch_author';
+    const runtimeId = 'local-patch-author';
+    const { root, turnId, runId } = createProject({
+      roleId,
+      roleTitle: 'Patch Author',
+      roleMandate: 'Prepare proposed code changes for review.',
+      runtimeId,
+      writeAuthority: 'proposed',
+    });
+
+    const patchFile = 'src/proposed-fix.js';
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, patchFile), 'export const fix = true;\n');
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: roleId,
+      runtime_id: runtimeId,
+      status: 'completed',
+      summary: 'Patch author proposed a fix for review.',
+      decisions: [],
+      objections: [],
+      files_changed: [patchFile],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: `${JSON.stringify(process.execPath)} -e "process.exit(0)"`, exit_code: 0 },
+        ],
+      },
+      artifact: { type: 'patch', ref: null },
+      proposed_next_role: roleId,
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `proposed + local_cli with patch artifact must accept:\n${accept.stdout}\n${accept.stderr}`);
+
+    const history = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const accepted = history.find((entry) => entry.turn_id === turnId);
+    assert.ok(accepted, 'accepted turn in history');
+    assert.ok(accepted.files_changed.includes(patchFile),
+      'proposed turn files_changed must be persisted in history');
+
+    const checkpoint = spawnSync('node', [CLI_PATH, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `checkpoint-turn must commit proposed patch files:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const resume = spawnSync('node', [CLI_PATH, 'resume', '--role', roleId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `resume must succeed after proposed patch turn checkpoint:\n${resume.stdout}\n${resume.stderr}`);
+  });
+
+  it('proposed + local_cli patch artifact can ignore verification-produced files without stranding dirt', () => {
+    const roleId = 'patch_author';
+    const runtimeId = 'local-patch-author';
+    const { root, turnId, runId } = createProject({
+      roleId,
+      roleTitle: 'Patch Author',
+      roleMandate: 'Prepare proposed code changes for review.',
+      runtimeId,
+      writeAuthority: 'proposed',
+    });
+    materializeReplaySideEffects(root);
+
+    const patchFile = 'src/proposed-fix.js';
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, patchFile), 'export const fix = "ignore-side-effects";\n');
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: roleId,
+      runtime_id: runtimeId,
+      status: 'completed',
+      summary: 'Patch author proposed a fix and explicitly ignored verification-only outputs.',
+      decisions: [],
+      objections: [],
+      files_changed: [patchFile],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: REPLAY_COMMAND, exit_code: 0 },
+        ],
+        produced_files: REPLAY_SIDE_EFFECT_PATHS.map((path) => ({
+          path,
+          disposition: 'ignore',
+        })),
+      },
+      artifact: { type: 'patch', ref: null },
+      proposed_next_role: roleId,
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `proposed + local_cli patch artifact with ignored verification outputs must accept:\n${accept.stdout}\n${accept.stderr}`);
+
+    for (const relPath of REPLAY_SIDE_EFFECT_PATHS) {
+      assert.equal(existsSync(join(root, relPath)), false,
+        `ignored verification-produced file must be cleaned for proposed patch turn: ${relPath}`);
+    }
+    assert.equal(readFileSync(join(root, patchFile), 'utf8'), 'export const fix = "ignore-side-effects";\n',
+      'declared proposed patch file must survive verification cleanup');
+
+    const history = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const accepted = history.find((entry) => entry.turn_id === turnId);
+    assert.ok(accepted, 'accepted proposed turn in history');
+    assert.deepEqual(accepted.files_changed, [patchFile],
+      'ignored verification outputs must not leak into proposed files_changed');
+
+    const checkpoint = spawnSync('node', [CLI_PATH, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `checkpoint-turn must commit only the proposed patch file:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const resume = spawnSync('node', [CLI_PATH, 'resume', '--role', roleId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `resume must succeed after proposed patch cleanup path:\n${resume.stdout}\n${resume.stderr}`);
+  });
+
+  it('proposed + local_cli patch artifact promotes verification-produced artifact files into checkpointable history', () => {
+    const roleId = 'patch_author';
+    const runtimeId = 'local-patch-author';
+    const { root, turnId, runId } = createProject({
+      roleId,
+      roleTitle: 'Patch Author',
+      roleMandate: 'Prepare proposed code changes for review.',
+      runtimeId,
+      writeAuthority: 'proposed',
+    });
+    materializeReplaySideEffects(root);
+
+    const patchFile = 'src/proposed-fix.js';
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, patchFile), 'export const fix = "artifact-side-effects";\n');
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: roleId,
+      runtime_id: runtimeId,
+      status: 'completed',
+      summary: 'Patch author proposed a fix and declared verification outputs as part of the artifact set.',
+      decisions: [],
+      objections: [],
+      files_changed: [patchFile],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: REPLAY_COMMAND, exit_code: 0 },
+        ],
+        produced_files: REPLAY_SIDE_EFFECT_PATHS.map((path) => ({
+          path,
+          disposition: 'artifact',
+        })),
+      },
+      artifact: { type: 'patch', ref: null },
+      proposed_next_role: roleId,
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `proposed + local_cli patch artifact with artifact verification outputs must accept:\n${accept.stdout}\n${accept.stderr}`);
+
+    const history = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const accepted = history.find((entry) => entry.turn_id === turnId);
+    assert.ok(accepted, 'accepted proposed turn in history');
+    assert.ok(accepted.files_changed.includes(patchFile),
+      'history must preserve the declared proposed patch file');
+    for (const relPath of REPLAY_SIDE_EFFECT_PATHS) {
+      assert.ok(accepted.files_changed.includes(relPath),
+        `history must promote proposed verification artifact path into files_changed: ${relPath}`);
+      assert.equal(existsSync(join(root, relPath)), true,
+        `artifact verification-produced file must remain present before checkpoint: ${relPath}`);
+    }
+
+    const checkpoint = spawnSync('node', [CLI_PATH, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `checkpoint-turn must commit proposed patch and promoted verification outputs:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const resume = spawnSync('node', [CLI_PATH, 'resume', '--role', roleId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `resume must succeed after checkpointing proposed verification outputs:\n${resume.stdout}\n${resume.stderr}`);
+  });
+
+  it('proposed + local_cli dirty-tree parity rejects undeclared files the same as authoritative', () => {
+    const roleId = 'patch_author';
+    const runtimeId = 'local-patch-author';
+    const { root, turnId, runId } = createProject({
+      roleId,
+      roleTitle: 'Patch Author',
+      roleMandate: 'Prepare proposed code changes for review.',
+      runtimeId,
+      writeAuthority: 'proposed',
+    });
+
+    // Create undeclared dirty file
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'rogue-patch.js'), 'export const rogue = true;\n');
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: roleId,
+      runtime_id: runtimeId,
+      status: 'completed',
+      summary: 'Patch author declared one file but left another undeclared.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: { status: 'pass', machine_evidence: [] },
+      artifact: { type: 'patch', ref: null },
+      proposed_next_role: roleId,
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.notEqual(accept.status, 0,
+      `proposed + local_cli must reject undeclared dirty files:\n${accept.stdout}\n${accept.stderr}`);
+    assert.match(accept.stdout + accept.stderr, /Resume would block on the same files/,
+      'rejection must reference resume parity');
+    assert.match(accept.stdout + accept.stderr, /src\/rogue-patch\.js/,
+      'rejection must name the undeclared file');
   });
 });
