@@ -281,6 +281,43 @@ describe('turn checkpointing', () => {
     assert.equal(readJson(root, '.agentxchain/state.json').poisoned, true);
   });
 
+  it('checkpointAcceptedTurn recovers latest legacy-empty files_changed from actor dirty files', () => {
+    const config = initGovernedGitRepo(root);
+    const turnId = stageAcceptedDevTurn(root, config);
+
+    const historyPath = join(root, '.agentxchain', 'history.jsonl');
+    const history = readJsonl(root, '.agentxchain/history.jsonl').map((entry) => (
+      entry.turn_id === turnId
+        ? {
+            ...entry,
+            files_changed: [],
+            observed_artifact: {
+              ...(entry.observed_artifact || {}),
+              files_changed: [],
+            },
+          }
+        : entry
+    ));
+    writeFileSync(historyPath, `${history.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+
+    const checkpoint = checkpointAcceptedTurn(root, { turnId });
+    assert.ok(checkpoint.ok, checkpoint.error);
+    assert.ok(checkpoint.checkpoint_sha);
+
+    const repairedHistory = readJsonl(root, '.agentxchain/history.jsonl');
+    const repairedEntry = repairedHistory.find((entry) => entry.turn_id === turnId);
+    assert.deepEqual(repairedEntry.files_changed, ['src/app.js']);
+    assert.equal(repairedEntry.files_changed_recovery_source, 'legacy_dirty_worktree');
+    assert.ok(repairedEntry.files_changed_recovered_at);
+    assert.deepEqual(repairedEntry.observed_artifact.files_changed, ['src/app.js']);
+
+    const committedFiles = execSync('git show --name-only --pretty=format:%s HEAD', {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    assert.match(committedFiles, /src\/app\.js/);
+  });
+
   it('detectPendingCheckpoint ignores operational dirty files when evaluating accepted-turn dirt', () => {
     const config = initGovernedGitRepo(root);
     const turnId = stageAcceptedDevTurn(root, config);
@@ -299,5 +336,31 @@ describe('turn checkpointing', () => {
       '.agentxchain/dispatch/turn_fake/PROMPT.md',
     ]);
     assert.equal(operationalOnly.required, false);
+  });
+
+  it('detectPendingCheckpoint flags legacy-empty files_changed when latest accepted turn still owns the dirty files', () => {
+    const config = initGovernedGitRepo(root);
+    const turnId = stageAcceptedDevTurn(root, config);
+
+    const historyPath = join(root, '.agentxchain', 'history.jsonl');
+    const history = readJsonl(root, '.agentxchain/history.jsonl').map((entry) => (
+      entry.turn_id === turnId
+        ? {
+            ...entry,
+            files_changed: [],
+            observed_artifact: {
+              ...(entry.observed_artifact || {}),
+              files_changed: [],
+            },
+          }
+        : entry
+    ));
+    writeFileSync(historyPath, `${history.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+
+    const pending = detectPendingCheckpoint(root, ['src/app.js']);
+    assert.equal(pending.required, true);
+    assert.equal(pending.turn_id, turnId);
+    assert.deepEqual(pending.recovered_files_changed, ['src/app.js']);
+    assert.match(pending.message, /legacy-empty files_changed history/);
   });
 });

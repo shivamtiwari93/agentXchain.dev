@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveAcceptedTurnHistoryReference } from './accepted-turn-history.js';
+import { queryAcceptedTurnHistory, resolveAcceptedTurnHistoryReference } from './accepted-turn-history.js';
 import { emitRunEvent } from './run-events.js';
 import { safeWriteJson } from './safe-write.js';
-import { normalizeCheckpointableFiles } from './repo-observer.js';
+import { checkCleanBaseline, normalizeCheckpointableFiles } from './repo-observer.js';
 
 const STATE_PATH = '.agentxchain/state.json';
 const HISTORY_PATH = '.agentxchain/history.jsonl';
@@ -57,6 +57,68 @@ function normalizeFilesChanged(filesChanged) {
   return normalizeCheckpointableFiles(filesChanged);
 }
 
+function supportsLegacyFilesChangedRecovery(entry) {
+  const artifactType = entry?.artifact?.type;
+  return artifactType === 'workspace' || artifactType === 'patch';
+}
+
+function getActorDirtyFiles(root, dirtyFiles = null) {
+  if (Array.isArray(dirtyFiles)) {
+    return normalizeFilesChanged(dirtyFiles);
+  }
+  const cleanCheck = checkCleanBaseline(root, 'authoritative');
+  return cleanCheck.clean ? [] : normalizeFilesChanged(cleanCheck.dirty_files);
+}
+
+function recoverLegacyCheckpointFiles(root, entry, opts = {}) {
+  if (!supportsLegacyFilesChangedRecovery(entry) || entry?.checkpoint_sha) {
+    return [];
+  }
+
+  const state = readState(root);
+  if (state && Object.keys(state.active_turns || {}).length > 0) {
+    return [];
+  }
+
+  const acceptedHistory = queryAcceptedTurnHistory(root);
+  if (acceptedHistory[0]?.turn_id !== entry?.turn_id) {
+    return [];
+  }
+
+  return getActorDirtyFiles(root, opts.dirtyFiles);
+}
+
+function persistRecoveredFilesChanged(root, turnId, recoveredFiles) {
+  const normalizedRecoveredFiles = normalizeFilesChanged(recoveredFiles);
+  if (normalizedRecoveredFiles.length === 0) return;
+
+  const recoveredAt = new Date().toISOString();
+  const nextEntries = readHistoryEntries(root).map((historyEntry) => {
+    if (historyEntry.turn_id !== turnId) {
+      return historyEntry;
+    }
+
+    const observedArtifact = historyEntry?.observed_artifact && typeof historyEntry.observed_artifact === 'object'
+      ? historyEntry.observed_artifact
+      : null;
+
+    return {
+      ...historyEntry,
+      files_changed: normalizedRecoveredFiles,
+      files_changed_recovered_at: recoveredAt,
+      files_changed_recovery_source: 'legacy_dirty_worktree',
+      observed_artifact: observedArtifact
+        ? {
+            ...observedArtifact,
+            files_changed: normalizedRecoveredFiles,
+          }
+        : observedArtifact,
+    };
+  });
+
+  writeHistoryEntries(root, nextEntries);
+}
+
 function extractGitError(err) {
   const stderr = typeof err?.stderr === 'string' ? err.stderr.trim() : '';
   const stdout = typeof err?.stdout === 'string' ? err.stdout.trim() : '';
@@ -88,15 +150,22 @@ export function detectPendingCheckpoint(root, dirtyFiles = []) {
   if (entry.checkpoint_sha) return { required: false };
 
   const turnFiles = normalizeFilesChanged(entry.files_changed);
-  if (turnFiles.length === 0) return { required: false };
+  const recoveredFiles = turnFiles.length === 0
+    ? recoverLegacyCheckpointFiles(root, entry, { dirtyFiles: actorDirtyFiles })
+    : [];
+  const effectiveTurnFiles = turnFiles.length > 0 ? turnFiles : recoveredFiles;
+  if (effectiveTurnFiles.length === 0) return { required: false };
 
-  const dirtyOutsideTurn = actorDirtyFiles.filter((file) => !turnFiles.includes(file));
+  const dirtyOutsideTurn = actorDirtyFiles.filter((file) => !effectiveTurnFiles.includes(file));
   if (dirtyOutsideTurn.length > 0) return { required: false };
 
   return {
     required: true,
     turn_id: entry.turn_id,
-    message: `Accepted turn ${entry.turn_id} is not checkpointed yet. Run agentxchain checkpoint-turn --turn ${entry.turn_id} before assigning the next code-writing turn.`,
+    recovered_files_changed: recoveredFiles.length > 0 ? recoveredFiles : undefined,
+    message: recoveredFiles.length > 0
+      ? `Accepted turn ${entry.turn_id} has legacy-empty files_changed history but still owns ${recoveredFiles.length} dirty actor file(s). Run agentxchain checkpoint-turn --turn ${entry.turn_id} to recover and checkpoint them.`
+      : `Accepted turn ${entry.turn_id} is not checkpointed yet. Run agentxchain checkpoint-turn --turn ${entry.turn_id} before assigning the next code-writing turn.`,
   };
 }
 
@@ -120,7 +189,17 @@ export function checkpointAcceptedTurn(root, opts = {}) {
     };
   }
 
-  const filesChanged = normalizeFilesChanged(entry.files_changed);
+  const declaredFilesChanged = normalizeFilesChanged(entry.files_changed);
+  const recoveredFilesChanged = declaredFilesChanged.length === 0
+    ? recoverLegacyCheckpointFiles(root, entry)
+    : [];
+  const filesChanged = declaredFilesChanged.length > 0
+    ? declaredFilesChanged
+    : recoveredFilesChanged;
+  if (recoveredFilesChanged.length > 0) {
+    persistRecoveredFilesChanged(root, entry.turn_id, recoveredFilesChanged);
+  }
+
   if (filesChanged.length === 0) {
     return {
       ok: true,
