@@ -405,6 +405,53 @@ describe('Adapter docs contract', () => {
     });
   });
 
+  describe('docs navigation and stale-reference truth', () => {
+    it('documents adjacent operator surfaces', () => {
+      assert.match(adapterDocs, /\[Quickstart\]\(\/docs\/quickstart\)/,
+        'adapters.mdx must link to quickstart');
+      assert.match(adapterDocs, /\[CLI Reference\]\(\/docs\/cli\)/,
+        'adapters.mdx must link to the CLI reference');
+      assert.match(adapterDocs, /\[Protocol Reference\]\(\/docs\/protocol\)/,
+        'adapters.mdx must link to the protocol reference');
+    });
+
+    it('does not regress to stale pre-governed terminology', () => {
+      assert.doesNotMatch(adapterDocs, /PROJECT\.md/,
+        'adapters.mdx must not reference legacy PROJECT.md');
+      assert.doesNotMatch(adapterDocs, /REQUIREMENTS\.md/,
+        'adapters.mdx must not reference legacy REQUIREMENTS.md');
+      assert.doesNotMatch(adapterDocs, /lock-based workflow/i,
+        'adapters.mdx must not reference legacy lock-based workflow language');
+    });
+  });
+
+  describe('page structure anchors', () => {
+    it('keeps the shared adapter contract and filesystem contract sections', () => {
+      assert.match(adapterDocs, /## Shared adapter contract/i,
+        'adapters.mdx must keep the shared adapter contract section');
+      assert.match(adapterDocs, /## Filesystem contract/i,
+        'adapters.mdx must keep the filesystem contract section');
+      assert.match(adapterDocs, /\| File \| Purpose \|/,
+        'adapters.mdx must keep the filesystem contract table');
+    });
+
+    it('keeps the implementation checklist section', () => {
+      assert.match(adapterDocs, /## Implementing a new adapter/i,
+        'adapters.mdx must keep the implementing-a-new-adapter section');
+      for (const term of [
+        'Implement `dispatch`',
+        'Implement `wait`',
+        'Implement `collect`',
+        'Read the dispatch bundle',
+        'Write the staged result',
+        'Do not write orchestrator state',
+      ]) {
+        assert.match(adapterDocs, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+          `adapters.mdx must keep checklist item "${term}"`);
+      }
+    });
+  });
+
   describe('custom phase workflow-kit boundary', () => {
     it('docs explain that custom phases need explicit workflow_kit for scaffolded artifacts', () => {
       assert.match(adapterDocs, /workflow_kit/,

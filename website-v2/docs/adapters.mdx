@@ -8,6 +8,13 @@ description: "Five adapters, one contract. manual, local_cli, api_proxy, mcp, an
 
 Adapters are the bridge between the orchestrator and the agent that does the work. Every adapter implements the same contract: receive a dispatch bundle, produce a staged turn result. The orchestrator does not care whether the work is done by a human, a local subprocess, an MCP stdio server, a remote API, or an external agent service — it only cares that the result conforms to the protocol.
 
+Before you wire a runtime, read the adjacent operator surfaces:
+
+- [Quickstart](/docs/quickstart) for the governed bootstrap path
+- [CLI Reference](/docs/cli) for the operator command surface
+- [Protocol Reference](/docs/protocol) for the turn-result contract and validator rules
+- [Build Your Own Connector](/docs/build-your-own-connector) for the implementation checklist that turns this page into a custom runtime
+
 For the canonical reference of all five runtimes, three authority levels, and which combinations are valid, see the [Runtime Matrix](/docs/runtime-matrix).
 
 ## Package export
@@ -754,6 +761,21 @@ Header values are sent exactly as configured. The runtime does not interpolate `
 - **`local_cli`** — spawns a local subprocess; `remote_agent` calls a remote service
 
 Use `remote_agent` when you have an external agent service that can accept governed turn envelopes and return structured turn results over HTTP.
+
+## Implementing a new adapter
+
+AgentXchain adapters stay deliberately thin. If you are adding a runtime, implement the transport boundary and stop there.
+
+Minimal checklist:
+
+- Implement `dispatch`: consume the governed turn envelope and deliver it to the runtime.
+- Implement `wait`: block until the runtime finishes, times out, or fails definitively.
+- Implement `collect`: return a valid staged turn result or a transport-level failure.
+- Read the dispatch bundle from `.agentxchain/dispatch/turns/<turn_id>/`.
+- Write the staged result to `.agentxchain/staging/<turn_id>/turn-result.json` or return the equivalent JSON to the orchestrator surface that will materialize it there.
+- Do not write orchestrator state, mutate routing, or bypass validation. Adapters transport work; the orchestrator owns governance.
+
+If you need the full connector contract, examples, or packaging guidance, continue with [Build Your Own Connector](/docs/build-your-own-connector).
 
 ## Comparison table
 

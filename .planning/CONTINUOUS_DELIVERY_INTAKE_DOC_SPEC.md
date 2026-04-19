@@ -102,17 +102,17 @@ The page must document the shipped intake contract, not the aspirational v3 back
 
 ## Acceptance Tests
 
-- [ ] AT-1: `website-v2/docs/continuous-delivery-intake.mdx` exists
-- [ ] AT-2: `website-v2/sidebars.ts` includes a `Continuous Delivery` section with the intake page
-- [ ] AT-3: The page documents `intake record`, `intake triage`, `intake approve`, `intake plan`, `intake start`, `intake handoff`, `intake resolve`, `intake scan`, `intake status`, and `.agentxchain/intake/`
-- [ ] AT-4: The page documents the dedup key contract and idempotent duplicate behavior
-- [ ] AT-5: The page distinguishes shipped S5 execution-closure states from deferred later-v3 release/observation states
-- [ ] AT-6: `.planning/DOCS_SURFACE_SPEC.md` lists `/docs/continuous-delivery-intake`
-- [ ] AT-7: The page documents `approved_by`, `planning_artifacts`, `target_run`, and the artifact-conflict rule
-- [ ] AT-8: The page documents the `intake scan` snapshot contract, manual-source exclusion, and `created` / `deduplicated` / `rejected` result semantics
-- [ ] AT-9: The page documents the `intake resolve` run-outcome mapping, `no_change` behavior, and observation-directory scaffold
-- [ ] AT-10: The page documents the coordinator-workspace boundary and points operators to child-repo intake plus `multi step`
-- [ ] AT-11: The page documents `target_workstream`, coordinator handoff refs, and `super_run_id`
+- [x] AT-1: `website-v2/docs/continuous-delivery-intake.mdx` exists
+- [x] AT-2: `website-v2/sidebars.ts` includes a `Continuous Delivery` section with the intake page
+- [x] AT-3: The page documents `intake record`, `intake triage`, `intake approve`, `intake plan`, `intake start`, `intake handoff`, `intake resolve`, `intake scan`, `intake status`, and `.agentxchain/intake/`
+- [x] AT-4: The page documents the dedup key contract and idempotent duplicate behavior
+- [x] AT-5: The page distinguishes shipped S5 execution-closure states from deferred later-v3 release/observation states
+- [x] AT-6: `.planning/DOCS_SURFACE_SPEC.md` lists `/docs/continuous-delivery-intake`
+- [x] AT-7: The page documents `approved_by`, `planning_artifacts`, `target_run`, and the artifact-conflict rule
+- [x] AT-8: The page documents the `intake scan` snapshot contract, manual-source exclusion, and `created` / `deduplicated` / `rejected` result semantics
+- [x] AT-9: The page documents the `intake resolve` run-outcome mapping, `no_change` behavior, and observation-directory scaffold
+- [x] AT-10: The page documents the coordinator-workspace boundary and points operators to child-repo intake plus `multi step`
+- [x] AT-11: The page documents `target_workstream`, coordinator handoff refs, and `super_run_id`
 
 ## Open Questions
 

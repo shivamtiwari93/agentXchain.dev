@@ -48,11 +48,11 @@ Without an explicit boundary, operators standing in a coordinator workspace only
 
 ## Acceptance Tests
 
-- [ ] AT-INTAKE-BOUNDARY-001: all eight intake subcommands fail with exit code `2` when invoked from a coordinator workspace root without a governed project
-- [ ] AT-INTAKE-BOUNDARY-002: the coordinator-boundary error mentions repo-local intake, `agentxchain-multi.json`, and `agentxchain multi step`
-- [ ] AT-INTAKE-BOUNDARY-003: coordinator workspace detection works from nested directories under the coordinator root
-- [ ] AT-INTAKE-BOUNDARY-004: a directory containing both `agentxchain.json` and `agentxchain-multi.json` still allows intake commands to run as a governed project
-- [ ] AT-INTAKE-BOUNDARY-005: public intake docs describe the coordinator-workspace boundary and the child-repo workflow
+- [x] AT-INTAKE-BOUNDARY-001: all eight intake subcommands fail with exit code `2` when invoked from a coordinator workspace root without a governed project
+- [x] AT-INTAKE-BOUNDARY-002: the coordinator-boundary error mentions repo-local intake, `agentxchain-multi.json`, and `agentxchain multi step`
+- [x] AT-INTAKE-BOUNDARY-003: coordinator workspace detection works from nested directories under the coordinator root
+- [x] AT-INTAKE-BOUNDARY-004: a directory containing both `agentxchain.json` and `agentxchain-multi.json` still allows intake commands to run as a governed project
+- [x] AT-INTAKE-BOUNDARY-005: public intake docs describe the coordinator-workspace boundary and the child-repo workflow
 
 ## Open Questions
 

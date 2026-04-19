@@ -84,16 +84,16 @@ Public documentation page at `/docs/adapters` explaining how AgentXchain's five 
 ## Acceptance Tests
 
 - [ ] Page loads at `/docs/adapters` with no JS errors
-- [ ] All five adapters documented with accurate dispatch/wait/collect mechanics
-- [ ] Public enumerations use the canonical shipped adapter order: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`
-- [ ] Shared contract section present with filesystem table
-- [ ] "Implementing a new adapter" section with concrete checklist
-- [ ] Comparison table matches actual adapter capabilities
-- [ ] API proxy provider examples and prose match the supported provider allowlist in config validation
-- [ ] Cross-links: sidebar links to quickstart, protocol spec, CLI spec
+- [x] All five adapters documented with accurate dispatch/wait/collect mechanics
+- [x] Public enumerations use the canonical shipped adapter order: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`
+- [x] Shared contract section present with filesystem table
+- [x] "Implementing a new adapter" section with concrete checklist
+- [x] Comparison table matches actual adapter capabilities
+- [x] API proxy provider examples and prose match the supported provider allowlist in config validation
+- [x] Cross-links: sidebar links to quickstart, protocol spec, CLI spec
 - [ ] Footer matches quickstart footer
 - [ ] Page is responsive at 768px and 375px widths
-- [ ] No stale references to legacy commands, PROJECT.md, REQUIREMENTS.md, or lock-based workflow
+- [x] No stale references to legacy commands, PROJECT.md, REQUIREMENTS.md, or lock-based workflow
 
 ## Open Questions
 
