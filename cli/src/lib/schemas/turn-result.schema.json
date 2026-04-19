@@ -165,6 +165,20 @@
               "exit_code": { "type": "integer" }
             }
           }
+        },
+        "produced_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "disposition": {
+                "enum": ["artifact", "ignore"]
+              }
+            }
+          }
         }
       }
     },

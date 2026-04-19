@@ -624,6 +624,40 @@ function validateVerification(tr) {
     }
   }
 
+  if (Array.isArray(v.produced_files)) {
+    const seenProducedPaths = new Map();
+    const declaredFiles = new Set(Array.isArray(tr.files_changed) ? tr.files_changed : []);
+    for (let i = 0; i < v.produced_files.length; i++) {
+      const entry = v.produced_files[i];
+      if (typeof entry !== 'object' || entry === null) {
+        errors.push(`verification.produced_files[${i}] must be an object.`);
+        continue;
+      }
+
+      const rawPath = typeof entry.path === 'string' ? entry.path : '';
+      const path = rawPath.trim();
+      if (!path) {
+        errors.push(`verification.produced_files[${i}].path must be a non-empty string.`);
+      }
+
+      const disposition = entry.disposition == null ? 'artifact' : entry.disposition;
+      if (!['artifact', 'ignore'].includes(disposition)) {
+        errors.push(`verification.produced_files[${i}].disposition must be "artifact" or "ignore".`);
+      }
+
+      if (path) {
+        if (seenProducedPaths.has(path)) {
+          errors.push(`verification.produced_files[${i}].path duplicates "${path}" from verification.produced_files[${seenProducedPaths.get(path)}].`);
+        } else {
+          seenProducedPaths.set(path, i);
+        }
+        if (disposition === 'ignore' && declaredFiles.has(path)) {
+          errors.push(`verification.produced_files[${i}] marks "${path}" as ignore, but it is also listed in files_changed.`);
+        }
+      }
+    }
+  }
+
   return { errors, warnings };
 }
 

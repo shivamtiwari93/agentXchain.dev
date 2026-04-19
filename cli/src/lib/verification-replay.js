@@ -81,6 +81,93 @@ export function summarizeVerificationReplay(payload) {
   };
 }
 
+export function normalizeVerificationProducedFiles(verification) {
+  const artifactFiles = new Set();
+  const ignoredFiles = new Set();
+  const producedFiles = Array.isArray(verification?.produced_files)
+    ? verification.produced_files
+    : [];
+
+  for (const entry of producedFiles) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const path = typeof entry.path === 'string' ? entry.path.trim() : '';
+    if (!path || isOperationalPath(path)) {
+      continue;
+    }
+    if (entry.disposition === 'ignore') {
+      ignoredFiles.add(path);
+    } else {
+      artifactFiles.add(path);
+    }
+  }
+
+  return {
+    artifact_files: [...artifactFiles].sort(),
+    ignored_files: [...ignoredFiles].sort(),
+  };
+}
+
+export function cleanupIgnoredVerificationFiles({ root, baseline, ignoredFiles }) {
+  const targetFiles = [...new Set(Array.isArray(ignoredFiles) ? ignoredFiles : [])]
+    .filter((filePath) => typeof filePath === 'string' && filePath && !isOperationalPath(filePath))
+    .sort();
+
+  if (targetFiles.length === 0 || !isGitRepo(root)) {
+    return { ok: true, restored_files: [], cleanup_error: null };
+  }
+
+  const restoredFiles = [];
+  const baselineSnapshot = baseline?.dirty_snapshot && typeof baseline.dirty_snapshot === 'object' && !Array.isArray(baseline.dirty_snapshot)
+    ? baseline.dirty_snapshot
+    : {};
+
+  try {
+    for (const filePath of targetFiles) {
+      const baselineMarker = baselineSnapshot[filePath];
+      const currentMarker = getWorkspaceFileMarker(root, filePath);
+
+      if (baselineMarker && currentMarker !== baselineMarker) {
+        return {
+          ok: false,
+          restored_files: restoredFiles.sort(),
+          cleanup_error: `verification.produced_files declared "${filePath}" as ignore, but that path was already dirty at dispatch and cannot be restored safely.`,
+        };
+      }
+
+      if (baselineMarker) {
+        continue;
+      }
+
+      restoreCleanPath(root, filePath);
+      restoredFiles.push(filePath);
+    }
+
+    const remainingDirty = new Set(collectDirtyActorFiles(root));
+    const stranded = targetFiles.filter((filePath) => remainingDirty.has(filePath));
+    if (stranded.length > 0) {
+      return {
+        ok: false,
+        restored_files: restoredFiles.sort(),
+        cleanup_error: `Ignored verification-produced files remain dirty after cleanup: ${stranded.join(', ')}`,
+      };
+    }
+
+    return {
+      ok: true,
+      restored_files: restoredFiles.sort(),
+      cleanup_error: null,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      restored_files: restoredFiles.sort(),
+      cleanup_error: err?.message || String(err),
+    };
+  }
+}
+
 function createReplayWorkspaceGuard(root) {
   if (!isGitRepo(root)) {
     return {

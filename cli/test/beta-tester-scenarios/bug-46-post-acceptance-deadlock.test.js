@@ -130,6 +130,18 @@ function stageTurnResult(root, turnId, payload) {
   writeFileSync(resultPath, JSON.stringify(payload, null, 2));
 }
 
+function materializeReplaySideEffects(root) {
+  mkdirSync(join(root, '.planning'), { recursive: true });
+  mkdirSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools'), { recursive: true });
+  writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# replay release notes\n');
+  writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# replay acceptance matrix\n');
+  writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# replay ship verdict\n');
+  writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq.manifest.json'), '{"ok":true}\n');
+  writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools', 'get_users_users.json'), '{"name":"get_users_users"}\n');
+  writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools', 'index.json'), '{"name":"index"}\n');
+  writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools', 'post_users_users.json'), '{"name":"post_users_users"}\n');
+}
+
 function readState(root) {
   const raw = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
   return normalizeGovernedStateShape(raw).state;
@@ -178,11 +190,12 @@ describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint
       'rejection message must explain the workspace/files_changed mismatch');
   });
 
-  it('authoritative QA turn with artifact.type: review and empty files_changed proceeds cleanly', () => {
+  it('authoritative QA turn can explicitly ignore verification-produced files and proceed cleanly', () => {
     const { root, turnId, runId } = createProject();
+    materializeReplaySideEffects(root);
 
-    // The correct fix for the tester's scenario: when QA produces no repo
-    // mutations, it should declare artifact.type: 'review', not 'workspace'.
+    // The correct fix for verification-only side effects: declare them
+    // explicitly as ignored produced files so acceptance restores them.
     stageTurnResult(root, turnId, {
       schema_version: '1.0',
       run_id: runId,
@@ -199,6 +212,10 @@ describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint
         machine_evidence: [
           { command: REPLAY_COMMAND, exit_code: 0 },
         ],
+        produced_files: REPLAY_SIDE_EFFECT_PATHS.map((path) => ({
+          path,
+          disposition: 'ignore',
+        })),
       },
       artifact: { type: 'review', ref: null },
       proposed_next_role: 'qa',
@@ -211,6 +228,11 @@ describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint
     });
     assert.equal(accept.status, 0,
       `accept-turn should succeed for review artifact with empty files_changed:\n${accept.stdout}\n${accept.stderr}`);
+
+    for (const relPath of REPLAY_SIDE_EFFECT_PATHS) {
+      assert.equal(existsSync(join(root, relPath)), false,
+        `ignored verification-produced file must be cleaned: ${relPath}`);
+    }
 
     const checkpoint = spawnSync('node', [CLI_PATH, 'checkpoint-turn', '--turn', turnId], {
       cwd: root,
@@ -227,6 +249,71 @@ describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint
     });
     assert.equal(resume.status, 0,
       `resume must succeed after review acceptance:\n${resume.stdout}\n${resume.stderr}`);
+  });
+
+  it('verification.produced_files artifact entries are promoted into files_changed and checkpointed', () => {
+    const { root, turnId, runId } = createProject();
+    materializeReplaySideEffects(root);
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'QA produced fixture outputs during verification and wants them checkpointed.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: REPLAY_COMMAND, exit_code: 0 },
+        ],
+        produced_files: REPLAY_SIDE_EFFECT_PATHS.map((path) => ({
+          path,
+          disposition: 'artifact',
+        })),
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `accept-turn should accept explicit artifact verification outputs:\n${accept.stdout}\n${accept.stderr}`);
+
+    const history = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const accepted = history.find((entry) => entry.turn_id === turnId);
+    assert.ok(accepted, 'accepted turn in history');
+    for (const relPath of REPLAY_SIDE_EFFECT_PATHS) {
+      assert.ok(accepted.files_changed.includes(relPath),
+        `history must promote verification artifact path into files_changed: ${relPath}`);
+    }
+
+    const checkpoint = spawnSync('node', [CLI_PATH, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `checkpoint-turn should commit promoted verification artifact files:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+    assert.doesNotMatch(checkpoint.stdout, /no writable files_changed/i,
+      'checkpoint-turn should not skip explicit artifact verification outputs');
+
+    const resume = spawnSync('node', [CLI_PATH, 'resume', '--role', 'qa'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `resume must succeed after checkpointing verification artifact outputs:\n${resume.stdout}\n${resume.stderr}`);
   });
 
   it('replay side effects are cleaned while preserving real turn-owned files_changed', () => {

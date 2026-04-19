@@ -393,6 +393,42 @@ describe('turn-result-validator', () => {
       assert.ok(res.errors.some(e => e.includes('Wrap expected-failure checks')));
     });
 
+    it('rejects duplicate verification.produced_files paths', () => {
+      writeStagedResult(makeValidTurnResult({
+        verification: {
+          status: 'pass',
+          machine_evidence: [{ command: 'npm test', exit_code: 0 }],
+          produced_files: [
+            { path: 'tests/fixtures/out.json', disposition: 'artifact' },
+            { path: 'tests/fixtures/out.json', disposition: 'ignore' },
+          ],
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'verification');
+      assert.equal(res.error_class, 'verification_error');
+      assert.ok(res.errors.some((e) => e.includes('duplicates "tests/fixtures/out.json"')));
+    });
+
+    it('rejects ignore produced_files that also appear in files_changed', () => {
+      writeStagedResult(makeValidTurnResult({
+        files_changed: ['tests/fixtures/out.json'],
+        verification: {
+          status: 'pass',
+          machine_evidence: [{ command: 'npm test', exit_code: 0 }],
+          produced_files: [
+            { path: 'tests/fixtures/out.json', disposition: 'ignore' },
+          ],
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'verification');
+      assert.equal(res.error_class, 'verification_error');
+      assert.ok(res.errors.some((e) => e.includes('also listed in files_changed')));
+    });
+
     it('accepts skipped verification without evidence', () => {
       writeStagedResult(makeValidTurnResult({
         verification: { status: 'skipped' },

@@ -66,6 +66,8 @@ import {
 } from './repo-decisions.js';
 import {
   replayVerificationMachineEvidence,
+  normalizeVerificationProducedFiles,
+  cleanupIgnoredVerificationFiles,
   summarizeVerificationReplay,
 } from './verification-replay.js';
 import { executeGateActions } from './gate-actions.js';
@@ -3206,7 +3208,16 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     };
   }
 
-  const turnResult = validation.turnResult;
+  const rawTurnResult = validation.turnResult;
+  const verificationProducedFiles = normalizeVerificationProducedFiles(rawTurnResult.verification);
+  const effectiveFilesChanged = normalizeCheckpointableFiles([
+    ...(rawTurnResult.files_changed || []),
+    ...verificationProducedFiles.artifact_files,
+  ]);
+  const turnResult = {
+    ...rawTurnResult,
+    files_changed: effectiveFilesChanged,
+  };
 
   // Validate cross-run decision overrides against repo-decisions.jsonl
   if (turnResult.decisions && turnResult.decisions.length > 0) {
@@ -3232,6 +3243,35 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const stagingFile = join(root, resolvedStagingPath);
   const now = new Date().toISOString();
   const baseline = currentTurn.baseline || null;
+  const ignoredVerificationCleanup = cleanupIgnoredVerificationFiles({
+    root,
+    baseline,
+    ignoredFiles: verificationProducedFiles.ignored_files,
+  });
+  if (ignoredVerificationCleanup.ok === false) {
+    const cleanupError = ignoredVerificationCleanup.cleanup_error
+      || 'Ignored verification-produced files could not be restored safely.';
+    transitionToFailedAcceptance(root, state, currentTurn, cleanupError, {
+      error_code: 'verification_produced_files_cleanup',
+      stage: 'artifact_observation',
+      extra: {
+        ignored_files: verificationProducedFiles.ignored_files,
+        restored_files: ignoredVerificationCleanup.restored_files || [],
+      },
+    });
+    return {
+      ok: false,
+      error: cleanupError,
+      validation: {
+        ...validation,
+        ok: false,
+        stage: 'artifact_observation',
+        error_class: 'artifact_error',
+        errors: [cleanupError],
+        warnings: validation.warnings,
+      },
+    };
+  }
   const rawObservation = observeChanges(root, baseline);
   const historyEntries = readJsonlEntries(root, HISTORY_PATH);
   const pendingConcurrentSiblingDeclarations = collectPendingConcurrentSiblingDeclarations(
