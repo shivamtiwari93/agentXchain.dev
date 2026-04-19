@@ -92,6 +92,7 @@ describe('claim-reality preflight', () => {
       'src/lib/gate-evaluator.js',
       'src/lib/dispatch-bundle.js',
       'src/lib/intake.js',
+      'src/lib/verification-replay.js',
       'src/lib/workflow-gate-semantics.js',
       'src/lib/intent-phase-scope.js',
       'src/lib/intent-startup-migration.js',
@@ -129,6 +130,22 @@ describe('claim-reality preflight', () => {
     const testContent = readFileSync(bug45Test, 'utf8');
     assert.ok(testContent.includes('accept-turn') && testContent.includes('--outcome') && testContent.includes('HUMAN_TASKS.md'),
       'BUG-45 test must cover accept-turn reconciliation, intake resolve override, and HUMAN_TASKS.md drift');
+  });
+
+  it('BUG-46 post-acceptance deadlock proof exists and its production imports are packed', () => {
+    const packedFiles = getPackedFiles();
+    const bug46Test = join(SCENARIOS_DIR, 'bug-46-post-acceptance-deadlock.test.js');
+    const imports = extractImports(bug46Test);
+    assert.ok(imports.length > 0,
+      'BUG-46 post-acceptance deadlock test must import production modules');
+    const missing = imports.filter(imp => !packedFiles.has(imp));
+    assert.equal(missing.length, 0,
+      `BUG-46 test imports production files missing from tarball: ${missing.join(', ')}`);
+    const testContent = readFileSync(bug46Test, 'utf8');
+    assert.ok(testContent.includes('accept-turn') && testContent.includes('checkpoint-turn') && testContent.includes('resume'),
+      'BUG-46 test must cover the accept-turn/checkpoint-turn/resume deadlock seam');
+    assert.ok(testContent.includes('require_reproducible_verification') && testContent.includes('authoritative'),
+      'BUG-46 test must exercise reproducible-verification replay on an authoritative role');
   });
 
   it('scenario test count matches expected range', () => {

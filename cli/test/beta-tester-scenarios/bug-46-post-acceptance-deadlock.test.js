@@ -1,0 +1,219 @@
+/**
+ * BUG-46 beta-tester scenario: acceptance/checkpoint/resume must agree when
+ * reproducible-verification replay commands generate repo side effects.
+ *
+ * Exact deadlock class reproduced:
+ *   1. Authoritative QA turn stages `files_changed: []`
+ *   2. Acceptance observes a clean actor diff
+ *   3. Acceptance replays `verification.machine_evidence` in the live repo
+ *   4. Replay command writes actor-owned files (.planning + fixture outputs)
+ *   5. Acceptance succeeds, checkpoint-turn skips (no files_changed), resume blocks
+ *
+ * The fix requirement is NOT "make checkpoint-turn smarter." The accepted turn
+ * must never leave replay-only workspace dirt stranded in the live repo.
+ *
+ * Proof surface:
+ *   - real CLI `accept-turn`
+ *   - real CLI `checkpoint-turn`
+ *   - real CLI `resume --role qa`
+ *   - authoritative + local_cli QA role
+ */
+
+import { afterEach, describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+import {
+  assignGovernedTurn,
+  initializeGovernedRun,
+  normalizeGovernedStateShape,
+} from '../../src/lib/governed-state.js';
+import { checkCleanBaseline } from '../../src/lib/repo-observer.js';
+import { getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
+
+const ROOT = join(import.meta.dirname, '..', '..');
+const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
+const tempDirs = [];
+
+const REPLAY_SIDE_EFFECT_PATHS = [
+  '.planning/RELEASE_NOTES.md',
+  '.planning/acceptance-matrix.md',
+  '.planning/ship-verdict.md',
+  'tests/fixtures/express-sample/tusq.manifest.json',
+  'tests/fixtures/express-sample/tusq-tools/get_users_users.json',
+  'tests/fixtures/express-sample/tusq-tools/index.json',
+  'tests/fixtures/express-sample/tusq-tools/post_users_users.json',
+];
+
+const REPLAY_SIDE_EFFECT_SCRIPT = [
+  "const { mkdirSync, writeFileSync } = require('node:fs');",
+  "mkdirSync('.planning', { recursive: true });",
+  "mkdirSync('tests/fixtures/express-sample/tusq-tools', { recursive: true });",
+  "writeFileSync('.planning/RELEASE_NOTES.md', '# replay release notes\\n');",
+  "writeFileSync('.planning/acceptance-matrix.md', '# replay acceptance matrix\\n');",
+  "writeFileSync('.planning/ship-verdict.md', '# replay ship verdict\\n');",
+  "writeFileSync('tests/fixtures/express-sample/tusq.manifest.json', '{\\\"ok\\\":true}\\n');",
+  "writeFileSync('tests/fixtures/express-sample/tusq-tools/get_users_users.json', '{\\\"name\\\":\\\"get_users_users\\\"}\\n');",
+  "writeFileSync('tests/fixtures/express-sample/tusq-tools/index.json', '{\\\"name\\\":\\\"index\\\"}\\n');",
+  "writeFileSync('tests/fixtures/express-sample/tusq-tools/post_users_users.json', '{\\\"name\\\":\\\"post_users_users\\\"}\\n');",
+].join(' ');
+
+const REPLAY_COMMAND = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(REPLAY_SIDE_EFFECT_SCRIPT)}`;
+
+function git(cwd, args) {
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function makeConfig() {
+  return {
+    schema_version: '1.0',
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { id: 'bug46-test', name: 'BUG-46 Test', default_branch: 'main' },
+    roles: {
+      qa: { title: 'QA', mandate: 'Verify and ship.', write_authority: 'authoritative', runtime: 'local-qa' },
+    },
+    runtimes: {
+      'local-qa': {
+        type: 'local_cli',
+        command: process.execPath,
+        args: ['-e', 'process.exit(0)'],
+        prompt_transport: 'dispatch_bundle_only',
+      },
+    },
+    routing: {
+      qa: { entry_role: 'qa', allowed_next_roles: ['qa'], exit_gate: 'qa_complete' },
+    },
+    gates: {
+      qa_complete: {},
+    },
+    policies: [
+      { id: 'replay-proof', rule: 'require_reproducible_verification', action: 'block' },
+    ],
+  };
+}
+
+function createProject() {
+  const root = mkdtempSync(join(tmpdir(), 'axc-bug46-'));
+  tempDirs.push(root);
+
+  mkdirSync(join(root, '.planning'), { recursive: true });
+  writeFileSync(join(root, 'README.md'), '# BUG-46\n');
+  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(makeConfig(), null, 2) + '\n');
+
+  git(root, ['init', '-b', 'main']);
+  git(root, ['config', 'user.email', 'test@test.com']);
+  git(root, ['config', 'user.name', 'Test']);
+  git(root, ['add', 'README.md', 'agentxchain.json']);
+  git(root, ['commit', '-m', 'init']);
+
+  const config = makeConfig();
+  const init = initializeGovernedRun(root, config);
+  assert.ok(init.ok, init.error);
+
+  const assign = assignGovernedTurn(root, config, 'qa');
+  assert.ok(assign.ok, assign.error);
+
+  return { root, config, turnId: assign.turn.turn_id, runId: init.state.run_id };
+}
+
+function stageTurnResult(root, turnId, payload) {
+  const resultPath = join(root, getTurnStagingResultPath(turnId));
+  mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+  writeFileSync(resultPath, JSON.stringify(payload, null, 2));
+}
+
+function readState(root) {
+  const raw = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+  return normalizeGovernedStateShape(raw).state;
+}
+
+afterEach(() => {
+  while (tempDirs.length > 0) {
+    rmSync(tempDirs.pop(), { recursive: true, force: true });
+  }
+});
+
+describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint-turn and resume', () => {
+  it('accept-turn cleans replay-only repo writes before history persists, so checkpoint-turn and resume both proceed', () => {
+    const { root, turnId, runId } = createProject();
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'QA verified the release candidate and replayed machine evidence.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: REPLAY_COMMAND, exit_code: 0 },
+        ],
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `accept-turn should succeed without stranding replay side effects:\n${accept.stdout}\n${accept.stderr}`);
+
+    for (const relPath of REPLAY_SIDE_EFFECT_PATHS) {
+      assert.equal(existsSync(join(root, relPath)), false,
+        `replay-only side effect must not remain in the live repo: ${relPath}`);
+    }
+
+    const cleanCheck = checkCleanBaseline(root, 'authoritative');
+    assert.equal(cleanCheck.clean, true,
+      `actor-owned workspace must be clean after acceptance, got: ${cleanCheck.reason || '(dirty)'}`);
+
+    const history = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const accepted = history.find((entry) => entry.turn_id === turnId);
+    assert.ok(accepted, 'accepted turn must be written to history');
+    assert.deepEqual(accepted.files_changed, [],
+      'turn remains a no-op checkpoint candidate because replay byproducts are not turn-owned files_changed');
+    assert.equal(accepted.verification_replay?.overall, 'match',
+      'verification replay summary must still record the replay result');
+
+    const checkpoint = spawnSync('node', [CLI_PATH, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `checkpoint-turn should not fail on the accepted no-op turn:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+    assert.match(checkpoint.stdout, /Accepted turn has no writable files_changed paths to checkpoint\./,
+      'checkpoint-turn should skip cleanly instead of deadlocking');
+
+    const resume = spawnSync('node', [CLI_PATH, 'resume', '--role', 'qa'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `resume must succeed after acceptance; no actor-owned dirt may remain:\n${resume.stdout}\n${resume.stderr}`);
+    assert.doesNotMatch(resume.stdout + resume.stderr, /Working tree has uncommitted changes in actor-owned files/i,
+      'resume must not see replay-only dirt as a dirty baseline blocker');
+
+    const resumedState = readState(root);
+    assert.ok(Object.keys(resumedState.active_turns || {}).length >= 1,
+      'resume should assign a new active QA turn after the accepted turn');
+  });
+});

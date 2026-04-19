@@ -74,7 +74,7 @@ export function isOperationalPath(filePath) {
     || ORCHESTRATOR_STATE_FILES.includes(filePath);
 }
 
-function isBaselineExemptPath(filePath) {
+export function isBaselineExemptPath(filePath) {
   return isOperationalPath(filePath)
     || BASELINE_EXEMPT_PATH_PREFIXES.some(prefix => filePath.startsWith(prefix));
 }

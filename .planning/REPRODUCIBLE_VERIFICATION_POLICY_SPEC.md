@@ -42,19 +42,22 @@ New built-in policy rule in the existing top-level `policies` array:
 
 1. Acceptance still validates the staged turn result first.
 2. If at least one configured policy uses `require_reproducible_verification`, acceptance replays the staged turn's declared machine-evidence commands before policy evaluation.
-3. The replay result is injected into the policy-evaluation context as trusted acceptance metadata.
-4. The policy rule triggers unless replay `overall === "match"`.
-5. Trigger reasons:
+3. Replay must not strand new actor-owned repo mutations in the live workspace. Acceptance must either:
+   - restore replay-only side effects before continuing, or
+   - fail acceptance with a specific verification-replay drift error before persisting history.
+4. The replay result is injected into the policy-evaluation context as trusted acceptance metadata.
+5. The policy rule triggers unless replay `overall === "match"`.
+6. Trigger reasons:
    - `not_reproducible`: no `verification.machine_evidence` commands were declared
    - `mismatch`: one or more replayed commands exited differently, errored, or timed out
-6. Because this is wired through the normal policy engine:
+7. Because this is wired through the normal policy engine:
    - `block` rejects acceptance with `error_code: "policy_violation"`
    - `escalate` blocks the run with `error_code: "policy_escalation"`
    - `warn` allows acceptance but returns advisory warnings
-7. `verify turn` must use the same replay helper so the inspection surface and the enforcement surface cannot drift.
-8. Successful acceptance under this rule should expose a compact `verification_replay` summary on the accepted turn result so operators can see that reproducibility was actually enforced.
-9. The compact replay summary includes `verified_at` so audit trails can answer when the most recent acceptance-time replay actually ran.
-10. Replay executes the declared `verification.machine_evidence[].command` strings through the local shell in the repo root. This is a deliberate v1 trust assumption: staged turn data is treated as trusted agent-authored execution intent, not untrusted user input.
+8. `verify turn` must use the same shared replay helper so the inspection surface and the enforcement surface cannot drift.
+9. Successful acceptance under this rule should expose a compact `verification_replay` summary on the accepted turn result so operators can see that reproducibility was actually enforced.
+10. The compact replay summary includes `verified_at` so audit trails can answer when the most recent acceptance-time replay actually ran.
+11. Replay executes the declared `verification.machine_evidence[].command` strings through the local shell in the repo root. This remains a deliberate v1 trust assumption: staged turn data is treated as trusted agent-authored execution intent, not untrusted user input. But "trusted execution intent" does NOT mean replay is allowed to mutate the accepted workspace silently.
 
 ## Error Cases
 
@@ -67,10 +70,14 @@ New built-in policy rule in the existing top-level `policies` array:
 - Command timeout / spawn error:
   - replay result is `mismatch`
   - policy can block or escalate
+- Replay command dirties actor-owned workspace files during acceptance:
+  - acceptance must restore those replay-only side effects before persisting the turn
+  - if restoration or the post-replay drift check fails, acceptance must fail loudly
+  - successful acceptance may not leave the repo in a state that `resume` rejects while `checkpoint-turn` has nothing checkpointable
 - Command string is malicious or unsafe:
   - out of scope for v1 policy enforcement
   - replay still executes it because staged `machine_evidence` is a trusted execution surface today
-  - future isolation/sandboxing is a separate runtime-hardening slice, not a reason to pretend replay is side-effect-free
+  - future isolation/sandboxing is still a separate runtime-hardening slice, but replay cleanup is mandatory now because live-workspace drift broke acceptance/checkpoint/resume consistency
 - No matching reproducibility policy configured:
   - acceptance behavior is unchanged from today
 - Historical accepted turns:
@@ -87,6 +94,7 @@ New built-in policy rule in the existing top-level `policies` array:
 7. `AT-RVP-007`: successful replay records `accepted.verification_replay.verified_at` as an ISO-8601 timestamp.
 8. `AT-RVP-008`: `verify turn` uses the same shared replay helper and still reports `match`, `mismatch`, and `not_reproducible` with the existing CLI contract.
 9. `AT-RVP-009`: public docs explain that policies can now enforce reproducible verification at turn acceptance, while `verify turn` remains the read-only inspection surface.
+10. `AT-RVP-010`: acceptance-time replay that writes actor-owned repo files does not strand those files in the live workspace. After `accept-turn`, `checkpoint-turn` and `resume` must not deadlock on replay-only dirt.
 
 ## Open Questions
 

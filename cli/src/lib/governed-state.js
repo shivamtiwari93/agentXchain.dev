@@ -37,6 +37,7 @@ import {
   deriveAcceptedRef,
   checkCleanBaseline,
   isOperationalPath,
+  isBaselineExemptPath,
 } from './repo-observer.js';
 import { getMaxConcurrentTurns } from './normalized-config.js';
 import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir, getReviewArtifactPath } from './turn-paths.js';
@@ -104,6 +105,34 @@ function buildInitialPhaseGateStatus(config) {
         .filter(Boolean)
     )].map((gateId) => [gateId, 'pending'])
   );
+}
+
+function buildObservationDrift(beforeObservation, afterObservation) {
+  const beforeFiles = (Array.isArray(beforeObservation?.files_changed) ? beforeObservation.files_changed : [])
+    .filter((filePath) => !isBaselineExemptPath(filePath));
+  const afterFiles = (Array.isArray(afterObservation?.files_changed) ? afterObservation.files_changed : [])
+    .filter((filePath) => !isBaselineExemptPath(filePath));
+  const beforeSet = new Set(beforeFiles);
+  const afterSet = new Set(afterFiles);
+  const beforeMarkers = beforeObservation?.file_markers && typeof beforeObservation.file_markers === 'object'
+    ? beforeObservation.file_markers
+    : {};
+  const afterMarkers = afterObservation?.file_markers && typeof afterObservation.file_markers === 'object'
+    ? afterObservation.file_markers
+    : {};
+
+  const added = afterFiles.filter((filePath) => !beforeSet.has(filePath));
+  const removed = beforeFiles.filter((filePath) => !afterSet.has(filePath));
+  const markerChanged = beforeFiles.filter((filePath) => (
+    afterSet.has(filePath) && beforeMarkers[filePath] !== afterMarkers[filePath]
+  ));
+
+  return {
+    added,
+    removed,
+    marker_changed: markerChanged,
+    drifted_files: [...new Set([...added, ...removed, ...markerChanged])].sort(),
+  };
 }
 
 function listIntakeIntentFiles(root) {
@@ -3210,11 +3239,17 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     currentTurn,
     historyEntries,
   );
-  const observation = attributeObservedChangesToTurn(rawObservation, currentTurn, historyEntries, {
+  const observationAttributionOptions = {
     currentDeclaredFiles: turnResult.files_changed || [],
     concurrentSiblingIds: pendingConcurrentSiblingDeclarations.map((entry) => entry.turn_id),
     pendingConcurrentSiblingDeclarations,
-  });
+  };
+  const observation = attributeObservedChangesToTurn(
+    rawObservation,
+    currentTurn,
+    historyEntries,
+    observationAttributionOptions,
+  );
   const role = config.roles?.[turnResult.role];
   const runtimeId = turnResult.runtime_id;
   const runtime = config.runtimes?.[runtimeId];
@@ -3402,6 +3437,30 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const verificationReplay = (config.policies || []).some((policy) => policy?.rule === 'require_reproducible_verification')
     ? replayVerificationMachineEvidence({ root, verification: turnResult.verification })
     : null;
+
+  if (verificationReplay?.workspace_guard?.ok === false) {
+    const replayError = verificationReplay.workspace_guard.cleanup_error
+      || 'Verification replay mutated actor-owned workspace files and cleanup failed.';
+    transitionToFailedAcceptance(root, state, currentTurn, replayError, {
+      error_code: 'verification_replay_drift',
+      stage: 'verification_replay',
+      extra: {
+        replay_side_effect_files: verificationReplay.workspace_guard.restored_files || [],
+      },
+    });
+    return {
+      ok: false,
+      error: replayError,
+      validation: {
+        ...validation,
+        ok: false,
+        stage: 'verification_replay',
+        error_class: 'verification_replay_error',
+        errors: [replayError],
+        warnings: validation.warnings,
+      },
+    };
+  }
 
   // Policy evaluation — declarative governance rules (spec: POLICY_ENGINE_SPEC.md)
   const policyResult = evaluatePolicies(config.policies || [], {
@@ -3636,6 +3695,38 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         hookResults: beforeAcceptanceHooks,
       };
     }
+  }
+
+  const finalObservation = attributeObservedChangesToTurn(
+    observeChanges(root, baseline),
+    currentTurn,
+    historyEntries,
+    observationAttributionOptions,
+  );
+  const observationDrift = buildObservationDrift(observation, finalObservation);
+  if (observationDrift.drifted_files.length > 0) {
+    const driftError = `Acceptance mutated actor-owned workspace after artifact observation: ${observationDrift.drifted_files.join(', ')}`;
+    transitionToFailedAcceptance(root, state, currentTurn, driftError, {
+      error_code: 'acceptance_drift',
+      stage: 'artifact_observation',
+      extra: {
+        added_files: observationDrift.added,
+        removed_files: observationDrift.removed,
+        marker_changed_files: observationDrift.marker_changed,
+      },
+    });
+    return {
+      ok: false,
+      error: driftError,
+      validation: {
+        ...validation,
+        ok: false,
+        stage: 'artifact_observation',
+        error_class: 'artifact_error',
+        errors: [driftError],
+        warnings: validation.warnings,
+      },
+    };
   }
 
   const acceptedSequence = (state.turn_sequence || 0) + 1;

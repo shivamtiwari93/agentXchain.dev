@@ -82,6 +82,32 @@ The BUG-39 false closure exposed a separate dimension we were not tracking expli
 
 Any new startup path that can dispatch turns or scan intake must add one row to this matrix and must call the shared legacy-intent migration helper before it touches the queue.
 
+## Role × Authority × Runtime Matrix
+
+BUG-46 exposed a separate blind spot: we were still reasoning from role names (`qa`, `pm`, `dev`) instead of the actual contract tuple that acceptance enforces.
+
+The durable unit is:
+
+- role charter
+- `write_authority`
+- runtime type
+
+If the framework claims arbitrary roles are valid, the test matrix has to track that explicitly.
+
+| Role shape | `write_authority` | Runtime | Current proof | Gap status |
+| --- | --- | --- | --- | --- |
+| Standard QA reviewer | `review_only` | `manual` | Legacy governed lifecycle + tutorial/E2E suites | Covered |
+| Standard QA reviewer | `review_only` | `local_cli` | Invalid by config contract; rejected by shared normalized-config validation | Covered |
+| Standard implementation role (`dev`) | `authoritative` | `local_cli` | Broadly covered across `run`, `resume`, retry, conflict, and checkpoint suites | Covered |
+| Standard planning role (`pm`) | `review_only` | `manual` | Intake, phase, and restart/resume suites | Covered |
+| Non-standard retained-turn resolver (`pm` / product-marketing) | `authoritative` | `manual` | `bug-45-retained-turn-stale-intent-coverage.test.js` | Covered |
+| **QA with code-writing authority** | **`authoritative`** | **`local_cli`** | **`bug-46-post-acceptance-deadlock.test.js`** | **Covered after BUG-46** |
+| Arbitrary role with code-writing authority (for example `eng_director`, `product_marketing`) | `authoritative` | `local_cli` | Shared acceptance/runtime contracts only | Not yet explicit |
+
+### Standing role-contract rule
+
+When a beta bug depends on an unusual but valid contract tuple, the tester-sequence suite must name that tuple directly. "QA is usually review-only" is not a defense once the config schema permits `qa + authoritative + local_cli`.
+
 ## Dispatch Path × Lifecycle Matrix
 
 The beta-tester reopen pattern is broader than BUG-31..33. The durable gap is that dispatch-path coverage has been uneven across lifecycle stages. We now track the matrix explicitly:
