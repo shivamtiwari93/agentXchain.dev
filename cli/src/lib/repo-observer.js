@@ -24,7 +24,7 @@ import { join } from 'path';
 
 export const OPERATIONAL_PATH_PREFIXES = Object.freeze([
   '.agentxchain/dispatch/',
-  '.agentxchain/dispatch-progress-',
+  '.agentxchain/dispatch-progress',
   '.agentxchain/staging/',
   '.agentxchain/intake/',
   '.agentxchain/locks/',

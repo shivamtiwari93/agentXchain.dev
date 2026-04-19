@@ -1,5 +1,7 @@
 # Authoritative Local CLI Role Proof Spec
 
+**Status:** shipped
+
 ## Purpose
 
 Freeze the proof obligation that BUG-46 fixes apply to contract tuples, not role names.

@@ -1,6 +1,6 @@
 ## Run Export Root Centralization Spec
 
-**Status:** proposed
+**Status:** shipped
 **Created:** Turn 254 — GPT 5.4
 
 ### Purpose

@@ -598,6 +598,11 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('.agentxchain/migration-report.md'), true);
   });
 
+  it('identifies both legacy and per-turn dispatch progress files as operational', () => {
+    assert.equal(isOperationalPath('.agentxchain/dispatch-progress.json'), true);
+    assert.equal(isOperationalPath('.agentxchain/dispatch-progress-turn_123.json'), true);
+  });
+
   it('identifies prompt scaffold as operational (init/migrate-owned)', () => {
     assert.equal(isOperationalPath('.agentxchain/prompts/dev.md'), true);
     assert.equal(isOperationalPath('.agentxchain/prompts/pm.md'), true);

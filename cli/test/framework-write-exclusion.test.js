@@ -8,6 +8,16 @@ import {
   RUN_CONTINUITY_STATE_FILES,
 } from '../src/lib/repo-observer.js';
 import { RUN_EXPORT_INCLUDED_ROOTS, RUN_RESTORE_ROOTS } from '../src/lib/export.js';
+import { HUMAN_ESCALATIONS_PATH, HUMAN_TASKS_PATH } from '../src/lib/human-escalations.js';
+import { NOTIFICATION_AUDIT_PATH } from '../src/lib/notification-runner.js';
+import { SCHEDULE_STATE_PATH, DAEMON_STATE_PATH } from '../src/lib/run-schedule.js';
+import { RECOVERY_REPORT_PATH } from '../src/lib/workflow-gate-semantics.js';
+import { SESSION_RECOVERY_PATH } from '../src/lib/continuity-status.js';
+import {
+  LEGACY_DISPATCH_PROGRESS_PATH,
+  getDispatchProgressRelativePath,
+} from '../src/lib/dispatch-progress.js';
+import { RUN_EVENTS_PATH } from '../src/lib/run-events.js';
 
 // ── Framework-Owned Write Paths ─────────────────────────────────────────────
 // Every file path the framework writes to MUST be excluded from agent-attributed
@@ -88,6 +98,28 @@ describe('framework-owned write paths are excluded from agent observation', () =
     });
   }
 
+  const EXPORTED_FRAMEWORK_WRITE_PATHS = [
+    HUMAN_ESCALATIONS_PATH,
+    HUMAN_TASKS_PATH,
+    NOTIFICATION_AUDIT_PATH,
+    SCHEDULE_STATE_PATH,
+    DAEMON_STATE_PATH,
+    RECOVERY_REPORT_PATH,
+    SESSION_RECOVERY_PATH,
+    LEGACY_DISPATCH_PROGRESS_PATH,
+    getDispatchProgressRelativePath('turn_abc123'),
+    RUN_EVENTS_PATH,
+  ];
+
+  for (const path of EXPORTED_FRAMEWORK_WRITE_PATHS) {
+    it(`exported framework path is excluded: ${path}`, () => {
+      assert.ok(
+        isOperationalPath(path),
+        `${path} is exported as a framework-owned path but is NOT excluded from observation`,
+      );
+    });
+  }
+
   // ── Agent-owned paths that MUST NOT be excluded ─────────────────────────
   const AGENT_OWNED_PATHS = [
     'src/index.js',
@@ -128,6 +160,7 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
       '.agentxchain/missions/mission_abc.json',
       '.agentxchain/multirepo/barriers.json',
       '.agentxchain/prompts/dev.md',
+      '.agentxchain/dispatch-progress.json',
       '.agentxchain/SESSION_RECOVERY.md',
       '.agentxchain/migration-report.md',
     ];
@@ -150,6 +183,7 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
     assert.ok(!normalized.includes('.agentxchain/missions/mission_abc.json'), 'missions path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/multirepo/barriers.json'), 'multirepo path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/prompts/dev.md'), 'prompts path must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/dispatch-progress.json'), 'legacy dispatch-progress path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/SESSION_RECOVERY.md'), 'SESSION_RECOVERY.md must be stripped');
     assert.ok(!normalized.includes('.agentxchain/migration-report.md'), 'migration-report.md must be stripped');
 

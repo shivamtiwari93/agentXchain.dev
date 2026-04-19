@@ -1,3 +1,5 @@
+**Status:** shipped
+
 ## Purpose
 
 Close the remaining BUG-46 ambiguity around verification-generated repo files.
