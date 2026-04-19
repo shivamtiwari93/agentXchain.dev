@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.142.0
+
+### Summary
+- Release version bump across all governed surfaces.
+
+### Evidence
+- **Evidence:** 6,184 tests / 1,308 suites / 0 failures
+
 ## 2.141.1
 
 ### Bug Fixes
