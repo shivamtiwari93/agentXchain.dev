@@ -101,6 +101,14 @@ function getExtractedPackage() {
   });
 
   const packageDir = join(extractDir, 'package');
+  // Symlink source-tree node_modules into the extracted tarball so packaged
+  // imports can resolve dependencies. This is valid because AgentXchain has
+  // zero native/binary dependencies and no optional peer deps today — the
+  // dependency tree is identical between source `npm install` and a fresh
+  // `npm install` of the published package. If native deps are ever added
+  // (e.g., better-sqlite3), this symlink strategy must be replaced with a
+  // real `npm install` of the tarball to catch platform-specific resolution
+  // differences.
   const rootNodeModules = join(CLI_DIR, 'node_modules');
   const packagedNodeModules = join(packageDir, 'node_modules');
   if (existsSync(rootNodeModules) && !existsSync(packagedNodeModules)) {
