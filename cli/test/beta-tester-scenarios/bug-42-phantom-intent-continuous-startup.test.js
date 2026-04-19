@@ -17,13 +17,14 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 
 import { archiveStaleIntentsForRun } from '../../src/lib/intent-startup-migration.js';
 import { findNextDispatchableIntent } from '../../src/lib/intake.js';
+import { createLegacyIntentRepo } from './_helpers/legacy-intent-fixture.js';
 
 const ROOT = join(import.meta.dirname, '../..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
@@ -185,5 +186,70 @@ describe('BUG-42: phantom intent detection and supersession', () => {
     const after = findNextDispatchableIntent(dir, { run_id: RUN_ID });
     assert.ok(after.ok, 'valid intent should still be dispatchable');
     assert.equal(after.intentId, validIntentId);
+  });
+
+  it('treats generic-template gate files as phantom evidence when same-run planning history post-dates the intent', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'axc-bug42-generic-history-'));
+    runCli(ROOT, ['init', '--governed', '--dir', dir, '-y']);
+
+    const RUN_ID = 'run_generic_history_001';
+    const INTENT_ID = 'intent_generic_history_001';
+    const stateDir = join(dir, '.agentxchain');
+    mkdirSync(stateDir, { recursive: true });
+    writeFileSync(join(stateDir, 'state.json'), JSON.stringify({
+      run_id: RUN_ID,
+      phase: 'implementation',
+      status: 'active',
+      protocol_version: '7',
+    }));
+
+    appendFileSync(join(stateDir, 'history.jsonl'), `${JSON.stringify({
+      turn_id: 'turn_pm_history_001',
+      run_id: RUN_ID,
+      role: 'pm',
+      phase: 'planning',
+      status: 'completed',
+      summary: 'Addressed injected planning revision intent.',
+      accepted_at: '2026-04-18T10:00:00Z',
+      files_changed: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
+    })}\n`);
+
+    const intentsDir = join(stateDir, 'intake', 'intents');
+    mkdirSync(intentsDir, { recursive: true });
+    writeFileSync(join(intentsDir, `${INTENT_ID}.json`), JSON.stringify({
+      intent_id: INTENT_ID,
+      status: 'approved',
+      template: 'generic',
+      approved_run_id: RUN_ID,
+      created_at: '2026-04-18T09:00:00Z',
+      updated_at: '2026-04-18T09:00:00Z',
+      history: [],
+    }));
+
+    const result = archiveStaleIntentsForRun(dir, RUN_ID);
+    assert.equal(result.phantom_superseded, 1);
+    assert.deepEqual(result.phantom_superseded_intent_ids, [INTENT_ID]);
+  });
+
+  it('does not treat scaffolded generic gate files as phantom evidence without accepted planning history', () => {
+    const dir = createLegacyIntentRepo('axc-bug42-generic-scaffold-');
+    const INTENT_ID = 'intent_generic_scaffold_001';
+
+    writeFileSync(join(dir, '.agentxchain', 'intake', 'intents', `${INTENT_ID}.json`), JSON.stringify({
+      intent_id: INTENT_ID,
+      status: 'approved',
+      template: 'generic',
+      approved_run_id: 'run_c8a4701ce0d4952d',
+      created_at: '2026-04-18T11:00:00Z',
+      updated_at: '2026-04-18T11:00:00Z',
+      history: [],
+    }, null, 2));
+
+    const result = archiveStaleIntentsForRun(dir, 'run_c8a4701ce0d4952d');
+    assert.equal(result.phantom_superseded, 0);
+
+    const after = findNextDispatchableIntent(dir, { run_id: 'run_c8a4701ce0d4952d' });
+    assert.ok(after.ok, 'scaffold-only gate files must not create a phantom');
+    assert.equal(after.intentId, INTENT_ID);
   });
 });

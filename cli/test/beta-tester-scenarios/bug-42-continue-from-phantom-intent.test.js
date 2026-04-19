@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { rmSync, writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
@@ -51,6 +51,19 @@ function createRepoWithPhantomIntent() {
     updated_at: '2026-04-18T00:00:00.000Z',
     history: [],
   }, null, 2));
+
+  appendFileSync(join(root, '.agentxchain', 'history.jsonl'), `${JSON.stringify({
+    turn_id: 'turn_pm_bug42_history',
+    run_id: RUN_ID,
+    role: 'pm',
+    phase: 'planning',
+    runtime_id: 'manual-pm',
+    status: 'completed',
+    summary: 'Addressed injected planning revision intent.',
+    files_changed: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
+    intent_id: INTENT_ID,
+    accepted_at: '2026-04-18T00:10:00.000Z',
+  })}\n`);
 
   return root;
 }

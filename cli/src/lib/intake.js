@@ -21,6 +21,7 @@ import {
   archiveStaleIntentsForRun,
   migratePreBug34Intents,
   formatLegacyIntentMigrationNotice,
+  isPhantomIntent,
 } from './intent-startup-migration.js';
 
 const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vision_scan'];
@@ -807,6 +808,16 @@ export function approveIntent(root, intentId, options = {}) {
   intent.status = 'approved';
   intent.approved_by = approver;
   intent.updated_at = now;
+
+  const phantomReason = 'planning artifacts for this intent already exist on disk; intent superseded during approval';
+  if (intent.approved_run_id && isPhantomIntent(root, intent)) {
+    intent.status = 'superseded';
+    intent.archived_reason = phantomReason;
+    intent.history.push({ from: previousStatus, to: 'superseded', at: now, reason: phantomReason, approver });
+    safeWriteJson(intentPath, intent);
+    return { ok: true, intent, superseded: true, exitCode: 0 };
+  }
+
   intent.history.push({ from: previousStatus, to: 'approved', at: now, reason, approver });
 
   safeWriteJson(intentPath, intent);

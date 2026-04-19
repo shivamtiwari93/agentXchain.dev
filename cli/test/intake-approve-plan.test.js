@@ -166,6 +166,31 @@ describe('intake approve', () => {
     assert.equal(typeof out.intent, 'object');
     assert.equal(out.intent.status, 'approved');
   });
+
+  it('supersedes a current-run phantom intent instead of approving it again', () => {
+    const intentId = recordAndTriage(dir, 'api-service');
+    mkdirSync(join(dir, '.planning'), { recursive: true });
+    writeFileSync(join(dir, '.planning', 'api-contract.md'), '# Existing API contract\n');
+    writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify({
+      run_id: 'run_phantom_approve_001',
+      phase: 'implementation',
+      status: 'active',
+    }, null, 2));
+
+    const result = runCli([
+      'intake', 'approve',
+      '--intent', intentId,
+      '--json',
+    ], dir);
+
+    assert.equal(result.status, 0, `exit ${result.status}: ${result.stderr}`);
+    const out = JSON.parse(result.stdout);
+    assert.equal(out.ok, true);
+    assert.equal(out.superseded, true);
+    assert.equal(out.intent.status, 'superseded');
+    assert.equal(out.intent.approved_run_id, 'run_phantom_approve_001');
+    assert.match(out.intent.archived_reason, /superseded during approval/);
+  });
 });
 
 describe('intake plan', () => {

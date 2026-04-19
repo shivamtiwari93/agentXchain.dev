@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { queryAcceptedTurnHistory } from './accepted-turn-history.js';
 import { safeWriteJson } from './safe-write.js';
 import { VALID_GOVERNED_TEMPLATE_IDS, loadGovernedTemplate } from './governed-templates.js';
 
@@ -28,7 +29,37 @@ function normalizeArtifactPaths(paths) {
   )];
 }
 
-function readPlanningGateFiles(root) {
+function parseTimestamp(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function hasPlanningHistoryEvidence(root, intent) {
+  const intentId = intent?.intent_id || null;
+  const runId = intent?.approved_run_id || null;
+  const intentTimestamp = parseTimestamp(intent?.approved_at)
+    ?? parseTimestamp(intent?.created_at)
+    ?? parseTimestamp(intent?.updated_at);
+
+  for (const entry of queryAcceptedTurnHistory(root)) {
+    if (entry?.phase !== 'planning') continue;
+
+    if (intentId && entry.intent_id === intentId) {
+      return true;
+    }
+
+    if (!runId || entry.run_id !== runId || intentTimestamp === null) continue;
+    const acceptedAt = parseTimestamp(entry.accepted_at);
+    if (acceptedAt !== null && acceptedAt >= intentTimestamp) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function readPlanningGateFiles(root, intent) {
   const configPath = join(root, 'agentxchain.json');
   if (!existsSync(configPath)) return [];
 
@@ -39,27 +70,10 @@ function readPlanningGateFiles(root) {
     return [];
   }
 
-  // Only use planning gate requires_files for phantom detection when:
-  // 1. The planning gate has NOT been passed yet (once passed, these files
-  //    are expected to exist from normal planning work), AND
-  // 2. At least one turn has been completed (turn_sequence > 0). If no turns
-  //    have been completed, the files are scaffolding templates, not evidence
-  //    of completed planning work. Without this check, ANY approved intent
-  //    in a freshly scaffolded project would be falsely detected as phantom.
-  const statePath = join(root, '.agentxchain', 'state.json');
-  try {
-    const state = JSON.parse(readFileSync(statePath, 'utf8'));
-    const gateStatus = state.phase_gate_status || {};
-    const exitGateId = config?.routing?.planning?.exit_gate;
-    if (exitGateId && gateStatus[exitGateId] === 'passed') return [];
-    const turnSequence = state.turn_sequence || 0;
-    if (turnSequence === 0) return [];
-  } catch {
-    // If state is unreadable, fall through to check gate files
-  }
-
   const exitGateId = config?.routing?.planning?.exit_gate;
   const requiresFiles = exitGateId ? config?.gates?.[exitGateId]?.requires_files : null;
+  if (!Array.isArray(requiresFiles) || requiresFiles.length === 0) return [];
+  if (!hasPlanningHistoryEvidence(root, intent)) return [];
   return normalizeArtifactPaths(requiresFiles);
 }
 
@@ -146,7 +160,7 @@ export function listExpectedPlanningArtifacts(root, intent) {
   return normalizeArtifactPaths([
     ...recordedArtifacts,
     ...templateArtifacts,
-    ...readPlanningGateFiles(root),
+    ...readPlanningGateFiles(root, intent),
   ]);
 }
 

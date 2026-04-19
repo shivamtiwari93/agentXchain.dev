@@ -24,6 +24,14 @@ export async function intakeApproveCommand(opts) {
     console.log(JSON.stringify(result, null, 2));
   } else if (result.ok) {
     console.log('');
+    if (result.superseded) {
+      console.log(chalk.yellow(`  Superseded intent ${result.intent.intent_id}`));
+      console.log(chalk.dim(`  Approver: ${result.intent.approved_by}`));
+      console.log(chalk.dim(`  Status: ${result.intent.history.at(-2)?.to || 'triaged'} → superseded`));
+      console.log(chalk.dim(`  Reason: ${result.intent.archived_reason}`));
+      console.log('');
+      process.exit(result.exitCode);
+    }
     console.log(chalk.green(`  Approved intent ${result.intent.intent_id}`));
     console.log(chalk.dim(`  Approver: ${result.intent.approved_by}`));
     console.log(chalk.dim(`  Status: triaged → approved`));
