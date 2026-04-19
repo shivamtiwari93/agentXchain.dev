@@ -38,6 +38,7 @@ import {
   checkCleanBaseline,
   isOperationalPath,
   isBaselineExemptPath,
+  normalizeCheckpointableFiles,
 } from './repo-observer.js';
 import { getMaxConcurrentTurns } from './normalized-config.js';
 import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir, getReviewArtifactPath } from './turn-paths.js';
@@ -3775,7 +3776,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     summary: turnResult.summary,
     decisions: turnResult.decisions || [],
     objections: turnResult.objections || [],
-    files_changed: turnResult.files_changed || [],
+    files_changed: normalizeCheckpointableFiles(turnResult.files_changed),
     artifacts_created: turnResult.artifacts_created || [],
     verification: turnResult.verification || {},
     normalized_verification: normalizedVerification,

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isOperationalPath } from '../src/lib/repo-observer.js';
+import { isOperationalPath, normalizeCheckpointableFiles } from '../src/lib/repo-observer.js';
 
 // ── Framework-Owned Write Paths ─────────────────────────────────────────────
 // Every file path the framework writes to MUST be excluded from agent-attributed
@@ -91,4 +91,67 @@ describe('framework-owned write paths are excluded from agent observation', () =
       assert.ok(!isOperationalPath(path), `${path} should NOT be operational — agent work here must be observed`);
     });
   }
+});
+
+// ── History persistence normalization ──────────────────────────────────────
+// governed-state.js now normalizes files_changed via normalizeCheckpointableFiles()
+// before writing history entries. This test proves operational paths declared by
+// agents are stripped at persistence time, not just at checkpoint consumption.
+// Without this, downstream consumers that read raw history.files_changed would
+// trust operational garbage that checkpoint-turn knows to filter.
+
+describe('normalizeCheckpointableFiles strips operational paths from declared files_changed', () => {
+  it('preserves agent-owned files and strips operational paths from a mixed array', () => {
+    const declared = [
+      'src/api.js',
+      '.planning/IMPLEMENTATION_NOTES.md',
+      '.agentxchain/staging/turn_abc/turn-result.json',
+      '.agentxchain/dispatch/turns/turn_abc/MANIFEST.json',
+      '.agentxchain/state.json',
+      '.agentxchain/events.jsonl',
+      'TALK.md',
+      'HUMAN_TASKS.md',
+      '.agentxchain/intake/intents/intent_123.json',
+      'tests/fixtures/express-sample/tusq.manifest.json',
+      '.agentxchain/missions/mission_abc.json',
+      '.agentxchain/multirepo/barriers.json',
+    ];
+
+    const normalized = normalizeCheckpointableFiles(declared);
+
+    // Agent-owned files survive
+    assert.ok(normalized.includes('src/api.js'), 'src/api.js must survive normalization');
+    assert.ok(normalized.includes('.planning/IMPLEMENTATION_NOTES.md'), '.planning/IMPLEMENTATION_NOTES.md must survive');
+    assert.ok(normalized.includes('tests/fixtures/express-sample/tusq.manifest.json'), 'test fixture must survive');
+
+    // Operational paths are stripped
+    assert.ok(!normalized.includes('.agentxchain/staging/turn_abc/turn-result.json'), 'staging path must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/dispatch/turns/turn_abc/MANIFEST.json'), 'dispatch path must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/state.json'), 'state.json must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/events.jsonl'), 'events.jsonl must be stripped');
+    assert.ok(!normalized.includes('TALK.md'), 'TALK.md must be stripped');
+    assert.ok(!normalized.includes('HUMAN_TASKS.md'), 'HUMAN_TASKS.md must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/intake/intents/intent_123.json'), 'intake path must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/missions/mission_abc.json'), 'missions path must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/multirepo/barriers.json'), 'multirepo path must be stripped');
+
+    // Exactly 3 agent-owned files remain
+    assert.strictEqual(normalized.length, 3, `Expected 3 normalized files, got ${normalized.length}: ${normalized.join(', ')}`);
+  });
+
+  it('deduplicates and trims whitespace', () => {
+    const declared = ['src/api.js', '  src/api.js  ', 'src/api.js', 'src/lib.js'];
+    const normalized = normalizeCheckpointableFiles(declared);
+    assert.deepStrictEqual(normalized, ['src/api.js', 'src/lib.js']);
+  });
+
+  it('returns empty array when all paths are operational', () => {
+    const declared = [
+      '.agentxchain/staging/turn_abc/turn-result.json',
+      '.agentxchain/state.json',
+      'TALK.md',
+    ];
+    const normalized = normalizeCheckpointableFiles(declared);
+    assert.strictEqual(normalized.length, 0, 'All-operational input must produce empty output');
+  });
 });
