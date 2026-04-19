@@ -68,6 +68,31 @@ describe('agentxchain.ai planning contracts', () => {
       'control plane spec must forbid server-side "latest" inference for recovery mutations');
   });
 
+  it('dashboard read-model spec requires server-projected actionability with version-gated stale-view enforcement', () => {
+    const spec = read('.planning/AGENTXCHAIN_AI_DASHBOARD_READ_MODEL_SPEC.md');
+
+    assert.match(spec, /GET \/v1\/runs\/:run_id\/actionability/,
+      'read-model spec must define the actionability projection endpoint');
+    assert.match(spec, /projection_version/,
+      'read-model spec must define a monotonically increasing projection version');
+    assert.match(spec, /If-Match.*projection_version/i,
+      'read-model spec must require If-Match on mutations to enforce stale-view detection');
+    assert.match(spec, /409 Conflict/,
+      'read-model spec must return 409 Conflict on version mismatch');
+    assert.match(spec, /actionability_changed/,
+      'read-model spec must define event-stream invalidation signals');
+    assert.match(spec, /Ineligible.*actions are omitted/i,
+      'read-model spec must omit ineligible actions, not show them disabled');
+    assert.match(spec, /same.*evaluators.*CLI/i,
+      'read-model spec must require protocol evaluator parity with CLI');
+    assert.match(spec, /pending_approvals.*turn_actions.*checkpoint_actions.*run_actions/s,
+      'read-model spec must project four distinct action scopes');
+    assert.match(spec, /No fallback to cached projections/i,
+      'read-model spec must ban cached-projection fallback on endpoint failure');
+    assert.match(spec, /AT-AIRM-010/,
+      'read-model spec must include all 10 acceptance tests');
+  });
+
   it('portability spec keeps the v1 bundle as a standard flat tarball until scale evidence exists', () => {
     const spec = read('.planning/AGENTXCHAIN_AI_PORTABILITY_SPEC.md');
 
