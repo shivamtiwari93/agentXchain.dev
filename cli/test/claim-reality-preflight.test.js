@@ -5,7 +5,8 @@
  * is included in the npm-packed tarball. This catches the "source passes,
  * published binary fails" class of bug where tests exercise code that
  * isn't shipped. For BUG-46, the gate also executes a packaged-tarball
- * smoke to prove the shipped CLI survives the accept/checkpoint/resume seam.
+ * proof to ensure the shipped CLI both rejects the tester's exact bad state
+ * cleanly and survives the repaired accept/checkpoint/resume seam.
  *
  * Runs as part of the release-gate test suite.
  */
@@ -55,6 +56,8 @@ const BUG46_REPLAY_SIDE_EFFECT_SCRIPT = [
 ].join(' ');
 
 const BUG46_REPLAY_COMMAND = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(BUG46_REPLAY_SIDE_EFFECT_SCRIPT)}`;
+const BUG46_TESTER_RUN_ID = 'run_c8a4701ce0d4952d';
+const BUG46_TESTER_TURN_ID = 'turn_e015ce32fdafc9c5';
 
 let packedFilesCache = null;
 let extractedPackageCache = null;
@@ -211,6 +214,31 @@ function materializeBug46ReplaySideEffects(root) {
   writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools', 'post_users_users.json'), '{"name":"post_users_users"}\n');
 }
 
+function readJson(filePath) {
+  return JSON.parse(readFileSync(filePath, 'utf8'));
+}
+
+function rewriteActiveTurnState(root, { runId, phase, turnId, roleId = 'qa' }) {
+  const statePath = join(root, '.agentxchain', 'state.json');
+  const state = readJson(statePath);
+  const [existingTurnId] = Object.keys(state.active_turns || {});
+  assert.ok(existingTurnId, 'packed BUG-46 smoke must start with an assigned turn');
+  const existingTurn = state.active_turns[existingTurnId];
+  assert.ok(existingTurn, 'packed BUG-46 smoke missing active turn state');
+
+  state.run_id = runId;
+  state.phase = phase;
+  state.active_turns = {
+    [turnId]: {
+      ...existingTurn,
+      turn_id: turnId,
+      assigned_role: roleId,
+    },
+  };
+
+  writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
+}
+
 describe('claim-reality preflight', () => {
   it('all production imports used by beta-tester-scenario tests are in the npm tarball', () => {
     const packedFiles = getPackedFiles();
@@ -313,6 +341,83 @@ describe('claim-reality preflight', () => {
     assert.ok(testContent.includes('.planning/RELEASE_NOTES.md')
       && testContent.includes('tests/fixtures/express-sample/tusq.manifest.json'),
     'BUG-46 test must cover the tester\'s exact repo mutation shape');
+    assert.match(testContent, /artifact\\\.type: "workspace" but files_changed is empty/,
+      'BUG-46 test must prove the exact-state rejection');
+    assert.match(testContent, /checkCleanBaseline/,
+      'BUG-46 test must prove the clean-baseline invariant');
+  });
+
+  it('BUG-46 packaged CLI rejects the tester exact-state payload without leaving replay-only dirt', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const repoObserver = await import(pathToFileURL(join(packageDir, 'src/lib/repo-observer.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { checkCleanBaseline } = repoObserver;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = makeTempGitRepo();
+    const config = makeBug46Config();
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+
+    rewriteActiveTurnState(root, {
+      runId: BUG46_TESTER_RUN_ID,
+      phase: 'qa',
+      turnId: BUG46_TESTER_TURN_ID,
+    });
+
+    const resultPath = join(root, getTurnStagingResultPath(BUG46_TESTER_TURN_ID));
+    mkdirSync(join(root, '.agentxchain', 'staging', BUG46_TESTER_TURN_ID), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      run_id: BUG46_TESTER_RUN_ID,
+      turn_id: BUG46_TESTER_TURN_ID,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'Packaged BUG-46 exact-state rejection smoke.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: BUG46_REPLAY_COMMAND, exit_code: 0 },
+        ],
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', BUG46_TESTER_TURN_ID], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.notEqual(accept.status, 0,
+      `packaged accept-turn must reject the tester's exact BUG-46 shape:\n${accept.stdout}\n${accept.stderr}`);
+    assert.match(accept.stdout + accept.stderr,
+      /artifact\.type: "workspace" but files_changed is empty/,
+      'packaged exact-state rejection must fail loudly on workspace/files_changed mismatch');
+
+    const baseline = checkCleanBaseline(root, 'authoritative');
+    assert.equal(baseline.clean, true,
+      `packaged exact-state rejection must not strand replay-only dirt:\n${baseline.reason || 'baseline reported dirty without a reason'}`);
+
+    const historyPath = join(root, '.agentxchain', 'history.jsonl');
+    if (existsSync(historyPath)) {
+      const history = readFileSync(historyPath, 'utf8')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      assert.ok(!history.some((entry) => entry.turn_id === BUG46_TESTER_TURN_ID),
+        'packaged exact-state rejection must not persist accepted history for the rejected turn');
+    }
   });
 
   it('BUG-46 packaged CLI smoke proves accept-turn/checkpoint-turn/resume on the shipped tarball', async () => {
