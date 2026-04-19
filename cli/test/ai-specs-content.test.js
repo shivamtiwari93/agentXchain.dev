@@ -93,6 +93,31 @@ describe('agentxchain.ai planning contracts', () => {
       'read-model spec must include all 10 acceptance tests');
   });
 
+  it('operator observability spec requires protocol-faithful live events, aggregation, and alerting without cloud-only semantics', () => {
+    const spec = read('.planning/AGENTXCHAIN_AI_OPERATOR_OBSERVABILITY_SPEC.md');
+
+    assert.match(spec, /GET \/v1\/runs\/:run_id\/events\/stream/,
+      'observability spec must define SSE event stream endpoint');
+    assert.match(spec, /same schema as.*events\.jsonl/i,
+      'observability spec must require protocol-compatible event schema');
+    assert.match(spec, /No cloud-only event types in v1/i,
+      'observability spec must ban cloud-only event types');
+    assert.match(spec, /Last-Event-ID/,
+      'observability spec must define SSE reconnection protocol');
+    assert.match(spec, /reconnection_gap/,
+      'observability spec must handle reconnection gaps explicitly');
+    assert.match(spec, /observation_summary/,
+      'observability spec must require repo-observer-derived observation, not self-report');
+    assert.match(spec, /evaluation_history/,
+      'observability spec must expose gate evaluation history');
+    assert.match(spec, /at-least-once.*idempotency/i,
+      'observability spec must require reliable webhook delivery');
+    assert.match(spec, /run_requires_approval.*run_stalled.*turn_failed_acceptance/s,
+      'observability spec must define the v1 alert trigger set');
+    assert.match(spec, /AT-OBS-010/,
+      'observability spec must include all 10 acceptance tests');
+  });
+
   it('portability spec keeps the v1 bundle as a standard flat tarball until scale evidence exists', () => {
     const spec = read('.planning/AGENTXCHAIN_AI_PORTABILITY_SPEC.md');
 
