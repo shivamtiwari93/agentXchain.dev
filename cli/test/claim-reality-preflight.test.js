@@ -1435,6 +1435,174 @@ describe('claim-reality preflight', () => {
       'continuous QA turn must have a checkpoint_sha (auto-checkpoint succeeded)');
   });
 
+  it('BUG-46 packaged CLI continuous mode surfaces legacy-empty checkpoint recovery guidance before dispatch', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const repoObserver = await import(pathToFileURL(join(packageDir, 'src/lib/repo-observer.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { checkCleanBaseline } = repoObserver;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug46-cont-recovery-'));
+    TEMP_PATHS.push(root);
+
+    const bug46ContConfig = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: 'bug46-packed-continuous-recovery', name: 'BUG-46 Packed Continuous Recovery', default_branch: 'main' },
+      roles: {
+        qa: {
+          title: 'QA',
+          mandate: 'Verify the release candidate, produce fixture outputs, and record the ship verdict.',
+          write_authority: 'authoritative',
+          runtime: 'local-qa',
+        },
+      },
+      runtimes: {
+        'local-qa': {
+          type: 'local_cli',
+          command: process.execPath,
+          args: [join(CLI_DIR, 'test-support', 'mock-agent-bug46-qa.mjs')],
+          cwd: '.',
+          prompt_transport: 'dispatch_bundle_only',
+        },
+      },
+      routing: {
+        qa: { entry_role: 'qa', allowed_next_roles: ['qa'], exit_gate: 'qa_ship_verdict' },
+      },
+      gates: {
+        qa_ship_verdict: {
+          requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
+        },
+      },
+    };
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# BUG-46 packed continuous recovery\n');
+    writeFileSync(join(root, '.planning', 'VISION.md'), '# Vision\n\n## QA\n\n- recover from stranded accepted turns before dispatching the next authoritative QA turn\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(bug46ContConfig, null, 2) + '\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'test@test.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    git(root, ['add', '-A']);
+    git(root, ['commit', '-m', 'init']);
+
+    const init = initializeGovernedRun(root, bug46ContConfig);
+    assert.ok(init.ok, init.error);
+    const assign = assignGovernedTurn(root, bug46ContConfig, 'qa');
+    assert.ok(assign.ok, assign.error);
+
+    materializeBug46ReplaySideEffects(root);
+
+    const turnId = assign.turn.turn_id;
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      run_id: init.state.run_id,
+      turn_id: turnId,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'Packaged BUG-46 continuous recovery smoke seeds a stranded accepted turn with produced_files promotion.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: BUG46_REPLAY_COMMAND, exit_code: 0 },
+        ],
+        produced_files: BUG46_REPLAY_SIDE_EFFECT_PATHS.map((path) => ({
+          path,
+          disposition: 'artifact',
+        })),
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `packaged accept-turn must seed the stranded continuous recovery state:\n${accept.stdout}\n${accept.stderr}`);
+
+    const historyPath = join(root, '.agentxchain', 'history.jsonl');
+    const corruptedHistory = readFileSync(historyPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line))
+      .map((entry) => (
+        entry.turn_id === turnId
+          ? {
+              ...entry,
+              files_changed: [],
+              observed_artifact: entry.observed_artifact
+                ? {
+                    ...entry.observed_artifact,
+                    files_changed: [],
+                  }
+                : entry.observed_artifact,
+            }
+          : entry
+      ));
+    writeFileSync(historyPath, `${corruptedHistory.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+
+    const blockedContinuous = spawnSync(process.execPath, [
+      cliPath,
+      'run',
+      '--continue-from',
+      init.state.run_id,
+      '--continuous',
+      '--auto-approve',
+      '--max-turns',
+      '1',
+      '--max-runs',
+      '1',
+      '--max-idle-cycles',
+      '1',
+      '--poll-seconds',
+      '0',
+      '--triage-approval',
+      'auto',
+    ], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
+    });
+
+    const blockedOutput = (blockedContinuous.stdout || '') + (blockedContinuous.stderr || '');
+    assert.notEqual(blockedContinuous.status, 0,
+      'continuous run must fail closed while the stranded legacy checkpoint is still unrepaired');
+    assert.match(blockedOutput, /legacy-empty files_changed history/i,
+      `continuous run must surface the legacy recovery guidance:\n${blockedOutput}`);
+    assert.match(blockedOutput, new RegExp(`checkpoint-turn --turn ${turnId}`),
+      'continuous run must point at checkpoint-turn for recovery');
+    assert.doesNotMatch(blockedOutput, /Turn accepted:/,
+      'continuous run must block before dispatching a new turn while the stranded checkpoint remains unrepaired');
+
+    const checkpoint = spawnSync(process.execPath, [cliPath, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `checkpoint-turn must repair the stranded accepted turn before continuous resume:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+    const repairedBaseline = checkCleanBaseline(root, 'authoritative');
+    assert.equal(repairedBaseline.clean, true,
+      `checkpoint repair must restore a clean authoritative baseline for the next continuous dispatch:\n${repairedBaseline.reason || 'baseline remained dirty'}`);
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));
