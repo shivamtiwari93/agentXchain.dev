@@ -84,18 +84,56 @@ export const RUN_CONTINUITY_DIRECTORY_ROOTS = Object.freeze([
   ...BASELINE_EXEMPT_PATH_PREFIXES.map((prefix) => prefix.replace(/\/$/, '')),
 ]);
 
+function pathMatchesAnyPrefix(filePath, prefixes) {
+  return prefixes.some((prefix) => filePath.startsWith(prefix));
+}
+
+function pathMatchesAnyRoot(filePath, roots) {
+  return roots.some((root) => filePath === root || filePath.startsWith(`${root}/`));
+}
+
+/**
+ * Return the repo-owned vs framework-owned classification flags for a path.
+ *
+ * The categories intentionally overlap:
+ *   - continuity state is always baseline-exempt
+ *   - operational paths are always baseline-exempt
+ *   - some baseline-exempt evidence paths also participate in continuity export
+ *
+ * This overlap is the contract. The framework does NOT use mutually exclusive
+ * buckets for observation, clean-baseline checks, and continuity export.
+ */
+export function classifyRepoPath(filePath) {
+  const operational = pathMatchesAnyPrefix(filePath, OPERATIONAL_PATH_PREFIXES)
+    || ORCHESTRATOR_STATE_FILES.includes(filePath);
+  const continuityState = RUN_CONTINUITY_STATE_FILES.includes(filePath)
+    || pathMatchesAnyRoot(filePath, RUN_CONTINUITY_DIRECTORY_ROOTS);
+  const baselineExempt = operational
+    || continuityState
+    || pathMatchesAnyPrefix(filePath, BASELINE_EXEMPT_PATH_PREFIXES);
+
+  return {
+    operational,
+    baselineExempt,
+    continuityState,
+    projectOwned: !baselineExempt,
+  };
+}
+
 /**
  * Check whether a file path belongs to orchestrator-owned operational state.
  * These paths are excluded from actor-attributed observation.
  */
 export function isOperationalPath(filePath) {
-  return OPERATIONAL_PATH_PREFIXES.some(prefix => filePath.startsWith(prefix))
-    || ORCHESTRATOR_STATE_FILES.includes(filePath);
+  return classifyRepoPath(filePath).operational;
 }
 
 export function isBaselineExemptPath(filePath) {
-  return isOperationalPath(filePath)
-    || BASELINE_EXEMPT_PATH_PREFIXES.some(prefix => filePath.startsWith(prefix));
+  return classifyRepoPath(filePath).baselineExempt;
+}
+
+export function isRunContinuityPath(filePath) {
+  return classifyRepoPath(filePath).continuityState;
 }
 
 export function normalizeCheckpointableFiles(filesChanged) {

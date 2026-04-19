@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  classifyRepoPath,
   isOperationalPath,
   normalizeCheckpointableFiles,
   RUN_CONTINUITY_DIRECTORY_ROOTS,
@@ -120,6 +121,28 @@ describe('framework-owned write paths are excluded from agent observation', () =
     });
   }
 
+  it('AT-PCLASS-003: exported legacy dispatch progress path is intentionally operational, not accidental prefix coverage', () => {
+    const classification = classifyRepoPath(LEGACY_DISPATCH_PROGRESS_PATH);
+    assert.equal(classification.operational, true);
+    assert.equal(classification.baselineExempt, true);
+    assert.equal(classification.continuityState, false);
+    assert.equal(classification.projectOwned, false);
+  });
+
+  it('AT-PCLASS-003: review/proposed/report evidence paths are continuity state and baseline-exempt', () => {
+    for (const relPath of [
+      '.agentxchain/reviews/turn_1234-qa-review.md',
+      '.agentxchain/proposed/turn_1234/PROPOSAL.md',
+      '.agentxchain/reports/RECOVERY_REPORT.md',
+    ]) {
+      const classification = classifyRepoPath(relPath);
+      assert.equal(classification.operational, false, `${relPath} should not be operational`);
+      assert.equal(classification.baselineExempt, true, `${relPath} should be baseline-exempt`);
+      assert.equal(classification.continuityState, true, `${relPath} should be continuity state`);
+      assert.equal(classification.projectOwned, false, `${relPath} should be framework-owned`);
+    }
+  });
+
   // ── Agent-owned paths that MUST NOT be excluded ─────────────────────────
   const AGENT_OWNED_PATHS = [
     'src/index.js',
@@ -237,5 +260,17 @@ describe('run export/restore continuity roots stay aligned with repo-observer ow
     assert.ok(RUN_EXPORT_INCLUDED_ROOTS.includes('.agentxchain-dashboard.json'));
     assert.ok(!RUN_RESTORE_ROOTS.includes('.agentxchain-dashboard.pid'));
     assert.ok(!RUN_RESTORE_ROOTS.includes('.agentxchain-dashboard.json'));
+  });
+
+  it('AT-PCLASS-003: every continuity root is classified as continuity state and baseline-exempt', () => {
+    for (const relPath of [
+      ...RUN_CONTINUITY_STATE_FILES,
+      ...RUN_CONTINUITY_DIRECTORY_ROOTS.map((root) => `${root}/fixture.txt`),
+    ]) {
+      const classification = classifyRepoPath(relPath);
+      assert.equal(classification.continuityState, true, `${relPath} must classify as continuity state`);
+      assert.equal(classification.baselineExempt, true, `${relPath} must be baseline-exempt`);
+      assert.equal(classification.projectOwned, false, `${relPath} must not classify as project-owned`);
+    }
   });
 });

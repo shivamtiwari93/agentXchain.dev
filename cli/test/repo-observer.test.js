@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 
 import {
   captureBaseline,
+  classifyRepoPath,
   observeChanges,
   attributeObservedChangesToTurn,
   buildConflictCandidateFiles,
@@ -18,6 +19,7 @@ import {
   checkCleanBaseline,
   detectDirtyFilesOutsideAllowed,
   isOperationalPath,
+  isRunContinuityPath,
 } from '../src/lib/repo-observer.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -150,6 +152,51 @@ describe('observeChanges', () => {
     assert.equal(obs.kind, 'no_git');
     assert.deepEqual(obs.files_changed, []);
     rmSync(nonGitDir, { recursive: true, force: true });
+  });
+});
+
+describe('classifyRepoPath', () => {
+  it('AT-PCLASS-001: continuity-state files overlap operational and baseline-exempt flags', () => {
+    const classification = classifyRepoPath('.agentxchain/history.jsonl');
+    assert.equal(classification.operational, true);
+    assert.equal(classification.baselineExempt, true);
+    assert.equal(classification.continuityState, true);
+    assert.equal(classification.projectOwned, false);
+    assert.equal(isRunContinuityPath('.agentxchain/history.jsonl'), true);
+  });
+
+  it('AT-PCLASS-001: prompt scaffolds are operational but not continuity state', () => {
+    const classification = classifyRepoPath('.agentxchain/prompts/dev.md');
+    assert.equal(classification.operational, true);
+    assert.equal(classification.baselineExempt, true);
+    assert.equal(classification.continuityState, false);
+    assert.equal(classification.projectOwned, false);
+    assert.equal(isRunContinuityPath('.agentxchain/prompts/dev.md'), false);
+  });
+
+  it('AT-PCLASS-001: legacy dispatch progress singleton is operational but not continuity state', () => {
+    const classification = classifyRepoPath('.agentxchain/dispatch-progress.json');
+    assert.equal(classification.operational, true);
+    assert.equal(classification.baselineExempt, true);
+    assert.equal(classification.continuityState, false);
+    assert.equal(classification.projectOwned, false);
+  });
+
+  it('AT-PCLASS-001: baseline-exempt evidence roots participate in continuity export', () => {
+    const classification = classifyRepoPath('.agentxchain/reports/qa-verdict.md');
+    assert.equal(classification.operational, false);
+    assert.equal(classification.baselineExempt, true);
+    assert.equal(classification.continuityState, true);
+    assert.equal(classification.projectOwned, false);
+  });
+
+  it('AT-PCLASS-002: project-owned files stay observable', () => {
+    const classification = classifyRepoPath('README.md');
+    assert.equal(classification.operational, false);
+    assert.equal(classification.baselineExempt, false);
+    assert.equal(classification.continuityState, false);
+    assert.equal(classification.projectOwned, true);
+    assert.equal(isRunContinuityPath('README.md'), false);
   });
 });
 

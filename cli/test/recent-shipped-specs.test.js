@@ -16,6 +16,7 @@ describe('recent shipped specs stay marked shipped', () => {
     '.planning/BUG_46_VERIFICATION_PRODUCED_FILES_SPEC.md',
     '.planning/AUTHORITATIVE_LOCAL_CLI_ROLE_PROOF_SPEC.md',
     '.planning/RUN_EXPORT_ROOT_CENTRALIZATION_SPEC.md',
+    '.planning/FRAMEWORK_PATH_CLASSIFICATION_SPEC.md',
   ];
 
   for (const specPath of shippedSpecs) {
