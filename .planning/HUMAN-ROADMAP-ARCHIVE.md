@@ -2646,3 +2646,121 @@ This separation is the difference between a useful product and a confused one. D
 > **Likely root cause:** retained-turn acceptance uses stale embedded `intake_context.acceptance_contract` from state.json and assignment bundle rather than reconciling against current intent status, current repo state, current staged result evidence.
 >
 > **Severity: P1.** Governed run can deadlock on stale retained-turn intent coverage even after underlying work is complete. Current state: stuck turn accepted via surgery, checkpointed, run restarted, new QA turn assigned `turn_294a4d2dfae5e56b`. Moving forward again.
+
+---
+
+### Beta-tester bug report #15 (verbatim) — BUG-46 post-acceptance deadlock on v2.140.0 (2026-04-19)
+
+> **Title:** `v2.140.0` can still deadlock after an accepted turn because accepted repo changes remain dirty, `checkpoint-turn` refuses to checkpoint them, and `resume` cannot continue
+>
+> **Summary:** Retested tusq.dev against agentxchain@2.140.0. v2.140.0 is improvement: continuous mode starts, earlier retained-turn stale-intent problem appears improved, run progresses further. But new framework-level deadlock:
+> 1. QA turn accepted
+> 2. Accepted turn leaves real modified repo files behind
+> 3. `resume` refuses to assign next turn because workspace is dirty
+> 4. `checkpoint-turn` refuses to checkpoint accepted turn because it says no writable files_changed paths
+> 5. Only practical recovery is manual git commit outside AgentXchain
+>
+> Framework can now accept work but still leaves repo in state framework itself cannot continue from. New post-acceptance deadlock.
+>
+> **Environment:** tusq.dev, macOS, governed v4, agentxchain@2.140.0 via npx, run_c8a4701ce0d4952d, phase qa. All roles authoritative + local_cli (pm/dev/qa/product_marketing/eng_director).
+>
+> **Command tested (exactly the retest path suggested):**
+> ```bash
+> npx --yes -p agentxchain@2.140.0 -c 'agentxchain run --continue-from run_c8a4701ce0d4952d --continuous --auto-approve --auto-checkpoint --max-turns 20 --max-runs 5 --triage-approval auto'
+> ```
+>
+> Improved: continuous mode started, new continuous session created, QA turns dispatched and accepted. Not the old startup bug. New problem shows up AFTER acceptance.
+>
+> **Accepted turn:** `turn_e015ce32fdafc9c5`, role qa. Staged result added meaningful QA/provenance updates to `.planning/RELEASE_NOTES.md`, `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`. Also resulted in generated fixture outputs: `tests/fixtures/express-sample/tusq.manifest.json`, `tests/fixtures/express-sample/tusq-tools/{get_users_users,index,post_users_users}.json`.
+>
+> Turn summary: "Challenged prior QA turns for not addressing the injected vision goal; verified provenance chain (scan→manifest→compile) end-to-end; added REQ-026/027/028 to acceptance matrix; updated ship-verdict and release notes to explicitly close the 'capabilities with provenance back to source' acceptance contract; all 7 verification commands exit 0." Accepted after retry.
+>
+> **After acceptance, workspace dirty with those files. Ran `resume`:**
+> ```text
+> Failed to assign turn: Working tree has uncommitted changes in actor-owned files: .planning/RELEASE_NOTES.md, .planning/acceptance-matrix.md, .planning/ship-verdict.md, tests/fixtures/express-sample/tusq-tools/get_users_users.json, tests/fixtures/express-sample/tusq-tools/index.json....
+> Authoritative/proposed turns require a clean baseline in v1.
+> ```
+>
+> **Ran `checkpoint-turn --turn turn_e015ce32fdafc9c5`:**
+> ```text
+> Accepted turn has no writable files_changed paths to checkpoint.
+> ```
+>
+> **Contradictory framework state:** says accepted turn left dirty actor-owned files, but also says no writable accepted files to checkpoint. Cannot recover from its own accepted state.
+>
+> **Manual workaround:** `git add .planning/RELEASE_NOTES.md .planning/acceptance-matrix.md .planning/ship-verdict.md tests/fixtures/express-sample/tusq.manifest.json tests/fixtures/express-sample/tusq-tools && git commit -m "checkpoint accepted qa provenance artifacts"` → then `agentxchain resume` assigned next QA turn.
+>
+> **Likely root cause:** mismatch between what accepted turn actually changed, what structured result declared in `files_changed`, and what `checkpoint-turn` considers eligible writable outputs. Three layers not aligned: acceptance tolerant enough to accept, checkpoint stricter and sees nothing writable, baseline logic stricter still and blocks next turn.
+>
+> **Expected:** (A) checkpoint accepted repo outputs, OR (B) acceptance should not succeed if checkpointing cannot succeed, OR (C) resume should have recovery path.
+>
+> **Severity: P1.** Real framework deadlock — accepted work exists, next turn cannot start, accepted turn cannot be checkpointed, only manual git commit unblocks. Framework still requires out-of-band operator git intervention after successful accepted turn.
+>
+> **Short conclusion:** v2.140.0 fixes important earlier issues and gets run much further. But still has new post-acceptance deadlock where accepted turn leaves real dirty repo changes, resume refuses, checkpoint-turn refuses, manual git commit required.
+
+---
+
+### Beta-tester BUG-46 evidence response (2026-04-19)
+
+Tester shared exact on-disk evidence for BUG-46 root cause investigation. Summary of findings:
+
+**1. Persisted history entry for `turn_e015ce32fdafc9c5` has smoking gun:**
+```json
+{
+  "turn_id":"turn_e015ce32fdafc9c5","run_id":"run_c8a4701ce0d4952d",
+  "role":"qa","phase":"qa","runtime_id":"local-qa","status":"completed",
+  "files_changed":[],
+  "artifact":{"type":"workspace","ref":"git:dirty"},
+  "observed_artifact":{
+    "derived_by":"orchestrator",
+    "baseline_ref":"git:bee94a4248ad31d093a4697d44f0010d6f1763b7",
+    "accepted_ref":"git:bee94a4248ad31d093a4697d44f0010d6f1763b7",
+    "files_changed":[],
+    "diff_summary":"...17 files changed, 27449 insertions(+), 7985 deletions(-)..."
+  }
+}
+```
+
+**Key inconsistencies in that single entry:**
+- `files_changed: []` — but `artifact.type: "workspace"` (workspace artifacts should have populated files)
+- `observed_artifact.files_changed: []` — but `diff_summary` shows 17 files changed with massive insertions
+- `baseline_ref === accepted_ref` (same git SHA) — no commit happened between dispatch and acceptance, so the ref-comparison finds nothing
+
+**2. Framework-owned file pollution in diff_summary:**
+- `.agentxchain/decision-ledger.jsonl` (+34 lines)
+- `.agentxchain/events.jsonl` (+84 lines)
+- `.agentxchain/history.jsonl` (+17 lines)
+- `.agentxchain/human-escalations.jsonl` (+4 lines) — ONLY file currently in baseline exclusion
+- `.agentxchain/intake/injected-priority.json`, 3 intake/intents/* files
+- `.agentxchain/reports/export-run_*.json` (+34,774 lines!) + `report-run_*.md` (+139)
+- `.agentxchain/run-history.jsonl`, `session.json`, `state.json`
+- `TALK.md` (+159 lines)
+- `.planning/RELEASE_NOTES.md`, `acceptance-matrix.md`, `ship-verdict.md` (the actual QA-authored files)
+- Untracked: `.agentxchain/continuous-session.json`, intake/events/*, intake/intents/* (3 new), loop-state.json, locks/accept-turn.lock
+- Untracked fixtures: `tests/fixtures/express-sample/tusq-tools/*.json`, `tusq.manifest.json`
+
+**3. QA role config confirms authoritative (not review_only):**
+```json
+"qa": {
+  "title": "QA",
+  "mandate": "Challenge correctness, acceptance coverage, and ship readiness.",
+  "write_authority": "authoritative",
+  "runtime": "local-qa"
+}
+```
+
+Workflow artifacts for QA declare: `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, `.planning/RELEASE_NOTES.md` — all `required: true`, `owned_by: qa`.
+
+**4. Fixture files were produced by verification commands, NOT the QA subprocess directly.**
+Tester's reasoning: `verification.commands` include `node tests/smoke.mjs` and python3 scripts inspecting the fixture files; fixtures appear as "Untracked files" in observation; not in any `files_changed` declaration. High-confidence inference.
+
+**5. Staging file already deleted** — cannot recover original staged `turn-result.json` for comparison.
+
+**Tester's bottom-line observation:**
+> "The accepted history entry already contains both of the contradictory facts behind the deadlock: persisted `files_changed: []` but observed artifact diff still included real repo mutations and untracked fixture outputs. So the acceptance layer allowed the turn through, but checkpoint/baseline logic later treated those changes as real dirty repo state with no writable accepted files to checkpoint."
+
+This evidence confirms the four-layered BUG-46 diagnosis:
+1. Observation layer uses identical git refs → empty diff even when tree is dirty
+2. BUG-1 validator didn't fire because both declared and observed are empty
+3. Framework-owned file pollution beyond human-escalations.jsonl
+4. Verification-produced artifacts have no explicit classification

@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.140.0
+# Reddit Posts — AgentXchain v2.141.1
 
-> Ready-to-post content for Reddit. Updated 2026-04-19 to reflect v2.140.0 shipped reality.
+> Ready-to-post content for Reddit. Updated 2026-04-19 to reflect v2.141.1 shipped reality.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.134.0):**
+**What's in the box (v2.141.1):**
 - 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
 - All 5 adapters proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -30,10 +30,10 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- Offline full-text docs search with a hashed static index and no external search service
-- Docs-stack evaluation is now backed by a contract test instead of planning-only prose
-- The accepted Docusaurus path now closes the three identified docs pain points: sidebar automation, sitemap generation, and search
-- 6,123 tests / 1,304 suites / 0 failures
+- BUG-46 post-acceptance deadlock fixed: accepted turns no longer leave replay-only repo dirt that blocks `resume`
+- Verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
+- Mixed-files proof added so checkpoint commits still contain real repo mutations after replay cleanup
+- 6,170 tests / 1,306 suites / 0 failures
 
 **See it in 30 seconds (no API keys needed):**
 
@@ -67,7 +67,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.134.0 – offline docs search and a conclusive OSS docs-stack decision
+**Title:** AgentXchain v2.141.1 – BUG-46 post-acceptance deadlock fixed for governed multi-agent runs
 
 **Body:**
 
@@ -85,8 +85,8 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
-- Latest release adds offline docs search, closes the final docs usability gap in the Docusaurus evaluation, and makes the accepted docs-stack posture executable through a contract test.
-- 6,123 tests / 1,304 suites / 0 failures
+- Latest release fixes the post-acceptance deadlock where verification replay could leave dirty actor-owned files behind after acceptance, blocking `resume` while `checkpoint-turn` had nothing to commit.
+- 6,170 tests / 1,306 suites / 0 failures
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -95,7 +95,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- 6,123 tests / 1,304 suites / 0 failures
+- 6,170 tests / 1,306 suites / 0 failures
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 

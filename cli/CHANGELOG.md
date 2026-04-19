@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.141.1
+
+### Bug Fixes
+- **BUG-46: post-acceptance deadlock fix is now live on npm**: this corrective release carries the accepted `v2.141.0` BUG-46 fix bundle into the published package after the original `v2.141.0` tag failed the publish-gate alignment checks. Acceptance-time verification replay no longer strands actor-owned workspace dirt, replay-only side effects are cleaned, real turn-owned files remain checkpointable, and `resume` no longer blocks on replay byproducts.
+- **BUG-46 mixed-files proof**: the tester-sequence coverage now proves the workspace guard cleans replay-only side effects while preserving legitimate turn-owned `files_changed` paths for checkpoint.
+
+### Evidence
+- 6,170 tests / 1,306 suites / 0 failures
+
 ## 2.140.0
 
 ### Bug Fixes

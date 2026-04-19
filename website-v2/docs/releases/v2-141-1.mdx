@@ -1,0 +1,22 @@
+---
+sidebar_position: 0
+sidebar_position: -3
+title: "v2.141.1 Release Notes"
+---
+
+# AgentXchain v2.141.1
+
+`v2.141.1` is the corrective npm release for the BUG-46 fix bundle. The original `v2.141.0` tag carried the code, but its trusted-publishing workflow failed on stale release surfaces, so npm never moved past `2.140.0`. This release publishes the same BUG-46 repair path with aligned release metadata.
+
+## Bug Fixes
+
+- **BUG-46: post-acceptance deadlock repaired**: acceptance, checkpoint, and resume now agree when reproducible-verification replay commands generate repo side effects. Replay-only files are cleaned before acceptance persists history, so accepted turns do not strand dirty actor-owned files that `checkpoint-turn` cannot checkpoint.
+
+- **Replay workspace guard preserves real turn-owned files**: the replay cleanup guard restores replay-only dirt without deleting legitimate turn-owned `files_changed`, so checkpoint commits still include real repo mutations.
+
+- **Full-suite confirmation**: the BUG-46 hardening landed with a clean full-suite rerun instead of targeted helper-only confidence.
+
+## Evidence
+
+- 6,170 tests / 1,306 suites / 0 failures
+- BUG-46 remains open pending tester verification on the real `turn_e015ce32fdafc9c5`-shape state (discipline rule #12)

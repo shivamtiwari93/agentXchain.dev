@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.140.0
+# Twitter/X Thread — AgentXchain v2.141.1
 
-> Ready-to-post thread. Updated 2026-04-19 to reflect v2.140.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-19 to reflect v2.141.1 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.134.1 is live. Open source. MIT.
+AgentXchain v2.141.1 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -52,14 +52,14 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.134.0:
+New in v2.141.1:
 
-- Offline full-text docs search via `@easyops-cn/docusaurus-search-local`
-- Hashed static search index with docs-only scope and search-term highlighting
-- Docs-stack evaluation now enforced by contract test instead of planning-only prose
-- The current Docusaurus path now closes all three identified docs pain points: sidebar automation, sitemap generation, and search
+- BUG-46 post-acceptance deadlock fixed: accepted turns no longer strand replay-only repo dirt that blocks `resume`
+- Verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
+- Mixed-files checkpoint proof added: replay cleanup no longer risks deleting real turn-owned repo mutations
+- Corrective publish release after the original `v2.141.0` tag failed trusted-publishing alignment
 
-- 6,123 tests / 1,304 suites / 0 failures
+- 6,170 tests / 1,306 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**
