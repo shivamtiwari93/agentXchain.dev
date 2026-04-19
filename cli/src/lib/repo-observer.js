@@ -31,6 +31,7 @@ export const OPERATIONAL_PATH_PREFIXES = Object.freeze([
   '.agentxchain/transactions/',
   '.agentxchain/missions/',
   '.agentxchain/multirepo/',
+  '.agentxchain/plugins/',
   '.agentxchain/prompts/',
 ]);
 

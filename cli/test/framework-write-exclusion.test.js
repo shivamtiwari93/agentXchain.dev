@@ -19,6 +19,7 @@ import {
   getDispatchProgressRelativePath,
 } from '../src/lib/dispatch-progress.js';
 import { RUN_EVENTS_PATH } from '../src/lib/run-events.js';
+import { PLUGINS_DIR } from '../src/lib/plugins.js';
 
 // ── Framework-Owned Write Paths ─────────────────────────────────────────────
 // Every file path the framework writes to MUST be excluded from agent-attributed
@@ -57,6 +58,9 @@ describe('framework-owned write paths are excluded from agent observation', () =
     '.agentxchain/multirepo/context/ctx_123/COORDINATOR_CONTEXT.json',
     '.agentxchain/multirepo/context/ctx_123/COORDINATOR_CONTEXT.md',
     '.agentxchain/multirepo/handoffs/intent_123.json',
+    // plugins (installed via agentxchain plugin install)
+    '.agentxchain/plugins/plugin-slack-notify/agentxchain-plugin.json',
+    '.agentxchain/plugins/plugin-json-report/hooks/after-acceptance.sh',
     // prompt scaffold (init/migrate-owned)
     '.agentxchain/prompts/pm.md',
     '.agentxchain/prompts/dev.md',
@@ -110,6 +114,7 @@ describe('framework-owned write paths are excluded from agent observation', () =
     LEGACY_DISPATCH_PROGRESS_PATH,
     getDispatchProgressRelativePath('turn_abc123'),
     RUN_EVENTS_PATH,
+    `${PLUGINS_DIR}/plugin-slack-notify/agentxchain-plugin.json`,
   ];
 
   for (const path of EXPORTED_FRAMEWORK_WRITE_PATHS) {
@@ -183,6 +188,7 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
       '.agentxchain/missions/mission_abc.json',
       '.agentxchain/multirepo/barriers.json',
       '.agentxchain/prompts/dev.md',
+      '.agentxchain/plugins/plugin-slack-notify/hooks/after-acceptance.sh',
       '.agentxchain/dispatch-progress.json',
       '.agentxchain/SESSION_RECOVERY.md',
       '.agentxchain/migration-report.md',
@@ -206,6 +212,7 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
     assert.ok(!normalized.includes('.agentxchain/missions/mission_abc.json'), 'missions path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/multirepo/barriers.json'), 'multirepo path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/prompts/dev.md'), 'prompts path must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/plugins/plugin-slack-notify/hooks/after-acceptance.sh'), 'plugins path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/dispatch-progress.json'), 'legacy dispatch-progress path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/SESSION_RECOVERY.md'), 'SESSION_RECOVERY.md must be stripped');
     assert.ok(!normalized.includes('.agentxchain/migration-report.md'), 'migration-report.md must be stripped');
