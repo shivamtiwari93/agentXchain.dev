@@ -39,6 +39,25 @@ function readPlanningGateFiles(root) {
     return [];
   }
 
+  // Only use planning gate requires_files for phantom detection when:
+  // 1. The planning gate has NOT been passed yet (once passed, these files
+  //    are expected to exist from normal planning work), AND
+  // 2. At least one turn has been completed (turn_sequence > 0). If no turns
+  //    have been completed, the files are scaffolding templates, not evidence
+  //    of completed planning work. Without this check, ANY approved intent
+  //    in a freshly scaffolded project would be falsely detected as phantom.
+  const statePath = join(root, '.agentxchain', 'state.json');
+  try {
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    const gateStatus = state.phase_gate_status || {};
+    const exitGateId = config?.routing?.planning?.exit_gate;
+    if (exitGateId && gateStatus[exitGateId] === 'passed') return [];
+    const turnSequence = state.turn_sequence || 0;
+    if (turnSequence === 0) return [];
+  } catch {
+    // If state is unreadable, fall through to check gate files
+  }
+
   const exitGateId = config?.routing?.planning?.exit_gate;
   const requiresFiles = exitGateId ? config?.gates?.[exitGateId]?.requires_files : null;
   return normalizeArtifactPaths(requiresFiles);

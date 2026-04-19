@@ -134,8 +134,8 @@ describe('run-events', () => {
   });
 
   // Additional: VALID_RUN_EVENTS is complete
-  it('VALID_RUN_EVENTS contains all 23 event types', () => {
-    assert.equal(VALID_RUN_EVENTS.length, 23);
+  it('VALID_RUN_EVENTS contains all 25 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 25);
     assert.ok(VALID_RUN_EVENTS.includes('run_started'));
     assert.ok(VALID_RUN_EVENTS.includes('run_completed'));
     assert.ok(VALID_RUN_EVENTS.includes('run_blocked'));

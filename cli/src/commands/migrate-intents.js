@@ -82,7 +82,7 @@ function listRunScopedIntents(root) {
   return results;
 }
 
-function listPhantomIntents(root) {
+function listPhantomIntents(root, runId) {
   const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
   if (!existsSync(intentsDir)) return [];
 
@@ -100,6 +100,9 @@ function listPhantomIntents(root) {
     }
     if (!intent || !DISPATCHABLE.has(intent.status)) continue;
     if (!intent.approved_run_id) continue;
+    // Only check intents bound to the current run — intents from other runs
+    // are a different reconciliation concern (stale cross-run archival).
+    if (runId && intent.approved_run_id !== runId) continue;
     if (isPhantomIntent(root, intent)) {
       results.push({
         file,
@@ -167,8 +170,9 @@ export function migrateIntentsCommand(opts) {
     process.exit(1);
   }
 
+  const runId = loadRunId(root);
   const legacyIntents = listLegacyIntents(root);
-  const phantomIntents = listPhantomIntents(root);
+  const phantomIntents = listPhantomIntents(root, runId);
   const totalIssues = legacyIntents.length + phantomIntents.length;
 
   if (opts.dryRun) {
@@ -224,7 +228,6 @@ export function migrateIntentsCommand(opts) {
   }
 
   // Archive legacy intents
-  const runId = loadRunId(root);
   const legacyResult = legacyIntents.length > 0
     ? migratePreBug34Intents(root, runId)
     : { archived_migration_count: 0, archived_migration_intent_ids: [], migration_notice: null };
