@@ -1,3 +1,5 @@
+**Status:** shipped
+
 ## Purpose
 
 Freeze the release-gate proof that BUG-46 is fixed in the npm package that actually ships, not only in the source tree.
@@ -15,6 +17,7 @@ BUG-46 already has source-tree beta-tester-scenario coverage. That is necessary 
   - `node package/bin/agentxchain.js accept-turn --turn <turn_id>`
   - `node package/bin/agentxchain.js checkpoint-turn --turn <turn_id>`
   - `node package/bin/agentxchain.js resume --role qa`
+  - `node package/bin/agentxchain.js run --continue-from <run_id> --continuous --auto-approve --auto-checkpoint`
 
 ## Behavior
 
@@ -38,6 +41,12 @@ BUG-46 already has source-tree beta-tester-scenario coverage. That is necessary 
 6. `accept-turn` from the packaged CLI must succeed and persist the promoted files into accepted history.
 7. `checkpoint-turn` from the packaged CLI must checkpoint those promoted files instead of skipping with "no writable files_changed".
 8. `resume` from the packaged CLI must proceed without dirty-tree deadlock.
+9. The packaged CLI must also survive the continuous operator path that used to expose the same semantic seam:
+   - authoritative QA
+   - `run --continue-from <run_id> --continuous --auto-approve --auto-checkpoint`
+   - no `artifact.type: "workspace" but files_changed is empty`
+   - no `no writable files_changed paths to checkpoint`
+   - accepted history `files_changed` populated from promoted verification-produced artifact files
 
 ## Error Cases
 
@@ -47,6 +56,7 @@ BUG-46 already has source-tree beta-tester-scenario coverage. That is necessary 
 - Packaged CLI fails `accept-turn`, `checkpoint-turn`, or `resume`.
 - Accepted history from the packaged modules does not promote verification-produced artifact files into `files_changed`.
 - `checkpoint-turn` skips because the packaged artifact contract drifted from the source-tree contract.
+- Packaged continuous mode reintroduces the old deadlock symptoms even though standalone `accept-turn` / `checkpoint-turn` / `resume` still pass.
 
 ## Acceptance Tests
 
@@ -58,6 +68,7 @@ BUG-46 already has source-tree beta-tester-scenario coverage. That is necessary 
    - packaged history contains promoted verification-produced files
    - packaged `checkpoint-turn` does not emit the "no writable files_changed" skip path
    - packaged `resume` succeeds
+   - packaged `run --continue-from ... --continuous` also survives the authoritative-QA path without reintroducing the deadlock symptoms
 
 ## Open Questions
 

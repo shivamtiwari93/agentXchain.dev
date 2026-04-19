@@ -139,6 +139,13 @@ npm run preflight:release -- --target-version <semver>
 
 This is the soft gate. It checks git cleanliness, installs dependencies, runs tests, verifies the changelog heading, checks the package version, and does a pack dry-run. In default mode, dirty tree and pre-bump version mismatch are warnings. Everything else is fail-closed.
 
+Release truth is not limited to source-tree unit coverage. The preflight test sweep must include:
+
+- `test/claim-reality-preflight.test.js`
+- `test/beta-tester-scenarios/*.test.js`
+
+That is deliberate. The first suite proves the npm artifact that would ship still survives the highest-risk packaged seams; the second proves the exact beta-tester operator paths still reproduce `NO` on the current tree. Do not trim those suites out of release gating to save time. That shortcut is how false closures ship.
+
 **Important:** Default preflight runs the release-surface tests with `AGENTXCHAIN_RELEASE_TARGET_VERSION`, which validate the same target release route and current-release truth used by the shared manifest. The recommended path is still `bump:release` first, then strict preflight, so Homebrew mirror alignment is handled automatically before the full current-scope checks run.
 
 ### 2. Create Release Identity
@@ -197,6 +204,8 @@ That push triggers `.github/workflows/publish-npm-on-tag.yml`. The workflow:
 10. runs `release-downstream-truth.sh` as the **completeness gate** — workflow fails if any downstream surface is stale
 
 **A green workflow means the release is complete across all distribution surfaces.** The canonical downstream truth is npm + GitHub Release + the canonical Homebrew tap. The repo-local Homebrew mirror is a best-effort follow-on surface, not a public distribution gate. If `HOMEBREW_TAP_TOKEN` is absent on a first publish attempt, the workflow fails before npm publication with an explicit error annotation. On reruns, the workflow can still go green without the token, but only if `release-downstream-truth.sh` proves the canonical Homebrew tap and GitHub Release are already correct (`DEC-CI-COMPLETENESS-004`, `DEC-CI-COMPLETENESS-005`).
+
+The tagged-state verification step is also where packaged claim-reality proof matters most. If a beta bug passes from source but fails from the packed tarball, the release is not real and must stop before npm mutation.
 
 ### 5. Postflight Truth
 

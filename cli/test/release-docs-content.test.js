@@ -29,6 +29,12 @@ describe('release planning surface classification', () => {
       'playbook must document the alignment reporter');
     assert.match(playbook, /--dry-run.*mutually exclusive.*--strict.*--publish-gate/,
       'playbook must document --dry-run flag exclusivity');
+    assert.match(playbook, /test\/claim-reality-preflight\.test\.js/,
+      'playbook must explicitly document packaged claim-reality proof as part of preflight');
+    assert.match(playbook, /test\/beta-tester-scenarios\/\*\.test\.js/,
+      'playbook must explicitly document beta-tester scenario coverage as part of preflight');
+    assert.match(playbook, /false closures ship/i,
+      'playbook must explain why claim-reality and beta-tester suites stay in the release gate');
   });
 
   // -- Current contracts: these must NOT be marked SUPERSEDED --
