@@ -636,16 +636,6 @@ describe('claim-reality preflight', () => {
     assert.match(committedFiles, /README\.md/,
       'packed legacy recovery checkpoint commit must include the recovered actor-owned file');
 
-    // Structural assertion: the packed tarball ships the beta-tester-scenarios
-    // that prove arbitrary role × write_authority × runtime tuples (Move B from Turn 297).
-    const bug46ScenarioPath = join(packageDir, '..', '..', 'test', 'beta-tester-scenarios', 'bug-46-post-acceptance-deadlock.test.js');
-    if (existsSync(bug46ScenarioPath)) {
-      const scenarioContent = readFileSync(bug46ScenarioPath, 'utf8');
-      assert.match(scenarioContent, /product_marketing/,
-        'beta-tester-scenarios must cover non-standard role tuples (product_marketing + authoritative + local_cli)');
-      assert.match(scenarioContent, /arbitrary authoritative local_cli roles/,
-        'beta-tester-scenarios must name the arbitrary-role replay cleanup test');
-    }
   });
 
   it('BUG-46 packaged CLI smoke proves accept-turn/checkpoint-turn/resume on the shipped tarball', async () => {
@@ -1433,6 +1423,137 @@ describe('claim-reality preflight', () => {
       'continuous QA turn must include promoted verification artifact in files_changed');
     assert.ok(qaEntry.checkpoint_sha,
       'continuous QA turn must have a checkpoint_sha (auto-checkpoint succeeded)');
+  });
+
+  it('BUG-46 packaged CLI product_marketing + authoritative + local_cli accept/checkpoint/resume on shipped tarball', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const repoObserver = await import(pathToFileURL(join(packageDir, 'src/lib/repo-observer.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { checkCleanBaseline } = repoObserver;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug46-pm-'));
+    TEMP_PATHS.push(root);
+
+    const pmConfig = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: 'bug46-packed-pm', name: 'BUG-46 Packed Product Marketing', default_branch: 'main' },
+      roles: {
+        product_marketing: {
+          title: 'Product Marketing',
+          mandate: 'Ship evidence-backed release communication.',
+          write_authority: 'authoritative',
+          runtime: 'local-product-marketing',
+        },
+      },
+      runtimes: {
+        'local-product-marketing': {
+          type: 'local_cli',
+          command: process.execPath,
+          args: ['-e', 'process.exit(0)'],
+          prompt_transport: 'dispatch_bundle_only',
+        },
+      },
+      routing: {
+        qa: { entry_role: 'product_marketing', allowed_next_roles: ['product_marketing'], exit_gate: 'qa_complete' },
+      },
+      gates: { qa_complete: {} },
+      policies: [
+        { id: 'replay-proof', rule: 'require_reproducible_verification', action: 'block' },
+      ],
+    };
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# BUG-46 packed PM tuple\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(pmConfig, null, 2) + '\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'test@test.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    git(root, ['add', 'README.md', 'agentxchain.json']);
+    git(root, ['commit', '-m', 'init']);
+
+    const init = initializeGovernedRun(root, pmConfig);
+    assert.ok(init.ok, init.error);
+    const assign = assignGovernedTurn(root, pmConfig, 'product_marketing');
+    assert.ok(assign.ok, assign.error);
+    materializeBug46ReplaySideEffects(root);
+
+    const turnId = assign.turn.turn_id;
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      run_id: init.state.run_id,
+      turn_id: turnId,
+      role: 'product_marketing',
+      runtime_id: 'local-product-marketing',
+      status: 'completed',
+      summary: 'Packed product_marketing: verification outputs promoted as artifacts.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: BUG46_REPLAY_COMMAND, exit_code: 0 },
+        ],
+        produced_files: BUG46_REPLAY_SIDE_EFFECT_PATHS.map((path) => ({
+          path,
+          disposition: 'artifact',
+        })),
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'product_marketing',
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `packed product_marketing accept-turn must succeed:\n${accept.stdout}\n${accept.stderr}`);
+
+    const history = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const accepted = history.find((entry) => entry.turn_id === turnId);
+    assert.ok(accepted, 'packed product_marketing turn must be in history');
+    assert.equal(accepted.role, 'product_marketing',
+      'packed history must preserve the non-standard role id');
+    for (const relPath of BUG46_REPLAY_SIDE_EFFECT_PATHS) {
+      assert.ok(accepted.files_changed.includes(relPath),
+        `packed product_marketing history must promote verification artifact: ${relPath}`);
+    }
+
+    const checkpoint = spawnSync(process.execPath, [cliPath, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `packed product_marketing checkpoint-turn must succeed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+    assert.doesNotMatch(checkpoint.stdout, /no writable files_changed/i,
+      'packed product_marketing checkpoint must not skip promoted files');
+
+    const postCheckpointBaseline = checkCleanBaseline(root, 'authoritative');
+    assert.equal(postCheckpointBaseline.clean, true,
+      `packed product_marketing checkpoint must leave a clean authoritative baseline:\n${postCheckpointBaseline.reason || 'dirty'}`);
+
+    const resume = spawnSync(process.execPath, [cliPath, 'resume', '--role', 'product_marketing'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `packed product_marketing resume must succeed after checkpoint:\n${resume.stdout}\n${resume.stderr}`);
   });
 
   it('BUG-46 packaged CLI continuous mode surfaces legacy-empty checkpoint recovery guidance before dispatch', async () => {
