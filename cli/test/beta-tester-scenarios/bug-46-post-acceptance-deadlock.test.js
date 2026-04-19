@@ -216,4 +216,76 @@ describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint
     assert.ok(Object.keys(resumedState.active_turns || {}).length >= 1,
       'resume should assign a new active QA turn after the accepted turn');
   });
+
+  it('replay side effects are cleaned while preserving real turn-owned files_changed', () => {
+    const { root, turnId, runId } = createProject();
+
+    // The turn declares a real file change — this must survive replay cleanup.
+    const turnOwnedFile = 'src/app.js';
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, turnOwnedFile), 'export default function app() { return "v2"; }\n');
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'QA modified app.js and replayed verification commands that produce side effects.',
+      decisions: [],
+      objections: [],
+      files_changed: [turnOwnedFile],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: REPLAY_COMMAND, exit_code: 0 },
+        ],
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `accept-turn should succeed:\n${accept.stdout}\n${accept.stderr}`);
+
+    // Replay-only side effects must be cleaned
+    for (const relPath of REPLAY_SIDE_EFFECT_PATHS) {
+      assert.equal(existsSync(join(root, relPath)), false,
+        `replay-only side effect must not remain: ${relPath}`);
+    }
+
+    // Turn-owned file must survive
+    assert.equal(existsSync(join(root, turnOwnedFile)), true,
+      'turn-owned file must NOT be cleaned by replay guard');
+    assert.equal(readFileSync(join(root, turnOwnedFile), 'utf8'),
+      'export default function app() { return "v2"; }\n',
+      'turn-owned file content must be preserved');
+
+    // History must record the real files_changed
+    const history = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const accepted = history.find((entry) => entry.turn_id === turnId);
+    assert.ok(accepted, 'accepted turn in history');
+    assert.ok(accepted.files_changed.includes(turnOwnedFile),
+      'history must include the turn-owned file in files_changed');
+    assert.equal(accepted.verification_replay?.overall, 'match',
+      'replay result must still be recorded');
+
+    // Checkpoint must work with the real files_changed
+    const checkpoint = spawnSync('node', [CLI_PATH, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `checkpoint-turn should commit the turn-owned file:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+    assert.doesNotMatch(checkpoint.stdout, /no writable files_changed/i,
+      'checkpoint-turn should NOT skip — the turn has real files_changed');
+  });
 });
