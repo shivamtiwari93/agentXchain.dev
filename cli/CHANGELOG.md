@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.136.0
+
+### Connector Portability + BUG-40 Startup Migration + DOC-1 Examples Split
+
+- **Connector capability self-declaration:** Connectors may now declare capabilities (`can_write_files`, `proposal_support`, `workflow_artifact_ownership`) via `capabilities` in `agentxchain.json` runtime config. Declared values override type-based defaults. Unknown runtime types can be fully self-declared. Conformance warnings for known-incompatible combinations. (`DEC-CONNECTOR-CAPABILITY-DECLARATION-001`)
+- **Role-runtime capability consumption:** Role-level capability truth is now derived from the merged runtime capability contract, not raw runtime type branches. Declared direct-write MCP connectors correctly surface `effective_write_path: "direct"`. (`DEC-ROLE-RUNTIME-CAPABILITY-CONSUMPTION-001`)
+- **`connector capabilities` command:** Machine-readable capability handshake for external tooling. `connector capabilities <runtime_id> [--json] [--all]` returns merged contract, declared capabilities, declaration warnings, and role bindings. (`DEC-CONNECTOR-CAPABILITIES-COMMAND-001`)
+- **Governed config JSON Schema:** `agentxchain/schemas/agentxchain-config` package export — machine-readable schema for `agentxchain.json`. Documents that `runtime` is the canonical raw-config field and `runtime_id` is a normalization artifact. (`DEC-AGENTXCHAIN-CONFIG-SCHEMA-001`)
+- **Connector capabilities output JSON Schema:** `agentxchain/schemas/connector-capabilities-output` package export — schema for `connector capabilities --json` output covering single-runtime, multi-runtime, and error responses. (`DEC-CONNECTOR-CAPABILITIES-OUTPUT-SCHEMA-001`)
+- **End-to-end schema round-trip proof:** Config-to-handshake continuity validated — runtime keys in validated config match runtime_id in validated handshake output. (`DEC-CONNECTOR-SCHEMA-ROUNDTRIP-PROOF-001`)
+- **BUG-40: Continuous startup + resume migration hardened:** Shared `intent-startup-migration.js` module ensures legacy null-scoped intent migration runs on all startup paths (`run`, `run --continue-from`, `run --continuous`, `restart`, `resume`, `step --resume`). Fifth false-closure fix. (`DEC-LEGACY-INTENT-STARTUP-MIGRATION-001`)
+- **DOC-1: Examples sidebar split:** `/docs/examples/` sidebar now has collapsible `Products` and `Proofs` sub-categories. Content-contract test enforces the split. (`DEC-EXAMPLES-SIDEBAR-SPLIT-001`)
+- **Discipline gates:** Real-emission format guard and claim-reality packed-artifact preflight added to release gate. (`DEC-EMISSION-GUARD-001`, `DEC-CLAIM-REALITY-PREFLIGHT-001`)
+- **Forward-revision visibility boundary:** `forward_revision_accepted` stays decision-ledger-only with executable boundary test. (`DEC-FORWARD-REVISION-VISIBILITY-001`)
+- **Mixed conflict retry guidance:** Retry bundles now separate destructive conflict files from safe forward revisions. (`DEC-MIXED-CONFLICT-RETRY-GUIDANCE-001`)
+- **Pre-run intent first-run binding:** `cross_run_durable` intents bind to the first run and clear the temporary marker. (`DEC-PRE-RUN-INTENT-FIRST-RUN-BINDING-001`)
+
+### Evidence
+
+- 6,072 tests / 1,290 suites / 0 failures. Website build clean.
+
 ## 2.135.1
 
 ### Gate Semantic Coverage Fix + Non-Progress Guard + Intent Migration Archival

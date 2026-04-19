@@ -1,0 +1,91 @@
+---
+sidebar_position: 0
+title: "v2.136.0 Release Notes"
+---
+
+# AgentXchain v2.136.0
+
+`v2.136.0` ships the connector portability lane: capability self-declaration, role-level consumption, machine-readable handshake command, and published JSON Schemas for both governed config and handshake output. Also fixes BUG-40 (continuous startup migration) and ships DOC-1 (examples sidebar split into Products and Proofs).
+
+**Released:** 2026-04-18
+
+## What Changed
+
+### Connector capability self-declaration
+
+Connectors may now declare their capabilities directly in `agentxchain.json` runtime config via a `capabilities` object on any runtime entry.
+
+- **Declarable fields:** `can_write_files`, `proposal_support`, `workflow_artifact_ownership`
+- **Override behavior:** Declared values override type-based defaults for all known and unknown runtime types
+- **Unknown runtime types** can be fully self-declared, enabling third-party connector registration without reference-runner changes
+- **Conformance warnings** emitted for known-incompatible combinations (e.g., `api_proxy` + `can_write_files: "direct"`)
+
+### Role-runtime capability consumption
+
+The role-level capability matrix now derives truth from the merged runtime capability contract instead of raw runtime type branches.
+
+- If a connector declares `can_write_files: "direct"`, authoritative roles correctly surface `effective_write_path: "direct"` instead of stale `tool_defined`
+- Proposed and review_only roles also consume declared capabilities
+- Fixed through `role show`, `doctor`, and dashboard surfaces
+
+### `connector capabilities` command
+
+Machine-readable capability handshake for external tooling.
+
+```bash
+agentxchain connector capabilities <runtime_id> [--json] [--all]
+```
+
+Returns: `runtime_id`, `runtime_type`, `declared_capabilities`, `merged_contract`, `declaration_warnings`, and `role_bindings`. Third-party tooling can consume this without parsing `doctor` or `role show`.
+
+### Governed config JSON Schema
+
+Published as `agentxchain/schemas/agentxchain-config` package export. The schema explicitly documents:
+
+- Raw roles use `runtime` (not `runtime_id`)
+- `runtime_id` is a normalized internal artifact
+- Runtime capability declarations validate under `runtimes.<id>.capabilities`
+
+### Connector capabilities output JSON Schema
+
+Published as `agentxchain/schemas/connector-capabilities-output` package export. Covers three output shapes: single-runtime, multi-runtime, and error responses with frozen field sets and capability enums.
+
+### End-to-end schema round-trip proof
+
+Config-to-handshake continuity validated: runtime keys in a validated `agentxchain.json` match `runtime_id` values in the validated `connector capabilities --json` output.
+
+### BUG-40: Continuous startup + resume migration hardened
+
+The 5th false-closure fix for legacy intent migration. Shared `intent-startup-migration.js` module ensures pre-BUG-34 intents with `approved_run_id: null` are migrated on **all** startup paths:
+
+- `run`, `run --continue-from`, `run --continuous`
+- `restart`, `resume`, `step --resume`
+- `schedule daemon` continuous sessions
+
+Previously, only `initializeGovernedRun()` ran migration. Now `reactivateGovernedRun()` and continuous startup also reconcile legacy intents before queue selection.
+
+### DOC-1: Examples sidebar split
+
+The `/docs/examples/` sidebar now has two collapsible sub-categories:
+
+- **Products** — governed-todo-app, habit-board, trail-meals-mobile, async-standup-bot, decision-log-linter, schema-guard
+- **Proofs** — ci-runner-proof, external-runner-starter, live-governed-proof, checkpoint-handoff-proof, live-continuous-3run-proof, mcp-echo-agent, mcp-http-echo-agent, mcp-anthropic-agent, remote-agent-bridge, remote-conformance-server
+
+Content-contract test enforces the split. URLs unchanged.
+
+### Discipline gates
+
+- **Real-emission format guard:** Beta-tester-scenario tests using gate-reason strings must import AND call the real gate evaluator. Dead imports fail the guard.
+- **Claim-reality preflight:** All production source files imported by beta-tester-scenario tests must be present in the npm tarball. Enforced in release preflight.
+- **AGENT-TALK DEC preservation:** Compressed summary sections must retain at least one `DEC-*` reference.
+
+### Other fixes
+
+- **Forward-revision visibility boundary:** `forward_revision_accepted` stays decision-ledger-only with executable boundary test prohibiting status/report/dashboard/events surfaces.
+- **Mixed conflict retry guidance:** Retry bundles now separate destructive conflict files from safe forward revisions.
+- **Pre-run intent first-run binding:** `cross_run_durable` intents bind to the first run and clear the temporary marker. Second run archives unconsumed intents.
+
+## Evidence
+
+- 6,072 tests / 1,290 suites / 0 failures. Website build clean.
+- Schema round-trip proof: config + handshake schemas validate together end-to-end
