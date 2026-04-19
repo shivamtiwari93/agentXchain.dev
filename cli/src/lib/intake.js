@@ -1270,7 +1270,7 @@ export function handoffIntent(root, intentId, options = {}) {
 // Resolve — execution exit and intent closure linkage (V3-S5)
 // ---------------------------------------------------------------------------
 
-export function resolveIntent(root, intentId) {
+export function resolveIntent(root, intentId, opts = {}) {
   const loadedIntent = readIntent(root, intentId);
   if (!loadedIntent.ok) {
     return loadedIntent;
@@ -1295,6 +1295,38 @@ export function resolveIntent(root, intentId) {
       ok: false,
       error: `cannot resolve from status "${intent.status}" (must be executing or blocked)`,
       exitCode: 1,
+    };
+  }
+
+  // BUG-45: operator-forced completion — transition executing → completed
+  // when the operator knows the work is done but the framework hasn't retired
+  // the intent automatically (e.g., retained-turn deadlock recovery).
+  if (opts.outcome === 'completed' && intent.status === 'executing') {
+    const now = nowISO();
+    const previousStatus = intent.status;
+    intent.status = 'completed';
+    intent.completed_at = now;
+    intent.updated_at = now;
+    if (!Array.isArray(intent.history)) intent.history = [];
+    intent.history.push({
+      from: previousStatus,
+      to: 'completed',
+      at: now,
+      reason: opts.reason || 'operator-resolved: intent marked completed via intake resolve --outcome completed',
+    });
+
+    const obsDir = join(dirs.base, 'observations', intent.intent_id);
+    mkdirSync(obsDir, { recursive: true });
+
+    safeWriteJson(intentPath, intent);
+    return {
+      ok: true,
+      intent,
+      previous_status: previousStatus,
+      new_status: 'completed',
+      run_outcome: 'completed',
+      no_change: false,
+      exitCode: 0,
     };
   }
 

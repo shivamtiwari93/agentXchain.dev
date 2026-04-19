@@ -50,6 +50,7 @@ const ORCHESTRATOR_STATE_FILES = [
   '.agentxchain/human-escalations.jsonl',
   '.agentxchain/sla-reminders.json',
   'TALK.md',
+  'HUMAN_TASKS.md',
 ];
 
 // Evidence paths may legitimately remain dirty across turns without blocking the

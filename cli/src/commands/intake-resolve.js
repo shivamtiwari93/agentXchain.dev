@@ -15,7 +15,11 @@ export async function intakeResolveCommand(opts) {
     process.exit(1);
   }
 
-  const result = resolveIntent(root, opts.intent);
+  const resolveOpts = {};
+  if (opts.outcome) {
+    resolveOpts.outcome = opts.outcome;
+  }
+  const result = resolveIntent(root, opts.intent, resolveOpts);
 
   if (opts.json) {
     console.log(JSON.stringify(result, null, 2));

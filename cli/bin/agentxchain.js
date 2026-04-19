@@ -1031,6 +1031,7 @@ intakeCmd
   .command('resolve')
   .description('Resolve an executing intent by reading the governed run outcome')
   .option('--intent <id>', 'Intent ID to resolve')
+  .option('--outcome <status>', 'Force transition to this status (e.g., "completed")')
   .option('-j, --json', 'Output as JSON')
   .action(intakeResolveCommand);
 

@@ -115,6 +115,38 @@ function listIntakeIntentFiles(root) {
     .map((name) => join(intentsDir, name));
 }
 
+// BUG-45: Reconcile embedded intake_context against the live intent file.
+// Returns null if the intent is terminal (coverage should be skipped),
+// returns the updated intakeCtx if the contract has changed, or the
+// original intakeCtx if the intent file is missing or unreadable.
+const INTENT_TERMINAL_STATES = ['completed', 'satisfied', 'superseded', 'suppressed', 'failed', 'rejected'];
+
+function reconcileIntakeContext(root, intakeCtx) {
+  if (!intakeCtx || !intakeCtx.intent_id) return intakeCtx;
+
+  try {
+    const intentPath = join(root, INTAKE_INTENTS_DIR, `${intakeCtx.intent_id}.json`);
+    if (!existsSync(intentPath)) return intakeCtx; // file missing — fall back to embedded
+
+    const liveIntent = JSON.parse(readFileSync(intentPath, 'utf8'));
+
+    // If the intent has reached a terminal state, skip coverage enforcement
+    if (INTENT_TERMINAL_STATES.includes(liveIntent.status)) {
+      return null;
+    }
+
+    // Intent is still active — use the CURRENT acceptance_contract from disk
+    if (Array.isArray(liveIntent.acceptance_contract)) {
+      return { ...intakeCtx, acceptance_contract: liveIntent.acceptance_contract };
+    }
+
+    return intakeCtx;
+  } catch {
+    // Non-fatal — fall back to embedded on read/parse error
+    return intakeCtx;
+  }
+}
+
 function retireApprovedPhaseScopedIntents(root, state, config, exitedPhase, now) {
   const retired = [];
 
@@ -3222,10 +3254,11 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     };
   }
 
-  // ── Intent coverage validation (BUG-14) ──────────────────────────────────
-  // When a turn is bound to an injected intent, verify the turn result
-  // addresses each acceptance item.  Default: strict for p0, lenient for others.
-  const intakeCtx = currentTurn.intake_context;
+  // ── BUG-45: Reconcile intake_context against live intent state ──────────
+  // The embedded intake_context is a snapshot from dispatch time. The intent
+  // may have since been completed, satisfied, or had its contract updated.
+  // Re-read the live intent file and reconcile before evaluating coverage.
+  const intakeCtx = reconcileIntakeContext(root, currentTurn.intake_context);
   if (intakeCtx && Array.isArray(intakeCtx.acceptance_contract) && intakeCtx.acceptance_contract.length > 0) {
     const intentCoverage = evaluateIntentCoverage(turnResult, intakeCtx, {
       state,
