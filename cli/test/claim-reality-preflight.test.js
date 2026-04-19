@@ -58,6 +58,8 @@ const BUG46_REPLAY_SIDE_EFFECT_SCRIPT = [
 const BUG46_REPLAY_COMMAND = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(BUG46_REPLAY_SIDE_EFFECT_SCRIPT)}`;
 const BUG46_TESTER_RUN_ID = 'run_c8a4701ce0d4952d';
 const BUG46_TESTER_TURN_ID = 'turn_e015ce32fdafc9c5';
+const BUG45_TESTER_INTENT_ID = 'intent_1776535590576_a157';
+const BUG45_TESTER_EVENT_ID = 'evt_bug45_packed';
 
 let packedFilesCache = null;
 let extractedPackageCache = null;
@@ -187,6 +189,35 @@ function makeBug46Config() {
   };
 }
 
+function makeBug45Config() {
+  return {
+    schema_version: '1.0',
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { id: 'bug45-packed', name: 'BUG-45 Packed', default_branch: 'main' },
+    roles: {
+      pm: {
+        title: 'Product Marketing',
+        mandate: 'Consolidate.',
+        write_authority: 'authoritative',
+        runtime: 'r-pm',
+      },
+    },
+    runtimes: {
+      'r-pm': {
+        type: 'local_cli',
+        command: process.execPath,
+        args: ['-e', 'process.exit(0)'],
+        prompt_transport: 'dispatch_bundle_only',
+      },
+    },
+    routing: {
+      qa: { entry_role: 'pm', allowed_next_roles: ['pm'], exit_gate: 'qa_ship_verdict' },
+    },
+    gates: { qa_ship_verdict: {} },
+  };
+}
+
 function makeTempGitRepo() {
   const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug46-'));
   TEMP_PATHS.push(root);
@@ -200,6 +231,64 @@ function makeTempGitRepo() {
   git(root, ['add', 'README.md', 'agentxchain.json']);
   git(root, ['commit', '-m', 'init']);
   return root;
+}
+
+function makeTempBug45Repo() {
+  const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug45-'));
+  TEMP_PATHS.push(root);
+  const config = makeBug45Config();
+
+  mkdirSync(join(root, '.planning'), { recursive: true });
+  writeFileSync(join(root, 'README.md'), '# BUG-45 packed\n');
+  writeFileSync(
+    join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+    '# Implementation Notes\n\n## Summary\n- Consolidation\n\n## Changes\n- Done\n',
+  );
+  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2) + '\n');
+  git(root, ['init', '-b', 'main']);
+  git(root, ['config', 'user.email', 'test@test.com']);
+  git(root, ['config', 'user.name', 'Test']);
+  git(root, ['add', '.']);
+  git(root, ['commit', '-m', 'init']);
+  return { root, config };
+}
+
+function seedBug45ExecutingIntent(root, runId) {
+  mkdirSync(join(root, '.agentxchain', 'intake', 'events'), { recursive: true });
+  mkdirSync(join(root, '.agentxchain', 'intake', 'intents'), { recursive: true });
+  writeFileSync(join(root, '.agentxchain', 'intake', 'events', `${BUG45_TESTER_EVENT_ID}.json`), JSON.stringify({
+    schema_version: '1.0',
+    event_id: BUG45_TESTER_EVENT_ID,
+    source: 'manual',
+    category: 'operator_injection',
+    created_at: '2026-04-19T01:00:00.000Z',
+    signal: { description: 'live-site consolidation', injected: true, priority: 'p0' },
+    evidence: [{ type: 'text', value: 'packed BUG-45' }],
+    dedup_key: 'manual:bug45-packed',
+  }, null, 2));
+  writeFileSync(join(root, '.agentxchain', 'intake', 'intents', `${BUG45_TESTER_INTENT_ID}.json`), JSON.stringify({
+    schema_version: '1.0',
+    intent_id: BUG45_TESTER_INTENT_ID,
+    event_id: BUG45_TESTER_EVENT_ID,
+    status: 'executing',
+    priority: 'p0',
+    template: 'generic',
+    charter: 'website/ reflects the current live website content',
+    acceptance_contract: [
+      'website/ reflects the current live website content',
+      '.planning/IMPLEMENTATION_NOTES.md contains ## Changes',
+    ],
+    phase_scope: null,
+    approved_run_id: runId,
+    target_run: runId,
+    cross_run_durable: false,
+    created_at: '2026-04-19T01:00:00.000Z',
+    updated_at: '2026-04-19T01:00:00.000Z',
+    history: [
+      { from: 'approved', to: 'planned', at: '2026-04-19T01:00:00.000Z', reason: 'dispatched' },
+      { from: 'planned', to: 'executing', at: '2026-04-19T01:00:00.000Z', reason: 'governed execution started' },
+    ],
+  }, null, 2));
 }
 
 function materializeBug46ReplaySideEffects(root) {
@@ -644,72 +733,17 @@ describe('claim-reality preflight', () => {
     const { initializeGovernedRun, assignGovernedTurn } = governedState;
     const { getTurnStagingResultPath } = turnPaths;
 
-    // Create temp git repo
-    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug45-'));
-    TEMP_PATHS.push(root);
-    const config = {
-      schema_version: '1.0',
-      protocol_mode: 'governed',
-      template: 'generic',
-      project: { id: 'bug45-packed', name: 'BUG-45 Packed', default_branch: 'main' },
-      roles: {
-        pm: { title: 'Product Marketing', mandate: 'Consolidate.', write_authority: 'authoritative', runtime: 'r-pm' },
-      },
-      runtimes: {
-        'r-pm': { type: 'local_cli', command: process.execPath, args: ['-e', 'process.exit(0)'], prompt_transport: 'dispatch_bundle_only' },
-      },
-      routing: {
-        qa: { entry_role: 'pm', allowed_next_roles: ['pm'], exit_gate: 'qa_ship_verdict' },
-      },
-      gates: { qa_ship_verdict: {} },
-    };
-
-    mkdirSync(join(root, '.planning'), { recursive: true });
-    writeFileSync(join(root, 'README.md'), '# BUG-45 packed\n');
-    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
-      '# Implementation Notes\n\n## Summary\n- Consolidation\n\n## Changes\n- Done\n');
-    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2) + '\n');
-    git(root, ['init', '-b', 'main']);
-    git(root, ['config', 'user.email', 'test@test.com']);
-    git(root, ['config', 'user.name', 'Test']);
-    git(root, ['add', '.']);
-    git(root, ['commit', '-m', 'init']);
+    const { root, config } = makeTempBug45Repo();
 
     const init = initializeGovernedRun(root, config);
     assert.ok(init.ok, init.error);
 
-    // Seed executing intent (tester's exact shape)
-    const intentId = 'intent_1776535590576_a157';
-    const eventId = 'evt_bug45_packed';
-    mkdirSync(join(root, '.agentxchain', 'intake', 'events'), { recursive: true });
-    mkdirSync(join(root, '.agentxchain', 'intake', 'intents'), { recursive: true });
-    writeFileSync(join(root, '.agentxchain', 'intake', 'events', `${eventId}.json`), JSON.stringify({
-      schema_version: '1.0', event_id: eventId, source: 'manual', category: 'operator_injection',
-      created_at: '2026-04-19T01:00:00.000Z',
-      signal: { description: 'live-site consolidation', injected: true, priority: 'p0' },
-      evidence: [{ type: 'text', value: 'packed BUG-45' }], dedup_key: 'manual:bug45-packed',
-    }, null, 2));
-    writeFileSync(join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`), JSON.stringify({
-      schema_version: '1.0', intent_id: intentId, event_id: eventId, status: 'executing', priority: 'p0',
-      template: 'generic',
-      charter: 'website/ reflects the current live website content',
-      acceptance_contract: [
-        'website/ reflects the current live website content',
-        '.planning/IMPLEMENTATION_NOTES.md contains ## Changes',
-      ],
-      phase_scope: null, approved_run_id: init.state.run_id, target_run: init.state.run_id,
-      cross_run_durable: false,
-      created_at: '2026-04-19T01:00:00.000Z', updated_at: '2026-04-19T01:00:00.000Z',
-      history: [
-        { from: 'approved', to: 'planned', at: '2026-04-19T01:00:00.000Z', reason: 'dispatched' },
-        { from: 'planned', to: 'executing', at: '2026-04-19T01:00:00.000Z', reason: 'governed execution started' },
-      ],
-    }, null, 2));
+    seedBug45ExecutingIntent(root, init.state.run_id);
 
     // Assign a turn with stale embedded acceptance_contract
     const assign = assignGovernedTurn(root, config, 'pm', {
       intakeContext: {
-        intent_id: intentId,
+        intent_id: BUG45_TESTER_INTENT_ID,
         charter: 'live-site consolidation',
         acceptance_contract: ['stale embedded contract item that does not match the live intent'],
         priority: 'p0',
@@ -719,7 +753,7 @@ describe('claim-reality preflight', () => {
     const turnId = assign.turn.turn_id;
 
     // Simulate: operator resolves the intent to completed on disk
-    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`);
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${BUG45_TESTER_INTENT_ID}.json`);
     const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
     intent.status = 'completed';
     intent.completed_at = '2026-04-19T02:00:00.000Z';
@@ -756,6 +790,107 @@ describe('claim-reality preflight', () => {
       'packaged acceptance must not enforce coverage on a completed intent');
     assert.doesNotMatch(accept.stdout + accept.stderr, /stale embedded contract/i,
       'packaged acceptance must not use the stale embedded contract');
+  });
+
+  it('BUG-45 packaged CLI intake resolve transitions executing intents to completed', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const { initializeGovernedRun } = governedState;
+
+    const { root, config } = makeTempBug45Repo();
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+    seedBug45ExecutingIntent(root, init.state.run_id);
+
+    const resolveResult = spawnSync(process.execPath, [
+      cliPath,
+      'intake',
+      'resolve',
+      '--intent',
+      BUG45_TESTER_INTENT_ID,
+      '--outcome',
+      'completed',
+      '--json',
+    ], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resolveResult.status, 0,
+      `packaged intake resolve must complete the executing BUG-45 intent:\n${resolveResult.stdout}\n${resolveResult.stderr}`);
+
+    const output = JSON.parse(resolveResult.stdout);
+    assert.equal(output.previous_status, 'executing');
+    assert.equal(output.new_status, 'completed');
+    assert.equal(output.no_change, false);
+
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${BUG45_TESTER_INTENT_ID}.json`);
+    const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    assert.equal(intent.status, 'completed');
+    assert.ok(intent.completed_at, 'packaged intake resolve must stamp completed_at');
+    assert.ok(intent.history.some((entry) => entry.to === 'completed'),
+      'packaged intake resolve must append a completion history entry');
+  });
+
+  it('BUG-45 packaged CLI excludes HUMAN_TASKS.md framework edits from retained-turn acceptance', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const { root, config } = makeTempBug45Repo();
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(
+      join(root, 'HUMAN_TASKS.md'),
+      '# Human Tasks\n\n### hesc_cc29324d02653f26 - resolved\nEscalation resolved.\n',
+    );
+    git(root, ['add', 'HUMAN_TASKS.md']);
+    git(root, ['commit', '-m', 'framework escalation']);
+
+    writeFileSync(
+      join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Implementation Notes\n\n## Summary\n- Consolidation\n\n## Changes\n- Done\n- Verified retained-turn acceptance after framework-owned HUMAN_TASKS drift\n',
+    );
+
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      run_id: init.state.run_id,
+      turn_id: turnId,
+      role: 'pm',
+      runtime_id: 'r-pm',
+      status: 'completed',
+      summary: 'Retained-turn acceptance should ignore framework-owned task-file drift.',
+      decisions: [],
+      objections: [],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      verification: { status: 'pass' },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'pm',
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `packaged accept-turn must ignore HUMAN_TASKS.md framework drift:\n${accept.stdout}\n${accept.stderr}`);
+    assert.doesNotMatch(
+      accept.stdout + accept.stderr,
+      /Undeclared file changes detected:.*HUMAN_TASKS\.md/s,
+      'packaged retained-turn acceptance must not report HUMAN_TASKS.md as undeclared dirt',
+    );
   });
 
   it('scenario test count matches expected range', () => {
