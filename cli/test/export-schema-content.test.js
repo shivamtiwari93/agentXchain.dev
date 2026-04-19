@@ -331,6 +331,8 @@ describe('run export schema docs contract', () => {
         '.agentxchain/state.json',
         '.agentxchain/history.jsonl',
         '.agentxchain/decision-ledger.jsonl',
+        '.agentxchain/repo-decisions.jsonl',
+        '.agentxchain/lock.json',
         '.agentxchain/hook-audit.jsonl',
         '.agentxchain/hook-annotations.jsonl',
         '.agentxchain/notification-audit.jsonl',
@@ -338,6 +340,7 @@ describe('run export schema docs contract', () => {
         '.agentxchain/staging/**',
         '.agentxchain/transactions/accept/**',
         '.agentxchain/intake/**',
+        '.agentxchain/missions/**',
         '.agentxchain/multirepo/**',
       ]) {
         assert.match(EXPORT_DOCS, new RegExp(escapeRegex(relPath)));

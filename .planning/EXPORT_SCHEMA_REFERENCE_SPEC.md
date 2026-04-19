@@ -126,6 +126,7 @@ The docs must explain that `verify export` re-derives `bytes` and `sha256` from 
 - `AT-EXPORT-REF-001`: `/docs/export-schema` exists and is wired into docs navigation
 - `AT-EXPORT-REF-002`: the page states export artifacts are an operator contract, not protocol v7 conformance
 - `AT-EXPORT-REF-003`: the page documents the actual run export top-level, project, summary, and file-entry keys emitted by `buildRunExport()`
+- `AT-EXPORT-REF-003`: the page documents the actual run export roots, including `.agentxchain/repo-decisions.jsonl`, `.agentxchain/lock.json`, and `.agentxchain/missions/**` when present
 - `AT-EXPORT-REF-004`: the page documents the actual coordinator export top-level, coordinator, summary, and per-repo keys emitted by `buildCoordinatorExport()`
 - `AT-EXPORT-REF-005`: the page documents the real child-repo failure contract (`ok: false` plus `error`) without claiming coordinator export failure
 - `AT-EXPORT-REF-006`: `/docs/protocol-reference` links to the export schema page and keeps the non-normative boundary explicit

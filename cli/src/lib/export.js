@@ -6,6 +6,10 @@ import { join, relative, resolve } from 'node:path';
 import { loadProjectContext, loadProjectState } from './config.js';
 import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-config.js';
 import { loadCoordinatorState } from './coordinator-state.js';
+import {
+  RUN_CONTINUITY_DIRECTORY_ROOTS,
+  RUN_CONTINUITY_STATE_FILES,
+} from './repo-observer.js';
 import { normalizeRunProvenance } from './run-provenance.js';
 import { getDashboardPid, getDashboardSession } from '../commands/dashboard.js';
 import { readRepoDecisions, summarizeRepoDecisions } from './repo-decisions.js';
@@ -23,62 +27,24 @@ const COORDINATOR_INCLUDED_ROOTS = [
   '.agentxchain/multirepo/RECOVERY_REPORT.md',
 ];
 
-export const RUN_EXPORT_INCLUDED_ROOTS = [
+const RUN_EXPORT_ONLY_ROOTS = [
   'agentxchain.json',
-  'TALK.md',
   '.agentxchain-dashboard.pid',
   '.agentxchain-dashboard.json',
-  '.agentxchain/state.json',
-  '.agentxchain/session.json',
-  '.agentxchain/history.jsonl',
-  '.agentxchain/decision-ledger.jsonl',
-  '.agentxchain/repo-decisions.jsonl',
-  '.agentxchain/hook-audit.jsonl',
-  '.agentxchain/hook-annotations.jsonl',
-  '.agentxchain/notification-audit.jsonl',
-  '.agentxchain/run-history.jsonl',
-  '.agentxchain/events.jsonl',
-  '.agentxchain/schedule-state.json',
-  '.agentxchain/schedule-daemon.json',
-  '.agentxchain/continuous-session.json',
-  '.agentxchain/human-escalations.jsonl',
-  '.agentxchain/sla-reminders.json',
-  '.agentxchain/dispatch',
-  '.agentxchain/staging',
-  '.agentxchain/transactions/accept',
-  '.agentxchain/intake',
-  '.agentxchain/multirepo',
-  '.agentxchain/reviews',
-  '.agentxchain/proposed',
-  '.agentxchain/reports',
   '.planning',
+];
+
+export const RUN_EXPORT_INCLUDED_ROOTS = [
+  'agentxchain.json',
+  ...RUN_CONTINUITY_STATE_FILES,
+  ...RUN_CONTINUITY_DIRECTORY_ROOTS,
+  ...RUN_EXPORT_ONLY_ROOTS.filter((root) => root !== 'agentxchain.json'),
 ];
 
 export const RUN_RESTORE_ROOTS = [
   'agentxchain.json',
-  'TALK.md',
-  '.agentxchain/state.json',
-  '.agentxchain/session.json',
-  '.agentxchain/history.jsonl',
-  '.agentxchain/decision-ledger.jsonl',
-  '.agentxchain/hook-audit.jsonl',
-  '.agentxchain/hook-annotations.jsonl',
-  '.agentxchain/notification-audit.jsonl',
-  '.agentxchain/run-history.jsonl',
-  '.agentxchain/events.jsonl',
-  '.agentxchain/schedule-state.json',
-  '.agentxchain/schedule-daemon.json',
-  '.agentxchain/continuous-session.json',
-  '.agentxchain/human-escalations.jsonl',
-  '.agentxchain/sla-reminders.json',
-  '.agentxchain/dispatch',
-  '.agentxchain/staging',
-  '.agentxchain/transactions/accept',
-  '.agentxchain/intake',
-  '.agentxchain/multirepo',
-  '.agentxchain/reviews',
-  '.agentxchain/proposed',
-  '.agentxchain/reports',
+  ...RUN_CONTINUITY_STATE_FILES,
+  ...RUN_CONTINUITY_DIRECTORY_ROOTS,
   '.planning',
 ];
 

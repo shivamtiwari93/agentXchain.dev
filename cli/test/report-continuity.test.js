@@ -12,6 +12,8 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { RUN_EXPORT_INCLUDED_ROOTS } from '../src/lib/export.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -291,7 +293,6 @@ describe('dashboard state-reader continuity contract', () => {
   });
 
   it('export includes session.json in RUN_EXPORT_INCLUDED_ROOTS', () => {
-    const exportSrc = readFileSync(join(REPO_ROOT, 'cli/src/lib/export.js'), 'utf8');
-    assert.match(exportSrc, /\.agentxchain\/session\.json/);
+    assert.ok(RUN_EXPORT_INCLUDED_ROOTS.includes('.agentxchain/session.json'));
   });
 });

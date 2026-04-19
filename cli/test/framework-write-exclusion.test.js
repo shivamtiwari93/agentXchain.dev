@@ -1,7 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isOperationalPath, normalizeCheckpointableFiles } from '../src/lib/repo-observer.js';
+import {
+  isOperationalPath,
+  normalizeCheckpointableFiles,
+  RUN_CONTINUITY_DIRECTORY_ROOTS,
+  RUN_CONTINUITY_STATE_FILES,
+} from '../src/lib/repo-observer.js';
+import { RUN_EXPORT_INCLUDED_ROOTS, RUN_RESTORE_ROOTS } from '../src/lib/export.js';
 
 // ── Framework-Owned Write Paths ─────────────────────────────────────────────
 // Every file path the framework writes to MUST be excluded from agent-attributed
@@ -153,5 +159,37 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
     ];
     const normalized = normalizeCheckpointableFiles(declared);
     assert.strictEqual(normalized.length, 0, 'All-operational input must produce empty output');
+  });
+});
+
+describe('run export/restore continuity roots stay aligned with repo-observer ownership truth', () => {
+  const SHARED_CONTINUITY_ROOTS = [
+    ...RUN_CONTINUITY_STATE_FILES,
+    ...RUN_CONTINUITY_DIRECTORY_ROOTS,
+  ];
+
+  it('AT-EXPORT-CENT-001: export roots include every shared continuity root', () => {
+    for (const relPath of SHARED_CONTINUITY_ROOTS) {
+      assert.ok(
+        RUN_EXPORT_INCLUDED_ROOTS.includes(relPath),
+        `${relPath} must be included in RUN_EXPORT_INCLUDED_ROOTS`,
+      );
+    }
+  });
+
+  it('AT-EXPORT-CENT-002: restore roots include every shared continuity root', () => {
+    for (const relPath of SHARED_CONTINUITY_ROOTS) {
+      assert.ok(
+        RUN_RESTORE_ROOTS.includes(relPath),
+        `${relPath} must be included in RUN_RESTORE_ROOTS`,
+      );
+    }
+  });
+
+  it('AT-EXPORT-CENT-003: dashboard metadata stays export-only', () => {
+    assert.ok(RUN_EXPORT_INCLUDED_ROOTS.includes('.agentxchain-dashboard.pid'));
+    assert.ok(RUN_EXPORT_INCLUDED_ROOTS.includes('.agentxchain-dashboard.json'));
+    assert.ok(!RUN_RESTORE_ROOTS.includes('.agentxchain-dashboard.pid'));
+    assert.ok(!RUN_RESTORE_ROOTS.includes('.agentxchain-dashboard.json'));
   });
 });

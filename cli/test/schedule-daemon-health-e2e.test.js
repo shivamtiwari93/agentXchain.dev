@@ -15,6 +15,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { scaffoldGoverned } from '../src/commands/init.js';
+import { RUN_EXPORT_INCLUDED_ROOTS, RUN_RESTORE_ROOTS } from '../src/lib/export.js';
+import { ORCHESTRATOR_STATE_FILES } from '../src/lib/repo-observer.js';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CLI_BIN = join(cliRoot, 'bin', 'agentxchain.js');
@@ -205,18 +207,12 @@ describe('AT-SDH-006: malformed state file is handled gracefully', () => {
 
 describe('AT-SDH-007: schedule-daemon.json classified as orchestrator-owned state and in export/restore roots', () => {
   it('is in repo-observer ORCHESTRATOR_STATE_FILES', () => {
-    const observerSrc = readFileSync(join(cliRoot, 'src', 'lib', 'repo-observer.js'), 'utf8');
-    assert.match(observerSrc, /schedule-daemon\.json/);
+    assert.ok(ORCHESTRATOR_STATE_FILES.includes('.agentxchain/schedule-daemon.json'));
   });
 
   it('is in export RUN_EXPORT_INCLUDED_ROOTS and RUN_RESTORE_ROOTS', () => {
-    const exportSrc = readFileSync(join(cliRoot, 'src', 'lib', 'export.js'), 'utf8');
-    const exportRootsMatch = exportSrc.match(/RUN_EXPORT_INCLUDED_ROOTS\s*=\s*\[([\s\S]*?)\];/);
-    const restoreRootsMatch = exportSrc.match(/RUN_RESTORE_ROOTS\s*=\s*\[([\s\S]*?)\];/);
-    assert.ok(exportRootsMatch, 'RUN_EXPORT_INCLUDED_ROOTS not found');
-    assert.ok(restoreRootsMatch, 'RUN_RESTORE_ROOTS not found');
-    assert.match(exportRootsMatch[1], /schedule-daemon\.json/);
-    assert.match(restoreRootsMatch[1], /schedule-daemon\.json/);
+    assert.ok(RUN_EXPORT_INCLUDED_ROOTS.includes('.agentxchain/schedule-daemon.json'));
+    assert.ok(RUN_RESTORE_ROOTS.includes('.agentxchain/schedule-daemon.json'));
   });
 });
 

@@ -8,6 +8,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { recordRunHistory, queryRunHistory, getRunHistoryPath, isInheritable } from '../src/lib/run-history.js';
+import { RUN_EXPORT_INCLUDED_ROOTS, RUN_RESTORE_ROOTS } from '../src/lib/export.js';
+import { ORCHESTRATOR_STATE_FILES } from '../src/lib/repo-observer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
@@ -498,20 +500,12 @@ describe('run-history integration contracts', () => {
   });
 
   it('repo-observer.js lists run-history.jsonl as orchestrator state', () => {
-    const source = readFileSync(
-      join(import.meta.dirname, '..', 'src', 'lib', 'repo-observer.js'),
-      'utf8'
-    );
-    assert.match(source, /run-history\.jsonl/);
+    assert.ok(ORCHESTRATOR_STATE_FILES.includes('.agentxchain/run-history.jsonl'));
   });
 
   it('export.js includes run-history.jsonl in both export and restore roots', () => {
-    const source = readFileSync(
-      join(import.meta.dirname, '..', 'src', 'lib', 'export.js'),
-      'utf8'
-    );
-    const matches = source.match(/run-history\.jsonl/g);
-    assert.ok(matches && matches.length >= 2, 'run-history.jsonl should appear in both RUN_EXPORT_INCLUDED_ROOTS and RUN_RESTORE_ROOTS');
+    assert.ok(RUN_EXPORT_INCLUDED_ROOTS.includes('.agentxchain/run-history.jsonl'));
+    assert.ok(RUN_RESTORE_ROOTS.includes('.agentxchain/run-history.jsonl'));
   });
 
   it('state-reader.js maps run-history.jsonl to /api/run-history', () => {

@@ -147,6 +147,31 @@ describe('restore CLI', () => {
     writeFileSync(join(source, '.agentxchain', 'sla-reminders.json'), JSON.stringify({
       reminders: [{ escalation_id: 'hesc_restore_001', last_sent_at: '2026-04-17T15:00:00.000Z' }],
     }, null, 2) + '\n');
+    writeFileSync(join(source, '.agentxchain', 'lock.json'), JSON.stringify({
+      holder: 'qa',
+      turn_id: turn.turn_id,
+      claimed_at: '2026-04-19T10:00:00.000Z',
+    }, null, 2) + '\n');
+    mkdirSync(join(source, '.agentxchain', 'missions', 'mission_release', 'plans'), { recursive: true });
+    writeFileSync(join(source, '.agentxchain', 'missions', 'mission_release', 'mission.json'), JSON.stringify({
+      mission_id: 'mission_release',
+      title: 'Release hardening',
+      status: 'active',
+    }, null, 2) + '\n');
+    writeFileSync(join(source, '.agentxchain', 'missions', 'mission_release', 'plans', 'plan_001.json'), JSON.stringify({
+      plan_id: 'plan_001',
+      mission_id: 'mission_release',
+      status: 'ready',
+    }, null, 2) + '\n');
+    writeFileSync(join(source, '.agentxchain', 'repo-decisions.jsonl'), `${JSON.stringify({
+      id: 'DEC-RESTORE-001',
+      category: 'release',
+      statement: 'Restore should preserve repo decisions.',
+      role: 'pm',
+      durability: 'repo',
+      authority_level: 80,
+      authority_source: 'configured',
+    })}\n`);
 
     const artifactPath = exportArtifact(source);
     const exported = JSON.parse(readFileSync(artifactPath, 'utf8'));
@@ -180,6 +205,22 @@ describe('restore CLI', () => {
     assert.equal(
       JSON.parse(readFileSync(join(target, '.agentxchain', 'sla-reminders.json'), 'utf8')).reminders[0].escalation_id,
       'hesc_restore_001',
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(target, '.agentxchain', 'lock.json'), 'utf8')).holder,
+      'qa',
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(target, '.agentxchain', 'missions', 'mission_release', 'mission.json'), 'utf8')).mission_id,
+      'mission_release',
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(target, '.agentxchain', 'missions', 'mission_release', 'plans', 'plan_001.json'), 'utf8')).plan_id,
+      'plan_001',
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(target, '.agentxchain', 'repo-decisions.jsonl'), 'utf8').trim()).id,
+      'DEC-RESTORE-001',
     );
 
     const resumeTarget = runCli(target, ['resume', '--role', 'pm']);

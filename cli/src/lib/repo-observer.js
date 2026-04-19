@@ -22,7 +22,7 @@ import { join } from 'path';
 // They must never be attributed to agents in observation or baseline checks.
 // Frozen per Session #19 decision.
 
-const OPERATIONAL_PATH_PREFIXES = [
+export const OPERATIONAL_PATH_PREFIXES = Object.freeze([
   '.agentxchain/dispatch/',
   '.agentxchain/dispatch-progress-',
   '.agentxchain/staging/',
@@ -31,11 +31,11 @@ const OPERATIONAL_PATH_PREFIXES = [
   '.agentxchain/transactions/',
   '.agentxchain/missions/',
   '.agentxchain/multirepo/',
-];
+]);
 
 // Orchestrator-owned state files that agents must never be blamed for modifying.
 // These are written exclusively by the orchestrator (§4.1 State Ownership Rule).
-const ORCHESTRATOR_STATE_FILES = [
+export const ORCHESTRATOR_STATE_FILES = Object.freeze([
   '.agentxchain/state.json',
   '.agentxchain/session.json',
   '.agentxchain/history.jsonl',
@@ -54,16 +54,32 @@ const ORCHESTRATOR_STATE_FILES = [
   '.agentxchain/sla-reminders.json',
   'TALK.md',
   'HUMAN_TASKS.md',
-];
+]);
 
 // Evidence paths may legitimately remain dirty across turns without blocking the
 // next code-writing assignment. They still remain actor-observable so review
 // accountability is preserved during acceptance.
-const BASELINE_EXEMPT_PATH_PREFIXES = [
+export const BASELINE_EXEMPT_PATH_PREFIXES = Object.freeze([
   '.agentxchain/reviews/',
   '.agentxchain/reports/',
   '.agentxchain/proposed/',
-];
+]);
+
+// Continuity export/restore must stay aligned with orchestrator ownership,
+// but only for the subset that represents governed run state.
+export const RUN_CONTINUITY_STATE_FILES = Object.freeze([
+  ...ORCHESTRATOR_STATE_FILES.filter((filePath) => filePath !== 'HUMAN_TASKS.md'),
+]);
+
+export const RUN_CONTINUITY_DIRECTORY_ROOTS = Object.freeze([
+  '.agentxchain/dispatch',
+  '.agentxchain/staging',
+  '.agentxchain/transactions/accept',
+  '.agentxchain/intake',
+  '.agentxchain/missions',
+  '.agentxchain/multirepo',
+  ...BASELINE_EXEMPT_PATH_PREFIXES.map((prefix) => prefix.replace(/\/$/, '')),
+]);
 
 /**
  * Check whether a file path belongs to orchestrator-owned operational state.

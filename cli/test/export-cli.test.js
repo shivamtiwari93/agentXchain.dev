@@ -13,6 +13,8 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { RUN_EXPORT_INCLUDED_ROOTS, RUN_RESTORE_ROOTS } from '../src/lib/export.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
 
@@ -247,18 +249,13 @@ describe('export CLI', () => {
   });
 
   it('keeps continuous-session, human-escalations, and sla-reminders in both export and restore roots', () => {
-    const exportSrc = readFileSync(join(__dirname, '..', 'src', 'lib', 'export.js'), 'utf8');
-    const exportRootsMatch = exportSrc.match(/RUN_EXPORT_INCLUDED_ROOTS\s*=\s*\[([\s\S]*?)\];/);
-    const restoreRootsMatch = exportSrc.match(/RUN_RESTORE_ROOTS\s*=\s*\[([\s\S]*?)\];/);
-    assert.ok(exportRootsMatch, 'RUN_EXPORT_INCLUDED_ROOTS not found');
-    assert.ok(restoreRootsMatch, 'RUN_RESTORE_ROOTS not found');
     for (const relPath of [
-      'continuous-session.json',
-      'human-escalations.jsonl',
-      'sla-reminders.json',
+      '.agentxchain/continuous-session.json',
+      '.agentxchain/human-escalations.jsonl',
+      '.agentxchain/sla-reminders.json',
     ]) {
-      assert.match(exportRootsMatch[1], new RegExp(relPath.replace('.', '\\.')));
-      assert.match(restoreRootsMatch[1], new RegExp(relPath.replace('.', '\\.')));
+      assert.ok(RUN_EXPORT_INCLUDED_ROOTS.includes(relPath), `${relPath} missing from RUN_EXPORT_INCLUDED_ROOTS`);
+      assert.ok(RUN_RESTORE_ROOTS.includes(relPath), `${relPath} missing from RUN_RESTORE_ROOTS`);
     }
   });
 
