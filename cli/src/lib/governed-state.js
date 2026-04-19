@@ -47,6 +47,10 @@ import { writeSessionCheckpoint } from './session-checkpoint.js';
 import { recordRunHistory } from './run-history.js';
 import { buildDefaultRunProvenance } from './run-provenance.js';
 import {
+  archiveStaleIntentsForRun,
+  formatLegacyIntentMigrationNotice,
+} from './intent-startup-migration.js';
+import {
   ensureHumanEscalation,
   findCurrentHumanEscalation,
   resolveHumanEscalation,
@@ -2076,6 +2080,25 @@ export function reactivateGovernedRun(root, state, details = {}) {
 
   writeState(root, nextState);
 
+  const startupIntents = nextState.run_id
+    ? archiveStaleIntentsForRun(root, nextState.run_id, {
+      protocolVersion: nextState.protocol_version || state.protocol_version || '2.x',
+    })
+    : { archived_migration_intent_ids: [], migration_notice: null };
+
+  if (startupIntents.archived_migration_intent_ids?.length > 0) {
+    emitRunEvent(root, 'intents_migrated', {
+      run_id: nextState.run_id,
+      phase: nextState.phase,
+      status: nextState.status,
+      payload: {
+        archived_count: startupIntents.archived_migration_intent_ids.length,
+        archived_intent_ids: startupIntents.archived_migration_intent_ids,
+        reason: 'pre-BUG-34 intents with approved_run_id: null archived during run reactivation',
+      },
+    });
+  }
+
   if (humanEscalation) {
     resolveHumanEscalation(root, humanEscalation.escalation_id, {
       resolved_at: now,
@@ -2117,7 +2140,11 @@ export function reactivateGovernedRun(root, state, details = {}) {
     });
   }
 
-  return { ok: true, state: attachLegacyCurrentTurnAlias(nextState) };
+  return {
+    ok: true,
+    state: attachLegacyCurrentTurnAlias(nextState),
+    migration_notice: formatLegacyIntentMigrationNotice(startupIntents.archived_migration_intent_ids),
+  };
 }
 
 // ── Core Operations ──────────────────────────────────────────────────────────
@@ -2171,69 +2198,10 @@ export function initializeGovernedRun(root, config, options = {}) {
 
   writeState(root, updatedState);
 
-  // BUG-34 + BUG-39: retroactive migration — archive stale intents from prior runs.
-  // Intents with an approved_run_id from a DIFFERENT run are archived (BUG-34).
-  // BUG-39: Intents with approved_run_id: null are pre-BUG-34 legacy files that
-  // must be archived with status "archived_migration", NOT adopted into the current
-  // run. The only exception is a freshly approved idle intent carrying the
-  // explicit `cross_run_durable` pre-run marker; those are rebound onto this
-  // run immediately and the marker is cleared.
-  const archivedMigrationIntentIds = [];
-  try {
-    const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
-    if (existsSync(intentsDir)) {
-      const DISPATCHABLE = new Set(['planned', 'approved']);
-      const intNow = new Date().toISOString();
-      for (const f of readdirSync(intentsDir).filter(x => x.endsWith('.json') && !x.startsWith('.tmp-'))) {
-        const ip = join(intentsDir, f);
-        try {
-          const intent = JSON.parse(readFileSync(ip, 'utf8'));
-          if (!intent || !DISPATCHABLE.has(intent.status)) continue;
-          if (intent.cross_run_durable === true && !intent.approved_run_id) {
-            intent.approved_run_id = runId;
-            delete intent.cross_run_durable;
-            intent.updated_at = intNow;
-            if (!intent.history) intent.history = [];
-            intent.history.push({
-              from: intent.status,
-              to: intent.status,
-              at: intNow,
-              reason: `pre-run durable approval bound to run ${runId}`,
-            });
-            safeWriteJson(ip, intent);
-            continue;
-          }
-          if (intent.cross_run_durable === true && intent.approved_run_id === runId) {
-            delete intent.cross_run_durable;
-            intent.updated_at = intNow;
-            safeWriteJson(ip, intent);
-            continue;
-          }
-          if (intent.approved_run_id === runId) continue;
-
-          const prevStatus = intent.status;
-          if (intent.approved_run_id && intent.approved_run_id !== runId) {
-            // Intent from a different run — archive it (BUG-34)
-            intent.status = 'suppressed';
-            intent.updated_at = intNow;
-            intent.archived_reason = `stale: approved under run ${intent.approved_run_id}, archived on run ${runId} initialization`;
-            if (!intent.history) intent.history = [];
-            intent.history.push({ from: prevStatus, to: 'suppressed', at: intNow, reason: intent.archived_reason });
-          } else if (!intent.approved_run_id) {
-            // BUG-39: pre-BUG-34 legacy intent with no run binding — archive it
-            // with explicit migration reason. Do NOT adopt into current run.
-            intent.status = 'archived_migration';
-            intent.updated_at = intNow;
-            intent.archived_reason = `pre-BUG-34 intent with no run scope; archived during v${updatedState.protocol_version || '2.x'} migration on run ${runId}`;
-            if (!intent.history) intent.history = [];
-            intent.history.push({ from: prevStatus, to: 'archived_migration', at: intNow, reason: intent.archived_reason });
-            if (intent.intent_id) archivedMigrationIntentIds.push(intent.intent_id);
-          }
-          safeWriteJson(ip, intent);
-        } catch { /* non-fatal per-intent */ }
-      }
-    }
-  } catch { /* non-fatal — intent migration is best-effort */ }
+  const startupIntents = archiveStaleIntentsForRun(root, runId, {
+    protocolVersion: updatedState.protocol_version || '2.x',
+  });
+  const archivedMigrationIntentIds = startupIntents.archived_migration_intent_ids || [];
 
   // BUG-39: emit intents_migrated event when pre-BUG-34 intents were archived
   if (archivedMigrationIntentIds.length > 0) {
@@ -2256,9 +2224,7 @@ export function initializeGovernedRun(root, config, options = {}) {
     payload: { provenance: provenance || {} },
   });
   // BUG-39: return migration notice so callers can display it
-  const migrationNotice = archivedMigrationIntentIds.length > 0
-    ? `Archived ${archivedMigrationIntentIds.length} pre-BUG-34 intent(s). Review: agentxchain intake status --archived.`
-    : null;
+  const migrationNotice = startupIntents.migration_notice;
 
   return { ok: true, state: attachLegacyCurrentTurnAlias(updatedState), migration_notice: migrationNotice };
 }

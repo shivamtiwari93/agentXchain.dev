@@ -20,6 +20,8 @@ Public routes:
 - `/docs/examples/ci-runner-proof`
 - `/docs/examples/external-runner-starter`
 - `/docs/examples/live-governed-proof`
+- `/docs/examples/checkpoint-handoff-proof`
+- `/docs/examples/live-continuous-3run-proof`
 - `/docs/examples/mcp-echo-agent`
 - `/docs/examples/mcp-http-echo-agent`
 - `/docs/examples/mcp-anthropic-agent`
@@ -29,7 +31,11 @@ Public routes:
 Docs navigation:
 
 - `website-v2/sidebars.ts` must expose `Examples` as a first-class category, similar to `Release Notes`
-- the category must include the hub page plus every example detail page
+- `Examples` must contain two nested sub-categories: `Products` and `Proofs`
+- both nested sub-categories must be collapsed by default
+- `Products` must contain the governed product example pages
+- `Proofs` must contain the evidence, runner, MCP, and remote-boundary example pages
+- the parent category must include the hub page plus both nested sub-categories
 
 Discoverability:
 
@@ -51,18 +57,20 @@ The hub page must:
 - group examples into meaningful categories
 - link to every detail page
 - distinguish governed product examples from proof/connector examples instead of pretending they are the same thing
+- include every shipped example page; no proof page may exist on disk without hub-page discoverability
 
 ## Error Cases
 
 - Sidebar links to a page that does not exist
 - An example page exists but omits run instructions
 - The hub page mentions examples that do not have detail pages
+- An example detail page exists on disk but is omitted from the hub page, sidebar, or `llms.txt`
 - `llms.txt` or `sitemap.xml` omit the new public routes
 - Docs claim a governed app workflow for a proof example that is actually a protocol/adapter harness
 
 ## Acceptance Tests
 
-1. `website-v2/sidebars.ts` contains an `Examples` category with the hub page and all example detail pages.
+1. `website-v2/sidebars.ts` contains an `Examples` category with the hub page plus nested `Products` and `Proofs` sub-categories, both collapsed by default, and every shipped example detail page appears under the correct sub-category.
 2. `website-v2/docs/examples.mdx` links to every example detail page.
 3. Each detail page exists on disk.
 4. Each detail page includes headings for what it is, how to run it, and key takeaways.

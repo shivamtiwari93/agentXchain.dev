@@ -17,6 +17,11 @@ import { getDispatchTurnDir } from './turn-paths.js';
 import { loadCoordinatorConfig } from './coordinator-config.js';
 import { loadCoordinatorState, readBarriers } from './coordinator-state.js';
 import { writeCoordinatorHandoff } from './intake-handoff.js';
+import {
+  archiveStaleIntentsForRun,
+  migratePreBug34Intents,
+  formatLegacyIntentMigrationNotice,
+} from './intent-startup-migration.js';
 
 const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vision_scan'];
 const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
@@ -615,74 +620,7 @@ export function findPendingApprovedIntents(root, options = {}) {
  * @returns {{ archived: number }}
  */
 export function archiveStaleIntents(root, newRunId) {
-  const dirs = intakeDirs(root);
-  if (!existsSync(dirs.intents)) return { archived: 0, adopted: 0 };
-
-  const now = nowISO();
-  let archived = 0;
-  let adopted = 0;
-
-  const files = readdirSync(dirs.intents).filter(f => f.endsWith('.json') && !f.startsWith('.tmp-'));
-  for (const file of files) {
-    const intentPath = join(dirs.intents, file);
-    let intent;
-    try {
-      intent = JSON.parse(readFileSync(intentPath, 'utf8'));
-    } catch {
-      continue;
-    }
-
-    if (!intent || !DISPATCHABLE_STATUSES.has(intent.status)) continue;
-
-    if (intent.cross_run_durable === true && !intent.approved_run_id) {
-      intent.approved_run_id = newRunId;
-      delete intent.cross_run_durable;
-      intent.updated_at = now;
-      if (!intent.history) intent.history = [];
-      intent.history.push({
-        from: intent.status,
-        to: intent.status,
-        at: now,
-        reason: `pre-run durable approval bound to run ${newRunId}`,
-      });
-      safeWriteJson(intentPath, intent);
-      adopted++;
-      continue;
-    }
-
-    if (intent.cross_run_durable === true && intent.approved_run_id === newRunId) {
-      delete intent.cross_run_durable;
-      intent.updated_at = now;
-      safeWriteJson(intentPath, intent);
-      continue;
-    }
-
-    if (intent.approved_run_id === newRunId) continue;
-
-    if (intent.approved_run_id && intent.approved_run_id !== newRunId) {
-      // Intent from a different run — archive it
-      intent.status = 'suppressed';
-      intent.updated_at = now;
-      intent.archived_reason = `stale: approved under run ${intent.approved_run_id}, archived on run ${newRunId} initialization`;
-      if (!intent.history) intent.history = [];
-      intent.history.push({ from: 'approved', to: 'suppressed', at: now, reason: intent.archived_reason });
-      safeWriteJson(intentPath, intent);
-      archived++;
-    } else if (!intent.approved_run_id) {
-      // BUG-39: pre-BUG-34 legacy intent with no run binding — archive it
-      // with explicit migration reason. Do NOT adopt into current run.
-      const prevStatus = intent.status;
-      intent.status = 'archived_migration';
-      intent.updated_at = now;
-      intent.archived_reason = `pre-BUG-34 intent with no run scope; archived during migration on run ${newRunId}`;
-      if (!intent.history) intent.history = [];
-      intent.history.push({ from: prevStatus, to: 'archived_migration', at: now, reason: intent.archived_reason });
-      safeWriteJson(intentPath, intent);
-      archived++;
-    }
-  }
-
-  return { archived, adopted };
+  return archiveStaleIntentsForRun(root, newRunId);
 }
 
 /**

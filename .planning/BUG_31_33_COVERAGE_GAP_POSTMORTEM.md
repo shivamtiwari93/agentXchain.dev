@@ -65,6 +65,23 @@ Document why the iterative planning conflict loop shipped through `v2.130.1`, wh
    - `forward_revision_accepted`
 4. Add a dashboard/API contract test for `conflict_resolved`.
 
+## Startup Path Coverage Matrix
+
+The BUG-39 false closure exposed a separate dimension we were not tracking explicitly: startup paths that can dispatch turns or select intake work.
+
+| Startup path | Shared migration helper required | Current proof |
+| --- | --- | --- |
+| `run` (new run initialization) | Yes | `bug-39-intent-migration-null-run-id.test.js` |
+| `run --continue-from ... --continuous` | Yes, before queue scan | `bug-40-continuous-startup-legacy-intent-resume.test.js` |
+| Schedule-owned continuous session startup | Yes, before queue scan | Covered indirectly through shared continuous startup reconciliation; add a dedicated schedule command proof if this surface changes |
+| `resume` | Yes | Covered indirectly through `reactivateGovernedRun()` + shared startup helper |
+| `step --resume` | Yes | Covered indirectly through `reactivateGovernedRun()` + shared startup helper |
+| `restart` | Yes | Covered indirectly through `reactivateGovernedRun()` + shared startup helper |
+
+### Standing startup rule
+
+Any new startup path that can dispatch turns or scan intake must add one row to this matrix and must call the shared legacy-intent migration helper before it touches the queue.
+
 ## Dispatch Path × Lifecycle Matrix
 
 The beta-tester reopen pattern is broader than BUG-31..33. The durable gap is that dispatch-path coverage has been uneven across lifecycle stages. We now track the matrix explicitly:

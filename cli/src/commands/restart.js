@@ -326,6 +326,9 @@ export async function restartCommand(opts) {
       console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
       process.exit(1);
     }
+    if (reactivated.migration_notice) {
+      console.log(chalk.yellow(reactivated.migration_notice));
+    }
   }
 
   // Determine role from option or routing

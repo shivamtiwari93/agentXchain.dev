@@ -24,6 +24,11 @@ import {
 } from './intake.js';
 import { loadProjectState } from './config.js';
 import { safeWriteJson } from './safe-write.js';
+import { emitRunEvent } from './run-events.js';
+import {
+  archiveStaleIntentsForRun,
+  formatLegacyIntentMigrationNotice,
+} from './intent-startup-migration.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
 
@@ -56,7 +61,7 @@ export function removeContinuousSession(root) {
   }
 }
 
-function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd) {
+function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd, currentRunId = null) {
   return {
     session_id: `cont-${randomUUID().slice(0, 8)}`,
     started_at: new Date().toISOString(),
@@ -65,12 +70,13 @@ function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd) {
     max_runs: maxRuns,
     idle_cycles: 0,
     max_idle_cycles: maxIdleCycles,
-    current_run_id: null,
+    current_run_id: currentRunId,
     current_vision_objective: null,
     status: 'running',
     per_session_max_usd: perSessionMaxUsd || null,
     cumulative_spent_usd: 0,
     budget_exhausted: false,
+    startup_reconciled_run_id: null,
   };
 }
 
@@ -133,8 +139,46 @@ function buildContinuousProvenance(intentId, options = {}) {
   };
 }
 
-export function findNextQueuedIntent(root) {
-  return findNextDispatchableIntent(root);
+export function findNextQueuedIntent(root, options = {}) {
+  return findNextDispatchableIntent(root, { run_id: options.run_id || null });
+}
+
+function reconcileContinuousStartupState(context, session, contOpts, log) {
+  const { root, config } = context;
+  const governedState = loadProjectState(root, config);
+  const scopedRunId = session.current_run_id || contOpts.continueFrom || governedState?.run_id || null;
+
+  let sessionChanged = false;
+  if (scopedRunId && session.current_run_id !== scopedRunId) {
+    session.current_run_id = scopedRunId;
+    sessionChanged = true;
+  }
+
+  if (scopedRunId && session.startup_reconciled_run_id !== scopedRunId) {
+    const startupIntents = archiveStaleIntentsForRun(root, scopedRunId, {
+      protocolVersion: governedState?.protocol_version || config?.schema_version || '2.x',
+    });
+    if (startupIntents.archived_migration_intent_ids?.length > 0) {
+      emitRunEvent(root, 'intents_migrated', {
+        run_id: scopedRunId,
+        phase: governedState?.phase || null,
+        status: governedState?.status || 'active',
+        payload: {
+          archived_count: startupIntents.archived_migration_intent_ids.length,
+          archived_intent_ids: startupIntents.archived_migration_intent_ids,
+          reason: 'pre-BUG-34 intents with approved_run_id: null archived during continuous startup',
+        },
+      });
+      const migrationNotice = formatLegacyIntentMigrationNotice(startupIntents.archived_migration_intent_ids);
+      if (migrationNotice) log(migrationNotice);
+    }
+    session.startup_reconciled_run_id = scopedRunId;
+    sessionChanged = true;
+  }
+
+  if (sessionChanged) {
+    writeContinuousSession(root, session);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +276,7 @@ export function resolveContinuousOptions(opts, config) {
 
   return {
     enabled: opts.continuous ?? configCont.enabled ?? false,
+    continueFrom: opts.continueFrom ?? null,
     visionPath: opts.vision ?? configCont.vision_path ?? '.planning/VISION.md',
     maxRuns: opts.maxRuns ?? configCont.max_runs ?? 100,
     pollSeconds: opts.pollSeconds ?? configCont.poll_seconds ?? 30,
@@ -287,6 +332,8 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     log(`Session budget exhausted: $${(session.cumulative_spent_usd || 0).toFixed(2)} spent of $${sessionBudget.toFixed(2)} limit.`);
     return { ok: true, status: 'completed', action: 'session_budget_exhausted', stop_reason: 'session_budget' };
   }
+
+  reconcileContinuousStartupState(context, session, contOpts, log);
 
   // Paused-session guard: if session is paused (blocked run awaiting unblock),
   // check governed state before attempting to advance. Without this guard, the
@@ -540,7 +587,15 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
     return { exitCode: 1, session: null };
   }
 
-  const session = createSession(contOpts.visionPath, contOpts.maxRuns, contOpts.maxIdleCycles, contOpts.perSessionMaxUsd);
+  const startupState = loadProjectState(root, context.config);
+  const initialRunId = contOpts.continueFrom || startupState?.run_id || null;
+  const session = createSession(
+    contOpts.visionPath,
+    contOpts.maxRuns,
+    contOpts.maxIdleCycles,
+    contOpts.perSessionMaxUsd,
+    initialRunId,
+  );
   writeContinuousSession(root, session);
 
   // SIGINT handler

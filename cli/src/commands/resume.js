@@ -144,6 +144,9 @@ export async function resumeCommand(opts) {
         process.exit(1);
       }
       state = reactivated.state;
+      if (reactivated.migration_notice) {
+        console.log(chalk.yellow(reactivated.migration_notice));
+      }
 
       // Write dispatch bundle for the existing turn
       const bundleResult = writeDispatchBundle(root, state, config);
@@ -204,6 +207,9 @@ export async function resumeCommand(opts) {
       process.exit(1);
     }
     state = reactivated.state;
+    if (reactivated.migration_notice) {
+      console.log(chalk.yellow(reactivated.migration_notice));
+    }
 
     const bundleResult = writeDispatchBundle(root, state, config, { turnId: retainedTurn.turn_id });
     if (!bundleResult.ok) {
@@ -233,6 +239,9 @@ export async function resumeCommand(opts) {
     }
     state = initResult.state;
     console.log(chalk.green(`Initialized governed run: ${state.run_id}`));
+    if (initResult.migration_notice) {
+      console.log(chalk.yellow(initResult.migration_notice));
+    }
   }
 
   // §47: paused + run_id exists → resume same run
@@ -244,6 +253,9 @@ export async function resumeCommand(opts) {
     }
     state = reactivated.state;
     console.log(chalk.green(`Resumed blocked run: ${state.run_id}`));
+    if (reactivated.migration_notice) {
+      console.log(chalk.yellow(reactivated.migration_notice));
+    }
   }
 
   // §47: paused + run_id exists → resume same run
@@ -255,6 +267,9 @@ export async function resumeCommand(opts) {
     }
     state = reactivated.state;
     console.log(chalk.green(`Resumed governed run: ${state.run_id}`));
+    if (reactivated.migration_notice) {
+      console.log(chalk.yellow(reactivated.migration_notice));
+    }
   }
 
   // Print run-context header before dispatch

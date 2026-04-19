@@ -88,15 +88,21 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Example Library
 
+### Products
+
 - [Governed Todo App](https://agentxchain.dev/docs/examples/governed-todo-app)
 - [Habit Board](https://agentxchain.dev/docs/examples/habit-board)
 - [Trail Meals Mobile](https://agentxchain.dev/docs/examples/trail-meals-mobile)
 - [Async Standup Bot](https://agentxchain.dev/docs/examples/async-standup-bot)
 - [Decision Log Linter](https://agentxchain.dev/docs/examples/decision-log-linter)
 - [Schema Guard](https://agentxchain.dev/docs/examples/schema-guard)
+
+### Proofs
+
 - [CI Runner Proof](https://agentxchain.dev/docs/examples/ci-runner-proof)
 - [External Runner Starter](https://agentxchain.dev/docs/examples/external-runner-starter)
 - [Live Governed Proof](https://agentxchain.dev/docs/examples/live-governed-proof)
+- [Checkpoint Handoff Proof](https://agentxchain.dev/docs/examples/checkpoint-handoff-proof)
 - [Live Continuous 3-Run Proof](https://agentxchain.dev/docs/examples/live-continuous-3run-proof)
 - [MCP Echo Agent](https://agentxchain.dev/docs/examples/mcp-echo-agent)
 - [MCP HTTP Echo Agent](https://agentxchain.dev/docs/examples/mcp-http-echo-agent)

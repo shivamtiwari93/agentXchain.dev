@@ -260,6 +260,9 @@ export async function stepCommand(opts) {
           process.exit(1);
         }
         state = reactivated.state;
+        if (reactivated.migration_notice) {
+          console.log(chalk.yellow(reactivated.migration_notice));
+        }
         skipAssignment = true;
 
         // BUG-1 fix: refresh baseline snapshot to capture files dirtied between assignment and dispatch
@@ -285,6 +288,9 @@ export async function stepCommand(opts) {
       }
       state = initResult.state;
       console.log(chalk.green(`Initialized governed run: ${state.run_id}`));
+      if (initResult.migration_notice) {
+        console.log(chalk.yellow(initResult.migration_notice));
+      }
     }
 
     // paused → resume
@@ -296,6 +302,9 @@ export async function stepCommand(opts) {
       }
       state = reactivated.state;
       console.log(chalk.green(`Resumed blocked run: ${state.run_id}`));
+      if (reactivated.migration_notice) {
+        console.log(chalk.yellow(reactivated.migration_notice));
+      }
     }
 
     if (!skipAssignment && state.status === 'paused' && state.run_id) {
@@ -306,6 +315,9 @@ export async function stepCommand(opts) {
       }
       state = reactivated.state;
       console.log(chalk.green(`Resumed governed run: ${state.run_id}`));
+      if (reactivated.migration_notice) {
+        console.log(chalk.yellow(reactivated.migration_notice));
+      }
     }
 
     // Assign the turn
