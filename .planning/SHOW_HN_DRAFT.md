@@ -49,7 +49,7 @@ The point is not “more agents.” The point is better convergence: disagreemen
 
 Latest shipped operator slice: `v2.142.0` carries the BUG-46 post-acceptance deadlock hardening bundle into the published npm release after the original `v2.141.0` tag failed trusted-publishing alignment. Accepted turns no longer strand replay-only repo dirt that blocks `resume`, and BUG-44/45/46 still await tester verification per the beta-cycle closure rules.
 
-- Evidence: 6,184 tests / 1,308 suites / 0 failures
+- 6184 tests / 1308 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.

@@ -60,7 +60,7 @@ New in v2.142.0:
 - Corrective publish release after the original `v2.141.0` tag failed trusted-publishing alignment
 - BUG-44 and BUG-45 hardening remain shipped and are still awaiting tester verification
 
-- Evidence: 6,184 tests / 1,308 suites / 0 failures
+- 6184 tests / 1308 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

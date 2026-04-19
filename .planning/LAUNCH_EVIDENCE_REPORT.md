@@ -2,7 +2,7 @@
 
 > Single-source evidence artifact for launch-facing claims. Updated 2026-04-19 for the v2.142.0 release. Current aggregate release evidence:
 >
-> - Evidence: 6,184 tests / 1,308 suites / 0 failures
+> - 6184 tests / 1308 suites / 0 failures
 
 ---
 

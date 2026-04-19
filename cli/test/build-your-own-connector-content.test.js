@@ -130,6 +130,22 @@ describe('Build Your Own Connector tutorial', () => {
     );
   });
 
+  it('AT-BYOC-014: documents both verification.produced_files dispositions', () => {
+    const content = readFile(TUTORIAL_PATH);
+    assert.ok(
+      content.includes('disposition: "artifact"') || content.includes('"disposition": "artifact"'),
+      'tutorial must explain artifact disposition'
+    );
+    assert.ok(
+      content.includes('disposition: "ignore"') || content.includes('"disposition": "ignore"'),
+      'tutorial must explain ignore disposition'
+    );
+    assert.ok(
+      content.includes('verification-created files undeclared') || content.includes('Do not leave verification-created files undeclared'),
+      'tutorial must warn that undeclared verification outputs break acceptance/checkpoint/resume coherence'
+    );
+  });
+
   // AT-BYOC-007: Sidebar registration
   it('AT-BYOC-007: registered in sidebar under Connectors', () => {
     const sidebar = readFile(SIDEBAR_PATH);

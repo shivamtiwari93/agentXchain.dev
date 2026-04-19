@@ -140,6 +140,35 @@ And here is the minimal valid shape for a `review_only` (QA) turn:
 
 **Critical:** Echo back the exact `run_id` and `turn_id` from the request. The acceptance pipeline rejects mismatches.
 
+### Verification-produced files are part of the contract
+
+If your verification step creates repo files, declare them explicitly in `verification.produced_files`.
+
+- Use `disposition: "artifact"` when the file is a legitimate output of the turn and should stay in the repo as part of the accepted artifact set.
+- Use `disposition: "ignore"` when the file is only a temporary verification side effect and should be restored to the dispatch baseline before acceptance completes.
+
+Example:
+
+```json
+{
+  "verification": {
+    "status": "pass",
+    "commands": ["node scripts/generate-fixture.mjs", "npm test"],
+    "evidence_summary": "Fixture regenerated and tests passed.",
+    "machine_evidence": [
+      { "command": "node scripts/generate-fixture.mjs", "exit_code": 0 },
+      { "command": "npm test", "exit_code": 0 }
+    ],
+    "produced_files": [
+      { "path": "tests/fixtures/api-response.json", "disposition": "artifact" },
+      { "path": "tmp/verification.log", "disposition": "ignore" }
+    ]
+  }
+}
+```
+
+Do not leave verification-created files undeclared. That is how you strand acceptance/checkpoint/resume: acceptance sees an incomplete turn contract, `checkpoint-turn` has nothing coherent to commit, and `resume` still sees dirty actor-owned files.
+
 ---
 
 ## Step 2: Build the server

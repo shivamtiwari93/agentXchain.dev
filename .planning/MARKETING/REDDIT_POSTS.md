@@ -34,7 +34,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
 - Mixed-files proof added so checkpoint commits still contain real repo mutations after replay cleanup
 - BUG-44 and BUG-45 hardening remain live in the published package and are still awaiting tester verification
-- Evidence: 6,184 tests / 1,308 suites / 0 failures
+- 6184 tests / 1308 suites / 0 failures
 
 **See it in 30 seconds (no API keys needed):**
 
@@ -87,7 +87,7 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
 - Latest release ships the BUG-46 hardening for tester verification: verification replay no longer leaves dirty actor-owned files behind after acceptance, blocking `resume` while `checkpoint-turn` has nothing to commit.
-- Evidence: 6,184 tests / 1,308 suites / 0 failures
+- 6184 tests / 1308 suites / 0 failures
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -96,7 +96,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- Evidence: 6,184 tests / 1,308 suites / 0 failures
+- 6184 tests / 1308 suites / 0 failures
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
@@ -125,7 +125,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- Evidence: 6,184 tests / 1,308 suites / 0 failures
+- 6184 tests / 1308 suites / 0 failures
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 

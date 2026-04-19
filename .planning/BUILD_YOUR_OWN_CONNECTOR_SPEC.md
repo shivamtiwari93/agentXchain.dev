@@ -51,6 +51,8 @@ The tutorial explicitly teaches three validation traps:
 - `AT-BYOC-010`: No bare `npx agentxchain` commands (DEC-NPX-FD-001 compliance)
 - `AT-BYOC-011`: The embedded `agentxchain.json` example validates through the real v4 config loader
 - `AT-BYOC-012`: The page includes a governed bootstrap path (`agentxchain init --governed --dir . -y`) instead of assuming hidden repo setup
+- `AT-BYOC-013`: The page explains both `verification.produced_files[].disposition` branches (`artifact` and `ignore`) and when to use each
+- `AT-BYOC-014`: The page warns that undeclared verification outputs can strand acceptance/checkpoint/resume by leaving actor-owned dirt outside the accepted turn contract
 
 ## Open Questions
 

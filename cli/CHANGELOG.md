@@ -8,7 +8,7 @@
 - **Parallel acceptance regressions corrected**: the dirty-tree parity rollout no longer false-fails on accepted-but-uncheckpointed prior turns, and mixed-runtime proposed-write fixtures now declare their real repo mutations.
 
 ### Evidence
-- **Evidence:** 6,184 tests / 1,308 suites / 0 failures
+- 6184 tests / 1308 suites / 0 failures
 
 ## 2.141.1
 
