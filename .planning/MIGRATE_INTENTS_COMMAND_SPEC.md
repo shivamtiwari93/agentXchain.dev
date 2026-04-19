@@ -1,11 +1,13 @@
 # Migrate-Intents Command Spec
 
-**Status:** Shipped
-**Source:** BUG-41 requirement #6 — operator escape hatch for repos with stuck legacy intents
+**Status:** Shipped (updated Turn 219 for BUG-42 phantom intent support)
+**Source:** BUG-41 requirement #6 + BUG-42 phantom intent expansion
 
 ## Purpose
 
-Provide a one-shot repair command that archives all legacy intents (pre-BUG-34 intents with `approved_run_id: null`) without requiring a governed run startup. This is belt-and-suspenders insurance: the BUG-41 fix makes automatic startup migration idempotent, but operators who already have stuck repos need a direct lever.
+Provide a one-shot repair command that handles two classes of stuck intents without requiring a governed run startup:
+1. **Legacy intents** (pre-BUG-34): `approved_run_id: null`, archived with `status: "archived_migration"`
+2. **Phantom intents** (BUG-42): `approved_run_id` matches current run but planning artifacts already exist on disk, superseded with `status: "superseded"`
 
 ## Interface
 
@@ -24,14 +26,11 @@ agentxchain migrate-intents [--json] [--dry-run]
 {
   "archived_count": 3,
   "archived_intent_ids": ["intent-abc", "intent-def", "intent-ghi"],
-  "scope": "legacy_null_run_only",
-  "skipped_run_scoped_count": 1,
-  "skipped_run_scoped_intent_ids": ["intent-run-bound"],
-  "warnings": [
-    "migrate-intents only archives legacy intents with no approved_run_id; run-scoped intents were left unchanged."
-  ],
+  "phantom_superseded_count": 1,
+  "phantom_superseded_intent_ids": ["intent-phantom"],
+  "scope": "legacy_and_phantom",
   "dry_run": false,
-  "message": "Archived 3 pre-BUG-34 intent(s)"
+  "message": "Archived 3 pre-BUG-34 intent(s); Superseded 1 phantom intent(s)"
 }
 ```
 
@@ -39,11 +38,14 @@ agentxchain migrate-intents [--json] [--dry-run]
 
 1. Find project root (`agentxchain.json`).
 2. Load governed state to get the current `run_id`. If no run exists, use `"manual-migration"` as the run ID for archival metadata.
-3. Scan `.agentxchain/intake/intents/` for intent files with `approved_run_id: null` (or absent) and dispatchable status (`planned` or `approved`), excluding `cross_run_durable` intents.
-4. Also scan for dispatchable intents that already have `approved_run_id` set. These run-scoped intents are explicitly out of scope for this command.
-5. In `--dry-run` mode, list the legacy null-scoped intents without modification and report any skipped run-scoped intents.
-6. In normal mode, call `migratePreBug34Intents()` from `intent-startup-migration.js` to archive only the legacy null-scoped intents with `status: "archived_migration"`.
-7. Print results, including an explicit boundary warning when run-scoped intents were skipped.
+3. Scan `.agentxchain/intake/intents/` for:
+   - **Legacy intents**: `approved_run_id: null`, dispatchable status, excluding `cross_run_durable`
+   - **Phantom intents**: `approved_run_id` set, dispatchable status, and planning artifacts already exist on disk
+4. In `--dry-run` mode, list both legacy and phantom intents without modification.
+5. In normal mode:
+   - Call `migratePreBug34Intents()` to archive legacy intents with `status: "archived_migration"`
+   - Call `supersedePhantomIntents()` to mark phantom intents with `status: "superseded"`
+6. Print results.
 
 ## Error Cases
 
