@@ -1,6 +1,6 @@
 # BUG-45: Retained-Turn Intent Reconciliation Spec
 
-**Status:** Implemented in progress
+**Status:** Shipped — implementation complete, with restart-path proof added; bug remains open pending tester verification
 **Bug:** Retained-turn acceptance uses stale embedded `intake_context.acceptance_contract` instead of reconciling against current intent state
 **Root cause:** `governed-state.js:3228` reads `currentTurn.intake_context` from state.json — a snapshot taken at dispatch time — never checking whether the intent has since been completed, satisfied, or had its contract updated.
 
@@ -66,6 +66,7 @@ Add `'HUMAN_TASKS.md'` to `ORCHESTRATOR_STATE_FILES` in `cli/src/lib/repo-observ
 4. `intake resolve --intent <id> --outcome completed` transitions executing intent to completed.
 5. Framework-generated `HUMAN_TASKS.md` edit does not cause "Undeclared file changes" in artifact observation.
 6. Exact tester scenario: retained turn `turn_1e8cabbfdda98f5d` shape, `accept-turn` succeeds after intent is resolved or after the live executing contract is updated to match the retained artifacts.
+7. `agentxchain restart` preserves the retained turn's `intake_context.intent_id`, and subsequent `accept-turn` still reconciles against the live intent contract instead of the embedded stale copy.
 
 ## Open Questions
 

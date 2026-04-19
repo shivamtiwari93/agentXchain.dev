@@ -28,6 +28,7 @@ import {
   initializeGovernedRun,
   normalizeGovernedStateShape,
 } from '../../src/lib/governed-state.js';
+import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
 import { getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
 import { resolveIntent } from '../../src/lib/intake.js';
 
@@ -159,6 +160,8 @@ describe('BUG-45: retained-turn acceptance reconciles against live intent state'
     });
     assert.ok(assign.ok, assign.error);
     const turnId = assign.turn.turn_id;
+    const dispatch = writeDispatchBundle(root, readState(root), config, { turnId });
+    assert.ok(dispatch.ok, dispatch.error);
 
     const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${INTENT_ID}.json`);
     const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
@@ -194,6 +197,73 @@ describe('BUG-45: retained-turn acceptance reconciles against live intent state'
       `accept-turn should reconcile against the live executing contract:\n${accept.stdout}\n${accept.stderr}`);
     assert.doesNotMatch(accept.stdout + accept.stderr, /stale embedded contract item/i,
       'acceptance must not enforce the stale embedded contract');
+  });
+
+  it('restart preserves retained-turn intent binding and acceptance still reconciles live contract', () => {
+    const { root, config, state } = createProject();
+    seedExecutingIntent(root, state.run_id);
+
+    const assign = assignGovernedTurn(root, config, 'pm', {
+      intakeContext: {
+        intent_id: INTENT_ID,
+        charter: 'live-site consolidation',
+        acceptance_contract: [
+          'stale embedded contract item that must not be re-enforced after restart',
+        ],
+        priority: 'p0',
+      },
+    });
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+    const dispatch = writeDispatchBundle(root, readState(root), config, { turnId });
+    assert.ok(dispatch.ok, dispatch.error);
+
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${INTENT_ID}.json`);
+    const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    intent.acceptance_contract = [
+      '.planning/IMPLEMENTATION_NOTES.md contains a literal ## Changes heading describing the consolidation work',
+    ];
+    intent.updated_at = '2026-04-19T01:45:00.000Z';
+    writeFileSync(intentPath, JSON.stringify(intent, null, 2));
+
+    const restart = spawnSync('node', [CLI_PATH, 'restart'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(restart.status, 0, `restart should reconnect to the retained turn:\n${restart.stdout}\n${restart.stderr}`);
+    assert.match(restart.stdout + restart.stderr, new RegExp(turnId), 'restart output should identify the retained turn');
+
+    const restartedState = readState(root);
+    const retainedTurn = restartedState.active_turns?.[turnId];
+    assert.ok(retainedTurn, 'restart must preserve the retained active turn');
+    assert.equal(retainedTurn.intake_context?.intent_id, INTENT_ID, 'restart must preserve intent binding on the retained turn');
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: state.run_id,
+      turn_id: turnId,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Implementation Notes still contains the literal ## Changes heading.',
+      decisions: [],
+      objections: [],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      verification: { status: 'pass' },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `accept-turn should still reconcile against the live contract after restart:\n${accept.stdout}\n${accept.stderr}`);
+    assert.doesNotMatch(accept.stdout + accept.stderr, /stale embedded contract item/i,
+      'restart must not cause acceptance to fall back to the embedded stale contract');
   });
 
   it('accept-turn succeeds when live intent is already completed (defect 1)', () => {
