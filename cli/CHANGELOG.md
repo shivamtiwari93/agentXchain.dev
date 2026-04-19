@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.137.0
+
+### Bug Fixes
+- **BUG-41**: Fixed migration guard in continuous startup — removed session-flag guard so `archiveStaleIntentsForRun()` always runs regardless of `startup_reconciled_run_id` state. Legacy intents are now archived before queue selection even when the session has been reconciled on prior invocations.
+
+### New Features
+- **`migrate-intents` command**: One-shot repair command (`agentxchain migrate-intents [--json] [--dry-run]`) to archive legacy intents with `approved_run_id: null`. Operator escape hatch for repos with stuck legacy intents.
+
+### Improvements
+- Added 11th discipline rule: tester-sequence tests must seed realistic accumulated state, not clean fixtures
+- `_helpers/legacy-intent-fixture.js` shared helper for reconciliation-class beta-tester scenarios
+- Allowed `_helpers/` subdirectory in `beta-tester-scenarios/` test directory
+
+### Evidence
+- 6,090 tests / 1,295 suites / 0 failures
+
 ## 2.136.1
 
 ### Workflow Kit Gate Coverage Truthfulness

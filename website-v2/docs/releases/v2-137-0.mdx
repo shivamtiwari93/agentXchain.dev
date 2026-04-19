@@ -1,0 +1,26 @@
+---
+sidebar_position: 0
+title: "v2.137.0 Release Notes"
+---
+
+# AgentXchain v2.137.0
+
+`v2.137.0` closes BUG-41 — the 6th false closure in this beta cycle — and adds the `migrate-intents` operator repair command.
+
+## Bug Fixes
+
+- **BUG-41 (REOPEN BUG-40)**: Continuous startup migration guard was too aggressive — removed session-flag guard so `archiveStaleIntentsForRun()` always runs regardless of `startup_reconciled_run_id` state. Legacy intents with `approved_run_id: null` are now archived before queue selection even when the session has been reconciled on prior invocations.
+
+## New Features
+
+- **`migrate-intents` command**: One-shot repair command for repos with stuck legacy intents. `agentxchain migrate-intents [--json] [--dry-run]` archives all pre-BUG-34 intents with `approved_run_id: null`. Safe to run multiple times — idempotent.
+
+## Improvements
+
+- Added 11th discipline rule: tester-sequence tests must seed realistic accumulated state (pre-existing session files, state.json, legacy intent files), not just clean fixtures
+- Shared `createLegacyRepoFixture()` helper for all reconciliation-class beta-tester scenarios
+- Production-shaped BUG-41 test seeds pre-existing session with `startup_reconciled_run_id` already set
+
+## Evidence
+
+- 6,090 tests / 1,295 suites / 0 failures

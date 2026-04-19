@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.136.1
+# Show HN Draft — AgentXchain v2.137.0
 
-> Ready-to-post draft. Updated 2026-04-18 for v2.136.1.
+> Ready-to-post draft. Updated 2026-04-18 for v2.137.0.
 
 ---
 
@@ -49,7 +49,7 @@ The point is not “more agents.” The point is better convergence: disagreemen
 
 Latest shipped operator slice: `v2.134.0` adds offline full-text docs search with a hashed static index, closes the last usability gap in the docs-stack evaluation, and turns the Docusaurus docs-system decision into an executable contract test instead of a planning-only claim.
 
-- 6,085 tests / 1,293 suites / 0 failures. Website build clean.
+- 6,090 tests / 1,295 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.
