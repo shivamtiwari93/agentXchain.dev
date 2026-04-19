@@ -214,6 +214,22 @@ describe('release planning surface classification', () => {
     });
   }
 
+  const bugReleaseDocsMustSayOpenInIntro = [
+    { file: 'website-v2/docs/releases/v2-139-0.mdx', bug: 'BUG-44' },
+    { file: 'website-v2/docs/releases/v2-140-0.mdx', bug: 'BUG-45' },
+    { file: 'website-v2/docs/releases/v2-141-1.mdx', bug: 'BUG-46' },
+    { file: 'website-v2/docs/releases/v2-142-0.mdx', bug: 'BUG-46 hardening' },
+    { file: 'website-v2/docs/releases/v2-143-0.mdx', bug: 'BUG-44/45/46 status carry-forward' },
+  ];
+
+  for (const { file, bug } of bugReleaseDocsMustSayOpenInIntro) {
+    it(`${file.split('/').pop()} intro keeps ${bug} open pending tester verification`, () => {
+      const intro = read(file).split('\n## ')[0];
+      assert.match(intro, /tester verification|pending.*rule.*#?12/i,
+        `${bug} release-note intro must include the tester-verification caveat because Docusaurus uses the intro paragraph for description metadata`);
+    });
+  }
+
   it('historical release notes do not present the live quickstart alias as a frozen historical route', () => {
     const spec = read('.planning/HISTORICAL_QUICKSTART_LINK_TRUTH_SPEC.md');
     const release213 = read('website-v2/docs/releases/v2-13-0.mdx');
