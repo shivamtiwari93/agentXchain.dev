@@ -24,6 +24,7 @@ export const VALID_RUN_EVENTS = [
   'conflict_resolved',
   'acceptance_failed',
   'turn_reissued',
+  'turn_stalled',
   'turn_checkpointed',
   'coordinator_retry',
   'coordinator_retry_projection_warning',

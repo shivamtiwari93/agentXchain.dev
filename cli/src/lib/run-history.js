@@ -92,6 +92,7 @@ export function recordRunHistory(root, state, config, status) {
       connector_used: connectorUsed,
       model_used: modelUsed,
       provenance: normalizeRunProvenance(state?.provenance),
+      parent_context: buildParentContextSummary(state),
       retrospective: buildRunRetrospective({
         state,
         config,
@@ -323,6 +324,18 @@ function buildRecentAcceptedTurnSnapshot(entries) {
       summary: entry.summary || null,
       phase: entry.phase || null,
     }));
+}
+
+function buildParentContextSummary(state) {
+  const parentRunId = state?.provenance?.parent_run_id || state?.inherited_context?.parent_run_id || null;
+  if (!parentRunId) return null;
+
+  return {
+    parent_run_id: parentRunId,
+    parent_status: state?.inherited_context?.parent_status || null,
+    parent_completed_at: state?.inherited_context?.parent_completed_at || null,
+    inherited_at: state?.inherited_context?.inherited_at || null,
+  };
 }
 
 function buildRunRetrospective({ state, config, status, historyEntries }) {

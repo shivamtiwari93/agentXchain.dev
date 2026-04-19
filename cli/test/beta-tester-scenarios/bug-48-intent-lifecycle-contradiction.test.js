@@ -22,14 +22,11 @@ import { tmpdir } from 'node:os';
 
 import {
   initializeGovernedRun,
-  assignGovernedTurn,
-  acceptGovernedTurn,
 } from '../../src/lib/governed-state.js';
-import { getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
 import {
-  readPreemptionMarker,
   validatePreemptionMarker,
   clearPreemptionMarkerForIntent,
+  triageIntent,
 } from '../../src/lib/intake.js';
 import { safeWriteJson } from '../../src/lib/safe-write.js';
 
@@ -205,5 +202,56 @@ describe('BUG-48: injected intent lifecycle contradiction', () => {
     assert.ok(result, 'Marker should be preserved for actionable intent');
     assert.equal(result.intent_id, INTENT_ID);
     assert.ok(existsSync(markerPath), 'Marker file should still exist');
+  });
+
+  it('triage reject clears a stale marker immediately at the writer', () => {
+    const { root } = createProject();
+
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${INTENT_ID}.json`);
+    safeWriteJson(intentPath, {
+      schema_version: '1.0',
+      intent_id: INTENT_ID,
+      event_id: EVENT_ID,
+      status: 'triaged',
+      history: [],
+    });
+
+    const markerPath = join(root, '.agentxchain', 'intake', 'injected-priority.json');
+    safeWriteJson(markerPath, {
+      intent_id: INTENT_ID,
+      priority: 'p0',
+      description: 'reject-me',
+      injected_at: new Date().toISOString(),
+    });
+
+    const rejected = triageIntent(root, INTENT_ID, { reject: true, reason: 'not needed' });
+    assert.ok(rejected.ok, rejected.error);
+    assert.equal(rejected.intent.status, 'rejected');
+    assert.ok(!existsSync(markerPath), 'reject transition must clear the marker');
+  });
+
+  it('validatePreemptionMarker auto-clears archived_migration marker', () => {
+    const { root } = createProject();
+
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${INTENT_ID}.json`);
+    safeWriteJson(intentPath, {
+      schema_version: '1.0',
+      intent_id: INTENT_ID,
+      event_id: EVENT_ID,
+      status: 'archived_migration',
+      history: [],
+    });
+
+    const markerPath = join(root, '.agentxchain', 'intake', 'injected-priority.json');
+    safeWriteJson(markerPath, {
+      intent_id: INTENT_ID,
+      priority: 'p0',
+      description: 'migration-stale',
+      injected_at: new Date().toISOString(),
+    });
+
+    const validated = validatePreemptionMarker(root);
+    assert.equal(validated, null);
+    assert.ok(!existsSync(markerPath));
   });
 });

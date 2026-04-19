@@ -412,6 +412,7 @@ export function triageIntent(root, intentId, fields) {
     intent.updated_at = now;
     intent.history.push({ from: 'detected', to: 'suppressed', at: now, reason: fields.reason });
     safeWriteJson(intentPath, intent);
+    clearPreemptionMarkerForIntent(root, intentId);
     return { ok: true, intent, exitCode: 0 };
   }
 
@@ -428,6 +429,7 @@ export function triageIntent(root, intentId, fields) {
     intent.updated_at = now;
     intent.history.push({ from: 'triaged', to: 'rejected', at: now, reason: fields.reason });
     safeWriteJson(intentPath, intent);
+    clearPreemptionMarkerForIntent(root, intentId);
     return { ok: true, intent, exitCode: 0 };
   }
 
@@ -1789,9 +1791,7 @@ export function clearPreemptionMarkerForIntent(root, intentId) {
  * archived_migration), auto-clear the marker and return null.
  * Otherwise return the marker as-is.
  */
-const NON_ACTIONABLE_STATUSES = new Set([
-  'superseded', 'satisfied', 'completed', 'rejected', 'suppressed', 'failed', 'archived_migration',
-]);
+const PREEMPTION_ACTIONABLE_STATUSES = new Set(['approved', 'planned']);
 
 export function validatePreemptionMarker(root) {
   const marker = readPreemptionMarker(root);
@@ -1804,7 +1804,7 @@ export function validatePreemptionMarker(root) {
     return null;
   }
 
-  if (NON_ACTIONABLE_STATUSES.has(loaded.intent?.status)) {
+  if (!PREEMPTION_ACTIONABLE_STATUSES.has(loaded.intent?.status)) {
     clearPreemptionMarker(root);
     return null;
   }

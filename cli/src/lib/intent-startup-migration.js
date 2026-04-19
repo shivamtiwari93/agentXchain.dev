@@ -146,6 +146,7 @@ export function migratePreBug34Intents(root, runId, options = {}) {
       reason: intent.archived_reason,
     });
     safeWriteJson(intentPath, intent);
+    clearPreemptionMarkerIfMatchesIntent(root, intent.intent_id);
     if (intent.intent_id) archivedMigrationIntentIds.push(intent.intent_id);
   }
 

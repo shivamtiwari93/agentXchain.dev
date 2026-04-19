@@ -89,6 +89,29 @@ afterEach(() => {
 });
 
 describe('BUG-49: accepted_integration_ref updated on checkpoint', () => {
+  it('continuation run seeds accepted_integration_ref from current HEAD at initialization', () => {
+    const { root, config } = createProject();
+
+    const parentHead = execSync('git rev-parse HEAD', { cwd: root, encoding: 'utf8' }).trim();
+
+    const rawStatePath = join(root, '.agentxchain', 'state.json');
+    const rawState = JSON.parse(readFileSync(rawStatePath, 'utf8'));
+    rawState.status = 'completed';
+    rawState.completed_at = new Date().toISOString();
+    writeFileSync(rawStatePath, JSON.stringify(rawState, null, 2));
+
+    const child = initializeGovernedRun(root, config, {
+      allow_terminal_restart: true,
+      provenance: {
+        trigger: 'continuation',
+        parent_run_id: 'run_parent_abcdef12',
+        created_by: 'operator',
+      },
+    });
+    assert.ok(child.ok, child.error);
+    assert.equal(child.state.accepted_integration_ref, `git:${parentHead}`);
+  });
+
   it('checkpoint updates accepted_integration_ref to the new checkpoint SHA', () => {
     const { root, config, state } = createProject();
 

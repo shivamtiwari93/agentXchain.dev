@@ -14,6 +14,9 @@ Current focus: **4 state-consistency bugs on v2.144.0 (BUG-47..50).** BUG-44/45/
 ## Priority Queue
 
 - [ ] **BUG-47: Dead-turn watchdog missing — stale "running" turns require manual `reissue-turn`** — Verified: zero matches in `cli/src/lib/` for `stale.running`, `dead.turn`, `turn.watchdog`, or `idle_threshold`. No self-recovery logic exists. Tester's launch `product_marketing` turn `turn_88e2912c9b724d66` stayed `running` for **15+ minutes** with no staged result and no events. Had to manually run `restart` → `reissue-turn` → `step --resume`.
+  - [x] 2026-04-19 implementation shipped: added lazy stale-turn reconciliation in `status`, `resume`, and `step --resume`; stale turns now transition to retained `stalled`, emit `turn_stalled`, block the run, and surface explicit `reissue-turn --reason stale` recovery.
+  - [x] 2026-04-19 regression proof shipped: `cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js` now covers status JSON reconciliation, unrelated-event isolation, and the operator-facing `resume` / `step --resume` stale recovery path.
+  - [ ] Tester verification on `v2.145.0` still required before closure per rule #12.
   - **Fix requirements:**
     - Add idle-threshold detection: if an active turn has `status: "running"` for >N seconds with no event log activity AND no staged result file, emit `turn_stalled` event and transition to `needs_attention` or similar recoverable state.
     - Default threshold: 10 minutes for `local_cli` turns, 5 minutes for `api_proxy` turns. Configurable via `run_loop.stale_turn_threshold_ms`.
@@ -22,6 +25,9 @@ Current focus: **4 state-consistency bugs on v2.144.0 (BUG-47..50).** BUG-44/45/
   - **Acceptance:** a turn running >threshold with no output gets surfaced automatically; operator never has to manually diagnose the stuck state.
 
 - [ ] **BUG-48: Injected intent lifecycle contradiction — intent marked `superseded` in JSON but still shown as `Priority injection pending` in status AND still drives orchestration** — Three surfaces disagree. Verified at `cli/src/lib/intake.js:1741` — `PREEMPTION_MARKER_PATH = '.agentxchain/intake/injected-priority.json'` has only one declaration site and no code path clears or invalidates it when the referenced intent is superseded. Result: intent JSON says `superseded` with reason "planning artifacts for this intent already exist on disk", but `injected-priority.json` still points at that intent_id, so `status` shows it as pending preemption.
+  - [x] 2026-04-19 implementation shipped: preemption markers are now valid only for actionable `approved` / `planned` intents; reject/suppress/archived-migration writers clear stale markers immediately, and defensive reads auto-clear stale markers before status or orchestration can honor them.
+  - [x] 2026-04-19 regression proof shipped: `cli/test/beta-tester-scenarios/bug-48-intent-lifecycle-contradiction.test.js` now covers stale superseded markers, reject-path cleanup, and archived-migration cleanup.
+  - [ ] Tester verification on `v2.145.0` still required before closure per rule #12.
   - **Tester's evidence:**
     - Intent `intent_1776631311439_ca68` JSON: `"status": "superseded"`, `"archived_reason": "planning artifacts for this intent already exist on disk; intent superseded during approval"`
     - `agentxchain status` output: `⚡ Priority injection pending. Intent: intent_1776631311439_ca68. Priority: p0...`
@@ -34,6 +40,9 @@ Current focus: **4 state-consistency bugs on v2.144.0 (BUG-47..50).** BUG-44/45/
   - **Acceptance:** intent JSON status, `injected-priority.json` marker, `status` output, and orchestration behavior all agree on whether an intent is pending.
 
 - [ ] **BUG-49: `accepted_integration_ref` not updated on checkpoint in fresh runs — drift falsely reported immediately after a clean checkpoint** — Verified gap. Zero matches for `accepted_integration_ref.*checkpoint`, `updateAcceptedRef`, or `setAcceptedIntegrationRef` in `cli/src/lib/`. The checkpoint flow doesn't advance the run's baseline integration ref. Tester's fresh run `run_7c529def79b94f51` accepted and checkpointed first PM turn at SHA `c927214e...`, but `status` still reported `Accepted: git:f77731523f...` (previous run's checkpoint) and `Drift: f7773152 -> c927214e` — immediately after a clean checkpoint.
+  - [x] 2026-04-19 implementation shipped: continuation/recovery runs now seed `accepted_integration_ref` from current HEAD at run init, and checkpoint success advances the run baseline to the new checkpoint SHA.
+  - [x] 2026-04-19 regression proof shipped: `cli/test/beta-tester-scenarios/bug-49-checkpoint-ref-update.test.js` now covers continuation baseline seeding plus post-checkpoint ref advancement.
+  - [ ] Tester verification on `v2.145.0` still required before closure per rule #12.
   - **Fix requirements:**
     - `checkpoint-turn` / `accept-turn --checkpoint` must set `state.accepted_integration_ref` to the new checkpoint SHA on success.
     - If the run is `run-chained` (continued from a parent run), the fresh run's initial `accepted_integration_ref` should be set to the parent run's final checkpoint at run-init, not left pointing into the parent's state as an authoritative baseline. Then checkpoint updates from that inherited starting point.
@@ -42,6 +51,9 @@ Current focus: **4 state-consistency bugs on v2.144.0 (BUG-47..50).** BUG-44/45/
   - **Acceptance:** fresh run's accepted integration ref updates on checkpoint; no false drift immediately after.
 
 - [ ] **BUG-50: `run-history.jsonl` contamination — fresh run's record inherits `phases_completed` and `total_turns` from parent run** — Verified via inspection of `run-history.js` + `run-context-inheritance.js:21`. Run chaining inheritance logic may be copying aggregates inappropriately. Tester's fresh run `run_7c529def79b94f51` (one PM turn, blocked in planning) has internally contradictory history record:
+  - [x] 2026-04-19 implementation shipped: run-history counters remain current-run-only, while inherited continuity metadata is preserved separately under `parent_context`.
+  - [x] 2026-04-19 regression proof shipped: `cli/test/beta-tester-scenarios/bug-50-run-history-contamination.test.js` now asserts isolated counters plus separate parent metadata.
+  - [ ] Tester verification on `v2.145.0` still required before closure per rule #12.
   - `"phases_completed": ["planning","implementation","qa","launch"]` — claims all 4 phases done
   - `"total_turns": 70` — not plausible for a fresh run with one turn
   - `"gate_results": {"planning_signoff": "pending", "implementation_complete": "pending", ...}` — all gates still pending

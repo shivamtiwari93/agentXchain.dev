@@ -70,6 +70,7 @@ import { resolveGovernedRole } from '../lib/role-resolution.js';
 import { shouldSuggestManualQaFallback } from '../lib/manual-qa-fallback.js';
 import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
+import { reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -91,6 +92,13 @@ export async function stepCommand(opts) {
   let state = loadProjectState(root, config);
   if (!state) {
     console.log(chalk.red('No governed state.json found. Run `agentxchain init --governed` first.'));
+    process.exit(1);
+  }
+
+  const staleReconciliation = reconcileStaleTurns(root, state, config);
+  state = staleReconciliation.state || state;
+  if (staleReconciliation.stale_turns.length > 0) {
+    printStaleTurnRecovery(staleReconciliation.stale_turns);
     process.exit(1);
   }
 
@@ -898,6 +906,19 @@ export async function stepCommand(opts) {
       console.log(chalk.dim('  - Auto-reject on failure: agentxchain step --auto-reject'));
       process.exit(1);
     }
+  }
+}
+
+function printStaleTurnRecovery(staleTurns) {
+  console.log(chalk.red.bold('Stale turn detected.'));
+  console.log('');
+  for (const stale of staleTurns) {
+    const mins = Math.floor(stale.running_ms / 60000);
+    console.log(`  Turn:    ${stale.turn_id} (${stale.role})`);
+    console.log(`  Runtime: ${stale.runtime_id}`);
+    console.log(`  Age:     ${mins}m with no output`);
+    console.log(`  Recover: ${chalk.cyan(`agentxchain reissue-turn --turn ${stale.turn_id} --reason stale`)}`);
+    console.log('');
   }
 }
 

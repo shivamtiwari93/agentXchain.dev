@@ -53,6 +53,7 @@ function describeEvent(eventType, entry) {
       return `${prefix}${eventType}${wsIdWarn ? ` ${wsIdWarn}` : ''}${warnRepo ? ` (${warnRepo})` : ''} — reconciliation required`;
     }
     case 'turn_checkpointed':
+    case 'turn_stalled':
       return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
     case 'dispatch_progress':
       return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;

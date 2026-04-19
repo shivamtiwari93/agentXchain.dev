@@ -289,7 +289,7 @@ describe('CLI governance docs contract — events observability', () => {
   it('documents the full governed event set including coordinator retry visibility', () => {
     assert.match(
       docs,
-      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `conflict_resolved`, `acceptance_failed`, `turn_reissued`, `turn_checkpointed`, `coordinator_retry`, `coordinator_retry_projection_warning`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`, `human_escalation_raised`, `human_escalation_resolved`, `dispatch_progress`/,
+      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `conflict_resolved`, `acceptance_failed`, `turn_reissued`, `turn_stalled`, `turn_checkpointed`, `coordinator_retry`, `coordinator_retry_projection_warning`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`, `human_escalation_raised`, `human_escalation_resolved`, `dispatch_progress`/,
     );
   });
 

@@ -14,12 +14,16 @@
  *   - Configurable via run_loop.stale_turn_threshold_ms in agentxchain.json
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { emitRunEvent } from './run-events.js';
+import { safeWriteJson } from './safe-write.js';
+import { emitRunEvent, readRunEvents } from './run-events.js';
+import { getTurnStagingResultPath } from './turn-paths.js';
+import { getDispatchProgressRelativePath } from './dispatch-progress.js';
 
 const DEFAULT_LOCAL_CLI_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 const DEFAULT_API_PROXY_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
+const LEGACY_STAGING_PATH = '.agentxchain/staging/turn-result.json';
 
 /**
  * Check all active turns for stale "running" status.
@@ -46,14 +50,9 @@ export function detectStaleTurns(root, state, config) {
 
     if (runningMs < threshold) continue;
 
-    // Check if there is a staged result file — if so, the turn has
-    // finished but acceptance hasn't happened yet. Not stale.
-    const stagingPath = join(root, '.agentxchain', 'staging', 'turn-result.json');
-    if (existsSync(stagingPath)) continue;
+    if (hasTurnScopedStagedResult(root, turnId)) continue;
 
-    // Check for recent dispatch progress — if a dispatch-progress file
-    // exists with recent activity, the turn is still active.
-    const progressPath = join(root, '.agentxchain', 'dispatch-progress', `${turnId}.json`);
+    const progressPath = join(root, getDispatchProgressRelativePath(turnId));
     if (existsSync(progressPath)) {
       try {
         const progress = JSON.parse(readFileSync(progressPath, 'utf8'));
@@ -67,9 +66,7 @@ export function detectStaleTurns(root, state, config) {
       }
     }
 
-    // Check for recent events in events.jsonl — if there are events more
-    // recent than the threshold, the turn is still producing output.
-    if (hasRecentEventActivity(root, threshold, now)) continue;
+    if (hasRecentTurnEventActivity(root, turnId, startedAt, threshold, now)) continue;
 
     const runningMinutes = Math.floor(runningMs / 60000);
     stale.push({
@@ -91,13 +88,45 @@ export function detectStaleTurns(root, state, config) {
  * Returns the stale turn list for caller display.
  */
 export function detectAndEmitStaleTurns(root, state, config) {
+  return reconcileStaleTurns(root, state, config).stale_turns;
+}
+
+// ── Internal ────────────────────────────────────────────────────────────────
+
+export function reconcileStaleTurns(root, state, config) {
+  if (!state || typeof state !== 'object') {
+    return { stale_turns: [], state, changed: false };
+  }
+
   const stale = detectStaleTurns(root, state, config);
+  if (stale.length === 0) {
+    return { stale_turns: [], state, changed: false };
+  }
+
+  const nowIso = new Date().toISOString();
+  const activeTurns = { ...(state.active_turns || {}) };
+  let changed = false;
 
   for (const entry of stale) {
+    const turn = activeTurns[entry.turn_id];
+    if (!turn || (turn.status !== 'running' && turn.status !== 'retrying')) continue;
+
+    activeTurns[entry.turn_id] = {
+      ...turn,
+      status: 'stalled',
+      stalled_at: nowIso,
+      stalled_reason: 'no_output_within_threshold',
+      stalled_previous_status: turn.status,
+      stalled_threshold_ms: entry.threshold_ms,
+      stalled_running_ms: entry.running_ms,
+      recovery_command: `agentxchain reissue-turn --turn ${entry.turn_id} --reason stale`,
+    };
+    changed = true;
+
     emitRunEvent(root, 'turn_stalled', {
       run_id: state?.run_id || null,
       phase: state?.phase || null,
-      status: state?.status || null,
+      status: 'blocked',
       turn: { turn_id: entry.turn_id, role_id: entry.role },
       payload: {
         running_ms: entry.running_ms,
@@ -108,10 +137,43 @@ export function detectAndEmitStaleTurns(root, state, config) {
     });
   }
 
-  return stale;
-}
+  if (!changed) {
+    return { stale_turns: stale, state, changed: false };
+  }
 
-// ── Internal ────────────────────────────────────────────────────────────────
+  const primary = stale[0];
+  const nextState = {
+    ...state,
+    status: 'blocked',
+    active_turns: activeTurns,
+    blocked_on: stale.length === 1 ? `turn:stalled:${primary.turn_id}` : 'turns:stalled',
+    blocked_reason: {
+      category: 'stale_turn',
+      blocked_at: nowIso,
+      turn_id: primary.turn_id,
+      recovery: {
+        typed_reason: 'stale_turn',
+        owner: 'human',
+        recovery_action: primary.recommendation,
+        turn_retained: true,
+        detail: primary.recommendation,
+      },
+    },
+  };
+
+  safeWriteJson(join(root, '.agentxchain', 'state.json'), nextState);
+  emitRunEvent(root, 'run_blocked', {
+    run_id: nextState.run_id || null,
+    phase: nextState.phase || null,
+    status: 'blocked',
+    turn: { turn_id: primary.turn_id, role_id: primary.role },
+    payload: {
+      category: 'stale_turn',
+      stalled_turn_ids: stale.map((entry) => entry.turn_id),
+    },
+  });
+  return { stale_turns: stale, state: nextState, changed: true };
+}
 
 function resolveThreshold(turn, config) {
   // Config override takes precedence
@@ -132,20 +194,41 @@ function resolveThreshold(turn, config) {
   return DEFAULT_LOCAL_CLI_THRESHOLD_MS;
 }
 
-function hasRecentEventActivity(root, threshold, now) {
-  const eventsPath = join(root, '.agentxchain', 'events.jsonl');
-  if (!existsSync(eventsPath)) return false;
-
+function hasRecentTurnEventActivity(root, turnId, startedAt, threshold, now) {
   try {
-    // Check file mtime first as a fast path
-    const stat = statSync(eventsPath);
-    const mtime = stat.mtimeMs;
-    if ((now - mtime) < threshold) {
-      return true;
+    const events = readRunEvents(root, { limit: 200 });
+    for (let i = events.length - 1; i >= 0; i--) {
+      const event = events[i];
+      if (event?.turn?.turn_id !== turnId) continue;
+      if (event.event_type === 'turn_stalled') continue;
+      const timestamp = Date.parse(event.timestamp || '');
+      if (!Number.isFinite(timestamp)) continue;
+      if (timestamp < startedAt) continue;
+      if ((now - timestamp) < threshold) {
+        return true;
+      }
     }
   } catch {
-    // ignore
+    return false;
+  }
+  return false;
+}
+
+function hasTurnScopedStagedResult(root, turnId) {
+  const turnScopedPath = join(root, getTurnStagingResultPath(turnId));
+  if (existsSync(turnScopedPath)) {
+    return true;
   }
 
-  return false;
+  const legacyPath = join(root, LEGACY_STAGING_PATH);
+  if (!existsSync(legacyPath)) {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(legacyPath, 'utf8'));
+    return parsed?.turn_id === turnId;
+  } catch {
+    return false;
+  }
 }

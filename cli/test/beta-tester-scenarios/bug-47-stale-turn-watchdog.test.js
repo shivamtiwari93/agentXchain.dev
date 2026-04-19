@@ -10,7 +10,7 @@
 
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -20,7 +20,6 @@ import {
   assignGovernedTurn,
 } from '../../src/lib/governed-state.js';
 import { detectStaleTurns } from '../../src/lib/stale-turn-watchdog.js';
-import { utimesSync } from 'node:fs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
@@ -69,6 +68,26 @@ function createProject() {
   return { root, config, state: init.state };
 }
 
+function backdateTurnEvents(root, turnId, minutesAgo = 20) {
+  const eventsPath = join(root, '.agentxchain', 'events.jsonl');
+  if (!existsSync(eventsPath)) return;
+
+  const backdated = new Date(Date.now() - minutesAgo * 60 * 1000).toISOString();
+  const rewritten = readFileSync(eventsPath, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const parsed = JSON.parse(line);
+      if (parsed?.turn?.turn_id === turnId) {
+        parsed.timestamp = backdated;
+      }
+      return JSON.stringify(parsed);
+    })
+    .join('\n');
+
+  writeFileSync(eventsPath, rewritten ? `${rewritten}\n` : '');
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop(), { recursive: true, force: true });
@@ -90,12 +109,7 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     stateData.active_turns[turnId].started_at = fifteenMinAgo;
     writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
 
-    // Backdate events.jsonl so file mtime doesn't mask staleness
-    const eventsPath = join(root, '.agentxchain', 'events.jsonl');
-    if (existsSync(eventsPath)) {
-      const oldTime = new Date(Date.now() - 20 * 60 * 1000);
-      utimesSync(eventsPath, oldTime, oldTime);
-    }
+    backdateTurnEvents(root, turnId);
 
     // Run detectStaleTurns — should find the stale turn
     const staleTurns = detectStaleTurns(root, stateData, config);
@@ -136,12 +150,7 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     stateData.active_turns[turnId].started_at = fifteenMinAgo;
     writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
 
-    // Backdate events.jsonl
-    const eventsPath2 = join(root, '.agentxchain', 'events.jsonl');
-    if (existsSync(eventsPath2)) {
-      const oldTime = new Date(Date.now() - 20 * 60 * 1000);
-      utimesSync(eventsPath2, oldTime, oldTime);
-    }
+    backdateTurnEvents(root, turnId);
 
     // Run CLI status --json
     const result = execSync(`node "${CLI_PATH}" status --json`, {
@@ -153,6 +162,79 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     assert.ok(Array.isArray(json.stale_turns), 'Expected stale_turns array in status JSON');
     assert.equal(json.stale_turns.length, 1, 'Expected one stale turn in status JSON');
     assert.equal(json.stale_turns[0].turn_id, turnId);
+    assert.equal(json.state.status, 'blocked', 'status must reflect the reconciled blocked state');
+    assert.equal(json.state.active_turns[turnId].status, 'stalled', 'active turn must be marked stalled after reconciliation');
+  });
+
+  it('does not let unrelated recent events mask a stale turn', () => {
+    const { root, config } = createProject();
+
+    const first = assignGovernedTurn(root, config, 'product_marketing');
+    assert.ok(first.ok, first.error);
+    const staleTurnId = first.turn.turn_id;
+
+    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    stateData.active_turns[staleTurnId].started_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+
+    const eventsPath = join(root, '.agentxchain', 'events.jsonl');
+    backdateTurnEvents(root, staleTurnId);
+    writeFileSync(eventsPath, `${JSON.stringify({
+      event_id: 'evt_bug47_unrelated',
+      event_type: 'dispatch_progress',
+      timestamp: new Date().toISOString(),
+      run_id: stateData.run_id,
+      phase: stateData.phase,
+      status: stateData.status,
+      turn: { turn_id: 'turn_unrelated_progress', role_id: 'product_marketing' },
+      payload: { lines: 1 },
+    })}\n`, { flag: 'a' });
+
+    const staleTurns = detectStaleTurns(root, stateData, config);
+    assert.equal(staleTurns.length, 1);
+    assert.equal(staleTurns[0].turn_id, staleTurnId);
+  });
+
+  it('resume surfaces stale-turn recovery instead of generic active-turn guidance', () => {
+    const { root, config } = createProject();
+    const assign = assignGovernedTurn(root, config, 'product_marketing');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    stateData.active_turns[turnId].started_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+
+    backdateTurnEvents(root, turnId);
+
+    const result = spawnSync('node', [CLI_PATH, 'resume'], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout + result.stderr, /stale turn detected/i);
+    assert.match(result.stdout + result.stderr, /reissue-turn --turn .* --reason stale/i);
+  });
+
+  it('step --resume surfaces stale-turn recovery instead of redispatching', () => {
+    const { root, config } = createProject();
+    const assign = assignGovernedTurn(root, config, 'product_marketing');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    stateData.active_turns[turnId].started_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+
+    backdateTurnEvents(root, turnId);
+
+    const result = spawnSync('node', [CLI_PATH, 'step', '--resume'], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout + result.stderr, /stale turn detected/i);
+    assert.match(result.stdout + result.stderr, /reissue-turn --turn .* --reason stale/i);
   });
 
   it('respects configurable stale_turn_threshold_ms', () => {
@@ -168,12 +250,7 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     stateData.active_turns[turnId].started_at = twoMinAgo;
     writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
 
-    // Backdate events.jsonl
-    const eventsPath3 = join(root, '.agentxchain', 'events.jsonl');
-    if (existsSync(eventsPath3)) {
-      const oldTime = new Date(Date.now() - 5 * 60 * 1000);
-      utimesSync(eventsPath3, oldTime, oldTime);
-    }
+    backdateTurnEvents(root, turnId, 5);
 
     // With 1 minute threshold, this should be stale
     const lowConfig = { ...config, run_loop: { stale_turn_threshold_ms: 60000 } };

@@ -40,6 +40,7 @@ import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { runHooks } from '../lib/hook-runner.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
+import { reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
 
 export async function resumeCommand(opts) {
   const context = loadProjectContext();
@@ -72,6 +73,13 @@ export async function resumeCommand(opts) {
       parseError = `Failed to parse state.json: ${err.message}`;
     }
     console.log(chalk.red(parseError));
+    process.exit(1);
+  }
+
+  const staleReconciliation = reconcileStaleTurns(root, state, config);
+  state = staleReconciliation.state || state;
+  if (staleReconciliation.stale_turns.length > 0) {
+    printStaleTurnRecovery(staleReconciliation.stale_turns);
     process.exit(1);
   }
 
@@ -349,6 +357,19 @@ export async function resumeCommand(opts) {
   }
 
   printDispatchSummary(state, config);
+}
+
+function printStaleTurnRecovery(staleTurns) {
+  console.log(chalk.red.bold('Stale turn detected.'));
+  console.log('');
+  for (const stale of staleTurns) {
+    const mins = Math.floor(stale.running_ms / 60000);
+    console.log(`  Turn:    ${stale.turn_id} (${stale.role})`);
+    console.log(`  Runtime: ${stale.runtime_id}`);
+    console.log(`  Age:     ${mins}m with no output`);
+    console.log(`  Recover: ${chalk.cyan(`agentxchain reissue-turn --turn ${stale.turn_id} --reason stale`)}`);
+    console.log('');
+  }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

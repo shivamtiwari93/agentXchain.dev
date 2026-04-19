@@ -103,6 +103,11 @@ describe('BUG-50: run-history.jsonl contamination — fresh run isolation', () =
         trigger: 'manual',
         parent_run_id: parentRunId,
       },
+      inherited_context: {
+        parent_run_id: parentRunId,
+        parent_status: 'completed',
+        inherited_at: '2026-04-19T00:00:00.000Z',
+      },
     };
 
     const childConfig = {
@@ -132,6 +137,8 @@ describe('BUG-50: run-history.jsonl contamination — fresh run isolation', () =
       'Should NOT include parent qa phase');
     assert.ok(!entry.phases_completed.includes('launch'),
       'Should NOT include parent launch phase');
+    assert.equal(entry.parent_context.parent_run_id, parentRunId);
+    assert.equal(entry.parent_context.parent_status, 'completed');
   });
 
   it('parent run record still includes all its own turns', () => {

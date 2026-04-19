@@ -25,7 +25,7 @@ import { readPreemptionMarker, validatePreemptionMarker, findPendingApprovedInte
 import { readContinuousSession } from '../lib/continuous-run.js';
 import { readAllDispatchProgress } from '../lib/dispatch-progress.js';
 import { readCoordinatorWarnings } from '../lib/coordinator-warnings.js';
-import { detectAndEmitStaleTurns } from '../lib/stale-turn-watchdog.js';
+import { reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
 
 export async function statusCommand(opts) {
   const context = loadStatusContext();
@@ -135,7 +135,7 @@ function loadStatusContext(dir = process.cwd()) {
 
 function renderGovernedStatus(context, opts) {
   const { root, config, version } = context;
-  const state = loadProjectState(root, config);
+  let state = loadProjectState(root, config);
   const stateRunId = state?.run_id || readRawStateRunId(root, config);
   const continuity = getContinuityStatus(root, state);
   const connectorHealth = getConnectorHealth(root, config, state);
@@ -167,7 +167,9 @@ function renderGovernedStatus(context, opts) {
   const coordinatorWarnings = readCoordinatorWarnings(root, { runId: stateRunId || null });
 
   // BUG-47: detect stale running turns and emit turn_stalled events
-  const staleTurns = detectAndEmitStaleTurns(root, state, config);
+  const staleReconciliation = reconcileStaleTurns(root, state, config);
+  state = staleReconciliation.state || state;
+  const staleTurns = staleReconciliation.stale_turns;
 
   if (opts.json) {
     const dashPid = getDashboardPid(root);

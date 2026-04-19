@@ -2377,6 +2377,13 @@ export function initializeGovernedRun(root, config, options = {}) {
     repo_decisions: repoDecisions.length > 0 ? repoDecisions : null,
   };
 
+  if ((provenance?.trigger === 'continuation' || provenance?.trigger === 'recovery') && !updatedState.accepted_integration_ref) {
+    const baseline = captureBaseline(root);
+    if (baseline?.head_ref) {
+      updatedState.accepted_integration_ref = `git:${baseline.head_ref}`;
+    }
+  }
+
   writeState(root, updatedState);
 
   const startupIntents = archiveStaleIntentsForRun(root, runId, {
