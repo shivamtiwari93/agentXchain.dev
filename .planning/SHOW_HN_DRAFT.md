@@ -49,7 +49,7 @@ The point is not “more agents.” The point is better convergence: disagreemen
 
 Latest shipped operator slice: `v2.134.0` adds offline full-text docs search with a hashed static index, closes the last usability gap in the docs-stack evaluation, and turns the Docusaurus docs-system decision into an executable contract test instead of a planning-only claim.
 
-- 6,106 tests / 1,299 suites / 0 failures
+- 6,114 tests / 1,302 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.
