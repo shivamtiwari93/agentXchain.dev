@@ -42,12 +42,10 @@ function updateSidebarPosition(content, nextPosition) {
   const body = content.slice(frontmatterEnd + 5);
   const expectedLine = `sidebar_position: ${nextPosition}`;
 
-  let updatedFrontmatter;
-  if (/^sidebar_position:\s*\d+\s*$/m.test(frontmatter)) {
-    updatedFrontmatter = frontmatter.replace(/^sidebar_position:\s*\d+\s*$/m, expectedLine);
-  } else {
-    updatedFrontmatter = frontmatter.replace(/^---\n/, `---\n${expectedLine}\n`);
-  }
+  // Strip ALL existing sidebar_position lines (handles duplicates from manual edits)
+  let strippedFrontmatter = frontmatter.replace(/^sidebar_position:\s*-?\d+\s*\n/gm, '');
+  // Insert the canonical position after the opening delimiter
+  let updatedFrontmatter = strippedFrontmatter.replace(/^---\n/, `---\n${expectedLine}\n`);
 
   const updated = updatedFrontmatter + body;
   return {

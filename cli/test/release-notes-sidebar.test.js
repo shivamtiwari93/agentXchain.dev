@@ -90,4 +90,22 @@ describe('release notes sidebar contract', () => {
       'sorting by sidebar_position must yield newest release first',
     );
   });
+
+  it('AT-RNS-007: no release doc has duplicate front matter keys', () => {
+    for (const file of RELEASE_DOCS) {
+      const content = read(`website-v2/docs/releases/${file}`);
+      const fmEnd = content.indexOf('\n---\n', 4);
+      assert.ok(fmEnd > 0, `${file} must have closing frontmatter delimiter`);
+      const frontmatter = content.slice(4, fmEnd);
+      const keys = frontmatter.split('\n')
+        .map((line) => line.match(/^(\w[\w_]*):\s/))
+        .filter(Boolean)
+        .map((m) => m[1]);
+      const seen = new Set();
+      for (const key of keys) {
+        assert.ok(!seen.has(key), `${file} has duplicate front matter key: ${key}`);
+        seen.add(key);
+      }
+    }
+  });
 });
