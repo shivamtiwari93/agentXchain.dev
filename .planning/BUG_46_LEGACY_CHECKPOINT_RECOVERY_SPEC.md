@@ -1,4 +1,4 @@
-**Status:** Shipped — implementation complete; BUG-46 remains open pending tester verification per discipline rule #12
+**Status:** Shipped in v2.144.0 — implementation complete; BUG-46 remains open pending tester verification per discipline rule #12
 
 # BUG-46 Legacy Checkpoint Recovery
 
