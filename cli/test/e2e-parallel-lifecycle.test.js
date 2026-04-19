@@ -129,7 +129,7 @@ function stageTurnResult(root, state, turn, overrides = {}) {
       evidence_summary: 'Synthetic pass for integration test.',
       machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
     },
-    artifact: { type: 'workspace', ref: null },
+    artifact: { type: 'review', ref: null },
     proposed_next_role: 'human',
     phase_transition_request: null,
     run_completion_request: null,
@@ -196,6 +196,7 @@ describe('E2E parallel lifecycle', () => {
     writeFileSync(join(root, sharedFile), '# accepted from dev_a\n');
     stageTurnResult(root, secondAssign.state, firstTurn, {
       files_changed: [sharedFile],
+      artifact: { type: 'workspace', ref: null },
     });
 
     const acceptFirst = acceptGovernedTurn(root, config, { turnId: firstTurn.turn_id });
@@ -204,6 +205,7 @@ describe('E2E parallel lifecycle', () => {
 
     stageTurnResult(root, acceptFirst.state, secondTurn, {
       files_changed: [sharedFile, 'TALK.md'],
+      artifact: { type: 'workspace', ref: null },
     });
 
     const conflictResult = acceptGovernedTurn(root, config, { turnId: secondTurnId });
@@ -247,6 +249,7 @@ describe('E2E parallel lifecycle', () => {
     writeFileSync(join(root, retryOnlyFile), '# retry content\n');
     stageTurnResult(root, readJson(root, STATE_PATH), rejectResult.turn, {
       files_changed: [retryOnlyFile],
+      artifact: { type: 'workspace', ref: null },
       summary: 'Retry accepted after rebasing on sibling work.',
     });
 

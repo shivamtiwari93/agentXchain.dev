@@ -132,7 +132,7 @@ function writeMockAgent(scriptPath, turnId, runId) {
       evidence_summary: 'Adapter-backed starter dispatched and accepted a governed turn.',
       machine_evidence: [{ command: 'node run-adapter-turn.mjs --json', exit_code: 0 }],
     },
-    artifact: { type: 'workspace', ref: 'git:dirty' },
+    artifact: { type: 'review', ref: 'git:dirty' },
     proposed_next_role: 'qa',
     phase_transition_request: null,
     run_completion_request: null,

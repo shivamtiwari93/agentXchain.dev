@@ -912,9 +912,13 @@ describe('acceptGovernedTurn — gate integration', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Verification\n\nRun npm test.\n');
 
+    const implFile = 'src/feature.js';
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, implFile), 'export default function feature() { return true; }\n');
     stageTurnResult(state, {
       role: 'dev',
       runtime_id: 'local-dev',
+      files_changed: [implFile],
       phase_transition_request: 'qa',
       verification: { status: 'pass' },
       artifact: { type: 'workspace', ref: 'git:abc123' },

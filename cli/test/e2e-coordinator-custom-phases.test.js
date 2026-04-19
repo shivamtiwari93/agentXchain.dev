@@ -108,7 +108,7 @@ const turnResult = {
   files_changed: [],
   artifacts_created: [],
   verification: { status: 'pass', commands: ['echo ok'], evidence_summary: 'pass', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] },
-  artifact: { type: 'workspace', ref: null },
+  artifact: { type: 'review', ref: null },
   proposed_next_role: 'human',
   phase_transition_request: phaseTransitionRequest,
   run_completion_request: runCompletionRequest,

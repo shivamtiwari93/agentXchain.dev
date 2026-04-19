@@ -3433,6 +3433,41 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const observedArtifact = buildObservedArtifact(observation, baseline);
   const normalizedVerification = normalizeVerification(turnResult.verification, runtimeType);
   const artifactType = turnResult.artifact?.type || 'review';
+
+  // BUG-46 fix requirement #6: workspace artifact with empty files_changed is a
+  // protocol violation for authoritative completed turns. A workspace artifact
+  // declares "I mutated repo files" — if files_changed is empty, the declaration
+  // is incoherent and must be rejected before replay or history persistence.
+  if (artifactType === 'workspace'
+    && writeAuthority === 'authoritative'
+    && turnResult.status === 'completed'
+    && (turnResult.files_changed || []).length === 0
+    && (observation.files_changed || []).length === 0) {
+    const emptyWsError = 'Turn declared artifact.type: "workspace" but files_changed is empty. '
+      + 'Either declare the files modified, or set artifact.type: "review" if no repo mutations were intended.';
+    transitionToFailedAcceptance(root, state, currentTurn, emptyWsError, {
+      error_code: 'empty_workspace_artifact',
+      stage: 'artifact_validation',
+      extra: {
+        artifact_type: artifactType,
+        write_authority: writeAuthority,
+        turn_status: turnResult.status,
+      },
+    });
+    return {
+      ok: false,
+      error: emptyWsError,
+      validation: {
+        ...validation,
+        ok: false,
+        stage: 'artifact_validation',
+        error_class: 'artifact_error',
+        errors: [emptyWsError],
+        warnings: validation.warnings,
+      },
+    };
+  }
+
   const derivedRef = deriveAcceptedRef(observation, artifactType, state.accepted_integration_ref);
   const verificationReplay = (config.policies || []).some((policy) => policy?.rule === 'require_reproducible_verification')
     ? replayVerificationMachineEvidence({ root, verification: turnResult.verification })

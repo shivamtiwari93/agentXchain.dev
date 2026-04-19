@@ -890,7 +890,7 @@ describe('dispatch bundle: QA evidence visibility', () => {
 
   it('AT-QEV-004: no files changed section when files_changed is empty', () => {
     acceptPmTurnAndTransition();
-    acceptDevTurn({ files_changed: [] });
+    acceptDevTurn({ files_changed: [], artifact: { type: 'review', ref: null } });
 
     const state = readJson(root, STATE_PATH);
     state.phase = 'qa';

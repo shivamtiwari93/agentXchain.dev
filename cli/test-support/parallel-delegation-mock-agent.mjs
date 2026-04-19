@@ -82,7 +82,7 @@ function baseResult(summary, overrides = {}) {
       evidence_summary: 'parallel-delegation-proof',
       machine_evidence: [{ command: 'echo parallel-delegation-proof', exit_code: 0 }],
     },
-    artifact: { type: 'workspace', ref: null },
+    artifact: { type: 'review', ref: null },
     proposed_next_role: 'human',
     phase_transition_request: null,
     run_completion_request: null,

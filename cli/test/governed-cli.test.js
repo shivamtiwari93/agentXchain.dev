@@ -1225,7 +1225,7 @@ echo '{"verdict":"allow"}'`);
           status: 'pass',
           evidence_summary: 'Checked manually.',
         },
-        artifact: { type: 'workspace', ref: 'git:def456' },
+        artifact: { type: 'review', ref: 'git:def456' },
         proposed_next_role: 'qa',
         phase_transition_request: null,
         run_completion_request: null,

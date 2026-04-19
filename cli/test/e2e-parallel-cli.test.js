@@ -161,7 +161,7 @@ function stageTurnResult(root, state, turn, overrides = {}) {
       evidence_summary: 'Synthetic pass for integration test.',
       machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
     },
-    artifact: { type: 'workspace', ref: null },
+    artifact: { type: 'review', ref: null },
     proposed_next_role: 'human',
     phase_transition_request: null,
     run_completion_request: null,
@@ -316,6 +316,7 @@ describe('E2E parallel CLI (Path A)', () => {
     const state = readJson(root, STATE_PATH);
     stageTurnResult(root, state, state.active_turns[firstTurnId], {
       files_changed: ['.planning/shared.md'],
+      artifact: { type: 'workspace', ref: null },
     });
 
     const result = runCli(root, ['accept-turn', '--turn', firstTurnId]);
@@ -367,6 +368,7 @@ describe('E2E parallel CLI (Path A)', () => {
     // Stage a result for the second turn that overlaps with the accepted file
     stageTurnResult(root, state, state.active_turns[secondTurnId], {
       files_changed: ['.planning/shared.md', 'TALK.md'],
+      artifact: { type: 'workspace', ref: null },
     });
 
     const result = runCli(root, ['accept-turn', '--turn', secondTurnId]);
@@ -483,6 +485,7 @@ describe('E2E parallel CLI (Path A)', () => {
 
     stageTurnResult(root, state, retrying, {
       files_changed: [retryOnlyFile],
+      artifact: { type: 'workspace', ref: null },
       summary: 'Retry accepted after rebasing on sibling work.',
     });
 

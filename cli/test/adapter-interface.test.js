@@ -161,7 +161,7 @@ describe('adapter interface', () => {
         evidence_summary: 'Mock local agent wrote a valid staged result.',
         machine_evidence: [{ command: 'node mock-local-agent.js', exit_code: 0 }],
       },
-      artifact: { type: 'workspace', ref: 'git:dirty' },
+      artifact: { type: 'review', ref: 'git:dirty' },
       proposed_next_role: 'qa',
       phase_transition_request: null,
       run_completion_request: null,
