@@ -71,17 +71,27 @@ function git(cwd, args) {
   }).trim();
 }
 
-function makeConfig() {
+function makeConfig({
+  roleId = 'qa',
+  roleTitle = 'QA',
+  roleMandate = 'Verify and ship.',
+  runtimeId = `local-${roleId}`,
+} = {}) {
   return {
     schema_version: '1.0',
     protocol_mode: 'governed',
     template: 'generic',
     project: { id: 'bug46-test', name: 'BUG-46 Test', default_branch: 'main' },
     roles: {
-      qa: { title: 'QA', mandate: 'Verify and ship.', write_authority: 'authoritative', runtime: 'local-qa' },
+      [roleId]: {
+        title: roleTitle,
+        mandate: roleMandate,
+        write_authority: 'authoritative',
+        runtime: runtimeId,
+      },
     },
     runtimes: {
-      'local-qa': {
+      [runtimeId]: {
         type: 'local_cli',
         command: process.execPath,
         args: ['-e', 'process.exit(0)'],
@@ -89,10 +99,10 @@ function makeConfig() {
       },
     },
     routing: {
-      qa: { entry_role: 'qa', allowed_next_roles: ['qa'], exit_gate: 'qa_complete' },
+      [roleId]: { entry_role: roleId, allowed_next_roles: [roleId], exit_gate: `${roleId}_complete` },
     },
     gates: {
-      qa_complete: {},
+      [`${roleId}_complete`]: {},
     },
     policies: [
       { id: 'replay-proof', rule: 'require_reproducible_verification', action: 'block' },
@@ -100,13 +110,13 @@ function makeConfig() {
   };
 }
 
-function createProject() {
+function createProject(options = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-bug46-'));
   tempDirs.push(root);
 
   mkdirSync(join(root, '.planning'), { recursive: true });
   writeFileSync(join(root, 'README.md'), '# BUG-46\n');
-  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(makeConfig(), null, 2) + '\n');
+  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(makeConfig(options), null, 2) + '\n');
 
   git(root, ['init', '-b', 'main']);
   git(root, ['config', 'user.email', 'test@test.com']);
@@ -114,11 +124,12 @@ function createProject() {
   git(root, ['add', 'README.md', 'agentxchain.json']);
   git(root, ['commit', '-m', 'init']);
 
-  const config = makeConfig();
+  const config = makeConfig(options);
   const init = initializeGovernedRun(root, config);
   assert.ok(init.ok, init.error);
 
-  const assign = assignGovernedTurn(root, config, 'qa');
+  const roleId = options.roleId || 'qa';
+  const assign = assignGovernedTurn(root, config, roleId);
   assert.ok(assign.ok, assign.error);
 
   return { root, config, turnId: assign.turn.turn_id, runId: init.state.run_id };
@@ -424,5 +435,71 @@ describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint
       `checkpoint-turn should commit the turn-owned file:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
     assert.doesNotMatch(checkpoint.stdout, /no writable files_changed/i,
       'checkpoint-turn should NOT skip — the turn has real files_changed');
+  });
+
+  it('arbitrary authoritative local_cli roles follow the same replay cleanup contract', () => {
+    const roleId = 'product_marketing';
+    const runtimeId = 'local-product-marketing';
+    const { root, turnId, runId } = createProject({
+      roleId,
+      roleTitle: 'Product Marketing',
+      roleMandate: 'Ship evidence-backed release communication.',
+      runtimeId,
+    });
+    materializeReplaySideEffects(root);
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: roleId,
+      runtime_id: runtimeId,
+      status: 'completed',
+      summary: 'Product marketing verified release artifacts without owning repo mutations.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: REPLAY_COMMAND, exit_code: 0 },
+        ],
+        produced_files: REPLAY_SIDE_EFFECT_PATHS.map((path) => ({
+          path,
+          disposition: 'ignore',
+        })),
+      },
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: roleId,
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `accept-turn should succeed for arbitrary authoritative review artifact:\n${accept.stdout}\n${accept.stderr}`);
+
+    for (const relPath of REPLAY_SIDE_EFFECT_PATHS) {
+      assert.equal(existsSync(join(root, relPath)), false,
+        `ignored verification-produced file must be cleaned for ${roleId}: ${relPath}`);
+    }
+
+    const checkpoint = spawnSync('node', [CLI_PATH, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `checkpoint-turn should skip cleanly for arbitrary review turn:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const resume = spawnSync('node', [CLI_PATH, 'resume', '--role', roleId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `resume must succeed after arbitrary-role review acceptance:\n${resume.stdout}\n${resume.stderr}`);
   });
 });

@@ -102,7 +102,7 @@ If the framework claims arbitrary roles are valid, the test matrix has to track 
 | Standard planning role (`pm`) | `review_only` | `manual` | Intake, phase, and restart/resume suites | Covered |
 | Non-standard retained-turn resolver (`pm` / product-marketing) | `authoritative` | `manual` | `bug-45-retained-turn-stale-intent-coverage.test.js` | Covered |
 | **QA with code-writing authority** | **`authoritative`** | **`local_cli`** | **`bug-46-post-acceptance-deadlock.test.js`** | **Covered after BUG-46** |
-| Arbitrary role with code-writing authority (for example `eng_director`, `product_marketing`) | `authoritative` | `local_cli` | Shared acceptance/runtime contracts only | Not yet explicit |
+| Arbitrary role with code-writing authority (for example `eng_director`, `product_marketing`) | `authoritative` | `local_cli` | `bug-46-post-acceptance-deadlock.test.js` arbitrary-role replay-cleanup scenario | Covered after BUG-46 follow-up proof |
 
 ### Standing role-contract rule
 
