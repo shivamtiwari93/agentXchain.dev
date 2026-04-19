@@ -48,6 +48,11 @@ Prevent stale phase-bound repair intents from surviving after the run exits that
   - dispatches QA through `agentxchain resume`
   - accepts QA through `agentxchain accept-turn`
   - proves QA acceptance does not fail on stale implementation coverage
+- `cli/test/beta-tester-scenarios/bug-44-continue-from-continuous.test.js`
+  - seeds the tester’s implementation repair intent plus a real QA follow-up intent on the same run
+  - advances implementation to QA through the real acceptance path so phase-bound retirement actually happens
+  - runs the exact command shape `agentxchain run --continue-from <run_id> --continuous --auto-approve --auto-checkpoint ...`
+  - proves continuous mode dispatches the QA intent, not the exited implementation repair intent, and completes QA without the stale coverage pause
 
 ## Open Questions
 
