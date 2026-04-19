@@ -2,7 +2,7 @@
 
 > Single-source evidence artifact for launch-facing claims. Updated 2026-04-19 for the v2.138.1 release. Current aggregate release evidence:
 >
-> - 6,104 tests / 1,299 suites / 0 failures
+> - 6,106 tests / 1,299 suites / 0 failures
 
 ---
 
@@ -348,7 +348,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 ## Audit
 
 - **Test count verified**: 2026-04-18 release verification:
-- 6,104 tests / 1,299 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
+- 6,106 tests / 1,299 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
 - **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. This expanded the launch-era live CLI total from the original three-adapter path to four adapters before later `remote_agent` proof completed the current five-adapter surface. Evidence gap E2b closed.

@@ -8,7 +8,7 @@
 - **Approve-intent phantom fail-closed path**: Fixed approve-intent to fail closed when phantom detection is ambiguous, preventing silent intent promotion.
 
 ### Evidence
-- 44 tests / 0 failures (BUG-41/42/43 + checkpoint + intake + dispatch-path regression)
+- 6,106 tests / 1,299 suites / 0 failures
 
 ## 2.138.0
 
