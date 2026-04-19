@@ -46,6 +46,10 @@ describe('framework-owned write paths are excluded from agent observation', () =
     '.agentxchain/multirepo/context/ctx_123/COORDINATOR_CONTEXT.json',
     '.agentxchain/multirepo/context/ctx_123/COORDINATOR_CONTEXT.md',
     '.agentxchain/multirepo/handoffs/intent_123.json',
+    // prompt scaffold (init/migrate-owned)
+    '.agentxchain/prompts/pm.md',
+    '.agentxchain/prompts/dev.md',
+    '.agentxchain/prompts/qa.md',
   ];
 
   for (const path of PREFIX_EXCLUDED_PATHS) {
@@ -72,6 +76,8 @@ describe('framework-owned write paths are excluded from agent observation', () =
     '.agentxchain/continuous-session.json',
     '.agentxchain/human-escalations.jsonl',
     '.agentxchain/sla-reminders.json',
+    '.agentxchain/SESSION_RECOVERY.md',
+    '.agentxchain/migration-report.md',
     'TALK.md',
     'HUMAN_TASKS.md',
   ];
@@ -121,6 +127,9 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
       'tests/fixtures/express-sample/tusq.manifest.json',
       '.agentxchain/missions/mission_abc.json',
       '.agentxchain/multirepo/barriers.json',
+      '.agentxchain/prompts/dev.md',
+      '.agentxchain/SESSION_RECOVERY.md',
+      '.agentxchain/migration-report.md',
     ];
 
     const normalized = normalizeCheckpointableFiles(declared);
@@ -140,6 +149,9 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
     assert.ok(!normalized.includes('.agentxchain/intake/intents/intent_123.json'), 'intake path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/missions/mission_abc.json'), 'missions path must be stripped');
     assert.ok(!normalized.includes('.agentxchain/multirepo/barriers.json'), 'multirepo path must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/prompts/dev.md'), 'prompts path must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/SESSION_RECOVERY.md'), 'SESSION_RECOVERY.md must be stripped');
+    assert.ok(!normalized.includes('.agentxchain/migration-report.md'), 'migration-report.md must be stripped');
 
     // Exactly 3 agent-owned files remain
     assert.strictEqual(normalized.length, 3, `Expected 3 normalized files, got ${normalized.length}: ${normalized.join(', ')}`);

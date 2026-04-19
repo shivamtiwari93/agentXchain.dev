@@ -31,6 +31,7 @@ export const OPERATIONAL_PATH_PREFIXES = Object.freeze([
   '.agentxchain/transactions/',
   '.agentxchain/missions/',
   '.agentxchain/multirepo/',
+  '.agentxchain/prompts/',
 ]);
 
 // Orchestrator-owned state files that agents must never be blamed for modifying.
@@ -52,6 +53,8 @@ export const ORCHESTRATOR_STATE_FILES = Object.freeze([
   '.agentxchain/continuous-session.json',
   '.agentxchain/human-escalations.jsonl',
   '.agentxchain/sla-reminders.json',
+  '.agentxchain/SESSION_RECOVERY.md',
+  '.agentxchain/migration-report.md',
   'TALK.md',
   'HUMAN_TASKS.md',
 ]);

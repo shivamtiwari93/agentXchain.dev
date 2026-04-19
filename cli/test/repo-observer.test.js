@@ -594,6 +594,15 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('.agentxchain/continuous-session.json'), true);
     assert.equal(isOperationalPath('.agentxchain/human-escalations.jsonl'), true);
     assert.equal(isOperationalPath('.agentxchain/sla-reminders.json'), true);
+    assert.equal(isOperationalPath('.agentxchain/SESSION_RECOVERY.md'), true);
+    assert.equal(isOperationalPath('.agentxchain/migration-report.md'), true);
+  });
+
+  it('identifies prompt scaffold as operational (init/migrate-owned)', () => {
+    assert.equal(isOperationalPath('.agentxchain/prompts/dev.md'), true);
+    assert.equal(isOperationalPath('.agentxchain/prompts/pm.md'), true);
+    assert.equal(isOperationalPath('.agentxchain/prompts/qa.md'), true);
+    assert.equal(isOperationalPath('.agentxchain/prompts/custom-role.md'), true);
   });
 
   it('identifies TALK.md as operational (orchestrator-owned collaboration log)', () => {
@@ -605,7 +614,6 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('.planning/ROADMAP.md'), false);
     assert.equal(isOperationalPath('.agentxchain/reviews/turn-0004.md'), false);
     assert.equal(isOperationalPath('.agentxchain/reports/report-run_123.md'), false);
-    assert.equal(isOperationalPath('.agentxchain/prompts/dev.md'), false);
   });
 });
 
