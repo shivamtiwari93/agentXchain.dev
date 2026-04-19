@@ -1,6 +1,6 @@
 # Authoritative Local CLI Role Proof Spec
 
-**Status:** shipped
+**Status:** Shipped — implementation complete; BUG-46 remains open pending tester verification per discipline rule #12
 
 ## Purpose
 

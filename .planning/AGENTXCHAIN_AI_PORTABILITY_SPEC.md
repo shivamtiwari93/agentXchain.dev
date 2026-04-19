@@ -16,6 +16,8 @@ Without this contract, portability is a handwave. The managed surface spec says 
 
 The export bundle is a deterministic, self-contained archive of a single governed run. Format: gzipped tarball (`.agentxchain-export.tar.gz`).
 
+The v1 bundle uses a flat, standard tarball layout on purpose. It must be explorable with off-the-shelf `tar`, diffable after extraction, and readable without a custom parser. JSONL-manifest-plus-embedded-blob streaming formats are deferred until there is measured evidence that the flat bundle is too slow or too large for real governed runs.
+
 Contents:
 
 ```
@@ -88,6 +90,11 @@ Contents:
 
 9. **Incremental export is not in the first slice.** v1 exports the complete run. Delta/incremental export (only events since last export) is deferred until the full-bundle contract is proven stable.
 
+10. **Bundle readability beats speculative compression in v1.**
+   - The portability boundary is a debugging and recovery surface, not just a transport payload.
+   - Standard archive tooling and deterministic extracted paths matter more than theoretical byte savings before the repo has real evidence of bundle-scale pain.
+   - Future chunked or streaming formats must prove they preserve deterministic inspection and hashability before they replace the flat bundle.
+
 ### Error Cases
 
 1. Export produces a bundle that the other surface cannot import due to schema drift between `.dev` and `.ai` protocol evaluators.
@@ -98,6 +105,7 @@ Contents:
 6. Cloud-only metadata leaks into the bundle because the strip list is incomplete.
 7. Import succeeds but the imported run's governance config is incompatible with the target workspace policy, causing silent acceptance failures on the next turn.
 8. `content_hash` validation is skipped on import, allowing tampered bundles to inject governance state.
+9. A custom streaming-only bundle format lands before there is bundle-scale evidence, making exports harder to inspect, diff, and recover by hand.
 
 ### Acceptance Tests
 
@@ -109,9 +117,10 @@ Contents:
 - `AT-PORT-006`: Imported run is immediately resumable on the target surface when state is `active` and connectors are compatible.
 - `AT-PORT-007`: Export of a run with 100+ turns and 50+ decision ledger entries completes in under 5 seconds (performance gate).
 - `AT-PORT-008`: `.ai`-appended cloud events (e.g., `api_request_audit`) are preserved in `.ai` export but do not appear in the `.dev`-imported `events.jsonl` when the `.dev` importer filters by known event types.
+- `AT-PORT-009`: The v1 bundle is inspectable with standard tar tooling after export; import does not require a custom streaming decoder.
 
 ### Open Questions
 
-1. Should file snapshots use git pack format for space efficiency, or flat directory layout for portability to non-git targets?
+1. At what measured bundle size or export latency should chunking/compression beyond flat tarballs be reconsidered?
 2. Should the bundle include the governance config's connector definitions, or only the protocol-level config (roles, phases, gates)? Including connectors enables cold migration; excluding them forces re-binding and prevents stale credential leakage.
 3. Should import support partial bundle (e.g., import only decision ledger and events, not full run state) for audit-only portability use cases?

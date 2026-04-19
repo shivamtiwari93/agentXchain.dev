@@ -134,13 +134,14 @@ The managed surface spec (`DEC-AI-MANAGED-SURFACE-ARCH-001`) requires human-sove
 | POST | `/v1/runs/:run_id/approve-transition` | Approve phase transition |
 | POST | `/v1/runs/:run_id/turns/:turn_id/accept` | Accept turn |
 | POST | `/v1/runs/:run_id/turns/:turn_id/reject` | Reject turn |
-| POST | `/v1/runs/:run_id/checkpoint` | Checkpoint current state |
-| POST | `/v1/runs/:run_id/restart` | Restart from checkpoint |
-| POST | `/v1/runs/:run_id/retry` | Retry failed turn |
+| POST | `/v1/runs/:run_id/checkpoint` | Checkpoint a specific accepted turn (`{"turn_id":"turn_<ulid>"}` required) |
+| POST | `/v1/runs/:run_id/restart` | Restart from a specific checkpoint (`{"checkpoint_id":"ckpt_<ulid>"}` required) |
+| POST | `/v1/runs/:run_id/retry` | Retry a specific failed or failed_acceptance turn (`{"turn_id":"turn_<ulid>"}` required) |
 
 - Every approval/recovery endpoint produces the same state transitions as the equivalent CLI command.
 - Every mutation is recorded in the audit log with actor attribution.
 - `approve-transition` requires `operator` or `owner` role.
+- Dashboard and API clients must pass explicit target identifiers for checkpoint/restart/retry actions instead of asking the server to infer "latest" from a stale view.
 
 #### Audit and Events
 

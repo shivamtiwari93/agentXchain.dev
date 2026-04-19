@@ -194,6 +194,26 @@ describe('release planning surface classification', () => {
     assert.doesNotMatch(release241, staleSubset);
   });
 
+  // -- BUG-44/45/46 spec status must include tester-verification caveat (AT-BSC-001) --
+
+  const bugSpecsMustSayOpen = [
+    { file: '.planning/BUG_44_PHASE_SCOPED_INTENT_RETIREMENT_SPEC.md', bug: 'BUG-44' },
+    { file: '.planning/BUG_45_RETAINED_TURN_INTENT_RECONCILIATION_SPEC.md', bug: 'BUG-45' },
+    { file: '.planning/BUG_46_PACKAGED_CLAIM_REALITY_SPEC.md', bug: 'BUG-46' },
+    { file: '.planning/BUG_46_VERIFICATION_PRODUCED_FILES_SPEC.md', bug: 'BUG-46 (produced_files)' },
+    { file: '.planning/AUTHORITATIVE_LOCAL_CLI_ROLE_PROOF_SPEC.md', bug: 'BUG-46 (role proof)' },
+  ];
+
+  for (const { file, bug } of bugSpecsMustSayOpen) {
+    it(`${file.split('/').pop()} status includes tester-verification caveat (${bug})`, () => {
+      const content = read(file);
+      assert.match(content, /Status:.*[Ss]hipped/i,
+        `${bug} spec must be marked shipped`);
+      assert.match(content, /tester verification|pending.*rule.*#?12/i,
+        `${bug} spec status must include tester-verification caveat — bare "shipped" without the caveat implies closure`);
+    });
+  }
+
   it('historical release notes do not present the live quickstart alias as a frozen historical route', () => {
     const spec = read('.planning/HISTORICAL_QUICKSTART_LINK_TRUTH_SPEC.md');
     const release213 = read('website-v2/docs/releases/v2-13-0.mdx');

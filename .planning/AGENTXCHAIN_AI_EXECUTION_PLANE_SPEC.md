@@ -23,8 +23,11 @@ Execution-plane objects:
   - exclusive time-bounded claim on a `dispatch_job`
   - fields: `lease_id`, `job_id`, `worker_id`, `claimed_at`, `expires_at`, `heartbeat_at`, `attempt`
 - `worker`
-  - service-owned runtime host that can execute a declared connector/runtime tuple
+  - service-operated runtime host that can execute a declared connector/runtime tuple
   - advertises capability set and max concurrent leases
+- `execution_event`
+  - structured progress/audit event emitted during execution
+  - uses the shared `.dev` event schema shape even when delivered over hosted transport
 - `connector_session`
   - scoped runtime credential/materialization for a managed connector
   - bound to workspace, optionally narrowed to project
@@ -35,7 +38,7 @@ Queue topology:
 
 - one active dispatch queue per `project_id`
 - FIFO ordering within a project
-- cross-project parallelism allowed within workspace policy limits
+- fair cross-project scheduling within workspace policy limits
 - at most one active execution lease per project run head unless protocol semantics explicitly allow parallel governed turns
 
 Primary operations:
@@ -57,11 +60,16 @@ Primary operations:
 2. **Queueing is project-scoped first, workspace-scoped second.**
    - Each project gets an ordered dispatch queue so turn sequencing remains explainable.
    - Workspace policy may cap total concurrent jobs across projects.
+   - When the workspace cap is saturated, the scheduler selects the next project using round-robin across projects that still have waiting jobs; it does not let one noisy project drain its entire queue before other projects get service.
+   - FIFO remains strict inside each project queue.
    - Parallel governed turns are allowed only when the underlying run/phase contract already allows them.
 
 3. **Leases are exclusive and time-bounded.**
    - A worker claims a `dispatch_job` by acquiring an `execution_lease`.
-   - Default lease duration: 10 minutes.
+   - Lease defaults are runtime-class-specific from day one:
+     - `local_cli`: 30 minutes
+     - `api_proxy`: 10 minutes
+     - `manual`: not execution-plane leased; human-driven turns stay in control-plane approval state instead of being assigned to workers
    - Workers heartbeat every 30 seconds.
    - Missing 2 consecutive heartbeat windows marks the lease stale and eligible for recovery.
    - Lease expiry never auto-retries silently; it transitions the job to `needs_recovery` for explicit protocol-compatible retry or restart.
@@ -77,31 +85,50 @@ Primary operations:
    - Every connector session records which worker used it, for which job, and under which agent identity.
    - Session material must be revocable without mutating protocol state.
 
-6. **Execution observations are append-only evidence, not substitute truth.**
+6. **Execution progress is streamed as structured events, not opaque heartbeat blobs.**
+   - Workers emit shared-schema execution events at minimum for:
+     - `execution_started`
+     - `execution_progress`
+     - `verification_started`
+     - `verification_completed`
+     - `execution_completed`
+     - `execution_interrupted`
+   - Event delivery transport may be WebSocket, SSE, or polling-backed retrieval, but the event contract is shared and durable.
+   - Progress visibility must include enough structured detail for the hosted dashboard to show more than a generic "in progress" pill.
+
+7. **Execution observations are append-only evidence, not substitute truth.**
    - The execution plane stores stdout/stderr, structured runtime events, verification command outputs, and file-observation metadata.
    - These observations support debugging, audit, and replay.
    - They do not override the protocol artifact contract or invent cloud-only acceptance heuristics.
 
-7. **Verification-produced files keep the same semantics as `.dev`.**
+8. **Verification-produced files keep the same semantics as `.dev`.**
    - If hosted verification creates files, they must be classified using the same `verification.produced_files` contract as the OSS runner.
    - `artifact` disposition promotes files into checkpointable history.
    - `ignore` disposition requires the execution plane to restore or discard the side effect before acceptance succeeds.
 
-8. **Worker compatibility is capability-declared.**
+9. **Worker compatibility is capability-declared.**
    - A worker may only claim jobs for runtimes/connectors whose declared capabilities it satisfies.
    - Hosted infrastructure does not grant extra write authority.
    - Capability mismatch is a scheduling failure, not a runtime improvisation.
 
-9. **Backoff is bounded and visible.**
+10. **Backoff is bounded and visible.**
    - Transient infrastructure failures may trigger one automatic requeue before operator involvement.
    - Automatic requeue is only allowed before a worker has materially started the turn.
    - After dispatch-bundle handoff or connector-session creation, retry becomes an explicit recovery action with audit history.
 
-10. **The first implementation slice should keep execution narrow.**
+11. **The first implementation slice is service-operated only.**
+   - Hosted workers are operated by the AgentXchain service for v1.
+   - Customer-provided workers or hybrid "cloud control plane, customer execution plane" are deferred until there is a separate trust, attestation, and lease-integrity contract.
+   - The first hosted release must not blur those models behind a generic "worker" abstraction.
+
+12. **The first implementation slice should keep execution narrow.**
    - one worker pool type
    - project-scoped FIFO queues
+   - fair round-robin project selection under workspace caps
    - single-lease execution
    - explicit operator-driven recovery
+   - structured progress events
+   - service-operated workers only
    - no speculative failover, no multi-region lease juggling, no hidden replay
 
 ### Error Cases
@@ -114,6 +141,9 @@ Primary operations:
 6. Connector credentials are shared between projects without audit visibility.
 7. Worker capability mismatch is handled by "trying anyway" instead of failing scheduling.
 8. Execution-plane observations become the de facto source of truth for governance instead of the shared protocol artifacts/state machine.
+9. A long-running `local_cli` turn gets marked stale under a too-short generic lease even though the worker is healthy.
+10. Hosted dashboards cannot show useful in-flight state because workers emit only heartbeats and no structured progress events.
+11. The worker trust model is left ambiguous, causing service-operated and customer-provided execution semantics to drift together.
 
 ### Acceptance Tests
 
@@ -125,9 +155,13 @@ Primary operations:
 6. `AT-EP-006`: Every execution event is attributable to `worker_id`, `connector_session_id`, and agent identity.
 7. `AT-EP-007`: Capability mismatch prevents scheduling instead of widening runtime authority.
 8. `AT-EP-008`: Execution-plane recovery actions emit audit/event entries that match the shared control-plane event contract.
+9. `AT-EP-009`: Under a saturated workspace concurrency cap, waiting jobs from different projects are scheduled round-robin instead of letting one project monopolize the worker pool.
+10. `AT-EP-010`: `local_cli` jobs use a 30-minute default lease, `api_proxy` jobs use a 10-minute default lease, and manual turns are not assigned execution leases.
+11. `AT-EP-011`: Hosted execution emits the minimum structured progress event set (`execution_started`, `execution_progress`, `verification_started`, `verification_completed`, `execution_completed`, `execution_interrupted`) using the shared event schema.
+12. `AT-EP-012`: v1 execution rejects customer-provided worker registration; only service-operated workers may claim leases.
 
 ### Open Questions
 
 1. Should the first hosted runner share code with the existing Node.js runner directly, or wrap it as a library behind a service boundary?
-2. Is a 10-minute default lease correct for the initial slice, or should lease duration be runtime-class-specific from day one?
-3. Should project-level queue fairness be strict round-robin across projects inside a workspace, or is workspace concurrency capping enough for v1?
+2. Should future hosted scheduling stay strict round-robin, or later evolve toward weighted fairness/priorities once org-level policy exists?
+3. Should long-running hosted stdout/stderr streams be truncated by byte budget, time window, or semantic event boundaries when rendering the dashboard?

@@ -1,5 +1,7 @@
 # BUG-44 Phase-Scoped Intent Retirement Spec
 
+**Status:** Shipped — implementation complete; BUG-44 remains open pending tester verification per discipline rule #12
+
 ## Purpose
 
 Prevent stale phase-bound repair intents from surviving after the run exits that phase and then blocking later acceptance in a new phase.
