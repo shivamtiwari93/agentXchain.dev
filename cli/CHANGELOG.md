@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.138.0
+
+### Bug Fixes
+- **BUG-42**: Fixed continuous startup for repos with rebound legacy intents — phantom intents (approved intents whose planning artifacts already exist on disk) are now detected and superseded during startup reconciliation. `migrate-intents` expanded to handle both legacy and phantom intents (`scope: "legacy_and_phantom"`).
+- **BUG-43**: Fixed `checkpoint-turn` when staging is cleared post-acceptance — ephemeral `.agentxchain/staging/` and `.agentxchain/dispatch/` paths are now filtered from `files_changed` before `git add`.
+- **Phantom detection false-positive fix**: Planning gate `requires_files` are only used for phantom detection when the planning gate has not been passed and at least one turn has been completed. Prevents false positives on freshly scaffolded projects.
+
+### Improvements
+- Added 12th discipline rule: no bug closes without beta tester's verified output
+- Workflow kit output schema: `agentxchain/schemas/workflow-kit-output`
+- Internal beta-cycle postmortem (`.planning/BETA_CYCLE_POSTMORTEM_2026-04-18.md`)
+
+### Evidence
+- 6,104 tests / 1,299 suites / 0 failures
+
 ## 2.137.0
 
 ### Bug Fixes

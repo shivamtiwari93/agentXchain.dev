@@ -1,0 +1,26 @@
+---
+sidebar_position: 0
+title: "v2.138.0 Release Notes"
+---
+
+# AgentXchain v2.138.0
+
+`v2.138.0` fixes continuous startup for repos with rebound legacy intents and fixes `checkpoint-turn` when staging is cleared post-acceptance.
+
+## Bug Fixes
+
+- **BUG-42 (phantom intent detection)**: Approved intents bound to the current run whose planning artifacts already exist on disk are now detected as "phantom intents" and superseded during startup reconciliation. This prevents the "existing planning artifacts would be overwritten" error in continuous mode. The `migrate-intents` command now handles both legacy null-scoped intents and phantom intents (`scope: "legacy_and_phantom"`).
+
+- **BUG-43 (checkpoint ephemeral path filtering)**: `checkpoint-turn` now filters out `.agentxchain/staging/` and `.agentxchain/dispatch/` paths from `files_changed` before running `git add`. These ephemeral orchestrator artifacts are cleaned up after acceptance and must not be staged for checkpoint commits.
+
+- **Phantom detection false-positive fix**: Planning gate `requires_files` are only used for phantom detection when the planning gate has not been passed and at least one turn has been completed. This prevents false positives on freshly scaffolded projects where gate files exist from template creation, not from completed planning work.
+
+## Improvements
+
+- Added 12th discipline rule: no bug closes without the beta tester's verified output
+- Workflow kit output schema shipped as `agentxchain/schemas/workflow-kit-output`
+- Internal beta-cycle postmortem covering all 7 false closures
+
+## Evidence
+
+- 6,104 tests / 1,299 suites / 0 failures
