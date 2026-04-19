@@ -641,6 +641,43 @@ export function checkCleanBaseline(root, writeAuthority) {
   };
 }
 
+export function detectDirtyFilesOutsideAllowed(root, writeAuthority, allowedFiles = []) {
+  const cleanCheck = checkCleanBaseline(root, writeAuthority);
+  if (cleanCheck.clean) {
+    return {
+      clean: true,
+      dirty_files: [],
+      unexpected_dirty_files: [],
+      reason: null,
+    };
+  }
+
+  const allowedSet = new Set(
+    (Array.isArray(allowedFiles) ? allowedFiles : [])
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+  const dirtyFiles = Array.isArray(cleanCheck.dirty_files) ? cleanCheck.dirty_files : [];
+  const unexpectedDirtyFiles = dirtyFiles.filter((filePath) => !allowedSet.has(filePath));
+
+  if (unexpectedDirtyFiles.length === 0) {
+    return {
+      clean: true,
+      dirty_files: dirtyFiles,
+      unexpected_dirty_files: [],
+      reason: null,
+    };
+  }
+
+  return {
+    clean: false,
+    dirty_files: dirtyFiles,
+    unexpected_dirty_files: unexpectedDirtyFiles,
+    reason: `Working tree has uncommitted changes in actor-owned files outside the accepted turn contract: ${unexpectedDirtyFiles.slice(0, 5).join(', ')}${unexpectedDirtyFiles.length > 5 ? '...' : ''}. Resume would block on the same files. Declare them in files_changed, classify verification outputs under verification.produced_files, or clean them before acceptance.`,
+  };
+}
+
 // ── Git Primitives ──────────────────────────────────────────────────────────
 
 function isGitRepo(root) {

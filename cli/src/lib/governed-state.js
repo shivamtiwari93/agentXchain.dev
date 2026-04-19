@@ -36,6 +36,7 @@ import {
   compareDeclaredVsObserved,
   deriveAcceptedRef,
   checkCleanBaseline,
+  detectDirtyFilesOutsideAllowed,
   isOperationalPath,
   isBaselineExemptPath,
   normalizeCheckpointableFiles,
@@ -3309,8 +3310,59 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const concurrentIds = new Set(
     Array.isArray(currentTurn.concurrent_with) ? currentTurn.concurrent_with : [],
   );
+  const concurrentAllowedDirtyFiles = [];
+  for (const declaration of pendingConcurrentSiblingDeclarations) {
+    concurrentIds.add(declaration?.turn_id);
+    for (const filePath of Array.isArray(declaration?.files_changed) ? declaration.files_changed : []) {
+      concurrentAllowedDirtyFiles.push(filePath);
+    }
+  }
+  for (const historyEntry of historyEntries) {
+    const isConcurrentSibling = concurrentIds.has(historyEntry?.turn_id)
+      || (Array.isArray(historyEntry?.concurrent_with) && historyEntry.concurrent_with.includes(currentTurn.turn_id));
+    if (!isConcurrentSibling) {
+      continue;
+    }
+    const siblingFiles = Array.isArray(historyEntry?.observed_artifact?.files_changed)
+      ? historyEntry.observed_artifact.files_changed
+      : historyEntry?.files_changed;
+    for (const filePath of Array.isArray(siblingFiles) ? siblingFiles : []) {
+      concurrentAllowedDirtyFiles.push(filePath);
+    }
+  }
   const acceptedTurnIds = new Set(historyEntries.map(h => h.turn_id));
   const hasUnacceptedConcurrentSiblings = [...concurrentIds].some(id => !acceptedTurnIds.has(id));
+
+  const dirtyParity = detectDirtyFilesOutsideAllowed(
+    root,
+    writeAuthority,
+    [
+      ...(turnResult.files_changed || []),
+      ...concurrentAllowedDirtyFiles,
+    ],
+  );
+  if (!dirtyParity.clean) {
+    transitionToFailedAcceptance(root, state, currentTurn, dirtyParity.reason, {
+      error_code: 'artifact_dirty_tree_mismatch',
+      stage: 'artifact_observation',
+      extra: {
+        unexpected_dirty_files: dirtyParity.unexpected_dirty_files,
+        dirty_files: dirtyParity.dirty_files,
+      },
+    });
+    return {
+      ok: false,
+      error: dirtyParity.reason,
+      validation: {
+        ...validation,
+        ok: false,
+        stage: 'artifact_observation',
+        error_class: 'artifact_error',
+        errors: [dirtyParity.reason],
+        warnings: validation.warnings,
+      },
+    };
+  }
 
   const diffComparison = compareDeclaredVsObserved(
     turnResult.files_changed || [],

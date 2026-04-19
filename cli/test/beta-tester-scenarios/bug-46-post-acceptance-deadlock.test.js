@@ -190,6 +190,44 @@ describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint
       'rejection message must explain the workspace/files_changed mismatch');
   });
 
+  it('accept-turn rejects undeclared actor-owned dirt using the same contract resume enforces', () => {
+    const { root, turnId, runId } = createProject();
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# ship verdict\n');
+    writeFileSync(join(root, 'src', 'rogue.js'), 'export const rogue = true;\n');
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: runId,
+      turn_id: turnId,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'QA updated the ship verdict but left unrelated workspace dirt behind.',
+      decisions: [],
+      objections: [],
+      files_changed: ['.planning/ship-verdict.md'],
+      verification: {
+        status: 'pass',
+        machine_evidence: [],
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.notEqual(accept.status, 0,
+      `accept-turn must reject unexpected dirty actor files:\n${accept.stdout}\n${accept.stderr}`);
+    assert.match(accept.stdout + accept.stderr, /Resume would block on the same files/);
+    assert.match(accept.stdout + accept.stderr, /src\/rogue\.js/);
+  });
+
   it('authoritative QA turn can explicitly ignore verification-produced files and proceed cleanly', () => {
     const { root, turnId, runId } = createProject();
     materializeReplaySideEffects(root);

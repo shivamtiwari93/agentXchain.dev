@@ -16,6 +16,7 @@ import {
   compareDeclaredVsObserved,
   deriveAcceptedRef,
   checkCleanBaseline,
+  detectDirtyFilesOutsideAllowed,
   isOperationalPath,
 } from '../src/lib/repo-observer.js';
 
@@ -928,6 +929,44 @@ describe('checkCleanBaseline', () => {
 
     const result = checkCleanBaseline(dir, 'proposed');
     assert.deepEqual(result, { clean: true });
+  });
+});
+
+describe('detectDirtyFilesOutsideAllowed', () => {
+  let dir;
+  beforeEach(() => { dir = makeTmpGitRepo(); });
+  afterEach(() => { try { rmSync(dir, { recursive: true, force: true }); } catch {} });
+
+  it('treats declared turn files as allowed dirty workspace state', () => {
+    writeFileSync(join(dir, 'src.js'), 'export const ok = true;\n');
+
+    const result = detectDirtyFilesOutsideAllowed(dir, 'authoritative', ['src.js']);
+    assert.equal(result.clean, true);
+    assert.deepEqual(result.unexpected_dirty_files, []);
+    assert.deepEqual(result.dirty_files, ['src.js']);
+  });
+
+  it('fails when actor-owned dirty files exist outside the allowed set', () => {
+    writeFileSync(join(dir, 'src.js'), 'export const ok = true;\n');
+    writeFileSync(join(dir, 'rogue.js'), 'export const rogue = true;\n');
+
+    const result = detectDirtyFilesOutsideAllowed(dir, 'authoritative', ['src.js']);
+    assert.equal(result.clean, false);
+    assert.deepEqual(result.unexpected_dirty_files, ['rogue.js']);
+    assert.match(result.reason, /Resume would block on the same files/);
+  });
+
+  it('ignores baseline-exempt review artifacts the same way resume does', () => {
+    mkdirSync(join(dir, '.agentxchain', 'reviews'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reviews', 'turn_1234-qa-review.md'), '# review\n');
+
+    const result = detectDirtyFilesOutsideAllowed(
+      dir,
+      'authoritative',
+      ['.agentxchain/reviews/turn_1234-qa-review.md'],
+    );
+    assert.equal(result.clean, true);
+    assert.deepEqual(result.dirty_files, []);
   });
 });
 
