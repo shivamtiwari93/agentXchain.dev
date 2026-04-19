@@ -92,6 +92,7 @@ Structured output includes:
 - `runtime_type`
 - `timeout_ms`
 - `warnings`
+- `schema_contract`
 - `dispatch`
 - `validation`
 - `scratch_root` when artifacts are kept
@@ -117,6 +118,7 @@ Text output must state:
 - adapter dispatch failure
 - staged turn result missing
 - validator rejection
+- schema-contract continuity failure between the selected runtime+role binding and the published config / handshake artifacts
 
 ## Acceptance Tests
 

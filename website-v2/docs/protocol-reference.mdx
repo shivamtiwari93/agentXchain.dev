@@ -74,6 +74,12 @@ These repo-local concepts are protocol v7, not UI sugar:
 - Source file: `cli/src/lib/schemas/connector-capabilities-output.schema.json`
 - Current purpose: freeze the `connector capabilities --json` output shape so third-party tooling can validate the handshake response without parsing prose or inferring shapes from tests. Covers single-runtime, multi-runtime (`--all`), and error responses.
 
+### Connector validate schema continuity proof
+
+- `connector validate --json` emits `schema_contract`
+- Current purpose: prove that the selected runtime+role binding is coherent across the published raw config schema artifact and the generated connector capability handshake before synthetic dispatch claims success
+- Scope: runtime+role continuity proof only; not a standalone schema artifact yet
+
 ## Normative Coordinator Contract
 
 These multi-repo concepts are part of protocol v7:

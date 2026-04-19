@@ -53,6 +53,9 @@ describe('connector check docs/content surface', () => {
     assert.match(CLI_DOCS, /`connector check` proves transport reachability/i);
     assert.match(CLI_DOCS, /`connector validate` proves one runtime\+role binding can survive dispatch and validator acceptance/i);
     assert.match(CLI_DOCS, /scratch copy of the repo/i);
+    assert.match(CLI_DOCS, /`schema_contract`/i);
+    assert.match(CLI_DOCS, /agentxchain\/schemas\/agentxchain-config/);
+    assert.match(CLI_DOCS, /agentxchain\/schemas\/connector-capabilities-output/);
     assert.match(README, /agentxchain connector validate local-dev/);
     assert.match(README, /connector validate <runtime_id>/);
     assert.match(VALIDATE_SPEC, /Connector Validate Command Spec/);

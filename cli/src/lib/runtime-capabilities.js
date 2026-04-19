@@ -240,3 +240,34 @@ export function summarizeRoleRuntimeCapability(contract) {
     `owned_by=${contract.workflow_artifact_ownership}`,
   ].join('; ');
 }
+
+export function buildRuntimeCapabilityReport(runtimeId, runtime, roles) {
+  const mergedContract = getRuntimeCapabilityContract(runtime);
+  const declaredCapabilities = (runtime?.capabilities && typeof runtime.capabilities === 'object' && !Array.isArray(runtime.capabilities))
+    ? { ...runtime.capabilities }
+    : {};
+  const declarationWarnings = getCapabilityDeclarationWarnings(runtime);
+
+  const roleBindings = [];
+  for (const [roleId, role] of Object.entries(roles || {})) {
+    const boundRuntime = role.runtime_id || role.runtime;
+    if (boundRuntime !== runtimeId) continue;
+    const roleContract = getRoleRuntimeCapabilityContract(roleId, role, runtime);
+    roleBindings.push({
+      role_id: roleContract.role_id,
+      role_write_authority: roleContract.role_write_authority,
+      effective_write_path: roleContract.effective_write_path,
+      workflow_artifact_ownership: roleContract.workflow_artifact_ownership,
+      notes: roleContract.notes,
+    });
+  }
+
+  return {
+    runtime_id: runtimeId,
+    runtime_type: runtime?.type || 'unknown',
+    declared_capabilities: declaredCapabilities,
+    merged_contract: mergedContract,
+    declaration_warnings: declarationWarnings,
+    role_bindings: roleBindings,
+  };
+}

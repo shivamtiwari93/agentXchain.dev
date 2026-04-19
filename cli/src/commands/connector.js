@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { loadProjectContext } from '../lib/config.js';
 import { DEFAULT_VALIDATE_TIMEOUT_MS, validateConfiguredConnector } from '../lib/connector-validate.js';
 import { DEFAULT_TIMEOUT_MS, probeConfiguredConnectors } from '../lib/connector-probe.js';
-import { getRuntimeCapabilityContract, getRoleRuntimeCapabilityContract, getCapabilityDeclarationWarnings } from '../lib/runtime-capabilities.js';
+import { buildRuntimeCapabilityReport } from '../lib/runtime-capabilities.js';
 
 function printJson(result, exitCode) {
   console.log(JSON.stringify(result, null, 2));
@@ -165,6 +165,14 @@ function printValidateText(result, exitCode) {
     }
   }
 
+  if (result.schema_contract) {
+    console.log('');
+    console.log(`  ${chalk.dim('Schema:')}   ${result.schema_contract.ok ? chalk.green('ok') : chalk.red('failed')}`);
+    if (Array.isArray(result.schema_contract.failures) && result.schema_contract.failures.length > 0) {
+      console.log(`  ${chalk.dim('Contract:')} ${result.schema_contract.failures.join(' | ')}`);
+    }
+  }
+
   if (result.dispatch) {
     console.log('');
     console.log(`  ${chalk.dim('Dispatch:')} ${result.dispatch.ok ? chalk.green('ok') : chalk.red('failed')}`);
@@ -191,37 +199,6 @@ function printValidateText(result, exitCode) {
 
   console.log('');
   process.exit(exitCode);
-}
-
-function buildCapabilityReport(runtimeId, runtime, roles) {
-  const mergedContract = getRuntimeCapabilityContract(runtime);
-  const declaredCapabilities = (runtime.capabilities && typeof runtime.capabilities === 'object' && !Array.isArray(runtime.capabilities))
-    ? { ...runtime.capabilities }
-    : {};
-  const declarationWarnings = getCapabilityDeclarationWarnings(runtime);
-
-  const roleBindings = [];
-  for (const [roleId, role] of Object.entries(roles)) {
-    const boundRuntime = role.runtime_id || role.runtime;
-    if (boundRuntime !== runtimeId) continue;
-    const roleContract = getRoleRuntimeCapabilityContract(roleId, role, runtime);
-    roleBindings.push({
-      role_id: roleContract.role_id,
-      role_write_authority: roleContract.role_write_authority,
-      effective_write_path: roleContract.effective_write_path,
-      workflow_artifact_ownership: roleContract.workflow_artifact_ownership,
-      notes: roleContract.notes,
-    });
-  }
-
-  return {
-    runtime_id: runtimeId,
-    runtime_type: runtime.type || 'unknown',
-    declared_capabilities: declaredCapabilities,
-    merged_contract: mergedContract,
-    declaration_warnings: declarationWarnings,
-    role_bindings: roleBindings,
-  };
 }
 
 function printCapabilitiesText(report) {
@@ -280,7 +257,7 @@ export async function connectorCapabilitiesCommand(runtimeId, options = {}) {
   if (options.all) {
     const reports = [];
     for (const [id, runtime] of Object.entries(runtimes)) {
-      reports.push(buildCapabilityReport(id, runtime, roles));
+      reports.push(buildRuntimeCapabilityReport(id, runtime, roles));
     }
     const payload = { runtimes: reports };
     if (options.json) { printJson(payload, 0); return; }
@@ -317,7 +294,7 @@ export async function connectorCapabilitiesCommand(runtimeId, options = {}) {
     process.exit(2);
   }
 
-  const report = buildCapabilityReport(runtimeId, runtimes[runtimeId], roles);
+  const report = buildRuntimeCapabilityReport(runtimeId, runtimes[runtimeId], roles);
   if (options.json) { printJson(report, 0); return; }
 
   console.log('');

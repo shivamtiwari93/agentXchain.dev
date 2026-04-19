@@ -1451,6 +1451,11 @@ The command runs in a scratch copy of the repo so `local_cli` validation does no
 
 This validation can incur real spend for live runtimes such as `api_proxy`, `remote_agent`, or MCP connectors backed by real model services. That is why the command validates one runtime at a time instead of silently dispatching every configured connector.
 
+In `--json` mode, the result includes `schema_contract`, which cross-checks the selected runtime+role binding against the published config and handshake artifacts before dispatch:
+
+- `agentxchain/schemas/agentxchain-config`
+- `agentxchain/schemas/connector-capabilities-output`
+
 ## Dashboard
 
 ### `history`

@@ -23,6 +23,7 @@ import { dispatchRemoteAgent } from './adapters/remote-agent-adapter.js';
 import { getDispatchPromptPath, getTurnStagingResultPath } from './turn-paths.js';
 import { validateStagedTurnResult } from './turn-result-validator.js';
 import { probeRuntimeSpawnContext } from './runtime-spawn-context.js';
+import { buildConnectorSchemaContract } from './connector-schema-contract.js';
 
 const VALIDATABLE_RUNTIME_TYPES = new Set(['local_cli', 'api_proxy', 'mcp', 'remote_agent']);
 const DEFAULT_VALIDATE_TIMEOUT_MS = 120_000;
@@ -106,6 +107,12 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
   const tempBase = mkdtempSync(join(tmpdir(), 'axc-connector-validate-'));
   const scratchRoot = join(tempBase, 'workspace');
   const warnings = [...roleSelection.warnings];
+  const schemaContract = buildConnectorSchemaContract(
+    sourceContext.rawConfig,
+    sourceContext.config,
+    runtimeId,
+    roleSelection.roleId
+  );
 
   // Surface capability declaration warnings for self-declared connectors
   const { getCapabilityDeclarationWarnings } = await import('./runtime-capabilities.js');
@@ -118,6 +125,24 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
   let costUsd = null;
 
   try {
+    if (!schemaContract.ok) {
+      return {
+        ok: false,
+        exitCode: 1,
+        overall: 'fail',
+        runtime_id: runtimeId,
+        runtime_type: runtime.type,
+        role_id: roleSelection.roleId,
+        timeout_ms: timeoutMs,
+        warnings,
+        schema_contract: schemaContract,
+        dispatch: null,
+        validation: null,
+        error: 'Schema contract continuity failed before synthetic dispatch.',
+        scratch_root: null,
+      };
+    }
+
     copyRepoForValidation(sourceRoot, scratchRoot);
     initializeScratchGit(scratchRoot);
 
@@ -132,6 +157,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
         role_id: roleSelection.roleId,
         timeout_ms: timeoutMs,
         warnings,
+        schema_contract: schemaContract,
         error: 'Failed to load governed config inside scratch workspace.',
         scratch_root: scratchRoot,
       };
@@ -149,6 +175,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
           role_id: roleSelection.roleId,
           timeout_ms: timeoutMs,
           warnings,
+          schema_contract: schemaContract,
           dispatch: null,
           validation: null,
           error: spawnProbe.detail,
@@ -174,6 +201,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
         role_id: roleSelection.roleId,
         timeout_ms: timeoutMs,
         warnings,
+        schema_contract: schemaContract,
         error: initResult.error,
         scratch_root: scratchRoot,
       };
@@ -190,6 +218,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
         role_id: roleSelection.roleId,
         timeout_ms: timeoutMs,
         warnings,
+        schema_contract: schemaContract,
         error: assignResult.error,
         scratch_root: scratchRoot,
       };
@@ -207,6 +236,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
         role_id: roleSelection.roleId,
         timeout_ms: timeoutMs,
         warnings,
+        schema_contract: schemaContract,
         error: 'Synthetic validation turn was not assigned.',
         scratch_root: scratchRoot,
       };
@@ -223,6 +253,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
         role_id: roleSelection.roleId,
         timeout_ms: timeoutMs,
         warnings,
+        schema_contract: schemaContract,
         error: bundleResult.error,
         scratch_root: scratchRoot,
       };
@@ -266,6 +297,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
         role_id: roleSelection.roleId,
         timeout_ms: timeoutMs,
         warnings,
+        schema_contract: schemaContract,
         dispatch,
         validation: null,
         scratch_root: scratchRoot,
@@ -288,6 +320,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
         role_id: roleSelection.roleId,
         timeout_ms: timeoutMs,
         warnings,
+        schema_contract: schemaContract,
         dispatch,
         validation: {
           ok: false,
@@ -310,6 +343,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
       role_id: roleSelection.roleId,
       timeout_ms: timeoutMs,
       warnings,
+      schema_contract: schemaContract,
       dispatch,
       validation: {
         ok: true,
@@ -332,6 +366,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
       role_id: roleSelection.roleId,
       timeout_ms: timeoutMs,
       warnings,
+      schema_contract: schemaContract,
       dispatch,
       validation,
       error: error.message,
