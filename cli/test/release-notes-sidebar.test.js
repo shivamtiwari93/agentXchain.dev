@@ -21,7 +21,7 @@ function parseReleaseMeta(file) {
   const match = /^v(\d+)-(\d+)-(\d+)\.mdx$/.exec(file);
   assert.ok(match, `release note filename must be semver-shaped: ${file}`);
   const content = read(`website-v2/docs/releases/${file}`);
-  const positionMatch = content.match(/^sidebar_position:\s*(\d+)\s*$/m);
+  const positionMatch = content.match(/^sidebar_position:\s*(-?\d+)\s*$/m);
   assert.ok(positionMatch, `${file} must declare sidebar_position`);
   return {
     file,

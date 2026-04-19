@@ -88,6 +88,7 @@ describe('intake start context bridge', () => {
         'dispatch bundle shows the intake charter',
         'run provenance identifies the intake trigger',
       ],
+      phase_scope: null,
     });
 
     const context = readFileSync(join(root, result.dispatch_dir, 'CONTEXT.md'), 'utf8');
