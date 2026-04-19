@@ -1177,6 +1177,125 @@ describe('claim-reality preflight', () => {
       'packaged restart must not cause acceptance to fall back to the embedded stale contract');
   });
 
+  it('BUG-46 packaged CLI continuous-mode proves the tester exact operator path: run --continue-from --continuous with authoritative QA', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const { initializeGovernedRun } = governedState;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug46-cont-'));
+    TEMP_PATHS.push(root);
+
+    // Tester's exact governance tuple: QA + authoritative + local_cli
+    const bug46ContConfig = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: 'bug46-packed-continuous', name: 'BUG-46 Packed Continuous', default_branch: 'main' },
+      roles: {
+        qa: {
+          title: 'QA',
+          mandate: 'Verify the release candidate, produce fixture outputs, and record the ship verdict.',
+          write_authority: 'authoritative',
+          runtime: 'local-qa',
+        },
+      },
+      runtimes: {
+        'local-qa': {
+          type: 'local_cli',
+          command: process.execPath,
+          args: [join(CLI_DIR, 'test-support', 'mock-agent-bug46-qa.mjs')],
+          cwd: '.',
+          prompt_transport: 'dispatch_bundle_only',
+        },
+      },
+      routing: {
+        qa: { entry_role: 'qa', allowed_next_roles: ['qa'], exit_gate: 'qa_ship_verdict' },
+      },
+      gates: {
+        qa_ship_verdict: {
+          requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
+        },
+      },
+    };
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# BUG-46 packed continuous\n');
+    writeFileSync(join(root, '.planning', 'VISION.md'), '# Vision\n\n## QA\n\n- verify the release candidate with authoritative QA\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(bug46ContConfig, null, 2) + '\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'test@test.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    git(root, ['add', '-A']);
+    git(root, ['commit', '-m', 'init']);
+
+    const init = initializeGovernedRun(root, bug46ContConfig);
+    assert.ok(init.ok, init.error);
+
+    // Run the tester's exact operator command shape:
+    // agentxchain run --continue-from <run_id> --continuous
+    // Use --max-turns 3 to allow accept→checkpoint→resume to cycle.
+    // The BUG-46 proof is: the continuous loop does NOT deadlock on
+    // the accept→checkpoint→resume chain with authoritative QA + produced_files.
+    const continuous = spawnSync(process.execPath, [
+      cliPath,
+      'run',
+      '--continue-from',
+      init.state.run_id,
+      '--continuous',
+      '--auto-approve',
+      '--auto-checkpoint',
+      '--max-turns',
+      '3',
+      '--max-runs',
+      '1',
+      '--max-idle-cycles',
+      '1',
+      '--poll-seconds',
+      '0',
+      '--triage-approval',
+      'auto',
+    ], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
+    });
+
+    const combinedOutput = (continuous.stdout || '') + (continuous.stderr || '');
+
+    // Must not produce the old BUG-46 deadlock symptoms
+    assert.doesNotMatch(combinedOutput,
+      /no writable files_changed paths to checkpoint/i,
+      'continuous checkpoint must not skip — produced_files must be promoted');
+    assert.doesNotMatch(combinedOutput,
+      /Working tree has uncommitted changes in actor-owned files.*Authoritative.*require a clean baseline/i,
+      'continuous resume must not block on stranded verification outputs');
+    assert.doesNotMatch(combinedOutput,
+      /artifact\.type: "workspace" but files_changed is empty/i,
+      'continuous acceptance must not reject — produced_files promotion should populate files_changed');
+
+    // The continuous loop must have accepted at least one turn (not stuck before first acceptance)
+    assert.match(combinedOutput, /Turn accepted:/,
+      'continuous run must accept at least one turn through the accept→checkpoint→resume chain');
+
+    // Verify history shows the promoted files_changed
+    const historyPath = join(root, '.agentxchain', 'history.jsonl');
+    assert.ok(existsSync(historyPath),
+      `continuous run must persist history. Output:\n${combinedOutput}`);
+    const history = readFileSync(historyPath, 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const qaEntry = history.find((e) => e.role === 'qa');
+    assert.ok(qaEntry,
+      `continuous run must have a QA turn in history. Entries: ${history.map((e) => `${e.turn_id}:${e.role}:${e.status}`).join(', ')}`);
+    assert.ok(Array.isArray(qaEntry.files_changed) && qaEntry.files_changed.length > 0,
+      `continuous QA turn files_changed must be populated after produced_files promotion. Got: ${JSON.stringify(qaEntry.files_changed)}`);
+    assert.ok(qaEntry.files_changed.includes('.planning/RELEASE_NOTES.md'),
+      'continuous QA turn must include promoted verification artifact in files_changed');
+    assert.ok(qaEntry.checkpoint_sha,
+      'continuous QA turn must have a checkpoint_sha (auto-checkpoint succeeded)');
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));
