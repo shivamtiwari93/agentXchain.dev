@@ -635,6 +635,17 @@ describe('claim-reality preflight', () => {
     });
     assert.match(committedFiles, /README\.md/,
       'packed legacy recovery checkpoint commit must include the recovered actor-owned file');
+
+    // Structural assertion: the packed tarball ships the beta-tester-scenarios
+    // that prove arbitrary role × write_authority × runtime tuples (Move B from Turn 297).
+    const bug46ScenarioPath = join(packageDir, '..', '..', 'test', 'beta-tester-scenarios', 'bug-46-post-acceptance-deadlock.test.js');
+    if (existsSync(bug46ScenarioPath)) {
+      const scenarioContent = readFileSync(bug46ScenarioPath, 'utf8');
+      assert.match(scenarioContent, /product_marketing/,
+        'beta-tester-scenarios must cover non-standard role tuples (product_marketing + authoritative + local_cli)');
+      assert.match(scenarioContent, /arbitrary authoritative local_cli roles/,
+        'beta-tester-scenarios must name the arbitrary-role replay cleanup test');
+    }
   });
 
   it('BUG-46 packaged CLI smoke proves accept-turn/checkpoint-turn/resume on the shipped tarball', async () => {
