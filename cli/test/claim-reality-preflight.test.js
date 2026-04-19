@@ -500,6 +500,264 @@ describe('claim-reality preflight', () => {
       `packaged resume must succeed after BUG-46 checkpoint:\n${resume.stdout}\n${resume.stderr}`);
   });
 
+  it('BUG-44 packaged CLI retires phase-scoped intent on phase advance and accepts QA turn', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn, acceptGovernedTurn } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    // Create temp git repo with implementation+QA routing
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug44-'));
+    TEMP_PATHS.push(root);
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: 'bug44-packed', name: 'BUG-44 Packed', default_branch: 'main' },
+      roles: {
+        dev: { title: 'Developer', mandate: 'Build.', write_authority: 'authoritative', runtime: 'r-dev' },
+        qa: { title: 'QA', mandate: 'Verify.', write_authority: 'review_only', runtime: 'r-qa' },
+      },
+      runtimes: {
+        'r-dev': { type: 'local_cli', command: process.execPath, args: ['-e', 'process.exit(0)'], prompt_transport: 'dispatch_bundle_only' },
+        'r-qa': { type: 'manual' },
+      },
+      routing: {
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa'], exit_gate: 'implementation_complete' },
+        qa: { entry_role: 'qa', allowed_next_roles: ['qa'], exit_gate: 'qa_ship_verdict' },
+      },
+      gates: {
+        implementation_complete: { requires_files: ['.planning/IMPLEMENTATION_NOTES.md'], requires_verification_pass: true },
+        qa_ship_verdict: {},
+      },
+    };
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# BUG-44 packed\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2) + '\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'test@test.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    git(root, ['add', 'README.md', 'agentxchain.json']);
+    git(root, ['commit', '-m', 'init']);
+
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+
+    // Seed implementation-scoped repair intent (tester's exact shape)
+    const intentId = 'intent_1776534863659_5752';
+    const eventId = 'evt_bug44_packed';
+    mkdirSync(join(root, '.agentxchain', 'intake', 'events'), { recursive: true });
+    mkdirSync(join(root, '.agentxchain', 'intake', 'intents'), { recursive: true });
+    writeFileSync(join(root, '.agentxchain', 'intake', 'events', `${eventId}.json`), JSON.stringify({
+      schema_version: '1.0', event_id: eventId, source: 'manual', category: 'operator_injection',
+      created_at: '2026-04-19T00:00:00.000Z',
+      signal: { description: 'implementation repair', injected: true, priority: 'p0' },
+      evidence: [{ type: 'text', value: 'packed BUG-44' }], dedup_key: 'manual:bug44-packed',
+    }, null, 2));
+    writeFileSync(join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`), JSON.stringify({
+      schema_version: '1.0', intent_id: intentId, event_id: eventId, status: 'approved', priority: 'p0',
+      template: 'generic',
+      charter: 'add literal ## Changes section to .planning/IMPLEMENTATION_NOTES.md, allow implementation to advance to QA.',
+      acceptance_contract: ['implementation_complete gate can advance to qa once verification passes'],
+      phase_scope: 'implementation', approved_run_id: init.state.run_id,
+      created_at: '2026-04-19T00:00:00.000Z', updated_at: '2026-04-19T00:00:00.000Z', history: [],
+    }, null, 2));
+
+    // Create the gate-required file and commit
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Implementation Notes\n\n## Summary\n- repair\n\n## Changes\n- Repair completed\n\n## Verification\n- pass\n');
+    git(root, ['add', '.planning/IMPLEMENTATION_NOTES.md']);
+    git(root, ['commit', '-m', 'seed implementation notes']);
+
+    // Assign and accept an implementation turn that passes the gate
+    const implAssign = assignGovernedTurn(root, config, 'dev');
+    assert.ok(implAssign.ok, implAssign.error);
+    const implTurnId = implAssign.turn.turn_id;
+    const implResultPath = join(root, getTurnStagingResultPath(implTurnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', implTurnId), { recursive: true });
+    writeFileSync(implResultPath, JSON.stringify({
+      schema_version: '1.0', run_id: init.state.run_id, turn_id: implTurnId,
+      role: 'dev', runtime_id: 'r-dev', status: 'completed',
+      summary: 'Implementation repair done, advancing to QA.',
+      decisions: [], objections: [],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      verification: { status: 'pass' },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa', phase_transition_request: 'qa',
+    }, null, 2));
+
+    const implAccept = acceptGovernedTurn(root, config, { turnId: implTurnId, resultPath: implResultPath });
+    assert.ok(implAccept.ok, implAccept.error);
+    assert.equal(implAccept.state.phase, 'qa', 'packaged impl accept must advance to qa');
+
+    // Verify intent was retired
+    const retiredIntent = JSON.parse(readFileSync(join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`), 'utf8'));
+    assert.equal(retiredIntent.status, 'satisfied',
+      'packaged phase advance must retire the implementation-scoped intent');
+
+    // Resume via packaged CLI to dispatch QA turn
+    const resume = spawnSync(process.execPath, [cliPath, 'resume'], {
+      cwd: root, encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `packaged resume must succeed after phase advance:\n${resume.stdout}\n${resume.stderr}`);
+    assert.doesNotMatch(resume.stdout, /Bound approved intent to next turn: intent_1776534863659_5752/,
+      'packaged resume must not re-bind the retired intent');
+
+    // Get the QA turn and accept it via packaged CLI
+    const qaState = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    const qaTurnId = Object.keys(qaState.active_turns || {})[0];
+    assert.ok(qaTurnId, 'packaged resume must create a QA turn');
+    const qaResultPath = join(root, getTurnStagingResultPath(qaTurnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', qaTurnId), { recursive: true });
+    writeFileSync(qaResultPath, JSON.stringify({
+      schema_version: '1.0', run_id: init.state.run_id, turn_id: qaTurnId,
+      role: 'qa', runtime_id: 'r-qa', status: 'completed',
+      summary: 'QA pass — no stale coverage blocker.',
+      decisions: [],
+      objections: [{ id: 'OBJ-001', target: 'implementation', statement: 'Implementation gate already passed.', severity: 'low' }],
+      files_changed: [],
+      verification: { status: 'skipped' },
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: 'qa',
+    }, null, 2));
+
+    const qaAccept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', qaTurnId], {
+      cwd: root, encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(qaAccept.status, 0,
+      `packaged QA accept must succeed without stale intent coverage:\n${qaAccept.stdout}\n${qaAccept.stderr}`);
+    assert.doesNotMatch(qaAccept.stdout, /Intent coverage incomplete/,
+      'packaged QA acceptance must not complain about retired implementation-phase intent');
+  });
+
+  it('BUG-45 packaged CLI accepts retained turn when live intent is completed on disk', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    // Create temp git repo
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug45-'));
+    TEMP_PATHS.push(root);
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: 'bug45-packed', name: 'BUG-45 Packed', default_branch: 'main' },
+      roles: {
+        pm: { title: 'Product Marketing', mandate: 'Consolidate.', write_authority: 'authoritative', runtime: 'r-pm' },
+      },
+      runtimes: {
+        'r-pm': { type: 'local_cli', command: process.execPath, args: ['-e', 'process.exit(0)'], prompt_transport: 'dispatch_bundle_only' },
+      },
+      routing: {
+        qa: { entry_role: 'pm', allowed_next_roles: ['pm'], exit_gate: 'qa_ship_verdict' },
+      },
+      gates: { qa_ship_verdict: {} },
+    };
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# BUG-45 packed\n');
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Implementation Notes\n\n## Summary\n- Consolidation\n\n## Changes\n- Done\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2) + '\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'test@test.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    git(root, ['add', '.']);
+    git(root, ['commit', '-m', 'init']);
+
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+
+    // Seed executing intent (tester's exact shape)
+    const intentId = 'intent_1776535590576_a157';
+    const eventId = 'evt_bug45_packed';
+    mkdirSync(join(root, '.agentxchain', 'intake', 'events'), { recursive: true });
+    mkdirSync(join(root, '.agentxchain', 'intake', 'intents'), { recursive: true });
+    writeFileSync(join(root, '.agentxchain', 'intake', 'events', `${eventId}.json`), JSON.stringify({
+      schema_version: '1.0', event_id: eventId, source: 'manual', category: 'operator_injection',
+      created_at: '2026-04-19T01:00:00.000Z',
+      signal: { description: 'live-site consolidation', injected: true, priority: 'p0' },
+      evidence: [{ type: 'text', value: 'packed BUG-45' }], dedup_key: 'manual:bug45-packed',
+    }, null, 2));
+    writeFileSync(join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`), JSON.stringify({
+      schema_version: '1.0', intent_id: intentId, event_id: eventId, status: 'executing', priority: 'p0',
+      template: 'generic',
+      charter: 'website/ reflects the current live website content',
+      acceptance_contract: [
+        'website/ reflects the current live website content',
+        '.planning/IMPLEMENTATION_NOTES.md contains ## Changes',
+      ],
+      phase_scope: null, approved_run_id: init.state.run_id, target_run: init.state.run_id,
+      cross_run_durable: false,
+      created_at: '2026-04-19T01:00:00.000Z', updated_at: '2026-04-19T01:00:00.000Z',
+      history: [
+        { from: 'approved', to: 'planned', at: '2026-04-19T01:00:00.000Z', reason: 'dispatched' },
+        { from: 'planned', to: 'executing', at: '2026-04-19T01:00:00.000Z', reason: 'governed execution started' },
+      ],
+    }, null, 2));
+
+    // Assign a turn with stale embedded acceptance_contract
+    const assign = assignGovernedTurn(root, config, 'pm', {
+      intakeContext: {
+        intent_id: intentId,
+        charter: 'live-site consolidation',
+        acceptance_contract: ['stale embedded contract item that does not match the live intent'],
+        priority: 'p0',
+      },
+    });
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    // Simulate: operator resolves the intent to completed on disk
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`);
+    const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    intent.status = 'completed';
+    intent.completed_at = '2026-04-19T02:00:00.000Z';
+    intent.updated_at = '2026-04-19T02:00:00.000Z';
+    intent.history.push({
+      from: 'executing', to: 'completed',
+      at: '2026-04-19T02:00:00.000Z',
+      reason: 'operator-resolved via intake resolve --outcome completed',
+    });
+    writeFileSync(intentPath, JSON.stringify(intent, null, 2));
+
+    // Stage a turn result that does NOT address the stale contract
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0', run_id: init.state.run_id, turn_id: turnId,
+      role: 'pm', runtime_id: 'r-pm', status: 'completed',
+      summary: 'Consolidation pass.',
+      decisions: [], objections: [],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      verification: { status: 'pass' },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'pm',
+    }, null, 2));
+
+    // Accept via packaged CLI
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turnId], {
+      cwd: root, encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `packaged accept-turn must succeed when live intent is completed:\n${accept.stdout}\n${accept.stderr}`);
+    assert.doesNotMatch(accept.stdout + accept.stderr, /Intent coverage incomplete/,
+      'packaged acceptance must not enforce coverage on a completed intent');
+    assert.doesNotMatch(accept.stdout + accept.stderr, /stale embedded contract/i,
+      'packaged acceptance must not use the stale embedded contract');
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));
