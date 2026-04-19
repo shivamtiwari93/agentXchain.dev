@@ -567,6 +567,7 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('.agentxchain/state.json'), true);
     assert.equal(isOperationalPath('.agentxchain/history.jsonl'), true);
     assert.equal(isOperationalPath('.agentxchain/decision-ledger.jsonl'), true);
+    assert.equal(isOperationalPath('.agentxchain/repo-decisions.jsonl'), true);
     assert.equal(isOperationalPath('.agentxchain/lock.json'), true);
     assert.equal(isOperationalPath('.agentxchain/continuous-session.json'), true);
     assert.equal(isOperationalPath('.agentxchain/human-escalations.jsonl'), true);
@@ -631,6 +632,23 @@ describe('observeChanges — operational path exclusion', () => {
       'intake lifecycle paths should be excluded',
     );
   });
+
+  it('excludes repo decision ledger writes from observed changes', () => {
+    const baseline = captureBaseline(dir);
+    mkdirSync(join(dir, '.agentxchain'), { recursive: true });
+    writeFileSync(
+      join(dir, '.agentxchain/repo-decisions.jsonl'),
+      `${JSON.stringify({ id: 'dec_123', status: 'active' })}\n`,
+    );
+    writeFileSync(join(dir, 'actor-file.js'), 'console.log("actor");\n');
+
+    const observation = observeChanges(dir, baseline);
+    assert.ok(observation.files_changed.includes('actor-file.js'), 'actor file should be observed');
+    assert.ok(
+      !observation.files_changed.includes('.agentxchain/repo-decisions.jsonl'),
+      'repo-decisions.jsonl should be excluded',
+    );
+  });
 });
 
 // ── Tests: operational path exclusion in checkCleanBaseline ────────────────
@@ -655,6 +673,17 @@ describe('checkCleanBaseline — operational path exclusion', () => {
 
     const result = checkCleanBaseline(dir, 'authoritative');
     assert.equal(result.clean, true, 'should be clean when only TALK.md is dirty — it is orchestrator-owned');
+  });
+
+  it('authoritative: clean when only repo-decisions.jsonl is dirty', () => {
+    mkdirSync(join(dir, '.agentxchain'), { recursive: true });
+    writeFileSync(
+      join(dir, '.agentxchain/repo-decisions.jsonl'),
+      `${JSON.stringify({ id: 'dec_123', status: 'active' })}\n`,
+    );
+
+    const result = checkCleanBaseline(dir, 'authoritative');
+    assert.equal(result.clean, true, 'should be clean when only repo-decisions.jsonl is dirty');
   });
 
   it('authoritative: clean when only review evidence is dirty', () => {

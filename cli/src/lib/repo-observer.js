@@ -40,6 +40,7 @@ const ORCHESTRATOR_STATE_FILES = [
   '.agentxchain/session.json',
   '.agentxchain/history.jsonl',
   '.agentxchain/decision-ledger.jsonl',
+  '.agentxchain/repo-decisions.jsonl',
   '.agentxchain/lock.json',
   '.agentxchain/hook-audit.jsonl',
   '.agentxchain/hook-annotations.jsonl',
