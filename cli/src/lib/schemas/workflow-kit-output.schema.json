@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxchain.dev/schemas/workflow-kit-output.schema.json",
+  "title": "AgentXchain Workflow Kit Output",
+  "description": "Output schema for `workflow-kit describe --json`. Describes the workflow kit contract including phase templates, artifacts, semantic validators, and gate artifact coverage.",
+  "type": "object",
+  "required": [
+    "workflow_kit_version",
+    "source",
+    "phase_templates",
+    "phases",
+    "semantic_validators",
+    "gate_artifact_coverage"
+  ],
+  "properties": {
+    "workflow_kit_version": {
+      "type": "string",
+      "description": "Workflow kit contract version."
+    },
+    "source": {
+      "$ref": "#/$defs/kit_source",
+      "description": "How the workflow kit was derived: default (inferred from phase names), explicit (user-defined), or mixed."
+    },
+    "phase_templates": {
+      "$ref": "#/$defs/phase_templates",
+      "description": "Available and in-use phase templates."
+    },
+    "phases": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/phase_contract"
+      },
+      "description": "Per-phase workflow kit contract keyed by phase ID."
+    },
+    "semantic_validators": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of semantic validator IDs available in this workflow kit."
+    },
+    "gate_artifact_coverage": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/gate_coverage"
+      },
+      "description": "Per-gate artifact coverage mapping keyed by gate ID."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "kit_source": {
+      "enum": ["default", "explicit", "mixed"]
+    },
+    "phase_source": {
+      "enum": ["default", "explicit", "not_declared"]
+    },
+    "phase_templates": {
+      "type": "object",
+      "required": ["available", "in_use"],
+      "properties": {
+        "available": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "All valid workflow-kit phase template IDs."
+        },
+        "in_use": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Template IDs currently applied to phases."
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["path", "required", "semantics", "exists"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to the workflow artifact."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether the artifact is required for phase completion."
+        },
+        "semantics": {
+          "type": ["string", "null"],
+          "description": "Semantic validator ID, or null if no validator applies."
+        },
+        "exists": {
+          "type": "boolean",
+          "description": "Whether the artifact exists on disk at introspection time."
+        }
+      },
+      "additionalProperties": false
+    },
+    "phase_contract": {
+      "type": "object",
+      "required": ["template", "source", "artifacts"],
+      "properties": {
+        "template": {
+          "type": ["string", "null"],
+          "description": "Phase template ID, or null if no template applies."
+        },
+        "source": {
+          "$ref": "#/$defs/phase_source",
+          "description": "How this phase was configured."
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" },
+          "description": "Workflow artifacts for this phase."
+        }
+      },
+      "additionalProperties": false
+    },
+    "gate_coverage": {
+      "type": "object",
+      "required": ["linked_phases", "predicates_referencing_artifacts", "artifacts_covered"],
+      "properties": {
+        "linked_phases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Phase IDs linked to this gate via routing or explicit annotation."
+        },
+        "predicates_referencing_artifacts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of artifact predicates this gate evaluates."
+        },
+        "artifacts_covered": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact paths this gate references."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

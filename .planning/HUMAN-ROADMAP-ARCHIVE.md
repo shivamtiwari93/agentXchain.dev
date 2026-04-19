@@ -2524,3 +2524,74 @@ This separation is the difference between a useful product and a confused one. D
 > **Short conclusion**
 >
 > v2.136.0 appears to fix earlier no-progress gate-repair acceptance bug. But still does NOT fix continuous startup for this existing `tusq.dev` repo. BUG-40 migration hardening claim still incomplete in real migrated repo.
+
+---
+
+### Beta-tester bug report #12 (verbatim) — BUG-41 false closure on v2.137.0 + new checkpoint blocker (2026-04-18)
+
+> Tested v2.137.0 via npx.
+>
+> ```bash
+> npx --yes -p agentxchain@2.137.0 -c 'agentxchain --version'
+> # 2.137.0
+>
+> npx --yes -p agentxchain@2.137.0 -c 'agentxchain run --continue-from run_c8a4701ce0d4952d --continuous --auto-approve --auto-checkpoint --max-turns 20 --max-runs 5 --triage-approval auto'
+> ```
+>
+> Result:
+> ```text
+> Found queued intent: intent_1776473633943_0543 (approved)
+> Continuous start error: plan failed: existing planning artifacts would be overwritten
+> ```
+>
+> Also tested the new migration command:
+> ```bash
+> npx --yes -p agentxchain@2.137.0 -c 'agentxchain migrate-intents --dry-run --json'
+> ```
+>
+> Result:
+> ```json
+> {
+>   "archived_count": 0,
+>   "archived_intent_ids": [],
+>   "dry_run": true,
+>   "message": "No legacy intents found"
+> }
+> ```
+>
+> But when I inspected the intent files, the old intents are still effectively live and rebound to the current run:
+>
+> ```text
+> intent_1776473633943_0543.json
+>   status=approved
+>   approved_run_id=run_c8a4701ce0d4952d
+>   run_id=None
+>   archived_at=None
+>   consumed_at=None
+> ```
+>
+> Same pattern for the other old intents too.
+>
+> Honest result:
+> - v2.137.0 still does **not** fix continuous startup for this repo
+> - no longer looks like a pure "null-scoped legacy intent" bug
+> - now looks like **stale old intents have been rebound to the current run and are still queueable**, which still breaks continuous mode
+>
+> Good news:
+> - gate-repair acceptance bug is fixed enough now
+> - forced a retry with explicit rejection reason
+> - dev agent finally changed `.planning/IMPLEMENTATION_NOTES.md` to include `## Changes`
+> - `implementation_complete` now passes
+> - run advanced to `qa`
+>
+> New roadblock:
+> - QA still can't start because AgentXchain says accepted dev turn `turn_e20130cc31c3b5b3` is not checkpointed
+> - `checkpoint-turn` fails because the staging file is already gone:
+>   ```text
+>   Failed to stage accepted files for checkpoint: fatal: pathspec '.agentxchain/staging/turn_e20130cc31c3b5b3/turn-result.json' did not match any files
+>   ```
+>
+> Current truth:
+> - continuous mode: still broken in this repo under 2.137.0
+> - gate repair loop: improved/fixed
+> - checkpoint/QA handoff: now the active blocker

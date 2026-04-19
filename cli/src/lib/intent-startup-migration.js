@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { safeWriteJson } from './safe-write.js';
+import { VALID_GOVERNED_TEMPLATE_IDS, loadGovernedTemplate } from './governed-templates.js';
 
 const DISPATCHABLE_STATUSES = new Set(['planned', 'approved']);
 
@@ -72,12 +73,39 @@ export function migratePreBug34Intents(root, runId, options = {}) {
   };
 }
 
+/**
+ * BUG-42: Detect phantom intents — approved intents bound to the current run
+ * whose planning artifacts already exist on disk. These intents would fail with
+ * "existing planning artifacts would be overwritten" if dispatched.
+ */
+function isPhantomIntent(root, intent) {
+  if (intent.status !== 'approved') return false;
+  if (!intent.template) return false;
+
+  let manifest;
+  try {
+    manifest = loadGovernedTemplate(intent.template);
+  } catch {
+    return false;
+  }
+
+  const artifacts = manifest.planning_artifacts || [];
+  if (artifacts.length === 0) return false;
+
+  const planningDir = join(root, '.planning');
+  return artifacts.some((artifact) =>
+    existsSync(join(planningDir, artifact.filename)),
+  );
+}
+
 export function archiveStaleIntentsForRun(root, runId, options = {}) {
   const intentsDir = getIntentsDir(root);
   if (!existsSync(intentsDir)) {
     return {
       archived: 0,
       adopted: 0,
+      phantom_superseded: 0,
+      phantom_superseded_intent_ids: [],
       archived_migration_count: 0,
       archived_migration_intent_ids: [],
       migration_notice: null,
@@ -87,6 +115,8 @@ export function archiveStaleIntentsForRun(root, runId, options = {}) {
   const now = nowISO();
   let archived = 0;
   let adopted = 0;
+  let phantomSuperseded = 0;
+  const phantomSupersededIntentIds = [];
 
   for (const file of listIntentFiles(intentsDir)) {
     const intentPath = join(intentsDir, file);
@@ -136,6 +166,28 @@ export function archiveStaleIntentsForRun(root, runId, options = {}) {
       });
       safeWriteJson(intentPath, intent);
       archived += 1;
+      continue;
+    }
+
+    // BUG-42: Detect phantom intents — approved intents bound to the current
+    // run whose planning artifacts already exist on disk. These would fail with
+    // "existing planning artifacts would be overwritten" if dispatched.
+    if (intent.approved_run_id === runId && isPhantomIntent(root, intent)) {
+      const prevStatus = intent.status;
+      intent.status = 'superseded';
+      intent.updated_at = now;
+      intent.archived_reason = 'planning artifacts for this intent already exist on disk; intent superseded';
+      if (!intent.history) intent.history = [];
+      intent.history.push({
+        from: prevStatus,
+        to: 'superseded',
+        at: now,
+        reason: intent.archived_reason,
+      });
+      safeWriteJson(intentPath, intent);
+      phantomSuperseded += 1;
+      if (intent.intent_id) phantomSupersededIntentIds.push(intent.intent_id);
+      continue;
     }
   }
 
@@ -144,6 +196,8 @@ export function archiveStaleIntentsForRun(root, runId, options = {}) {
   return {
     archived,
     adopted,
+    phantom_superseded: phantomSuperseded,
+    phantom_superseded_intent_ids: phantomSupersededIntentIds,
     archived_migration_count: migration.archived_migration_count,
     archived_migration_intent_ids: migration.archived_migration_intent_ids,
     migration_notice: migration.migration_notice,

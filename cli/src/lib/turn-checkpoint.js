@@ -52,12 +52,24 @@ function isGitRepo(root) {
   }
 }
 
+// BUG-43: Staging and dispatch dirs are ephemeral — cleaned up after acceptance.
+// They must never appear in checkpoint git-add paths.
+const EPHEMERAL_PATH_PREFIXES = [
+  '.agentxchain/staging/',
+  '.agentxchain/dispatch/',
+];
+
+function isEphemeralPath(filePath) {
+  return EPHEMERAL_PATH_PREFIXES.some((prefix) => filePath.startsWith(prefix));
+}
+
 function normalizeFilesChanged(filesChanged) {
   return [...new Set(
     (Array.isArray(filesChanged) ? filesChanged : [])
       .filter((value) => typeof value === 'string')
       .map((value) => value.trim())
-      .filter(Boolean),
+      .filter(Boolean)
+      .filter((value) => !isEphemeralPath(value)),
   )];
 }
 

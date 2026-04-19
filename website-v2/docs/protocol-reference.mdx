@@ -74,6 +74,12 @@ These repo-local concepts are protocol v7, not UI sugar:
 - Source file: `cli/src/lib/schemas/connector-capabilities-output.schema.json`
 - Current purpose: freeze the `connector capabilities --json` output shape so third-party tooling can validate the handshake response without parsing prose or inferring shapes from tests. Covers single-runtime, multi-runtime (`--all`), and error responses.
 
+### Workflow kit output schema artifact
+
+- Package export: `agentxchain/schemas/workflow-kit-output`
+- Source file: `cli/src/lib/schemas/workflow-kit-output.schema.json`
+- Current purpose: freeze the `workflow-kit describe --json` output shape so third-party tooling can validate the workflow kit contract response. Covers phase templates, per-phase artifacts, semantic validators, and gate artifact coverage.
+
 ### Connector validate schema continuity proof
 
 - `connector validate --json` emits `schema_contract`

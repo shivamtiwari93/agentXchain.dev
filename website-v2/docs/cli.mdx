@@ -76,7 +76,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `verify export` | Conformance | Verify an export artifact against embedded file bytes, hashes, and summary invariants |
 | `verify diff` | Conformance | Verify two export artifacts, then fail closed on governance regressions between them |
 | `migrate` | Migration | Migrate state and config from an older protocol version |
-| `migrate-intents` | Migration | Archive legacy intents with no run scope (pre-BUG-34 repair) |
+| `migrate-intents` | Migration | Archive legacy and phantom intents that block continuous mode |
 | `plugin` | Plugin management | Install, list, upgrade, or remove hook plugins |
 | `intake` | Continuous delivery | Record repo-native signals, triage intents, authorize and plan governed work, start execution, resolve outcomes, and inspect backlog state |
 | `multi` | Multi-repo coordination | Bootstrap, inspect, step, approve, and recover coordinator runs across linked repositories |
@@ -1346,11 +1346,12 @@ agentxchain migrate-intents [options]
 | `-j, --json` | `false` | Output as JSON |
 | `--dry-run` | `false` | List legacy intents without modifying them |
 
-One-shot repair command for repos that have legacy intents stuck with `approved_run_id: null` (pre-BUG-34 format). Archives all matching intents with `status: "archived_migration"`. Safe to run multiple times — idempotent.
+One-shot repair command for repos with stuck intents that block continuous mode. Handles two classes:
 
-Use this when continuous mode aborts with "existing planning artifacts would be overwritten" due to stale legacy intents that were never migrated by the automatic startup path.
+1. **Legacy intents** (`approved_run_id: null`): pre-BUG-34 format intents archived with `status: "archived_migration"`.
+2. **Phantom intents** (BUG-42): intents bound to the current run whose planning artifacts already exist on disk. These would fail with "existing planning artifacts would be overwritten" if dispatched. Marked `status: "superseded"`.
 
-Scope boundary: `migrate-intents` only archives legacy null-scoped intents. It does **not** archive run-scoped intents that already have `approved_run_id` set. Those remain under startup reconciliation for the active run, and the command reports them as skipped instead of mutating them silently.
+Safe to run multiple times — idempotent. Use this when continuous mode aborts due to stale intents that were never cleaned up by the automatic startup path.
 
 ## Readiness
 
@@ -1498,7 +1499,7 @@ The `--json` output includes:
 - `semantic_validators` — the full list of content-aware validators
 - `gate_artifact_coverage` — which gates reference which artifacts and which phases link to those gates
 
-See the [Workflow Kit](/docs/workflow-kit) page for the full operating model.
+The output shape is governed by a published JSON Schema at `agentxchain/schemas/workflow-kit-output`. See the [Workflow Kit](/docs/workflow-kit) page for the full operating model.
 
 ## Dashboard
 
