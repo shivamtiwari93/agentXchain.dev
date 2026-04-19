@@ -411,6 +411,7 @@ Use `intake resolve` to close the loop between a governed run outcome and the li
 ```bash
 agentxchain intake resolve \
   --intent intent_1712173200000_c3d4 \
+  --outcome completed \
   --json
 ```
 
@@ -420,6 +421,8 @@ agentxchain intake resolve \
 - coordinator-mediated execution via `target_workstream`
 
 For repo-local execution, `intake resolve` reads `.agentxchain/state.json`, verifies that the governed `run_id` still matches the intent's `target_run`, and then maps the run outcome back onto intake state truth.
+
+`--outcome completed` is the explicit operator override for retained-turn deadlocks. Use it when the retained turn's artifacts and verification already satisfy the contract but the intent is still stuck in `executing`. The command transitions `executing -> completed` atomically without manual `.agentxchain/` surgery.
 
 ### Run-outcome mapping
 
@@ -475,6 +478,23 @@ Example success result:
   }
 }
 ```
+
+### Operator override for retained turns
+
+If a retained turn is already staged and you need to retire the linked intent before rerunning `accept-turn`, use:
+
+```bash
+agentxchain intake resolve \
+  --intent intent_1712173200000_c3d4 \
+  --outcome completed \
+  --json
+```
+
+This is intentionally narrow:
+
+- valid only when the intent is currently `executing`
+- records a history entry explaining the operator-forced completion
+- exists to replace manual `.agentxchain/` state edits, not to bypass normal governed execution
 
 ### Re-approval after a block
 

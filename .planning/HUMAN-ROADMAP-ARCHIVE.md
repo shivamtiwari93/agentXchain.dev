@@ -2595,3 +2595,54 @@ This separation is the difference between a useful product and a confused one. D
 > - continuous mode: still broken in this repo under 2.137.0
 > - gate repair loop: improved/fixed
 > - checkpoint/QA handoff: now the active blocker
+
+---
+
+### BUG-42/43 closures on v2.138.0 (verified 2026-04-19)
+
+**BUG-42 — Phantom intent detection** (Turn 219, Claude): Added `isPhantomIntent()` check in `archiveStaleIntentsForRun()` — approved intents bound to current run whose planning artifacts already exist on disk are superseded with status `superseded` and reason "planning artifacts for this intent already exist on disk; intent superseded." Additional hardening in Turn 220 (GPT) after Claude's detector missed the default `generic` template case. Tester's exact command on v2.138.0 produced: `Superseded 3 phantom intent(s): intent_1776473633943_0543, intent_1776474414878_c28b, intent_1776489830072_6802`.
+
+**BUG-43 — Checkpoint-turn ephemeral path filtering** (Turn 219, Claude): `normalizeFilesChanged()` in `cli/src/lib/turn-checkpoint.js` now filters out `.agentxchain/staging/` and `.agentxchain/dispatch/` paths. These are ephemeral orchestrator artifacts cleaned up after acceptance. Tester's output on v2.138.0: `Checkpointed turn_e20130cc31c3b5b3 at fd0c1b038637ff79318fe04d25e46fb47f8df49a.`
+
+**Significance:** First non-false closure in 7 attempts. GPT caught an 8th would-be false closure pre-release by running the tester's exact command. Discipline rule #12 (no close without tester-verified output) held.
+
+
+---
+
+### Beta-tester bug report #14 (verbatim) — BUG-45 retained-turn stale coverage (2026-04-19)
+
+> **Title:** `v2.138.0` retained-turn acceptance can stay permanently blocked by stale intent coverage after the intent is already satisfied, and recovery only succeeds after manual `.agentxchain/` state surgery
+>
+> **Summary:** Stuck in real governed repo (`tusq.dev`) on retained `product_marketing` turn during `qa`. Repo work substantively complete (QA artifacts exist, `IMPLEMENTATION_NOTES.md` has `## Changes`, website consolidation reflected, verification passes, turn result valid). But AgentXchain keeps rejecting the retained turn on stale `intent_coverage` for intent `intent_1776535590576_a157` (turn `turn_1e8cabbfdda98f5d`, phase `qa`).
+>
+> Framework-native recovery did not work: `accept-turn`, `intake resolve`, `reject-turn`/retry, `unblock`, stash/cleanup of HUMAN_TASKS.md, `restart`. Only manual `.agentxchain/` state surgery unblocked the run.
+>
+> **Blocker in retained-turn intent lifecycle / acceptance binding, not repo content.**
+>
+> **Environment:** tusq.dev, macOS, governed v4, agentxchain@2.138.0 via npx, run_c8a4701ce0d4952d, stuck turn turn_1e8cabbfdda98f5d, role product_marketing, phase qa
+>
+> **Stuck intent acceptance contract:**
+> 1. `website/ reflects the current live website content and assets from websites/ instead of diverging from it`
+> 2. `.planning/IMPLEMENTATION_NOTES.md contains a literal ## Changes heading describing the consolidation work`
+> 3. `implementation can advance to qa after verification without depending on websites/ as a separate active site`
+>
+> **Observed:** retained turn repeatedly failed with "Validation failed at stage intent_coverage. Detail: Unaddressed acceptance items:" listing all 3 items from the contract. But staged result already contained evidence covering those items: `files_changed` listed `.planning/IMPLEMENTATION_NOTES.md`, `.planning/RELEASE_NOTES.md`, `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`. Verification commands included `grep -n '^## Changes$' .planning/IMPLEMENTATION_NOTES.md`, build+typecheck passing.
+>
+> **Framework recovery paths tested and failed:**
+>
+> 1. `intake resolve --intent intent_1776535590576_a157 --json` returned no-op: `{"ok":true,"previous_status":"executing","new_status":"executing","run_outcome":"active","no_change":true}`
+>
+> 2. HUMAN_TASKS.md became secondary blocker: "Observed artifact mismatch: Undeclared file changes detected (observed but not in files_changed): HUMAN_TASKS.md". Traced to AgentXchain itself re-dirtying the file when escalation moved from open to resolved (framework-generated resolved-escalation block `### hesc_cc29324d02653f26 — resolved`).
+>
+> 3. Stale binding remained embedded in retained turn at `state.json`, `ASSIGNMENT.json`, intent file. Even after repo state satisfied the intent, retained turn carried the old coverage contract.
+>
+> **What worked (manual `.agentxchain/` state surgery):**
+> 1. Marked intent file as completed: status executing → completed, added completion history, completed_at, run_completed_at, run_final_turn, satisfying_turn
+> 2. Cleared injected-priority pointer in `.agentxchain/intake/injected-priority.json` (set values to null)
+> 3. Cleared stale retained-turn intake_context in `state.json` and `ASSIGNMENT.json` (changed to null)
+>
+> After that: `accept-turn --turn turn_1e8cabbfdda98f5d` → "Turn Accepted. Status: completed". Then `checkpoint-turn` → "Checkpointed ... at bee94a4248ad31d093a4697d44f0010d6f1763b7". Then `restart` → recovered and assigned next QA turn `turn_294a4d2dfae5e56b`.
+>
+> **Likely root cause:** retained-turn acceptance uses stale embedded `intake_context.acceptance_contract` from state.json and assignment bundle rather than reconciling against current intent status, current repo state, current staged result evidence.
+>
+> **Severity: P1.** Governed run can deadlock on stale retained-turn intent coverage even after underlying work is complete. Current state: stuck turn accepted via surgery, checkpointed, run restarted, new QA turn assigned `turn_294a4d2dfae5e56b`. Moving forward again.

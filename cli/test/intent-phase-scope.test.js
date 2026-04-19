@@ -76,6 +76,20 @@ function stageTurnResult(root, turnId, payload) {
   return resultPath;
 }
 
+function seedIntent(root, intent) {
+  mkdirSync(join(root, '.agentxchain', 'intake', 'intents'), { recursive: true });
+  writeFileSync(
+    join(root, '.agentxchain', 'intake', 'intents', `${intent.intent_id}.json`),
+    JSON.stringify({
+      schema_version: '1.0',
+      status: 'approved',
+      priority: 'p1',
+      history: [],
+      ...intent,
+    }, null, 2),
+  );
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     try {
@@ -151,6 +165,15 @@ describe('intent phase scope', () => {
       },
     });
     assert.ok(qaAssign.ok, qaAssign.error);
+    seedIntent(root, {
+      intent_id: 'intent_bound_before_retirement',
+      status: 'approved',
+      charter: 'repair implementation gate wording',
+      phase_scope: 'implementation',
+      acceptance_contract: ['implementation_complete gate can advance to qa once verification passes'],
+      approved_run_id: qaAssign.state.run_id,
+      target_run: qaAssign.state.run_id,
+    });
 
     const qaResultPath = stageTurnResult(root, qaAssign.turn.turn_id, {
       schema_version: '1.0',
@@ -198,6 +221,14 @@ describe('intent phase scope', () => {
       },
     });
     assert.ok(qaAssign.ok, qaAssign.error);
+    seedIntent(root, {
+      intent_id: 'intent_without_phase_scope',
+      status: 'approved',
+      charter: 'repair implementation gate wording',
+      acceptance_contract: ['implementation_complete gate can advance to qa once verification passes'],
+      approved_run_id: qaAssign.state.run_id,
+      target_run: qaAssign.state.run_id,
+    });
 
     const qaResultPath = stageTurnResult(root, qaAssign.turn.turn_id, {
       schema_version: '1.0',

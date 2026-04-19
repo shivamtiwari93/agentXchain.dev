@@ -116,34 +116,46 @@ function listIntakeIntentFiles(root) {
 }
 
 // BUG-45: Reconcile embedded intake_context against the live intent file.
-// Returns null if the intent is terminal (coverage should be skipped),
-// returns the updated intakeCtx if the contract has changed, or the
-// original intakeCtx if the intent file is missing or unreadable.
+// The embedded copy is historical state; the live intent file is authoritative.
+// If the live intent cannot be read, acceptance must fail closed instead of
+// silently reusing the stale embedded contract.
 const INTENT_TERMINAL_STATES = ['completed', 'satisfied', 'superseded', 'suppressed', 'failed', 'rejected'];
 
 function reconcileIntakeContext(root, intakeCtx) {
-  if (!intakeCtx || !intakeCtx.intent_id) return intakeCtx;
+  if (!intakeCtx || !intakeCtx.intent_id) {
+    return { ok: true, intakeCtx };
+  }
 
   try {
     const intentPath = join(root, INTAKE_INTENTS_DIR, `${intakeCtx.intent_id}.json`);
-    if (!existsSync(intentPath)) return intakeCtx; // file missing — fall back to embedded
+    if (!existsSync(intentPath)) {
+      return {
+        ok: false,
+        error: `Intent reconciliation failed: live intent ${intakeCtx.intent_id} not found at ${INTAKE_INTENTS_DIR}/${intakeCtx.intent_id}.json`,
+      };
+    }
 
     const liveIntent = JSON.parse(readFileSync(intentPath, 'utf8'));
 
     // If the intent has reached a terminal state, skip coverage enforcement
     if (INTENT_TERMINAL_STATES.includes(liveIntent.status)) {
-      return null;
+      return { ok: true, intakeCtx: null };
     }
 
     // Intent is still active — use the CURRENT acceptance_contract from disk
     if (Array.isArray(liveIntent.acceptance_contract)) {
-      return { ...intakeCtx, acceptance_contract: liveIntent.acceptance_contract };
+      return {
+        ok: true,
+        intakeCtx: { ...intakeCtx, acceptance_contract: liveIntent.acceptance_contract },
+      };
     }
 
-    return intakeCtx;
-  } catch {
-    // Non-fatal — fall back to embedded on read/parse error
-    return intakeCtx;
+    return { ok: true, intakeCtx };
+  } catch (error) {
+    return {
+      ok: false,
+      error: `Intent reconciliation failed: could not read live intent ${intakeCtx.intent_id}: ${error.message}`,
+    };
   }
 }
 
@@ -3258,7 +3270,29 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   // The embedded intake_context is a snapshot from dispatch time. The intent
   // may have since been completed, satisfied, or had its contract updated.
   // Re-read the live intent file and reconcile before evaluating coverage.
-  const intakeCtx = reconcileIntakeContext(root, currentTurn.intake_context);
+  const intakeReconciliation = reconcileIntakeContext(root, currentTurn.intake_context);
+  if (!intakeReconciliation.ok) {
+    transitionToFailedAcceptance(root, state, currentTurn, intakeReconciliation.error, {
+      error_code: 'intent_reconciliation_failed',
+      stage: 'intent_reconciliation',
+      extra: {
+        intent_id: currentTurn.intake_context?.intent_id || null,
+      },
+    });
+    return {
+      ok: false,
+      error: intakeReconciliation.error,
+      validation: {
+        ...validation,
+        ok: false,
+        stage: 'intent_reconciliation',
+        error_class: 'intent_reconciliation_error',
+        errors: [intakeReconciliation.error],
+        warnings: validation.warnings,
+      },
+    };
+  }
+  const intakeCtx = intakeReconciliation.intakeCtx;
   if (intakeCtx && Array.isArray(intakeCtx.acceptance_contract) && intakeCtx.acceptance_contract.length > 0) {
     const intentCoverage = evaluateIntentCoverage(turnResult, intakeCtx, {
       state,

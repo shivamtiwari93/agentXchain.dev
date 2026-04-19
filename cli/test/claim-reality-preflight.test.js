@@ -117,6 +117,20 @@ describe('claim-reality preflight', () => {
       'BUG-44 continuous test must exercise the exact tester command shape');
   });
 
+  it('BUG-45 retained-turn reconciliation proof exists and its production imports are packed', () => {
+    const packedFiles = getPackedFiles();
+    const bug45Test = join(SCENARIOS_DIR, 'bug-45-retained-turn-stale-intent-coverage.test.js');
+    const imports = extractImports(bug45Test);
+    assert.ok(imports.length > 0,
+      'BUG-45 retained-turn reconciliation test must import production modules');
+    const missing = imports.filter(imp => !packedFiles.has(imp));
+    assert.equal(missing.length, 0,
+      `BUG-45 retained-turn test imports production files missing from tarball: ${missing.join(', ')}`);
+    const testContent = readFileSync(bug45Test, 'utf8');
+    assert.ok(testContent.includes('accept-turn') && testContent.includes('--outcome') && testContent.includes('HUMAN_TASKS.md'),
+      'BUG-45 test must cover accept-turn reconciliation, intake resolve override, and HUMAN_TASKS.md drift');
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));

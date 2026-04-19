@@ -143,6 +143,59 @@ afterEach(() => {
 });
 
 describe('BUG-45: retained-turn acceptance reconciles against live intent state', () => {
+  it('accept-turn uses the live executing contract instead of the stale embedded one (exact tester seam)', () => {
+    const { root, config, state } = createProject();
+    seedExecutingIntent(root, state.run_id);
+
+    const assign = assignGovernedTurn(root, config, 'pm', {
+      intakeContext: {
+        intent_id: INTENT_ID,
+        charter: 'live-site consolidation',
+        acceptance_contract: [
+          'stale embedded contract item that is intentionally not addressed anywhere',
+        ],
+        priority: 'p0',
+      },
+    });
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${INTENT_ID}.json`);
+    const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    intent.acceptance_contract = [
+      '.planning/IMPLEMENTATION_NOTES.md contains a literal ## Changes heading describing the consolidation work',
+      'release notes exist for the live-site consolidation pass',
+    ];
+    intent.updated_at = '2026-04-19T01:30:00.000Z';
+    writeFileSync(intentPath, JSON.stringify(intent, null, 2));
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: state.run_id,
+      turn_id: turnId,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Release notes exist for the live-site consolidation pass and the Implementation Notes file still contains the literal ## Changes heading.',
+      decisions: [],
+      objections: [],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md', 'website-v2/docs/releases/v2-140-0.mdx'],
+      verification: { status: 'pass' },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `accept-turn should reconcile against the live executing contract:\n${accept.stdout}\n${accept.stderr}`);
+    assert.doesNotMatch(accept.stdout + accept.stderr, /stale embedded contract item/i,
+      'acceptance must not enforce the stale embedded contract');
+  });
+
   it('accept-turn succeeds when live intent is already completed (defect 1)', () => {
     const { root, config, state } = createProject();
     seedExecutingIntent(root, state.run_id);
@@ -206,6 +259,50 @@ describe('BUG-45: retained-turn acceptance reconciles against live intent state'
       `accept-turn should succeed when intent is completed on disk:\n${accept.stdout}\n${accept.stderr}`);
     assert.doesNotMatch(accept.stdout + accept.stderr, /Intent coverage incomplete/,
       'should not complain about stale intent coverage');
+  });
+
+  it('accept-turn fails closed when the live intent file is missing', () => {
+    const { root, config, state } = createProject();
+    seedExecutingIntent(root, state.run_id);
+
+    const assign = assignGovernedTurn(root, config, 'pm', {
+      intakeContext: {
+        intent_id: INTENT_ID,
+        charter: 'live-site consolidation',
+        acceptance_contract: [
+          '.planning/IMPLEMENTATION_NOTES.md contains a literal ## Changes heading describing the consolidation work',
+        ],
+        priority: 'p0',
+      },
+    });
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    rmSync(join(root, '.agentxchain', 'intake', 'intents', `${INTENT_ID}.json`), { force: true });
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      run_id: state.run_id,
+      turn_id: turnId,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Live-site consolidation complete.',
+      decisions: [],
+      objections: [],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      verification: { status: 'pass' },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.notEqual(accept.status, 0, 'accept-turn must fail closed when the live intent file is missing');
+    assert.match(accept.stdout + accept.stderr, /Intent reconciliation failed: live intent .* not found/i);
   });
 
   it('intake resolve --outcome completed transitions executing intent (defect 2)', () => {
