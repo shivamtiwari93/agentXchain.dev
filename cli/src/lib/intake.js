@@ -23,6 +23,10 @@ import {
   formatLegacyIntentMigrationNotice,
   isPhantomIntent,
 } from './intent-startup-migration.js';
+import {
+  derivePhaseScopeFromIntentMetadata,
+  getPhaseOrder,
+} from './intent-phase-scope.js';
 
 const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vision_scan'];
 const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
@@ -31,8 +35,8 @@ const INTENT_ID_RE = /^intent_\d+_[0-9a-f]{4}$/;
 
 // V3-S1 through S5 states. `failed` remains read-tolerant for historical/manual
 // intent files, but current first-party intake writers do not transition into it.
-const S1_STATES = new Set(['detected', 'triaged', 'approved', 'planned', 'executing', 'blocked', 'completed', 'failed', 'suppressed', 'rejected']);
-const TERMINAL_STATES = new Set(['suppressed', 'rejected', 'completed', 'failed']);
+const S1_STATES = new Set(['detected', 'triaged', 'approved', 'planned', 'executing', 'blocked', 'completed', 'satisfied', 'failed', 'suppressed', 'rejected']);
+const TERMINAL_STATES = new Set(['suppressed', 'rejected', 'completed', 'satisfied', 'failed']);
 const DISPATCHABLE_STATUSES = new Set(['planned', 'approved']);
 const PRIORITY_RANK = { p0: 0, p1: 1, p2: 2, p3: 3 };
 
@@ -283,7 +287,7 @@ export function validateEventPayload(payload) {
   return { valid: errors.length === 0, errors };
 }
 
-export function validateTriageFields(fields) {
+export function validateTriageFields(fields, config = null) {
   const errors = [];
 
   if (!VALID_PRIORITIES.includes(fields.priority)) {
@@ -300,6 +304,17 @@ export function validateTriageFields(fields) {
 
   if (!Array.isArray(fields.acceptance_contract) || fields.acceptance_contract.length === 0) {
     errors.push('acceptance_contract must be a non-empty array');
+  }
+
+  if ('phase_scope' in fields && fields.phase_scope != null) {
+    if (typeof fields.phase_scope !== 'string' || !fields.phase_scope.trim()) {
+      errors.push('phase_scope must be a non-empty string when provided');
+    } else if (config) {
+      const validPhases = getPhaseOrder(config);
+      if (validPhases.length > 0 && !validPhases.includes(fields.phase_scope.trim())) {
+        errors.push(`phase_scope must be one of: ${validPhases.join(', ')}`);
+      }
+    }
   }
 
   return { valid: errors.length === 0, errors };
@@ -355,6 +370,7 @@ export function recordEvent(root, payload) {
     template: null,
     charter: null,
     acceptance_contract: [],
+    phase_scope: null,
     requires_human_start: true,
     target_run: null,
     created_at: now,
@@ -420,17 +436,25 @@ export function triageIntent(root, intentId, fields) {
     return { ok: false, error: `cannot triage from status "${intent.status}" (must be detected)`, exitCode: 1 };
   }
 
-  const validation = validateTriageFields(fields);
+  const context = loadProjectContext(root);
+  const config = context?.config || null;
+  const normalizedFields = {
+    ...fields,
+    phase_scope: fields.phase_scope || derivePhaseScopeFromIntentMetadata(fields, config),
+  };
+
+  const validation = validateTriageFields(normalizedFields, config);
   if (!validation.valid) {
     return { ok: false, error: validation.errors.join('; '), exitCode: 1 };
   }
 
   const now = nowISO();
   intent.status = 'triaged';
-  intent.priority = fields.priority;
-  intent.template = fields.template;
-  intent.charter = fields.charter;
-  intent.acceptance_contract = fields.acceptance_contract;
+  intent.priority = normalizedFields.priority;
+  intent.template = normalizedFields.template;
+  intent.charter = normalizedFields.charter;
+  intent.acceptance_contract = normalizedFields.acceptance_contract;
+  intent.phase_scope = normalizedFields.phase_scope || null;
   intent.updated_at = now;
   intent.history.push({ from: 'detected', to: 'triaged', at: now, reason: 'triage completed' });
 
@@ -946,6 +970,7 @@ export function startIntent(root, intentId, options = {}) {
     category: event.category || null,
     charter: intent.charter || null,
     acceptance_contract: Array.isArray(intent.acceptance_contract) ? intent.acceptance_contract : [],
+    phase_scope: intent.phase_scope || null,
   };
 
   // Load governed project context
@@ -1782,6 +1807,7 @@ export function injectIntent(root, description, options = {}) {
     : [description.trim()];
   const approver = options.approver || 'human';
   const noApprove = options.noApprove === true;
+  const phase_scope = options.phase_scope || null;
 
   // Step 1: Record event
   const recordResult = recordEvent(root, {
@@ -1815,6 +1841,7 @@ export function injectIntent(root, description, options = {}) {
     template,
     charter,
     acceptance_contract,
+    phase_scope,
   });
 
   if (!triageResult.ok) {

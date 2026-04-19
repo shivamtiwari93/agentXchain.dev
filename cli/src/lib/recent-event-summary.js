@@ -57,10 +57,15 @@ function describeEvent(eventType, entry) {
     case 'dispatch_progress':
       return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
     case 'intents_migrated':
-    case 'intents_superseded': {
+    case 'intents_superseded':
+    case 'intent_retired_by_phase_advance': {
       const count = Number.isFinite(entry.payload?.archived_count)
         ? entry.payload.archived_count
-        : (Number.isFinite(entry.payload?.superseded_count) ? entry.payload.superseded_count : null);
+        : (
+          Number.isFinite(entry.payload?.superseded_count)
+            ? entry.payload.superseded_count
+            : (Number.isFinite(entry.payload?.retired_count) ? entry.payload.retired_count : null)
+        );
       return `${prefix}${eventType}${count !== null ? ` (${count})` : ''}`;
     }
     case 'run_blocked':

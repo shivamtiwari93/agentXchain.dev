@@ -16,6 +16,7 @@ export const VALID_RUN_EVENTS = [
   'phase_entered',
   'intents_migrated',
   'intents_superseded',
+  'intent_retired_by_phase_advance',
   'turn_dispatched',
   'turn_accepted',
   'turn_rejected',

@@ -68,6 +68,10 @@ import {
 } from './verification-replay.js';
 import { executeGateActions } from './gate-actions.js';
 import { detectPendingCheckpoint } from './turn-checkpoint.js';
+import {
+  derivePhaseScopeFromIntentMetadata,
+  evaluateAcceptanceItemLifecycle,
+} from './intent-phase-scope.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -78,6 +82,7 @@ const STAGING_PATH = '.agentxchain/staging/turn-result.json';
 const TALK_PATH = 'TALK.md';
 const ACCEPTANCE_LOCK_PATH = '.agentxchain/locks/accept-turn.lock';
 const ACCEPTANCE_JOURNAL_DIR = '.agentxchain/transactions/accept';
+const INTAKE_INTENTS_DIR = '.agentxchain/intake/intents';
 const STALE_LOCK_TIMEOUT_MS = 30_000;
 const GOVERNED_SCHEMA_VERSION = '1.1';
 
@@ -99,6 +104,69 @@ function buildInitialPhaseGateStatus(config) {
         .filter(Boolean)
     )].map((gateId) => [gateId, 'pending'])
   );
+}
+
+function listIntakeIntentFiles(root) {
+  const intentsDir = join(root, INTAKE_INTENTS_DIR);
+  if (!existsSync(intentsDir)) return [];
+
+  return readdirSync(intentsDir)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => join(intentsDir, name));
+}
+
+function retireApprovedPhaseScopedIntents(root, state, config, exitedPhase, now) {
+  const retired = [];
+
+  for (const intentPath of listIntakeIntentFiles(root)) {
+    let intent;
+    try {
+      intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    } catch {
+      continue;
+    }
+
+    if (!intent || intent.status !== 'approved') continue;
+    if (state?.run_id && intent.approved_run_id && intent.approved_run_id !== state.run_id) continue;
+    if (state?.run_id && !intent.approved_run_id && intent.cross_run_durable !== true) continue;
+
+    const effectivePhaseScope = derivePhaseScopeFromIntentMetadata(intent, config);
+    const acceptanceItems = Array.isArray(intent.acceptance_contract) ? intent.acceptance_contract : [];
+    const lifecycleStates = acceptanceItems.map((item) => evaluateAcceptanceItemLifecycle(
+      item,
+      { phase_scope: effectivePhaseScope },
+      state,
+      config,
+    ));
+    const retireByPhaseExit = effectivePhaseScope === exitedPhase;
+    const retireByGateState = acceptanceItems.length > 0
+      && lifecycleStates.every((entry) => entry.satisfied_by_gate_state || entry.phase_exited);
+
+    if (!retireByPhaseExit && !retireByGateState) continue;
+
+    intent.status = 'satisfied';
+    intent.phase_scope = effectivePhaseScope || intent.phase_scope || null;
+    intent.updated_at = now;
+    intent.satisfied_at = now;
+    intent.satisfied_reason = retireByPhaseExit
+      ? `phase ${exitedPhase} exited; ${exitedPhase}-scoped repair no longer required`
+      : `acceptance items satisfied by gate state after phase advance from ${exitedPhase}`;
+    if (!Array.isArray(intent.history)) {
+      intent.history = [];
+    }
+    intent.history.push({
+      from: 'approved',
+      to: 'satisfied',
+      at: now,
+      reason: intent.satisfied_reason,
+      exited_phase: exitedPhase,
+      entered_phase: state?.phase || null,
+    });
+    safeWriteJson(intentPath, intent);
+    retired.push(intent.intent_id);
+  }
+
+  return retired;
 }
 
 function buildFreshIdleStateForNewRun(state, config) {
@@ -3159,7 +3227,10 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   // addresses each acceptance item.  Default: strict for p0, lenient for others.
   const intakeCtx = currentTurn.intake_context;
   if (intakeCtx && Array.isArray(intakeCtx.acceptance_contract) && intakeCtx.acceptance_contract.length > 0) {
-    const intentCoverage = evaluateIntentCoverage(turnResult, intakeCtx);
+    const intentCoverage = evaluateIntentCoverage(turnResult, intakeCtx, {
+      state,
+      config,
+    });
     const priority = intakeCtx.priority || currentTurn.intake_context?.priority || 'p0';
     const intentCoverageMode = config.intent_coverage_mode
       || (priority === 'p0' ? 'strict' : 'lenient');
@@ -3977,6 +4048,21 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             [gateResult.gate_id || 'no_gate']: 'passed',
           };
           updatedState.queued_phase_transition = null;
+          const retiredIntentIds = retireApprovedPhaseScopedIntents(root, updatedState, config, prevPhase, now);
+          if (retiredIntentIds.length > 0) {
+            emitRunEvent(root, 'intent_retired_by_phase_advance', {
+              run_id: updatedState.run_id,
+              phase: updatedState.phase,
+              status: updatedState.status,
+              turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+              payload: {
+                exited_phase: prevPhase,
+                entered_phase: gateResult.next_phase,
+                retired_count: retiredIntentIds.length,
+                retired_intent_ids: retiredIntentIds,
+              },
+            });
+          }
           emitRunEvent(root, 'phase_entered', {
             run_id: updatedState.run_id,
             phase: updatedState.phase,
@@ -4019,6 +4105,21 @@ function _acceptGovernedTurnLocked(root, config, opts) {
               gate_id: gateResult.gate_id,
               timestamp: now,
             });
+            const retiredIntentIds = retireApprovedPhaseScopedIntents(root, updatedState, config, prevPhase, now);
+            if (retiredIntentIds.length > 0) {
+              emitRunEvent(root, 'intent_retired_by_phase_advance', {
+                run_id: updatedState.run_id,
+                phase: updatedState.phase,
+                status: updatedState.status,
+                turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+                payload: {
+                  exited_phase: prevPhase,
+                  entered_phase: gateResult.next_phase,
+                  retired_count: retiredIntentIds.length,
+                  retired_intent_ids: retiredIntentIds,
+                },
+              });
+            }
             emitRunEvent(root, 'phase_entered', {
               run_id: updatedState.run_id,
               phase: updatedState.phase,
@@ -5226,7 +5327,7 @@ function deriveNextRecommendedRole(turnResult, state, config) {
 // intent.  Uses a hybrid approach: structural (`intent_response` field) first,
 // with semantic fallback scanning `summary`, `decisions`, and `files_changed`.
 
-function evaluateIntentCoverage(turnResult, intakeContext) {
+function evaluateIntentCoverage(turnResult, intakeContext, { state = null, config = null } = {}) {
   const acceptanceItems = intakeContext.acceptance_contract || [];
   const addressed = [];
   const unaddressed = [];
@@ -5253,6 +5354,14 @@ function evaluateIntentCoverage(turnResult, intakeContext) {
 
   for (const item of acceptanceItems) {
     const normalizedItem = item.toLowerCase().trim();
+    const lifecycle = state && config
+      ? evaluateAcceptanceItemLifecycle(item, intakeContext, state, config)
+      : null;
+
+    if (lifecycle?.phase_exited || lifecycle?.satisfied_by_gate_state) {
+      addressed.push(item);
+      continue;
+    }
 
     // Check 1: Structural — intent_response field with explicit status
     const structuralEntry = responseMap.get(normalizedItem);

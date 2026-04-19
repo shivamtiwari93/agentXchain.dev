@@ -86,18 +86,19 @@ Any new startup path that can dispatch turns or scan intake must add one row to 
 
 The beta-tester reopen pattern is broader than BUG-31..33. The durable gap is that dispatch-path coverage has been uneven across lifecycle stages. We now track the matrix explicitly:
 
-| Dispatch path | Initial dispatch | Retry dispatch | Cross-run / restart / resume migration | Acceptance guard |
-| --- | --- | --- | --- | --- |
-| `resume` CLI | Covered: `cli/test/intake-manual-resume.test.js` | Covered: `cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js` (`restart` seed path uses `resume` to produce the retained retry bundle) | Covered: `cli/test/intake-manual-resume.test.js` (stale prior-run intent archived on active-run resume) | Covered: `cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js` (`resume` -> bad staged result -> `accept-turn` gate rejection) |
-| `step` CLI | Covered indirectly via shared intake consumption tests | Covered: `cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js` (`step` -> reject -> `step --resume`) | Covered indirectly via `consumeNextApprovedIntent()` shared contract | Indirect via `bug-36-gate-semantic-coverage.test.js` |
-| `restart` CLI | Covered: `cli/test/beta-tester-scenarios/bug-21-intent-id-restart.test.js` | Covered: `cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js` (retained retry bundle survives `restart`) | Covered indirectly via `cli/test/beta-tester-scenarios/bug-34-cross-run-intent-leakage.test.js` shared consume path | Indirect via governed acceptance suites |
-| Continuous loop | Covered: `bug-16-unified-intake-consumption.test.js`, `continuous-run*.test.js` | N/A | Covered: `bug-34-cross-run-intent-leakage.test.js` | Indirect via acceptance/governed-state suites |
-| Dispatch bundle writer | Covered: `bug-13-prompt-intent-foregrounding.test.js` | Covered: `bug-35-retry-intent-rebinding.test.js` | N/A | N/A |
-| Acceptance / validator | N/A | N/A | N/A | Covered: `bug-14-intent-coverage-validation.test.js`, `bug-36-gate-semantic-coverage.test.js` |
+| Dispatch path | Initial dispatch | Retry dispatch | Cross-run / restart / resume migration | Acceptance guard | Phase-boundary behavior |
+| --- | --- | --- | --- | --- | --- |
+| `resume` CLI | Covered: `cli/test/intake-manual-resume.test.js` | Covered: `cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js` (`restart` seed path uses `resume` to produce the retained retry bundle) | Covered: `cli/test/intake-manual-resume.test.js` (stale prior-run intent archived on active-run resume) | Covered: `cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js` (`resume` -> bad staged result -> `accept-turn` gate rejection) | Covered: `cli/test/beta-tester-scenarios/bug-44-phase-scoped-intent-retirement.test.js` (`resume` must not bind a retired implementation intent after QA entry) |
+| `step` CLI | Covered indirectly via shared intake consumption tests | Covered: `cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js` (`step` -> reject -> `step --resume`) | Covered indirectly via `consumeNextApprovedIntent()` shared contract | Indirect via `bug-36-gate-semantic-coverage.test.js` | Indirect via `cli/test/intent-phase-scope.test.js`; add a dedicated `step` command proof if `step` grows distinct phase-boundary behavior |
+| `restart` CLI | Covered: `cli/test/beta-tester-scenarios/bug-21-intent-id-restart.test.js` | Covered: `cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js` (retained retry bundle survives `restart`) | Covered indirectly via `cli/test/beta-tester-scenarios/bug-34-cross-run-intent-leakage.test.js` shared consume path | Indirect via governed acceptance suites | Not yet direct; relies on shared retirement + acceptance logic. Add a restart-specific proof if restart begins preserving queued phase-bound intents across transitions |
+| Continuous loop | Covered: `bug-16-unified-intake-consumption.test.js`, `continuous-run*.test.js` | N/A | Covered: `bug-34-cross-run-intent-leakage.test.js` | Indirect via acceptance/governed-state suites | Partially covered by shared retirement/coverage logic; BUG-44 still requires the tester’s live `run --continue-from ... --continuous` proof for closure |
+| Dispatch bundle writer | Covered: `bug-13-prompt-intent-foregrounding.test.js` | Covered: `bug-35-retry-intent-rebinding.test.js` | N/A | N/A | N/A |
+| Acceptance / validator | N/A | N/A | N/A | Covered: `bug-14-intent-coverage-validation.test.js`, `bug-36-gate-semantic-coverage.test.js` | Covered: `cli/test/intent-phase-scope.test.js` (already-exited phase items and gate-satisfied items are skipped during QA acceptance) |
 
 ### Remaining uncovered combinations
 
 - **No currently-known dispatch-path × lifecycle gaps remain in this matrix.** `dispatch-path-lifecycle-matrix.test.js` closes the three operator-visible gaps that were still open when Turn 192 updated this postmortem.
+- **Phase-boundary behavior is now tracked explicitly.** BUG-44 exposed a seam that startup-path and dispatch-path coverage did not capture: queue retirement and coverage semantics at the moment of phase exit.
 - **The standing rule still applies.** New dispatch paths or recovery commands must add an explicit row and command-level proof before they can be called “covered.”
 
 ### Standing rule
