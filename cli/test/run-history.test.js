@@ -80,8 +80,8 @@ describe('run-history', () => {
   describe('recordRunHistory', () => {
     it('AT-RH-001: creates run-history.jsonl with one entry on completion', () => {
       writeHistory(root, [
-        { role: 'dev', phase: 'planning', accepted_at: '2026-04-10T11:55:00.000Z', status: 'accepted', summary: 'Implemented the governed slice.' },
-        { role: 'qa', phase: 'qa', accepted_at: '2026-04-10T11:58:00.000Z', status: 'accepted', summary: 'Verified the governed slice and requested release prep.', proposed_next_role: 'release_manager' },
+        { run_id: 'run_abc123', role: 'dev', phase: 'planning', accepted_at: '2026-04-10T11:55:00.000Z', status: 'accepted', summary: 'Implemented the governed slice.' },
+        { run_id: 'run_abc123', role: 'qa', phase: 'qa', accepted_at: '2026-04-10T11:58:00.000Z', status: 'accepted', summary: 'Verified the governed slice and requested release prep.', proposed_next_role: 'release_manager' },
       ]);
       writeLedger(root, [{ category: 'direction' }]);
 
@@ -103,11 +103,11 @@ describe('run-history', () => {
     });
 
     it('AT-RH-002: appends second run with different run_id', () => {
-      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      writeHistory(root, [{ run_id: 'run_first', role: 'dev', phase: 'planning' }]);
       recordRunHistory(root, makeState({ run_id: 'run_first' }), makeConfig(), 'completed');
 
-      // Reset history for second run
-      writeHistory(root, [{ role: 'dev', phase: 'planning' }, { role: 'qa', phase: 'qa' }]);
+      // Reset history for second run — BUG-50: entries must carry run_id for correct filtering
+      writeHistory(root, [{ run_id: 'run_second', role: 'dev', phase: 'planning' }, { run_id: 'run_second', role: 'qa', phase: 'qa' }]);
       recordRunHistory(root, makeState({ run_id: 'run_second' }), makeConfig(), 'completed');
 
       const entries = queryRunHistory(root);
@@ -124,7 +124,7 @@ describe('run-history', () => {
     });
 
     it('records blocked status with blocked_reason', () => {
-      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      writeHistory(root, [{ run_id: 'run_abc123', role: 'dev', phase: 'planning' }]);
       const state = makeState({
         status: 'blocked',
         blocked_on: 'timeout:turn',
@@ -162,9 +162,9 @@ describe('run-history', () => {
 
     it('records phases and roles from history entries', () => {
       writeHistory(root, [
-        { role: 'pm', phase: 'planning' },
-        { role: 'dev', phase: 'implementation' },
-        { role: 'qa', phase: 'qa' },
+        { run_id: 'run_abc123', role: 'pm', phase: 'planning' },
+        { run_id: 'run_abc123', role: 'dev', phase: 'implementation' },
+        { run_id: 'run_abc123', role: 'qa', phase: 'qa' },
       ]);
       recordRunHistory(root, makeState(), makeConfig(), 'completed');
 
@@ -174,7 +174,7 @@ describe('run-history', () => {
     });
 
     it('records connector and model from config', () => {
-      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      writeHistory(root, [{ run_id: 'run_abc123', role: 'dev', phase: 'planning' }]);
       recordRunHistory(root, makeState(), makeConfig(), 'completed');
 
       const entries = queryRunHistory(root);
@@ -183,7 +183,7 @@ describe('run-history', () => {
     });
 
     it('records gate results from state', () => {
-      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      writeHistory(root, [{ run_id: 'run_abc123', role: 'dev', phase: 'planning' }]);
       recordRunHistory(root, makeState(), makeConfig(), 'completed');
 
       const entries = queryRunHistory(root);
@@ -191,7 +191,7 @@ describe('run-history', () => {
     });
 
     it('records normalized provenance from governed state', () => {
-      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      writeHistory(root, [{ run_id: 'run_abc123', role: 'dev', phase: 'planning' }]);
       recordRunHistory(root, makeState({
         provenance: {
           trigger: 'continuation',
@@ -213,10 +213,10 @@ describe('run-history', () => {
 
     it('AT-RH-010: records bounded inheritance snapshot for later child-run context inheritance', () => {
       writeHistory(root, [
-        { turn_id: 'turn_1', role: 'pm', phase: 'planning', status: 'accepted', summary: 'Planning summary' },
-        { turn_id: 'turn_2', role: 'dev', phase: 'implementation', status: 'accepted', summary: 'Implementation summary' },
-        { turn_id: 'turn_3', role: 'qa', phase: 'qa', status: 'accepted', summary: 'QA summary' },
-        { turn_id: 'turn_4', role: 'pm', phase: 'qa', status: 'rejected', summary: 'Rejected summary should be excluded' },
+        { run_id: 'run_abc123', turn_id: 'turn_1', role: 'pm', phase: 'planning', status: 'accepted', summary: 'Planning summary' },
+        { run_id: 'run_abc123', turn_id: 'turn_2', role: 'dev', phase: 'implementation', status: 'accepted', summary: 'Implementation summary' },
+        { run_id: 'run_abc123', turn_id: 'turn_3', role: 'qa', phase: 'qa', status: 'accepted', summary: 'QA summary' },
+        { run_id: 'run_abc123', turn_id: 'turn_4', role: 'pm', phase: 'qa', status: 'rejected', summary: 'Rejected summary should be excluded' },
       ]);
       writeLedger(root, [
         { id: 'DEC-001', statement: 'Decision 1', role: 'pm', phase: 'planning' },
@@ -294,7 +294,7 @@ describe('run-history', () => {
 
   describe('AT-RH-006: initializeGovernedRun does not delete run-history.jsonl', () => {
     it('run-history.jsonl persists across init', async () => {
-      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      writeHistory(root, [{ run_id: 'run_abc123', role: 'dev', phase: 'planning' }]);
       recordRunHistory(root, makeState(), makeConfig(), 'completed');
 
       // Simulate what initializeGovernedRun does — it only writes state.json
@@ -345,7 +345,7 @@ describe('run-history CLI command contract', () => {
     const root = makeTmpDir();
     try {
       scaffoldProject(root);
-      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      writeHistory(root, [{ run_id: 'run_legacy_001', role: 'dev', phase: 'planning' }]);
       recordRunHistory(root, makeState({
         run_id: 'run_legacy_001',
         provenance: null,
@@ -381,6 +381,7 @@ describe('run-history CLI command contract', () => {
       scaffoldProject(root);
       writeHistory(root, [
         {
+          run_id: 'run_headline_001',
           role: 'qa',
           phase: 'qa',
           status: 'completed',
@@ -412,6 +413,7 @@ describe('run-history CLI command contract', () => {
       scaffoldProject(root);
       writeHistory(root, [
         {
+          run_id: 'run_blocked_operator_001',
           role: 'qa',
           phase: 'qa',
           status: 'accepted',
@@ -459,7 +461,7 @@ describe('run-history CLI command contract', () => {
     try {
       scaffoldProject(root);
       writeHistory(root, [
-        { role: 'qa', phase: 'qa', status: 'accepted', accepted_at: '2026-04-11T15:00:00.000Z', summary: 'Ready for release follow-on.' },
+        { run_id: 'run_follow_on_001', role: 'qa', phase: 'qa', status: 'accepted', accepted_at: '2026-04-11T15:00:00.000Z', summary: 'Ready for release follow-on.' },
       ]);
       writeLedger(root, [{ id: 'DEC-001', statement: 'Prepare release follow-on', role: 'qa', phase: 'qa' }]);
       recordRunHistory(root, makeState({ run_id: 'run_follow_on_001' }), makeConfig(), 'completed');

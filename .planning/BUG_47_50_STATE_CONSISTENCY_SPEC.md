@@ -1,4 +1,4 @@
-Status: Active
+Status: Shipped — implementation complete; BUG-47..50 remain open pending tester verification on v2.145.0 per discipline rule #12
 
 # BUG-47..50 State Consistency Spec
 

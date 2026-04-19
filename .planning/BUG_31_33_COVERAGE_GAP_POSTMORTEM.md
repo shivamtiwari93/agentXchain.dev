@@ -74,9 +74,25 @@ The BUG-39 false closure exposed a separate dimension we were not tracking expli
 | `run` (new run initialization) | Yes | `bug-39-intent-migration-null-run-id.test.js` |
 | `run --continue-from ... --continuous` | Yes, before queue scan | `bug-40-continuous-startup-legacy-intent-resume.test.js` |
 | Schedule-owned continuous session startup | Yes, before queue scan | Covered indirectly through shared continuous startup reconciliation; add a dedicated schedule command proof if this surface changes |
-| `resume` | Yes | Covered indirectly through `reactivateGovernedRun()` + shared startup helper |
-| `step --resume` | Yes | Covered indirectly through `reactivateGovernedRun()` + shared startup helper |
+| `resume` | Yes | Covered indirectly through `reactivateGovernedRun()` + shared startup helper; also calls `reconcileStaleTurns()` (BUG-47) before acting |
+| `step --resume` | Yes | Covered indirectly through `reactivateGovernedRun()` + shared startup helper; also calls `reconcileStaleTurns()` (BUG-47) before acting |
 | `restart` | Yes | Covered indirectly through `reactivateGovernedRun()` + shared startup helper |
+
+### BUG-47 stale-turn reconciliation dimension (added 2026-04-19)
+
+BUG-47 added a lazy stale-turn watchdog that fires on operator-facing CLI commands. The reconciliation call sites are:
+
+| Command | Call site | Behavior on stale turn |
+| --- | --- | --- |
+| `status` | `cli/src/commands/status.js` → `reconcileStaleTurns()` | Transitions stale `running`/`retrying` turns to `stalled`, emits `turn_stalled`, surfaces recovery guidance |
+| `resume` | `cli/src/commands/resume.js` → `reconcileStaleTurns()` | Same reconciliation + fails closed with stale-turn guidance instead of redispatching |
+| `step --resume` | `cli/src/commands/step.js` → `reconcileStaleTurns()` | Same reconciliation + fails closed with stale-turn guidance instead of redispatching |
+
+These are **not startup paths** in the dispatch sense (they do not dispatch new turns or scan intake). They are **reconciliation checkpoints** that catch stale turns before an operator acts on them. The distinction matters: `run`, `restart`, and continuous loop are startup paths; `status`, `resume`, and `step --resume` are operator-facing recovery surfaces that now also participate in state reconciliation.
+
+The startup-path matrix above does not need new rows for these because `resume` and `step --resume` already have rows. What changed is that those rows now also carry stale-turn reconciliation responsibility. The "Shared migration helper required" column should be read as: "must call both legacy-intent migration AND stale-turn reconciliation before acting."
+
+Proof: `cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js` (7 tests, 0 failures).
 
 ### Standing startup rule
 

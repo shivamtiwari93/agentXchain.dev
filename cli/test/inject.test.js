@@ -270,7 +270,8 @@ describe('inject preemption in run loop', () => {
 
     // Write a preemption marker directly (simulates a concurrent inject)
     const markerDir = join(dir, '.agentxchain', 'intake');
-    mkdirSync(markerDir, { recursive: true });
+    const intentsDir = join(markerDir, 'intents');
+    mkdirSync(intentsDir, { recursive: true });
     const marker = {
       intent_id: 'intent_9999999999999_abcd',
       priority: 'p0',
@@ -278,6 +279,15 @@ describe('inject preemption in run loop', () => {
       injected_at: new Date().toISOString(),
     };
     writeFileSync(join(markerDir, 'injected-priority.json'), JSON.stringify(marker));
+    // BUG-48: preemption marker validation now requires the intent file to exist
+    // on disk with an actionable status (approved or planned)
+    writeFileSync(join(intentsDir, 'intent_9999999999999_abcd.json'), JSON.stringify({
+      intent_id: 'intent_9999999999999_abcd',
+      status: 'approved',
+      priority: 'p0',
+      description: 'Emergency fix',
+      created_at: new Date().toISOString(),
+    }));
 
     // Write an active governed state so the run loop doesn't need to init
     const runId = `run_${Date.now()}_test`;
