@@ -1,6 +1,6 @@
-# LinkedIn Post — AgentXchain v2.143.0
+# LinkedIn Post — AgentXchain v2.144.0
 
-> Ready-to-post LinkedIn company-page copy. Updated 2026-04-19 to reflect v2.143.0 shipped reality.
+> Ready-to-post LinkedIn company-page copy. Updated 2026-04-19 to reflect v2.144.0 shipped reality.
 
 ---
 
@@ -17,14 +17,14 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.143.0` is now live with the BUG-46 hardening bundle in the published npm package:
+`v2.144.0` is now live with the BUG-46 hardening bundle in the published npm package:
 
 - accepted turns no longer strand replay-only repo dirt that blocks `resume`
 - verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
 - mixed-files checkpoint proof now guards against replay cleanup deleting real repo mutations
 - BUG-44 and BUG-45 hardening remain shipped and are still awaiting tester verification under the beta-cycle closure rules
 
-- 6,218 tests / 1,310 suites / 0 failures
+- 6,297 tests / 1,315 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:
