@@ -134,6 +134,18 @@ describe('framework-owned write paths are excluded from agent observation', () =
     assert.equal(classification.projectOwned, false);
   });
 
+  it('AT-PCLASS-003: plugin install roots are operational-only and excluded from continuity export', () => {
+    const pluginPath = `${PLUGINS_DIR}/plugin-slack-notify/hooks/after-acceptance.sh`;
+    const classification = classifyRepoPath(pluginPath);
+    assert.equal(classification.operational, true);
+    assert.equal(classification.baselineExempt, true);
+    assert.equal(classification.continuityState, false);
+    assert.equal(classification.projectOwned, false);
+    assert.ok(!RUN_CONTINUITY_DIRECTORY_ROOTS.includes(PLUGINS_DIR), 'plugins root must not be a continuity directory root');
+    assert.ok(!RUN_EXPORT_INCLUDED_ROOTS.includes(PLUGINS_DIR), 'plugins root must not be exported as run continuity state');
+    assert.ok(!RUN_RESTORE_ROOTS.includes(PLUGINS_DIR), 'plugins root must not be restored as governed run state');
+  });
+
   it('AT-PCLASS-003: review/proposed/report evidence paths are continuity state and baseline-exempt', () => {
     for (const relPath of [
       '.agentxchain/reviews/turn_1234-qa-review.md',
