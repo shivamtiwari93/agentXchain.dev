@@ -146,6 +146,43 @@ describe('framework-owned write paths are excluded from agent observation', () =
     assert.ok(!RUN_RESTORE_ROOTS.includes(PLUGINS_DIR), 'plugins root must not be restored as governed run state');
   });
 
+  it('AT-PCLASS-003: lock files are operational-only and excluded from continuity export', () => {
+    const lockPath = '.agentxchain/locks/acceptance.lock';
+    const classification = classifyRepoPath(lockPath);
+    assert.equal(classification.operational, true);
+    assert.equal(classification.baselineExempt, true);
+    assert.equal(classification.continuityState, false);
+    assert.equal(classification.projectOwned, false);
+    assert.ok(!RUN_CONTINUITY_DIRECTORY_ROOTS.includes('.agentxchain/locks'), 'locks root must not be a continuity directory root');
+    assert.ok(!RUN_EXPORT_INCLUDED_ROOTS.includes('.agentxchain/locks'), 'locks root must not be exported as run continuity state');
+    assert.ok(!RUN_RESTORE_ROOTS.includes('.agentxchain/locks'), 'locks root must not be restored as governed run state');
+  });
+
+  it('AT-PCLASS-003: prompt scaffold files are operational-only and excluded from continuity export', () => {
+    const promptPath = '.agentxchain/prompts/dev.md';
+    const classification = classifyRepoPath(promptPath);
+    assert.equal(classification.operational, true);
+    assert.equal(classification.baselineExempt, true);
+    assert.equal(classification.continuityState, false);
+    assert.equal(classification.projectOwned, false);
+    assert.ok(!RUN_CONTINUITY_DIRECTORY_ROOTS.includes('.agentxchain/prompts'), 'prompts root must not be a continuity directory root');
+    assert.ok(!RUN_EXPORT_INCLUDED_ROOTS.includes('.agentxchain/prompts'), 'prompts root must not be exported as run continuity state');
+    assert.ok(!RUN_RESTORE_ROOTS.includes('.agentxchain/prompts'), 'prompts root must not be restored as governed run state');
+  });
+
+  it('AT-PCLASS-003: transaction paths outside accept/ are operational but not continuity', () => {
+    const txnPath = '.agentxchain/transactions/txn_123.json';
+    const classification = classifyRepoPath(txnPath);
+    assert.equal(classification.operational, true);
+    assert.equal(classification.baselineExempt, true);
+    // transactions/accept IS continuity, but the parent transactions/ prefix is not
+    // Only transactions/accept is in RUN_CONTINUITY_DIRECTORY_ROOTS
+    assert.ok(RUN_CONTINUITY_DIRECTORY_ROOTS.includes('.agentxchain/transactions/accept'),
+      'transactions/accept must be a continuity root');
+    assert.ok(!RUN_CONTINUITY_DIRECTORY_ROOTS.includes('.agentxchain/transactions'),
+      'transactions/ (parent) must NOT be a continuity root — only accept/ subdir is');
+  });
+
   it('AT-PCLASS-003: review/proposed/report evidence paths are continuity state and baseline-exempt', () => {
     for (const relPath of [
       '.agentxchain/reviews/turn_1234-qa-review.md',
