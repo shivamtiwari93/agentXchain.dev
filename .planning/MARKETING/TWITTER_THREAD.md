@@ -54,10 +54,11 @@ All 5 adapter types proven live:
 
 New in v2.142.0:
 
-- BUG-46 post-acceptance deadlock fixed: accepted turns no longer strand replay-only repo dirt that blocks `resume`
+- BUG-46 hardening shipped for tester verification: accepted turns no longer strand replay-only repo dirt that blocks `resume`
 - Verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
 - Mixed-files checkpoint proof added: replay cleanup no longer risks deleting real turn-owned repo mutations
 - Corrective publish release after the original `v2.141.0` tag failed trusted-publishing alignment
+- BUG-44 and BUG-45 hardening remain shipped and are still awaiting tester verification
 
 - Evidence: 6,184 tests / 1,308 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.

@@ -2,8 +2,10 @@
 
 ## 2.142.0
 
-### Summary
-- Release version bump across all governed surfaces.
+### Bug Fixes
+- **BUG-46 hardening shipped for tester verification**: acceptance now enforces dirty-tree parity with `resume`, explicitly classifies `verification.produced_files`, and preserves accepted-but-uncheckpointed prior turns during subsequent acceptance checks.
+- **BUG-44/45 hardening remains live in the release lane**: phase-scoped intent retirement and retained-turn live-intent reconciliation stay shipped in the published package, but closure remains blocked on tester verification per discipline rule #12.
+- **Parallel acceptance regressions corrected**: the dirty-tree parity rollout no longer false-fails on accepted-but-uncheckpointed prior turns, and mixed-runtime proposed-write fixtures now declare their real repo mutations.
 
 ### Evidence
 - **Evidence:** 6,184 tests / 1,308 suites / 0 failures

@@ -30,9 +30,10 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- BUG-46 post-acceptance deadlock fixed: accepted turns no longer leave replay-only repo dirt that blocks `resume`
+- BUG-46 post-acceptance deadlock hardening shipped for tester verification: accepted turns no longer leave replay-only repo dirt that blocks `resume`
 - Verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
 - Mixed-files proof added so checkpoint commits still contain real repo mutations after replay cleanup
+- BUG-44 and BUG-45 hardening remain live in the published package and are still awaiting tester verification
 - Evidence: 6,184 tests / 1,308 suites / 0 failures
 
 **See it in 30 seconds (no API keys needed):**
@@ -67,7 +68,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.142.0 – BUG-46 post-acceptance deadlock fixed for governed multi-agent runs
+**Title:** AgentXchain v2.142.0 – BUG-46 hardening shipped for governed multi-agent runs
 
 **Body:**
 
@@ -85,7 +86,7 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
-- Latest release fixes the post-acceptance deadlock where verification replay could leave dirty actor-owned files behind after acceptance, blocking `resume` while `checkpoint-turn` had nothing to commit.
+- Latest release ships the BUG-46 hardening for tester verification: verification replay no longer leaves dirty actor-owned files behind after acceptance, blocking `resume` while `checkpoint-turn` has nothing to commit.
 - Evidence: 6,184 tests / 1,308 suites / 0 failures
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
