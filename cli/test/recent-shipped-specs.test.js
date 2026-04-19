@@ -17,6 +17,8 @@ describe('recent shipped specs stay marked shipped', () => {
     '.planning/AUTHORITATIVE_LOCAL_CLI_ROLE_PROOF_SPEC.md',
     '.planning/RUN_EXPORT_ROOT_CENTRALIZATION_SPEC.md',
     '.planning/FRAMEWORK_PATH_CLASSIFICATION_SPEC.md',
+    '.planning/MACHINE_EVIDENCE_DEPTH_SPEC.md',
+    '.planning/TERMINAL_COMPLETION_SIGNALING_SPEC.md',
     // Turn 269 — 14 stale "Active" specs corrected to Shipped
     '.planning/PROPOSAL_APPLY_REJECT_SPEC.md',
     '.planning/PROPOSAL_LIFECYCLE_E2E_SPEC.md',
@@ -35,8 +37,9 @@ describe('recent shipped specs stay marked shipped', () => {
   for (const specPath of shippedSpecs) {
     it(`${specPath} is marked shipped`, () => {
       const content = readSpec(specPath);
-      // Match both formats: "**Status:** Shipped" and "> Status: **Shipped**"
-      assert.match(content, /\*\*Status:\*\*\s*shipped|\*\*Shipped\*\*/i);
+      // Accept the shipped marker across the repo's current status formats:
+      // "**Status:** Shipped", "> Status: **Shipped**", or plain "## Status\nShipped — ..."
+      assert.match(content, /(\*\*Status:\*\*\s*shipped|\*\*Shipped\*\*|## Status\s+Shipped\b)/i);
       assert.doesNotMatch(
         content,
         /\*\*(Status:\*\*\s*|)(proposed|draft|in.progress|active)\**/i,

@@ -1,7 +1,7 @@
 # Terminal Completion Signaling Spec
 
 ## Status
-Active — addresses the final live QA gap from Turn 80.
+Shipped — prompt hardening and review_only terminal normalization now route ship-ready QA through `run_completion_request`.
 
 ## Problem
 

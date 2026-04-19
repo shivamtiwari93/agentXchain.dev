@@ -1,7 +1,7 @@
 # Machine Evidence Depth Spec
 
 ## Status
-Active — spec-first, implement this turn.
+Shipped — dispatch log excerpts now render for review-only turns with bounded truncation and acceptance-test coverage.
 
 ## Problem
 
