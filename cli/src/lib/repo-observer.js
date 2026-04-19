@@ -29,6 +29,8 @@ const OPERATIONAL_PATH_PREFIXES = [
   '.agentxchain/intake/',
   '.agentxchain/locks/',
   '.agentxchain/transactions/',
+  '.agentxchain/missions/',
+  '.agentxchain/multirepo/',
 ];
 
 // Orchestrator-owned state files that agents must never be blamed for modifying.
