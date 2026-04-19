@@ -128,6 +128,16 @@ The beta-tester reopen pattern is broader than BUG-31..33. The durable gap is th
 - **Phase-boundary behavior is now tracked explicitly.** BUG-44 exposed a seam that startup-path and dispatch-path coverage did not capture: queue retirement and coverage semantics at the moment of phase exit.
 - **The standing rule still applies.** New dispatch paths or recovery commands must add an explicit row and command-level proof before they can be called “covered.”
 
+### Standing retained-turn reconciliation rule
+
+Every acceptance path that claims retained-turn support must prove all three intent-state-drift scenarios explicitly:
+
+1. intent completed between dispatch and acceptance
+2. intent contract changed between dispatch and acceptance
+3. intent retired by phase advance between dispatch and acceptance
+
+The retained-turn reconciliation column is not satisfied by generic acceptance coverage. At least one command-level proof has to name the actual retained-turn path that reconciles the live intent state.
+
 ### Standing rule
 
 Every newly documented dispatch path or retry path must add one matrix row here and one executable proof per lifecycle stage it claims to support. Shared-library tests are useful, but they do not replace at least one real command-level proof for each operator-visible path.
