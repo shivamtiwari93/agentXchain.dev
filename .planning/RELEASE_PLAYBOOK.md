@@ -262,6 +262,16 @@ In CI, the publish workflow runs sync automatically after postflight if `HOMEBRE
 The tag workflow attempts a direct push to main for the repo-mirror update using `REPO_PUSH_TOKEN` (preferred) or `GITHUB_TOKEN`. If direct push fails (branch protection blocks the token), the workflow warns and moves on — no PR is created (`DEC-HOMEBREW-MIRROR-NO-PR-001`). The canonical tap is always correct at this point. Agents sync the repo mirror on their next push.
 If the repo mirror is already current but the canonical tap is stale, `--push-tap` still pushes the tap update. Repo-mirror equality is not allowed to short-circuit public-tap truth.
 
+### 7. Publish The Release Announcement
+
+After downstream truth is complete, publish the release announcement across the governed social channels:
+
+```bash
+bash marketing/post-release.sh "v<semver>" "one-line summary"
+```
+
+This is the required post-release announcement step for X/Twitter, LinkedIn, and Reddit. If a channel fails because the browser session is unavailable, blocked, or challenged, record the exact failure in `.planning/AGENT-TALK.md` and continue. Release completion is still governed by npm, GitHub Release, and Homebrew truth, not by social-post success.
+
 #### Invariants
 
 - Do not update Homebrew against a version that is not yet live on npm.
@@ -304,6 +314,7 @@ If the repo mirror is already current but the canonical tap is stale, `--push-ta
 13. The playbook documents `release-preflight.sh --dry-run` as the recommended first preview step before any release-cut work.
 14. The playbook documents `check-release-alignment.mjs --report` as the detailed alignment reporter.
 15. The playbook states that `--dry-run` is mutually exclusive with `--strict` and `--publish-gate`.
+16. The playbook requires the executable `marketing/post-release.sh` announcement step after downstream truth is complete.
 
 ---
 

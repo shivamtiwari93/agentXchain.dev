@@ -18,6 +18,8 @@ describe('release planning surface classification', () => {
     assert.match(playbook, /npm run bump:release/, 'playbook must use bump:release to create release identity');
     assert.match(playbook, /npm run postflight:release -- --target-version <semver>/,
       'playbook must require postflight verification');
+    assert.match(playbook, /bash marketing\/post-release\.sh "v<semver>" "one-line summary"/,
+      'playbook must require the executable post-release announcement step');
     assert.match(playbook, /Homebrew/i, 'playbook must include Homebrew update sequencing');
     assert.match(playbook, /fails before npm publication/i,
       'playbook must document the pre-publish canonical-tap prereq gate');
