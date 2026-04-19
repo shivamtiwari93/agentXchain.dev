@@ -1,6 +1,6 @@
 # Model Compatibility Matrix — api_proxy + proposed
 
-**Status:** active
+**Status:** Shipped
 **Created:** 2026-04-13
 
 ## Purpose

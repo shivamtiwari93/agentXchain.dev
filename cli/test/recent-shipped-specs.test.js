@@ -32,6 +32,8 @@ describe('recent shipped specs stay marked shipped', () => {
     '.planning/BUDGET_CONFIG_VALIDATION_SPEC.md',
     '.planning/RELEASE_DOWNSTREAM_TRUTH_SPEC.md',
     '.planning/API_PROXY_PROPOSED_AUTHORING_SPEC.md',
+    // Turn 271 — MODEL_COMPATIBILITY_MATRIX_SPEC implemented: probe, results, tests, v2.84.0 release notes
+    '.planning/MODEL_COMPATIBILITY_MATRIX_SPEC.md',
   ];
 
   for (const specPath of shippedSpecs) {
