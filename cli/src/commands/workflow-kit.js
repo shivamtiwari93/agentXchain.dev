@@ -1,10 +1,9 @@
 import chalk from 'chalk';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { loadProjectContext, loadProjectState } from '../lib/config.js';
+import { loadProjectContext } from '../lib/config.js';
 import {
   VALID_WORKFLOW_KIT_PHASE_TEMPLATE_IDS,
-  listWorkflowKitPhaseTemplates,
 } from '../lib/workflow-kit-phase-templates.js';
 import { getEffectiveGateArtifacts } from '../lib/gate-evaluator.js';
 
@@ -28,7 +27,23 @@ const DEFAULT_TEMPLATE_BY_PHASE = {
 
 export { WORKFLOW_KIT_VERSION, SEMANTIC_VALIDATOR_IDS };
 
-function buildWorkflowKitContract(root, config, state) {
+function getGateLinkedPhases(config, gateId, gateDef) {
+  const linkedPhases = [];
+
+  if (typeof gateDef?.phase === 'string' && gateDef.phase.trim()) {
+    linkedPhases.push(gateDef.phase.trim());
+  }
+
+  for (const [phaseId, route] of Object.entries(config.routing || {})) {
+    if (route?.exit_gate === gateId && !linkedPhases.includes(phaseId)) {
+      linkedPhases.push(phaseId);
+    }
+  }
+
+  return linkedPhases;
+}
+
+function buildWorkflowKitContract(root, config) {
   const phaseIds = Object.keys(config.routing || {});
   const hasExplicitKit = config.workflow_kit?._explicit === true;
 
@@ -68,13 +83,23 @@ function buildWorkflowKitContract(root, config, state) {
   const gateArtifactCoverage = {};
   const gates = config.gates || {};
   for (const [gateId, gateDef] of Object.entries(gates)) {
-    const linkedPhase = gateDef.phase || null;
-    const effectiveArtifacts = linkedPhase
-      ? getEffectiveGateArtifacts(config, gateDef, linkedPhase)
-      : [];
+    const linkedPhases = getGateLinkedPhases(config, gateId, gateDef);
+    const artifactPaths = [];
+    const seenPaths = new Set();
+
+    for (const linkedPhase of linkedPhases) {
+      for (const artifact of getEffectiveGateArtifacts(config, gateDef, linkedPhase)) {
+        if (!seenPaths.has(artifact.path)) {
+          seenPaths.add(artifact.path);
+          artifactPaths.push(artifact.path);
+        }
+      }
+    }
+
     gateArtifactCoverage[gateId] = {
-      predicates_referencing_artifacts: effectiveArtifacts.length,
-      artifacts_covered: effectiveArtifacts.map((a) => a.path),
+      linked_phases: linkedPhases,
+      predicates_referencing_artifacts: artifactPaths.length,
+      artifacts_covered: artifactPaths,
     };
   }
 
@@ -112,8 +137,7 @@ export function workflowKitDescribeCommand(opts) {
     process.exit(1);
   }
 
-  const state = loadProjectState(root, config);
-  const contract = buildWorkflowKitContract(root, config, state);
+  const contract = buildWorkflowKitContract(root, config);
 
   if (opts.json) {
     console.log(JSON.stringify(contract, null, 2));

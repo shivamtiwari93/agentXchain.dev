@@ -53,6 +53,7 @@ Returns the workflow kit contract for the current project.
   "semantic_validators": ["pm_signoff", "system_spec", ...],
   "gate_artifact_coverage": {
     "<gate_id>": {
+      "linked_phases": ["<phase_id>"],
       "predicates_referencing_artifacts": 0,
       "artifacts_covered": []
     }
@@ -67,6 +68,7 @@ Human-readable summary showing:
 - Phase-by-phase artifact listing with existence status
 - Active semantic validators
 - Gate coverage summary
+- Gate-to-phase linkage derived from routing exit gates and any explicit gate phase annotations
 
 ## Error Cases
 
@@ -82,7 +84,7 @@ Human-readable summary showing:
 - AT-WK-002: Explicit workflow_kit config reflects user overrides in source and template fields
 - AT-WK-003: `--json` output validates as structured JSON with all required fields
 - AT-WK-004: Semantic validators list matches the exported set from workflow-gate-semantics.js
-- AT-WK-005: Gate artifact coverage correctly maps gate predicates to workflow artifacts
+- AT-WK-005: Gate artifact coverage correctly maps routing-bound gates to workflow artifacts and exposes linked phases
 - AT-WK-006: Non-governed project returns error
 
 ## Open Questions

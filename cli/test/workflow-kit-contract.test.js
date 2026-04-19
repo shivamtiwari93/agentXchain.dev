@@ -96,6 +96,10 @@ describe('workflow-kit describe command', () => {
       (a) => a.path === '.planning/CUSTOM.md',
     );
     assert.ok(customArtifact, 'Custom artifact should be present');
+    assert.ok(
+      contract.gate_artifact_coverage.planning_signoff.artifacts_covered.includes('.planning/CUSTOM.md'),
+      'planning_signoff coverage must include explicit planning workflow-kit artifacts',
+    );
   });
 
   it('AT-WK-003: --json output has all required fields', () => {
@@ -135,9 +139,31 @@ describe('workflow-kit describe command', () => {
     assert.ok(gateIds.length >= 1, 'Expected at least one gate');
 
     for (const [gateId, cov] of Object.entries(contract.gate_artifact_coverage)) {
+      assert.ok(Array.isArray(cov.linked_phases), `${gateId} must expose linked phases`);
       assert.ok(typeof cov.predicates_referencing_artifacts === 'number');
       assert.ok(Array.isArray(cov.artifacts_covered));
     }
+
+    assert.deepEqual(contract.gate_artifact_coverage.planning_signoff.linked_phases, ['planning']);
+    assert.deepEqual(contract.gate_artifact_coverage.implementation_complete.linked_phases, ['implementation']);
+    assert.deepEqual(contract.gate_artifact_coverage.qa_ship_verdict.linked_phases, ['qa']);
+
+    assert.equal(contract.gate_artifact_coverage.planning_signoff.predicates_referencing_artifacts, 3);
+    assert.equal(contract.gate_artifact_coverage.implementation_complete.predicates_referencing_artifacts, 1);
+    assert.equal(contract.gate_artifact_coverage.qa_ship_verdict.predicates_referencing_artifacts, 3);
+
+    assert.deepEqual(
+      contract.gate_artifact_coverage.planning_signoff.artifacts_covered.sort(),
+      ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'].sort(),
+    );
+    assert.deepEqual(
+      contract.gate_artifact_coverage.implementation_complete.artifacts_covered,
+      ['.planning/IMPLEMENTATION_NOTES.md'],
+    );
+    assert.deepEqual(
+      contract.gate_artifact_coverage.qa_ship_verdict.artifacts_covered.sort(),
+      ['.planning/RELEASE_NOTES.md', '.planning/acceptance-matrix.md', '.planning/ship-verdict.md'].sort(),
+    );
   });
 
   it('AT-WK-006: non-governed project returns error', () => {

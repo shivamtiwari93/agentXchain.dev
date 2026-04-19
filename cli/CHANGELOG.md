@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.136.1
+
+### Workflow Kit Gate Coverage Truthfulness
+
+- **`workflow-kit describe --json` now derives gate artifact coverage from real phase linkage:** default governed gates no longer report empty coverage just because the linkage lives in `routing.<phase>.exit_gate` instead of `gates.<id>.phase`. The contract now follows the same routing-bound phase mapping the evaluator uses. (`DEC-WORKFLOW-KIT-GATE-COVERAGE-001`)
+- **Gate coverage JSON now exposes `linked_phases`:** downstream consumers can see which phases bind to each gate instead of inferring linkage from artifact paths alone.
+- **Explicit workflow-kit artifacts are included in routing-bound gate coverage:** additive phase artifacts now appear under the linked gate contract, so coverage truth matches the runtime gate contract.
+- **Spec/docs/tests aligned:** the workflow-kit contract spec and docs now document routing-derived gate coverage, and the acceptance suite proves default governed gates map to the correct artifacts.
+
+### Evidence
+
+- 6,085 tests / 1,293 suites / 0 failures. Website build clean.
+
 ## 2.136.0
 
 ### Connector Portability + BUG-40 Startup Migration + DOC-1 Examples Split

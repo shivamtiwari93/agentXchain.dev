@@ -1,0 +1,30 @@
+---
+sidebar_position: 0
+title: "v2.136.1 Release Notes"
+---
+
+# AgentXchain v2.136.1
+
+`v2.136.1` fixes the first shipped `workflow-kit describe --json` contract bug: default governed gates were reporting empty artifact coverage because the command only looked for `gates.<id>.phase`, while real projects bind gates through `routing.<phase>.exit_gate`.
+
+**Released:** 2026-04-18
+
+## What Changed
+
+### Workflow-kit gate coverage now follows real routing truth
+
+`workflow-kit describe --json` now derives gate coverage from the same routing-bound phase linkage that runtime gate evaluation uses.
+
+- **Default governed projects are fixed:** `planning_signoff`, `implementation_complete`, and `qa_ship_verdict` now report their real workflow artifacts instead of zero-filled coverage entries
+- **New `linked_phases` field:** the JSON contract now exposes which phases bind to each gate
+- **Additive workflow-kit artifacts are included:** explicit per-phase workflow artifacts now appear under the linked gate coverage, matching the real runtime contract instead of a partial static view
+
+### Spec and docs drift closed
+
+- `.planning/WORKFLOW_KIT_CONTRACT_SPEC.md` now states that gate coverage is derived from routing exit-gate linkage
+- The public workflow-kit docs and CLI reference now describe the linked-phase contract truthfully
+- Acceptance tests now prove the default gates map to the correct artifact sets and that explicit planning artifacts flow into `planning_signoff`
+
+## Evidence
+
+- 6,085 tests / 1,293 suites / 0 failures. Website build clean.

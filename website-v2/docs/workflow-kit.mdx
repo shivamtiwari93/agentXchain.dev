@@ -17,7 +17,7 @@ The workflow kit includes:
 - **Phase templates** — pre-built artifact scaffolds for planning, implementation, QA, architecture review, and security review
 - **Workflow artifacts** — the governed documents that agents produce and gates evaluate (PM_SIGNOFF.md, SYSTEM_SPEC.md, IMPLEMENTATION_NOTES.md, acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md)
 - **Semantic validators** — content-aware validators that check artifact quality, not just existence (e.g., PM signoff must declare `Approved: YES`, system spec must have real content in `## Interface` and `## Acceptance Tests`)
-- **Gate artifact coverage** — the mapping between gate predicates and the workflow artifacts they consume
+- **Gate artifact coverage** — the mapping between routing-bound gates and the workflow artifacts they consume
 
 ## What the workflow kit is not
 
@@ -66,7 +66,7 @@ The `--json` output includes:
 - `phase_templates` — available and in-use templates
 - `phases` — per-phase template, source, and artifact details with existence status
 - `semantic_validators` — the full list of content-aware validators
-- `gate_artifact_coverage` — which gates reference which artifacts
+- `gate_artifact_coverage` — which gates reference which artifacts, plus the linked phases derived from `routing.<phase>.exit_gate` (and any explicit gate phase annotation)
 
 ## Customizing the workflow kit
 

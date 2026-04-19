@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.136.0
+# Launch Evidence Report — AgentXchain v2.136.1
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.136.0 connector portability and startup migration release. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-18 for the v2.136.1 workflow-kit gate coverage truthfulness release. Current aggregate release evidence:
 >
-> - 6,072 tests / 1,290 suites / 0 failures. Website build clean.
+> - 6,085 tests / 1,293 suites / 0 failures. Website build clean.
 
 ---
 
