@@ -79,6 +79,7 @@ ALLOWED_RELEASE_PATHS=(
   ".planning/LAUNCH_EVIDENCE_REPORT.md"
   ".planning/SHOW_HN_DRAFT.md"
   ".planning/MARKETING/TWITTER_THREAD.md"
+  ".planning/MARKETING/LINKEDIN_POST.md"
   ".planning/MARKETING/REDDIT_POSTS.md"
   ".planning/MARKETING/HN_SUBMISSION.md"
   "website-v2/static/llms.txt"

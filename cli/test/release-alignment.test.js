@@ -44,7 +44,12 @@ after(() => {
   }
 });
 
-function createFixture({ version = '2.200.0', homepageProof = '24', twitterVersion = null } = {}) {
+function createFixture({
+  version = '2.200.0',
+  homepageProof = '24',
+  twitterVersion = null,
+  linkedinVersion = null,
+} = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-release-alignment-'));
   const cliScriptsDir = join(root, 'cli', 'scripts');
   const cliLibDir = join(root, 'cli', 'src', 'lib');
@@ -65,6 +70,7 @@ function createFixture({ version = '2.200.0', homepageProof = '24', twitterVersi
   const releaseDocId = `v${version.replace(/\./g, '-')}`;
   const tarballUrl = `https://registry.npmjs.org/agentxchain/-/agentxchain-${version}.tgz`;
   const twitterTargetVersion = twitterVersion || version;
+  const linkedinTargetVersion = linkedinVersion || version;
 
   writeFileSync(join(root, 'cli', 'package.json'), JSON.stringify({ name: 'agentxchain', version, type: 'module' }, null, 2) + '\n');
   writeFileSync(join(root, 'cli', 'CHANGELOG.md'), `# Changelog\n\n## ${version}\n\nPrepared release.\n\n### Evidence\n\n- 24 tests / 6 suites / 0 failures.\n`);
@@ -78,6 +84,7 @@ function createFixture({ version = '2.200.0', homepageProof = '24', twitterVersi
   writeFileSync(join(root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${version}\n\n- 24 tests / 6 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'SHOW_HN_DRAFT.md'), `# Show HN Draft — AgentXchain v${version}\n\n- 24 tests / 6 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'MARKETING', 'TWITTER_THREAD.md'), `# Twitter/X Thread — AgentXchain v${twitterTargetVersion}\n\n- 24 tests / 6 suites / 0 failures.\n`);
+  writeFileSync(join(root, '.planning', 'MARKETING', 'LINKEDIN_POST.md'), `# LinkedIn Post — AgentXchain v${linkedinTargetVersion}\n\n- 24 tests / 6 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'MARKETING', 'REDDIT_POSTS.md'), `# Reddit Posts — AgentXchain v${version}\n\n- 24 tests / 6 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'MARKETING', 'HN_SUBMISSION.md'), `# Hacker News Submission — AgentXchain v${version}\n\n- 24 tests / 6 suites / 0 failures.\n`);
   writeFileSync(join(root, 'cli', 'homebrew', 'agentxchain.rb'), `class Agentxchain < Formula\n  url "${tarballUrl}"\n  sha256 "1111111111111111111111111111111111111111111111111111111111111111"\nend\n`);
@@ -100,12 +107,17 @@ describe('release alignment manifest', () => {
     const result = validateReleaseAlignment(REPO_ROOT, { scope: RELEASE_ALIGNMENT_SCOPES.CURRENT });
     assert.equal(result.ok, true, JSON.stringify(result.errors, null, 2));
     assert.ok(result.checkedSurfaceIds.includes('show_hn_draft'));
+    assert.ok(result.checkedSurfaceIds.includes('linkedin_post'));
     assert.ok(result.checkedSurfaceIds.includes('homebrew_readme'));
     assert.ok(result.checkedSurfaceIds.includes('onboarding_prereqs'));
   });
 
   it('AT-RAM-002: checker fails prebump scope with actionable surface errors on stale prepared truth', () => {
-    const fixture = createFixture({ homepageProof: '23', twitterVersion: '2.199.0' });
+    const fixture = createFixture({
+      homepageProof: '23',
+      twitterVersion: '2.199.0',
+      linkedinVersion: '2.199.0',
+    });
     const result = spawnSync(
       'node',
       ['cli/scripts/check-release-alignment.mjs', '--target-version', '2.200.0', '--scope', 'prebump'],
@@ -115,6 +127,7 @@ describe('release alignment manifest', () => {
     assert.equal(result.status, 1);
     assert.match(result.stderr, /\[homepage_proof_stat\]/);
     assert.match(result.stderr, /\[twitter_thread\]/);
+    assert.match(result.stderr, /\[linkedin_post\]/);
   });
 
   it('AT-RAM-005: checker fails prebump scope when onboarding prereq version pins are stale', () => {
@@ -133,7 +146,11 @@ describe('release alignment manifest', () => {
   });
 
   it('prints a human-readable per-surface report without hiding ready surfaces', () => {
-    const fixture = createFixture({ homepageProof: '23', twitterVersion: '2.199.0' });
+    const fixture = createFixture({
+      homepageProof: '23',
+      twitterVersion: '2.199.0',
+      linkedinVersion: '2.199.0',
+    });
     const result = spawnSync(
       'node',
       ['cli/scripts/check-release-alignment.mjs', '--target-version', '2.200.0', '--scope', 'prebump', '--report'],
@@ -145,6 +162,7 @@ describe('release alignment manifest', () => {
     assert.match(result.stdout, /\[ready\] \(changelog\)/);
     assert.match(result.stdout, /\[needs update\] \(homepage_proof_stat\)/);
     assert.match(result.stdout, /\[needs update\] \(twitter_thread\)/);
+    assert.match(result.stdout, /\[needs update\] \(linkedin_post\)/);
     assert.match(result.stdout, /Summary: \d+ ready, \d+ need update\./);
   });
 

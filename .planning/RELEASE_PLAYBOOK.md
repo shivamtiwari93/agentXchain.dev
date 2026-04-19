@@ -32,11 +32,12 @@ This playbook exists because historical release notes and handoff specs in `.pla
   - `.planning/LAUNCH_EVIDENCE_REPORT.md`
   - `.planning/SHOW_HN_DRAFT.md`
   - `.planning/MARKETING/TWITTER_THREAD.md`
+  - `.planning/MARKETING/LINKEDIN_POST.md`
   - `.planning/MARKETING/REDDIT_POSTS.md`
   - `.planning/MARKETING/HN_SUBMISSION.md`
   - `website-v2/static/llms.txt`
 - Have an updated `cli/CHANGELOG.md` entry for the target version.
-- **Manifest-driven release alignment:** `cli/scripts/check-release-alignment.mjs --scope prebump --target-version <semver>` is the pre-bump authority for the manual release surfaces above. It validates target-version truth across changelog, release notes, homepage badge and proof stat, capabilities, protocol implementor guide, launch evidence, marketing drafts, and `llms.txt`.
+- **Manifest-driven release alignment:** `cli/scripts/check-release-alignment.mjs --scope prebump --target-version <semver>` is the pre-bump authority for the manual release surfaces above. It validates target-version truth across changelog, release notes, homepage badge and proof stat, capabilities, protocol implementor guide, launch evidence, LinkedIn/X/Reddit/HN marketing drafts, and `llms.txt`.
 - **Homebrew mirror alignment:** `release-bump.sh` auto-aligns `cli/homebrew/agentxchain.rb` and `cli/homebrew/README.md` after the pre-bump manifest check. Do not manually substitute a local `npm pack` SHA into the formula during prep; `release-bump.sh` overwrites the formula SHA with the previous committed value because only the live registry tarball SHA is canonical. See `DEC-RELEASE-PREFLIGHT-004`.
 - **Sitemap truth:** `website-v2/static/sitemap.xml` is no longer a manual release artifact. Docusaurus generates sitemap output at build time, so release prep must validate the release doc and discovery routes, not hand-edit a stale static sitemap file.
 - Use the canonical package and workflow:

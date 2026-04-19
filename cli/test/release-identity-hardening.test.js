@@ -118,6 +118,7 @@ function createReleaseBumpFixture({ version = '2.19.0', existingTagVersion = nul
   writeFileSync(join(planningDir, 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
   writeFileSync(join(planningDir, 'SHOW_HN_DRAFT.md'), `# Show HN Draft — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
   writeFileSync(join(marketingDir, 'TWITTER_THREAD.md'), `# Twitter/X Thread — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
+  writeFileSync(join(marketingDir, 'LINKEDIN_POST.md'), `# LinkedIn Post — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
   writeFileSync(join(marketingDir, 'REDDIT_POSTS.md'), `# Reddit Posts — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
   writeFileSync(join(marketingDir, 'HN_SUBMISSION.md'), `# Hacker News Submission — AgentXchain v${version}\n\n- 10 tests / 2 suites / 0 failures.\n`);
   writeFileSync(join(websiteStaticDir, 'llms.txt'), `- [v${version}](https://agentxchain.dev/docs/releases/v${version.replace(/\./g, '-')})\n`);
@@ -176,6 +177,7 @@ function prepareTargetSurfaces(root, targetVersion) {
   writeFileSync(join(root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'SHOW_HN_DRAFT.md'), `# Show HN Draft — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'MARKETING', 'TWITTER_THREAD.md'), `# Twitter/X Thread — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
+  writeFileSync(join(root, '.planning', 'MARKETING', 'LINKEDIN_POST.md'), `# LinkedIn Post — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'MARKETING', 'REDDIT_POSTS.md'), `# Reddit Posts — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
   writeFileSync(join(root, '.planning', 'MARKETING', 'HN_SUBMISSION.md'), `# Hacker News Submission — AgentXchain v${targetVersion}\n\n- 11 tests / 3 suites / 0 failures.\n`);
   writeFileSync(join(root, 'website-v2', 'static', 'llms.txt'), `- [v${targetVersion}](https://agentxchain.dev/docs/releases/v${vDash})\n`);
@@ -810,6 +812,7 @@ end
       writeFileSync(join(fixture.root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), '# Launch Evidence Report — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
       writeFileSync(join(fixture.root, '.planning', 'SHOW_HN_DRAFT.md'), '# Show HN Draft — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
       writeFileSync(join(fixture.root, '.planning', 'MARKETING', 'TWITTER_THREAD.md'), '# Twitter/X Thread — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
+      writeFileSync(join(fixture.root, '.planning', 'MARKETING', 'LINKEDIN_POST.md'), '# LinkedIn Post — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
       writeFileSync(join(fixture.root, '.planning', 'MARKETING', 'REDDIT_POSTS.md'), '# Reddit Posts — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
       writeFileSync(join(fixture.root, '.planning', 'MARKETING', 'HN_SUBMISSION.md'), '# Hacker News Submission — AgentXchain v2.20.0\n\n- 11 tests / 3 suites / 0 failures.\n');
       writeFileSync(join(fixture.root, 'website-v2', 'static', 'llms.txt'), '- [v2.20.0](https://agentxchain.dev/docs/releases/v2-20-0)\n');
@@ -837,6 +840,7 @@ end
       assert.ok(changedFiles.includes('.planning/LAUNCH_EVIDENCE_REPORT.md'));
       assert.ok(changedFiles.includes('.planning/SHOW_HN_DRAFT.md'));
       assert.ok(changedFiles.includes('.planning/MARKETING/TWITTER_THREAD.md'));
+      assert.ok(changedFiles.includes('.planning/MARKETING/LINKEDIN_POST.md'));
       assert.ok(changedFiles.includes('.planning/MARKETING/REDDIT_POSTS.md'));
       assert.ok(changedFiles.includes('.planning/MARKETING/HN_SUBMISSION.md'));
       assert.ok(changedFiles.includes('website-v2/static/llms.txt'));

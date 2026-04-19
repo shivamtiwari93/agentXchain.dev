@@ -280,6 +280,12 @@ export const RELEASE_ALIGNMENT_SURFACES = [
     check: validateTextIncludesVersionAndEvidence('.planning/MARKETING/TWITTER_THREAD.md', 'twitter thread draft').check,
   },
   {
+    id: 'linkedin_post',
+    label: 'linkedin release post draft',
+    scopes: [RELEASE_ALIGNMENT_SCOPES.PREBUMP, RELEASE_ALIGNMENT_SCOPES.CURRENT],
+    check: validateTextIncludesVersionAndEvidence('.planning/MARKETING/LINKEDIN_POST.md', 'linkedin release post draft').check,
+  },
+  {
     id: 'reddit_posts',
     label: 'reddit posts draft',
     scopes: [RELEASE_ALIGNMENT_SCOPES.PREBUMP, RELEASE_ALIGNMENT_SCOPES.CURRENT],

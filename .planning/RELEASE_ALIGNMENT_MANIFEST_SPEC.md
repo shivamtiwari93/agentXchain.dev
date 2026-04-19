@@ -89,6 +89,7 @@ The shared validator must cover at least:
 - `.planning/LAUNCH_EVIDENCE_REPORT.md` title version and aggregate evidence line
 - `.planning/SHOW_HN_DRAFT.md` current version and aggregate evidence line
 - `.planning/MARKETING/TWITTER_THREAD.md` current version and aggregate evidence line
+- `.planning/MARKETING/LINKEDIN_POST.md` current version and aggregate evidence line
 - `.planning/MARKETING/REDDIT_POSTS.md` current version and aggregate evidence line
 - `.planning/MARKETING/HN_SUBMISSION.md` current version and aggregate evidence line
 - `website-v2/static/llms.txt` current release route
