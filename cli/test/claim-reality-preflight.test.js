@@ -893,6 +893,97 @@ describe('claim-reality preflight', () => {
     );
   });
 
+  it('BUG-45 packaged CLI restart preserves retained-turn intent binding and reconciles live contract', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const dispatchBundle = await import(pathToFileURL(join(packageDir, 'src/lib/dispatch-bundle.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn, normalizeGovernedStateShape } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+    const { writeDispatchBundle } = dispatchBundle;
+
+    const { root, config } = makeTempBug45Repo();
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+
+    seedBug45ExecutingIntent(root, init.state.run_id);
+
+    // Assign a turn with stale embedded acceptance_contract
+    const assign = assignGovernedTurn(root, config, 'pm', {
+      intakeContext: {
+        intent_id: BUG45_TESTER_INTENT_ID,
+        charter: 'live-site consolidation',
+        acceptance_contract: ['stale embedded contract item that must not be re-enforced after restart'],
+        priority: 'p0',
+      },
+    });
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    // Read state and write dispatch bundle so restart has something to reconnect to
+    const rawState = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    const { state: normalizedState } = normalizeGovernedStateShape(rawState);
+    const dispatch = writeDispatchBundle(root, normalizedState, config, { turnId });
+    assert.ok(dispatch.ok, dispatch.error);
+
+    // Update the live intent contract on disk (simulating contract drift)
+    const intentPath = join(root, '.agentxchain', 'intake', 'intents', `${BUG45_TESTER_INTENT_ID}.json`);
+    const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    intent.acceptance_contract = [
+      '.planning/IMPLEMENTATION_NOTES.md contains a literal ## Changes heading describing the consolidation work',
+    ];
+    intent.updated_at = '2026-04-19T01:45:00.000Z';
+    writeFileSync(intentPath, JSON.stringify(intent, null, 2));
+
+    // Run packaged restart
+    const restart = spawnSync(process.execPath, [cliPath, 'restart'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(restart.status, 0,
+      `packaged restart must reconnect to the retained turn:\n${restart.stdout}\n${restart.stderr}`);
+
+    // Verify retained turn still has intent_id after restart
+    const restartedRaw = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    const { state: restartedState } = normalizeGovernedStateShape(restartedRaw);
+    const retainedTurn = restartedState.active_turns?.[turnId];
+    assert.ok(retainedTurn, 'packaged restart must preserve the retained active turn');
+    assert.equal(retainedTurn.intake_context?.intent_id, BUG45_TESTER_INTENT_ID,
+      'packaged restart must preserve intent binding on the retained turn');
+
+    // Stage a turn result that addresses the LIVE contract (not the stale embedded one)
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      run_id: init.state.run_id,
+      turn_id: turnId,
+      role: 'pm',
+      runtime_id: 'r-pm',
+      status: 'completed',
+      summary: 'Implementation Notes still contains the literal ## Changes heading.',
+      decisions: [],
+      objections: [],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      verification: { status: 'pass' },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'pm',
+    }, null, 2));
+
+    // Accept via packaged CLI — must reconcile against live contract, not stale embedded one
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `packaged accept-turn must reconcile against the live contract after restart:\n${accept.stdout}\n${accept.stderr}`);
+    assert.doesNotMatch(accept.stdout + accept.stderr, /stale embedded contract/i,
+      'packaged restart must not cause acceptance to fall back to the embedded stale contract');
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));
