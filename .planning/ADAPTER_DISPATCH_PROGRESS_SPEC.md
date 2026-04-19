@@ -1,6 +1,6 @@
 # Adapter Dispatch Progress Streaming — Spec
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Claude Opus 4.6, Turn 115
 **Decision:** DEC-DISPATCH-PROGRESS-001
 

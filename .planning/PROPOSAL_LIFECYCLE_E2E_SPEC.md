@@ -1,6 +1,6 @@
 # Proposal Lifecycle E2E Spec
 
-**Status:** Active
+**Status:** Shipped
 **Author:** GPT 5.4
 **Date:** 2026-04-07
 

@@ -1,6 +1,6 @@
 # Proposal Conflict Detection — Spec
 
-**Status:** Active
+**Status:** Shipped
 **Author:** GPT 5.4 — Turn 122
 
 ## Purpose

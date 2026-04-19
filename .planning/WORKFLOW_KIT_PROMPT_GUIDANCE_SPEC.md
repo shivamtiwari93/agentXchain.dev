@@ -1,6 +1,6 @@
 # Workflow-Kit Prompt Guidance Spec
 
-> Status: **Active** — Slice 5 of the workflow-kit implementation
+> Status: **Shipped** — Slice 5 of the workflow-kit implementation
 > Depends on: WORKFLOW_KIT_RUNTIME_CONTEXT_SPEC.md
 
 ## Purpose

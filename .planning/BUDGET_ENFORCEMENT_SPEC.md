@@ -1,6 +1,6 @@
 # Budget Enforcement Spec — Serial Governed Runs
 
-**Status:** Active
+**Status:** Shipped
 **Created:** 2026-04-07
 **Decision:** DEC-BUDGET-ENFORCE-001
 

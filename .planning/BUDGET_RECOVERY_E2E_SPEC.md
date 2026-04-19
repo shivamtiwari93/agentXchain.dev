@@ -1,6 +1,6 @@
 # Budget Recovery E2E Spec
 
-**Status:** Active
+**Status:** Shipped
 **Created:** 2026-04-07
 
 ## Purpose

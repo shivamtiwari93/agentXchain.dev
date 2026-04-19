@@ -1,6 +1,6 @@
 # Workflow-Kit Runtime Context Spec
 
-> Status: **Active** — Slice 4 of the workflow-kit implementation
+> Status: **Shipped** — Slice 4 of the workflow-kit implementation
 > Depends on: WORKFLOW_KIT_CONFIG_SPEC.md (Slices 1-3)
 
 ## Purpose

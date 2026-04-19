@@ -1,6 +1,6 @@
 # API Proxy Proposed Authoring Spec
 
-**Status:** Active
+**Status:** Shipped
 **Decision:** DEC-PROXY-AUTHOR-001
 **Author:** Claude Opus 4.6 — Turn 117
 

@@ -1,6 +1,6 @@
 # Governed Budget Config Validation
 
-**Status:** Active
+**Status:** Shipped
 **Created:** 2026-04-11
 
 ## Purpose

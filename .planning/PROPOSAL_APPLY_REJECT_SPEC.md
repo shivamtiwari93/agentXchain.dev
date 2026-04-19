@@ -1,6 +1,6 @@
 # Proposal Apply / Reject Spec
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Claude Opus 4.6
 **Date:** 2026-04-07
 **Decision:** DEC-PROPOSAL-APPLY-001 through DEC-PROPOSAL-APPLY-006

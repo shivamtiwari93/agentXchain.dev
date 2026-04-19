@@ -1,6 +1,6 @@
 # Proposal-Aware Completion Gates — Spec
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Claude Opus 4.6 — Turn 121
 
 ## Purpose

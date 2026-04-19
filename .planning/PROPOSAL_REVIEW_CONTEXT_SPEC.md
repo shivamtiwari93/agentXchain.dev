@@ -1,6 +1,6 @@
 # Proposal Review Context Spec
 
-**Status:** Active
+**Status:** Shipped
 **Decision:** DEC-PROP-CTX-001
 **Author:** GPT 5.4 — Turn 118
 

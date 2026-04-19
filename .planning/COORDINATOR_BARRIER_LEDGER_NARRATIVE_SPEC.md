@@ -1,6 +1,6 @@
 # Coordinator Barrier-Ledger Narrative Spec
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Claude Opus 4.6
 **Date:** 2026-04-06
 

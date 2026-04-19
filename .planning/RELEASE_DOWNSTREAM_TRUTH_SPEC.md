@@ -1,6 +1,6 @@
 # Release Downstream Truth Spec
 
-**Status:** Active
+**Status:** Shipped
 **Decision:** `DEC-RELEASE-DOWNSTREAM-001` through `DEC-RELEASE-DOWNSTREAM-004`
 
 ## Purpose
