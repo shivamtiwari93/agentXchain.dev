@@ -1,0 +1,23 @@
+---
+sidebar_position: 0
+title: "v2.140.0 Release Notes"
+---
+
+# AgentXchain v2.140.0
+
+`v2.140.0` ships BUG-45: retained-turn acceptance now reconciles against live intent state instead of getting trapped on stale embedded intake contracts.
+
+## Bug Fixes
+
+- **BUG-45: live intent reconciliation for retained turns**: `accept-turn` now reloads the current intent by `intake_context.intent_id` before evaluating intent coverage. If the live intent is already `completed`, `satisfied`, `superseded`, `suppressed`, `failed`, or `rejected`, coverage is skipped. If the intent is still active, the current on-disk `acceptance_contract` is authoritative.
+
+- **Fail-closed retained-turn reconciliation**: acceptance no longer falls back to the retained turn's embedded contract when the live intent file is missing or unreadable. That state is treated as reconciliation drift and fails closed at `intent_reconciliation`.
+
+- **`intake resolve --outcome completed`**: operators now have an explicit recovery command to transition `executing -> completed` without manual `.agentxchain/` edits when a retained turn's artifacts already satisfy the contract.
+
+- **`HUMAN_TASKS.md` artifact-observation exclusion**: framework-generated escalation updates to `HUMAN_TASKS.md` are now excluded from retained-turn artifact mismatch detection, matching the existing orchestrator-owned state-path policy.
+
+## Evidence
+
+- 6,123 tests / 1,304 suites / 0 failures
+- BUG-45 remains open pending tester verification on the real retained-turn scenario (discipline rule #12)

@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.139.0
+# Twitter/X Thread — AgentXchain v2.140.0
 
-> Ready-to-post thread. Updated 2026-04-19 to reflect v2.139.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-19 to reflect v2.140.0 shipped reality.
 
 ---
 
@@ -59,7 +59,7 @@ New in v2.134.0:
 - Docs-stack evaluation now enforced by contract test instead of planning-only prose
 - The current Docusaurus path now closes all three identified docs pain points: sidebar automation, sitemap generation, and search
 
-- 6,114 tests / 1,302 suites / 0 failures
+- 6,123 tests / 1,304 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

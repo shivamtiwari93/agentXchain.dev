@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.139.0
+# Hacker News Submission — AgentXchain v2.140.0
 
-> Ready-to-post. Updated 2026-04-19 for v2.139.0.
+> Ready-to-post. Updated 2026-04-19 for v2.140.0.
 
 ---
 
@@ -42,7 +42,7 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - 108 conformance fixtures across 13 protocol surfaces
-- 6,114 tests / 1,302 suites / 0 failures
+- 6,123 tests / 1,304 suites / 0 failures
 
 **Architecture:**
 1. Protocol (the constitution — run state, roles, turns, gates, decisions)

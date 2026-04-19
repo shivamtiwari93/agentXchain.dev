@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.140.0
+
+### Bug Fixes
+- **BUG-45: Retained-turn acceptance now reconciles against live intent state**: `accept-turn` no longer treats the retained turn's embedded `intake_context.acceptance_contract` as authoritative. Acceptance re-reads the live intent file, skips coverage when the intent is already terminal, and uses the current on-disk contract when the intent is still active.
+- **Retained-turn reconciliation now fails closed when live intent state is missing**: if a retained turn still names an `intent_id` but the live intent file is missing or unreadable, acceptance stops at `intent_reconciliation` instead of silently reusing the stale embedded contract.
+- **`intake resolve --outcome completed` operator recovery path**: executing intents can now be marked completed explicitly without manual `.agentxchain/` state surgery when retained-turn evidence is already sufficient.
+- **Framework-owned `HUMAN_TASKS.md` no longer poisons artifact observation**: framework-generated escalation writes are excluded from retained-turn artifact mismatch detection.
+
+### Evidence
+- 6,123 tests / 1,304 suites / 0 failures
+
 ## 2.139.0
 
 ### Bug Fixes
