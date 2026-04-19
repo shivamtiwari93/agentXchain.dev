@@ -93,10 +93,28 @@ describe('claim-reality preflight', () => {
       'src/lib/dispatch-bundle.js',
       'src/lib/intake.js',
       'src/lib/workflow-gate-semantics.js',
+      'src/lib/intent-phase-scope.js',
+      'src/lib/intent-startup-migration.js',
     ];
     const missing = criticalFiles.filter(f => !packedFiles.has(f));
     assert.equal(missing.length, 0,
       `Critical lib files missing from tarball: ${missing.join(', ')}`);
+  });
+
+  it('BUG-44 continuous command-path proof exists and its production imports are packed', () => {
+    const packedFiles = getPackedFiles();
+    const bug44ContinuousTest = join(SCENARIOS_DIR, 'bug-44-continue-from-continuous.test.js');
+    const imports = extractImports(bug44ContinuousTest);
+    // The test must import at least intake.js (for intent seeding) from production
+    assert.ok(imports.length > 0,
+      'BUG-44 continuous command-path test must import production modules');
+    const missing = imports.filter(imp => !packedFiles.has(imp));
+    assert.equal(missing.length, 0,
+      `BUG-44 continuous test imports production files missing from tarball: ${missing.join(', ')}`);
+    // Verify the test file itself exists (guards against accidental deletion)
+    const testContent = readFileSync(bug44ContinuousTest, 'utf8');
+    assert.ok(testContent.includes('--continue-from') && testContent.includes('--continuous'),
+      'BUG-44 continuous test must exercise the exact tester command shape');
   });
 
   it('scenario test count matches expected range', () => {
