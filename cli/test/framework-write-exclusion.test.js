@@ -195,6 +195,11 @@ describe('framework-owned write paths are excluded from agent observation', () =
       assert.equal(classification.continuityState, true, `${relPath} should be continuity state`);
       assert.equal(classification.projectOwned, false, `${relPath} should be framework-owned`);
     }
+    for (const root of ['.agentxchain/reviews', '.agentxchain/proposed', '.agentxchain/reports']) {
+      assert.ok(RUN_CONTINUITY_DIRECTORY_ROOTS.includes(root), `${root} must be a continuity root`);
+      assert.ok(RUN_EXPORT_INCLUDED_ROOTS.includes(root), `${root} must be exported as run continuity state`);
+      assert.ok(RUN_RESTORE_ROOTS.includes(root), `${root} must be restored as governed run state`);
+    }
   });
 
   // ── Agent-owned paths that MUST NOT be excluded ─────────────────────────
@@ -284,6 +289,22 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
     ];
     const normalized = normalizeCheckpointableFiles(declared);
     assert.strictEqual(normalized.length, 0, 'All-operational input must produce empty output');
+  });
+
+  it('preserves baseline-exempt evidence paths because they remain checkpointable turn artifacts', () => {
+    const declared = [
+      '.agentxchain/reviews/turn_1234-qa-review.md',
+      '.agentxchain/proposed/turn_1234/PROPOSAL.md',
+      '.agentxchain/reports/RECOVERY_REPORT.md',
+      '.agentxchain/state.json',
+      '.agentxchain/prompts/dev.md',
+    ];
+    const normalized = normalizeCheckpointableFiles(declared);
+    assert.deepStrictEqual(normalized, [
+      '.agentxchain/reviews/turn_1234-qa-review.md',
+      '.agentxchain/proposed/turn_1234/PROPOSAL.md',
+      '.agentxchain/reports/RECOVERY_REPORT.md',
+    ]);
   });
 });
 
