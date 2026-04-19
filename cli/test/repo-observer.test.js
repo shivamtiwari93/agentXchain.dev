@@ -118,6 +118,27 @@ describe('observeChanges', () => {
     assert.ok(obs.files_changed.includes('new.txt'));
   });
 
+  it('diff_summary includes both committed diff stats and untracked files', () => {
+    const baseline = captureBaseline(dir);
+    // Modify a tracked file (uncommitted change)
+    writeFileSync(join(dir, 'README.md'), '# Modified for diff_summary test\n');
+    // Stage a new file
+    writeFileSync(join(dir, 'staged.js'), 'staged content');
+    execSync('git add staged.js', { cwd: dir, stdio: 'ignore' });
+    // Create an untracked file
+    writeFileSync(join(dir, 'untracked.txt'), 'untracked content');
+    const obs = observeChanges(dir, baseline);
+    // All three file types should appear in files_changed
+    assert.ok(obs.files_changed.includes('README.md'), 'modified tracked file in files_changed');
+    assert.ok(obs.files_changed.includes('staged.js'), 'staged file in files_changed');
+    assert.ok(obs.files_changed.includes('untracked.txt'), 'untracked file in files_changed');
+    // diff_summary must contain both git diff --stat output and untracked listing
+    assert.ok(obs.diff_summary, 'diff_summary is populated');
+    assert.match(obs.diff_summary, /README\.md/, 'diff_summary includes modified tracked file');
+    assert.match(obs.diff_summary, /Untracked files:/, 'diff_summary includes untracked header');
+    assert.match(obs.diff_summary, /untracked\.txt/, 'diff_summary includes untracked file');
+  });
+
   it('reports observation unavailable for non-git workspaces', () => {
     const nonGitDir = join(tmpdir(), `axc-obs-nogit-${randomBytes(6).toString('hex')}`);
     mkdirSync(nonGitDir, { recursive: true });
