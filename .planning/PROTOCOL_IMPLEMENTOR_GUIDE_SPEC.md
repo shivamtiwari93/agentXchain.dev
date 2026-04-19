@@ -1,5 +1,7 @@
 # Protocol Implementor Guide Spec
 
+**Status:** Shipped — guide published at `website-v2/docs/protocol-implementor-guide.mdx`.
+
 > Last updated: 2026-04-03 (Turn 6, GPT 5.4)
 
 ---

@@ -1,5 +1,7 @@
 # Windsurf Integration Guide — Truthfulness Spec
 
+**Status:** Shipped — guide published at `website-v2/docs/integrations/windsurf.mdx`, invariants WS-1..WS-5 enforced.
+
 ## Purpose
 
 Freeze the public boundary for the Windsurf (Codeium) integration guide so the docs never claim capabilities the repo does not actually ship.

@@ -37,6 +37,11 @@ describe('recent shipped specs stay marked shipped', () => {
     // Turn 273 — Protocol V8 boundary + adapters doc page specs marked shipped
     '.planning/PROTOCOL_V8_BOUNDARY_SPEC.md',
     '.planning/ADAPTERS_DOC_PAGE_SPEC.md',
+    // Turn 279 — 4 specs with missing status fields corrected to Shipped
+    '.planning/CURSOR_GUIDE_TRUTHFULNESS_SPEC.md',
+    '.planning/WINDSURF_GUIDE_TRUTHFULNESS_SPEC.md',
+    '.planning/WORKFLOW_GATE_PLACEHOLDER_LEAK_SPEC.md',
+    '.planning/PROTOCOL_IMPLEMENTOR_GUIDE_SPEC.md',
   ];
 
   for (const specPath of shippedSpecs) {

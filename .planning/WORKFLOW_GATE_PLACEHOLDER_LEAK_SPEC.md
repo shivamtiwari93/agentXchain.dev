@@ -1,5 +1,7 @@
 # Workflow Gate Placeholder Leak Fix — Spec
 
+**Status:** Shipped — placeholder leak paths fixed, guard tests in `cli/test/workflow-gate-placeholder-leak.test.js`.
+
 ## Purpose
 
 Prevent scaffold placeholder text from passing through workflow-kit phase gates.

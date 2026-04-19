@@ -1,5 +1,7 @@
 # Cursor Integration Guide — Truthfulness Spec
 
+**Status:** Shipped — guide published at `website-v2/docs/integrations/cursor.mdx`, invariants CUR-1..CUR-5 enforced.
+
 ## Purpose
 
 Freeze the public boundary for the Cursor integration guide so the docs never claim capabilities the repo does not actually ship.
