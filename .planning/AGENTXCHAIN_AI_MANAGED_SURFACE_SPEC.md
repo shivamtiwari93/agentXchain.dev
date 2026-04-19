@@ -62,6 +62,7 @@ Primary managed surfaces:
 4. **Portability boundary**
    - import from `.dev` via export/restore or protocol-compatible event/state import
    - export from `.ai` back to repo-native artifacts without lossy proprietary-only state
+   - cloud-only metadata is limited to presentation-tier fields: `display_name`, `notification_preferences`, `dashboard_layout`, `search_index_state`
 
 ### Behavior
 
@@ -74,10 +75,12 @@ Primary managed surfaces:
    - `.ai` stores equivalent state in durable service storage.
    - The storage medium changes; the governed meaning of the state does not.
 
-3. **The control plane owns tenancy, policy, and audit.**
+3. **The control plane owns tenancy, policy, authentication, authorization, and audit.**
    - Organizations contain workspaces.
    - Workspaces contain governed projects and their run history.
    - Approval authority, policy bindings, notification routing, and connector credentials are scoped at workspace/project level with explicit audit history.
+   - Human operators authenticate as workspace-scoped principals.
+   - Managed connectors authenticate as workspace-scoped service principals and must preserve agent identity in audit trails.
 
 4. **The execution plane must remain capability-declared.**
    - Managed connectors must advertise the same capability shape as OSS connectors.
@@ -105,14 +108,15 @@ Primary managed surfaces:
 
 9. **Portability is a first-class requirement, not a migration afterthought.**
    - A user must be able to start on `.dev`, move a governed project to `.ai`, and later recover/export evidence back out without losing decision or gate history.
-   - Cloud-only metadata is allowed only when it can be cleanly separated from the shared protocol evidence.
+   - Cloud-only metadata is restricted to presentation-tier fields: `display_name`, `notification_preferences`, `dashboard_layout`, `search_index_state`.
+   - Any field that can affect turn acceptance, gate evaluation, phase transitions, decision ledger outcomes, connector authority, or artifact interpretation is protocol state and must remain exportable.
 
-10. **The first `.ai` slice should bias toward visibility and managed operations before novel governance semantics.**
-   - hosted dashboard
-   - persistent run/event storage
-   - approval queue and audit surfaces
-   - managed connector credential handling
-   - organization/workspace/project lifecycle
+10. **The first `.ai` slice should sequence infrastructure before presentation.**
+   - Step 1: persistent run/event storage
+   - Step 2: organization/workspace/project lifecycle
+   - Step 3: approval queue plus protocol-compatible recovery actions (`restart`, `checkpoint`, `retry`)
+   - Step 4: hosted dashboard views on top of the same control-plane state
+   - Step 5: managed connector credential handling
    - not a second protocol, not a different run model, not cloud-only artifact rules
 
 ### Error Cases
@@ -124,6 +128,8 @@ Primary managed surfaces:
 5. `.dev` to `.ai` migration requires proprietary irreversible transforms instead of protocol-compatible import/export.
 6. Public copy overstates `.ai` availability or maturity beyond what the architecture can currently support.
 7. `.ai` duplicates OSS logic ad hoc instead of reusing shared protocol evaluators, causing drift between self-hosted and managed outcomes.
+8. Cloud-only metadata expands until governance-affecting state becomes non-exportable.
+9. The first implementation slice tries to build storage, tenancy, dashboard, approvals, and execution simultaneously, producing no shippable surface.
 
 ### Acceptance Tests
 
@@ -134,10 +140,12 @@ Primary managed surfaces:
 5. `AT-AI-005`: The spec distinguishes managed adapters/execution from the already-shipped generic `remote_agent` bridge.
 6. `AT-AI-006`: The spec requires portability between `.dev` and `.ai` without lossy protocol drift.
 7. `AT-AI-007`: The spec names the first implementation slice as visibility/managed-operations first, not cloud-only governance reinvention.
+8. `AT-AI-008`: The spec explicitly names the only allowed cloud-only metadata fields and forbids governance-affecting state from living in that bucket.
+9. `AT-AI-009`: The spec sequences the first `.ai` slice in dependency order instead of listing an unordered feature pile.
 
 ### Open Questions
 
 1. Should `.ai` use protocol-compatible event import/export only, or also support direct import of repo-native `.agentxchain/` state bundles for cold migration?
-2. Which hosted mutations beyond approvals belong in the first dashboard slice: restart, checkpoint, retry, or none?
-3. Should managed connector credentials be workspace-scoped only, or can project-local overrides exist without making policy review unreadable?
+2. Should the first dashboard slice expose recovery actions as one-click mutations, guided operator flows, or both?
+3. Should managed connector credentials support project-local overrides from day one, or should v1 force workspace-only credentials until audit ergonomics are proven?
 4. How much of the hosted control plane should be open-spec before the first implementation slice lands: REST/JSON only, or also webhook/event stream contracts?
