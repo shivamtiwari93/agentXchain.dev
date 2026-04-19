@@ -127,6 +127,7 @@ import { connectorCapabilitiesCommand, connectorCheckCommand, connectorValidateC
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
 import { missionAttachChainCommand, missionBindCoordinatorCommand, missionListCommand, missionPlanApproveCommand, missionPlanAutopilotCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
+import { workflowKitDescribeCommand } from '../src/commands/workflow-kit.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -845,6 +846,16 @@ phaseCmd
   .description('Show one governed phase in detail')
   .option('-j, --json', 'Output as JSON')
   .action((phaseId, opts) => phaseCommand('show', phaseId, opts));
+
+const workflowKitCmd = program
+  .command('workflow-kit')
+  .description('Inspect the workflow kit contract for this project');
+
+workflowKitCmd
+  .command('describe')
+  .description('Show the workflow kit contract — templates, artifacts, semantic validators, gate coverage')
+  .option('-j, --json', 'Output as JSON')
+  .action(workflowKitDescribeCommand);
 
 const gateCmd = program
   .command('gate')

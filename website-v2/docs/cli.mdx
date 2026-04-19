@@ -102,6 +102,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `connector capabilities` | Readiness | Show the merged capability contract for one runtime or all configured runtimes |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
 | `connector validate` | Readiness | Dispatch one synthetic governed turn through a runtime and prove the staged turn-result contract before the first automated run |
+| `workflow-kit describe` | Readiness | Show the workflow kit contract — templates, artifacts, semantic validators, gate coverage |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
 
 ## Turn lifecycle commands
@@ -1455,6 +1456,31 @@ In `--json` mode, the result includes `schema_contract`, which cross-checks the 
 
 - `agentxchain/schemas/agentxchain-config`
 - `agentxchain/schemas/connector-capabilities-output`
+
+## Workflow Kit
+
+### `workflow-kit describe`
+
+```bash
+agentxchain workflow-kit describe [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--json` | `false` | Output structured JSON instead of text |
+
+Inspect the workflow kit contract for the current governed project. Returns the active phase templates, workflow artifacts, semantic validators, and gate artifact coverage.
+
+The `--json` output includes:
+
+- `workflow_kit_version` — contract version
+- `source` — `default`, `explicit`, or `mixed`
+- `phase_templates` — available and in-use template IDs
+- `phases` — per-phase template, source, and artifact details with existence status
+- `semantic_validators` — the full list of content-aware validators
+- `gate_artifact_coverage` — which gates reference which artifacts
+
+See the [Workflow Kit](/docs/workflow-kit) page for the full operating model.
 
 ## Dashboard
 

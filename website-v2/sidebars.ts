@@ -166,6 +166,7 @@ const sidebars: SidebarsConfig = {
         'plugin-github-issues',
       ],
     },
+    'workflow-kit',
     'notifications',
     'recovery',
     'multi-session',

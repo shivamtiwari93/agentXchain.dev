@@ -95,7 +95,8 @@ describe('CLI command map docs contract', () => {
     ['chain', ['chain latest', 'chain list', 'chain show']],
     ['mission', ['mission start', 'mission list', 'mission show', 'mission attach-chain', 'mission plan', 'mission plan show', 'mission plan approve', 'mission plan autopilot', 'mission plan list']],
     ['doctor', ['doctor']],
-    ['connector', ['connector check', 'connector validate']],
+    ['connector', ['connector capabilities', 'connector check', 'connector validate']],
+    ['workflow-kit', ['workflow-kit describe']],
     ['conformance', ['conformance check']],
   ]);
 
@@ -141,6 +142,7 @@ describe('CLI command map docs contract', () => {
       'plugin',
       'template',
       'phase',
+      'workflow-kit',
       'gate',
       'role',
       'turn',

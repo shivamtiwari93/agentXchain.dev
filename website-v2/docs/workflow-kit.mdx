@@ -1,0 +1,105 @@
+---
+title: Workflow Kit
+description: AgentXchain's opinionated operating model for governed software delivery — planning, specs, QA, release, and recovery as a separable protocol layer.
+sidebar_label: Workflow Kit
+---
+
+# Workflow Kit
+
+The workflow kit is AgentXchain's opinionated operating model for real software delivery. It sits above the [constitutional protocol layer](/docs/protocol-reference) and provides the planning, spec-driven development, QA, and release workflow that the reference runner uses to govern agent work.
+
+## What the workflow kit is
+
+The protocol defines *how agents take turns and pass gates*. The workflow kit defines *what those gates actually check and what artifacts agents produce*.
+
+The workflow kit includes:
+
+- **Phase templates** — pre-built artifact scaffolds for planning, implementation, QA, architecture review, and security review
+- **Workflow artifacts** — the governed documents that agents produce and gates evaluate (PM_SIGNOFF.md, SYSTEM_SPEC.md, IMPLEMENTATION_NOTES.md, acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md)
+- **Semantic validators** — content-aware validators that check artifact quality, not just existence (e.g., PM signoff must declare `Approved: YES`, system spec must have real content in `## Interface` and `## Acceptance Tests`)
+- **Gate artifact coverage** — the mapping between gate predicates and the workflow artifacts they consume
+
+## What the workflow kit is not
+
+The workflow kit is **not protocol conformance**. A non-reference runner can implement protocol v7 without using the workflow kit at all. The workflow kit is the reference runner's opinion on *how governed delivery should happen* — it is separable from the protocol.
+
+## Phase templates
+
+| Template | Description | Artifacts |
+|----------|-------------|-----------|
+| `planning-default` | Core planning proof surface | PM_SIGNOFF.md, SYSTEM_SPEC.md, ROADMAP.md |
+| `implementation-default` | Implementation proof surface | IMPLEMENTATION_NOTES.md |
+| `qa-default` | QA and ship-verdict proof surface | acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md |
+| `architecture-review` | Structured architecture review | ARCHITECTURE.md (Context, Proposed Design, Trade-offs, Risks) |
+| `security-review` | Structured security review | SECURITY_REVIEW.md (Threat Model, Findings, Verdict) |
+
+## Semantic validators
+
+Each workflow artifact can be bound to a semantic validator that checks content quality:
+
+| Validator | What it checks |
+|-----------|---------------|
+| `pm_signoff` | `Approved: YES` is declared |
+| `system_spec` | `## Interface` and `## Acceptance Tests` have real content (not placeholders) |
+| `implementation_notes` | `## Changes` section exists with real content |
+| `acceptance_matrix` | At least one acceptance criterion has a `PASS` status |
+| `ship_verdict` | Verdict is one of `YES`, `SHIP`, or `SHIP IT` |
+| `release_notes` | Has real content (not empty or placeholder-only) |
+| `section_check` | Configurable required sections are present (used by architecture and security reviews) |
+
+## Inspecting the workflow kit
+
+Use the CLI to inspect the workflow kit contract for any governed project:
+
+```bash
+# Human-readable summary
+agentxchain workflow-kit describe
+
+# Machine-readable JSON
+agentxchain workflow-kit describe --json
+```
+
+The `--json` output includes:
+
+- `workflow_kit_version` — current contract version
+- `source` — whether the kit is `default`, `explicit` (user-configured), or `mixed`
+- `phase_templates` — available and in-use templates
+- `phases` — per-phase template, source, and artifact details with existence status
+- `semantic_validators` — the full list of content-aware validators
+- `gate_artifact_coverage` — which gates reference which artifacts
+
+## Customizing the workflow kit
+
+The workflow kit is configured through `workflow_kit` in `agentxchain.json`:
+
+```json
+{
+  "workflow_kit": {
+    "phases": {
+      "planning": {
+        "template": "planning-default",
+        "artifacts": [
+          { "path": ".planning/CUSTOM_REVIEW.md", "required": true, "semantics": "section_check",
+            "semantics_config": { "required_sections": ["## Summary", "## Decision"] } }
+        ]
+      }
+    }
+  }
+}
+```
+
+Explicit artifacts merge with template artifacts. You can add project-specific artifacts to any phase without losing the template defaults.
+
+## Protocol boundary
+
+The workflow kit is a **reference runner feature**, not a protocol v7 conformance requirement. The boundary:
+
+| Surface | Layer |
+|---------|-------|
+| Run state, turn contracts, role definitions | Protocol (constitutional) |
+| Gates, validation rules, decision ledger | Protocol (constitutional) |
+| Phase templates, workflow artifacts | Workflow kit (operating model) |
+| Semantic validators, artifact content checks | Workflow kit (operating model) |
+| `workflow-kit describe` CLI command | Reference runner only |
+
+Non-reference runners can implement their own operating models on top of the same protocol. The workflow kit is one such model — the one AgentXchain ships and recommends.
