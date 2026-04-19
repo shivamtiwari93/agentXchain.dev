@@ -4,28 +4,113 @@
  * Verifies that every source file imported by beta-tester-scenario tests
  * is included in the npm-packed tarball. This catches the "source passes,
  * published binary fails" class of bug where tests exercise code that
- * isn't shipped.
+ * isn't shipped. For BUG-46, the gate also executes a packaged-tarball
+ * smoke to prove the shipped CLI survives the accept/checkpoint/resume seam.
  *
  * Runs as part of the release-gate test suite.
  */
 
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, resolve, dirname, relative } from 'node:path';
-import { execSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { execFileSync, execSync, spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const CLI_DIR = resolve(import.meta.dirname, '..');
 const SCENARIOS_DIR = join(import.meta.dirname, 'beta-tester-scenarios');
+const TEMP_PATHS = [];
+
+const BUG46_REPLAY_SIDE_EFFECT_PATHS = [
+  '.planning/RELEASE_NOTES.md',
+  '.planning/acceptance-matrix.md',
+  '.planning/ship-verdict.md',
+  'tests/fixtures/express-sample/tusq.manifest.json',
+  'tests/fixtures/express-sample/tusq-tools/get_users_users.json',
+  'tests/fixtures/express-sample/tusq-tools/index.json',
+  'tests/fixtures/express-sample/tusq-tools/post_users_users.json',
+];
+
+const BUG46_REPLAY_SIDE_EFFECT_SCRIPT = [
+  "const { mkdirSync, writeFileSync } = require('node:fs');",
+  "mkdirSync('.planning', { recursive: true });",
+  "mkdirSync('tests/fixtures/express-sample/tusq-tools', { recursive: true });",
+  "writeFileSync('.planning/RELEASE_NOTES.md', '# replay release notes\\n');",
+  "writeFileSync('.planning/acceptance-matrix.md', '# replay acceptance matrix\\n');",
+  "writeFileSync('.planning/ship-verdict.md', '# replay ship verdict\\n');",
+  "writeFileSync('tests/fixtures/express-sample/tusq.manifest.json', '{\\\"ok\\\":true}\\n');",
+  "writeFileSync('tests/fixtures/express-sample/tusq-tools/get_users_users.json', '{\\\"name\\\":\\\"get_users_users\\\"}\\n');",
+  "writeFileSync('tests/fixtures/express-sample/tusq-tools/index.json', '{\\\"name\\\":\\\"index\\\"}\\n');",
+  "writeFileSync('tests/fixtures/express-sample/tusq-tools/post_users_users.json', '{\\\"name\\\":\\\"post_users_users\\\"}\\n');",
+].join(' ');
+
+const BUG46_REPLAY_COMMAND = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(BUG46_REPLAY_SIDE_EFFECT_SCRIPT)}`;
+
+let packedFilesCache = null;
+let extractedPackageCache = null;
+
+after(() => {
+  while (TEMP_PATHS.length > 0) {
+    rmSync(TEMP_PATHS.pop(), { recursive: true, force: true });
+  }
+});
 
 function getPackedFiles() {
+  if (packedFilesCache) {
+    return packedFilesCache;
+  }
   const output = execSync('npm pack --dry-run --json 2>/dev/null', {
     cwd: CLI_DIR,
     encoding: 'utf8',
     timeout: 30000,
   });
   const data = JSON.parse(output);
-  return new Set(data[0].files.map(f => f.path));
+  packedFilesCache = new Set(data[0].files.map(f => f.path));
+  return packedFilesCache;
+}
+
+function getExtractedPackage() {
+  if (extractedPackageCache) {
+    return extractedPackageCache;
+  }
+
+  const output = execSync('npm pack --json', {
+    cwd: CLI_DIR,
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  const data = JSON.parse(output);
+  const tarballPath = join(CLI_DIR, data[0].filename);
+  TEMP_PATHS.push(tarballPath);
+
+  const extractDir = mkdtempSync(join(tmpdir(), 'axc-packed-cli-'));
+  TEMP_PATHS.push(extractDir);
+  execFileSync('tar', ['-xzf', tarballPath, '-C', extractDir], {
+    cwd: CLI_DIR,
+    stdio: ['ignore', 'ignore', 'ignore'],
+  });
+
+  const packageDir = join(extractDir, 'package');
+  const rootNodeModules = join(CLI_DIR, 'node_modules');
+  const packagedNodeModules = join(packageDir, 'node_modules');
+  if (existsSync(rootNodeModules) && !existsSync(packagedNodeModules)) {
+    symlinkSync(rootNodeModules, packagedNodeModules, 'dir');
+  }
+
+  extractedPackageCache = {
+    packageDir,
+  };
+  return extractedPackageCache;
 }
 
 function extractImports(filePath) {
@@ -47,6 +132,75 @@ function extractImports(filePath) {
     }
   }
   return imports;
+}
+
+function git(cwd, args) {
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function makeBug46Config() {
+  return {
+    schema_version: '1.0',
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { id: 'bug46-packed-test', name: 'BUG-46 Packed Test', default_branch: 'main' },
+    roles: {
+      qa: {
+        title: 'QA',
+        mandate: 'Verify and ship.',
+        write_authority: 'authoritative',
+        runtime: 'local-qa',
+      },
+    },
+    runtimes: {
+      'local-qa': {
+        type: 'local_cli',
+        command: process.execPath,
+        args: ['-e', 'process.exit(0)'],
+        prompt_transport: 'dispatch_bundle_only',
+      },
+    },
+    routing: {
+      qa: { entry_role: 'qa', allowed_next_roles: ['qa'], exit_gate: 'qa_complete' },
+    },
+    gates: {
+      qa_complete: {},
+    },
+    policies: [
+      { id: 'replay-proof', rule: 'require_reproducible_verification', action: 'block' },
+    ],
+  };
+}
+
+function makeTempGitRepo() {
+  const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug46-'));
+  TEMP_PATHS.push(root);
+  mkdirSync(join(root, '.planning'), { recursive: true });
+  writeFileSync(join(root, 'README.md'), '# BUG-46 packed smoke\n');
+  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(makeBug46Config(), null, 2) + '\n');
+
+  git(root, ['init', '-b', 'main']);
+  git(root, ['config', 'user.email', 'test@test.com']);
+  git(root, ['config', 'user.name', 'Test']);
+  git(root, ['add', 'README.md', 'agentxchain.json']);
+  git(root, ['commit', '-m', 'init']);
+  return root;
+}
+
+function materializeBug46ReplaySideEffects(root) {
+  mkdirSync(join(root, '.planning'), { recursive: true });
+  mkdirSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools'), { recursive: true });
+  writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# replay release notes\n');
+  writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# replay acceptance matrix\n');
+  writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# replay ship verdict\n');
+  writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq.manifest.json'), '{"ok":true}\n');
+  writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools', 'get_users_users.json'), '{"name":"get_users_users"}\n');
+  writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools', 'index.json'), '{"name":"index"}\n');
+  writeFileSync(join(root, 'tests', 'fixtures', 'express-sample', 'tusq-tools', 'post_users_users.json'), '{"name":"post_users_users"}\n');
 }
 
 describe('claim-reality preflight', () => {
@@ -146,6 +300,86 @@ describe('claim-reality preflight', () => {
       'BUG-46 test must cover the accept-turn/checkpoint-turn/resume deadlock seam');
     assert.ok(testContent.includes('require_reproducible_verification') && testContent.includes('authoritative'),
       'BUG-46 test must exercise reproducible-verification replay on an authoritative role');
+  });
+
+  it('BUG-46 packaged CLI smoke proves accept-turn/checkpoint-turn/resume on the shipped tarball', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = makeTempGitRepo();
+    const config = makeBug46Config();
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+    materializeBug46ReplaySideEffects(root);
+
+    const turnId = assign.turn.turn_id;
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      run_id: init.state.run_id,
+      turn_id: turnId,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'Packaged BUG-46 smoke: verification outputs are part of the artifact set.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: BUG46_REPLAY_COMMAND, exit_code: 0 },
+        ],
+        produced_files: BUG46_REPLAY_SIDE_EFFECT_PATHS.map((path) => ({
+          path,
+          disposition: 'artifact',
+        })),
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `packaged accept-turn must succeed for BUG-46 smoke:\n${accept.stdout}\n${accept.stderr}`);
+
+    const history = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const accepted = history.find((entry) => entry.turn_id === turnId);
+    assert.ok(accepted, 'packaged smoke must persist accepted turn history');
+    for (const relPath of BUG46_REPLAY_SIDE_EFFECT_PATHS) {
+      assert.ok(accepted.files_changed.includes(relPath),
+        `packaged history must promote verification artifact path into files_changed: ${relPath}`);
+    }
+
+    const checkpoint = spawnSync(process.execPath, [cliPath, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `packaged checkpoint-turn must succeed for BUG-46 smoke:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+    assert.doesNotMatch(checkpoint.stdout, /no writable files_changed/i,
+      'packaged checkpoint-turn must not skip promoted verification artifact files');
+
+    const resume = spawnSync(process.execPath, [cliPath, 'resume', '--role', 'qa'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(resume.status, 0,
+      `packaged resume must succeed after BUG-46 checkpoint:\n${resume.stdout}\n${resume.stderr}`);
   });
 
   it('scenario test count matches expected range', () => {

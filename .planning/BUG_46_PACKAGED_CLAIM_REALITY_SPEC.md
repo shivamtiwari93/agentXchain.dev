@@ -1,0 +1,50 @@
+## Purpose
+
+Freeze the release-gate proof that BUG-46 is fixed in the npm package that actually ships, not only in the source tree.
+
+BUG-46 already has source-tree beta-tester-scenario coverage. That is necessary but insufficient. The packaged CLI must also survive the exact accept/checkpoint/resume seam, because the release discipline explicitly rejects "works from source, broken when built."
+
+## Interface
+
+- Test surface: `cli/test/claim-reality-preflight.test.js`
+- Packaging input: `npm pack --json`
+- Packaged production modules imported from the extracted tarball:
+  - `package/src/lib/governed-state.js`
+  - `package/src/lib/turn-paths.js`
+- Packaged CLI entrypoint executed from the extracted tarball:
+  - `node package/bin/agentxchain.js accept-turn --turn <turn_id>`
+  - `node package/bin/agentxchain.js checkpoint-turn --turn <turn_id>`
+  - `node package/bin/agentxchain.js resume --role qa`
+
+## Behavior
+
+1. Release preflight must extract the packed tarball into a temp directory.
+2. The packaged modules, not source-tree modules, must initialize a governed repo and assign an authoritative `local_cli` QA turn.
+3. The staged result must reproduce the BUG-46 repair path:
+   - `artifact.type: "workspace"`
+   - `files_changed: []`
+   - `verification.machine_evidence` that creates repo files
+   - `verification.produced_files[].disposition === "artifact"` for those files
+4. `accept-turn` from the packaged CLI must succeed and persist the promoted files into accepted history.
+5. `checkpoint-turn` from the packaged CLI must checkpoint those promoted files instead of skipping with "no writable files_changed".
+6. `resume` from the packaged CLI must proceed without dirty-tree deadlock.
+
+## Error Cases
+
+- Tarball does not contain the production modules required by the BUG-46 scenario.
+- Packaged CLI fails `accept-turn`, `checkpoint-turn`, or `resume`.
+- Accepted history from the packaged modules does not promote verification-produced artifact files into `files_changed`.
+- `checkpoint-turn` skips because the packaged artifact contract drifted from the source-tree contract.
+
+## Acceptance Tests
+
+1. `node --test cli/test/claim-reality-preflight.test.js` passes with a packaged BUG-46 smoke that runs the extracted tarball end-to-end.
+2. The smoke proves:
+   - packaged `accept-turn` succeeds
+   - packaged history contains promoted verification-produced files
+   - packaged `checkpoint-turn` does not emit the "no writable files_changed" skip path
+   - packaged `resume` succeeds
+
+## Open Questions
+
+1. Should release preflight eventually require one packaged smoke per open beta bug, or keep the packaged smoke set limited to the highest-risk seams?
