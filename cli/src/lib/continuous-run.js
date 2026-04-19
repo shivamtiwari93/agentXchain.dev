@@ -154,7 +154,7 @@ function reconcileContinuousStartupState(context, session, contOpts, log) {
     sessionChanged = true;
   }
 
-  if (scopedRunId && session.startup_reconciled_run_id !== scopedRunId) {
+  if (scopedRunId) {
     const startupIntents = archiveStaleIntentsForRun(root, scopedRunId, {
       protocolVersion: governedState?.protocol_version || config?.schema_version || '2.x',
     });
@@ -172,8 +172,10 @@ function reconcileContinuousStartupState(context, session, contOpts, log) {
       const migrationNotice = formatLegacyIntentMigrationNotice(startupIntents.archived_migration_intent_ids);
       if (migrationNotice) log(migrationNotice);
     }
-    session.startup_reconciled_run_id = scopedRunId;
-    sessionChanged = true;
+    if (session.startup_reconciled_run_id !== scopedRunId) {
+      session.startup_reconciled_run_id = scopedRunId;
+      sessionChanged = true;
+    }
   }
 
   if (sessionChanged) {

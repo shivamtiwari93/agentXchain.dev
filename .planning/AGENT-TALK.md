@@ -1323,7 +1323,7 @@ Do not stop at adding new introspection surfaces and assume the first JSON shape
   - `linked_phases` is emitted
   - explicit planning artifacts flow into `planning_signoff` coverage
 
-**3. Re-grounded the release boundary in fresh proof and prepared the corrective patch release.**
+**3. Re-grounded the release boundary in fresh proof and shipped the corrective patch release.**
 
 - Ran focused suites:
   - `node --test cli/test/workflow-kit-contract.test.js`
@@ -1332,16 +1332,32 @@ Do not stop at adding new introspection surfaces and assume the first JSON shape
 - Ran full node lane:
   - `cd cli && npm run test:node`
   - result: **6,085 tests / 1,293 suites / 0 failures**
-- Prepared `v2.136.1` release surfaces:
+- Prepared and shipped `v2.136.1`:
   - `cli/CHANGELOG.md`
   - `website-v2/docs/releases/v2-136-1.mdx`
   - homepage/version/evidence surfaces
   - launch + marketing draft surfaces
   - onboarding version-floor docs
+  - release commit/tag: `12e1ec2` / `v2.136.1`
+  - publish workflow: `24618201036` succeeded
+  - npm live + GitHub release live + repo Homebrew mirror synced to registry SHA on follow-up push
+
+**4. Human priority changed mid-turn and BUG-41 is now fixed at source.**
+
+- `.planning/HUMAN-ROADMAP.md` reopened BUG-40 as BUG-41 during this turn with the real stale-session reproduction.
+- `cli/src/lib/continuous-run.js`
+  - continuous startup now always calls `archiveStaleIntentsForRun()` for the scoped run instead of skipping migration when `startup_reconciled_run_id` already matches
+- Added production-shaped regression coverage:
+  - `cli/test/beta-tester-scenarios/bug-41-continuous-session-stale-migration-guard.test.js`
+  - shared helper: `cli/test/beta-tester-scenarios/_helpers/legacy-intent-fixture.js`
+  - existing BUG-40 scenario refactored to use the same legacy-state fixture path
+- Wrote retrospective: `.planning/BUG_40_FALSE_CLOSURE.md`
 
 ### Decisions
 
 - `DEC-WORKFLOW-KIT-GATE-COVERAGE-001`: `workflow-kit describe --json` must derive gate artifact coverage from real phase linkage (`routing.<phase>.exit_gate` plus any explicit gate phase annotation). A gate-coverage field that ignores routing-bound linkage is invalid contract output.
+- `DEC-RELEASE-V2136-1-001`: `v2.136.1` shipped as the corrective patch for the workflow-kit gate coverage contract bug. Release proof: `6,085 tests / 1,293 suites / 0 failures`.
+- `DEC-CONTINUOUS-STARTUP-MIGRATION-IDEMPOTENT-001`: continuous startup may never suppress legacy-intent migration behind a session bookkeeping flag. Migration must run from actual on-disk intent state, not from `startup_reconciled_run_id`.
 
 ### Evidence
 
@@ -1350,11 +1366,16 @@ Do not stop at adding new introspection surfaces and assume the first JSON shape
 - `node --test cli/test/docs-frontdoor-workflow-kit.test.js` — **15 tests / 0 failures**
 - `cd cli && npm run test:node` — **6,085 tests / 1,293 suites / 0 failures**
 - `node cli/scripts/check-release-alignment.mjs --target-version 2.136.1 --scope prebump --report` — **14/14 prebump surfaces ready**
+- `gh run watch 24618201036` — **publish workflow succeeded**
+- `npm view agentxchain version` — **2.136.1**
+- `gh release view v2.136.1` — **published**
+- `node --test cli/test/beta-tester-scenarios/bug-40-continuous-startup-legacy-intent-resume.test.js` — **1 test / 0 failures**
+- `node --test cli/test/beta-tester-scenarios/bug-41-continuous-session-stale-migration-guard.test.js` — **1 test / 0 failures**
 
 ### Next Action For Claude Opus 4.6
 
 Take the next contract layer, not another release-note cleanup:
 
-1. Publish a machine-readable schema for `workflow-kit describe --json`, matching the pattern used for connector capabilities.
-2. Add contract tests that validate real command output against that schema.
-3. Audit the dashboard/workflow-kit API surfaces for the same “structurally present but semantically empty” failure mode before adding new fields.
+1. Do not resume feature work. Start on the remaining BUG-41 follow-through from the human roadmap: decide whether `migrate-intents` ships as the operator escape hatch or gets split into a separate explicitly-tracked follow-up.
+2. If you add `migrate-intents`, ship it with a standalone spec, CLI docs, and a production-shaped regression test instead of sneaking in an undocumented command.
+3. Audit the other startup paths again before calling BUG-41 fully closed; the stale-lock pattern is exactly the kind of thing that reopens when someone assumes one code path equals all code paths.

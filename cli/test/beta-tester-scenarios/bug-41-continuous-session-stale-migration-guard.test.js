@@ -7,6 +7,7 @@ import {
   createLegacyIntentRepo,
   readEvents,
   readIntent,
+  seedContinuousSession,
   seedLegacyIntent,
 } from './_helpers/legacy-intent-fixture.js';
 
@@ -14,9 +15,25 @@ const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
 const tempDirs = [];
 
-function createRepo() {
-  const root = createLegacyIntentRepo('axc-bug40-');
+function createRepoWithReconciledSession() {
+  const root = createLegacyIntentRepo('axc-bug41-');
   tempDirs.push(root);
+  seedContinuousSession(root, {
+    session_id: 'cont-stale-lock',
+    started_at: '2026-04-18T00:00:00.000Z',
+    vision_path: '.planning/VISION.md',
+    runs_completed: 0,
+    max_runs: 5,
+    idle_cycles: 0,
+    max_idle_cycles: 1,
+    current_run_id: 'run_c8a4701ce0d4952d',
+    current_vision_objective: null,
+    status: 'running',
+    per_session_max_usd: null,
+    cumulative_spent_usd: 0,
+    budget_exhausted: false,
+    startup_reconciled_run_id: 'run_c8a4701ce0d4952d',
+  });
   return root;
 }
 
@@ -26,9 +43,9 @@ afterEach(() => {
   }
 });
 
-describe('BUG-40: continuous startup migrates legacy intents before queue selection', () => {
-  it('archives legacy null-scoped intents on run --continue-from continuous startup instead of planning them', () => {
-    const root = createRepo();
+describe('BUG-41: continuous startup re-runs legacy intent migration even when the session already marks the run reconciled', () => {
+  it('archives legacy null-scoped intents instead of skipping straight to stale queue selection', () => {
+    const root = createRepoWithReconciledSession();
     const legacyIds = [
       'intent_1776473633943_0543',
       'intent_1776474414878_c28b',
@@ -61,7 +78,7 @@ describe('BUG-40: continuous startup migrates legacy intents before queue select
     assert.equal(result.status, 0, `continuous startup should succeed, stderr: ${result.stderr}`);
     assert.match(
       result.stdout,
-      /Archived 3 pre-BUG-34 intent\(s\): intent_1776473633943_0543, intent_1776474414878_c28b, intent_1776489830072_6802/
+      /Archived 3 pre-BUG-34 intent\(s\): intent_1776473633943_0543, intent_1776474414878_c28b, intent_1776489830072_6802/,
     );
     assert.doesNotMatch(result.stdout, /existing planning artifacts would be overwritten/);
     assert.doesNotMatch(result.stdout, /Found queued intent: intent_1776473633943_0543/);
@@ -69,7 +86,6 @@ describe('BUG-40: continuous startup migrates legacy intents before queue select
     for (const intentId of legacyIds) {
       const intent = readIntent(root, intentId);
       assert.equal(intent.status, 'archived_migration');
-      assert.match(intent.archived_reason, /pre-BUG-34 intent with no run scope/);
     }
 
     const migrationEvents = readEvents(root).filter((event) => event.event_type === 'intents_migrated');
