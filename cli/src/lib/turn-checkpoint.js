@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { resolveAcceptedTurnHistoryReference } from './accepted-turn-history.js';
 import { emitRunEvent } from './run-events.js';
 import { safeWriteJson } from './safe-write.js';
+import { normalizeCheckpointableFiles } from './repo-observer.js';
 
 const STATE_PATH = '.agentxchain/state.json';
 const HISTORY_PATH = '.agentxchain/history.jsonl';
@@ -52,25 +53,8 @@ function isGitRepo(root) {
   }
 }
 
-// BUG-43: Staging and dispatch dirs are ephemeral — cleaned up after acceptance.
-// They must never appear in checkpoint git-add paths.
-const EPHEMERAL_PATH_PREFIXES = [
-  '.agentxchain/staging/',
-  '.agentxchain/dispatch/',
-];
-
-function isEphemeralPath(filePath) {
-  return EPHEMERAL_PATH_PREFIXES.some((prefix) => filePath.startsWith(prefix));
-}
-
 function normalizeFilesChanged(filesChanged) {
-  return [...new Set(
-    (Array.isArray(filesChanged) ? filesChanged : [])
-      .filter((value) => typeof value === 'string')
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .filter((value) => !isEphemeralPath(value)),
-  )];
+  return normalizeCheckpointableFiles(filesChanged);
 }
 
 function extractGitError(err) {

@@ -79,6 +79,16 @@ export function isBaselineExemptPath(filePath) {
     || BASELINE_EXEMPT_PATH_PREFIXES.some(prefix => filePath.startsWith(prefix));
 }
 
+export function normalizeCheckpointableFiles(filesChanged) {
+  return [...new Set(
+    (Array.isArray(filesChanged) ? filesChanged : [])
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .filter((value) => !isOperationalPath(value)),
+  )];
+}
+
 // ── Baseline Capture ────────────────────────────────────────────────────────
 
 /**

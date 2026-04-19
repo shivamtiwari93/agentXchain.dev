@@ -13,7 +13,7 @@ import {
   STATE_PATH,
 } from '../src/lib/governed-state.js';
 import { getTurnStagingResultPath } from '../src/lib/turn-paths.js';
-import { checkpointAcceptedTurn } from '../src/lib/turn-checkpoint.js';
+import { checkpointAcceptedTurn, detectPendingCheckpoint } from '../src/lib/turn-checkpoint.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
 
 function makeTmpDir() {
@@ -245,5 +245,59 @@ describe('turn checkpointing', () => {
     const assignNext = assignGovernedTurn(root, config, 'qa');
     assert.equal(assignNext.ok, false);
     assert.match(assignNext.error, new RegExp(`checkpoint-turn --turn ${turnId}`));
+  });
+
+  it('checkpointAcceptedTurn ignores operational files leaked into history files_changed', () => {
+    const config = initGovernedGitRepo(root);
+    const turnId = stageAcceptedDevTurn(root, config);
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify({ poisoned: true }, null, 2));
+
+    const historyPath = join(root, '.agentxchain', 'history.jsonl');
+    const history = readJsonl(root, '.agentxchain/history.jsonl').map((entry) => (
+      entry.turn_id === turnId
+        ? {
+            ...entry,
+            files_changed: [
+              'src/app.js',
+              '.agentxchain/state.json',
+              '.agentxchain/staging/turn_fake/result.json',
+              '.agentxchain/dispatch/turn_fake/PROMPT.md',
+            ],
+          }
+        : entry
+    ));
+    writeFileSync(historyPath, `${history.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+
+    const checkpoint = checkpointAcceptedTurn(root, { turnId });
+    assert.ok(checkpoint.ok, checkpoint.error);
+    assert.ok(checkpoint.checkpoint_sha);
+
+    const committedFiles = execSync('git show --name-only --pretty=format:%s HEAD', {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    assert.match(committedFiles, /src\/app\.js/);
+    assert.doesNotMatch(committedFiles, /\.agentxchain\/state\.json/);
+    assert.equal(readJson(root, '.agentxchain/state.json').poisoned, true);
+  });
+
+  it('detectPendingCheckpoint ignores operational dirty files when evaluating accepted-turn dirt', () => {
+    const config = initGovernedGitRepo(root);
+    const turnId = stageAcceptedDevTurn(root, config);
+
+    const pending = detectPendingCheckpoint(root, [
+      'src/app.js',
+      '.agentxchain/state.json',
+      '.agentxchain/staging/turn_fake/result.json',
+    ]);
+    assert.equal(pending.required, true);
+    assert.equal(pending.turn_id, turnId);
+
+    const operationalOnly = detectPendingCheckpoint(root, [
+      '.agentxchain/state.json',
+      '.agentxchain/staging/turn_fake/result.json',
+      '.agentxchain/dispatch/turn_fake/PROMPT.md',
+    ]);
+    assert.equal(operationalOnly.required, false);
   });
 });
