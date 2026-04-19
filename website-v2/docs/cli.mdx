@@ -76,6 +76,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `verify export` | Conformance | Verify an export artifact against embedded file bytes, hashes, and summary invariants |
 | `verify diff` | Conformance | Verify two export artifacts, then fail closed on governance regressions between them |
 | `migrate` | Migration | Migrate state and config from an older protocol version |
+| `migrate-intents` | Migration | Archive legacy intents with no run scope (pre-BUG-34 repair) |
 | `plugin` | Plugin management | Install, list, upgrade, or remove hook plugins |
 | `intake` | Continuous delivery | Record repo-native signals, triage intents, authorize and plan governed work, start execution, resolve outcomes, and inspect backlog state |
 | `multi` | Multi-repo coordination | Bootstrap, inspect, step, approve, and recover coordinator runs across linked repositories |
@@ -1333,6 +1334,21 @@ agentxchain migrate [options]
 | `-j, --json` | `false` | Output migration report as JSON |
 
 Migrates state and config from an older protocol version to the current version (v7). Handles schema changes in `agentxchain.json`, `state.json`, and history entries.
+
+### `migrate-intents`
+
+```bash
+agentxchain migrate-intents [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-j, --json` | `false` | Output as JSON |
+| `--dry-run` | `false` | List legacy intents without modifying them |
+
+One-shot repair command for repos that have legacy intents stuck with `approved_run_id: null` (pre-BUG-34 format). Archives all matching intents with `status: "archived_migration"`. Safe to run multiple times — idempotent.
+
+Use this when continuous mode aborts with "existing planning artifacts would be overwritten" due to stale legacy intents that were never migrated by the automatic startup path.
 
 ## Readiness
 

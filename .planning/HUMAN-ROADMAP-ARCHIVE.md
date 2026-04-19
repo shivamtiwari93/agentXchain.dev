@@ -2444,3 +2444,83 @@ This separation is the difference between a useful product and a confused one. D
 > **Short conclusion**
 >
 > `2.135.0` still does not prevent a governed run from accepting repeated non-progressing repair turns against the same failing artifact gate. That is the current reason this `tusq.dev` run remains stuck in implementation.
+
+---
+
+### Beta-tester bug report #11 (verbatim) — BUG-40 false closure on v2.136.0 (2026-04-18)
+
+> **Title**
+>
+> `v2.136.0` still does not migrate legacy null-scoped intents on continuous startup in an existing repo, even though gate-semantic no-progress acceptance is now fixed
+>
+> **Summary**
+>
+> Retested `tusq.dev` against `agentxchain@2.136.0`. Outcome is mixed:
+> - Earlier no-progress gate-repair acceptance bug **appears fixed**
+> - Continuous startup migration problem for legacy intents is **still not fixed in this existing repo**
+>
+> v2.136.0 improves gate repair acceptance correctness, but continuous full-auto continuation is still blocked because old approved intents are still being adopted instead of archived/migrated.
+>
+> **Environment**
+> - Repo: `tusq.dev`, macOS, governed v4
+> - Active run: `run_c8a4701ce0d4952d`, Phase: `implementation`
+> - Roles: pm/dev/qa/product_marketing/eng_director — all authoritative + local_cli
+> - Tested via npx because Homebrew tap remains broken by merge-conflicted formula
+>
+> **What appears fixed**
+>
+> Under earlier versions, AgentXchain repeatedly accepted `dev` repair turns that didn't modify `.planning/IMPLEMENTATION_NOTES.md`. Under 2.135.1 and still under 2.136.0, that specific acceptance bug appears fixed. Current active dev repair turn `turn_e20130cc31c3b5b3` remains in `failed_acceptance` state rather than being silently accepted.
+>
+> **What is still broken in v2.136.0**
+>
+> v2.136.0 release notes explicitly claim:
+> > `BUG-40: Continuous startup + resume migration hardened`
+> > Shared `intent-startup-migration.js` ensures pre-BUG-34 intents with `approved_run_id: null` are migrated on all startup paths: `run`, `run --continue-from`, `run --continuous`, `restart`, `resume`, `step --resume`, `schedule daemon` continuous sessions
+>
+> Tested: `npx --yes -p agentxchain@2.136.0 -c 'agentxchain run --continue-from run_c8a4701ce0d4952d --continuous --auto-approve --auto-checkpoint --max-turns 20 --max-runs 5 --triage-approval auto'`
+>
+> Observed:
+> ```text
+> Found queued intent: intent_1776473633943_0543 (approved)
+> Continuous start error: plan failed: existing planning artifacts would be overwritten
+> Continuous loop failed: plan failed: existing planning artifacts would be overwritten. Check "agentxchain status" for details.
+> ```
+>
+> Same failure mode as before. In this repo: old legacy intents still considered during continuous startup; migration/archival not happening before queue selection; continuous mode fails immediately.
+>
+> **Evidence from 2.136.0 status**
+>
+> `status` still shows old pending intents: `intent_1776473633943_0543`, `intent_1776474414878_c28b`, `intent_1776489830072_6802`, `intent_1776534863659_5752`, `intent_1776535590576_a157`. Listed under "📋 Pending injected intents (will drive next turn)".
+>
+> Strong evidence migration did not archive or neutralize them for this repo, despite release claim.
+>
+> **Evidence from on-disk intent files**
+>
+> Older intent files under `.agentxchain/intake/intents/*.json` still show legacy null scoping (`approved_run_id: null`, `run_id: null`). Exactly the legacy state BUG-40 claims to migrate on startup paths. But 2.136.0 still attempts to consume one during continuous startup.
+>
+> **Why this matters**
+>
+> - Fixed: AgentXchain no longer silently accepts non-progressing gate-repair turns
+> - Not fixed: existing repos with legacy null-scoped intents still cannot recover into continuous mode
+> - Continuous mode still dies at startup before doing useful work
+>
+> Repo remains blocked from true full-auto continuation. Direct/manual stepping safer than before, but advertised continuous recovery path still fails for real pre-existing repos.
+>
+> **Why this is likely a migration-path bug, not a new planner bug**
+>
+> Failure still points to `intent_1776473633943_0543`. Strongly suggests: queue selection still consulting legacy persisted intent files; startup migration either didn't run, or ran but didn't rewrite/archive these specific files, or migration only affects some startup paths, not the exact continuation path used here.
+>
+> Gap between intended migration coverage and actual behavior on real pre-existing repo.
+>
+> **Suggested fixes**
+> 1. Ensure legacy-intent migration runs BEFORE any queue selection on `run --continue-from`, `run --continuous`, combined `continue-from + continuous` path
+> 2. Hard assertion: if intent has `approved_run_id: null` and is pre-migration legacy state, must be archived or normalized before queueable
+> 3. Emit startup/migration diagnostics: count, archived count, archived IDs, startup path
+> 4. Regression coverage with existing repo fixture containing real historic intent files + `run --continue-from --continuous` + existing planning artifacts + expectation startup does NOT revive stale planning work
+> 5. Consider one-shot repair command `agentxchain migrate-intents` for existing repos
+>
+> **Severity: P1/P2.** BUG-40 about recovering continuous mode for real repos; still doesn't work here; failure prevents full-auto continuation entirely. However, correctness of gate repair acceptance improved, so narrower than earlier broad orchestration failure.
+>
+> **Short conclusion**
+>
+> v2.136.0 appears to fix earlier no-progress gate-repair acceptance bug. But still does NOT fix continuous startup for this existing `tusq.dev` repo. BUG-40 migration hardening claim still incomplete in real migrated repo.

@@ -66,6 +66,7 @@ import { kickoffCommand } from '../src/commands/kickoff.js';
 import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
 import { migrateCommand } from '../src/commands/migrate.js';
+import { migrateIntentsCommand } from '../src/commands/migrate-intents.js';
 import { resumeCommand } from '../src/commands/resume.js';
 import { unblockCommand } from '../src/commands/unblock.js';
 import { injectCommand } from '../src/commands/inject.js';
@@ -644,6 +645,13 @@ program
   .option('-y, --yes', 'Skip confirmation prompts')
   .option('-j, --json', 'Output migration report as JSON')
   .action(migrateCommand);
+
+program
+  .command('migrate-intents')
+  .description('Archive legacy intents with no run scope (pre-BUG-34 repair)')
+  .option('-j, --json', 'Output as JSON')
+  .option('--dry-run', 'List legacy intents without modifying them')
+  .action(migrateIntentsCommand);
 
 program
   .command('resume')

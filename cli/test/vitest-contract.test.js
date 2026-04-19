@@ -99,12 +99,16 @@ describe('Test-surface hygiene — DEC-TEST-HYGIENE-001', () => {
     }
   });
 
-  it('cli/test/beta-tester-scenarios/ contains only .test.js files', () => {
+  it('cli/test/beta-tester-scenarios/ contains only .test.js files and the _helpers/ directory', () => {
     const scenarioDir = join(TEST_DIR, 'beta-tester-scenarios');
     const scenarioEntries = readdirSync(scenarioDir, { withFileTypes: true });
     assert.ok(scenarioEntries.length > 0, 'beta-tester-scenarios/ should not be empty');
     for (const entry of scenarioEntries) {
-      assert.ok(entry.isFile(), `Unexpected nested path in beta-tester-scenarios/: ${entry.name}`);
+      if (entry.isDirectory()) {
+        assert.equal(entry.name, '_helpers',
+          `Only _helpers/ subdirectory is allowed in beta-tester-scenarios/, found: ${entry.name}`);
+        continue;
+      }
       assert.ok(entry.name.endsWith('.test.js'),
         `Non-test file in beta-tester-scenarios/: ${entry.name}`);
     }
