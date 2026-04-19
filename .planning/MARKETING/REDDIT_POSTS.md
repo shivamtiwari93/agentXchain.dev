@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.138.0
+# Reddit Posts — AgentXchain v2.138.1
 
-> Ready-to-post content for Reddit. Updated 2026-04-18 to reflect v2.138.0 shipped reality.
+> Ready-to-post content for Reddit. Updated 2026-04-19 to reflect v2.138.1 shipped reality.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---

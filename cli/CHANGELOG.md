@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.138.1
+
+### Bug Fixes
+- **Phantom intent reconciliation hardening**: History-based evidence now used for phantom intent reconciliation, preventing false negatives when gate files are present but no turns have been accepted.
+- **BUG-43 checkpoint-turn command-path proof**: Added command-path proof for `checkpoint-turn` to verify the full dispatch pipeline end-to-end.
+- **Approve-intent phantom fail-closed path**: Fixed approve-intent to fail closed when phantom detection is ambiguous, preventing silent intent promotion.
+
+### Evidence
+- 44 tests / 0 failures (BUG-41/42/43 + checkpoint + intake + dispatch-path regression)
+
 ## 2.138.0
 
 ### Bug Fixes
