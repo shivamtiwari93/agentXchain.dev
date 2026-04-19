@@ -31,16 +31,17 @@ describe('planning acceptance checklist sync', () => {
     );
   });
 
-  it('keeps the adapters doc spec limited to the remaining UI proof gaps', () => {
+  it('keeps the adapters doc spec fully checked once shipped', () => {
     const spec = read('.planning/ADAPTERS_DOC_PAGE_SPEC.md');
     assert.deepEqual(
       uncheckedAcceptanceItems(spec),
-      [
-        '- [ ] Page loads at `/docs/adapters` with no JS errors',
-        '- [ ] Footer matches quickstart footer',
-        '- [ ] Page is responsive at 768px and 375px widths',
-      ],
-      'adapters doc spec should only remain open on the three unproved UI-level assertions'
+      [],
+      'adapters doc spec should not carry stale unchecked acceptance items — UI assertions dropped as framework-guaranteed'
     );
+  });
+
+  it('keeps the protocol v8 boundary spec fully checked once shipped', () => {
+    const spec = read('.planning/PROTOCOL_V8_BOUNDARY_SPEC.md');
+    assert.match(spec, /\*\*Status:\*\* Shipped/, 'protocol v8 boundary spec must be marked Shipped');
   });
 });

@@ -34,6 +34,9 @@ describe('recent shipped specs stay marked shipped', () => {
     '.planning/API_PROXY_PROPOSED_AUTHORING_SPEC.md',
     // Turn 271 — MODEL_COMPATIBILITY_MATRIX_SPEC implemented: probe, results, tests, v2.84.0 release notes
     '.planning/MODEL_COMPATIBILITY_MATRIX_SPEC.md',
+    // Turn 273 — Protocol V8 boundary + adapters doc page specs marked shipped
+    '.planning/PROTOCOL_V8_BOUNDARY_SPEC.md',
+    '.planning/ADAPTERS_DOC_PAGE_SPEC.md',
   ];
 
   for (const specPath of shippedSpecs) {

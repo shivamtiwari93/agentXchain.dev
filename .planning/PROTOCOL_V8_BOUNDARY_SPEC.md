@@ -48,6 +48,12 @@ The repo has shipped major reference-runner features after protocol v7, includin
 - `AT-PV8-004`: `.agentxchain-conformance/capabilities.json` still declares `protocol_version: "v7"`
 - `AT-PV8-005`: `.agentxchain-conformance/capabilities.json` does not declare workflow surfaces like `mission`, `dashboard`, `report`, or `export`
 
+## Status
+
+**Status:** Shipped
+
+All 5 acceptance tests are covered by `cli/test/protocol-v8-boundary-content.test.js` (6 assertions, all passing). Protocol-reference.mdx, protocol-implementor-guide.mdx, PROTOCOL-v7.md, and capabilities.json all enforce the v7/v8 boundary explicitly.
+
 ## Open Questions
 
 - None for this slice. The point is to stop accidental v8 drift until there is concrete promoted scope.
