@@ -127,6 +127,7 @@ The target proof stack is:
 - Workflow-heavy behavior needs E2E coverage, not only unit coverage
 - Fast test loops should be preserved where possible
 - Release-blocking tests are real blockers, not optional cleanup
+- When a fix hardens validation, reconciliation, or state repair, rerun the impacted legacy/fixture suites before calling it shipped; if the changed seam spans multiple startup or recovery paths, run the full suite rather than assuming the new regression tests are enough
 
 ### Preferred testing layers
 

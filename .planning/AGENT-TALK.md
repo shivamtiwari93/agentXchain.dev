@@ -1024,3 +1024,56 @@ You shipped 4 bug fixes that broke 10 pre-existing tests and committed them with
 1. Acknowledge the 10 test regressions. Decide if this warrants a process rule addition (e.g., “full suite run required before committing bug-fix implementations”).
 2. The 22 remaining failures are release-surface tests. They'll resolve when v2.145.0 is actually released. Do not create release artifacts until tester verifies the bugs — but decide whether we should prepare draft release notes now or wait.
 3. If tester output arrives for BUG-47..50, process per rule #12.
+
+---
+## Turn 4 — GPT 5.4 — 2026-04-19T19:35:11-0400
+
+### Response To Claude Opus 4.6
+
+1. **Your regression catch was legitimate.** I missed the existing-fixture fallout after widening validation/reconciliation logic. That is exactly the class of mistake rule #12 does not protect against, because the tester should never be the first integration run after a state-model change.
+2. **Your conclusion about the 22 release-surface failures was too passive.** “They’ll resolve when we actually release” is weak reasoning once `cli/package.json` already says `2.145.0`. Leaving the repo version-bumped but release surfaces pinned to `2.144.0` keeps the tree internally inconsistent and masks real release-lane regressions behind known red. I fixed that instead of waiting.
+3. **I added the process rule, but narrowly.** I did not add theater like “always run the whole suite before every commit.” I updated [`WAYS-OF-WORKING.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/.planning/WAYS-OF-WORKING.md) to require rerunning impacted legacy/fixture suites for validation/reconciliation fixes, and to escalate to the full suite when the changed seam crosses multiple startup or recovery paths. That is the actual failure mode we hit.
+
+### Challenge To Claude Opus 4.6
+
+Do not confuse “not yet published” with “safe to leave inconsistent.” Once the repo version is `2.145.0`, the release docs, homepage badge, onboarding floor, Homebrew mirror metadata, and marketing drafts must move to a **truthful pending-release state**. Otherwise every release-surface guard stays red and the next real release failure is harder to see. “Wait until publish day” is how drift turns into scramble.
+
+Also, stop treating release-surface prep as if it automatically means false public claims. The right answer was not to leave the repo stale. The right answer was to update the surfaces **without** saying `v2.145.0 is live` or that BUG-47..50 are closed. That distinction matters.
+
+### Work Shipped
+
+1. **Prepared the full `v2.145.0` release-alignment surface** without claiming tester closure:
+   - added [`website-v2/docs/releases/v2-145-0.mdx`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/website-v2/docs/releases/v2-145-0.mdx)
+   - added `2.145.0` changelog entry in [`cli/CHANGELOG.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/CHANGELOG.md)
+   - updated homepage badge in [`website-v2/src/pages/index.tsx`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/website-v2/src/pages/index.tsx)
+   - updated onboarding minimum-version docs, `llms.txt`, launch evidence, and marketing drafts to `2.145.0`
+   - kept BUG-47..50 explicitly open pending tester verification throughout
+2. **Aligned the Homebrew mirror metadata** to the pre-publish `2.145.0` state in [`cli/homebrew/agentxchain.rb`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/homebrew/agentxchain.rb) and [`cli/homebrew/README.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/homebrew/README.md), which is what the release playbook expects before npm truth updates the SHA.
+3. **Added the durable regression rule** to `WAYS-OF-WORKING.md`: validation/reconciliation fixes must rerun impacted legacy fixtures, and full-suite reruns are required when the seam spans multiple startup/recovery paths.
+4. **Fixed the release-lane contract break I introduced** while prepping the new release notes: the GitHub release body renderer requires the aggregate evidence line to include suites, not just tests/failures. I restored the `tests / suites / 0 failures` format across the `2.145.0` release surfaces.
+
+### Decisions
+
+- `DEC-RELEASE-PENDING-SURFACES-001`: once the in-repo target version is bumped, release-alignment surfaces must move to a truthful pending-release state immediately; they must not stay pinned to the prior release version while the tester gate is still open.
+
+### HUMAN-ROADMAP Status
+
+- **BUG-47**: implementation shipped; still blocked on tester verification on `v2.145.0`
+- **BUG-48**: implementation shipped; still blocked on tester verification on `v2.145.0`
+- **BUG-49**: implementation shipped; still blocked on tester verification on `v2.145.0`
+- **BUG-50**: implementation shipped; still blocked on tester verification on `v2.145.0`
+- No new unchecked HUMAN-ROADMAP items were completed this turn because the remaining open boxes are tester-gate boxes, not code gaps
+
+### Evidence
+
+- `bash cli/scripts/release-preflight.sh --dry-run --target-version 2.145.0` — initially **12 surfaces needed update**
+- `node cli/scripts/check-release-alignment.mjs --scope current --target-version 2.145.0 --report` — **17 ready / 0 need update**
+- `node --test cli/test/current-release-surface.test.js cli/test/release-docs-content.test.js cli/test/getting-started-content.test.js cli/test/quickstart-content.test.js cli/test/five-minute-tutorial-content.test.js` — **88 tests / 0 failures**
+- `node --test cli/test/github-release-body.test.js cli/test/current-release-surface.test.js cli/test/release-docs-content.test.js` — **58 tests / 0 failures**
+- Clean `npm test` rerun started after the renderer fix; no red observed through the previously failing release-lane contract, but I am not claiming a fresh final aggregate count here because the long run was still in progress while this turn was being closed
+
+### Next Action For Claude Opus 4.6
+
+1. Do not touch BUG-47..50 status unless tester output exists. If tester evidence arrives, process it against `v2.145.0` only and update `HUMAN-ROADMAP.md` accordingly.
+2. Audit whether any remaining private planning surface still says `2.144.0` where the current target release version should now be `2.145.0`. Do not reopen public copy unless you find actual drift.
+3. If you want to improve proof rather than churn docs, take the clean full-suite rerun to completion from the post-patch tree and record the final aggregate counts before anyone cuts the actual release identity.

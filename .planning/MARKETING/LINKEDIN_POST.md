@@ -1,6 +1,6 @@
-# LinkedIn Post — AgentXchain v2.144.0
+# LinkedIn Post — AgentXchain v2.145.0
 
-> Ready-to-post LinkedIn company-page copy. Updated 2026-04-19 to reflect v2.144.0 shipped reality.
+> Ready-to-post LinkedIn company-page copy for the `v2.145.0` release once tester verification lands. Updated 2026-04-19.
 
 ---
 
@@ -17,12 +17,13 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.144.0` is now live with the BUG-46 hardening bundle in the published npm package:
+`v2.145.0` is the next release bundle in the lane, carrying the BUG-47..50 continuation-state consistency fixes:
 
-- accepted turns no longer strand replay-only repo dirt that blocks `resume`
-- verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
-- mixed-files checkpoint proof now guards against replay cleanup deleting real repo mutations
-- BUG-44 and BUG-45 hardening remain shipped and are still awaiting tester verification under the beta-cycle closure rules
+- stale `running` turns are now reconciled into retained `stalled` turns with explicit stale-turn recovery guidance
+- stale injected-priority markers are cleared when the target intent is superseded or otherwise non-actionable
+- fresh continuation runs now advance `accepted_integration_ref` correctly on checkpoint
+- child-run `run-history.jsonl` counters stay isolated from inherited parent metadata
+- BUG-47, BUG-48, BUG-49, and BUG-50 remain open pending tester verification under the beta-cycle closure rules
 
 - 6,297 tests / 1,315 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces

@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.144.0
+# Hacker News Submission — AgentXchain v2.145.0
 
-> Ready-to-post. Updated 2026-04-19 for v2.144.0.
+> Ready-to-post for the `v2.145.0` launch window once tester verification lands. Updated 2026-04-19.
 
 ---
 
@@ -34,11 +34,12 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.144.0:**
-- BUG-46 post-acceptance deadlock hardening shipped for tester verification: accepted turns no longer strand replay-only repo dirt that blocks `resume`
-- Verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
-- Mixed-files proof added so checkpoint commits still preserve real repo mutations after replay cleanup
-- BUG-44 and BUG-45 hardening remain live in the published package and are still awaiting tester verification per the beta-cycle discipline rules
+**What's queued in v2.145.0:**
+- BUG-47 stale-turn watchdog shipped: stale `running` turns reconcile to retained `stalled` turns with explicit `reissue-turn --reason stale` guidance
+- BUG-48 injected-priority lifecycle fix shipped: stale markers are cleared when the target intent is no longer actionable
+- BUG-49 accepted baseline advancement shipped: fresh continuation runs stop reporting false drift immediately after a clean checkpoint
+- BUG-50 run-history isolation shipped: child-run counters stay current-run-only while inherited context moves to `parent_context`
+- BUG-47..50 remain open pending tester verification per the beta-cycle discipline rules
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - 108 conformance fixtures across 13 protocol surfaces

@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.144.0
+# Show HN Draft — AgentXchain v2.145.0
 
-> Ready-to-post draft. Updated 2026-04-19 for v2.144.0.
+> Ready-to-post draft for the `v2.145.0` launch window once tester verification lands. Updated 2026-04-19.
 
 ---
 
@@ -47,7 +47,7 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest shipped operator slice: `v2.144.0` carries the BUG-46 post-acceptance deadlock hardening bundle into the published npm release after the original `v2.141.0` tag failed trusted-publishing alignment. Accepted turns no longer strand replay-only repo dirt that blocks `resume`, and BUG-44/45/46 still await tester verification per the beta-cycle closure rules.
+Latest operator slice queued for release: `v2.145.0` carries the BUG-47..50 continuation-state consistency bundle. Stale running turns now reconcile to `stalled` with explicit recovery guidance, stale injected-priority markers no longer outlive superseded intents, clean checkpoints advance the child run baseline correctly, and child-run history counters stay isolated from parent-run totals. BUG-47..50 still await tester verification per the beta-cycle closure rules.
 
 - 6,297 tests / 1,315 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.

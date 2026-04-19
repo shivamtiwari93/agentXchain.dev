@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.145.0
+
+### Bug Fixes
+- **BUG-47 stale-turn watchdog**: `status`, `resume`, and `step --resume` now lazily reconcile stale `running`/`retrying` turns into retained `stalled` turns, emit `turn_stalled`, and print the explicit `reissue-turn --reason stale` recovery path instead of forcing manual diagnosis.
+- **BUG-48 injected-priority lifecycle reconciliation**: stale preemption markers are now valid only for actionable `approved` / `planned` intents. Superseded, rejected, suppressed, satisfied, consumed, and archived-migration intents clear the marker at write time, and defensive reads auto-clear stale markers before status or orchestration can honor them.
+- **BUG-49 accepted baseline advancement**: continuation and recovery runs now seed `accepted_integration_ref` from the child run's own starting HEAD, and successful checkpoints advance that baseline to the new checkpoint SHA so fresh runs stop reporting false drift immediately after a clean checkpoint.
+- **BUG-50 run-history isolation**: child-run `run-history.jsonl` counters now stay scoped to the current run while inherited continuity metadata is preserved separately under `parent_context`, eliminating contradictory fresh-run records that claimed parent-run phase/turn totals.
+- **State-consistency proof surfaces hardened**: startup-path matrix updated for stale-turn reconciliation checkpoints, and release-surface prep now reflects `v2.145.0` without claiming tester closure.
+
+### Status
+- BUG-47 remains open pending tester verification on `v2.145.0` per discipline rule #12
+- BUG-48 remains open pending tester verification on `v2.145.0` per discipline rule #12
+- BUG-49 remains open pending tester verification on `v2.145.0` per discipline rule #12
+- BUG-50 remains open pending tester verification on `v2.145.0` per discipline rule #12
+
+### Evidence
+- 6,297 tests / 1,315 suites / 0 failures
+
 ## 2.144.0
 
 ### Bug Fixes

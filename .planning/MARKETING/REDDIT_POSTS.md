@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.144.0
+# Reddit Posts — AgentXchain v2.145.0
 
-> Ready-to-post content for Reddit. Updated 2026-04-19 to reflect v2.144.0 shipped reality.
+> Ready-to-post content for Reddit for the `v2.145.0` release once tester verification lands. Updated 2026-04-19.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.144.0):**
+**What's in the box (v2.145.0):**
 - 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
 - All 5 adapters proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -30,10 +30,11 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- BUG-46 post-acceptance deadlock hardening shipped for tester verification: accepted turns no longer leave replay-only repo dirt that blocks `resume`
-- Verification replay now cleans replay-only side effects while preserving legitimate turn-owned `files_changed`
-- Mixed-files proof added so checkpoint commits still contain real repo mutations after replay cleanup
-- BUG-44 and BUG-45 hardening remain live in the published package and are still awaiting tester verification
+- BUG-47 stale-turn watchdog shipped: dead `running` turns now reconcile to retained `stalled` turns with explicit stale recovery guidance
+- BUG-48 injected-priority lifecycle fix shipped: stale markers no longer outlive superseded or otherwise non-actionable intents
+- BUG-49 accepted baseline advancement shipped: clean checkpoints stop reporting false drift on child runs
+- BUG-50 run-history isolation shipped: fresh child runs stop inheriting contradictory phase/turn counters from parent runs
+- BUG-47..50 remain open pending tester verification on `v2.145.0`
 - 6,297 tests / 1,315 suites / 0 failures
 
 **See it in 30 seconds (no API keys needed):**
@@ -68,7 +69,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.144.0 – BUG-46 hardening shipped for governed multi-agent runs
+**Title:** AgentXchain v2.145.0 – state-consistency fixes queued for governed multi-agent runs
 
 **Body:**
 
@@ -86,7 +87,7 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
-- Latest release ships the BUG-46 hardening for tester verification: verification replay no longer leaves dirty actor-owned files behind after acceptance, blocking `resume` while `checkpoint-turn` has nothing to commit.
+- Next release slice carries BUG-47..50 for tester verification: stale dead turns reconcile lazily, stale injected intents are cleared, clean checkpoints advance the child baseline, and child-run history counters stay internally consistent.
 - 6,297 tests / 1,315 suites / 0 failures
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.

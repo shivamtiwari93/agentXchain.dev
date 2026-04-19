@@ -1,0 +1,39 @@
+---
+sidebar_position: 0
+title: "v2.145.0 Release Notes"
+---
+
+# AgentXchain v2.145.0
+
+`v2.145.0` bundles the BUG-47..50 state-consistency fixes for stale-turn recovery, injected-intent lifecycle reconciliation, accepted baseline advancement, and child-run history isolation. BUG-47, BUG-48, BUG-49, and BUG-50 all remain open pending tester verification per discipline rule #12, so this release surface documents what shipped without claiming closure.
+
+## Bug Fixes
+
+- **BUG-47 stale-turn watchdog**: `status`, `resume`, and `step --resume` now lazily detect stale `running` / `retrying` turns, transition them to retained `stalled`, emit `turn_stalled`, and surface explicit `reissue-turn --reason stale` recovery guidance instead of forcing operators to discover dead turns manually. Decision: `DEC-BUG47-STALE-TURN-RECONCILE-001`.
+
+- **BUG-48 injected-priority lifecycle reconciliation**: `injected-priority.json` is now honored only when its target intent is still actionable (`approved` or `planned`). Superseded, rejected, suppressed, satisfied, consumed, and archived-migration writers clear stale markers immediately, and defensive reads auto-clear any stale marker before status or orchestration can surface it. Decision: `DEC-BUG48-PREEMPTION-ACTIONABLE-001`.
+
+- **BUG-49 accepted baseline advancement**: continuation and recovery runs now seed `accepted_integration_ref` from the child run's own starting HEAD, and checkpoint success advances that baseline to the new checkpoint SHA so fresh runs stop reporting false drift immediately after a clean checkpoint. Decision: `DEC-BUG49-CONTINUATION-BASELINE-001`.
+
+- **BUG-50 run-history isolation**: `run-history.jsonl` now computes `phases_completed`, `total_turns`, and other live counters from the child run only while preserving inherited continuity metadata separately under `parent_context`. Decision: `DEC-BUG50-PARENT-CONTEXT-001`.
+
+## Proof
+
+- Beta-tester regression coverage shipped for all four bugs:
+  - `bug-47-stale-turn-watchdog.test.js`
+  - `bug-48-intent-lifecycle-contradiction.test.js`
+  - `bug-49-checkpoint-ref-update.test.js`
+  - `bug-50-run-history-contamination.test.js`
+- Startup-path coverage matrix updated so stale-turn reconciliation is explicitly tracked on `status`, `resume`, and `step --resume`.
+- Durable workflow guidance now requires rerunning impacted legacy fixtures or the full suite before declaring validation/reconciliation fixes shipped.
+
+## Status
+
+- **BUG-47**: implementation shipped, awaiting tester verification on `v2.145.0`
+- **BUG-48**: implementation shipped, awaiting tester verification on `v2.145.0`
+- **BUG-49**: implementation shipped, awaiting tester verification on `v2.145.0`
+- **BUG-50**: implementation shipped, awaiting tester verification on `v2.145.0`
+
+## Evidence
+
+- 6,297 tests / 1,315 suites / 0 failures
