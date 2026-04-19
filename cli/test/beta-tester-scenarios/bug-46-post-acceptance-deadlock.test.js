@@ -37,6 +37,8 @@ import { getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
 const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
 const tempDirs = [];
+const TESTER_RUN_ID = 'run_c8a4701ce0d4952d';
+const TESTER_TURN_ID = 'turn_e015ce32fdafc9c5';
 
 const REPLAY_SIDE_EFFECT_PATHS = [
   '.planning/RELEASE_NOTES.md',
@@ -159,6 +161,33 @@ function readState(root) {
   return normalizeGovernedStateShape(raw).state;
 }
 
+function writeState(root, state) {
+  writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2) + '\n');
+}
+
+function rewriteActiveTurnState(root, { runId, phase, turnId, roleId = 'qa' }) {
+  const state = readState(root);
+  const [existingTurnId] = Object.keys(state.active_turns || {});
+  assert.ok(existingTurnId, 'test fixture must have an active turn to rewrite');
+  const existingTurn = state.active_turns[existingTurnId];
+  assert.ok(existingTurn, 'test fixture active turn missing from state');
+
+  const rewrittenTurn = {
+    ...existingTurn,
+    turn_id: turnId,
+    assigned_role: roleId,
+  };
+
+  writeState(root, {
+    ...state,
+    run_id: runId,
+    phase,
+    active_turns: {
+      [turnId]: rewrittenTurn,
+    },
+  });
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop(), { recursive: true, force: true });
@@ -166,6 +195,53 @@ afterEach(() => {
 });
 
 describe('BUG-46: post-acceptance replay side effects do not deadlock checkpoint-turn and resume', () => {
+  it('tester exact-state authoritative QA turn fails acceptance loudly before checkpoint-turn can strand it', () => {
+    const { root } = createProject();
+    rewriteActiveTurnState(root, {
+      runId: TESTER_RUN_ID,
+      phase: 'qa',
+      turnId: TESTER_TURN_ID,
+    });
+
+    stageTurnResult(root, TESTER_TURN_ID, {
+      schema_version: '1.0',
+      run_id: TESTER_RUN_ID,
+      turn_id: TESTER_TURN_ID,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'Tester exact-state QA turn reproduced the post-acceptance deadlock shape.',
+      decisions: [],
+      objections: [],
+      files_changed: [],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: REPLAY_COMMAND, exit_code: 0 },
+        ],
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    });
+
+    const accept = spawnSync('node', [CLI_PATH, 'accept-turn', '--turn', TESTER_TURN_ID], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.notEqual(accept.status, 0,
+      `accept-turn must fail for the tester's exact BUG-46 shape:\n${accept.stdout}\n${accept.stderr}`);
+    assert.match(accept.stdout + accept.stderr,
+      /artifact\.type: "workspace" but files_changed is empty/,
+      'exact-state rejection must fail loudly on workspace/files_changed mismatch');
+
+    const state = readState(root);
+    assert.equal(state.phase, 'qa', 'exact-state fixture must stay in QA phase');
+    const baseline = checkCleanBaseline(root, 'authoritative');
+    assert.equal(baseline.clean, true,
+      'failed acceptance must not leave replay-only workspace dirt behind');
+  });
+
   it('accept-turn rejects workspace artifact with empty files_changed for authoritative completed turns', () => {
     const { root, turnId, runId } = createProject();
 

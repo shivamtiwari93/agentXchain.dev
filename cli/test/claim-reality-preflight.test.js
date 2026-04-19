@@ -308,6 +308,11 @@ describe('claim-reality preflight', () => {
       'BUG-46 test must cover the accept-turn/checkpoint-turn/resume deadlock seam');
     assert.ok(testContent.includes('require_reproducible_verification') && testContent.includes('authoritative'),
       'BUG-46 test must exercise reproducible-verification replay on an authoritative role');
+    assert.ok(testContent.includes('run_c8a4701ce0d4952d') && testContent.includes('turn_e015ce32fdafc9c5'),
+      'BUG-46 test must pin the tester\'s exact run/turn identity');
+    assert.ok(testContent.includes('.planning/RELEASE_NOTES.md')
+      && testContent.includes('tests/fixtures/express-sample/tusq.manifest.json'),
+    'BUG-46 test must cover the tester\'s exact repo mutation shape');
   });
 
   it('BUG-46 packaged CLI smoke proves accept-turn/checkpoint-turn/resume on the shipped tarball', async () => {
