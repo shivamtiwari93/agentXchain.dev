@@ -1,0 +1,39 @@
+---
+sidebar_position: 0
+title: "v2.144.0 Release Notes"
+---
+
+# AgentXchain v2.144.0
+
+`v2.144.0` ships legacy BUG-46 checkpoint recovery for already-stranded repos, hardens release discipline surfaces, and freezes the `.ai` managed-cloud architecture (7 specs). BUG-44, BUG-45, and BUG-46 all remain open pending tester verification per discipline rule #12. Testers should verify on `v2.144.0` or later, which includes both the forward prevention fix and the legacy recovery path.
+
+## Bug Fixes
+
+- **BUG-46 legacy checkpoint recovery**: `checkpoint-turn` now recovers stranded repos where a pre-fix accepted turn left `files_changed: []` in history but actor-owned dirty files remain in the working tree. Recovery is fail-closed: latest accepted turn only, no active turns, workspace/patch artifacts only. The repaired history records `files_changed_recovery_source: "legacy_dirty_worktree"`. Decision: `DEC-BUG46-LEGACY-CHECKPOINT-RECOVERY-001`.
+
+- **BUG-44/45/46 spec status wording corrected**: all open-bug specs now carry tester-verification caveat per discipline rule #12. Bare "shipped" status is banned for open bugs. Decision: `DEC-BUG-SPEC-STATUS-CAVEAT-001`.
+
+- **Release-note intro metadata caveat**: intro paragraphs for open-bug releases now carry tester-verification language so generated Docusaurus descriptions do not imply closure. Decision: `DEC-BUG-RELEASE-INTRO-CAVEAT-001`.
+
+- **Release playbook hardened**: explicitly names `claim-reality-preflight.test.js` and `beta-tester-scenarios/*.test.js` as mandatory preflight gates. Decision: `DEC-BUG46-CLAIM-REALITY-PLAYBOOK-001`.
+
+## Architecture
+
+- **`.ai` managed-cloud architecture frozen** across 7 specs:
+  - Managed surface (`DEC-AI-MANAGED-SURFACE-ARCH-001`)
+  - Control plane API with workspace-scoped RBAC (`DEC-AI-CONTROL-PLANE-API-001`, `DEC-AI-AUTH-MODEL-001`)
+  - Execution plane with project-scoped FIFO, round-robin fairness, and fail-closed crash recovery (`DEC-AI-EXECUTION-PLANE-001`, `DEC-AI-EXECUTION-FAIRNESS-001`, `DEC-AI-LEASE-DEFAULTS-001`)
+  - Portability bundle as flat tarball with explicit cloud-metadata stripping (`DEC-AI-PORTABILITY-BUNDLE-001`)
+  - Dashboard mutations as HTTP-only protocol wrappers (`DEC-AI-DASHBOARD-MUTATIONS-001`)
+  - Dashboard read-model with server-projected actionability and `projection_version` + `If-Match` stale-view enforcement (`DEC-AI-DASHBOARD-READ-MODEL-001`)
+  - Operator observability with protocol-faithful event streaming (`DEC-AI-OPERATOR-OBSERVABILITY-001`)
+
+## Status
+
+- **BUG-44**: code shipped, awaiting tester verification per discipline rule #12
+- **BUG-45**: code shipped, awaiting tester verification per discipline rule #12
+- **BUG-46**: code shipped including legacy recovery path, awaiting tester verification per discipline rule #12
+
+## Evidence
+
+- 6,297 tests / 1,315 suites / 0 failures

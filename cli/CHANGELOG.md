@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.144.0
+
+### Bug Fixes
+- **BUG-46 legacy checkpoint recovery**: `checkpoint-turn` now recovers stranded repos where a pre-fix accepted turn left `files_changed: []` in history but actor-owned dirty files remain in the working tree. Recovery is fail-closed: latest accepted turn only, no active turns, workspace/patch artifacts only.
+- **.ai architecture specs shipped**: managed surface, control plane API, execution plane, portability, dashboard mutations, dashboard read-model, and operator observability contracts now frozen as pre-implementation architecture.
+- **BUG-44/45/46 spec status wording corrected**: all open-bug specs now carry tester-verification caveat per discipline rule #12. Bare "shipped" status is banned for open bugs.
+- **Release-note intro metadata caveat**: intro paragraphs for open-bug releases now carry tester-verification language so generated Docusaurus descriptions do not imply closure.
+- **Release playbook hardened**: explicitly names `claim-reality-preflight.test.js` and `beta-tester-scenarios/*.test.js` as mandatory preflight gates.
+
+### Status
+- BUG-44/45/46 remain open pending tester verification per discipline rule #12
+- Legacy recovery path means tester should now verify on v2.144.0 or later
+
+### Evidence
+- 6,297 tests / 1,315 suites / 0 failures
+
 ## 2.143.0
 
 ### Bug Fixes
