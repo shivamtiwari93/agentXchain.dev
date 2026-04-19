@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.138.1
+# Show HN Draft — AgentXchain v2.139.0
 
-> Ready-to-post draft. Updated 2026-04-19 for v2.138.1.
+> Ready-to-post draft. Updated 2026-04-19 for v2.139.0.
 
 ---
 

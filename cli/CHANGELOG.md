@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.139.0
+
+### Bug Fixes
+- **BUG-44: Phase-scoped intent retirement on phase advance**: Implementation-scoped repair intents now retire automatically when the run advances past their phase. Intents gain `phase_scope` field, auto-derived from gate references. Intent coverage evaluation is phase-aware — items for exited phases or passed gates are treated as covered. Emits `intent_retired_by_phase_advance` event.
+
+### Infrastructure
+- Fixed intake-start-context test drift from phase_scope addition
+- Fixed release-notes-sidebar test to support negative sidebar_position
+- Fixed v2.138.1 duplicate sidebar_position
+
+### Evidence
+- 6,114 tests / 1,302 suites / 0 failures
+
 ## 2.138.1
 
 ### Bug Fixes

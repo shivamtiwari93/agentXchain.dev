@@ -1,0 +1,27 @@
+---
+sidebar_position: -2
+title: "v2.139.0 Release Notes"
+---
+
+# AgentXchain v2.139.0
+
+`v2.139.0` ships phase-scoped intent retirement — BUG-44. Implementation-scoped repair intents now retire automatically when the run advances past their phase, preventing stale intent-coverage failures during QA acceptance.
+
+## Bug Fixes
+
+- **BUG-44: Phase-scoped intent retirement on phase advance**: Intents now carry an optional `phase_scope` field. When a phase transition succeeds, approved intents scoped to the exited phase are retired to `satisfied` status. Intent coverage evaluation is now phase-aware — acceptance items belonging to an already-exited phase or referencing a passed gate are treated as covered. Emits `intent_retired_by_phase_advance` event.
+
+- **Phase scope auto-derivation**: `triageIntent()` and `injectIntent()` auto-derive `phase_scope` from gate references in the intent charter or acceptance contract (e.g., an intent referencing `implementation_complete` is auto-scoped to the `implementation` phase).
+
+- **Phase-aware intent coverage**: `evaluateIntentCoverage()` now checks gate state and phase ordering before declaring acceptance items unaddressed. Items referencing a passed gate with advance language, or belonging to an exited phase, are marked as covered.
+
+## Infrastructure
+
+- Fixed `intake-start-context` test to include `phase_scope: null` in expected intake context
+- Fixed `release-notes-sidebar` test to support negative `sidebar_position` values
+- Fixed v2.138.1 duplicate `sidebar_position` (0 → -1)
+
+## Evidence
+
+- 6,114 tests / 1,302 suites / 0 failures
+- BUG-44 open pending tester verification (discipline rule #12)
