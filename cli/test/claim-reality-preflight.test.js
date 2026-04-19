@@ -436,6 +436,17 @@ describe('claim-reality preflight', () => {
       'BUG-46 test must prove the clean-baseline invariant');
   });
 
+  it('BUG-46 packaged tarball contains the legacy checkpoint recovery implementation', () => {
+    const { packageDir } = getExtractedPackage();
+    const packedTurnCheckpoint = readFileSync(join(packageDir, 'src/lib/turn-checkpoint.js'), 'utf8');
+    assert.match(packedTurnCheckpoint, /function recoverLegacyCheckpointFiles/,
+      'packed turn-checkpoint.js must ship the legacy recovery helper');
+    assert.match(packedTurnCheckpoint, /files_changed_recovery_source:\s*'legacy_dirty_worktree'/,
+      'packed turn-checkpoint.js must persist recovery metadata for repaired history');
+    assert.match(packedTurnCheckpoint, /legacy-empty files_changed history/,
+      'packed turn-checkpoint.js must ship the legacy pending-checkpoint guidance');
+  });
+
   it('BUG-46 packaged CLI rejects the tester exact-state payload without leaving replay-only dirt', async () => {
     const { packageDir } = getExtractedPackage();
     const cliPath = join(packageDir, 'bin', 'agentxchain.js');
@@ -504,9 +515,126 @@ describe('claim-reality preflight', () => {
         .split('\n')
         .filter(Boolean)
         .map((line) => JSON.parse(line));
-      assert.ok(!history.some((entry) => entry.turn_id === BUG46_TESTER_TURN_ID),
+    assert.ok(!history.some((entry) => entry.turn_id === BUG46_TESTER_TURN_ID),
         'packaged exact-state rejection must not persist accepted history for the rejected turn');
     }
+  });
+
+  it('BUG-46 packaged CLI checkpoint-turn recovers a stranded legacy-empty accepted turn', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const repoObserver = await import(pathToFileURL(join(packageDir, 'src/lib/repo-observer.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { checkCleanBaseline } = repoObserver;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = makeTempGitRepo();
+    const config = makeBug46Config();
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+
+    writeFileSync(join(root, 'README.md'), '# BUG-46 packed smoke\nlegacy recovery path\n');
+
+    const turnId = assign.turn.turn_id;
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      run_id: init.state.run_id,
+      turn_id: turnId,
+      role: 'qa',
+      runtime_id: 'local-qa',
+      status: 'completed',
+      summary: 'Packaged BUG-46 legacy recovery smoke.',
+      decisions: [],
+      objections: [],
+      files_changed: ['README.md'],
+      verification: {
+        status: 'pass',
+        machine_evidence: [
+          { command: `${JSON.stringify(process.execPath)} -e ${JSON.stringify('process.exit(0)')}`, exit_code: 0 },
+        ],
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0,
+      `packaged accept-turn must succeed before legacy recovery proof:\n${accept.stdout}\n${accept.stderr}`);
+
+    const dirtyBeforeRecovery = checkCleanBaseline(root, 'authoritative');
+    assert.equal(dirtyBeforeRecovery.clean, false,
+      'legacy recovery proof must start from a dirty post-acceptance baseline');
+    assert.match((dirtyBeforeRecovery.dirty_files || []).join('\n'), /README\.md/,
+      'legacy recovery proof must strand the accepted actor-owned file before checkpoint');
+
+    const historyPath = join(root, '.agentxchain', 'history.jsonl');
+    const corruptedHistory = readFileSync(historyPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line))
+      .map((entry) => (
+        entry.turn_id === turnId
+          ? {
+              ...entry,
+              files_changed: [],
+              observed_artifact: entry.observed_artifact
+                ? {
+                    ...entry.observed_artifact,
+                    files_changed: [],
+                  }
+                : entry.observed_artifact,
+            }
+          : entry
+      ));
+    writeFileSync(historyPath, `${corruptedHistory.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+
+    const checkpoint = spawnSync(process.execPath, [cliPath, 'checkpoint-turn', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0,
+      `packed checkpoint-turn must recover the stranded legacy entry:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+    assert.doesNotMatch(checkpoint.stdout + checkpoint.stderr, /no writable files_changed/i,
+      'packed checkpoint-turn must not skip the stranded legacy entry');
+
+    const repairedHistory = readFileSync(historyPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const repairedEntry = repairedHistory.find((entry) => entry.turn_id === turnId);
+    assert.ok(repairedEntry, 'packed legacy recovery must preserve the accepted history entry');
+    assert.deepEqual(repairedEntry.files_changed, ['README.md']);
+    assert.equal(repairedEntry.files_changed_recovery_source, 'legacy_dirty_worktree');
+    assert.ok(repairedEntry.files_changed_recovered_at,
+      'packed legacy recovery must stamp recovery time');
+    assert.deepEqual(repairedEntry.observed_artifact?.files_changed, ['README.md']);
+    assert.ok(repairedEntry.checkpoint_sha,
+      'packed legacy recovery must persist the checkpoint SHA back into history');
+
+    const dirtyAfterRecovery = checkCleanBaseline(root, 'authoritative');
+    assert.equal(dirtyAfterRecovery.clean, true,
+      `packed legacy recovery must leave a clean authoritative baseline:\n${dirtyAfterRecovery.reason || 'baseline remained dirty'}`);
+
+    const committedFiles = execFileSync('git', ['show', '--name-only', '--pretty=format:%s', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    assert.match(committedFiles, /README\.md/,
+      'packed legacy recovery checkpoint commit must include the recovered actor-owned file');
   });
 
   it('BUG-46 packaged CLI smoke proves accept-turn/checkpoint-turn/resume on the shipped tarball', async () => {
