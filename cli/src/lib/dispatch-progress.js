@@ -146,15 +146,33 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
       // progress tracker in Turn 89: stderr is diagnostic evidence, not usable
       // startup proof. Only stdout may set `first_output_at`. stderr still
       // increments `stderr_lines` for silence detection and diagnostics.
+      let recognizedActivity = false;
       if (isDispatchProgressDiagnosticStream(stream)) {
         state.stderr_lines += lineCount;
+        recognizedActivity = true;
       } else if (isDispatchProgressProofOutputStream(stream)) {
         state.first_output_at = state.first_output_at || now;
         state.output_lines += lineCount;
+        recognizedActivity = true;
       }
-      state.activity_type = 'output';
-      state.silent_since = null;
-      state.activity_summary = `Producing output (${state.output_lines} lines)`;
+      // DEC-BUG54-DIAGNOSTIC-ACTIVITY-TYPE-001 (Turn 91): activity_type and
+      // activity_summary must reflect whether operator-usable stdout proof has
+      // arrived. A stderr-only subprocess that never attached stdout must NOT
+      // be rendered as "Producing output" on the operator status surface —
+      // that is a false live-progress signal for a failing startup. Only when
+      // `output_lines > 0` may we claim 'output'; otherwise recognized stderr
+      // activity is surfaced as 'diagnostic_only'. Unknown stream labels do
+      // not mutate activity_type (Turn 90 closed-vocabulary contract).
+      if (recognizedActivity) {
+        if (state.output_lines > 0) {
+          state.activity_type = 'output';
+          state.activity_summary = `Producing output (${state.output_lines} lines)`;
+        } else {
+          state.activity_type = 'diagnostic_only';
+          state.activity_summary = `Diagnostic output only (${state.stderr_lines} stderr lines)`;
+        }
+        state.silent_since = null;
+      }
       dirty = true;
       maybeWrite();
       if (adapter_type === 'local_cli') {

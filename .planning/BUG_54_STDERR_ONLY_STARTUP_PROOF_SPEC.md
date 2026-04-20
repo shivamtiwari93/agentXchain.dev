@@ -83,6 +83,30 @@ for diagnosis.
   - unknown stream labels MUST NOT count as startup proof
   - legacy state with `first_output_at` and no `first_output_stream` remains
     valid proof for backward compatibility
+- **Turn 91 extension — operator-facing activity vocabulary.**
+  `DEC-BUG54-DIAGNOSTIC-ACTIVITY-TYPE-001`: the `activity_type` and
+  `activity_summary` fields in `dispatch-progress-<turn>.json` control what
+  the operator sees on the `agentxchain status` Activity line. Before this
+  turn, `onOutput` set `activity_type = 'output'` and
+  `activity_summary = 'Producing output (N lines)'` unconditionally, which
+  meant a stderr-only subprocess (no stdout ever attached) rendered as the
+  green "Producing output" line on the operator status surface — a false
+  live-progress signal for a failing startup.
+  - `onOutput(stream, lineCount)` must only set `activity_type = 'output'`
+    when `state.output_lines > 0` (i.e. after a proof-stream line). When
+    recognized diagnostic activity fires without any prior stdout proof, it
+    must set `activity_type = 'diagnostic_only'` with
+    `activity_summary = 'Diagnostic output only (N stderr lines)'`.
+  - Once stdout proof is established, subsequent stderr activity does NOT
+    regress the activity_type back to `diagnostic_only`; stdout proof is
+    sticky through the remainder of the dispatch.
+  - Unknown stream labels (outside the closed vocabulary) must not mutate
+    `activity_type` or `activity_summary` at all — the tracker remains in
+    its prior state (`'starting'` until any recognized activity fires).
+  - `formatDispatchActivityLine` in `cli/src/commands/status.js` must branch
+    explicitly on `activity_type === 'diagnostic_only'` and render a yellow
+    "Diagnostic output only (N stderr lines, no stdout yet)" line. It must
+    NOT fall through to the green "Producing output" branch.
 
 ## Error Cases
 
@@ -125,6 +149,24 @@ for diagnosis.
     `first_output_stream: 'request'`
   - transitioning a turn to `running` with an unknown stream does not persist
     `first_output_at` / `first_output_stream`
+- `cli/test/dispatch-progress.test.js` (Turn 91,
+  `DEC-BUG54-DIAGNOSTIC-ACTIVITY-TYPE-001`)
+  - stderr-only activity sets `activity_type === 'diagnostic_only'` and
+    `activity_summary === 'Diagnostic output only (N stderr lines)'`; it must
+    NOT claim `'Producing output'`.
+  - when stdout subsequently fires, `activity_type` flips to `'output'` and
+    the summary updates to `'Producing output (N lines)'`.
+  - once stdout proof has been set, later stderr lines do NOT regress
+    `activity_type` back to `'diagnostic_only'` — stdout proof is sticky.
+  - unknown stream labels (e.g. `'mcp'`) leave `activity_type` at its prior
+    value (`'starting'`), never flipping to `'output'` or `'diagnostic_only'`.
+- `cli/test/status-dispatch-activity-render.test.js` (Turn 91)
+  - `formatDispatchActivityLine({ activity_type: 'diagnostic_only', ... })`
+    renders yellow "Diagnostic output only (N stderr lines, no stdout yet)"
+    and MUST NOT contain the substring "Producing output".
+  - `formatDispatchActivityLine({ activity_type: 'output', ... })` renders
+    green "Producing output (N lines)" and does not leak the `diagnostic_only`
+    phrasing.
 
 ## Open Questions
 

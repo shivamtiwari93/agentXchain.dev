@@ -176,6 +176,62 @@ describe('dispatch-progress', () => {
       assert.equal(progress.first_output_at, null);
       assert.equal(progress.output_lines, 0);
       assert.equal(progress.stderr_lines, 0);
+      // Unknown stream labels must NOT mutate activity_type — the tracker
+      // must remain in its `starting` state until a recognized proof/diagnostic
+      // stream fires. Otherwise the closed-vocabulary contract leaks into the
+      // activity_type/activity_summary surface.
+      assert.equal(progress.activity_type, 'starting');
+
+      tracker.complete();
+    });
+
+    it('BUG-54 Turn 91: stderr-only activity renders as diagnostic_only, not "Producing output"', () => {
+      // DEC-BUG54-DIAGNOSTIC-ACTIVITY-TYPE-001 (Turn 91): operator-facing
+      // status surface must not render stderr-only activity as the green
+      // "Producing output" line. Before this fix, `activity_type` was set to
+      // `'output'` and `activity_summary` was `Producing output (0 lines)`
+      // for any stderr activity, creating a false live-progress signal for a
+      // failing-startup subprocess whose stdout never attached.
+      const turn = makeTurn();
+      const tracker = createDispatchProgressTracker(root, turn, {
+        adapter_type: 'local_cli',
+        writeIntervalMs: 0,
+        silenceThresholdMs: 60000,
+      });
+
+      tracker.start();
+      tracker.onOutput('stderr', 3);
+      tracker.onOutput('stderr', 4);
+
+      const progress = readDispatchProgress(root, turn.turn_id);
+      assert.equal(progress.activity_type, 'diagnostic_only');
+      assert.ok(
+        /^Diagnostic output only \(\d+ stderr lines\)$/.test(progress.activity_summary),
+        `activity_summary must describe stderr-only state, got: ${progress.activity_summary}`,
+      );
+      assert.ok(
+        !/Producing output/.test(progress.activity_summary),
+        'stderr-only activity_summary must not claim "Producing output"',
+      );
+      assert.equal(progress.output_lines, 0);
+      assert.equal(progress.stderr_lines, 7);
+
+      // Positive control: once stdout fires, activity_type flips to 'output'
+      // and the summary switches to the green render line.
+      tracker.onOutput('stdout', 2);
+      const afterStdout = readDispatchProgress(root, turn.turn_id);
+      assert.equal(afterStdout.activity_type, 'output');
+      assert.ok(
+        /^Producing output \(2 lines\)$/.test(afterStdout.activity_summary),
+        `activity_summary must flip to Producing output, got: ${afterStdout.activity_summary}`,
+      );
+
+      // Mixing in more stderr after stdout proof has established does NOT
+      // regress back to diagnostic_only — stdout proof is sticky.
+      tracker.onOutput('stderr', 1);
+      const afterMixed = readDispatchProgress(root, turn.turn_id);
+      assert.equal(afterMixed.activity_type, 'output');
+      assert.ok(/Producing output/.test(afterMixed.activity_summary));
 
       tracker.complete();
     });

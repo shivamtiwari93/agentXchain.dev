@@ -915,7 +915,7 @@ function filterDispatchProgressForActiveTurns(progressByTurn, activeTurns) {
   return filtered;
 }
 
-function formatDispatchActivityLine(progress) {
+export function formatDispatchActivityLine(progress) {
   if (!progress || typeof progress !== 'object') return null;
   const lastAct = progress.last_activity_at ? new Date(progress.last_activity_at) : null;
   const agoSec = lastAct && !Number.isNaN(lastAct.getTime())
@@ -935,6 +935,15 @@ function formatDispatchActivityLine(progress) {
   }
   if (progress.activity_type === 'response') {
     return chalk.green('API response received');
+  }
+  // DEC-BUG54-DIAGNOSTIC-ACTIVITY-TYPE-001 (Turn 91): stderr-only activity
+  // must be rendered as yellow "Diagnostic output only" — never as the green
+  // "Producing output" signal that previously leaked onto the operator
+  // surface for failing-startup subprocesses whose stdout never attached.
+  if (progress.activity_type === 'diagnostic_only') {
+    const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
+    return chalk.yellow('Diagnostic output only') +
+      ` (${progress.stderr_lines || 0} stderr lines, no stdout yet${agoLabel})`;
   }
   const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
   return chalk.green('Producing output') + ` (${progress.output_lines || 0} lines${agoLabel})`;
