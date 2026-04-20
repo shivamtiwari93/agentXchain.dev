@@ -59,6 +59,9 @@ describe('Notifications docs contract', () => {
     assert.ok(DOC.includes('verify export'));
     assert.ok(DOC.includes('/api/notifications'));
     assert.ok(DOC.includes('Notifications'));
+    assert.match(DOC, /live-only/i);
+    assert.match(DOC, /replay mode/i);
+    assert.match(DOC, /replay_mode:\s*true/i);
   });
 
   it('documents the human escalation projection attached to run_blocked notifications', () => {

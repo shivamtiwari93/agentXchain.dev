@@ -213,6 +213,8 @@ This audit file is included in `agentxchain export` and counted in export summar
 
 The live local dashboard also exposes this audit through `GET /api/notifications`. The **Notifications** view summarizes configured webhook targets, approval SLA reminder config, aggregate failure/timeout counts, and the newest delivery attempts so operators do not need to tail the JSONL file by hand.
 
+That endpoint is **live-only**. `agentxchain replay export <export.json>` does not expose historical notification telemetry through `/api/notifications`; replay mode returns `replay_mode: true` with a live-only message instead of stale audit rows. The exported artifact still contains `.agentxchain/notification-audit.jsonl` for reportability and verification, but the dashboard notification surface is intentionally scoped to the live local workspace.
+
 ## Relationship To Hooks
 
 Hooks remain the extensibility surface for policy and custom side effects. Notifications are different:

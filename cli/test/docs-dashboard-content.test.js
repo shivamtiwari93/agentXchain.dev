@@ -111,6 +111,8 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
     assert.ok(CLI_DOCS.includes('/api/poll'), 'cli docs must document the dashboard poll endpoint');
     assert.ok(CLI_DOCS.includes('/api/notifications'), 'cli docs must document the notifications endpoint');
+    assert.ok(CLI_DOCS.includes('replay_mode: true'), 'cli docs must document notifications replay-mode response');
+    assert.ok(CLI_DOCS.includes('live-only'), 'cli docs must document notifications as live-only in replay mode');
     assert.ok(CLI_DOCS.includes('/api/missions'), 'cli docs must document the missions endpoint');
     assert.ok(CLI_DOCS.includes('/api/plans'), 'cli docs must document the plans endpoint');
     assert.ok(CLI_DOCS.includes('/api/chain-reports'), 'cli docs must document the chain-reports endpoint');

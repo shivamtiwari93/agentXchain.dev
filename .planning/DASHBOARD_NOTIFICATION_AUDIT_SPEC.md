@@ -54,6 +54,7 @@ Expose recent notification delivery truth as a first-class local dashboard surfa
 **Error responses:**
 
 - `404` with `{ ok: false, code: "config_missing" }` when project config cannot be found
+- replay mode returns `200` with `{ ok: true, replay_mode: true, message: "..." }` and no audit payload
 
 ### Dashboard Panel
 
@@ -74,6 +75,7 @@ Renders:
 4. Sorts audit entries newest-first by `emitted_at`
 5. Computes aggregate counts and most recent failure timestamp
 6. Returns config summary plus recent delivery truth
+7. In replay mode, return a live-only message instead of historical audit rows
 
 ## Behavior
 
@@ -83,12 +85,14 @@ Renders:
 4. Recent attempts are newest-first and capped at 10 rows.
 5. Failed and timed-out attempts remain visible even if notifications are no longer configured; the dashboard must show current config state and historical audit truth separately.
 6. The panel must not invent transport-specific semantics beyond the stored audit fields.
+7. Replay mode never exposes `/api/notifications` audit rows; operators must inspect the exported `.agentxchain/notification-audit.jsonl` artifact directly when they need historical evidence.
 
 ## Error Cases
 
 1. No `agentxchain.json` → 404 with guidance to initialize/configure the project
 2. Malformed audit JSONL → fail closed by throwing; callers surface a 500 instead of silently hiding bad audit data
 3. No webhook config but historical audit exists → show `configured: false` and still render recent audit rows
+4. Replay mode → return a live-only message instead of stale audit data
 
 ## Acceptance Tests
 
@@ -98,6 +102,7 @@ Renders:
 - **AT-NOTIFY-DASH-004**: dashboard panel renders a not-configured placeholder when no webhooks and no audit entries exist
 - **AT-NOTIFY-DASH-005**: dashboard panel renders recent failure rows and timeout badges from audit data
 - **AT-NOTIFY-DASH-006**: dashboard shell/nav/docs expose the `Notifications` view and `/api/notifications` endpoint
+- **AT-NOTIFY-HTTP-006**: replay mode returns `{ ok: true, replay_mode: true }` and does not expose live notification audit rows
 
 ## Open Questions
 

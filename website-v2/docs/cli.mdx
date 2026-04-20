@@ -1723,7 +1723,7 @@ The bridge also exposes `GET /api/coordinator/repo-status` for dashboard repo ro
 
 For repo-local governed runs, the shared **Decisions** view also reads `GET /api/repo-decisions-summary` so cross-run repo decisions surface first-glance binding, authority, and lineage signals without replacing the main turn-decision ledger.
 
-For repo-local governed runs, the dashboard also exposes `GET /api/notifications`. The **Notifications** view reads current `notifications.webhooks` / `notifications.approval_sla` config plus recent `.agentxchain/notification-audit.jsonl` entries so operators can see delivery failures and timeout patterns without tailing the audit file manually.
+For repo-local governed runs, the dashboard also exposes `GET /api/notifications`. The **Notifications** view reads current `notifications.webhooks` / `notifications.approval_sla` config plus recent `.agentxchain/notification-audit.jsonl` entries so operators can see delivery failures and timeout patterns without tailing the audit file manually. In replay mode this endpoint is intentionally **live-only**: it returns `replay_mode: true` with a short message instead of historical audit rows, because delivery attempts are operational telemetry rather than replay-actionable dashboard state.
 
 For coordinator workspaces, the shared **Decisions** view also reads `GET /api/coordinator/ledger` so coordinator-level decisions remain visible in the dashboard instead of disappearing behind a repo-local-only ledger view.
 
