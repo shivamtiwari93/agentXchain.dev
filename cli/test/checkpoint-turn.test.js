@@ -183,11 +183,8 @@ describe('turn checkpointing', () => {
     assert.doesNotMatch(status, /src\/app\.js/);
   });
 
-  it('checkpointAcceptedTurn fails loudly when declared files_changed would checkpoint only a subset', () => {
+  it('checkpointAcceptedTurn fails loudly when declared files_changed paths are genuinely absent from git', () => {
     const config = initGovernedGitRepo(root);
-    writeFileSync(join(root, 'src', 'other.js'), 'export const untouched = true;\n');
-    execSync('git add src/other.js', { cwd: root, stdio: 'ignore' });
-    execSync('git commit -m "seed untouched file"', { cwd: root, stdio: 'ignore' });
     const assign = assignGovernedTurn(root, config, 'dev');
     assert.ok(assign.ok, assign.error);
     const turn = Object.values(assign.state.active_turns)[0];
@@ -203,10 +200,10 @@ describe('turn checkpointing', () => {
       role: turn.assigned_role,
       runtime_id: turn.runtime_id,
       status: 'completed',
-      summary: 'Declared three files, but only one is actually dirty.',
+      summary: 'Declared a path that does not exist.',
       decisions: [],
       objections: [],
-      files_changed: ['src/app.js', 'README.md', 'src/other.js'],
+      files_changed: ['src/app.js', 'src/never-existed.js'],
       artifacts_created: [],
       verification: { status: 'pass', commands: [], evidence_summary: 'ok', machine_evidence: [] },
       artifact: { type: 'workspace', ref: null },
@@ -222,16 +219,61 @@ describe('turn checkpointing', () => {
 
     const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
     assert.equal(checkpoint.ok, false);
-    assert.match(checkpoint.error, /Checkpoint completeness failure/);
-    assert.match(checkpoint.error, /README\.md/);
-    assert.match(checkpoint.error, /src\/other\.js/);
+    // `git add -A -- <never-existed>` fatals before staging completes, which
+    // is itself a loud failure consistent with the spec requirement that
+    // genuinely missing paths refuse to checkpoint.
+    assert.match(checkpoint.error, /Failed to stage accepted files for checkpoint|Checkpoint completeness failure/);
+    assert.match(checkpoint.error, /src\/never-existed\.js/);
 
     const headSubject = execSync('git log -1 --pretty=%s', { cwd: root, encoding: 'utf8' }).trim();
-    assert.equal(headSubject, 'seed untouched file');
+    assert.equal(headSubject, 'initial');
 
     const status = execSync('git status --short', { cwd: root, encoding: 'utf8' });
     assert.match(status, /src\/app\.js/);
-    assert.doesNotMatch(status, /README\.md/);
+  });
+
+  it('checkpointAcceptedTurn succeeds when a declared path was pre-committed by the actor before checkpoint', () => {
+    // BUG-23 historical pattern — dev committed the file itself before
+    // checkpoint-turn. The BUG-55A completeness gate must recognise the path
+    // as already-in-HEAD rather than missing.
+    const config = initGovernedGitRepo(root);
+    const assign = assignGovernedTurn(root, config, 'dev');
+    assert.ok(assign.ok, assign.error);
+    const turn = Object.values(assign.state.active_turns)[0];
+
+    writeFileSync(join(root, 'src', 'app.js'), 'export const version = 2;\n');
+    execSync('git add src/app.js', { cwd: root, stdio: 'ignore' });
+    execSync('git commit -m "dev: app.js"', { cwd: root, stdio: 'ignore' });
+
+    const stagingPath = getTurnStagingResultPath(turn.turn_id);
+    mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
+    writeFileSync(join(root, stagingPath), JSON.stringify({
+      schema_version: '1.0',
+      run_id: assign.state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'Actor committed the declared file before checkpoint.',
+      decisions: [],
+      objections: [],
+      files_changed: ['src/app.js'],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'ok', machine_evidence: [] },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+      phase_transition_request: null,
+      run_completion_request: false,
+      needs_human_reason: null,
+      cost: { usd: 0.01 },
+    }, null, 2));
+
+    const accept = acceptGovernedTurn(root, config, { turnId: turn.turn_id });
+    assert.ok(accept.ok, accept.error);
+
+    const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
+    assert.equal(checkpoint.ok, true, checkpoint.error);
+    assert.deepEqual(checkpoint.already_committed_upstream, ['src/app.js']);
   });
 
   it('accept-turn --checkpoint preserves the accepted turn when checkpoint commit fails', async () => {

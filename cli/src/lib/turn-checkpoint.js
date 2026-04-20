@@ -144,6 +144,48 @@ function diffMissingDeclaredPaths(declaredFiles, stagedFiles) {
   return (Array.isArray(declaredFiles) ? declaredFiles : []).filter((filePath) => !stagedSet.has(filePath));
 }
 
+/**
+ * Partition paths that were missing from the staged-diff into
+ * (a) paths genuinely absent from git (untracked or dirty without staging)
+ * (b) paths already committed upstream (tracked in HEAD, no pending diff)
+ *
+ * BUG-55A completeness must only fail on (a). An actor that committed a
+ * declared file before `checkpoint-turn` ran (see BUG-23 scenario) is
+ * already-checkpointed-upstream; treating that as "missing from checkpoint"
+ * is a false positive from the completeness gate.
+ */
+function partitionDeclaredPathsByUpstreamPresence(root, missingPaths) {
+  const genuinelyMissing = [];
+  const alreadyCommittedUpstream = [];
+  for (const filePath of missingPaths) {
+    let tracked = false;
+    try {
+      git(root, ['ls-files', '--error-unmatch', '--', filePath]);
+      tracked = true;
+    } catch {
+      tracked = false;
+    }
+    if (!tracked) {
+      genuinelyMissing.push(filePath);
+      continue;
+    }
+    let hasDivergence = false;
+    try {
+      const headDiff = git(root, ['diff', 'HEAD', '--', filePath]);
+      const cachedDiff = git(root, ['diff', '--cached', '--', filePath]);
+      hasDivergence = Boolean(headDiff) || Boolean(cachedDiff);
+    } catch {
+      hasDivergence = true;
+    }
+    if (hasDivergence) {
+      genuinelyMissing.push(filePath);
+    } else {
+      alreadyCommittedUpstream.push(filePath);
+    }
+  }
+  return { genuinelyMissing, alreadyCommittedUpstream };
+}
+
 export function detectPendingCheckpoint(root, dirtyFiles = []) {
   const actorDirtyFiles = normalizeFilesChanged(dirtyFiles);
   if (actorDirtyFiles.length === 0) return { required: false };
@@ -238,13 +280,16 @@ export function checkpointAcceptedTurn(root, opts = {}) {
     };
   }
 
-  const missingDeclaredPaths = diffMissingDeclaredPaths(filesChanged, staged);
-  if (missingDeclaredPaths.length > 0) {
+  const rawMissingFromStage = diffMissingDeclaredPaths(filesChanged, staged);
+  const { genuinelyMissing, alreadyCommittedUpstream } =
+    partitionDeclaredPathsByUpstreamPresence(root, rawMissingFromStage);
+  if (genuinelyMissing.length > 0) {
     return {
       ok: false,
       turn: entry,
-      error: `Checkpoint completeness failure: accepted turn ${entry.turn_id} declared ${filesChanged.length} checkpointable file(s), but Git staged only ${staged.length}. Missing from checkpoint: ${missingDeclaredPaths.join(', ')}.`,
-      missing_declared_paths: missingDeclaredPaths,
+      error: `Checkpoint completeness failure: accepted turn ${entry.turn_id} declared ${filesChanged.length} checkpointable file(s), but Git staged only ${staged.length} and ${genuinelyMissing.length} declared path(s) are absent from git. Missing from checkpoint: ${genuinelyMissing.join(', ')}.`,
+      missing_declared_paths: genuinelyMissing,
+      already_committed_upstream: alreadyCommittedUpstream,
       staged_paths: staged,
     };
   }
@@ -254,7 +299,10 @@ export function checkpointAcceptedTurn(root, opts = {}) {
       ok: true,
       skipped: true,
       turn: entry,
-      reason: `Accepted turn ${entry.turn_id} has no staged repo changes to checkpoint.`,
+      reason: alreadyCommittedUpstream.length > 0
+        ? `Accepted turn ${entry.turn_id} has no staged repo changes to checkpoint; all ${alreadyCommittedUpstream.length} declared file(s) already present in HEAD.`
+        : `Accepted turn ${entry.turn_id} has no staged repo changes to checkpoint.`,
+      already_committed_upstream: alreadyCommittedUpstream,
     };
   }
 
