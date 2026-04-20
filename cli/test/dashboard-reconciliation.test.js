@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { readResource } from '../src/lib/dashboard/state-reader.js';
+import { approvePendingDashboardGate } from '../src/lib/dashboard/actions.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -200,5 +201,67 @@ describe('Dashboard reconciliation ordering', () => {
     assert.ok(reconciledDisk.pending_run_completion,
       'Reconciled state should be persisted to disk so gate approval routes correctly');
     assert.equal(reconciledDisk.pending_run_completion.gate, 'qa_ship_verdict');
+  });
+
+  it('AT-DASH-RECONCILE-004: dashboard approval bridge completes repaired final-phase approval', () => {
+    const { axcDir } = createGovernedFixture({
+      status: 'blocked',
+      phase: 'qa',
+      blocked_on: 'human_approval:qa_ship_verdict',
+      blocked_reason: {
+        detail: 'Waiting for QA ship verdict',
+        turn_id: 'turn_qa_legacy',
+      },
+      phase_gate_status: {
+        implementation_complete: 'passed',
+        qa_ship_verdict: 'pending',
+      },
+    });
+
+    const result = approvePendingDashboardGate(axcDir);
+    assert.equal(result.status, 200, 'dashboard approval should succeed on repaired final-phase approval');
+    assert.equal(result.body.ok, true);
+    assert.equal(result.body.scope, 'repo');
+    assert.equal(result.body.gate_type, 'run_completion');
+    assert.equal(result.body.status, 'completed');
+
+    const diskState = JSON.parse(readFileSync(join(axcDir, 'state.json'), 'utf8'));
+    assert.equal(diskState.status, 'completed', 'disk state should complete after dashboard approval');
+    assert.equal(diskState.pending_run_completion, null, 'pending completion should be cleared after approval');
+    assert.equal(diskState.phase_gate_status?.qa_ship_verdict, 'passed', 'final gate should be marked passed');
+  });
+
+  it('AT-DASH-RECONCILE-005: dashboard approval bridge advances repaired non-final approval as phase transition', () => {
+    const { axcDir } = createGovernedFixture({
+      status: 'blocked',
+      phase: 'implementation',
+      blocked_on: 'human_approval:implementation_complete',
+      blocked_reason: {
+        detail: 'Waiting for implementation signoff',
+        turn_id: 'turn_impl_legacy',
+      },
+      phase_gate_status: {
+        implementation_complete: 'pending',
+      },
+    }, {
+      gates: {
+        implementation_complete: { requires_human_approval: true },
+        qa_ship_verdict: { requires_human_approval: true },
+      },
+    });
+
+    const result = approvePendingDashboardGate(axcDir);
+    assert.equal(result.status, 200, 'dashboard approval should succeed on repaired non-final approval');
+    assert.equal(result.body.ok, true);
+    assert.equal(result.body.scope, 'repo');
+    assert.equal(result.body.gate_type, 'phase_transition');
+    assert.equal(result.body.status, 'active');
+    assert.equal(result.body.phase, 'qa');
+
+    const diskState = JSON.parse(readFileSync(join(axcDir, 'state.json'), 'utf8'));
+    assert.equal(diskState.status, 'active', 'disk state should return to active after approval');
+    assert.equal(diskState.phase, 'qa', 'phase should advance after repaired phase-transition approval');
+    assert.equal(diskState.pending_phase_transition, null, 'pending transition should be cleared after approval');
+    assert.equal(diskState.phase_gate_status?.implementation_complete, 'passed', 'phase gate should be marked passed');
   });
 });
