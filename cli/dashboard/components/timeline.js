@@ -115,8 +115,21 @@ function formatDispatchActivity(progress) {
   if (progress.activity_type === 'response') {
     return 'API response received';
   }
-  const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
-  return `Producing output (${progress.output_lines || 0} lines${agoLabel})`;
+  if (progress.activity_type === 'diagnostic_only') {
+    const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
+    return `Diagnostic output only (${progress.stderr_lines || 0} stderr lines, no stdout yet${agoLabel})`;
+  }
+  if (progress.activity_type === 'output') {
+    const agoLabel = agoSec != null && agoSec > 0 ? `, last ${agoSec}s ago` : '';
+    return `Producing output (${progress.output_lines || 0} lines${agoLabel})`;
+  }
+  if (progress.activity_type === 'starting') {
+    return progress.activity_summary || 'Waiting for first output';
+  }
+  if (typeof progress.activity_summary === 'string' && progress.activity_summary.trim()) {
+    return progress.activity_summary.trim();
+  }
+  return null;
 }
 
 function statusBadge(status) {

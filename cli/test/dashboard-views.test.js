@@ -100,6 +100,73 @@ describe('Timeline View', () => {
     assert.ok(html.includes('12 lines'));
   });
 
+  it('BUG-54 Turn 92: renders stderr-only activity as diagnostic output, not healthy output', () => {
+    const html = renderTimeline({
+      state: {
+        run_id: 'run_001',
+        status: 'running',
+        phase: 'implementation',
+        active_turns: {
+          t1: {
+            turn_id: 'turn_001',
+            assigned_role: 'qa',
+            status: 'starting',
+            started_at: new Date(Date.now() - 5_000).toISOString(),
+          },
+        },
+        dispatch_progress: {
+          turn_001: {
+            turn_id: 'turn_001',
+            activity_type: 'diagnostic_only',
+            activity_summary: 'Diagnostic output only (7 stderr lines)',
+            output_lines: 0,
+            stderr_lines: 7,
+            last_activity_at: new Date(Date.now() - 2_000).toISOString(),
+          },
+        },
+      },
+      history: [],
+    });
+
+    assert.ok(html.includes('Activity:'));
+    assert.ok(html.includes('Diagnostic output only'));
+    assert.ok(html.includes('7 stderr lines'));
+    assert.ok(html.includes('no stdout yet'));
+    assert.ok(!html.includes('Producing output (0 lines)'));
+  });
+
+  it('BUG-54 Turn 92: starting activity does not default to "Producing output (0 lines)"', () => {
+    const html = renderTimeline({
+      state: {
+        run_id: 'run_001',
+        status: 'running',
+        phase: 'implementation',
+        active_turns: {
+          t1: {
+            turn_id: 'turn_001',
+            assigned_role: 'dev',
+            status: 'starting',
+            started_at: new Date(Date.now() - 3_000).toISOString(),
+          },
+        },
+        dispatch_progress: {
+          turn_001: {
+            turn_id: 'turn_001',
+            activity_type: 'starting',
+            activity_summary: 'Waiting for first output',
+            output_lines: 0,
+            stderr_lines: 0,
+            last_activity_at: new Date(Date.now() - 3_000).toISOString(),
+          },
+        },
+      },
+      history: [],
+    });
+
+    assert.ok(html.includes('Waiting for first output'));
+    assert.ok(!html.includes('Producing output (0 lines)'));
+  });
+
   it('renders turn history with summary, files, decisions, objections, risks', () => {
     const history = [{
       turn_id: 'turn_001',

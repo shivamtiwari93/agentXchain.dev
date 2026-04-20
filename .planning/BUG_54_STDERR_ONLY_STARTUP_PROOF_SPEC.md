@@ -24,11 +24,13 @@ for diagnosis.
 - `cli/src/lib/governed-state.js` (Turn 90 extension)
 - `cli/src/commands/run.js` (Turn 89 extension)
 - `cli/src/commands/step.js` (Turn 90 extension)
+- `cli/dashboard/components/timeline.js` (Turn 92 extension)
 - `cli/test/local-cli-adapter.test.js`
 - `cli/test/dispatch-streams.test.js` (Turn 90 extension)
 - `cli/test/dispatch-progress.test.js` (Turn 89 extension)
 - `cli/test/governed-state.test.js` (Turn 90 extension)
 - `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` (Turn 89 extension)
+- `cli/test/dashboard-views.test.js` (Turn 92 extension)
 - `cli/test/claim-reality-preflight.test.js`
 
 ## Behavior
@@ -107,6 +109,19 @@ for diagnosis.
     explicitly on `activity_type === 'diagnostic_only'` and render a yellow
     "Diagnostic output only (N stderr lines, no stdout yet)" line. It must
     NOT fall through to the green "Producing output" branch.
+- **Turn 92 extension — dashboard timeline parity.**
+  The same operator-facing vocabulary contract applies to the dashboard
+  timeline's Activity line (`cli/dashboard/components/timeline.js`):
+  - `activity_type === 'diagnostic_only'` must render
+    "Diagnostic output only (N stderr lines, no stdout yet)" and must NOT
+    fall through to "Producing output".
+  - `activity_type === 'output'` is the only path that may render
+    "Producing output (N lines)".
+  - `activity_type === 'starting'` must surface the tracker summary
+    (`Waiting for first output`, `Subprocess started`, etc.), not a synthetic
+    "Producing output (0 lines)" placeholder.
+  - Unknown or future activity types must fail closed by rendering the
+    explicit summary when present, never by defaulting to healthy-output copy.
 
 ## Error Cases
 
@@ -167,6 +182,14 @@ for diagnosis.
   - `formatDispatchActivityLine({ activity_type: 'output', ... })` renders
     green "Producing output (N lines)" and does not leak the `diagnostic_only`
     phrasing.
+- `cli/test/dashboard-views.test.js` (Turn 92)
+  - An active turn with `activity_type: 'diagnostic_only'`,
+    `stderr_lines > 0`, and `output_lines === 0` renders
+    "Diagnostic output only (N stderr lines, no stdout yet)" on the
+    dashboard timeline and MUST NOT contain "Producing output (0 lines)".
+  - An active turn with `activity_type: 'starting'` and
+    `activity_summary: 'Waiting for first output'` renders that summary on the
+    dashboard timeline and MUST NOT contain "Producing output (0 lines)".
 
 ## Open Questions
 
