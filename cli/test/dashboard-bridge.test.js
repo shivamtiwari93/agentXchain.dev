@@ -2707,3 +2707,321 @@ describe('Notification Bridge HTTP', () => {
     });
   });
 });
+
+// ── AT-CONNECTOR-HTTP: /api/connectors HTTP bridge tests ──────────────────────
+
+describe('GET /api/connectors HTTP bridge', () => {
+  describe('config/state guards', () => {
+    let bridge;
+    let port;
+    let root;
+
+    before(async () => {
+      root = tmpDir();
+      // No agentxchain.json — bare directory
+      mkdirSync(join(root, '.agentxchain'), { recursive: true });
+      const dashDir = join(root, 'dashboard');
+      mkdirSync(dashDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+
+      bridge = createBridgeServer({ agentxchainDir: join(root, '.agentxchain'), dashboardDir: dashDir, port: 0 });
+      const result = await bridge.start();
+      port = result.port;
+    });
+
+    after(async () => {
+      await bridge.stop();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-CONNECTOR-HTTP-001: no project config → 404 with config_missing', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      assert.equal(res.status, 404);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, false);
+      assert.equal(data.code, 'config_missing');
+    });
+  });
+
+  describe('config present, state missing', () => {
+    let bridge;
+    let port;
+    let root;
+
+    before(async () => {
+      root = tmpDir();
+      const axcDir = join(root, '.agentxchain');
+      const dashDir = join(root, 'dashboard');
+      mkdirSync(axcDir, { recursive: true });
+      mkdirSync(dashDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+
+      writeJson(join(root, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: 'conn-nostate', name: 'Connector No State', default_branch: 'main' },
+        roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local-dev' } },
+        runtimes: { 'local-dev': { type: 'local_cli', command: ['echo', '{prompt}'], prompt_transport: 'argv' } },
+        routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'] } },
+        gates: {},
+      });
+      // No state.json
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      const result = await bridge.start();
+      port = result.port;
+    });
+
+    after(async () => {
+      await bridge.stop();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-CONNECTOR-HTTP-002: config present but no state.json → 404 with state_missing', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      assert.equal(res.status, 404);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, false);
+      assert.equal(data.code, 'state_missing');
+    });
+  });
+
+  describe('healthy governed project with connectors', () => {
+    let bridge;
+    let port;
+    let root;
+    let axcDir;
+
+    before(async () => {
+      root = tmpDir();
+      axcDir = join(root, '.agentxchain');
+      const dashDir = join(root, 'dashboard');
+      mkdirSync(axcDir, { recursive: true });
+      mkdirSync(dashDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+
+      writeJson(join(root, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: 'conn-test', name: 'Connector Test', default_branch: 'main' },
+        roles: {
+          dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local-dev' },
+          qa: { title: 'QA', mandate: 'Test.', write_authority: 'review_only', runtime: 'api-qa' },
+        },
+        runtimes: {
+          'local-dev': { type: 'local_cli', command: ['echo', '{prompt}'], prompt_transport: 'argv' },
+          'api-qa': { type: 'api_proxy', provider: 'anthropic', model: 'claude-sonnet-4-6', auth_env: 'ANTHROPIC_API_KEY' },
+          'manual-human': { type: 'manual' },
+        },
+        routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa'] } },
+        gates: {},
+        protocol_mode: 'governed',
+      });
+
+      writeJson(join(axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'conn-test',
+        run_id: 'run_abc123',
+        status: 'running',
+        phase: 'implementation',
+        active_turns: {
+          turn_001: {
+            turn_id: 'turn_001',
+            runtime_id: 'local-dev',
+            assigned_role: 'dev',
+            status: 'running',
+          },
+        },
+        turn_sequence: 1,
+        accepted_count: 0,
+        rejected_count: 0,
+      });
+
+      // Seed a history entry for api-qa showing a past success
+      writeFileSync(join(axcDir, 'history.jsonl'),
+        JSON.stringify({
+          turn_id: 'turn_prev',
+          runtime_id: 'api-qa',
+          role: 'qa',
+          phase: 'implementation',
+          accepted_at: '2026-04-19T08:00:00Z',
+          outcome: 'accepted',
+        }) + '\n',
+      );
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      const result = await bridge.start();
+      port = result.port;
+    });
+
+    after(async () => {
+      await bridge.stop();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-CONNECTOR-HTTP-003: returns 200 with connector health for governed project', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.ok(Array.isArray(data.connectors), 'connectors must be an array');
+    });
+
+    it('AT-CONNECTOR-HTTP-004: excludes manual runtimes from connectors', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      const data = JSON.parse(res.body);
+      const runtimeIds = data.connectors.map(c => c.runtime_id);
+      assert.ok(!runtimeIds.includes('manual-human'), 'manual runtimes must be excluded');
+      assert.ok(runtimeIds.includes('local-dev'), 'local_cli runtime must be present');
+      assert.ok(runtimeIds.includes('api-qa'), 'api_proxy runtime must be present');
+    });
+
+    it('AT-CONNECTOR-HTTP-005: active turn surfaces in connector state', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      const data = JSON.parse(res.body);
+      const localDev = data.connectors.find(c => c.runtime_id === 'local-dev');
+      assert.ok(localDev, 'local-dev connector must exist');
+      assert.equal(localDev.type, 'local_cli');
+      assert.ok(localDev.active_turn_ids.includes('turn_001'), 'active turn must be listed');
+      assert.ok(localDev.active_roles.includes('dev'), 'active role must be listed');
+      assert.equal(localDev.state, 'active');
+    });
+
+    it('AT-CONNECTOR-HTTP-006: history-based success surfaces in connector health', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      const data = JSON.parse(res.body);
+      const apiQa = data.connectors.find(c => c.runtime_id === 'api-qa');
+      assert.ok(apiQa, 'api-qa connector must exist');
+      assert.equal(apiQa.type, 'api_proxy');
+      assert.equal(apiQa.target, 'anthropic / claude-sonnet-4-6');
+      assert.equal(apiQa.state, 'healthy');
+      assert.equal(apiQa.last_success_at, '2026-04-19T08:00:00Z');
+      assert.equal(apiQa.last_turn_id, 'turn_prev');
+      assert.equal(apiQa.last_role, 'qa');
+    });
+
+    it('AT-CONNECTOR-HTTP-007: connector entries have expected shape', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      const data = JSON.parse(res.body);
+      for (const connector of data.connectors) {
+        assert.equal(typeof connector.runtime_id, 'string');
+        assert.equal(typeof connector.type, 'string');
+        assert.equal(typeof connector.target, 'string');
+        assert.ok(['active', 'healthy', 'failing', 'never_used'].includes(connector.state),
+          `state must be a known value, got: ${connector.state}`);
+        assert.ok(['yes', 'no', 'unknown'].includes(connector.reachable),
+          `reachable must be a known value, got: ${connector.reachable}`);
+        assert.ok(Array.isArray(connector.active_turn_ids));
+        assert.ok(Array.isArray(connector.active_roles));
+        // Internal fields must be cleaned up
+        assert.equal(connector._latest_success, undefined);
+        assert.equal(connector._latest_failure, undefined);
+        assert.equal(connector._latest_attempt, undefined);
+        assert.equal(connector._latest_identity, undefined);
+      }
+    });
+
+    it('AT-CONNECTOR-HTTP-008: response content-type is application/json', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      assert.equal(res.status, 200);
+      assert.ok(res.headers['content-type']?.includes('application/json'));
+    });
+  });
+
+  describe('failing connector with retry trace', () => {
+    let bridge;
+    let port;
+    let root;
+
+    before(async () => {
+      root = tmpDir();
+      const axcDir = join(root, '.agentxchain');
+      const dashDir = join(root, 'dashboard');
+      const stagingDir = join(axcDir, 'staging', 'turn_fail_001');
+      mkdirSync(axcDir, { recursive: true });
+      mkdirSync(dashDir, { recursive: true });
+      mkdirSync(stagingDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+
+      writeJson(join(root, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: 'conn-fail', name: 'Connector Fail', default_branch: 'main' },
+        roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'proposed', runtime: 'api-dev' } },
+        runtimes: {
+          'api-dev': { type: 'api_proxy', provider: 'openai', model: 'gpt-4o', auth_env: 'OPENAI_API_KEY' },
+        },
+        routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'] } },
+        gates: {},
+        protocol_mode: 'governed',
+      });
+
+      writeJson(join(axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'conn-fail',
+        run_id: 'run_fail',
+        status: 'blocked',
+        phase: 'implementation',
+        active_turns: {
+          turn_fail_001: {
+            turn_id: 'turn_fail_001',
+            runtime_id: 'api-dev',
+            assigned_role: 'dev',
+            status: 'running',
+          },
+        },
+        turn_sequence: 1,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: 'runtime_error',
+        blocked_reason: {
+          turn_id: 'turn_fail_001',
+          blocked_at: '2026-04-19T09:30:00Z',
+          recovery: { detail: 'API rate limit exceeded' },
+        },
+      });
+
+      // Seed retry trace with a failure
+      writeJson(join(stagingDir, 'retry-trace.json'), {
+        turn_id: 'turn_fail_001',
+        runtime_id: 'api-dev',
+        attempts_made: 3,
+        final_outcome: 'failure',
+        attempts: [
+          { started_at: '2026-04-19T09:25:00Z', completed_at: '2026-04-19T09:25:05Z' },
+          { started_at: '2026-04-19T09:27:00Z', completed_at: '2026-04-19T09:27:03Z' },
+          { started_at: '2026-04-19T09:29:00Z', completed_at: '2026-04-19T09:29:02Z' },
+        ],
+      });
+      writeJson(join(stagingDir, 'api-error.json'), {
+        message: 'Rate limit exceeded: 429 Too Many Requests',
+        error_class: 'rate_limit',
+      });
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      const result = await bridge.start();
+      port = result.port;
+    });
+
+    after(async () => {
+      await bridge.stop();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-CONNECTOR-HTTP-009: failing connector surfaces error, attempts, and latency', async () => {
+      const res = await httpGet(port, '/api/connectors');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      const apiDev = data.connectors.find(c => c.runtime_id === 'api-dev');
+      assert.ok(apiDev, 'api-dev connector must exist');
+      assert.equal(apiDev.state, 'failing');
+      assert.equal(apiDev.reachable, 'no');
+      assert.ok(typeof apiDev.last_error === 'string' && apiDev.last_error.length > 0, 'last_error must be a non-empty string');
+      assert.equal(apiDev.attempts_made, 3);
+      assert.equal(typeof apiDev.latency_ms, 'number');
+      assert.ok(apiDev.latency_ms >= 0, 'latency must be non-negative');
+      assert.ok(typeof apiDev.last_failure_at === 'string', 'last_failure_at must be a timestamp string');
+    });
+  });
+});
