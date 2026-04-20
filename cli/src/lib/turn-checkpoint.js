@@ -139,6 +139,11 @@ function buildCheckpointCommit(entry) {
   return { subject, body: bodyLines.join('\n') };
 }
 
+function diffMissingDeclaredPaths(declaredFiles, stagedFiles) {
+  const stagedSet = new Set((Array.isArray(stagedFiles) ? stagedFiles : []).map((value) => value.trim()).filter(Boolean));
+  return (Array.isArray(declaredFiles) ? declaredFiles : []).filter((filePath) => !stagedSet.has(filePath));
+}
+
 export function detectPendingCheckpoint(root, dirtyFiles = []) {
   const actorDirtyFiles = normalizeFilesChanged(dirtyFiles);
   if (actorDirtyFiles.length === 0) return { required: false };
@@ -230,6 +235,17 @@ export function checkpointAcceptedTurn(root, opts = {}) {
       ok: false,
       turn: entry,
       error: `Failed to inspect staged checkpoint diff: ${extractGitError(err)}`,
+    };
+  }
+
+  const missingDeclaredPaths = diffMissingDeclaredPaths(filesChanged, staged);
+  if (missingDeclaredPaths.length > 0) {
+    return {
+      ok: false,
+      turn: entry,
+      error: `Checkpoint completeness failure: accepted turn ${entry.turn_id} declared ${filesChanged.length} checkpointable file(s), but Git staged only ${staged.length}. Missing from checkpoint: ${missingDeclaredPaths.join(', ')}.`,
+      missing_declared_paths: missingDeclaredPaths,
+      staged_paths: staged,
     };
   }
 
