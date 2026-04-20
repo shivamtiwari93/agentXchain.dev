@@ -48,9 +48,11 @@ Fixtures that verify parallel dispatch semantics:
 | Fixture | Type | Description |
 |---------|------|-------------|
 | PT-001 | validate | Config with `max_concurrent_turns: 2` passes validation |
-| PT-002 | reject | Config with `max_concurrent_turns: 0` rejected |
-| PT-003 | reject | Config with `max_concurrent_turns: 5` rejected (max is 4) |
-| PT-004 | validate | Parallel dispatch fills available slots correctly |
+| PT-002 | validate | Config with `max_concurrent_turns: 4` passes validation (maximum allowed) |
+| PT-003 | validate | Config with `max_concurrent_turns: 1` passes validation (sequential mode) |
+| PT-004 | reject | Config with `max_concurrent_turns: 0` fails validation (must be >= 1) |
+| PT-005 | reject | Config with `max_concurrent_turns: 5` fails validation (maximum is 4) |
+| PT-006 | reject | Config with non-integer `max_concurrent_turns` fails validation |
 
 #### Surface: `event_lifecycle` (Tier 1)
 
@@ -58,10 +60,14 @@ Fixtures that verify run event semantics:
 
 | Fixture | Type | Description |
 |---------|------|-------------|
-| EL-001 | validate | Valid run event with all required fields passes |
+| EL-001 | validate | Valid run event with all required fields passes validation |
 | EL-002 | reject | Event with invalid `event_type` rejected |
-| EL-003 | validate | `run_started` event is first in timeline |
-| EL-004 | validate | `turn_dispatched` precedes `turn_accepted` for same turn |
+| EL-003 | validate | `run_started` must be first event in timeline |
+| EL-004 | reject | `turn_accepted` without preceding `turn_dispatched` for same turn fails ordering |
+| EL-005 | reject | `run_completed` not last event fails ordering validation |
+| EL-006 | reject | Timestamp regression (backwards timestamps) fails ordering validation |
+| EL-007 | reject | `turn_dispatched` event missing `turn.turn_id` fails event validation |
+| EL-008 | reject | Timeline not starting with `run_started` fails ordering validation |
 
 ## Interface
 
@@ -100,7 +106,7 @@ export const CURRENT_PROTOCOL_VERSION = 'v7';
 - New v7 surfaces are Tier 1 mandatory
 - `agentxchain doctor` and `agentxchain validate` report `protocol v7`
 - Conformance verification includes the 4 new surfaces by default
-- The conformance fixture count increases from 81 to 102 (21 new fixtures)
+- The conformance fixture count increases from 81 to 108 (27 new fixtures)
 
 ## Error Cases
 
@@ -117,7 +123,7 @@ export const CURRENT_PROTOCOL_VERSION = 'v7';
 - AT-V7-005: Conformance verification includes `decision_carryover` surface
 - AT-V7-006: Conformance verification includes `parallel_turns` surface
 - AT-V7-007: Conformance verification includes `event_lifecycle` surface
-- AT-V7-008: All 102 conformance fixtures pass (81 existing + 21 new)
+- AT-V7-008: All 108 conformance fixtures pass (81 existing + 27 new)
 - AT-V7-009: Human-readable doctor output shows `protocol v7`
 - AT-V7-010: Protocol reference docs reference v7
 
