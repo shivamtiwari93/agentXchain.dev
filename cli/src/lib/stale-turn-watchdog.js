@@ -122,13 +122,19 @@ export function detectGhostTurns(root, state, config) {
   const activeTurns = state?.active_turns || {};
   const ghosts = [];
   const now = Date.now();
-  const startupThreshold = resolveStartupThreshold(config);
 
   for (const [turnId, turn] of Object.entries(activeTurns)) {
     if (!['dispatched', 'starting', 'running', 'retrying'].includes(turn.status)) continue;
 
     const lifecycleStart = parseGhostLifecycleStart(turn);
     if (!Number.isFinite(lifecycleStart)) continue;
+
+    // BUG-54 follow-up: per-turn threshold honors per-runtime startup override.
+    // Without this, an operator who sets `runtimes.<id>.startup_watchdog_ms`
+    // higher than the global to accommodate a slow QA/Claude runtime would still
+    // have ghost detection fire at the global threshold, defeating the override.
+    const runtime = config?.runtimes?.[turn.runtime_id];
+    const startupThreshold = resolveStartupThreshold(config, runtime);
 
     const runningMs = now - lifecycleStart;
     if (runningMs < startupThreshold) continue;
@@ -274,7 +280,16 @@ function resolveThreshold(turn, config) {
   return DEFAULT_LOCAL_CLI_THRESHOLD_MS;
 }
 
-function resolveStartupThreshold(config) {
+function resolveStartupThreshold(config, runtime) {
+  // BUG-54 follow-up: per-runtime override beats the global.
+  // Mirrors `resolveStartupWatchdogMs()` in local-cli-adapter.js so the
+  // ghost-detection scanner uses the same threshold the in-flight adapter
+  // watchdog uses; otherwise the scanner pre-empts the override.
+  if (runtime && runtime.type === 'local_cli'
+      && Number.isInteger(runtime.startup_watchdog_ms)
+      && runtime.startup_watchdog_ms > 0) {
+    return runtime.startup_watchdog_ms;
+  }
   const configThreshold = config?.run_loop?.startup_watchdog_ms;
   if (typeof configThreshold === 'number' && configThreshold > 0) {
     return configThreshold;

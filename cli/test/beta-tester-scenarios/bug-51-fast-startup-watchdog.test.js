@@ -917,4 +917,48 @@ describe('BUG-51: fast-startup watchdog', () => {
     }
     assert.fail('At least one active turn must have a finalized MANIFEST.json after reissue-turn');
   });
+
+  // BUG-54 follow-up: ghost detector must honor per-runtime startup watchdog
+  // override, otherwise the operator's tuning is silently pre-empted.
+  it('ghost detector honors per-runtime startup_watchdog_ms override (BUG-54)', () => {
+    // Build the override into the seed config so it is present before any
+    // governed initialization runs validation.
+    const overrideConfig = makeConfig({
+      run_loop: { startup_watchdog_ms: 30_000 },
+    });
+    overrideConfig.runtimes['local-dev'].startup_watchdog_ms = 120_000;
+    const root = mkdtempSync(join(tmpdir(), 'axc-bug54-fu-'));
+    tempDirs.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# BUG-54 follow-up\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(overrideConfig, null, 2));
+    execSync('git init -b main', { cwd: root, stdio: 'ignore' });
+    execSync('git config user.email "test@test.com"', { cwd: root, stdio: 'ignore' });
+    execSync('git config user.name "Test"', { cwd: root, stdio: 'ignore' });
+    execSync('git add -A && git commit -m "init"', { cwd: root, stdio: 'ignore' });
+    const init = initializeGovernedRun(root, overrideConfig);
+    assert.ok(init.ok, init.error);
+    const config = overrideConfig;
+
+    // Seed a turn dispatched 60s ago: past the 30s global, well under the
+    // 120s runtime override.
+    const { turnId, state } = seedDispatchedTurn(root, config, 60);
+
+    const ghosts = detectGhostTurns(root, state, config);
+    assert.equal(
+      ghosts.length, 0,
+      'BUG-54: per-runtime startup_watchdog_ms override (120s) must beat the '
+      + 'global (30s). Without the fix, the ghost detector would mark this '
+      + `turn ${turnId} as failed_start at 60s and defeat the operator's tuning.`,
+    );
+
+    // Sanity: once the runtime override is also exceeded, ghost still fires.
+    const aged = readState(root);
+    aged.active_turns[turnId].dispatched_at = new Date(Date.now() - 130_000).toISOString();
+    const agedGhosts = detectGhostTurns(root, aged, config);
+    assert.equal(agedGhosts.length, 1);
+    assert.equal(agedGhosts[0].threshold_ms, 120_000,
+      'threshold_ms in the ghost record must report the per-runtime override, '
+      + 'not the global, so failure metadata matches the actual fired threshold.');
+  });
 });
