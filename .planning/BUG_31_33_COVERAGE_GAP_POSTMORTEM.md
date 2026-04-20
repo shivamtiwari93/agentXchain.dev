@@ -311,13 +311,18 @@ now locks four shipped-package contracts:
    ship undetected.
 2. **BUG-48**: the packed `intake.js` must still clear
    `.agentxchain/intake/injected-priority.json` when
-   `validatePreemptionMarker()` sees a superseded intent.
+   `validatePreemptionMarker()` sees a superseded intent. No extra path-split
+   row is required here because the packaged seam is singular: the stale
+   marker either gets cleared for the superseded intent or it does not.
 3. **BUG-49**: the packed `checkpointAcceptedTurn()` path must still advance
    `accepted_integration_ref` to `git:<checkpoint_sha>` after checkpoint, not
-   leave it pinned to the pre-checkpoint ref.
+   leave it pinned to the pre-checkpoint ref. No sibling recovery family
+   exists here like BUG-47/51; the packaged terminal mutation is the contract.
 4. **BUG-50**: the packed `recordRunHistory()` path must still isolate
    `total_turns` and `phases_completed` to the child run even when
-   `.agentxchain/history.jsonl` contains parent-run turns.
+   `.agentxchain/history.jsonl` contains parent-run turns. Again, this is a
+   single packaged seam rather than a path-split bug class, so one behavioral
+   row is the correct release-boundary proof.
 
 This row family exists because BUG-47..50 are exactly the kind of
 state-reconciliation fixes that can pass source tests while a published tarball

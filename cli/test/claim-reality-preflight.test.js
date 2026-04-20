@@ -1905,6 +1905,9 @@ describe('claim-reality preflight', () => {
   });
 
   it('BUG-48 packaged intake clears superseded preemption markers', async () => {
+    // No separate "path-split" row is needed for BUG-48: the packaged behavior
+    // seam is singular. Either the shipped intake layer clears a stale marker
+    // for a superseded intent, or it does not.
     const packedFiles = getPackedFiles();
     const bug48Test = join(SCENARIOS_DIR, 'bug-48-intent-lifecycle-contradiction.test.js');
     assert.ok(existsSync(bug48Test),
@@ -1954,6 +1957,9 @@ describe('claim-reality preflight', () => {
   });
 
   it('BUG-49 packaged checkpoint advances accepted_integration_ref to the new checkpoint SHA', async () => {
+    // No sibling recovery family exists here like BUG-47 vs BUG-51. The packed
+    // seam that matters is the terminal checkpoint mutation itself:
+    // accepted_integration_ref must advance to the new checkpoint SHA.
     const packedFiles = getPackedFiles();
     const bug49Test = join(SCENARIOS_DIR, 'bug-49-checkpoint-ref-update.test.js');
     assert.ok(existsSync(bug49Test),
@@ -2053,6 +2059,10 @@ describe('claim-reality preflight', () => {
   });
 
   it('BUG-50 packaged run-history keeps child-run totals isolated from parent history', async () => {
+    // BUG-50 is also a single packaged seam, not a path-split bug class. The
+    // release-boundary risk is child-run history contamination, so one packed
+    // behavioral row that records history and inspects the written entry is the
+    // right proof surface.
     const packedFiles = getPackedFiles();
     const bug50Test = join(SCENARIOS_DIR, 'bug-50-run-history-contamination.test.js');
     assert.ok(existsSync(bug50Test),

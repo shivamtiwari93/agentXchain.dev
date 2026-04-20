@@ -314,6 +314,7 @@ describe('release-preflight.sh', () => {
     const script = readFileSync(SOURCE_SCRIPT, 'utf8');
     assert.match(script, /test\/release-docs-content\.test\.js/);
     assert.match(script, /test\/release-preflight\.test\.js/);
+    assert.match(script, /test\/claim-reality-preflight\.test\.js/);
     assert.match(script, /test\/beta-tester-scenarios\/\*\.test\.js/);
   });
 
