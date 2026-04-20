@@ -53,11 +53,15 @@ This spec covers BUG-55 sub-defect A only. Verification-produced side effects re
    - seed an accepted turn, capture its recorded `observed_artifact.baseline_ref`, commit the declared file on a throwaway lineage, then restore HEAD to the accepted baseline
    - run `checkpointAcceptedTurn`
    - assert it fails and reports the path as genuinely missing, not `already_committed_upstream`
+   - assert the error message includes a wrong-lineage hint that distinguishes this case from the plain "never existed" case, and assert the returned shape exposes `divergent_from_accepted_lineage` so downstream callers (CLI, dashboard) can surface the same distinction without re-deriving it.
+5. Plain-missing vs wrong-lineage hint discipline:
+   - the plain "declared path never existed in git" acceptance test must also assert the error does NOT carry the wrong-lineage hint, preventing the two classes from collapsing into a single operator message again.
 
 ## Decisions
 
 - `DEC-BUG55A-ALREADY-COMMITTED-UPSTREAM-002` (2026-04-20, supersedes the strict staged-only semantic from Turn 64) — A declared checkpointable path that is tracked in git and not divergent from HEAD/index counts as present for completeness, not missing. Rationale: the tester-reported BUG-55A symptom is dirty files surviving checkpoint, not declaration purity. Treating "already committed by the actor before checkpoint" as a completeness failure introduces a false-positive that regresses the historical BUG-23 pattern and blocks shippable releases for legitimate workflows.
 - `DEC-BUG55A-ACCEPTED-LINEAGE-ANCHOR-003` (2026-04-20) — `already_committed_upstream` is not a pure "clean at HEAD" check. The path must also differ between the accepted turn's recorded `observed_artifact.baseline_ref` and current `HEAD`, proving the accepted lineage actually absorbed the declared change. Rationale: otherwise a wrong-branch or reset-to-baseline workflow can make a declared path look "already committed" even though the current governed branch never checkpointed it.
+- `DEC-BUG55A-WRONG-LINEAGE-DIAGNOSTIC-004` (2026-04-20) — When completeness fails because declared paths are divergent-from-accepted-lineage (the wrong-branch/reset case detected by `DEC-BUG55A-ACCEPTED-LINEAGE-ANCHOR-003`), the returned shape must expose that subcategory as `divergent_from_accepted_lineage` and the operator-facing error message must explicitly name it as "Wrong-lineage paths" so the operator can distinguish "actor committed off the accepted lineage" from "actor never wrote the file at all." Rationale: the two cases have different operator recoveries — recover a misplaced commit vs re-run the turn — and the prior single "Missing from checkpoint" message masked that distinction. How to apply: any future change to the partition must keep both the structured field and the operator message distinct from the generic missing-path signal, and the regression tests must lock both the positive hint (wrong-lineage case) and the negative hint (plain-missing case).
 
 ## Open Questions
 

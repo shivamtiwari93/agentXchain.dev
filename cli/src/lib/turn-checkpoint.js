@@ -156,15 +156,21 @@ function diffMissingDeclaredPaths(declaredFiles, stagedFiles) {
  * Partition paths that were missing from the staged-diff into
  * (a) paths genuinely absent from git (untracked or dirty without staging)
  * (b) paths already committed upstream (tracked in HEAD, no pending diff)
+ * (c) paths tracked and clean at HEAD but unchanged since the accepted
+ *     baseline — the BUG-55A wrong-lineage case (actor committed the file
+ *     off the accepted lineage, e.g. on a throwaway side-branch or the
+ *     lineage was reset to baseline).
  *
- * BUG-55A completeness must only fail on (a). An actor that committed a
- * declared file before `checkpoint-turn` ran (see BUG-23 scenario) is
- * already-checkpointed-upstream; treating that as "missing from checkpoint"
- * is a false positive from the completeness gate.
+ * BUG-55A completeness must fail on (a) and (c). (c) has a different
+ * operator-visible recovery path than (a): the file DID exist in some
+ * commit but is not reachable from the accepted baseline + HEAD comparison
+ * the governed run relies on. Surface it separately so the CLI can tell
+ * the operator which failure they hit.
  */
 function partitionDeclaredPathsByUpstreamPresence(root, missingPaths, options = {}) {
   const baselineRef = normalizeGitBaselineRef(options.baselineRef);
   const genuinelyMissing = [];
+  const divergentFromAcceptedLineage = [];
   const alreadyCommittedUpstream = [];
   for (const filePath of missingPaths) {
     let tracked = false;
@@ -202,14 +208,22 @@ function partitionDeclaredPathsByUpstreamPresence(root, missingPaths, options = 
         changedSinceAcceptedBaseline = true;
       }
       if (!changedSinceAcceptedBaseline) {
-        genuinelyMissing.push(filePath);
+        divergentFromAcceptedLineage.push(filePath);
         continue;
       }
     }
 
     alreadyCommittedUpstream.push(filePath);
   }
-  return { genuinelyMissing, alreadyCommittedUpstream };
+  // Preserve the pre-existing return shape: `genuinelyMissing` is the union
+  // that the completeness gate must fail on. `divergent_from_accepted_lineage`
+  // is an additional, operator-facing subcategory that callers can surface
+  // without changing the pass/fail contract.
+  return {
+    genuinelyMissing: [...genuinelyMissing, ...divergentFromAcceptedLineage],
+    divergentFromAcceptedLineage,
+    alreadyCommittedUpstream,
+  };
 }
 
 export function detectPendingCheckpoint(root, dirtyFiles = []) {
@@ -307,16 +321,21 @@ export function checkpointAcceptedTurn(root, opts = {}) {
   }
 
   const rawMissingFromStage = diffMissingDeclaredPaths(filesChanged, staged);
-  const { genuinelyMissing, alreadyCommittedUpstream } =
+  const { genuinelyMissing, divergentFromAcceptedLineage, alreadyCommittedUpstream } =
     partitionDeclaredPathsByUpstreamPresence(root, rawMissingFromStage, {
       baselineRef: entry?.observed_artifact?.baseline_ref ?? null,
     });
   if (genuinelyMissing.length > 0) {
+    const baseMessage = `Checkpoint completeness failure: accepted turn ${entry.turn_id} declared ${filesChanged.length} checkpointable file(s), but Git staged only ${staged.length} and ${genuinelyMissing.length} declared path(s) are absent from git. Missing from checkpoint: ${genuinelyMissing.join(', ')}.`;
+    const lineageHint = divergentFromAcceptedLineage.length > 0
+      ? ` Wrong-lineage paths (tracked at HEAD but unchanged since accepted baseline — actor likely committed off the accepted lineage): ${divergentFromAcceptedLineage.join(', ')}.`
+      : '';
     return {
       ok: false,
       turn: entry,
-      error: `Checkpoint completeness failure: accepted turn ${entry.turn_id} declared ${filesChanged.length} checkpointable file(s), but Git staged only ${staged.length} and ${genuinelyMissing.length} declared path(s) are absent from git. Missing from checkpoint: ${genuinelyMissing.join(', ')}.`,
+      error: `${baseMessage}${lineageHint}`,
       missing_declared_paths: genuinelyMissing,
+      divergent_from_accepted_lineage: divergentFromAcceptedLineage,
       already_committed_upstream: alreadyCommittedUpstream,
       staged_paths: staged,
     };

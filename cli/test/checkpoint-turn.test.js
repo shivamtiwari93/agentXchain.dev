@@ -224,6 +224,14 @@ describe('turn checkpointing', () => {
     // genuinely missing paths refuse to checkpoint.
     assert.match(checkpoint.error, /Failed to stage accepted files for checkpoint|Checkpoint completeness failure/);
     assert.match(checkpoint.error, /src\/never-existed\.js/);
+    // Plain-missing (untracked) paths must NOT be labeled wrong-lineage —
+    // they have a different operator recovery (re-run the turn), not "a
+    // commit exists off the accepted lineage that needs investigation".
+    assert.doesNotMatch(
+      checkpoint.error,
+      /Wrong-lineage paths/,
+      'untracked/never-existed paths must not be mislabeled as wrong-lineage',
+    );
 
     const headSubject = execSync('git log -1 --pretty=%s', { cwd: root, encoding: 'utf8' }).trim();
     assert.equal(headSubject, 'initial');
@@ -318,7 +326,13 @@ describe('turn checkpointing', () => {
     const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
     assert.equal(checkpoint.ok, false, 'checkpoint should fail when the declared file never landed on the accepted lineage');
     assert.match(checkpoint.error, /Missing from checkpoint: src\/app\.js/);
+    assert.match(
+      checkpoint.error,
+      /Wrong-lineage paths .* src\/app\.js/,
+      'operator error should distinguish the wrong-lineage case from a plain missing path',
+    );
     assert.deepEqual(checkpoint.missing_declared_paths, ['src/app.js']);
+    assert.deepEqual(checkpoint.divergent_from_accepted_lineage, ['src/app.js']);
     assert.deepEqual(checkpoint.already_committed_upstream, []);
 
     const headSubject = execSync('git log -1 --pretty=%s', { cwd: root, encoding: 'utf8' }).trim();
