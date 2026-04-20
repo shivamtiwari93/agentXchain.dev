@@ -34,7 +34,24 @@ function writeFailingAgent(root) {
   return agentPath;
 }
 
-function makeProject({ slowAgent = false, failingAgent = false, changingAgent = false } = {}) {
+function writeSilentStartupAgent(root) {
+  const agentPath = join(root, '_silent-startup-agent.mjs');
+  writeFileSync(agentPath, [
+    '#!/usr/bin/env node',
+    "import { setTimeout as sleep } from 'node:timers/promises';",
+    'await sleep(5000);',
+    '',
+  ].join('\n'));
+  return agentPath;
+}
+
+function makeProject({
+  slowAgent = false,
+  failingAgent = false,
+  changingAgent = false,
+  silentStartupAgent = false,
+  startupWatchdogMs = null,
+} = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-continuous-e2e-'));
   tempDirs.push(root);
   scaffoldGoverned(root, 'Continuous Vision E2E', `continuous-e2e-${Date.now()}`);
@@ -47,6 +64,8 @@ function makeProject({ slowAgent = false, failingAgent = false, changingAgent = 
     writeFileSync(agentEntry, `import { setTimeout as sleep } from 'node:timers/promises';\nawait sleep(1500);\nawait import(${JSON.stringify(MOCK_AGENT)});\n`);
   } else if (failingAgent) {
     agentEntry = writeFailingAgent(root);
+  } else if (silentStartupAgent) {
+    agentEntry = writeSilentStartupAgent(root);
   } else if (changingAgent) {
     agentEntry = join(root, '_changing-mock-agent.mjs');
     writeFileSync(agentEntry, `import { appendFileSync, readFileSync } from 'node:fs';\nimport { join } from 'node:path';\nconst root = process.cwd();\nconst index = JSON.parse(readFileSync(join(root, '.agentxchain/dispatch/index.json'), 'utf8'));\nconst entry = Object.values(index.active_turns || {})[0] || {};\nconst turnId = entry.turn_id || 'unknown';\nconst phase = index.phase || 'unknown';\nawait import(${JSON.stringify(MOCK_AGENT)});\nif (phase === 'planning') appendFileSync(join(root, '.planning/ROADMAP.md'), \`\\n- checkpoint \${turnId}\\n\`);\nif (phase === 'implementation') appendFileSync(join(root, 'src/output.js'), \`// checkpoint \${turnId}\\n\`);\nif (phase === 'qa') appendFileSync(join(root, '.planning/RELEASE_NOTES.md'), \`\\n- checkpoint \${turnId}\\n\`);\n`);
@@ -67,6 +86,12 @@ function makeProject({ slowAgent = false, failingAgent = false, changingAgent = 
   config.intent_coverage_mode = 'lenient';
   if (failingAgent) {
     config.rules = { ...(config.rules || {}), max_turn_retries: 1 };
+  }
+  if (startupWatchdogMs != null) {
+    config.run_loop = {
+      ...(config.run_loop || {}),
+      startup_watchdog_ms: startupWatchdogMs,
+    };
   }
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
@@ -121,6 +146,53 @@ afterEach(() => {
 });
 
 describe('continuous run E2E', () => {
+  it('AT-CONT-BUG51-001: ghost startup failures in continuous mode surface reissue-turn recovery, not unblock', () => {
+    const root = makeProject({ silentStartupAgent: true, startupWatchdogMs: 400 });
+
+    const run = runCli(root, [
+      'run',
+      '--continuous',
+      '--vision',
+      '.planning/VISION.md',
+      '--max-runs',
+      '1',
+      '--max-idle-cycles',
+      '1',
+      '--poll-seconds',
+      '0',
+    ], 30000);
+
+    assert.equal(run.status, 0, `continuous run should pause cleanly on startup ghost recovery:\n${run.combined}`);
+    assert.match(run.stdout, /Run blocked — continuous loop paused/);
+    assert.match(run.stdout, /reissue-turn --turn .* --reason ghost/);
+    assert.doesNotMatch(run.stdout, /unblock <id>/);
+
+    const session = readJson(root, '.agentxchain/continuous-session.json');
+    assert.equal(session.status, 'paused');
+    assert.equal(session.runs_completed, 0);
+    assert.ok(session.current_run_id, 'ghost-blocked run context must remain visible');
+
+    const state = readJson(root, '.agentxchain/state.json');
+    const [turnId] = Object.keys(state.active_turns || {});
+    assert.equal(state.status, 'blocked');
+    assert.equal(state.blocked_reason.category, 'ghost_turn');
+    assert.match(state.blocked_reason.recovery.recovery_action, /reissue-turn --turn .* --reason ghost/);
+    assert.equal(state.active_turns[turnId].status, 'failed_start');
+    assert.equal(state.active_turns[turnId].failed_start_reason, 'no_subprocess_output');
+
+    const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
+    const intents = readdirSync(intentsDir)
+      .filter((file) => file.endsWith('.json'))
+      .map((file) => JSON.parse(readFileSync(join(intentsDir, file), 'utf8')));
+    assert.equal(intents.length, 1);
+    assert.equal(intents[0].status, 'blocked');
+    assert.equal(intents[0].run_blocked_reason, 'ghost_turn');
+    assert.match(intents[0].run_blocked_recovery, /reissue-turn --turn .* --reason ghost/);
+
+    const events = readJsonl(root, '.agentxchain/events.jsonl');
+    assert.ok(events.some((entry) => entry.event_type === 'turn_start_failed'));
+  });
+
   it('AT-CONT-FAIL-003: adapter failure exhausts retries, pauses the continuous session, and preserves blocked recovery truth', () => {
     const root = makeProject({ failingAgent: true });
 

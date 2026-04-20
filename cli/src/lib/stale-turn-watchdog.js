@@ -3,18 +3,18 @@
  *
  * Two-tier lazy idle-threshold detection:
  *
- * 1. **Fast startup watchdog (BUG-51):** if an active turn has been dispatched
- *    for >30 seconds with NO dispatch-progress file, NO staged result, and NO
- *    recent events, it is a "ghost turn" — the subprocess never attached.
- *    Transitions to `failed_start` immediately.
+ * 1. **Fast startup watchdog (BUG-51):** if an active turn has been
+ *    `dispatched`/`starting`/`running` for >30 seconds with NO startup proof
+ *    (no first-byte output recorded on the turn or in dispatch-progress) and
+ *    NO staged result, it is a "ghost turn" — the subprocess never reached a
+ *    healthy running state. Transitions to `failed_start` immediately.
  *
- *    Design note: the watchdog intentionally keys on turn-scoped
- *    dispatch-progress rather than `stdout.log` existence. Dispatch-progress is
- *    a framework-authored signal with a stable per-turn contract across runtime
- *    wiring; `stdout.log` is adapter-authored visibility output and is allowed
- *    to be best-effort. Using dispatch-progress therefore gives us the same
- *    operator-facing "no first byte / no worker heartbeat" detection without
- *    coupling the watchdog to adapter-specific log-attachment details.
+ *    Design note: the watchdog intentionally keys on first-output proof from
+ *    the framework-owned dispatch-progress contract rather than `stdout.log`
+ *    existence. `stdout.log` is adapter-authored visibility output and may be
+ *    absent even when the adapter is wired correctly. First-output timestamps
+ *    and output-line counters are the stable health contract across runtime
+ *    wiring.
  *
  * 2. **Stale turn watchdog (BUG-47):** if an active turn has status "running"
  *    for >N minutes with no event log activity AND no staged result file,
@@ -103,12 +103,11 @@ export function detectStaleTurns(root, state, config) {
 /**
  * BUG-51: Detect ghost-dispatched turns — subprocess never started.
  *
- * A ghost turn is one that has been in "running" or "retrying" status for
- * longer than the startup watchdog threshold (default 30s) AND has:
- *   - no dispatch-progress file (framework-observed proof that no subprocess
- *     output or heartbeat was attached)
+ * A ghost turn is one that has been in `dispatched`, `starting`, `running`, or
+ * `retrying` longer than the startup watchdog threshold (default 30s) AND has:
+ *   - no startup proof (no `first_output_at` on the turn or dispatch-progress,
+ *     and no recorded output line counts)
  *   - no staged result file
- *   - no recent turn-scoped events (beyond the initial turn_dispatched)
  *
  * This is a stricter, faster check than detectStaleTurns (BUG-47).
  * Ghost turns transition to "failed_start" rather than "stalled".

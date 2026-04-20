@@ -99,6 +99,9 @@ function describeContinuousTerminalStep(step, contOpts) {
     return `Continuous loop failed: ${reason}. Check "agentxchain status" for details.`;
   }
   if (step.status === 'blocked') {
+    if (step.recovery_action) {
+      return `Continuous loop paused on blocker. Recovery: ${step.recovery_action}`;
+    }
     return 'Continuous loop paused on blocker. Use "agentxchain unblock <id>" to resume.';
   }
   return null;
@@ -114,6 +117,10 @@ function isBlockedContinuousExecution(execution) {
   return stateStatus === 'blocked'
     || stopReason === 'blocked'
     || stopReason === 'reject_exhausted';
+}
+
+function getBlockedRecoveryAction(state) {
+  return state?.blocked_reason?.recovery?.recovery_action || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -361,7 +368,13 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     if (governedState?.status === 'blocked') {
       // Still blocked — stay paused, do not attempt new work
       writeContinuousSession(root, session);
-      return { ok: true, status: 'blocked', action: 'still_blocked', run_id: session.current_run_id };
+      return {
+        ok: true,
+        status: 'blocked',
+        action: 'still_blocked',
+        run_id: session.current_run_id,
+        recovery_action: getBlockedRecoveryAction(governedState),
+      };
     }
     // Unblocked — resume by continuing the existing governed run directly.
     // Skip the intake pipeline: the run is already in progress, and startIntent
@@ -388,10 +401,19 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     const resumeStopReason = execution.result?.stop_reason;
 
     if (isBlockedContinuousExecution(execution)) {
+      const blockedRecoveryAction = getBlockedRecoveryAction(execution?.result?.state || loadProjectState(root, context.config));
       session.status = 'paused';
-      log('Resumed run blocked again — continuous loop re-paused.');
+      log(blockedRecoveryAction
+        ? `Resumed run blocked again — continuous loop re-paused. Recovery: ${blockedRecoveryAction}`
+        : 'Resumed run blocked again — continuous loop re-paused.');
       writeContinuousSession(root, session);
-      return { ok: true, status: 'blocked', action: 'run_blocked', run_id: session.current_run_id };
+      return {
+        ok: true,
+        status: 'blocked',
+        action: 'run_blocked',
+        run_id: session.current_run_id,
+        recovery_action: blockedRecoveryAction,
+      };
     }
 
     if (execution.exitCode !== 0 || !execution.result) {
@@ -519,6 +541,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   }
 
   if (isBlockedContinuousExecution(execution)) {
+    const blockedRecoveryAction = getBlockedRecoveryAction(execution?.result?.state || loadProjectState(root, context.config));
     const resolved = resolveIntent(root, targetIntentId);
     if (!resolved.ok) {
       log(`Continuous resolve error: ${resolved.error}`);
@@ -527,9 +550,18 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
       return { ok: false, status: 'failed', action: 'resolve_failed', stop_reason: resolved.error, intent_id: targetIntentId };
     }
     session.status = 'paused';
-    log('Run blocked — continuous loop paused. Use `agentxchain unblock <id>` to resume.');
+    log(blockedRecoveryAction
+      ? `Run blocked — continuous loop paused. Recovery: ${blockedRecoveryAction}`
+      : 'Run blocked — continuous loop paused. Use `agentxchain unblock <id>` to resume.');
     writeContinuousSession(root, session);
-    return { ok: true, status: 'blocked', action: 'run_blocked', run_id: session.current_run_id, intent_id: targetIntentId };
+    return {
+      ok: true,
+      status: 'blocked',
+      action: 'run_blocked',
+      run_id: session.current_run_id,
+      intent_id: targetIntentId,
+      recovery_action: blockedRecoveryAction,
+    };
   }
 
   if (stopReason === 'caller_stopped') {
