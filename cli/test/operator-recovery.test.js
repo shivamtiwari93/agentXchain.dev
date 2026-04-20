@@ -234,6 +234,116 @@ describe('operator recovery surfaces', () => {
     }
   });
 
+  it('AT-QAAPP-001: status repairs orphaned final-phase human approval to approve-completion', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        phase: 'qa',
+        blocked_on: 'human_approval:qa_ship_verdict',
+        blocked_reason: {
+          category: 'hook_block',
+          blocked_at: '2026-04-02T13:00:00Z',
+          turn_id: 'turn_qa_legacy',
+          recovery: {
+            typed_reason: 'pending_phase_transition',
+            owner: 'human',
+            recovery_action: 'agentxchain approve-transition',
+            turn_retained: false,
+            detail: 'qa_ship_verdict',
+          },
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['status']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Reason:\s+pending_run_completion/);
+      assert.match(result.stdout, /Action:\s+agentxchain approve-completion/);
+      assert.match(result.stdout, /Pending:\s+Run Completion/);
+
+      const repairedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(repairedState.status, 'paused', 'orphaned approval pause should normalize to paused');
+      assert.equal(repairedState.blocked_reason, null, 'approval pause should not retain stale blocked_reason');
+      assert.equal(repairedState.pending_run_completion?.gate, 'qa_ship_verdict', 'final-phase approval should be reconstructed as pending_run_completion');
+      assert.equal(repairedState.pending_run_completion?.requested_by_turn, 'turn_qa_legacy', 'requested_by_turn should be preserved from legacy blocked state');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-QAAPP-002: approve-completion succeeds from repaired orphaned final-phase human approval', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        phase: 'qa',
+        blocked_on: 'human_approval:qa_ship_verdict',
+        blocked_reason: {
+          category: 'hook_block',
+          blocked_at: '2026-04-02T13:00:00Z',
+          turn_id: 'turn_qa_legacy',
+          recovery: {
+            typed_reason: 'pending_phase_transition',
+            owner: 'human',
+            recovery_action: 'agentxchain approve-transition',
+            turn_retained: false,
+            detail: 'qa_ship_verdict',
+          },
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['approve-completion']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Approving Run Completion/);
+      assert.match(result.stdout, /✓ Run completed/);
+
+      const repairedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(repairedState.status, 'completed', 'approve-completion should finalize the repaired run');
+      assert.equal(repairedState.pending_run_completion, null, 'pending completion must be cleared after approval');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-QAAPP-003: step --resume fails closed on orphaned final-phase human approval instead of reactivating the run', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        phase: 'qa',
+        blocked_on: 'human_approval:qa_ship_verdict',
+        blocked_reason: {
+          category: 'hook_block',
+          blocked_at: '2026-04-02T13:00:00Z',
+          turn_id: 'turn_qa_legacy',
+          recovery: {
+            typed_reason: 'pending_phase_transition',
+            owner: 'human',
+            recovery_action: 'agentxchain approve-transition',
+            turn_retained: false,
+            detail: 'qa_ship_verdict',
+          },
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['step', '--resume']);
+      assert.notEqual(result.status, 0, 'step --resume must not reactivate an orphaned approval wait');
+      assert.match(result.stdout, /This run is awaiting approval/);
+      assert.match(result.stdout, /Reason:\s+pending_run_completion/);
+      assert.match(result.stdout, /Action:\s+agentxchain approve-completion/);
+      assert.doesNotMatch(result.stdout, /Resumed blocked run/, 'step --resume must not reopen work while approval is pending');
+
+      const repairedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(repairedState.status, 'paused', 'step --resume should leave the repaired approval state paused');
+      assert.equal(repairedState.pending_run_completion?.gate, 'qa_ship_verdict');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('AT-AWTV-001: status warns about timeout pressure during pending approval waits', () => {
     const dir = createGovernedProject({
       config: {

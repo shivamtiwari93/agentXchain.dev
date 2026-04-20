@@ -1894,6 +1894,130 @@ export function reconcileRecoveryActionsWithConfig(state, config) {
   return { state: nextState, changed };
 }
 
+function inferApprovalPauseFromState(state, config) {
+  if (!state || typeof state !== 'object' || !config) {
+    return null;
+  }
+
+  if (state.pending_run_completion?.gate) {
+    return {
+      gateType: 'run_completion',
+      gateId: state.pending_run_completion.gate,
+      pendingField: 'pending_run_completion',
+      pendingValue: state.pending_run_completion,
+      typedReason: 'pending_run_completion',
+      recoveryAction: 'agentxchain approve-completion',
+    };
+  }
+
+  if (state.pending_phase_transition?.gate) {
+    return {
+      gateType: 'phase_transition',
+      gateId: state.pending_phase_transition.gate,
+      pendingField: 'pending_phase_transition',
+      pendingValue: state.pending_phase_transition,
+      typedReason: 'pending_phase_transition',
+      recoveryAction: 'agentxchain approve-transition',
+    };
+  }
+
+  if (typeof state.blocked_on !== 'string' || !state.blocked_on.startsWith('human_approval:')) {
+    return null;
+  }
+
+  const gateId = state.blocked_on.slice('human_approval:'.length) || null;
+  const currentRouting = config.routing?.[state.phase];
+  if (!gateId || !currentRouting?.exit_gate || currentRouting.exit_gate !== gateId) {
+    return null;
+  }
+
+  const requestedByTurn = state.blocked_reason?.turn_id ?? state.last_completed_turn_id ?? null;
+  const nextPhase = getNextPhase(state.phase, config.routing || {});
+
+  if (nextPhase) {
+    return {
+      gateType: 'phase_transition',
+      gateId,
+      pendingField: 'pending_phase_transition',
+      pendingValue: {
+        from: state.phase,
+        to: nextPhase,
+        gate: gateId,
+        requested_by_turn: requestedByTurn,
+      },
+      typedReason: 'pending_phase_transition',
+      recoveryAction: 'agentxchain approve-transition',
+    };
+  }
+
+  return {
+    gateType: 'run_completion',
+    gateId,
+    pendingField: 'pending_run_completion',
+    pendingValue: {
+      gate: gateId,
+      requested_by_turn: requestedByTurn,
+    },
+    typedReason: 'pending_run_completion',
+    recoveryAction: 'agentxchain approve-completion',
+  };
+}
+
+export function reconcileApprovalPausesWithConfig(state, config) {
+  if (!state || typeof state !== 'object' || !config) {
+    return { state, changed: false };
+  }
+
+  const inferred = inferApprovalPauseFromState(state, config);
+  if (!inferred) {
+    return { state, changed: false };
+  }
+
+  let nextState = state;
+  let changed = false;
+
+  if (!state[inferred.pendingField]) {
+    nextState = {
+      ...nextState,
+      [inferred.pendingField]: inferred.pendingValue,
+    };
+    changed = true;
+  }
+
+  if (nextState.status === 'blocked' || nextState.blocked_reason != null) {
+    nextState = {
+      ...nextState,
+      status: 'paused',
+      blocked_reason: null,
+    };
+    changed = true;
+  }
+
+  const recovery = nextState.blocked_reason?.recovery;
+  if (recovery && (
+    recovery.typed_reason !== inferred.typedReason
+    || recovery.recovery_action !== inferred.recoveryAction
+    || recovery.detail !== inferred.gateId
+  )) {
+    nextState = {
+      ...nextState,
+      blocked_reason: {
+        ...nextState.blocked_reason,
+        recovery: {
+          ...recovery,
+          typed_reason: inferred.typedReason,
+          recovery_action: inferred.recoveryAction,
+          turn_retained: false,
+          detail: inferred.gateId,
+        },
+      },
+    };
+    changed = true;
+  }
+
+  return { state: nextState, changed };
+}
+
 function inferBlockedReasonFromState(state) {
   if (!state || typeof state !== 'object') {
     return null;

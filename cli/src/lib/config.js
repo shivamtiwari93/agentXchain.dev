@@ -6,6 +6,7 @@ import { safeWriteJson } from './safe-write.js';
 import {
   normalizeGovernedStateShape,
   getActiveTurn,
+  reconcileApprovalPausesWithConfig,
   reconcileBudgetStatusWithConfig,
   reconcileRecoveryActionsWithConfig,
 } from './governed-state.js';
@@ -153,11 +154,13 @@ export function loadProjectState(root, config) {
   if (config?.protocol_mode === 'governed') {
     const normalized = normalizeGovernedStateShape(stateData);
     stateData = normalized.state;
+    const reconciledApprovals = reconcileApprovalPausesWithConfig(stateData, config);
+    stateData = reconciledApprovals.state;
     const reconciledBudget = reconcileBudgetStatusWithConfig(stateData, config);
     stateData = reconciledBudget.state;
     const reconciledRecovery = reconcileRecoveryActionsWithConfig(stateData, config);
     stateData = reconciledRecovery.state;
-    if (normalized.changed || reconciledBudget.changed || reconciledRecovery.changed) {
+    if (normalized.changed || reconciledApprovals.changed || reconciledBudget.changed || reconciledRecovery.changed) {
       safeWriteJson(filePath, stateData);
     }
   }

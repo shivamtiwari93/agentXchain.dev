@@ -275,10 +275,12 @@ describe('agentxchain restart', () => {
     dirs.push(dir);
 
     const result = runCli(dir, ['restart']);
-    assert.notEqual(result.status, 0, 'blocked restart should still fail');
-    assert.match(result.stdout, /Action: agentxchain approve-transition/);
-    assert.match(result.stdout, /Detail: planning_signoff/);
+    assert.equal(result.status, 0, 'pending approvals should normalize to the shared approval recovery flow');
+    assert.match(result.stdout, /Pending phase transition: planning → implementation/);
+    assert.match(result.stdout, /Run `agentxchain approve-transition` next\./);
+    assert.match(result.stdout, /Detail: planning -> implementation \(gate: planning_signoff\)/);
     assert.doesNotMatch(result.stdout, /agentxchain step --resume/, 'restart must not emit generic step guidance when an approval gate is still pending');
+    assert.doesNotMatch(result.stdout, /Restarted run/, 'restart must not reactivate work while an approval gate is pending');
   });
 
   it('AT-SCR-004: reconnects to an abandoned active turn in a fresh process', () => {

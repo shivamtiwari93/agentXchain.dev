@@ -13,13 +13,16 @@
 import chalk from 'chalk';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { loadProjectContext } from '../lib/config.js';
+import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import {
   assignGovernedTurn,
   getActiveTurns,
   getActiveTurnCount,
   reactivateGovernedRun,
   detectStateBundleDesync,
+  normalizeGovernedStateShape,
+  reconcileApprovalPausesWithConfig,
+  reconcileRecoveryActionsWithConfig,
   STATE_PATH,
   HISTORY_PATH,
   LEDGER_PATH,
@@ -27,7 +30,6 @@ import {
 import { writeDispatchBundle } from '../lib/dispatch-bundle.js';
 import { getDispatchTurnDir } from '../lib/turn-paths.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
-import { loadProjectState } from '../lib/config.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { deriveRecommendedContinuityAction } from '../lib/continuity-status.js';
 import { readSessionCheckpoint, writeSessionCheckpoint, captureBaselineRef, SESSION_PATH } from '../lib/session-checkpoint.js';
@@ -178,7 +180,20 @@ export async function restartCommand(opts) {
     process.exit(1);
   }
 
-  const state = JSON.parse(readFileSync(statePath, 'utf8'));
+  let state;
+  try {
+    const parsed = JSON.parse(readFileSync(statePath, 'utf8'));
+    const normalized = normalizeGovernedStateShape(parsed);
+    const reconciledApprovals = reconcileApprovalPausesWithConfig(normalized.state, config);
+    const reconciledRecovery = reconcileRecoveryActionsWithConfig(reconciledApprovals.state, config);
+    state = reconciledRecovery.state;
+    if (normalized.changed || reconciledApprovals.changed || reconciledRecovery.changed) {
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+    }
+  } catch {
+    console.log(chalk.red('No valid governed state.json found.'));
+    process.exit(1);
+  }
 
   // Load checkpoint (optional — restart can work without it, just with less context)
   const checkpoint = readSessionCheckpoint(root);
