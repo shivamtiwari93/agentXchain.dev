@@ -39,7 +39,9 @@ Human escalation lifecycle events (`human_escalation_raised`, `human_escalation_
 
 ### Scheduler Auto-Resume on Unblock
 
-`schedule daemon` now treats blocked schedule-owned runs as non-fatal wait states. After `agentxchain unblock <id>`, the daemon continues the same schedule-owned run within one poll interval without requiring a separate operator command.
+`schedule daemon` now treats blocked schedule-owned runs as non-fatal wait states. After the operator runs the surfaced recovery command, the daemon continues the same schedule-owned run within one poll interval without requiring a separate operator command.
+
+> Note (post-`v2.146.0`): `agentxchain unblock <id>` is the recovery command for `needs_human` blockers only. After BUG-47 (`v2.145.0`) and BUG-51 (`v2.146.0`), `schedule run-due --json` and `schedule daemon --json` propagate `recovery_action` and `blocked_category` for every blocked schedule-owned run. Ghost-startup turns require `agentxchain reissue-turn --reason ghost`, stalled turns require `agentxchain reissue-turn --reason stale`, and `unblock <id>` only applies when `blocked_category` is `needs_human`. Operators must follow the surfaced `recovery_action`, not assume `unblock <id>` is universal. (`DEC-BUG51-SCHEDULE-DOC-RECOVERY-001`, `DEC-BUG51-CONTINUOUS-DOC-RECOVERY-001`)
 
 ### Priority Injection with Scheduler Consumption
 

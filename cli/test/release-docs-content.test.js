@@ -230,6 +230,63 @@ describe('release planning surface classification', () => {
     });
   }
 
+  // -- BUG-47/51 schedule-recovery contract: historical release notes that
+  // describe the schedule daemon's blocked-run behavior must not present
+  // `agentxchain unblock <id>` as the universal recovery command. Post-
+  // BUG-47/51, schedule daemon JSON propagates `recovery_action` and
+  // `blocked_category`, and ghost/stale turns require `reissue-turn` not
+  // `unblock`. (`DEC-BUG51-SCHEDULE-DOC-RECOVERY-001`,
+  // `DEC-BUG51-CONTINUOUS-DOC-RECOVERY-001`)
+  it('v2.117.0 release note clarifies that unblock is not universal for blocked schedule daemon runs (BUG-47/51 schedule-recovery contract)', () => {
+    const release = read('website-v2/docs/releases/v2-117-0.mdx');
+    assert.match(release, /Scheduler Auto-Resume on Unblock/,
+      'v2.117.0 must still document the auto-resume feature historically');
+    assert.match(release, /reissue-turn --reason ghost/,
+      'v2.117.0 must reference reissue-turn --reason ghost (BUG-51) in the post-release recovery note');
+    assert.match(release, /reissue-turn --reason stale/,
+      'v2.117.0 must reference reissue-turn --reason stale (BUG-47) in the post-release recovery note');
+    assert.match(release, /recovery_action/,
+      'v2.117.0 must reference the surfaced recovery_action contract');
+    assert.match(release, /blocked_category/,
+      'v2.117.0 must reference the surfaced blocked_category contract');
+    assert.match(release, /needs_human/,
+      'v2.117.0 must scope unblock <id> to needs_human blockers');
+    assert.match(release, /DEC-BUG51-SCHEDULE-DOC-RECOVERY-001/,
+      'v2.117.0 must cite the binding decision');
+    assert.doesNotMatch(
+      release,
+      /After `agentxchain unblock <id>`, the daemon continues the same schedule-owned run within one poll interval without requiring a separate operator command\./,
+      'v2.117.0 must not regress to the universal-unblock wording — must read "After the operator runs the surfaced recovery command,..."',
+    );
+  });
+
+  it('CHANGELOG v2.117.0 entry clarifies that unblock is not universal for blocked schedule daemon runs (BUG-47/51 schedule-recovery contract)', () => {
+    const changelog = read('cli/CHANGELOG.md');
+    // Locate the v2.117.0 section — `## 2.117.0` headline through the next `## ` headline.
+    const match = changelog.match(/## 2\.117\.0\b[\s\S]*?(?=\n## )/);
+    assert.ok(match, 'CHANGELOG must contain a v2.117.0 section');
+    const section = match[0];
+    assert.match(section, /Scheduler auto-resume on unblock/,
+      'v2.117.0 changelog must still document the auto-resume feature historically');
+    assert.match(section, /reissue-turn --reason ghost/,
+      'v2.117.0 changelog must reference reissue-turn --reason ghost (BUG-51) in the post-release recovery note');
+    assert.match(section, /reissue-turn --reason stale/,
+      'v2.117.0 changelog must reference reissue-turn --reason stale (BUG-47) in the post-release recovery note');
+    assert.match(section, /recovery_action/,
+      'v2.117.0 changelog must reference the surfaced recovery_action contract');
+    assert.match(section, /blocked_category/,
+      'v2.117.0 changelog must reference the surfaced blocked_category contract');
+    assert.match(section, /needs_human/,
+      'v2.117.0 changelog must scope unblock <id> to needs_human blockers');
+    assert.match(section, /DEC-BUG51-SCHEDULE-DOC-RECOVERY-001/,
+      'v2.117.0 changelog must cite the binding decision');
+    assert.doesNotMatch(
+      section,
+      /After `agentxchain unblock <id>`, the daemon continues within one poll interval \(`DEC-SCHEDULE-DAEMON-UNBLOCK-001`\)$/m,
+      'v2.117.0 changelog must not regress to the universal-unblock wording',
+    );
+  });
+
   it('historical release notes do not present the live quickstart alias as a frozen historical route', () => {
     const spec = read('.planning/HISTORICAL_QUICKSTART_LINK_TRUTH_SPEC.md');
     const release213 = read('website-v2/docs/releases/v2-13-0.mdx');
