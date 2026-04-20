@@ -3017,3 +3017,71 @@ Closures:
 > **Issue 7: full-auto still not achieved.** 2.147.0 still not full-auto because: planning gate still loops and needs manual state surgery; QA runtime still highly unreliable; accepted/checkpointed work can still leave dirty worktrees; launch still depends on recovery after failed starts; operator still actively managing transitions. BUG-52 and BUG-53 not fixed based on this evidence.
 >
 > **Short conclusion:** 2.147.0 improved startup failure reporting (runtime_spawn_failed, stdout_attach_failed, turn_start_failed). That's real progress. But concrete issues faced: false planning_signoff loops still reproduce, QA startup repeatedly fails across many reissues, accepted verification work can still leave dirty actor-owned files, verification side effects still break acceptance, launch still requires operator salvage after failed starts, system still is not truly full-auto end-to-end.
+
+---
+
+### Beta-tester bug report #20 (verbatim) — v2.148.0 clean-retest still has startup/orchestration bug (2026-04-20)
+
+> Based on the clean isolated retest under `agentxchain@latest` resolving to `2.148.0`, the bug still continues.
+>
+> **Clean 2.148.0 evidence:**
+> - isolated worktree: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-21480-clean`
+> - continuous session: `cont-68fcad95`
+> - run: `run_15787079e4eb9e07`
+>
+> **What's happening in that clean run:**
+> - the run never gets past `planning`
+> - PM turns repeatedly fail to start
+> - failure modes observed:
+>   - `runtime_spawn_failed`
+>   - `stdout_attach_failed`
+>   - `ghost_turn`
+> - I've reissued the PM turn repeatedly through native recovery, and it keeps reproducing
+>
+> **Clean version-isolated verdict:**
+> - 2.148.0 still has the startup/orchestration bug
+> - it is reproducible in a fresh retest, not just inherited from old mixed-version state
+
+**Analysis (2026-04-20):**
+- Fresh worktree + fresh session + fresh run → state corruption hypothesis eliminated
+- PM turns failing → previous "QA-specific" framing wrong; bug is `local_cli` runtime-general
+- Same 3 failure modes as v2.147.0 (runtime_spawn_failed, stdout_attach_failed, ghost_turn) → 27 commits of post-v2.148.0 classification work did not address root cause
+- Pattern matches BUG-47→BUG-51: observability keeps improving, reliability doesn't
+- Next fix must investigate WHY spawns fail, not how failures are classified/displayed
+
+
+---
+
+### Beta-tester bug report #20 amplification (verbatim) — 29 clean-retest PM attempts = zero completions (2026-04-20)
+
+> **No substantive product work.**
+>
+> Across those 29 clean 2.148.0 PM attempts in `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-21480-clean`:
+> - The run never progressed past `planning`.
+> - No PM turn completed successfully.
+> - No turn was accepted, merged, or checkpointed as completed work.
+> - No implementation or QA phase started.
+> - The repeated "work" was only framework recovery:
+>   - `reissue-turn --reason ghost`
+>   - `step --resume`
+>
+> What did happen:
+> - AgentXchain kept creating new PM attempts and dispatch logs.
+> - It produced runtime evidence of the bug:
+>   - `runtime_spawn_failed`
+>   - `stdout_attach_failed`
+>   - `ghost_turn`
+> - It updated continuity/runtime state, e.g. `.agentxchain` metadata and `agentxchain/continuous-session.json`.
+>
+> **So the honest answer is:**
+> - **No real product/spec/code progress happened in those 29 attempts.**
+> - The only real output was **diagnostic evidence that 2.148.0 is still broken in clean PM startup/orchestration.**
+
+**Analysis (2026-04-20):**
+- 29 consecutive failures with 0 successes = deterministic, not flaky
+- Rules out: FD exhaustion (first attempt fails), race condition (intermittent), state corruption (clean worktree)
+- Most likely: **auth or env variable not propagating from parent to subprocess** — explains deterministic 0% success across role-general spawns
+- `reissue-turn` + `step --resume` native recovery does NOT help — every reissued turn hits the same underlying spawn/attach failure
+- ~2.5 hours of framework time (29 × ~5 min per ghost detection) produced zero product work
+- Represents worst-case possible scenario for full-auto claim: framework burns continuous wall-clock and spends agent effort without making any forward progress
+- Severity raised from P1 to P0 — this is now a complete-failure-mode on clean install, not a flaky-reliability issue
