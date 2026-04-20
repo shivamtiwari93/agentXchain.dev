@@ -1921,6 +1921,13 @@ function inferApprovalPauseFromState(state, config) {
     };
   }
 
+  // Approval waits are post-turn pause states. If a turn is still retained,
+  // recover the turn first instead of synthesizing a gate wait from stale
+  // blocked_on metadata.
+  if (getActiveTurnCount(state) > 0) {
+    return null;
+  }
+
   if (typeof state.blocked_on !== 'string' || !state.blocked_on.startsWith('human_approval:')) {
     return null;
   }

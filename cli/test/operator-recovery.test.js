@@ -344,6 +344,59 @@ describe('operator recovery surfaces', () => {
     }
   });
 
+  it('AT-QAAPP-004: status lets stale retained turns override orphaned approval repair', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        phase: 'qa',
+        blocked_on: 'human_approval:qa_ship_verdict',
+        blocked_reason: {
+          category: 'hook_block',
+          blocked_at: '2026-04-02T13:00:00Z',
+          turn_id: 'turn_qa_stale',
+          recovery: {
+            typed_reason: 'pending_phase_transition',
+            owner: 'human',
+            recovery_action: 'agentxchain approve-transition',
+            turn_retained: false,
+            detail: 'qa_ship_verdict',
+          },
+        },
+        turn_sequence: 3,
+        active_turns: {
+          turn_qa_stale: {
+            turn_id: 'turn_qa_stale',
+            assigned_role: 'qa',
+            runtime_id: 'local-dev',
+            attempt: 1,
+            status: 'running',
+            started_at: '2026-04-02T12:40:00Z',
+          },
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['status', '--json']);
+      assert.equal(result.status, 0, result.stderr);
+
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.recovery?.typed_reason, 'stale_turn', 'stale retained turn must remain the recovery target');
+      assert.equal(payload.state.status, 'blocked');
+      assert.equal(payload.state.blocked_on, 'turn:stalled:turn_qa_stale');
+      assert.equal(payload.state.pending_run_completion ?? null, null, 'retained active turn must suppress inferred pending completion');
+      assert.equal(payload.state.pending_phase_transition ?? null, null, 'retained active turn must suppress inferred pending transition');
+      assert.equal(payload.state.active_turns?.turn_qa_stale?.status, 'stalled');
+      assert.equal(payload.stale_turns?.length, 1, 'status must still surface the stale-turn watchdog result');
+
+      const repairedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(repairedState.pending_run_completion ?? null, null, 'disk state must not persist a synthetic approval while a turn is retained');
+      assert.equal(repairedState.active_turns?.turn_qa_stale?.status, 'stalled');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('AT-AWTV-001: status warns about timeout pressure during pending approval waits', () => {
     const dir = createGovernedProject({
       config: {

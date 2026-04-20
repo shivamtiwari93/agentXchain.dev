@@ -136,6 +136,9 @@ function loadStatusContext(dir = process.cwd()) {
 function renderGovernedStatus(context, opts) {
   const { root, config, version } = context;
   let state = loadProjectState(root, config);
+  const staleReconciliation = reconcileStaleTurns(root, state, config);
+  state = staleReconciliation.state || state;
+  const staleTurns = staleReconciliation.stale_turns;
   const stateRunId = state?.run_id || readRawStateRunId(root, config);
   const continuity = getContinuityStatus(root, state);
   const connectorHealth = getConnectorHealth(root, config, state);
@@ -165,11 +168,6 @@ function renderGovernedStatus(context, opts) {
 
   // Coordinator warning surfacing — DEC-COORD-RETRY-PROJECTION-EVENT-001
   const coordinatorWarnings = readCoordinatorWarnings(root, { runId: stateRunId || null });
-
-  // BUG-47: detect stale running turns and emit turn_stalled events
-  const staleReconciliation = reconcileStaleTurns(root, state, config);
-  state = staleReconciliation.state || state;
-  const staleTurns = staleReconciliation.stale_turns;
 
   if (opts.json) {
     const dashPid = getDashboardPid(root);
