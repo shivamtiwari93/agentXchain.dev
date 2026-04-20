@@ -1485,6 +1485,154 @@ HOOKEOF
       assert.match(data.recovery_summary.detail, /Coordinator state is unchanged/);
     });
 
+    it('AT-DASH-ACT-016: POST /api/actions/approve-gate reconciles orphaned blocked_on into run completion and succeeds', async () => {
+      // Seed orphaned state: blocked_on human_approval with no explicit
+      // pending_run_completion.  loadProjectState reconciliation must
+      // repair this before the action can route correctly.
+      // protocol_mode: 'governed' is required so approvePendingDashboardGate
+      // uses loadProjectState (which reconciles) instead of raw readJsonFile.
+      const cleanRepoConfig = JSON.parse(readFileSync(join(fixture.root, 'agentxchain.json'), 'utf8'));
+      delete cleanRepoConfig.hooks;
+      cleanRepoConfig.protocol_mode = 'governed';
+      // exit_gate must match blocked_on gate so reconciliation can infer
+      // the pending approval type.  qa is the final phase (no next phase
+      // in routing), so reconciliation routes to run_completion.
+      // Gates must also be declared in the config for routing validation.
+      cleanRepoConfig.routing = {
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'], exit_gate: 'implementation_complete' },
+        qa: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'], exit_gate: 'qa_ship_verdict' },
+      };
+      cleanRepoConfig.gates = {
+        implementation_complete: { requires_human_approval: true },
+        qa_ship_verdict: { requires_human_approval: true },
+      };
+      writeJson(join(fixture.root, 'agentxchain.json'), cleanRepoConfig);
+
+      writeJson(join(fixture.axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'dashboard-root',
+        run_id: 'run_test_001',
+        status: 'blocked',
+        phase: 'qa',
+        active_turns: {},
+        turn_sequence: 3,
+        accepted_count: 3,
+        rejected_count: 0,
+        blocked_on: 'human_approval:qa_ship_verdict',
+        blocked_reason: {
+          detail: 'Waiting for QA ship verdict',
+          turn_id: 'turn_qa_orphan',
+        },
+        phase_gate_status: {
+          implementation_complete: 'passed',
+          qa_ship_verdict: 'pending',
+        },
+      });
+      // Clear coordinator gate so it does not interfere
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'active',
+        phase: 'qa',
+        pending_gate: null,
+        repo_runs: {},
+      });
+
+      const session = JSON.parse((await httpGet(port, '/api/session')).body);
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AgentXchain-Token': session.mutation_token,
+        },
+        body: '{}',
+      });
+
+      assert.equal(res.status, 200, 'HTTP route should succeed on orphaned final-phase approval');
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.scope, 'repo');
+      assert.equal(data.gate_type, 'run_completion');
+      assert.equal(data.status, 'completed');
+
+      const updated = JSON.parse(readFileSync(join(fixture.axcDir, 'state.json'), 'utf8'));
+      assert.equal(updated.status, 'completed', 'disk state should complete via reconciled HTTP route');
+      assert.equal(updated.pending_run_completion, null);
+      assert.equal(updated.phase_gate_status?.qa_ship_verdict, 'passed');
+    });
+
+    it('AT-DASH-ACT-017: POST /api/actions/approve-gate reconciles orphaned blocked_on into phase transition and advances', async () => {
+      // Seed orphaned state: blocked_on human_approval for a non-final
+      // gate with no explicit pending_phase_transition.  Reconciliation
+      // must surface it as a phase transition, not a completion.
+      // protocol_mode: 'governed' required for reconciliation path.
+      const repoConfig = JSON.parse(readFileSync(join(fixture.root, 'agentxchain.json'), 'utf8'));
+      delete repoConfig.hooks;
+      repoConfig.protocol_mode = 'governed';
+      // exit_gate for implementation must match blocked_on gate.
+      // Implementation has a next phase (qa), so reconciliation routes
+      // to phase_transition.
+      repoConfig.routing = {
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'], exit_gate: 'implementation_complete' },
+        qa: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'], exit_gate: 'qa_ship_verdict' },
+      };
+      repoConfig.gates = {
+        implementation_complete: { requires_human_approval: true },
+        qa_ship_verdict: { requires_human_approval: true },
+      };
+      writeJson(join(fixture.root, 'agentxchain.json'), repoConfig);
+
+      writeJson(join(fixture.axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'dashboard-root',
+        run_id: 'run_test_001',
+        status: 'blocked',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 2,
+        accepted_count: 2,
+        rejected_count: 0,
+        blocked_on: 'human_approval:implementation_complete',
+        blocked_reason: {
+          detail: 'Waiting for implementation signoff',
+          turn_id: 'turn_impl_orphan',
+        },
+        phase_gate_status: {
+          implementation_complete: 'pending',
+        },
+      });
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'active',
+        phase: 'implementation',
+        pending_gate: null,
+        repo_runs: {},
+      });
+
+      const session = JSON.parse((await httpGet(port, '/api/session')).body);
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AgentXchain-Token': session.mutation_token,
+        },
+        body: '{}',
+      });
+
+      assert.equal(res.status, 200, 'HTTP route should succeed on orphaned non-final approval');
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.scope, 'repo');
+      assert.equal(data.gate_type, 'phase_transition');
+      assert.equal(data.status, 'active');
+      assert.equal(data.phase, 'qa');
+
+      const updated = JSON.parse(readFileSync(join(fixture.axcDir, 'state.json'), 'utf8'));
+      assert.equal(updated.status, 'active', 'disk state should return to active via HTTP route');
+      assert.equal(updated.phase, 'qa', 'phase should advance via reconciled HTTP route');
+      assert.equal(updated.pending_phase_transition, null);
+      assert.equal(updated.phase_gate_status?.implementation_complete, 'passed');
+    });
+
     it('POST /api/actions/approve-gate returns 409 when no repo or coordinator gate exists', async () => {
       writeJson(join(fixture.axcDir, 'state.json'), {
         schema_version: '1.1',
