@@ -2314,6 +2314,93 @@ describe('claim-reality preflight', () => {
       `packaged ghost-turn reconciliation must emit a run_blocked event so operators are surfaced the halt; got ${eventTypes.join(',')}`);
   });
 
+  it('BUG-51 packaged local-cli adapter rejects a nonexistent binary as runtime_spawn_failed without firing onSpawnAttached', async () => {
+    // Companion to "BUG-51 packaged CLI detects a ghost turn ..." above.
+    // That test exercises the watchdog/reconciliation seam against state on
+    // disk. This test exercises the OTHER half of DEC-BUG51-SPAWN-ATTACH-
+    // TRUTH-001: the packed local-cli adapter itself must refuse to fire the
+    // worker-attachment callback for a binary that never reports a successful
+    // Node `spawn` event. The previous bug class (tester's 11-minute ghost)
+    // started here — child-process object creation was treated as worker
+    // attachment, so governed state stamped fake `worker_attached_at` /
+    // `worker_pid` for processes that never actually ran. The Turn 40 fix
+    // moved the boundary to `child.once('spawn', ...)`. This row locks that
+    // contract at the published-tarball boundary so a packaging regression
+    // (e.g., minification, transform, file omission) cannot silently restore
+    // the old "child object exists ⇒ worker attached" lie.
+    const { packageDir } = getExtractedPackage();
+    const adapter = await import(pathToFileURL(join(packageDir, 'src/lib/adapters/local-cli-adapter.js')).href);
+    const { dispatchLocalCli } = adapter;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug51-spawn-'));
+    TEMP_PATHS.push(root);
+
+    const turnId = 'turn_packed_nonexistent_binary';
+    // Adapter requires a dispatch bundle on disk before spawning; without
+    // PROMPT.md it short-circuits with "Dispatch bundle not found" instead
+    // of reaching the spawn path we want to test. Bundle layout is owned by
+    // turn-paths.js (`.agentxchain/dispatch/turns/<turn_id>/`).
+    const dispatchDir = join(root, '.agentxchain', 'dispatch', 'turns', turnId);
+    mkdirSync(dispatchDir, { recursive: true });
+    writeFileSync(join(dispatchDir, 'PROMPT.md'), '# packed bug51 spawn-attach truth proof\n');
+    writeFileSync(join(dispatchDir, 'CONTEXT.md'), '');
+
+    const state = {
+      schema_version: '1.0',
+      run_id: 'run_packed_bug51_spawn',
+      phase: 'implementation',
+      status: 'running',
+      active_turns: {
+        [turnId]: {
+          turn_id: turnId,
+          assigned_role: 'dev',
+          runtime_id: 'local-dev',
+          status: 'dispatched',
+          attempt: 1,
+          deadline_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+      },
+    };
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug51-packed-spawn', name: 'BUG-51 packed spawn', default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'x', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: ['__no_such_binary_xyz_bug51_packed__'],
+          cwd: '.',
+          prompt_transport: 'dispatch_bundle_only',
+        },
+      },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_signoff' } },
+      gates: { implementation_signoff: {} },
+      run_loop: { startup_watchdog_ms: 5_000 },
+    };
+
+    const attached = [];
+    const firstOutput = [];
+    const result = await dispatchLocalCli(root, state, config, {
+      turnId,
+      skipManifestVerification: true,
+      onSpawnAttached: (details) => attached.push(details),
+      onFirstOutput: (details) => firstOutput.push(details),
+    });
+
+    assert.equal(result.ok, false,
+      'packaged dispatchLocalCli must report failure for a runtime whose binary does not exist');
+    assert.equal(result.startupFailure, true,
+      'packaged dispatchLocalCli must mark a never-spawned subprocess as a startup failure (not a generic exit)');
+    assert.equal(result.startupFailureType, 'runtime_spawn_failed',
+      'packaged dispatchLocalCli must classify a never-spawned subprocess as runtime_spawn_failed (DEC-BUG51-SPAWN-ATTACH-TRUTH-001) — the ghost-turn family lives here');
+    assert.equal(attached.length, 0,
+      'packaged dispatchLocalCli must NOT fire onSpawnAttached for a binary that never reports a Node `spawn` event — firing it would let governed-state.js stamp fake worker_attached_at/worker_pid, which is the exact lie the tester reported as the BUG-51 root cause');
+    assert.equal(firstOutput.length, 0,
+      'packaged dispatchLocalCli must NOT fire onFirstOutput for a binary that never spawned');
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));
