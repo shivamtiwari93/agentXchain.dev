@@ -280,6 +280,9 @@ describe('current release surface', () => {
       'undeclared_verification_outputs',
       'verification.produced_files',
       'git status --short',
+      'phase_entered',
+      'reconciled_before_dispatch',
+      'session_continuation',
     ]) {
       assert.match(
         releasePage,
