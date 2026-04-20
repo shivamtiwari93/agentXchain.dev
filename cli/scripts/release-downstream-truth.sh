@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Release downstream truth — run after all downstream surfaces are updated.
-# Verifies: GitHub release exists, Homebrew tap SHA and URL match registry tarball.
+# Verifies: GitHub release is published on the expected tag URL, Homebrew tap SHA and URL match registry tarball.
 # Usage: bash scripts/release-downstream-truth.sh --target-version <semver>
 set -uo pipefail
 
@@ -91,22 +91,30 @@ echo "[1/3] GitHub release"
 if ! command -v gh >/dev/null 2>&1; then
   fail "gh CLI not available — cannot verify GitHub release"
 else
-  GH_FOUND=false
+  GH_READY=false
+  EXPECTED_GH_URL="https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v${TARGET_VERSION}"
   for attempt in $(seq 1 "$RETRY_ATTEMPTS"); do
     GH_TAG="$(gh release view "v${TARGET_VERSION}" --json tagName -q '.tagName' 2>/dev/null || true)"
-    if [[ "$GH_TAG" == "v${TARGET_VERSION}" ]]; then
-      GH_FOUND=true
+    GH_DRAFT="$(gh release view "v${TARGET_VERSION}" --json isDraft -q '.isDraft' 2>/dev/null || true)"
+    GH_URL="$(gh release view "v${TARGET_VERSION}" --json url -q '.url' 2>/dev/null || true)"
+    GH_PUBLISHED_AT="$(gh release view "v${TARGET_VERSION}" --json publishedAt -q '.publishedAt' 2>/dev/null || true)"
+    if [[ "$GH_TAG" == "v${TARGET_VERSION}" ]] \
+      && [[ "$GH_DRAFT" == "false" ]] \
+      && [[ "$GH_URL" == "$EXPECTED_GH_URL" ]] \
+      && [[ -n "$GH_PUBLISHED_AT" ]] \
+      && [[ "$GH_PUBLISHED_AT" != "null" ]]; then
+      GH_READY=true
       break
     fi
     if [[ "$attempt" -lt "$RETRY_ATTEMPTS" ]]; then
-      echo "  INFO: GitHub release not found (attempt ${attempt}/${RETRY_ATTEMPTS}); retrying in ${RETRY_DELAY_SECONDS}s..."
+      echo "  INFO: GitHub release not ready (attempt ${attempt}/${RETRY_ATTEMPTS}); retrying in ${RETRY_DELAY_SECONDS}s..."
       sleep "$RETRY_DELAY_SECONDS"
     fi
   done
-  if $GH_FOUND; then
-    pass "GitHub release v${TARGET_VERSION} exists"
+  if $GH_READY; then
+    pass "GitHub release v${TARGET_VERSION} is published on the tagged release URL"
   else
-    fail "GitHub release v${TARGET_VERSION} not found after ${RETRY_ATTEMPTS} attempts"
+    fail "GitHub release v${TARGET_VERSION} is not fully published (tag=${GH_TAG:-<missing>} draft=${GH_DRAFT:-<missing>} url=${GH_URL:-<missing>} publishedAt=${GH_PUBLISHED_AT:-<missing>})"
   fi
 fi
 

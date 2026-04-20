@@ -26,10 +26,14 @@ bash scripts/release-downstream-truth.sh --target-version <semver>
 
 The script checks 3 downstream truth conditions:
 
-### Check 1: GitHub Release Exists
+### Check 1: GitHub Release Is Fully Published
 - Uses `gh release view v<version>` to verify the GitHub release exists
 - Extracts tag name and confirms it matches `v<version>`
+- Confirms the release is **not** a draft
+- Confirms `publishedAt` is present
+- Confirms the release URL is the canonical tagged page: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v<version>`
 - Retries (configurable, default 3 attempts / 5s delay) for propagation
+- This catches malformed release objects that technically exist but still surface as draft or `untagged-*` URLs
 
 ### Check 2: Homebrew Tap SHA Matches Registry Tarball SHA
 - Fetches the registry tarball: `curl -sL <tarball_url> | shasum -a 256`
@@ -54,6 +58,7 @@ The script checks 3 downstream truth conditions:
 |-----------|----------|
 | `gh` CLI not available | FAIL with diagnostic |
 | GitHub release does not exist after retries | FAIL |
+| GitHub release exists but is still draft / missing `publishedAt` / points at an `untagged-*` URL | FAIL |
 | Canonical Homebrew formula cannot be fetched from the tap repo or override source | FAIL |
 | Canonical Homebrew formula SHA does not match registry SHA | FAIL |
 | Canonical Homebrew formula URL does not match registry URL | FAIL |
@@ -67,6 +72,8 @@ The script checks 3 downstream truth conditions:
 4. `AT-RDT-004`: A canonical Homebrew formula with wrong tarball URL fails check 3.
 5. `AT-RDT-005`: A missing GitHub release fails check 1.
 6. `AT-RDT-006`: Default repo-based formula fetching succeeds without relying on a raw GitHub URL.
+7. `AT-RDT-007`: A GitHub release that still exists only as a draft fails check 1.
+8. `AT-RDT-008`: A GitHub release with an `untagged-*` URL fails check 1 even if the tag name matches.
 
 ## Open Questions
 

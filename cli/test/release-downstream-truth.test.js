@@ -68,7 +68,25 @@ function createFixture({ version = '2.15.0' } = {}) {
       '  if [[ "${FAKE_GH_MISSING:-0}" == "1" ]]; then',
       '    exit 1',
       '  fi',
-      '  printf "%s\\n" "${FAKE_GH_TAG:-v2.15.0}"',
+      '  query=""',
+      '  while [[ $# -gt 0 ]]; do',
+      '    case "$1" in',
+      '      -q)',
+      '        query="${2:-}"',
+      '        shift 2',
+      '        ;;',
+      '      *)',
+      '        shift',
+      '        ;;',
+      '    esac',
+      '  done',
+      '  case "$query" in',
+      "    '.tagName') printf \"%s\\\\n\" \"${FAKE_GH_TAG:-v2.15.0}\" ;;",
+      "    '.isDraft') printf \"%s\\\\n\" \"${FAKE_GH_DRAFT:-false}\" ;;",
+      "    '.url') printf \"%s\\\\n\" \"${FAKE_GH_URL:-https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.15.0}\" ;;",
+      "    '.publishedAt') printf \"%s\\\\n\" \"${FAKE_GH_PUBLISHED_AT:-2026-04-20T01:47:33Z}\" ;;",
+      '    *) printf "%s\\n" "${FAKE_GH_TAG:-v2.15.0}" ;;',
+      '  esac',
       '  exit 0',
       'fi',
       'echo "unexpected gh args: $*" >&2',
@@ -179,7 +197,7 @@ describe('release downstream truth contract', () => {
     );
 
     assert.equal(result.status, 0);
-    assert.match(result.stdout, /PASS: GitHub release v2\.15\.0 exists/);
+    assert.match(result.stdout, /PASS: GitHub release v2\.15\.0 is published on the tagged release URL/);
     assert.match(result.stdout, /PASS: canonical Homebrew formula SHA256 matches registry tarball/);
     assert.match(result.stdout, /PASS: canonical Homebrew formula URL matches registry tarball/);
     assert.match(result.stdout, /DOWNSTREAM TRUTH PASSED/);
@@ -285,7 +303,7 @@ describe('release downstream truth contract', () => {
     );
 
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /FAIL: GitHub release v2\.15\.0 not found/);
+    assert.match(result.stdout, /FAIL: GitHub release v2\.15\.0 is not fully published/);
   });
 
   it('AT-RDT-006: default repo-based formula fetching works without raw URL override', () => {
@@ -335,5 +353,69 @@ describe('release downstream truth contract', () => {
     assert.equal(result.status, 0);
     assert.match(result.stdout, /PASS: canonical Homebrew formula SHA256 matches registry tarball/);
     assert.match(result.stdout, /PASS: canonical Homebrew formula URL matches registry tarball/);
+  });
+
+  it('AT-RDT-007: fails when the GitHub release still exists only as a draft', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const tarballContent = 'registry-tarball-v2140';
+    const sha = spawnSync('shasum', ['-a', '256'], {
+      input: tarballContent,
+      encoding: 'utf8',
+    }).stdout.trim().split(/\s+/)[0];
+    const formula = [
+      'class Agentxchain < Formula',
+      '  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz"',
+      `  sha256 "${sha}"`,
+      'end',
+    ].join('\n');
+
+    const result = runDownstream(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.15.0'],
+      {
+        FAKE_FORMULA_CONTENT: formula,
+        FAKE_TARBALL_CONTENT: tarballContent,
+        FAKE_GH_DRAFT: 'true',
+      },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL: GitHub release v2\.15\.0 is not fully published/);
+    assert.match(result.stdout, /draft=true/);
+  });
+
+  it('AT-RDT-008: fails when the GitHub release URL still points at an untagged release page', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const tarballContent = 'registry-tarball-v2140';
+    const sha = spawnSync('shasum', ['-a', '256'], {
+      input: tarballContent,
+      encoding: 'utf8',
+    }).stdout.trim().split(/\s+/)[0];
+    const formula = [
+      'class Agentxchain < Formula',
+      '  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz"',
+      `  sha256 "${sha}"`,
+      'end',
+    ].join('\n');
+
+    const result = runDownstream(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.15.0'],
+      {
+        FAKE_FORMULA_CONTENT: formula,
+        FAKE_TARBALL_CONTENT: tarballContent,
+        FAKE_GH_URL: 'https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/untagged-example',
+      },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL: GitHub release v2\.15\.0 is not fully published/);
+    assert.match(result.stdout, /untagged-example/);
   });
 });
