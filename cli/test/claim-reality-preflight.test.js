@@ -88,6 +88,35 @@ function getPackedFiles() {
   return packedFilesCache;
 }
 
+function extractScenarioItBlock(source, title) {
+  const titleNeedles = [
+    `it('${title}'`,
+    `it("${title}"`,
+  ];
+  const start = titleNeedles
+    .map(needle => source.indexOf(needle))
+    .find(index => index >= 0);
+  assert.ok(start >= 0, `expected tester-sequence scenario to contain it(...) block titled "${title}"`);
+
+  const bodyStart = source.indexOf('{', start);
+  assert.ok(bodyStart >= 0, `expected tester-sequence scenario "${title}" to contain a function body`);
+
+  let depth = 0;
+  for (let i = bodyStart; i < source.length; i += 1) {
+    const char = source[i];
+    if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(start, i + 1);
+      }
+    }
+  }
+
+  assert.fail(`unterminated tester-sequence scenario block "${title}"`);
+}
+
 function getExtractedPackage() {
   if (extractedPackageCache) {
     return extractedPackageCache;
@@ -2595,11 +2624,21 @@ describe('claim-reality preflight', () => {
     assert.ok(existsSync(bug52Scenario),
       'BUG-52 tester-sequence regression must exist at cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js so the release-gate rerun can block publish if it regresses');
     const bug52ScenarioContent = readFileSync(bug52Scenario, 'utf8');
+    const planningBlock = extractScenarioItBlock(
+      bug52ScenarioContent,
+      'unblock moves planning -> implementation and dispatches dev instead of another pm turn',
+    );
+    const qaLaunchBlock = extractScenarioItBlock(
+      bug52ScenarioContent,
+      'unblock moves qa -> launch and dispatches launch instead of another qa turn',
+    );
     assert.ok(
-      bug52ScenarioContent.includes('planning_signoff')
-        && bug52ScenarioContent.includes('phase_transition_request: \'launch\'')
-        && bug52ScenarioContent.includes('qa_ship_verdict')
-        && bug52ScenarioContent.includes('assigned_role, \'launch\''),
+      /planning_signoff/.test(planningBlock)
+        && /phase_transition_request:\s*['"]implementation['"]/.test(planningBlock)
+        && /assigned_role[\s\S]{0,120}['"]dev['"]/.test(planningBlock)
+        && /qa_ship_verdict/.test(qaLaunchBlock)
+        && /phase_transition_request:\s*['"]launch['"]/.test(qaLaunchBlock)
+        && /assigned_role[\s\S]{0,120}['"]launch['"]/.test(qaLaunchBlock),
       'BUG-52 tester-sequence regression must cover both planning_signoff -> implementation and qa_ship_verdict -> launch unblock seams from the human acceptance criteria, not only the first phase transition',
     );
 
