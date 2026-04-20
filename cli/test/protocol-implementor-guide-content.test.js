@@ -17,6 +17,7 @@ const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
 const GUIDE_SPEC = read('.planning/PROTOCOL_IMPLEMENTOR_GUIDE_SPEC.md');
 const PKG_VERSION = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || readJSON('cli/package.json').version;
 const CAPABILITIES = readJSON('.agentxchain-conformance/capabilities.json');
+const FIXTURE_README = read('.agentxchain-conformance/fixtures/README.md');
 
 function extractSection(doc, heading) {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -30,6 +31,10 @@ function extractJsonCodeBlockAfter(label) {
   const match = GUIDE.match(new RegExp(`${escaped}\\n\\n\`\`\`json\\n([\\s\\S]*?)\\n\`\`\``));
   assert.ok(match, `Missing JSON code block after "${label}"`);
   return JSON.parse(match[1]);
+}
+
+function extractSetupHelpers(doc) {
+  return new Set([...doc.matchAll(/`setup\.([a-z_]+)`/g)].map((match) => match[1]));
 }
 
 describe('Protocol implementor guide surface', () => {
@@ -210,6 +215,14 @@ describe('Protocol implementor guide surface', () => {
     assert.match(DOCS_SURFACE_SPEC, /\/docs\/protocol-implementor-guide/);
     assert.match(GUIDE_SPEC, /\/docs\/protocol-implementor-guide/);
     assert.match(GUIDE_SPEC, /Protocol Implementor Guide/i);
+  });
+
+  it('documents the same setup helper inventory as the fixture corpus README', () => {
+    assert.deepEqual(
+      extractSetupHelpers(GUIDE),
+      extractSetupHelpers(FIXTURE_README),
+      'implementor guide helper inventory must stay aligned with the fixture README'
+    );
   });
 
   it('capabilities.json version must match package.json version', () => {

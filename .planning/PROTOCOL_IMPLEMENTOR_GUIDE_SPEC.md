@@ -40,6 +40,7 @@ The page must document the repo's actual conformance contract, not an aspiration
    - a run can still be overall `pass` when selected fixtures are `pass` or `not_implemented`
 6. Explain fixture anatomy using the real fields:
    - `fixture_id`, `tier`, `surface`, `description`, `type`, `setup`, `input`, `expected`
+   - document the currently shipped setup helper inventory truthfully enough that implementors do not miss helper keys used in the corpus (`config`, `state`, `turn_result`, `history`, `ledger`, `filesystem`, dispatch-manifest mutation helpers, and coordinator helpers)
 7. Provide one section for each current surface:
    - `state_machine`
    - `turn_result_validation`
@@ -73,6 +74,7 @@ The page must document the repo's actual conformance contract, not an aspiration
 - The page must not imply that `verify protocol` itself exits `3`; only the adapter uses `3` for `not_implemented`.
 - The page must not describe fixture paths, counts, or surface names that diverge from `.agentxchain-conformance/fixtures/README.md`.
 - The page must not reduce Tier 1 sections to generic one-line summaries once the corpus proves specific invariants and rejection cases.
+- The page must not publish a partial setup-helper list when the fixture corpus uses additional keys.
 
 ## Acceptance Tests
 
@@ -84,6 +86,7 @@ The page must document the repo's actual conformance contract, not an aspiration
 - [ ] AT-6: `.planning/DOCS_SURFACE_SPEC.md` lists `/docs/protocol-implementor-guide`
 - [ ] AT-7: Tier 1 sections name the concrete fixture-backed invariants currently proven for `state_machine`, `turn_result_validation`, `decision_ledger`, `history`, `config_schema`, `delegation`, `decision_carryover`, `parallel_turns`, and `event_lifecycle`
 - [ ] AT-8: The reference-CLI `capabilities.json` example matches the real shipped `.agentxchain-conformance/capabilities.json` surface claims
+- [ ] AT-9: The fixture setup helper inventory in the guide matches the current helper keys used by the shipped JSON corpus
 
 ## Open Questions
 

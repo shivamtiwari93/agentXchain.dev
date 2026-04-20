@@ -552,16 +552,11 @@ Multi-repo coordination: coordinator config validation, acceptance projection, w
 
 Depending on the surface, fixtures may ask your adapter to materialize:
 
-- `setup.filesystem`
-- `setup.dispatch_bundle`
-- `setup.post_finalize_inject`
-- `setup.post_finalize_tamper`
-- `setup.post_finalize_delete`
-- `setup.coordinator_config`
-- `setup.repos`
-- `setup.coordinator_state`
-- `setup.barriers`
-- `setup.coordinator_history`
+- Common repo-local setup: `setup.config`, `setup.state`, `setup.turn_result`, `setup.history`, `setup.ledger`, `setup.filesystem`
+- Dispatch-manifest setup: `setup.dispatch_bundle`, `setup.post_finalize_inject`, `setup.post_finalize_tamper`, `setup.post_finalize_delete`, `setup.post_finalize_corrupt_manifest`, `setup.post_finalize_delete_manifest`
+- Coordinator setup: `setup.coordinator_config`, `setup.repos`, `setup.coordinator_state`, `setup.barriers`, `setup.coordinator_history`
+
+Those keys are part of the adapter contract, not implementation detail. If your adapter silently ignores one, you are not "partially compatible" with that fixture; you are evaluating the wrong setup state.
 
 The authoritative helper list lives in `.agentxchain-conformance/fixtures/README.md`. Do not fork the contract in your own docs and hope it stays aligned.
 
