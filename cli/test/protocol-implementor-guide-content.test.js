@@ -114,6 +114,28 @@ describe('Protocol implementor guide surface', () => {
     }
   });
 
+  it('documents Tier 1 v7-promoted surface invariants at fixture-level detail', () => {
+    const delegation = extractSection(GUIDE, 'delegation');
+    for (const term of ['charter', 'to_role', 'self-delegation', 'required_decision_ids', 'run_completion_request']) {
+      assert.match(delegation, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `delegation section must mention "${term}"`);
+    }
+
+    const decisionCarryover = extractSection(GUIDE, 'decision_carryover');
+    for (const term of ['durability.*repo', 'durability.*run', 'overrides', 'self-override']) {
+      assert.match(decisionCarryover, new RegExp(term, 'i'), `decision_carryover section must match "${term}"`);
+    }
+
+    const parallelTurns = extractSection(GUIDE, 'parallel_turns');
+    for (const term of ['max_concurrent_turns', 'sequential', 'non-integer']) {
+      assert.match(parallelTurns, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `parallel_turns section must mention "${term}"`);
+    }
+
+    const eventLifecycle = extractSection(GUIDE, 'event_lifecycle');
+    for (const term of ['run_started', 'run_completed', 'turn_dispatched', 'turn_accepted', 'timestamp', 'turn_id', 'ordering']) {
+      assert.match(eventLifecycle, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `event_lifecycle section must mention "${term}"`);
+    }
+  });
+
   it('documents Tier 2 dispatch_manifest invariants at fixture-level detail', () => {
     const section = extractSection(GUIDE, 'dispatch_manifest');
     for (const term of [

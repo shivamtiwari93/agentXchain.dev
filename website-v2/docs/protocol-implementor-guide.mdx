@@ -399,6 +399,61 @@ Validation of governed config shape, roles, runtimes, and baseline project contr
 
 Broken config validation pushes protocol drift downstream where it is harder to debug.
 
+### `delegation`
+
+Hierarchical authority delegation from one role to another. Tier 1 currently proves:
+
+- a valid delegation with all required fields (`to_role`, `charter`, `scope`) passes validation
+- delegation with missing `charter` is rejected
+- delegation with an invalid `to_role` pattern is rejected
+- self-delegation (delegating to your own role) is rejected
+- more than 5 delegations in a single turn result are rejected
+- delegation cannot coexist with a `run_completion_request` in the same turn result
+- delegation with `required_decision_ids` passes validation when the IDs are well-formed
+- delegation with duplicate `required_decision_ids` is rejected
+
+Delegation is not a convenience feature. It is how governed authority flows through a role hierarchy without collapsing the audit trail.
+
+### `decision_carryover`
+
+Cross-run decision durability and override semantics. Tier 1 currently proves:
+
+- a decision with `durability: "repo"` passes turn result validation and promotes into repo-level continuity
+- a decision with an invalid `durability` value (not `"run"` or `"repo"`) is rejected
+- a decision with a valid `overrides` field pointing at an existing repo decision passes validation
+- a decision with `overrides` pointing at itself (self-override) is rejected
+- a decision with default `durability` (omitted, meaning `"run"`) passes validation
+
+If your implementation does not enforce durability scoping and override validity, continuation runs will inherit stale or contradictory decisions.
+
+### `parallel_turns`
+
+Concurrent turn dispatch configuration. Tier 1 currently proves:
+
+- config with `max_concurrent_turns: 2` passes validation
+- config with `max_concurrent_turns: 4` passes validation (maximum allowed)
+- config with `max_concurrent_turns: 1` passes validation (sequential mode, the default)
+- config with `max_concurrent_turns: 0` fails validation (must be >= 1)
+- config with `max_concurrent_turns: 5` fails validation (maximum is 4)
+- config with a non-integer `max_concurrent_turns` fails validation
+
+The range is intentionally narrow. Unbounded parallelism in governed delivery is not a scaling feature; it is a governance collapse risk.
+
+### `event_lifecycle`
+
+Structural and ordering validation for run lifecycle events in `.agentxchain/events.jsonl`. Tier 1 currently proves:
+
+- a valid run event with all required fields (`event_type`, `timestamp`, `run_id`) passes validation
+- an event with an invalid `event_type` is rejected
+- a valid event sequence with `run_started` first and `run_completed` last passes ordering validation
+- `turn_accepted` without a preceding `turn_dispatched` for the same turn fails ordering validation
+- `run_completed` not being the last event fails ordering validation
+- backwards timestamps (timestamp regression) fail ordering validation
+- a `turn_dispatched` event missing `turn.turn_id` fails event validation
+- a timeline not starting with `run_started` fails ordering validation
+
+This surface proves that your event log is a trustworthy timeline, not just an append-only dump. Ordering and completeness constraints make the event log useful for recovery, audit, and dashboard rendering.
+
 ### `dispatch_manifest`
 
 Dispatch-bundle finalization and integrity verification. This is the hardening layer that proves agents received the expected assignment files and that post-finalization tampering is detectable. Tier 2 currently proves:

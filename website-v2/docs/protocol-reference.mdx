@@ -56,10 +56,34 @@ These repo-local concepts are protocol v7, not UI sugar:
 - Raw governed role bindings use `roles.<role>.runtime`. The reference runner normalizes that field to `runtime_id` in memory and in turn/state artifacts, but `runtime_id` is not the canonical raw config field.
 - Accepted turn history is append-only in `.agentxchain/history.jsonl`.
 - Accepted decisions and selected governance events are append-only in `.agentxchain/decision-ledger.jsonl`.
+- Run lifecycle events are append-only in `.agentxchain/events.jsonl` (`run_started`, `turn_dispatched`, `turn_accepted`, blocking/escalation, `run_completed`).
+- Terminal run summaries are append-only in `.agentxchain/run-history.jsonl`, with inherited continuity from parent runs kept under separate `parent_context` metadata rather than mixed into the current run's own counters.
 - Turn dispatch is turn-scoped under `.agentxchain/dispatch/turns/<turn_id>/`.
 - Staged results are turn-scoped under `.agentxchain/staging/<turn_id>/turn-result.json`.
 - Gate requests are queued first and only become human-approvable when they materialize as `pending_phase_transition` or `pending_run_completion`.
 - `review_only` turns must raise at least one objection. That is a protocol rule, not a documentation preference.
+
+### Decision durability and overrides
+
+Decision carryover in v7 is explicit:
+
+- `durability: "run"` is the default decision scope. Run-scoped decisions do not escape the current run.
+- `durability: "repo"` promotes a decision into repo-level continuity so continuation runs still inherit it.
+- `overrides: "DEC-..."` is the repo-decision replacement hook. The v7 fixture set (DC-003, DC-004) proves that a valid override targets an existing active repo decision, and self-override is invalid.
+
+These semantics are proven by the `decision_carryover` conformance surface (DC-001 through DC-005).
+
+### Run event lifecycle
+
+Run events in `.agentxchain/events.jsonl` follow a strict ordering contract:
+
+- The first event must be `run_started`.
+- `turn_accepted` must be preceded by `turn_dispatched` for the same turn.
+- `run_completed` must be the last event.
+- Timestamps must not regress (no backwards timestamps).
+- Turn events must include `turn.turn_id`.
+
+These rules are proven by the `event_lifecycle` conformance surface (EL-001 through EL-008).
 
 ### Governed config schema artifact
 

@@ -129,6 +129,29 @@ describe('Protocol reference contract', () => {
     }
   });
 
+  it('documents events.jsonl and run-history.jsonl artifact contracts', () => {
+    assert.match(DOC, /events\.jsonl/, 'protocol reference must mention events.jsonl');
+    assert.match(DOC, /run-history\.jsonl/, 'protocol reference must mention run-history.jsonl');
+    assert.match(DOC, /run_started/, 'protocol reference must mention run_started event');
+    assert.match(DOC, /run_completed/, 'protocol reference must mention run_completed event');
+    assert.match(DOC, /parent_context/, 'protocol reference must mention parent_context for run-history isolation');
+  });
+
+  it('documents decision durability and override semantics', () => {
+    assert.match(DOC, /durability.*run/i, 'protocol reference must mention run durability');
+    assert.match(DOC, /durability.*repo/i, 'protocol reference must mention repo durability');
+    assert.match(DOC, /overrides/, 'protocol reference must mention decision overrides');
+    assert.match(DOC, /self-override.*invalid/i, 'protocol reference must mention self-override is invalid');
+    assert.match(DOC, /decision_carryover/, 'protocol reference must mention decision_carryover surface');
+  });
+
+  it('documents event lifecycle ordering contract', () => {
+    assert.match(DOC, /event_lifecycle/, 'protocol reference must mention event_lifecycle surface');
+    assert.match(DOC, /turn_dispatched/, 'protocol reference must mention turn_dispatched');
+    assert.match(DOC, /turn_accepted/, 'protocol reference must mention turn_accepted');
+    assert.match(DOC, /timestamps must not regress/i, 'protocol reference must mention timestamp ordering');
+  });
+
   it('explicitly rejects implementation leakage into the protocol boundary', () => {
     assert.match(DOC, /not normative/i);
     for (const term of ['dashboard', 'OpenAI', 'notifications.webhooks', 'CLI command names']) {
