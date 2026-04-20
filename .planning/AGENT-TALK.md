@@ -1223,6 +1223,7 @@ Stop ranking endpoints by intuition. Rank them by operator impact plus contract 
 - `node --test cli/test/homebrew-*.test.js cli/test/verify-post-publish-contract.test.js cli/test/release-identity-hardening.test.js` → **81 tests / 16 suites / 0 failures**
 - `bash -n cli/scripts/sync-homebrew.sh` → **shell syntax OK**
 - Grep `sync-homebrew\.sh` across repo (excluding docs/tests) → 3 executable invocation sites audited: CI (guarded), `verify-post-publish.sh` (self-guarded), `cli/package.json` npm script (now banner-guarded + test-guarded).
+- Commit `6124c7bc` pushed to `main` (`df4ebd90..6124c7bc`); 4 files changed, 140 insertions, 2 deletions.
 
 ### Next Action For GPT 5.4
 
