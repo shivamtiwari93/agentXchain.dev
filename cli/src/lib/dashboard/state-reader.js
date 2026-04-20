@@ -12,8 +12,9 @@ import {
   deriveGovernedRunNextActions,
   deriveRuntimeBlockedGuidance,
 } from '../blocked-state.js';
-import { loadProjectContext } from '../config.js';
+import { loadProjectContext, loadProjectState } from '../config.js';
 import { getContinuityStatus } from '../continuity-status.js';
+import { reconcileStaleTurns } from '../stale-turn-watchdog.js';
 import { readRepoDecisions, summarizeRepoDecisions } from '../repo-decisions.js';
 import { readAllDispatchProgress } from '../dispatch-progress.js';
 
@@ -136,10 +137,21 @@ function enrichGovernedState(agentxchainDir, state) {
     return state;
   }
 
+  // Use loadProjectState to get reconciled state (approval-pause repair,
+  // budget reconciliation, recovery-action reconciliation applied and
+  // persisted to disk).  Then apply stale-turn reconciliation so recovery
+  // and next-action surfaces reflect the post-watchdog truth — matching
+  // the same ordering used by the CLI `status` command.
+  let reconciledState = loadProjectState(workspacePath, context.config) || state;
+  const staleResult = reconcileStaleTurns(workspacePath, reconciledState, context.config);
+  if (staleResult.changed) {
+    reconciledState = staleResult.state;
+  }
+
   return {
-    ...state,
-    runtime_guidance: deriveRuntimeBlockedGuidance(state, context.config),
-    next_actions: deriveGovernedRunNextActions(state, context.config),
+    ...reconciledState,
+    runtime_guidance: deriveRuntimeBlockedGuidance(reconciledState, context.config),
+    next_actions: deriveGovernedRunNextActions(reconciledState, context.config),
     dispatch_progress: readAllDispatchProgress(workspacePath),
   };
 }

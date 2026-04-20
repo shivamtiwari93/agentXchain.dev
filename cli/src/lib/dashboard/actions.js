@@ -1,5 +1,5 @@
 import { dirname } from 'path';
-import { loadProjectContext } from '../config.js';
+import { loadProjectContext, loadProjectState } from '../config.js';
 import { approvePhaseTransition, approveRunCompletion } from '../governed-state.js';
 import { deriveGovernedRunNextActions, deriveRecoveryDescriptor } from '../blocked-state.js';
 import {
@@ -205,10 +205,16 @@ function approveCoordinatorGate(workspacePath, state, config) {
 
 export function approvePendingDashboardGate(agentxchainDir) {
   const workspacePath = dirname(agentxchainDir);
-  const repoState = readJsonFile(agentxchainDir, 'state.json');
+  const context = loadProjectContext(workspacePath);
+
+  // Use loadProjectState to get reconciled state — approval-pause repair
+  // may surface a pending_run_completion from an orphaned blocked_on marker,
+  // and we must route on the reconciled truth, not the raw state.json.
+  const repoState = (context?.config?.protocol_mode === 'governed'
+    ? loadProjectState(workspacePath, context.config)
+    : null) || readJsonFile(agentxchainDir, 'state.json');
 
   if (repoState?.pending_phase_transition || repoState?.pending_run_completion) {
-    const context = loadProjectContext(workspacePath);
     return approveRepoGate(workspacePath, context?.config, repoState);
   }
 
