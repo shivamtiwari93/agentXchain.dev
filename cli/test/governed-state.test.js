@@ -19,6 +19,7 @@ import {
   getActiveTurn,
   getActiveTurns,
   getActiveTurnCount,
+  transitionActiveTurnLifecycle,
   acquireAcceptanceLock,
   releaseAcceptanceLock,
   replayPreparedJournals,
@@ -438,6 +439,55 @@ describe('initializeGovernedRun', () => {
     const normalized = normalizeGovernedStateShape(legacyEscalationPause).state;
     assert.equal(normalized.status, 'blocked', 'legacy escalation-paused must migrate to blocked');
     assert.deepEqual(Object.keys(normalized.active_turns), ['turn_legacy_b'], 'retained turn preserved');
+  });
+});
+
+describe('transitionActiveTurnLifecycle proof streams', () => {
+  let dir, config;
+
+  beforeEach(() => {
+    dir = makeTmpDir();
+    config = makeNormalizedConfig();
+    scaffoldGoverned(dir, 'Test Project', 'test-project');
+    initializeGovernedRun(dir, config);
+  });
+
+  afterEach(() => {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  });
+
+  it('persists request as a recognized running proof stream', () => {
+    const assigned = assignGovernedTurn(dir, config, 'dev');
+    assert.ok(assigned.ok, assigned.error);
+    const turnId = assigned.turn.turn_id;
+
+    const running = transitionActiveTurnLifecycle(dir, turnId, 'running', {
+      stream: 'request',
+      at: '2026-04-20T21:55:00.000Z',
+    });
+    assert.ok(running.ok, running.error);
+
+    const turn = running.state.active_turns[turnId];
+    assert.equal(turn.status, 'running');
+    assert.equal(turn.first_output_stream, 'request');
+    assert.equal(turn.first_output_at, '2026-04-20T21:55:00.000Z');
+  });
+
+  it('ignores unknown running proof streams instead of persisting fake startup proof', () => {
+    const assigned = assignGovernedTurn(dir, config, 'dev');
+    assert.ok(assigned.ok, assigned.error);
+    const turnId = assigned.turn.turn_id;
+
+    const running = transitionActiveTurnLifecycle(dir, turnId, 'running', {
+      stream: 'mcp',
+      at: '2026-04-20T21:56:00.000Z',
+    });
+    assert.ok(running.ok, running.error);
+
+    const turn = running.state.active_turns[turnId];
+    assert.equal(turn.status, 'running');
+    assert.equal(turn.first_output_at, undefined);
+    assert.equal(turn.first_output_stream, undefined);
   });
 });
 

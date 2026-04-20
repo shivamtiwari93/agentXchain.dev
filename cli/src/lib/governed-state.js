@@ -77,6 +77,7 @@ import {
   derivePhaseScopeFromIntentMetadata,
   evaluateAcceptanceItemLifecycle,
 } from './intent-phase-scope.js';
+import { isKnownTurnRunningProofStream } from './dispatch-streams.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -995,8 +996,10 @@ export function transitionActiveTurnLifecycle(root, turnId, nextStatus, options 
   } else if (nextStatus === 'running') {
     nextTurn.status = 'running';
     nextTurn.started_at = nextTurn.started_at || nowIso;
-    nextTurn.first_output_at = nextTurn.first_output_at || nowIso;
-    if (options.stream) {
+    if (options.stream == null) {
+      nextTurn.first_output_at = nextTurn.first_output_at || nowIso;
+    } else if (isKnownTurnRunningProofStream(options.stream)) {
+      nextTurn.first_output_at = nextTurn.first_output_at || nowIso;
       nextTurn.first_output_stream = nextTurn.first_output_stream || options.stream;
     }
   } else {

@@ -360,6 +360,22 @@ describe('BUG-51: fast-startup watchdog', () => {
     assert.equal(ghosts[0].failure_type, 'stdout_attach_failed');
   });
 
+  it('BUG-54 Turn 90: unknown first_output_stream tags are not startup proof', () => {
+    const { root, config } = createProject();
+    const { turnId } = seedStartingTurn(root, config, 45, false);
+
+    const state = readState(root);
+    const startedAt = state.active_turns[turnId].started_at;
+    state.active_turns[turnId].first_output_at = startedAt;
+    state.active_turns[turnId].first_output_stream = 'mcp';
+    writeState(root, state);
+
+    const ghosts = detectGhostTurns(root, state, config);
+    assert.equal(ghosts.length, 1, 'unknown first_output_stream tags must not satisfy startup proof');
+    assert.equal(ghosts[0].turn_id, turnId);
+    assert.equal(ghosts[0].failure_type, 'stdout_attach_failed');
+  });
+
   it('reconciles ghost turns to failed_start and releases budget reservations', () => {
     const { root, config } = createProject();
     const { turnId } = seedStartingTurn(root, config, 45, false);

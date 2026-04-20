@@ -74,6 +74,7 @@ import { shouldSuggestManualQaFallback } from '../lib/manual-qa-fallback.js';
 import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
 import { failTurnStartup, reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
+import { isKnownTurnRunningProofStream } from '../lib/dispatch-streams.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -698,7 +699,10 @@ export async function stepCommand(opts) {
         state = starting.state;
       }
     };
-    const ensureRunningState = (stream = 'stdout', at = new Date().toISOString()) => {
+    const ensureRunningState = (stream = null, at = new Date().toISOString()) => {
+      if (stream != null && !isKnownTurnRunningProofStream(stream)) {
+        return;
+      }
       if (runningMarked) return;
       runningMarked = true;
       const running = transitionActiveTurnLifecycle(root, turn.turn_id, 'running', { stream, at });

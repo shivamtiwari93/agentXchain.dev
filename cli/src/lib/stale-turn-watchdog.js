@@ -37,6 +37,7 @@ import { safeWriteJson } from './safe-write.js';
 import { emitRunEvent, readRunEvents } from './run-events.js';
 import { getTurnStagingResultPath } from './turn-paths.js';
 import { getDispatchProgressRelativePath } from './dispatch-progress.js';
+import { isPersistedTurnStartupProofStream } from './dispatch-streams.js';
 import { hasMeaningfulStagedResult } from './staged-result-proof.js';
 
 const DEFAULT_LOCAL_CLI_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
@@ -500,7 +501,7 @@ function hasStartupProof(turn, progress) {
   // (stream-tagged `turn.first_output_at`, `progress.first_output_at`, or
   // `progress.output_lines`) satisfy startup proof. `progress.stderr_lines`
   // deliberately does NOT.
-  if (turn.first_output_at && turn.first_output_stream !== 'stderr') {
+  if (turn.first_output_at && isPersistedTurnStartupProofStream(turn.first_output_stream)) {
     return true;
   }
   if (!progress || typeof progress !== 'object') {

@@ -53,6 +53,7 @@ import { emitRunEvent } from '../lib/run-events.js';
 import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
 import { failTurnStartup } from '../lib/stale-turn-watchdog.js';
 import { hasMinimumTurnResultShape } from '../lib/turn-result-shape.js';
+import { isKnownTurnRunningProofStream } from '../lib/dispatch-streams.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
@@ -344,7 +345,10 @@ export async function executeGovernedRun(context, opts = {}) {
         });
       };
 
-      const ensureRunningState = (stream = 'stdout', at = new Date().toISOString()) => {
+      const ensureRunningState = (stream = null, at = new Date().toISOString()) => {
+        if (stream != null && !isKnownTurnRunningProofStream(stream)) {
+          return;
+        }
         if (runningMarked) return;
         runningMarked = true;
         transitionActiveTurnLifecycle(projectRoot, turn.turn_id, 'running', { stream, at });
@@ -367,7 +371,7 @@ export async function executeGovernedRun(context, opts = {}) {
         // 88) is the only signal that satisfies the lifecycle transition.
         // stderr is still tracked by the progress tracker for silence detection
         // and operator diagnostics.
-        if (stream !== 'stderr') {
+        if (stream != null && isKnownTurnRunningProofStream(stream)) {
           ensureRunningState(stream);
         }
         const lines = text.split('\n').length - 1 || 1;

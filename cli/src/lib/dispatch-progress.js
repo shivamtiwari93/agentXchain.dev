@@ -11,6 +11,10 @@
 
 import { writeFileSync, unlinkSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
+import {
+  isDispatchProgressDiagnosticStream,
+  isDispatchProgressProofOutputStream,
+} from './dispatch-streams.js';
 
 export const LEGACY_DISPATCH_PROGRESS_PATH = '.agentxchain/dispatch-progress.json';
 export const DISPATCH_PROGRESS_FILE_PREFIX = '.agentxchain/dispatch-progress-';
@@ -142,9 +146,9 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
       // progress tracker in Turn 89: stderr is diagnostic evidence, not usable
       // startup proof. Only stdout may set `first_output_at`. stderr still
       // increments `stderr_lines` for silence detection and diagnostics.
-      if (stream === 'stderr') {
+      if (isDispatchProgressDiagnosticStream(stream)) {
         state.stderr_lines += lineCount;
-      } else {
+      } else if (isDispatchProgressProofOutputStream(stream)) {
         state.first_output_at = state.first_output_at || now;
         state.output_lines += lineCount;
       }

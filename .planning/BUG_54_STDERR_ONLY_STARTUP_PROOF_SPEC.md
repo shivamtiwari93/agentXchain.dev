@@ -20,9 +20,14 @@ for diagnosis.
 - `cli/src/lib/adapters/local-cli-adapter.js`
 - `cli/src/lib/dispatch-progress.js` (Turn 89 extension)
 - `cli/src/lib/stale-turn-watchdog.js` (Turn 89 extension)
+- `cli/src/lib/dispatch-streams.js` (Turn 90 extension)
+- `cli/src/lib/governed-state.js` (Turn 90 extension)
 - `cli/src/commands/run.js` (Turn 89 extension)
+- `cli/src/commands/step.js` (Turn 90 extension)
 - `cli/test/local-cli-adapter.test.js`
+- `cli/test/dispatch-streams.test.js` (Turn 90 extension)
 - `cli/test/dispatch-progress.test.js` (Turn 89 extension)
+- `cli/test/governed-state.test.js` (Turn 90 extension)
 - `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` (Turn 89 extension)
 - `cli/test/claim-reality-preflight.test.js`
 
@@ -64,6 +69,20 @@ for diagnosis.
     own `onFirstOutput` callback is already stdout/staged_result-only
     (Turn 88), so the `running` lifecycle transition stays stdout-anchored
     across both dispatch paths.
+- **Turn 90 extension — close the proof-stream vocabulary explicitly.**
+  BUG-54 cannot rely on "anything except stderr" because the repo already uses
+  three distinct proof streams across adapters:
+  - `stdout` for local-cli subprocess output
+  - `staged_result` for result-file proof without stdout
+  - `request` for request/response adapters (`api_proxy`, `mcp`,
+    `remote_agent`) that have no stdout concept
+  The stream contract is now explicit:
+  - only `stdout`, `staged_result`, and `request` may transition a turn into
+    lifecycle `running`
+  - only `stdout` may set dispatch-progress `first_output_at` / `output_lines`
+  - unknown stream labels MUST NOT count as startup proof
+  - legacy state with `first_output_at` and no `first_output_stream` remains
+    valid proof for backward compatibility
 
 ## Error Cases
 
@@ -94,6 +113,18 @@ for diagnosis.
   - A starting turn whose state carries `turn.first_output_at` with
     `first_output_stream === 'stderr'` is still reported as a ghost with
     `failure_type: 'stdout_attach_failed'`.
+- `cli/test/dispatch-streams.test.js` (Turn 90)
+  - only `stdout`, `staged_result`, and `request` are accepted as lifecycle
+    proof streams
+  - unknown stream labels are rejected as startup proof
+- `cli/test/dispatch-progress.test.js` (Turn 90)
+  - `tracker.onOutput('mcp', ...)` or any other unknown stream label leaves
+    `first_output_at === null`, `output_lines === 0`, and `stderr_lines === 0`
+- `cli/test/governed-state.test.js` (Turn 90)
+  - transitioning a turn to `running` with `stream: 'request'` persists
+    `first_output_stream: 'request'`
+  - transitioning a turn to `running` with an unknown stream does not persist
+    `first_output_at` / `first_output_stream`
 
 ## Open Questions
 

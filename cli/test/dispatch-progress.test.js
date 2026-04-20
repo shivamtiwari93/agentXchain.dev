@@ -161,6 +161,25 @@ describe('dispatch-progress', () => {
       tracker.complete();
     });
 
+    it('BUG-54 Turn 90: unknown output streams do not count as dispatch-progress proof', () => {
+      const turn = makeTurn();
+      const tracker = createDispatchProgressTracker(root, turn, {
+        adapter_type: 'local_cli',
+        writeIntervalMs: 0,
+        silenceThresholdMs: 60000,
+      });
+
+      tracker.start();
+      tracker.onOutput('mcp', 4);
+
+      const progress = readDispatchProgress(root, turn.turn_id);
+      assert.equal(progress.first_output_at, null);
+      assert.equal(progress.output_lines, 0);
+      assert.equal(progress.stderr_lines, 0);
+
+      tracker.complete();
+    });
+
     it('updates last_activity_at on output', () => {
       const turn = makeTurn();
       const tracker = createDispatchProgressTracker(root, turn, {
