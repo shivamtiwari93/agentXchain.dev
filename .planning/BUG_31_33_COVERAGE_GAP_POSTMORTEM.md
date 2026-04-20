@@ -208,6 +208,7 @@ consumer**, not just the fields adjacent to the triggering bug.
 
 1. **Real emitter rule.** Any beta-tester scenario asserting on gate reasons, event payloads, or operator-facing error text must call the production emitter and assert its real output. Synthetic strings do not count as coverage.
 2. **Claim-reality preflight rule.** A bug marked fixed is not releasable until its beta-tester scenario passes against the packaged CLI artifact that would actually ship, not just the source-tree test harness.
+3. **Numbered-requirement coverage rule.** When a tester bug enumerates numbered fix requirements, every numbered requirement must map to at least one named regression test or an explicit rejected-as-out-of-scope note. “The main path is green” is not proof that fix #6 also landed.
 
 ## Acceptance Tests
 

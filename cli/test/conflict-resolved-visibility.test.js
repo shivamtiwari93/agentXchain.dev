@@ -183,7 +183,8 @@ describe('conflict_resolved visibility', () => {
     const eventsWithContext = [
       'turn_dispatched', 'turn_accepted', 'turn_rejected',
       'turn_conflicted', 'conflict_resolved',
-      'turn_checkpointed', 'coordinator_retry', 'coordinator_retry_projection_warning', 'dispatch_progress',
+      'turn_checkpointed', 'turn_start_failed', 'runtime_spawn_failed', 'stdout_attach_failed',
+      'coordinator_retry', 'coordinator_retry_projection_warning', 'dispatch_progress',
     ];
 
     for (const eventType of eventsWithContext) {

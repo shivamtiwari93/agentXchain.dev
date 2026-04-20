@@ -139,9 +139,7 @@ export function detectGhostTurns(root, state, config) {
     if (hasStartupProof(turn, progress)) continue;
 
     const runningSeconds = Math.floor(runningMs / 1000);
-    const failureType = turn.status === 'dispatched'
-      ? 'runtime_spawn_failed'
-      : 'no_subprocess_output';
+    const failureType = classifyStartupFailureType(turn, progress);
     ghosts.push({
       turn_id: turnId,
       role: turn.assigned_role || 'unknown',
@@ -302,7 +300,7 @@ export function failTurnStartup(root, state, config, turnId, details = {}) {
     runtime_id: turn.runtime_id || 'unknown',
     running_ms: details.running_ms ?? computeLifecycleAgeMs(turn),
     threshold_ms: details.threshold_ms ?? resolveStartupThreshold(config),
-    failure_type: details.failure_type || 'no_subprocess_output',
+    failure_type: classifyStartupFailureType(turn, null, details.failure_type || 'no_subprocess_output'),
     recommendation: details.recommendation
       || `Turn ${turnId} failed to start cleanly. Run \`agentxchain reissue-turn --turn ${turnId} --reason ghost\` to recover.`,
   };
@@ -334,7 +332,12 @@ function hasRecentTurnEventActivity(root, turnId, startedAt, threshold, now) {
     for (let i = events.length - 1; i >= 0; i--) {
       const event = events[i];
       if (event?.turn?.turn_id !== turnId) continue;
-      if (event.event_type === 'turn_stalled' || event.event_type === 'turn_start_failed') continue;
+      if (
+        event.event_type === 'turn_stalled'
+        || event.event_type === 'turn_start_failed'
+        || event.event_type === 'runtime_spawn_failed'
+        || event.event_type === 'stdout_attach_failed'
+      ) continue;
       const timestamp = Date.parse(event.timestamp || '');
       if (!Number.isFinite(timestamp)) continue;
       if (timestamp < startedAt) continue;
@@ -369,19 +372,25 @@ function applyStartupFailureToActiveTurn(activeTurns, budgetReservations, entry,
 }
 
 function emitStartupFailureEvent(root, state, entry) {
-  emitRunEvent(root, 'turn_start_failed', {
+  const payload = {
+    running_ms: entry.running_ms,
+    threshold_ms: entry.threshold_ms,
+    runtime_id: entry.runtime_id,
+    failure_type: entry.failure_type,
+    recommendation: entry.recommendation,
+  };
+  const details = {
     run_id: state?.run_id || null,
     phase: state?.phase || null,
     status: 'blocked',
     turn: { turn_id: entry.turn_id, role_id: entry.role },
-    payload: {
-      running_ms: entry.running_ms,
-      threshold_ms: entry.threshold_ms,
-      runtime_id: entry.runtime_id,
-      failure_type: entry.failure_type,
-      recommendation: entry.recommendation,
-    },
-  });
+    payload,
+  };
+  emitRunEvent(root, 'turn_start_failed', details);
+  const failureEventType = mapStartupFailureEventType(entry.failure_type);
+  if (failureEventType) {
+    emitRunEvent(root, failureEventType, details);
+  }
 }
 
 function buildBlockedStateFromEntries(state, activeTurns, budgetReservations, ghosts, stale, nowIso) {
@@ -435,6 +444,34 @@ function readDispatchProgressSafe(progressPath) {
   } catch {
     return null;
   }
+}
+
+function classifyStartupFailureType(turn, progress, fallback = 'no_subprocess_output') {
+  if (fallback === 'runtime_spawn_failed' || fallback === 'stdout_attach_failed') {
+    return fallback;
+  }
+  if (turn?.status === 'dispatched') {
+    return 'runtime_spawn_failed';
+  }
+  const hasWorkerAttachProof = Boolean(
+    turn?.worker_attached_at
+    || turn?.worker_pid != null
+    || progress?.pid != null,
+  );
+  if (turn?.status === 'starting' || hasWorkerAttachProof) {
+    return 'stdout_attach_failed';
+  }
+  return fallback;
+}
+
+function mapStartupFailureEventType(failureType) {
+  if (failureType === 'runtime_spawn_failed') {
+    return 'runtime_spawn_failed';
+  }
+  if (failureType === 'stdout_attach_failed') {
+    return 'stdout_attach_failed';
+  }
+  return null;
 }
 
 function hasStartupProof(turn, progress) {

@@ -134,8 +134,8 @@ describe('run-events', () => {
   });
 
   // Additional: VALID_RUN_EVENTS is complete
-  it('VALID_RUN_EVENTS contains all 27 event types', () => {
-    assert.equal(VALID_RUN_EVENTS.length, 27);
+  it('VALID_RUN_EVENTS contains all 30 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 30);
     assert.ok(VALID_RUN_EVENTS.includes('run_started'));
     assert.ok(VALID_RUN_EVENTS.includes('run_completed'));
     assert.ok(VALID_RUN_EVENTS.includes('run_blocked'));
@@ -147,6 +147,9 @@ describe('run-events', () => {
     assert.ok(VALID_RUN_EVENTS.includes('acceptance_failed'));
     assert.ok(VALID_RUN_EVENTS.includes('turn_reissued'));
     assert.ok(VALID_RUN_EVENTS.includes('turn_stalled'));
+    assert.ok(VALID_RUN_EVENTS.includes('turn_start_failed'));
+    assert.ok(VALID_RUN_EVENTS.includes('runtime_spawn_failed'));
+    assert.ok(VALID_RUN_EVENTS.includes('stdout_attach_failed'));
     assert.ok(VALID_RUN_EVENTS.includes('phase_entered'));
     assert.ok(VALID_RUN_EVENTS.includes('intent_retired_by_phase_advance'));
     assert.ok(VALID_RUN_EVENTS.includes('escalation_raised'));

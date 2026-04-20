@@ -202,7 +202,7 @@ describe('BUG-51: fast-startup watchdog', () => {
     const ghosts = detectGhostTurns(root, state, config);
     assert.equal(ghosts.length, 1);
     assert.equal(ghosts[0].turn_id, turnId);
-    assert.equal(ghosts[0].failure_type, 'no_subprocess_output');
+    assert.equal(ghosts[0].failure_type, 'stdout_attach_failed');
   });
 
   it('does not flag a starting turn once first output exists', () => {
@@ -227,6 +227,31 @@ describe('BUG-51: fast-startup watchdog', () => {
     assert.equal(reconciled.state.active_turns[turnId].status, 'failed_start');
     assert.equal(reconciled.state.budget_reservations[turnId], undefined);
     assert.equal(reconciled.state.blocked_reason.category, 'ghost_turn');
+
+    const events = readFileSync(join(root, '.agentxchain', 'events.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    assert.ok(events.some((entry) => entry.event_type === 'turn_start_failed'));
+    assert.ok(events.some((entry) => entry.event_type === 'stdout_attach_failed'));
+  });
+
+  it('emits runtime_spawn_failed as a first-class event for dispatched ghost turns', () => {
+    const { root, config } = createProject();
+    const { state } = seedDispatchedTurn(root, config, 45);
+
+    const reconciled = reconcileStaleTurns(root, state, config);
+    assert.equal(reconciled.ghost_turns.length, 1);
+    assert.equal(reconciled.ghost_turns[0].failure_type, 'runtime_spawn_failed');
+
+    const events = readFileSync(join(root, '.agentxchain', 'events.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    assert.ok(events.some((entry) => entry.event_type === 'turn_start_failed'));
+    assert.ok(events.some((entry) => entry.event_type === 'runtime_spawn_failed'));
   });
 
   it('status --json surfaces ghost turns and failed_start', () => {
@@ -326,7 +351,7 @@ describe('BUG-51: fast-startup watchdog', () => {
     const state = readState(root);
     const turnId = Object.keys(state.active_turns)[0];
     assert.equal(state.active_turns[turnId].status, 'failed_start');
-    assert.equal(state.active_turns[turnId].failed_start_reason, 'no_subprocess_output');
+    assert.equal(state.active_turns[turnId].failed_start_reason, 'stdout_attach_failed');
   });
 
   it('reissueTurn releases the old turn budget reservation and reserves for the new turn', () => {

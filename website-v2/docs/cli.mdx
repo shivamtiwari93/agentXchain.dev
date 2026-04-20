@@ -1599,7 +1599,7 @@ agentxchain events [--follow] [--type <type>] [--since <timestamp>] [--json] [--
 | `--limit <n>` | `50` | Max events to show (0 = all) |
 | `--dir <path>` | `.` | Project directory |
 
-Shows local lifecycle events from `.agentxchain/events.jsonl` for governed repos and coordinator workspaces. Events are emitted automatically during governed runs at key lifecycle transitions: `run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `conflict_resolved`, `acceptance_failed`, `turn_reissued`, `turn_stalled`, `turn_checkpointed`, `coordinator_retry`, `coordinator_retry_projection_warning`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`, `human_escalation_raised`, `human_escalation_resolved`, `dispatch_progress`.
+Shows local lifecycle events from `.agentxchain/events.jsonl` for governed repos and coordinator workspaces. Events are emitted automatically during governed runs at key lifecycle transitions: `run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `conflict_resolved`, `acceptance_failed`, `turn_reissued`, `turn_stalled`, `turn_start_failed`, `runtime_spawn_failed`, `stdout_attach_failed`, `turn_checkpointed`, `coordinator_retry`, `coordinator_retry_projection_warning`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`, `human_escalation_raised`, `human_escalation_resolved`, `dispatch_progress`.
 
 Use `--follow` to stream events in real-time as they occur. Use `--type run_blocked,run_completed` to filter by event type. Use `--json` for machine-readable output.
 
@@ -1610,6 +1610,8 @@ Use `--follow` to stream events in real-time as they occur. Use `--type run_bloc
 `turn_rejected` text entries include the rejection reason inline and append the failed stage when it is known, so operators can see why a turn failed without cross-referencing `.agentxchain/state.json`.
 
 `coordinator_retry_projection_warning` text entries show the affected workstream, repo, warning code, and that reconciliation is still required because immediate coordinator acceptance projection did not land. Use `agentxchain events --type coordinator_retry_projection_warning` when a targeted coordinator retry succeeded but you need to inspect the durable warning after the command exits.
+
+`turn_start_failed` records the retained ghost-turn failure, while `runtime_spawn_failed` and `stdout_attach_failed` split the startup class: the subprocess never spawned vs the worker attached but no first-byte output channel materialized inside the startup watchdog window.
 
 `phase_entered` text entries show the transition as `from → to (trigger)`, where `trigger` distinguishes direct automatic gate passes, auto-approved policy transitions, and explicit human approvals. `gate_failed` text entries show the blocked transition plus the first failure reason and gate ID inline, so operators can diagnose a rejected phase change without digging into `.agentxchain/decision-ledger.jsonl`.
 
