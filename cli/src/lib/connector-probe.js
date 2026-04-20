@@ -166,6 +166,30 @@ async function probeLocalCommand(runtimeId, runtime, probeKindLabel, options = {
   }
 
   const spawnProbe = probeRuntimeSpawnContext(options.root || process.cwd(), runtime, { runtimeId });
+  const claudeAuthIssue = getClaudeSubprocessAuthIssue(runtime);
+
+  if (!spawnProbe.ok) {
+    return {
+      ...base,
+      level: 'fail',
+      command: spawnProbe.command || head,
+      detail: spawnProbe.detail,
+    };
+  }
+
+  if (claudeAuthIssue) {
+    return {
+      ...base,
+      level: 'fail',
+      probe_kind: 'auth_preflight',
+      command: spawnProbe.command || head,
+      error_code: 'claude_auth_preflight_failed',
+      detail: claudeAuthIssue.detail,
+      fix: claudeAuthIssue.fix,
+      auth_env_present: claudeAuthIssue.auth_env_present,
+    };
+  }
+
   if (spawnProbe.ok) {
     return {
       ...base,
@@ -174,13 +198,6 @@ async function probeLocalCommand(runtimeId, runtime, probeKindLabel, options = {
       detail: spawnProbe.detail,
     };
   }
-
-  return {
-    ...base,
-    level: 'fail',
-    command: spawnProbe.command || head,
-    detail: spawnProbe.detail,
-  };
 }
 
 async function probeApiProxy(runtimeId, runtime, timeoutMs) {
@@ -432,8 +449,11 @@ export async function probeConnectorRuntime(runtimeId, runtime, options = {}) {
     // Add authority-intent and transport analysis when roles are available
     if (roles) {
       const { warnings } = analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles);
-      if (warnings.length > 0) {
-        result.authority_warnings = warnings;
+      const visibleWarnings = result.error_code === 'claude_auth_preflight_failed'
+        ? warnings.filter((warning) => warning.probe_kind !== 'auth_preflight')
+        : warnings;
+      if (visibleWarnings.length > 0) {
+        result.authority_warnings = visibleWarnings;
         // Promote result level to 'warn' if binary is present but authority intent is wrong
         if (result.level === 'pass') {
           result.level = 'warn';

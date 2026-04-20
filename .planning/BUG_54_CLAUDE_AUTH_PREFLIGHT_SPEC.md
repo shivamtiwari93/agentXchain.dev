@@ -13,7 +13,8 @@ The framework must fail fast with actionable guidance instead of launching a sub
 - `cli/src/lib/adapters/local-cli-adapter.js`
   - refuses the known-hanging Claude spawn shape before `spawn_prepare`
 - `cli/src/lib/connector-probe.js`
-  - surfaces a warning during `connector check`
+  - fails `connector check` with the canonical auth-preflight error when the
+    runtime is a known-hanging Claude local_cli shape
 - `cli/src/lib/connector-validate.js`
   - refuses the known-hanging Claude shape before any scratch workspace is
     created, so `connector validate` does not waste the scratch + synthetic
@@ -33,7 +34,8 @@ The framework must fail fast with actionable guidance instead of launching a sub
 3. If env auth is missing and `--bare` is absent:
    - `dispatchLocalCli()` returns `ok: false` before spawn
    - adapter logs a `claude_auth_preflight_failed` diagnostic row
-   - `connector check` emits an `auth_preflight` warning with the same remediation
+   - `connector check` returns `level: 'fail'`, `probe_kind: 'auth_preflight'`,
+     `error_code: 'claude_auth_preflight_failed'`, and the same remediation
    - `connector validate` returns `ok: false`, `error_code: 'claude_auth_preflight_failed'`,
      `dispatch: null`, `validation: null`, `scratch_root: null` — no scratch
      workspace is created and the synthetic dispatch is skipped entirely
@@ -59,6 +61,10 @@ The framework must fail fast with actionable guidance instead of launching a sub
 - `cli/test/connector-authority-intent.test.js`
   - connector analysis emits `auth_preflight` warning
   - `--bare` suppresses that warning
+- `cli/test/connector-check-command.test.js`
+  - `AT-CCP-011` — `connector check` fails the known-hanging Claude shape with
+    `probe_kind: 'auth_preflight'` and `error_code: 'claude_auth_preflight_failed'`
+  - `AT-CCP-012` — `--bare` suppresses the connector-check auth-preflight failure
 - `cli/test/governed-doctor-e2e.test.js`
   - doctor reports `warn` for a Claude runtime lacking env auth and `--bare`
 - `cli/test/connector-validate-command.test.js`

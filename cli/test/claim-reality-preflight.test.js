@@ -2705,6 +2705,73 @@ describe('claim-reality preflight', () => {
     }
   });
 
+  it('BUG-54 packaged connector check fails the Claude auth-preflight shape with the canonical error code', () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const probePath = join(packageDir, 'src/lib/connector-probe.js');
+    const authHelperPath = join(packageDir, 'src/lib/claude-local-auth.js');
+    assert.ok(existsSync(cliPath),
+      'BUG-54 packed tarball must include bin/agentxchain.js for the connector-check auth-preflight packaged proof');
+    assert.ok(existsSync(probePath),
+      'BUG-54 packed tarball must include src/lib/connector-probe.js for the connector-check auth-preflight packaged proof');
+    assert.ok(existsSync(authHelperPath),
+      'BUG-54 packed tarball must include src/lib/claude-local-auth.js for the connector-check auth-preflight packaged proof');
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-check-claude-auth-'));
+    TEMP_PATHS.push(root);
+
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify({
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug54-packed-check-claude-auth', name: 'BUG-54 packed check', default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'x', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: ['claude', '--print', '--dangerously-skip-permissions'],
+          cwd: '.',
+          prompt_transport: 'stdin',
+        },
+      },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_signoff' } },
+      gates: { implementation_signoff: {} },
+      run_loop: {},
+    }, null, 2) + '\n');
+
+    const env = {
+      ...process.env,
+      NO_COLOR: '1',
+    };
+    delete env.ANTHROPIC_API_KEY;
+    delete env.CLAUDE_API_KEY;
+    delete env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete env.CLAUDE_CODE_USE_VERTEX;
+    delete env.CLAUDE_CODE_USE_BEDROCK;
+
+    const result = spawnSync(process.execPath, [cliPath, 'connector', 'check', 'local-dev', '--json'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15_000,
+      env,
+    });
+    assert.equal(result.status, 1, result.stdout || result.stderr,
+      'packaged connector check must fail the known-hanging Claude auth shape instead of reporting a soft warning');
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'fail');
+    assert.equal(output.fail_count, 1);
+    const localDev = output.connectors.find((entry) => entry.runtime_id === 'local-dev');
+    assert.ok(localDev, result.stdout);
+    assert.equal(localDev.level, 'fail');
+    assert.equal(localDev.probe_kind, 'auth_preflight');
+    assert.equal(localDev.error_code, 'claude_auth_preflight_failed',
+      'packaged connector check must surface the same canonical BUG-54 error code as adapter/validate so operators can grep one identifier across surfaces');
+    assert.match(localDev.detail || '', /no env-based auth/i);
+    assert.match(localDev.fix || '', /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN/);
+    assert.match(localDev.fix || '', /--bare/);
+    assert.equal(localDev.auth_env_present?.ANTHROPIC_API_KEY, false,
+      'packaged connector check must report auth env presence as booleans, never secrets');
+  });
+
   it('BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed via the watchdog reclassification seam', async () => {
     // Companion to the two rows above.
     //   - "BUG-51 packaged CLI detects a ghost turn ..." exercises the

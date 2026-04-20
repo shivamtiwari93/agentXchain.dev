@@ -3085,3 +3085,68 @@ Closures:
 - ~2.5 hours of framework time (29 × ~5 min per ghost detection) produced zero product work
 - Represents worst-case possible scenario for full-auto claim: framework burns continuous wall-clock and spends agent effort without making any forward progress
 - Severity raised from P1 to P0 — this is now a complete-failure-mode on clean install, not a flaky-reliability issue
+
+---
+
+### Beta-tester bug report #21 (verbatim) — BUG-54 root cause isolated via reproduce-bug-54.mjs (2026-04-20)
+
+> **Title:** BUG-54 raw reproduction: `local_cli` PM runtime spawns `claude --print ...` successfully but produces no stdout/stderr and is killed by the 30s startup watchdog on every attempt
+>
+> **Environment:** agentxchain@2.148.0, test project `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-21480-clean`, runtime `local-pm`, resolved command: `claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions`, prompt transport `stdin`, watchdog 30000ms
+>
+> **What this proves:** bypasses governed-state classification logic and reproduces the subprocess shape directly from the local CLI adapter path. The failure is not just AgentXchain misclassifying a healthy subprocess. The subprocess is being spawned and attached, but it emits nothing at all before the watchdog kills it.
+>
+> **Harness summary:**
+> ```json
+> {"total":5,"spawn_attached":5,"stdout_attached":0,"watchdog_fires":5,"spawn_errors":0,"process_errors":0,"avg_first_stdout_ms":null,"classification":{"watchdog_no_output":5},"success_rate_first_stdout":0}
+> ```
+>
+> **All 5 attempts identical:** `watchdog_no_output` classification, spawn attached in ≤4ms, no stdout, no stderr, exit 143 (SIGTERM) at ~30190ms duration.
+>
+> **Diagnostic details:** runtime command resolved successfully, child spawned successfully every attempt, no spawn_error events, no process error events, zero stdout across all attempts, zero stderr across all attempts, watchdog killed process each time.
+>
+> **Auth env booleans:**
+> ```json
+> {
+>   "ANTHROPIC_API_KEY": false,
+>   "CLAUDE_API_KEY": false,
+>   "CLAUDE_CODE_OAUTH_TOKEN": false,
+>   "CLAUDE_CODE_USE_VERTEX": false,
+>   "CLAUDE_CODE_USE_BEDROCK": false
+> }
+> ```
+>
+> **Most defensible conclusion:** failure is below governed workflow logic. In this environment, `local-pm` subprocesses start, attach PID, accept stdin transport setup, emit no stdout, emit no stderr, sit silent until startup watchdog terminates them. BUG-54 is reproducible at the raw adapter/subprocess layer in clean 2.148.0.
+>
+> **Tester's next debugging directions:**
+> 1. Run harness with synthetic prompt to separate prompt-content vs pure runtime/auth issues
+> 2. Verify whether `claude --print ...` in this environment requires auth/env not present
+> 3. Compare environment seen by harness with a manually working Claude CLI invocation
+> 4. If team expects authless local operation, inspect whether `claude` blocks before output when no token/provider configuration is available
+
+**Analysis — ROOT CAUSE IDENTIFIED (2026-04-20):**
+
+The classification `watchdog_no_output` with spawn success + zero bytes on BOTH streams for 30 seconds is the signature of a **silently blocked subprocess**, not a crashing one. Combined with `auth_env_present.*` all false, this strongly indicates:
+
+**Claude CLI is trying to authenticate via macOS keychain and blocking silently on a UI prompt that never appears.**
+
+Supporting evidence:
+1. Any normal error (missing binary, bad args, auth failure) would produce stderr within seconds. Total silence = process is WAITING on something.
+2. Claude CLI's `--help` explicitly documents a `--bare` flag that *"skip[s] hooks, LSP, plugin sync, attribution, auto-memory, background prefetches, **keychain reads**, and CLAUDE.md auto-discovery."* The existence of this flag proves keychain reads are a default behavior that CAN block.
+3. macOS keychain access for subprocesses typically requires per-session UI authorization. Without a TTY, the authorization UI never appears. The subprocess hangs indefinitely.
+4. Tester has zero env-based auth, so Claude CLI has no fallback to env var — falls back to keychain → blocks.
+5. The reference healthy capture (Turn 96) had `auth_env_present` all false too, but that machine had already-authorized keychain access (the tests ran in the same user session that set up Claude).
+
+**Fix path — multi-layered:**
+
+1. **Doctor preflight check** (quick win, ship first): when `local_cli` runtime command is `claude` (or `claude-code`), check for env-based auth (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`) OR presence of `--bare` flag in args. If neither, warn loudly with actionable fix: "Claude subprocess may hang on keychain access. Run `export ANTHROPIC_API_KEY=...` or add `--bare` to runtime args."
+
+2. **Adapter auto-inject** (cleaner): if parent process has auth env vars (`ANTHROPIC_API_KEY`, etc.), propagate them to spawn env. Most spawns inherit env by default, but the adapter may be using a clean env. Verify.
+
+3. **`--bare` or explicit env injection** (if #2 isn't sufficient): adapter could auto-add `--bare` to Claude invocations OR document that operator must set auth env explicitly.
+
+4. **Fast-fail on silent subprocess** (defense in depth): if spawn produces zero bytes on BOTH streams for N seconds (e.g., 5s), emit specific `subprocess_silent_likely_auth_hang` classification and suggest the doctor check. Don't wait 30s to fail for this known pattern.
+
+5. **Runbook for new adopters** (docs): document that `local_cli` + Claude requires `ANTHROPIC_API_KEY` to be set in the shell that invokes `agentxchain`. Make this a prereq in getting-started.
+
+**Severity confirmation:** P0. Not a reliability issue — a deterministic environmental dependency that's never surfaced to the operator. Fixes the false-auto-recovery loops + makes first-time setup work on clean machines.

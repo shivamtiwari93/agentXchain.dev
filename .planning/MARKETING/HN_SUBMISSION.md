@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.148.0
+# Hacker News Submission — AgentXchain v2.149.0
 
-> Ready-to-post for the `v2.148.0` launch window once tester verification lands. Updated 2026-04-20.
+> Ready-to-post for the `v2.149.0` launch window once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -34,17 +34,18 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's queued in v2.148.0:**
-- BUG-54 adapter timing diagnostics: `startup_latency_ms` and `elapsed_since_spawn_ms` on every adapter-diag line so tight `startup_watchdog_ms` values can be tuned from observed real-Claude startup instead of guessed
-- BUG-54 real-Claude stdin proof: 10 consecutive `claude --print --dangerously-skip-permissions` dispatches with `prompt_transport: "stdin"`, handle growth bounded, zero `stdin_error`, and the gated probe fails loudly instead of silently skipping on hung Claude
-- BUG-55 sub-A checkpoint completeness: declared `files_changed` paths partition into `staged` / `already_committed_upstream` / `genuinely_missing`; the tester-reported dirty-survival gate holds while the legitimate BUG-23 pre-commit pattern stops false-positiving
-- BUG-55 sub-B `undeclared_verification_outputs` error class: acceptance rejects turns whose declared verification produced undeclared fixture outputs, with a dedicated remediation pointer to `verification.produced_files`
-- BUG-54 and BUG-55 sub-A/B remain open pending tester verification on `v2.148.0`; BUG-52 and BUG-53 carry forward from v2.147.0 under tester verification
+**What's queued in v2.149.0:**
+- BUG-54 Claude auth preflight: `local_cli` Claude runtimes now fail before spawn when neither env auth nor `--bare` is present, using the same `claude_auth_preflight_failed` contract across adapter dispatch, `connector check`, and `connector validate`
+- BUG-54 operator diagnostics stay shipped: `process_exit` forensic fields, reproduction harness + runbook, per-runtime watchdog override, and truthful stderr-only rendering
+- BUG-52 four-lane reconciler coverage shipped for planning, QA, Turn 93 orphan-request, and Turn 94 queued-transition recovery
+- BUG-55 wrong-lineage checkpoint surfacing + `undeclared_verification_outputs` rejection stay in the release lane
+- BUG-53 continuous auto-chain and `idle_exit` proof stay in the release lane
+- BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.0`
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - 108 conformance fixtures across 13 protocol surfaces
-- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
-- node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
+- node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
 
 **Architecture:**
 1. Protocol (the constitution — run state, roles, turns, gates, decisions)

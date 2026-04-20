@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.149.0
+
+### Bug Fixes
+- **BUG-54 Claude auth preflight**: `local_cli` Claude runtimes now fail fast on the deterministic non-interactive keychain-auth hang shape when neither env-based auth nor `--bare` is present. The canonical `claude_auth_preflight_failed` contract now surfaces across `dispatchLocalCli`, `connector validate`, and `connector check`, while `doctor` warns with the same remediation.
+- **BUG-54 connector readiness truthfulness**: `connector check` no longer downgrades the known-hanging Claude shape to a soft warning. It now fails the runtime with `probe_kind: "auth_preflight"`, `error_code: "claude_auth_preflight_failed"`, boolean-only `auth_env_present`, and actionable guidance naming `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, and `--bare`.
+- **BUG-54 packaged release-boundary proof**: the shipped tarball now carries packaged proofs for adapter, `connector validate`, and `connector check` auth-preflight behavior, plus the existing `process_exit` forensic fields, reproduction harness/runbook, per-runtime `startup_watchdog_ms`, and stderr-only dashboard rendering fix.
+- **BUG-52 four-lane reconciler coverage**: the shipped package now proves planning-signoff recovery, qa-ship recovery, Turn 93 orphan-request unblock, and Turn 94 queued-transition resume across real CLI command chains and packed claim-reality rows.
+- **BUG-55 checkpoint + verification hardening**: wrong-lineage checkpoint paths surface distinctly from genuinely missing files, undeclared verification outputs still fail with dedicated remediation, and the combined tester shape remains locked at both source and packaged boundaries.
+- **BUG-53 continuous auto-chain proof**: `run --continuous --max-runs` and `idle_exit` behavior remain locked by CLI-chain and packaged proof so post-completion chaining stays visible and non-pausing.
+
+### Status
+- BUG-54 remains open pending tester verification on `v2.149.0` per discipline rule #12
+- BUG-52 remains open pending tester verification on `v2.149.0` per discipline rule #12
+- BUG-55 remains open pending tester verification on `v2.149.0` per discipline rule #12
+- BUG-53 remains open pending tester verification on `v2.149.0` per discipline rule #12
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
+
 ## 2.148.0
 
 ### Bug Fixes

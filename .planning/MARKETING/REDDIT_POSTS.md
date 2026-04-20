@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.148.0
+# Reddit Posts — AgentXchain v2.149.0
 
-> Ready-to-post content for Reddit for the `v2.148.0` release once tester verification lands. Updated 2026-04-20.
+> Ready-to-post content for Reddit for the `v2.149.0` release once tester verification lands. Updated 2026-04-20.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.148.0):**
+**What's in the box (v2.149.0):**
 - 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
 - All 5 adapters proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -30,13 +30,13 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- BUG-54 adapter timing diagnostics shipped: `startup_latency_ms` and `elapsed_since_spawn_ms` land on every adapter-diag row so tight `startup_watchdog_ms` can be tuned from observed real-Claude startup, not guessed
-- BUG-54 real-Claude stdin proof shipped: 10 consecutive `claude --print --dangerously-skip-permissions` dispatches with `prompt_transport: "stdin"`, handle growth bounded, zero `stdin_error`, gated probe fails loudly instead of silently skipping on hung Claude
+- BUG-54 auth-preflight fix shipped: Claude `local_cli` runtimes now fail before spawn when neither env auth nor `--bare` is present, using the same `claude_auth_preflight_failed` signal across adapter dispatch, `connector check`, and `connector validate`
+- BUG-54 diagnostics + runbook still ship: `process_exit` forensic fields, reproduction harness, tester runbook, and per-runtime watchdog override
 - BUG-55 sub-A checkpoint completeness refined: declared `files_changed` partitioned into `staged` / `already_committed_upstream` / `genuinely_missing` so the dirty-survival gate holds while legitimate BUG-23 pre-commit patterns stop false-positiving
 - BUG-55 sub-B `undeclared_verification_outputs` error class shipped: acceptance rejects turns whose declared verification produced undeclared fixture outputs, with a remediation pointer to `verification.produced_files`
-- BUG-54 and BUG-55 sub-A/B remain open pending tester verification on `v2.148.0`; BUG-52 and BUG-53 carry forward from v2.147.0 under tester verification
-- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
-- node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
+- BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.0`
+- node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
 
 **See it in 30 seconds (no API keys needed):**
 
@@ -70,7 +70,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.148.0 – adapter timing diagnostics, real-Claude stdin proof, and checkpoint-completeness refinement
+**Title:** AgentXchain v2.149.0 – Claude auth preflight, reconciler proof, and checkpoint hardening
 
 **Body:**
 
@@ -88,8 +88,8 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
-- Next release slice carries BUG-54 adapter timing diagnostics + real-Claude stdin proof, and BUG-55 sub-A/B checkpoint-completeness refinement and `undeclared_verification_outputs` rejection for tester verification. BUG-52 and BUG-53 carry forward from v2.147.0 under tester verification.
-- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
+- Next release slice carries BUG-54 Claude auth preflight across adapter/check/validate, plus the existing diagnostics/runbook, BUG-52 four-lane reconciler proof, BUG-55 checkpoint/verification hardening, and BUG-53 continuous auto-chain proof for tester verification.
+- node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -98,7 +98,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
+- node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
@@ -127,7 +127,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- 6,352 tests / 1,324 suites / 0 failures
+- 172 tests / 64 suites / 0 failures in the current beta-tester release lane
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 

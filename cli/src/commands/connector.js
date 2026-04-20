@@ -5,6 +5,17 @@ import { DEFAULT_VALIDATE_TIMEOUT_MS, validateConfiguredConnector } from '../lib
 import { DEFAULT_TIMEOUT_MS, probeConfiguredConnectors } from '../lib/connector-probe.js';
 import { buildRuntimeCapabilityReport } from '../lib/runtime-capabilities.js';
 
+function warningDetail(warning) {
+  if (typeof warning === 'string') {
+    return warning;
+  }
+  return warning?.detail || JSON.stringify(warning);
+}
+
+function warningFix(warning) {
+  return typeof warning === 'object' && warning?.fix ? warning.fix : null;
+}
+
 function printJson(result, exitCode) {
   console.log(JSON.stringify(result, null, 2));
   process.exit(exitCode);
@@ -49,11 +60,15 @@ function printText(result, exitCode) {
       console.log(`        ${chalk.dim('Time:')}   ${connector.latency_ms}ms`);
     }
     console.log(`        ${chalk.dim('Detail:')} ${connector.detail}`);
+    if (connector.fix) {
+      console.log(`        ${chalk.dim('Fix:')}    ${connector.fix}`);
+    }
     if (Array.isArray(connector.authority_warnings) && connector.authority_warnings.length > 0) {
       for (const warning of connector.authority_warnings) {
-        console.log(`        ${chalk.yellow('⚠')} ${warning.detail}`);
-        if (warning.fix) {
-          console.log(`          ${chalk.dim('Fix:')} ${warning.fix}`);
+        console.log(`        ${chalk.yellow('⚠')} ${warningDetail(warning)}`);
+        const fix = warningFix(warning);
+        if (fix) {
+          console.log(`          ${chalk.dim('Fix:')} ${fix}`);
         }
       }
     }
@@ -161,7 +176,11 @@ function printValidateText(result, exitCode) {
   if (Array.isArray(result.warnings) && result.warnings.length > 0) {
     console.log('');
     for (const warning of result.warnings) {
-      console.log(`  ${chalk.yellow('!')} ${warning}`);
+      console.log(`  ${chalk.yellow('!')} ${warningDetail(warning)}`);
+      const fix = warningFix(warning);
+      if (fix) {
+        console.log(`    ${chalk.dim('Fix:')} ${fix}`);
+      }
     }
   }
 

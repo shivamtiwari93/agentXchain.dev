@@ -175,4 +175,66 @@ describe('agentxchain connector check', () => {
     assert.equal(localDev.level, 'pass');
     assert.match(localDev.detail, /"echo" is resolvable in the dispatch spawn context/);
   });
+
+  it('AT-CCP-011: Claude local_cli without env auth fails connector check with auth_preflight guidance', () => {
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['claude', '--print', '--dangerously-skip-permissions'],
+        cwd: '.',
+        prompt_transport: 'stdin',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    });
+
+    const env = { ...process.env };
+    delete env.ANTHROPIC_API_KEY;
+    delete env.CLAUDE_API_KEY;
+    delete env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete env.CLAUDE_CODE_USE_VERTEX;
+    delete env.CLAUDE_CODE_USE_BEDROCK;
+
+    const result = runCli(root, ['connector', 'check', 'local-dev', '--json'], env);
+    assert.equal(result.status, 1, result.stdout);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'fail');
+    assert.equal(output.fail_count, 1);
+    const localDev = output.connectors.find((c) => c.runtime_id === 'local-dev');
+    assert.equal(localDev.level, 'fail');
+    assert.equal(localDev.probe_kind, 'auth_preflight');
+    assert.equal(localDev.error_code, 'claude_auth_preflight_failed');
+    assert.match(localDev.detail, /no env-based auth/i);
+    assert.match(localDev.fix, /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN/);
+    assert.match(localDev.fix, /--bare/);
+    assert.equal(localDev.auth_env_present.ANTHROPIC_API_KEY, false);
+  });
+
+  it('AT-CCP-012: connector check does not auth-preflight-fail when Claude runtime declares --bare', () => {
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
+        cwd: '.',
+        prompt_transport: 'stdin',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    });
+
+    const env = { ...process.env };
+    delete env.ANTHROPIC_API_KEY;
+    delete env.CLAUDE_API_KEY;
+    delete env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete env.CLAUDE_CODE_USE_VERTEX;
+    delete env.CLAUDE_CODE_USE_BEDROCK;
+
+    const result = runCli(root, ['connector', 'check', 'local-dev', '--json'], env);
+    assert.equal(result.status, 0, result.stdout);
+    const output = JSON.parse(result.stdout);
+    const localDev = output.connectors.find((c) => c.runtime_id === 'local-dev');
+    assert.ok(localDev, result.stdout);
+    assert.notEqual(localDev.error_code, 'claude_auth_preflight_failed');
+    assert.equal(localDev.auth_env_present, undefined);
+  });
 });

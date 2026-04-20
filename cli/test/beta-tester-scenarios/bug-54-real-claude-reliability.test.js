@@ -39,6 +39,7 @@ import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
 import { dispatchLocalCli } from '../../src/lib/adapters/local-cli-adapter.js';
+import { hasClaudeEnvAuth } from '../../src/lib/claude-local-auth.js';
 import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
 import { getDispatchContextPath, getDispatchPromptPath } from '../../src/lib/turn-paths.js';
 
@@ -64,6 +65,12 @@ const CLAUDE_PROBE = (() => {
       return {
         mode: 'fail',
         reason: `claude --version output did not contain a semver: ${JSON.stringify(r.stdout || '')}`,
+      };
+    }
+    if (!hasClaudeEnvAuth(process.env)) {
+      return {
+        mode: 'skip',
+        reason: 'claude is installed but env-based Claude auth is absent; BUG-54 auth-preflight now refuses this runtime shape before spawn',
       };
     }
     return { mode: 'run', version: (r.stdout || '').trim() };
@@ -145,10 +152,12 @@ function countDiag(logs, label) {
 function requireClaudeProbe(t) {
   if (CLAUDE_PROBE.mode === 'skip') {
     t.skip(CLAUDE_PROBE.reason);
+    return false;
   }
   if (CLAUDE_PROBE.mode === 'fail') {
     assert.fail(CLAUDE_PROBE.reason);
   }
+  return true;
 }
 
 function parseDiagPayloads(logs, label) {
@@ -217,7 +226,7 @@ async function runLoopWithConfig(config, iterations, bundleOverride = null) {
 
 describe('BUG-54 real-claude reliability', () => {
   it('Scenario A: 10 consecutive `claude --version` dispatches exit cleanly without leaking', async (t) => {
-    requireClaudeProbe(t);
+    if (!requireClaudeProbe(t)) return;
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--version'],
@@ -244,7 +253,7 @@ describe('BUG-54 real-claude reliability', () => {
   });
 
   it('Scenario B: 10 consecutive `claude --version` with 50ms watchdog all fire watchdog→SIGTERM→close without leaking', async (t) => {
-    requireClaudeProbe(t);
+    if (!requireClaudeProbe(t)) return;
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--version'],
@@ -278,7 +287,7 @@ describe('BUG-54 real-claude reliability', () => {
   });
 
   it('Scenario C: 10 consecutive `claude --bogus-flag` dispatches exit non-zero without leaking', async (t) => {
-    requireClaudeProbe(t);
+    if (!requireClaudeProbe(t)) return;
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--this-flag-does-not-exist-bug54'],
@@ -301,7 +310,7 @@ describe('BUG-54 real-claude reliability', () => {
   });
 
   it('Scenario D: 10 consecutive `claude --print --dangerously-skip-permissions` stdin dispatches expose startup latency without leaking', async (t) => {
-    requireClaudeProbe(t);
+    if (!requireClaudeProbe(t)) return;
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--print', '--dangerously-skip-permissions'],
@@ -356,7 +365,7 @@ describe('BUG-54 real-claude reliability', () => {
   });
 
   it('Scenario E: local_cli runtime watchdog override beats an overly-tight global watchdog on real Claude startup', async (t) => {
-    requireClaudeProbe(t);
+    if (!requireClaudeProbe(t)) return;
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--version'],

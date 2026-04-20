@@ -5,7 +5,7 @@ title: "v2.149.0 Release Notes"
 
 # AgentXchain v2.149.0
 
-`v2.149.0` lands the BUG-52 reconciler recovery paths (Turn 93 orphan `phase_transition_request` + Turn 94 queued-transition resume), the BUG-54 forensic diagnostic expansion on `process_exit`, the BUG-54 reproduction harness + tester runbook, and the BUG-55 sub-A wrong-lineage path surfacing. None of the four open BUG-52/53/54/55 items flip to closed in this release — closure still requires tester-quoted shipped-package output per rule #12. What shipped is the material operator-facing surface the tester needs to actually run the root-cause triage and produce that output.
+`v2.149.0` turns BUG-54 from “better diagnostics” into an actual fail-fast product contract. Claude `local_cli` runtimes now refuse the known non-interactive keychain-auth hang shape before spawn when neither env-based auth nor `--bare` is present, and that refusal now surfaces consistently across adapter dispatch, `connector check`, and `connector validate`, with `doctor` warning on the same shape. The release also carries BUG-52’s four-lane reconciler recovery proof, BUG-55’s checkpoint/verification hardening, and BUG-53’s continuous auto-chain proof. None of BUG-52/53/54/55 flip to closed here — closure still requires tester-quoted shipped-package output per rule #12.
 
 ## Bug Fixes
 
@@ -15,13 +15,17 @@ title: "v2.149.0 Release Notes"
 
 - **BUG-52 phase-reconcile lookup hardening**: the reconciler is now resilient to accepted-turn lookup paths that previously mis-identified the candidate turn, eliminating the narrow shape the Turn 98-class false closure could still hide behind.
 
-- **BUG-54 `process_exit` forensic field coverage**: the `local_cli` adapter now emits `first_output_stream`, `exit_signal`, and `watchdog_fired` directly on the `process_exit` diagnostic line, alongside the existing `stderr_excerpt`. Single-record triage can now discriminate between watchdog-kill (SIGTERM + `watchdog_fired: true`), stderr-only natural exit (`first_output_stream: null` + `exit_signal: null` + non-null `stderr_excerpt`), and healthy exit (`first_output_stream: 'stdout'` or `'staged_result'`) without cross-line correlation. Both the repo adapter suite and the packaged claim-reality preflight assert the full field set on the spawn-but-silent and stderr-only-natural-exit paths.
+- **BUG-54 Claude auth preflight across live surfaces**: `dispatchLocalCli`, `connector validate`, and now `connector check` refuse the known-hanging Claude `local_cli` shape before launching the subprocess when neither env-based auth nor `--bare` is present. All three surfaces use the same canonical `claude_auth_preflight_failed` contract so operators can grep one identifier across logs, JSON output, and release notes.
+
+- **BUG-54 connector readiness truthfulness**: `connector check` no longer downgrades the known-hanging Claude shape to a soft warning. It now fails with `probe_kind: 'auth_preflight'`, `error_code: 'claude_auth_preflight_failed'`, boolean-only `auth_env_present`, and fix text naming `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, and `--bare`.
+
+- **BUG-54 `process_exit` forensic field coverage**: the `local_cli` adapter emits `first_output_stream`, `exit_signal`, and `watchdog_fired` directly on the `process_exit` diagnostic line, alongside `stderr_excerpt`. Single-record triage can now discriminate between watchdog-kill (SIGTERM + `watchdog_fired: true`), stderr-only natural exit (`first_output_stream: null` + `exit_signal: null` + non-null `stderr_excerpt`), and healthy exit (`first_output_stream: 'stdout'` or `'staged_result'`) without cross-line correlation.
 
 - **BUG-54 stderr-classification correctness**: stderr-only startup activity now renders as `diagnostic_only` rather than "Producing output," and stays in the BUG-54 failure bucket across progress/watchdog/run paths. Dashboard no longer paints stderr-only subprocesses as healthy work-in-progress. The `startup_failure_type` vocabulary is normalized to typed subtypes on both the adapter emission side and the status consumer side.
 
 - **BUG-54 per-runtime `startup_watchdog_ms`**: operators can override the startup watchdog per `runtimes.<id>` without changing the global `run_loop.startup_watchdog_ms`. The ghost detector honors the same override, so watchdog and ghost detection stay parity-aligned instead of computing drift from two separate source-of-truths.
 
-- **BUG-54 reproduction harness + tester runbook**: `cli/scripts/reproduce-bug-54.mjs` mirrors the adapter's `resolveCommand` + spawn shape exactly (shared helper import — no parallel implementation), captures per-attempt `spawn_attached` / `first_output` timestamps, `watchdog_fired`, `exit_code` / `exit_signal`, full stderr/stdout, prompt-transport + command resolution metadata, and an `env_snapshot` with boolean-only auth-key presence flags. Each attempt is classified into a frozen 9-bucket vocabulary that maps directly to the five BUG-54 hypotheses in `HUMAN-ROADMAP.md`. The in-tree runbook at `.planning/BUG_54_REPRO_SCRIPT_TESTER_RUNBOOK.md` documents the canonical invocation, the Turn 96 healthy reference shape, and the hypothesis-by-bucket triage map.
+- **BUG-54 reproduction harness + tester runbook**: `cli/scripts/reproduce-bug-54.mjs` mirrors the adapter’s `resolveCommand` + spawn shape exactly, captures per-attempt `spawn_attached` / `first_output` timestamps, `watchdog_fired`, `exit_code` / `exit_signal`, full stderr/stdout, and boolean-only auth-key presence flags. The in-tree runbook maps the 9 classification buckets directly onto the BUG-54 hypothesis set, so non-auth failures still have a deterministic next diagnostic step instead of another guess cycle.
 
 - **BUG-55 sub-A wrong-lineage path distinct surfacing**: `checkpoint-turn` now distinguishes `genuinely_missing` (declared path absent and never committed upstream) from `divergent_from_accepted_lineage` (declared path already committed on a different lineage than the accepted baseline). Operators get a wrong-lineage hint with actionable remediation instead of a generic missing-path error. Upstream presence is now anchored to the accepted baseline rather than arbitrary HEAD state.
 
@@ -41,12 +45,14 @@ title: "v2.149.0 Release Notes"
 - `DEC-BUG54-TESTER-RUNBOOK-001`
 - `DEC-BUG54-NO-ADAPTER-VOCAB-WIDENING-001`
 - `DEC-BUG54-PROCESS-EXIT-FIELD-COVERAGE-001`
+- `DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001`
+- `DEC-BUG54-VALIDATE-AUTH-PREFLIGHT-001`
 - `DEC-BUG52-PACKED-TURN93-94-PROOF-001`
 - `DEC-BUG55A-WRONG-LINEAGE-DISTINCT-001`
 
 ## Operator Notes
 
-- The BUG-54 reproduction harness is a repo-side diagnostic. Tester runs it directly from the repo checkout inside the failing worktree, then attaches the resulting JSON. It is not a shipped runtime feature of the npm package. However, the forensic fields on `process_exit` (`first_output_stream`, `exit_signal`, `watchdog_fired`, `stderr_excerpt`) are shipped in this package — running `agentxchain` on `v2.149.0` will produce BUG-54-triage-ready log records directly from the installed CLI.
+- The BUG-54 reproduction harness is a repo-side diagnostic. Tester runs it directly from the repo checkout inside the failing worktree, then attaches the resulting JSON. It is not a shipped runtime feature of the npm package. The shipped runtime features in `v2.149.0` are the fail-fast auth-preflight contract and the richer `process_exit` forensic fields.
 - BUG-52 recovery paths from Turn 93/94 are shipped behavior. Operators who previously had to patch `.agentxchain/state.json` to recover from `needs_human` + `queued_phase_transition` states should no longer need that manual surgery on `v2.149.0`.
 
 ## Tester Re-Run Contract
@@ -59,8 +65,9 @@ npx --yes -p agentxchain@2.149.0 -c "agentxchain --version"
 
 For closure evidence on `v2.149.0`, quote the exact command output or diagnostic lines for these checks:
 
-- **BUG-54 QA startup reliability**: run the tester's normal QA flow on `v2.149.0` and quote the adapter diagnostic lines that include `startup_latency_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup. If QA still fails, quote the full `process_exit` record for a failing attempt — the new forensic fields discriminate between watchdog, stderr-only natural exit, and spawn failure without cross-line inference.
-- **BUG-54 root-cause triage when reliability stays below 90%**: run `node cli/scripts/reproduce-bug-54.mjs --synthetic "Say READY and nothing else." --attempts 10 --out ./bug-54-repro.json` inside the failing worktree. The runbook at `.planning/BUG_54_REPRO_SCRIPT_TESTER_RUNBOOK.md` maps each of the 9 classification buckets to the five hypotheses and names the four JSON fields to quote back to the agents.
+- **BUG-54 auth-shape preflight**: first run `agentxchain connector check <claude-runtime> --json` or `agentxchain connector validate <claude-runtime> --json` on `v2.149.0`. If the runtime is still in the known-hanging configuration, quote the `claude_auth_preflight_failed` output with its `auth_env_present` booleans and remediation text. That is the fastest shipped-package proof that the keychain-auth hang shape is being caught before launch.
+- **BUG-54 QA startup reliability after auth is corrected**: run the tester's normal QA flow on `v2.149.0` and quote the adapter diagnostic lines that include `startup_latency_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup. If QA still fails after env auth or `--bare` is set, quote the full `process_exit` record for a failing attempt.
+- **BUG-54 root-cause triage when reliability stays below 90% after auth is corrected**: run `node cli/scripts/reproduce-bug-54.mjs --synthetic "Say READY and nothing else." --attempts 10 --out ./bug-54-repro.json` inside the failing worktree. The runbook at `.planning/BUG_54_REPRO_SCRIPT_TESTER_RUNBOOK.md` maps each of the 9 classification buckets to the remaining hypotheses and names the JSON fields to quote back to the agents.
 - **BUG-52 phase-gate reconciliation — full four-lane coverage**: run the tester's exact CLI chain across all four shapes:
   1. `planning_signoff` with separated `checkpoint-turn` → `unblock` → next dispatch is `dev`, not PM.
   2. `qa_ship_verdict` with separated `checkpoint-turn` → `unblock` → next dispatch is `launch`, not QA.
@@ -77,13 +84,13 @@ The closure artifact is the tester's quoted shipped-package output. No source-tr
 ## Evidence
 
 - node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
-- node --test cli/test/claim-reality-preflight.test.js → 39 tests / 1 suite / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
 - node --test --test-name-pattern='BUG-52' cli/test/claim-reality-preflight.test.js → 5 passed, 34 skipped (packed four-lane reconciler coverage green)
 - node --test cli/test/local-cli-adapter.test.js → full suite green (watchdog + stderr-only + staged-result paths assert `watchdog_fired`, `exit_signal`, `first_output_stream`, `stderr_excerpt`)
 
 ## Status
 
-- **BUG-54**: `process_exit` forensic fields shipped + reproduction harness + tester runbook + per-runtime watchdog override + dashboard rendering fix. Awaiting tester-run JSON from `tusq.dev-21480-clean` and >90% QA dispatch reliability quoted output on `v2.149.0`.
+- **BUG-54**: auth preflight now fails fast across adapter dispatch, `connector check`, and `connector validate`; `doctor` warns on the same shape; `process_exit` forensic fields, reproduction harness, runbook, per-runtime watchdog override, and dashboard rendering fix remain shipped. Awaiting tester-quoted `v2.149.0` output.
 - **BUG-52**: four-lane reconciler coverage shipped (planning/qa separated checkpoint, Turn 93 orphan, Turn 94 queued). Awaiting tester-quoted operator chain output on `v2.149.0` with no manual `state.json` patching.
 - **BUG-55**: sub-A wrong-lineage distinct surfacing + sub-B undeclared-output rejection + combined tester-shape regression + silent-filter tester-path lock. Awaiting tester-quoted `git status --short` clean output on `v2.149.0`.
 - **BUG-53**: CLI auto-chain + idle_exit + packaged session_continuation coverage. Awaiting tester-quoted `session_continuation` output on `v2.149.0`.

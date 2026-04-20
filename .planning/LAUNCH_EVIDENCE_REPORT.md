@@ -1,9 +1,9 @@
-# Launch Evidence Report — AgentXchain v2.148.0
+# Launch Evidence Report — AgentXchain v2.149.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-20 for the v2.148.0 release-prep surface. BUG-54, BUG-55 sub-A, BUG-55 sub-B, and the BUG-55 combined operator-shape remain open pending tester verification on `v2.148.0` per discipline rule #12; BUG-52 and BUG-53 carry forward from v2.147.0. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-20 for the v2.149.0 release-prep surface. BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.0` per discipline rule #12. Current aggregate release evidence:
 >
-> - node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
-> - node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
+> - node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
+> - node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
 > - node --test cli/test/beta-tester-scenarios/bug-55-combined-tester-shape.test.js → 2 pass / 0 fail (cross-defect operator-chain proof)
 > - node --test cli/test/current-release-surface.test.js → 23 pass / 0 fail (BUG-55 combined-shape tester rerun contract enforced by `AT-CRS-022`)
 > - `cd website-v2 && npm run build` → success (`Generated static files in "build"`)
@@ -308,7 +308,7 @@
   - Tester-quoted shipped-package output (HUMAN-ROADMAP discipline rule #12)
   - Combined-shape behavior against extracted tarball source — by `DEC-BUG55-COMBINED-PACKED-SMOKE-001` the existing BUG-55A / BUG-55B packed rows plus the repo-side combined regression are sufficient; no new packed row added unless a concrete packaging regression class is named
 
-### E7 — Public Tester Rerun Contract for BUG-55 Combined Shape (v2.148.0)
+### E7 — Public Tester Rerun Contract for BUG-55 Combined Shape (v2.149.0)
 
 - **Date**: 2026-04-20
 - **Location**: `website-v2/docs/releases/v2-148-0.mdx:50`
