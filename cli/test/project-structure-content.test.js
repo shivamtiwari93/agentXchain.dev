@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -19,17 +19,17 @@ describe('B-11: Project structure page content contracts', () => {
 
   it('AT-B11-002: explains committed vs. ignored split', () => {
     const content = readFileSync(structurePath, 'utf8');
-    assert.match(content, /commit.*this|committed.*governed.*state/i);
-    assert.match(content, /gitignored|never commit/i);
+    assert.match(content, /committed.*project contract|commit this/i);
+    assert.match(content, /gitignored by default|never commit/i);
   });
 
-  it('AT-B11-003: lists all key committed governed state files', () => {
+  it('AT-B11-003: lists key durable framework state files', () => {
     const content = readFileSync(structurePath, 'utf8');
     assert.match(content, /state\.json/);
     assert.match(content, /history\.jsonl/);
     assert.match(content, /events\.jsonl/);
     assert.match(content, /decision-ledger\.jsonl/);
-    assert.match(content, /agentxchain\.json/);
+    assert.match(content, /gitignored by default/i);
   });
 
   it('AT-B11-004: lists transient artifacts that must be gitignored', () => {
@@ -57,7 +57,7 @@ describe('B-11: Project structure page content contracts', () => {
 });
 
 describe('B-11: Scaffold .gitignore includes inline comments', () => {
-  it('AT-B11-008: fresh governed scaffold gitignore includes transient execution paths', () => {
+  it('AT-B11-008: fresh governed scaffold gitignore includes transient and framework-owned runtime paths', () => {
     const root = mkdtempSync(join(tmpdir(), 'axc-structure-'));
     try {
       scaffoldGoverned(root, 'Structure Test', `structure-${Date.now()}`);
@@ -65,7 +65,27 @@ describe('B-11: Scaffold .gitignore includes inline comments', () => {
       assert.match(gitignore, /\.agentxchain\/staging\//);
       assert.match(gitignore, /\.agentxchain\/dispatch\//);
       assert.match(gitignore, /\.agentxchain\/transactions\//);
+      assert.match(gitignore, /\.agentxchain\/state\.json/);
+      assert.match(gitignore, /\.agentxchain\/SESSION_RECOVERY\.md/);
+      assert.match(gitignore, /^TALK\.md$/m);
+      assert.match(gitignore, /^HUMAN_TASKS\.md$/m);
       assert.match(gitignore, /\.env/);
+      assert.match(gitignore, /framework-owned state/i);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-B11-009: governed scaffold preserves existing gitignore lines and appends missing runtime-state entries', () => {
+    const root = mkdtempSync(join(tmpdir(), 'axc-structure-existing-ignore-'));
+    try {
+      const gitignorePath = join(root, '.gitignore');
+      writeFileSync(gitignorePath, 'custom-cache/\n');
+      scaffoldGoverned(root, 'Structure Test', `structure-${Date.now()}`);
+      const gitignore = readFileSync(gitignorePath, 'utf8');
+      assert.match(gitignore, /^custom-cache\/$/m);
+      assert.match(gitignore, /\.agentxchain\/state\.json/);
+      assert.match(gitignore, /^TALK\.md$/m);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -103,6 +103,68 @@ const DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME = Object.freeze({
   prompt_transport: 'stdin',
 });
 
+const GOVERNED_GITIGNORE_LINES = Object.freeze([
+  '.env',
+  '.agentxchain/staging/',
+  '.agentxchain/dispatch/',
+  '.agentxchain/transactions/',
+  '.agentxchain/state.json',
+  '.agentxchain/session.json',
+  '.agentxchain/history.jsonl',
+  '.agentxchain/decision-ledger.jsonl',
+  '.agentxchain/repo-decisions.jsonl',
+  '.agentxchain/lock.json',
+  '.agentxchain/hook-audit.jsonl',
+  '.agentxchain/hook-annotations.jsonl',
+  '.agentxchain/run-history.jsonl',
+  '.agentxchain/events.jsonl',
+  '.agentxchain/notification-audit.jsonl',
+  '.agentxchain/schedule-state.json',
+  '.agentxchain/schedule-daemon.json',
+  '.agentxchain/continuous-session.json',
+  '.agentxchain/human-escalations.jsonl',
+  '.agentxchain/sla-reminders.json',
+  '.agentxchain/SESSION_RECOVERY.md',
+  '.agentxchain/migration-report.md',
+  '.agentxchain/intake/',
+  '.agentxchain/missions/',
+  '.agentxchain/multirepo/',
+  '.agentxchain/reviews/',
+  '.agentxchain/reports/',
+  '.agentxchain/proposed/',
+  'TALK.md',
+  'HUMAN_TASKS.md',
+]);
+
+const GOVERNED_GITIGNORE_CONTENT = [
+  '# AgentXchain — secrets',
+  '.env',
+  '',
+  '# AgentXchain — transient execution artifacts (never commit)',
+  '.agentxchain/staging/',
+  '.agentxchain/dispatch/',
+  '.agentxchain/transactions/',
+  '',
+  '# AgentXchain — framework-owned state (gitignored by default in fresh scaffolds)',
+  '# These files remain durable on disk and in export/restore, but defaulting them',
+  '# out of raw `git status` reduces operator noise. Existing tracked copies still',
+  '# appear dirty until the repo explicitly untracks them.',
+  ...GOVERNED_GITIGNORE_LINES.slice(4),
+].join('\n') + '\n';
+
+function ensureGitignoreEntries(gitignorePath, content, requiredEntries) {
+  if (!existsSync(gitignorePath)) {
+    writeFileSync(gitignorePath, content);
+    return;
+  }
+  const existingIgnore = readFileSync(gitignorePath, 'utf8');
+  const existingLines = new Set(existingIgnore.split(/\r?\n/));
+  const missing = requiredEntries.filter(entry => !existingLines.has(entry));
+  if (missing.length === 0) return;
+  const prefix = existingIgnore.endsWith('\n') || existingIgnore.length === 0 ? '' : '\n';
+  writeFileSync(gitignorePath, existingIgnore + prefix + missing.join('\n') + '\n');
+}
+
 const GOVERNED_RUNTIMES = {
   'manual-pm': { type: 'manual' },
   'manual-dev': { type: 'manual' },
@@ -833,28 +895,10 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   // TALK.md
   writeFileSync(join(dir, 'TALK.md'), `# ${projectName} — Team Talk File\n\nCanonical human-readable handoff log for all agents.\n\n---\n\n`);
 
-  // .gitignore additions with inline comments so operators know what to commit vs. ignore
+  // .gitignore additions with inline comments so fresh governed repos keep
+  // framework-owned runtime state out of raw git status by default.
   const gitignorePath = join(dir, '.gitignore');
-  const gitignoreContent = [
-    '# AgentXchain — secrets',
-    '.env',
-    '',
-    '# AgentXchain — transient execution artifacts (never commit)',
-    '.agentxchain/staging/',
-    '.agentxchain/dispatch/',
-    '.agentxchain/transactions/',
-  ].join('\n') + '\n';
-  const requiredPaths = ['.env', '.agentxchain/staging/', '.agentxchain/dispatch/', '.agentxchain/transactions/'];
-  if (!existsSync(gitignorePath)) {
-    writeFileSync(gitignorePath, gitignoreContent);
-  } else {
-    const existingIgnore = readFileSync(gitignorePath, 'utf8');
-    const missing = requiredPaths.filter(entry => !existingIgnore.split(/\r?\n/).includes(entry));
-    if (missing.length > 0) {
-      const prefix = existingIgnore.endsWith('\n') ? '' : '\n';
-      writeFileSync(gitignorePath, existingIgnore + prefix + missing.join('\n') + '\n');
-    }
-  }
+  ensureGitignoreEntries(gitignorePath, GOVERNED_GITIGNORE_CONTENT, GOVERNED_GITIGNORE_LINES);
 
   return { config, state, scaffoldWorkflowKitConfig };
 }
@@ -1251,16 +1295,7 @@ export async function initCommand(opts) {
   writeFileSync(join(dir, 'HUMAN_TASKS.md'), '# Human Tasks\n\n(Agents append tasks here when they need human action.)\n');
   const gitignorePath = join(dir, '.gitignore');
   const requiredIgnores = ['.env', '.agentxchain-trigger.json', '.agentxchain-prompts/', '.agentxchain-workspaces/', '.agentxchain-watch.pid', '.agentxchain-autonudge.state'];
-  if (!existsSync(gitignorePath)) {
-    writeFileSync(gitignorePath, requiredIgnores.join('\n') + '\n');
-  } else {
-    const existingIgnore = readFileSync(gitignorePath, 'utf8');
-    const missing = requiredIgnores.filter(entry => !existingIgnore.split(/\r?\n/).includes(entry));
-    if (missing.length > 0) {
-      const prefix = existingIgnore.endsWith('\n') ? '' : '\n';
-      writeFileSync(gitignorePath, existingIgnore + prefix + missing.join('\n') + '\n');
-    }
-  }
+  ensureGitignoreEntries(gitignorePath, requiredIgnores.join('\n') + '\n', requiredIgnores);
 
   // .planning/ structure
   mkdirSync(join(dir, '.planning', 'research'), { recursive: true });

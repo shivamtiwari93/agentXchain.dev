@@ -6,29 +6,41 @@ description: "What belongs where in an AgentXchain-governed repo: committed vs. 
 
 # Project structure
 
-A governed AgentXchain project has three layers of files. Knowing which layer each file belongs to determines whether you commit it, ignore it, or treat it as the source of truth.
+A governed AgentXchain project has four practical file classes. Knowing which class a path belongs to determines whether it should live in git, stay only on disk, or be treated as short-lived execution residue.
 
-## Layer 1: Committed governed state (source of truth)
+## Layer 1: Committed project contract
 
-These files ARE the project's governed history. They should be committed to git and reviewed in pull requests.
+These files define the repo's product and workflow contract. Commit them and review them like any other product artifact.
 
 | Path | Purpose |
 |------|---------|
 | `agentxchain.json` | Project config: roles, runtimes, phases, gates, workflow kit |
-| `.agentxchain/state.json` | Current run state: active turns, phase, baselines |
+| `.planning/` | Plans, specs, QA evidence, and human-owned vision artifacts |
+| Product code and docs | The repo's actual shipped surface |
+
+## Layer 2: Durable framework state (gitignored by default in fresh scaffolds)
+
+These files are still real state. The framework reads and writes them for status, recovery, dashboard views, export/restore, and continuity. Fresh governed scaffolds ignore them by default to keep raw `git status` focused on project artifacts instead of framework churn.
+
+You can still force-add them if your repo wants git-backed runtime audit history. `.gitignore` only suppresses new untracked copies; it does **not** hide files that are already tracked.
+
+| Path | Purpose |
+|------|---------|
+| `.agentxchain/state.json` | Current governed run state: active turns, phase, baselines |
 | `.agentxchain/session.json` | Session metadata: run continuity, checkpoints |
 | `.agentxchain/history.jsonl` | Completed turn history with results, costs, timing |
-| `.agentxchain/events.jsonl` | Full lifecycle event log: dispatched, accepted, rejected, escalated |
+| `.agentxchain/events.jsonl` | Lifecycle event log: dispatched, accepted, rejected, escalated |
 | `.agentxchain/decision-ledger.jsonl` | Decision records with rationale and evidence |
 | `.agentxchain/repo-decisions.jsonl` | Repo-level decision entries |
-| `.agentxchain/intake/` | Injected intent records (queued, approved, consumed) |
-| `.agentxchain/prompts/` | Archived dispatch prompts for audit trail |
-| `.agentxchain/reviews/` | Review artifacts from review_only turns |
-| `.agentxchain/reports/` | Generated governance reports |
-| `.agentxchain/proposed/` | Staged proposals from proposed-authority turns |
+| `.agentxchain/run-history.jsonl` | Terminal run retrospectives and continuity metadata |
+| `.agentxchain/intake/` | Injected intent records and intake loop state |
+| `.agentxchain/missions/`, `.agentxchain/multirepo/` | Mission and coordinator runtime state |
+| `.agentxchain/reviews/`, `.agentxchain/reports/`, `.agentxchain/proposed/` | Framework-owned review and evidence surfaces |
+| `.agentxchain/SESSION_RECOVERY.md` | Human-readable recovery report |
 | `TALK.md` | Agent-to-agent handoff log |
+| `HUMAN_TASKS.md` | Legacy/operator task surface when present |
 
-## Layer 2: Transient execution artifacts (never commit)
+## Layer 3: Transient execution artifacts (never commit)
 
 These are created during turn dispatch and cleaned up after acceptance. They are scaffolded into `.gitignore` automatically.
 
@@ -41,7 +53,7 @@ These are created during turn dispatch and cleaned up after acceptance. They are
 
 If any of these are missing from your `.gitignore`, run `agentxchain doctor` — it will flag the gap.
 
-## Layer 3: Planning artifacts (committed, human-owned)
+## Layer 4: Planning artifacts (committed, human-owned)
 
 These live in `.planning/` and represent the project's design context.
 
@@ -60,7 +72,7 @@ These live in `.planning/` and represent the project's design context.
 | Path | Purpose | Who owns it |
 |------|---------|-------------|
 | `README.md` | Public front door for the repo | Shared (human + agents) |
-| `TALK.md` | Agent collaboration log | Agents |
+| `TALK.md` | Agent collaboration log (gitignored by default in fresh scaffolds) | Agents |
 | `agentxchain.json` | Governed project config | Shared |
 | `.gitignore` | Git ignore rules | Shared |
 
@@ -72,7 +84,7 @@ These live in `.planning/` and represent the project's design context.
 | Specs and roadmaps | `.planning/*.md` | Organized as planning artifacts |
 | Public docs and README | Root or `docs/` | Visible to repo visitors |
 | Governed config | `agentxchain.json` (root) | Required by the CLI |
-| Run state and history | `.agentxchain/` | Managed by the framework |
+| Run state and runtime evidence | `.agentxchain/` | Managed by the framework and gitignored by default in fresh scaffolds |
 
 ## Freshly scaffolded project anatomy
 
@@ -82,13 +94,13 @@ After `agentxchain init --governed`, your project looks like:
 my-project/
 ├── agentxchain.json          # ← commit this
 ├── .gitignore                # ← commit this (pre-configured)
-├── TALK.md                   # ← commit this
+├── TALK.md                   # ← gitignored by default; force-add only if your repo wants it tracked
 ├── .agentxchain/
-│   ├── state.json            # ← commit this
-│   ├── session.json          # ← commit this
-│   ├── history.jsonl         # ← commit this
-│   ├── events.jsonl          # ← commit this
-│   ├── decision-ledger.jsonl # ← commit this
+│   ├── state.json            # ← gitignored by default, but durable on disk
+│   ├── session.json          # ← gitignored by default, but durable on disk
+│   ├── history.jsonl         # ← gitignored by default, but durable on disk
+│   ├── events.jsonl          # ← gitignored by default, but durable on disk
+│   ├── decision-ledger.jsonl # ← gitignored by default, but durable on disk
 │   ├── staging/              # ← gitignored (transient)
 │   ├── dispatch/             # ← gitignored (transient)
 │   └── transactions/         # ← gitignored (transient)
@@ -98,4 +110,4 @@ my-project/
     └── SYSTEM_SPEC.md        # ← commit this
 ```
 
-**Rule of thumb:** if `git status` shows a file under `.agentxchain/staging/` or `.agentxchain/dispatch/`, your `.gitignore` is incomplete. Run `agentxchain doctor` to verify.
+**Rule of thumb:** if `git status` shows a new untracked file under `.agentxchain/staging/`, `.agentxchain/dispatch/`, or core runtime-state paths like `.agentxchain/state.json`, your scaffold `.gitignore` is incomplete. If `git status` shows one of those files as modified, the file is already tracked and `.gitignore` cannot hide it until you explicitly untrack it.
