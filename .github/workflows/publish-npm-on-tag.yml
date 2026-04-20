@@ -209,8 +209,9 @@ jobs:
           if gh release view "$TAG" --json tagName -q '.tagName' >/dev/null 2>&1; then
             gh release edit "$TAG" \
               --title "$TAG" \
-              --notes-file "$NOTES_FILE"
-            echo "GitHub Release $TAG already exists — updated release body."
+              --notes-file "$NOTES_FILE" \
+              --draft=false
+            echo "GitHub Release $TAG already exists — updated release body and ensured non-draft."
           else
             gh release create "$TAG" \
               --title "$TAG" \

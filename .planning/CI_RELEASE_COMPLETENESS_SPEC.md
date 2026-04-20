@@ -59,8 +59,8 @@ This prevents first-run partial releases while preserving safe recovery reruns.
 
 Add a step after postflight that creates a GitHub Release using `gh release create`. This is possible because the workflow already has `contents: write` permission.
 
-- Uses `gh release create v<version> --title "v<version>" --notes "..."` with auto-generated notes
-- Idempotent: checks if release already exists before creating
+- Uses `gh release create v<version> --title "v<version>" --notes-file <rendered-body> --verify-tag`
+- Idempotent: checks if release already exists before creating; if it exists, uses `gh release edit` with `--draft=false` to ensure pre-existing draft releases are promoted to published
 - Runs after npm postflight passes (so the release links to a verified package)
 
 ### Step 4: Track canonical tap push status
