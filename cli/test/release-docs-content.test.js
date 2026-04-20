@@ -147,6 +147,136 @@ describe('release planning surface classification', () => {
     assert.match(workflow, /bash scripts\/publish-from-tag\.sh --skip-preflight "\$\{RELEASE_TAG\}"/);
   });
 
+  // -- Publish automation cannot silently fall back to a weaker preflight path --
+  //
+  // Rationale: claim-reality-preflight.test.js is the release-boundary packaged-proof
+  // surface for BUG-47..51 (and any future tester-gated bug that lands packaged rows).
+  // The shell script `release-preflight.sh --publish-gate` includes that file in
+  // GATE_TEST_PATTERNS (locked by release-preflight.test.js). But the workflow YAML
+  // can still regress independently: someone could remove a preflight step, swap
+  // `--publish-gate` for `--strict` alone, drop the `--target-version` argument,
+  // or add an alternative `npm publish` step that bypasses `publish-from-tag.sh`.
+  // The tests below lock the workflow contract so the publish automation cannot
+  // silently fall back to a weaker preflight path than the shell script advertises.
+
+  it('publish workflow runs --publish-gate on BOTH publish paths (rerun AND first-publish)', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    const gateInvocations = workflow.match(
+      /bash scripts\/release-preflight\.sh --publish-gate --target-version "\$\{RELEASE_TAG#v\}"/g,
+    ) ?? [];
+    assert.ok(
+      gateInvocations.length >= 2,
+      `publish workflow must run --publish-gate on both the rerun (already_published == 'true') and first-publish (already_published != 'true') paths; found ${gateInvocations.length} invocation(s). Removing either step would let publish automation fall back to a weaker preflight than the shell script advertises.`,
+    );
+  });
+
+  it('publish workflow rerun path gates on already_published == true and runs --publish-gate', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    // Re-verify tagged release before postflight step must exist AND be conditioned on already_published == 'true' AND run --publish-gate.
+    const rerunBlock = workflow.match(
+      /- name: Re-verify tagged release before postflight\s+if: steps\.registry\.outputs\.already_published == 'true'\s+working-directory: cli\s+shell: bash\s+run: bash scripts\/release-preflight\.sh --publish-gate --target-version "\$\{RELEASE_TAG#v\}"/,
+    );
+    assert.ok(
+      rerunBlock,
+      'rerun path (already_published == \'true\') must re-verify via release-preflight.sh --publish-gate before the postflight/downstream verification steps. Without this gate, a re-run of the publish workflow on an existing tag would proceed to downstream truth without re-proving claim-reality against any source changes that landed after the original publish.',
+    );
+  });
+
+  it('publish workflow first-publish path gates on already_published != true and runs --publish-gate before publish', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    const firstPublishGateBlock = workflow.match(
+      /- name: Re-verify tagged release before publish\s+if: steps\.registry\.outputs\.already_published != 'true'\s+working-directory: cli\s+shell: bash\s+run: bash scripts\/release-preflight\.sh --publish-gate --target-version "\$\{RELEASE_TAG#v\}"/,
+    );
+    assert.ok(
+      firstPublishGateBlock,
+      'first-publish path (already_published != \'true\') must run release-preflight.sh --publish-gate immediately before publish-from-tag.sh. Dropping this step would let publish-from-tag.sh --skip-preflight proceed with no gate at all.',
+    );
+  });
+
+  it('publish workflow runs the gate BEFORE publish-from-tag.sh (positional)', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    const firstPublishGateIdx = workflow.indexOf(
+      'Re-verify tagged release before publish',
+    );
+    const publishStepIdx = workflow.indexOf(
+      'bash scripts/publish-from-tag.sh --skip-preflight',
+    );
+    assert.ok(firstPublishGateIdx > -1, 'first-publish gate step must exist');
+    assert.ok(publishStepIdx > -1, 'publish-from-tag.sh step must exist');
+    assert.ok(
+      firstPublishGateIdx < publishStepIdx,
+      'release-preflight.sh --publish-gate must run BEFORE publish-from-tag.sh --skip-preflight. Reordering would mean the --skip-preflight flag runs with no prior gate, bypassing the entire claim-reality/beta-scenario lane.',
+    );
+  });
+
+  it('publish workflow does not contain an alternate npm publish path that bypasses the gate', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    // The only npm publish invocation must flow through publish-from-tag.sh, which
+    // --skip-preflight is only safe because the gate step ran just before.
+    // Raw `npm publish` or `npm exec -- npm publish` steps would bypass the gate entirely.
+    assert.doesNotMatch(
+      workflow,
+      /^\s*run:\s*npm publish/m,
+      'publish workflow must not contain a bare `npm publish` step. All publish must route through cli/scripts/publish-from-tag.sh which is gated by the preceding release-preflight.sh --publish-gate step.',
+    );
+    assert.doesNotMatch(
+      workflow,
+      /npm exec[^\n]*npm publish/,
+      'publish workflow must not route publish through `npm exec` to bypass publish-from-tag.sh.',
+    );
+  });
+
+  it('publish-npm.sh helper script runs --publish-gate before npm publish', () => {
+    // WAYS-OF-WORKING section 9 prohibits bypassing the publish gate with manual
+    // npm publish. `cli/scripts/publish-npm.sh` is documented in RELEASE_CUT_SPEC
+    // as a non-canonical helper, but it must not drop below the same
+    // release-boundary proof surface the canonical workflow enforces. Without
+    // this lock, an operator running `npm run publish:npm` would publish a
+    // tarball that never ran claim-reality-preflight / beta-tester scenarios.
+    const script = read('cli/scripts/publish-npm.sh');
+    const gateIdx = script.indexOf('bash scripts/release-preflight.sh --publish-gate');
+    const publishIdx = script.indexOf('npm publish --access public');
+    assert.ok(
+      gateIdx > -1,
+      'publish-npm.sh must invoke release-preflight.sh --publish-gate. Bare `npm publish` from this helper would bypass claim-reality/beta-tester packaged proof. Set ALLOW_PUBLISH_GATE_BYPASS=1 is the documented escape hatch for operator-owned manual proof.',
+    );
+    assert.ok(
+      publishIdx > -1,
+      'publish-npm.sh must still reach `npm publish --access public` (the helper is a publish path)',
+    );
+    assert.ok(
+      gateIdx < publishIdx,
+      'publish-npm.sh must run --publish-gate BEFORE `npm publish --access public`. Ordering matters: running the gate after publish is fake coverage.',
+    );
+    assert.match(
+      script,
+      /--target-version "\$\{NEW_VERSION\}"/,
+      'publish-npm.sh must pass the bumped NEW_VERSION as --target-version so the gate validates alignment against the actual version being published.',
+    );
+  });
+
+  it('publish workflow --skip-preflight is only used when paired with a prior --publish-gate step', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    const skipPreflightIndices = [];
+    const skipRegex = /publish-from-tag\.sh --skip-preflight/g;
+    let skipMatch;
+    while ((skipMatch = skipRegex.exec(workflow)) !== null) {
+      skipPreflightIndices.push(skipMatch.index);
+    }
+    assert.ok(
+      skipPreflightIndices.length >= 1,
+      '--skip-preflight invocation of publish-from-tag.sh must exist (the workflow owns tagged-state verification via the preceding --publish-gate step).',
+    );
+    for (const idx of skipPreflightIndices) {
+      const upstream = workflow.slice(0, idx);
+      assert.match(
+        upstream,
+        /bash scripts\/release-preflight\.sh --publish-gate --target-version "\$\{RELEASE_TAG#v\}"/,
+        'every publish-from-tag.sh --skip-preflight invocation must be preceded by a release-preflight.sh --publish-gate step in the same workflow. Otherwise --skip-preflight silently downgrades the release boundary.',
+      );
+    }
+  });
+
   it('cli package exposes the documented postflight script alias', () => {
     const pkg = JSON.parse(read('cli/package.json'));
     assert.equal(pkg.scripts['postflight:release'], 'bash scripts/release-postflight.sh');

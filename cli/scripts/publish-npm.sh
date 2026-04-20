@@ -84,6 +84,22 @@ NEW_VERSION="$(node -e "console.log(JSON.parse(require('fs').readFileSync('packa
 echo "New version: ${NEW_VERSION}"
 echo ""
 
+# Publish-gate enforcement: WAYS-OF-WORKING section 9 prohibits bypassing the
+# publish gate with manual npm publish. Even though this script is a documented
+# non-canonical helper (see RELEASE_CUT_SPEC.md section 6), it must not drop
+# below the same release-boundary proof surface (claim-reality-preflight,
+# beta-tester scenarios, release-docs-content, release-preflight) that the
+# canonical publish-npm-on-tag.yml workflow runs via
+# `release-preflight.sh --publish-gate`. Set ALLOW_PUBLISH_GATE_BYPASS=1 only
+# for dry-run/debug paths that have manually established proof (for example,
+# a release-preflight.sh --publish-gate run the operator just watched pass).
+if [[ "${ALLOW_PUBLISH_GATE_BYPASS:-0}" != "1" ]]; then
+  echo "Running release-preflight.sh --publish-gate before npm publish..."
+  bash scripts/release-preflight.sh --publish-gate --target-version "${NEW_VERSION}"
+else
+  echo "WARNING: ALLOW_PUBLISH_GATE_BYPASS=1 set — skipping publish-gate. The operator owns claim-reality/beta-tester proof manually."
+fi
+
 echo "Publishing to npm..."
 if [[ -n "${NPM_TOKEN:-}" ]]; then
   npm publish --access public --//registry.npmjs.org/:_authToken="${NPM_TOKEN}"
