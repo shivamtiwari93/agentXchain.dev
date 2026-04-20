@@ -1560,14 +1560,35 @@ function findMatchingPhaseTransitionDeclarer(historyEntries, gateFailure) {
   }) || null;
 }
 
-function resolvePhaseTransitionSource(historyEntries, gateFailure, fallbackTurnId) {
-  const requestedTurnId = gateFailure?.requested_by_turn || fallbackTurnId || null;
+function resolvePhaseTransitionSource(historyEntries, gateFailure, fallbackTurnId, queuedPhaseTransition = null) {
+  const requestedTurnId = gateFailure?.requested_by_turn
+    || queuedPhaseTransition?.requested_by_turn
+    || fallbackTurnId
+    || null;
   const requestedSource = findHistoryTurnRequest(historyEntries, requestedTurnId, 'phase_transition');
   if (requestedSource?.phase_transition_request) {
     return requestedSource;
   }
 
-  const fallbackSource = findMatchingPhaseTransitionDeclarer(historyEntries, gateFailure);
+  // Turn 94: a bare null-failure path only gets the exact last_completed_turn
+  // lookup. Without a surviving gate_failure or queued_phase_transition
+  // descriptor, mining "the latest request anywhere in history" can replay an
+  // unrelated older phase request on resume.
+  if (!gateFailure && !queuedPhaseTransition) {
+    return requestedSource;
+  }
+
+  const fallbackSource = findMatchingPhaseTransitionDeclarer(
+    historyEntries,
+    gateFailure || (
+      queuedPhaseTransition
+        ? {
+            from_phase: queuedPhaseTransition.from || null,
+            to_phase: queuedPhaseTransition.to || null,
+          }
+        : null
+    ),
+  );
   if (fallbackSource?.phase_transition_request) {
     return { ...fallbackSource, phase_transition_request: fallbackSource.phase_transition_request };
   }
@@ -2604,6 +2625,7 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
     historyEntries,
     gateFailure,
     currentState.last_completed_turn_id || null,
+    currentState.queued_phase_transition || null,
   );
   if (!phaseSource?.phase_transition_request) {
     return {

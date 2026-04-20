@@ -481,6 +481,177 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch the planning role on the needs_human path');
   });
 
+  it('Turn 94: resume advances from queued_phase_transition even when the latest accepted turn had no phase request', () => {
+    const { root } = createProject(makeQaLaunchConfig());
+    const seededState = readState(root);
+    const now = new Date().toISOString();
+
+    seededState.phase = 'implementation';
+    seededState.status = 'blocked';
+    seededState.active_turns = {};
+    seededState.blocked_on = 'human:queued_transition_review';
+    seededState.blocked_reason = {
+      category: 'needs_human',
+      blocked_at: now,
+      turn_id: 'turn_blocked_followup',
+      recovery: {
+        typed_reason: 'needs_human',
+        owner: 'human',
+        recovery_action: 'agentxchain resume',
+        turn_retained: false,
+        detail: 'queued transition should advance after resume',
+      },
+    };
+    seededState.last_gate_failure = null;
+    seededState.last_completed_turn_id = 'turn_blocked_followup';
+    seededState.pending_phase_transition = null;
+    seededState.pending_run_completion = null;
+    seededState.queued_phase_transition = {
+      from: 'implementation',
+      to: 'qa',
+      requested_by_turn: 'turn_impl_request',
+      requested_at: now,
+    };
+    seededState.phase_gate_status = {
+      planning_signoff: 'passed',
+      implementation_complete: 'pending',
+      qa_ship_verdict: 'pending',
+      launch_approval: 'pending',
+    };
+    writeState(root, seededState);
+    writeFileSync(
+      join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Implementation Notes\n\n## Changes\n- Implementation work is complete and ready for QA.\n\n## Verification\n- Resume-based queued transition recovery fixture.\n',
+    );
+    execSync('git add .planning/IMPLEMENTATION_NOTES.md && git commit -m "seed implementation notes for queued transition recovery"', {
+      cwd: root,
+      stdio: 'ignore',
+    });
+    writeHistory(root, [
+      {
+        turn_id: 'turn_impl_request',
+        run_id: seededState.run_id,
+        role: 'dev',
+        assigned_role: 'dev',
+        runtime_id: 'manual-dev',
+        status: 'completed',
+        accepted_at: now,
+        phase: 'implementation',
+        phase_transition_request: 'qa',
+        summary: 'Implementation work finished and requested QA.',
+        verification: { status: 'pass' },
+      },
+      {
+        turn_id: 'turn_blocked_followup',
+        run_id: seededState.run_id,
+        role: 'dev',
+        assigned_role: 'dev',
+        runtime_id: 'manual-dev',
+        status: 'completed',
+        accepted_at: now,
+        phase: 'implementation',
+        phase_transition_request: null,
+        summary: 'Later implementation bookkeeping turn with no new phase request.',
+        verification: { status: 'pass' },
+      },
+    ]);
+
+    const resumed = runCli(root, ['resume']);
+    assert.equal(resumed.status, 0, `resume failed:\n${resumed.stdout}\n${resumed.stderr}`);
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'qa', 'queued_phase_transition must still advance the phase after resume');
+    assert.equal(finalState.phase_gate_status?.implementation_complete, 'passed', 'implementation gate must be marked passed');
+    assert.equal(finalState.queued_phase_transition, null, 'queued_phase_transition should clear once reconciliation advances');
+    assert.equal(activeTurn?.assigned_role, 'qa', 'next dispatch must target QA from the queued request');
+    assert.equal(activeTurn?.runtime_id, 'manual-qa');
+    assert.doesNotMatch(resumed.stdout, /Role:\s+dev/i, 'resume must not redispatch implementation when a queued transition exists');
+  });
+
+  it('Turn 94: resume does not mine an unrelated historical phase request when the latest blocked turn had no request', () => {
+    const { root } = createProject(makeQaLaunchConfig());
+    const seededState = readState(root);
+    const now = new Date().toISOString();
+
+    seededState.phase = 'implementation';
+    seededState.status = 'blocked';
+    seededState.active_turns = {};
+    seededState.blocked_on = 'budget:exhausted';
+    seededState.blocked_reason = {
+      category: 'budget_exhausted',
+      blocked_at: now,
+      turn_id: 'turn_budget_block',
+      recovery: {
+        typed_reason: 'budget_exhausted',
+        owner: 'human',
+        recovery_action: 'Increase budget, then run agentxchain resume',
+        turn_retained: false,
+        detail: 'Budget exhausted after a non-transition implementation turn',
+      },
+    };
+    seededState.last_gate_failure = null;
+    seededState.last_completed_turn_id = 'turn_budget_block';
+    seededState.pending_phase_transition = null;
+    seededState.pending_run_completion = null;
+    seededState.queued_phase_transition = null;
+    seededState.phase_gate_status = {
+      planning_signoff: 'passed',
+      implementation_complete: 'pending',
+      qa_ship_verdict: 'pending',
+      launch_approval: 'pending',
+    };
+    writeState(root, seededState);
+    writeFileSync(
+      join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Implementation Notes\n\n## Changes\n- Historical implementation request fixture remains on disk.\n\n## Verification\n- Resume should stay in implementation unless the latest blocked path preserved a current request.\n',
+    );
+    execSync('git add .planning/IMPLEMENTATION_NOTES.md && git commit -m "seed implementation notes for null-source recovery guard"', {
+      cwd: root,
+      stdio: 'ignore',
+    });
+    writeHistory(root, [
+      {
+        turn_id: 'turn_old_impl_request',
+        run_id: seededState.run_id,
+        role: 'dev',
+        assigned_role: 'dev',
+        runtime_id: 'manual-dev',
+        status: 'completed',
+        accepted_at: now,
+        phase: 'implementation',
+        phase_transition_request: 'qa',
+        summary: 'Older implementation turn requested QA.',
+        verification: { status: 'pass' },
+      },
+      {
+        turn_id: 'turn_budget_block',
+        run_id: seededState.run_id,
+        role: 'dev',
+        assigned_role: 'dev',
+        runtime_id: 'manual-dev',
+        status: 'completed',
+        accepted_at: now,
+        phase: 'implementation',
+        phase_transition_request: null,
+        summary: 'Latest accepted turn exhausted budget but did not request phase advance.',
+        verification: { status: 'pass' },
+      },
+    ]);
+
+    const resumed = runCli(root, ['resume']);
+    assert.equal(resumed.status, 0, `resume failed:\n${resumed.stdout}\n${resumed.stderr}`);
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'implementation', 'resume must not replay an unrelated older phase request');
+    assert.equal(finalState.last_gate_failure, null, 'no gate failure should be synthesized from unrelated history');
+    assert.equal(finalState.queued_phase_transition ?? null, null, 'no queued transition should be created from unrelated history');
+    assert.equal(activeTurn?.assigned_role, 'dev', 'resume should dispatch the current phase entry role');
+    assert.equal(activeTurn?.runtime_id, 'manual-dev');
+    assert.doesNotMatch(resumed.stdout, /Role:\s+qa/i, 'resume must not jump to QA without a preserved current request');
+  });
+
   it('unblock still advances when last_gate_failure.requested_by_turn points at a non-declarer history entry', () => {
     const { root, config, state } = createProject();
 
