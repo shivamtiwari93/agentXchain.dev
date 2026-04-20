@@ -271,19 +271,38 @@ echo "  OK: version files and allowed release surfaces staged"
 
 # 9. Create or reuse release commit
 if git diff --cached --quiet --exit-code; then
-  echo "[9/10] Reusing existing release commit..."
+  CURRENT_HEAD_SHA=$(git rev-parse HEAD)
+  echo "[9/10] Resolving re-entry release identity..."
   COMMIT_MSG=$(git log -1 --format=%s)
-  if [[ "$COMMIT_MSG" != "$TARGET_VERSION" ]]; then
-    echo "FAIL: no staged release-identity changes remain, so HEAD must already be the ${TARGET_VERSION} release commit before re-entry can tag it. Found commit message '${COMMIT_MSG}'." >&2
+  if [[ "$COMMIT_MSG" == "$TARGET_VERSION" ]]; then
+    COMMIT_BODY=$(git log -1 --format=%B)
+    if [[ "$COMMIT_BODY" != *"Co-Authored-By: ${COAUTHORED_BY}"* ]]; then
+      echo "FAIL: existing HEAD commit for re-entry is missing the required Co-Authored-By trailer" >&2
+      exit 1
+    fi
+    RELEASE_SHA=$(git rev-parse HEAD)
+    echo "  OK: reusing existing release commit ${RELEASE_SHA:0:7}"
+  elif [[ "$REENTRY_MODE" -eq 1 ]]; then
+    echo "  No staged release-surface deltas remain; creating metadata-only release identity commit for ${CURRENT_HEAD_SHA:0:7}"
+    git commit --allow-empty -m "${TARGET_VERSION}
+
+Release-Base: ${CURRENT_HEAD_SHA}
+Co-Authored-By: ${COAUTHORED_BY}"
+    RELEASE_SHA=$(git rev-parse HEAD)
+    COMMIT_BODY=$(git log -1 --format=%B)
+    if [[ "$COMMIT_BODY" != *"Release-Base: ${CURRENT_HEAD_SHA}"* ]]; then
+      echo "FAIL: metadata-only release identity commit is missing the required Release-Base line" >&2
+      exit 1
+    fi
+    if [[ "$COMMIT_BODY" != *"Co-Authored-By: ${COAUTHORED_BY}"* ]]; then
+      echo "FAIL: metadata-only release identity commit is missing the required Co-Authored-By trailer" >&2
+      exit 1
+    fi
+    echo "  OK: metadata-only release identity commit ${RELEASE_SHA:0:7} recorded base ${CURRENT_HEAD_SHA:0:7}"
+  else
+    echo "FAIL: no staged release-identity changes remain, and HEAD is not already the ${TARGET_VERSION} release commit. Found commit message '${COMMIT_MSG}'." >&2
     exit 1
   fi
-  COMMIT_BODY=$(git log -1 --format=%B)
-  if [[ "$COMMIT_BODY" != *"Co-Authored-By: ${COAUTHORED_BY}"* ]]; then
-    echo "FAIL: existing HEAD commit for re-entry is missing the required Co-Authored-By trailer" >&2
-    exit 1
-  fi
-  RELEASE_SHA=$(git rev-parse HEAD)
-  echo "  OK: reusing existing release commit ${RELEASE_SHA:0:7}"
 else
   echo "[9/10] Creating release commit..."
   git commit -m "${TARGET_VERSION}

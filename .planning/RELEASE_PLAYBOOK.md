@@ -165,13 +165,13 @@ This fail-closed script:
 4. **Auto-aligns the Homebrew mirror** — updates the formula URL and README version/tarball to the target version; carries the previous committed formula SHA and overwrites any hand-edited working-tree SHA (corrected post-publish by `sync-homebrew.sh`)
 5. Updates `package.json` and `package-lock.json` via `npm version --no-git-tag-version`; re-entry mode uses `--allow-same-version` so already-bumped repos still normalize version files safely
 6. Stages all version files and allowed release surfaces, including any older release-note docs touched by the ordering normalizer
-7. Creates a commit with subject `<semver>` plus body trailer `Co-Authored-By: <value from --coauthored-by>`, or reuses the existing `HEAD` commit if it already matches that release-identity contract
+7. Creates a commit with subject `<semver>` plus body trailer `Co-Authored-By: <value from --coauthored-by>`; in re-entry mode it either reuses the existing `HEAD` commit when that contract already exists, or creates a metadata-only release identity commit with `Release-Base: <prior HEAD>` when the aligned tree is already clean
 8. Creates an annotated tag `v<semver>`
 9. Verifies commit subject, required trailer, and tag all exist before exiting
 
 Do not use raw `npm version <semver>` — it may update files without creating git identity when run from a subdirectory. Do not hand-edit the tag or let CI invent the version.
 
-If the repo is already in a truthful pending-release state at the target version and the only missing artifact is the annotated tag, rerun `npm run bump:release -- --target-version <semver> --coauthored-by ...`. The script will reuse the existing release commit only if `HEAD` already has subject `<semver>` and the required `Co-Authored-By` trailer; otherwise it fails closed instead of tagging an arbitrary commit.
+If the repo is already in a truthful pending-release state at the target version and the only missing artifact is the annotated tag, rerun `npm run bump:release -- --target-version <semver> --coauthored-by ...`. The script will either reuse the existing release commit when `HEAD` already has subject `<semver>` plus the required trailer, or create a metadata-only release identity commit that records the prior `HEAD` as `Release-Base`. It does not require fake surface churn just to recreate git identity.
 
 ### 3. Strict Preflight On Tagged State
 

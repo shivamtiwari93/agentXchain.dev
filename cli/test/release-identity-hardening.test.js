@@ -552,18 +552,68 @@ describe('Release identity hardening', () => {
       assert.equal(pkg.version, '2.19.0');
     });
 
-    it('AT-RIH-014: rejects re-entry tagging when HEAD is not already the release commit and no new identity changes are staged', () => {
+    it('AT-RIH-014: creates a metadata-only release identity commit when re-entry has a clean aligned tree but no release commit yet', () => {
       const fixture = createReleaseBumpFixture({ version: '2.20.0' });
+      const releaseBase = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
 
       const result = runReleaseBump(fixture.cliDir, '2.20.0');
-      assert.equal(result.status, 1);
-      assert.match(result.stderr, /HEAD must already be the 2\.20\.0 release commit/i);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.match(result.stdout, /metadata-only release identity commit/i);
+
+      const headAfter = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
+      assert.notEqual(headAfter, releaseBase, 're-entry should mint a distinct release identity commit');
+
+      const commitMessage = execFileSync('git', ['log', '-1', '--format=%s'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
+      assert.equal(commitMessage, '2.20.0');
+
+      const commitBody = execFileSync('git', ['log', '-1', '--format=%B'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      });
+      assert.match(commitBody, new RegExp(`Release-Base: ${releaseBase}`));
+      assert.ok(
+        commitBody.includes(`Co-Authored-By: ${DEFAULT_COAUTHOR}`),
+        'metadata-only release identity commit must retain the required Co-Authored-By trailer',
+      );
 
       const tagLookup = spawnSync('git', ['rev-parse', 'v2.20.0'], {
         cwd: fixture.root,
         encoding: 'utf8',
       });
-      assert.notEqual(tagLookup.status, 0, 'target tag must not be created when re-entry commit proof is missing');
+      assert.equal(tagLookup.status, 0, tagLookup.stderr);
+
+      const tagTarget = execFileSync('git', ['rev-parse', 'v2.20.0^{}'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
+      assert.equal(tagTarget, headAfter, 'annotated tag must resolve to the metadata-only release commit');
+    });
+
+    it('AT-RIH-015: fails closed when an existing target-version HEAD commit is missing the required trailer', () => {
+      const fixture = createReleaseBumpFixture({ version: '2.20.0' });
+      execFileSync('git', ['commit', '--allow-empty', '-m', '2.20.0'], {
+        cwd: fixture.root,
+        stdio: 'ignore',
+      });
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /missing the required Co-Authored-By trailer/i);
+
+      const tagLookup = spawnSync('git', ['rev-parse', 'v2.20.0'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      });
+      assert.notEqual(tagLookup.status, 0, 'target tag must not be created when the existing release commit is malformed');
     });
   });
 
