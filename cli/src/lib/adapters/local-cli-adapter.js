@@ -31,6 +31,15 @@ import {
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 import { hasMeaningfulStagedResult } from '../staged-result-proof.js';
 
+const DIAGNOSTIC_ENV_KEYS = [
+  'PATH',
+  'HOME',
+  'PWD',
+  'SHELL',
+  'TMPDIR',
+  'AGENTXCHAIN_TURN_ID',
+];
+
 /**
  * Launch a local CLI subprocess for a governed turn.
  *
@@ -112,6 +121,10 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
   // Capture logs for dispatch record
   const logs = [];
+  const runtimeCwd = runtime.cwd ? join(root, runtime.cwd) : root;
+  const spawnEnv = { ...process.env, AGENTXCHAIN_TURN_ID: turn.turn_id };
+  const stdinBytes = transport === 'stdin' ? Buffer.byteLength(fullPrompt, 'utf8') : 0;
+  const diagnosticArgs = redactPromptArgs(args, fullPrompt, transport);
 
   return new Promise((resolve) => {
     if (signal?.aborted) {
@@ -121,12 +134,23 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
     let child;
     try {
+      appendDiagnostic(logs, 'spawn_prepare', {
+        runtime_id: runtimeId,
+        turn_id: turn.turn_id,
+        command,
+        args: diagnosticArgs,
+        cwd: runtimeCwd,
+        prompt_transport: transport,
+        stdin_bytes: stdinBytes,
+        env: pickDiagnosticEnv(spawnEnv),
+      });
       child = spawn(command, args, {
-        cwd: runtime.cwd ? join(root, runtime.cwd) : root,
+        cwd: runtimeCwd,
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, AGENTXCHAIN_TURN_ID: turn.turn_id },
+        env: spawnEnv,
       });
     } catch (err) {
+      appendDiagnostic(logs, 'spawn_error', normalizeDiagnosticError(err));
       resolve({
         ok: false,
         startupFailure: true,
@@ -143,6 +167,8 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     let startupWatchdog = null;
     let startupTimedOut = false;
     let startupFailureType = null;
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
 
     const settle = (result) => {
       if (settled) return;
@@ -168,6 +194,11 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         startupTimedOut = true;
         startupFailureType = 'no_subprocess_output';
         logs.push(`[adapter] Startup watchdog fired after ${Math.round(startupWatchdogMs / 1000)}s with no output.`);
+        appendDiagnostic(logs, 'startup_watchdog_fired', {
+          startup_watchdog_ms: startupWatchdogMs,
+          pid: child.pid ?? null,
+          spawn_confirmed_at: spawnConfirmedAt,
+        });
         try {
           child.kill('SIGTERM');
         } catch {}
@@ -178,6 +209,11 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       if (firstOutputAt) return;
       firstOutputAt = new Date().toISOString();
       clearStartupWatchdog();
+      appendDiagnostic(logs, 'first_output', {
+        at: firstOutputAt,
+        stream,
+        pid: child.pid ?? null,
+      });
       if (onFirstOutput) {
         try {
           onFirstOutput({ pid: child.pid ?? null, at: firstOutputAt, stream });
@@ -187,6 +223,10 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
     child.once('spawn', () => {
       spawnConfirmedAt = new Date().toISOString();
+      appendDiagnostic(logs, 'spawn_attached', {
+        pid: child.pid ?? null,
+        at: spawnConfirmedAt,
+      });
       if (onSpawnAttached) {
         try {
           onSpawnAttached({ pid: child.pid ?? null, at: spawnConfirmedAt });
@@ -197,18 +237,32 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
     // Deliver prompt via stdin if transport is "stdin"; otherwise close immediately
     if (child.stdin) {
+      child.stdin.on('error', (err) => {
+        appendDiagnostic(logs, 'stdin_error', {
+          at: new Date().toISOString(),
+          stdin_bytes: stdinBytes,
+          ...normalizeDiagnosticError(err),
+        });
+      });
       try {
         if (transport === 'stdin') {
           child.stdin.write(fullPrompt);
         }
         child.stdin.end();
-      } catch {}
+      } catch (err) {
+        appendDiagnostic(logs, 'stdin_error', {
+          at: new Date().toISOString(),
+          stdin_bytes: stdinBytes,
+          ...normalizeDiagnosticError(err),
+        });
+      }
     }
 
     // Collect stdout/stderr
     if (child.stdout) {
       child.stdout.on('data', (chunk) => {
         const text = chunk.toString();
+        stdoutBytes += Buffer.byteLength(text);
         recordFirstOutput('stdout');
         logs.push(text);
         if (onStdout) onStdout(text);
@@ -218,6 +272,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     if (child.stderr) {
       child.stderr.on('data', (chunk) => {
         const text = chunk.toString();
+        stderrBytes += Buffer.byteLength(text);
         recordFirstOutput('stderr');
         logs.push('[stderr] ' + text);
         if (onStderr) onStderr(text);
@@ -283,6 +338,26 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       if (hasResult && !firstOutputAt) {
         recordFirstOutput('staged_result');
       }
+      const exitDiagnostic = {
+        pid: child.pid ?? null,
+        exit_code: exitCode,
+        signal: killSignal,
+        spawn_confirmed_at: spawnConfirmedAt,
+        first_output_at: firstOutputAt,
+        stdout_bytes: stdoutBytes,
+        stderr_bytes: stderrBytes,
+        staged_result_ready: hasResult,
+      };
+      if (startupTimedOut) {
+        exitDiagnostic.startup_failure_type = startupFailureType || 'no_subprocess_output';
+      } else if (!spawnConfirmedAt) {
+        exitDiagnostic.startup_failure_type = 'runtime_spawn_failed';
+      } else if (timedOut) {
+        exitDiagnostic.timed_out = true;
+      } else if (!firstOutputAt) {
+        exitDiagnostic.startup_failure_type = 'no_subprocess_output';
+      }
+      appendDiagnostic(logs, 'process_exit', exitDiagnostic);
 
       if (hasResult) {
         settle({ ok: true, exitCode, timedOut: false, aborted: false, logs, firstOutputAt });
@@ -344,6 +419,14 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
       if (signal) signal.removeEventListener('abort', onAbort);
+      appendDiagnostic(logs, 'spawn_error', {
+        pid: child.pid ?? null,
+        spawn_confirmed_at: spawnConfirmedAt,
+        first_output_at: firstOutputAt,
+        stdout_bytes: stdoutBytes,
+        stderr_bytes: stderrBytes,
+        ...normalizeDiagnosticError(err),
+      });
       settle({
         ok: false,
         startupFailure: !firstOutputAt,
@@ -456,6 +539,40 @@ function resolveTargetTurn(state, turnId) {
     return state.active_turns[turnId];
   }
   return state?.current_turn || Object.values(state?.active_turns || {})[0];
+}
+
+function appendDiagnostic(logs, label, payload) {
+  logs.push(`[adapter:diag] ${label} ${JSON.stringify(payload)}\n`);
+}
+
+function pickDiagnosticEnv(env) {
+  return Object.fromEntries(
+    DIAGNOSTIC_ENV_KEYS
+      .filter((key) => typeof env?.[key] === 'string' && env[key].length > 0)
+      .map((key) => [key, env[key]]),
+  );
+}
+
+function redactPromptArgs(args, fullPrompt, transport) {
+  const promptPlaceholder = `<prompt:${Buffer.byteLength(fullPrompt, 'utf8')} bytes>`;
+  return args.map((arg) => {
+    if (typeof arg !== 'string') {
+      return arg;
+    }
+    if (transport === 'argv' && arg === fullPrompt) {
+      return promptPlaceholder;
+    }
+    return arg;
+  });
+}
+
+function normalizeDiagnosticError(err) {
+  return {
+    code: err?.code || null,
+    errno: err?.errno || null,
+    syscall: err?.syscall || null,
+    message: err?.message || String(err),
+  };
 }
 
 export { resolvePromptTransport };

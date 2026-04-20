@@ -2970,3 +2970,50 @@ Closures:
 > - **Problem 2:** audit post-completion path in continuous sessions, after run_completion_request or completed launch ensure supervisor returns to vision scan → next objective derivation → next run creation, do not leave session paused unless real blocker or explicit stop condition
 >
 > **Short conclusion:** 2.146.0 improved ghost-turn detection materially. But two major issues remain: (1) still not full-auto — planning and QA phase transitions still require operator state surgery; (2) still not truly continuous — after a run completes, the next run does not start automatically. Release improves recovery but still does not deliver unattended continuous execution end-to-end.
+
+---
+
+### Beta-tester bug report #19 (verbatim) — v2.147.0 still not full-auto (2026-04-20)
+
+> **Title:** v2.147.0 still is not full-auto: planning gate loops remain, QA runtime repeatedly fails to start, accepted verification leaves dirty worktrees, and continuous progression still needs operator intervention
+>
+> **Summary:** Retested tusq.dev on agentxchain@2.147.0 and saw real improvements in startup-failure diagnosis, but system is still not autonomous. What improved: startup failures labeled more clearly (`runtime_spawn_failed`, `stdout_attach_failed`, `turn_start_failed`), some failures surface around 30-second startup watchdog window. What is still broken: (1) `planning_signoff` still false-loops after accepted+checkpointed PM work and resolved human approval; (2) QA startup severely unreliable — multiple QA turns never truly start; (3) accepted verification work can still leave dirty actor-owned files that block next phase; (4) continuous progression still needs operator intervention.
+>
+> **Runs:** `run_5fa4a26c3973e02d`, `run_4b24e171693ac091`
+>
+> **Issue 1: planning_signoff still false-loops after accepted/checkpointed PM work** — Reproduced in BOTH runs.
+>
+> Run 5fa4: PM turn `turn_addce63aff584689` accepted 11:11:43, conflict resolved via human_merge, checkpointed 11:11:48 at `8b2c86d246a88714729077ae1678684265083d2f`. `hesc_76f8ace83bfea425` resolved 11:11:54. Expected: transition to implementation. Actual: new PM turn `turn_2435871a999d9386` dispatched 11:11:54.9.
+>
+> Run 4b24: PM turn `turn_dca9c6c9fe1063eb` accepted 12:35:57, checkpointed 12:36:09 at `a9ffb1e91abcb734aa44280e7c2662943a38f230`. `hesc_f1ef7f2500523302` resolved 12:36:19. Actual: new PM turn `turn_2a43417238e0f19c` dispatched 12:36:19.6.
+>
+> Manual recovery: patch `.agentxchain/state.json` to mark planning_signoff as passed, move phase to implementation, clear redundant PM turn.
+>
+> **Issue 2: QA runtime startup severely broken** — biggest operational problem in 2.147.0.
+>
+> Run 4b24 had SIX consecutive QA startup failures:
+> 1. `turn_81bbd8431389abbe` — dispatched 12:54:24, failed 13:00:28 — `turn_start_failed`, `runtime_spawn_failed`, `ghost_turn`
+> 2. `turn_df73f5d49d09b381` — reissued, active 13:01:07, failed 13:01:37 — `turn_start_failed`, `stdout_attach_failed`
+> 3. `turn_e95f85176c456577` — active 13:07:21, failed 13:07:52 — `turn_start_failed`, `stdout_attach_failed`
+> 4. `turn_1d937907737bfbbe` — active 13:13:47, failed 13:14:17 — `turn_start_failed`, `stdout_attach_failed`
+> 5. `turn_75116ed720c37ca3` — active 13:20:15, failed 13:20:45 — `turn_start_failed`, `stdout_attach_failed`
+> 6. `turn_7763138080d00436` — active 13:26:10, failed 13:26:40 — `turn_start_failed`, `stdout_attach_failed`
+> 7. `turn_22dec3e1b24fca79` — reissued again
+>
+> Not content issue, not repo issue. Runtime/orchestration failure. Run blocked on QA workers failing to start. Not usable unattended if one lane can repeatedly fail to attach stdout / start subprocess.
+>
+> **Issue 3: startup failure classification better but underlying failure still exists.** 2.147.0 can detect startup failures but they're still happening frequently, especially in QA, still require operator recovery every time. Observability improved, not reliability.
+>
+> **Issue 4: accepted verification work can still leave dirty actor-owned files blocking next phase** — Reproduced in run_5fa4.
+>
+> After QA turn `turn_af4fdc071f440a23` accepted + checkpointed at `9d06e5d1d59a4331b866f6bd2a9e9b7858017bf1`, these actor-owned files still dirty: `.planning/RELEASE_NOTES.md`, `.planning/acceptance-matrix.md`, `src/cli.js`, `tests/smoke.mjs`. `agentxchain restart` failed: "Working tree has uncommitted changes in actor-owned files..." Manual recovery: `git commit -m 'checkpoint framework depth implementation and QA evidence'` (`13ef927`).
+>
+> **Issue 5: acceptance still breaks on undeclared verification side effects** — Same run.
+>
+> QA turn `turn_af4fdc071f440a23` acceptance initially failed at 11:52:24.291Z. Extra dirty files: `tests/fixtures/fastify-sample/.tusq/scan.json`, `tests/fixtures/fastify-sample/tusq.config.json`, `tests/fixtures/nest-sample/.tusq/scan.json`, `tests/fixtures/nest-sample/tusq.config.json`. Manual removal required before carrying QA result through acceptance.
+>
+> **Issue 6: launch still depends on operator salvage after startup failures.** Launch succeeded in run_5fa4 but not cleanly: first launch turn `turn_0d16d33c54ebd0a0` `turn_start_failed` at 12:05:53 with `failure_type: "no_subprocess_output"`. Reissued to `turn_916b9d8c61adc9ff`. Conflicted normally on README.md + website/src/pages/index.tsx. Accepted with human_merge. Run completed at 12:16:12 with checkpoint `ee071a470197186f11949735d81f406b8571faad`. But not autonomous.
+>
+> **Issue 7: full-auto still not achieved.** 2.147.0 still not full-auto because: planning gate still loops and needs manual state surgery; QA runtime still highly unreliable; accepted/checkpointed work can still leave dirty worktrees; launch still depends on recovery after failed starts; operator still actively managing transitions. BUG-52 and BUG-53 not fixed based on this evidence.
+>
+> **Short conclusion:** 2.147.0 improved startup failure reporting (runtime_spawn_failed, stdout_attach_failed, turn_start_failed). That's real progress. But concrete issues faced: false planning_signoff loops still reproduce, QA startup repeatedly fails across many reissues, accepted verification work can still leave dirty actor-owned files, verification side effects still break acceptance, launch still requires operator salvage after failed starts, system still is not truly full-auto end-to-end.

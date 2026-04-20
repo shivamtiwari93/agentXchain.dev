@@ -495,6 +495,12 @@ describe('local-cli-adapter', () => {
       const result = await dispatchLocalCli(root, state, config);
       assert.equal(result.ok, false);
       assert.ok(result.error);
+      const log = result.logs.join('');
+      assert.match(log, /\[adapter:diag\] spawn_prepare /);
+      assert.match(log, /"command":"nonexistent_binary_xyz_12345"/);
+      assert.match(log, /"prompt_transport":"dispatch_bundle_only"/);
+      assert.match(log, /"stdin_bytes":0/);
+      assert.match(log, /\[adapter:diag\] spawn_error /);
     });
 
     it('calls onSpawnAttached only after the child reports a successful spawn', async () => {
@@ -546,6 +552,31 @@ describe('local-cli-adapter', () => {
       assert.equal(result.startupFailure, true);
       assert.equal(result.startupFailureType, 'runtime_spawn_failed');
       assert.equal(attachedCalls, 0, 'spawn callback must not run for a process that never spawned');
+    });
+
+    it('records structured diagnostics for a spawn-but-silent subprocess', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const scriptPath = join(root, '_silent.js');
+      writeFileSync(scriptPath, 'setTimeout(() => process.exit(0), 300);');
+
+      const config = makeConfig({
+        command: ['node', scriptPath],
+      });
+      config.run_loop = { startup_watchdog_ms: 100 };
+      setupDispatchBundle(root, state, config);
+
+      const result = await dispatchLocalCli(root, state, config);
+      assert.equal(result.ok, false);
+      assert.equal(result.startupFailure, true);
+      assert.equal(result.startupFailureType, 'no_subprocess_output');
+      const log = result.logs.join('');
+      assert.match(log, /\[adapter:diag\] spawn_attached /);
+      assert.match(log, /"pid":\d+/);
+      assert.match(log, /\[adapter:diag\] startup_watchdog_fired /);
+      assert.match(log, /\[adapter:diag\] process_exit /);
+      assert.match(log, /"startup_failure_type":"no_subprocess_output"/);
+      assert.match(log, /"stderr_bytes":0/);
     });
   });
 
@@ -632,6 +663,7 @@ describe('local-cli-adapter', () => {
 
       const result = await dispatchLocalCli(root, state, config);
       assert.equal(result.ok, true);
+      assert.match(result.logs.join(''), /\[adapter:diag\] spawn_prepare [^\n]*"stdin_bytes":[1-9]\d*/);
 
       // Verify the subprocess actually received stdin content
       const staged = JSON.parse(readFileSync(join(root, stagingPathFor(state)), 'utf8'));

@@ -2433,6 +2433,11 @@ describe('claim-reality preflight', () => {
       'packaged dispatchLocalCli must NOT fire onSpawnAttached for a binary that never reports a Node `spawn` event — firing it would let governed-state.js stamp fake worker_attached_at/worker_pid, which is the exact lie the tester reported as the BUG-51 root cause');
     assert.equal(firstOutput.length, 0,
       'packaged dispatchLocalCli must NOT fire onFirstOutput for a binary that never spawned');
+    const spawnFailureLog = result.logs.join('');
+    assert.match(spawnFailureLog, /\[adapter:diag\] spawn_prepare /,
+      'packaged dispatchLocalCli must log spawn_prepare diagnostics before attempting local_cli startup so BUG-54 can debug repeated QA startup failures from the real turn bundle');
+    assert.match(spawnFailureLog, /\[adapter:diag\] spawn_error /,
+      'packaged dispatchLocalCli must log spawn_error diagnostics for a nonexistent binary so operator logs capture the failing spawn context, not only the final classification');
   });
 
   it('BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed via the watchdog reclassification seam', async () => {
@@ -2553,6 +2558,11 @@ describe('claim-reality preflight', () => {
       'onSpawnAttached must report a real OS pid for a successfully-spawned child (proof that the Node `spawn` event fired, not a synthetic callback)');
     assert.equal(firstOutput.length, 0,
       'packaged dispatchLocalCli MUST NOT fire onFirstOutput for a subprocess that never wrote stdout/stderr — firing it would fake first-byte proof and defeat the stdout_attach_failed classification');
+    const silentLog = dispatchResult.logs.join('');
+    assert.match(silentLog, /\[adapter:diag\] spawn_attached /,
+      'packaged dispatchLocalCli must log spawn_attached diagnostics with pid/timestamp when a subprocess really starts so BUG-54 can separate attach races from pure spawn failure');
+    assert.match(silentLog, /\[adapter:diag\] process_exit /,
+      'packaged dispatchLocalCli must log a process_exit diagnostic summarizing exit code, signal, and byte counts when a spawned subprocess exits without first-byte proof');
 
     // Watchdog-seam assertions — the typed reclassification contract.
     // Mirror what governed-state.js:991-993 stamps when onSpawnAttached fires
