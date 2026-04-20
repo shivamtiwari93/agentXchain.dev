@@ -48,7 +48,7 @@ The current normative v7 contract includes:
 
 The current conformance corpus covers these surfaces:
 
-- Tier 1: `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`
+- Tier 1: `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`, `delegation`, `decision_carryover`, `parallel_turns`, `event_lifecycle`
 - Tier 2: `dispatch_manifest`, `hook_audit`
 - Tier 3: `coordinator`
 
@@ -79,6 +79,8 @@ Repo-local semantics from v5 remain in force:
 - `.agentxchain/state.json` tracks run status, phase, active turns, blocked state, and pending repo-local gates.
 - `.agentxchain/history.jsonl` records accepted turn entries.
 - `.agentxchain/decision-ledger.jsonl` records accepted decisions.
+- `.agentxchain/events.jsonl` records run lifecycle evidence such as dispatch, acceptance, blocking, escalation, and completion.
+- `.agentxchain/run-history.jsonl` records terminal run truth while keeping inherited continuity context separate from current-run counters.
 - `.agentxchain/dispatch/turns/<turn_id>/` is the turn-scoped dispatch bundle root.
 - `.agentxchain/staging/<turn_id>/turn-result.json` is the staged turn-result path.
 
@@ -96,6 +98,12 @@ Write authorities are:
 - `authoritative`
 - `proposed`
 - `review_only`
+
+Decision durability rules in the shipped v7 surface are:
+
+- `durability: "run"` is the default decision scope.
+- `durability: "repo"` preserves a decision across continuation runs.
+- `overrides` replaces an existing active repo decision and may not self-reference.
 
 Reference CLI operator surface:
 

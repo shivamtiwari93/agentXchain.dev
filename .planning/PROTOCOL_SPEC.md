@@ -153,7 +153,9 @@ The protocol treats disagreement as first-class governed evidence.
 
 - accepted decisions become durable ledger entries
 - objections are part of the protocol surface, not optional commentary
-- decision carryover must survive across turns and continuation runs
+- decisions default to `durability: "run"` unless explicitly marked `durability: "repo"`
+- decision carryover must survive across turns and continuation runs when a decision is repo-durable
+- override semantics are part of the carried-decision contract: a valid `overrides` target is an existing active repo decision, and self-override is invalid
 - governance evidence must explain why a run is blocked, paused, retried, or escalated
 
 ### 5. Gate And Approval Semantics

@@ -194,6 +194,27 @@ describe('Protocol docs content', () => {
     );
   });
 
+  it('documents the full repo-native evidence contract for event and run history artifacts', () => {
+    for (const term of [
+      '.agentxchain/events.jsonl',
+      '.agentxchain/run-history.jsonl',
+      'run_started',
+      'turn_dispatched',
+      'turn_accepted',
+      'run_completed',
+      'current run',
+      'parent metadata',
+    ]) {
+      assert.ok(PROTOCOL_DOCS_MDX.includes(term), `protocol docs must mention ${term}`);
+    }
+  });
+
+  it('documents fixture-backed decision durability and override semantics', () => {
+    for (const term of ['durability: "run"', 'durability: "repo"', 'overrides: "DEC-..."', 'self-override is invalid']) {
+      assert.ok(PROTOCOL_DOCS_MDX.includes(term), `protocol docs must mention ${term}`);
+    }
+  });
+
   it('documents the full multi-repo coordinator contract in the normative spec', () => {
     for (const term of [
       'agentxchain-multi.json',

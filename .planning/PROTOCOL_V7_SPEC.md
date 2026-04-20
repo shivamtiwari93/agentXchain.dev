@@ -35,11 +35,11 @@ Fixtures that verify repo-durable decision semantics:
 
 | Fixture | Type | Description |
 |---------|------|-------------|
-| DC-001 | validate | Decision with `durability: "repo"` passes validation |
+| DC-001 | validate | Decision with durability repo passes turn result validation |
 | DC-002 | reject | Decision with invalid durability value rejected |
-| DC-003 | validate | Decision with `overrides: "DEC-NNN"` passes when target exists and is active |
-| DC-004 | reject | Decision with self-override rejected |
-| DC-005 | reject | Decision overriding already-overridden decision rejected |
+| DC-003 | validate | Decision with valid overrides field passes turn result validation |
+| DC-004 | reject | Decision with self-override rejected at schema stage |
+| DC-005 | validate | Decision with default run durability passes validation |
 
 #### Surface: `parallel_turns` (Tier 1)
 
@@ -47,12 +47,12 @@ Fixtures that verify parallel dispatch semantics:
 
 | Fixture | Type | Description |
 |---------|------|-------------|
-| PT-001 | validate | Config with `max_concurrent_turns: 2` passes validation |
-| PT-002 | validate | Config with `max_concurrent_turns: 4` passes validation (maximum allowed) |
-| PT-003 | validate | Config with `max_concurrent_turns: 1` passes validation (sequential mode) |
-| PT-004 | reject | Config with `max_concurrent_turns: 0` fails validation (must be >= 1) |
-| PT-005 | reject | Config with `max_concurrent_turns: 5` fails validation (maximum is 4) |
-| PT-006 | reject | Config with non-integer `max_concurrent_turns` fails validation |
+| PT-001 | validate | Config with max_concurrent_turns 2 passes validation |
+| PT-002 | validate | Config with max_concurrent_turns 4 passes validation (maximum allowed) |
+| PT-003 | validate | Config with max_concurrent_turns 1 passes validation (sequential mode) |
+| PT-004 | reject | Config with max_concurrent_turns 0 fails validation (must be >= 1) |
+| PT-005 | reject | Config with max_concurrent_turns 5 fails validation (maximum is 4) |
+| PT-006 | reject | Config with non-integer max_concurrent_turns fails validation |
 
 #### Surface: `event_lifecycle` (Tier 1)
 
@@ -61,13 +61,13 @@ Fixtures that verify run event semantics:
 | Fixture | Type | Description |
 |---------|------|-------------|
 | EL-001 | validate | Valid run event with all required fields passes validation |
-| EL-002 | reject | Event with invalid `event_type` rejected |
-| EL-003 | validate | `run_started` must be first event in timeline |
-| EL-004 | reject | `turn_accepted` without preceding `turn_dispatched` for same turn fails ordering |
-| EL-005 | reject | `run_completed` not last event fails ordering validation |
+| EL-002 | reject | Event with invalid event_type rejected |
+| EL-003 | validate | Valid event sequence with run_started first and run_completed last passes ordering validation |
+| EL-004 | reject | turn_accepted without preceding turn_dispatched for same turn fails ordering validation |
+| EL-005 | reject | run_completed not last event fails ordering validation |
 | EL-006 | reject | Timestamp regression (backwards timestamps) fails ordering validation |
-| EL-007 | reject | `turn_dispatched` event missing `turn.turn_id` fails event validation |
-| EL-008 | reject | Timeline not starting with `run_started` fails ordering validation |
+| EL-007 | reject | turn_dispatched event missing turn.turn_id fails event validation |
+| EL-008 | reject | Timeline not starting with run_started fails ordering validation |
 
 ## Interface
 
@@ -107,6 +107,12 @@ export const CURRENT_PROTOCOL_VERSION = 'v7';
 - `agentxchain doctor` and `agentxchain validate` report `protocol v7`
 - Conformance verification includes the 4 new surfaces by default
 - The conformance fixture count increases from 81 to 108 (27 new fixtures)
+- Decision carryover keeps two scopes explicit:
+  - `durability: "run"` remains the default and does not escape the current run.
+  - `durability: "repo"` carries a decision across continuation runs until a later accepted decision supersedes it.
+- `overrides` is the repo-decision replacement hook proven by the v7 fixture set:
+  - a valid override points at an existing active repo decision
+  - a decision may not override itself
 
 ## Error Cases
 

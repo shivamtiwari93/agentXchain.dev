@@ -37,6 +37,8 @@ A governed run within a single repository is the foundation of the protocol. Eve
 | `.agentxchain/state.json` | Mutable run state: current phase, pending turn, blocked status, run ID |
 | `.agentxchain/history.jsonl` | Append-only log of all accepted turn results (one JSON object per line) |
 | `.agentxchain/decision-ledger.jsonl` | Append-only ledger for accepted decisions plus selected conflict/governance events |
+| `.agentxchain/events.jsonl` | Append-only run lifecycle events (`run_started`, `turn_dispatched`, `turn_accepted`, blocking/escalation, `run_completed`) |
+| `.agentxchain/run-history.jsonl` | Terminal run summaries for the current run, with inherited continuity kept under separate parent metadata |
 | `.agentxchain/dispatch/turns/<turn_id>/` | Dispatch bundle for each turn (ASSIGNMENT.json, PROMPT.md, CONTEXT.md) |
 | `.agentxchain/staging/<turn_id>/turn-result.json` | Staged turn result awaiting acceptance |
 | `.agentxchain/prompts/<role>.md` | Role prompt templates |
@@ -79,6 +81,14 @@ This queued-versus-pending distinction matters in parallel mode. A request can b
 ### Challenge requirement
 
 Mandatory challenge is a protocol rule, but the concrete non-empty `objections` requirement is scoped to `review_only` roles. The runtime validates that `review_only` turns raise at least one objection. Authoritative and proposed-write roles are still expected to challenge prior work, but they are not rejected solely for omitting objections.
+
+### Decision durability and overrides
+
+Decision carryover in v7 is explicit rather than implicit:
+
+- `durability: "run"` is the default decision scope and does not escape the current run.
+- `durability: "repo"` promotes a decision into repo-level continuity so continuation runs still inherit it.
+- `overrides: "DEC-..."` is how one accepted repo decision replaces another. The fixture-backed v7 rules prove a valid override targets an existing active repo decision, and self-override is invalid.
 
 ## Coordinator initiative
 
