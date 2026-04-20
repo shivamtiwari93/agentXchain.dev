@@ -69,6 +69,8 @@ echo "AgentXchain Release Identity: ${TARGET_VERSION}"
 echo "============================================="
 
 TARGET_RELEASE_DOC="website-v2/docs/releases/v${TARGET_VERSION//./-}.mdx"
+CURRENT_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json','utf8')).version)")
+REENTRY_MODE=0
 ALLOWED_RELEASE_PATHS=(
   "cli/CHANGELOG.md"
   "${TARGET_RELEASE_DOC}"
@@ -88,6 +90,10 @@ ALLOWED_RELEASE_PATHS=(
   "website-v2/docs/five-minute-tutorial.mdx"
   "cli/homebrew/agentxchain.rb"
   "cli/homebrew/README.md"
+)
+ALLOWED_REENTRY_VERSION_PATHS=(
+  "cli/package.json"
+  "cli/package-lock.json"
 )
 
 is_allowed_release_path() {
@@ -112,15 +118,32 @@ stage_if_present() {
   fi
 }
 
-# 1. Assert only allowed release-surface dirt is present
-echo "[1/8] Checking release-prep tree state..."
+# 1. Detect version/re-entry state before validating the tree
+echo "[1/10] Checking current version..."
+if [[ "$CURRENT_VERSION" == "$TARGET_VERSION" ]]; then
+  REENTRY_MODE=1
+  echo "  OK: package.json already targets ${TARGET_VERSION}; entering release re-entry mode"
+else
+  echo "  OK: current version is ${CURRENT_VERSION}, bumping to ${TARGET_VERSION}"
+fi
+
+# 2. Assert only allowed release-surface dirt is present
+echo "[2/10] Checking release-prep tree state..."
 DISALLOWED_DIRTY=()
 while IFS= read -r status_line; do
   [[ -z "$status_line" ]] && continue
   path="${status_line#?? }"
-  if ! is_allowed_release_path "$path"; then
-    DISALLOWED_DIRTY+=("$path")
+  if is_allowed_release_path "$path"; then
+    continue
   fi
+  if [[ "$REENTRY_MODE" -eq 1 ]]; then
+    for allowed in "${ALLOWED_REENTRY_VERSION_PATHS[@]}"; do
+      if [[ "$path" == "$allowed" ]]; then
+        continue 2
+      fi
+    done
+  fi
+  DISALLOWED_DIRTY+=("$path")
 done < <(git -C "$REPO_ROOT" status --porcelain)
 
 if [[ "${#DISALLOWED_DIRTY[@]}" -gt 0 ]]; then
@@ -130,17 +153,8 @@ if [[ "${#DISALLOWED_DIRTY[@]}" -gt 0 ]]; then
 fi
 echo "  OK: tree contains only allowed release-prep changes"
 
-# 2. Assert not already at target version
-echo "[2/8] Checking current version..."
-CURRENT_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json','utf8')).version)")
-if [[ "$CURRENT_VERSION" == "$TARGET_VERSION" ]]; then
-  echo "FAIL: package.json is already at ${TARGET_VERSION}. Cannot double-bump." >&2
-  exit 1
-fi
-echo "  OK: current version is ${CURRENT_VERSION}, bumping to ${TARGET_VERSION}"
-
 # 3. Assert tag does not already exist
-echo "[3/8] Checking for existing tag..."
+echo "[3/10] Checking for existing tag..."
 if git rev-parse "v${TARGET_VERSION}" >/dev/null 2>&1; then
   echo "FAIL: tag v${TARGET_VERSION} already exists. Delete it first or choose a different version." >&2
   exit 1
@@ -236,7 +250,11 @@ fi
 
 # 7. Update version files (no git operations)
 echo "[7/10] Updating version files..."
-npm version "$TARGET_VERSION" --no-git-tag-version
+if [[ "$REENTRY_MODE" -eq 1 ]]; then
+  npm version "$TARGET_VERSION" --no-git-tag-version --allow-same-version
+else
+  npm version "$TARGET_VERSION" --no-git-tag-version
+fi
 echo "  OK: package.json updated to ${TARGET_VERSION}"
 
 # 8. Stage version files
@@ -251,23 +269,39 @@ done
 git -C "$REPO_ROOT" add -- website-v2/docs/releases
 echo "  OK: version files and allowed release surfaces staged"
 
-# 9. Create release commit
-echo "[9/10] Creating release commit..."
-git commit -m "${TARGET_VERSION}
+# 9. Create or reuse release commit
+if git diff --cached --quiet --exit-code; then
+  echo "[9/10] Reusing existing release commit..."
+  COMMIT_MSG=$(git log -1 --format=%s)
+  if [[ "$COMMIT_MSG" != "$TARGET_VERSION" ]]; then
+    echo "FAIL: no staged release-identity changes remain, so HEAD must already be the ${TARGET_VERSION} release commit before re-entry can tag it. Found commit message '${COMMIT_MSG}'." >&2
+    exit 1
+  fi
+  COMMIT_BODY=$(git log -1 --format=%B)
+  if [[ "$COMMIT_BODY" != *"Co-Authored-By: ${COAUTHORED_BY}"* ]]; then
+    echo "FAIL: existing HEAD commit for re-entry is missing the required Co-Authored-By trailer" >&2
+    exit 1
+  fi
+  RELEASE_SHA=$(git rev-parse HEAD)
+  echo "  OK: reusing existing release commit ${RELEASE_SHA:0:7}"
+else
+  echo "[9/10] Creating release commit..."
+  git commit -m "${TARGET_VERSION}
 
 Co-Authored-By: ${COAUTHORED_BY}"
-RELEASE_SHA=$(git rev-parse HEAD)
-COMMIT_MSG=$(git log -1 --format=%s)
-if [[ "$COMMIT_MSG" != "$TARGET_VERSION" ]]; then
-  echo "FAIL: commit message is '${COMMIT_MSG}', expected '${TARGET_VERSION}'" >&2
-  exit 1
+  RELEASE_SHA=$(git rev-parse HEAD)
+  COMMIT_MSG=$(git log -1 --format=%s)
+  if [[ "$COMMIT_MSG" != "$TARGET_VERSION" ]]; then
+    echo "FAIL: commit message is '${COMMIT_MSG}', expected '${TARGET_VERSION}'" >&2
+    exit 1
+  fi
+  COMMIT_BODY=$(git log -1 --format=%B)
+  if [[ "$COMMIT_BODY" != *"Co-Authored-By: ${COAUTHORED_BY}"* ]]; then
+    echo "FAIL: release commit body is missing the required Co-Authored-By trailer" >&2
+    exit 1
+  fi
+  echo "  OK: commit ${RELEASE_SHA:0:7} with message '${TARGET_VERSION}'"
 fi
-COMMIT_BODY=$(git log -1 --format=%B)
-if [[ "$COMMIT_BODY" != *"Co-Authored-By: ${COAUTHORED_BY}"* ]]; then
-  echo "FAIL: release commit body is missing the required Co-Authored-By trailer" >&2
-  exit 1
-fi
-echo "  OK: commit ${RELEASE_SHA:0:7} with message '${TARGET_VERSION}'"
 
 # 9.5. Inline preflight gate — tests, pack, and docs build must pass before tag
 if [[ "$SKIP_PREFLIGHT" -eq 1 ]]; then

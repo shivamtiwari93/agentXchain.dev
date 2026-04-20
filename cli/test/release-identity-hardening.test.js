@@ -325,10 +325,14 @@ describe('Release identity hardening', () => {
       );
     });
 
-    it('prevents double-bump', () => {
+    it('supports already-bumped re-entry with explicit safeguards', () => {
       assert.ok(
-        script.includes('already at') || script.includes('double-bump'),
-        'script must prevent bumping to the same version',
+        script.includes('release re-entry mode') || script.includes('existing release commit for re-entry'),
+        'script must document the already-bumped re-entry path',
+      );
+      assert.ok(
+        script.includes('--allow-same-version'),
+        'script must normalize version files safely in re-entry mode',
       );
     });
 
@@ -445,6 +449,7 @@ describe('Release identity hardening', () => {
       assert.match(spec, /AT-RIH-009/, 'spec must require Homebrew mirror release-surface proof');
       assert.match(spec, /AT-RIH-010/, 'spec must require discovery-surface release proof');
       assert.match(spec, /AT-RIH-012/, 'spec must require trailer-bearing release identity proof');
+      assert.match(spec, /AT-RIH-014/, 'spec must require already-bumped re-entry proof');
     });
   });
 
@@ -545,6 +550,20 @@ describe('Release identity hardening', () => {
 
       const pkg = JSON.parse(readFileSync(join(fixture.cliDir, 'package.json'), 'utf8'));
       assert.equal(pkg.version, '2.19.0');
+    });
+
+    it('AT-RIH-014: rejects re-entry tagging when HEAD is not already the release commit and no new identity changes are staged', () => {
+      const fixture = createReleaseBumpFixture({ version: '2.20.0' });
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /HEAD must already be the 2\.20\.0 release commit/i);
+
+      const tagLookup = spawnSync('git', ['rev-parse', 'v2.20.0'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      });
+      assert.notEqual(tagLookup.status, 0, 'target tag must not be created when re-entry commit proof is missing');
     });
   });
 
@@ -918,6 +937,35 @@ Prepared release.
       }).trim().split('\n').filter(Boolean);
       assert.ok(changedFiles.includes('website-v2/docs/releases/v2-20-0.mdx'));
       assert.ok(changedFiles.includes('website-v2/docs/releases/v2-19-0.mdx'));
+    });
+
+    it('AT-RIH-014: reuses an existing valid release commit when the repo is already at the target version', () => {
+      const fixture = createReleaseBumpFixture({ version: '2.20.0' });
+      execFileSync('git', ['commit', '--allow-empty', '-m', `2.20.0\n\nCo-Authored-By: ${DEFAULT_COAUTHOR}`], {
+        cwd: fixture.root,
+        stdio: 'ignore',
+      });
+
+      const originalHead = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.match(result.stdout, /reusing existing release commit/i);
+
+      const headAfter = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
+      assert.equal(headAfter, originalHead, 're-entry must not create a second release commit');
+
+      const tagTarget = execFileSync('git', ['rev-parse', 'v2.20.0^{}'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
+      assert.equal(tagTarget, originalHead, 'annotated tag must point at the reused release commit');
     });
   });
 });
