@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { loadProjectContext } from '../lib/config.js';
+import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import {
   SCHEDULE_STATE_PATH,
   DAEMON_STATE_PATH,
@@ -98,7 +98,7 @@ function buildScheduleProvenance(entry) {
 }
 
 export function buildScheduleExecutionResult(entryId, execution, fallbackState, action = 'ran') {
-  const state = execution.result?.state || fallbackState || null;
+  const state = fallbackState || execution.result?.state || null;
   const blockedReason = state?.blocked_reason || null;
   const recoveryAction = blockedReason?.recovery?.recovery_action || null;
   const blockedCategory = blockedReason?.category || null;
@@ -113,8 +113,21 @@ export function buildScheduleExecutionResult(entryId, execution, fallbackState, 
   };
 }
 
+function resolveScheduleExecutionState(root, config, execution, fallbackState) {
+  const executionState = execution.result?.state || null;
+  const liveState = loadProjectState(root, config);
+
+  if (execution.result?.stop_reason === 'blocked' || execution.result?.stop_reason === 'reject_exhausted') {
+    if (liveState?.status === 'blocked' && liveState?.blocked_reason) {
+      return liveState;
+    }
+  }
+
+  return executionState || liveState || fallbackState || null;
+}
+
 function recordScheduleExecution(context, entryId, execution, fallbackState, nowIso, action = 'ran') {
-  const state = execution.result?.state || fallbackState || null;
+  const state = resolveScheduleExecutionState(context.root, context.config, execution, fallbackState);
   const runId = state?.run_id || null;
   const startedAt = state?.created_at || nowIso;
 
@@ -202,7 +215,7 @@ async function continueActiveScheduledRun(context, opts = {}) {
   }
 
   const blocked = execution.result?.stop_reason === 'blocked';
-  const action = blocked && opts.tolerateBlockedRun ? 'blocked' : 'continued';
+  const action = blocked ? 'blocked' : 'continued';
   const result = recordScheduleExecution(context, scheduleId, execution, state, opts.at || new Date().toISOString(), action);
 
   if (execution.exitCode !== 0 && !(opts.tolerateBlockedRun && blocked)) {
@@ -317,7 +330,7 @@ async function runDueSchedules(context, opts = {}) {
       execution,
       execution.result?.state || null,
       nowIso,
-      blocked && opts.tolerateBlockedRun ? 'blocked' : 'ran',
+      blocked ? 'blocked' : 'ran',
     ));
 
     if (execution.exitCode !== 0) {
@@ -495,6 +508,7 @@ async function advanceScheduleContinuousSession(context, entry, opts = {}) {
     intent_id: step.intent_id || null,
     runs_completed: session.runs_completed,
     recovery_action: step.recovery_action || null,
+    blocked_category: step.blocked_category || null,
   };
 }
 
@@ -721,6 +735,7 @@ export async function scheduleDaemonCommand(opts) {
       };
       if (contResult.reason) contResultEntry.reason = contResult.reason;
       if (contResult.recovery_action) contResultEntry.recovery_action = contResult.recovery_action;
+      if (contResult.blocked_category) contResultEntry.blocked_category = contResult.blocked_category;
 
       result = {
         ok: contResult.ok !== false && nonContResult.ok,

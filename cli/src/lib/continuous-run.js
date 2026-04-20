@@ -123,6 +123,10 @@ function getBlockedRecoveryAction(state) {
   return state?.blocked_reason?.recovery?.recovery_action || null;
 }
 
+function getBlockedCategory(state) {
+  return state?.blocked_reason?.category || null;
+}
+
 // ---------------------------------------------------------------------------
 // Intake queue check
 // ---------------------------------------------------------------------------
@@ -374,6 +378,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
         action: 'still_blocked',
         run_id: session.current_run_id,
         recovery_action: getBlockedRecoveryAction(governedState),
+        blocked_category: getBlockedCategory(governedState),
       };
     }
     // Unblocked — resume by continuing the existing governed run directly.
@@ -413,6 +418,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
         action: 'run_blocked',
         run_id: session.current_run_id,
         recovery_action: blockedRecoveryAction,
+        blocked_category: getBlockedCategory(execution?.result?.state || loadProjectState(root, context.config)),
       };
     }
 
@@ -561,6 +567,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
       run_id: session.current_run_id,
       intent_id: targetIntentId,
       recovery_action: blockedRecoveryAction,
+      blocked_category: getBlockedCategory(execution?.result?.state || loadProjectState(root, context.config)),
     };
   }
 

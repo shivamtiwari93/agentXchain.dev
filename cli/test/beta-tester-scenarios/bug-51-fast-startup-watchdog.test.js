@@ -54,7 +54,7 @@ function makeConfig(overrides = {}) {
   };
 }
 
-function createProject(configOverrides = {}) {
+function createProject(configOverrides = {}, options = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-bug51-'));
   tempDirs.push(root);
   mkdirSync(join(root, '.agentxchain'), { recursive: true });
@@ -65,9 +65,34 @@ function createProject(configOverrides = {}) {
   execSync('git config user.email "test@test.com"', { cwd: root, stdio: 'ignore' });
   execSync('git config user.name "Test"', { cwd: root, stdio: 'ignore' });
   execSync('git add -A && git commit -m "init"', { cwd: root, stdio: 'ignore' });
-  const init = initializeGovernedRun(root, config);
-  assert.ok(init.ok, init.error);
+  if (options.initializeRun !== false) {
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+  }
   return { root, config };
+}
+
+function configureSilentLocalCliRuntime(root, config, { scriptName = 'silent-sleeper.js', source, vision = null } = {}) {
+  const scriptPath = join(root, scriptName);
+  writeFileSync(scriptPath, source);
+  if (vision) {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'VISION.md'), vision);
+  }
+  config.runtimes['local-dev'] = {
+    type: 'local_cli',
+    command: 'node',
+    args: [scriptPath],
+  };
+  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+  const files = ['agentxchain.json', scriptName];
+  if (vision) {
+    files.push('.planning/VISION.md');
+  }
+  execSync(`git add ${files.join(' ')} && git commit -m "configure silent local cli runtime"`, {
+    cwd: root,
+    stdio: 'ignore',
+  });
 }
 
 function readState(root) {
@@ -76,6 +101,30 @@ function readState(root) {
 
 function writeState(root, state) {
   writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+}
+
+function resetGovernedStateToIdle(root) {
+  const state = readState(root);
+  writeState(root, {
+    ...state,
+    run_id: null,
+    status: 'idle',
+    active_turns: {},
+    turn_sequence: 0,
+    last_completed_turn_id: null,
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+    pending_phase_transition: null,
+    pending_run_completion: null,
+    queued_phase_transition: null,
+    queued_run_completion: null,
+    last_gate_failure: null,
+    phase_gate_status: {},
+    budget_reservations: {},
+    accepted_integration_ref: null,
+    delegation_queue: [],
+  });
 }
 
 function backdateTurnField(root, turnId, field, secondsAgo) {
@@ -325,5 +374,91 @@ describe('BUG-51: fast-startup watchdog', () => {
     const result = buildScheduleExecutionResult('sched-2', execution, null, 'ran');
     assert.equal(result.recovery_action, null);
     assert.equal(result.blocked_category, null);
+  });
+
+  it('schedule run-due --json surfaces ghost-turn recovery from the live blocked state', () => {
+    const { root, config } = createProject({
+      run_loop: { startup_watchdog_ms: 400 },
+      schedules: {
+        nightly: {
+          every_minutes: 1,
+          auto_approve: true,
+          max_turns: 1,
+          initial_role: 'dev',
+        },
+      },
+    }, { initializeRun: false });
+    configureSilentLocalCliRuntime(root, config, {
+      source: 'setTimeout(() => {}, 60_000);',
+    });
+
+    const result = spawnSync('node', [CLI_PATH, 'schedule', 'run-due', '--json'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.ok, false);
+    assert.equal(parsed.results.length, 1);
+    assert.equal(parsed.results[0].id, 'nightly');
+    assert.equal(parsed.results[0].action, 'blocked');
+    assert.equal(parsed.results[0].stop_reason, 'blocked');
+    assert.equal(parsed.results[0].blocked_category, 'ghost_turn');
+    assert.match(parsed.results[0].recovery_action, /agentxchain reissue-turn --turn .* --reason ghost/);
+    assert.doesNotMatch(parsed.results[0].recovery_action, /agentxchain unblock <id>/);
+
+    const state = readState(root);
+    assert.equal(state.status, 'blocked');
+    assert.equal(state.blocked_reason.category, 'ghost_turn');
+  });
+
+  it('schedule daemon --json keeps ghost-turn recovery and category for continuous sessions', () => {
+    const { root, config } = createProject({
+      run_loop: { startup_watchdog_ms: 400 },
+      schedules: {
+        vision_autopilot: {
+          every_minutes: 1,
+          auto_approve: true,
+          max_turns: 1,
+          initial_role: 'dev',
+          continuous: {
+            enabled: true,
+            vision_path: '.planning/VISION.md',
+            max_runs: 5,
+            max_idle_cycles: 2,
+            triage_approval: 'auto',
+          },
+        },
+      },
+    });
+    configureSilentLocalCliRuntime(root, config, {
+      source: 'setTimeout(() => {}, 60_000);',
+      vision: '# Vision\n\n## Goals\n- build the first feature\n',
+    });
+    resetGovernedStateToIdle(root);
+
+    const result = spawnSync('node', [CLI_PATH, 'schedule', 'daemon', '--json', '--max-cycles', '1', '--poll-seconds', '1'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const parsed = JSON.parse(result.stdout.trim());
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.results.length, 1);
+    assert.equal(parsed.results[0].id, 'vision_autopilot');
+    assert.equal(parsed.results[0].continuous, true);
+    assert.equal(parsed.results[0].action, 'run_blocked');
+    assert.equal(parsed.results[0].status, 'blocked');
+    assert.equal(parsed.results[0].blocked_category, 'ghost_turn');
+    assert.match(parsed.results[0].recovery_action, /agentxchain reissue-turn --turn .* --reason ghost/);
+    assert.doesNotMatch(parsed.results[0].recovery_action, /agentxchain unblock <id>/);
+
+    const state = readState(root);
+    assert.equal(state.status, 'blocked');
+    assert.equal(state.blocked_reason.category, 'ghost_turn');
   });
 });
