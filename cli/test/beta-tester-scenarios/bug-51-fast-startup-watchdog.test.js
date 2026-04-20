@@ -193,6 +193,24 @@ describe('BUG-51: fast-startup watchdog', () => {
     assert.equal(parsed.ghost_turns[0].turn_id, turnId);
   });
 
+  it('status text renders the recovery command for a persisted failed_start turn', () => {
+    const { root, config } = createProject();
+    const { turnId } = seedStartingTurn(root, config, 45, false);
+
+    // First invocation reconciles ghost → failed_start and emits the warning block.
+    execSync(`node "${CLI_PATH}" status`, { cwd: root, encoding: 'utf8' });
+
+    // Second invocation: ghost detection finds nothing (already reconciled); the
+    // recovery command must still be visible in the turn display, not vanish.
+    const secondOutput = execSync(`node "${CLI_PATH}" status`, {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
+    });
+    assert.match(secondOutput, /failed_start/);
+    assert.match(secondOutput, new RegExp(`agentxchain reissue-turn --turn ${turnId} --reason ghost`));
+  });
+
   it('step fails fast when the subprocess exits without output', () => {
     const { root, config } = createProject({
       run_loop: { startup_watchdog_ms: 800 },

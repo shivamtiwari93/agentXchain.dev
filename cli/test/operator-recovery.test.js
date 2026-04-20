@@ -371,6 +371,8 @@ describe('operator recovery surfaces', () => {
             attempt: 1,
             status: 'running',
             started_at: '2026-04-02T12:40:00Z',
+            worker_attached_at: '2026-04-02T12:40:00Z',
+            first_output_at: '2026-04-02T12:40:05Z',
           },
         },
       },

@@ -382,6 +382,16 @@ function renderGovernedStatus(context, opts) {
         console.log(`      ${chalk.dim('Recover:')} ${chalk.cyan(`agentxchain reject-turn --turn ${turn.turn_id}`)} — reject and retry`);
         console.log(`      ${chalk.dim('     or:')} ${chalk.cyan(`agentxchain accept-turn --turn ${turn.turn_id}`)} — re-attempt acceptance`);
       }
+      if (turn.status === 'failed_start') {
+        console.log(`      ${chalk.dim('Reason:')}  ${turn.failed_start_reason || 'no_subprocess_output'}`);
+        const recover = turn.recovery_command || `agentxchain reissue-turn --turn ${turn.turn_id} --reason ghost`;
+        console.log(`      ${chalk.dim('Recover:')} ${chalk.cyan(recover)}`);
+      }
+      if (turn.status === 'stalled') {
+        console.log(`      ${chalk.dim('Reason:')}  ${turn.stalled_reason || 'no_output_within_threshold'}`);
+        const recover = turn.recovery_command || `agentxchain reissue-turn --turn ${turn.turn_id} --reason stale`;
+        console.log(`      ${chalk.dim('Recover:')} ${chalk.cyan(recover)}`);
+      }
     }
   } else if (singleActiveTurn) {
     console.log(`  ${chalk.dim('Turn:')}     ${singleActiveTurn.turn_id}`);
@@ -431,6 +441,16 @@ function renderGovernedStatus(context, opts) {
       console.log(`  ${chalk.dim('Suggest:')}  ${suggestion}`);
       console.log(`  ${chalk.dim('Resolve:')}  ${chalk.cyan(reassignAction.command)}`);
       console.log(`  ${chalk.dim('     or:')}  ${chalk.cyan(mergeAction.command)}`);
+    }
+    if (singleActiveTurn.status === 'failed_start') {
+      console.log(`  ${chalk.dim('Reason:')}   ${singleActiveTurn.failed_start_reason || 'no_subprocess_output'}`);
+      const recover = singleActiveTurn.recovery_command || `agentxchain reissue-turn --turn ${singleActiveTurn.turn_id} --reason ghost`;
+      console.log(`  ${chalk.dim('Recover:')}  ${chalk.cyan(recover)}`);
+    }
+    if (singleActiveTurn.status === 'stalled') {
+      console.log(`  ${chalk.dim('Reason:')}   ${singleActiveTurn.stalled_reason || 'no_output_within_threshold'}`);
+      const recover = singleActiveTurn.recovery_command || `agentxchain reissue-turn --turn ${singleActiveTurn.turn_id} --reason stale`;
+      console.log(`  ${chalk.dim('Recover:')}  ${chalk.cyan(recover)}`);
     }
   } else {
     console.log(`  ${chalk.dim('Turn:')}     ${chalk.yellow('No active turn')}`);
