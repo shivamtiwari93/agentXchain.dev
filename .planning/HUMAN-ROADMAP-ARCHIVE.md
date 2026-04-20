@@ -2852,3 +2852,49 @@ This evidence confirms the four-layered BUG-46 diagnosis:
 
 **Tester's nuance on BUG-45:** "The run got stuck in QA again, but for a different reason: the human-approval gate loop, not stale implementation intent coverage." — the QA human-gate loop is adjacent to BUG-48 (intent lifecycle contradiction) but may be distinct. Agents should investigate during BUG-47..50 work.
 
+
+---
+
+### Beta-tester bug report #17 (verbatim) — v2.145.0 BUG-47 critique: detection ≠ prevention (2026-04-20)
+
+> **Title:** v2.145.0 still allows ghost-dispatched implementation turns to burn ~11 minutes with no output before stale-turn recovery triggers
+>
+> **Summary:** Retested tusq.dev against agentxchain@2.145.0. 2.145.0 clearly improved stale-turn handling — framework now emits `turn_stalled`, blocks run with `category: "stale_turn"`, `reissue-turn` works, `step --resume` re-dispatches. But core failure mode still present: AgentXchain dispatches a dev turn, turn marked running, connector shown as active, no `stdout.log` created, no staged result, no progress events, run sits like that for ~11 minutes, only then does stale-turn watchdog fire. So 2.145.0 fixes recovery, but not the root cause that wastes a full cycle before recovery starts.
+>
+> **Environment:** tusq.dev, macOS, governed v4, template cli-tool, agentxchain@2.145.0 via npx
+>
+> **Retest:** `npx --yes -p agentxchain@2.145.0 -c 'agentxchain run --continue-from run_eef8e3a64fda1b0f --continuous --auto-approve --auto-checkpoint --max-turns 20 --max-runs 5 --triage-approval auto'`. Retest run `run_fbc688008b70c5d1`, objective: "The canonical artifact: redaction and approval metadata."
+>
+> **What worked first:** First PM turn `turn_bcbee07f789e05c9` behaved normally — real progress events, planning conflict on ROADMAP.md, accepted with human_merge, checkpointed at `10313ecf9417693d1e78569612e106262472ed9f`. Stale-turn problem showed up on first dev implementation turn after planning.
+>
+> **Ghost-dispatched turn:** `turn_7220d0e20cbbbadd` (role dev, phase implementation).
+>
+> Dispatch event: `{"event_id":"evt_02a28a22fc0906c0","event_type":"turn_dispatched","timestamp":"2026-04-20T02:43:17.178Z",...}`
+>
+> On-disk evidence immediately after dispatch: dispatch bundle existed (`ASSIGNMENT.json`, `CONTEXT.md`, `PROMPT.md`), but **no `stdout.log`**, no staged result.
+>
+> Status while ghosted showed: Phase implementation, Turn `turn_7220d0e20cbbbadd`, Role dev (running), Runtime local-dev, Attempt 1, Elapsed 5m 39s, Connectors `● active local-dev` — framework believed turn was live. But no progress events, no stdout log, no staged result. That is the heart of the bug.
+>
+> **Watchdog eventually fired after ~11 minutes.** Stall event at `2026-04-20T02:54:26.366Z`: `{"event_type":"turn_stalled","payload":{"running_ms":669186,"threshold_ms":600000,"runtime_id":"local-dev","recommendation":"Turn turn_7220d0e20cbbbadd has been running for 11m with no output. Run 'agentxchain reissue-turn --turn turn_7220d0e20cbbbadd --reason stale' to recover."}}`. This is the part that improved in 2.145.0.
+>
+> **Recovery path worked but still required wasted cycle.** `reissue-turn` emitted `turn_reissued` event, `step --resume` re-dispatched `turn_9a6c87406474f433` successfully. So detection, reissue, resume all work — but framework lost an 11-minute cycle before doing any of that.
+>
+> **Why this looks like a real ghost-dispatch bug:** pattern strongly suggests turn was never truly executing, or framework lost execution channel immediately. Dispatch event exists, status says running, connector says active, dispatch bundle exists, but no stdout.log, no staged output, no progress events, no normal failure event, only watchdog notices later. Implies: subprocess launch acknowledgment too early, worker never starts, worker starts but stdout/log attachment fails, OR worker exits immediately without matching failure event.
+>
+> **Expected:** framework should fail fast within a few seconds if worker process never starts, emit startup failure event if log attachment cannot be established, mark turn stale much earlier when no stdout.log + no progress events + no staged result + no worker heartbeat. Turn should NOT sit as running for 11 minutes with zero execution evidence.
+>
+> **Actual in 2.145.0:** turn dispatched, shown as running, connector active, no stdout.log, no staged result, no progress events, watchdog waits ~10-11 minutes, only then does framework block run and recommend reissue.
+>
+> **Why this still matters even though BUG-47 improved recovery:** 2.145.0 improved recovery but did not fix operator pain. Main cost is not recovery complexity — it's wasted wall-clock time. Every ghost turn burns ~11 minutes. Implementation/QA/launch cycles stretch dramatically. Confidence in "active turn" becomes low. Continuous mode still needs babysitting. Regression is no longer "cannot recover" but "can recover, but too late to be efficient."
+>
+> **Suggested fixes (tester's 6-item list):**
+> 1. **Add fast startup watchdog** — if dispatched but no stdout.log / no first-byte output / no worker heartbeat / no staged file within 15-30 seconds, fail/reissue immediately
+> 2. **Split "dispatched" from "worker attached"** — do not mark turn fully active/running until worker process confirmed alive and output wired
+> 3. **Emit explicit startup failure events** — `turn_start_failed`, `stdout_attach_failed`, `runtime_spawn_failed`
+> 4. **Use missing-logfile as first-class signal** — absence of stdout.log was already enough to know turn was unhealthy
+> 5. **Auto-reissue stale ghost turns** — once stale confirmed, framework could optionally auto-reissue instead of requiring operator action
+> 6. **Clear budget reservations for replaced stale turns** — after reissue, old reservation ($2.00) still lingered in status; suggests stale-turn cleanup may still be incomplete
+>
+> **Severity: P1 for continuous-mode usability.** Doesn't destroy the run but burns ~11 minutes per failure with no useful work. Can hit core implementation turns, not just side phases. No longer catastrophic unrecoverable bug — now a high-cost orchestration efficiency bug that still seriously degrades real-world use.
+>
+> **Short conclusion:** v2.145.0 improved stale-turn handling in important ways — watchdog now fires, run explicitly blocked as stale_turn, reissue/resume works. But deeper problem still there: implementation turns can still ghost-dispatch, show as running, produce no output at all, waste ~11 minutes before recovery starts. Fix is only partial. Missing piece is fast detection of fake-running turns before the full stale timeout elapses.

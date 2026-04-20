@@ -9,9 +9,42 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: **4 state-consistency bugs on v2.144.0 (BUG-47..50).** BUG-44/45/46 **tester-verified closed** on 2026-04-19 — first triple-close with quoted tester output in the cycle. Rule #12 held. Now 4 narrower state-model bugs (dead-turn watchdog, intent lifecycle contradiction, accepted_integration_ref staleness, run-history contamination) + a noted "QA human-gate loop" adjacent to BUG-48 to investigate. Full tester report in archive under "Beta-tester bug report #16" and closure evidence under "BUG-44/45/46 closures — tester-verified on v2.144.0".
+Current focus: **BUG-51 is the new P1 — BUG-47's watchdog is detection-only, tester's ghost turns still burn 11 minutes before recovery.** Tester verified BUG-48/49/50 fixes are on v2.145.0 but disputed BUG-47: detection ≠ prevention. BUG-51 adds fast-startup watchdog to kill ghost dispatches within 30 seconds instead of 10 minutes. Full tester report in archive under "Beta-tester bug report #17 (v2.145.0 BUG-47 critique)". BUG-47 stays open pending BUG-51 landing.
 
 ## Priority Queue
+
+- [ ] **BUG-51: Fast-startup watchdog — detect ghost-dispatched turns within 30 seconds, not 10 minutes (BUG-47 critique)** — Tester's explicit evidence on v2.145.0: `turn_7220d0e20cbbbadd` dispatched, marked `running`, connector shown `active`, BUT no `stdout.log`, no staged result, no progress events, no failure event. Stayed in that "fake running" state for **11 minutes** before BUG-47's watchdog fired. The BUG-47 fix added detection at the 10-minute threshold but did not prevent the wasted cycle. This class of defect means every ghost turn costs ~11 minutes of wall-clock and burns budget reservations for nothing.
+  - **Tester's evidence:**
+    - Dispatch event at `2026-04-20T02:43:17.178Z`, `turn_stalled` event at `2026-04-20T02:54:26.366Z` — 669,186 ms elapsed (~11 minutes)
+    - Dispatch bundle existed on disk (`ASSIGNMENT.json`, `CONTEXT.md`, `PROMPT.md`) but no `stdout.log`
+    - Status showed turn as `running`, connector as `active` — framework believed turn was live
+    - No worker output, no heartbeat, no startup failure event — just silence
+    - Budget reservation ($2.00) for the stale turn lingered after reissue
+  - **Root cause hypothesis:** orchestration marks turn `running` immediately after dispatch-bundle write, before confirming the subprocess (a) started successfully, (b) attached stdout correctly, and (c) produced first-byte output. When any of those three fail silently, the turn sits in "fake running" until the slow watchdog (BUG-47) wakes up.
+  - **Fix requirements — tester's 6 suggested fixes:**
+    1. **Fast startup watchdog (15-30 second threshold).** If a turn has been dispatched but no `stdout.log` exists AND no first-byte output AND no worker heartbeat within 15-30 seconds, fail/reissue immediately. This is the primary fix.
+    2. **Split `dispatched` from `worker_attached`** in the turn state machine. Do not mark turn `running` until the worker subprocess is confirmed alive and output is wired. Add intermediate `dispatched` / `starting` / `running` transitions.
+    3. **Emit explicit startup-failure events.** New event types: `turn_start_failed` (subprocess never started), `stdout_attach_failed` (process alive but no output channel), `runtime_spawn_failed` (spawn returned error).
+    4. **Missing-logfile as first-class signal.** The absence of `stdout.log` after a threshold is itself strong evidence the turn is unhealthy — don't wait for time-based heuristics to catch this case.
+    5. **Auto-reissue stale ghost turns.** Once a ghost turn is confirmed (steps 1-4 detected it), the framework could optionally auto-reissue rather than requiring operator action. Feature-flag this so operators can opt in.
+    6. **Clear budget reservations for replaced stale turns.** After reissue, the old stale turn's budget reservation ($2.00 in tester's case) still lingered in `status`. Stale-turn cleanup must release the reservation on transition to `stalled`.
+  - **Ordering:** fix #1 is the primary user-facing fix. Fixes #2/#3/#4 are structural improvements that make #1 robust. Fix #5 is optional and should be gated behind an explicit config flag (operators may want to see stale turns explicitly, not have them silently reissued). Fix #6 is a cleanup bug in BUG-47's implementation — should be patched regardless of whether the rest of BUG-51 is done.
+  - **Fix requirements (implementation-level):**
+    1. `cli/src/lib/run-loop.js` (or wherever turn dispatch happens) must track the subprocess PID and first-output timestamp. If 30s elapse post-spawn with no output and no staged file, transition to `failed_start` and emit `turn_start_failed`.
+    2. New turn state transitions: `assigned → dispatched → starting → running` (or `failed_start`). `starting` is the window where the subprocess is spawned but hasn't produced output yet.
+    3. Configurable via `run_loop.startup_watchdog_ms` (default 30000) alongside the existing `run_loop.stale_turn_threshold_ms` (600000).
+    4. Budget reservation release: when a turn transitions to `stalled` or `failed_start`, the reserved USD must be returned to the run's available budget immediately. Verify via `agentxchain status` — no lingering reservation for the old turn after reissue.
+    5. Tester-sequence test: seed a dispatch bundle, start a subprocess that immediately exits with no output, assert framework detects within 30s and emits `turn_start_failed`. Verify budget reservation is released. Second test: subprocess stays alive but never writes stdout — assert same detection.
+    6. Per rule #12: closure requires tester-quoted output from `v2.146.0` showing ghost turns caught within 30 seconds, not 11 minutes.
+  - **Acceptance:** tester's exact scenario — dispatch a dev turn that ghosts (no stdout attach) — framework detects and transitions to `failed_start`/`stalled` within 30 seconds, not 10 minutes. Budget reservation released. Operator sees actionable recovery command immediately, not after an 11-minute wait.
+
+### Implementation notes for BUG-51
+
+- **This is the BUG-47 tester-critique follow-up.** The tester verified BUG-47's detection mechanism works — but argued the fix is insufficient because 11 minutes of wasted wall-clock per ghost turn is a real cost. They're right. BUG-47 stays open until BUG-51 lands; when BUG-51 is tester-verified, both close together.
+- **Priority ordering (v2.146.0):** BUG-51 primary. BUG-48/49/50 tester verification is still pending on v2.145.0 — if tester retests those in parallel, they may close alongside BUG-51. Bundle any additional fixes the tester surfaces.
+- **Coverage matrix update:** `BUG_31_33_COVERAGE_GAP_POSTMORTEM.md` needs a new entry — "subprocess lifecycle states." Test matrix must cover spawn failure, spawn success + immediate exit, spawn success + no stdout, spawn success + slow stdout, normal healthy spawn. All five paths must have tester-sequence coverage.
+- **Do NOT mark closed until tester verifies.** Rule #12 is in force. This is the cycle's 8th discipline test — the first four false closures had "tests passed, real flow broken" pattern; the 8th should be the one where we catch it before shipping.
+- **Do not broadcast publicly.** Release notes for v2.146.0: "Fast-startup watchdog detects ghost-dispatched turns within 30 seconds." No acknowledgment that the prior BUG-47 fix was insufficient. Ship quietly, prove loudly.
 
 - [ ] **BUG-47: Dead-turn watchdog missing — stale "running" turns require manual `reissue-turn`** — Verified: zero matches in `cli/src/lib/` for `stale.running`, `dead.turn`, `turn.watchdog`, or `idle_threshold`. No self-recovery logic exists. Tester's launch `product_marketing` turn `turn_88e2912c9b724d66` stayed `running` for **15+ minutes** with no staged result and no events. Had to manually run `restart` → `reissue-turn` → `step --resume`.
   - [x] 2026-04-19 implementation shipped: added lazy stale-turn reconciliation in `status`, `resume`, and `step --resume`; stale turns now transition to retained `stalled`, emit `turn_stalled`, block the run, and surface explicit `reissue-turn --reason stale` recovery.

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.146.0
+
+### Bug Fixes
+- **BUG-51 fast-startup ghost-turn watchdog**: a new 30-second startup watchdog now detects ghost-dispatched turns whose subprocess never started or never attached stdout, transitions them to a retained `failed_start` state, emits a `turn_start_failed` event, and surfaces an explicit `reissue-turn --reason ghost` recovery path in `status`, `resume`, and `step --resume`. Distinct from BUG-47's stale-turn watchdog, which targets turns whose subprocess started but went silent.
+- **BUG-51 budget reservation release**: stale-turn and ghost-turn reconciliation now release the failed turn's USD budget reservation immediately on detection so reissued turns do not contend for budget that the framework already considered spent.
+- **BUG-47 tester-sequence test accuracy**: stale-turn beta-tester scenarios now seed dispatch-progress before backdating turn timestamps so they exercise the "subprocess started but went silent" path that BUG-47 actually covers, instead of overlapping with BUG-51's ghost-turn path.
+
+### Status
+- BUG-51 remains open pending tester verification on `v2.146.0` per discipline rule #12
+- BUG-47 remains open pending tester verification on `v2.146.0` (BUG-51 is the BUG-47 critique follow-up; both close together when verified)
+- BUG-48 remains open pending tester verification on `v2.145.0` per discipline rule #12
+- BUG-49 remains open pending tester verification on `v2.145.0` per discipline rule #12
+- BUG-50 remains open pending tester verification on `v2.145.0` per discipline rule #12
+
+### Deferred (documented decisions, not gaps)
+- Tester fix #2 (split `dispatched`/`starting`/`running` turn states) — deferred per `DEC-BUG51-INTERMEDIATE-STATES-DEFERRED-001`. Dispatch-progress file presence/absence is a sufficient and lower-risk signal than a state-machine refactor.
+- Tester fix #5 (auto-reissue ghost turns) — deferred per `DEC-BUG51-AUTO-REISSUE-DEFERRED-001`. Operators should see ghost turns explicitly before the framework auto-recovers them.
+
+### Evidence
+- `node --test cli/test/beta-tester-scenarios/` → 128 tests / 55 suites / 0 failures
+- `node --test cli/test/claim-reality-preflight.test.js` → 19 tests / 1 suite / 0 failures
+
 ## 2.145.0
 
 ### Bug Fixes
