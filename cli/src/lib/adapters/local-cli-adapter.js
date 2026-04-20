@@ -165,6 +165,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
     let settled = false;
     let firstOutputAt = null;
+    let firstOutputStream = null;
     let spawnConfirmedAt = null;
     let spawnConfirmedAtMs = null;
     let firstOutputLatencyMs = null;
@@ -214,6 +215,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     const recordFirstOutput = (stream) => {
       if (firstOutputAt) return;
       firstOutputAt = new Date().toISOString();
+      firstOutputStream = stream;
       firstOutputLatencyMs = spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs);
       clearStartupWatchdog();
       appendDiagnostic(logs, 'first_output', {
@@ -352,13 +354,16 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         pid: child.pid ?? null,
         exit_code: exitCode,
         signal: killSignal,
+        exit_signal: killSignal,
         spawn_confirmed_at: spawnConfirmedAt,
         elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
         first_output_at: firstOutputAt,
+        first_output_stream: firstOutputStream,
         startup_latency_ms: firstOutputLatencyMs,
         stdout_bytes: stdoutBytes,
         stderr_bytes: stderrBytes,
         staged_result_ready: hasResult,
+        watchdog_fired: startupTimedOut,
       };
       if (stderrExcerpt) {
         exitDiagnostic.stderr_excerpt = stderrExcerpt;

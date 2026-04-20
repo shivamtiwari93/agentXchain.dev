@@ -29,6 +29,13 @@ function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
+function parseDiagPayloads(logs, label) {
+  const prefix = `[adapter:diag] ${label} `;
+  return (Array.isArray(logs) ? logs : [])
+    .filter((line) => typeof line === 'string' && line.startsWith(prefix))
+    .map((line) => JSON.parse(line.slice(prefix.length)));
+}
+
 function makeState(overrides = {}) {
   return {
     run_id: 'run_test123',
@@ -579,6 +586,11 @@ describe('local-cli-adapter', () => {
       assert.match(log, /\[adapter:diag\] process_exit /);
       assert.match(log, /"startup_failure_type":"no_subprocess_output"/);
       assert.match(log, /"stderr_bytes":0/);
+      const [exitDiagnostic] = parseDiagPayloads(result.logs, 'process_exit');
+      assert.equal(exitDiagnostic.watchdog_fired, true);
+      assert.equal(exitDiagnostic.exit_signal, 'SIGTERM');
+      assert.equal(exitDiagnostic.signal, 'SIGTERM');
+      assert.equal(exitDiagnostic.first_output_stream, null);
     });
 
     it('treats stderr-only startup as no_subprocess_output and preserves a stderr excerpt', async () => {
@@ -608,6 +620,10 @@ describe('local-cli-adapter', () => {
       assert.match(log, /\[adapter:diag\] process_exit /);
       assert.match(log, /"stderr_excerpt":"boot failed on stderr only\\n"/);
       assert.match(log, /"startup_failure_type":"no_subprocess_output"/);
+      const [exitDiagnostic] = parseDiagPayloads(result.logs, 'process_exit');
+      assert.equal(exitDiagnostic.watchdog_fired, false);
+      assert.equal(exitDiagnostic.exit_signal, null);
+      assert.equal(exitDiagnostic.first_output_stream, null);
     });
 
     it('prefers local_cli runtime startup_watchdog_ms over a tighter global run_loop watchdog', async () => {
@@ -723,6 +739,9 @@ describe('local-cli-adapter', () => {
       assert.equal(result.ok, true);
       assert.match(result.logs.join(''), /\[adapter:diag\] spawn_prepare [^\n]*"stdin_bytes":[1-9]\d*/);
       assert.match(result.logs.join(''), /\[adapter:diag\] first_output [^\n]*"stream":"staged_result"[^\n]*"startup_latency_ms":[1-9]\d*/);
+      const [exitDiagnostic] = parseDiagPayloads(result.logs, 'process_exit');
+      assert.equal(exitDiagnostic.first_output_stream, 'staged_result');
+      assert.equal(exitDiagnostic.watchdog_fired, false);
 
       // Verify the subprocess actually received stdin content
       const staged = JSON.parse(readFileSync(join(root, stagingPathFor(state)), 'utf8'));

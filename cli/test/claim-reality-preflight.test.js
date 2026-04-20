@@ -118,6 +118,16 @@ function extractScenarioItBlock(source, title) {
   assert.fail(`unterminated tester-sequence scenario block "${title}"`);
 }
 
+function parseDiagnosticPayloads(logInput, label) {
+  const prefix = `[adapter:diag] ${label} `;
+  const lines = Array.isArray(logInput)
+    ? logInput.filter((line) => typeof line === 'string')
+    : String(logInput || '').split('\n');
+  return lines
+    .filter((line) => line.startsWith(prefix))
+    .map((line) => JSON.parse(line.slice(prefix.length)));
+}
+
 function getExtractedPackage() {
   if (extractedPackageCache) {
     return extractedPackageCache;
@@ -2606,6 +2616,13 @@ describe('claim-reality preflight', () => {
       'packaged dispatchLocalCli must log spawn_attached diagnostics with pid/timestamp when a subprocess really starts so BUG-54 can separate attach races from pure spawn failure');
     assert.match(silentLog, /\[adapter:diag\] process_exit /,
       'packaged dispatchLocalCli must log a process_exit diagnostic summarizing exit code, signal, and byte counts when a spawned subprocess exits without first-byte proof');
+    const [silentExit] = parseDiagnosticPayloads(dispatchResult.logs, 'process_exit');
+    assert.equal(silentExit.watchdog_fired, true,
+      'packaged process_exit diagnostics must carry watchdog_fired=true on the watchdog kill path so BUG-54 triage does not need to infer it from a separate line');
+    assert.equal(silentExit.exit_signal, 'SIGTERM',
+      'packaged process_exit diagnostics must expose exit_signal explicitly on the watchdog kill path');
+    assert.equal(silentExit.first_output_stream, null,
+      'packaged process_exit diagnostics must preserve first_output_stream=null when no startup-proof stream ever arrived');
 
     // Watchdog-seam assertions — the typed reclassification contract.
     // Mirror what governed-state.js:991-993 stamps when onSpawnAttached fires
@@ -2737,6 +2754,13 @@ describe('claim-reality preflight', () => {
       'packaged process_exit diagnostics must retain a bounded stderr excerpt so BUG-54 has actionable failure text');
     assert.match(stderrOnlyLog, /"startup_failure_type":"no_subprocess_output"/,
       'packaged stderr-only startup must stay in the raw no_subprocess_output family until the operator-facing watchdog normalization step');
+    const [stderrOnlyExit] = parseDiagnosticPayloads(dispatchResult.logs, 'process_exit');
+    assert.equal(stderrOnlyExit.watchdog_fired, false,
+      'packaged process_exit diagnostics must carry watchdog_fired=false for a stderr-only natural exit so BUG-54 triage can separate watchdog from immediate-exit failures');
+    assert.equal(stderrOnlyExit.exit_signal, null,
+      'packaged stderr-only startup must expose a null exit_signal on natural close');
+    assert.equal(stderrOnlyExit.first_output_stream, null,
+      'packaged stderr-only startup must preserve first_output_stream=null because stderr is not startup proof');
   });
 
   it('BUG-52 pre-dispatch reconciler is packed (governed-state + resume + step wiring)', () => {

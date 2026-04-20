@@ -48,9 +48,11 @@ defect. It makes the failure observable enough to reproduce and distinguish:
   - failure timestamp
 - When the process exits or errors, diagnostics must record:
   - exit code
-  - exit signal
+  - exit signal (preserved as both `signal` and `exit_signal` for backwards-compatible log consumers)
   - stdout/stderr byte counts
   - first-byte timestamp if any
+  - first-byte proof stream if any (`stdout`, `staged_result`, or `null` when no startup-proof stream arrived)
+  - whether the startup watchdog actually fired on this attempt
   - startup-failure classification if known
 - Existing stderr capture remains intact. Structured diagnostics are additive,
   not a replacement for raw stderr lines.
@@ -73,11 +75,17 @@ defect. It makes the failure observable enough to reproduce and distinguish:
   - failing nonexistent binary emits `spawn_prepare` + `spawn_error`
     diagnostics
   - spawn-but-silent subprocess emits `spawn_attached` + `process_exit`
-    diagnostics
+    diagnostics with `watchdog_fired: true`, `exit_signal: 'SIGTERM'`, and
+    `first_output_stream: null`
+  - stderr-only natural exit preserves `watchdog_fired: false`,
+    `exit_signal: null`, and `first_output_stream: null`
+  - staged-result proof preserves `first_output_stream: 'staged_result'`
   - stdin transport records a positive `stdin_bytes` value
 - `cli/test/claim-reality-preflight.test.js`
   - packaged `local-cli-adapter.js` proves the diagnostics survive packing for
-    both a nonexistent binary and a spawn-but-silent subprocess
+    both a nonexistent binary and a spawn-but-silent / stderr-only subprocess,
+    including the `watchdog_fired`, `exit_signal`, and `first_output_stream`
+    fields on `process_exit`
 
 ## Open Questions
 
