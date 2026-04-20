@@ -282,6 +282,8 @@ describe('current release surface', () => {
       'undeclared_verification_outputs',
       'verification.produced_files',
       'git status --short',
+      'accept-turn` followed by `checkpoint-turn',
+      'Clean tree means BUG-55 is fixed for your reproduction',
       'phase_entered',
       'reconciled_before_dispatch',
       'session_continuation',
