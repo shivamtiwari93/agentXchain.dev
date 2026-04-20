@@ -108,6 +108,114 @@ function writeGovernedRepo(root, projectId) {
   });
 }
 
+function readNotificationAudit(root) {
+  const filePath = join(root, '.agentxchain', 'notification-audit.jsonl');
+  if (!existsSync(filePath)) return [];
+  return readFileSync(filePath, 'utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+function createDashboardPollFixture({ governed = true, withState = true, pendingApproval = false } = {}) {
+  const root = tmpDir();
+  const axcDir = join(root, '.agentxchain');
+  const dashDir = join(root, 'dashboard');
+  mkdirSync(axcDir, { recursive: true });
+  mkdirSync(dashDir, { recursive: true });
+  writeFileSync(join(dashDir, 'index.html'), '<html><body>Dashboard</body></html>');
+
+  if (governed) {
+    writeJson(join(root, 'agentxchain.json'), {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: {
+        id: 'dashboard-poll',
+        name: 'Dashboard Poll',
+        default_branch: 'main',
+      },
+      roles: {
+        dev: {
+          title: 'Developer',
+          mandate: 'Implement safely.',
+          write_authority: 'authoritative',
+          runtime: 'local-dev',
+        },
+      },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: ['echo', '{prompt}'],
+          prompt_transport: 'argv',
+        },
+      },
+      routing: {
+        implementation: {
+          entry_role: 'dev',
+          allowed_next_roles: ['dev', 'human'],
+        },
+        qa: {
+          entry_role: 'dev',
+          allowed_next_roles: ['dev', 'human'],
+        },
+      },
+      gates: {},
+      notifications: pendingApproval ? {
+        webhooks: [
+          {
+            name: 'ops_webhook',
+            url: 'http://127.0.0.1:9/webhook',
+            events: ['approval_sla_reminder'],
+            timeout_ms: 250,
+          },
+        ],
+        approval_sla: {
+          reminder_after_seconds: [300],
+        },
+      } : undefined,
+    });
+  }
+
+  if (governed && withState) {
+    writeJson(join(axcDir, 'state.json'), pendingApproval ? {
+      schema_version: '1.0',
+      project_id: 'dashboard-poll',
+      run_id: 'run_dashboard_poll',
+      status: 'paused',
+      phase: 'implementation',
+      current_turn: null,
+      last_completed_turn_id: 'turn_001',
+      blocked_on: null,
+      blocked_reason: null,
+      pending_phase_transition: {
+        from: 'implementation',
+        to: 'qa',
+        gate: 'require_approval',
+        requested_by_turn: 'turn_001',
+        requested_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      },
+      pending_run_completion: null,
+    } : {
+      schema_version: '1.1',
+      project_id: 'dashboard-poll',
+      run_id: 'run_dashboard_poll',
+      status: 'idle',
+      phase: 'implementation',
+      active_turns: {},
+      turn_sequence: 0,
+      accepted_count: 0,
+      rejected_count: 0,
+      blocked_on: null,
+      blocked_reason: null,
+      next_recommended_role: null,
+    });
+  }
+
+  return { root, axcDir, dashDir };
+}
+
 function buildCoordinatorConfig() {
   return {
     schema_version: '0.1',
@@ -1000,6 +1108,87 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data.next_actions[0].code, 'resync');
       assert.equal(data.next_actions[0].command, 'agentxchain multi resync');
       assert.match(data.next_actions[0].reason, /disagrees with repo authority/i);
+    });
+
+    it('AT-DPOLL-004: GET /api/poll in replay mode returns a clean no-op heartbeat and never evaluates reminders', async () => {
+      const pollFixture = createDashboardPollFixture({ governed: true, withState: true, pendingApproval: true });
+      let pollBridge;
+      try {
+        pollBridge = createBridgeServer({
+          agentxchainDir: pollFixture.axcDir,
+          dashboardDir: pollFixture.dashDir,
+          port: 0,
+          replayMode: true,
+        });
+        const started = await pollBridge.start();
+        const res = await httpGet(started.port, '/api/poll');
+        assert.equal(res.status, 200);
+        const data = JSON.parse(res.body);
+        assert.equal(data.ok, true);
+        assert.equal(data.replay_mode, true);
+        assert.equal(data.reminder_evaluation.notifications_emitted, 0);
+        assert.deepEqual(data.reminder_evaluation.reminders_sent, []);
+        assert.deepEqual(readNotificationAudit(pollFixture.root), []);
+      } finally {
+        if (pollBridge) {
+          await pollBridge.stop();
+        }
+        rmSync(pollFixture.root, { recursive: true, force: true });
+      }
+    });
+
+    it('GET /api/poll returns a no-op heartbeat when no governed project is present', async () => {
+      const pollFixture = createDashboardPollFixture({ governed: false });
+      let pollBridge;
+      try {
+        pollBridge = createBridgeServer({
+          agentxchainDir: pollFixture.axcDir,
+          dashboardDir: pollFixture.dashDir,
+          port: 0,
+        });
+        const started = await pollBridge.start();
+        const res = await httpGet(started.port, '/api/poll');
+        assert.equal(res.status, 200);
+        const data = JSON.parse(res.body);
+        assert.equal(data.ok, true);
+        assert.equal(data.replay_mode, false);
+        assert.equal(data.governed_project_detected, false);
+        assert.equal(data.state_available, false);
+        assert.equal(data.reminder_evaluation.notifications_emitted, 0);
+        assert.deepEqual(data.reminder_evaluation.reminders_sent, []);
+      } finally {
+        if (pollBridge) {
+          await pollBridge.stop();
+        }
+        rmSync(pollFixture.root, { recursive: true, force: true });
+      }
+    });
+
+    it('GET /api/poll returns governed_project_detected=true but state_available=false when state.json is absent', async () => {
+      const pollFixture = createDashboardPollFixture({ governed: true, withState: false });
+      let pollBridge;
+      try {
+        pollBridge = createBridgeServer({
+          agentxchainDir: pollFixture.axcDir,
+          dashboardDir: pollFixture.dashDir,
+          port: 0,
+        });
+        const started = await pollBridge.start();
+        const res = await httpGet(started.port, '/api/poll');
+        assert.equal(res.status, 200);
+        const data = JSON.parse(res.body);
+        assert.equal(data.ok, true);
+        assert.equal(data.replay_mode, false);
+        assert.equal(data.governed_project_detected, true);
+        assert.equal(data.state_available, false);
+        assert.equal(data.reminder_evaluation.notifications_emitted, 0);
+        assert.deepEqual(data.reminder_evaluation.reminders_sent, []);
+      } finally {
+        if (pollBridge) {
+          await pollBridge.stop();
+        }
+        rmSync(pollFixture.root, { recursive: true, force: true });
+      }
     });
 
     it('GET /api/unknown returns 404', async () => {
