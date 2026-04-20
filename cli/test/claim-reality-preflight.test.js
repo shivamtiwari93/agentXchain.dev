@@ -2982,6 +2982,15 @@ describe('claim-reality preflight', () => {
     const bug53ScenarioSource = readFileSync(bug53Scenario, 'utf8');
     assert.match(bug53ScenarioSource, /spawnSync\(\s*process\.execPath[\s\S]{0,500}['"]run['"][\s\S]{0,200}['"]--continuous['"]/,
       'BUG-53 tester-sequence regression must drive the real CLI command chain via spawnSync(process.execPath, [CLI_BIN, "run", "--continuous", ...]), not only executeContinuousRun() in-process. HUMAN-ROADMAP rule #13 requires the operator-facing command shape.');
+    // BUG-53 fix requirement #1 sub-bullet 4 — `idle_exit` is a distinct
+    // operator-facing terminal state, not the same code path as `max_runs`
+    // termination. The original CLI-owned scenario only proves the max_runs
+    // boundary; the idle_exit boundary needs its own CLI-chain assertion or
+    // the rule-13 contract is incomplete for BUG-53.
+    assert.match(bug53ScenarioSource, /CLI-owned run --continuous reaches idle_exit[\s\S]{0,4000}All vision goals appear addressed/,
+      'BUG-53 tester-sequence regression must include a CLI-chain scenario for the idle_exit terminal path (BUG-53 fix req #1 sub-bullet 4). The "All vision goals appear addressed" log line is the operator-visible idle_exit signal and MUST be asserted against real CLI stdout/stderr, not just executeContinuousRun() return values.');
+    assert.match(bug53ScenarioSource, /CLI-owned run --continuous reaches idle_exit[\s\S]{0,4000}runs_completed,\s*1/,
+      'BUG-53 idle_exit CLI scenario must assert runs_completed==1 — proves the loop did NOT burn through phantom runs after vision exhaustion. Without this, a regression that loops indefinitely on a satisfied vision could still pass the "no paused" check.');
 
     const { packageDir } = getExtractedPackage();
     const packedContinuous = readFileSync(join(packageDir, 'src/lib/continuous-run.js'), 'utf8');

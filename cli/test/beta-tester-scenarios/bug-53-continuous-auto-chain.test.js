@@ -345,6 +345,72 @@ describe('BUG-53: continuous session auto-chains after a completed run', () => {
       `operator log must record "Run X/3 completed" for every run; got ${completedLogs.length}. Log snapshot:\n${logs.join('\n')}`);
   });
 
+  it('CLI-owned run --continuous reaches idle_exit (not paused) when vision goals exhaust mid-chain', () => {
+    // BUG-53 fix requirement #1 sub-bullet 4 — "If no candidate exists (all
+    // vision goals addressed), exit with status `idle_exit` (clean termination,
+    // NOT paused)" — only had a function-call (`executeContinuousRun()`) test.
+    // Per HUMAN-ROADMAP rule #13, every BUG-53 fix sub-requirement that lives
+    // on the operator's CLI surface needs a child-process spawn assertion.
+    //
+    // Operator scenario: vision with a single goal, --max-runs higher than
+    // achievable (5), --max-idle-cycles 1. After run 1 satisfies the only
+    // goal, the next vision scan must return idle, the loop must increment
+    // idle_cycles to 1 == maxIdleCycles, and terminate via the idle_exit
+    // branch with session.status=completed. The "Run 5/5 completed" line
+    // must NEVER appear (we only ran 1 real run); the operator-facing
+    // "All vision goals appear addressed (...) Stopping." line MUST appear.
+    const dir = createCliProject();
+    writeVision(dir, [
+      '# CLI Vision',
+      '',
+      '## Sole Objective',
+      '',
+      '- single vision goal that completes in one governed run',
+      '',
+    ].join('\n'));
+    // Re-commit the trimmed vision so the governed loop sees a clean tree.
+    execSync('git add .planning/VISION.md', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "trim vision to single goal"', { cwd: dir, stdio: 'ignore' });
+
+    const run = runContinuousCli(dir, 5);
+    const combined = `${run.stdout || ''}${run.stderr || ''}`;
+    assert.equal(run.status, 0, `idle_exit CLI scenario must exit cleanly:\n${combined}`);
+    assert.match(combined, /Run 1\/5 completed: completed/,
+      `operator must see exactly one completed run before idle_exit; output was:\n${combined}`);
+    assert.doesNotMatch(combined, /Run [2-5]\/5 completed/,
+      `operator must NOT see runs 2..5 — only one vision goal was seeded; output was:\n${combined}`);
+    assert.match(combined, /All vision goals appear addressed/,
+      `operator must see the idle_exit terminal log line; output was:\n${combined}`);
+    assert.doesNotMatch(combined, /continuous loop paused|Run blocked — continuous loop paused/i,
+      `BUG-53 rule #2 — clean idle_exit must NEVER advertise "paused" to the operator; output was:\n${combined}`);
+
+    const session = readContinuousSession(dir);
+    assert.ok(session, 'continuous-session.json must exist after CLI-owned idle_exit run');
+    assert.equal(session.status, 'completed',
+      `BUG-53 rule #2 — terminal session.status after idle_exit must be "completed", never "paused"; got "${session.status}"`);
+    assert.notEqual(session.status, 'paused',
+      `BUG-53 rule #2 — paused is reserved for blocked runs, not idle exhaustion`);
+    assert.equal(session.runs_completed, 1,
+      `idle_exit CLI scenario must record exactly 1 completed run (only one vision goal seeded); got ${session.runs_completed}`);
+
+    const runHistoryPath = join(dir, '.agentxchain', 'run-history.jsonl');
+    if (existsSync(runHistoryPath)) {
+      const runHistory = readFileSync(runHistoryPath, 'utf8')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      assert.equal(runHistory.length, 1,
+        `idle_exit CLI scenario must record exactly 1 run in run-history.jsonl; got ${runHistory.length}`);
+    }
+
+    // No session_continuation events should fire — the loop never started a
+    // second run, so there is no auto-chain boundary to advertise.
+    const continuations = readRunEvents(dir).filter((entry) => entry.event_type === 'session_continuation');
+    assert.equal(continuations.length, 0,
+      `idle_exit CLI scenario must emit ZERO session_continuation events (no second run was seeded); got ${continuations.length}`);
+  });
+
   it('exits with idle_exit (not paused) when all vision goals are addressed after one run', async () => {
     // Only one distinct goal in the vision file. After run 1 resolves that
     // intent, the next vision scan returns no candidates. The session must
