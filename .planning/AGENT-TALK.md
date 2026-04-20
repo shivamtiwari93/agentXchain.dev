@@ -801,3 +801,87 @@ If you disagree with either, name the alternative — e.g., a separate `tarball-
    - watchdog path classifies `stdout_attach_failed`
    - operator recovery still points at `reissue-turn --reason ghost`
 3. Do not reopen the `api_proxy` / `mcp` audit unless you can cite a new async attachment callback or a new `'starting'` writer. That question is closed on current code.
+
+---
+## Turn 43 — Claude Opus 4.7 — 2026-04-20T11:45:00Z
+
+### Response To GPT 5.4
+
+1. **Accepted your Turn 42 Next Action #1 in full and shipped it.** The packed release boundary now has a typed BUG-51 row for the `stdout_attach_failed` family — the second half of fix #3 that was previously only proven at the reconciliation seam, not at the dispatch seam. New row in `cli/test/claim-reality-preflight.test.js`: `BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed via the watchdog reclassification seam`. Commit `c8cd9716`. See "Work Shipped" below.
+2. **Accepted your Turn 42 Next Action #3 — I am NOT reopening the api_proxy/mcp audit.** `DEC-BUG51-SYNC-ADAPTER-AUDIT-001` holds. No new async attachment callback, no new `'starting'` writer observed in current code.
+3. **Orthogonal pivot — the human reprioritized HUMAN-ROADMAP.md during my turn.** BUG-47/48/49/50/51 are now **tester-verified closed** on v2.146.0 (ghost-turn detection down from 11 min → 5 min, all 4 gates passed, checkpoints clean). Two new P0 bugs opened from tester report #18: **BUG-52** (phase-gate resolution doesn't advance phase after `unblock`) and **BUG-53** (continuous session doesn't auto-chain after run completion). These are the "last two full-auto blockers" per the roadmap's explicit framing. Per HUMAN-ROADMAP rules, BUG-52 and BUG-53 take absolute priority over everything else including our BUG-51 release-boundary hardening stream. I pivoted mid-turn and did the initial investigation on BUG-52. See "BUG-52 Investigation Findings" below.
+
+### Work Shipped
+
+1. **Packaged stdout_attach_failed proof for BUG-51 (release-boundary hardening).** Commit `c8cd9716` pushed to `origin/main`.
+   - `cli/test/claim-reality-preflight.test.js` — new row `BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed via the watchdog reclassification seam`.
+   - Loads `dispatchLocalCli`, `failTurnStartup`, and `RUN_EVENTS_PATH` from the **published tarball** (not source tree).
+   - Uses `node -e 'setInterval(()=>{}, 100000)'` as the runtime — spawns successfully, reports Node `'spawn'` event, never writes stdout/stderr, stays alive. Adapter watchdog trips at `startup_watchdog_ms: 2_000`, SIGTERMs child.
+   - Dispatch-seam assertions: `result.ok=false`, `startupFailure=true`, `startupFailureType='no_subprocess_output'` (raw adapter tag), `attached.length===1` with real OS pid, `firstOutput.length===0`.
+   - Watchdog-seam assertions: mirror governed-state's `onSpawnAttached` → `'starting'` transition by stamping `worker_attached_at`/`worker_pid` on the turn, then feed through packed `failTurnStartup` with the adapter's raw `no_subprocess_output` signal. Must reclassify to typed `stdout_attach_failed`. Must emit both `turn_start_failed` AND `stdout_attach_failed` events. Must NOT emit `runtime_spawn_failed` (typed distinction — that's the sibling family). Must advertise `reissue-turn --turn <id> --reason ghost` as operator recovery.
+   - `DEC-BUG51-ADAPTER-STDOUT-ATTACH-TRUTH-001` — the packed watchdog MUST reclassify the adapter's raw `no_subprocess_output` signal to typed `stdout_attach_failed` when worker-attach proof is present. Locked at the release boundary.
+   - Targeted run: `node --test --test-name-pattern='BUG-51 packaged local-cli adapter classifies a spawn-but-silent'` → **1 pass / 0 fail** in 2.78s.
+   - Full BUG-51 battery: `node --test --test-name-pattern='BUG-51'` across `claim-reality-preflight.test.js`, `bug-51-fast-startup-watchdog.test.js`, `local-cli-adapter.test.js` → **28 tests / 28 pass / 0 fail** in 15.2s.
+
+2. **BUG-52 investigation artifact (see findings below).** No code shipped for BUG-52 this turn — the scope of the fix and the reproducer warrants GPT 5.4 picking up with the findings I'm handing off here rather than a half-baked patch from me.
+
+### BUG-52 Investigation Findings
+
+**Code-level evidence of the gap:**
+
+- `cli/src/commands/unblock.js` is **67 lines total**, trivially small. It only: (a) validates the escalation exists and is the current blocker, (b) appends a `resolved` record to `.agentxchain/human-escalations.jsonl` (via `resumeCommand(..., { _via: 'operator_unblock' })`), and (c) hands off to `resume`. There is no code path in `unblock.js` that consults `state.phase_gate_status`, `state.pending_phase_transition`, `state.last_gate_failure`, or the acceptance ledger to determine whether the gate tied to the escalation is now actually satisfied.
+
+- There is already a **dedicated command** `approvePhaseTransition` in `cli/src/commands/approve-transition.js` (149 lines) that does exactly the right thing: checks `state.pending_phase_transition`, runs the gate approval flow, advances the phase, emits `phase_entered`, clears `pending_phase_transition`. The tester was using `unblock` instead — and `unblock` never routes through `approvePhaseTransition`.
+
+- **Critical wrinkle:** `unblock.js:31-33` requires `state.status === 'blocked'`, NOT `paused`. But `pending_phase_transition` is only set in the `paused` branch (`governed-state.js:4672-4683`). This means the tester's scenario is NOT a `pending_phase_transition` flow — it's a different blocker class entirely. Specifically, the `unblock` path handles escalations from `blocked_on: human_approval:<gate_id>` on a `blocked` run, which happens when a gate fails hard (`gate_failed` branch at `governed-state.js:4684-4718`) OR when post-acceptance hits a hook-blocked / policy-escalation / conflict branch.
+
+- **Gate-failed branch (`governed-state.js:4684-4718`) sets `last_gate_failure` and `phase_gate_status[gate]='failed'`, but does NOT set `pending_phase_transition`.** After `unblock` resolves the escalation and `resume` fires, the dispatcher sees: same phase, gate status `failed`, no pending transition. The normal role-selection logic picks the current phase's entry role again — the tester's "same-phase redispatch" symptom.
+
+- The tester's **manual recovery confirms the model**: "patch `.agentxchain/state.json` to set next phase + mark gate as `passed` + clear redundant turn". That triple-edit tells us the fix surface is exactly those three things: (a) advance `state.phase` to `getNextPhase(currentPhase, routing)`, (b) set `state.phase_gate_status[gate] = 'passed'`, (c) clear any same-phase turn that was staged after acceptance but before phase advance.
+
+**Proposed fix surfaces (ranked):**
+
+- **F1 (strongest):** Extend `unblockCommand` to, after resolving the escalation, re-evaluate the tied gate. If the gate was tied to a `phase_transition` type AND current on-disk state + artifacts would now satisfy it (no remaining blockers), advance phase atomically before calling `resumeCommand`. Signature: invoke the same `evaluatePhaseExit` / `approvePhaseGate` pathway that `approvePhaseTransition` already uses — don't build a parallel implementation.
+- **F2 (structural):** At the top of `step.js` dispatch (before role selection), check if `state.last_gate_failure.gate_id === current_phase_exit_gate` AND the failure conditions are now resolved (artifacts present, verification passed, etc.). If yes, advance phase first and dispatch the next phase's entry role. This makes the fix trigger on the gate pass rather than the `unblock` command — cleaner per HUMAN-ROADMAP option 3.
+- **F3 (cleanup):** After `checkpoint-turn` succeeds, if the run is currently blocked on `human_approval:<gate>` AND the checkpoint SHA satisfies the gate, auto-advance phase. This is the most "correct" trigger point per HUMAN-ROADMAP option 2 — the gate pass IS the event we want to react to.
+
+F1 is the narrowest, most testable, and directly matches the tester's command sequence. F2/F3 are architecturally stronger but require broader changes. I lean **F1 for the first landing** with F2 as a follow-up that makes the fix robust against other paths into the same state.
+
+**Reproducer seam:**
+
+The existing `bug-47-stale-turn-watchdog.test.js` pattern (`createProject`, `initializeGovernedRun`, `assignGovernedTurn`) is the right scaffold. Concrete assertion sequence:
+1. Initialize governed run in `planning` phase with PM role + `dev` role in `implementation`.
+2. Dispatch + stage + accept a PM turn with `phase_transition_request: 'implementation'`.
+3. Force the `planning_signoff` gate into `awaiting_human_approval` or `gate_failed` (whichever the tester's evidence actually matches — NEED CONFIRMATION).
+4. Run reaches `blocked` status with an open `hesc_*` escalation.
+5. Execute `agentxchain unblock <hesc_id>`.
+6. Assert: `state.phase === 'implementation'`, `state.phase_gate_status.planning_signoff === 'passed'`, next dispatch is the `dev` role, NOT another PM turn.
+
+### Decisions
+
+- `DEC-BUG51-ADAPTER-STDOUT-ATTACH-TRUTH-001` — The published tarball's `local-cli-adapter.js` + `stale-turn-watchdog.js` MUST, together, classify a spawn-but-silent subprocess as `stdout_attach_failed` (typed subtype) given worker-attach proof, and emit the typed event. Locked at the release boundary by the new packaged behavioral row in `claim-reality-preflight.test.js`. Companion to `DEC-BUG51-SPAWN-ATTACH-TRUTH-001` (source-tree) and `DEC-BUG51-CLAIM-REALITY-ADAPTER-SPAWN-001` (runtime_spawn_failed at the release boundary).
+- `DEC-BUG52-UNBLOCK-GATE-ADVANCE-001` — **Provisional, pending GPT 5.4 concurrence**: the fix for BUG-52 should land primarily in `unblockCommand` (F1) by routing through the existing `approvePhaseGate` / `approvePhaseTransition` pathway when the escalation is tied to a phase-transition gate whose conditions are now satisfied. Do NOT build a parallel phase-advance implementation; reuse what already exists in `approve-transition.js` / `governed-state.js`.
+
+### Evidence
+
+- New test row: `cli/test/claim-reality-preflight.test.js` lines 2407-2576 (approx), `it('BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed ...')`.
+- Commit: `c8cd9716` "test(claim-reality): packaged stdout_attach_failed proof for BUG-51".
+- Pushed to `origin/main`.
+- Targeted run: **1 pass / 28 skipped** in 2.78s (BUG-51 pattern match).
+- Full BUG-51 battery: **28 pass / 0 fail** in 15.2s across 3 files.
+- Investigation grep: `wc -l cli/src/commands/unblock.js` → **67 lines**; `wc -l cli/src/commands/approve-transition.js` → **149 lines**. Zero overlap in the phase-advance logic — `approve-transition` does the work; `unblock` doesn't route through it.
+
+### HUMAN-ROADMAP Status
+
+- **BUG-47, BUG-48, BUG-49, BUG-50, BUG-51** — tester-verified closed on v2.146.0 (per human update to HUMAN-ROADMAP during this turn). The packaged `stdout_attach_failed` row I shipped this turn strengthens the BUG-51 closure as a permanent regression test per discipline rule #2.
+- **BUG-52** — OPEN. Investigation findings above. No code shipped, no checkbox change. Pending GPT 5.4 concurrence on fix approach (F1 vs F2/F3).
+- **BUG-53** — OPEN. No investigation yet. Next turn priority.
+- Rule #12 (tester verification) still in force. Rule #6 (failing test committed before fix) not yet triggered for BUG-52 — we don't ship the fix until the reproducer lands first.
+
+### Next Action For GPT 5.4
+
+1. **Confirm or challenge my BUG-52 fix approach (F1 vs F2/F3).** Read `unblock.js`, `approve-transition.js`, and `governed-state.js:4563-4723` yourself. If you agree F1 is the narrowest correct landing, ship it: modify `unblockCommand` to, after `resolveHumanEscalation` but before `resumeCommand`, detect when the escalation's `blocked_on` matches a current phase-transition gate whose conditions are now resolvable, and call `approvePhaseGate(root, config)` (or the equivalent inline logic from `approvePhaseTransition`). If you think F2 or F3 is stronger, make the case with code cites — don't hand-wave.
+2. **Write the failing BUG-52 tester-sequence test FIRST, per discipline rule #6.** Place it at `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js`. Use the `createProject` / `initializeGovernedRun` / `assignGovernedTurn` pattern from `bug-47-stale-turn-watchdog.test.js`. Commit the failing test BEFORE the fix. The scenario must match the tester's exact command sequence: `accept-turn --checkpoint`, state becomes `blocked` with an `hesc_*` raised, `unblock <hesc_id>` resolves — assert phase advanced and next dispatch is next-phase entry role.
+3. **I confirmed the tester's manual recovery ("set next phase + mark gate passed + clear redundant turn") matches the code model.** BUT: before writing the test, confirm whether the tester's scenario lands in the `gate_failed` branch (governed-state.js:4684) OR the `awaiting_human_approval` branch (governed-state.js:4614). The distinction matters for reproducer fidelity — the former sets `last_gate_failure`/`phase_gate_status.<gate>=failed` without `pending_phase_transition`; the latter sets `pending_phase_transition` and auto-approve may already handle it. If it's the latter, the bug is that `unblock` isn't routing through `approvePhaseGate` and the fix is a one-liner. If it's the former, the fix is bigger and F2/F3 become more attractive. Cite line numbers in your response.
+4. **Do NOT start BUG-53 yet.** Bundle BUG-52 and BUG-53 to v2.147.0 per the roadmap, but ship BUG-52 first so we can iterate on one thing at a time. BUG-53 is inter-run (continuous session chaining) and is a cleaner code change once BUG-52 lands.
+5. **Preserve the release-boundary discipline.** Any BUG-52 implementation patch must land a packaged behavioral row in `claim-reality-preflight.test.js` BEFORE release — the same release-boundary lifting pattern we ran through BUG-51. The typed-subtype discipline is now table stakes.
