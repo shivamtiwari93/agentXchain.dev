@@ -2406,6 +2406,177 @@ describe('claim-reality preflight', () => {
       'packaged dispatchLocalCli must NOT fire onFirstOutput for a binary that never spawned');
   });
 
+  it('BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed via the watchdog reclassification seam', async () => {
+    // Companion to the two rows above.
+    //   - "BUG-51 packaged CLI detects a ghost turn ..." exercises the
+    //     reconciliation seam against state on disk.
+    //   - "BUG-51 packaged local-cli adapter rejects a nonexistent binary ..."
+    //     exercises the dispatch seam for the `runtime_spawn_failed` family
+    //     (spawn never succeeds).
+    //   - THIS row exercises the dispatch seam for the OTHER startup-failure
+    //     family named in HUMAN-ROADMAP BUG-51 fix #3: `stdout_attach_failed`.
+    //     The subprocess spawns successfully, stays alive past the startup
+    //     watchdog, and never emits a first byte. The adapter must:
+    //       * fire `onSpawnAttached` exactly once (real spawn proof)
+    //       * NOT fire `onFirstOutput` (no first-byte ever)
+    //       * return `startupFailure: true` with the raw adapter tag
+    //         `no_subprocess_output`
+    //     The packed watchdog's `failTurnStartup` must then reclassify that
+    //     raw signal to `stdout_attach_failed` (typed operator-facing subtype)
+    //     when the turn has worker-attach proof stamped (`worker_attached_at`
+    //     set by the `onSpawnAttached` → governed-state `'starting'`
+    //     transition). The typed distinction at the release boundary is what
+    //     GPT 5.4's Turn 42 Next Action demanded — proven here on packaged
+    //     code, not source-tree or via grep.
+    const { packageDir } = getExtractedPackage();
+    const adapterPath = join(packageDir, 'src/lib/adapters/local-cli-adapter.js');
+    const watchdogPath = join(packageDir, 'src/lib/stale-turn-watchdog.js');
+    const runEventsPath = join(packageDir, 'src/lib/run-events.js');
+    assert.ok(existsSync(adapterPath),
+      'BUG-51 packed tarball must include src/lib/adapters/local-cli-adapter.js before the stdout_attach_failed packaged proof can run');
+    assert.ok(existsSync(watchdogPath),
+      'BUG-51 packed tarball must include src/lib/stale-turn-watchdog.js for the reclassification seam proof');
+    assert.ok(existsSync(runEventsPath),
+      'BUG-51 packed tarball must include src/lib/run-events.js for the startup-failure event contract');
+
+    const adapter = await import(pathToFileURL(adapterPath).href);
+    const watchdog = await import(pathToFileURL(watchdogPath).href);
+    const runEvents = await import(pathToFileURL(runEventsPath).href);
+    const { dispatchLocalCli } = adapter;
+    const { failTurnStartup } = watchdog;
+    const { RUN_EVENTS_PATH } = runEvents;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug51-silent-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+    const turnId = 'turn_packed_spawn_but_silent';
+    const dispatchDir = join(root, '.agentxchain', 'dispatch', 'turns', turnId);
+    mkdirSync(dispatchDir, { recursive: true });
+    writeFileSync(join(dispatchDir, 'PROMPT.md'), '# packed bug51 stdout_attach_failed proof\n');
+    writeFileSync(join(dispatchDir, 'CONTEXT.md'), '');
+
+    const dispatchedAt = new Date().toISOString();
+    const state = {
+      schema_version: '1.0',
+      run_id: 'run_packed_bug51_silent',
+      phase: 'implementation',
+      status: 'running',
+      active_turns: {
+        [turnId]: {
+          turn_id: turnId,
+          assigned_role: 'dev',
+          runtime_id: 'local-dev',
+          status: 'dispatched',
+          attempt: 1,
+          assigned_at: dispatchedAt,
+          dispatched_at: dispatchedAt,
+          deadline_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+      },
+    };
+
+    // `node -e 'setInterval(...)'` spawns successfully, reports a Node
+    // `spawn` event (so the adapter's `child.once('spawn', ...)` fires and
+    // `onSpawnAttached` is invoked), stays alive indefinitely, and never
+    // writes a byte to stdout or stderr. When the adapter's startup watchdog
+    // trips, it SIGTERMs the child and returns the `no_subprocess_output`
+    // raw tag. This is the exact "spawn succeeded / stdout never attached"
+    // failure mode BUG-51 fix #3 names as `stdout_attach_failed`.
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug51-packed-silent', name: 'BUG-51 packed silent', default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'x', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: 'node',
+          args: ['-e', 'setInterval(()=>{}, 100000)'],
+          cwd: '.',
+          prompt_transport: 'dispatch_bundle_only',
+        },
+      },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_signoff' } },
+      gates: { implementation_signoff: {} },
+      run_loop: { startup_watchdog_ms: 2_000 },
+    };
+
+    const attached = [];
+    const firstOutput = [];
+    const dispatchResult = await dispatchLocalCli(root, state, config, {
+      turnId,
+      skipManifestVerification: true,
+      onSpawnAttached: (details) => attached.push(details),
+      onFirstOutput: (details) => firstOutput.push(details),
+    });
+
+    // Adapter-seam assertions — the raw dispatch contract.
+    assert.equal(dispatchResult.ok, false,
+      'packaged dispatchLocalCli must report failure for a subprocess that spawns but never writes output');
+    assert.equal(dispatchResult.startupFailure, true,
+      'packaged dispatchLocalCli must mark a spawn-but-silent subprocess as a startup failure (not a generic exit or timeout)');
+    assert.equal(dispatchResult.startupFailureType, 'no_subprocess_output',
+      'packaged dispatchLocalCli must tag a spawn-but-silent subprocess with the raw adapter signal `no_subprocess_output` — the watchdog promotes this to the typed `stdout_attach_failed` subtype when worker-attach proof exists');
+    assert.equal(attached.length, 1,
+      'packaged dispatchLocalCli MUST fire onSpawnAttached exactly once for a subprocess that really spawned — this is the spawn-attach truth boundary; without it, governed-state never stamps worker_attached_at and the watchdog reclassification to stdout_attach_failed cannot trigger');
+    assert.equal(typeof attached[0].pid, 'number',
+      'onSpawnAttached must report a real OS pid for a successfully-spawned child (proof that the Node `spawn` event fired, not a synthetic callback)');
+    assert.equal(firstOutput.length, 0,
+      'packaged dispatchLocalCli MUST NOT fire onFirstOutput for a subprocess that never wrote stdout/stderr — firing it would fake first-byte proof and defeat the stdout_attach_failed classification');
+
+    // Watchdog-seam assertions — the typed reclassification contract.
+    // Mirror what governed-state.js:991-993 stamps when onSpawnAttached fires
+    // and the turn transitions to `starting`. Then feed the adapter's raw
+    // `no_subprocess_output` signal through the packed `failTurnStartup` and
+    // assert the typed subtype `stdout_attach_failed` is applied.
+    const attachedAt = attached[0].at || new Date().toISOString();
+    const workerPid = attached[0].pid;
+    const stateWithAttachProof = {
+      ...state,
+      active_turns: {
+        [turnId]: {
+          ...state.active_turns[turnId],
+          status: 'starting',
+          worker_attached_at: attachedAt,
+          worker_pid: workerPid,
+        },
+      },
+    };
+
+    const failResult = failTurnStartup(root, stateWithAttachProof, config, turnId, {
+      failure_type: dispatchResult.startupFailureType,
+      running_ms: 2_000,
+      threshold_ms: 2_000,
+    });
+
+    assert.equal(failResult.ok, true,
+      'packaged failTurnStartup must successfully transition a `starting` turn with spawn-attach proof to failed_start');
+    assert.equal(failResult.turn.status, 'failed_start',
+      `packaged failTurnStartup must mark the turn failed_start; got status=${failResult.turn.status}`);
+    assert.equal(failResult.turn.failed_start_reason, 'stdout_attach_failed',
+      'packaged failTurnStartup MUST reclassify the adapter\'s raw `no_subprocess_output` signal to the typed `stdout_attach_failed` subtype when worker-attach proof is present (DEC-BUG51-SPAWN-ATTACH-TRUTH-001 + BUG-51 fix #3) — this is the typed distinction between runtime_spawn_failed and stdout_attach_failed at the release boundary');
+    assert.match(failResult.turn.recovery_command || '',
+      new RegExp(`reissue-turn --turn ${turnId} --reason ghost`),
+      'packaged stdout_attach_failed recovery must advertise `reissue-turn --reason ghost` as the operator-facing recovery command — identical recovery affordance as the runtime_spawn_failed family');
+
+    const eventsPath = join(root, RUN_EVENTS_PATH);
+    assert.ok(existsSync(eventsPath),
+      'packaged failTurnStartup must append run events to .agentxchain/events.jsonl');
+    const events = readFileSync(eventsPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const eventTypes = events.map((e) => e.event_type);
+    assert.ok(eventTypes.includes('turn_start_failed'),
+      `packaged stdout_attach_failed path must emit a turn_start_failed event; got ${eventTypes.join(',')}`);
+    assert.ok(eventTypes.includes('stdout_attach_failed'),
+      `packaged stdout_attach_failed path must emit the typed stdout_attach_failed subtype event (NOT runtime_spawn_failed) so operators can distinguish spawn failure from attach failure in event consumers; got ${eventTypes.join(',')}`);
+    assert.equal(eventTypes.includes('runtime_spawn_failed'), false,
+      `packaged stdout_attach_failed path must NOT emit runtime_spawn_failed — that is the sibling family and the typed distinction would be lost; got ${eventTypes.join(',')}`);
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));
