@@ -9,6 +9,7 @@ import {
   normalizeV3,
   normalizeV4,
   loadNormalizedConfig,
+  validateRunLoopConfig,
 } from '../src/lib/normalized-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1305,6 +1306,90 @@ describe('custom phases', () => {
         'post-implementation': { entry_role: 'dev' },
       },
     });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+});
+
+// --- validateRunLoopConfig (BUG-47 / BUG-51 watchdog knob runtime contract) ---
+
+describe('validateRunLoopConfig', () => {
+  function baseConfig(runLoop) {
+    return {
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+      runtimes: { r1: { type: 'manual' } },
+      run_loop: runLoop,
+    };
+  }
+
+  it('accepts omitted run_loop', () => {
+    assert.deepEqual(validateRunLoopConfig({}), []);
+  });
+
+  it('accepts valid positive integer watchdog values', () => {
+    const result = validateV4Config(baseConfig({ startup_watchdog_ms: 45000, stale_turn_threshold_ms: 600000 }));
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects startup_watchdog_ms of 0 (schema minimum 1)', () => {
+    const result = validateV4Config(baseConfig({ startup_watchdog_ms: 0 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('run_loop.startup_watchdog_ms')), result.errors.join(', '));
+  });
+
+  it('rejects negative startup_watchdog_ms', () => {
+    const result = validateV4Config(baseConfig({ startup_watchdog_ms: -1 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('run_loop.startup_watchdog_ms')));
+  });
+
+  it('rejects non-integer startup_watchdog_ms', () => {
+    const result = validateV4Config(baseConfig({ startup_watchdog_ms: 500.5 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('run_loop.startup_watchdog_ms')));
+  });
+
+  it('rejects non-numeric startup_watchdog_ms', () => {
+    const result = validateV4Config(baseConfig({ startup_watchdog_ms: '45000' }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('run_loop.startup_watchdog_ms')));
+  });
+
+  it('rejects stale_turn_threshold_ms of 0', () => {
+    const result = validateV4Config(baseConfig({ stale_turn_threshold_ms: 0 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('run_loop.stale_turn_threshold_ms')));
+  });
+
+  it('rejects negative stale_turn_threshold_ms', () => {
+    const result = validateV4Config(baseConfig({ stale_turn_threshold_ms: -60000 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('run_loop.stale_turn_threshold_ms')));
+  });
+
+  it('rejects non-integer stale_turn_threshold_ms', () => {
+    const result = validateV4Config(baseConfig({ stale_turn_threshold_ms: 600000.25 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('run_loop.stale_turn_threshold_ms')));
+  });
+
+  it('rejects run_loop that is not an object', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+      runtimes: { r1: { type: 'manual' } },
+      run_loop: 'not-an-object',
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('run_loop must be an object')));
+  });
+
+  it('allows unknown run_loop keys (schema additionalProperties: true)', () => {
+    // Forward-compat: unknown keys inside run_loop should not fail the
+    // validator, matching the published schema contract.
+    const result = validateV4Config(baseConfig({ startup_watchdog_ms: 30000, future_knob: 'whatever' }));
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 });

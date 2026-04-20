@@ -597,11 +597,43 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...timeoutValidation.errors);
   }
 
+  // Run-loop watchdog knobs (BUG-47 / BUG-51). Schema publishes both as
+  // positive integers; runtime silently falls back to defaults on bad input,
+  // which misleads operators into thinking their config --set took effect.
+  // Reject at config-write / validate time so the operator sees the problem.
+  if (data.run_loop !== undefined) {
+    errors.push(...validateRunLoopConfig(data.run_loop));
+  }
+
   // Admission control (ADM-001..004) is handled by the validate, doctor, and
   // run-loop paths which call runAdmissionControl() directly. Config schema
   // validation here should not duplicate that surface.
 
   return { ok: errors.length === 0, errors, warnings };
+}
+
+export function validateRunLoopConfig(runLoop) {
+  const errors = [];
+  if (runLoop === null || typeof runLoop !== 'object' || Array.isArray(runLoop)) {
+    errors.push('run_loop must be an object');
+    return errors;
+  }
+  validateRunLoopPositiveInteger('run_loop.startup_watchdog_ms', runLoop.startup_watchdog_ms, errors);
+  validateRunLoopPositiveInteger('run_loop.stale_turn_threshold_ms', runLoop.stale_turn_threshold_ms, errors);
+  return errors;
+}
+
+function validateRunLoopPositiveInteger(path, value, errors) {
+  if (value === undefined || value === null) {
+    return;
+  }
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    errors.push(`${path} must be a positive integer (milliseconds)`);
+    return;
+  }
+  if (value < 1) {
+    errors.push(`${path} must be a positive integer (milliseconds)`);
+  }
 }
 
 export function validateBudgetConfig(budget) {

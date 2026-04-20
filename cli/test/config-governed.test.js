@@ -203,6 +203,89 @@ describe('governed config command', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('AT-CFGG-RL-001: config --set accepts a valid BUG-51 startup_watchdog_ms', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--set', 'run_loop.startup_watchdog_ms', '45000']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.run_loop.startup_watchdog_ms, 45000);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-RL-002: config --set rejects startup_watchdog_ms=0 (schema minimum 1)', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--set', 'run_loop.startup_watchdog_ms', '0']);
+      assert.notEqual(result.status, 0, 'invalid watchdog edit must fail');
+      assert.match(result.stdout, /Refusing to save invalid config/);
+      assert.match(result.stdout, /run_loop\.startup_watchdog_ms/);
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.run_loop?.startup_watchdog_ms, undefined);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-RL-003: config --set rejects negative startup_watchdog_ms (quoted form so commander does not swallow the leading dash)', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--set', 'run_loop.startup_watchdog_ms -1']);
+      assert.notEqual(result.status, 0, 'negative watchdog must fail');
+      assert.match(result.stdout, /Refusing to save invalid config/);
+      assert.match(result.stdout, /run_loop\.startup_watchdog_ms/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-RL-004: config --set rejects non-integer startup_watchdog_ms (string coerced to NaN)', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--set', 'run_loop.startup_watchdog_ms', 'banana']);
+      assert.notEqual(result.status, 0, 'non-integer watchdog must fail');
+      assert.match(result.stdout, /Refusing to save invalid config/);
+      assert.match(result.stdout, /run_loop\.startup_watchdog_ms/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-RL-005: config --set rejects stale_turn_threshold_ms=0 (BUG-47 contract)', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--set', 'run_loop.stale_turn_threshold_ms', '0']);
+      assert.notEqual(result.status, 0, 'invalid stale threshold must fail');
+      assert.match(result.stdout, /Refusing to save invalid config/);
+      assert.match(result.stdout, /run_loop\.stale_turn_threshold_ms/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-RL-006: validate surfaces invalid run_loop values written directly to the config file', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      // Operator hand-edits the JSON to something bogus — validate must catch it.
+      config.run_loop = { startup_watchdog_ms: -30000, stale_turn_threshold_ms: 0 };
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      const result = runCli(dir, ['validate', '--json']);
+      const stdout = result.stdout || '';
+      const parsed = JSON.parse(stdout);
+      assert.equal(parsed.ok, false, 'validate must fail on invalid run_loop');
+      const errorText = JSON.stringify(parsed.errors || []);
+      assert.match(errorText, /run_loop\.startup_watchdog_ms/);
+      assert.match(errorText, /run_loop\.stale_turn_threshold_ms/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('governed config command spec', () => {
