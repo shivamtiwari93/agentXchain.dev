@@ -97,14 +97,19 @@ function buildScheduleProvenance(entry) {
   };
 }
 
-function buildScheduleExecutionResult(entryId, execution, fallbackState, action = 'ran') {
+export function buildScheduleExecutionResult(entryId, execution, fallbackState, action = 'ran') {
   const state = execution.result?.state || fallbackState || null;
+  const blockedReason = state?.blocked_reason || null;
+  const recoveryAction = blockedReason?.recovery?.recovery_action || null;
+  const blockedCategory = blockedReason?.category || null;
   return {
     id: entryId,
     action,
     run_id: state?.run_id || null,
     stop_reason: execution.result?.stop_reason || null,
     exit_code: execution.exitCode,
+    recovery_action: recoveryAction,
+    blocked_category: blockedCategory,
   };
 }
 
@@ -489,6 +494,7 @@ async function advanceScheduleContinuousSession(context, entry, opts = {}) {
     run_id: step.run_id || null,
     intent_id: step.intent_id || null,
     runs_completed: session.runs_completed,
+    recovery_action: step.recovery_action || null,
   };
 }
 
@@ -536,7 +542,12 @@ export async function scheduleRunDueCommand(opts) {
       } else if (entry.action === 'preemption_failed') {
         console.log(chalk.red(`Schedule preemption failed: ${entry.id} (${entry.error || 'unknown error'})`));
       } else if (entry.action === 'blocked') {
-        console.log(chalk.yellow(`Schedule waiting on unblock: ${entry.id}`));
+        if (entry.recovery_action) {
+          const categorySuffix = entry.blocked_category ? ` (${entry.blocked_category})` : '';
+          console.log(chalk.yellow(`Schedule blocked: ${entry.id}${categorySuffix}. Recovery: ${entry.recovery_action}`));
+        } else {
+          console.log(chalk.yellow(`Schedule waiting on unblock: ${entry.id}`));
+        }
       } else if (entry.action === 'skipped') {
         console.log(chalk.yellow(`Schedule skipped: ${entry.id} (${entry.reason})`));
       } else if (entry.action === 'not_due') {
@@ -709,6 +720,7 @@ export async function scheduleDaemonCommand(opts) {
         runs_completed: contResult.runs_completed ?? null,
       };
       if (contResult.reason) contResultEntry.reason = contResult.reason;
+      if (contResult.recovery_action) contResultEntry.recovery_action = contResult.recovery_action;
 
       result = {
         ok: contResult.ok !== false && nonContResult.ok,

@@ -18,6 +18,7 @@ import {
 } from '../../src/lib/governed-state.js';
 import { createDispatchProgressTracker, getDispatchProgressRelativePath } from '../../src/lib/dispatch-progress.js';
 import { detectGhostTurns, reconcileStaleTurns } from '../../src/lib/stale-turn-watchdog.js';
+import { buildScheduleExecutionResult } from '../../src/commands/schedule.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
@@ -276,5 +277,53 @@ describe('BUG-51: fast-startup watchdog', () => {
     const turnId = Object.keys(state.active_turns)[0];
     assert.equal(state.active_turns[turnId].status, 'failed_start');
     assert.equal(state.active_turns[turnId].failed_start_reason, 'no_subprocess_output');
+  });
+
+  it('schedule execution result surfaces the ghost-turn recovery action instead of generic unblock', () => {
+    // Synthetic execution shaped like a blocked governed run whose ghost turn
+    // was caught by the BUG-51 watchdog. The schedule surface must propagate
+    // state.blocked_reason.recovery.recovery_action so operators see the real
+    // recovery command (reissue-turn --reason ghost), not a generic unblock.
+    const ghostRecovery = 'agentxchain reissue-turn --turn turn_fake --reason ghost';
+    const execution = {
+      exitCode: 0,
+      result: {
+        stop_reason: 'blocked',
+        state: {
+          run_id: 'run_abc',
+          status: 'blocked',
+          blocked_reason: {
+            category: 'ghost_turn',
+            recovery: { recovery_action: ghostRecovery },
+          },
+        },
+      },
+    };
+
+    const result = buildScheduleExecutionResult('sched-1', execution, null, 'blocked');
+    assert.equal(result.action, 'blocked');
+    assert.equal(result.stop_reason, 'blocked');
+    assert.equal(result.recovery_action, ghostRecovery);
+    assert.equal(result.blocked_category, 'ghost_turn');
+  });
+
+  it('schedule execution result keeps recovery_action null when state has no blocker', () => {
+    // Non-blocked executions must not invent a recovery_action. Fallback to
+    // generic unblock copy still applies only when recovery_action is null.
+    const execution = {
+      exitCode: 0,
+      result: {
+        stop_reason: null,
+        state: {
+          run_id: 'run_ok',
+          status: 'completed',
+          blocked_reason: null,
+        },
+      },
+    };
+
+    const result = buildScheduleExecutionResult('sched-2', execution, null, 'ran');
+    assert.equal(result.recovery_action, null);
+    assert.equal(result.blocked_category, null);
   });
 });
