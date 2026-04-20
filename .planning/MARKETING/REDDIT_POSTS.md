@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.145.0
+# Reddit Posts — AgentXchain v2.146.0
 
-> Ready-to-post content for Reddit for the `v2.145.0` release once tester verification lands. Updated 2026-04-19.
+> Ready-to-post content for Reddit for the `v2.146.0` release once tester verification lands. Updated 2026-04-20.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.145.0):**
+**What's in the box (v2.146.0):**
 - 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
 - All 5 adapters proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -30,12 +30,11 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- BUG-47 stale-turn watchdog shipped: dead `running` turns now reconcile to retained `stalled` turns with explicit stale recovery guidance
-- BUG-48 injected-priority lifecycle fix shipped: stale markers no longer outlive superseded or otherwise non-actionable intents
-- BUG-49 accepted baseline advancement shipped: clean checkpoints stop reporting false drift on child runs
-- BUG-50 run-history isolation shipped: fresh child runs stop inheriting contradictory phase/turn counters from parent runs
-- BUG-47..50 remain open pending tester verification on `v2.145.0`
-- 6,352 tests / 1,324 suites / 0 failures
+- BUG-51 fast-startup watchdog shipped: ghost-dispatched turns now fail within 30 seconds instead of burning ~10 minutes before recovery starts
+- Ghost turns now transition to retained `failed_start`, emit `turn_start_failed`, and release budget reservations immediately
+- BUG-47 stale-turn coverage is now semantically split from BUG-51: stale means subprocess started then went silent; ghost means subprocess never attached
+- BUG-51 and BUG-47 remain open pending tester verification on `v2.146.0`; BUG-48..50 remain open pending tester verification
+- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
 
 **See it in 30 seconds (no API keys needed):**
 
@@ -69,7 +68,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.145.0 – state-consistency fixes queued for governed multi-agent runs
+**Title:** AgentXchain v2.146.0 – fast startup watchdog for ghost-dispatched governed turns
 
 **Body:**
 
@@ -87,8 +86,8 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
-- Next release slice carries BUG-47..50 for tester verification: stale dead turns reconcile lazily, stale injected intents are cleared, clean checkpoints advance the child baseline, and child-run history counters stay internally consistent.
-- 6,352 tests / 1,324 suites / 0 failures
+- Next release slice carries BUG-51 for tester verification: ghost-dispatched turns are detected within 30 seconds, transitioned to `failed_start`, and surfaced with explicit recovery instead of burning ~10 minutes before the watchdog reacts.
+- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -97,7 +96,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- 6,352 tests / 1,324 suites / 0 failures
+- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 

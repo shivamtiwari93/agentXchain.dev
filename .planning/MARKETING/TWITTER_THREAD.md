@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.145.0
+# Twitter/X Thread — AgentXchain v2.146.0
 
-> Ready-to-post thread for the `v2.145.0` release once tester verification lands. Updated 2026-04-19.
+> Ready-to-post thread for the `v2.146.0` release once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.145.0 is next in the release lane. Open source. MIT.
+AgentXchain v2.146.0 is next in the release lane. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -52,15 +52,14 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.145.0:
+New in v2.146.0:
 
-- BUG-47 stale-turn watchdog: `status`, `resume`, and `step --resume` now reconcile dead `running` turns into retained `stalled` turns with explicit `reissue-turn --reason stale` guidance
-- BUG-48 injected-priority lifecycle fix: stale preemption markers are cleared when the target intent is no longer actionable
-- BUG-49 accepted baseline advancement: fresh continuation runs stop reporting false drift immediately after a clean checkpoint
-- BUG-50 run-history isolation: child-run counters stay scoped to the child run; inherited continuity metadata moves under `parent_context`
-- BUG-47..50 remain open pending tester verification per the beta-cycle closure rules
+- BUG-51 fast-startup watchdog: ghost-dispatched turns with no attached subprocess output are detected within 30 seconds instead of waiting for the 10-minute stale-turn watchdog
+- Ghost turns now transition to retained `failed_start`, emit `turn_start_failed`, release their budget reservation immediately, and surface explicit `reissue-turn --reason ghost` recovery in `status`, `resume`, and `step --resume`
+- BUG-47 tester-sequence coverage now cleanly stays on the "subprocess started, then went silent" path; BUG-51 owns the "subprocess never attached" path
+- BUG-51 and BUG-47 remain open pending tester verification on `v2.146.0`; BUG-48..50 remain open pending tester verification on `v2.145.0`
 
-- 6,352 tests / 1,324 suites / 0 failures
+- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

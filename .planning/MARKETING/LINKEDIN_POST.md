@@ -1,6 +1,6 @@
-# LinkedIn Post — AgentXchain v2.145.0
+# LinkedIn Post — AgentXchain v2.146.0
 
-> Ready-to-post LinkedIn company-page copy for the `v2.145.0` release once tester verification lands. Updated 2026-04-19.
+> Ready-to-post LinkedIn company-page copy for the `v2.146.0` release once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -17,15 +17,14 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.145.0` is the next release bundle in the lane, carrying the BUG-47..50 continuation-state consistency fixes:
+`v2.146.0` is the next release bundle in the lane, carrying BUG-51 and the BUG-47 follow-up:
 
-- stale `running` turns are now reconciled into retained `stalled` turns with explicit stale-turn recovery guidance
-- stale injected-priority markers are cleared when the target intent is superseded or otherwise non-actionable
-- fresh continuation runs now advance `accepted_integration_ref` correctly on checkpoint
-- child-run `run-history.jsonl` counters stay isolated from inherited parent metadata
-- BUG-47, BUG-48, BUG-49, and BUG-50 remain open pending tester verification under the beta-cycle closure rules
+- ghost-dispatched turns are now detected within 30 seconds instead of waiting roughly 10 minutes for stale-turn recovery
+- ghost turns transition to retained `failed_start`, emit `turn_start_failed`, and release budget reservations immediately
+- stale-turn tests now cleanly stay on the "subprocess started, then went silent" path, while BUG-51 owns the "subprocess never attached" path
+- BUG-51 and BUG-47 remain open pending tester verification on `v2.146.0`; BUG-48..50 remain open pending tester verification under the beta-cycle closure rules
 
-- 6,352 tests / 1,324 suites / 0 failures
+- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

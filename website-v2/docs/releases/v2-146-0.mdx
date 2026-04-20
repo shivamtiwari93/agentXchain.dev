@@ -1,0 +1,35 @@
+---
+sidebar_position: 0
+title: "v2.146.0 Release Notes"
+---
+
+# AgentXchain v2.146.0
+
+`v2.146.0` ships BUG-51, the fast-startup watchdog follow-up to BUG-47. Ghost-dispatched turns that never attach a subprocess output path are now detected within 30 seconds instead of sitting in fake `running` state for roughly 10 minutes before stale-turn recovery begins. BUG-51 and BUG-47 both remain open pending tester verification per discipline rule #12. BUG-48, BUG-49, and BUG-50 remain open pending their earlier tester verification on `v2.145.0`.
+
+## Bug Fixes
+
+- **BUG-51 fast-startup ghost-turn watchdog**: a new 30-second startup watchdog detects ghost-dispatched turns with no dispatch-progress, no staged result, and no durable turn activity, transitions them to retained `failed_start`, emits `turn_start_failed`, and surfaces explicit `reissue-turn --reason ghost` guidance in `status`, `resume`, and `step --resume`.
+
+- **BUG-51 budget reservation release**: ghost-turn and stale-turn reconciliation now release the failed turn's USD budget reservation immediately on detection so reissued turns do not compete with stale reservations.
+
+- **BUG-47 tester-sequence split hardening**: stale-turn beta-tester scenarios now seed dispatch-progress before backdating timestamps so BUG-47 covers the "subprocess started, then went silent" path while BUG-51 owns the "subprocess never attached" path.
+
+## Decisions
+
+- `DEC-BUG51-GHOST-DETECTION-001`
+- `DEC-BUG51-INTERMEDIATE-STATES-DEFERRED-001`
+- `DEC-BUG51-AUTO-REISSUE-DEFERRED-001`
+
+## Status
+
+- **BUG-51**: implementation shipped, awaiting tester verification on `v2.146.0`
+- **BUG-47**: BUG-51 follow-up shipped, awaiting tester verification on `v2.146.0`
+- **BUG-48**: implementation shipped, awaiting tester verification on `v2.145.0`
+- **BUG-49**: implementation shipped, awaiting tester verification on `v2.145.0`
+- **BUG-50**: implementation shipped, awaiting tester verification on `v2.145.0`
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
+- `node --test cli/test/claim-reality-preflight.test.js` → 19 tests / 1 suite / 0 failures

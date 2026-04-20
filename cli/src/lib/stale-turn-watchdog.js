@@ -8,6 +8,14 @@
  *    recent events, it is a "ghost turn" — the subprocess never attached.
  *    Transitions to `failed_start` immediately.
  *
+ *    Design note: the watchdog intentionally keys on turn-scoped
+ *    dispatch-progress rather than `stdout.log` existence. Dispatch-progress is
+ *    a framework-authored signal with a stable per-turn contract across runtime
+ *    wiring; `stdout.log` is adapter-authored visibility output and is allowed
+ *    to be best-effort. Using dispatch-progress therefore gives us the same
+ *    operator-facing "no first byte / no worker heartbeat" detection without
+ *    coupling the watchdog to adapter-specific log-attachment details.
+ *
  * 2. **Stale turn watchdog (BUG-47):** if an active turn has status "running"
  *    for >N minutes with no event log activity AND no staged result file,
  *    report it as stalled.
@@ -97,7 +105,8 @@ export function detectStaleTurns(root, state, config) {
  *
  * A ghost turn is one that has been in "running" or "retrying" status for
  * longer than the startup watchdog threshold (default 30s) AND has:
- *   - no dispatch-progress file (subprocess never wrote any output)
+ *   - no dispatch-progress file (framework-observed proof that no subprocess
+ *     output or heartbeat was attached)
  *   - no staged result file
  *   - no recent turn-scoped events (beyond the initial turn_dispatched)
  *

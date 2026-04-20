@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.145.0
+# Hacker News Submission — AgentXchain v2.146.0
 
-> Ready-to-post for the `v2.145.0` launch window once tester verification lands. Updated 2026-04-19.
+> Ready-to-post for the `v2.146.0` launch window once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -34,16 +34,15 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's queued in v2.145.0:**
-- BUG-47 stale-turn watchdog shipped: stale `running` turns reconcile to retained `stalled` turns with explicit `reissue-turn --reason stale` guidance
-- BUG-48 injected-priority lifecycle fix shipped: stale markers are cleared when the target intent is no longer actionable
-- BUG-49 accepted baseline advancement shipped: fresh continuation runs stop reporting false drift immediately after a clean checkpoint
-- BUG-50 run-history isolation shipped: child-run counters stay current-run-only while inherited context moves to `parent_context`
-- BUG-47..50 remain open pending tester verification per the beta-cycle discipline rules
+**What's queued in v2.146.0:**
+- BUG-51 fast-startup watchdog shipped: ghost-dispatched turns now fail within 30 seconds instead of burning roughly 10 minutes before recovery starts
+- Ghost turns transition to retained `failed_start`, emit `turn_start_failed`, and release budget reservations immediately
+- BUG-47 stale-turn coverage now stays on the "subprocess started, then went silent" path; BUG-51 owns the "subprocess never attached" path
+- BUG-51 and BUG-47 remain open pending tester verification on `v2.146.0`; BUG-48..50 remain open pending tester verification per the beta-cycle discipline rules
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - 108 conformance fixtures across 13 protocol surfaces
-- 6,352 tests / 1,324 suites / 0 failures
+- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
 
 **Architecture:**
 1. Protocol (the constitution — run state, roles, turns, gates, decisions)
