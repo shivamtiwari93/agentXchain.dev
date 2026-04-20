@@ -225,20 +225,22 @@ agentxchain step
 Default governed scaffolding creates:
 
 ```text
-agentxchain.json
-.agentxchain/state.json
-.agentxchain/history.jsonl
-.agentxchain/decision-ledger.jsonl
-.agentxchain/prompts/
-.agentxchain/staging/
-.agentxchain/dispatch/
-.planning/PM_SIGNOFF.md
-.planning/ROADMAP.md
-.planning/SYSTEM_SPEC.md
-.planning/acceptance-matrix.md
-.planning/ship-verdict.md
-TALK.md
+agentxchain.json              # ← commit this
+.agentxchain/state.json       # ← gitignored by default (runtime state)
+.agentxchain/history.jsonl    # ← gitignored by default (runtime state)
+.agentxchain/decision-ledger.jsonl # ← gitignored by default (runtime state)
+.agentxchain/prompts/         # ← commit this
+.agentxchain/staging/         # ← gitignored (transient)
+.agentxchain/dispatch/        # ← gitignored (transient)
+.planning/PM_SIGNOFF.md       # ← commit this
+.planning/ROADMAP.md          # ← commit this
+.planning/SYSTEM_SPEC.md      # ← commit this
+.planning/acceptance-matrix.md # ← commit this
+.planning/ship-verdict.md     # ← commit this
+TALK.md                       # ← gitignored by default (runtime state)
 ```
+
+Runtime-state files (`.agentxchain/state.json`, `history.jsonl`, `decision-ledger.jsonl`, `TALK.md`) are durable on disk but gitignored in fresh scaffolds so they do not create `git status` noise. See [Project Structure](https://agentxchain.dev/docs/project-structure) for the full breakdown.
 
 Use [`examples/governed-todo-app/`](examples/governed-todo-app/) as the reference project shape: PM plans, dev implements, QA reviews.
 

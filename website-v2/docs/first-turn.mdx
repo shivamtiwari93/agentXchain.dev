@@ -26,29 +26,29 @@ After this, your repo has:
 
 ```
 my-first-governed/
-├── agentxchain.json              # roles, runtimes, gates, workflow
+├── agentxchain.json              # ← commit this
 ├── .agentxchain/
-│   ├── state.json                # orchestrator-owned run state
-│   ├── history.jsonl             # append-only turn history
-│   ├── decision-ledger.jsonl     # every decision from every turn
-│   ├── dispatch/turns/           # turn dispatch bundles (written by orchestrator)
-│   ├── staging/                  # turn results (written by actor, read by orchestrator)
-│   ├── reviews/                  # QA review artifacts (materialized by orchestrator)
+│   ├── state.json                # ← gitignored by default (runtime state, durable on disk)
+│   ├── history.jsonl             # ← gitignored by default (runtime state, durable on disk)
+│   ├── decision-ledger.jsonl     # ← gitignored by default (runtime state, durable on disk)
+│   ├── dispatch/turns/           # ← gitignored (transient)
+│   ├── staging/                  # ← gitignored (transient)
+│   ├── reviews/                  # ← gitignored (transient)
 │   └── prompts/
-│       ├── pm.md                 # PM role prompt
-│       ├── dev.md                # Dev role prompt
-│       ├── qa.md                 # QA role prompt
-│       └── eng_director.md       # Engineering Director prompt
+│       ├── pm.md                 # ← commit this
+│       ├── dev.md                # ← commit this
+│       ├── qa.md                 # ← commit this
+│       └── eng_director.md       # ← commit this
 ├── .planning/
-│   ├── PM_SIGNOFF.md             # ← starts at "Approved: NO"
-│   ├── ROADMAP.md
-│   ├── SYSTEM_SPEC.md
-│   ├── IMPLEMENTATION_NOTES.md
-│   ├── acceptance-matrix.md
-│   ├── ship-verdict.md
-│   ├── RELEASE_NOTES.md
+│   ├── PM_SIGNOFF.md             # ← commit this (starts at "Approved: NO")
+│   ├── ROADMAP.md                # ← commit this
+│   ├── SYSTEM_SPEC.md            # ← commit this
+│   ├── IMPLEMENTATION_NOTES.md   # ← commit this
+│   ├── acceptance-matrix.md      # ← commit this
+│   ├── ship-verdict.md           # ← commit this
+│   ├── RELEASE_NOTES.md          # ← commit this
 │   └── (template extras)         # e.g. command-surface.md for cli-tool
-└── TALK.md                       # collaboration log (orchestrator appends here)
+└── TALK.md                       # ← gitignored by default (runtime state, durable on disk)
 ```
 
 The `cli-tool` template adds project-type planning artifacts like `command-surface.md`, `distribution-checklist.md`, and `platform-support.md`. Other templates add different extras. See [Templates](/docs/templates) for details.

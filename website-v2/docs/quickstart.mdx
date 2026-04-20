@@ -179,12 +179,14 @@ agentxchain init --governed --dir my-agentxchain-project -y
 
 This creates the scaffold:
 
-| Category | Files |
-|----------|-------|
-| Configuration | `agentxchain.json`, `.agentxchain/state.json`, `.agentxchain/history.jsonl`, `.agentxchain/decision-ledger.jsonl` |
-| Turn handoff | `.agentxchain/dispatch/turns/<turn_id>/`, `.agentxchain/staging/<turn_id>/turn-result.json`, `TALK.md` |
-| Planning artifacts | `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, `.planning/SYSTEM_SPEC.md`, `.planning/IMPLEMENTATION_NOTES.md`, `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, `.planning/RELEASE_NOTES.md` |
-| Role prompts | `.agentxchain/prompts/pm.md`, `.agentxchain/prompts/dev.md`, `.agentxchain/prompts/qa.md`, `.agentxchain/prompts/eng_director.md` |
+| Category | Files | Git status |
+|----------|-------|------------|
+| Configuration | `agentxchain.json` | Committed |
+| Runtime state | `.agentxchain/state.json`, `.agentxchain/history.jsonl`, `.agentxchain/decision-ledger.jsonl` | Gitignored by default (durable on disk) |
+| Turn handoff | `.agentxchain/dispatch/turns/<turn_id>/`, `.agentxchain/staging/<turn_id>/turn-result.json` | Gitignored (transient) |
+| Collaboration | `TALK.md` | Gitignored by default (durable on disk) |
+| Planning artifacts | `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, `.planning/SYSTEM_SPEC.md`, `.planning/IMPLEMENTATION_NOTES.md`, `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, `.planning/RELEASE_NOTES.md` | Committed |
+| Role prompts | `.agentxchain/prompts/pm.md`, `.agentxchain/prompts/dev.md`, `.agentxchain/prompts/qa.md`, `.agentxchain/prompts/eng_director.md` | Committed |
 
 If you already know the repo shape, initialize with a built-in template such as `api-service`, `cli-tool`, `library`, `web-app`, or the blueprint-backed `enterprise-app`. The template adds project-type planning artifacts and records scaffold intent in `agentxchain.json`. See [Templates](/docs/templates).
 

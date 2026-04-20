@@ -91,3 +91,32 @@ describe('B-11: Scaffold .gitignore includes inline comments', () => {
     }
   });
 });
+
+describe('B-11: Scaffold file-listing docs distinguish committed vs gitignored', () => {
+  const readmePath = join(__dirname, '..', '..', 'README.md');
+  const quickstartPath = join(DOCS_ROOT, 'quickstart.mdx');
+  const firstTurnPath = join(DOCS_ROOT, 'first-turn.mdx');
+
+  it('AT-B11-010: README scaffold listing annotates runtime state as gitignored', () => {
+    const content = readFileSync(readmePath, 'utf8');
+    assert.match(content, /state\.json.*gitignored by default/i);
+    assert.match(content, /history\.jsonl.*gitignored by default/i);
+    assert.match(content, /TALK\.md.*gitignored by default/i);
+    assert.match(content, /agentxchain\.json.*commit this/i);
+  });
+
+  it('AT-B11-011: quickstart scaffold table distinguishes committed vs gitignored', () => {
+    const content = readFileSync(quickstartPath, 'utf8');
+    assert.match(content, /Runtime state.*Gitignored by default/i);
+    assert.match(content, /Configuration.*Committed/i);
+    assert.match(content, /Planning artifacts.*Committed/i);
+  });
+
+  it('AT-B11-012: first-turn scaffold tree annotates gitignored runtime state', () => {
+    const content = readFileSync(firstTurnPath, 'utf8');
+    assert.match(content, /state\.json.*gitignored by default/i);
+    assert.match(content, /history\.jsonl.*gitignored by default/i);
+    assert.match(content, /TALK\.md.*gitignored by default/i);
+    assert.match(content, /agentxchain\.json.*commit this/i);
+  });
+});
