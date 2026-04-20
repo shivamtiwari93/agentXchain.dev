@@ -25,6 +25,13 @@ function extractSection(doc, heading) {
   return match[1];
 }
 
+function extractJsonCodeBlockAfter(label) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = GUIDE.match(new RegExp(`${escaped}\\n\\n\`\`\`json\\n([\\s\\S]*?)\\n\`\`\``));
+  assert.ok(match, `Missing JSON code block after "${label}"`);
+  return JSON.parse(match[1]);
+}
+
 describe('Protocol implementor guide surface', () => {
   it('ships the Docusaurus source page and planning spec', () => {
     assert.ok(existsSync(join(REPO_ROOT, GUIDE_PATH)), 'guide source must exist');
@@ -217,6 +224,15 @@ describe('Protocol implementor guide surface', () => {
     assert.ok(
       GUIDE.includes(`"version": "${PKG_VERSION}"`),
       `implementor guide example must show version "${PKG_VERSION}", not a stale version`
+    );
+  });
+
+  it('reference CLI capabilities example matches the shipped surface claims', () => {
+    const example = extractJsonCodeBlockAfter("This is the reference CLI's current file:");
+    assert.deepEqual(
+      example.surfaces,
+      CAPABILITIES.surfaces,
+      'implementor guide capabilities example must match the real shipped surfaces map'
     );
   });
 });

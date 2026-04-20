@@ -82,7 +82,11 @@ This is the reference CLI's current file:
     "config_schema": true,
     "dispatch_manifest": true,
     "hook_audit": true,
-    "coordinator": true
+    "coordinator": true,
+    "delegation": true,
+    "decision_carryover": true,
+    "parallel_turns": true,
+    "event_lifecycle": true
   },
   "metadata": {
     "name": "AgentXchain Reference CLI",
@@ -90,6 +94,8 @@ This is the reference CLI's current file:
   }
 }
 ```
+
+Because this example is the shipped reference CLI file, the `surfaces` map above must stay exhaustive for the surfaces the implementation actually claims. Leaving out a shipped surface is not harmless sample drift; it tells operators the implementation does not explicitly claim that surface.
 
 Fields that matter today:
 

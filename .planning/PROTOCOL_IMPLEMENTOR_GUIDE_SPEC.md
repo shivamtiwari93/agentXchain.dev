@@ -26,6 +26,7 @@ The page must document the repo's actual conformance contract, not an aspiration
    - Tier 2: trust-hardening surfaces
    - Tier 3: coordinator / multi-repo behavior
 2. Explain `.agentxchain-conformance/capabilities.json` with a real example and field-level guidance.
+   - The example labeled as the reference CLI's current file must stay aligned with the actual shipped `.agentxchain-conformance/capabilities.json`, including the full claimed `surfaces` map.
 3. Explain the `stdio-fixture-v1` adapter contract:
    - fixture JSON arrives on stdin
    - one JSON result is emitted on stdout
@@ -46,6 +47,10 @@ The page must document the repo's actual conformance contract, not an aspiration
    - `decision_ledger`
    - `history`
    - `config_schema`
+   - `delegation`
+   - `decision_carryover`
+   - `parallel_turns`
+   - `event_lifecycle`
    - `dispatch_manifest`
    - `hook_audit`
    - `coordinator`
@@ -75,9 +80,10 @@ The page must document the repo's actual conformance contract, not an aspiration
 - [ ] AT-2: `website-v2/sidebars.ts` includes the page under a `Protocol` section
 - [ ] AT-3: The page documents `capabilities.json`, `stdio-fixture-v1`, `verify protocol`, and `not_implemented`
 - [ ] AT-4: The page distinguishes adapter exit codes from verifier exit codes
-- [ ] AT-5: The page names all nine current protocol surfaces
+- [ ] AT-5: The page names all thirteen current protocol surfaces
 - [ ] AT-6: `.planning/DOCS_SURFACE_SPEC.md` lists `/docs/protocol-implementor-guide`
-- [ ] AT-7: Tier 1 sections name the concrete fixture-backed invariants currently proven for `state_machine`, `turn_result_validation`, `decision_ledger`, `history`, and `config_schema`
+- [ ] AT-7: Tier 1 sections name the concrete fixture-backed invariants currently proven for `state_machine`, `turn_result_validation`, `decision_ledger`, `history`, `config_schema`, `delegation`, `decision_carryover`, `parallel_turns`, and `event_lifecycle`
+- [ ] AT-8: The reference-CLI `capabilities.json` example matches the real shipped `.agentxchain-conformance/capabilities.json` surface claims
 
 ## Open Questions
 

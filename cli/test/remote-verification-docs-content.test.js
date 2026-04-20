@@ -14,6 +14,14 @@ const SIDEBARS = read('website-v2/sidebars.ts');
 const IMPLEMENTOR_GUIDE = read('website-v2/docs/protocol-implementor-guide.mdx');
 const CONFORMANCE_ENGINE = read('cli/src/lib/protocol-conformance.js');
 const CLI_ENTRY = read('cli/bin/agentxchain.js');
+const CAPABILITIES = JSON.parse(read('.agentxchain-conformance/capabilities.json'));
+
+function extractJsonCodeBlockAfter(doc, label) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = doc.match(new RegExp(`${escaped}\\n\\n\`\`\`json\\n([\\s\\S]*?)\\n\`\`\``));
+  assert.ok(match, `Missing JSON code block after "${label}"`);
+  return JSON.parse(match[1]);
+}
 
 describe('Remote verification docs — page exists and is wired', () => {
   it('source file exists', () => {
@@ -60,6 +68,16 @@ describe('Remote verification docs — HTTP contract alignment with implementati
   it('documents the http-fixture-v1 protocol requirement', () => {
     assert.match(CONFORMANCE_ENGINE, /http-fixture-v1/);
     assert.match(DOCS_PAGE, /http-fixture-v1/);
+  });
+
+  it('shows a current v7 capabilities example with the shipped surface set', () => {
+    const example = extractJsonCodeBlockAfter(DOCS_PAGE, 'Return `200 OK` with a JSON body:');
+    assert.equal(example.protocol_version, CAPABILITIES.protocol_version);
+    assert.deepEqual(
+      Object.keys(example.surfaces).sort(),
+      Object.keys(CAPABILITIES.surfaces).sort(),
+      'remote verification docs example must enumerate the current shipped surfaces'
+    );
   });
 
   it('documents the Connection: close header from the transport', () => {
