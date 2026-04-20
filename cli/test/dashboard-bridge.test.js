@@ -3025,3 +3025,371 @@ describe('GET /api/connectors HTTP bridge', () => {
     });
   });
 });
+
+// ── AT-TIMEOUT-HTTP: /api/timeouts HTTP bridge tests ────────────────────────
+
+describe('GET /api/timeouts HTTP bridge', () => {
+  function writeTimeoutBridgeRepo(root, {
+    projectId,
+    timeouts = null,
+    routing = null,
+    state = undefined,
+    ledgerEntries = [],
+  }) {
+    const axcDir = join(root, '.agentxchain');
+    const dashDir = join(root, 'dashboard');
+    mkdirSync(axcDir, { recursive: true });
+    mkdirSync(dashDir, { recursive: true });
+    writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+
+    writeJson(join(root, 'agentxchain.json'), {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: projectId, name: projectId, default_branch: 'main' },
+      roles: {
+        dev: {
+          title: 'Developer',
+          mandate: 'Implement safely.',
+          write_authority: 'authoritative',
+          runtime: 'local-dev',
+        },
+      },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: ['echo', '{prompt}'],
+          prompt_transport: 'argv',
+        },
+      },
+      routing: routing || {
+        implementation: {
+          entry_role: 'dev',
+          allowed_next_roles: ['dev', 'human'],
+        },
+        qa: {
+          entry_role: 'dev',
+          allowed_next_roles: ['dev', 'human'],
+        },
+      },
+      gates: {},
+      ...(timeouts ? { timeouts } : {}),
+    });
+
+    if (state !== false) {
+      writeJson(join(axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: projectId,
+        run_id: 'run_timeout_http_001',
+        status: 'idle',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+        ...state,
+      });
+    }
+
+    if (ledgerEntries.length > 0) {
+      writeFileSync(
+        join(axcDir, 'decision-ledger.jsonl'),
+        ledgerEntries.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
+      );
+    }
+
+    return { axcDir, dashDir };
+  }
+
+  describe('config/state guards', () => {
+    let bridge;
+    let port;
+    let root;
+
+    after(async () => {
+      if (bridge) await bridge.stop();
+      if (root) rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-TIMEOUT-HTTP-001: no project config → 404 with config_missing', async () => {
+      root = tmpDir();
+      const axcDir = join(root, '.agentxchain');
+      const dashDir = join(root, 'dashboard');
+      mkdirSync(axcDir, { recursive: true });
+      mkdirSync(dashDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      ({ port } = await bridge.start());
+
+      const res = await httpGet(port, '/api/timeouts');
+      assert.equal(res.status, 404);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, false);
+      assert.equal(data.code, 'config_missing');
+    });
+
+    it('AT-TIMEOUT-HTTP-002: config present but no state.json → 404 with state_missing', async () => {
+      await bridge.stop();
+      rmSync(root, { recursive: true, force: true });
+
+      root = tmpDir();
+      const { axcDir, dashDir } = writeTimeoutBridgeRepo(root, {
+        projectId: 'timeout-state-missing',
+        timeouts: { per_turn_minutes: 30, action: 'warn' },
+        state: false,
+      });
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      ({ port } = await bridge.start());
+
+      const res = await httpGet(port, '/api/timeouts');
+      assert.equal(res.status, 404);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, false);
+      assert.equal(data.code, 'state_missing');
+    });
+  });
+
+  describe('governed timeout snapshots', () => {
+    let bridge;
+    let port;
+    let root;
+
+    after(async () => {
+      if (bridge) await bridge.stop();
+      if (root) rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-TIMEOUT-HTTP-003: returns configured false when no timeouts are configured', async () => {
+      root = tmpDir();
+      const { axcDir, dashDir } = writeTimeoutBridgeRepo(root, {
+        projectId: 'timeout-not-configured',
+      });
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      ({ port } = await bridge.start());
+
+      const res = await httpGet(port, '/api/timeouts');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.configured, false);
+      assert.equal(data.config, null);
+      assert.equal(data.live, null);
+      assert.equal(data.live_context, null);
+      assert.deepEqual(data.events, []);
+    });
+
+    it('AT-TIMEOUT-HTTP-004: active runs surface phase and turn timeout pressure plus persisted events', async () => {
+      root = tmpDir();
+      const now = Date.now();
+      const { axcDir, dashDir } = writeTimeoutBridgeRepo(root, {
+        projectId: 'timeout-active',
+        timeouts: {
+          per_turn_minutes: 30,
+          per_phase_minutes: 60,
+          per_run_minutes: 180,
+          action: 'warn',
+        },
+        routing: {
+          implementation: {
+            entry_role: 'dev',
+            allowed_next_roles: ['dev', 'human'],
+            timeout_minutes: 45,
+            timeout_action: 'skip_phase',
+          },
+          qa: {
+            entry_role: 'dev',
+            allowed_next_roles: ['dev', 'human'],
+          },
+        },
+        state: {
+          status: 'active',
+          phase: 'implementation',
+          created_at: new Date(now - (4 * 60 * 60 * 1000)).toISOString(),
+          phase_entered_at: new Date(now - (2 * 60 * 60 * 1000)).toISOString(),
+          turn_sequence: 1,
+          active_turns: {
+            turn_timeout_http_001: {
+              turn_id: 'turn_timeout_http_001',
+              assigned_role: 'dev',
+              status: 'active',
+              runtime_id: 'local-dev',
+              attempt: 1,
+              assigned_sequence: 1,
+              assigned_at: new Date(now - (75 * 60 * 1000)).toISOString(),
+              started_at: new Date(now - (75 * 60 * 1000)).toISOString(),
+            },
+          },
+        },
+        ledgerEntries: [
+          {
+            type: 'timeout_warning',
+            scope: 'turn',
+            phase: 'implementation',
+            turn_id: 'turn_timeout_http_001',
+            limit_minutes: 30,
+            elapsed_minutes: 75,
+            exceeded_by_minutes: 45,
+            action: 'warn',
+            timestamp: '2026-04-19T23:00:00Z',
+          },
+        ],
+      });
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      ({ port } = await bridge.start());
+
+      const res = await httpGet(port, '/api/timeouts');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.configured, true);
+      assert.equal(data.config.per_turn_minutes, 30);
+      assert.equal(data.config.action, 'warn');
+      assert.deepEqual(data.config.phase_overrides, [
+        {
+          phase: 'implementation',
+          limit_minutes: 45,
+          action: 'skip_phase',
+        },
+      ]);
+      const liveItems = [...data.live.exceeded, ...data.live.warnings];
+      assert.ok(liveItems.some((item) => item.scope === 'phase'));
+      assert.ok(liveItems.some((item) => item.scope === 'run'));
+      const turnWarning = data.live.warnings.find((item) => item.scope === 'turn');
+      assert.ok(turnWarning, 'turn-scoped timeout pressure must be present');
+      assert.equal(turnWarning.turn_id, 'turn_timeout_http_001');
+      assert.equal(turnWarning.role_id, 'dev');
+      assert.ok(Array.isArray(data.budget), 'budget must be returned');
+      assert.equal(data.events.length, 1);
+      assert.equal(data.events[0].type, 'timeout_warning');
+    });
+
+    it('AT-TIMEOUT-HTTP-005: approval-wait runs return read-only phase and run pressure with awaiting_approval context', async () => {
+      root = tmpDir();
+      const now = Date.now();
+      const { axcDir, dashDir } = writeTimeoutBridgeRepo(root, {
+        projectId: 'timeout-approval-wait',
+        timeouts: {
+          per_phase_minutes: 60,
+          per_run_minutes: 120,
+          action: 'warn',
+        },
+        state: {
+          status: 'paused',
+          phase: 'implementation',
+          created_at: new Date(now - (5 * 60 * 60 * 1000)).toISOString(),
+          phase_entered_at: new Date(now - (3 * 60 * 60 * 1000)).toISOString(),
+          blocked_on: 'human_approval:implementation_signoff',
+          pending_phase_transition: {
+            from: 'implementation',
+            to: 'qa',
+            gate: 'implementation_signoff',
+            requested_at: '2026-04-19T22:45:00Z',
+          },
+        },
+      });
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      ({ port } = await bridge.start());
+
+      const res = await httpGet(port, '/api/timeouts');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.ok(data.live.warnings.some((item) => item.scope === 'phase'));
+      assert.ok(data.live.warnings.some((item) => item.scope === 'run'));
+      assert.ok(!data.live.warnings.some((item) => item.scope === 'turn'));
+      assert.deepEqual(data.live_context, {
+        awaiting_approval: true,
+        pending_gate_type: 'phase_transition',
+        requested_at: '2026-04-19T22:45:00Z',
+      });
+    });
+
+    it('AT-TIMEOUT-HTTP-006: blocked runs return empty live arrays while preserving timeout ledger events', async () => {
+      root = tmpDir();
+      const { axcDir, dashDir } = writeTimeoutBridgeRepo(root, {
+        projectId: 'timeout-blocked',
+        timeouts: {
+          per_turn_minutes: 30,
+          action: 'escalate',
+        },
+        state: {
+          status: 'blocked',
+          phase: 'implementation',
+          blocked_on: 'timeout:turn',
+          blocked_reason: {
+            category: 'timeout',
+            blocked_at: '2026-04-19T22:00:00Z',
+            turn_id: 'turn_timeout_http_002',
+            recovery: {
+              typed_reason: 'timeout',
+              owner: 'operator',
+              recovery_action: 'agentxchain resume',
+              turn_retained: true,
+              detail: 'Turn timeout',
+            },
+          },
+          active_turns: {
+            turn_timeout_http_002: {
+              turn_id: 'turn_timeout_http_002',
+              assigned_role: 'dev',
+              status: 'active',
+              runtime_id: 'local-dev',
+              attempt: 1,
+              assigned_sequence: 1,
+            },
+          },
+        },
+        ledgerEntries: [
+          {
+            type: 'timeout',
+            scope: 'turn',
+            phase: 'implementation',
+            turn_id: 'turn_timeout_http_002',
+            limit_minutes: 30,
+            elapsed_minutes: 50,
+            exceeded_by_minutes: 20,
+            action: 'escalate',
+            timestamp: '2026-04-19T22:10:00Z',
+          },
+        ],
+      });
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      ({ port } = await bridge.start());
+
+      const res = await httpGet(port, '/api/timeouts');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.deepEqual(data.live, { exceeded: [], warnings: [] });
+      assert.deepEqual(data.live_context, {
+        awaiting_approval: false,
+        pending_gate_type: null,
+        requested_at: null,
+      });
+      assert.equal(data.events.length, 1);
+      assert.equal(data.events[0].type, 'timeout');
+    });
+
+    it('AT-TIMEOUT-HTTP-007: response content-type is application/json', async () => {
+      root = tmpDir();
+      const { axcDir, dashDir } = writeTimeoutBridgeRepo(root, {
+        projectId: 'timeout-content-type',
+        timeouts: { per_turn_minutes: 30, action: 'warn' },
+      });
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      ({ port } = await bridge.start());
+
+      const res = await httpGet(port, '/api/timeouts');
+      assert.equal(res.status, 200);
+      assert.ok(res.headers['content-type']?.includes('application/json'));
+    });
+  });
+});
