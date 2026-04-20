@@ -3106,10 +3106,30 @@ export function reissueTurn(root, config, opts = {}) {
   delete newActiveTurns[turnId];
   newActiveTurns[newTurnId] = newTurn;
 
+  // BUG-51 fix #6 (reissue path): release the old turn's reservation and create
+  // a fresh reservation for the new turn. Without this, an operator who runs
+  // `reissue-turn` before the watchdog fires (e.g., drift recovery, or
+  // operator-initiated reissue) leaves the old turn's reservation lingering in
+  // budget_reservations and the new turn carries no budget tracking at all.
+  // The watchdog paths (reconcileStaleTurns / failTurnStartup) already release
+  // on stalled/failed_start; this closes the same hole on the reissue surface.
+  const newReservations = { ...(state.budget_reservations || {}) };
+  delete newReservations[turnId];
+  const reissueEstimate = estimateTurnBudget(config, roleId);
+  if (reissueEstimate > 0) {
+    newReservations[newTurnId] = {
+      reserved_usd: reissueEstimate,
+      role_id: roleId,
+      created_at: now,
+      reissued_from: oldTurn.turn_id,
+    };
+  }
+
   const updatedState = {
     ...state,
     turn_sequence: nextSequence,
     active_turns: newActiveTurns,
+    budget_reservations: newReservations,
   };
 
   writeState(root, updatedState);

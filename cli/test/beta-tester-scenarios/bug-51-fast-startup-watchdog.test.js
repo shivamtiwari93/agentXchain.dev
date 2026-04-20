@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import {
   assignGovernedTurn,
   initializeGovernedRun,
+  reissueTurn,
   transitionActiveTurnLifecycle,
 } from '../../src/lib/governed-state.js';
 import { createDispatchProgressTracker, getDispatchProgressRelativePath } from '../../src/lib/dispatch-progress.js';
@@ -326,6 +327,55 @@ describe('BUG-51: fast-startup watchdog', () => {
     const turnId = Object.keys(state.active_turns)[0];
     assert.equal(state.active_turns[turnId].status, 'failed_start');
     assert.equal(state.active_turns[turnId].failed_start_reason, 'no_subprocess_output');
+  });
+
+  it('reissueTurn releases the old turn budget reservation and reserves for the new turn', () => {
+    // BUG-51 fix #6 (reissue surface): the tester's exact gripe — "Budget
+    // reservation ($2.00) for the stale turn lingered after reissue." The
+    // watchdog paths (reconcileStaleTurns / failTurnStartup) already release
+    // on stalled/failed_start, but `reissueTurn` itself never touched
+    // budget_reservations, so any reissue invoked before the watchdog fires
+    // (drift recovery, runtime change, operator-initiated) leaked the old
+    // reservation AND left the new turn with no budget tracking.
+    const { root, config } = createProject();
+    const assigned = assignGovernedTurn(root, config, 'dev');
+    assert.ok(assigned.ok, assigned.error);
+    const oldTurnId = assigned.turn.turn_id;
+
+    const before = readState(root);
+    assert.ok(before.budget_reservations[oldTurnId], 'precondition: old turn must have a reservation');
+    assert.equal(before.budget_reservations[oldTurnId].reserved_usd, 2.0);
+
+    const reissued = reissueTurn(root, config, { turnId: oldTurnId, reason: 'operator-initiated reissue' });
+    assert.ok(reissued.ok, reissued.error);
+    const newTurnId = reissued.newTurn.turn_id;
+
+    const after = readState(root);
+    assert.equal(after.budget_reservations[oldTurnId], undefined, 'old reservation must be released');
+    assert.ok(after.budget_reservations[newTurnId], 'new turn must have a fresh reservation');
+    assert.equal(after.budget_reservations[newTurnId].reserved_usd, 2.0);
+    assert.equal(after.budget_reservations[newTurnId].role_id, 'dev');
+    assert.equal(after.budget_reservations[newTurnId].reissued_from, oldTurnId);
+  });
+
+  it('reissueTurn does not invent a reservation when budget.per_turn_max_usd is unset', () => {
+    // Defensive: if the project has no per_turn budget configured, reissue
+    // must not magic up a reservation (mirrors assignGovernedTurn behavior).
+    const { root, config } = createProject({ budget: { per_run_max_usd: 10.0 } });
+    const assigned = assignGovernedTurn(root, config, 'dev');
+    assert.ok(assigned.ok, assigned.error);
+    const oldTurnId = assigned.turn.turn_id;
+
+    const before = readState(root);
+    assert.equal(before.budget_reservations[oldTurnId], undefined, 'no per-turn budget → no reservation at assign time');
+
+    const reissued = reissueTurn(root, config, { turnId: oldTurnId, reason: 'drift' });
+    assert.ok(reissued.ok, reissued.error);
+    const newTurnId = reissued.newTurn.turn_id;
+
+    const after = readState(root);
+    assert.equal(after.budget_reservations[oldTurnId], undefined);
+    assert.equal(after.budget_reservations[newTurnId], undefined, 'no per-turn budget → no reservation on reissued turn either');
   });
 
   it('schedule execution result surfaces the ghost-turn recovery action instead of generic unblock', () => {
