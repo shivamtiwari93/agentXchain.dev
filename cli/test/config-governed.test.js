@@ -154,6 +154,21 @@ describe('governed config command', () => {
     }
   });
 
+  it('AT-CFGG-009: config --set rejects non-string project.default_branch values before writing', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--set', 'project.default_branch', '123']);
+      assert.notEqual(result.status, 0, 'numeric default_branch must fail');
+      assert.match(result.stdout, /Refusing to save invalid config/);
+      assert.match(result.stdout, /project\.default_branch must be a non-empty string when provided/);
+
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.project.default_branch, 'main');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CFGGET-001: config --get project.goal prints a governed scalar value', () => {
     const dir = createGovernedProject();
     try {
@@ -282,6 +297,94 @@ describe('governed config command', () => {
       const errorText = JSON.stringify(parsed.errors || []);
       assert.match(errorText, /run_loop\.startup_watchdog_ms/);
       assert.match(errorText, /run_loop\.stale_turn_threshold_ms/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --- api_proxy max_output_tokens (silent-fallback defect class) ---
+
+  function addApiProxyRuntime(config, overrides = {}) {
+    config.runtimes = config.runtimes || {};
+    config.runtimes['api-qa'] = {
+      type: 'api_proxy',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      auth_env: 'ANTHROPIC_API_KEY',
+      ...overrides,
+    };
+    return config;
+  }
+
+  it('AT-CFGG-MOT-001: validate rejects api_proxy max_output_tokens=0 (silent-fallback to 4096 in adapter)', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      addApiProxyRuntime(config, { max_output_tokens: 0 });
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      const result = runCli(dir, ['validate', '--json']);
+      const parsed = JSON.parse(result.stdout || '');
+      assert.equal(parsed.ok, false, 'validate must fail on max_output_tokens=0');
+      const errorText = JSON.stringify(parsed.errors || []);
+      assert.match(errorText, /max_output_tokens must be a positive integer/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-MOT-002: validate rejects negative api_proxy max_output_tokens (adapter would pass it raw to provider)', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      addApiProxyRuntime(config, { max_output_tokens: -4096 });
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      const result = runCli(dir, ['validate', '--json']);
+      const parsed = JSON.parse(result.stdout || '');
+      assert.equal(parsed.ok, false);
+      assert.match(JSON.stringify(parsed.errors || []), /max_output_tokens must be a positive integer/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-MOT-003: validate accepts a valid positive-integer api_proxy max_output_tokens', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      addApiProxyRuntime(config, { max_output_tokens: 4096 });
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      const result = runCli(dir, ['validate', '--json']);
+      const parsed = JSON.parse(result.stdout || '');
+      // validate may still flag other issues (role binding, routing) depending on init template,
+      // but the max_output_tokens error specifically must not appear.
+      const errorText = JSON.stringify(parsed.errors || []);
+      assert.doesNotMatch(errorText, /max_output_tokens must be a positive integer/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-PDB-001: validate rejects hand-edited blank project.default_branch', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      config.project.default_branch = '   ';
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      const result = runCli(dir, ['validate', '--json']);
+      const parsed = JSON.parse(result.stdout || '');
+      assert.equal(parsed.ok, false, 'validate must fail on blank project.default_branch');
+      assert.match(
+        JSON.stringify(parsed.errors || []),
+        /project\.default_branch must be a non-empty string when provided/,
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

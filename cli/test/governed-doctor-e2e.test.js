@@ -459,6 +459,51 @@ describe('Governed Doctor E2E', () => {
     assert.match(configCheck.detail, /run_loop\.stale_turn_threshold_ms/);
   });
 
+  it('AT-GD-015: doctor fails closed on api_proxy max_output_tokens silent-fallback defect class', () => {
+    const root = makeGoverned();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    // Inject an api_proxy runtime with an invalid max_output_tokens that
+    // the adapter would silently coerce to 4096 (0) or send raw to the
+    // provider (-5000 / "4096"). doctor must surface this before an
+    // operator hits real API failures.
+    config.runtimes = config.runtimes || {};
+    config.runtimes['api-qa'] = {
+      type: 'api_proxy',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      auth_env: 'ANTHROPIC_API_KEY',
+      max_output_tokens: 0,
+    };
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const result = runCli(root, ['doctor', '--json']);
+    assert.equal(result.status, 1, 'doctor must fail for invalid api_proxy max_output_tokens');
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'fail');
+    const configCheck = output.checks.find((c) => c.id === 'config_valid');
+    assert.ok(configCheck, 'Should include config_valid check');
+    assert.equal(configCheck.level, 'fail');
+    assert.match(configCheck.detail, /max_output_tokens must be a positive integer/);
+  });
+
+  it('AT-GD-016: doctor fails closed on invalid project.default_branch instead of silently normalizing to main', () => {
+    const root = makeGoverned();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.project.default_branch = '   ';
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const result = runCli(root, ['doctor', '--json']);
+    assert.equal(result.status, 1, 'doctor must fail for invalid project.default_branch');
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'fail');
+    const configCheck = output.checks.find((c) => c.id === 'config_valid');
+    assert.ok(configCheck, 'Should include config_valid check');
+    assert.equal(configCheck.level, 'fail');
+    assert.match(configCheck.detail, /project\.default_branch must be a non-empty string when provided/);
+  });
+
   it('AT-B1-001: doctor warns when the running CLI is older than the published docs floor', () => {
     const root = makeGoverned();
     const binDir = createStubNpmDir('99.99.99');

@@ -52,6 +52,38 @@ describe('validateV4Config', () => {
     assert.ok(result.errors.some(e => e.includes('project')));
   });
 
+  it('accepts a non-empty project.default_branch when provided', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X', default_branch: 'develop' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+      runtimes: { r1: { type: 'manual' } },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects a blank project.default_branch', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X', default_branch: '   ' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+      runtimes: { r1: { type: 'manual' } },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('project.default_branch must be a non-empty string when provided')));
+  });
+
+  it('rejects a non-string project.default_branch', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X', default_branch: 123 },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+      runtimes: { r1: { type: 'manual' } },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('project.default_branch must be a non-empty string when provided')));
+  });
+
   it('rejects role with invalid write_authority', () => {
     const result = validateV4Config({
       schema_version: '1.0',
@@ -840,6 +872,72 @@ describe('validateV4Config', () => {
   });
 });
 
+// --- validateV4Config: api_proxy max_output_tokens (silent-fallback defect class) ---
+
+describe('validateV4Config — api_proxy max_output_tokens', () => {
+  function buildApiProxyConfig(overrides = {}) {
+    return {
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          ...overrides,
+        },
+      },
+    };
+  }
+
+  it('accepts a positive-integer max_output_tokens', () => {
+    const result = validateV4Config(buildApiProxyConfig({ max_output_tokens: 4096 }));
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects max_output_tokens: 0 (silent-fallback to 4096 in adapter)', () => {
+    const result = validateV4Config(buildApiProxyConfig({ max_output_tokens: 0 }));
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.errors.some(e => e.includes('max_output_tokens must be a positive integer')),
+      `Expected max_output_tokens error, got: ${result.errors.join(', ')}`,
+    );
+  });
+
+  it('rejects a negative max_output_tokens (passes through to provider API as-is)', () => {
+    const result = validateV4Config(buildApiProxyConfig({ max_output_tokens: -5000 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('max_output_tokens must be a positive integer')));
+  });
+
+  it('rejects a non-integer (float) max_output_tokens', () => {
+    const result = validateV4Config(buildApiProxyConfig({ max_output_tokens: 1024.5 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('max_output_tokens must be a positive integer')));
+  });
+
+  it('rejects a string max_output_tokens (would be sent raw to provider)', () => {
+    const result = validateV4Config(buildApiProxyConfig({ max_output_tokens: '4096' }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('max_output_tokens must be a positive integer')));
+  });
+
+  it('rejects a null max_output_tokens when the key is present', () => {
+    const result = validateV4Config(buildApiProxyConfig({ max_output_tokens: null }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('max_output_tokens must be a positive integer')));
+  });
+
+  it('allows max_output_tokens to be absent (adapter-side default is fine when no operator claim was made)', () => {
+    const result = validateV4Config(buildApiProxyConfig({}));
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+});
+
 // --- normalizeV3 ---
 
 describe('normalizeV3', () => {
@@ -919,6 +1017,17 @@ describe('normalizeV4', () => {
     // Files
     assert.equal(normalized.files.state, '.agentxchain/state.json');
     assert.equal(normalized.files.history, '.agentxchain/history.jsonl');
+  });
+
+  it('trims project.default_branch during normalizeV4', () => {
+    const normalized = normalizeV4({
+      schema_version: '1.0',
+      project: { id: 'baby-tracker', name: 'Baby Tracker', default_branch: '  release/next  ' },
+      roles: {},
+      runtimes: {},
+    });
+
+    assert.equal(normalized.project.default_branch, 'release/next');
   });
 
   it('preserves role decision_authority in normalized governed config', () => {

@@ -395,6 +395,11 @@ export function validateV4Config(data, projectRoot) {
   } else {
     if (typeof data.project.id !== 'string' || !data.project.id.trim()) errors.push('project.id must be a non-empty string');
     if (typeof data.project.name !== 'string' || !data.project.name.trim()) errors.push('project.name must be a non-empty string');
+    if ('default_branch' in data.project) {
+      if (typeof data.project.default_branch !== 'string' || !data.project.default_branch.trim()) {
+        errors.push('project.default_branch must be a non-empty string when provided');
+      }
+    }
     // Optional project.goal field
     if (data.project.goal !== undefined && data.project.goal !== null) {
       if (typeof data.project.goal !== 'string') {
@@ -478,6 +483,17 @@ export function validateV4Config(data, projectRoot) {
             } catch {
               errors.push(`Runtime "${id}": api_proxy base_url must be a valid absolute URL`);
             }
+          }
+        }
+        // Schema publishes max_output_tokens as `integer, minimum: 1`. The
+        // api-proxy adapter silently falls back to 4096 on `0` / null /
+        // undefined and passes negative/non-integer values straight through
+        // to the provider, which is the same silent-fallback defect class
+        // the run_loop watchdog knobs had (DEC-SILENT-FALLBACK-DEFECT-CLASS-001).
+        // Reject at write time so the operator sees the bad value immediately.
+        if ('max_output_tokens' in rt) {
+          if (!Number.isInteger(rt.max_output_tokens) || rt.max_output_tokens < 1) {
+            errors.push(`Runtime "${id}": max_output_tokens must be a positive integer`);
           }
         }
         if ('retry_policy' in rt) {
@@ -1177,7 +1193,9 @@ export function normalizeV4(raw) {
       id: raw.project?.id || 'unknown',
       name: raw.project?.name || 'Unknown',
       ...(typeof raw.project?.goal === 'string' && raw.project.goal.trim() ? { goal: raw.project.goal.trim() } : {}),
-      default_branch: raw.project?.default_branch || 'main',
+      default_branch: typeof raw.project?.default_branch === 'string' && raw.project.default_branch.trim()
+        ? raw.project.default_branch.trim()
+        : 'main',
     },
     roles,
     runtimes: raw.runtimes || {},

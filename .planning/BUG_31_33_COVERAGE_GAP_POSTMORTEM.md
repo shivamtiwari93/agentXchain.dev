@@ -183,6 +183,18 @@ Runtime fallback is forward-compatibility behavior, not validation evidence.
 If bad input only "works" because runtime silently ignores it and falls back to
 defaults, the contract is still broken.
 
+### Standing audit-scope rule
+
+Silent-fallback audits must walk **every schema-published field with a runtime
+consumer**, not just the fields adjacent to the triggering bug.
+
+- If a field is included in schema and then normalized or consumed by runtime,
+  it is in scope until proven otherwise.
+- Named exclusions are allowed only when they state the exact field and the
+  concrete reason it is exempt from the defect class.
+- "We audited `run_loop.*` so the rest is probably fine" is not a valid close
+  argument. That is the same blind spot BUG-51 exposed.
+
 ## Fourth False Closure Entry
 
 ### BUG-36 reopened as BUG-37 on `v2.135.0`
