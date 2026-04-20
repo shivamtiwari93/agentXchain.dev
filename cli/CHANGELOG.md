@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.148.0
+
+### Bug Fixes
+- **BUG-54 adapter timing diagnostics**: `local-cli-adapter` now emits `startup_watchdog_ms`, `startup_latency_ms`, and `elapsed_since_spawn_ms` on `spawn_attached`, `first_output`, `startup_watchdog_fired`, and `process_exit` diagnostic lines so operators can compare observed startup against `run_loop.startup_watchdog_ms` from one row instead of diffing ISO strings.
+- **BUG-54 real-Claude stdin loop proof**: a CLAUDE-gated integration test exercises the repo's actual authoritative Claude runtime contract (`claude --print --dangerously-skip-permissions` with `prompt_transport: "stdin"`) across 10 consecutive dispatches. The probe fails loudly on timeout / non-zero / malformed `--version` output and only skips on ENOENT. Handle growth stays bounded and `stdin_error` count is zero.
+- **BUG-55 sub-A checkpoint completeness refinement**: `checkpoint-turn` now partitions declared `files_changed` paths into `staged`, `already_committed_upstream`, and `genuinely_missing`. It fails loudly only on `genuinely_missing`, preserving the tester-reported dirty-survival gate while accepting the legitimate BUG-23 pattern where the actor committed a declared file before checkpoint ran.
+- **BUG-55 sub-B undeclared verification outputs**: acceptance emits the dedicated `error_code: 'undeclared_verification_outputs'` when declared `verification.commands` produce undeclared fixture outputs. Blank `verification.commands[]` / `machine_evidence[].command` entries are now rejected at validation time.
+- **BUG-55 packaged claim-reality proof**: shipped tarball now carries two behavioral rows — `checkpoint-turn commits every declared file and leaves the tree clean`, and `rejects undeclared verification outputs then accepts once declared`.
+
+### Status
+- BUG-54, BUG-55 sub-A, and BUG-55 sub-B remain open pending tester verification on `v2.148.0` per discipline rule #12
+- BUG-52 and BUG-53 carry over from `v2.147.0` under tester verification — no changes in this release
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
+
 ## 2.147.0
 
 ### Bug Fixes

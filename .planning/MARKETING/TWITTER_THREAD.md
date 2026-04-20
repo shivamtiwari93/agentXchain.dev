@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.147.0
+# Twitter/X Thread — AgentXchain v2.148.0
 
-> Ready-to-post thread for the `v2.147.0` release once tester verification lands. Updated 2026-04-20.
+> Ready-to-post thread for the `v2.148.0` release once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.147.0 is next in the release lane. Open source. MIT.
+AgentXchain v2.148.0 is next in the release lane. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -52,15 +52,16 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.147.0:
+New in v2.148.0:
 
-- BUG-52 phase-gate reconcile-before-redispatch: after `accept-turn` + `checkpoint-turn` + `unblock`, satisfied planning and QA gates advance the phase before role selection instead of dispatching another PM or QA turn
-- BUG-53 continuous auto-chain audit trail: completed runs now emit `session_continuation` and seed the next vision-derived run instead of treating post-completion as a pause
-- `paused` stays reserved for real blockers only; clean completions keep running until `maxRuns` or `idle_exit`
-- BUG-52 and BUG-53 remain open pending tester verification on `v2.147.0`
+- BUG-54 adapter timing diagnostics: `startup_latency_ms` and `elapsed_since_spawn_ms` now on every adapter-diag line so tight `startup_watchdog_ms` values can be tuned from observed real-Claude startup instead of guessed
+- BUG-54 real-Claude stdin loop proof: 10 consecutive `claude --print --dangerously-skip-permissions` dispatches with `prompt_transport: "stdin"`, handle growth bounded, zero `stdin_error`, gated probe fails loudly instead of silently skipping on hung Claude
+- BUG-55 sub-A checkpoint completeness: declared `files_changed` partition into `staged` / `already_committed_upstream` / `genuinely_missing`; the tester-reported dirty-survival gate holds while the legitimate BUG-23 pre-commit pattern stops false-positiving
+- BUG-55 sub-B `undeclared_verification_outputs` error class: acceptance rejects turns whose declared verification produced undeclared fixture outputs, with a dedicated remediation pointer to `verification.produced_files`
+- BUG-54 and BUG-55 sub-A/B remain open pending tester verification on `v2.148.0`; BUG-52 and BUG-53 carry forward from v2.147.0 under tester verification
 
-- node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
-- node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
+- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

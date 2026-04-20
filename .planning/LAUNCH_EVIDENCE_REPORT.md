@@ -1,9 +1,9 @@
-# Launch Evidence Report — AgentXchain v2.147.0
+# Launch Evidence Report — AgentXchain v2.148.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-20 for the v2.147.0 release-prep surface. BUG-52 and BUG-53 remain open pending tester verification on `v2.147.0` per discipline rule #12. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-20 for the v2.148.0 release-prep surface. BUG-54, BUG-55 sub-A, and BUG-55 sub-B remain open pending tester verification on `v2.148.0` per discipline rule #12; BUG-52 and BUG-53 carry forward from v2.147.0. Current aggregate release evidence:
 >
-> - node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
-> - node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
+> - node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
+> - node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
 
 ---
 

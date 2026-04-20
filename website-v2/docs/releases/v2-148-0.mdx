@@ -1,0 +1,48 @@
+---
+sidebar_position: 0
+title: "v2.148.0 Release Notes"
+---
+
+# AgentXchain v2.148.0
+
+`v2.148.0` hardens the local-CLI adapter diagnostics for BUG-54 and lands both BUG-55 sub-defects at the source and release-boundary layers. BUG-54 is not closed — it remains open pending tester-quoted proof of >90% QA dispatch reliability on this shipped package. BUG-55 sub-A and sub-B fixes are both in the tarball and covered by packaged claim-reality preflight.
+
+## Bug Fixes
+
+- **BUG-54 adapter timing diagnostics**: `local-cli-adapter` now emits `startup_watchdog_ms`, `startup_latency_ms`, and `elapsed_since_spawn_ms` on the `spawn_attached`, `first_output`, `startup_watchdog_fired`, and `process_exit` diagnostic lines. Operators can compare observed startup against `run_loop.startup_watchdog_ms` from a single diagnostic row instead of diffing ISO strings.
+
+- **BUG-54 real-Claude stdin proof**: a CLAUDE-gated integration test now exercises the repo's actual authoritative Claude runtime contract (`claude --print --dangerously-skip-permissions` with `prompt_transport: "stdin"`) across 10 consecutive dispatches. The probe fails loudly on timeout, non-zero, or malformed `--version` output and only skips on ENOENT. Handle growth stays bounded (`<= 3`), `stdin_error` count is zero, and the watchdog→SIGTERM→close cleanup path is backed by quoted diagnostic lines instead of a soft claim.
+
+- **BUG-55 sub-A checkpoint completeness**: `checkpoint-turn` now partitions declared `files_changed` paths into **staged**, **already_committed_upstream**, and **genuinely_missing**. It fails loudly only on `genuinely_missing`, which preserves the tester-reported dirty-survival gate while accepting the legitimate BUG-23 pattern where the actor committed a declared file before checkpoint ran. Staged paths still commit into the checkpoint; already-committed-upstream paths are surfaced on the result for audit.
+
+- **BUG-55 sub-B undeclared verification outputs**: acceptance rejects turns that declared `verification.commands` (or non-empty `machine_evidence`) but left undeclared fixture outputs dirty, emitting the dedicated `error_code: 'undeclared_verification_outputs'` with the remediation pointer `verification.produced_files`. Blank `verification.commands[]` / `machine_evidence[].command` entries are now rejected at validation time so the malformed-declaration fall-through cannot mask the dedicated error class.
+
+- **BUG-55 packaged claim-reality proof**: the shipped tarball now carries both BUG-55 behavioral rows — checkpoint-completeness commit-all-declared and rejection-then-acceptance on undeclared verification outputs — so package regressions cannot silently reintroduce either sub-defect.
+
+## Decisions
+
+- `DEC-BUG55A-ALREADY-COMMITTED-UPSTREAM-002`
+- `DEC-BUG55B-UNDECLARED-VERIFICATION-OUTPUTS-001`
+- `DEC-BUG55B-REJECTION-OVER-AUTO-CLASSIFY-001`
+- `DEC-BUG55-VERIFICATION-COMMAND-NONEMPTY-001`
+- `DEC-BUG54-REAL-CLAUDE-EVIDENCE-001`
+- `DEC-BUG54-REAL-STDIN-PROOF-001`
+- `DEC-BUG54-CLAUDE-PROBE-FAIL-LOUD-001`
+- `DEC-V2148-RELEASE-GATE-READY-001`
+
+## Operator Notes
+
+- Tight `run_loop.startup_watchdog_ms` values can starve real Claude startup when auth is cold or plugins init slowly. First-stdout latency is ~276ms with warm auth on a dev machine; cold-start can exceed a tight watchdog. Use the new `startup_latency_ms` diagnostic to observe actual startup on your environment before tuning the watchdog down.
+
+## Status
+
+- **BUG-54**: adapter diagnostics + real-Claude stdin loop shipped, awaiting tester-quoted QA dispatch reliability proof on `v2.148.0`.
+- **BUG-55 sub-A**: checkpoint completeness refined to partition staged / already-committed-upstream / genuinely-missing; awaiting tester verification on `v2.148.0`.
+- **BUG-55 sub-B**: undeclared verification outputs rejection shipped; awaiting tester verification on `v2.148.0`.
+- **BUG-52**: v2.147.0 fix remains under tester verification — no changes in this release.
+- **BUG-53**: v2.147.0 fix remains under tester verification — no changes in this release.
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures

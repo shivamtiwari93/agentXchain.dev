@@ -1,6 +1,6 @@
-# LinkedIn Post — AgentXchain v2.147.0
+# LinkedIn Post — AgentXchain v2.148.0
 
-> Ready-to-post LinkedIn company-page copy for the `v2.147.0` release once tester verification lands. Updated 2026-04-20.
+> Ready-to-post LinkedIn company-page copy for the `v2.148.0` release once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -17,15 +17,16 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.147.0` is the next release bundle in the lane, carrying the last two full-auto blockers from beta report #18:
+`v2.148.0` is the next release bundle in the lane, hardening the local-CLI adapter and acceptance boundary against beta-report signals:
 
-- BUG-52: satisfied phase-transition gates are reconciled before redispatch, so `unblock` advances planning -> implementation and qa -> launch instead of sending another same-phase PM or QA turn
-- BUG-53: continuous sessions emit `session_continuation` and seed the next vision-derived run after a completed run instead of silently stalling
-- `paused` is reserved for real blockers only; clean post-completion paths stay in the continuation loop until `maxRuns` or `idle_exit`
-- BUG-52 and BUG-53 remain open pending tester verification on `v2.147.0` under the beta-cycle closure rules
+- BUG-54 adapter timing diagnostics: `startup_latency_ms` and `elapsed_since_spawn_ms` now land on every adapter-diag row so tight `startup_watchdog_ms` values can be tuned from observed real-Claude startup instead of guessed
+- BUG-54 real-Claude stdin proof: 10 consecutive `claude --print --dangerously-skip-permissions` dispatches with `prompt_transport: "stdin"`, handle growth bounded, zero `stdin_error`, and the gated probe fails loudly instead of silently skipping on hung Claude
+- BUG-55 sub-A checkpoint completeness: declared `files_changed` paths partition into `staged` / `already_committed_upstream` / `genuinely_missing`; the tester-reported dirty-survival gate holds while the legitimate BUG-23 pre-commit pattern stops false-positiving
+- BUG-55 sub-B `undeclared_verification_outputs`: acceptance rejects turns whose declared verification produced undeclared fixture outputs, with a dedicated remediation pointer to `verification.produced_files`
+- BUG-54 and BUG-55 sub-A/B remain open pending tester verification on `v2.148.0`; BUG-52 and BUG-53 carry forward from v2.147.0 under tester verification
 
-- node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
-- node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
+- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

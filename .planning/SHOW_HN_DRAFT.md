@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.147.0
+# Show HN Draft — AgentXchain v2.148.0
 
-> Ready-to-post draft for the `v2.147.0` launch window once tester verification lands. Updated 2026-04-20.
+> Ready-to-post draft for the `v2.148.0` launch window once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -47,10 +47,10 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest operator slice queued for release: `v2.147.0` carries the last two full-auto blockers from beta report #18. BUG-52 reconciles satisfied phase-transition gates before redispatch so `unblock` advances planning -> implementation and qa -> launch natively. BUG-53 keeps continuous sessions auto-chaining after completed runs and records the handoff with `session_continuation` instead of silently stalling. Both remain open pending tester verification on `v2.147.0` per discipline rule #12.
+Latest operator slice queued for release: `v2.148.0` hardens local-CLI adapter diagnostics for BUG-54 (new `startup_latency_ms` / `elapsed_since_spawn_ms` signals so operators can observe actual Claude startup before tuning the watchdog) and lands both BUG-55 sub-defects — checkpoint completeness (partitioned into staged / already-committed-upstream / genuinely-missing) and a dedicated `undeclared_verification_outputs` rejection class for fixture-producing verification commands. BUG-52/53 carry forward from `v2.147.0` under tester verification. Everything in this release remains open pending tester verification on `v2.148.0` per discipline rule #12.
 
-- node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
-- node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
+- node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.
