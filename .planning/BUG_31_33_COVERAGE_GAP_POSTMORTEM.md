@@ -341,12 +341,9 @@ satisfied later through recovery or redispatch surfaces. The durable unit is:
 | Gate family | Exit path after artifacts become truthful | Required behavior | Current proof |
 | --- | --- | --- | --- |
 | `planning_signoff` -> `implementation` | `unblock <hesc_*>` after accepted + checkpointed PM turn | mark gate `passed`, clear `last_gate_failure`, advance phase before role selection, dispatch `dev` instead of another `pm` | `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` |
+| `qa_ship_verdict` -> `launch` | `unblock <hesc_*>` after accepted + checkpointed QA turn | mark gate `passed`, clear `last_gate_failure`, advance phase before role selection, dispatch `launch` instead of another `qa` | `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` |
 | Any previously failed phase-transition gate | `resume` / `step --resume` before dispatch | run `reconcilePhaseAdvanceBeforeDispatch()`, emit `phase_entered` with `trigger: "reconciled_before_dispatch"`, dispatch the next-phase role instead of redispatching the same-phase role | `cli/test/claim-reality-preflight.test.js` — `BUG-52 pre-dispatch reconciler is packed (governed-state + resume + step wiring)` and `BUG-52 packaged reconciler advances phase before dispatch when a failed phase-transition gate is now satisfied` |
 | Any still-failing phase-transition gate | `resume` / `step --resume` pre-dispatch reconcile | do **not** fabricate a phase advance; stay in the current phase until the gate truly passes | `cli/test/claim-reality-preflight.test.js` — `BUG-52 packaged reconciler is a no-op when the gate is still failing (does not fabricate a phase advance)` |
-
-### Remaining uncovered combinations
-
-- Final-phase human gate recovery via `qa_ship_verdict` after `unblock` still lacks a dedicated beta-tester scenario that mirrors BUG-52's exact unblock seam. The nearest proof today is `cli/test/e2e-multi-session-continuity.test.js` (`AT-SESSION-005` final-phase approval in a fresh session) plus the packaged pre-dispatch reconciler rows above. That is adjacent proof, not the same operator path.
 
 ### Standing BUG-52 rule
 

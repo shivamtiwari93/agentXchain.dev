@@ -57,7 +57,8 @@ describe('BUG 31-33 coverage postmortem contract', () => {
     assert.match(doc, /`resume` \/ `step --resume`/);
     assert.match(doc, /`reconcilePhaseAdvanceBeforeDispatch\(\)`/);
     assert.match(doc, /`trigger: "reconciled_before_dispatch"`/);
-    assert.match(doc, /`qa_ship_verdict`/);
+    assert.match(doc, /`qa_ship_verdict` -> `launch`/);
+    assert.doesNotMatch(doc, /still lacks a dedicated beta-tester scenario/i);
     assert.match(doc, /BUG-52 happened[\s\S]*?pre-dispatch reconciliation were not owned as separate\s+proof rows/i);
   });
 

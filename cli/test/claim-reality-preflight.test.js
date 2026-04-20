@@ -2594,6 +2594,14 @@ describe('claim-reality preflight', () => {
     const bug52Scenario = join(SCENARIOS_DIR, 'bug-52-gate-unblock-phase-advance.test.js');
     assert.ok(existsSync(bug52Scenario),
       'BUG-52 tester-sequence regression must exist at cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js so the release-gate rerun can block publish if it regresses');
+    const bug52ScenarioContent = readFileSync(bug52Scenario, 'utf8');
+    assert.ok(
+      bug52ScenarioContent.includes('planning_signoff')
+        && bug52ScenarioContent.includes('phase_transition_request: \'launch\'')
+        && bug52ScenarioContent.includes('qa_ship_verdict')
+        && bug52ScenarioContent.includes('assigned_role, \'launch\''),
+      'BUG-52 tester-sequence regression must cover both planning_signoff -> implementation and qa_ship_verdict -> launch unblock seams from the human acceptance criteria, not only the first phase transition',
+    );
 
     const { packageDir } = getExtractedPackage();
     const packedGoverned = readFileSync(join(packageDir, 'src/lib/governed-state.js'), 'utf8');

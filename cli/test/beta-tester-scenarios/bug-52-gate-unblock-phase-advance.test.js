@@ -29,7 +29,7 @@ const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
 const tempDirs = [];
 
-function makeConfig() {
+function makePlanningConfig() {
   return {
     schema_version: '1.0',
     protocol_mode: 'governed',
@@ -68,21 +68,80 @@ function makeConfig() {
   };
 }
 
-function createProject() {
+function makeQaLaunchConfig() {
+  return {
+    schema_version: '1.0',
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { id: 'bug52-qa-launch-test', name: 'BUG-52 QA Launch Test', default_branch: 'main' },
+    roles: {
+      pm: {
+        title: 'Product Manager',
+        mandate: 'Drive planning.',
+        write_authority: 'authoritative',
+        runtime: 'manual-pm',
+      },
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement approved work.',
+        write_authority: 'authoritative',
+        runtime: 'manual-dev',
+      },
+      qa: {
+        title: 'QA',
+        mandate: 'Verify ship readiness.',
+        write_authority: 'authoritative',
+        runtime: 'manual-qa',
+      },
+      launch: {
+        title: 'Launch',
+        mandate: 'Ship the approved release.',
+        write_authority: 'authoritative',
+        runtime: 'manual-launch',
+      },
+    },
+    runtimes: {
+      'manual-pm': { type: 'manual' },
+      'manual-dev': { type: 'manual' },
+      'manual-qa': { type: 'manual' },
+      'manual-launch': { type: 'manual' },
+    },
+    routing: {
+      planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev'], exit_gate: 'planning_signoff' },
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa'], exit_gate: 'implementation_complete' },
+      qa: { entry_role: 'qa', allowed_next_roles: ['qa', 'launch'], exit_gate: 'qa_ship_verdict' },
+      launch: { entry_role: 'launch', allowed_next_roles: ['launch'], exit_gate: 'launch_approval' },
+    },
+    gates: {
+      planning_signoff: {
+        requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+        requires_human_approval: true,
+      },
+      implementation_complete: {},
+      qa_ship_verdict: {
+        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
+        requires_human_approval: true,
+      },
+      launch_approval: {},
+    },
+    gate_semantic_coverage_mode: 'lenient',
+  };
+}
+
+function createProject(config = makePlanningConfig()) {
   const root = mkdtempSync(join(tmpdir(), 'axc-bug52-'));
   tempDirs.push(root);
 
   mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
   mkdirSync(join(root, '.planning'), { recursive: true });
   writeFileSync(join(root, 'README.md'), '# BUG-52\n');
-  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(makeConfig(), null, 2));
+  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
 
   execSync('git init -b main', { cwd: root, stdio: 'ignore' });
   execSync('git config user.email "test@test.com"', { cwd: root, stdio: 'ignore' });
   execSync('git config user.name "Test"', { cwd: root, stdio: 'ignore' });
   execSync('git add -A && git commit -m "init"', { cwd: root, stdio: 'ignore' });
 
-  const config = makeConfig();
   const init = initializeGovernedRun(root, config);
   assert.ok(init.ok, init.error);
   return { root, config, state: init.state };
@@ -119,6 +178,17 @@ function readHumanEscalationId(root) {
   const raised = lines.find((entry) => entry.kind === 'raised');
   assert.ok(raised, 'expected a raised human escalation record');
   return raised.escalation_id;
+}
+
+function writeState(root, state) {
+  writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+}
+
+function writePassingAcceptanceMatrix(root) {
+  writeFileSync(
+    join(root, '.planning', 'acceptance-matrix.md'),
+    '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Release readiness | Ship artifacts are complete | pass | today | pass |\n',
+  );
 }
 
 afterEach(() => {
@@ -195,5 +265,98 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.equal(finalState.last_gate_failure, null, 'reconciled gate failure must be cleared');
     assert.match(unblocked.stdout, /implementation/i, 'operator output should surface the implementation phase');
     assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch the planning role');
+  });
+
+  it('unblock moves qa -> launch and dispatches launch instead of another qa turn', () => {
+    const { root, config } = createProject(makeQaLaunchConfig());
+
+    const seededState = readState(root);
+    seededState.phase = 'qa';
+    seededState.status = 'active';
+    seededState.active_turns = {};
+    seededState.phase_gate_status = {
+      planning_signoff: 'passed',
+      implementation_complete: 'passed',
+      qa_ship_verdict: 'pending',
+      launch_approval: 'pending',
+    };
+    seededState.pending_phase_transition = null;
+    seededState.pending_run_completion = null;
+    seededState.last_gate_failure = null;
+    writeState(root, seededState);
+
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+    const qaState = readState(root);
+
+    writeFileSync(
+      join(root, '.planning', 'acceptance-matrix.md'),
+      '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Release readiness | Ship artifacts are complete | pending | — | pending |\n',
+    );
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: PENDING\n');
+    writeFileSync(
+      join(root, '.planning', 'RELEASE_NOTES.md'),
+      '# Release Notes\n\n## User Impact\n\n(QA fills this during the QA phase)\n\n## Verification Summary\n\n(QA fills this during the QA phase)\n',
+    );
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: qaState.run_id,
+      role: 'qa',
+      runtime_id: 'manual-qa',
+      status: 'completed',
+      summary: 'QA signoff artifacts drafted',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'launch',
+      phase_transition_request: 'launch',
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn', '--checkpoint']);
+    assert.equal(accepted.status, 0, `accept-turn --checkpoint failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const afterAccept = readState(root);
+    assert.equal(afterAccept.phase, 'qa');
+    assert.equal(afterAccept.status, 'active');
+    assert.equal(afterAccept.phase_gate_status?.qa_ship_verdict, 'failed');
+    assert.equal(afterAccept.last_gate_failure?.gate_id, 'qa_ship_verdict');
+
+    writePassingAcceptanceMatrix(root);
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: YES\n\n## QA Summary\n\nRelease is ready.\n');
+    writeFileSync(
+      join(root, '.planning', 'RELEASE_NOTES.md'),
+      '# Release Notes\n\n## User Impact\n\nLaunch role can now take over after QA approval.\n\n## Verification Summary\n\nQA artifacts are complete and release-worthy.\n',
+    );
+    execSync('git add .planning/acceptance-matrix.md .planning/ship-verdict.md .planning/RELEASE_NOTES.md && git commit -m "human: approve qa ship verdict"', {
+      cwd: root,
+      stdio: 'ignore',
+    });
+
+    const escalated = runCli(root, [
+      'escalate',
+      '--reason', 'qa_ship_verdict',
+      '--detail', 'ship verdict recorded; unblock should advance to launch',
+    ]);
+    assert.equal(escalated.status, 0, `escalate failed:\n${escalated.stdout}\n${escalated.stderr}`);
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(unblocked.status, 0, `unblock failed:\n${unblocked.stdout}\n${unblocked.stderr}`);
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'launch', 'phase must advance after unblock when qa_ship_verdict now passes');
+    assert.equal(finalState.phase_gate_status?.qa_ship_verdict, 'passed', 'qa_ship_verdict must be marked passed');
+    assert.equal(activeTurn?.assigned_role, 'launch', 'next dispatch must target the launch role');
+    assert.equal(activeTurn?.runtime_id, 'manual-launch');
+    assert.equal(finalState.last_gate_failure, null, 'reconciled gate failure must be cleared');
+    assert.match(unblocked.stdout, /launch/i, 'operator output should surface the launch phase');
+    assert.doesNotMatch(unblocked.stdout, /Role:\s+qa/i, 'unblock must not redispatch the qa role');
   });
 });
