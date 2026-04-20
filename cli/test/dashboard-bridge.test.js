@@ -2440,3 +2440,270 @@ describe('Coordinator Timeout Bridge E2E', () => {
     assert.equal(webRepo.events[0].scope, 'per_phase');
   });
 });
+
+// ── Notification Bridge HTTP Tests ─────────────────────────────────────────
+
+describe('Notification Bridge HTTP', () => {
+  // ── AT-NOTIFY-HTTP-001: no-config returns 404 ──
+  describe('no config', () => {
+    let bridge;
+    let port;
+    let root;
+
+    before(async () => {
+      root = tmpDir();
+      const axcDir = join(root, '.agentxchain');
+      const dashDir = join(root, 'dashboard');
+      mkdirSync(axcDir, { recursive: true });
+      mkdirSync(dashDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+      // No agentxchain.json — config missing
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      const result = await bridge.start();
+      port = result.port;
+    });
+
+    after(async () => {
+      await bridge.stop();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-NOTIFY-HTTP-001: GET /api/notifications returns 404 config_missing when no project config', async () => {
+      const res = await httpGet(port, '/api/notifications');
+      assert.equal(res.status, 404);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, false);
+      assert.equal(data.code, 'config_missing');
+    });
+  });
+
+  // ── AT-NOTIFY-HTTP-002/003: config present, with and without audit data ──
+  describe('with notification config', () => {
+    let bridge;
+    let port;
+    let root;
+    let axcDir;
+
+    before(async () => {
+      root = tmpDir();
+      axcDir = join(root, '.agentxchain');
+      const dashDir = join(root, 'dashboard');
+      mkdirSync(axcDir, { recursive: true });
+      mkdirSync(dashDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+
+      writeJson(join(root, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: 'notify-test', name: 'Notify Test', default_branch: 'main' },
+        roles: {
+          dev: {
+            title: 'Developer',
+            mandate: 'Implement safely.',
+            write_authority: 'authoritative',
+            runtime: 'local-dev',
+          },
+        },
+        runtimes: {
+          'local-dev': {
+            type: 'local_cli',
+            command: ['echo', '{prompt}'],
+            prompt_transport: 'argv',
+          },
+        },
+        routing: {
+          implementation: { entry_role: 'dev', allowed_next_roles: ['dev'] },
+        },
+        gates: {},
+        notifications: {
+          webhooks: [
+            {
+              name: 'slack-ops',
+              url: 'https://hooks.example.com/axc',
+              timeout_ms: 5000,
+              events: ['run_blocked', 'operator_escalation_raised', 'run_completed'],
+            },
+          ],
+          approval_sla: {
+            enabled: true,
+            reminder_after_seconds: [300, 900],
+          },
+        },
+      });
+
+      writeJson(join(axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'notify-test',
+        run_id: null,
+        status: 'idle',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+      });
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0 });
+      const result = await bridge.start();
+      port = result.port;
+    });
+
+    after(async () => {
+      await bridge.stop();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-NOTIFY-HTTP-002: GET /api/notifications returns configured snapshot with empty audit', async () => {
+      const res = await httpGet(port, '/api/notifications');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+
+      assert.equal(data.ok, true);
+      assert.equal(data.configured, true);
+      assert.equal(data.webhooks.length, 1);
+      assert.equal(data.webhooks[0].name, 'slack-ops');
+      assert.equal(data.webhooks[0].timeout_ms, 5000);
+      assert.equal(data.webhooks[0].event_count, 3);
+      assert.deepEqual(data.webhooks[0].events, ['run_blocked', 'operator_escalation_raised', 'run_completed']);
+
+      assert.equal(data.approval_sla.enabled, true);
+      assert.deepEqual(data.approval_sla.reminder_after_seconds, [300, 900]);
+
+      assert.equal(data.summary.total_attempts, 0);
+      assert.equal(data.summary.delivered, 0);
+      assert.equal(data.summary.failed, 0);
+      assert.equal(data.summary.timed_out, 0);
+      assert.deepEqual(data.recent, []);
+    });
+
+    it('AT-NOTIFY-HTTP-003: GET /api/notifications returns newest-first audit with aggregate counts', async () => {
+      // Seed audit entries
+      const entries = [
+        { event: 'run_blocked', target: 'slack-ops', delivered: true, timed_out: false, emitted_at: '2026-04-19T10:00:00Z', duration_ms: 120 },
+        { event: 'operator_escalation_raised', target: 'slack-ops', delivered: false, timed_out: true, emitted_at: '2026-04-19T10:05:00Z', duration_ms: 5000, error: 'timeout' },
+        { event: 'run_completed', target: 'slack-ops', delivered: true, timed_out: false, emitted_at: '2026-04-19T10:10:00Z', duration_ms: 95 },
+      ];
+      writeFileSync(
+        join(axcDir, 'notification-audit.jsonl'),
+        entries.map(e => JSON.stringify(e)).join('\n') + '\n',
+      );
+
+      const res = await httpGet(port, '/api/notifications');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+
+      assert.equal(data.ok, true);
+      assert.equal(data.configured, true);
+
+      // Summary aggregates
+      assert.equal(data.summary.total_attempts, 3);
+      assert.equal(data.summary.delivered, 2);
+      assert.equal(data.summary.failed, 1);
+      assert.equal(data.summary.timed_out, 1);
+      assert.equal(data.summary.last_emitted_at, '2026-04-19T10:10:00Z');
+      assert.equal(data.summary.last_failure_at, '2026-04-19T10:05:00Z');
+
+      // Recent entries are newest-first
+      assert.equal(data.recent.length, 3);
+      assert.equal(data.recent[0].emitted_at, '2026-04-19T10:10:00Z');
+      assert.equal(data.recent[0].delivered, true);
+      assert.equal(data.recent[1].emitted_at, '2026-04-19T10:05:00Z');
+      assert.equal(data.recent[1].timed_out, true);
+      assert.equal(data.recent[2].emitted_at, '2026-04-19T10:00:00Z');
+    });
+
+    it('AT-NOTIFY-HTTP-004: GET /api/notifications caps recent at 10 entries', async () => {
+      // Seed 15 audit entries — use minute offsets to stay within valid hours
+      const entries = [];
+      for (let i = 0; i < 15; i++) {
+        entries.push({
+          event: 'run_blocked',
+          target: 'slack-ops',
+          delivered: true,
+          timed_out: false,
+          emitted_at: `2026-04-19T10:${String(i).padStart(2, '0')}:00Z`,
+          duration_ms: 100,
+        });
+      }
+      writeFileSync(
+        join(axcDir, 'notification-audit.jsonl'),
+        entries.map(e => JSON.stringify(e)).join('\n') + '\n',
+      );
+
+      const res = await httpGet(port, '/api/notifications');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+
+      assert.equal(data.summary.total_attempts, 15);
+      assert.equal(data.recent.length, 10, 'recent must cap at 10');
+      assert.equal(data.recent[0].emitted_at, '2026-04-19T10:14:00Z', 'newest first');
+      assert.equal(data.recent[9].emitted_at, '2026-04-19T10:05:00Z', 'oldest of the 10');
+    });
+
+    it('AT-NOTIFY-HTTP-005: response content-type is application/json', async () => {
+      const res = await httpGet(port, '/api/notifications');
+      assert.equal(res.status, 200);
+      assert.ok(res.headers['content-type']?.includes('application/json'));
+    });
+  });
+
+  // ── AT-NOTIFY-HTTP-006: replay mode returns live-only message ──
+  describe('replay mode', () => {
+    let bridge;
+    let port;
+    let root;
+
+    before(async () => {
+      root = tmpDir();
+      const axcDir = join(root, '.agentxchain');
+      const dashDir = join(root, 'dashboard');
+      mkdirSync(axcDir, { recursive: true });
+      mkdirSync(dashDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html></html>');
+
+      writeJson(join(root, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: 'replay-test', name: 'Replay Test', default_branch: 'main' },
+        roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local-dev' } },
+        runtimes: { 'local-dev': { type: 'local_cli', command: ['echo', '{prompt}'], prompt_transport: 'argv' } },
+        routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'] } },
+        gates: {},
+        notifications: {
+          webhooks: [{ name: 'test-hook', url: 'https://example.com', timeout_ms: 3000, events: ['run_blocked'] }],
+        },
+      });
+      writeJson(join(axcDir, 'state.json'), {
+        schema_version: '1.1', project_id: 'replay-test', run_id: null,
+        status: 'idle', phase: 'implementation', active_turns: {},
+        turn_sequence: 0, accepted_count: 0, rejected_count: 0,
+      });
+
+      // Seed audit data that should NOT be returned in replay
+      writeFileSync(join(axcDir, 'notification-audit.jsonl'),
+        JSON.stringify({ event: 'run_blocked', target: 'test-hook', delivered: true, emitted_at: '2026-04-19T12:00:00Z' }) + '\n');
+
+      bridge = createBridgeServer({ agentxchainDir: axcDir, dashboardDir: dashDir, port: 0, replayMode: true });
+      const result = await bridge.start();
+      port = result.port;
+    });
+
+    after(async () => {
+      await bridge.stop();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AT-NOTIFY-HTTP-006: GET /api/notifications in replay mode returns live-only message, not audit data', async () => {
+      const res = await httpGet(port, '/api/notifications');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.replay_mode, true);
+      assert.ok(data.message.includes('live-only'));
+      // Must NOT contain audit data
+      assert.equal(data.configured, undefined);
+      assert.equal(data.webhooks, undefined);
+      assert.equal(data.recent, undefined);
+    });
+  });
+});

@@ -433,6 +433,10 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, 
     }
 
     if (pathname === '/api/notifications') {
+      if (replayMode) {
+        writeJson(res, 200, { ok: true, replay_mode: true, message: 'Notification audit is live-only and not available in replay mode.' });
+        return;
+      }
       const result = readNotificationSnapshot(workspacePath);
       writeJson(res, result.status, result.body);
       return;
