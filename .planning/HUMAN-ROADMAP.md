@@ -9,166 +9,87 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: **BUG-51 is the new P1 — BUG-47's watchdog is detection-only, tester's ghost turns still burn 11 minutes before recovery.** Tester verified BUG-48/49/50 fixes are on v2.145.0 but disputed BUG-47: detection ≠ prevention. BUG-51 adds fast-startup watchdog to kill ghost dispatches within 30 seconds instead of 10 minutes. Full tester report in archive under "Beta-tester bug report #17 (v2.145.0 BUG-47 critique)". BUG-47 stays open pending BUG-51 landing.
+Current focus: **BUG-52 + BUG-53 — the last two blockers to true full-auto.** BUG-47/48/49/50/51 **tester-verified closed** on v2.146.0 (ghost-turn detection down from 11 min to 5 min, all 4 gates passed, checkpoints clean). Remaining: (1) gate-resolution doesn't advance phase after `unblock` — same-phase turn redispatched, requires manual `.agentxchain/state.json` surgery; (2) continuous session pauses after run completion instead of auto-chaining to next vision-derived objective. These are the operator-babysitting patterns — once closed, the product is truly unattended-continuous. Full report in archive under "Beta-tester bug report #18".
 
 ## Priority Queue
 
-- [ ] **BUG-51: Fast-startup watchdog — detect ghost-dispatched turns within 30 seconds, not 10 minutes (BUG-47 critique)** — Tester's explicit evidence on v2.145.0: `turn_7220d0e20cbbbadd` dispatched, marked `running`, connector shown `active`, BUT no `stdout.log`, no staged result, no progress events, no failure event. Stayed in that "fake running" state for **11 minutes** before BUG-47's watchdog fired. The BUG-47 fix added detection at the 10-minute threshold but did not prevent the wasted cycle. This class of defect means every ghost turn costs ~11 minutes of wall-clock and burns budget reservations for nothing.
+- [ ] **BUG-52: Phase-gate resolution doesn't advance phase — `unblock` redispatches same-phase role instead of transitioning** — Verified code gap. Zero matches in `cli/src/lib/` or `cli/src/commands/unblock*.js` for logic that consults gate status after escalation resolution to trigger phase advancement. `unblock` only clears the escalation; it does not cross-check whether the underlying gate is now satisfied and the run should advance. Result: after `accept-turn` + `checkpoint-turn` + `unblock`, the dispatcher re-runs its normal role-selection logic, sees the current phase is still marked as current, and dispatches the same-phase role again.
   - **Tester's evidence:**
-    - Dispatch event at `2026-04-20T02:43:17.178Z`, `turn_stalled` event at `2026-04-20T02:54:26.366Z` — 669,186 ms elapsed (~11 minutes)
-    - Dispatch bundle existed on disk (`ASSIGNMENT.json`, `CONTEXT.md`, `PROMPT.md`) but no `stdout.log`
-    - Status showed turn as `running`, connector as `active` — framework believed turn was live
-    - No worker output, no heartbeat, no startup failure event — just silence
-    - Budget reservation ($2.00) for the stale turn lingered after reissue
-  - **Root cause hypothesis:** orchestration marks turn `running` immediately after dispatch-bundle write, before confirming the subprocess (a) started successfully, (b) attached stdout correctly, and (c) produced first-byte output. When any of those three fail silently, the turn sits in "fake running" until the slow watchdog (BUG-47) wakes up.
-  - **Fix requirements — tester's 6 suggested fixes:**
-    1. **Fast startup watchdog (15-30 second threshold).** If a turn has been dispatched but no `stdout.log` exists AND no first-byte output AND no worker heartbeat within 15-30 seconds, fail/reissue immediately. This is the primary fix.
-    2. **Split `dispatched` from `worker_attached`** in the turn state machine. Do not mark turn `running` until the worker subprocess is confirmed alive and output is wired. Add intermediate `dispatched` / `starting` / `running` transitions.
-    3. **Emit explicit startup-failure events.** New event types: `turn_start_failed` (subprocess never started), `stdout_attach_failed` (process alive but no output channel), `runtime_spawn_failed` (spawn returned error).
-    4. **Missing-logfile as first-class signal.** The absence of `stdout.log` after a threshold is itself strong evidence the turn is unhealthy — don't wait for time-based heuristics to catch this case.
-    5. **Auto-reissue stale ghost turns.** Once a ghost turn is confirmed (steps 1-4 detected it), the framework could optionally auto-reissue rather than requiring operator action. Feature-flag this so operators can opt in.
-    6. **Clear budget reservations for replaced stale turns.** After reissue, the old stale turn's budget reservation ($2.00 in tester's case) still lingered in `status`. Stale-turn cleanup must release the reservation on transition to `stalled`.
-  - **Ordering:** fix #1 is the primary user-facing fix. Fixes #2/#3/#4 are structural improvements that make #1 robust. Fix #5 is optional and should be gated behind an explicit config flag (operators may want to see stale turns explicitly, not have them silently reissued). Fix #6 is a cleanup bug in BUG-47's implementation — should be patched regardless of whether the rest of BUG-51 is done.
-  - **Fix requirements (implementation-level):**
-    1. `cli/src/lib/run-loop.js` (or wherever turn dispatch happens) must track the subprocess PID and first-output timestamp. If 30s elapse post-spawn with no output and no staged file, transition to `failed_start` and emit `turn_start_failed`.
-    2. New turn state transitions: `assigned → dispatched → starting → running` (or `failed_start`). `starting` is the window where the subprocess is spawned but hasn't produced output yet.
-    3. Configurable via `run_loop.startup_watchdog_ms` (default 30000) alongside the existing `run_loop.stale_turn_threshold_ms` (600000).
-    4. Budget reservation release: when a turn transitions to `stalled` or `failed_start`, the reserved USD must be returned to the run's available budget immediately. Verify via `agentxchain status` — no lingering reservation for the old turn after reissue.
-    5. Tester-sequence test: seed a dispatch bundle, start a subprocess that immediately exits with no output, assert framework detects within 30s and emits `turn_start_failed`. Verify budget reservation is released. Second test: subprocess stays alive but never writes stdout — assert same detection.
-    6. Per rule #12: closure requires tester-quoted output from `v2.146.0` showing ghost turns caught within 30 seconds, not 11 minutes.
-  - **Acceptance:** tester's exact scenario — dispatch a dev turn that ghosts (no stdout attach) — framework detects and transitions to `failed_start`/`stalled` within 30 seconds, not 10 minutes. Budget reservation released. Operator sees actionable recovery command immediately, not after an 11-minute wait.
-
-### Implementation notes for BUG-51
-
-- **This is the BUG-47 tester-critique follow-up.** The tester verified BUG-47's detection mechanism works — but argued the fix is insufficient because 11 minutes of wasted wall-clock per ghost turn is a real cost. They're right. BUG-47 stays open until BUG-51 lands; when BUG-51 is tester-verified, both close together.
-- **Priority ordering (v2.146.0):** BUG-51 primary. BUG-48/49/50 tester verification is still pending on v2.145.0 — if tester retests those in parallel, they may close alongside BUG-51. Bundle any additional fixes the tester surfaces.
-- **Coverage matrix update:** `BUG_31_33_COVERAGE_GAP_POSTMORTEM.md` needs a new entry — "subprocess lifecycle states." Test matrix must cover spawn failure, spawn success + immediate exit, spawn success + no stdout, spawn success + slow stdout, normal healthy spawn. All five paths must have tester-sequence coverage.
-- **Do NOT mark closed until tester verifies.** Rule #12 is in force. This is the cycle's 8th discipline test — the first four false closures had "tests passed, real flow broken" pattern; the 8th should be the one where we catch it before shipping.
-- **Do not broadcast publicly.** Release notes for v2.146.0: "Fast-startup watchdog detects ghost-dispatched turns within 30 seconds." No acknowledgment that the prior BUG-47 fix was insufficient. Ship quietly, prove loudly.
-
-- [ ] **BUG-47: Dead-turn watchdog missing — stale "running" turns require manual `reissue-turn`** — Verified: zero matches in `cli/src/lib/` for `stale.running`, `dead.turn`, `turn.watchdog`, or `idle_threshold`. No self-recovery logic exists. Tester's launch `product_marketing` turn `turn_88e2912c9b724d66` stayed `running` for **15+ minutes** with no staged result and no events. Had to manually run `restart` → `reissue-turn` → `step --resume`.
-  - [x] 2026-04-19 implementation shipped: added lazy stale-turn reconciliation in `status`, `resume`, and `step --resume`; stale turns now transition to retained `stalled`, emit `turn_stalled`, block the run, and surface explicit `reissue-turn --reason stale` recovery.
-  - [x] 2026-04-19 regression proof shipped: `cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js` now covers status JSON reconciliation, unrelated-event isolation, and the operator-facing `resume` / `step --resume` stale recovery path.
-  - [ ] Tester verification on `v2.145.0` still required before closure per rule #12.
+    - PM turn `turn_360905c7f7c8ac1a` checkpointed at `ffb26736...`, `hesc_29db2799c2f4bca6` planning_signoff escalation resolved via `unblock` → system dispatched new PM turn `turn_ecb26fc55ead053d` in planning instead of moving to implementation.
+    - Same pattern QA → launch: `turn_1e99db5881d4cad6` checkpointed at `3ba58238...`, `hesc_62f7df0b8b93d623` qa_ship_verdict resolved via `unblock` → system dispatched new QA turn `turn_c3b56a26e34c5e40` instead of launch role.
+    - Manual recovery: patch `.agentxchain/state.json` to set next phase + mark gate as `passed` + clear redundant turn → restart → phase finally advances.
   - **Fix requirements:**
-    - Add idle-threshold detection: if an active turn has `status: "running"` for >N seconds with no event log activity AND no staged result file, emit `turn_stalled` event and transition to `needs_attention` or similar recoverable state.
-    - Default threshold: 10 minutes for `local_cli` turns, 5 minutes for `api_proxy` turns. Configurable via `run_loop.stale_turn_threshold_ms`.
-    - The watchdog check fires lazily on the next CLI invocation (`status`, `resume`, `step --resume`) rather than requiring a daemon — operators hitting the stale state should see actionable output: "Turn X has been running for 18m with no output. Run `agentxchain reissue-turn --turn X --reason stale` to recover."
-    - Tester-sequence test: seed a turn with `status: "running"` and a dispatch timestamp >threshold ago. Run `status`. Assert the output surfaces the stale turn and recommends `reissue-turn`.
-  - **Acceptance:** a turn running >threshold with no output gets surfaced automatically; operator never has to manually diagnose the stuck state.
+    1. After `unblock` resolves a human escalation, if the gate the escalation was tied to is now satisfied by current artifacts AND there's an approved `phase_transition_request` on the most-recent accepted turn, advance the phase atomically. Emit `phase_transitioned` event.
+    2. Or: after `checkpoint-turn` completes AND the run is unblocked AND the phase exit gate passes, auto-advance phase even without a new dispatch. This is cleaner because the trigger is the gate pass, not the `unblock` command specifically.
+    3. Prevent redundant same-phase redispatch: before `resume` / `step --resume` dispatches a role, check if the current phase's exit gate is now satisfied. If yes, do not dispatch — instead, advance phase and dispatch the next phase's entry role.
+    4. Tester-sequence test: accept PM turn with `phase_transition_request: "implementation"` → checkpoint → unblock planning_signoff escalation → assert phase advances to implementation automatically AND next dispatched role is `dev`, not another PM.
+    5. Per rule #12: closure requires tester-quoted output showing planning → implementation and qa → launch transitions happen natively without state.json patching.
+  - **Acceptance:** tester's exact scenario on v2.147.0 — complete PM planning turn, checkpoint, unblock signoff escalation, next dispatch is `dev` in `implementation`, not another PM in `planning`. Same for qa → launch.
 
-- [ ] **BUG-48: Injected intent lifecycle contradiction — intent marked `superseded` in JSON but still shown as `Priority injection pending` in status AND still drives orchestration** — Three surfaces disagree. Verified at `cli/src/lib/intake.js:1741` — `PREEMPTION_MARKER_PATH = '.agentxchain/intake/injected-priority.json'` has only one declaration site and no code path clears or invalidates it when the referenced intent is superseded. Result: intent JSON says `superseded` with reason "planning artifacts for this intent already exist on disk", but `injected-priority.json` still points at that intent_id, so `status` shows it as pending preemption.
-  - [x] 2026-04-19 implementation shipped: preemption markers are now valid only for actionable `approved` / `planned` intents; reject/suppress/archived-migration writers clear stale markers immediately, and defensive reads auto-clear stale markers before status or orchestration can honor them.
-  - [x] 2026-04-19 regression proof shipped: `cli/test/beta-tester-scenarios/bug-48-intent-lifecycle-contradiction.test.js` now covers stale superseded markers, reject-path cleanup, and archived-migration cleanup.
-  - [ ] Tester verification on `v2.145.0` still required before closure per rule #12.
-  - **Tester's evidence:**
-    - Intent `intent_1776631311439_ca68` JSON: `"status": "superseded"`, `"archived_reason": "planning artifacts for this intent already exist on disk; intent superseded during approval"`
-    - `agentxchain status` output: `⚡ Priority injection pending. Intent: intent_1776631311439_ca68. Priority: p0...`
-    - Continuous run behavior: next run started with `trigger: "vision_scan"` — orchestration treated the superseded intent as live
+- [ ] **BUG-53: Continuous session doesn't auto-chain after run completion — pauses instead of deriving next vision objective** — Verified code gap. `cli/src/lib/continuous-run.js:600` increments `session.runs_completed` and logs "Run X/Y completed" but does NOT unconditionally loop back to vision scan. The session transitions to `paused` or exits instead of re-entering the vision-candidate-derivation path. Tester's evidence: session `cont-5d436a8f` ended up paused after `run_78133e963b912f46` completed cleanly (all 4 gates passed, final checkpoint `32a38b0a3bbd5e1e6ce82d7271ee45e4b6e5a44b`), no new `vision_scan` run created, no next objective derived.
   - **Fix requirements:**
-    - When an intent transitions to `superseded`/`satisfied`/`consumed`/`rejected`/`archived_migration`, the writer must also check `injected-priority.json` and clear it if it references the transitioning intent. Add to `transitionIntentStatus()` or wherever intent state writes happen.
-    - `status` must source priority-injection display from the intent JSON authoritatively. If `injected-priority.json` points at an intent whose current on-disk status is non-pending, either (a) auto-clear the marker or (b) display nothing and emit a stale-marker warning.
-    - Continuous run's preemption check must also verify the marker's target intent is still actionable. Don't honor a marker pointing at a superseded intent.
-    - Tester-sequence test: inject intent that would be auto-superseded (phantom detection path). Assert (a) intent JSON is `superseded`, (b) `injected-priority.json` is cleared, (c) `status` does not show "Priority injection pending", (d) continuous run does not react to the stale intent.
-  - **Acceptance:** intent JSON status, `injected-priority.json` marker, `status` output, and orchestration behavior all agree on whether an intent is pending.
+    1. After `session.runs_completed += 1`, the continuous loop must:
+       - Check against `contOpts.maxRuns` — if reached, exit cleanly with status `completed`
+       - If not reached, call `deriveVisionCandidates()` again to find the next unaddressed vision goal
+       - If a candidate exists, seed a new intent via the standard `intake record → triage → approve` pipeline and start the next run
+       - If no candidate exists (all vision goals addressed), exit with status `idle_exit` (clean termination, NOT paused)
+    2. `paused` status should only be used for real blockers (`needs_human`, `blocked`), never for "I finished a run and didn't know what to do next."
+    3. Cold-start vs warm-completion parity: the same vision-scan code path that runs at session startup must run at post-completion. Extract into a shared helper to prevent divergence.
+    4. Emit `session_continuation` event with payload `{previous_run_id, next_objective, next_run_id}` so the operator has a clear audit trail of the auto-chain.
+    5. Tester-sequence test: start continuous session with `--max-runs 3`, complete first run (mock or real), assert session immediately seeds next intent from vision candidates, starts run 2, does NOT pause. Repeat through 3 runs, then assert clean exit at max_runs.
+  - **Acceptance:** tester's exact scenario on v2.147.0 — `run --continuous --max-runs 5` where first run completes, second run is automatically created from the next vision candidate without any operator intervention. Session status stays `running`, never `paused`, until either max_runs is hit or no vision candidates remain.
 
-- [ ] **BUG-49: `accepted_integration_ref` not updated on checkpoint in fresh runs — drift falsely reported immediately after a clean checkpoint** — Verified gap. Zero matches for `accepted_integration_ref.*checkpoint`, `updateAcceptedRef`, or `setAcceptedIntegrationRef` in `cli/src/lib/`. The checkpoint flow doesn't advance the run's baseline integration ref. Tester's fresh run `run_7c529def79b94f51` accepted and checkpointed first PM turn at SHA `c927214e...`, but `status` still reported `Accepted: git:f77731523f...` (previous run's checkpoint) and `Drift: f7773152 -> c927214e` — immediately after a clean checkpoint.
-  - [x] 2026-04-19 implementation shipped: continuation/recovery runs now seed `accepted_integration_ref` from current HEAD at run init, and checkpoint success advances the run baseline to the new checkpoint SHA.
-  - [x] 2026-04-19 regression proof shipped: `cli/test/beta-tester-scenarios/bug-49-checkpoint-ref-update.test.js` now covers continuation baseline seeding plus post-checkpoint ref advancement.
-  - [ ] Tester verification on `v2.145.0` still required before closure per rule #12.
-  - **Fix requirements:**
-    - `checkpoint-turn` / `accept-turn --checkpoint` must set `state.accepted_integration_ref` to the new checkpoint SHA on success.
-    - If the run is `run-chained` (continued from a parent run), the fresh run's initial `accepted_integration_ref` should be set to the parent run's final checkpoint at run-init, not left pointing into the parent's state as an authoritative baseline. Then checkpoint updates from that inherited starting point.
-    - Drift detection must compare HEAD against the CURRENT run's `accepted_integration_ref`, not a lingering reference from the parent.
-    - Tester-sequence test: chain fresh run from parent run → PM turn → accept → checkpoint → assert `state.accepted_integration_ref` matches the new checkpoint SHA, not the parent's final SHA. Assert `status` does not report drift.
-  - **Acceptance:** fresh run's accepted integration ref updates on checkpoint; no false drift immediately after.
+### Implementation notes for BUG-52/53
 
-- [ ] **BUG-50: `run-history.jsonl` contamination — fresh run's record inherits `phases_completed` and `total_turns` from parent run** — Verified via inspection of `run-history.js` + `run-context-inheritance.js:21`. Run chaining inheritance logic may be copying aggregates inappropriately. Tester's fresh run `run_7c529def79b94f51` (one PM turn, blocked in planning) has internally contradictory history record:
-  - [x] 2026-04-19 implementation shipped: run-history counters remain current-run-only, while inherited continuity metadata is preserved separately under `parent_context`.
-  - [x] 2026-04-19 regression proof shipped: `cli/test/beta-tester-scenarios/bug-50-run-history-contamination.test.js` now asserts isolated counters plus separate parent metadata.
-  - [ ] Tester verification on `v2.145.0` still required before closure per rule #12.
-  - `"phases_completed": ["planning","implementation","qa","launch"]` — claims all 4 phases done
-  - `"total_turns": 70` — not plausible for a fresh run with one turn
-  - `"gate_results": {"planning_signoff": "pending", "implementation_complete": "pending", ...}` — all gates still pending
-  - **The contradiction is self-evident in the same JSON record.**
-  - **Fix requirements:**
-    - Fresh run records in `run-history.jsonl` must track ONLY that run's own phase/turn progression. Inherited context from parent run (for continuity) should be a separate nested field (`parent_context` or similar), not mixed into the live run's own counters.
-    - Grep `run-history.js` for where `phases_completed` and `total_turns` are computed. If they read from parent state, fix to compute from the current run's own turns and gates only.
-    - Tester-sequence test: chain fresh run from parent → dispatch one PM turn → assert fresh run's `run-history.jsonl` entry has `phases_completed: []` (or `["planning"]` if that phase is partially done), `total_turns: 1`, and gate_results reflecting actual current state.
-  - **Acceptance:** fresh run's history record is internally consistent; no inherited contradictions.
-
-### Implementation notes for BUG-47..50
-
-- **All four ship as v2.145.0.** They're related (all state-consistency fixes on continuation runs) but code paths are distinct. Work them in parallel, release as one bundle. BUG-47 is the operator-visible safety net; BUG-48/49/50 are correctness.
-- **Secondary UX issue tester mentioned (NOT a separate item):** `SESSION_RECOVERY.md`, `TALK.md`, `HUMAN_TASKS.md`, `state.json` still appearing dirty in `git status`. These ARE in `ORCHESTRATOR_STATE_FILES` exclusion list (`repo-observer.js:40-62`), so they don't poison the framework's baseline observation — but they do show up in raw `git status`, creating visual noise. Acceptable for now; agents should consider whether the framework should `.gitignore` these paths by default so they never appear in git status.
-- **Do NOT mark closed until tester verifies v2.145.0.** Rule #12 is in force.
-- **BUG-44/45/46 closed on 2026-04-19** with tester-verified output on v2.144.0 (see "Recent closures" below). When the tester retests v2.145.0, they're retesting ONLY the BUG-47..50 fixes.
+- **These are the final full-auto blockers.** Once both close, the product delivers what the VISION.md says: unattended continuous governed execution. Release cadence should prioritize this — everything else is secondary until these land.
+- **Related but distinct:** BUG-52 is intra-run (phase advancement), BUG-53 is inter-run (session continuation). Different code paths, different fixes, can ship independently — but bundle into v2.147.0 if both land in the same cycle.
+- **Tester-sequence tests MUST use the tester's exact reproduction.** The claim-reality preflight gate (rule #9) means the packaged CLI gets tested end-to-end before release. That's the discipline that caught the BUG-47 detection-only regression.
+- **No feature work in v2.147.0.** BUG-52 and BUG-53 only. Don't mix in adjacent cleanup unless it's a dependency. The pattern of "wait for tester verification" is now well-established — use it.
+- **Do NOT mark closed until tester verifies.** Rule #12 is in force. 9 false closures turned into 0 over the past week because of this rule. Don't regress.
+- **Coverage matrix update:** `BUG_31_33_COVERAGE_GAP_POSTMORTEM.md` needs two new dimensions — (a) gate-resolution → phase-advance paths (BUG-52), (b) session continuation after run completion (BUG-53). Every gate × every exit path × every continuation mode must have tester-sequence coverage.
 
 ---
 
 ## Active discipline (MUST follow on every fix going forward)
 
-Established across the 2026-04-18/19 beta cycle after 7 false closures (BUG-17/19/20/21, BUG-36, BUG-39, BUG-40, BUG-41). Apply on every BUG-N closure:
+Established across the 2026-04-18/19 beta cycle after 7 false closures (BUG-17/19/20/21, BUG-36, BUG-39, BUG-40, BUG-41). All 12 rules remain in force:
 
-1. **No bug closes without live end-to-end repro.** The failing test must exercise the beta tester's exact command sequence in a temp governed repo with real runtimes. Unit tests + "the code path is covered" is not sufficient evidence. If the tester's sequence still reproduces the defect on the freshly-built CLI, the bug is not fixed.
-
-2. **Every previously-closed beta bug is a permanent regression test.** Lives in `cli/test/beta-tester-scenarios/`. One file per bug (BUG-1 through BUG-44). CI runs them on every release. A single failure blocks the release.
-
-3. **Release notes describe exactly what shipped — no more, no less.** No overclaiming coverage. No "partial fix" marketing language. Let the tests speak.
-
-4. **Internal `false_closure` retrospectives live in `.planning/`, NOT on the website.** When a closed bug reopens, write `.planning/BUG_NN_FALSE_CLOSURE.md` privately. Never post to docs, release notes, or marketing.
-
-5. **Do NOT broadcast limitations publicly.** No "known limitations" callouts. No blog posts about what doesn't work. No scoping-down of case study or comparison pages. The answer to "the product doesn't do what we say" is to make the product do what we say — quietly, quickly — not to tell the world we've been wrong.
-
-6. **Every bug close must include:**
-   - Tester-sequence test file (committed BEFORE the fix)
-   - Test output showing PASS on a fresh install
-   - CLI version and commit SHA the test was run against
-   - A line in the closure note: "reproduces-on-tester-sequence: NO"
-
-7. **Slow down.** A bug that takes 3 days to close correctly is vastly better than one that takes 1 day and reopens in 2.
-
-8. **Use REAL emission formats in tester-sequence tests** (added during BUG-37 closure). Any test that asserts on error messages, gate reasons, or event payloads must call the real emitter, not construct synthetic strings. Hardcoded reason strings in beta-tester-scenario tests are banned.
-
-9. **"Claim-reality" gate in release preflight** (added during BUG-37 closure). For every BUG-N marked fixed, preflight must run the tester-sequence test against the shipped CLI binary (not the source tree), to catch "works from source, broken when built" bugs.
-
-10. **Startup-path coverage matrix** (added during BUG-40 closure). Every code path that can produce turn dispatches must be covered in the tester-sequence matrix (`run`, `run --continue-from`, `run --continuous`, `restart`, `resume`, `step --resume`, `schedule daemon`, etc.). Matrix lives in `.planning/BUG_31_33_COVERAGE_GAP_POSTMORTEM.md` and is updated whenever a new startup surface lands.
-
-11. **Tester-sequence tests must seed realistic accumulated state, not just clean fixtures** (added during BUG-41 closure). For migration/reconciliation bugs, the test MUST simulate a repo that has already been through prior versions — pre-existing session files, state.json, intent files in various legacy formats. Use `createLegacyRepoFixture()` in `cli/test/beta-tester-scenarios/_helpers/`.
-
-12. **No bug closes without the beta tester's verified output** (added during BUG-42/43 cycle — the rule that finally broke the false-closure streak). For tester-reported bugs, closure notes must include either (a) the tester's quoted output showing the fix works on their machine, OR (b) a live proof run on a copy of their actual `.agentxchain/` state. Synthetic tests prove the code compiles; they do NOT prove the fix works.
+1. **No bug closes without live end-to-end repro.** Unit tests + "code path covered" is not sufficient.
+2. **Every previously-closed beta bug is a permanent regression test** in `cli/test/beta-tester-scenarios/`. CI runs on every release; single failure blocks release.
+3. **Release notes describe exactly what shipped** — no overclaiming, no "partial fix" marketing.
+4. **Internal `false_closure` retrospectives live in `.planning/`**, never on website.
+5. **Do NOT broadcast limitations publicly.** Make the product do what we say, quietly.
+6. **Every bug close must include:** tester-sequence test file (committed before fix), test output showing PASS on fresh install, CLI version + commit SHA, closure line "reproduces-on-tester-sequence: NO".
+7. **Slow down.** 3 days to close correctly beats 1 day that reopens.
+8. **Use REAL emission formats** in tester-sequence tests — no synthetic strings.
+9. **"Claim-reality" gate in release preflight** — tester-sequence tests run against shipped CLI binary, not source tree. Now mechanically enforced via `test(claim-reality): packaged behavioral proof` commits.
+10. **Startup-path coverage matrix** in `BUG_31_33_COVERAGE_GAP_POSTMORTEM.md` — every dispatch code path × every lifecycle stage has tester-sequence test.
+11. **Tester-sequence tests must seed realistic accumulated state**, not just clean fixtures. `createLegacyRepoFixture()` helper.
+12. **No bug closes without the beta tester's verified output** — the rule that finally broke the 7-false-closure streak. Tester's quoted output OR live proof on copy of actual `.agentxchain/` state. Synthetic tests prove code compiles, not that the fix works.
 
 ---
 
 ## Recent closures (see `HUMAN-ROADMAP-ARCHIVE.md` for full detail)
 
-### Beta cycle 2026-04-19 — closed
-- ✅ **BUG-44** — phase-scoped intent retirement on phase advance (tester-verified on v2.144.0: "no stale implementation intent blocking QA acceptance")
-- ✅ **BUG-45** — retained-turn acceptance reconciles against live intent state (tester-verified on v2.144.0: "normal commands work; no manual `.agentxchain/` state surgery required")
-- ✅ **BUG-46** — post-acceptance deadlock resolved; framework-owned file exclusions, working-tree observation, verification-produced file classification (tester-verified on v2.144.0 with 4 successful checkpoint SHAs quoted)
-- ✅ **BUG-42** — phantom intent detection for rebound legacy intents (first non-false closure after 7 false ones)
-- ✅ **BUG-43** — checkpoint-turn filters ephemeral staging/dispatch paths from `files_changed`
-- Releases: v2.138.0 (BUG-42/43), v2.139.0 (BUG-44), v2.140.0 (BUG-45), v2.141.1–v2.143.0 (BUG-46 hardening), v2.144.0 (tester-verification bundle)
+### Beta cycle 2026-04-20 — closed
+- ✅ **BUG-47, BUG-48, BUG-49, BUG-50, BUG-51** — stale-turn watchdog + intent lifecycle + checkpoint ref update + run-history contamination + fast-startup watchdog. All 5 tester-verified on v2.146.0. Second triple-or-more close of the cycle.
+- Release: v2.145.0 (BUG-47..50), v2.146.0 (BUG-51 + hardening)
 
-### Beta cycle 2026-04-18 — closed
-- ✅ **BUG-41** — session-flag guard removed; `migrate-intents` repair command shipped
-- ✅ **BUG-40** — continuous startup + resume migration (shared `intent-startup-migration.js` helper)
-- ✅ **BUG-37/38/39** — gate_semantic_coverage real-emissions, non-progress convergence guard, pre-BUG-34 intent archival
-- ✅ **BUG-34/35/36** — cross-run intent scoping, retry-prompt intent re-binding, gate_semantic_coverage validator
-- ✅ **BUG-31/32/33** — `human_merge` completion, forward-revision vs destructive conflict, iterative planning coverage
-- ✅ **DOC-1** — website sidebar Examples → Products/Proofs split
-- Releases: v2.130.x → v2.137.0
-
-### Earlier 2026-04-17/18 clusters (details in archive)
-- ✅ **BUG-1..30** — acceptance/validation, drift recovery, intake integration, state reconciliation, checkpoint handoff, false-closure fixes
-- ✅ **B-1..B-11** — CLI version safety, runtime matrix, authority model, local_cli canonical, migration path, Codex recipes, etc.
+### Earlier 2026-04-18/19 clusters (details in archive)
+- ✅ **BUG-44/45/46** — phase-scoped intent retirement, retained-turn reconciliation, post-acceptance deadlock resolved (tester-verified on v2.144.0)
+- ✅ **BUG-42/43** — phantom intent detection, checkpoint ephemeral path filtering (first non-false closure after 7 false ones)
+- ✅ **BUG-31..41** — iterative planning, intake integration, state reconciliation, full-auto checkpoint handoff, false-closure fixes
+- ✅ **BUG-1..30** — acceptance/validation, drift recovery, intake integration, etc.
+- ✅ **B-1..B-11** — CLI version safety, runtime matrix, authority model, Codex recipes, etc.
 - ✅ **Framework capabilities** — full-auto vision-driven operation, human priority injection, last-resort escalation, live 3-run proof
+- ✅ **DOC-1** — website sidebar Examples → Products/Proofs split
 
 ---
 
 ## Completion Log
 
-- **2026-04-19**: BUG-42/BUG-43 closed with tester-verified output on v2.138.0. First non-false closure of the cycle. Discipline rule #12 held. BUG-44 opened (intent lifecycle across phase boundaries).
-- **2026-04-18**: 64-item beta-tester bug cluster (BUG-1..41 + B-1..B-11 + 3 framework capabilities + DOC-1) closed across Turns 1–220. Shipped through v2.126.0–v2.138.0. Internal postmortems: `BUG_31_33_COVERAGE_GAP_POSTMORTEM.md`, `BUG_36_FALSE_CLOSURE.md`, `BUG_39_FALSE_CLOSURE.md`, `BUG_40_FALSE_CLOSURE.md`. Discipline rules 1–12 now in force.
-- **2026-04-17**: Framework full-auto vision-driven operation shipped with 3-run live proof (cont-0e280ba0, $0.025 spend). Human priority injection + last-resort escalation mechanisms landed.
-- **2026-04-03**: All 7 original priority queue items completed across Turns 21–4. Docusaurus migration, vision alignment, asset fixes, table formatting, vanity proof replacement, platform split simplification, GCS deployment. v2.2.0 release-ready.
+- **2026-04-20**: BUG-47/48/49/50/51 closed with tester-verified output on v2.146.0. Second triple-or-more close of the cycle. Claude Opus 4.7 + GPT 5.4 with high-effort config active. BUG-52 and BUG-53 opened from tester report #18 — last two full-auto blockers.
+- **2026-04-19**: BUG-44/45/46 closed with tester-verified output on v2.144.0. First non-false closure after 7 false ones.
+- **2026-04-18**: 64-item beta-tester bug cluster closed through v2.138.0. Discipline rules 1–12 now in force. Internal postmortems: `BUG_31_33_COVERAGE_GAP_POSTMORTEM.md`, `BUG_36_FALSE_CLOSURE.md`, `BUG_39_FALSE_CLOSURE.md`, `BUG_40_FALSE_CLOSURE.md`.
+- **2026-04-17**: Framework full-auto vision-driven operation shipped with 3-run live proof.
+- **2026-04-03**: Original 7 priority queue items completed. Docusaurus migration, vision alignment, v2.2.0 release-ready.

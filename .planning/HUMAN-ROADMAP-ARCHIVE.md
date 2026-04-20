@@ -2898,3 +2898,75 @@ This evidence confirms the four-layered BUG-46 diagnosis:
 > **Severity: P1 for continuous-mode usability.** Doesn't destroy the run but burns ~11 minutes per failure with no useful work. Can hit core implementation turns, not just side phases. No longer catastrophic unrecoverable bug — now a high-cost orchestration efficiency bug that still seriously degrades real-world use.
 >
 > **Short conclusion:** v2.145.0 improved stale-turn handling in important ways — watchdog now fires, run explicitly blocked as stale_turn, reissue/resume works. But deeper problem still there: implementation turns can still ghost-dispatch, show as running, produce no output at all, waste ~11 minutes before recovery starts. Fix is only partial. Missing piece is fast detection of fake-running turns before the full stale timeout elapses.
+
+---
+
+## BUG-47/48/49/50/51 closures — tester-verified on v2.146.0 (2026-04-20)
+
+**Tester's implicit + explicit verification quoted from report #18:**
+
+> "ghost turns now block in about 5 minutes instead of about 11"
+> "native `reissue-turn --reason ghost` + `step --resume` works across `dev`, `qa`, and `product_marketing`"
+> "Fast startup watchdog did improve" — with explicit turn IDs for dev (`turn_a2f067bd11a5dd5a`), qa (`turn_c1284ab33ba55085`, `turn_c3b56a26e34c5e40`), launch (`turn_0ceb280853a76dbc`) all caught at ~5min instead of ~11min
+> Final checkpoint: `32a38b0a3bbd5e1e6ce82d7271ee45e4b6e5a44b` — run completed with all 4 gates passed
+
+Closures:
+
+- **BUG-47** (dead-turn watchdog) — tester-verified: stale turns now detected and recovery via `reissue-turn` works natively across all roles. Shipped v2.145.0, hardened v2.146.0. reproduces-on-tester-sequence: NO.
+
+- **BUG-48** (injected intent lifecycle contradiction) — tester-verified implicitly: run progressed through all 4 phases (planning → implementation → qa → launch) with no stuck-intent reports. Shipped v2.145.0. reproduces-on-tester-sequence: NO.
+
+- **BUG-49** (accepted_integration_ref on checkpoint) — tester-verified implicitly: multiple successful checkpoints with proper SHA advancement (`ffb26736...` PM, `c976f258...` dev, `3ba58238...` qa, `32a38b0a...` launch). No drift reported. Shipped v2.145.0. reproduces-on-tester-sequence: NO.
+
+- **BUG-50** (run-history.jsonl contamination) — tester-verified implicitly: run completed with "all four gates passed" and proper phase progression. No contradictory state reports. Shipped v2.145.0. reproduces-on-tester-sequence: NO.
+
+- **BUG-51** (fast-startup watchdog) — tester-verified explicitly with 4 turn IDs showing ~5min detection (down from ~11min). Shipped v2.146.0 with layered staged-result truth boundary defenses. reproduces-on-tester-sequence: NO.
+
+**Cycle milestone:** 5 bugs closed with tester verification in one retest. Second triple-or-more close of the cycle (after BUG-44/45/46). Discipline rule #12 continues to hold. Rule #9 (claim-reality preflight gate) now mechanically enforced via `test(claim-reality): packaged behavioral proof for BUG-47 stale path` and `test: lock claim-reality publish gate`.
+
+
+---
+
+### Beta-tester bug report #18 (verbatim) — v2.146.0 full-auto still incomplete (2026-04-20)
+
+> **Title:** v2.146.0 still is not full-auto in continuous mode: phase-gate loops still need operator state surgery, and completed runs do not reliably auto-chain into the next vision-derived run
+>
+> **Summary:** Retested tusq.dev on agentxchain@2.146.0. Better in one important way: fast ghost-turn / failed-start watchdog working, ghost turns now block in ~5 minutes instead of ~11, native `reissue-turn --reason ghost` + `step --resume` works across dev/qa/product_marketing. But two major problems remain: (1) system still not full-auto end-to-end — run completed only after repeated operator intervention with manual phase-state recovery to break false planning_signoff and qa_ship_verdict loops; (2) continuous mode did not automatically start next run after completion — completed run finished in launch but surrounding continuous session paused instead of spawning next vision-derived continuation run.
+>
+> **Environment:** tusq.dev, macOS, agentxchain@2.146.0, governed v4, template cli-tool
+> **Retest command:** `npx --yes -p agentxchain@2.146.0 -c 'agentxchain run --continue-from run_fbc688008b70c5d1 --continuous --auto-approve --auto-checkpoint --max-turns 20 --max-runs 5 --triage-approval auto'`
+> **Session:** cont-5d436a8f, **Run:** run_78133e963b912f46, **Objective:** "The canonical artifact: version history and diffs", **Final checkpoint:** `32a38b0a3bbd5e1e6ce82d7271ee45e4b6e5a44b`
+>
+> **Problem 1: phase-gate loops still require operator state surgery**
+>
+> Real progress made: PM added M13/version history planning, dev implemented manifest_version/previous_manifest_hash/capability_digest, QA added REQ-035, launch updated messaging. Run completed in launch. But not autonomous.
+>
+> **Planning loop:** PM turn `turn_360905c7f7c8ac1a` completed valid planning work, checkpointed at `ffb26736511b6494c55917922cd587a093766c06`. After resolving planning signoff escalation `hesc_29db2799c2f4bca6` via `agentxchain unblock`, the system did NOT move to implementation. Instead it dispatched another PM turn `turn_ecb26fc55ead053d` in planning. Had to manually patch `.agentxchain/state.json` to: set phase planning → implementation, mark planning_signoff as passed, clear redundant PM turn, restart run.
+>
+> **QA loop:** QA turn `turn_1e99db5881d4cad6` completed valid QA work, checkpointed at `3ba582381d7ad083ead729e3e637b06e4deac79e`. After resolving QA ship-verdict escalation `hesc_62f7df0b8b93d623`, `agentxchain unblock` again did NOT move to launch. Instead dispatched another QA turn `turn_c3b56a26e34c5e40`. That extra QA turn then ghost-failed and blocked the run but was redundant anyway. Same manual state surgery needed: phase qa → launch, mark qa_ship_verdict as passed, clear stale blocker/failed-start turn, restart.
+>
+> **Why serious:** 2.146.0 still not full-auto in the most important sense. Even with --continuous + --auto-approve + --auto-checkpoint + native human escalation resolution, operator still must do manual state surgery to break false gate loops. Main remaining blocker to unattended use.
+>
+> **Problem 2: completed run did not auto-chain into next continuation run**
+>
+> Run completed successfully. Final accepted launch turn `turn_c0cf26ac784eaa91`, final checkpoint `32a38b0a3bbd5e1e6ce82d7271ee45e4b6e5a44b`. Final status: run COMPLETED, phase launch, all four gates passed.
+>
+> But after completion, continuous session did NOT launch next vision-derived run. Status at end: session cont-5d436a8f = paused, run = COMPLETED, no new objective generated, no new vision_scan continuation run created. Loop did not do what continuous mode is supposed to: finish one run → derive next objective from VISION.md → start next run automatically.
+>
+> **Why matters:** separate from phase-loop bug. Even tolerating operator intervention inside a run, continuous session should survive successful completion and keep going. Instead: one completed run, paused session, no next run, no PM creating next roadmap item until human manually starts another continuation run. Breaks "continuous governed execution toward the vision" model.
+>
+> **Expected:**
+> - **Problem 1:** after turn accepted + checkpointed + human gate resolved, system should transition natively planning → implementation, qa → launch. Should NOT dispatch redundant same-phase turns after gate satisfied.
+> - **Problem 2:** after run completes in continuous mode, session should remain healthy, scan VISION.md / current roadmap state, derive next objective, create next continuation run automatically. Should NOT stop at one completed run unless explicitly configured.
+>
+> **Actual:**
+> - **Problem 1:** gate resolved, but same-phase turn dispatched again, operator had to patch .agentxchain/state.json
+> - **Problem 2:** run completed, session paused, no next continuation run
+>
+> **Severity: both P1** for continuous-mode usability. Product can complete runs but still cannot be trusted to continue unattended. "Continuous toward the vision" is still not actually continuous without operator babysitting.
+>
+> **Suggested fixes:**
+> - **Problem 1:** audit gate-resolution logic for planning_signoff and qa_ship_verdict, ensure accepted+checkpointed+unblocked gates advance phase exactly once, prevent redundant same-phase redispatch after gate resolved
+> - **Problem 2:** audit post-completion path in continuous sessions, after run_completion_request or completed launch ensure supervisor returns to vision scan → next objective derivation → next run creation, do not leave session paused unless real blocker or explicit stop condition
+>
+> **Short conclusion:** 2.146.0 improved ghost-turn detection materially. But two major issues remain: (1) still not full-auto — planning and QA phase transitions still require operator state surgery; (2) still not truly continuous — after a run completes, the next run does not start automatically. Release improves recovery but still does not deliver unattended continuous execution end-to-end.
