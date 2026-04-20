@@ -39,6 +39,10 @@ for the 10-minute stale-turn watchdog.
   - no turn-scoped staged result exists
   - no first-output proof exists on the turn or dispatch-progress file
   - the lifecycle age exceeds the startup threshold
+- Empty placeholder turn-result files such as `{}` do **not** count as staged
+  results. The local CLI adapter may pre-clear a prior result file before
+  spawn; watchdog reconciliation must treat that placeholder as "no result yet,"
+  not as proof of healthy execution.
 - Default startup threshold is 30 seconds.
 - `run_loop.startup_watchdog_ms` overrides the default.
 - The active fix path is runtime-owned, not only lazy reconciliation:
@@ -77,6 +81,8 @@ for the 10-minute stale-turn watchdog.
 
 - Missing or malformed dispatch-progress files do not crash reconciliation; they
   count as absent startup proof.
+- Empty or placeholder turn-result files (`{}` / blank content) do not suppress
+  ghost or stale detection.
 - Turns already transitioned away from `running`/`retrying` are ignored.
 - Ghost detection must not double-report a turn that also qualifies as stale;
   ghost detection wins and stale detection is filtered for that turn.

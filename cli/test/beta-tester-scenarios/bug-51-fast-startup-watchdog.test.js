@@ -8,7 +8,7 @@ import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import {
@@ -21,6 +21,7 @@ import {
 import { createDispatchProgressTracker, getDispatchProgressRelativePath } from '../../src/lib/dispatch-progress.js';
 import { detectGhostTurns, reconcileStaleTurns } from '../../src/lib/stale-turn-watchdog.js';
 import { buildScheduleExecutionResult } from '../../src/commands/schedule.js';
+import { getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
@@ -258,6 +259,24 @@ describe('BUG-51: fast-startup watchdog', () => {
   it('status --json surfaces ghost turns and failed_start', () => {
     const { root, config } = createProject();
     const { turnId } = seedStartingTurn(root, config, 45, false);
+
+    const output = execSync(`node "${CLI_PATH}" status --json`, {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const parsed = JSON.parse(output);
+    assert.equal(parsed.state.active_turns[turnId].status, 'failed_start');
+    assert.equal(parsed.ghost_turns.length, 1);
+    assert.equal(parsed.ghost_turns[0].turn_id, turnId);
+  });
+
+  it('status --json ignores placeholder staged result files when reconciling ghost turns', () => {
+    const { root, config } = createProject();
+    const { turnId } = seedStartingTurn(root, config, 45, false);
+    const stagedResultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(dirname(stagedResultPath), { recursive: true });
+    writeFileSync(stagedResultPath, '{}');
 
     const output = execSync(`node "${CLI_PATH}" status --json`, {
       cwd: root,

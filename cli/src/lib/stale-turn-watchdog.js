@@ -489,7 +489,7 @@ function hasStartupProof(turn, progress) {
 
 function hasTurnScopedStagedResult(root, turnId) {
   const turnScopedPath = join(root, getTurnStagingResultPath(turnId));
-  if (existsSync(turnScopedPath)) {
+  if (hasMeaningfulTurnResultFile(turnScopedPath)) {
     return true;
   }
 
@@ -501,6 +501,19 @@ function hasTurnScopedStagedResult(root, turnId) {
   try {
     const parsed = JSON.parse(readFileSync(legacyPath, 'utf8'));
     return parsed?.turn_id === turnId;
+  } catch {
+    return false;
+  }
+}
+
+function hasMeaningfulTurnResultFile(filePath) {
+  if (!existsSync(filePath)) {
+    return false;
+  }
+
+  try {
+    const raw = readFileSync(filePath, 'utf8').trim();
+    return raw !== '' && raw !== '{}';
   } catch {
     return false;
   }

@@ -208,6 +208,7 @@ Outcome:
   - `loadProjectState()` in `cli/src/lib/config.js` re-attaches `current_turn` as a non-enumerable getter after normalization on every governed load.
   - governed-state mutators also return the same alias (`attachLegacyCurrentTurnAlias()`), so downstream command/library references to `state.current_turn` remain live compatibility surface, not stale legacy code.
   - Locking proof: `cli/test/governed-state.test.js` now includes `loadProjectState re-attaches current_turn as a non-enumerable compatibility alias after migrating legacy state`.
+  - Documentation rule: source comments/JSDoc must name `current_turn` as a runtime compatibility alias, not a persisted v1.1 field and not a "legacy format" fallback. Bare "must have current_turn" wording is banned (`DEC-CURRENT-TURN-COMPAT-ALIAS-DOC-001`).
 - **`blocked_reason` branches were not eligible for deletion.**
   - Schema enforcement only guarantees `blocked_reason` is an object when `status === 'blocked'`.
   - The normalizer both infers missing `blocked_reason` for blocked states and clears it for non-blocked states; several runtime seams legitimately observe pre-reconciliation or transitional shapes before validation finishes.
