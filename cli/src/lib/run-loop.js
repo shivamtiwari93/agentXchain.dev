@@ -31,6 +31,7 @@ import {
   getActiveTurnCount,
   getActiveTurns,
   getMaxConcurrentTurns,
+  transitionActiveTurnLifecycle,
   RUNNER_INTERFACE_VERSION,
 } from './runner-interface.js';
 
@@ -182,7 +183,7 @@ async function executeSequentialTurn(root, config, state, callbacks, emit, error
   let assignState;
   const activeTurn = getActiveTurn(state);
 
-  if (activeTurn && (activeTurn.status === 'running' || activeTurn.status === 'retrying')) {
+  if (activeTurn && isDispatchableActiveTurn(activeTurn)) {
     turn = activeTurn;
     assignState = state;
   } else {
@@ -224,7 +225,7 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
   const activeTurns = getActiveTurns(state);
   const turnsToDispatch = [];
   for (const turn of Object.values(activeTurns)) {
-    if (turn.status === 'running' || turn.status === 'retrying') {
+    if (isDispatchableActiveTurn(turn)) {
       turnsToDispatch.push({ turn, state });
     }
   }
@@ -317,6 +318,7 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
       errors.push(`writeDispatchBundle(${turn.assigned_role}): ${bundleResult.error}`);
       continue;
     }
+    transitionActiveTurnLifecycle(root, turn.turn_id, 'dispatched');
     const stagingPath = getTurnStagingResultPath(turn.turn_id);
     contexts.push({
       turn,
@@ -409,6 +411,12 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
       }
       emit({ type: 'turn_accepted', turn, role: roleId, state: acceptResult.state });
     } else {
+      if (dispatchResult?.blocked === true) {
+        history.push({ role: roleId, turn_id: turn.turn_id, accepted: false, blocked: true });
+        const blockedState = loadState(root, config);
+        emit({ type: 'blocked', state: blockedState });
+        return { terminal: true, ok: false, stop_reason: 'blocked', history, acceptedCount };
+      }
       const validationResult = {
         stage: 'dispatch',
         errors: [dispatchResult.reason || 'Dispatch callback rejected the turn'],
@@ -449,6 +457,10 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
   return { terminal: false, history, acceptedCount };
 }
 
+function isDispatchableActiveTurn(turn) {
+  return ['assigned', 'dispatched', 'starting', 'running', 'retrying'].includes(turn?.status);
+}
+
 /**
  * Dispatch a single turn and process its result.
  */
@@ -463,6 +475,7 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
     errors.push(`writeDispatchBundle(${roleId}): ${bundleResult.error}`);
     return { terminal: true, ok: false, stop_reason: 'blocked', history };
   }
+  transitionActiveTurnLifecycle(root, turn.turn_id, 'dispatched');
 
   const stagingPath = getTurnStagingResultPath(turn.turn_id);
   const context = {
@@ -535,6 +548,13 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
     }
     emit({ type: 'turn_accepted', turn, role: roleId, state: acceptResult.state });
     return { terminal: false, accepted: true, history };
+  }
+
+  if (dispatchResult?.blocked === true) {
+    history.push({ role: roleId, turn_id: turn.turn_id, accepted: false, blocked: true });
+    const blockedState = loadState(root, config);
+    emit({ type: 'blocked', state: blockedState });
+    return { terminal: true, ok: false, stop_reason: 'blocked', history };
   }
 
   // Rejection

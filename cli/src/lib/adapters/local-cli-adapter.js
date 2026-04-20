@@ -48,7 +48,15 @@ import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
  * @returns {Promise<{ ok: boolean, exitCode?: number, timedOut?: boolean, aborted?: boolean, error?: string, logs?: string[] }>}
  */
 export async function dispatchLocalCli(root, state, config, options = {}) {
-  const { signal, onStdout, onStderr, turnId } = options;
+  const {
+    signal,
+    onStdout,
+    onStderr,
+    onSpawnAttached,
+    onFirstOutput,
+    startupWatchdogMs = config?.run_loop?.startup_watchdog_ms ?? 30_000,
+    turnId,
+  } = options;
 
   const turn = resolveTargetTurn(state, turnId);
   if (!turn) {
@@ -118,16 +126,65 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         env: { ...process.env, AGENTXCHAIN_TURN_ID: turn.turn_id },
       });
     } catch (err) {
-      resolve({ ok: false, error: `Failed to spawn "${command}": ${err.message}`, logs });
+      resolve({
+        ok: false,
+        startupFailure: true,
+        startupFailureType: 'runtime_spawn_failed',
+        error: `Failed to spawn "${command}": ${err.message}`,
+        logs,
+      });
       return;
     }
 
     let settled = false;
+    let firstOutputAt = null;
+    let startupWatchdog = null;
+    let startupTimedOut = false;
+    let startupFailureType = null;
+
     const settle = (result) => {
       if (settled) return;
       settled = true;
       resolve(result);
     };
+
+    const clearStartupWatchdog = () => {
+      if (startupWatchdog) {
+        clearTimeout(startupWatchdog);
+        startupWatchdog = null;
+      }
+    };
+
+    const recordFirstOutput = (stream) => {
+      if (firstOutputAt) return;
+      firstOutputAt = new Date().toISOString();
+      clearStartupWatchdog();
+      if (onFirstOutput) {
+        try {
+          onFirstOutput({ pid: child.pid ?? null, at: firstOutputAt, stream });
+        } catch {}
+      }
+    };
+
+    if (onSpawnAttached) {
+      try {
+        onSpawnAttached({ pid: child.pid ?? null, at: new Date().toISOString() });
+      } catch {}
+    }
+
+    if (startupWatchdogMs > 0 && Number.isFinite(startupWatchdogMs)) {
+      startupWatchdog = setTimeout(() => {
+        if (firstOutputAt || isStagedResultReady(join(root, getTurnStagingResultPath(turn.turn_id)))) {
+          return;
+        }
+        startupTimedOut = true;
+        startupFailureType = 'no_subprocess_output';
+        logs.push(`[adapter] Startup watchdog fired after ${Math.round(startupWatchdogMs / 1000)}s with no output.`);
+        try {
+          child.kill('SIGTERM');
+        } catch {}
+      }, startupWatchdogMs);
+    }
 
     // Deliver prompt via stdin if transport is "stdin"; otherwise close immediately
     if (child.stdin) {
@@ -143,6 +200,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     if (child.stdout) {
       child.stdout.on('data', (chunk) => {
         const text = chunk.toString();
+        recordFirstOutput('stdout');
         logs.push(text);
         if (onStdout) onStdout(text);
       });
@@ -151,6 +209,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     if (child.stderr) {
       child.stderr.on('data', (chunk) => {
         const text = chunk.toString();
+        recordFirstOutput('stderr');
         logs.push('[stderr] ' + text);
         if (onStderr) onStderr(text);
       });
@@ -180,6 +239,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     // Abort signal handling
     const onAbort = () => {
       logs.push('[adapter] Abort signal received. Sending SIGTERM.');
+      clearStartupWatchdog();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
       try {
@@ -197,6 +257,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
     // Process exit
     child.on('close', (exitCode, killSignal) => {
+      clearStartupWatchdog();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
       if (signal) signal.removeEventListener('abort', onAbort);
@@ -210,17 +271,47 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
       // Check if staged result was written (regardless of exit code)
       const hasResult = isStagedResultReady(join(root, getTurnStagingResultPath(turn.turn_id)));
+      if (hasResult && !firstOutputAt) {
+        recordFirstOutput('staged_result');
+      }
 
       if (hasResult) {
-        settle({ ok: true, exitCode, timedOut: false, aborted: false, logs });
+        settle({ ok: true, exitCode, timedOut: false, aborted: false, logs, firstOutputAt });
+      } else if (startupTimedOut) {
+        settle({
+          ok: false,
+          exitCode,
+          timedOut: false,
+          aborted: false,
+          startupFailure: true,
+          startupFailureType: startupFailureType || 'no_subprocess_output',
+          startupWatchdogMs,
+          firstOutputAt,
+          error: `Subprocess produced no output within ${Math.round(startupWatchdogMs / 1000)}s and did not stage a turn result.`,
+          logs,
+        });
       } else if (timedOut) {
         settle({ ok: false, exitCode, timedOut: true, aborted: false, error: 'Turn timed out without producing a staged result.', logs });
+      } else if (!firstOutputAt) {
+        settle({
+          ok: false,
+          exitCode,
+          timedOut: false,
+          aborted: false,
+          startupFailure: true,
+          startupFailureType: 'no_subprocess_output',
+          startupWatchdogMs,
+          firstOutputAt,
+          error: `Subprocess exited (code ${exitCode}) before producing output or staging a turn result.`,
+          logs,
+        });
       } else {
         settle({
           ok: false,
           exitCode,
           timedOut: false,
           aborted: false,
+          firstOutputAt,
           error: `Subprocess exited (code ${exitCode}) without writing a staged turn result to ${getTurnStagingResultPath(turn.turn_id)}.`,
           logs,
         });
@@ -228,10 +319,18 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     });
 
     child.on('error', (err) => {
+      clearStartupWatchdog();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
       if (signal) signal.removeEventListener('abort', onAbort);
-      settle({ ok: false, error: `Subprocess error: ${err.message}`, logs });
+      settle({
+        ok: false,
+        startupFailure: !firstOutputAt,
+        startupFailureType: !firstOutputAt ? 'runtime_spawn_failed' : null,
+        firstOutputAt,
+        error: `Subprocess error: ${err.message}`,
+        logs,
+      });
     });
   });
 }

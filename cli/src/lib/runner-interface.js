@@ -41,6 +41,7 @@ export {
   releaseAcceptanceLock as releaseLock,
   refreshTurnBaselineSnapshot,
   reissueTurn,
+  transitionActiveTurnLifecycle,
 } from './governed-state.js';
 
 // ── Dispatch ────────────────────────────────────────────────────────────────

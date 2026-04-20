@@ -18,6 +18,7 @@ import {
   getActiveTurns,
   getActiveTurn,
   reissueTurn,
+  transitionActiveTurnLifecycle,
 } from '../lib/governed-state.js';
 import { writeDispatchBundle } from '../lib/dispatch-bundle.js';
 
@@ -91,6 +92,7 @@ export async function reissueTurnCommand(opts) {
     console.log(chalk.red(`Turn reissued but dispatch bundle failed: ${bundleResult.error}`));
     process.exit(1);
   }
+  transitionActiveTurnLifecycle(root, result.newTurn.turn_id, 'dispatched');
 
   // Print summary
   console.log('');

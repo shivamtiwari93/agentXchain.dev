@@ -1,4 +1,4 @@
-Status: Shipped — implementation in v2.146.0; remains open pending tester verification per discipline rule #12
+Status: Active — startup lifecycle hardening landed on HEAD; remains open pending tester verification per discipline rule #12
 
 # BUG-51 Ghost Startup Watchdog Spec
 
@@ -14,28 +14,40 @@ for the 10-minute stale-turn watchdog.
 - `cli/src/lib/stale-turn-watchdog.js`
   - `detectGhostTurns(root, state, config)`
   - `reconcileStaleTurns(root, state, config)`
+- `failTurnStartup(root, state, config, turnId, details)`
+- `cli/src/lib/governed-state.js`
+  - `transitionActiveTurnLifecycle(root, turnId, nextStatus, options)`
+- `cli/src/lib/adapters/local-cli-adapter.js`
+  - `dispatchLocalCli(..., { onSpawnAttached, onFirstOutput, startupWatchdogMs })`
 - `agentxchain status`
 - `agentxchain status --json`
 - `agentxchain resume`
+- `agentxchain step`
 - `agentxchain step --resume`
-- `cli/src/lib/recent-event-summary.js`
+- `agentxchain run`
 
 ## Behavior
 
-- A ghost turn is an active turn with status `running` or `retrying` where all
-  of the following are true:
-  - `started_at` is older than `run_loop.startup_watchdog_ms`
-  - no turn-scoped dispatch-progress file exists
+- Turn startup is split into explicit lifecycle states:
+  - `assigned` — role reserved, no dispatch bundle finalized yet
+  - `dispatched` — dispatch bundle finalized on disk, worker not attached yet
+  - `starting` — worker subprocess attached, waiting for first output
+  - `running` — first output or equivalent runtime proof observed
+- A ghost turn is an active turn in `dispatched`, `starting`, `running`, or
+  `retrying` where all of the following are true after
+  `run_loop.startup_watchdog_ms`:
   - no turn-scoped staged result exists
-  - no turn-scoped durable event exists after dispatch other than the initial
-    dispatch event
+  - no first-output proof exists on the turn or dispatch-progress file
+  - the lifecycle age exceeds the startup threshold
 - Default startup threshold is 30 seconds.
 - `run_loop.startup_watchdog_ms` overrides the default.
-- Ghost detection runs lazily on the same CLI entry points as stale-turn
-  reconciliation:
-  - `status`
-  - `resume`
-  - `step --resume`
+- The active fix path is runtime-owned, not only lazy reconciliation:
+  - `step` and `run` pass a startup watchdog into `dispatchLocalCli()`
+  - the adapter kills silent subprocesses when the threshold expires
+  - the caller transitions the retained turn to `failed_start` immediately
+- Lazy reconciliation remains as a recovery backstop for already-persisted
+  `dispatched` / `starting` turns surfaced via `status`, `resume`, and
+  `step --resume`.
 - Ghost turns transition from `running`/`retrying` to `failed_start`.
 - Reconciliation emits `turn_start_failed`, blocks the run, and preserves the
   turn for explicit operator recovery via:
@@ -43,54 +55,56 @@ for the 10-minute stale-turn watchdog.
 - Budget reservations for ghost turns are released immediately on transition to
   `failed_start`.
 - Ghost detection and stale-turn detection are distinct:
-  - ghost: subprocess/output channel never attached
-  - stale: subprocess attached, then went silent past the slower threshold
+  - ghost: worker never spawned cleanly or never produced first output inside
+    the startup window
+  - stale: worker produced first output and later went silent past the slower
+    threshold
 
-### Signal choice: dispatch-progress vs `stdout.log`
+### Signal choice: first-output proof vs `stdout.log`
 
-- The startup watchdog uses turn-scoped dispatch-progress as the primary signal,
-  not `stdout.log` file existence.
-- Rationale:
-  - dispatch-progress is framework-authored and turn-scoped, so its presence is
-    a stable cross-runtime proof that the subprocess/output path attached
-  - `stdout.log` is adapter-authored operator visibility output and can be
-    best-effort without invalidating the underlying turn
-  - this preserves the tester-required "missing logfile / no first-byte /
-    no heartbeat" intent without coupling health detection to adapter-specific
-    logging details
+- `stdout.log` remains operator-facing visibility, not the health oracle.
+- For local CLI dispatch, the authoritative startup proof is:
+  - successful worker attachment (`starting`)
+  - then first output or staged result (`running`)
+- Dispatch-progress is still used, but only after real spawn attachment.
+  Pre-spawn progress files are banned because they create false evidence.
 - Consequence:
-  - missing `stdout.log` may correlate with a ghost turn, but the authoritative
-    health signal for BUG-51 is missing dispatch-progress plus the absence of
-    staged results and durable turn activity
+  - missing `stdout.log` can correlate with a startup failure, but the real
+    contract is "no first output / no staged result inside the startup window"
+    rather than "log file missing"
 
 ## Error Cases
 
 - Missing or malformed dispatch-progress files do not crash reconciliation; they
-  count as absent evidence.
+  count as absent startup proof.
 - Turns already transitioned away from `running`/`retrying` are ignored.
 - Ghost detection must not double-report a turn that also qualifies as stale;
   ghost detection wins and stale detection is filtered for that turn.
+- A subprocess that exits immediately with no output is a startup failure, not a
+  stale turn.
+- A deadline timeout still reports `timedOut`; the startup watchdog must not
+  mask the normal turn deadline path.
 
 ## Acceptance Tests
 
 - `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js`
-  - detects ghost turns after the 30-second threshold
-  - does not fire within the threshold
-  - does not fire when dispatch-progress exists
+  - detects ghost turns in both `dispatched` and `starting` states
+  - requires first-output proof, not just progress-file presence
   - transitions ghost turns to `failed_start`
   - releases budget reservations for ghost turns
-  - emits `turn_start_failed`
-  - surfaces ghost recovery via `status --json`, `resume`, and `step --resume`
-  - respects `run_loop.startup_watchdog_ms`
-  - preserves BUG-47 stale detection for turns with dispatch-progress
+  - surfaces ghost recovery via `status --json`
+  - proves `step` fails fast for both:
+    - subprocess exits immediately with no output
+    - subprocess stays alive but never emits output
 - `cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js`
   - proves the stale path is still reserved for turns that had dispatch-progress
-    and later went silent
+    plus first-output proof and later went silent
+- `cli/test/local-cli-adapter.test.js`
+  - preserves normal deadline timeout semantics even with the startup watchdog
 
 ## Open Questions
 
-- Whether future runtimes need an explicit worker-heartbeat signal beyond
-  dispatch-progress for startup confirmation.
-- Whether operator-observable startup failures should later split into narrower
-  event types such as `stdout_attach_failed` or `runtime_spawn_failed` once the
-  runtime contracts can distinguish them reliably.
+- Whether ghost-start failures should auto-reissue behind an explicit config
+  flag once operators have confidence in the retained-turn diagnostics.
+- Whether non-local runtimes should expose a richer "startup attached" signal
+  than the current request/response proof.

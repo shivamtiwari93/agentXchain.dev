@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
-import { getActiveTurns, rejectGovernedTurn } from '../lib/governed-state.js';
+import { getActiveTurns, rejectGovernedTurn, transitionActiveTurnLifecycle } from '../lib/governed-state.js';
 import { validateStagedTurnResult } from '../lib/turn-result-validator.js';
 import { writeDispatchBundle } from '../lib/dispatch-bundle.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
@@ -51,6 +51,7 @@ export async function rejectTurnCommand(opts) {
       console.log(chalk.red(`Turn rejected but dispatch bundle rewrite failed: ${bundleResult.error}`));
       process.exit(1);
     }
+    transitionActiveTurnLifecycle(root, validation.turn.turn_id, 'dispatched');
     printDispatchBundleWarnings(bundleResult);
   }
 

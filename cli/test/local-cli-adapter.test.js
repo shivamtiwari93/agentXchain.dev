@@ -224,6 +224,7 @@ describe('local-cli-adapter', () => {
       const config = makeConfig({
         command: ['node', scriptPath],
       });
+      config.run_loop = { startup_watchdog_ms: 60_000 };
       setupDispatchBundle(root, state, config);
 
       const result = await dispatchLocalCli(root, state, config);

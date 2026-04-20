@@ -26,6 +26,7 @@ import {
   getActiveTurns,
   getActiveTurnCount,
   reactivateGovernedRun,
+  transitionActiveTurnLifecycle,
   STATE_PATH,
 } from '../lib/governed-state.js';
 import { writeDispatchBundle, getDispatchTurnDir, getTurnStagingResultPath } from '../lib/dispatch-bundle.js';
@@ -358,6 +359,11 @@ export async function resumeCommand(opts) {
   if (!manifestResult.ok) {
     console.log(chalk.red(`Failed to finalize dispatch manifest: ${manifestResult.error}`));
     process.exit(1);
+  }
+
+  const dispatched = transitionActiveTurnLifecycle(root, turn.turn_id, 'dispatched');
+  if (dispatched.ok) {
+    state = dispatched.state;
   }
 
   printDispatchSummary(state, config);

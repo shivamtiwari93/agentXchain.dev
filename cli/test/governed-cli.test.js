@@ -835,7 +835,7 @@ describe('governed CLI support', () => {
 
       const state = readGovernedState(join(dir, '.agentxchain', 'state.json'));
       assert.equal(state.current_turn.attempt, 2);
-      assert.equal(state.current_turn.status, 'retrying');
+      assert.equal(state.current_turn.status, 'dispatched');
 
       const assignment = JSON.parse(readFileSync(join(dir, '.agentxchain', 'dispatch', 'turns', 'turn_01H', 'ASSIGNMENT.json'), 'utf8'));
       assert.equal(assignment.turn_id, 'turn_01H');
@@ -1252,7 +1252,7 @@ echo '{"verdict":"allow"}'`);
       assert.equal(updatedState.status, 'active');
       assert.equal(updatedState.last_completed_turn_id, 'turn_01G');
       assert.equal(updatedState.current_turn?.turn_id, 'turn_01H');
-      assert.equal(updatedState.current_turn?.status, 'running');
+      assert.equal(updatedState.current_turn?.status, 'dispatched');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -71,9 +71,10 @@ describe('dispatch-progress', () => {
       assert.equal(progress.turn_id, 'turn_test_001');
       assert.equal(progress.runtime_id, 'local-dev');
       assert.equal(progress.adapter_type, 'local_cli');
-      assert.equal(progress.activity_type, 'output');
+      assert.equal(progress.activity_type, 'starting');
       assert.ok(progress.started_at);
       assert.ok(progress.last_activity_at);
+      assert.equal(progress.first_output_at, null);
       assert.equal(progress.output_lines, 0);
       assert.equal(progress.stderr_lines, 0);
       assert.equal(progress.silent_since, null);

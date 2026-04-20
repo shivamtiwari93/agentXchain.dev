@@ -955,6 +955,67 @@ function writeState(root, state) {
   safeWriteJson(join(root, STATE_PATH), stripLegacyCurrentTurn(state));
 }
 
+export function transitionActiveTurnLifecycle(root, turnId, nextStatus, options = {}) {
+  const state = readState(root);
+  if (!state) {
+    return { ok: false, error: 'No governed state found' };
+  }
+
+  const activeTurns = { ...(state.active_turns || {}) };
+  const turn = activeTurns[turnId];
+  if (!turn) {
+    return { ok: false, error: `Turn ${turnId} not found in active turns` };
+  }
+
+  const nowIso = options.at || new Date().toISOString();
+  const nextTurn = { ...turn };
+
+  if (nextStatus === 'dispatched') {
+    nextTurn.status = 'dispatched';
+    nextTurn.dispatched_at = nowIso;
+    delete nextTurn.started_at;
+    delete nextTurn.worker_attached_at;
+    delete nextTurn.worker_pid;
+    delete nextTurn.first_output_at;
+    delete nextTurn.first_output_stream;
+    emitRunEvent(root, 'turn_dispatched', {
+      run_id: state.run_id,
+      phase: state.phase,
+      status: state.status,
+      turn: { turn_id: turnId, role_id: turn.assigned_role },
+      intent_id: turn.intake_context?.intent_id || null,
+    });
+  } else if (nextStatus === 'starting') {
+    nextTurn.status = 'starting';
+    nextTurn.started_at = nowIso;
+    nextTurn.worker_attached_at = nowIso;
+    if (options.pid != null) {
+      nextTurn.worker_pid = options.pid;
+    }
+  } else if (nextStatus === 'running') {
+    nextTurn.status = 'running';
+    nextTurn.started_at = nextTurn.started_at || nowIso;
+    nextTurn.first_output_at = nextTurn.first_output_at || nowIso;
+    if (options.stream) {
+      nextTurn.first_output_stream = nextTurn.first_output_stream || options.stream;
+    }
+  } else {
+    return { ok: false, error: `Unsupported turn lifecycle status: ${nextStatus}` };
+  }
+
+  activeTurns[turnId] = nextTurn;
+  const nextState = {
+    ...state,
+    active_turns: activeTurns,
+  };
+  writeState(root, nextState);
+  return {
+    ok: true,
+    state: attachLegacyCurrentTurnAlias(nextState),
+    turn: attachLegacyCurrentTurnAlias(nextState).active_turns[turnId],
+  };
+}
+
 function appendJsonl(root, relPath, entry) {
   const filePath = join(root, relPath);
   mkdirSync(dirname(filePath), { recursive: true });
@@ -2760,9 +2821,9 @@ export function assignGovernedTurn(root, config, roleId, options = {}) {
   const newTurn = {
     turn_id: turnId,
     assigned_role: roleId,
-    status: 'running',
+    status: 'assigned',
     attempt: 1,
-    started_at: now,
+    assigned_at: now,
     deadline_at: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString(),
     runtime_id: runtimeId,
     baseline,
@@ -2811,14 +2872,6 @@ export function assignGovernedTurn(root, config, roleId, options = {}) {
   };
 
   writeState(root, updatedState);
-
-  emitRunEvent(root, 'turn_dispatched', {
-    run_id: updatedState.run_id,
-    phase: updatedState.phase,
-    status: updatedState.status,
-    turn: { turn_id: turnId, role_id: roleId },
-    intent_id: options.intakeContext?.intent_id || null,
-  });
 
   // Session checkpoint — non-fatal, written after every successful turn assignment.
   // Pass the captured baseline so session.json agrees with state.json (BUG-2 fix).
@@ -3032,9 +3085,9 @@ export function reissueTurn(root, config, opts = {}) {
   const newTurn = {
     turn_id: newTurnId,
     assigned_role: roleId,
-    status: 'running',
+    status: 'assigned',
     attempt: (oldTurn.attempt || 1) + 1,
-    started_at: now,
+    assigned_at: now,
     deadline_at: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString(),
     runtime_id: currentRuntimeId,
     baseline: newBaseline,

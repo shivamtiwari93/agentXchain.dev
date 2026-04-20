@@ -23,6 +23,7 @@ import {
   normalizeGovernedStateShape,
   reconcileApprovalPausesWithConfig,
   reconcileRecoveryActionsWithConfig,
+  transitionActiveTurnLifecycle,
   STATE_PATH,
   HISTORY_PATH,
   LEDGER_PATH,
@@ -404,6 +405,7 @@ export async function restartCommand(opts) {
         console.log(chalk.dim('Run `agentxchain reissue-turn` to reissue with a fresh bundle.'));
         process.exit(1);
       }
+      transitionActiveTurnLifecycle(root, turnId, 'dispatched');
       for (const bw of bundleResult.warnings || []) {
         console.log(chalk.yellow(`Dispatch bundle warning: ${bw}`));
       }

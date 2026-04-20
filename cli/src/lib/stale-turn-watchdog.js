@@ -125,31 +125,24 @@ export function detectGhostTurns(root, state, config) {
   const startupThreshold = resolveStartupThreshold(config);
 
   for (const [turnId, turn] of Object.entries(activeTurns)) {
-    if (turn.status !== 'running' && turn.status !== 'retrying') continue;
-    if (!turn.started_at) continue;
+    if (!['dispatched', 'starting', 'running', 'retrying'].includes(turn.status)) continue;
 
-    const startedAt = new Date(turn.started_at).getTime();
-    if (isNaN(startedAt)) continue;
+    const lifecycleStart = parseGhostLifecycleStart(turn);
+    if (!Number.isFinite(lifecycleStart)) continue;
 
-    const runningMs = now - startedAt;
+    const runningMs = now - lifecycleStart;
     if (runningMs < startupThreshold) continue;
 
-    // Ghost detection: NO dispatch-progress file means subprocess never attached
     const progressPath = join(root, getDispatchProgressRelativePath(turnId));
-    const hasProgress = existsSync(progressPath);
+    const progress = readDispatchProgressSafe(progressPath);
 
-    // If dispatch-progress exists, subprocess started — this is NOT a ghost turn.
-    // The regular stale-turn watchdog (BUG-47) will handle it if it goes silent.
-    if (hasProgress) continue;
-
-    // Also check for staged result (unlikely without progress, but be safe)
     if (hasTurnScopedStagedResult(root, turnId)) continue;
-
-    // Check for any turn-scoped events beyond the initial dispatch event
-    if (hasRecentTurnEventActivity(root, turnId, startedAt, startupThreshold, now)) continue;
+    if (hasStartupProof(turn, progress)) continue;
 
     const runningSeconds = Math.floor(runningMs / 1000);
-    const failureType = 'no_subprocess_output';
+    const failureType = turn.status === 'dispatched'
+      ? 'runtime_spawn_failed'
+      : 'no_subprocess_output';
     ghosts.push({
       turn_id: turnId,
       role: turn.assigned_role || 'unknown',
@@ -200,37 +193,11 @@ export function reconcileStaleTurns(root, state, config) {
 
   // Process ghost turns (BUG-51) — transition to failed_start
   for (const entry of ghosts) {
-    const turn = activeTurns[entry.turn_id];
-    if (!turn || (turn.status !== 'running' && turn.status !== 'retrying')) continue;
-
-    activeTurns[entry.turn_id] = {
-      ...turn,
-      status: 'failed_start',
-      failed_start_at: nowIso,
-      failed_start_reason: entry.failure_type,
-      failed_start_previous_status: turn.status,
-      failed_start_threshold_ms: entry.threshold_ms,
-      failed_start_running_ms: entry.running_ms,
-      recovery_command: `agentxchain reissue-turn --turn ${entry.turn_id} --reason ghost`,
-    };
-    changed = true;
-
-    // BUG-51 fix #6: Release budget reservation for ghost turns
-    delete budgetReservations[entry.turn_id];
-
-    emitRunEvent(root, 'turn_start_failed', {
-      run_id: state?.run_id || null,
-      phase: state?.phase || null,
-      status: 'blocked',
-      turn: { turn_id: entry.turn_id, role_id: entry.role },
-      payload: {
-        running_ms: entry.running_ms,
-        threshold_ms: entry.threshold_ms,
-        runtime_id: entry.runtime_id,
-        failure_type: entry.failure_type,
-        recommendation: entry.recommendation,
-      },
-    });
+    const applied = applyStartupFailureToActiveTurn(activeTurns, budgetReservations, entry, nowIso);
+    if (applied) {
+      emitStartupFailureEvent(root, state, entry);
+      changed = true;
+    }
   }
 
   // Process stale turns (BUG-47) — transition to stalled
@@ -271,32 +238,9 @@ export function reconcileStaleTurns(root, state, config) {
     return { stale_turns: stale, ghost_turns: ghosts, state, changed: false };
   }
 
-  const allDetected = [...ghosts, ...stale];
-  const primary = allDetected[0];
+  const nextState = buildBlockedStateFromEntries(state, activeTurns, budgetReservations, ghosts, stale, nowIso);
+  const primary = [...ghosts, ...stale][0];
   const category = ghosts.length > 0 ? 'ghost_turn' : 'stale_turn';
-  const blockedOn = allDetected.length === 1
-    ? `turn:${primary.failure_type ? 'failed_start' : 'stalled'}:${primary.turn_id}`
-    : ghosts.length > 0 ? 'turns:failed_start' : 'turns:stalled';
-
-  const nextState = {
-    ...state,
-    status: 'blocked',
-    active_turns: activeTurns,
-    budget_reservations: budgetReservations,
-    blocked_on: blockedOn,
-    blocked_reason: {
-      category,
-      blocked_at: nowIso,
-      turn_id: primary.turn_id,
-      recovery: {
-        typed_reason: category,
-        owner: 'human',
-        recovery_action: primary.recommendation,
-        turn_retained: true,
-        detail: primary.recommendation,
-      },
-    },
-  };
 
   safeWriteJson(join(root, '.agentxchain', 'state.json'), nextState);
   emitRunEvent(root, 'run_blocked', {
@@ -340,6 +284,51 @@ function resolveStartupThreshold(config) {
   return DEFAULT_STARTUP_WATCHDOG_MS;
 }
 
+export function failTurnStartup(root, state, config, turnId, details = {}) {
+  if (!state || typeof state !== 'object') {
+    return { ok: false, error: 'No governed state found' };
+  }
+
+  const turn = state.active_turns?.[turnId];
+  if (!turn) {
+    return { ok: false, error: `Turn ${turnId} not found in active turns` };
+  }
+
+  const nowIso = new Date().toISOString();
+  const activeTurns = { ...(state.active_turns || {}) };
+  const budgetReservations = { ...(state.budget_reservations || {}) };
+  const entry = {
+    turn_id: turnId,
+    role: turn.assigned_role || 'unknown',
+    runtime_id: turn.runtime_id || 'unknown',
+    running_ms: details.running_ms ?? computeLifecycleAgeMs(turn),
+    threshold_ms: details.threshold_ms ?? resolveStartupThreshold(config),
+    failure_type: details.failure_type || 'no_subprocess_output',
+    recommendation: details.recommendation
+      || `Turn ${turnId} failed to start cleanly. Run \`agentxchain reissue-turn --turn ${turnId} --reason ghost\` to recover.`,
+  };
+
+  if (!applyStartupFailureToActiveTurn(activeTurns, budgetReservations, entry, nowIso)) {
+    return { ok: false, error: `Turn ${turnId} is not eligible for startup failure transition` };
+  }
+
+  const nextState = buildBlockedStateFromEntries(state, activeTurns, budgetReservations, [entry], [], nowIso);
+  safeWriteJson(join(root, '.agentxchain', 'state.json'), nextState);
+  emitStartupFailureEvent(root, state, entry);
+  emitRunEvent(root, 'run_blocked', {
+    run_id: nextState.run_id || null,
+    phase: nextState.phase || null,
+    status: 'blocked',
+    turn: { turn_id: entry.turn_id, role_id: entry.role },
+    payload: {
+      category: 'ghost_turn',
+      ghost_turn_ids: [entry.turn_id],
+      stalled_turn_ids: [],
+    },
+  });
+  return { ok: true, state: nextState, turn: nextState.active_turns?.[turnId] || null };
+}
+
 function hasRecentTurnEventActivity(root, turnId, startedAt, threshold, now) {
   try {
     const events = readRunEvents(root, { limit: 200 });
@@ -358,6 +347,108 @@ function hasRecentTurnEventActivity(root, turnId, startedAt, threshold, now) {
     return false;
   }
   return false;
+}
+
+function applyStartupFailureToActiveTurn(activeTurns, budgetReservations, entry, nowIso) {
+  const turn = activeTurns[entry.turn_id];
+  if (!turn || !['dispatched', 'starting', 'running', 'retrying'].includes(turn.status)) {
+    return false;
+  }
+
+  activeTurns[entry.turn_id] = {
+    ...turn,
+    status: 'failed_start',
+    failed_start_at: nowIso,
+    failed_start_reason: entry.failure_type,
+    failed_start_previous_status: turn.status,
+    failed_start_threshold_ms: entry.threshold_ms,
+    failed_start_running_ms: entry.running_ms,
+    recovery_command: `agentxchain reissue-turn --turn ${entry.turn_id} --reason ghost`,
+  };
+  delete budgetReservations[entry.turn_id];
+  return true;
+}
+
+function emitStartupFailureEvent(root, state, entry) {
+  emitRunEvent(root, 'turn_start_failed', {
+    run_id: state?.run_id || null,
+    phase: state?.phase || null,
+    status: 'blocked',
+    turn: { turn_id: entry.turn_id, role_id: entry.role },
+    payload: {
+      running_ms: entry.running_ms,
+      threshold_ms: entry.threshold_ms,
+      runtime_id: entry.runtime_id,
+      failure_type: entry.failure_type,
+      recommendation: entry.recommendation,
+    },
+  });
+}
+
+function buildBlockedStateFromEntries(state, activeTurns, budgetReservations, ghosts, stale, nowIso) {
+  const allDetected = [...ghosts, ...stale];
+  const primary = allDetected[0];
+  const category = ghosts.length > 0 ? 'ghost_turn' : 'stale_turn';
+  const blockedOn = allDetected.length === 1
+    ? `turn:${primary.failure_type ? 'failed_start' : 'stalled'}:${primary.turn_id}`
+    : ghosts.length > 0 ? 'turns:failed_start' : 'turns:stalled';
+
+  return {
+    ...state,
+    status: 'blocked',
+    active_turns: activeTurns,
+    budget_reservations: budgetReservations,
+    blocked_on: blockedOn,
+    blocked_reason: {
+      category,
+      blocked_at: nowIso,
+      turn_id: primary.turn_id,
+      recovery: {
+        typed_reason: category,
+        owner: 'human',
+        recovery_action: primary.recommendation,
+        turn_retained: true,
+        detail: primary.recommendation,
+      },
+    },
+  };
+}
+
+function parseGhostLifecycleStart(turn) {
+  if (turn.status === 'dispatched') {
+    return Date.parse(turn.dispatched_at || turn.assigned_at || '');
+  }
+  return Date.parse(turn.started_at || turn.dispatched_at || turn.assigned_at || '');
+}
+
+function computeLifecycleAgeMs(turn) {
+  const start = parseGhostLifecycleStart(turn);
+  if (!Number.isFinite(start)) return 0;
+  return Math.max(0, Date.now() - start);
+}
+
+function readDispatchProgressSafe(progressPath) {
+  if (!existsSync(progressPath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(progressPath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function hasStartupProof(turn, progress) {
+  if (turn.first_output_at) {
+    return true;
+  }
+  if (!progress || typeof progress !== 'object') {
+    return false;
+  }
+  if (progress.first_output_at) {
+    return true;
+  }
+  return Number(progress.output_lines || 0) > 0 || Number(progress.stderr_lines || 0) > 0;
 }
 
 function hasTurnScopedStagedResult(root, turnId) {

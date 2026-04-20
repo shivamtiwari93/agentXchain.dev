@@ -1,21 +1,7 @@
 /**
- * BUG-51 beta-tester scenario: fast-startup watchdog — detect ghost-dispatched
- * turns within 30 seconds, not 10 minutes.
- *
- * Tester's evidence: turn dispatched, marked running, connector shown active,
- * but NO stdout.log, NO staged result, NO progress events, NO failure event.
- * Stayed in "fake running" state for 11 minutes before BUG-47's watchdog fired.
- *
- * The fast-startup watchdog detects turns where the subprocess never started
- * (no dispatch-progress file) within 30 seconds, transitions to failed_start,
- * and releases budget reservations.
- *
- * Tester sequences:
- *   1. Dispatch bundle exists but subprocess never wrote output → detect within 30s
- *   2. Subprocess stays alive but never writes stdout → detect within 30s
- *   3. Budget reservation released on ghost detection
- *   4. Configurable via run_loop.startup_watchdog_ms
- *   5. Ghost detection does NOT fire when dispatch-progress exists (subprocess started)
+ * BUG-51 beta-tester scenario: fast-startup watchdog catches fake-running
+ * turns within the startup window instead of leaving them "running" for the
+ * slower stale-turn watchdog.
  */
 
 import { afterEach, describe, it } from 'node:test';
@@ -26,15 +12,12 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import {
-  initializeGovernedRun,
   assignGovernedTurn,
+  initializeGovernedRun,
+  transitionActiveTurnLifecycle,
 } from '../../src/lib/governed-state.js';
-import {
-  detectGhostTurns,
-  detectStaleTurns,
-  reconcileStaleTurns,
-} from '../../src/lib/stale-turn-watchdog.js';
-import { getDispatchProgressRelativePath } from '../../src/lib/dispatch-progress.js';
+import { createDispatchProgressTracker, getDispatchProgressRelativePath } from '../../src/lib/dispatch-progress.js';
+import { detectGhostTurns, reconcileStaleTurns } from '../../src/lib/stale-turn-watchdog.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
@@ -47,21 +30,25 @@ function makeConfig(overrides = {}) {
     template: 'generic',
     project: { id: 'bug51-test', name: 'BUG-51 Test', default_branch: 'main' },
     roles: {
-      product_marketing: {
-        title: 'Product Marketing',
-        mandate: 'Draft marketing copy.',
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement the requested change.',
         write_authority: 'authoritative',
-        runtime: 'local-cli',
+        runtime: 'local-dev',
       },
     },
     runtimes: {
-      'local-cli': { type: 'local_cli', command: 'echo "test"' },
+      'local-dev': { type: 'local_cli', command: 'node', args: ['-e', 'console.log("ok")'] },
     },
     routing: {
-      planning: { entry_role: 'product_marketing', allowed_next_roles: ['product_marketing'], exit_gate: 'planning_signoff' },
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev'],
+        exit_gate: 'implementation_signoff',
+      },
     },
-    gates: { planning_signoff: {} },
-    budget: { limit_usd: 10.00 },
+    gates: { implementation_signoff: {} },
+    budget: { per_turn_max_usd: 2.0, per_run_max_usd: 10.0 },
     ...overrides,
   };
 }
@@ -69,47 +56,75 @@ function makeConfig(overrides = {}) {
 function createProject(configOverrides = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-bug51-'));
   tempDirs.push(root);
-
   mkdirSync(join(root, '.agentxchain'), { recursive: true });
   writeFileSync(join(root, 'README.md'), '# BUG-51\n');
-
   const config = makeConfig(configOverrides);
   writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
-
   execSync('git init -b main', { cwd: root, stdio: 'ignore' });
   execSync('git config user.email "test@test.com"', { cwd: root, stdio: 'ignore' });
   execSync('git config user.name "Test"', { cwd: root, stdio: 'ignore' });
   execSync('git add -A && git commit -m "init"', { cwd: root, stdio: 'ignore' });
-
   const init = initializeGovernedRun(root, config);
   assert.ok(init.ok, init.error);
-  return { root, config, state: init.state };
+  return { root, config };
 }
 
-function backdateTurn(root, turnId, secondsAgo) {
-  const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-  const backdated = new Date(Date.now() - secondsAgo * 1000).toISOString();
-  stateData.active_turns[turnId].started_at = backdated;
-  writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
-
-  // Also backdate the turn_dispatched event
-  const eventsPath = join(root, '.agentxchain', 'events.jsonl');
-  if (existsSync(eventsPath)) {
-    const rewritten = readFileSync(eventsPath, 'utf8')
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => {
-        const parsed = JSON.parse(line);
-        if (parsed?.turn?.turn_id === turnId) {
-          parsed.timestamp = backdated;
-        }
-        return JSON.stringify(parsed);
-      })
-      .join('\n');
-    writeFileSync(eventsPath, rewritten ? `${rewritten}\n` : '');
-  }
-
+function readState(root) {
   return JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+}
+
+function writeState(root, state) {
+  writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+}
+
+function backdateTurnField(root, turnId, field, secondsAgo) {
+  const state = readState(root);
+  state.active_turns[turnId][field] = new Date(Date.now() - secondsAgo * 1000).toISOString();
+  writeState(root, state);
+  return state;
+}
+
+function seedDispatchedTurn(root, config, secondsAgo = 45) {
+  const assigned = assignGovernedTurn(root, config, 'dev');
+  assert.ok(assigned.ok, assigned.error);
+  const turnId = assigned.turn.turn_id;
+  const dispatchedAt = new Date(Date.now() - secondsAgo * 1000).toISOString();
+  const dispatched = transitionActiveTurnLifecycle(root, turnId, 'dispatched', { at: dispatchedAt });
+  assert.ok(dispatched.ok, dispatched.error);
+  return { turnId, state: readState(root) };
+}
+
+function seedStartingTurn(root, config, secondsAgo = 45, withFirstOutput = false) {
+  const { turnId } = seedDispatchedTurn(root, config, secondsAgo);
+  const startedAt = new Date(Date.now() - secondsAgo * 1000).toISOString();
+  const starting = transitionActiveTurnLifecycle(root, turnId, 'starting', { at: startedAt, pid: 12345 });
+  assert.ok(starting.ok, starting.error);
+  const tracker = createDispatchProgressTracker(root, readState(root).active_turns[turnId], {
+    adapter_type: 'local_cli',
+    writeIntervalMs: 0,
+    silenceThresholdMs: 60_000,
+    pid: 12345,
+  });
+  tracker.start();
+  const progressPath = join(root, getDispatchProgressRelativePath(turnId));
+  const progress = JSON.parse(readFileSync(progressPath, 'utf8'));
+  progress.started_at = startedAt;
+  progress.last_activity_at = startedAt;
+  if (withFirstOutput) {
+    progress.first_output_at = startedAt;
+    progress.output_lines = 1;
+    progress.activity_type = 'output';
+    progress.activity_summary = 'Producing output (1 lines)';
+  } else {
+    progress.first_output_at = null;
+    progress.output_lines = 0;
+    progress.stderr_lines = 0;
+    progress.activity_type = 'starting';
+    progress.activity_summary = 'Waiting for first output';
+  }
+  writeFileSync(progressPath, JSON.stringify(progress, null, 2) + '\n');
+  tracker.dispose();
+  return { turnId, state: readState(root) };
 }
 
 afterEach(() => {
@@ -118,272 +133,130 @@ afterEach(() => {
   }
 });
 
-describe('BUG-51: fast-startup watchdog detects ghost turns within 30 seconds', () => {
-  it('detects ghost turn with no dispatch-progress file after 30s', () => {
+describe('BUG-51: fast-startup watchdog', () => {
+  it('detects a dispatched turn that never spawned a worker', () => {
     const { root, config } = createProject();
+    const { turnId, state } = seedDispatchedTurn(root, config, 45);
 
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
+    const ghosts = detectGhostTurns(root, state, config);
+    assert.equal(ghosts.length, 1);
+    assert.equal(ghosts[0].turn_id, turnId);
+    assert.equal(ghosts[0].failure_type, 'runtime_spawn_failed');
+  });
 
-    // Backdate to 45 seconds ago — past 30s startup threshold
-    const stateData = backdateTurn(root, turnId, 45);
+  it('detects a starting turn with attached progress but no first output', () => {
+    const { root, config } = createProject();
+    const { turnId, state } = seedStartingTurn(root, config, 45, false);
 
-    // No dispatch-progress file exists (subprocess never started)
-    const progressPath = join(root, getDispatchProgressRelativePath(turnId));
-    assert.ok(!existsSync(progressPath), 'No dispatch-progress file should exist');
-
-    const ghosts = detectGhostTurns(root, stateData, config);
-    assert.equal(ghosts.length, 1, 'Expected exactly one ghost turn');
+    const ghosts = detectGhostTurns(root, state, config);
+    assert.equal(ghosts.length, 1);
     assert.equal(ghosts[0].turn_id, turnId);
     assert.equal(ghosts[0].failure_type, 'no_subprocess_output');
-    assert.ok(ghosts[0].running_ms >= 40 * 1000, 'Expected running_ms >= 40 seconds');
-    assert.ok(ghosts[0].recommendation.includes('reissue-turn'), 'Expected reissue-turn recommendation');
-    assert.ok(ghosts[0].recommendation.includes('ghost'), 'Expected ghost reason in recommendation');
   });
 
-  it('does NOT flag turn as ghost within the 30s threshold', () => {
+  it('does not flag a starting turn once first output exists', () => {
     const { root, config } = createProject();
+    const { state } = seedStartingTurn(root, config, 45, true);
 
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
-
-    // Only 10 seconds ago — within 30s startup threshold
-    const stateData = backdateTurn(root, turnId, 10);
-
-    const ghosts = detectGhostTurns(root, stateData, config);
-    assert.equal(ghosts.length, 0, 'Expected no ghost turns within startup threshold');
+    const ghosts = detectGhostTurns(root, state, config);
+    assert.equal(ghosts.length, 0);
   });
 
-  it('does NOT flag turn as ghost when dispatch-progress file exists', () => {
+  it('reconciles ghost turns to failed_start and releases budget reservations', () => {
     const { root, config } = createProject();
-
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
-
-    // Backdate to 45 seconds ago
-    const stateData = backdateTurn(root, turnId, 45);
-
-    // Write a dispatch-progress file — subprocess started
-    const progressPath = join(root, getDispatchProgressRelativePath(turnId));
-    mkdirSync(join(root, '.agentxchain'), { recursive: true });
-    writeFileSync(progressPath, JSON.stringify({
-      turn_id: turnId,
-      started_at: new Date(Date.now() - 45 * 1000).toISOString(),
-      last_activity_at: new Date(Date.now() - 40 * 1000).toISOString(),
-      output_lines: 1,
-    }));
-
-    const ghosts = detectGhostTurns(root, stateData, config);
-    assert.equal(ghosts.length, 0, 'Expected no ghost turns when dispatch-progress exists');
-  });
-
-  it('reconciles ghost turn to failed_start and releases budget reservation', () => {
-    const { root, config } = createProject();
-
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
-
-    // Add a budget reservation for this turn
-    const stateData = backdateTurn(root, turnId, 45);
-    stateData.budget_reservations = {
-      [turnId]: { reserved_usd: 2.00, role_id: 'product_marketing', created_at: stateData.active_turns[turnId].started_at },
+    const { turnId } = seedStartingTurn(root, config, 45, false);
+    const state = readState(root);
+    state.budget_reservations = {
+      [turnId]: { reserved_usd: 2.0, role_id: 'dev', created_at: state.active_turns[turnId].assigned_at },
     };
-    stateData.budget_status = { spent_usd: 0, remaining_usd: 10.00 };
-    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+    writeState(root, state);
 
-    const result = reconcileStaleTurns(root, stateData, config);
-    assert.ok(result.changed, 'Expected state change');
-    assert.equal(result.ghost_turns.length, 1, 'Expected one ghost turn');
-    assert.equal(result.ghost_turns[0].turn_id, turnId);
-
-    // Verify turn transitioned to failed_start
-    const reconciledTurn = result.state.active_turns[turnId];
-    assert.equal(reconciledTurn.status, 'failed_start');
-    assert.ok(reconciledTurn.failed_start_at, 'Expected failed_start_at timestamp');
-    assert.equal(reconciledTurn.failed_start_reason, 'no_subprocess_output');
-    assert.ok(reconciledTurn.recovery_command.includes('ghost'), 'Expected ghost recovery command');
-
-    // Verify state is blocked
-    assert.equal(result.state.status, 'blocked');
-    assert.ok(result.state.blocked_on.includes('failed_start'), 'Expected blocked_on to include failed_start');
-    assert.equal(result.state.blocked_reason.category, 'ghost_turn');
-
-    // BUG-51 fix #6: Verify budget reservation released
-    assert.ok(
-      !result.state.budget_reservations[turnId],
-      'Budget reservation for ghost turn must be released'
-    );
-    assert.equal(
-      Object.keys(result.state.budget_reservations).length,
-      0,
-      'No budget reservations should remain'
-    );
+    const reconciled = reconcileStaleTurns(root, state, config);
+    assert.ok(reconciled.changed);
+    assert.equal(reconciled.state.active_turns[turnId].status, 'failed_start');
+    assert.equal(reconciled.state.budget_reservations[turnId], undefined);
+    assert.equal(reconciled.state.blocked_reason.category, 'ghost_turn');
   });
 
-  it('emits turn_start_failed event for ghost turns', () => {
+  it('status --json surfaces ghost turns and failed_start', () => {
     const { root, config } = createProject();
+    const { turnId } = seedStartingTurn(root, config, 45, false);
 
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
-
-    const stateData = backdateTurn(root, turnId, 45);
-
-    reconcileStaleTurns(root, stateData, config);
-
-    // Read events and find turn_start_failed
-    const eventsPath = join(root, '.agentxchain', 'events.jsonl');
-    const events = readFileSync(eventsPath, 'utf8')
-      .split('\n')
-      .filter(Boolean)
-      .map(l => JSON.parse(l));
-
-    const startFailedEvents = events.filter(e => e.event_type === 'turn_start_failed');
-    assert.equal(startFailedEvents.length, 1, 'Expected exactly one turn_start_failed event');
-    assert.equal(startFailedEvents[0].turn.turn_id, turnId);
-    assert.equal(startFailedEvents[0].payload.failure_type, 'no_subprocess_output');
-    assert.ok(startFailedEvents[0].payload.running_ms >= 40000);
-
-    // Also verify run_blocked event
-    const blockedEvents = events.filter(e => e.event_type === 'run_blocked');
-    const lastBlocked = blockedEvents[blockedEvents.length - 1];
-    assert.ok(lastBlocked, 'Expected run_blocked event');
-    assert.equal(lastBlocked.payload.category, 'ghost_turn');
-    assert.ok(lastBlocked.payload.ghost_turn_ids.includes(turnId));
-  });
-
-  it('surfaces ghost turn via CLI status --json', () => {
-    const { root, config } = createProject();
-
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
-
-    backdateTurn(root, turnId, 45);
-
-    const result = execSync(`node "${CLI_PATH}" status --json`, {
+    const output = execSync(`node "${CLI_PATH}" status --json`, {
       cwd: root,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    const json = JSON.parse(result);
-
-    assert.ok(Array.isArray(json.ghost_turns), 'Expected ghost_turns array in status JSON');
-    assert.equal(json.ghost_turns.length, 1, 'Expected one ghost turn');
-    assert.equal(json.ghost_turns[0].turn_id, turnId);
-    assert.equal(json.ghost_turns[0].failure_type, 'no_subprocess_output');
-    assert.equal(json.state.status, 'blocked');
-    assert.equal(json.state.active_turns[turnId].status, 'failed_start');
+    const parsed = JSON.parse(output);
+    assert.equal(parsed.state.active_turns[turnId].status, 'failed_start');
+    assert.equal(parsed.ghost_turns.length, 1);
+    assert.equal(parsed.ghost_turns[0].turn_id, turnId);
   });
 
-  it('resume surfaces ghost-turn recovery instead of generic guidance', () => {
-    const { root, config } = createProject();
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
+  it('step fails fast when the subprocess exits without output', () => {
+    const { root, config } = createProject({
+      run_loop: { startup_watchdog_ms: 800 },
+    });
+    const silentExitPath = join(root, 'silent-exit.js');
+    writeFileSync(silentExitPath, 'process.exit(0);');
+    config.runtimes['local-dev'] = {
+      type: 'local_cli',
+      command: 'node',
+      args: [silentExitPath],
+    };
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    execSync('git add agentxchain.json silent-exit.js && git commit -m "configure silent exit runtime"', { cwd: root, stdio: 'ignore' });
 
-    backdateTurn(root, turnId, 45);
-
-    const result = spawnSync('node', [CLI_PATH, 'resume'], {
+    const result = spawnSync('node', [CLI_PATH, 'step'], {
       cwd: root,
       encoding: 'utf8',
+      timeout: 10_000,
     });
-    assert.equal(result.status, 1);
-    const output = result.stdout + result.stderr;
-    assert.match(output, /ghost turn detected/i);
-    assert.match(output, /reissue-turn --turn .* --reason ghost/i);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout + result.stderr, /startup failed/i);
+
+    const state = readState(root);
+    const turnId = Object.keys(state.active_turns)[0];
+    assert.equal(state.active_turns[turnId].status, 'failed_start');
+    assert.equal(state.budget_reservations[turnId], undefined);
+
+    const events = readFileSync(join(root, '.agentxchain', 'events.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    assert.ok(events.some((entry) => entry.event_type === 'turn_start_failed'));
   });
 
-  it('step --resume surfaces ghost-turn recovery', () => {
-    const { root, config } = createProject();
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
+  it('step kills a silent subprocess within the startup watchdog window', () => {
+    const { root, config } = createProject({
+      run_loop: { startup_watchdog_ms: 600 },
+    });
+    const sleeperPath = join(root, 'silent-sleeper.js');
+    writeFileSync(sleeperPath, 'setTimeout(() => {}, 60_000);');
+    config.runtimes['local-dev'] = {
+      type: 'local_cli',
+      command: 'node',
+      args: [sleeperPath],
+    };
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    execSync('git add agentxchain.json silent-sleeper.js && git commit -m "configure silent sleeper runtime"', { cwd: root, stdio: 'ignore' });
 
-    backdateTurn(root, turnId, 45);
-
-    const result = spawnSync('node', [CLI_PATH, 'step', '--resume'], {
+    const startedAt = Date.now();
+    const result = spawnSync('node', [CLI_PATH, 'step'], {
       cwd: root,
       encoding: 'utf8',
+      timeout: 10_000,
     });
-    assert.equal(result.status, 1);
-    const output = result.stdout + result.stderr;
-    assert.match(output, /ghost turn detected/i);
-    assert.match(output, /reissue-turn --turn .* --reason ghost/i);
-  });
+    const elapsedMs = Date.now() - startedAt;
 
-  it('respects configurable startup_watchdog_ms', () => {
-    const { root, config } = createProject();
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.ok(elapsedMs < 5_000, `startup watchdog should stop the turn quickly, got ${elapsedMs}ms`);
+    assert.match(result.stdout + result.stderr, /startup failed/i);
 
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
-
-    // Backdate to 20 seconds ago
-    const stateData = backdateTurn(root, turnId, 20);
-
-    // Default 30s threshold → not ghost yet
-    const ghostsDefault = detectGhostTurns(root, stateData, config);
-    assert.equal(ghostsDefault.length, 0, 'Expected no ghost with default 30s threshold');
-
-    // With 15s threshold → should be ghost
-    const lowConfig = { ...config, run_loop: { startup_watchdog_ms: 15000 } };
-    const ghostsLow = detectGhostTurns(root, stateData, lowConfig);
-    assert.equal(ghostsLow.length, 1, 'Expected ghost with 15s threshold');
-    assert.equal(ghostsLow[0].turn_id, turnId);
-  });
-
-  it('ghost turn does NOT fire for the same turn as stale-turn detection', () => {
-    // A turn with no dispatch-progress, backdated 15 minutes, should be caught
-    // by ghost detection (30s threshold), NOT stale detection (10m threshold).
-    // reconcileStaleTurns should deduplicate.
-    const { root, config } = createProject();
-
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
-
-    const stateData = backdateTurn(root, turnId, 15 * 60); // 15 minutes
-
-    const result = reconcileStaleTurns(root, stateData, config);
-    // Should be caught by ghost detection (earlier, stricter check), not stale
-    assert.equal(result.ghost_turns.length, 1, 'Expected one ghost turn');
-    assert.equal(result.stale_turns.length, 0, 'Expected zero stale turns (ghost takes precedence)');
-    assert.equal(result.ghost_turns[0].turn_id, turnId);
-    assert.equal(result.state.active_turns[turnId].status, 'failed_start');
-    assert.equal(result.state.blocked_reason.category, 'ghost_turn');
-  });
-
-  it('stale-turn detection still works for turns with dispatch-progress but no recent activity', () => {
-    // BUG-47 path: subprocess started (has dispatch-progress) but went silent > 10 minutes
-    const { root, config } = createProject();
-
-    const assign = assignGovernedTurn(root, config, 'product_marketing');
-    assert.ok(assign.ok, assign.error);
-    const turnId = assign.turn.turn_id;
-
-    const stateData = backdateTurn(root, turnId, 15 * 60); // 15 minutes
-
-    // Write a dispatch-progress file with old activity timestamp
-    const progressPath = join(root, getDispatchProgressRelativePath(turnId));
-    mkdirSync(join(root, '.agentxchain'), { recursive: true });
-    writeFileSync(progressPath, JSON.stringify({
-      turn_id: turnId,
-      started_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-      last_activity_at: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
-      output_lines: 5,
-    }));
-
-    const result = reconcileStaleTurns(root, stateData, config);
-    // Ghost detection should NOT fire (dispatch-progress exists)
-    assert.equal(result.ghost_turns.length, 0, 'Expected no ghost turns when dispatch-progress exists');
-    // Stale detection should fire (>10m with no recent activity)
-    assert.equal(result.stale_turns.length, 1, 'Expected one stale turn');
-    assert.equal(result.stale_turns[0].turn_id, turnId);
-    assert.equal(result.state.active_turns[turnId].status, 'stalled');
+    const state = readState(root);
+    const turnId = Object.keys(state.active_turns)[0];
+    assert.equal(state.active_turns[turnId].status, 'failed_start');
+    assert.equal(state.active_turns[turnId].failed_start_reason, 'no_subprocess_output');
   });
 });

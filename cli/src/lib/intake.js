@@ -8,6 +8,7 @@ import {
   assignGovernedTurn,
   getActiveTurns,
   getActiveTurnCount,
+  transitionActiveTurnLifecycle,
   STATE_PATH,
 } from './governed-state.js';
 import { loadProjectContext, loadProjectState } from './config.js';
@@ -1094,6 +1095,7 @@ export function startIntent(root, intentId, options = {}) {
       run_id: state.run_id,
       role: assignedTurn.assigned_role,
     });
+    transitionActiveTurnLifecycle(root, assignedTurn.turn_id, 'dispatched');
   }
 
   // Update intent: planned → executing

@@ -96,14 +96,29 @@ function backdateTurnEvents(root, turnId, minutesAgo = 20) {
  * path rather than the "subprocess never started" path.
  */
 function seedOldDispatchProgress(root, turnId, minutesAgo = 20) {
+  const startedAt = new Date(Date.now() - minutesAgo * 60 * 1000).toISOString();
   const progressPath = join(root, getDispatchProgressRelativePath(turnId));
   mkdirSync(join(root, '.agentxchain'), { recursive: true });
   writeFileSync(progressPath, JSON.stringify({
     turn_id: turnId,
-    started_at: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
+    started_at: startedAt,
+    first_output_at: startedAt,
     last_activity_at: new Date(Date.now() - (minutesAgo - 1) * 60 * 1000).toISOString(),
+    activity_type: 'output',
+    activity_summary: 'Producing output (3 lines)',
     output_lines: 3,
+    stderr_lines: 0,
   }));
+}
+
+function markTurnRunning(root, turnId, minutesAgo = 15) {
+  const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+  const startedAt = new Date(Date.now() - minutesAgo * 60 * 1000).toISOString();
+  stateData.active_turns[turnId].status = 'running';
+  stateData.active_turns[turnId].started_at = startedAt;
+  stateData.active_turns[turnId].first_output_at = startedAt;
+  writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+  return stateData;
 }
 
 afterEach(() => {
@@ -122,12 +137,10 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     const turnId = assign.turn.turn_id;
 
     // Manually backdate the turn's started_at to 15 minutes ago
-    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-    const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    stateData.active_turns[turnId].started_at = fifteenMinAgo;
-    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+    const stateData = markTurnRunning(root, turnId, 15);
 
     backdateTurnEvents(root, turnId);
+    seedOldDispatchProgress(root, turnId, 15);
 
     // Run detectStaleTurns — should find the stale turn
     const staleTurns = detectStaleTurns(root, stateData, config);
@@ -146,10 +159,8 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     const turnId = assign.turn.turn_id;
 
     // Set started_at to 2 minutes ago (well within 10-minute default)
-    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-    const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-    stateData.active_turns[turnId].started_at = twoMinAgo;
-    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+    const stateData = markTurnRunning(root, turnId, 2);
+    seedOldDispatchProgress(root, turnId, 2);
 
     const staleTurns = detectStaleTurns(root, stateData, config);
     assert.equal(staleTurns.length, 0, 'Expected no stale turns within threshold');
@@ -163,10 +174,7 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     const turnId = assign.turn.turn_id;
 
     // Backdate to 15 minutes ago
-    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-    const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    stateData.active_turns[turnId].started_at = fifteenMinAgo;
-    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+    markTurnRunning(root, turnId, 15);
 
     backdateTurnEvents(root, turnId);
 
@@ -195,9 +203,7 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     assert.ok(first.ok, first.error);
     const staleTurnId = first.turn.turn_id;
 
-    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-    stateData.active_turns[staleTurnId].started_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+    const stateData = markTurnRunning(root, staleTurnId, 15);
 
     // Seed old dispatch-progress (subprocess started but went silent)
     seedOldDispatchProgress(root, staleTurnId, 15);
@@ -226,9 +232,7 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     assert.ok(assign.ok, assign.error);
     const turnId = assign.turn.turn_id;
 
-    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-    stateData.active_turns[turnId].started_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+    markTurnRunning(root, turnId, 15);
 
     backdateTurnEvents(root, turnId);
     // Seed old dispatch-progress (subprocess started but went silent)
@@ -249,9 +253,7 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     assert.ok(assign.ok, assign.error);
     const turnId = assign.turn.turn_id;
 
-    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-    stateData.active_turns[turnId].started_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+    markTurnRunning(root, turnId, 15);
 
     backdateTurnEvents(root, turnId);
     // Seed old dispatch-progress (subprocess started but went silent)
@@ -274,12 +276,10 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     const turnId = assign.turn.turn_id;
 
     // Set started_at to 2 minutes ago
-    const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-    const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-    stateData.active_turns[turnId].started_at = twoMinAgo;
-    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+    const stateData = markTurnRunning(root, turnId, 2);
 
     backdateTurnEvents(root, turnId, 5);
+    seedOldDispatchProgress(root, turnId, 2);
 
     // With 1 minute threshold, this should be stale
     const lowConfig = { ...config, run_loop: { stale_turn_threshold_ms: 60000 } };

@@ -17,6 +17,7 @@ import { createInterface } from 'readline';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
+import { transitionActiveTurnLifecycle } from '../lib/governed-state.js';
 import { runLoop } from '../lib/run-loop.js';
 import { buildRunExport } from '../lib/export.js';
 import { buildGovernanceReport, formatGovernanceReportMarkdown } from '../lib/report.js';
@@ -49,6 +50,7 @@ import { resolveContinuousOptions, executeContinuousRun } from '../lib/continuou
 import { createDispatchProgressTracker } from '../lib/dispatch-progress.js';
 import { emitRunEvent } from '../lib/run-events.js';
 import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
+import { failTurnStartup } from '../lib/stale-turn-watchdog.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
@@ -314,20 +316,49 @@ export async function executeGovernedRun(context, opts = {}) {
       if (!manifestResult.ok) {
         return { accept: false, reason: `dispatch manifest failed: ${manifestResult.error}` };
       }
+      transitionActiveTurnLifecycle(projectRoot, turn.turn_id, 'dispatched');
 
       // ── Route to adapter ──────────────────────────────────────────────
       const tracker = createDispatchProgressTracker(projectRoot, turn, {
         adapter_type: runtimeType,
       });
+      let startupStarted = false;
+      let runningMarked = false;
+
+      const ensureStartingState = (pid = null, at = new Date().toISOString()) => {
+        if (startupStarted) return;
+        startupStarted = true;
+        transitionActiveTurnLifecycle(projectRoot, turn.turn_id, 'starting', { pid, at });
+        tracker.start();
+        if (pid != null) {
+          tracker.setPid(pid);
+        }
+        emitRunEvent(projectRoot, 'dispatch_progress', {
+          run_id: state.run_id,
+          phase: state.phase,
+          status: state.status,
+          turn: { turn_id: turn.turn_id, assigned_role: roleId },
+          payload: { milestone: 'started', output_lines: 0, elapsed_seconds: 0, silent_seconds: 0 },
+        });
+      };
+
+      const ensureRunningState = (stream = 'stdout', at = new Date().toISOString()) => {
+        if (runningMarked) return;
+        runningMarked = true;
+        transitionActiveTurnLifecycle(projectRoot, turn.turn_id, 'running', { stream, at });
+      };
 
       const adapterOpts = {
         signal: combineAbortSignals(controller.signal, ctx.dispatchAbortSignal),
         onStatus: (msg) => log(chalk.dim(`  ${msg}`)),
         verifyManifest: true,
         turnId: turn.turn_id,
+        onSpawnAttached: ({ pid, at }) => ensureStartingState(pid, at),
+        onFirstOutput: ({ at, stream }) => ensureRunningState(stream, at),
       };
 
       const recordOutputActivity = (stream, text) => {
+        ensureRunningState(stream);
         const lines = text.split('\n').length - 1 || 1;
         const wasSilent = tracker.onOutput(stream, lines);
         if (wasSilent) {
@@ -368,23 +399,17 @@ export async function executeGovernedRun(context, opts = {}) {
 
       let adapterResult;
 
-      // Emit dispatch_progress started event and begin tracking
-      tracker.start();
-      emitRunEvent(projectRoot, 'dispatch_progress', {
-        run_id: state.run_id,
-        phase: state.phase,
-        status: state.status,
-        turn: { turn_id: turn.turn_id, assigned_role: roleId },
-        payload: { milestone: 'started', output_lines: 0, elapsed_seconds: 0, silent_seconds: 0 },
-      });
-
       try {
         if (runtimeType === 'api_proxy') {
+          ensureStartingState(null);
+          ensureRunningState('request');
           log(chalk.dim(`  Dispatching to API proxy: ${runtime?.provider || '?'} / ${runtime?.model || '?'}`));
           tracker.requestStarted();
           adapterResult = await dispatchApiProxy(projectRoot, state, cfg, adapterOpts);
           if (adapterResult.ok) tracker.responseReceived();
         } else if (runtimeType === 'mcp') {
+          ensureStartingState(null);
+          ensureRunningState('request');
           const transport = resolveMcpTransport(runtime);
           log(chalk.dim(`  Dispatching to MCP ${transport}: ${describeMcpRuntimeTarget(runtime)}`));
           tracker.requestStarted();
@@ -395,6 +420,8 @@ export async function executeGovernedRun(context, opts = {}) {
           log(chalk.dim(`  Dispatching to local CLI: ${runtime?.command || '(default)'}  transport: ${transport}`));
           adapterResult = await dispatchLocalCli(projectRoot, state, cfg, adapterOpts);
         } else if (runtimeType === 'remote_agent') {
+          ensureStartingState(null);
+          ensureRunningState('request');
           log(chalk.dim(`  Dispatching to remote agent: ${describeRemoteAgentTarget(runtime)}`));
           tracker.requestStarted();
           adapterResult = await dispatchRemoteAgent(projectRoot, state, cfg, adapterOpts);
@@ -411,6 +438,10 @@ export async function executeGovernedRun(context, opts = {}) {
           payload: { milestone: 'failed', output_lines: tracker.getState().output_lines, elapsed_seconds: Math.round((Date.now() - new Date(tracker.getState().started_at)) / 1000), silent_seconds: 0 },
         });
         throw err;
+      }
+
+      if (adapterResult.ok && runtimeType === 'local_cli' && !runningMarked) {
+        ensureRunningState('staged_result', adapterResult.firstOutputAt || new Date().toISOString());
       }
 
       // Emit completion/failure progress event and clean up tracker
@@ -437,6 +468,19 @@ export async function executeGovernedRun(context, opts = {}) {
       // Timed out
       if (adapterResult.timedOut) {
         return { accept: false, reason: 'dispatch timed out' };
+      }
+
+      if (adapterResult.startupFailure) {
+        const freshState = loadProjectState(projectRoot, cfg) || state;
+        failTurnStartup(projectRoot, freshState, cfg, turn.turn_id, {
+          failure_type: adapterResult.startupFailureType || 'no_subprocess_output',
+          threshold_ms: cfg?.run_loop?.startup_watchdog_ms ?? 30_000,
+          running_ms: freshState?.active_turns?.[turn.turn_id]?.started_at
+            ? Math.max(0, Date.now() - new Date(freshState.active_turns[turn.turn_id].started_at).getTime())
+            : 0,
+          recommendation: `Turn ${turn.turn_id} failed to start within the startup watchdog window. Run \`agentxchain reissue-turn --turn ${turn.turn_id} --reason ghost\` to recover.`,
+        });
+        return { accept: false, blocked: true, reason: adapterResult.error || 'turn startup failed' };
       }
 
       // Adapter failure

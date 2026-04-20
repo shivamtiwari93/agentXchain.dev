@@ -3,7 +3,7 @@
 ## 2.146.0
 
 ### Bug Fixes
-- **BUG-51 fast-startup ghost-turn watchdog**: a new 30-second startup watchdog now detects ghost-dispatched turns whose subprocess never started or never attached stdout, transitions them to a retained `failed_start` state, emits a `turn_start_failed` event, and surfaces an explicit `reissue-turn --reason ghost` recovery path in `status`, `resume`, and `step --resume`. Distinct from BUG-47's stale-turn watchdog, which targets turns whose subprocess started but went silent.
+- **BUG-51 fast-startup ghost-turn watchdog**: a new 30-second startup watchdog now detects ghost-dispatched turns that never reach real startup proof, splitting the lifecycle into `assigned -> dispatched -> starting -> running` and requiring first output or equivalent staged-result evidence before a turn is considered `running`. Ghost turns transition to retained `failed_start`, emit `turn_start_failed`, and surface an explicit `reissue-turn --reason ghost` recovery path in `status`, `resume`, and `step --resume`. Distinct from BUG-47's stale-turn watchdog, which targets turns whose subprocess started but went silent.
 - **BUG-51 budget reservation release**: stale-turn and ghost-turn reconciliation now release the failed turn's USD budget reservation immediately on detection so reissued turns do not contend for budget that the framework already considered spent.
 - **BUG-47 tester-sequence test accuracy**: stale-turn beta-tester scenarios now seed dispatch-progress before backdating turn timestamps so they exercise the "subprocess started but went silent" path that BUG-47 actually covers, instead of overlapping with BUG-51's ghost-turn path.
 
@@ -15,7 +15,7 @@
 - BUG-50 remains open pending tester verification on `v2.145.0` per discipline rule #12
 
 ### Deferred (documented decisions, not gaps)
-- Tester fix #2 (split `dispatched`/`starting`/`running` turn states) — deferred per `DEC-BUG51-INTERMEDIATE-STATES-DEFERRED-001`. Dispatch-progress file presence/absence is a sufficient and lower-risk signal than a state-machine refactor.
+- Tester fix #2 (split `dispatched`/`starting`/`running` turn states) — implemented on HEAD and no longer deferred. `DEC-BUG51-INTERMEDIATE-STATES-DEFERRED-001` was superseded after the dispatch path audit proved that raw dispatch-progress file presence was not authoritative startup evidence.
 - Tester fix #5 (auto-reissue ghost turns) — deferred per `DEC-BUG51-AUTO-REISSUE-DEFERRED-001`. Operators should see ghost turns explicitly before the framework auto-recovers them.
 
 ### Evidence

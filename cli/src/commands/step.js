@@ -36,6 +36,7 @@ import {
   getActiveTurns,
   reactivateGovernedRun,
   refreshTurnBaselineSnapshot,
+  transitionActiveTurnLifecycle,
   STATE_PATH,
 } from '../lib/governed-state.js';
 import { getMaxConcurrentTurns } from '../lib/normalized-config.js';
@@ -70,7 +71,7 @@ import { resolveGovernedRole } from '../lib/role-resolution.js';
 import { shouldSuggestManualQaFallback } from '../lib/manual-qa-fallback.js';
 import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
-import { reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
+import { failTurnStartup, reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -448,6 +449,10 @@ export async function stepCommand(opts) {
       console.log(chalk.red(`Failed to finalize dispatch manifest: ${manifestResult.error}`));
       process.exit(1);
     }
+    const dispatched = transitionActiveTurnLifecycle(root, turn.turn_id, 'dispatched');
+    if (dispatched.ok) {
+      state = dispatched.state;
+    }
   }
 
   const controller = new AbortController();
@@ -456,6 +461,13 @@ export async function stepCommand(opts) {
   });
 
   if (runtimeType === 'api_proxy') {
+    const running = transitionActiveTurnLifecycle(root, turn.turn_id, 'running', {
+      stream: 'request',
+      at: new Date().toISOString(),
+    });
+    if (running.ok) {
+      state = running.state;
+    }
     console.log(chalk.cyan(`Dispatching to API proxy: ${runtime?.provider || '(unknown)'} / ${runtime?.model || '(unknown)'}`));
     console.log(chalk.dim(`Turn: ${turn.turn_id}  Role: ${roleId}  Phase: ${state.phase}`));
 
@@ -535,6 +547,13 @@ export async function stepCommand(opts) {
     }
     console.log('');
   } else if (runtimeType === 'mcp') {
+    const running = transitionActiveTurnLifecycle(root, turn.turn_id, 'running', {
+      stream: 'request',
+      at: new Date().toISOString(),
+    });
+    if (running.ok) {
+      state = running.state;
+    }
     const mcpTransport = resolveMcpTransport(runtime);
     console.log(chalk.cyan(`Dispatching to MCP ${mcpTransport}: ${describeMcpRuntimeTarget(runtime)}`));
     console.log(chalk.dim(`Turn: ${turn.turn_id}  Role: ${roleId}  Phase: ${state.phase}  Tool: ${runtime?.tool_name || 'agentxchain_turn'}`));
@@ -589,6 +608,13 @@ export async function stepCommand(opts) {
     console.log(chalk.green(`MCP tool completed${mcpResult.toolName ? ` (${mcpResult.toolName})` : ''}. Staged result detected.`));
     console.log('');
   } else if (runtimeType === 'remote_agent') {
+    const running = transitionActiveTurnLifecycle(root, turn.turn_id, 'running', {
+      stream: 'request',
+      at: new Date().toISOString(),
+    });
+    if (running.ok) {
+      state = running.state;
+    }
     console.log(chalk.cyan(`Dispatching to remote agent: ${describeRemoteAgentTarget(runtime)}`));
     console.log(chalk.dim(`Turn: ${turn.turn_id}  Role: ${roleId}  Phase: ${state.phase}`));
 
@@ -667,8 +693,25 @@ export async function stepCommand(opts) {
 
     // BUG-6: stream subprocess output by default (--stream or --verbose), suppress with --quiet
     const shouldStream = opts.stream || opts.verbose || false;
+    let runningMarked = false;
+    const ensureStartingState = (pid = null, at = new Date().toISOString()) => {
+      const starting = transitionActiveTurnLifecycle(root, turn.turn_id, 'starting', { pid, at });
+      if (starting.ok) {
+        state = starting.state;
+      }
+    };
+    const ensureRunningState = (stream = 'stdout', at = new Date().toISOString()) => {
+      if (runningMarked) return;
+      runningMarked = true;
+      const running = transitionActiveTurnLifecycle(root, turn.turn_id, 'running', { stream, at });
+      if (running.ok) {
+        state = running.state;
+      }
+    };
     const cliResult = await dispatchLocalCli(root, state, config, {
       signal: controller.signal,
+      onSpawnAttached: ({ pid, at }) => ensureStartingState(pid, at),
+      onFirstOutput: ({ at, stream }) => ensureRunningState(stream, at),
       onStdout: shouldStream ? (text) => process.stdout.write(chalk.dim(text)) : undefined,
       onStderr: shouldStream ? (text) => process.stderr.write(chalk.yellow(text)) : undefined,
       verifyManifest: true,
@@ -714,6 +757,28 @@ export async function stepCommand(opts) {
       process.exit(1);
     }
 
+    if (cliResult.startupFailure) {
+      const freshState = loadProjectState(root, config) || state;
+      const failed = failTurnStartup(root, freshState, config, turn.turn_id, {
+        failure_type: cliResult.startupFailureType || 'no_subprocess_output',
+        threshold_ms: config?.run_loop?.startup_watchdog_ms ?? 30_000,
+        running_ms: freshState?.active_turns?.[turn.turn_id]?.started_at
+          ? Math.max(0, Date.now() - new Date(freshState.active_turns[turn.turn_id].started_at).getTime())
+          : 0,
+        recommendation: `Turn ${turn.turn_id} failed to start within the startup watchdog window. Run \`agentxchain reissue-turn --turn ${turn.turn_id} --reason ghost\` to recover.`,
+      });
+      if (failed.ok) {
+        state = failed.state;
+      }
+
+      console.log('');
+      console.log(chalk.red(`Turn startup failed: ${cliResult.error}`));
+      console.log(chalk.dim('The turn was retained as failed_start. You can:'));
+      console.log(chalk.dim(`  - Reissue immediately: agentxchain reissue-turn --turn ${turn.turn_id} --reason ghost`));
+      console.log(chalk.dim('  - Inspect status: agentxchain status'));
+      process.exit(1);
+    }
+
     if (!cliResult.ok) {
       const blocked = markRunBlocked(root, {
         blockedOn: `dispatch:${cliResult.exitCode != null ? `exit-${cliResult.exitCode}` : 'subprocess_failed'}`,
@@ -742,6 +807,10 @@ export async function stepCommand(opts) {
       console.log(chalk.dim('  - Fix and retry: agentxchain step --resume'));
       console.log(chalk.dim('  - Reject: agentxchain reject-turn --reason "subprocess failed"'));
       process.exit(1);
+    }
+
+    if (!runningMarked) {
+      ensureRunningState('staged_result', cliResult.firstOutputAt || new Date().toISOString());
     }
 
     console.log(chalk.green('Subprocess completed. Staged result detected.'));

@@ -71,9 +71,10 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
     runtime_id: turn.runtime_id || null,
     adapter_type,
     started_at: null,
+    first_output_at: null,
     last_activity_at: null,
-    activity_type: 'output',
-    activity_summary: 'Dispatch starting',
+    activity_type: 'starting',
+    activity_summary: 'Waiting for first output',
     output_lines: 0,
     stderr_lines: 0,
     silent_since: null,
@@ -123,7 +124,7 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
       const now = new Date().toISOString();
       state.started_at = now;
       state.last_activity_at = now;
-      state.activity_type = 'output';
+      state.activity_type = 'starting';
       state.activity_summary = 'Subprocess started';
       dirty = true;
       writeProgress();
@@ -137,6 +138,7 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
       const now = new Date().toISOString();
       const wasSilent = state.activity_type === 'silent';
       state.last_activity_at = now;
+      state.first_output_at = state.first_output_at || now;
       state.activity_type = 'output';
       state.silent_since = null;
       if (stream === 'stderr') {
