@@ -139,6 +139,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
     let settled = false;
     let firstOutputAt = null;
+    let spawnConfirmedAt = null;
     let startupWatchdog = null;
     let startupTimedOut = false;
     let startupFailureType = null;
@@ -156,24 +157,10 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       }
     };
 
-    const recordFirstOutput = (stream) => {
-      if (firstOutputAt) return;
-      firstOutputAt = new Date().toISOString();
-      clearStartupWatchdog();
-      if (onFirstOutput) {
-        try {
-          onFirstOutput({ pid: child.pid ?? null, at: firstOutputAt, stream });
-        } catch {}
+    const armStartupWatchdog = () => {
+      if (startupWatchdog || !(startupWatchdogMs > 0 && Number.isFinite(startupWatchdogMs))) {
+        return;
       }
-    };
-
-    if (onSpawnAttached) {
-      try {
-        onSpawnAttached({ pid: child.pid ?? null, at: new Date().toISOString() });
-      } catch {}
-    }
-
-    if (startupWatchdogMs > 0 && Number.isFinite(startupWatchdogMs)) {
       startupWatchdog = setTimeout(() => {
         if (firstOutputAt || isStagedResultReady(join(root, getTurnStagingResultPath(turn.turn_id)))) {
           return;
@@ -185,7 +172,28 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
           child.kill('SIGTERM');
         } catch {}
       }, startupWatchdogMs);
-    }
+    };
+
+    const recordFirstOutput = (stream) => {
+      if (firstOutputAt) return;
+      firstOutputAt = new Date().toISOString();
+      clearStartupWatchdog();
+      if (onFirstOutput) {
+        try {
+          onFirstOutput({ pid: child.pid ?? null, at: firstOutputAt, stream });
+        } catch {}
+      }
+    };
+
+    child.once('spawn', () => {
+      spawnConfirmedAt = new Date().toISOString();
+      if (onSpawnAttached) {
+        try {
+          onSpawnAttached({ pid: child.pid ?? null, at: spawnConfirmedAt });
+        } catch {}
+      }
+      armStartupWatchdog();
+    });
 
     // Deliver prompt via stdin if transport is "stdin"; otherwise close immediately
     if (child.stdin) {
@@ -289,6 +297,18 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
           startupWatchdogMs,
           firstOutputAt,
           error: `Subprocess produced no output within ${Math.round(startupWatchdogMs / 1000)}s and did not stage a turn result.`,
+          logs,
+        });
+      } else if (!spawnConfirmedAt) {
+        settle({
+          ok: false,
+          exitCode,
+          timedOut: false,
+          aborted: false,
+          startupFailure: true,
+          startupFailureType: 'runtime_spawn_failed',
+          firstOutputAt,
+          error: `Subprocess exited (code ${exitCode}) before reporting a successful spawn or staging a turn result.`,
           logs,
         });
       } else if (timedOut) {

@@ -2211,6 +2211,12 @@ describe('claim-reality preflight', () => {
     const packedRunLoop = readFileSync(join(packageDir, 'src/lib/run-loop.js'), 'utf8');
     assert.match(packedRunLoop, /hasMinimumTurnResultShape/,
       'packed run-loop.js must enforce the minimum staged-result envelope at the SDK boundary (DEC-RUN-LOOP-MIN-SHAPE-SYMMETRY-001)');
+
+    const packedLocalCliAdapter = readFileSync(join(packageDir, 'src/lib/adapters/local-cli-adapter.js'), 'utf8');
+    assert.match(packedLocalCliAdapter, /child\.once\('spawn'/,
+      'packed local-cli-adapter.js must treat the child `spawn` event as the worker-attachment proof boundary, not child-process object creation');
+    assert.match(packedLocalCliAdapter, /startupFailureType:\s*'runtime_spawn_failed'/,
+      'packed local-cli-adapter.js must retain the typed runtime_spawn_failed path when a child never reports a successful spawn');
   });
 
   it('BUG-51 packaged CLI detects a ghost turn and transitions to failed_start within the startup window', async () => {

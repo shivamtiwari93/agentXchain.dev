@@ -496,6 +496,57 @@ describe('local-cli-adapter', () => {
       assert.equal(result.ok, false);
       assert.ok(result.error);
     });
+
+    it('calls onSpawnAttached only after the child reports a successful spawn', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const turnResult = makeValidTurnResult(state);
+      const scriptContent = `
+        const fs = require('fs');
+        const path = require('path');
+        const stagingDir = path.join(process.cwd(), ${JSON.stringify(join('.agentxchain', 'staging', state.current_turn.turn_id))});
+        fs.mkdirSync(stagingDir, { recursive: true });
+        fs.writeFileSync(path.join(stagingDir, 'turn-result.json'), JSON.stringify(${JSON.stringify(turnResult)}, null, 2));
+        console.log('spawned');
+      `;
+      const scriptPath = join(root, '_spawn-success.js');
+      writeFileSync(scriptPath, scriptContent);
+
+      const config = makeConfig({
+        command: ['node', scriptPath],
+      });
+      setupDispatchBundle(root, state, config);
+
+      const attached = [];
+      const result = await dispatchLocalCli(root, state, config, {
+        onSpawnAttached: (details) => attached.push(details),
+      });
+      assert.equal(result.ok, true);
+      assert.equal(attached.length, 1);
+      assert.ok(Number.isInteger(attached[0].pid) && attached[0].pid > 0, `expected real child pid, got ${attached[0].pid}`);
+      assert.ok(attached[0].at, 'spawn callback should receive an attachment timestamp');
+    });
+
+    it('does not call onSpawnAttached when the subprocess never spawns', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const config = makeConfig({
+        command: ['nonexistent_binary_xyz_spawn_guard'],
+      });
+      setupDispatchBundle(root, state, config);
+
+      let attachedCalls = 0;
+      const result = await dispatchLocalCli(root, state, config, {
+        onSpawnAttached: () => {
+          attachedCalls += 1;
+        },
+      });
+
+      assert.equal(result.ok, false);
+      assert.equal(result.startupFailure, true);
+      assert.equal(result.startupFailureType, 'runtime_spawn_failed');
+      assert.equal(attachedCalls, 0, 'spawn callback must not run for a process that never spawned');
+    });
   });
 
   describe('saveDispatchLogs', () => {

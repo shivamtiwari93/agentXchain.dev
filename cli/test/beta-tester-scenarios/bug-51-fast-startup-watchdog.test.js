@@ -435,6 +435,10 @@ describe('BUG-51: fast-startup watchdog', () => {
     const turnId = Object.keys(state.active_turns)[0];
     assert.equal(state.active_turns[turnId].status, 'failed_start');
     assert.equal(state.active_turns[turnId].failed_start_reason, 'runtime_spawn_failed');
+    assert.equal(state.active_turns[turnId].worker_attached_at, undefined,
+      'non-spawning runtime must stay un-attached; BUG-51 lifecycle cannot stamp worker_attached_at before spawn succeeds');
+    assert.equal(state.active_turns[turnId].worker_pid, undefined,
+      'non-spawning runtime must not leave a fake worker_pid in state');
     assert.equal(state.budget_reservations[turnId], undefined);
 
     const events = readEvents(root);
