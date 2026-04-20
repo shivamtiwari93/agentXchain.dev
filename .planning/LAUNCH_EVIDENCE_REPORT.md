@@ -1,9 +1,11 @@
 # Launch Evidence Report — AgentXchain v2.148.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-20 for the v2.148.0 release-prep surface. BUG-54, BUG-55 sub-A, and BUG-55 sub-B remain open pending tester verification on `v2.148.0` per discipline rule #12; BUG-52 and BUG-53 carry forward from v2.147.0. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-20 for the v2.148.0 release-prep surface. BUG-54, BUG-55 sub-A, BUG-55 sub-B, and the BUG-55 combined operator-shape remain open pending tester verification on `v2.148.0` per discipline rule #12; BUG-52 and BUG-53 carry forward from v2.147.0. Current aggregate release evidence:
 >
 > - node --test cli/test/beta-tester-scenarios/*.test.js → 153 tests / 61 suites / 0 failures
 > - node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
+> - node --test cli/test/beta-tester-scenarios/bug-55-combined-tester-shape.test.js → 2 pass / 0 fail (cross-defect operator-chain proof)
+> - node --test cli/test/current-release-surface.test.js → 23 pass / 0 fail (BUG-55 combined-shape tester rerun contract enforced by `AT-CRS-022`)
 
 ---
 
@@ -289,6 +291,35 @@
 - **What it does NOT prove**:
   - Hook behavior with long-running or hanging hook processes
   - Hook behavior under concurrent turns (v1.1 scope)
+
+### E6 — BUG-55 Combined Operator-Shape Regression
+
+- **Date**: 2026-04-20
+- **Location**: `cli/test/beta-tester-scenarios/bug-55-combined-tester-shape.test.js`
+- **Spec**: `.planning/BUG_55_COMBINED_OPERATOR_SHAPE_SPEC.md`
+- **Result**: 2 pass / 0 fail via separate child-process CLI invocations (`spawnSync(process.execPath, [CLI_PATH, ...])`)
+- **What it proves**:
+  - Cross-defect interaction: sub-A (checkpoint completeness) and sub-B (undeclared verification outputs) exercised in one repo state using the tester's exact paths from `run_5fa4a26c3973e02d`
+  - Reject branch (no `produced_files`): `accept-turn` exits non-zero, every fixture path appears in `acceptance_failed.payload.unexpected_dirty_files`, none of the four declared `files_changed` paths leak into that list, error names `verification.produced_files` as remediation, turn ends `failed_acceptance`
+  - Accept-and-checkpoint branch (all four fixtures declared `disposition: 'ignore'`): `accept-turn` exits 0, BUG-46 cleanup removes every fixture from the tree, `checkpoint-turn` exits 0, HEAD commit's diff-tree contains every declared path, no fixture leaks into the commit, `git status --short` empty, `state.accepted_integration_ref` matches `^git:`, `state.last_completed_turn_id === turnId`
+  - Tightest assertion: "no fixture leaked into the commit" catches the inverse of sub-B (over-commit) which the in-isolation tests do not exercise
+- **What it does NOT prove**:
+  - Tester-quoted shipped-package output (HUMAN-ROADMAP discipline rule #12)
+  - Combined-shape behavior against extracted tarball source — by `DEC-BUG55-COMBINED-PACKED-SMOKE-001` the existing BUG-55A / BUG-55B packed rows plus the repo-side combined regression are sufficient; no new packed row added unless a concrete packaging regression class is named
+
+### E7 — Public Tester Rerun Contract for BUG-55 Combined Shape (v2.148.0)
+
+- **Date**: 2026-04-20
+- **Location**: `website-v2/docs/releases/v2-148-0.mdx:50`
+- **Runbook spec**: `.planning/V2_148_TESTER_VERIFICATION_RUNBOOK_SPEC.md`
+- **Guard**: `cli/test/current-release-surface.test.js` `AT-CRS-022`
+- **Result**: release-surface guard passes — both `accept-turn` followed by `checkpoint-turn` and `Clean tree means BUG-55 is fixed for your reproduction` are CI-enforced on the published release page
+- **What it proves**:
+  - Public surface carries an explicit operator contract for the combined BUG-55 shape (same QA turn declares `files_changed` + verification produces fixture outputs → quote `git status --short` after `accept-turn` + `checkpoint-turn`)
+  - Contract wording is mechanically enforced: silent deletion fails `AT-CRS-022`
+  - Runbook spec freezes the acceptance-test list so future doc edits must preserve the `accept-turn` → `checkpoint-turn` clean-tree proof
+- **What it does NOT prove**:
+  - Tester has actually executed the sequence — closure still awaits rule #12 tester-quoted output from a shipped package
 
 ---
 
