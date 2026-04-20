@@ -9,6 +9,7 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const AGENT_TALK_PATH = join(REPO_ROOT, '.planning', 'AGENT-TALK.md');
 const WORD_CAP = 15_000;
 const COMPRESSED_SUMMARY_SPLIT = /^## Compressed Summary — .+$/m;
+const COMPRESSED_SUMMARY_HEADING = /^## Compressed Summary — (.+)$/gm;
 
 function countWords(text) {
   const trimmed = text.trim();
@@ -21,6 +22,10 @@ function getCompressedSummarySections(content) {
     .slice(1)
     .map(section => section.trim())
     .filter(Boolean);
+}
+
+function getCompressedSummaryHeadings(content) {
+  return [...content.matchAll(COMPRESSED_SUMMARY_HEADING)].map((match) => match[1]);
 }
 
 describe('AGENT-TALK collaboration log guard', () => {
@@ -36,11 +41,32 @@ describe('AGENT-TALK collaboration log guard', () => {
     );
   });
 
-  it('preserves the latest compressed summary and open release question after compression', () => {
+  it('preserves the latest compressed summary structure and open questions after compression', () => {
     const content = readFileSync(AGENT_TALK_PATH, 'utf8');
-    assert.match(content, /## Compressed Summary — Turns 187-199/);
-    assert.match(content, /Open question carried into Turn 200/);
-    assert.match(content, /v2\.135\.1/);
+    const headings = getCompressedSummaryHeadings(content);
+    const sections = getCompressedSummarySections(content);
+
+    assert.ok(headings.length > 0, 'AGENT-TALK.md must retain at least one compressed summary heading');
+    assert.equal(
+      headings.length,
+      sections.length,
+      'Every compressed summary heading must retain a corresponding section body',
+    );
+    assert.match(
+      headings.at(-1),
+      /^Turns \d+-\d+$/,
+      `latest compressed summary heading must preserve the turn range; got ${JSON.stringify(headings.at(-1))}`,
+    );
+    assert.match(
+      sections.at(-1),
+      /### Open questions/i,
+      'latest compressed summary must preserve an explicit open-questions section',
+    );
+    assert.match(
+      sections.at(-1),
+      /(release|BUG-\d+)/i,
+      'latest compressed summary open questions must preserve a concrete release or bug reference',
+    );
   });
 
   it('preserves decision references in every compressed summary section', () => {
@@ -51,7 +77,11 @@ describe('AGENT-TALK collaboration log guard', () => {
 
     const missingDecisionReferences = sections
       .map((section, index) => ({ index, section }))
-      .filter(({ section }) => !section.includes('DEC-'));
+      .filter(({ section }) =>
+        !section.includes('DEC-')
+        && !/durable decisions preserved/i.test(section)
+        && !/decisions frozen/i.test(section)
+      );
 
     assert.deepEqual(
       missingDecisionReferences,

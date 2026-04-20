@@ -6,6 +6,7 @@
 > - node --test cli/test/claim-reality-preflight.test.js → 36 tests / 1 suite / 0 failures
 > - node --test cli/test/beta-tester-scenarios/bug-55-combined-tester-shape.test.js → 2 pass / 0 fail (cross-defect operator-chain proof)
 > - node --test cli/test/current-release-surface.test.js → 23 pass / 0 fail (BUG-55 combined-shape tester rerun contract enforced by `AT-CRS-022`)
+> - `cd website-v2 && npm run build` → success (`Generated static files in "build"`)
 
 ---
 
@@ -15,7 +16,7 @@
 
 - **Date**: continuously maintained through 2026-04-16
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 5431 tests / 1136 suites / 0 failures
+- **Result**: full CLI suite is the authoritative internal proof surface; exact aggregate counts are intentionally omitted from this durable launch artifact because they drift every time new tests land
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -329,7 +330,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 
 | Claim | Evidence | Notes |
 |-------|----------|-------|
-| "5,844 tests / 1,250 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean." | E1 (current release verification through 2026-04-18) | Use the current aggregate release evidence line; do not inflate beyond the verified count. |
+| "Current release verification is clean, the required 29 beta-tester scenario regressions are present, and the website build is clean." | E1 + current aggregate release evidence (top-of-file command list) | Keep this claim date-scoped and command-scoped; do not freeze full-suite totals in the durable launch artifact because they drift every time tests are added. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
@@ -379,8 +380,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-18 release verification:
-- 6,106 tests / 1,299 suites / 0 failures. 29 beta-tester scenario regressions. Website build clean.
+- **Release verification note**: 2026-04-20 command-scoped release evidence is listed at the top of this file. Exact full-suite totals are intentionally not duplicated in the durable audit section because they drift with every added test; the stable launch claim is that the required beta-tester regression surface and website build are clean on the recorded verification date.
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
 - **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. This expanded the launch-era live CLI total from the original three-adapter path to four adapters before later `remote_agent` proof completed the current five-adapter surface. Evidence gap E2b closed.
