@@ -5248,7 +5248,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
  * Reject a governed turn.
  *
  * 1. Preserve the invalid staged artifact under .agentxchain/dispatch/rejected/
- * 2. Increment current_turn.attempt or escalate if retries exhausted
+ * 2. Increment the active turn's attempt counter or escalate if retries exhausted
  * 3. Clear staging file
  *
  * Does NOT append to history.jsonl or decision-ledger.jsonl.

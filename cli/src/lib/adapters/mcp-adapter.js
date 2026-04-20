@@ -12,6 +12,7 @@ import {
   getTurnStagingResultPath,
 } from '../turn-paths.js';
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
+import { hasMinimumTurnResultShape } from '../turn-result-shape.js';
 
 export const DEFAULT_MCP_TOOL_NAME = 'agentxchain_turn';
 export const DEFAULT_MCP_TRANSPORT = 'stdio';
@@ -237,7 +238,7 @@ export function extractTurnResultFromMcpToolResult(toolResult) {
 
   for (const block of textBlocks) {
     const parsed = tryParseJson(block.text);
-    if (looksLikeTurnResult(parsed) || isPlainObject(parsed)) {
+    if (looksLikeTurnResult(parsed)) {
       return { ok: true, result: parsed };
     }
   }
@@ -336,10 +337,7 @@ function isPlainObject(value) {
 }
 
 function looksLikeTurnResult(value) {
-  if (!isPlainObject(value)) return false;
-  const hasIdentity = 'run_id' in value || 'turn_id' in value;
-  const hasLifecycle = 'status' in value || 'role' in value || 'runtime_id' in value;
-  return hasIdentity && hasLifecycle;
+  return hasMinimumTurnResultShape(value);
 }
 
 function tryParseJson(value) {

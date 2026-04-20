@@ -24,6 +24,7 @@ import {
   getTurnStagingResultPath,
 } from '../turn-paths.js';
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
+import { hasMinimumTurnResultShape } from '../turn-result-shape.js';
 
 /** Default timeout for remote agent requests (ms). */
 export const DEFAULT_REMOTE_AGENT_TIMEOUT_MS = 120_000;
@@ -195,7 +196,7 @@ export async function dispatchRemoteAgent(root, state, config, options = {}) {
 
     // Validate turn result structure (lightweight — full validation happens in the acceptance pipeline)
     if (!looksLikeTurnResult(responseData)) {
-      logs.push('[remote] Response missing required turn-result fields (need at least run_id/turn_id + status/role)');
+      logs.push('[remote] Response missing minimum governed turn-result fields (need schema_version + identity + lifecycle fields)');
       return {
         ok: false,
         error: 'Remote agent response does not contain a valid turn result',
@@ -230,10 +231,7 @@ export async function dispatchRemoteAgent(root, state, config, options = {}) {
  * Full validation happens later via validateStagedTurnResult.
  */
 function looksLikeTurnResult(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const hasIdentity = 'run_id' in value || 'turn_id' in value;
-  const hasLifecycle = 'status' in value || 'role' in value || 'runtime_id' in value;
-  return hasIdentity && hasLifecycle;
+  return hasMinimumTurnResultShape(value);
 }
 
 function resolveTargetTurn(state, turnId) {

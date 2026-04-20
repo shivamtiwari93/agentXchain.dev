@@ -55,7 +55,7 @@ const RESERVED_PATHS = [
  * Write a dispatch bundle for the currently assigned turn.
  *
  * @param {string} root - project root directory
- * @param {object} state - current governed state (must have current_turn)
+ * @param {object} state - current governed state (must expose an active turn via active_turns; current_turn is a non-enumerable compatibility alias re-attached on load, not a persisted schema field)
  * @param {object} config - normalized config
  * @param {object} [opts]
  * @param {string} [opts.turnId]

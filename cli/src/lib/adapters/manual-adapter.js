@@ -10,17 +10,18 @@
  * auto-route, and does not pretend to be an orchestrator.
  */
 
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
   getDispatchPromptPath,
   getTurnStagingResultPath,
 } from '../turn-paths.js';
+import { hasMeaningfulStagedResult } from '../staged-result-proof.js';
 
 /**
  * Print operator instructions for a manual turn.
  *
- * @param {object} state - current governed state (must have current_turn)
+ * @param {object} state - current governed state (must expose an active turn via active_turns; current_turn is a non-enumerable compatibility alias re-attached on load, not a persisted schema field)
  * @param {object} config - normalized config
  * @param {object} [options]
  * @param {string} [options.turnId]
@@ -282,16 +283,14 @@ export async function waitForStagedResult(root, options = {}) {
 }
 
 /**
- * Check if the staged result file exists and is non-empty.
+ * Check if the staged result file exists and has meaningful content.
+ * Delegates to the shared `hasMeaningfulStagedResult` helper so watchdog,
+ * manual adapter, and local-cli adapter all agree on what counts as proof.
+ * Per DEC-BUG51-STAGING-PLACEHOLDER-NOT-PROOF-001, placeholders (`{}`, blank,
+ * whitespace-only, or `{}\n`) are cleanup artifacts, not evidence.
  */
 function isStagedResultReady(filePath) {
-  try {
-    if (!existsSync(filePath)) return false;
-    const stat = statSync(filePath);
-    return stat.size > 2; // Must be more than just "{}" or empty
-  } catch {
-    return false;
-  }
+  return hasMeaningfulStagedResult(filePath);
 }
 
 /**

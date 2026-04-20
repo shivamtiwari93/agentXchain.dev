@@ -219,6 +219,14 @@ Outcome:
 
 Standing refinement: compatibility aliases and pre-validation transitional shapes are not dead-branch candidates unless the audit proves callers can no longer observe them through any supported load or return path.
 
+## Standing staged-result proof rules
+
+- `DEC-STAGED-RESULT-PROOF-SHARED-001`
+  - The low-level "does this staged-result file count as execution proof?" check lives in exactly one helper: `cli/src/lib/staged-result-proof.js`'s `hasMeaningfulStagedResult()`. Adapter-side, watchdog-side, and any future recovery surface must call that helper instead of re-implementing placeholder filtering. This closes the BUG-51 false-proof class where `{}`, blank files, whitespace-only files, or `{}\n` could suppress ghost-turn recovery on one surface but not another.
+
+- `DEC-MINIMUM-TURN-RESULT-SHAPE-001`
+  - Adapter pre-stage validation is a separate contract from staged-file proof. Before any adapter writes JSON into the governed staging path, it must reject payloads that do not satisfy the minimum governed envelope: `schema_version` plus at least one identity field (`run_id` or `turn_id`) and one lifecycle field (`status`, `role`, or `runtime_id`). Rationale: once a payload is written into the staged-result path, it becomes durable execution evidence for BUG-51 surfaces. "Acceptance will reject it later" is not sufficient if the adapter itself was the layer that wrote obviously incomplete JSON into staging.
+
 ## Config Surface Validation Matrix
 
 BUG-51 exposed a separate failure mode outside dispatch itself: a config field can

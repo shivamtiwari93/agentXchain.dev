@@ -449,11 +449,11 @@ describe('mcp-adapter', () => {
 describe('extractTurnResultFromMcpToolResult', () => {
   it('prefers structuredContent when present', () => {
     const result = extractTurnResultFromMcpToolResult({
-      structuredContent: { run_id: 'run1', turn_id: 'turn1', status: 'completed' },
-      content: [{ type: 'text', text: '{"run_id":"wrong","turn_id":"wrong","status":"wrong"}' }],
+      structuredContent: { schema_version: '1.0', run_id: 'run1', turn_id: 'turn1', status: 'completed' },
+      content: [{ type: 'text', text: '{"schema_version":"1.0","run_id":"wrong","turn_id":"wrong","status":"wrong"}' }],
     });
     assert.equal(result.ok, true);
-    assert.deepEqual(result.result, { run_id: 'run1', turn_id: 'turn1', status: 'completed' });
+    assert.deepEqual(result.result, { schema_version: '1.0', run_id: 'run1', turn_id: 'turn1', status: 'completed' });
   });
 
   it('fails when response has no structured object payload', () => {
@@ -475,6 +475,22 @@ describe('extractTurnResultFromMcpToolResult', () => {
     });
     assert.equal(result.ok, true);
     assert.equal(result.result.turn_id, 'turn_nested');
+  });
+
+  it('rejects placeholder plain-object JSON text blocks', () => {
+    const result = extractTurnResultFromMcpToolResult({
+      content: [{ type: 'text', text: '{}' }],
+    });
+    assert.equal(result.ok, false);
+    assert.match(result.error, /valid turn-result JSON/);
+  });
+
+  it('rejects partial JSON text blocks missing schema_version', () => {
+    const result = extractTurnResultFromMcpToolResult({
+      content: [{ type: 'text', text: '{"turn_id":"turn_partial","status":"completed"}' }],
+    });
+    assert.equal(result.ok, false);
+    assert.match(result.error, /valid turn-result JSON/);
   });
 });
 

@@ -18,7 +18,7 @@
  */
 
 import { spawn } from 'child_process';
-import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import {
   getDispatchContextPath,
@@ -29,6 +29,7 @@ import {
   getTurnStagingResultPath,
 } from '../turn-paths.js';
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
+import { hasMeaningfulStagedResult } from '../staged-result-proof.js';
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -37,7 +38,7 @@ import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
  * passes them as the prompt to the configured CLI command.
  *
  * @param {string} root - project root directory
- * @param {object} state - current governed state (must have current_turn)
+ * @param {object} state - current governed state (must expose an active turn via active_turns; current_turn is a non-enumerable compatibility alias re-attached on load, not a persisted schema field)
  * @param {object} config - normalized config
  * @param {object} [options]
  * @param {AbortSignal} [options.signal] - abort signal for cancellation
@@ -421,15 +422,13 @@ function resolvePromptTransport(runtime) {
 
 /**
  * Check if the staged result file exists and has meaningful content.
+ * Delegates to the shared `hasMeaningfulStagedResult` helper so watchdog,
+ * manual adapter, and local-cli adapter all agree on what counts as proof.
+ * Per DEC-BUG51-STAGING-PLACEHOLDER-NOT-PROOF-001, placeholders (`{}`, blank,
+ * whitespace-only, or `{}\n`) are cleanup artifacts, not evidence.
  */
 function isStagedResultReady(filePath) {
-  try {
-    if (!existsSync(filePath)) return false;
-    const stat = statSync(filePath);
-    return stat.size > 2; // Must be more than just "{}" or empty
-  } catch {
-    return false;
-  }
+  return hasMeaningfulStagedResult(filePath);
 }
 
 function resolveTargetTurn(state, turnId) {

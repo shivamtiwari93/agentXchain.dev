@@ -8,8 +8,8 @@
  *   - resolves target role from routing or --role override
  *   - if idle + no run_id → initializeGovernedRun() + assign
  *   - if paused + run_id exists → resume same run + assign
- *   - if paused + current_turn with failed status → re-dispatch same turn
- *   - if active + current_turn exists → reject (no double assignment)
+ *   - if blocked + retained active turn with failed status → re-dispatch same turn
+ *   - if active + an active turn already exists → reject (no double assignment)
  *   - materializes a turn-scoped dispatch bundle under .agentxchain/dispatch/turns/<turn_id>/
  *   - exits without waiting for turn completion
  */

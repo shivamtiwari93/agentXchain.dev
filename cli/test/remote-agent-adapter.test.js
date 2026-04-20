@@ -222,6 +222,34 @@ describe('remote-agent adapter', () => {
   });
 
   describe('error paths', () => {
+    it('rejects a partial JSON object without schema_version and does not stage it', async () => {
+      await startServer((_req, res) => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ turn_id: 'turn_remote001', status: 'completed' }));
+      });
+
+      tmpDir = makeTmpDir();
+      const state = makeState();
+      const config = makeConfig(`http://localhost:${serverPort}`);
+      scaffoldDispatch(tmpDir, state);
+
+      const result = await dispatchRemoteAgent(tmpDir, state, config, {
+        skipManifestVerification: true,
+      });
+
+      assert.equal(result.ok, false);
+      assert.match(result.error, /valid turn result/);
+      assert.ok(
+        result.logs.some((line) => line.includes('minimum governed turn-result fields')),
+        'must explain the minimum-shape rejection',
+      );
+      assert.equal(
+        existsSync(join(tmpDir, getTurnStagingResultPath(state.current_turn.turn_id))),
+        false,
+        'must not stage partial JSON payloads',
+      );
+    });
+
     it('fails on non-2xx response', async () => {
       await startServer((_req, res) => {
         res.writeHead(500, { 'content-type': 'text/plain' });

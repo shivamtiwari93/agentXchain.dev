@@ -36,6 +36,7 @@ import { safeWriteJson } from './safe-write.js';
 import { emitRunEvent, readRunEvents } from './run-events.js';
 import { getTurnStagingResultPath } from './turn-paths.js';
 import { getDispatchProgressRelativePath } from './dispatch-progress.js';
+import { hasMeaningfulStagedResult } from './staged-result-proof.js';
 
 const DEFAULT_LOCAL_CLI_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 const DEFAULT_API_PROXY_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
@@ -489,7 +490,7 @@ function hasStartupProof(turn, progress) {
 
 function hasTurnScopedStagedResult(root, turnId) {
   const turnScopedPath = join(root, getTurnStagingResultPath(turnId));
-  if (hasMeaningfulTurnResultFile(turnScopedPath)) {
+  if (hasMeaningfulStagedResult(turnScopedPath)) {
     return true;
   }
 
@@ -501,19 +502,6 @@ function hasTurnScopedStagedResult(root, turnId) {
   try {
     const parsed = JSON.parse(readFileSync(legacyPath, 'utf8'));
     return parsed?.turn_id === turnId;
-  } catch {
-    return false;
-  }
-}
-
-function hasMeaningfulTurnResultFile(filePath) {
-  if (!existsSync(filePath)) {
-    return false;
-  }
-
-  try {
-    const raw = readFileSync(filePath, 'utf8').trim();
-    return raw !== '' && raw !== '{}';
   } catch {
     return false;
   }

@@ -75,7 +75,10 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
   const normContext = {};
   if (state) {
     normContext.phase = state.phase;
-    // Support both active_turns (v2+) and legacy current_turn formats
+    // Prefer active_turns (the persisted schema field); fall back to the
+    // current_turn compatibility alias for callers that pass a state shape
+    // built outside loadProjectState() (e.g. raw fixtures). Both surfaces are
+    // live per DEC-CURRENT-TURN-COMPAT-ALIAS-001 — current_turn is not legacy.
     const activeTurn = getActiveTurn(state) || state.current_turn;
     if (activeTurn) {
       const roleKey = activeTurn.assigned_role || activeTurn.role;

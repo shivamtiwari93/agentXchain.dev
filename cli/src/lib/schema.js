@@ -35,6 +35,13 @@ export function validateGovernedStateSchema(data) {
   // but validators and read-only surfaces still tolerate reserved/manual states.
   const VALID_RUN_STATUSES = ['idle', 'active', 'paused', 'blocked', 'completed', 'failed'];
   const isV1_1 = data?.schema_version === '1.1';
+  // NOTE: `current_turn` is the persisted v1.0 schema field. Under v1.1 it is
+  // not a persisted field at all — `loadProjectState()` re-attaches it as a
+  // non-enumerable getter alias over `active_turns` after normalization
+  // (DEC-CURRENT-TURN-COMPAT-ALIAS-001). This validator runs against the
+  // persisted shape, so an `own` property named `current_turn` on a v1.1 doc
+  // means "stray persisted-shape leak from a legacy write" and is rejected
+  // below — it does NOT mean the runtime alias is going away.
   const hasLegacyCurrentTurn = Object.prototype.hasOwnProperty.call(data || {}, 'current_turn');
 
   function validateTurn(turn, label) {
