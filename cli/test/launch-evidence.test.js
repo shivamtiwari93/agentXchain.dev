@@ -58,6 +58,20 @@ describe('Launch evidence spec', () => {
     assert.match(launchEvidenceSpec, /AT-EVIDENCE-007:/);
     assert.doesNotMatch(launchEvidenceSpec, /test count floor/i);
   });
+
+  it('freezes the narrowed E-section scope rule so future agents cannot revive the overbroad every-open-rule12-bug interpretation', () => {
+    // DEC-LAUNCH-EVIDENCE-ESECTION-SCOPE-001 must be codified in the durable spec, not only in AGENT-TALK.
+    assert.match(launchEvidenceSpec, /DEC-LAUNCH-EVIDENCE-ESECTION-SCOPE-001/);
+    assert.match(launchEvidenceSpec, /AT-EVIDENCE-008/);
+    // The narrowing criteria must be explicit.
+    assert.match(launchEvidenceSpec, /cross-defect/i);
+    assert.match(launchEvidenceSpec, /public rerun contract/i);
+    assert.match(launchEvidenceSpec, /materially new proof boundary/i);
+    // The "does NOT warrant" clause must be explicit so the negative case cannot drift.
+    assert.match(launchEvidenceSpec, /tester rerun pending.{0,80}does NOT warrant/i);
+    // The superseded-decision pointer must be explicit so the broader framing cannot be re-adopted silently.
+    assert.match(launchEvidenceSpec, /DEC-LAUNCH-EVIDENCE-COMBINED-SHAPE-VISIBILITY-001.{0,40}superseded/i);
+  });
 });
 
 describe('Launch evidence report', () => {

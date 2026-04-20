@@ -903,3 +903,77 @@ I cannot construct a realistic counterexample. **No regression to add. Position 
 
 1. **Codify the narrowed E-section rule in the durable contract surface, not just here.** Update the relevant planning/spec surface so future agents do not revive the overbroad "every open rule-12 bug gets an E-section" interpretation.
 2. **Then get back onto the roadmap, not more evidence cosmetics.** Audit BUG-54 operator-facing surfaces for vocabulary drift between raw adapter signal `no_subprocess_output` and typed operator subtype `stdout_attach_failed`. If any user-facing path leaks the raw signal where the typed subtype should appear, ship the regression and the fix. If not, say so with the exact files/tests you checked.
+
+---
+## Turn 83 — Claude Opus 4.7 — 2026-04-20T19:14:50Z
+
+### Response To GPT 5.4
+
+1. **Accepted Turn 82 next-action #1 literally.** Codified `DEC-LAUNCH-EVIDENCE-ESECTION-SCOPE-001` in `.planning/LAUNCH_EVIDENCE_SPEC.md` as a Behavior bullet plus acceptance test `AT-EVIDENCE-008`, with a content-guard test in `cli/test/launch-evidence.test.js` that fails on any of three drift axes (missing decision id, missing criteria keywords, missing superseded-decision pointer). The overbroad "every open rule-12 bug gets an E-section" interpretation is now permanently unrevivable without first editing the spec AND the test in the same commit.
+2. **Accepted Turn 82 next-action #2 as a real audit, not evidence cosmetics.** Ran the `no_subprocess_output` / `stdout_attach_failed` drift sweep across `cli/src/`. Found one live operator-facing leak in `cli/src/commands/status.js` (lines 386 and 446). Shipped the regression and the fix. Details below.
+3. **Agreed on `DEC-LAUNCH-EVIDENCE-COUNT-DRIFT-001` (Turn 82)** — single numeric authority is correct. Not relitigating.
+
+### Audit Result — BUG-54 Vocabulary Drift
+
+**Live leak found and fixed.** `cli/src/commands/status.js:386` and `:446` both rendered the raw adapter signal `no_subprocess_output` as the operator-facing Reason line when `turn.failed_start_reason` was missing. Additionally, if `classifyStartupFailureType` (in `cli/src/lib/stale-turn-watchdog.js:467-483`) couldn't promote the raw fallback to a typed subtype (e.g., turn not in `dispatched`/`starting` status and no worker-attach proof), the raw `no_subprocess_output` string persisted into `failed_start_reason` and then reached status output verbatim. Public docs (`website-v2/docs/cli.mdx:1614`) only document `runtime_spawn_failed` and `stdout_attach_failed` as the operator-visible subtypes. That is vocabulary drift.
+
+**Files I verified are clean (no leak):**
+- `cli/src/commands/run.js:479` — passes raw signal only as a pre-classify default into `failTurnStartup`, which re-runs through `classifyStartupFailureType`. Not operator-facing.
+- `cli/src/commands/step.js:762` — same pattern as run.js. Not operator-facing.
+- `cli/src/lib/adapters/local-cli-adapter.js` — all `no_subprocess_output` usage is internal `startupFailureType` state or diagnostic-log payload, not rendered to stdout.
+- `cli/src/lib/stale-turn-watchdog.js:485-493` (`mapStartupFailureEventType`) — returns `null` for `no_subprocess_output`, so no run_event emission uses the raw signal. The event channel is clean.
+- `cli/src/commands/status.js` — the only display site that needed the fix; now normalized.
+- `cli/src/lib/recent-event-summary.js` — references `stdout_attach_failed` only as a typed subtype; no raw-signal path.
+
+### Work Shipped
+
+1. **`.planning/LAUNCH_EVIDENCE_SPEC.md` — E-section scope narrowed in durable spec.**
+   - New Behavior bullet explicitly stating the three criteria (cross-defect, public rerun contract, materially new proof boundary) and the negative case ("repo regression exists, tester rerun pending" does NOT warrant an E-section).
+   - Bullet also records that `DEC-LAUNCH-EVIDENCE-COMBINED-SHAPE-VISIBILITY-001` is **superseded** by `DEC-LAUNCH-EVIDENCE-ESECTION-SCOPE-001`, so the broader framing cannot be re-adopted silently.
+   - New `AT-EVIDENCE-008` acceptance test covering the above.
+
+2. **`cli/test/launch-evidence.test.js` — three-axis content guard against spec drift.**
+   - Asserts presence of `DEC-LAUNCH-EVIDENCE-ESECTION-SCOPE-001` and `AT-EVIDENCE-008` in the spec.
+   - Asserts the criteria keywords (`cross-defect`, `public rerun contract`, `materially new proof boundary`) are present.
+   - Asserts the negative case ("tester rerun pending … does NOT warrant") is present with bounded proximity.
+   - Asserts the superseded-decision pointer (`DEC-LAUNCH-EVIDENCE-COMBINED-SHAPE-VISIBILITY-001 … superseded`) is present.
+
+3. **`cli/src/commands/status.js` — raw signal leak fixed.**
+   - Added `TYPED_STARTUP_FAILURE_SUBTYPES` Set and `normalizeStartupFailureReasonForDisplay()` helper above `filterDispatchProgressForActiveTurns`.
+   - Both display sites (`:386` multi-turn loop, `:446` single-active-turn) now route through the normalizer.
+   - When `failed_start_reason` is already `runtime_spawn_failed` or `stdout_attach_failed`, it passes through unchanged. When it is `no_subprocess_output`, `null`, or any other non-typed value, it renders as `stdout_attach_failed` (the semantic parent — "we watched for stdout and saw none inside the startup watchdog window").
+   - Comment block at the helper names `DEC-BUG54-OPERATOR-SUBTYPE-DISPLAY-001` and explains why the normalization lands on `stdout_attach_failed` rather than `runtime_spawn_failed` or a fresh label.
+
+4. **`cli/test/beta-tester-scenarios/bug-54-status-vocabulary-drift.test.js` — new command-chain regression.**
+   - Four `it(...)` blocks, all via `spawnSync(process.execPath, [CLI_PATH, 'status'])` against a seeded `failed_start` state.
+   - Covers the four input classes: raw `no_subprocess_output`, missing/`null`, already-typed `runtime_spawn_failed`, already-typed `stdout_attach_failed`.
+   - Two assertions per row: positive match on the expected Reason line AND negative match on the raw signal appearing anywhere in the status render.
+   - Per rule #13, this is a child-process CLI chain test, not a function-call seam test.
+
+### Decisions
+
+- `DEC-BUG54-OPERATOR-SUBTYPE-DISPLAY-001` — Operator-facing status surfaces must render a typed startup-failure subtype (`runtime_spawn_failed` or `stdout_attach_failed`), never the raw adapter signal `no_subprocess_output`. **Why:** public CLI docs only document the two typed subtypes as operator-visible; `no_subprocess_output` is an internal adapter/classification fallback. When the classifier cannot promote the raw signal to a specific typed subtype, display normalization lands on `stdout_attach_failed` because the adapter semantics for `no_subprocess_output` ("we watched for stdout and saw none inside the startup watchdog window") are identical to `stdout_attach_failed`. **How to apply:** any future operator-facing surface that reads `failed_start_reason`, `startup_failure_type`, or equivalent startup-failure classification must route the raw value through a normalizer of this shape; do not expose the raw `no_subprocess_output` label to operators even as a fallback literal.
+
+### Evidence
+
+- `node --test test/launch-evidence.test.js` → `64 pass / 0 fail` (new AT-EVIDENCE-008 guard included).
+- `node --test test/beta-tester-scenarios/bug-54-status-vocabulary-drift.test.js` → `4 pass / 0 fail` (new command-chain regression).
+- Status + BUG-54 sweep: `node --test test/status-runtime-guidance.test.js test/status-gate-failure.test.js test/status-gate-detail.test.js test/status-repo-decisions.test.js test/status-continuity.test.js test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js test/beta-tester-scenarios/bug-54-real-claude-reliability.test.js test/beta-tester-scenarios/bug-54-repeated-dispatch-reliability.test.js test/beta-tester-scenarios/bug-54-qa-cli-chain-reliability.test.js test/beta-tester-scenarios/bug-54-status-vocabulary-drift.test.js` → `56 pass / 0 fail`.
+- Full beta-tester scenarios sweep: `node --test test/beta-tester-scenarios/*.test.js` → `164 pass / 0 fail`.
+- Release-surface sweep: `node --test test/launch-evidence.test.js test/claim-reality-preflight.test.js test/current-release-surface.test.js` → `123 pass / 0 fail`.
+- Manual live proof in a throwaway `/tmp/bug54-debug` fixture: seeded `state.json` with `failed_start_reason: 'no_subprocess_output'`, ran `agentxchain status`, confirmed the Reason line rendered `stdout_attach_failed` and the raw string appeared nowhere in stdout.
+- Files modified / added this turn:
+  - `.planning/LAUNCH_EVIDENCE_SPEC.md` (codification)
+  - `cli/test/launch-evidence.test.js` (spec-drift guard)
+  - `cli/src/commands/status.js` (display normalization)
+  - `cli/test/beta-tester-scenarios/bug-54-status-vocabulary-drift.test.js` (new command-chain regression)
+
+### HUMAN-ROADMAP Status
+
+- **BUG-52, BUG-53, BUG-54, BUG-55** — all OPEN. No checkbox change. This turn tightened BUG-54 operator-facing vocabulary discipline and codified an unrelated governance rule; closure of any roadmap bug still requires tester-quoted shipped-package output per rule #12.
+
+### Next Action For GPT 5.4
+
+1. **Cold-read `DEC-BUG54-OPERATOR-SUBTYPE-DISPLAY-001` for the third classification I might have missed.** Concrete question: is there a realistic startup-failure mode that is neither "subprocess never spawned" nor "worker attached but no first-byte output"? Candidates to consider — worker spawned, wrote to stderr only but never stdout; worker spawned, wrote to stdout but the adapter's first-byte listener was attached too late. If either is real, the current two-bucket model is wrong and `normalizeStartupFailureReasonForDisplay` should map to a third label. If neither is real, confirm the two-bucket model is sound and we can leave the normalizer as-is. Do not ship a third label speculatively.
+2. **Take a position on the dashboard-side parallel.** The dashboard (`cli/dashboard/`) has its own turn-detail surface that may render `failed_start_reason`. If it does, it has the same vocabulary-drift risk as `status.js`. Grep for `failed_start_reason` under `cli/dashboard/` — if any render site exists, either ship the same normalization there or explain why the dashboard path is safe (e.g., it only renders the typed event stream, which is already clean per the audit above).
+3. **Do not touch BUG-52/53/54/55 closure without tester-quoted shipped-package output.** Rule #12 still in force. Restatement of discipline.

@@ -383,7 +383,7 @@ function renderGovernedStatus(context, opts) {
         console.log(`      ${chalk.dim('     or:')} ${chalk.cyan(`agentxchain accept-turn --turn ${turn.turn_id}`)} — re-attempt acceptance`);
       }
       if (turn.status === 'failed_start') {
-        console.log(`      ${chalk.dim('Reason:')}  ${turn.failed_start_reason || 'no_subprocess_output'}`);
+        console.log(`      ${chalk.dim('Reason:')}  ${normalizeStartupFailureReasonForDisplay(turn.failed_start_reason)}`);
         const recover = turn.recovery_command || `agentxchain reissue-turn --turn ${turn.turn_id} --reason ghost`;
         console.log(`      ${chalk.dim('Recover:')} ${chalk.cyan(recover)}`);
       }
@@ -443,7 +443,7 @@ function renderGovernedStatus(context, opts) {
       console.log(`  ${chalk.dim('     or:')}  ${chalk.cyan(mergeAction.command)}`);
     }
     if (singleActiveTurn.status === 'failed_start') {
-      console.log(`  ${chalk.dim('Reason:')}   ${singleActiveTurn.failed_start_reason || 'no_subprocess_output'}`);
+      console.log(`  ${chalk.dim('Reason:')}   ${normalizeStartupFailureReasonForDisplay(singleActiveTurn.failed_start_reason)}`);
       const recover = singleActiveTurn.recovery_command || `agentxchain reissue-turn --turn ${singleActiveTurn.turn_id} --reason ghost`;
       console.log(`  ${chalk.dim('Recover:')}  ${chalk.cyan(recover)}`);
     }
@@ -881,6 +881,24 @@ function formatRepoDecisionCarryover(summary) {
 
 function pluralizeRepoDecisionCount(count, singular, plural) {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+// BUG-54 vocabulary discipline (`DEC-BUG54-OPERATOR-SUBTYPE-DISPLAY-001`).
+// Operator-facing status surfaces must render a typed startup-failure subtype,
+// not the raw adapter signal `no_subprocess_output`. Public docs
+// (website-v2/docs/cli.mdx) only document `runtime_spawn_failed` and
+// `stdout_attach_failed` as the operator-visible subtypes; the `no_subprocess_output`
+// label is an internal adapter/classification fallback and must not leak to the
+// CLI status display. The adapter semantics for `no_subprocess_output` ("we
+// watched for stdout and saw none inside the startup watchdog window") are
+// identical to the operator subtype `stdout_attach_failed`, so that is the
+// correct display normalization.
+const TYPED_STARTUP_FAILURE_SUBTYPES = new Set(['runtime_spawn_failed', 'stdout_attach_failed']);
+function normalizeStartupFailureReasonForDisplay(rawReason) {
+  if (typeof rawReason === 'string' && TYPED_STARTUP_FAILURE_SUBTYPES.has(rawReason)) {
+    return rawReason;
+  }
+  return 'stdout_attach_failed';
 }
 
 function filterDispatchProgressForActiveTurns(progressByTurn, activeTurns) {
