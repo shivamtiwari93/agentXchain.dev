@@ -25,6 +25,7 @@ import { validateParentRun } from '../lib/run-history.js';
 import { dispatchApiProxy } from '../lib/adapters/api-proxy-adapter.js';
 import {
   dispatchLocalCli,
+  resolveStartupWatchdogMs,
   saveDispatchLogs,
   resolvePromptTransport,
 } from '../lib/adapters/local-cli-adapter.js';
@@ -473,9 +474,10 @@ export async function executeGovernedRun(context, opts = {}) {
 
       if (adapterResult.startupFailure) {
         const freshState = loadProjectState(projectRoot, cfg) || state;
+        const startupThresholdMs = resolveStartupWatchdogMs(cfg, runtime);
         failTurnStartup(projectRoot, freshState, cfg, turn.turn_id, {
           failure_type: adapterResult.startupFailureType || 'no_subprocess_output',
-          threshold_ms: cfg?.run_loop?.startup_watchdog_ms ?? 30_000,
+          threshold_ms: startupThresholdMs,
           running_ms: freshState?.active_turns?.[turn.turn_id]?.started_at
             ? Math.max(0, Date.now() - new Date(freshState.active_turns[turn.turn_id].started_at).getTime())
             : 0,

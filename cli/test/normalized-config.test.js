@@ -1441,6 +1441,41 @@ describe('validateRunLoopConfig', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('accepts a positive integer local_cli runtime startup_watchdog_ms override', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: ['claude', '--print', '--dangerously-skip-permissions'],
+          prompt_transport: 'stdin',
+          startup_watchdog_ms: 60_000,
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects local_cli runtime startup_watchdog_ms of 0', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: ['claude', '--print', '--dangerously-skip-permissions'],
+          prompt_transport: 'stdin',
+          startup_watchdog_ms: 0,
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('Runtime "local-dev": startup_watchdog_ms')));
+  });
+
   it('rejects startup_watchdog_ms of 0 (schema minimum 1)', () => {
     const result = validateV4Config(baseConfig({ startup_watchdog_ms: 0 }));
     assert.equal(result.ok, false);

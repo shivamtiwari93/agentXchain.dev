@@ -49,6 +49,7 @@ import {
 } from '../lib/adapters/manual-adapter.js';
 import {
   dispatchLocalCli,
+  resolveStartupWatchdogMs,
   saveDispatchLogs,
   resolvePromptTransport,
 } from '../lib/adapters/local-cli-adapter.js';
@@ -756,9 +757,10 @@ export async function stepCommand(opts) {
 
     if (cliResult.startupFailure) {
       const freshState = loadProjectState(root, config) || state;
+      const startupThresholdMs = resolveStartupWatchdogMs(config, runtime);
       const failed = failTurnStartup(root, freshState, config, turn.turn_id, {
         failure_type: cliResult.startupFailureType || 'no_subprocess_output',
-        threshold_ms: config?.run_loop?.startup_watchdog_ms ?? 30_000,
+        threshold_ms: startupThresholdMs,
         running_ms: freshState?.active_turns?.[turn.turn_id]?.started_at
           ? Math.max(0, Date.now() - new Date(freshState.active_turns[turn.turn_id].started_at).getTime())
           : 0,

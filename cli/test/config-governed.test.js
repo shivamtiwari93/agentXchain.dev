@@ -28,6 +28,18 @@ function createGovernedProject() {
   return dir;
 }
 
+function promoteDevRuntimeToLocalCli(dir) {
+  const configPath = join(dir, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.runtimes['manual-dev'] = {
+    type: 'local_cli',
+    command: ['claude', '--print', '-p', '{prompt}'],
+    cwd: '.',
+    prompt_transport: 'argv',
+  };
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+}
+
 describe('governed config command', () => {
   it('AT-CFGG-001: config --set <key> <value...> works in governed repos', () => {
     const dir = createGovernedProject();
@@ -297,6 +309,34 @@ describe('governed config command', () => {
       const errorText = JSON.stringify(parsed.errors || []);
       assert.match(errorText, /run_loop\.startup_watchdog_ms/);
       assert.match(errorText, /run_loop\.stale_turn_threshold_ms/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-RL-007: config --set accepts a valid local_cli runtime startup_watchdog_ms override', () => {
+    const dir = createGovernedProject();
+    try {
+      promoteDevRuntimeToLocalCli(dir);
+      const result = runCli(dir, ['config', '--set', 'runtimes.manual-dev.startup_watchdog_ms', '60000']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.runtimes['manual-dev'].startup_watchdog_ms, 60000);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-RL-008: config --set rejects local_cli runtime startup_watchdog_ms=0', () => {
+    const dir = createGovernedProject();
+    try {
+      promoteDevRuntimeToLocalCli(dir);
+      const result = runCli(dir, ['config', '--set', 'runtimes.manual-dev.startup_watchdog_ms', '0']);
+      assert.notEqual(result.status, 0, 'invalid local_cli runtime override must fail');
+      assert.match(result.stdout, /Refusing to save invalid config/);
+      assert.match(result.stdout, /Runtime "manual-dev": startup_watchdog_ms/);
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.runtimes['manual-dev'].startup_watchdog_ms, undefined);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

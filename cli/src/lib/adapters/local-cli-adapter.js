@@ -64,7 +64,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     onStderr,
     onSpawnAttached,
     onFirstOutput,
-    startupWatchdogMs = config?.run_loop?.startup_watchdog_ms ?? 30_000,
+    startupWatchdogMs: startupWatchdogOverrideMs,
     turnId,
   } = options;
 
@@ -85,6 +85,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
   if (!runtime) {
     return { ok: false, error: `Runtime "${runtimeId}" not found in config` };
   }
+  const startupWatchdogMs = startupWatchdogOverrideMs ?? resolveStartupWatchdogMs(config, runtime);
 
   // Read the dispatch bundle prompt
   const promptPath = join(root, getDispatchPromptPath(turn.turn_id));
@@ -543,6 +544,16 @@ function resolvePromptTransport(runtime) {
   return hasPlaceholder ? 'argv' : 'dispatch_bundle_only';
 }
 
+function resolveStartupWatchdogMs(config, runtime) {
+  if (runtime?.type === 'local_cli' && Number.isInteger(runtime?.startup_watchdog_ms) && runtime.startup_watchdog_ms > 0) {
+    return runtime.startup_watchdog_ms;
+  }
+  if (Number.isInteger(config?.run_loop?.startup_watchdog_ms) && config.run_loop.startup_watchdog_ms > 0) {
+    return config.run_loop.startup_watchdog_ms;
+  }
+  return 30_000;
+}
+
 /**
  * Check if the staged result file exists and has meaningful content.
  * Delegates to the shared `hasMeaningfulStagedResult` helper so watchdog,
@@ -596,3 +607,4 @@ function normalizeDiagnosticError(err) {
 }
 
 export { resolvePromptTransport };
+export { resolveStartupWatchdogMs };

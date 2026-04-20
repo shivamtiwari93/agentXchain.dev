@@ -7,6 +7,7 @@ import { randomBytes } from 'crypto';
 
 import {
   dispatchLocalCli,
+  resolveStartupWatchdogMs,
   saveDispatchLogs,
   resolvePromptTransport,
 } from '../src/lib/adapters/local-cli-adapter.js';
@@ -578,6 +579,33 @@ describe('local-cli-adapter', () => {
       assert.match(log, /\[adapter:diag\] process_exit /);
       assert.match(log, /"startup_failure_type":"no_subprocess_output"/);
       assert.match(log, /"stderr_bytes":0/);
+    });
+
+    it('prefers local_cli runtime startup_watchdog_ms over a tighter global run_loop watchdog', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const scriptPath = join(root, '_delayed_output.js');
+      writeFileSync(scriptPath, `
+        setTimeout(() => console.log("hello"), 120);
+        setTimeout(() => process.exit(0), 180);
+      `);
+
+      const config = makeConfig({
+        command: ['node', scriptPath],
+        startup_watchdog_ms: 500,
+      });
+      config.run_loop = { startup_watchdog_ms: 50 };
+      setupDispatchBundle(root, state, config);
+
+      const result = await dispatchLocalCli(root, state, config);
+      assert.equal(resolveStartupWatchdogMs(config, config.runtimes['local-dev']), 500);
+      assert.equal(result.ok, false);
+      assert.equal(result.startupFailure, undefined, 'runtime override must prevent a false startup failure');
+      const log = result.logs.join('');
+      assert.match(log, /\[adapter:diag\] spawn_attached /);
+      assert.match(log, /"startup_watchdog_ms":500/);
+      assert.match(log, /\[adapter:diag\] first_output /);
+      assert.doesNotMatch(log, /\[adapter:diag\] startup_watchdog_fired /);
     });
   });
 

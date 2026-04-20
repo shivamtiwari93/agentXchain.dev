@@ -77,14 +77,22 @@ describe('agentxchain config schema', () => {
 
   it('AT-CONFIG-SCHEMA-007: publishes run_loop watchdog knobs as schema-backed operator contract', () => {
     const runLoop = schema.properties?.run_loop;
+    const localCliRuntime = schema.$defs?.local_cli_runtime;
     assert.ok(runLoop, 'schema must publish run_loop');
+    assert.ok(localCliRuntime, 'schema must publish local_cli_runtime');
     assert.equal(runLoop.type, 'object');
     assert.equal(runLoop.properties?.startup_watchdog_ms?.type, 'integer');
     assert.equal(runLoop.properties?.stale_turn_threshold_ms?.type, 'integer');
+    assert.equal(localCliRuntime.properties?.startup_watchdog_ms?.type, 'integer');
     assert.match(
       runLoop.properties?.startup_watchdog_ms?.description || '',
       /failed_start|30000/i,
       'startup watchdog schema entry must describe the BUG-51 fast-startup contract'
+    );
+    assert.match(
+      localCliRuntime.properties?.startup_watchdog_ms?.description || '',
+      /local_cli|run_loop\.startup_watchdog_ms/i,
+      'local_cli runtime schema entry must describe the BUG-54 per-runtime override contract'
     );
     assert.match(
       runLoop.properties?.stale_turn_threshold_ms?.description || '',
@@ -92,8 +100,10 @@ describe('agentxchain config schema', () => {
       'stale threshold schema entry must describe the BUG-47 stale-turn contract'
     );
     assert.match(PROTOCOL_REFERENCE_DOCS, /run_loop\.startup_watchdog_ms/);
+    assert.match(PROTOCOL_REFERENCE_DOCS, /runtimes\.<id>\.startup_watchdog_ms/);
     assert.match(PROTOCOL_REFERENCE_DOCS, /run_loop\.stale_turn_threshold_ms/);
     assert.match(CLI_DOCS, /config --set run_loop\.startup_watchdog_ms 45000/);
+    assert.match(CLI_DOCS, /config --set runtimes\.local-qa\.startup_watchdog_ms 60000/);
     assert.match(CLI_DOCS, /config --set run_loop\.stale_turn_threshold_ms 600000/);
   });
 });

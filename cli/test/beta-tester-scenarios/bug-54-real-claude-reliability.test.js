@@ -130,6 +130,13 @@ function makeConfig(runtime, watchdogMs = 30_000) {
   };
 }
 
+function makeConfigWithRuntimeOverride(runtime, watchdogMs, runtimeWatchdogMs) {
+  return makeConfig({
+    ...runtime,
+    startup_watchdog_ms: runtimeWatchdogMs,
+  }, watchdogMs);
+}
+
 function countDiag(logs, label) {
   const needle = `[adapter:diag] ${label} `;
   return logs.reduce((n, line) => (typeof line === 'string' && line.includes(needle) ? n + 1 : n), 0);
@@ -160,6 +167,34 @@ async function runLoop(runtime, watchdogMs, iterations, bundleOverride = null) {
   const results = [];
   for (let i = 0; i < iterations; i++) {
     const turnId = `turn_bug54real_${i}_${randomBytes(3).toString('hex')}`;
+    const state = makeState(turnId);
+    writeDispatchBundle(root, state, config);
+    if (bundleOverride && typeof bundleOverride === 'object') {
+      if (typeof bundleOverride.prompt === 'string') {
+        writeFileSync(join(root, getDispatchPromptPath(turnId)), bundleOverride.prompt);
+      }
+      if (typeof bundleOverride.context === 'string') {
+        writeFileSync(join(root, getDispatchContextPath(turnId)), bundleOverride.context);
+      }
+    }
+    const result = await dispatchLocalCli(root, state, config);
+    results.push(result);
+  }
+  await new Promise((r) => setImmediate(r));
+  await new Promise((r) => setTimeout(r, 100));
+  const handlesAfter = process._getActiveHandles?.().length ?? 0;
+
+  return { results, handleDelta: handlesAfter - handlesBefore };
+}
+
+async function runLoopWithConfig(config, iterations, bundleOverride = null) {
+  const root = makeTmp();
+  mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+  const handlesBefore = process._getActiveHandles?.().length ?? 0;
+  const results = [];
+  for (let i = 0; i < iterations; i++) {
+    const turnId = `turn_bug54realcfg_${i}_${randomBytes(3).toString('hex')}`;
     const state = makeState(turnId);
     writeDispatchBundle(root, state, config);
     if (bundleOverride && typeof bundleOverride === 'object') {
@@ -318,5 +353,33 @@ describe('BUG-54 real-claude reliability', () => {
 
     assert.ok(handleDelta <= 3,
       `real-claude stdin loop leaked handles: delta=${handleDelta}`);
+  });
+
+  it('Scenario E: local_cli runtime watchdog override beats an overly-tight global watchdog on real Claude startup', async (t) => {
+    requireClaudeProbe(t);
+    const runtime = {
+      type: 'local_cli',
+      command: ['claude', '--version'],
+      cwd: '.',
+      prompt_transport: 'dispatch_bundle_only',
+    };
+    const config = makeConfigWithRuntimeOverride(runtime, 50, 1_000);
+    const { results, handleDelta } = await runLoopWithConfig(config, 10);
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      assert.equal(r.ok, false, `iter ${i}: expected ok=false (no staged result)`);
+      assert.equal(r.startupFailure, undefined, `iter ${i}: runtime override must prevent watchdog startup failure`);
+      const logs = r.logs || [];
+      assert.equal(countDiag(logs, 'spawn_attached'), 1, `iter ${i}: spawn_attached`);
+      assert.equal(countDiag(logs, 'first_output'), 1, `iter ${i}: first_output`);
+      assert.equal(countDiag(logs, 'startup_watchdog_fired'), 0, `iter ${i}: runtime override must suppress watchdog firing`);
+
+      const [attached] = parseDiagPayloads(logs, 'spawn_attached');
+      assert.equal(attached.startup_watchdog_ms, 1_000, `iter ${i}: expected runtime override in diagnostics`);
+    }
+
+    assert.ok(handleDelta <= 3,
+      `real-claude runtime watchdog override loop leaked handles: delta=${handleDelta}`);
   });
 });

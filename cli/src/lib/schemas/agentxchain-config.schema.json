@@ -253,6 +253,11 @@
         "cwd": {
           "$ref": "#/$defs/non_empty_string"
         },
+        "startup_watchdog_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional local_cli-specific override for the startup watchdog. When set, this runtime uses the declared threshold before falling back to run_loop.startup_watchdog_ms."
+        },
         "prompt_transport": {
           "enum": ["argv", "stdin", "dispatch_bundle_only"]
         },

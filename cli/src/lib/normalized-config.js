@@ -442,6 +442,9 @@ export function validateV4Config(data, projectRoot) {
       if (!VALID_RUNTIME_TYPES.includes(rt.type)) {
         errors.push(`Runtime "${id}": type must be one of: ${VALID_RUNTIME_TYPES.join(', ')}`);
       }
+      if (rt.type === 'local_cli') {
+        validateRuntimePositiveInteger(`Runtime "${id}": startup_watchdog_ms`, rt.startup_watchdog_ms, errors);
+      }
       // Validate prompt_transport for local_cli runtimes
       if (rt.type === 'local_cli' && rt.prompt_transport) {
         if (!VALID_PROMPT_TRANSPORTS.includes(rt.prompt_transport)) {
@@ -648,6 +651,15 @@ function validateRunLoopPositiveInteger(path, value, errors) {
     return;
   }
   if (value < 1) {
+    errors.push(`${path} must be a positive integer (milliseconds)`);
+  }
+}
+
+function validateRuntimePositiveInteger(path, value, errors) {
+  if (value === undefined || value === null) {
+    return;
+  }
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
     errors.push(`${path} must be a positive integer (milliseconds)`);
   }
 }
