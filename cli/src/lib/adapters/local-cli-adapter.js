@@ -419,6 +419,15 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
       if (signal) signal.removeEventListener('abort', onAbort);
+      // BUG-54 hypothesis #1 fix: explicitly release stdio streams on the
+      // error path so Node reclaims pipe handles immediately instead of
+      // waiting for GC. Without this, repeated `runtime_spawn_failed` turns
+      // leak ~4 handles per failure until the next GC sweep, which in a
+      // long-running `run --continuous` session can push the parent process
+      // toward its fd limit and cascade additional spawn failures.
+      try { child.stdin?.destroy(); } catch {}
+      try { child.stdout?.destroy(); } catch {}
+      try { child.stderr?.destroy(); } catch {}
       appendDiagnostic(logs, 'spawn_error', {
         pid: child.pid ?? null,
         spawn_confirmed_at: spawnConfirmedAt,
