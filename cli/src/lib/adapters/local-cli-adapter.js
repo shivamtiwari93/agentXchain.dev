@@ -619,5 +619,6 @@ function appendDiagnosticExcerpt(existing, chunk, limit) {
   return combined.slice(combined.length - limit);
 }
 
+export { resolveCommand };
 export { resolvePromptTransport };
 export { resolveStartupWatchdogMs };

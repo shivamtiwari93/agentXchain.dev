@@ -63,7 +63,11 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from '
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-import { resolvePromptTransport, resolveStartupWatchdogMs } from '../src/lib/adapters/local-cli-adapter.js';
+import {
+  resolveCommand,
+  resolvePromptTransport,
+  resolveStartupWatchdogMs,
+} from '../src/lib/adapters/local-cli-adapter.js';
 
 const SCRIPT_DIR = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT_GUESS = resolve(SCRIPT_DIR, '..', '..');
@@ -206,37 +210,6 @@ function loadPromptForTurn(root, turnId) {
   const prompt = readFileSync(promptPath, 'utf8');
   const context = existsSync(contextPath) ? readFileSync(contextPath, 'utf8') : '';
   return { fullPrompt: prompt + '\n---\n\n' + context, promptPath, contextPath };
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Command resolution — duplicates `resolveCommand` from the adapter so the
-// script captures the exact same head-arg-splitting and {prompt} substitution
-// behavior. If the adapter ever changes resolution, sync this. The behavior
-// is documented at cli/src/lib/adapters/local-cli-adapter.js (resolveCommand).
-// ──────────────────────────────────────────────────────────────────────────────
-
-function resolveCommand(runtime, fullPrompt, transport) {
-  if (!runtime.command) return { command: null, args: [] };
-
-  if (Array.isArray(runtime.command)) {
-    const first = runtime.command[0] || '';
-    const headParts = typeof first === 'string' && first.includes(' ')
-      ? first.split(/\s+/)
-      : [first];
-    const [cmd, ...headArgs] = headParts;
-    const rest = [...headArgs, ...runtime.command.slice(1)];
-    const args = transport === 'argv'
-      ? rest.map((a) => (a === '{prompt}' ? fullPrompt : a))
-      : rest.filter((a) => a !== '{prompt}');
-    return { command: cmd, args };
-  }
-
-  const cmd = runtime.command;
-  const baseArgs = runtime.args || [];
-  const args = transport === 'argv'
-    ? baseArgs.map((a) => (a === '{prompt}' ? fullPrompt : a))
-    : baseArgs.filter((a) => a !== '{prompt}');
-  return { command: cmd, args };
 }
 
 function redactArgs(args, fullPrompt, transport) {
@@ -508,7 +481,7 @@ async function main() {
   }
 
   const transport = resolvePromptTransport(runtime);
-  const { command, args } = resolveCommand(runtime, fullPrompt, transport);
+  const { command, args } = resolveCommand(runtime, fullPrompt);
   if (!command) {
     console.error(`[repro] runtime "${runtimeId}" has no resolvable command`);
     process.exit(2);
