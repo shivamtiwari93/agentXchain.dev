@@ -26,6 +26,7 @@ import {
   getActiveTurns,
   getActiveTurnCount,
   reactivateGovernedRun,
+  reconcilePhaseAdvanceBeforeDispatch,
   transitionActiveTurnLifecycle,
   STATE_PATH,
 } from '../lib/governed-state.js';
@@ -268,6 +269,24 @@ export async function resumeCommand(opts) {
     if (reactivated.phantom_notice) {
       console.log(chalk.yellow(reactivated.phantom_notice));
     }
+  }
+
+  const phaseReconciliation = reconcilePhaseAdvanceBeforeDispatch(root, config, state);
+  if (!phaseReconciliation.ok && !phaseReconciliation.state) {
+    console.log(chalk.red(`Failed to reconcile phase gate before dispatch: ${phaseReconciliation.error}`));
+    process.exit(1);
+  }
+  state = phaseReconciliation.state || state;
+  if (phaseReconciliation.advanced) {
+    console.log(chalk.green(`Advanced phase before dispatch: ${phaseReconciliation.from_phase} → ${phaseReconciliation.to_phase}`));
+  }
+  if (state.pending_phase_transition || state.pending_run_completion) {
+    printRecoverySummary(state, 'This run is awaiting approval.', config);
+    process.exit(1);
+  }
+  if (state.status === 'blocked') {
+    printRecoverySummary(state, 'This run is blocked.', config);
+    process.exit(1);
   }
 
   // Print run-context header before dispatch

@@ -2520,6 +2520,144 @@ export function reactivateGovernedRun(root, state, details = {}) {
   };
 }
 
+export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) {
+  const currentState = state && typeof state === 'object' ? state : readState(root);
+  if (!currentState) {
+    return { ok: false, error: 'No governed state.json found' };
+  }
+
+  if (currentState.status !== 'active' || getActiveTurnCount(currentState) > 0) {
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(currentState),
+      advanced: false,
+    };
+  }
+
+  const gateFailure = currentState.last_gate_failure;
+  if (gateFailure?.gate_type !== 'phase_transition') {
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(currentState),
+      advanced: false,
+    };
+  }
+
+  const historyEntries = readJsonlEntries(root, HISTORY_PATH);
+  const phaseSource = findHistoryTurnRequest(
+    historyEntries,
+    gateFailure.requested_by_turn || currentState.last_completed_turn_id || null,
+    'phase_transition',
+  );
+  if (!phaseSource?.phase_transition_request) {
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(currentState),
+      advanced: false,
+    };
+  }
+
+  const gateResult = evaluatePhaseExit({
+    state: { ...currentState, history: historyEntries },
+    config,
+    acceptedTurn: phaseSource,
+    root,
+  });
+
+  if (gateResult.action === 'awaiting_human_approval') {
+    const pausedState = {
+      ...currentState,
+      status: 'paused',
+      blocked_on: `human_approval:${gateResult.gate_id}`,
+      blocked_reason: null,
+      pending_phase_transition: {
+        from: currentState.phase,
+        to: gateResult.next_phase,
+        gate: gateResult.gate_id,
+        requested_by_turn: phaseSource.turn_id,
+        requested_at: new Date().toISOString(),
+      },
+    };
+    writeState(root, pausedState);
+    const approved = approvePhaseTransition(root, config);
+    return {
+      ok: approved.ok,
+      error: approved.error,
+      state: approved.state || attachLegacyCurrentTurnAlias(readState(root)),
+      advanced: approved.ok,
+      from_phase: currentState.phase,
+      to_phase: approved.state?.phase || gateResult.next_phase || null,
+      gate_id: gateResult.gate_id || null,
+      gateResult,
+    };
+  }
+
+  if (gateResult.action !== 'advance') {
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(currentState),
+      advanced: false,
+      gateResult,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const prevPhase = currentState.phase;
+  const nextState = {
+    ...currentState,
+    phase: gateResult.next_phase,
+    phase_entered_at: now,
+    blocked_on: null,
+    blocked_reason: null,
+    last_gate_failure: null,
+    pending_phase_transition: null,
+    queued_phase_transition: null,
+    phase_gate_status: {
+      ...(currentState.phase_gate_status || {}),
+      [gateResult.gate_id || 'no_gate']: 'passed',
+    },
+  };
+
+  writeState(root, nextState);
+  const retiredIntentIds = retireApprovedPhaseScopedIntents(root, nextState, config, prevPhase, now);
+  if (retiredIntentIds.length > 0) {
+    emitRunEvent(root, 'intent_retired_by_phase_advance', {
+      run_id: nextState.run_id,
+      phase: nextState.phase,
+      status: nextState.status,
+      turn: phaseSource.turn_id ? { turn_id: phaseSource.turn_id, role_id: phaseSource.role || phaseSource.assigned_role || null } : undefined,
+      payload: {
+        exited_phase: prevPhase,
+        entered_phase: gateResult.next_phase,
+        retired_count: retiredIntentIds.length,
+        retired_intent_ids: retiredIntentIds,
+      },
+    });
+  }
+  emitRunEvent(root, 'phase_entered', {
+    run_id: nextState.run_id,
+    phase: nextState.phase,
+    status: nextState.status,
+    turn: phaseSource.turn_id ? { turn_id: phaseSource.turn_id, role_id: phaseSource.role || phaseSource.assigned_role || null } : undefined,
+    payload: {
+      from: prevPhase,
+      to: gateResult.next_phase,
+      gate_id: gateResult.gate_id || 'no_gate',
+      trigger: 'reconciled_before_dispatch',
+    },
+  });
+
+  return {
+    ok: true,
+    state: attachLegacyCurrentTurnAlias(nextState),
+    advanced: true,
+    from_phase: prevPhase,
+    to_phase: gateResult.next_phase,
+    gate_id: gateResult.gate_id || null,
+    gateResult,
+  };
+}
+
 // ── Core Operations ──────────────────────────────────────────────────────────
 
 /**
