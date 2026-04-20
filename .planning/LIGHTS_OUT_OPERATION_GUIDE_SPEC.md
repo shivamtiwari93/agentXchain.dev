@@ -95,6 +95,15 @@ The guide must show a `schedules.<id>.continuous` config example and explain:
 - the daemon owns cadence
 - status surfaces the active schedule-owned session
 
+### 5a. Observation guidance must include the auto-chain audit trail
+
+The guide must document that:
+
+- `agentxchain events --follow` is where operators see auto-chain boundaries
+- clean post-completion chaining emits `session_continuation <prev> -> <next> (<objective>)`
+- `paused` is reserved for real blockers, not "the loop finished one run and forgot to continue"
+- non-blocked terminal exits should be `completed` or `idle_exit`, not `paused`
+
 ### 6. Recovery guidance must be truth-preserving
 
 The guide must document:
@@ -125,6 +134,7 @@ The guide must describe:
 ## Error Cases
 
 - The guide drifts into multi-repo advice: fail the content test.
+- The guide omits `session_continuation` or implies a clean post-completion path may land in `paused`: fail the content test.
 - The guide omits blocked recovery or hard-codes `agentxchain unblock <id>` as the only blocked-session recovery: fail the content test.
 - The guide claims session-budget exhaustion is a blocker: fail the content test.
 - The guide skips the bounded proof run and jumps straight to daemonization: fail the content test.
@@ -134,7 +144,7 @@ The guide must describe:
 - `AT-LIGHTSOUT-001`: a standalone `lights-out-operation.mdx` page exists and is linked from the `Continuous Delivery` sidebar. ✅
 - `AT-LIGHTSOUT-002`: the guide states the repo-local boundary and sends multi-repo operators to `agentxchain multi`. ✅
 - `AT-LIGHTSOUT-003`: the guide includes concrete preflight commands (`doctor`, `connector check`) and a bounded `run --continuous --max-runs 1` proof run before daemon launch. ✅
-- `AT-LIGHTSOUT-004`: the guide documents schedule-owned continuous config, `agentxchain schedule daemon`, `agentxchain status`, `agentxchain schedule status`, and `agentxchain events --follow`. ✅
+- `AT-LIGHTSOUT-004`: the guide documents schedule-owned continuous config, `agentxchain schedule daemon`, `agentxchain status`, `agentxchain schedule status`, `agentxchain events --follow`, and the `session_continuation` audit trail with `paused` reserved for real blockers. ✅
 - `AT-LIGHTSOUT-005`: the guide documents blocked recovery via surfaced recovery actions (`agentxchain unblock <id>` for `needs_human`, `agentxchain reissue-turn --reason ghost|stale` for retained ghost/stale turns), `p0` injection precedence, session-budget terminal stop, and SIGINT behavior. ✅
 - `AT-LIGHTSOUT-006`: `lights-out-scheduling.mdx` links to the new runbook as the end-to-end operator path, preserving page-role separation between runbook and reference. ✅
 

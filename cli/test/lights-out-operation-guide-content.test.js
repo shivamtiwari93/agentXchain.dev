@@ -46,6 +46,9 @@ describe('lights-out operation guide contract', () => {
     assert.match(DOC, /agentxchain schedule list/);
     assert.match(DOC, /agentxchain events --follow/);
     assert.match(DOC, /owner_type: "schedule"/);
+    assert.match(DOC, /session_continuation <previous_run_id> -> <next_run_id> \(<objective>\)/);
+    assert.match(DOC, /`paused` is reserved for real blockers/i);
+    assert.match(DOC, /end as `completed` or `idle_exit`/i);
   });
 
   it('documents recovery, priority injection, session-budget stop, and SIGINT semantics', () => {

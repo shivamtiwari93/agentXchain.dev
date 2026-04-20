@@ -156,6 +156,10 @@ Watch for:
 - `current_vision_objective`
 - `continuous_blocked`, `continuous_running`, `continuous_completed`, or `continuous_failed`
 
+`agentxchain events --follow` is also the auto-chain audit trail. On every clean hand-off from one completed run to the next, you should see `session_continuation <previous_run_id> -> <next_run_id> (<objective>)`. If a run completed cleanly and there is no continuation event, treat that as a defect, not as normal operator ambiguity.
+
+`paused` is reserved for real blockers like unresolved escalations or blocked runs. A healthy post-completion path should stay `running` while it seeds the next objective, then end as `completed` or `idle_exit` when it hits `max_runs`, budget, or exhausted vision goals.
+
 `agentxchain status` is the run/session truth surface. `agentxchain schedule status` is the daemon heartbeat surface. Do not confuse them.
 
 ## 6. Handle blocked and failed states correctly
