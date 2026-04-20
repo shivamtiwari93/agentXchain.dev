@@ -872,5 +872,52 @@ end
       );
       assert.match(result.stdout, /Normalized release note sidebar positions/i);
     });
+
+    it('AT-RIH-011: strips duplicate manual sidebar positions before creating release identity', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+
+      const newerReleasePath = join(fixture.root, 'website-v2', 'docs', 'releases', 'v2-20-0.mdx');
+      writeFileSync(
+        newerReleasePath,
+        `---
+title: "v2.20.0 Release Notes"
+sidebar_position: 0
+sidebar_position: 99
+---
+
+# AgentXchain v2.20.0
+
+Prepared release.
+
+## Evidence
+
+- 11 tests / 3 suites / 0 failures.
+`,
+      );
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+
+      const newerRelease = readFileSync(newerReleasePath, 'utf8');
+      const olderRelease = readFileSync(
+        join(fixture.root, 'website-v2', 'docs', 'releases', 'v2-19-0.mdx'),
+        'utf8',
+      );
+      assert.equal(
+        (newerRelease.match(/^sidebar_position:\s*-?\d+\s*$/gm) || []).length,
+        1,
+        'newer release should contain exactly one sidebar_position after normalization',
+      );
+      assert.match(newerRelease, /^sidebar_position:\s*0\s*$/m);
+      assert.match(olderRelease, /^sidebar_position:\s*1\s*$/m);
+
+      const changedFiles = execFileSync('git', ['show', '--name-only', '--format=', 'HEAD'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim().split('\n').filter(Boolean);
+      assert.ok(changedFiles.includes('website-v2/docs/releases/v2-20-0.mdx'));
+      assert.ok(changedFiles.includes('website-v2/docs/releases/v2-19-0.mdx'));
+    });
   });
 });

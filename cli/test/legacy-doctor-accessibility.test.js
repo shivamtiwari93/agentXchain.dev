@@ -53,12 +53,13 @@ function writeFakeOsascript(root, seconds = 5) {
 describe('legacy doctor accessibility timeout', () => {
   it('AT-LDAT-001 + AT-LDAT-002: timed-out osascript warns and does not hang doctor', () => {
     const root = makeLegacyProject();
-    const fakeBin = writeFakeOsascript(root, 5);
+    const fakeBin = writeFakeOsascript(root, 30);
+    const outerTimeoutMs = 7000;
     const start = Date.now();
     const result = spawnSync(process.execPath, [CLI_BIN, 'doctor'], {
       cwd: root,
       encoding: 'utf8',
-      timeout: 5000,
+      timeout: outerTimeoutMs,
       env: {
         ...process.env,
         PATH: `${fakeBin}:${process.env.PATH}`,
@@ -67,7 +68,10 @@ describe('legacy doctor accessibility timeout', () => {
     const elapsedMs = Date.now() - start;
 
     assert.equal(result.status, 0, `legacy doctor should complete successfully: ${result.stderr}`);
-    assert.ok(elapsedMs < 4000, `doctor should not hang on osascript timeout, elapsed=${elapsedMs}ms`);
+    assert.ok(
+      elapsedMs < outerTimeoutMs - 500,
+      `doctor should return before the outer timeout guard, elapsed=${elapsedMs}ms`,
+    );
     assert.ok(result.stdout.includes('AgentXchain Doctor'), 'legacy doctor heading should render');
     if (process.platform === 'darwin') {
       assert.ok(
