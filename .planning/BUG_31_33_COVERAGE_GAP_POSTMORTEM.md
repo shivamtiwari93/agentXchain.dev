@@ -158,6 +158,25 @@ The retained-turn reconciliation column is not satisfied by generic acceptance c
 
 Every newly documented dispatch path or retry path must add one matrix row here and one executable proof per lifecycle stage it claims to support. Shared-library tests are useful, but they do not replace at least one real command-level proof for each operator-visible path.
 
+### Standing lifecycle-event rule
+
+Tests that assert on lifecycle events such as `turn_dispatched` must drive the real lifecycle transition that emits the event. Raw prerequisites are not enough:
+
+- `consumeNextApprovedIntent()` with `writeDispatchBundle: false` is queue preparation, not dispatch
+- `writeDispatchBundle()` alone is artifact materialization, not dispatch
+- the proof surface must include either the real command (`restart`, `step`, `resume`, `run`, `intake start`) or the full library sequence (`writeDispatchBundle` + `finalizeDispatchManifest` + `transitionActiveTurnLifecycle('dispatched')`)
+
+Otherwise the suite is only proving that the test forgot to dispatch, not that the product regressed.
+
+### Standing unreachable-branch rule
+
+Coverage matrices may mark a branch as **unreachable under the current schema** when both of these are true:
+
+1. the state shape needed to enter the branch is rejected by the shared schema/normalizer contract
+2. the matrix cites the exact schema gate or guard that makes it unreachable
+
+Dead-code branches may still be patched defensively, but they must not be counted as uncovered operator behavior until the schema admits them.
+
 ## Config Surface Validation Matrix
 
 BUG-51 exposed a separate failure mode outside dispatch itself: a config field can

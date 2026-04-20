@@ -12,10 +12,7 @@ import { execSync } from 'node:child_process';
 
 import {
   initializeGovernedRun,
-  assignGovernedTurn,
-  normalizeGovernedStateShape,
 } from '../../src/lib/governed-state.js';
-import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
 import { injectIntent, approveIntent, consumeNextApprovedIntent } from '../../src/lib/intake.js';
 
 const tempDirs = [];
@@ -91,8 +88,10 @@ describe('BUG-12 beta-tester scenario: intent_id propagation in lifecycle events
     const intentId = inject.intent.intent_id;
     if (inject.intent.status !== 'approved') approveIntent(root, intentId);
 
-    // Consume intent — this internally assigns the turn via startIntent
-    const consumed = consumeNextApprovedIntent(root, { role: 'pm' });
+    // Drive the real dispatch lifecycle; bare consumeNextApprovedIntent defaults
+    // to bundle-free preparation because restart/resume/step write the bundle
+    // themselves.
+    const consumed = consumeNextApprovedIntent(root, { role: 'pm', writeDispatchBundle: true });
     assert.ok(consumed && consumed.ok, `consumeNextApprovedIntent must succeed: ${JSON.stringify(consumed)}`);
 
     // Check events for turn_dispatched with intent_id

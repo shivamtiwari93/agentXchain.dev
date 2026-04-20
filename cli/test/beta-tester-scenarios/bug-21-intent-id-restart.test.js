@@ -5,9 +5,9 @@
  * Root cause: restart.js called assignGovernedTurn without intakeContext.
  * Fix: restart now calls consumeNextApprovedIntent before assignment.
  *
- * This test verifies the fix at the API level: when an approved intent exists
- * and a new turn is assigned with consumeNextApprovedIntent, the intent_id
- * propagates into the turn_dispatched event.
+ * This test verifies the fix at the operator surface: `agentxchain restart`
+ * consumes the approved intent, writes the bundle, transitions to dispatched,
+ * and emits turn_dispatched with the bound intent_id.
  */
 
 import { describe, it, afterEach } from 'node:test';
@@ -25,7 +25,7 @@ import {
   normalizeGovernedStateShape,
 } from '../../src/lib/governed-state.js';
 import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
-import { injectIntent, approveIntent, consumeNextApprovedIntent } from '../../src/lib/intake.js';
+import { injectIntent, approveIntent } from '../../src/lib/intake.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', '..', 'bin', 'agentxchain.js');
@@ -132,15 +132,18 @@ describe('BUG-21 beta-tester scenario: intent_id propagation through restart', (
     const intentId = inject.intent.intent_id;
     if (inject.intent.status !== 'approved') approveIntent(root, intentId);
 
-    // 3. Simulate what restart does: consume intent (which internally assigns the turn)
-    const consumed = consumeNextApprovedIntent(root, { role: 'pm' });
-    assert.ok(consumed && consumed.ok, `Must consume the approved intent: ${JSON.stringify(consumed)}`);
-    assert.equal(consumed.intentId, intentId, 'consumeNextApprovedIntent must return the correct intentId');
+    // 3. Drive the real restart surface.
+    const restartResult = spawnSync('node', [CLI_BIN, 'restart'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    assert.equal(restartResult.status, 0, restartResult.stdout + restartResult.stderr);
 
-    // 4. Check events — the second turn_dispatched must have intent_id
+    // 4. Check events — the restart-dispatched turn must have intent_id
     const events = readEvents(root);
     const dispatched = events.filter(e => e.event_type === 'turn_dispatched');
-    assert.ok(dispatched.length >= 2, `Expected ≥2 turn_dispatched events, got ${dispatched.length}`);
+    assert.ok(dispatched.length >= 1, `Expected at least one turn_dispatched event, got ${dispatched.length}`);
 
     const lastDispatch = dispatched[dispatched.length - 1];
     const eventIntentId = lastDispatch.intent_id || lastDispatch.payload?.intent_id;

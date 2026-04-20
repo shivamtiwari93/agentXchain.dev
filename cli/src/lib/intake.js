@@ -1091,11 +1091,18 @@ export function startIntent(root, intentId, options = {}) {
       return { ok: false, error: `dispatch bundle failed: ${bundleResult.error}`, exitCode: 1 };
     }
 
-    finalizeDispatchManifest(root, assignedTurn.turn_id, {
+    const manifestResult = finalizeDispatchManifest(root, assignedTurn.turn_id, {
       run_id: state.run_id,
       role: assignedTurn.assigned_role,
     });
-    transitionActiveTurnLifecycle(root, assignedTurn.turn_id, 'dispatched');
+    if (!manifestResult.ok) {
+      return { ok: false, error: `dispatch manifest failed: ${manifestResult.error}`, exitCode: 1 };
+    }
+    const dispatched = transitionActiveTurnLifecycle(root, assignedTurn.turn_id, 'dispatched');
+    if (!dispatched.ok) {
+      return { ok: false, error: `dispatch lifecycle transition failed: ${dispatched.error}`, exitCode: 1 };
+    }
+    state = dispatched.state;
   }
 
   // Update intent: planned → executing

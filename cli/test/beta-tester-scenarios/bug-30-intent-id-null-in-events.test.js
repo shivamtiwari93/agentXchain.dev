@@ -34,8 +34,10 @@ import {
   assignGovernedTurn,
   acceptGovernedTurn,
   normalizeGovernedStateShape,
+  transitionActiveTurnLifecycle,
 } from '../../src/lib/governed-state.js';
 import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
+import { finalizeDispatchManifest } from '../../src/lib/dispatch-manifest.js';
 
 const tempDirs = [];
 
@@ -153,9 +155,18 @@ describe('BUG-30 beta-tester scenario: intent_id in events.jsonl', () => {
 
     const turnId = assignResult.turn.turn_id;
 
-    // 4. Write dispatch bundle
+    // 4. Drive the real dispatch lifecycle: write bundle, finalize manifest,
+    // then transition to dispatched (which emits turn_dispatched).
     const state = readState(root);
-    writeDispatchBundle(root, state, config, { turnId });
+    const bundleResult = writeDispatchBundle(root, state, config, { turnId });
+    assert.ok(bundleResult.ok, `Bundle failed: ${bundleResult.error}`);
+    const manifestResult = finalizeDispatchManifest(root, turnId, {
+      run_id: state.run_id,
+      role: 'pm',
+    });
+    assert.ok(manifestResult.ok, `Manifest failed: ${manifestResult.error}`);
+    const dispatched = transitionActiveTurnLifecycle(root, turnId, 'dispatched');
+    assert.ok(dispatched.ok, `Dispatch transition failed: ${dispatched.error}`);
 
     // 5. KEY ASSERTION: turn_dispatched event must have intent_id
     const eventsAfterDispatch = readEvents(root);
