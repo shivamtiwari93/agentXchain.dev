@@ -227,6 +227,93 @@ Standing refinement: compatibility aliases and pre-validation transitional shape
 - `DEC-MINIMUM-TURN-RESULT-SHAPE-001`
   - Adapter pre-stage validation is a separate contract from staged-file proof. Before any adapter writes JSON into the governed staging path, it must reject payloads that do not satisfy the minimum governed envelope: `schema_version` plus at least one identity field (`run_id` or `turn_id`) and one lifecycle field (`status`, `role`, or `runtime_id`). Rationale: once a payload is written into the staged-result path, it becomes durable execution evidence for BUG-51 surfaces. "Acceptance will reject it later" is not sufficient if the adapter itself was the layer that wrote obviously incomplete JSON into staging.
 
+- `DEC-RUN-STAGED-READ-SHAPE-GUARD-001`
+  - The `run.js` dispatch-callback staged-result read path (`cli/src/commands/run.js` after `JSON.parse(readFileSync(stagingFile))`) must also enforce `hasMinimumTurnResultShape()` before returning `{accept: true, turnResult}` to `runLoop`. Read-side validation is a peer defense to the adapter-side rule above, not a subordinate: it covers (a) operator tampering between adapter-stage and acceptance, (b) legacy or out-of-tree adapters that bypass the shared helper, (c) any internally-constructed `turnResult` path (e.g. `api-proxy-adapter.js:1077`) that still writes without pre-stage shape validation. On rejection the callback returns `{accept: false, reason: 'staged result missing minimum governed envelope (schema_version + identity + lifecycle fields)'}` so `runLoop` records a standard rejection. Locking proof: `AT-RUN-GUARD-016` in `cli/test/run-command.test.js`.
+
+- `DEC-RUN-LOOP-MIN-SHAPE-SYMMETRY-001`
+  - `cli/src/lib/run-loop.js`'s two `writeFileSync(absStaging, JSON.stringify(dispatchResult.turnResult, ...))` sites (parallel post-processing branch and sequential `dispatchAndProcess`) must validate `hasMinimumTurnResultShape(dispatchResult.turnResult)` BEFORE persisting. Rationale: `runLoop` is the publicly-documented runner SDK boundary (`website-v2/docs/build-your-own-runner.mdx`); third-party `dispatch` callbacks have no obligation to call the in-repo shape helpers. In-repo adapters validate at write per `DEC-MINIMUM-TURN-RESULT-SHAPE-001`; `run.js` re-validates before returning per `DEC-RUN-STAGED-READ-SHAPE-GUARD-001`; `runLoop` is the final boundary that protects every other (third-party, in-tree future-runner, custom-callback) path. On shape failure, the loop converts `{accept: true}` into a standard rejection (`rejectTurn` + `turn_rejected` event + history entry) so the run state advances exactly the same way it would for any other dispatch rejection — no separate failure mode to operate. Locking proof: `AT-RUNLOOP-MIN-SHAPE-001` in `cli/test/run-loop.test.js` (asserts no staged file is written and a rejection event with the expected reason is emitted).
+
+## BUG-51 Subprocess Lifecycle Matrix
+
+The BUG-51 tester critique was not "the watchdog exists"; it was "the framework
+still burns 11 minutes before admitting the turn never really started." The
+coverage matrix therefore tracks the subprocess startup lifecycle explicitly
+instead of hand-waving with one generic "ghost turn" label.
+
+| Subprocess path | Required behavior | Current proof |
+| --- | --- | --- |
+| Spawn failure before attach | Runtime never spawns, no worker attach/output proof, turn retained as `failed_start` with `runtime_spawn_failed`, budget reservation released | `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` — `step marks a non-spawning runtime as failed_start/runtime_spawn_failed` |
+| Spawn success + immediate exit + no output | Process exits before first byte or staged result, turn retained as `failed_start`, `turn_start_failed` emitted quickly | `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` — `step fails fast when the subprocess exits without output` |
+| Spawn success + no stdout / no staged result | Process stays alive but silent, startup watchdog kills it within threshold, turn retained as `failed_start` with `stdout_attach_failed` | `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` — `step kills a silent subprocess within the startup watchdog window`; `run blocks fast on a silent local_cli ghost turn and retains failed_start recovery`; `schedule run-due --json surfaces ghost-turn recovery from the live blocked state`; `schedule daemon --json keeps ghost-turn recovery and category for continuous sessions` |
+| Spawn success + slow stdout before threshold | First output arrives late but inside the startup window; watchdog must NOT misclassify a healthy slow start as ghosted | `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` — `step allows a slow-start subprocess when first output lands before the watchdog threshold` |
+| Normal healthy spawn | Immediate output + staged result complete normally; no startup-failure events emitted | `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` — `step accepts a healthy local_cli subprocess with immediate output and staged result` |
+
+### Standing BUG-51 lifecycle rule
+
+Any future startup-path change that can affect subprocess liveness MUST prove
+all five lifecycle rows above again. "Spawned once in manual testing" is not
+startup coverage. A startup fix is incomplete until it names which row it
+changed and which test locks that row.
+
+### Standing BUG-51 claim-reality rule (`DEC-BUG51-CLAIM-REALITY-PACKAGED-001`)
+
+Source-tree BUG-51 tests are necessary but not sufficient. The release lane
+must also prove the fast-startup watchdog on the packed tarball before
+`v2.146.0+` can ship. `cli/test/claim-reality-preflight.test.js` owns three
+packaged-proof rows that run under `release-preflight.sh --publish-gate`:
+
+1. `BUG-51 fast-startup watchdog proof exists and its production imports are
+   packed` — fails the release if `bug-51-fast-startup-watchdog.test.js`, its
+   production imports (`stale-turn-watchdog.js`, `dispatch-progress.js`,
+   `run-events.js`, `run-loop.js`), or the tester-required content strings are
+   missing from the tarball.
+2. `BUG-51 packaged tarball ships the fast-startup watchdog implementation` —
+   reads the packed `stale-turn-watchdog.js`, `run-events.js`, and `run-loop.js`
+   directly and fails the release if `detectGhostTurns`, `failTurnStartup`,
+   the `startup_watchdog_ms` honor, the `failed_start` transition, the budget
+   release, the `reissue-turn --reason ghost` recommendation, the typed startup
+   events (`turn_start_failed`, `runtime_spawn_failed`, `stdout_attach_failed`)
+   in `VALID_RUN_EVENTS`, or the `hasMinimumTurnResultShape` guard drift.
+3. `BUG-51 packaged CLI detects a ghost turn and transitions to failed_start
+   within the startup window` — loads the packed watchdog by `pathToFileURL`,
+   seeds a dispatched turn 60s in the past with no first-output proof, and
+   asserts the packed `reconcileStaleTurns` returns the ghost, transitions
+   status to `failed_start` with `runtime_spawn_failed`, releases the budget
+   reservation, emits `turn_start_failed`/`runtime_spawn_failed`/`run_blocked`,
+   and marks the run blocked — exactly the recovery-surface behavior the
+   tester's 11-minute ghost would have needed.
+
+This row of coverage exists because "works from source, broken when built"
+(discipline rule #9) is the BUG-51 class of failure mode at the release
+boundary: the fast-startup watchdog is worthless if the shipped binary does
+not carry it. Any future change to the watchdog API (new event type, new
+state transition, new config key, new recommendation string) must update row
+2 or row 3 so the release lane re-locks the packaged contract.
+
+### Standing BUG-47..50 claim-reality rule (`DEC-BUG4750-CLAIM-REALITY-001`)
+
+The `v2.145.x` tester-gated state-consistency cluster also needs tarball proof
+at the release boundary, not just source-tree regressions. `cli/test/claim-reality-preflight.test.js`
+now locks four shipped-package contracts:
+
+1. **BUG-47**: the packed `stale-turn-watchdog.js` must still export
+   `detectStaleTurns` and `detectAndEmitStaleTurns`, honor
+   `run_loop.stale_turn_threshold_ms`, retain stale turns as `stalled`, and
+   surface `reissue-turn --reason stale`.
+2. **BUG-48**: the packed `intake.js` must still clear
+   `.agentxchain/intake/injected-priority.json` when
+   `validatePreemptionMarker()` sees a superseded intent.
+3. **BUG-49**: the packed `checkpointAcceptedTurn()` path must still advance
+   `accepted_integration_ref` to `git:<checkpoint_sha>` after checkpoint, not
+   leave it pinned to the pre-checkpoint ref.
+4. **BUG-50**: the packed `recordRunHistory()` path must still isolate
+   `total_turns` and `phases_completed` to the child run even when
+   `.agentxchain/history.jsonl` contains parent-run turns.
+
+This row family exists because BUG-47..50 are exactly the kind of
+state-reconciliation fixes that can pass source tests while a published tarball
+drops the repair seam or regresses the final packaged behavior.
+
 ## Config Surface Validation Matrix
 
 BUG-51 exposed a separate failure mode outside dispatch itself: a config field can

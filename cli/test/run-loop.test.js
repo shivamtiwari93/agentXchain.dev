@@ -624,6 +624,64 @@ describe('run-loop', () => {
     });
   });
 
+  // AT-RUNLOOP-MIN-SHAPE-001 (DEC-RUN-LOOP-MIN-SHAPE-SYMMETRY-001):
+  // runLoop is the public SDK boundary for third-party runners. If a dispatch
+  // callback claims accept=true but returns a turnResult missing the minimum
+  // governed envelope (schema_version + identity + lifecycle), the run-loop
+  // must refuse to stage the artifact and convert to a standard rejection.
+  describe('staged-result minimum shape guard', () => {
+    let root, config, result, events;
+
+    before(async () => {
+      root = makeTempRoot();
+      config = makeConfig();
+      scaffoldProject(root, config);
+
+      events = [];
+      const cbs = {
+        selectRole(state) {
+          if (state.phase === 'planning') return 'pm';
+          return null;
+        },
+        async dispatch(ctx) {
+          // Simulate a third-party runner returning a malformed envelope.
+          // Has schema_version but no identity (run_id/turn_id) and no
+          // lifecycle (status/role/runtime_id) field.
+          return { accept: true, turnResult: { schema_version: '1.0' } };
+        },
+        async approveGate() { return false; },
+        onEvent(evt) { events.push(evt); gitCommitAfterTurn(root, evt); },
+      };
+
+      result = await runLoop(root, config, cbs);
+    });
+
+    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+
+    it('does NOT mark any turn accepted', () => {
+      assert.equal(result.turn_history.every(t => t.accepted === false), true,
+        `turn_history: ${JSON.stringify(result.turn_history)}`);
+    });
+
+    it('emits turn_rejected with the minimum-shape reason', () => {
+      const rejected = events.filter(e => e.type === 'turn_rejected');
+      assert.ok(rejected.length >= 1, 'at least one turn_rejected event');
+      assert.ok(rejected.every(e => /minimum governed envelope/.test(e.reason || '')),
+        `rejection reasons: ${JSON.stringify(rejected.map(e => e.reason))}`);
+    });
+
+    it('writes NO staged result file for the rejected turn', () => {
+      // Walk all turn_ids that appear in turn_history; assert no staging file exists.
+      // Staged path is `.agentxchain/staging/<turn_id>/turn-result.json` (governed).
+      for (const entry of result.turn_history) {
+        if (!entry.turn_id) continue;
+        const stagingPath = join(root, getTurnStagingResultPath(entry.turn_id));
+        assert.equal(existsSync(stagingPath), false,
+          `staged result must not be written for malformed envelope: ${stagingPath}`);
+      }
+    });
+  });
+
   // AT-RUNLOOP-005: blocked state
   describe('dispatch callback error', () => {
     let root, config, result;

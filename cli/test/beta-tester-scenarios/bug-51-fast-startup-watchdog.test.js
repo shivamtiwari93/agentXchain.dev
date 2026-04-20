@@ -75,7 +75,7 @@ function createProject(configOverrides = {}, options = {}) {
   return { root, config };
 }
 
-function configureSilentLocalCliRuntime(root, config, { scriptName = 'silent-sleeper.js', source, vision = null } = {}) {
+function configureLocalCliRuntime(root, config, { scriptName, source, vision = null } = {}) {
   const scriptPath = join(root, scriptName);
   writeFileSync(scriptPath, source);
   if (vision) {
@@ -98,12 +98,85 @@ function configureSilentLocalCliRuntime(root, config, { scriptName = 'silent-sle
   });
 }
 
+function configureSilentLocalCliRuntime(root, config, { scriptName = 'silent-sleeper.js', source, vision = null } = {}) {
+  configureLocalCliRuntime(root, config, { scriptName, source, vision });
+}
+
+function makeValidTurnResultScriptSource({
+  outputDelayMs = 0,
+  stageDelayMs = 150,
+  emitOutput = true,
+  exitCode = 0,
+} = {}) {
+  return `
+const fs = require('fs');
+const path = require('path');
+
+const root = process.cwd();
+const statePath = path.join(root, '.agentxchain', 'state.json');
+const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+const turnId = process.env.AGENTXCHAIN_TURN_ID;
+const turn = state.active_turns[turnId];
+if (!turn) {
+  throw new Error('Missing active turn for ' + turnId);
+}
+
+const result = {
+  schema_version: '1.0',
+  run_id: state.run_id,
+  turn_id: turn.turn_id,
+  role: turn.assigned_role,
+  runtime_id: turn.runtime_id,
+  status: 'completed',
+  summary: 'BUG-51 lifecycle fixture completed cleanly.',
+  decisions: [],
+  objections: [],
+  files_changed: [],
+  artifacts_created: [],
+  verification: {
+    status: 'pass',
+    commands: ['node -e "process.exit(0)"'],
+    evidence_summary: 'Fixture wrote a governed staged result.',
+  },
+  artifact: { type: 'review', ref: 'no_repo_changes' },
+  proposed_next_role: 'dev',
+  phase_transition_request: null,
+  needs_human_reason: null,
+  cost: { input_tokens: 1, output_tokens: 1, usd: 0 },
+};
+
+if (${emitOutput ? 'true' : 'false'}) {
+  setTimeout(() => {
+    console.log('fixture output before staged result');
+  }, ${outputDelayMs});
+}
+
+setTimeout(() => {
+  const stagingDir = path.join(root, '.agentxchain', 'staging', turn.turn_id);
+  fs.mkdirSync(stagingDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(stagingDir, 'turn-result.json'),
+    JSON.stringify(result, null, 2),
+  );
+  process.exit(${exitCode});
+}, ${stageDelayMs});
+`;
+}
+
 function readState(root) {
   return JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
 }
 
 function writeState(root, state) {
   writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+}
+
+function readEvents(root) {
+  return readFileSync(join(root, '.agentxchain', 'events.jsonl'), 'utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
 }
 
 function resetGovernedStateToIdle(root) {
@@ -334,12 +407,39 @@ describe('BUG-51: fast-startup watchdog', () => {
     assert.equal(state.active_turns[turnId].status, 'failed_start');
     assert.equal(state.budget_reservations[turnId], undefined);
 
-    const events = readFileSync(join(root, '.agentxchain', 'events.jsonl'), 'utf8')
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => JSON.parse(line));
+    const events = readEvents(root);
     assert.ok(events.some((entry) => entry.event_type === 'turn_start_failed'));
+  });
+
+  it('step marks a non-spawning runtime as failed_start/runtime_spawn_failed', () => {
+    const { root, config } = createProject({
+      run_loop: { startup_watchdog_ms: 800 },
+    });
+    config.runtimes['local-dev'] = {
+      type: 'local_cli',
+      command: 'nonexistent_binary_bug51_12345',
+      args: [],
+    };
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    execSync('git add agentxchain.json && git commit -m "configure missing runtime binary"', { cwd: root, stdio: 'ignore' });
+
+    const result = spawnSync('node', [CLI_PATH, 'step'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout + result.stderr, /startup failed|failed to spawn/i);
+
+    const state = readState(root);
+    const turnId = Object.keys(state.active_turns)[0];
+    assert.equal(state.active_turns[turnId].status, 'failed_start');
+    assert.equal(state.active_turns[turnId].failed_start_reason, 'runtime_spawn_failed');
+    assert.equal(state.budget_reservations[turnId], undefined);
+
+    const events = readEvents(root);
+    assert.ok(events.some((entry) => entry.event_type === 'turn_start_failed'));
+    assert.ok(events.some((entry) => entry.event_type === 'runtime_spawn_failed'));
   });
 
   it('step kills a silent subprocess within the startup watchdog window', () => {
@@ -372,6 +472,109 @@ describe('BUG-51: fast-startup watchdog', () => {
     const turnId = Object.keys(state.active_turns)[0];
     assert.equal(state.active_turns[turnId].status, 'failed_start');
     assert.equal(state.active_turns[turnId].failed_start_reason, 'stdout_attach_failed');
+  });
+
+  it('step allows a slow-start subprocess when first output lands before the watchdog threshold', () => {
+    const { root, config } = createProject({
+      routing: {
+        implementation: {
+          entry_role: 'dev',
+          allowed_next_roles: ['dev'],
+        },
+      },
+      gates: {},
+      run_loop: { startup_watchdog_ms: 1_200 },
+    });
+    configureLocalCliRuntime(root, config, {
+      scriptName: 'slow-start-success.js',
+      source: makeValidTurnResultScriptSource({
+        outputDelayMs: 250,
+        stageDelayMs: 450,
+        emitOutput: true,
+      }),
+    });
+
+    const result = spawnSync('node', [CLI_PATH, 'step'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout + result.stderr, /accepted|staged result detected/i);
+
+    const state = readState(root);
+    assert.notEqual(state.status, 'blocked');
+    const events = readEvents(root);
+    assert.ok(!events.some((entry) => entry.event_type === 'turn_start_failed'));
+    assert.ok(!events.some((entry) => entry.event_type === 'stdout_attach_failed'));
+    assert.ok(events.some((entry) => entry.event_type === 'turn_accepted'));
+  });
+
+  it('step accepts a healthy local_cli subprocess with immediate output and staged result', () => {
+    const { root, config } = createProject({
+      routing: {
+        implementation: {
+          entry_role: 'dev',
+          allowed_next_roles: ['dev'],
+        },
+      },
+      gates: {},
+      run_loop: { startup_watchdog_ms: 1_200 },
+    });
+    configureLocalCliRuntime(root, config, {
+      scriptName: 'healthy-success.js',
+      source: makeValidTurnResultScriptSource({
+        outputDelayMs: 0,
+        stageDelayMs: 100,
+        emitOutput: true,
+      }),
+    });
+
+    const result = spawnSync('node', [CLI_PATH, 'step'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+
+    const state = readState(root);
+    assert.notEqual(state.status, 'blocked');
+    const events = readEvents(root);
+    assert.ok(events.some((entry) => entry.event_type === 'turn_accepted'));
+    assert.ok(!events.some((entry) => entry.event_type === 'turn_start_failed'));
+  });
+
+  it('run blocks fast on a silent local_cli ghost turn and retains failed_start recovery', () => {
+    const { root, config } = createProject({
+      run_loop: { startup_watchdog_ms: 500 },
+    }, { initializeRun: false });
+    configureSilentLocalCliRuntime(root, config, {
+      source: 'setTimeout(() => {}, 60_000);',
+    });
+
+    const startedAt = Date.now();
+    const result = spawnSync('node', [CLI_PATH, 'run', '--role', 'dev', '--auto-approve', '--max-turns', '1'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 12_000,
+    });
+    const elapsedMs = Date.now() - startedAt;
+
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.ok(elapsedMs < 5_000, `run should fail fast on a ghost turn, got ${elapsedMs}ms`);
+
+    const state = readState(root);
+    const turnId = Object.keys(state.active_turns)[0];
+    assert.equal(state.status, 'blocked');
+    assert.equal(state.blocked_reason.category, 'ghost_turn');
+    assert.equal(state.active_turns[turnId].status, 'failed_start');
+    assert.match(
+      state.blocked_reason.recovery.recovery_action,
+      new RegExp(`agentxchain reissue-turn --turn ${turnId} --reason ghost`),
+    );
+
+    const events = readEvents(root);
+    assert.ok(events.some((entry) => entry.event_type === 'turn_start_failed'));
   });
 
   it('reissueTurn releases the old turn budget reservation and reserves for the new turn', () => {

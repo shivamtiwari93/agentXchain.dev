@@ -8,6 +8,10 @@
  * proof to ensure the shipped CLI both rejects the tester's exact bad state
  * cleanly and survives the repaired accept/checkpoint/resume seam.
  *
+ * This file intentionally also hosts lightweight packaged behavioral smokes
+ * for release-blocking beta bugs. That is not drift; it is the release-boundary
+ * proof surface for "works from source, broken when built."
+ *
  * Runs as part of the release-gate test suite.
  */
 
@@ -1722,6 +1726,434 @@ describe('claim-reality preflight', () => {
     const repairedBaseline = checkCleanBaseline(root, 'authoritative');
     assert.equal(repairedBaseline.clean, true,
       `checkpoint repair must restore a clean authoritative baseline for the next continuous dispatch:\n${repairedBaseline.reason || 'baseline remained dirty'}`);
+  });
+
+  it('BUG-47 stale-turn watchdog proof exists and packed watchdog source still honors the stale-threshold contract', () => {
+    const packedFiles = getPackedFiles();
+    const bug47Test = join(SCENARIOS_DIR, 'bug-47-stale-turn-watchdog.test.js');
+    assert.ok(existsSync(bug47Test),
+      'BUG-47 stale-turn watchdog beta-tester-scenario must exist at cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js');
+    const imports = extractImports(bug47Test);
+    assert.ok(imports.length > 0,
+      'BUG-47 stale-turn watchdog test must import production modules');
+    const missing = imports.filter(imp => !packedFiles.has(imp));
+    assert.equal(missing.length, 0,
+      `BUG-47 test imports production files missing from tarball: ${missing.join(', ')}`);
+    const testContent = readFileSync(bug47Test, 'utf8');
+    assert.ok(testContent.includes('detectStaleTurns')
+      && testContent.includes('status --json')
+      && testContent.includes('resume')
+      && testContent.includes('step --resume'),
+    'BUG-47 test must cover detectStaleTurns plus the operator-facing status/resume/step --resume recovery surfaces');
+    assert.ok(testContent.includes('seedOldDispatchProgress'),
+      'BUG-47 test must seed dispatch-progress so it proves the stale-turn path, not the BUG-51 ghost-turn path');
+
+    const { packageDir } = getExtractedPackage();
+    const packedWatchdog = readFileSync(join(packageDir, 'src/lib/stale-turn-watchdog.js'), 'utf8');
+    assert.match(packedWatchdog, /export function detectStaleTurns\b/,
+      'packed stale-turn-watchdog.js must export detectStaleTurns for BUG-47 stale-turn detection');
+    assert.match(packedWatchdog, /export function detectAndEmitStaleTurns\b/,
+      'packed stale-turn-watchdog.js must export detectAndEmitStaleTurns for BUG-47 command-path reconciliation');
+    assert.match(packedWatchdog, /run_loop\?\.stale_turn_threshold_ms/,
+      'packed stale-turn-watchdog.js must honor run_loop.stale_turn_threshold_ms for the 10-minute stale-turn contract');
+    assert.match(packedWatchdog, /status:\s*'stalled'/,
+      'packed stale-turn-watchdog.js must retain stale turns as stalled after reconciliation');
+    assert.match(packedWatchdog, /reissue-turn --turn .* --reason stale/,
+      'packed stale-turn-watchdog.js must surface the stale-turn reissue command');
+  });
+
+  it('BUG-48 packaged intake clears superseded preemption markers', async () => {
+    const packedFiles = getPackedFiles();
+    const bug48Test = join(SCENARIOS_DIR, 'bug-48-intent-lifecycle-contradiction.test.js');
+    assert.ok(existsSync(bug48Test),
+      'BUG-48 beta-tester-scenario must exist at cli/test/beta-tester-scenarios/bug-48-intent-lifecycle-contradiction.test.js');
+    const imports = extractImports(bug48Test);
+    assert.ok(imports.length > 0,
+      'BUG-48 test must import production modules');
+    const missing = imports.filter(imp => !packedFiles.has(imp));
+    assert.equal(missing.length, 0,
+      `BUG-48 test imports production files missing from tarball: ${missing.join(', ')}`);
+    const testContent = readFileSync(bug48Test, 'utf8');
+    assert.ok(testContent.includes('validatePreemptionMarker')
+      && testContent.includes('clearPreemptionMarkerForIntent')
+      && testContent.includes('superseded')
+      && testContent.includes('injected-priority.json'),
+    'BUG-48 test must cover stale preemption-marker clearing for superseded intents');
+
+    const { packageDir } = getExtractedPackage();
+    const intake = await import(pathToFileURL(join(packageDir, 'src/lib/intake.js')).href);
+    const { validatePreemptionMarker } = intake;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug48-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain', 'intake', 'intents'), { recursive: true });
+    const intentId = 'intent_bug48_packed';
+    const markerPath = join(root, '.agentxchain', 'intake', 'injected-priority.json');
+    writeFileSync(join(root, '.agentxchain', 'intake', 'intents', `${intentId}.json`), JSON.stringify({
+      schema_version: '1.0',
+      intent_id: intentId,
+      event_id: 'evt_bug48_packed',
+      status: 'superseded',
+      priority: 'p0',
+      history: [],
+    }, null, 2));
+    writeFileSync(markerPath, JSON.stringify({
+      intent_id: intentId,
+      priority: 'p0',
+      description: 'packed stale marker',
+      injected_at: new Date().toISOString(),
+    }, null, 2));
+
+    const validated = validatePreemptionMarker(root);
+    assert.equal(validated, null,
+      'packed validatePreemptionMarker must return null for a superseded intent');
+    assert.equal(existsSync(markerPath), false,
+      'packed validatePreemptionMarker must delete injected-priority.json for a superseded intent');
+  });
+
+  it('BUG-49 packaged checkpoint advances accepted_integration_ref to the new checkpoint SHA', async () => {
+    const packedFiles = getPackedFiles();
+    const bug49Test = join(SCENARIOS_DIR, 'bug-49-checkpoint-ref-update.test.js');
+    assert.ok(existsSync(bug49Test),
+      'BUG-49 beta-tester-scenario must exist at cli/test/beta-tester-scenarios/bug-49-checkpoint-ref-update.test.js');
+    const imports = extractImports(bug49Test);
+    assert.ok(imports.length > 0,
+      'BUG-49 test must import production modules');
+    const missing = imports.filter(imp => !packedFiles.has(imp));
+    assert.equal(missing.length, 0,
+      `BUG-49 test imports production files missing from tarball: ${missing.join(', ')}`);
+    const testContent = readFileSync(bug49Test, 'utf8');
+    assert.ok(testContent.includes('accepted_integration_ref')
+      && testContent.includes('checkpointAcceptedTurn')
+      && testContent.includes('no false drift'),
+    'BUG-49 test must prove accepted_integration_ref advances on checkpoint and drift stays quiet');
+
+    const { packageDir } = getExtractedPackage();
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const checkpointLib = await import(pathToFileURL(join(packageDir, 'src/lib/turn-checkpoint.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn, acceptGovernedTurn } = governedState;
+    const { checkpointAcceptedTurn } = checkpointLib;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug49-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# BUG-49 packed\n');
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: 'bug49-packed', name: 'BUG-49 packed', default_branch: 'main' },
+      roles: {
+        pm: {
+          title: 'Product Marketing',
+          mandate: 'Draft copy.',
+          write_authority: 'authoritative',
+          runtime: 'manual-pm',
+        },
+      },
+      runtimes: { 'manual-pm': { type: 'manual' } },
+      routing: {
+        planning: { entry_role: 'pm', allowed_next_roles: ['pm'], exit_gate: 'planning_signoff' },
+      },
+      gates: { planning_signoff: {} },
+    };
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2) + '\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'test@test.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    git(root, ['add', 'README.md', 'agentxchain.json']);
+    git(root, ['commit', '-m', 'init']);
+
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(join(root, '.planning', 'MARKETING_COPY.md'), '# Packed marketing copy\n');
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: init.state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Packed BUG-49 proof',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/MARKETING_COPY.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'pm',
+    }, null, 2));
+
+    const accept = acceptGovernedTurn(root, config);
+    assert.ok(accept.ok, accept.error);
+    const stateAfterAccept = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    assert.ok(stateAfterAccept.accepted_integration_ref,
+      'packed BUG-49 proof must set accepted_integration_ref after acceptance');
+
+    const checkpoint = checkpointAcceptedTurn(root, { turnId });
+    assert.ok(checkpoint.ok, checkpoint.error);
+    assert.ok(checkpoint.checkpoint_sha,
+      'packed BUG-49 proof must return a checkpoint SHA');
+
+    const stateAfterCheckpoint = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    assert.equal(stateAfterCheckpoint.accepted_integration_ref, `git:${checkpoint.checkpoint_sha}`,
+      'packed checkpointAcceptedTurn must advance accepted_integration_ref to the new checkpoint SHA');
+    assert.notEqual(stateAfterCheckpoint.accepted_integration_ref, stateAfterAccept.accepted_integration_ref,
+      'packed BUG-49 proof must not leave accepted_integration_ref pinned to the pre-checkpoint ref');
+  });
+
+  it('BUG-50 packaged run-history keeps child-run totals isolated from parent history', async () => {
+    const packedFiles = getPackedFiles();
+    const bug50Test = join(SCENARIOS_DIR, 'bug-50-run-history-contamination.test.js');
+    assert.ok(existsSync(bug50Test),
+      'BUG-50 beta-tester-scenario must exist at cli/test/beta-tester-scenarios/bug-50-run-history-contamination.test.js');
+    const imports = extractImports(bug50Test);
+    assert.ok(imports.length > 0,
+      'BUG-50 test must import production modules');
+    const missing = imports.filter(imp => !packedFiles.has(imp));
+    assert.equal(missing.length, 0,
+      `BUG-50 test imports production files missing from tarball: ${missing.join(', ')}`);
+    const testContent = readFileSync(bug50Test, 'utf8');
+    assert.ok(testContent.includes('recordRunHistory')
+      && testContent.includes('queryRunHistory')
+      && testContent.includes('phases_completed')
+      && testContent.includes('total_turns'),
+    'BUG-50 test must prove run-history totals and phase lists stay child-run scoped');
+
+    const { packageDir } = getExtractedPackage();
+    const runHistory = await import(pathToFileURL(join(packageDir, 'src/lib/run-history.js')).href);
+    const { recordRunHistory, queryRunHistory } = runHistory;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug50-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+    const parentRunId = 'run_parent_packed';
+    const childRunId = 'run_child_packed';
+    const historyEntries = [];
+    const phases = ['planning', 'implementation', 'qa', 'launch'];
+    for (let i = 0; i < 12; i++) {
+      historyEntries.push({
+        turn_id: `turn_parent_${String(i).padStart(3, '0')}`,
+        run_id: parentRunId,
+        role: i < 3 ? 'pm' : i < 8 ? 'dev' : 'qa',
+        phase: phases[Math.min(Math.floor(i / 3), 3)],
+        status: 'completed',
+        summary: `Parent turn ${i}`,
+        decisions: [],
+      });
+    }
+    historyEntries.push({
+      turn_id: 'turn_child_001',
+      run_id: childRunId,
+      role: 'pm',
+      phase: 'planning',
+      status: 'completed',
+      summary: 'Child turn',
+      decisions: [],
+    });
+    writeFileSync(
+      join(root, '.agentxchain', 'history.jsonl'),
+      historyEntries.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
+    );
+
+    const result = recordRunHistory(root, {
+      run_id: childRunId,
+      phase: 'planning',
+      status: 'active',
+      phase_gate_status: {
+        planning_signoff: 'pending',
+        implementation_complete: 'pending',
+        qa_ship_verdict: 'pending',
+        launch_approval: 'pending',
+      },
+      provenance: { trigger: 'manual', parent_run_id: parentRunId },
+      inherited_context: {
+        parent_run_id: parentRunId,
+        parent_status: 'completed',
+        inherited_at: '2026-04-19T00:00:00.000Z',
+      },
+    }, {
+      project: { id: 'bug50-packed', name: 'BUG-50 packed' },
+      roles: { pm: { runtime_id: 'manual' } },
+    }, 'completed');
+    assert.ok(result.ok, result.error);
+
+    const entries = queryRunHistory(root);
+    assert.equal(entries.length, 1,
+      'packed BUG-50 proof must write exactly one run-history record');
+    assert.equal(entries[0].run_id, childRunId,
+      'packed BUG-50 proof must record the child run, not the parent');
+    assert.equal(entries[0].total_turns, 1,
+      'packed BUG-50 proof must keep total_turns scoped to the child run');
+    assert.deepEqual(entries[0].phases_completed, ['planning'],
+      'packed BUG-50 proof must keep phases_completed scoped to the child run');
+  });
+
+  it('BUG-51 fast-startup watchdog proof exists and its production imports are packed', () => {
+    const packedFiles = getPackedFiles();
+    const bug51Test = join(SCENARIOS_DIR, 'bug-51-fast-startup-watchdog.test.js');
+    assert.ok(existsSync(bug51Test),
+      'BUG-51 fast-startup watchdog beta-tester-scenario must exist at cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js');
+    const imports = extractImports(bug51Test);
+    assert.ok(imports.length > 0,
+      'BUG-51 fast-startup watchdog test must import production modules');
+    const missing = imports.filter(imp => !packedFiles.has(imp));
+    assert.equal(missing.length, 0,
+      `BUG-51 test imports production files missing from tarball: ${missing.join(', ')}`);
+    // Ensure the watchdog sources themselves are in the tarball — the tester
+    // critique (11 minutes → 30 seconds) is the whole point of this bug, so the
+    // packed binary must carry the fast-startup watchdog implementation, not
+    // just the slow stale-turn watchdog.
+    assert.ok(packedFiles.has('src/lib/stale-turn-watchdog.js'),
+      'BUG-51 packed tarball must include src/lib/stale-turn-watchdog.js (detectGhostTurns + failTurnStartup live here)');
+    assert.ok(packedFiles.has('src/lib/run-events.js'),
+      'BUG-51 packed tarball must include src/lib/run-events.js (typed startup-failure events live here)');
+    assert.ok(packedFiles.has('src/lib/run-loop.js'),
+      'BUG-51 packed tarball must include src/lib/run-loop.js (startup lifecycle transitions live here)');
+    assert.ok(packedFiles.has('src/lib/dispatch-progress.js'),
+      'BUG-51 packed tarball must include src/lib/dispatch-progress.js (first-output heartbeat lives here)');
+    const testContent = readFileSync(bug51Test, 'utf8');
+    assert.ok(testContent.includes('detectGhostTurns') && testContent.includes('reconcileStaleTurns'),
+      'BUG-51 test must exercise both ghost-detection and reconciliation surfaces');
+    assert.ok(testContent.includes('failed_start') && testContent.includes('runtime_spawn_failed') && testContent.includes('stdout_attach_failed'),
+      'BUG-51 test must cover the typed startup-failure vocabulary (failed_start / runtime_spawn_failed / stdout_attach_failed)');
+    assert.ok(testContent.includes('startup_watchdog_ms'),
+      'BUG-51 test must configure the operator-facing startup_watchdog_ms knob, not just rely on defaults');
+    assert.ok(testContent.includes('reissue-turn') && testContent.includes('ghost'),
+      'BUG-51 test must prove the operator-facing `reissue-turn --reason ghost` recovery path is advertised');
+  });
+
+  it('BUG-51 packaged tarball ships the fast-startup watchdog implementation', () => {
+    const { packageDir } = getExtractedPackage();
+    const packedWatchdog = readFileSync(join(packageDir, 'src/lib/stale-turn-watchdog.js'), 'utf8');
+    assert.match(packedWatchdog, /export function detectGhostTurns\b/,
+      'packed stale-turn-watchdog.js must export detectGhostTurns — the BUG-51 fast-startup detector');
+    assert.match(packedWatchdog, /export function failTurnStartup\b/,
+      'packed stale-turn-watchdog.js must export failTurnStartup — the operator-visible startup-failure transition');
+    assert.match(packedWatchdog, /run_loop\?\.startup_watchdog_ms/,
+      'packed stale-turn-watchdog.js must honor run_loop.startup_watchdog_ms so operators can tune the 30s default');
+    assert.match(packedWatchdog, /status:\s*'failed_start'/,
+      'packed stale-turn-watchdog.js must transition ghost turns to failed_start, not the slow "stalled" state');
+    assert.match(packedWatchdog, /delete budgetReservations\[/,
+      'packed stale-turn-watchdog.js must release budget reservations on startup failure (BUG-51 fix #6)');
+    assert.match(packedWatchdog, /reissue-turn --turn .* --reason ghost/,
+      'packed stale-turn-watchdog.js must surface the `reissue-turn --reason ghost` recovery command');
+
+    const packedEvents = readFileSync(join(packageDir, 'src/lib/run-events.js'), 'utf8');
+    assert.match(packedEvents, /'turn_start_failed'/,
+      'packed run-events.js must declare turn_start_failed in VALID_RUN_EVENTS (BUG-51 startup-event contract)');
+    assert.match(packedEvents, /'runtime_spawn_failed'/,
+      'packed run-events.js must declare runtime_spawn_failed in VALID_RUN_EVENTS (BUG-51 typed subtype)');
+    assert.match(packedEvents, /'stdout_attach_failed'/,
+      'packed run-events.js must declare stdout_attach_failed in VALID_RUN_EVENTS (BUG-51 typed subtype)');
+
+    const packedRunLoop = readFileSync(join(packageDir, 'src/lib/run-loop.js'), 'utf8');
+    assert.match(packedRunLoop, /hasMinimumTurnResultShape/,
+      'packed run-loop.js must enforce the minimum staged-result envelope at the SDK boundary (DEC-RUN-LOOP-MIN-SHAPE-SYMMETRY-001)');
+  });
+
+  it('BUG-51 packaged CLI detects a ghost turn and transitions to failed_start within the startup window', async () => {
+    const { packageDir } = getExtractedPackage();
+    const watchdog = await import(pathToFileURL(join(packageDir, 'src/lib/stale-turn-watchdog.js')).href);
+    const runEvents = await import(pathToFileURL(join(packageDir, 'src/lib/run-events.js')).href);
+    const { reconcileStaleTurns } = watchdog;
+    const { RUN_EVENTS_PATH } = runEvents;
+
+    // Seed a .agentxchain/ state with a dispatched turn whose `dispatched_at`
+    // is 60 seconds in the past — well past the 30s startup watchdog default —
+    // and no first-output proof, no staged result, no dispatch-progress file.
+    // This is the packaged-binary version of the tester's 11-minute ghost.
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug51-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+    const runId = 'run_bug51_packed_smoke';
+    const turnId = 'turn_bug51_ghost_packed';
+    const dispatchedAt = new Date(Date.now() - 60_000).toISOString();
+    const state = {
+      schema_version: '1.0',
+      run_id: runId,
+      phase: 'implementation',
+      status: 'running',
+      active_turns: {
+        [turnId]: {
+          turn_id: turnId,
+          assigned_role: 'dev',
+          runtime_id: 'local-dev',
+          status: 'dispatched',
+          assigned_at: dispatchedAt,
+          dispatched_at: dispatchedAt,
+        },
+      },
+      budget_reservations: {
+        [turnId]: { role: 'dev', estimate_usd: 2.0, reserved_at: dispatchedAt },
+      },
+    };
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug51-packed', name: 'BUG-51 packed', default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'x', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: { 'local-dev': { type: 'local_cli', command: 'node', args: ['-e', 'process.exit(0)'] } },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_signoff' } },
+      gates: { implementation_signoff: {} },
+      run_loop: { startup_watchdog_ms: 30_000 },
+    };
+
+    const result = reconcileStaleTurns(root, state, config);
+    assert.equal(result.changed, true,
+      'packaged reconcileStaleTurns must report state change when a ghost turn crosses the startup threshold');
+    assert.equal(result.ghost_turns.length, 1,
+      `packaged reconcileStaleTurns must detect exactly 1 ghost turn; got ${result.ghost_turns.length}`);
+    assert.equal(result.ghost_turns[0].turn_id, turnId,
+      'packaged reconcileStaleTurns must detect the seeded ghost turn by id');
+    assert.equal(result.ghost_turns[0].failure_type, 'runtime_spawn_failed',
+      'a turn stuck in `dispatched` with no output must classify as runtime_spawn_failed, not stdout_attach_failed');
+
+    const turnAfter = result.state.active_turns[turnId];
+    assert.equal(turnAfter.status, 'failed_start',
+      `packaged ghost turn must transition to failed_start; got status=${turnAfter.status}`);
+    assert.equal(turnAfter.failed_start_reason, 'runtime_spawn_failed',
+      'packaged ghost turn must record failed_start_reason=runtime_spawn_failed');
+    assert.ok(
+      turnAfter.failed_start_threshold_ms <= 30_000,
+      `packaged ghost turn must trip the 30s default startup window, not the 10m stale window; got threshold_ms=${turnAfter.failed_start_threshold_ms}`,
+    );
+    assert.match(turnAfter.recovery_command || '',
+      new RegExp(`reissue-turn --turn ${turnId} --reason ghost`),
+      'packaged ghost turn must advertise `reissue-turn --reason ghost` as the operator recovery command');
+
+    assert.equal(result.state.budget_reservations[turnId], undefined,
+      'packaged ghost-turn transition must release the lingering budget reservation (BUG-51 fix #6)');
+    assert.equal(result.state.status, 'blocked',
+      'packaged ghost-turn reconciliation must mark the run blocked so operators see it immediately');
+
+    const eventsPath = join(root, RUN_EVENTS_PATH);
+    assert.ok(existsSync(eventsPath),
+      'packaged ghost-turn reconciliation must write run events to .agentxchain/events.jsonl');
+    const events = readFileSync(eventsPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const eventTypes = events.map((e) => e.event_type);
+    assert.ok(eventTypes.includes('turn_start_failed'),
+      `packaged ghost-turn reconciliation must emit a turn_start_failed event; got ${eventTypes.join(',')}`);
+    assert.ok(eventTypes.includes('runtime_spawn_failed'),
+      `packaged ghost-turn reconciliation must emit the typed runtime_spawn_failed subtype; got ${eventTypes.join(',')}`);
+    assert.ok(eventTypes.includes('run_blocked'),
+      `packaged ghost-turn reconciliation must emit a run_blocked event so operators are surfaced the halt; got ${eventTypes.join(',')}`);
   });
 
   it('scenario test count matches expected range', () => {

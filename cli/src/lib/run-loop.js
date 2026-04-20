@@ -41,6 +41,18 @@ import { join, dirname } from 'path';
 import { evaluateApprovalSlaReminders } from './notification-runner.js';
 import { validatePreemptionMarker } from './intake.js';
 import { buildTimeoutBlockedReason, evaluateTimeouts } from './timeout-evaluator.js';
+import { hasMinimumTurnResultShape } from './turn-result-shape.js';
+
+// Per DEC-RUN-LOOP-MIN-SHAPE-SYMMETRY-001 (Turn 33): runLoop is the SDK boundary
+// any third-party runner can wire (see website-v2/docs/build-your-own-runner.mdx).
+// In-repo adapters (api_proxy, mcp, local_cli, remote_agent) already validate
+// staged-result shape before write per DEC-MINIMUM-TURN-RESULT-SHAPE-001, and
+// run.js's dispatch callback re-validates before returning per
+// DEC-RUN-STAGED-READ-SHAPE-GUARD-001. Third-party callbacks have no such
+// obligation. runLoop must therefore validate dispatchResult.turnResult shape
+// before persisting it as a governed staged-result artifact.
+const MIN_SHAPE_REJECTION_REASON =
+  'staged result missing minimum governed envelope (schema_version + identity + lifecycle fields)';
 
 const DEFAULT_MAX_TURNS = 50;
 
@@ -364,6 +376,23 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
       continue;
     }
 
+    if (dispatchResult.accept && !hasMinimumTurnResultShape(dispatchResult.turnResult)) {
+      // DEC-RUN-LOOP-MIN-SHAPE-SYMMETRY-001: third-party dispatch callback claimed
+      // accept=true but returned a payload missing the minimum envelope. Refuse to
+      // stage; convert to standard rejection so the run state advances cleanly.
+      const validationResult = { stage: 'dispatch', errors: [MIN_SHAPE_REJECTION_REASON] };
+      rejectTurn(root, config, validationResult, MIN_SHAPE_REJECTION_REASON, { turnId: turn.turn_id });
+      history.push({ role: roleId, turn_id: turn.turn_id, accepted: false });
+      emit({ type: 'turn_rejected', turn, role: roleId, reason: MIN_SHAPE_REJECTION_REASON });
+      const postRejectState = loadState(root, config);
+      if (postRejectState?.status === 'blocked') {
+        errors.push(`Turn rejected for ${roleId}, retries exhausted`);
+        emit({ type: 'blocked', state: postRejectState });
+        return { terminal: true, ok: false, stop_reason: 'reject_exhausted', history, acceptedCount };
+      }
+      continue;
+    }
+
     if (dispatchResult.accept) {
       const absStaging = join(root, ctx.stagingPath);
       mkdirSync(dirname(absStaging), { recursive: true });
@@ -499,6 +528,22 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
     const blocked = persistDispatchTimeout(root, config, turn, dispatchResult.timeout_result, errors);
     emit({ type: 'blocked', state: blocked.state, reason: 'timeout:turn' });
     return { terminal: true, ok: false, stop_reason: 'blocked', history };
+  }
+
+  if (dispatchResult.accept && !hasMinimumTurnResultShape(dispatchResult.turnResult)) {
+    // DEC-RUN-LOOP-MIN-SHAPE-SYMMETRY-001: same boundary as parallel branch.
+    // Refuse to stage; convert to a standard rejection.
+    const validationResult = { stage: 'dispatch', errors: [MIN_SHAPE_REJECTION_REASON] };
+    rejectTurn(root, config, validationResult, MIN_SHAPE_REJECTION_REASON);
+    history.push({ role: roleId, turn_id: turn.turn_id, accepted: false });
+    emit({ type: 'turn_rejected', turn, role: roleId, reason: MIN_SHAPE_REJECTION_REASON });
+    const postRejectState = loadState(root, config);
+    if (postRejectState?.status === 'blocked') {
+      errors.push(`Turn rejected for ${roleId}, retries exhausted`);
+      emit({ type: 'blocked', state: postRejectState });
+      return { terminal: true, ok: false, stop_reason: 'reject_exhausted', history };
+    }
+    return { terminal: false, accepted: false, history };
   }
 
   if (dispatchResult.accept) {
