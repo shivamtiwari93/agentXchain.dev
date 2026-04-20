@@ -2979,6 +2979,9 @@ describe('claim-reality preflight', () => {
     const bug53Scenario = join(SCENARIOS_DIR, 'bug-53-continuous-auto-chain.test.js');
     assert.ok(existsSync(bug53Scenario),
       'BUG-53 tester-sequence regression must exist at cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js so the release-gate rerun can block publish if auto-chain regresses');
+    const bug53ScenarioSource = readFileSync(bug53Scenario, 'utf8');
+    assert.match(bug53ScenarioSource, /spawnSync\(\s*process\.execPath[\s\S]{0,500}['"]run['"][\s\S]{0,200}['"]--continuous['"]/,
+      'BUG-53 tester-sequence regression must drive the real CLI command chain via spawnSync(process.execPath, [CLI_BIN, "run", "--continuous", ...]), not only executeContinuousRun() in-process. HUMAN-ROADMAP rule #13 requires the operator-facing command shape.');
 
     const { packageDir } = getExtractedPackage();
     const packedContinuous = readFileSync(join(packageDir, 'src/lib/continuous-run.js'), 'utf8');

@@ -33,19 +33,25 @@
 
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
 import {
   executeContinuousRun,
   resolveContinuousOptions,
   readContinuousSession,
 } from '../../src/lib/continuous-run.js';
+import { scaffoldGoverned } from '../../src/commands/init.js';
 import { RUN_EVENTS_PATH } from '../../src/lib/run-events.js';
 
 const tempDirs = [];
+const CLI_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const CLI_BIN = join(CLI_ROOT, 'bin', 'agentxchain.js');
+const MOCK_AGENT = join(CLI_ROOT, 'test-support', 'mock-agent.mjs');
 
 afterEach(() => {
   while (tempDirs.length > 0) {
@@ -91,6 +97,48 @@ function createTmpProject() {
   return dir;
 }
 
+function createCliProject() {
+  const dir = mkdtempSync(join(tmpdir(), 'axc-bug53-cli-'));
+  tempDirs.push(dir);
+  scaffoldGoverned(dir, 'BUG-53 CLI Auto-Chain', `bug53-cli-${randomUUID().slice(0, 8)}`);
+
+  const configPath = join(dir, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  const mockRuntime = {
+    type: 'local_cli',
+    command: process.execPath,
+    args: [MOCK_AGENT],
+    prompt_transport: 'dispatch_bundle_only',
+  };
+
+  for (const runtimeId of Object.keys(config.runtimes || {})) {
+    config.runtimes[runtimeId] = { ...mockRuntime };
+  }
+  for (const role of Object.values(config.roles || {})) {
+    role.write_authority = 'authoritative';
+  }
+  config.intent_coverage_mode = 'lenient';
+
+  writeFileSync(configPath, JSON.stringify(config, null, 2));
+  writeVision(dir, [
+    '# CLI Vision',
+    '',
+    '## Governed Delivery',
+    '',
+    '- durable decision ledger',
+    '- explicit phase gates',
+    '- recovery-first blocked state handling',
+    '',
+  ].join('\n'));
+
+  execSync('git init', { cwd: dir, stdio: 'ignore' });
+  execSync('git config user.email "bug53@test.local"', { cwd: dir, stdio: 'ignore' });
+  execSync('git config user.name "BUG-53 Test"', { cwd: dir, stdio: 'ignore' });
+  execSync('git add .', { cwd: dir, stdio: 'ignore' });
+  execSync('git commit -m "initial"', { cwd: dir, stdio: 'ignore' });
+  return dir;
+}
+
 function writeVision(dir, content) {
   const planDir = join(dir, '.planning');
   mkdirSync(planDir, { recursive: true });
@@ -105,6 +153,27 @@ function readRunEvents(dir) {
     .split('\n')
     .filter(Boolean)
     .map((line) => JSON.parse(line));
+}
+
+function runContinuousCli(dir, maxRuns = 3) {
+  return spawnSync(process.execPath, [
+    CLI_BIN,
+    'run',
+    '--continuous',
+    '--vision',
+    '.planning/VISION.md',
+    '--max-runs',
+    String(maxRuns),
+    '--max-idle-cycles',
+    '1',
+    '--poll-seconds',
+    '0',
+  ], {
+    cwd: dir,
+    encoding: 'utf8',
+    timeout: 120_000,
+    env: { ...process.env, NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
+  });
 }
 
 /**
@@ -133,6 +202,50 @@ function makeSuccessExecutor(dir) {
 }
 
 describe('BUG-53: continuous session auto-chains after a completed run', () => {
+  it('CLI-owned run --continuous auto-chains 3 vision goals and emits session_continuation events', () => {
+    const dir = createCliProject();
+
+    const run = runContinuousCli(dir, 3);
+    const combined = `${run.stdout || ''}${run.stderr || ''}`;
+    assert.equal(run.status, 0, `CLI-owned BUG-53 scenario must exit cleanly:\n${combined}`);
+    assert.match(combined, /agentxchain run --continuous/);
+    assert.match(combined, /Run 3\/3 completed: completed/);
+    assert.doesNotMatch(combined, /continuous loop paused|Run blocked — continuous loop paused/i,
+      `BUG-53 clean-completion CLI path must not advertise a paused session:\n${combined}`);
+
+    const session = readContinuousSession(dir);
+    assert.ok(session, 'continuous-session.json must exist after CLI-owned auto-chain run');
+    assert.equal(session.status, 'completed');
+    assert.equal(session.runs_completed, 3);
+
+    const history = readRunEvents(dir)
+      .filter((entry) => entry.event_type === 'run_started' || entry.event_type === 'run_completed');
+    assert.ok(history.length >= 3,
+      `expected run lifecycle events for the CLI-owned auto-chain; got ${history.length}`);
+
+    const runHistoryPath = join(dir, '.agentxchain', 'run-history.jsonl');
+    const runHistory = readFileSync(runHistoryPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    assert.equal(runHistory.length, 3,
+      `CLI-owned BUG-53 scenario must record 3 completed runs; got ${runHistory.length}`);
+    assert.equal(new Set(runHistory.map((entry) => entry.run_id)).size, 3,
+      'CLI-owned BUG-53 scenario must create 3 distinct run_ids');
+
+    const continuations = readRunEvents(dir).filter((entry) => entry.event_type === 'session_continuation');
+    assert.equal(continuations.length, 2,
+      `CLI-owned BUG-53 scenario must emit 2 session_continuation events across 3 runs; got ${continuations.length}`);
+    for (const evt of continuations) {
+      assert.ok(evt.payload?.previous_run_id, `missing previous_run_id: ${JSON.stringify(evt)}`);
+      assert.ok(evt.payload?.next_run_id, `missing next_run_id: ${JSON.stringify(evt)}`);
+      assert.ok(evt.payload?.next_objective, `missing next_objective: ${JSON.stringify(evt)}`);
+      assert.notEqual(evt.payload.previous_run_id, evt.payload.next_run_id,
+        `session_continuation must connect distinct runs: ${JSON.stringify(evt.payload)}`);
+    }
+  });
+
   it('chains 3 vision goals through maxRuns=3 and exits cleanly without passing through paused', async () => {
     // Three distinct, unambiguous vision goals so each one seeds a separate
     // candidate after the previous is resolved.
