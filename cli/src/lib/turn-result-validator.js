@@ -600,6 +600,15 @@ function validateVerification(tr) {
     }
   }
 
+  if (Array.isArray(v.commands)) {
+    for (let i = 0; i < v.commands.length; i++) {
+      const command = v.commands[i];
+      if (typeof command !== 'string' || command.trim().length === 0) {
+        errors.push(`verification.commands[${i}] must be a non-empty string.`);
+      }
+    }
+  }
+
   // machine_evidence exit codes should be consistent with status
   if (Array.isArray(v.machine_evidence)) {
     for (let i = 0; i < v.machine_evidence.length; i++) {
@@ -608,8 +617,8 @@ function validateVerification(tr) {
         errors.push(`verification.machine_evidence[${i}] must be an object.`);
         continue;
       }
-      if (typeof entry.command !== 'string') {
-        errors.push(`verification.machine_evidence[${i}].command must be a string.`);
+      if (typeof entry.command !== 'string' || entry.command.trim().length === 0) {
+        errors.push(`verification.machine_evidence[${i}].command must be a non-empty string.`);
       }
       if (typeof entry.exit_code !== 'number' || !Number.isInteger(entry.exit_code)) {
         errors.push(`verification.machine_evidence[${i}].exit_code must be an integer.`);

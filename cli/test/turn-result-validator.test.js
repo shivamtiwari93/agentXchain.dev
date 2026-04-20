@@ -393,6 +393,22 @@ describe('turn-result-validator', () => {
       assert.ok(res.errors.some(e => e.includes('Wrap expected-failure checks')));
     });
 
+    it('rejects blank verification command declarations', () => {
+      writeStagedResult(makeValidTurnResult({
+        verification: {
+          status: 'pass',
+          commands: ['   '],
+          machine_evidence: [{ command: '', exit_code: 0 }],
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'verification');
+      assert.equal(res.error_class, 'verification_error');
+      assert.ok(res.errors.some((e) => e.includes('verification.commands[0]') && e.includes('non-empty string')));
+      assert.ok(res.errors.some((e) => e.includes('verification.machine_evidence[0].command') && e.includes('non-empty string')));
+    });
+
     it('rejects duplicate verification.produced_files paths', () => {
       writeStagedResult(makeValidTurnResult({
         verification: {

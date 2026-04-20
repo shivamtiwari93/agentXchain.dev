@@ -64,6 +64,7 @@ const BUG46_TESTER_RUN_ID = 'run_c8a4701ce0d4952d';
 const BUG46_TESTER_TURN_ID = 'turn_e015ce32fdafc9c5';
 const BUG45_TESTER_INTENT_ID = 'intent_1776535590576_a157';
 const BUG45_TESTER_EVENT_ID = 'evt_bug45_packed';
+const BUG55_FIXTURE_PATH = 'tests/fixtures/sample/.tusq/scan.json';
 
 let packedFilesCache = null;
 let extractedPackageCache = null;
@@ -219,6 +220,46 @@ function makeBug46Config() {
     policies: [
       { id: 'replay-proof', rule: 'require_reproducible_verification', action: 'block' },
     ],
+  };
+}
+
+function makeBug55Config() {
+  return {
+    schema_version: 4,
+    protocol_mode: 'governed',
+    project: { id: 'bug55-packed-test', name: 'BUG-55 Packed Test', default_branch: 'main' },
+    roles: {
+      qa: {
+        title: 'QA',
+        mandate: 'Verify and prepare launch signoff.',
+        write_authority: 'authoritative',
+        runtime_class: 'local_cli',
+        runtime_id: 'local-qa',
+        runtime: 'local-qa',
+      },
+      launch: {
+        title: 'Launch',
+        mandate: 'Ship.',
+        write_authority: 'authoritative',
+        runtime_class: 'local_cli',
+        runtime_id: 'local-qa',
+        runtime: 'local-qa',
+      },
+    },
+    runtimes: {
+      'local-qa': {
+        type: 'local_cli',
+        command: process.execPath,
+        args: ['-e', 'process.stdin.resume()'],
+        prompt_transport: 'stdin',
+      },
+    },
+    routing: {
+      qa: { entry_role: 'qa', allowed_next_roles: ['qa', 'launch', 'human'] },
+      launch: { entry_role: 'launch', allowed_next_roles: ['launch', 'human'] },
+    },
+    rules: { challenge_required: true, max_turn_retries: 2, max_deadlock_cycles: 2 },
+    files: { talk: '.agentxchain/TALK.md', history: '.agentxchain/history.jsonl', state: '.agentxchain/state.json' },
   };
 }
 
@@ -3098,6 +3139,196 @@ describe('claim-reality preflight', () => {
       `packaged session_continuation must carry payload.next_objective (the operator-facing vision text)`);
     assert.notEqual(evt.payload.previous_run_id, evt.payload.next_run_id,
       `packaged session_continuation must link two distinct runs; got same id ${evt.payload.previous_run_id}`);
+  });
+
+  it('BUG-55 packaged CLI checkpoint-turn commits every declared file and leaves the tree clean', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug55a-'));
+    TEMP_PATHS.push(root);
+    const config = makeBug55Config();
+
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    mkdirSync(join(root, 'tests'), { recursive: true });
+
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    writeFileSync(join(root, '.gitignore'), '.agentxchain/\nTALK.md\n');
+    writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n');
+    writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n');
+    writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 1;\n');
+    writeFileSync(join(root, 'tests', 'smoke.mjs'), 'export const smoke = true;\n');
+
+    git(root, ['init']);
+    git(root, ['config', 'user.email', 'packed-bug55@test.local']);
+    git(root, ['config', 'user.name', 'Packed BUG-55']);
+    git(root, ['add', '.']);
+    git(root, ['commit', '-m', 'initial']);
+
+    const initResult = initializeGovernedRun(root, config);
+    assert.ok(initResult.ok, initResult.error);
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+    const turn = Object.values(assign.state.active_turns)[0];
+
+    writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n- qa shipped notes\n');
+    writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n\n- qa evidence\n');
+    writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 2;\n');
+    writeFileSync(join(root, 'tests', 'smoke.mjs'), 'export const smoke = "qa";\n');
+
+    mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
+    writeFileSync(join(root, getTurnStagingResultPath(turn.turn_id)), JSON.stringify({
+      schema_version: '1.0',
+      run_id: assign.state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'QA updated release evidence and smoke coverage.',
+      decisions: [],
+      objections: [],
+      files_changed: [
+        '.planning/RELEASE_NOTES.md',
+        '.planning/acceptance-matrix.md',
+        'src/cli.js',
+        'tests/smoke.mjs',
+      ],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'ok', machine_evidence: [] },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'launch',
+      phase_transition_request: 'launch',
+      run_completion_request: false,
+      needs_human_reason: null,
+      cost: { usd: 0.01 },
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turn.turn_id], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0, `packaged BUG-55A accept-turn must succeed:\n${accept.stdout}\n${accept.stderr}`);
+
+    const checkpoint = spawnSync(process.execPath, [cliPath, 'checkpoint-turn', '--turn', turn.turn_id], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0, `packaged BUG-55A checkpoint-turn must succeed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const headSha = git(root, ['rev-parse', 'HEAD']);
+    const committedFiles = git(root, ['diff-tree', '--no-commit-id', '--name-only', '-r', headSha])
+      .split('\n')
+      .filter(Boolean)
+      .sort();
+    assert.deepEqual(committedFiles, [
+      '.planning/RELEASE_NOTES.md',
+      '.planning/acceptance-matrix.md',
+      'src/cli.js',
+      'tests/smoke.mjs',
+    ]);
+    assert.equal(git(root, ['status', '--short']), '', 'packaged BUG-55A checkpoint must leave a clean tree');
+  });
+
+  it('BUG-55 packaged CLI rejects undeclared verification outputs, then accepts once declared', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug55b-'));
+    TEMP_PATHS.push(root);
+    const config = makeBug55Config();
+
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    mkdirSync(join(root, 'tests'), { recursive: true });
+
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    writeFileSync(join(root, '.gitignore'), '.agentxchain/\nTALK.md\n');
+    writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 1;\n');
+    writeFileSync(join(root, 'tests', 'smoke.mjs'), 'export const smoke = true;\n');
+
+    git(root, ['init']);
+    git(root, ['config', 'user.email', 'packed-bug55@test.local']);
+    git(root, ['config', 'user.name', 'Packed BUG-55']);
+    git(root, ['add', '.']);
+    git(root, ['commit', '-m', 'initial']);
+
+    const initResult = initializeGovernedRun(root, config);
+    assert.ok(initResult.ok, initResult.error);
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+    const turn = Object.values(assign.state.active_turns)[0];
+
+    writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 2;\n');
+    mkdirSync(join(root, 'tests', 'fixtures', 'sample', '.tusq'), { recursive: true });
+    writeFileSync(join(root, BUG55_FIXTURE_PATH), JSON.stringify({ scan: 'ok' }, null, 2));
+
+    const resultPath = join(root, getTurnStagingResultPath(turn.turn_id));
+    mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
+    const writeTurnResult = (producedFiles = null) => {
+      writeFileSync(resultPath, JSON.stringify({
+        schema_version: '1.0',
+        run_id: assign.state.run_id,
+        turn_id: turn.turn_id,
+        role: turn.assigned_role,
+        runtime_id: turn.runtime_id,
+        status: 'completed',
+        summary: 'QA ran smoke tests and updated cli.',
+        decisions: [],
+        objections: [],
+        files_changed: ['src/cli.js'],
+        artifacts_created: [],
+        verification: {
+          status: 'pass',
+          commands: ['node tests/smoke.mjs'],
+          evidence_summary: 'smoke tests passed',
+          machine_evidence: [{ command: 'node tests/smoke.mjs', exit_code: 0 }],
+          ...(producedFiles ? { produced_files: producedFiles } : {}),
+        },
+        artifact: { type: 'workspace', ref: null },
+        proposed_next_role: 'launch',
+        phase_transition_request: 'launch',
+        run_completion_request: false,
+        needs_human_reason: null,
+        cost: { usd: 0.01 },
+      }, null, 2));
+    };
+
+    writeTurnResult();
+    const reject = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turn.turn_id], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.notEqual(reject.status, 0, `packaged BUG-55B accept-turn must reject undeclared verification outputs:\n${reject.stdout}\n${reject.stderr}`);
+    const combinedReject = `${reject.stdout}\n${reject.stderr}`;
+    assert.match(combinedReject, new RegExp(BUG55_FIXTURE_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(combinedReject, /verification\.produced_files/);
+
+    writeTurnResult([{ path: BUG55_FIXTURE_PATH, disposition: 'ignore' }]);
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turn.turn_id], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0, `packaged BUG-55B accept-turn must succeed once produced_files is declared:\n${accept.stdout}\n${accept.stderr}`);
+    assert.equal(existsSync(join(root, BUG55_FIXTURE_PATH)), false, 'packaged BUG-55B ignore cleanup must remove the fixture output');
   });
 
   it('scenario test count matches expected range', () => {
