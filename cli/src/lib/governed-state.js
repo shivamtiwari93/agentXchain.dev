@@ -3729,8 +3729,37 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     ],
   );
   if (!dirtyParity.clean) {
-    transitionToFailedAcceptance(root, state, currentTurn, dirtyParity.reason, {
-      error_code: 'artifact_dirty_tree_mismatch',
+    // BUG-55 sub-defect B: when the turn declared verification commands or
+    // machine evidence, undeclared dirty files are most likely verification
+    // outputs that need classification under verification.produced_files
+    // (disposition 'ignore' to clean up, or 'artifact' to include in the
+    // checkpoint). Surface a dedicated error class + message so the agent
+    // knows the correct remediation surface, instead of the generic
+    // files_changed-or-produced_files-or-clean advice that the non-
+    // verification path emits.
+    const verification = turnResult.verification && typeof turnResult.verification === 'object'
+      ? turnResult.verification
+      : {};
+    const declaredVerificationCommands = Array.isArray(verification.commands)
+      && verification.commands.some((c) => typeof c === 'string' && c.trim().length > 0);
+    const declaredMachineEvidence = Array.isArray(verification.machine_evidence)
+      && verification.machine_evidence.some((e) => e && typeof e === 'object' && typeof e.command === 'string' && e.command.trim().length > 0);
+    const verificationWasDeclared = declaredVerificationCommands || declaredMachineEvidence;
+
+    let failureReason = dirtyParity.reason;
+    let failureErrorCode = 'artifact_dirty_tree_mismatch';
+    if (verificationWasDeclared) {
+      failureErrorCode = 'undeclared_verification_outputs';
+      const undeclared = Array.isArray(dirtyParity.unexpected_dirty_files)
+        ? dirtyParity.unexpected_dirty_files
+        : [];
+      const listForMessage = undeclared.slice(0, 5).join(', ')
+        + (undeclared.length > 5 ? '...' : '');
+      failureReason = `Verification was declared (commands or machine_evidence), but these files are dirty and not classified: ${listForMessage}. Classify each under verification.produced_files with disposition "ignore" (the file should be cleaned up after replay) or "artifact" (the file should be checkpointed as part of the turn), OR add it to files_changed if it is a core turn mutation. Acceptance cannot proceed until the declared contract matches the working tree.`;
+    }
+
+    transitionToFailedAcceptance(root, state, currentTurn, failureReason, {
+      error_code: failureErrorCode,
       stage: 'artifact_observation',
       extra: {
         unexpected_dirty_files: dirtyParity.unexpected_dirty_files,
@@ -3739,13 +3768,14 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     });
     return {
       ok: false,
-      error: dirtyParity.reason,
+      error: failureReason,
+      error_code: failureErrorCode,
       validation: {
         ...validation,
         ok: false,
         stage: 'artifact_observation',
         error_class: 'artifact_error',
-        errors: [dirtyParity.reason],
+        errors: [failureReason],
         warnings: validation.warnings,
       },
     };
