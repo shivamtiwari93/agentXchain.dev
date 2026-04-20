@@ -2579,7 +2579,19 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
   }
 
   const gateFailure = currentState.last_gate_failure;
-  if (gateFailure?.gate_type !== 'phase_transition') {
+  // BUG-52 Turn 93 (DEC-BUG52-NEEDS-HUMAN-PHASE-ADVANCE-001): accept two entry
+  // shapes. (A) gate_failed left `last_gate_failure.gate_type === 'phase_transition'`
+  // (existing Turn 57-60 coverage). (B) The accepted turn emitted
+  // `status: 'needs_human'`, which short-circuits gate evaluation inside
+  // `applyAcceptedTurn` (see needs_human guard at line 4657) — so
+  // `last_gate_failure` stays null and `queued_phase_transition` stays null, but
+  // the turn's `phase_transition_request` is preserved in history. After unblock
+  // clears the human block, we must still attempt to advance using the
+  // history-declared request; otherwise the dispatcher re-dispatches the current
+  // phase's entry role and the tester reproduces the planning_signoff false-loop.
+  // A non-`phase_transition` gate failure (e.g. run_completion) is still a hard
+  // skip — this expansion only opens the null-failure path.
+  if (gateFailure && gateFailure.gate_type !== 'phase_transition') {
     return {
       ok: true,
       state: attachLegacyCurrentTurnAlias(currentState),

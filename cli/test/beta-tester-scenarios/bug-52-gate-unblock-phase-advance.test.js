@@ -403,6 +403,84 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.doesNotMatch(unblocked.stdout, /Role:\s+qa/i, 'unblock must not redispatch the qa role');
   });
 
+  it('Turn 93: unblock advances when needs_human turn declared phase_transition_request but no gate failure was recorded', () => {
+    // Tester's real-flow shape that Turn 57-60 did not cover:
+    //   - PM produces a `needs_human` turn that declares `phase_transition_request: "implementation"`
+    //   - accept-turn short-circuits gate evaluation for `needs_human` status
+    //     (cli/src/lib/governed-state.js:4657), so `last_gate_failure` stays null
+    //     and `queued_phase_transition` stays null — the request is only preserved
+    //     in the history entry.
+    //   - state becomes `blocked` with `blocked_on: "human:<reason>"`; an
+    //     `ensureHumanEscalation` record is raised automatically.
+    //   - Human fixes the gate artifacts and calls `unblock <hesc>`.
+    //   - reactivate clears blocked_on; reconcilePhaseAdvanceBeforeDispatch
+    //     bailed on `gateFailure?.gate_type !== 'phase_transition'` because
+    //     gateFailure was null — so the dispatcher re-dispatched `pm` in planning
+    //     instead of advancing to implementation.
+    // Acceptance: unblock must still advance the phase using the history-declared
+    // phase_transition_request even when no gate failure is recorded.
+    const { root, config, state } = createProject();
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    writeFileSync(
+      join(root, '.planning', 'SYSTEM_SPEC.md'),
+      '# System Spec\n\n## Purpose\n\nPlan the implementation handoff.\n\n## Interface\n\nPM artifacts.\n\n## Acceptance Tests\n\n- [ ] Dev can start implementation.\n',
+    );
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'needs_human',
+      needs_human_reason: 'Need operator confirmation before handing off to dev',
+      summary: 'Planning artifacts drafted, awaiting human confirmation',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md', '.planning/PM_SIGNOFF.md', '.planning/SYSTEM_SPEC.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'dev',
+      phase_transition_request: 'implementation',
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const afterAccept = readState(root);
+    // Sanity: this is the gap shape. needs_human blocks the run without recording
+    // a gate failure. The phase_transition_request lives only in history.
+    assert.equal(afterAccept.status, 'blocked', 'needs_human must block the run');
+    assert.equal(afterAccept.last_gate_failure, null, 'needs_human path must not record a gate failure');
+    assert.equal(afterAccept.queued_phase_transition ?? null, null, 'needs_human path must not queue a phase transition');
+    assert.ok(
+      typeof afterAccept.blocked_on === 'string' && afterAccept.blocked_on.startsWith('human:'),
+      `blocked_on should use the human: prefix, got "${afterAccept.blocked_on}"`,
+    );
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(unblocked.status, 0, `unblock failed:\n${unblocked.stdout}\n${unblocked.stderr}`);
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'implementation', 'phase must advance even when needs_human left no gate failure record');
+    assert.equal(finalState.phase_gate_status?.planning_signoff, 'passed', 'planning gate must be marked passed on advance');
+    assert.equal(activeTurn?.assigned_role, 'dev', 'next dispatch must target the implementation role, not another pm turn');
+    assert.equal(activeTurn?.runtime_id, 'manual-dev');
+    assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch the planning role on the needs_human path');
+  });
+
   it('unblock still advances when last_gate_failure.requested_by_turn points at a non-declarer history entry', () => {
     const { root, config, state } = createProject();
 
