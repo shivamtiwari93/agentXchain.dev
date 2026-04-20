@@ -32,7 +32,7 @@
 
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
@@ -40,13 +40,35 @@ import { spawnSync } from 'node:child_process';
 
 import { dispatchLocalCli } from '../../src/lib/adapters/local-cli-adapter.js';
 import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
+import { getDispatchContextPath, getDispatchPromptPath } from '../../src/lib/turn-paths.js';
 
-const CLAUDE_AVAILABLE = (() => {
+const CLAUDE_PROBE = (() => {
   try {
     const r = spawnSync('claude', ['--version'], { encoding: 'utf8', timeout: 10_000 });
-    return r.status === 0 && /\d+\.\d+\.\d+/.test(r.stdout || '');
+    if (r.error?.code === 'ENOENT') {
+      return { mode: 'skip', reason: 'claude is not installed on PATH' };
+    }
+    if (r.error?.code === 'ETIMEDOUT') {
+      return { mode: 'fail', reason: 'claude --version timed out after 10000ms; installed-but-hung runtimes must fail loudly, not skip' };
+    }
+    if (r.error) {
+      return { mode: 'fail', reason: `claude --version probe errored: ${r.error.message}` };
+    }
+    if (r.status !== 0) {
+      return {
+        mode: 'fail',
+        reason: `claude --version exited ${r.status}; stdout=${JSON.stringify(r.stdout || '')} stderr=${JSON.stringify(r.stderr || '')}`,
+      };
+    }
+    if (!/\d+\.\d+\.\d+/.test(r.stdout || '')) {
+      return {
+        mode: 'fail',
+        reason: `claude --version output did not contain a semver: ${JSON.stringify(r.stdout || '')}`,
+      };
+    }
+    return { mode: 'run', version: (r.stdout || '').trim() };
   } catch {
-    return false;
+    return { mode: 'fail', reason: 'claude --version probe threw unexpectedly' };
   }
 })();
 
@@ -113,7 +135,23 @@ function countDiag(logs, label) {
   return logs.reduce((n, line) => (typeof line === 'string' && line.includes(needle) ? n + 1 : n), 0);
 }
 
-async function runLoop(runtime, watchdogMs, iterations) {
+function requireClaudeProbe(t) {
+  if (CLAUDE_PROBE.mode === 'skip') {
+    t.skip(CLAUDE_PROBE.reason);
+  }
+  if (CLAUDE_PROBE.mode === 'fail') {
+    assert.fail(CLAUDE_PROBE.reason);
+  }
+}
+
+function parseDiagPayloads(logs, label) {
+  const prefix = `[adapter:diag] ${label} `;
+  return (Array.isArray(logs) ? logs : [])
+    .filter((line) => typeof line === 'string' && line.startsWith(prefix))
+    .map((line) => JSON.parse(line.slice(prefix.length)));
+}
+
+async function runLoop(runtime, watchdogMs, iterations, bundleOverride = null) {
   const root = makeTmp();
   mkdirSync(join(root, '.agentxchain'), { recursive: true });
   const config = makeConfig(runtime, watchdogMs);
@@ -124,6 +162,14 @@ async function runLoop(runtime, watchdogMs, iterations) {
     const turnId = `turn_bug54real_${i}_${randomBytes(3).toString('hex')}`;
     const state = makeState(turnId);
     writeDispatchBundle(root, state, config);
+    if (bundleOverride && typeof bundleOverride === 'object') {
+      if (typeof bundleOverride.prompt === 'string') {
+        writeFileSync(join(root, getDispatchPromptPath(turnId)), bundleOverride.prompt);
+      }
+      if (typeof bundleOverride.context === 'string') {
+        writeFileSync(join(root, getDispatchContextPath(turnId)), bundleOverride.context);
+      }
+    }
     const result = await dispatchLocalCli(root, state, config);
     results.push(result);
   }
@@ -135,7 +181,8 @@ async function runLoop(runtime, watchdogMs, iterations) {
 }
 
 describe('BUG-54 real-claude reliability', () => {
-  it('Scenario A: 10 consecutive `claude --version` dispatches exit cleanly without leaking', { skip: !CLAUDE_AVAILABLE }, async () => {
+  it('Scenario A: 10 consecutive `claude --version` dispatches exit cleanly without leaking', async (t) => {
+    requireClaudeProbe(t);
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--version'],
@@ -161,7 +208,8 @@ describe('BUG-54 real-claude reliability', () => {
       `real-claude version loop leaked handles: delta=${handleDelta} — cleanup path failed`);
   });
 
-  it('Scenario B: 10 consecutive `claude --version` with 50ms watchdog all fire watchdog→SIGTERM→close without leaking', { skip: !CLAUDE_AVAILABLE }, async () => {
+  it('Scenario B: 10 consecutive `claude --version` with 50ms watchdog all fire watchdog→SIGTERM→close without leaking', async (t) => {
+    requireClaudeProbe(t);
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--version'],
@@ -194,7 +242,8 @@ describe('BUG-54 real-claude reliability', () => {
       `real-claude watchdog→SIGTERM→close loop leaked handles: delta=${handleDelta} — close path cleanup insufficient for real binary`);
   });
 
-  it('Scenario C: 10 consecutive `claude --bogus-flag` dispatches exit non-zero without leaking', { skip: !CLAUDE_AVAILABLE }, async () => {
+  it('Scenario C: 10 consecutive `claude --bogus-flag` dispatches exit non-zero without leaking', async (t) => {
+    requireClaudeProbe(t);
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--this-flag-does-not-exist-bug54'],
@@ -214,5 +263,60 @@ describe('BUG-54 real-claude reliability', () => {
 
     assert.ok(handleDelta <= 3,
       `real-claude bogus-flag loop leaked handles: delta=${handleDelta}`);
+  });
+
+  it('Scenario D: 10 consecutive `claude --print --dangerously-skip-permissions` stdin dispatches expose startup latency without leaking', async (t) => {
+    requireClaudeProbe(t);
+    const runtime = {
+      type: 'local_cli',
+      command: ['claude', '--print', '--dangerously-skip-permissions'],
+      cwd: '.',
+      prompt_transport: 'stdin',
+    };
+    const { results, handleDelta } = await runLoop(runtime, 30_000, 10, {
+      // Keep the real-runtime stdin proof focused on adapter startup behavior,
+      // not on a full long-horizon governed prompt that turns the test into a
+      // model-latency benchmark.
+      prompt: 'Return exactly OK.\n',
+      context: '',
+    });
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      assert.equal(r.ok, false, `iter ${i}: expected ok=false (no staged result)`);
+      assert.equal(r.startupFailure, undefined, `iter ${i}: expected no startupFailure on real stdin path`);
+      const logs = r.logs || [];
+      assert.equal(countDiag(logs, 'spawn_prepare'), 1, `iter ${i}: spawn_prepare`);
+      assert.equal(countDiag(logs, 'spawn_attached'), 1, `iter ${i}: spawn_attached`);
+      assert.equal(countDiag(logs, 'first_output'), 1, `iter ${i}: first_output`);
+      assert.equal(countDiag(logs, 'process_exit'), 1, `iter ${i}: process_exit`);
+      assert.equal(countDiag(logs, 'stdin_error'), 0, `iter ${i}: stdin_error must not fire on healthy Claude stdin path`);
+
+      const [prepare] = parseDiagPayloads(logs, 'spawn_prepare');
+      assert.equal(prepare.prompt_transport, 'stdin', `iter ${i}: prompt transport must be stdin`);
+      assert.ok(
+        typeof prepare.stdin_bytes === 'number' && prepare.stdin_bytes > 0,
+        `iter ${i}: expected positive stdin_bytes in spawn_prepare; got ${JSON.stringify(prepare)}`,
+      );
+
+      const [firstOutput] = parseDiagPayloads(logs, 'first_output');
+      assert.ok(
+        typeof firstOutput.startup_latency_ms === 'number' && firstOutput.startup_latency_ms > 0,
+        `iter ${i}: expected positive startup_latency_ms in first_output; got ${JSON.stringify(firstOutput)}`,
+      );
+
+      const [exit] = parseDiagPayloads(logs, 'process_exit');
+      assert.ok(
+        typeof exit.startup_latency_ms === 'number' && exit.startup_latency_ms > 0,
+        `iter ${i}: expected process_exit startup_latency_ms to preserve first output timing; got ${JSON.stringify(exit)}`,
+      );
+      assert.ok(
+        typeof exit.elapsed_since_spawn_ms === 'number' && exit.elapsed_since_spawn_ms >= exit.startup_latency_ms,
+        `iter ${i}: expected exit elapsed time >= first output latency; got ${JSON.stringify(exit)}`,
+      );
+    }
+
+    assert.ok(handleDelta <= 3,
+      `real-claude stdin loop leaked handles: delta=${handleDelta}`);
   });
 });

@@ -574,6 +574,7 @@ describe('local-cli-adapter', () => {
       assert.match(log, /\[adapter:diag\] spawn_attached /);
       assert.match(log, /"pid":\d+/);
       assert.match(log, /\[adapter:diag\] startup_watchdog_fired /);
+      assert.match(log, /"elapsed_since_spawn_ms":[1-9]\d*/);
       assert.match(log, /\[adapter:diag\] process_exit /);
       assert.match(log, /"startup_failure_type":"no_subprocess_output"/);
       assert.match(log, /"stderr_bytes":0/);
@@ -664,6 +665,7 @@ describe('local-cli-adapter', () => {
       const result = await dispatchLocalCli(root, state, config);
       assert.equal(result.ok, true);
       assert.match(result.logs.join(''), /\[adapter:diag\] spawn_prepare [^\n]*"stdin_bytes":[1-9]\d*/);
+      assert.match(result.logs.join(''), /\[adapter:diag\] first_output [^\n]*"stream":"staged_result"[^\n]*"startup_latency_ms":[1-9]\d*/);
 
       // Verify the subprocess actually received stdin content
       const staged = JSON.parse(readFileSync(join(root, stagingPathFor(state)), 'utf8'));

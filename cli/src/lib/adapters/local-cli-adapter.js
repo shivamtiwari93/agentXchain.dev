@@ -164,6 +164,8 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     let settled = false;
     let firstOutputAt = null;
     let spawnConfirmedAt = null;
+    let spawnConfirmedAtMs = null;
+    let firstOutputLatencyMs = null;
     let startupWatchdog = null;
     let startupTimedOut = false;
     let startupFailureType = null;
@@ -194,13 +196,14 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         startupTimedOut = true;
         startupFailureType = 'no_subprocess_output';
         logs.push(`[adapter] Startup watchdog fired after ${Math.round(startupWatchdogMs / 1000)}s with no output.`);
-        appendDiagnostic(logs, 'startup_watchdog_fired', {
-          startup_watchdog_ms: startupWatchdogMs,
-          pid: child.pid ?? null,
-          spawn_confirmed_at: spawnConfirmedAt,
-        });
-        try {
-          child.kill('SIGTERM');
+      appendDiagnostic(logs, 'startup_watchdog_fired', {
+        startup_watchdog_ms: startupWatchdogMs,
+        pid: child.pid ?? null,
+        spawn_confirmed_at: spawnConfirmedAt,
+        elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
+      });
+      try {
+        child.kill('SIGTERM');
         } catch {}
       }, startupWatchdogMs);
     };
@@ -208,11 +211,13 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     const recordFirstOutput = (stream) => {
       if (firstOutputAt) return;
       firstOutputAt = new Date().toISOString();
+      firstOutputLatencyMs = spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs);
       clearStartupWatchdog();
       appendDiagnostic(logs, 'first_output', {
         at: firstOutputAt,
         stream,
         pid: child.pid ?? null,
+        startup_latency_ms: firstOutputLatencyMs,
       });
       if (onFirstOutput) {
         try {
@@ -222,10 +227,12 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     };
 
     child.once('spawn', () => {
+      spawnConfirmedAtMs = Date.now();
       spawnConfirmedAt = new Date().toISOString();
       appendDiagnostic(logs, 'spawn_attached', {
         pid: child.pid ?? null,
         at: spawnConfirmedAt,
+        startup_watchdog_ms: startupWatchdogMs,
       });
       if (onSpawnAttached) {
         try {
@@ -343,7 +350,9 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         exit_code: exitCode,
         signal: killSignal,
         spawn_confirmed_at: spawnConfirmedAt,
+        elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
         first_output_at: firstOutputAt,
+        startup_latency_ms: firstOutputLatencyMs,
         stdout_bytes: stdoutBytes,
         stderr_bytes: stderrBytes,
         staged_result_ready: hasResult,
@@ -431,7 +440,9 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       appendDiagnostic(logs, 'spawn_error', {
         pid: child.pid ?? null,
         spawn_confirmed_at: spawnConfirmedAt,
+        elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
         first_output_at: firstOutputAt,
+        startup_latency_ms: firstOutputLatencyMs,
         stdout_bytes: stdoutBytes,
         stderr_bytes: stderrBytes,
         ...normalizeDiagnosticError(err),
