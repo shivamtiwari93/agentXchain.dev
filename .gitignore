@@ -16,3 +16,34 @@ dist/
 **/.agentxchain-workspaces/
 .agentxchain/staging/
 .agentxchain/dispatch/
+
+# Orchestrator state files — framework-owned, not project artifacts.
+# These are already excluded from baseline observation (repo-observer.js),
+# but showing them dirty in `git status` creates operator confusion.
+.agentxchain/state.json
+.agentxchain/session.json
+.agentxchain/history.jsonl
+.agentxchain/decision-ledger.jsonl
+.agentxchain/repo-decisions.jsonl
+.agentxchain/lock.json
+.agentxchain/hook-audit.jsonl
+.agentxchain/hook-annotations.jsonl
+.agentxchain/run-history.jsonl
+.agentxchain/events.jsonl
+.agentxchain/notification-audit.jsonl
+.agentxchain/schedule-state.json
+.agentxchain/schedule-daemon.json
+.agentxchain/continuous-session.json
+.agentxchain/human-escalations.jsonl
+.agentxchain/sla-reminders.json
+.agentxchain/SESSION_RECOVERY.md
+.agentxchain/migration-report.md
+.agentxchain/intake/
+.agentxchain/missions/
+.agentxchain/multirepo/
+.agentxchain/reviews/
+.agentxchain/reports/
+.agentxchain/proposed/
+.agentxchain/transactions/
+TALK.md
+HUMAN_TASKS.md
