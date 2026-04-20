@@ -2173,6 +2173,8 @@ describe('claim-reality preflight', () => {
       'BUG-51 packed tarball must include src/lib/run-loop.js (startup lifecycle transitions live here)');
     assert.ok(packedFiles.has('src/lib/dispatch-progress.js'),
       'BUG-51 packed tarball must include src/lib/dispatch-progress.js (first-output heartbeat lives here)');
+    assert.ok(packedFiles.has('src/lib/adapters/local-cli-adapter.js'),
+      'BUG-51 packed tarball must include src/lib/adapters/local-cli-adapter.js (the spawn-attach truth boundary lives here)');
     const testContent = readFileSync(bug51Test, 'utf8');
     assert.ok(testContent.includes('detectGhostTurns') && testContent.includes('reconcileStaleTurns'),
       'BUG-51 test must exercise both ghost-detection and reconciliation surfaces');
@@ -2329,7 +2331,10 @@ describe('claim-reality preflight', () => {
     // (e.g., minification, transform, file omission) cannot silently restore
     // the old "child object exists ⇒ worker attached" lie.
     const { packageDir } = getExtractedPackage();
-    const adapter = await import(pathToFileURL(join(packageDir, 'src/lib/adapters/local-cli-adapter.js')).href);
+    const adapterPath = join(packageDir, 'src/lib/adapters/local-cli-adapter.js');
+    assert.ok(existsSync(adapterPath),
+      'BUG-51 packed tarball must include src/lib/adapters/local-cli-adapter.js before the packaged behavioral row can prove the spawn-attach contract');
+    const adapter = await import(pathToFileURL(adapterPath).href);
     const { dispatchLocalCli } = adapter;
 
     const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug51-spawn-'));
