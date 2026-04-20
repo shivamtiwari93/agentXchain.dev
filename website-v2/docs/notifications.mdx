@@ -211,6 +211,8 @@ Recorded fields include:
 
 This audit file is included in `agentxchain export` and counted in export summary as `notification_audit_entries`. `agentxchain verify export` validates that count against the exported `.agentxchain/notification-audit.jsonl` content.
 
+The live local dashboard also exposes this audit through `GET /api/notifications`. The **Notifications** view summarizes configured webhook targets, approval SLA reminder config, aggregate failure/timeout counts, and the newest delivery attempts so operators do not need to tail the JSONL file by hand.
+
 ## Relationship To Hooks
 
 Hooks remain the extensibility surface for policy and custom side effects. Notifications are different:

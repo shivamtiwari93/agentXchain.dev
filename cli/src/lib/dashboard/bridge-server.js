@@ -23,6 +23,7 @@ import { readCoordinatorRepoStatusRows } from './coordinator-repo-status.js';
 import { readCoordinatorTimeoutStatus } from './coordinator-timeout-status.js';
 import { readAggregatedCoordinatorEvents, watchChildRepoEvents } from './coordinator-event-aggregation.js';
 import { readWorkflowKitArtifacts } from './workflow-kit-artifacts.js';
+import { readNotificationSnapshot } from './notifications-reader.js';
 import { readConnectorHealthSnapshot } from './connectors.js';
 import { readTimeoutStatus } from './timeout-status.js';
 import { queryRunHistory } from '../run-history.js';
@@ -427,6 +428,12 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, 
 
     if (pathname === '/api/workflow-kit-artifacts') {
       const result = readWorkflowKitArtifacts(workspacePath);
+      writeJson(res, result.status, result.body);
+      return;
+    }
+
+    if (pathname === '/api/notifications') {
+      const result = readNotificationSnapshot(workspacePath);
       writeJson(res, result.status, result.body);
       return;
     }

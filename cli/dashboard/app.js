@@ -15,6 +15,7 @@ import { render as renderCrossRepo } from './components/cross-repo.js';
 import { render as renderDelegations } from './components/delegations.js';
 import { render as renderBlockers } from './components/blockers.js';
 import { render as renderArtifacts } from './components/artifacts.js';
+import { render as renderNotifications } from './components/notifications.js';
 import { render as renderMission } from './components/mission.js';
 import { render as renderChain } from './components/chain.js';
 import { render as renderRunHistory } from './components/run-history.js';
@@ -31,6 +32,7 @@ const VIEWS = {
   delegations: { fetch: ['state', 'history'], render: renderDelegations },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger', 'repoDecisionsSummary'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderHooks },
+  notifications: { fetch: ['notifications'], render: renderNotifications },
   blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers', 'coordinatorRepoStatusRows', 'gateActions'], render: renderBlocked },
   gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers', 'gateActions'], render: renderGate },
   initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger', 'coordinatorBlockers', 'coordinatorRepoStatusRows'], render: renderInitiative },
@@ -62,6 +64,7 @@ const API_MAP = {
   coordinatorBlockers: '/api/coordinator/blockers',
   coordinatorRepoStatusRows: '/api/coordinator/repo-status',
   workflowKitArtifacts: '/api/workflow-kit-artifacts',
+  notifications: '/api/notifications',
   missions: '/api/missions',
   plans: '/api/plans',
   chainReports: '/api/chain-reports',

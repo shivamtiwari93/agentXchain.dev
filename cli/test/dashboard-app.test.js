@@ -28,6 +28,7 @@ import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js
 import { render as renderDelegations } from '../dashboard/components/delegations.js';
 import { render as renderBlockers } from '../dashboard/components/blockers.js';
 import { render as renderChain } from '../dashboard/components/chain.js';
+import { render as renderNotifications } from '../dashboard/components/notifications.js';
 import { render as renderTimeouts } from '../dashboard/components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from '../dashboard/components/coordinator-timeouts.js';
 import {
@@ -414,6 +415,7 @@ describe('App Shell — VIEWS registry', () => {
     delegations: renderDelegations,
     ledger: renderLedger,
     hooks: renderHooks,
+    notifications: renderNotifications,
     blocked: renderBlocked,
     gate: renderGate,
     initiative: renderInitiative,
@@ -436,6 +438,7 @@ describe('App Shell — VIEWS registry', () => {
       // Each component must handle null data gracefully
       const data = name === 'ledger' ? { ledger: null } :
                    name === 'hooks' ? { audit: null, annotations: null } :
+                   name === 'notifications' ? { notifications: null } :
                    name === 'initiative' ? { coordinatorState: null, coordinatorBarriers: null, barrierLedger: null, coordinatorBlockers: null, coordinatorRepoStatusRows: null } :
                    name === 'blockers' ? { coordinatorBlockers: null } :
                    name === 'mission' ? { missions: null, plans: null } :
@@ -456,6 +459,7 @@ describe('App Shell — VIEWS registry', () => {
       'delegations',
       'ledger',
       'hooks',
+      'notifications',
       'blocked',
       'gate',
       'initiative',
@@ -531,7 +535,7 @@ describe('App Shell — dashboard action error formatting', () => {
     return parts.join(' ');
   }
 
-  it('AT-DASH-ACT-016: error formatting includes recovery detail and first next action', () => {
+  it('AT-DASH-ACT-018: error formatting includes recovery detail and first next action', () => {
     const message = formatActionErrorMessage({
       error: 'Compliance review required',
       next_actions: [{ command: 'agentxchain multi approve-gate' }],

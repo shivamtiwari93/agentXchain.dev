@@ -49,6 +49,7 @@ const EXPECTED_TOP_LEVEL_VIEWS = [
   { id: 'delegations', label: 'Delegations' },
   { id: 'ledger', label: 'Decisions' },
   { id: 'hooks', label: 'Hooks' },
+  { id: 'notifications', label: 'Notifications' },
   { id: 'blocked', label: 'Blocked' },
   { id: 'gate', label: 'Gates' },
   { id: 'blockers', label: 'Blockers' },
@@ -109,6 +110,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('/api/repo-decisions-summary'), 'cli docs must document the repo decision summary endpoint');
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
     assert.ok(CLI_DOCS.includes('/api/poll'), 'cli docs must document the dashboard poll endpoint');
+    assert.ok(CLI_DOCS.includes('/api/notifications'), 'cli docs must document the notifications endpoint');
     assert.ok(CLI_DOCS.includes('/api/missions'), 'cli docs must document the missions endpoint');
     assert.ok(CLI_DOCS.includes('/api/plans'), 'cli docs must document the plans endpoint');
     assert.ok(CLI_DOCS.includes('/api/chain-reports'), 'cli docs must document the chain-reports endpoint');
@@ -121,6 +123,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(BRIDGE_SERVER.includes('/api/coordinator/blockers'), 'bridge server must expose the coordinator blockers endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/coordinator/repo-status'), 'bridge server must expose the coordinator repo-status endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/workflow-kit-artifacts'), 'bridge server must expose the workflow-kit artifacts endpoint');
+    assert.ok(BRIDGE_SERVER.includes('/api/notifications'), 'bridge server must expose the notifications endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/chain-reports'), 'bridge server must expose the chain-reports endpoint');
     assert.ok(STATE_READER.includes('/api/continuity'), 'dashboard state reader must expose the continuity endpoint');
     assert.ok(BRIDGE_SERVER.includes('X-AgentXchain-Token'), 'bridge server must validate the dashboard mutation token');
@@ -427,6 +430,6 @@ describe('Dashboard continuity spec', () => {
     assert.match(dashboardApp, /AT-DASH-ACT-013: success formatting includes the first ordered next action/);
     assert.match(dashboardBridge, /AT-DASH-ACT-014: POST \/api\/actions\/approve-gate returns repo-local completion success with no next actions/);
     assert.match(dashboardBridge, /AT-DASH-ACT-015: POST \/api\/actions\/approve-gate returns coordinator completion success with no next actions even when repo snapshots drift/);
-    assert.match(dashboardApp, /AT-DASH-ACT-016: error formatting includes recovery detail and first next action/);
+    assert.match(dashboardApp, /AT-DASH-ACT-018: error formatting includes recovery detail and first next action/);
   });
 });

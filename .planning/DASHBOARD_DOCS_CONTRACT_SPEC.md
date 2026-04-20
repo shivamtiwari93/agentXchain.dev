@@ -73,6 +73,7 @@ The docs must cover the shipped top-level dashboard views:
 - Delegations
 - Decisions
 - Hooks
+- Notifications
 - Blocked
 - Gates
 - Blockers

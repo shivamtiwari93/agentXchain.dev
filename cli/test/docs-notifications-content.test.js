@@ -57,6 +57,8 @@ describe('Notifications docs contract', () => {
     assert.ok(DOC.includes('.agentxchain/notification-audit.jsonl'));
     assert.ok(DOC.includes('notification_audit_entries'));
     assert.ok(DOC.includes('verify export'));
+    assert.ok(DOC.includes('/api/notifications'));
+    assert.ok(DOC.includes('Notifications'));
   });
 
   it('documents the human escalation projection attached to run_blocked notifications', () => {
