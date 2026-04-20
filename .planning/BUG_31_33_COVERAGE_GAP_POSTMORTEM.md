@@ -296,10 +296,19 @@ The `v2.145.x` tester-gated state-consistency cluster also needs tarball proof
 at the release boundary, not just source-tree regressions. `cli/test/claim-reality-preflight.test.js`
 now locks four shipped-package contracts:
 
-1. **BUG-47**: the packed `stale-turn-watchdog.js` must still export
-   `detectStaleTurns` and `detectAndEmitStaleTurns`, honor
+1. **BUG-47**: two rows. (a) the packed `stale-turn-watchdog.js` must still
+   export `detectStaleTurns` and `detectAndEmitStaleTurns`, honor
    `run_loop.stale_turn_threshold_ms`, retain stale turns as `stalled`, and
-   surface `reissue-turn --reason stale`.
+   surface `reissue-turn --reason stale`. (b) packaged behavioral smoke:
+   `reconcileStaleTurns` on the packed binary, given a turn with first-output
+   proof and `started_at` past the configured stale threshold, transitions to
+   `stalled` (NOT `failed_start`), emits `turn_stalled` + `run_blocked`
+   (category `stale_turn`, never `ghost_turn`, never `turn_start_failed`),
+   releases the budget reservation, and advertises
+   `reissue-turn --reason stale` (NOT `--reason ghost`). This locks
+   `DEC-BUG51-FIRST-OUTPUT-PROOF-001` at the packaged-binary boundary —
+   without it, a refactor that collapsed the BUG-47/BUG-51 path-split would
+   ship undetected.
 2. **BUG-48**: the packed `intake.js` must still clear
    `.agentxchain/intake/injected-priority.json` when
    `validatePreemptionMarker()` sees a superseded intent.

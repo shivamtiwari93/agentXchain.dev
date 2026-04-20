@@ -1762,6 +1762,148 @@ describe('claim-reality preflight', () => {
       'packed stale-turn-watchdog.js must surface the stale-turn reissue command');
   });
 
+  it('BUG-47 packaged CLI reconciles a started-but-silent turn to stalled (not failed_start)', async () => {
+    // Packaged behavioral proof for BUG-47 — analogous to the BUG-51 ghost-turn
+    // smoke at "BUG-51 packaged CLI detects a ghost turn ...". GPT 5.4 Turn 36
+    // Next Action: prove the shipped tarball still distinguishes BUG-47 stale
+    // ("subprocess started, attached stdout, then went silent") from BUG-51
+    // ghost ("subprocess never produced output"). Locks DEC-BUG51-FIRST-OUTPUT-PROOF-001
+    // at the packaged-binary boundary. Without this row, a refactor that
+    // accidentally collapsed all stale paths into ghost (or vice versa) would
+    // ship undetected — claim-reality rule #9 territory.
+    const { packageDir } = getExtractedPackage();
+    const watchdog = await import(pathToFileURL(join(packageDir, 'src/lib/stale-turn-watchdog.js')).href);
+    const dispatchProgress = await import(pathToFileURL(join(packageDir, 'src/lib/dispatch-progress.js')).href);
+    const runEvents = await import(pathToFileURL(join(packageDir, 'src/lib/run-events.js')).href);
+    const { reconcileStaleTurns } = watchdog;
+    const { getDispatchProgressRelativePath } = dispatchProgress;
+    const { RUN_EVENTS_PATH } = runEvents;
+
+    // Seed a `running` turn that started 120s ago AND has first-output proof
+    // (both on the turn itself and in the packed dispatch-progress file). This
+    // is the BUG-47 path: subprocess attached stdout, emitted output, then
+    // went quiet past the stale threshold. NOT the BUG-51 path (no proof of
+    // first output at all).
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug47-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+    const runId = 'run_bug47_packed_smoke';
+    const turnId = 'turn_bug47_stale_packed';
+    const startedAt = new Date(Date.now() - 120_000).toISOString();
+    const lastActivityAt = new Date(Date.now() - 110_000).toISOString();
+    const state = {
+      schema_version: '1.0',
+      run_id: runId,
+      phase: 'implementation',
+      status: 'running',
+      active_turns: {
+        [turnId]: {
+          turn_id: turnId,
+          assigned_role: 'dev',
+          runtime_id: 'local-dev',
+          status: 'running',
+          assigned_at: startedAt,
+          dispatched_at: startedAt,
+          started_at: startedAt,
+          first_output_at: startedAt,
+        },
+      },
+      budget_reservations: {
+        [turnId]: { role: 'dev', estimate_usd: 2.0, reserved_at: startedAt },
+      },
+    };
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+
+    // Seed dispatch-progress mirroring the source-tree BUG-47 fixture
+    // (`seedOldDispatchProgress`) so packed `hasStartupProof()` returns true,
+    // which is what makes this stale-not-ghost.
+    const progressPath = join(root, getDispatchProgressRelativePath(turnId));
+    mkdirSync(dirname(progressPath), { recursive: true });
+    writeFileSync(progressPath, JSON.stringify({
+      turn_id: turnId,
+      started_at: startedAt,
+      first_output_at: startedAt,
+      last_activity_at: lastActivityAt,
+      activity_type: 'output',
+      activity_summary: 'Producing output (3 lines)',
+      output_lines: 3,
+      stderr_lines: 0,
+    }));
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug47-packed', name: 'BUG-47 packed', default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'x', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: { 'local-dev': { type: 'local_cli', command: 'node', args: ['-e', 'process.exit(0)'] } },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_signoff' } },
+      gates: { implementation_signoff: {} },
+      // Override the 10-minute default to 60s so the 120s-old started_at is
+      // definitively past threshold without making the test wall-clock slow.
+      // Also pin startup_watchdog_ms above the lifecycle age so the BUG-51
+      // ghost detector does NOT fire on this turn — proving the path-split
+      // works on the packaged binary.
+      run_loop: { stale_turn_threshold_ms: 60_000, startup_watchdog_ms: 600_000 },
+    };
+
+    const result = reconcileStaleTurns(root, state, config);
+    assert.equal(result.changed, true,
+      'packaged reconcileStaleTurns must report state change when a started-but-silent turn crosses the stale threshold');
+    assert.equal(result.ghost_turns.length, 0,
+      `packaged BUG-47 path must NOT classify a turn with first-output proof as ghost; ghost_turns.length=${result.ghost_turns.length}`);
+    assert.equal(result.stale_turns.length, 1,
+      `packaged BUG-47 path must detect exactly 1 stale turn; got ${result.stale_turns.length}`);
+    assert.equal(result.stale_turns[0].turn_id, turnId,
+      'packaged BUG-47 path must detect the seeded stale turn by id');
+
+    const turnAfter = result.state.active_turns[turnId];
+    assert.equal(turnAfter.status, 'stalled',
+      `packaged stale turn must transition to stalled (not failed_start); got status=${turnAfter.status}`);
+    assert.equal(turnAfter.stalled_reason, 'no_output_within_threshold',
+      'packaged stale turn must record stalled_reason=no_output_within_threshold');
+    assert.equal(turnAfter.failed_start_reason, undefined,
+      'packaged stale turn must NOT carry the BUG-51 failed_start_reason marker — wrong recovery family');
+    assert.ok(
+      turnAfter.stalled_threshold_ms === 60_000,
+      `packaged stale turn must reflect the configured 60s stale threshold; got threshold_ms=${turnAfter.stalled_threshold_ms}`,
+    );
+    assert.match(turnAfter.recovery_command || '',
+      new RegExp(`reissue-turn --turn ${turnId} --reason stale`),
+      'packaged stale turn must advertise `reissue-turn --reason stale` (NOT --reason ghost) as the operator recovery command');
+
+    assert.equal(result.state.budget_reservations[turnId], undefined,
+      'packaged stale-turn transition must release the lingering budget reservation (BUG-51 fix #6 also applied to stale)');
+    assert.equal(result.state.status, 'blocked',
+      'packaged stale-turn reconciliation must mark the run blocked so operators see it immediately');
+
+    const eventsPath = join(root, RUN_EVENTS_PATH);
+    assert.ok(existsSync(eventsPath),
+      'packaged stale-turn reconciliation must write run events to .agentxchain/events.jsonl');
+    const events = readFileSync(eventsPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const eventTypes = events.map((e) => e.event_type);
+    assert.ok(eventTypes.includes('turn_stalled'),
+      `packaged stale-turn reconciliation must emit a turn_stalled event; got ${eventTypes.join(',')}`);
+    assert.ok(eventTypes.includes('run_blocked'),
+      `packaged stale-turn reconciliation must emit a run_blocked event so operators are surfaced the halt; got ${eventTypes.join(',')}`);
+    assert.equal(eventTypes.includes('turn_start_failed'), false,
+      `packaged stale-turn reconciliation must NOT emit BUG-51 startup-failure events for a started-but-silent turn; got ${eventTypes.join(',')}`);
+    assert.equal(eventTypes.includes('runtime_spawn_failed'), false,
+      `packaged stale-turn reconciliation must NOT emit runtime_spawn_failed for a turn with first-output proof; got ${eventTypes.join(',')}`);
+
+    const blockedEvent = events.find((e) => e.event_type === 'run_blocked');
+    assert.equal(blockedEvent?.payload?.category, 'stale_turn',
+      `packaged run_blocked event must carry category='stale_turn' (BUG-47), not 'ghost_turn' (BUG-51); got ${blockedEvent?.payload?.category}`);
+    assert.deepEqual(blockedEvent?.payload?.stalled_turn_ids || [], [turnId],
+      'packaged run_blocked event must list the stale turn id under stalled_turn_ids');
+    assert.deepEqual(blockedEvent?.payload?.ghost_turn_ids || [], [],
+      'packaged run_blocked event must leave ghost_turn_ids empty for the stale path');
+  });
+
   it('BUG-48 packaged intake clears superseded preemption markers', async () => {
     const packedFiles = getPackedFiles();
     const bug48Test = join(SCENARIOS_DIR, 'bug-48-intent-lifecycle-contradiction.test.js');
