@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.146.0
+# Hacker News Submission — AgentXchain v2.147.0
 
-> Ready-to-post for the `v2.146.0` launch window once tester verification lands. Updated 2026-04-20.
+> Ready-to-post for the `v2.147.0` launch window once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -34,15 +34,16 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's queued in v2.146.0:**
-- BUG-51 fast-startup watchdog shipped: ghost-dispatched turns now fail within 30 seconds instead of burning roughly 10 minutes before recovery starts
-- Ghost turns transition to retained `failed_start`, emit `turn_start_failed`, and release budget reservations immediately
-- BUG-47 stale-turn coverage now stays on the "subprocess started, then went silent" path; BUG-51 owns the "subprocess never attached" path
-- BUG-51 and BUG-47 remain open pending tester verification on `v2.146.0`; BUG-48..50 remain open pending tester verification per the beta-cycle discipline rules
+**What's queued in v2.147.0:**
+- BUG-52 phase-gate recovery shipped: satisfied planning and QA transition gates are reconciled before redispatch, so `unblock` advances the phase instead of sending another same-phase PM or QA turn
+- BUG-53 continuous auto-chain shipped: completed runs emit `session_continuation` and seed the next vision-derived run instead of silently stopping after launch
+- `paused` is reserved for real blockers only; clean completion paths stay in the continuation loop until `maxRuns` or `idle_exit`
+- BUG-52 and BUG-53 remain open pending tester verification on `v2.147.0` per the beta-cycle discipline rules
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - 108 conformance fixtures across 13 protocol surfaces
-- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
+- node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
 
 **Architecture:**
 1. Protocol (the constitution — run state, roles, turns, gates, decisions)

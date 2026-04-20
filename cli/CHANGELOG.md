@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.147.0
+
+### Bug Fixes
+- **BUG-52 phase-gate reconciliation before redispatch**: `resume` and `step --resume` now reconcile previously failed phase-transition gates before role selection. When the gate is now satisfied, the run advances immediately, clears stale gate-failure state, emits `phase_entered` with `trigger: "reconciled_before_dispatch"`, and dispatches the next-phase role instead of re-running the same-phase PM or QA turn after `unblock`.
+- **BUG-52 packaged release-boundary proof**: the shipped tarball now proves both the positive and negative reconcile branches so package regressions cannot silently reintroduce same-phase redispatch after a satisfied gate.
+- **BUG-53 continuous auto-chain audit trail**: post-completion continuous sessions now emit `session_continuation` with the previous run, next run, and next objective, preserve `paused` for real blockers only, and keep chaining vision-derived work instead of silently stalling after a clean completion.
+- **BUG-53 operator summary surface**: recent-event summaries now render `session_continuation <prev> -> <next> (<objective>)` so inspect/dashboard flows expose the auto-chain boundary directly.
+
+### Status
+- BUG-52 remains open pending tester verification on `v2.147.0` per discipline rule #12
+- BUG-53 remains open pending tester verification on `v2.147.0` per discipline rule #12
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
+
 ## 2.146.0
 
 ### Bug Fixes

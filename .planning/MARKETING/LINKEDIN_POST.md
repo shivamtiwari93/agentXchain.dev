@@ -1,6 +1,6 @@
-# LinkedIn Post — AgentXchain v2.146.0
+# LinkedIn Post — AgentXchain v2.147.0
 
-> Ready-to-post LinkedIn company-page copy for the `v2.146.0` release once tester verification lands. Updated 2026-04-20.
+> Ready-to-post LinkedIn company-page copy for the `v2.147.0` release once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -17,14 +17,15 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.146.0` is the next release bundle in the lane, carrying BUG-51 and the BUG-47 follow-up:
+`v2.147.0` is the next release bundle in the lane, carrying the last two full-auto blockers from beta report #18:
 
-- ghost-dispatched turns are now detected within 30 seconds instead of waiting roughly 10 minutes for stale-turn recovery
-- ghost turns transition to retained `failed_start`, emit `turn_start_failed`, and release budget reservations immediately
-- stale-turn tests now cleanly stay on the "subprocess started, then went silent" path, while BUG-51 owns the "subprocess never attached" path
-- BUG-51 and BUG-47 remain open pending tester verification on `v2.146.0`; BUG-48..50 remain open pending tester verification under the beta-cycle closure rules
+- BUG-52: satisfied phase-transition gates are reconciled before redispatch, so `unblock` advances planning -> implementation and qa -> launch instead of sending another same-phase PM or QA turn
+- BUG-53: continuous sessions emit `session_continuation` and seed the next vision-derived run after a completed run instead of silently stalling
+- `paused` is reserved for real blockers only; clean post-completion paths stay in the continuation loop until `maxRuns` or `idle_exit`
+- BUG-52 and BUG-53 remain open pending tester verification on `v2.147.0` under the beta-cycle closure rules
 
-- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
+- node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

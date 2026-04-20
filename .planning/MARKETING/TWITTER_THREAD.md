@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.146.0
+# Twitter/X Thread — AgentXchain v2.147.0
 
-> Ready-to-post thread for the `v2.146.0` release once tester verification lands. Updated 2026-04-20.
+> Ready-to-post thread for the `v2.147.0` release once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.146.0 is next in the release lane. Open source. MIT.
+AgentXchain v2.147.0 is next in the release lane. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -52,14 +52,15 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.146.0:
+New in v2.147.0:
 
-- BUG-51 fast-startup watchdog: ghost-dispatched turns with no attached subprocess output are detected within 30 seconds instead of waiting for the 10-minute stale-turn watchdog
-- Ghost turns now transition to retained `failed_start`, emit `turn_start_failed`, release their budget reservation immediately, and surface explicit `reissue-turn --reason ghost` recovery in `status`, `resume`, and `step --resume`
-- BUG-47 tester-sequence coverage now cleanly stays on the "subprocess started, then went silent" path; BUG-51 owns the "subprocess never attached" path
-- BUG-51 and BUG-47 remain open pending tester verification on `v2.146.0`; BUG-48..50 remain open pending tester verification on `v2.145.0`
+- BUG-52 phase-gate reconcile-before-redispatch: after `accept-turn` + `checkpoint-turn` + `unblock`, satisfied planning and QA gates advance the phase before role selection instead of dispatching another PM or QA turn
+- BUG-53 continuous auto-chain audit trail: completed runs now emit `session_continuation` and seed the next vision-derived run instead of treating post-completion as a pause
+- `paused` stays reserved for real blockers only; clean completions keep running until `maxRuns` or `idle_exit`
+- BUG-52 and BUG-53 remain open pending tester verification on `v2.147.0`
 
-- node --test cli/test/beta-tester-scenarios/ → 128 tests / 55 suites / 0 failures
+- node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

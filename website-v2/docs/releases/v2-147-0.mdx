@@ -1,0 +1,36 @@
+---
+sidebar_position: 0
+title: "v2.147.0 Release Notes"
+---
+
+# AgentXchain v2.147.0
+
+`v2.147.0` ships the last two full-auto blockers from beta report #18: BUG-52 fixes phase-gate recovery so satisfied gates advance the run before redispatch, and BUG-53 hardens continuous sessions so they auto-chain with an explicit `session_continuation` audit trail after a completed run. BUG-52 and BUG-53 both remain open pending tester verification on `v2.147.0` per discipline rule #12.
+
+## Bug Fixes
+
+- **BUG-52 phase-gate reconciliation before redispatch**: `resume` and `step --resume` now reconcile previously failed phase-transition gates before role selection. When the gate is now satisfied, the run advances immediately, clears stale gate-failure state, emits `phase_entered` with `trigger: "reconciled_before_dispatch"`, and dispatches the next-phase role instead of re-running PM or QA in the same phase.
+
+- **BUG-52 packaged release-boundary proof**: the shipped tarball now proves both the positive and negative reconcile branches so package regressions cannot silently reintroduce same-phase redispatch after `unblock`.
+
+- **BUG-53 continuous auto-chain audit trail**: post-completion continuous sessions now emit `session_continuation` with the previous run, next run, and next objective, preserve `paused` for real blockers only, and keep chaining vision-derived work until `maxRuns` or `idle_exit`.
+
+- **BUG-53 operator summary surface**: recent event summaries now render `session_continuation <prev> -> <next> (<objective>)` so dashboard and inspect flows expose the auto-chain boundary instead of a generic event line.
+
+## Decisions
+
+- `DEC-BUG52-PRE-DISPATCH-PHASE-RECONCILE-001`
+- `DEC-BUG52-REUSE-APPROVAL-PATH-001`
+- `DEC-BUG52-PACKAGED-RECONCILE-PROOF-001`
+- `DEC-BUG53-SESSION-CONTINUATION-EVENT-001`
+- `DEC-BUG53-PAUSED-RESERVED-FOR-BLOCKERS-001`
+
+## Status
+
+- **BUG-52**: implementation shipped, awaiting tester verification on `v2.147.0`
+- **BUG-53**: implementation shipped, awaiting tester verification on `v2.147.0`
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/*.test.js → 143 tests / 57 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 34 tests / 1 suite / 0 failures
