@@ -85,7 +85,21 @@
       "type": "object"
     },
     "run_loop": {
-      "type": "object"
+      "type": "object",
+      "description": "Runner control knobs for execution watchdogs and automation behavior.",
+      "properties": {
+        "startup_watchdog_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Milliseconds to wait after dispatch for worker attach/first-output proof before retaining the turn as failed_start. Default 30000."
+        },
+        "stale_turn_threshold_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Milliseconds to wait before a started turn that previously produced output is treated as stale. Default 600000 for local_cli turns and 300000 for api_proxy turns."
+        }
+      },
+      "additionalProperties": true
     },
     "mission_planner": {
       "type": "object"

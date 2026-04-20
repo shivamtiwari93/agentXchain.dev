@@ -90,6 +90,7 @@ These rules are proven by the `event_lifecycle` conformance surface (EL-001 thro
 - Package export: `agentxchain/schemas/agentxchain-config`
 - Source file: `cli/src/lib/schemas/agentxchain-config.schema.json`
 - Current purpose: freeze the raw governed config shape for `project`, `roles`, `runtimes`, and the raw role-to-runtime binding contract so non-reference runners do not have to infer it from normalized reference-runner state.
+- The published schema also documents the runner-owned watchdog knobs `run_loop.startup_watchdog_ms` and `run_loop.stale_turn_threshold_ms`, so BUG-51/BUG-47 tuning is part of the machine-readable config contract instead of an implementation-only detail.
 - Runtime capability declarations live under `runtimes.<id>.capabilities` in raw config. Those declarations affect the runtime capability contract and the `connector capabilities` handshake, but they do not rename the raw role binding field.
 
 ### Connector capabilities output schema artifact
