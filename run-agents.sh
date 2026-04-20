@@ -17,7 +17,7 @@ if [ ! -f "$TALK_FILE" ]; then
   cat > "$TALK_FILE" << INIT
 # Agent Collaboration Log
 
-> Claude Opus 4.6 and GPT 5.4 collaborating on AgentXchain.dev
+> Claude Opus 4.7 and GPT 5.4 collaborating on AgentXchain.dev
 > Started: $(date)
 
 ---
@@ -29,7 +29,7 @@ echo "╔═══════════════════════�
 echo "║  AgentXchain Dev Loop                                        ║"
 echo "║  Raw fallback only — prefer run --continuous                 ║"
 echo "║  Max loops: $MAX_LOOPS | Delay: ${DELAY_MINUTES}m between turns               ║"
-echo "║  Agents: Claude Opus 4.6 + GPT 5.4                          ║"
+echo "║  Agents: Claude Opus 4.7 + GPT 5.4                          ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -149,7 +149,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
   fi
 
   if (( i % 2 == 1 )); then
-    MODEL_NAME="Claude Opus 4.6"
+    MODEL_NAME="Claude Opus 4.7"
     OTHER_MODEL="GPT 5.4"
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
@@ -157,13 +157,20 @@ for i in $(seq 1 "$MAX_LOOPS"); do
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 
-    PROMPT=$(echo "$SHARED_PROMPT_SUFFIX" | sed "s/TURN_NUMBER/$i/g; s/MODEL_NAME/Claude Opus 4.6/g; s/OTHER_MODEL/GPT 5.4/g")
+    PROMPT=$(echo "$SHARED_PROMPT_SUFFIX" | sed "s/TURN_NUMBER/$i/g; s/MODEL_NAME/Claude Opus 4.7/g; s/OTHER_MODEL/GPT 5.4/g")
 
-    claude -p "You are Claude Opus 4.6, collaborating with GPT 5.4 on AgentXchain.dev.
+    claude -p \
+      --model claude-opus-4-7 \
+      --effort high \
+      --dangerously-skip-permissions \
+      --tools default \
+      --output-format stream-json \
+      --verbose \
+      "You are Claude Opus 4.7, collaborating with GPT 5.4 on AgentXchain.dev.
 
 Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/VISION.md', '$PROJECT/.planning/WAYS-OF-WORKING.md', and '$PROJECT/.planning/AGENT-TALK.md' for context. VISION.md is human-owned and must never be modified by you. Read any other project files as needed.
 
-$PROMPT" --allowedTools "Read,Edit,Write,Bash,Glob,Grep" --output-format stream-json --verbose | while IFS= read -r line; do
+$PROMPT" | while IFS= read -r line; do
       text=$(echo "$line" | grep -o '"text":"[^"]*"' | head -1 | sed 's/"text":"//;s/"$//')
       if [ -n "$text" ]; then
         printf '%b' "$text"
@@ -173,16 +180,22 @@ $PROMPT" --allowedTools "Read,Edit,Write,Bash,Glob,Grep" --output-format stream-
 
   else
     MODEL_NAME="GPT 5.4"
-    OTHER_MODEL="Claude Opus 4.6"
+    OTHER_MODEL="Claude Opus 4.7"
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
     echo "║  Turn $i/$MAX_LOOPS — $MODEL_NAME — $(date '+%Y-%m-%d %H:%M:%S')              ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 
-    PROMPT=$(echo "$SHARED_PROMPT_SUFFIX" | sed "s/TURN_NUMBER/$i/g; s/MODEL_NAME/GPT 5.4/g; s/OTHER_MODEL/Claude Opus 4.6/g")
+    PROMPT=$(echo "$SHARED_PROMPT_SUFFIX" | sed "s/TURN_NUMBER/$i/g; s/MODEL_NAME/GPT 5.4/g; s/OTHER_MODEL/Claude Opus 4.7/g")
 
-    "/Applications/Codex.app/Contents/Resources/codex" exec -C "$PROJECT" -m gpt-5.4 --dangerously-bypass-approvals-and-sandbox "You are GPT 5.4, collaborating with Claude Opus 4.6 on AgentXchain.dev.
+    "/Applications/Codex.app/Contents/Resources/codex" exec \
+      -C "$PROJECT" \
+      -m gpt-5.4 \
+      -c model_reasoning_effort="high" \
+      --enable fast_mode \
+      --dangerously-bypass-approvals-and-sandbox \
+      "You are GPT 5.4, collaborating with Claude Opus 4.7 on AgentXchain.dev.
 
 Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/VISION.md', '$PROJECT/.planning/WAYS-OF-WORKING.md', and '$PROJECT/.planning/AGENT-TALK.md' for context. VISION.md is human-owned and must never be modified by you. Read any other project files as needed.
 
