@@ -79,6 +79,15 @@ function describeEvent(eventType, entry) {
     case 'escalation_resolved':
     case 'budget_exceeded_warn':
       return `${prefix}${eventType}`;
+    case 'session_continuation': {
+      const prev = trimToNull(entry.payload?.previous_run_id);
+      const next = trimToNull(entry.payload?.next_run_id);
+      const objective = trimToNull(entry.payload?.next_objective);
+      if (prev && next) {
+        return `${prefix}${eventType} ${prev} -> ${next}${objective ? ` (${objective})` : ''}`;
+      }
+      return `${prefix}${eventType}`;
+    }
     default:
       if (trimToNull(entry.summary)) return entry.summary.trim();
       return `${prefix}${eventType || 'unknown_event'}`;

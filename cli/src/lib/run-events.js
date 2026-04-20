@@ -42,6 +42,7 @@ export const VALID_RUN_EVENTS = [
   'human_escalation_raised',
   'human_escalation_resolved',
   'dispatch_progress',
+  'session_continuation',
 ];
 
 /**

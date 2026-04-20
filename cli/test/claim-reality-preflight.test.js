@@ -2577,6 +2577,472 @@ describe('claim-reality preflight', () => {
       `packaged stdout_attach_failed path must NOT emit runtime_spawn_failed — that is the sibling family and the typed distinction would be lost; got ${eventTypes.join(',')}`);
   });
 
+  it('BUG-52 pre-dispatch reconciler is packed (governed-state + resume + step wiring)', () => {
+    const packedFiles = getPackedFiles();
+    assert.ok(packedFiles.has('src/lib/governed-state.js'),
+      'BUG-52 packed tarball must include src/lib/governed-state.js (reconcilePhaseAdvanceBeforeDispatch lives here)');
+    assert.ok(packedFiles.has('src/lib/gate-evaluator.js'),
+      'BUG-52 packed tarball must include src/lib/gate-evaluator.js (evaluatePhaseExit drives the reconcile decision)');
+    assert.ok(packedFiles.has('src/commands/resume.js'),
+      'BUG-52 packed tarball must include src/commands/resume.js — pre-dispatch reconcile seam must run before role selection');
+    assert.ok(packedFiles.has('src/commands/step.js'),
+      'BUG-52 packed tarball must include src/commands/step.js — pre-dispatch reconcile seam must run before role selection');
+    // The tester-sequence test file lives in the repo, not the tarball (test
+    // assets are not shipped). The regression is enforced by CI, not by
+    // tarball inclusion. What MUST ship is the production code the test
+    // exercises; those assertions are above.
+    const bug52Scenario = join(SCENARIOS_DIR, 'bug-52-gate-unblock-phase-advance.test.js');
+    assert.ok(existsSync(bug52Scenario),
+      'BUG-52 tester-sequence regression must exist at cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js so the release-gate rerun can block publish if it regresses');
+
+    const { packageDir } = getExtractedPackage();
+    const packedGoverned = readFileSync(join(packageDir, 'src/lib/governed-state.js'), 'utf8');
+    assert.match(packedGoverned, /export function reconcilePhaseAdvanceBeforeDispatch\b/,
+      'packed governed-state.js must export reconcilePhaseAdvanceBeforeDispatch — the shared pre-dispatch seam (DEC-BUG52-PRE-DISPATCH-PHASE-RECONCILE-001)');
+    assert.match(packedGoverned, /trigger:\s*'reconciled_before_dispatch'/,
+      'packed governed-state.js must emit phase_entered with trigger="reconciled_before_dispatch" so operators can tell post-unblock advancement apart from normal phase transitions');
+    assert.match(packedGoverned, /approvePhaseTransition\s*\(/,
+      'packed governed-state.js must reuse approvePhaseTransition for the awaiting_human_approval branch (DEC-BUG52-REUSE-APPROVAL-PATH-001) — not duplicate the advance logic');
+
+    const packedResume = readFileSync(join(packageDir, 'src/commands/resume.js'), 'utf8');
+    assert.match(packedResume, /reconcilePhaseAdvanceBeforeDispatch/,
+      'packed resume.js must call reconcilePhaseAdvanceBeforeDispatch before dispatch — otherwise `resume` after unblock would redispatch the same-phase role (tester report #18, BUG-52)');
+
+    const packedStep = readFileSync(join(packageDir, 'src/commands/step.js'), 'utf8');
+    assert.match(packedStep, /reconcilePhaseAdvanceBeforeDispatch/,
+      'packed step.js must call reconcilePhaseAdvanceBeforeDispatch before dispatch — `step --resume` is the other redispatch entrypoint the tester hit');
+  });
+
+  it('BUG-52 packaged reconciler advances phase before dispatch when a failed phase-transition gate is now satisfied', async () => {
+    // Release-boundary proof for BUG-52. The beta-tester-scenario covers the
+    // full escalate → unblock → reconcile dance at the CLI surface; this row
+    // drives `reconcilePhaseAdvanceBeforeDispatch` directly from the packed
+    // tarball to prove the core seam is wired correctly in the shipped bits,
+    // not just in source. Tester's operator symptom was: after `accept-turn
+    // --checkpoint` + `unblock`, the dispatcher redispatched the same-phase
+    // role because nothing re-evaluated the now-satisfied phase gate before
+    // selecting the next role. The Turn 44 fix added the reconcile seam in
+    // governed-state.js and wired it into resume.js and step.js. A packaging
+    // regression (wrong export, wrong module shape, minification that drops
+    // the phase_entered event trigger) must be caught here, not by the tester.
+    const { packageDir } = getExtractedPackage();
+    const governedPath = join(packageDir, 'src/lib/governed-state.js');
+    const runEventsPath = join(packageDir, 'src/lib/run-events.js');
+    assert.ok(existsSync(governedPath),
+      'BUG-52 packed tarball must include src/lib/governed-state.js before the packaged behavioral row can prove the reconcile contract');
+    assert.ok(existsSync(runEventsPath),
+      'BUG-52 packed tarball must include src/lib/run-events.js for the phase_entered event contract');
+
+    const governed = await import(pathToFileURL(governedPath).href);
+    const runEvents = await import(pathToFileURL(runEventsPath).href);
+    const { reconcilePhaseAdvanceBeforeDispatch } = governed;
+    const { RUN_EVENTS_PATH } = runEvents;
+    assert.equal(typeof reconcilePhaseAdvanceBeforeDispatch, 'function',
+      'packed governed-state.js must export reconcilePhaseAdvanceBeforeDispatch as a function');
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug52-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+
+    // Gate requires .planning/PM_SIGNOFF.md. It exists on disk now (simulating
+    // "human flipped Approved: NO → YES" before the operator ran `unblock`).
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+
+    const runId = 'run_bug52_packed_smoke';
+    const turnId = 'turn_bug52_packed_pm';
+    const acceptedAt = new Date(Date.now() - 60_000).toISOString();
+
+    // State shape at the exact moment after `unblock` and before dispatch:
+    //   - run is active
+    //   - no active turns (checkpoint already cleared the PM turn)
+    //   - last_gate_failure is a phase_transition failure for planning_signoff
+    //   - phase is still `planning`
+    const state = {
+      schema_version: '1.0',
+      run_id: runId,
+      phase: 'planning',
+      status: 'active',
+      active_turns: {},
+      phase_gate_status: {
+        planning_signoff: 'failed',
+      },
+      last_gate_failure: {
+        gate_id: 'planning_signoff',
+        gate_type: 'phase_transition',
+        requested_by_turn: turnId,
+        requested_phase: 'implementation',
+        failed_at: acceptedAt,
+      },
+      last_completed_turn_id: turnId,
+      acceptance_log: [
+        {
+          turn_id: turnId,
+          role: 'pm',
+          accepted_at: acceptedAt,
+          phase_transition_request: 'implementation',
+        },
+      ],
+    };
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+
+    // History is consulted to pull the original PM turn's phase_transition_request.
+    const historyEntry = {
+      turn_id: turnId,
+      run_id: runId,
+      role: 'pm',
+      assigned_role: 'pm',
+      status: 'completed',
+      accepted_at: acceptedAt,
+      phase: 'planning',
+      phase_transition_request: 'implementation',
+      summary: 'Planning artifacts drafted',
+      verification: { status: 'pass' },
+    };
+    writeFileSync(
+      join(root, '.agentxchain', 'history.jsonl'),
+      JSON.stringify(historyEntry) + '\n',
+    );
+
+    // Minimal governed config for the reconciler:
+    //   - planning → implementation routing
+    //   - planning_signoff gate requires PM_SIGNOFF.md (already on disk)
+    //   - NO requires_human_approval here — this row isolates the `action:
+    //     'advance'` branch. The awaiting_human_approval → approvePhaseTransition
+    //     branch is covered by the beta-tester-scenario file-level test.
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug52-packed', name: 'BUG-52 packed', default_branch: 'main' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'manual-pm' },
+        dev: { title: 'Dev', mandate: 'Implement', write_authority: 'authoritative', runtime: 'manual-dev' },
+      },
+      runtimes: {
+        'manual-pm': { type: 'manual' },
+        'manual-dev': { type: 'manual' },
+      },
+      routing: {
+        planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev'], exit_gate: 'planning_signoff' },
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_complete' },
+      },
+      gates: {
+        planning_signoff: {
+          requires_files: ['.planning/PM_SIGNOFF.md'],
+        },
+        implementation_complete: {},
+      },
+      gate_semantic_coverage_mode: 'lenient',
+    };
+
+    const result = reconcilePhaseAdvanceBeforeDispatch(root, config);
+    assert.equal(result.ok, true,
+      `packaged reconcilePhaseAdvanceBeforeDispatch must succeed; got error=${result.error}`);
+    assert.equal(result.advanced, true,
+      'packaged reconciler MUST advance the phase when the previously failed phase-transition gate is now satisfied — this is the core BUG-52 contract. If advanced=false here, the shipped binary would redispatch the same-phase role after unblock, exactly as the tester reported.');
+    assert.equal(result.from_phase, 'planning',
+      `packaged reconciler must report from_phase="planning"; got ${result.from_phase}`);
+    assert.equal(result.to_phase, 'implementation',
+      `packaged reconciler must advance to "implementation"; got ${result.to_phase}`);
+    assert.equal(result.gate_id, 'planning_signoff',
+      `packaged reconciler must cite the planning_signoff gate; got ${result.gate_id}`);
+
+    const finalState = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    assert.equal(finalState.phase, 'implementation',
+      'packaged reconciler must persist phase=implementation to state.json');
+    assert.equal(finalState.phase_gate_status?.planning_signoff, 'passed',
+      'packaged reconciler must mark planning_signoff=passed so the next dispatch does not re-evaluate a stale failure');
+    assert.equal(finalState.last_gate_failure, null,
+      'packaged reconciler must clear last_gate_failure after advancing — otherwise the next resume would re-enter the reconcile branch and loop');
+    assert.equal(finalState.pending_phase_transition, null,
+      'packaged reconciler must clear pending_phase_transition on structural advance');
+    assert.ok(finalState.phase_entered_at,
+      'packaged reconciler must stamp phase_entered_at on the advanced state');
+
+    const eventsPath = join(root, RUN_EVENTS_PATH);
+    assert.ok(existsSync(eventsPath),
+      'packaged reconciler must append run events to .agentxchain/events.jsonl');
+    const events = readFileSync(eventsPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const phaseEntered = events.find((e) => e.event_type === 'phase_entered');
+    assert.ok(phaseEntered,
+      `packaged reconciler must emit a phase_entered event; got event types: ${events.map((e) => e.event_type).join(',')}`);
+    assert.equal(phaseEntered.payload?.from, 'planning',
+      'phase_entered payload must report from="planning"');
+    assert.equal(phaseEntered.payload?.to, 'implementation',
+      'phase_entered payload must report to="implementation"');
+    assert.equal(phaseEntered.payload?.gate_id, 'planning_signoff',
+      'phase_entered payload must cite the gate_id=planning_signoff');
+    assert.equal(phaseEntered.payload?.trigger, 'reconciled_before_dispatch',
+      'phase_entered payload MUST carry trigger="reconciled_before_dispatch" — this is the operator audit trail distinguishing BUG-52 auto-advancement from normal phase transitions (DEC-BUG52-PRE-DISPATCH-PHASE-RECONCILE-001)');
+  });
+
+  it('BUG-52 packaged reconciler is a no-op when the gate is still failing (does not fabricate a phase advance)', async () => {
+    // Negative partner to the advance test. If the reconciler ever advances
+    // when the gate is STILL unsatisfied on disk, operators would lose the
+    // blocker signal and dispatch would land in an invalid phase. The source
+    // test suite covers this via gate-evaluator.test.js; this row locks the
+    // same invariant at the packaged-tarball boundary for BUG-52's seam.
+    const { packageDir } = getExtractedPackage();
+    const governed = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const { reconcilePhaseAdvanceBeforeDispatch } = governed;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug52-noop-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    // INTENTIONALLY not writing PM_SIGNOFF.md — gate remains failing.
+
+    const runId = 'run_bug52_packed_noop';
+    const turnId = 'turn_bug52_packed_noop_pm';
+    const acceptedAt = new Date().toISOString();
+
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify({
+      schema_version: '1.0',
+      run_id: runId,
+      phase: 'planning',
+      status: 'active',
+      active_turns: {},
+      phase_gate_status: { planning_signoff: 'failed' },
+      last_gate_failure: {
+        gate_id: 'planning_signoff',
+        gate_type: 'phase_transition',
+        requested_by_turn: turnId,
+        requested_phase: 'implementation',
+        failed_at: acceptedAt,
+      },
+      last_completed_turn_id: turnId,
+    }, null, 2));
+
+    writeFileSync(join(root, '.agentxchain', 'history.jsonl'),
+      JSON.stringify({
+        turn_id: turnId,
+        run_id: runId,
+        role: 'pm',
+        assigned_role: 'pm',
+        status: 'completed',
+        accepted_at: acceptedAt,
+        phase: 'planning',
+        phase_transition_request: 'implementation',
+        verification: { status: 'pass' },
+      }) + '\n');
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug52-packed-noop', name: 'BUG-52 packed noop', default_branch: 'main' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'manual-pm' },
+        dev: { title: 'Dev', mandate: 'Implement', write_authority: 'authoritative', runtime: 'manual-dev' },
+      },
+      runtimes: { 'manual-pm': { type: 'manual' }, 'manual-dev': { type: 'manual' } },
+      routing: {
+        planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev'], exit_gate: 'planning_signoff' },
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_complete' },
+      },
+      gates: {
+        planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md'] },
+        implementation_complete: {},
+      },
+      gate_semantic_coverage_mode: 'lenient',
+    };
+
+    const result = reconcilePhaseAdvanceBeforeDispatch(root, config);
+    assert.equal(result.ok, true,
+      'packaged reconciler must not error when the gate is still failing — it must be a clean no-op');
+    assert.equal(result.advanced, false,
+      'packaged reconciler MUST NOT advance the phase when the gate predicate is still unsatisfied on disk. If this fails, a packaging regression is letting the shipped binary silently skip past missing artifacts.');
+
+    const finalState = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    assert.equal(finalState.phase, 'planning',
+      'packaged reconciler must leave phase=planning when the gate is still failing');
+    assert.equal(finalState.phase_gate_status?.planning_signoff, 'failed',
+      'packaged reconciler must NOT flip gate status to passed on a no-op');
+    assert.ok(finalState.last_gate_failure,
+      'packaged reconciler must preserve last_gate_failure on a no-op so operators still see the blocker');
+  });
+
+  it('BUG-53 continuous auto-chain is packed (continuous-run + session_continuation event)', () => {
+    const packedFiles = getPackedFiles();
+    assert.ok(packedFiles.has('src/lib/continuous-run.js'),
+      'BUG-53 packed tarball must include src/lib/continuous-run.js (auto-chain + session_continuation event live here)');
+    assert.ok(packedFiles.has('src/lib/vision-reader.js'),
+      'BUG-53 packed tarball must include src/lib/vision-reader.js (deriveVisionCandidates drives the next-objective pick)');
+    assert.ok(packedFiles.has('src/lib/run-events.js'),
+      'BUG-53 packed tarball must include src/lib/run-events.js (session_continuation event type lives here)');
+
+    const bug53Scenario = join(SCENARIOS_DIR, 'bug-53-continuous-auto-chain.test.js');
+    assert.ok(existsSync(bug53Scenario),
+      'BUG-53 tester-sequence regression must exist at cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js so the release-gate rerun can block publish if auto-chain regresses');
+
+    const { packageDir } = getExtractedPackage();
+    const packedContinuous = readFileSync(join(packageDir, 'src/lib/continuous-run.js'), 'utf8');
+    assert.match(packedContinuous, /emitRunEvent\(\s*root\s*,\s*['"]session_continuation['"]/,
+      'packed continuous-run.js MUST emit a session_continuation event at the auto-chain boundary (BUG-53 fix #4). If this assertion fails, a packaging regression silently dropped the operator audit trail for lights-out continuous operation.');
+    assert.match(packedContinuous, /previous_run_id/,
+      'packed continuous-run.js must carry previous_run_id in the session_continuation payload so operators can correlate the auto-chained pair');
+    assert.match(packedContinuous, /next_run_id/,
+      'packed continuous-run.js must carry next_run_id in the session_continuation payload');
+    assert.match(packedContinuous, /next_objective/,
+      'packed continuous-run.js must carry next_objective in the session_continuation payload — the vision objective text operators see in the audit trail');
+    // Guard that the loop never labels post-completion "I didn't know what to
+    // do next" as paused — BUG-53 requirement #2. The only places `paused` is
+    // set in the packed source must be the blocked-run branches.
+    const pausedAssignments = [...packedContinuous.matchAll(/session\.status\s*=\s*['"]paused['"]/g)];
+    assert.ok(pausedAssignments.length > 0,
+      'packed continuous-run.js must still set session.status=paused for blocked-run branches (defensive)');
+    // Each `session.status = 'paused'` must be inside a block that mentions
+    // "blocked" nearby — if a packaging regression inserts a paused
+    // assignment on the post-completion path, this will catch it.
+    for (const match of pausedAssignments) {
+      const idx = match.index;
+      const ctx = packedContinuous.slice(Math.max(0, idx - 400), Math.min(packedContinuous.length, idx + 200));
+      assert.ok(/block(ed)?/i.test(ctx),
+        `packed continuous-run.js: session.status='paused' assignment at offset ${idx} must sit inside a blocked-run branch (BUG-53 rule #2). Context: ${ctx}`);
+    }
+  });
+
+  it('BUG-53 packaged continuous loop auto-chains through 2 runs and emits session_continuation', async () => {
+    // Release-boundary proof for BUG-53. Drives the packed continuous-run.js
+    // through a two-run auto-chain with a mock governed-run executor. Proves:
+    //   (a) After run 1 completes, the loop seeds and starts run 2 from the
+    //       next vision candidate without operator intervention.
+    //   (b) A `session_continuation` event is emitted at the boundary with
+    //       the required payload shape (previous_run_id, next_run_id,
+    //       next_objective).
+    //   (c) session.status never transitions through `paused` on the clean
+    //       completion path.
+    const { packageDir } = getExtractedPackage();
+    const continuousPath = join(packageDir, 'src/lib/continuous-run.js');
+    const runEventsPath = join(packageDir, 'src/lib/run-events.js');
+    assert.ok(existsSync(continuousPath),
+      'BUG-53 packed tarball must include src/lib/continuous-run.js');
+    assert.ok(existsSync(runEventsPath),
+      'BUG-53 packed tarball must include src/lib/run-events.js');
+
+    const continuous = await import(pathToFileURL(continuousPath).href);
+    const runEventsMod = await import(pathToFileURL(runEventsPath).href);
+    const { executeContinuousRun, resolveContinuousOptions } = continuous;
+    const { RUN_EVENTS_PATH: runEventsRelPath } = runEventsMod;
+    assert.equal(typeof executeContinuousRun, 'function',
+      'packed continuous-run.js must export executeContinuousRun');
+    assert.equal(typeof resolveContinuousOptions, 'function',
+      'packed continuous-run.js must export resolveContinuousOptions');
+
+    // Minimal project scaffold
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug53-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain', 'dispatch', 'turns'), { recursive: true });
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { name: 'bug53-packed', id: 'bug53-packed-001', default_branch: 'main' },
+      roles: {
+        dev: { title: 'Developer', mandate: 'Implement.', write_authority: 'authoritative', runtime: 'manual-dev' },
+      },
+      runtimes: { 'manual-dev': { type: 'manual' } },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'done' } },
+      gates: { done: {} },
+      rules: { challenge_required: false, max_turn_retries: 1 },
+    };
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify({
+      schema_version: '1.0',
+      run_id: null,
+      project_id: 'bug53-packed-001',
+      status: 'idle',
+      phase: 'implementation',
+      accepted_integration_ref: null,
+      active_turns: {},
+      turn_sequence: 0,
+      last_completed_turn_id: null,
+      blocked_on: null,
+      blocked_reason: null,
+      escalation: null,
+      phase_gate_status: {},
+    }, null, 2));
+    writeFileSync(join(root, '.agentxchain', 'history.jsonl'), '');
+    writeFileSync(join(root, '.agentxchain', 'decision-ledger.jsonl'), '');
+
+    // Two distinct vision goals so the auto-chain picks a fresh candidate
+    // after run 1 resolves the first one.
+    writeFileSync(join(root, '.planning', 'VISION.md'), [
+      '## Protocol',
+      '',
+      '- packaged governed dispatch invariants',
+      '- packaged intake deduplication semantics',
+      '',
+    ].join('\n'));
+
+    const contOpts = {
+      ...resolveContinuousOptions({ continuous: true, maxRuns: 2 }, config),
+      cooldownSeconds: 0,
+      pollSeconds: 0,
+    };
+
+    const statePath = join(root, '.agentxchain', 'state.json');
+    const executor = async () => {
+      const current = JSON.parse(readFileSync(statePath, 'utf8'));
+      const runId = current.run_id;
+      current.status = 'completed';
+      current.completed_at = new Date().toISOString();
+      current.last_completed_turn_id = null;
+      current.active_turns = {};
+      writeFileSync(statePath, JSON.stringify(current, null, 2));
+      return {
+        exitCode: 0,
+        result: {
+          stop_reason: 'completed',
+          state: { run_id: runId, status: 'completed' },
+        },
+      };
+    };
+
+    const logs = [];
+    const { exitCode, session } = await executeContinuousRun(
+      { root, config },
+      contOpts,
+      executor,
+      (msg) => logs.push(msg),
+    );
+
+    assert.equal(exitCode, 0,
+      `packaged executeContinuousRun must exit cleanly; logs: ${logs.join(' | ')}`);
+    assert.equal(session.runs_completed, 2,
+      `packaged continuous loop must auto-chain through 2 runs (maxRuns=2); got ${session.runs_completed}. BUG-53 operator symptom: after run 1 completes the loop fails to derive the next vision objective.`);
+    assert.equal(session.status, 'completed',
+      `packaged continuous loop must terminate with status=completed when maxRuns is hit; got "${session.status}". MUST NOT be "paused" (BUG-53 rule #2).`);
+
+    // Session continuation event at the auto-chain boundary
+    const eventsPath = join(root, runEventsRelPath);
+    assert.ok(existsSync(eventsPath),
+      'packaged continuous loop must append events to .agentxchain/events.jsonl');
+    const events = readFileSync(eventsPath, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const continuations = events.filter((e) => e.event_type === 'session_continuation');
+    assert.equal(continuations.length, 1,
+      `packaged continuous loop must emit exactly 1 session_continuation event at the single auto-chain boundary (2 runs → 1 boundary); got ${continuations.length}. Event types: ${events.map((e) => e.event_type).join(',')}`);
+    const evt = continuations[0];
+    assert.ok(evt.payload?.previous_run_id,
+      `packaged session_continuation must carry payload.previous_run_id; got ${JSON.stringify(evt.payload)}`);
+    assert.ok(evt.payload?.next_run_id,
+      `packaged session_continuation must carry payload.next_run_id; got ${JSON.stringify(evt.payload)}`);
+    assert.ok(evt.payload?.next_objective,
+      `packaged session_continuation must carry payload.next_objective (the operator-facing vision text)`);
+    assert.notEqual(evt.payload.previous_run_id, evt.payload.next_run_id,
+      `packaged session_continuation must link two distinct runs; got same id ${evt.payload.previous_run_id}`);
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));

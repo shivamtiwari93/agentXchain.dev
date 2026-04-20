@@ -134,8 +134,10 @@ describe('run-events', () => {
   });
 
   // Additional: VALID_RUN_EVENTS is complete
-  it('VALID_RUN_EVENTS contains all 30 event types', () => {
-    assert.equal(VALID_RUN_EVENTS.length, 30);
+  it('VALID_RUN_EVENTS contains all 31 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 31);
+    assert.ok(VALID_RUN_EVENTS.includes('session_continuation'),
+      'session_continuation must be registered (BUG-53 continuous auto-chain audit trail)');
     assert.ok(VALID_RUN_EVENTS.includes('run_started'));
     assert.ok(VALID_RUN_EVENTS.includes('run_completed'));
     assert.ok(VALID_RUN_EVENTS.includes('run_blocked'));

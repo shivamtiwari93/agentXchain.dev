@@ -501,9 +501,35 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     return { ok: false, status: 'failed', action: 'prepare_failed', stop_reason: preparedIntent.error, intent_id: targetIntentId };
   }
 
+  // BUG-53: Auto-chain audit trail. When this advance step seeds a NEXT run
+  // (i.e., at least one prior run already completed in this session), emit a
+  // `session_continuation` event so operators have a visible record that the
+  // loop auto-derived the next vision objective without intervention. Event
+  // is emitted BEFORE we overwrite session.current_run_id so previous_run_id
+  // reflects the just-completed run and next_run_id reflects the newly
+  // prepared one. See HUMAN-ROADMAP BUG-53 fix #4.
+  const previousRunId = session.current_run_id;
+  const nextObjective = visionObjective || preparedIntent.intent?.charter || null;
+  if ((session.runs_completed || 0) >= 1 && previousRunId && previousRunId !== preparedIntent.run_id) {
+    emitRunEvent(root, 'session_continuation', {
+      run_id: preparedIntent.run_id,
+      phase: null,
+      status: 'active',
+      payload: {
+        session_id: session.session_id,
+        previous_run_id: previousRunId,
+        next_run_id: preparedIntent.run_id,
+        next_objective: nextObjective,
+        next_intent_id: targetIntentId,
+        runs_completed: session.runs_completed || 0,
+        trigger: visionObjective ? 'vision_scan' : 'intake',
+      },
+    });
+  }
+
   // Execute the governed run
   session.current_run_id = preparedIntent.run_id;
-  session.current_vision_objective = visionObjective || preparedIntent.intent?.charter || null;
+  session.current_vision_objective = nextObjective;
   session.status = 'running';
   writeContinuousSession(root, session);
 
