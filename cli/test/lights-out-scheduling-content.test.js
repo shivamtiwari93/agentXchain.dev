@@ -35,6 +35,21 @@ describe('lights-out scheduling docs contract', () => {
     assert.match(DOC, /fresh repo with no run state yet/i);
     assert.doesNotMatch(DOC, /start only from `idle` or `completed` status/i);
   });
+
+  it('does not hard-code `unblock <id>` as the only blocked-run recovery (BUG-51 schedule recovery contract)', () => {
+    // The schedule daemon now propagates the governed `recovery_action` and
+    // `blocked_category` (DEC-BUG51-SCHEDULE-RECOVERY-ACTION-001 +
+    // DEC-BUG51-SCHEDULE-LIVE-STATE-001). A blocked schedule run on a ghost
+    // startup failure is recovered with `reissue-turn --reason ghost`, not
+    // `unblock <id>`. The blocked-recovery and continuous-blocked sections
+    // must reflect that the recovery command depends on the governed state's
+    // surfaced action, and must mention both `reissue-turn` and `unblock` so
+    // operators are not steered to the wrong command.
+    assert.match(DOC, /Blocked scheduled runs are not auto-recovered[\s\S]*reissue-turn --reason ghost[\s\S]*unblock <id>/);
+    assert.match(DOC, /continuous session blocks[\s\S]*reissue-turn --reason ghost[\s\S]*recovery_action/);
+    assert.match(DOC, /recovery_action/);
+    assert.match(DOC, /blocked_category/);
+  });
 });
 
 describe('lights-out scheduling docs align with shipped schedule boundary', () => {

@@ -18,8 +18,8 @@ title: "v2.146.0 Release Notes"
 ## Decisions
 
 - `DEC-BUG51-GHOST-DETECTION-001`
-- `DEC-BUG51-INTERMEDIATE-STATES-DEFERRED-001`
-- `DEC-BUG51-AUTO-REISSUE-DEFERRED-001`
+- `DEC-BUG51-AUTO-REISSUE-DEFERRED-001` — operators see ghost turns explicitly before any framework auto-recovery
+- `DEC-BUG51-INTERMEDIATE-STATES-DEFERRED-001` — superseded post-`v2.146.0` by `DEC-BUG51-STARTUP-LIFECYCLE-001` once a dispatch-path audit proved raw `dispatch-progress` file presence was not authoritative startup evidence; `assigned -> dispatched -> starting -> running` lifecycle now lives on HEAD and ships in the next release
 
 ## Status
 

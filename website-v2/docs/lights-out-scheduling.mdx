@@ -128,7 +128,7 @@ nohup agentxchain schedule daemon --poll-seconds 300 > schedule.log 2>&1 &
 tmux new-session -d -s agentxchain-daemon 'agentxchain schedule daemon --poll-seconds 300'
 ```
 
-Blocked scheduled runs are not auto-recovered. If a governed turn reports `needs_human`, the daemon keeps polling but does not invent a restart. Resolve the blocker explicitly with `agentxchain unblock <id>`. On the next poll, the daemon continues that same schedule-owned run automatically.
+Blocked scheduled runs are not auto-recovered. The daemon keeps polling but does not invent a restart. Resolve the blocker with the recovery action surfaced by the governed state — for example, `agentxchain unblock <id>` for `needs_human`, `agentxchain reissue-turn --reason ghost` for a BUG-51 ghost-startup failure, or `agentxchain reissue-turn --reason stale` for a BUG-47 stalled subprocess. The schedule daemon emits the actual `recovery_action` in `schedule run-due --json` and `schedule daemon --json` (`blocked_category`, `recovery_action`); `agentxchain status` and the terminal `Schedule blocked: <id> (<category>). Recovery: <recovery_action>` line both show the right command. On the next poll after the blocker is cleared, the daemon continues that same schedule-owned run automatically.
 
 ## Daemon health monitoring
 
@@ -218,7 +218,7 @@ A schedule can opt into **continuous vision-driven execution** by adding a `cont
 
 ### Blocked recovery
 
-If a continuous session blocks on `needs_human`, the daemon records `continuous_blocked` and keeps polling. After `agentxchain unblock <id>`, the next poll resumes the same session — no re-launch needed.
+If a continuous session blocks, the daemon records `continuous_blocked` and keeps polling. The recovery command depends on what blocked the run — `agentxchain unblock <id>` for `needs_human`, `agentxchain reissue-turn --reason ghost` for a BUG-51 ghost-startup failure, or `agentxchain reissue-turn --reason stale` for a BUG-47 stalled subprocess. The actual `recovery_action` and `blocked_category` flow through `schedule daemon --json` and `agentxchain status`. After the blocker is resolved, the next poll resumes the same session — no re-launch needed.
 
 ### Priority injection precedence
 
