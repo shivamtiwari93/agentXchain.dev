@@ -2607,6 +2607,104 @@ describe('claim-reality preflight', () => {
     }
   });
 
+  it('BUG-54 packaged connector validate refuses the Claude auth-preflight shape before scratch workspace setup', async () => {
+    // Companion to the adapter-level proof above. The adapter row exercises
+    // dispatchLocalCli's pre-spawn refusal. THIS row exercises the higher-level
+    // `connector validate` command path so a future regression that wires the
+    // validate flow around the auth preflight (e.g., importing a stale helper
+    // or removing the early-return block) is caught at the release boundary,
+    // not just in source-side tests. Per Turn 103 next-action: any remaining
+    // live validation surface that still claims Claude is "ready" when it is
+    // not must be wired through the same DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001
+    // contract, and the fact must be proven on the shipped tarball.
+    const { packageDir } = getExtractedPackage();
+    const validatePath = join(packageDir, 'src/lib/connector-validate.js');
+    const authHelperPath = join(packageDir, 'src/lib/claude-local-auth.js');
+    assert.ok(existsSync(validatePath),
+      'BUG-54 packed tarball must include src/lib/connector-validate.js for the connector-validate auth-preflight packaged proof');
+    assert.ok(existsSync(authHelperPath),
+      'BUG-54 packed tarball must include src/lib/claude-local-auth.js for the connector-validate auth-preflight packaged proof');
+
+    const validateModule = await import(pathToFileURL(validatePath).href);
+    const { validateConfiguredConnector } = validateModule;
+    assert.equal(typeof validateConfiguredConnector, 'function',
+      'BUG-54 packed connector-validate.js must export validateConfiguredConnector');
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-validate-claude-auth-'));
+    TEMP_PATHS.push(root);
+
+    // Build a minimal governed project on disk so loadProjectContext reads
+    // the right runtime shape.
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify({
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug54-packed-validate-claude-auth', name: 'BUG-54 packed validate', default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'x', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: ['claude', '--print', '--dangerously-skip-permissions'],
+          cwd: '.',
+          prompt_transport: 'stdin',
+        },
+      },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_signoff' } },
+      gates: { implementation_signoff: {} },
+      run_loop: {},
+    }, null, 2) + '\n');
+
+    const originalEnv = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
+      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+      CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
+      CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+    };
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.CLAUDE_API_KEY;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete process.env.CLAUDE_CODE_USE_VERTEX;
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+
+    try {
+      const result = await validateConfiguredConnector(root, {
+        runtimeId: 'local-dev',
+        roleId: 'dev',
+      });
+      assert.equal(result.ok, false,
+        'packaged connector validate must refuse the known-hanging Claude shape before any scratch workspace is created');
+      assert.equal(result.error_code, 'claude_auth_preflight_failed',
+        'packaged connector validate must surface the canonical claude_auth_preflight_failed error_code so operators can grep release logs for the same identifier as the adapter diagnostic');
+      assert.equal(result.dispatch, null,
+        'packaged connector validate must not run the synthetic dispatch when the auth preflight refuses the runtime');
+      assert.equal(result.validation, null,
+        'packaged connector validate must not run the validator when the auth preflight refuses the runtime');
+      assert.equal(result.scratch_root, null,
+        'packaged connector validate must not create a scratch workspace when the auth preflight refuses the runtime');
+      assert.match(result.error || '', /no env-based auth/i,
+        'packaged connector validate must explain the missing env-auth condition');
+      assert.match(result.fix || '', /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN/,
+        'packaged connector validate must point operators at env-based Claude auth as the fix path');
+      assert.match(result.fix || '', /--bare/,
+        'packaged connector validate must name --bare as the explicit env-only auth opt-out');
+      assert.equal(result.auth_env_present?.ANTHROPIC_API_KEY, false,
+        'packaged connector validate must report ANTHROPIC_API_KEY presence as a boolean for diagnostic context');
+      const preflightWarn = (result.warnings || []).find((w) => w.probe_kind === 'auth_preflight');
+      assert.ok(preflightWarn,
+        'packaged connector validate must add an auth_preflight row to warnings so json consumers (CI, dashboards) can filter on probe_kind without parsing free-text');
+      assert.equal(preflightWarn.level, 'fail',
+        'packaged connector validate auth_preflight warning level must be "fail" — this is a release-boundary refusal, not a soft warning');
+    } finally {
+      for (const [key, value] of Object.entries(originalEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
   it('BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed via the watchdog reclassification seam', async () => {
     // Companion to the two rows above.
     //   - "BUG-51 packaged CLI detects a ghost turn ..." exercises the

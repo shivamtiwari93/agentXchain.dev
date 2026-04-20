@@ -14,6 +14,10 @@ The framework must fail fast with actionable guidance instead of launching a sub
   - refuses the known-hanging Claude spawn shape before `spawn_prepare`
 - `cli/src/lib/connector-probe.js`
   - surfaces a warning during `connector check`
+- `cli/src/lib/connector-validate.js`
+  - refuses the known-hanging Claude shape before any scratch workspace is
+    created, so `connector validate` does not waste the scratch + synthetic
+    dispatch ceremony on a runtime that is already known to hang
 - `cli/src/commands/doctor.js`
   - surfaces a warning during `agentxchain doctor`
 
@@ -30,6 +34,9 @@ The framework must fail fast with actionable guidance instead of launching a sub
    - `dispatchLocalCli()` returns `ok: false` before spawn
    - adapter logs a `claude_auth_preflight_failed` diagnostic row
    - `connector check` emits an `auth_preflight` warning with the same remediation
+   - `connector validate` returns `ok: false`, `error_code: 'claude_auth_preflight_failed'`,
+     `dispatch: null`, `validation: null`, `scratch_root: null` — no scratch
+     workspace is created and the synthetic dispatch is skipped entirely
    - `doctor` reports the runtime as `warn` with actionable fix text
 4. If env auth is present, or `--bare` is already declared, the preflight does not block dispatch.
 
@@ -54,8 +61,18 @@ The framework must fail fast with actionable guidance instead of launching a sub
   - `--bare` suppresses that warning
 - `cli/test/governed-doctor-e2e.test.js`
   - doctor reports `warn` for a Claude runtime lacking env auth and `--bare`
+- `cli/test/connector-validate-command.test.js`
+  - `AT-CCV-007` — `connector validate` fails fast with
+    `error_code: 'claude_auth_preflight_failed'` and zero scratch workspace
+    when env auth is missing
+  - `AT-CCV-008` — `connector validate` does NOT auth-preflight-refuse when
+    `--bare` is declared
 - `cli/test/claim-reality-preflight.test.js`
-  - packed tarball refuses the same shape before spawn and logs `claude_auth_preflight_failed`
+  - packed tarball adapter refuses the same shape before spawn and logs
+    `claude_auth_preflight_failed`
+  - packed tarball `connector validate` refuses the same shape before
+    scratch workspace setup and surfaces `error_code: 'claude_auth_preflight_failed'`
+    with an `auth_preflight` warnings row
 
 ## Open Questions
 

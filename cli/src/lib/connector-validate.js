@@ -24,6 +24,7 @@ import { getDispatchPromptPath, getTurnStagingResultPath } from './turn-paths.js
 import { validateStagedTurnResult } from './turn-result-validator.js';
 import { probeRuntimeSpawnContext } from './runtime-spawn-context.js';
 import { buildConnectorSchemaContract } from './connector-schema-contract.js';
+import { getClaudeSubprocessAuthIssue } from './claude-local-auth.js';
 
 const VALIDATABLE_RUNTIME_TYPES = new Set(['local_cli', 'api_proxy', 'mcp', 'remote_agent']);
 const DEFAULT_VALIDATE_TIMEOUT_MS = 120_000;
@@ -101,6 +102,39 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
       exitCode: 2,
       overall: 'error',
       error: roleSelection.error,
+    };
+  }
+
+  // DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001 — refuse the known-hanging Claude
+  // local_cli shape before burning the scratch-workspace + synthetic-dispatch
+  // ceremony. The adapter also refuses this shape via `claude_auth_preflight_failed`,
+  // but the operator gets a faster, identical-fix message if we catch it here.
+  const claudeAuthIssue = getClaudeSubprocessAuthIssue(runtime);
+  if (claudeAuthIssue) {
+    return {
+      ok: false,
+      exitCode: 1,
+      overall: 'fail',
+      runtime_id: runtimeId,
+      runtime_type: runtime.type,
+      role_id: roleSelection.roleId,
+      timeout_ms: timeoutMs,
+      warnings: [
+        ...roleSelection.warnings,
+        {
+          probe_kind: 'auth_preflight',
+          level: 'fail',
+          detail: claudeAuthIssue.detail,
+          fix: claudeAuthIssue.fix,
+        },
+      ],
+      error_code: 'claude_auth_preflight_failed',
+      error: claudeAuthIssue.detail,
+      auth_env_present: claudeAuthIssue.auth_env_present,
+      fix: claudeAuthIssue.fix,
+      dispatch: null,
+      validation: null,
+      scratch_root: null,
     };
   }
 

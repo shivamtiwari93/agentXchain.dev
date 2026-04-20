@@ -306,6 +306,86 @@ writeFileSync(stagingPath, JSON.stringify({
     assert.equal(existsSync(output.scratch_root), true);
   });
 
+  it('AT-CCV-007: Claude local_cli validation fails fast on the auth-preflight shape before scratch workspace setup', () => {
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['claude', '--print', '--dangerously-skip-permissions'],
+        cwd: '.',
+        prompt_transport: 'stdin',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    });
+
+    // Strip every env-based Claude auth signal so the runtime hits the
+    // known-hanging keychain shape per DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001.
+    const env = { ...process.env };
+    for (const key of [
+      'ANTHROPIC_API_KEY',
+      'CLAUDE_API_KEY',
+      'CLAUDE_CODE_OAUTH_TOKEN',
+      'CLAUDE_CODE_USE_VERTEX',
+      'CLAUDE_CODE_USE_BEDROCK',
+    ]) {
+      delete env[key];
+    }
+
+    const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json'], env);
+    assert.equal(result.status, 1, result.stdout);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'fail');
+    assert.equal(output.error_code, 'claude_auth_preflight_failed');
+    assert.equal(output.runtime_id, 'local-dev');
+    assert.equal(output.role_id, 'dev');
+    assert.equal(output.dispatch, null, 'no synthetic dispatch should run on auth preflight failure');
+    assert.equal(output.validation, null, 'no validator should run on auth preflight failure');
+    assert.equal(output.scratch_root, null, 'no scratch workspace should be created on auth preflight failure');
+    assert.match(output.error, /Claude local_cli runtime has no env-based auth/);
+    assert.match(output.fix, /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|--bare/);
+    assert.equal(output.auth_env_present.ANTHROPIC_API_KEY, false);
+    assert.equal(output.auth_env_present.CLAUDE_CODE_OAUTH_TOKEN, false);
+    const preflightWarn = (output.warnings || []).find((w) => w.probe_kind === 'auth_preflight');
+    assert.ok(preflightWarn, 'expected auth_preflight warning row in warnings array');
+    assert.equal(preflightWarn.level, 'fail');
+  });
+
+  it('AT-CCV-008: Claude local_cli validation skips the auth-preflight refusal when --bare is declared', () => {
+    const root = createProject((config) => {
+      // --bare opts out of keychain-backed auth; preflight must allow it
+      // through to the regular spawn-resolution check (which will fail on
+      // a missing binary, but NOT on auth_preflight).
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['claude', '--bare', '--print', '--dangerously-skip-permissions'],
+        cwd: '.',
+        prompt_transport: 'stdin',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    });
+
+    const env = { ...process.env };
+    for (const key of [
+      'ANTHROPIC_API_KEY',
+      'CLAUDE_API_KEY',
+      'CLAUDE_CODE_OAUTH_TOKEN',
+      'CLAUDE_CODE_USE_VERTEX',
+      'CLAUDE_CODE_USE_BEDROCK',
+    ]) {
+      delete env[key];
+    }
+
+    const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json'], env);
+    const output = JSON.parse(result.stdout);
+    // The expected outcome is NOT auth_preflight refusal — the test asserts
+    // the preflight relaxation, not what happens downstream when claude is
+    // not actually installed in the test environment.
+    assert.notEqual(output.error_code, 'claude_auth_preflight_failed');
+    assert.equal(output.auth_env_present, undefined,
+      'auth_env_present should not appear unless preflight fired');
+  });
+
   it('AT-CCV-006: api_proxy validation fails closed when auth env is missing', () => {
     const root = createProject((config) => {
       config.runtimes['api-check'] = {
