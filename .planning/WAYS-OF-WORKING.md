@@ -270,6 +270,13 @@ Agents should treat release execution as part of the job, not as something to ha
 - Homebrew formula updates
 - docs/release announcement updates
 
+### Release mechanism — use the script, not raw npm
+
+- **Minting release identity:** use `bash cli/scripts/release-bump.sh --target-version <semver> --coauthored-by "Name <email>"`. It enforces the prebump alignment gate (`check-release-alignment.mjs --scope prebump`), normalizes release-note sidebar positions, auto-aligns the Homebrew mirror URL/SHA to the committed pre-publish state, and runs the inline preflight gate before creating the tag.
+- **Do NOT run `npm version` directly or hand-tag releases.** That bypasses the alignment gate and produces the "tag pushed, publish workflow fails on stale artifacts" dance. A green tag should mean every target-version surface (release notes page, homepage, llms.txt, capabilities, docs versions, marketing drafts, Homebrew README/formula, launch evidence) already references the new semver at tag time.
+- **Recovery when publish-gate fails:** fix the stale surfaces in the worktree, push a follow-up commit, and rerun `publish-npm-on-tag.yml` via `gh run rerun` or `workflow_dispatch` on the existing tag. Do not bypass trusted publish with manual `npm publish`. Do not retag to hide the failure.
+- **Post-publish:** `cli/scripts/sync-homebrew.sh` corrects the registry SHA (registry tarballs are not byte-identical to local `npm pack`). Verify with `npm view agentxchain version`, `gh release view vX.Y.Z`, and a fresh `npx -y agentxchain@X.Y.Z --version` smoke test.
+
 ### Release principle
 
 - do not force inconsistent state
