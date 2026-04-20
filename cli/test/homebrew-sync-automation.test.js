@@ -304,4 +304,67 @@ describe('homebrew sync automation contract', () => {
       'workflow must not request pull-requests:write since the PR fallback was removed',
     );
   });
+
+  it('sync-homebrew.sh success banner forbids declaring release complete from sync alone (DEC-HOMEBREW-SYNC-LOOPHOLE-CLOSE-001)', () => {
+    const script = read('cli/scripts/sync-homebrew.sh');
+    assert.doesNotMatch(
+      script,
+      /^echo "SYNC COMPLETE — Homebrew formula updated to/m,
+      'sync-homebrew.sh must not emit a bare "SYNC COMPLETE" banner that reads as release completion',
+    );
+    assert.match(
+      script,
+      /SYNC STEP COMPLETE/,
+      'success banner must use "SYNC STEP COMPLETE" (phase transition) language, not "SYNC COMPLETE" (release-finished) language',
+    );
+    assert.match(
+      script,
+      /Do NOT declare the release complete from this script's exit code alone\./,
+      'success banner must explicitly warn operators against treating sync exit code as release completion',
+    );
+    assert.match(
+      script,
+      /verify-post-publish\.sh --target-version/,
+      'success banner must point operators at the manual verify-post-publish path',
+    );
+    assert.match(
+      script,
+      /release-downstream-truth\.sh --target-version/,
+      'success banner must point operators at the CI-equivalent downstream-truth path',
+    );
+    assert.match(
+      script,
+      /DEC-VERIFY-POST-PUBLISH-NPX-001/,
+      'success banner must cite DEC-VERIFY-POST-PUBLISH-NPX-001 so the decision is discoverable from the script',
+    );
+    assert.match(
+      script,
+      /DEC-HOMEBREW-SYNC-LOOPHOLE-CLOSE-001/,
+      'success banner must cite DEC-HOMEBREW-SYNC-LOOPHOLE-CLOSE-001 so the decision is discoverable from the script',
+    );
+  });
+
+  it('WAYS-OF-WORKING.md forbids treating sync-homebrew.sh as a one-step release completion (DEC-HOMEBREW-SYNC-LOOPHOLE-CLOSE-001)', () => {
+    const ways = read('.planning/WAYS-OF-WORKING.md');
+    assert.match(
+      ways,
+      /Do NOT declare a release complete from `sync-homebrew\.sh` alone/,
+      'WAYS-OF-WORKING.md section 9 must state that sync-homebrew.sh alone is not release completion',
+    );
+    assert.match(
+      ways,
+      /verify-post-publish\.sh --target-version/,
+      'WAYS-OF-WORKING.md must document the verify-post-publish.sh finalization path',
+    );
+    assert.match(
+      ways,
+      /release-downstream-truth\.sh --target-version/,
+      'WAYS-OF-WORKING.md must document the CI-equivalent release-downstream-truth.sh finalization path',
+    );
+    assert.match(
+      ways,
+      /DEC-HOMEBREW-SYNC-LOOPHOLE-CLOSE-001/,
+      'WAYS-OF-WORKING.md must cite the loophole-close decision',
+    );
+  });
 });
