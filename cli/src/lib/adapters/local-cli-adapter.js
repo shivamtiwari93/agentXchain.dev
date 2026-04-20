@@ -39,6 +39,7 @@ const DIAGNOSTIC_ENV_KEYS = [
   'TMPDIR',
   'AGENTXCHAIN_TURN_ID',
 ];
+const DIAGNOSTIC_STDERR_EXCERPT_LIMIT = 800;
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -172,6 +173,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     let startupFailureType = null;
     let stdoutBytes = 0;
     let stderrBytes = 0;
+    let stderrExcerpt = '';
 
     const settle = (result) => {
       if (settled) return;
@@ -281,7 +283,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       child.stderr.on('data', (chunk) => {
         const text = chunk.toString();
         stderrBytes += Buffer.byteLength(text);
-        recordFirstOutput('stderr');
+        stderrExcerpt = appendDiagnosticExcerpt(stderrExcerpt, text, DIAGNOSTIC_STDERR_EXCERPT_LIMIT);
         logs.push('[stderr] ' + text);
         if (onStderr) onStderr(text);
       });
@@ -358,6 +360,9 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         stderr_bytes: stderrBytes,
         staged_result_ready: hasResult,
       };
+      if (stderrExcerpt) {
+        exitDiagnostic.stderr_excerpt = stderrExcerpt;
+      }
       if (startupTimedOut) {
         exitDiagnostic.startup_failure_type = startupFailureType || 'no_subprocess_output';
       } else if (!spawnConfirmedAt) {
@@ -604,6 +609,14 @@ function normalizeDiagnosticError(err) {
     syscall: err?.syscall || null,
     message: err?.message || String(err),
   };
+}
+
+function appendDiagnosticExcerpt(existing, chunk, limit) {
+  const combined = `${existing}${chunk}`;
+  if (combined.length <= limit) {
+    return combined;
+  }
+  return combined.slice(combined.length - limit);
 }
 
 export { resolvePromptTransport };

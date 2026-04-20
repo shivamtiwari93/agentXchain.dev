@@ -2659,6 +2659,86 @@ describe('claim-reality preflight', () => {
       `packaged stdout_attach_failed path must NOT emit runtime_spawn_failed — that is the sibling family and the typed distinction would be lost; got ${eventTypes.join(',')}`);
   });
 
+  it('BUG-54 packaged local-cli adapter treats stderr-only startup as no_subprocess_output and keeps stderr diagnostics', async () => {
+    const { packageDir } = getExtractedPackage();
+    const adapterPath = join(packageDir, 'src/lib/adapters/local-cli-adapter.js');
+    assert.ok(existsSync(adapterPath),
+      'BUG-54 packed tarball must include src/lib/adapters/local-cli-adapter.js before the stderr-only startup proof can run');
+    const adapter = await import(pathToFileURL(adapterPath).href);
+    const { dispatchLocalCli } = adapter;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-stderr-only-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+    const turnId = 'turn_packed_stderr_only_startup';
+    const dispatchDir = join(root, '.agentxchain', 'dispatch', 'turns', turnId);
+    mkdirSync(dispatchDir, { recursive: true });
+    writeFileSync(join(dispatchDir, 'PROMPT.md'), '# packed bug54 stderr-only startup proof\n');
+    writeFileSync(join(dispatchDir, 'CONTEXT.md'), '');
+
+    const state = {
+      schema_version: '1.0',
+      run_id: 'run_packed_bug54_stderr_only',
+      phase: 'implementation',
+      status: 'running',
+      active_turns: {
+        [turnId]: {
+          turn_id: turnId,
+          assigned_role: 'dev',
+          runtime_id: 'local-dev',
+          status: 'dispatched',
+          attempt: 1,
+          deadline_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+      },
+    };
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug54-packed-stderr', name: 'BUG-54 packed stderr', default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'x', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: 'node',
+          args: ['-e', 'process.stderr.write("stderr only startup\\\\n"); process.exit(9);'],
+          cwd: '.',
+          prompt_transport: 'dispatch_bundle_only',
+        },
+      },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_signoff' } },
+      gates: { implementation_signoff: {} },
+      run_loop: { startup_watchdog_ms: 5_000 },
+    };
+
+    const firstOutput = [];
+    const dispatchResult = await dispatchLocalCli(root, state, config, {
+      turnId,
+      skipManifestVerification: true,
+      onFirstOutput: (details) => firstOutput.push(details),
+    });
+
+    assert.equal(dispatchResult.ok, false,
+      'packaged dispatchLocalCli must fail a stderr-only startup that never emits stdout or stages a result');
+    assert.equal(dispatchResult.startupFailure, true,
+      'packaged stderr-only startup must remain in the startup-failure family');
+    assert.equal(dispatchResult.startupFailureType, 'no_subprocess_output',
+      'packaged stderr-only startup must classify as no_subprocess_output so downstream state can normalize it to stdout_attach_failed');
+    assert.equal(firstOutput.length, 0,
+      'packaged stderr-only startup must NOT fire onFirstOutput — stderr is diagnostic evidence, not usable startup proof');
+    const stderrOnlyLog = dispatchResult.logs.join('');
+    assert.match(stderrOnlyLog, /\[stderr\] stderr only startup/,
+      'packaged adapter must preserve raw stderr lines for stderr-only startup failures');
+    assert.match(stderrOnlyLog, /\[adapter:diag\] process_exit /,
+      'packaged adapter must emit process_exit diagnostics for stderr-only startup failures');
+    assert.match(stderrOnlyLog, /"stderr_excerpt":"stderr only startup\\\\n"/,
+      'packaged process_exit diagnostics must retain a bounded stderr excerpt so BUG-54 has actionable failure text');
+    assert.match(stderrOnlyLog, /"startup_failure_type":"no_subprocess_output"/,
+      'packaged stderr-only startup must stay in the raw no_subprocess_output family until the operator-facing watchdog normalization step');
+  });
+
   it('BUG-52 pre-dispatch reconciler is packed (governed-state + resume + step wiring)', () => {
     const packedFiles = getPackedFiles();
     assert.ok(packedFiles.has('src/lib/governed-state.js'),

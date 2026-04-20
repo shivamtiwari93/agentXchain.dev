@@ -581,6 +581,35 @@ describe('local-cli-adapter', () => {
       assert.match(log, /"stderr_bytes":0/);
     });
 
+    it('treats stderr-only startup as no_subprocess_output and preserves a stderr excerpt', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const scriptPath = join(root, '_stderr_only.js');
+      writeFileSync(scriptPath, `
+        process.stderr.write('boot failed on stderr only\\n');
+        process.exit(17);
+      `);
+
+      const config = makeConfig({
+        command: ['node', scriptPath],
+      });
+      setupDispatchBundle(root, state, config);
+
+      const firstOutput = [];
+      const result = await dispatchLocalCli(root, state, config, {
+        onFirstOutput: (details) => firstOutput.push(details),
+      });
+      assert.equal(result.ok, false);
+      assert.equal(result.startupFailure, true);
+      assert.equal(result.startupFailureType, 'no_subprocess_output');
+      assert.equal(firstOutput.length, 0, 'stderr-only output must not count as startup proof');
+      const log = result.logs.join('');
+      assert.match(log, /\[stderr\] boot failed on stderr only/);
+      assert.match(log, /\[adapter:diag\] process_exit /);
+      assert.match(log, /"stderr_excerpt":"boot failed on stderr only\\n"/);
+      assert.match(log, /"startup_failure_type":"no_subprocess_output"/);
+    });
+
     it('prefers local_cli runtime startup_watchdog_ms over a tighter global run_loop watchdog', async () => {
       const root = createAndTrack();
       const state = makeState();
