@@ -203,6 +203,27 @@ function resetGovernedStateToIdle(root) {
   });
 }
 
+/**
+ * Run a fixture setup function with stderr suppressed.
+ *
+ * `markRunBlocked()` is real product code that emits a HUMAN ESCALATION RAISED
+ * notice on stderr — operators rely on that notice. When the notice fires from
+ * fixture setup inside the test process, it leaks into TAP output as `# ...`
+ * comment lines and masks real failure signal in noisy CI logs (Turn 76 next
+ * action #2). We do not want to gate the product behavior behind a global env
+ * flag just for tests, so this helper temporarily replaces stderr.write only
+ * for the duration of the seed call.
+ */
+function withSuppressedStderr(fn) {
+  const original = process.stderr.write.bind(process.stderr);
+  process.stderr.write = () => true;
+  try {
+    return fn();
+  } finally {
+    process.stderr.write = original;
+  }
+}
+
 function backdateTurnField(root, turnId, field, secondsAgo) {
   const state = readState(root);
   state.active_turns[turnId][field] = new Date(Date.now() - secondsAgo * 1000).toISOString();
@@ -788,8 +809,10 @@ describe('BUG-51: fast-startup watchdog', () => {
     // Simulate the post-after_dispatch-hook-failure shape: an active turn
     // retained while the run is blocked on operator action. This is the
     // exact code path resume.js:189 (state.status === 'blocked' &&
-    // activeCount > 0) handles.
-    const blockResult = markRunBlocked(root, {
+    // activeCount > 0) handles. The `markRunBlocked` call emits a real
+    // operator-facing escalation notice on stderr; suppress it here because
+    // it is fixture seeding, not the assertion under test.
+    const blockResult = withSuppressedStderr(() => markRunBlocked(root, {
       blockedOn: 'hook:after_dispatch:test',
       category: 'dispatch_error',
       recovery: {
@@ -800,7 +823,7 @@ describe('BUG-51: fast-startup watchdog', () => {
         detail: 'after_dispatch hook blocked dispatch',
       },
       turnId,
-    });
+    }));
     assert.ok(blockResult.ok !== false, blockResult.error);
 
     // Backdate started_at to simulate a stale lifecycle-start that would
@@ -845,7 +868,9 @@ describe('BUG-51: fast-startup watchdog', () => {
     // turn entirely (status not in watched set) or fired immediately on
     // stale `started_at`. After the fix, resume clears those timestamps
     // and the watchdog uses the new `dispatched_at` for the 100ms window.
-    const blockResult = markRunBlocked(root, {
+    // Same fixture-noise rationale as the sibling test above — the escalation
+    // notice fires here as a side-effect of seeding, not an assertion target.
+    const blockResult = withSuppressedStderr(() => markRunBlocked(root, {
       blockedOn: 'hook:after_dispatch:test',
       category: 'dispatch_error',
       recovery: {
@@ -856,7 +881,7 @@ describe('BUG-51: fast-startup watchdog', () => {
         detail: 'after_dispatch hook blocked dispatch',
       },
       turnId,
-    });
+    }));
     assert.ok(blockResult.ok !== false);
 
     const state = readState(root);
