@@ -2493,6 +2493,120 @@ describe('claim-reality preflight', () => {
       'packaged dispatchLocalCli must log spawn_error diagnostics for a nonexistent binary so operator logs capture the failing spawn context, not only the final classification');
   });
 
+  it('BUG-54 packaged local-cli adapter fails fast before spawn when Claude lacks env auth and --bare', async () => {
+    const { packageDir } = getExtractedPackage();
+    const adapterPath = join(packageDir, 'src/lib/adapters/local-cli-adapter.js');
+    const authHelperPath = join(packageDir, 'src/lib/claude-local-auth.js');
+    assert.ok(existsSync(adapterPath),
+      'BUG-54 packed tarball must include src/lib/adapters/local-cli-adapter.js before the Claude auth-preflight packaged proof can run');
+    assert.ok(existsSync(authHelperPath),
+      'BUG-54 packed tarball must include src/lib/claude-local-auth.js because the auth-preflight guard is part of the shipped adapter contract');
+    const adapter = await import(pathToFileURL(adapterPath).href);
+    const { dispatchLocalCli } = adapter;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-claude-auth-'));
+    TEMP_PATHS.push(root);
+
+    const turnId = 'turn_packed_claude_auth_preflight';
+    const dispatchDir = join(root, '.agentxchain', 'dispatch', 'turns', turnId);
+    mkdirSync(dispatchDir, { recursive: true });
+    writeFileSync(join(dispatchDir, 'PROMPT.md'), '# packed bug54 claude auth preflight proof\n');
+    writeFileSync(join(dispatchDir, 'CONTEXT.md'), '');
+
+    const state = {
+      schema_version: '1.0',
+      run_id: 'run_packed_bug54_claude_auth',
+      phase: 'implementation',
+      status: 'running',
+      active_turns: {
+        [turnId]: {
+          turn_id: turnId,
+          assigned_role: 'dev',
+          runtime_id: 'local-dev',
+          status: 'dispatched',
+          attempt: 1,
+          deadline_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+      },
+    };
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      project: { id: 'bug54-packed-claude-auth', name: 'BUG-54 packed claude auth', default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'x', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: ['claude', '--print', '--dangerously-skip-permissions'],
+          cwd: '.',
+          prompt_transport: 'stdin',
+        },
+      },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_signoff' } },
+      gates: { implementation_signoff: {} },
+      run_loop: { startup_watchdog_ms: 5_000 },
+    };
+
+    const originalEnv = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
+      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+      CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
+      CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+    };
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.CLAUDE_API_KEY;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete process.env.CLAUDE_CODE_USE_VERTEX;
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+
+    try {
+      const attached = [];
+      const firstOutput = [];
+      const result = await dispatchLocalCli(root, state, config, {
+        turnId,
+        skipManifestVerification: true,
+        onSpawnAttached: (details) => attached.push(details),
+        onFirstOutput: (details) => firstOutput.push(details),
+      });
+
+      assert.equal(result.ok, false,
+        'packaged dispatchLocalCli must refuse the known-hanging Claude non-interactive spawn shape when neither env auth nor --bare is present');
+      assert.equal(Boolean(result.startupFailure), false,
+        'packaged Claude auth preflight must fail before spawn, not misclassify the configuration issue as a startup failure');
+      assert.equal(attached.length, 0,
+        'packaged Claude auth preflight must not fire onSpawnAttached because no subprocess should be launched');
+      assert.equal(firstOutput.length, 0,
+        'packaged Claude auth preflight must not fire onFirstOutput because no subprocess should be launched');
+      assert.match(result.error || '', /no env-based auth/i,
+        'packaged Claude auth preflight must explain the missing env-auth condition');
+      assert.match(result.error || '', /ANTHROPIC_API_KEY/,
+        'packaged Claude auth preflight must name ANTHROPIC_API_KEY as a valid fix path');
+      assert.match(result.error || '', /--bare/,
+        'packaged Claude auth preflight must name --bare as the explicit env-only auth mode');
+
+      const logText = result.logs.join('');
+      assert.match(logText, /\[adapter:diag\] claude_auth_preflight_failed /,
+        'packaged Claude auth preflight must emit a dedicated diagnostic row so operators can distinguish auth-preflight refusal from spawn/runtime failures');
+      assert.doesNotMatch(logText, /\[adapter:diag\] spawn_prepare /,
+        'packaged Claude auth preflight must refuse before spawn_prepare; otherwise the tarball could still launch the hanging subprocess shape');
+      const [payload] = parseDiagnosticPayloads(result.logs, 'claude_auth_preflight_failed');
+      assert.equal(payload.auth_env_present.ANTHROPIC_API_KEY, false,
+        'packed Claude auth-preflight diagnostic must report ANTHROPIC_API_KEY presence as false in the missing-auth proof row');
+      assert.match(payload.recommendation, /CLAUDE_CODE_OAUTH_TOKEN/,
+        'packed Claude auth-preflight diagnostic must point operators at env-based Claude auth, not only generic failure text');
+    } finally {
+      for (const [key, value] of Object.entries(originalEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
   it('BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed via the watchdog reclassification seam', async () => {
     // Companion to the two rows above.
     //   - "BUG-51 packaged CLI detects a ghost turn ..." exercises the

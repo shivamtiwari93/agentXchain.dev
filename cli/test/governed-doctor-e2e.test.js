@@ -160,6 +160,15 @@ process.exit(1);
   return binDir;
 }
 
+function createStubBinDir(name, body) {
+  const dir = mkdtempSync(join(tmpdir(), 'axc-doctor-bin-'));
+  tempDirs.push(dir);
+  const binPath = join(dir, name);
+  writeFileSync(binPath, body);
+  spawnSync('chmod', ['+x', binPath], { encoding: 'utf8' });
+  return dir;
+}
+
 afterEach(() => {
   while (tempDirs.length) {
     const d = tempDirs.pop();
@@ -251,7 +260,42 @@ describe('Governed Doctor E2E', () => {
     }
   });
 
-  it('AT-GD-006: governed project with schedules but no daemon returns schedule_health warn', () => {
+  it('AT-GD-006: doctor warns when Claude local_cli lacks env auth and --bare', () => {
+    const root = makeGoverned();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.runtimes['local-dev'] = {
+      type: 'local_cli',
+      command: ['claude', '--print', '--dangerously-skip-permissions'],
+      cwd: '.',
+      prompt_transport: 'stdin',
+    };
+    config.roles.dev.runtime = 'local-dev';
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const claudeBinDir = createStubBinDir('claude', `#!/usr/bin/env node
+process.exit(0);
+`);
+    const result = runCli(root, ['doctor', '--json'], {
+      PATH: `${claudeBinDir}:${process.env.PATH || ''}`,
+      ANTHROPIC_API_KEY: '',
+      CLAUDE_API_KEY: '',
+      CLAUDE_CODE_OAUTH_TOKEN: '',
+      CLAUDE_CODE_USE_VERTEX: '',
+      CLAUDE_CODE_USE_BEDROCK: '',
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    const runtimeCheck = output.checks.find((check) => check.id === 'runtime_local-dev');
+    assert.ok(runtimeCheck, 'doctor must report local-dev runtime');
+    assert.equal(runtimeCheck.level, 'warn');
+    assert.match(runtimeCheck.detail, /no env-based auth/i);
+    assert.match(runtimeCheck.detail, /ANTHROPIC_API_KEY/);
+    assert.match(runtimeCheck.detail, /--bare/);
+  });
+
+  it('AT-GD-007: governed project with schedules but no daemon returns schedule_health warn', () => {
     const root = makeGoverned({
       schedules: {
         nightly: {
@@ -269,7 +313,7 @@ describe('Governed Doctor E2E', () => {
     assert.equal(schedCheck.level, 'warn', 'Should be warn when daemon has not started');
   });
 
-  it('AT-GD-007: directory with no config exits code 1', () => {
+  it('AT-GD-008: directory with no config exits code 1', () => {
     const root = mkdtempSync(join(tmpdir(), 'axc-gd-e2e-'));
     tempDirs.push(root);
     const result = runCli(root, ['doctor', '--json']);
@@ -279,7 +323,7 @@ describe('Governed Doctor E2E', () => {
     assert.ok(output.error.includes('No agentxchain.json'), `Error should mention missing config: ${output.error}`);
   });
 
-  it('AT-GD-008: json output recommends connector check for live-probe runtimes', () => {
+  it('AT-GD-009: json output recommends connector check for live-probe runtimes', () => {
     const root = makeGoverned({ liveProbeRuntime: 'api_proxy' });
     const result = runCli(root, ['doctor', '--json'], {
       env: { AXC_DOCTOR_LIVE_PROBE_KEY: 'test-key' },
@@ -292,7 +336,7 @@ describe('Governed Doctor E2E', () => {
     assert.match(output.connector_probe_detail, /connector validate/);
   });
 
-  it('AT-GD-009: text output prints connector-check handoff when readiness passes', () => {
+  it('AT-GD-010: text output prints connector-check handoff when readiness passes', () => {
     const root = makeGoverned({ liveProbeRuntime: 'api_proxy' });
     const result = runCli(root, ['doctor'], {
       env: { AXC_DOCTOR_LIVE_PROBE_KEY: 'test-key' },
@@ -302,7 +346,7 @@ describe('Governed Doctor E2E', () => {
     assert.match(result.stdout, /connector validate/);
   });
 
-  it('AT-GD-010: local-only runtimes do not recommend connector check', () => {
+  it('AT-GD-011: local-only runtimes do not recommend connector check', () => {
     const root = makeGoverned();
     const jsonResult = runCli(root, ['doctor', '--json']);
     assert.equal(jsonResult.status, 0, jsonResult.stderr);
@@ -316,7 +360,7 @@ describe('Governed Doctor E2E', () => {
     assert.doesNotMatch(textResult.stdout, /connector check/);
   });
 
-  it('AT-GD-011: dead-end gate topology surfaces as admission_control fail check', () => {
+  it('AT-GD-012: dead-end gate topology surfaces as admission_control fail check', () => {
     const root = makeGoverned({ remoteReviewOnlyGate: true });
     const result = runCli(root, ['doctor', '--json']);
     const output = JSON.parse(result.stdout);
@@ -331,7 +375,7 @@ describe('Governed Doctor E2E', () => {
     assert.match(admissionCheck.detail, /review_only/);
   });
 
-  it('AT-GD-012: runtime checks expose capability contracts and role-bound summaries', () => {
+  it('AT-GD-013: runtime checks expose capability contracts and role-bound summaries', () => {
     const root = makeGoverned({ liveProbeRuntime: 'api_proxy' });
     const configPath = join(root, 'agentxchain.json');
     const config = JSON.parse(readFileSync(configPath, 'utf8'));

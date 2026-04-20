@@ -58,11 +58,11 @@ describe('authority intent analysis (unit)', () => {
       dev: { runtime: 'local-dev', write_authority: 'authoritative' },
     };
     const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
-    assert.equal(warnings.length, 1);
-    assert.equal(warnings[0].probe_kind, 'authority_intent');
-    assert.match(warnings[0].detail, /missing.*--dangerously-skip-permissions/);
-    assert.match(warnings[0].detail, /dev/);
-    assert.match(warnings[0].fix, /--dangerously-skip-permissions/);
+    const authorityWarning = warnings.find((warning) => warning.probe_kind === 'authority_intent');
+    assert.ok(authorityWarning, 'missing authoritative Claude flag must produce authority_intent warning');
+    assert.match(authorityWarning.detail, /missing.*--dangerously-skip-permissions/);
+    assert.match(authorityWarning.detail, /dev/);
+    assert.match(authorityWarning.fix, /--dangerously-skip-permissions/);
   });
 
   it('AT-B10-002: Codex with --full-auto warns about weak authority flag', () => {
@@ -91,7 +91,85 @@ describe('authority intent analysis (unit)', () => {
       dev: { runtime: 'local-dev', write_authority: 'authoritative' },
     };
     const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
-    assert.equal(warnings.length, 0);
+    const authorityWarning = warnings.find((warning) => warning.probe_kind === 'authority_intent');
+    assert.ok(!authorityWarning, 'correct Claude authority flags must suppress authority_intent warnings');
+  });
+
+  it('AT-B10-003b: Claude Code without env auth and without --bare warns about subprocess auth hang risk', () => {
+    const runtime = {
+      type: 'local_cli',
+      command: ['claude', '--print', '--dangerously-skip-permissions'],
+      prompt_transport: 'stdin',
+    };
+    const roles = {
+      dev: { runtime: 'local-dev', write_authority: 'authoritative' },
+    };
+    const originalEnv = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
+      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+      CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
+      CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+    };
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.CLAUDE_API_KEY;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete process.env.CLAUDE_CODE_USE_VERTEX;
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+
+    try {
+      const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
+      const authWarning = warnings.find((w) => w.probe_kind === 'auth_preflight');
+      assert.ok(authWarning, 'missing Claude env auth must produce auth_preflight warning');
+      assert.match(authWarning.detail, /keychain reads/i);
+      assert.match(authWarning.fix, /ANTHROPIC_API_KEY/);
+      assert.match(authWarning.fix, /--bare/);
+    } finally {
+      for (const [key, value] of Object.entries(originalEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
+  it('AT-B10-003c: Claude Code with --bare suppresses auth preflight warning', () => {
+    const runtime = {
+      type: 'local_cli',
+      command: ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
+      prompt_transport: 'stdin',
+    };
+    const roles = {
+      dev: { runtime: 'local-dev', write_authority: 'authoritative' },
+    };
+    const originalEnv = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
+      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+      CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
+      CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+    };
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.CLAUDE_API_KEY;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete process.env.CLAUDE_CODE_USE_VERTEX;
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+
+    try {
+      const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
+      const authWarning = warnings.find((w) => w.probe_kind === 'auth_preflight');
+      assert.ok(!authWarning, 'explicit --bare should suppress the auth preflight warning');
+    } finally {
+      for (const [key, value] of Object.entries(originalEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
   });
 
   it('AT-B10-004: Codex with correct flags produces no warnings', () => {
@@ -117,7 +195,8 @@ describe('authority intent analysis (unit)', () => {
       qa: { runtime: 'local-qa', write_authority: 'review_only' },
     };
     const { warnings } = analyzeLocalCliAuthorityIntent('local-qa', runtime, roles);
-    assert.equal(warnings.length, 0);
+    const authorityWarning = warnings.find((warning) => warning.probe_kind === 'authority_intent');
+    assert.ok(!authorityWarning, 'review_only role must not produce authority_intent warning');
   });
 
   it('AT-B10-006: argv transport without {prompt} placeholder warns', () => {

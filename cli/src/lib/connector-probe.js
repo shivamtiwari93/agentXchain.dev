@@ -4,6 +4,7 @@ import {
   PROVIDER_ENDPOINTS,
 } from './adapters/api-proxy-adapter.js';
 import { probeRuntimeSpawnContext } from './runtime-spawn-context.js';
+import { getClaudeSubprocessAuthIssue, normalizeCommandTokens } from './claude-local-auth.js';
 
 const PROBEABLE_RUNTIME_TYPES = new Set(['local_cli', 'api_proxy', 'mcp', 'remote_agent']);
 const DEFAULT_TIMEOUT_MS = 8_000;
@@ -375,6 +376,7 @@ function analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles) {
   // Prompt transport validation
   const transport = runtime.prompt_transport || 'dispatch_bundle_only';
   const knownTransports = KNOWN_CLI_TRANSPORTS[binaryName];
+  const claudeAuthIssue = getClaudeSubprocessAuthIssue(runtime);
 
   if (transport === 'argv' && !commandTokens.some((token) => token.includes('{prompt}'))) {
     warnings.push({
@@ -395,24 +397,21 @@ function analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles) {
     });
   }
 
+  if (claudeAuthIssue) {
+    warnings.push({
+      probe_kind: 'auth_preflight',
+      level: 'warn',
+      detail: claudeAuthIssue.detail,
+      fix: claudeAuthIssue.fix,
+    });
+  }
+
   return { warnings };
 }
 
 /**
  * Normalize a runtime's command field into an array of tokens.
  */
-function normalizeCommandTokens(runtime) {
-  if (Array.isArray(runtime?.command)) {
-    return runtime.command.flatMap((element) =>
-      typeof element === 'string' ? element.trim().split(/\s+/).filter(Boolean) : []
-    );
-  }
-  if (typeof runtime?.command === 'string' && runtime.command.trim()) {
-    return runtime.command.trim().split(/\s+/).filter(Boolean);
-  }
-  return [];
-}
-
 export async function probeConnectorRuntime(runtimeId, runtime, options = {}) {
   const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT_MS;
   const roles = options.roles || null;

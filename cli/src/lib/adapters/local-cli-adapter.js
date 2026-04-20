@@ -30,6 +30,7 @@ import {
 } from '../turn-paths.js';
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 import { hasMeaningfulStagedResult } from '../staged-result-proof.js';
+import { getClaudeSubprocessAuthIssue } from '../claude-local-auth.js';
 
 const DIAGNOSTIC_ENV_KEYS = [
   'PATH',
@@ -127,6 +128,21 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
   const spawnEnv = { ...process.env, AGENTXCHAIN_TURN_ID: turn.turn_id };
   const stdinBytes = transport === 'stdin' ? Buffer.byteLength(fullPrompt, 'utf8') : 0;
   const diagnosticArgs = redactPromptArgs(args, fullPrompt, transport);
+  const claudeAuthIssue = getClaudeSubprocessAuthIssue(runtime, spawnEnv);
+
+  if (claudeAuthIssue) {
+    appendDiagnostic(logs, 'claude_auth_preflight_failed', {
+      runtime_id: runtimeId,
+      turn_id: turn.turn_id,
+      auth_env_present: claudeAuthIssue.auth_env_present,
+      recommendation: claudeAuthIssue.fix,
+    });
+    return {
+      ok: false,
+      error: `${claudeAuthIssue.detail} ${claudeAuthIssue.fix}`,
+      logs,
+    };
+  }
 
   return new Promise((resolve) => {
     if (signal?.aborted) {

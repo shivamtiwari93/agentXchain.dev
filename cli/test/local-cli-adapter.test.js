@@ -187,6 +187,50 @@ describe('local-cli-adapter', () => {
       assert.match(result.error, /Cannot resolve CLI command/);
     });
 
+    it('fails fast before spawn when Claude lacks env auth and --bare', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const config = makeConfig({
+        command: ['claude', '--print', '--dangerously-skip-permissions'],
+        prompt_transport: 'stdin',
+      });
+      setupDispatchBundle(root, state, config);
+
+      const originalEnv = {
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+        CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
+        CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+        CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
+        CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+      };
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.CLAUDE_API_KEY;
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      delete process.env.CLAUDE_CODE_USE_VERTEX;
+      delete process.env.CLAUDE_CODE_USE_BEDROCK;
+
+      try {
+        const result = await dispatchLocalCli(root, state, config);
+        assert.equal(result.ok, false);
+        assert.match(result.error, /no env-based auth/i);
+        assert.match(result.error, /ANTHROPIC_API_KEY/);
+        assert.match(result.error, /--bare/);
+
+        const payloads = parseDiagPayloads(result.logs, 'claude_auth_preflight_failed');
+        assert.equal(payloads.length, 1);
+        assert.equal(payloads[0].auth_env_present.ANTHROPIC_API_KEY, false);
+        assert.match(payloads[0].recommendation, /CLAUDE_CODE_OAUTH_TOKEN/);
+      } finally {
+        for (const [key, value] of Object.entries(originalEnv)) {
+          if (value === undefined) {
+            delete process.env[key];
+          } else {
+            process.env[key] = value;
+          }
+        }
+      }
+    });
+
     it('succeeds when subprocess writes staged result', async () => {
       const root = createAndTrack();
       const state = makeState();
