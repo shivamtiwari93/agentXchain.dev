@@ -28,6 +28,7 @@ import {
   STAGING_PATH,
   TALK_PATH
 } from '../src/lib/governed-state.js';
+import { loadProjectState } from '../src/lib/config.js';
 import { getTurnStagingResultPath } from '../src/lib/turn-paths.js';
 import { HOOK_AUDIT_PATH, HOOK_ANNOTATIONS_PATH } from '../src/lib/hook-runner.js';
 import { scaffoldGoverned } from '../src/commands/init.js';
@@ -313,6 +314,37 @@ describe('initializeGovernedRun', () => {
     assert.equal(normalized.state.turn_sequence, 1);
     assert.deepEqual(Object.keys(normalized.state.active_turns), ['turn_legacy']);
     assert.equal(normalized.state.active_turns.turn_legacy.assigned_sequence, 1);
+  });
+
+  it('loadProjectState re-attaches current_turn as a non-enumerable compatibility alias after migrating legacy state', () => {
+    const legacyState = {
+      schema_version: '1.0',
+      run_id: 'run_load_legacy',
+      project_id: 'test-project',
+      status: 'active',
+      phase: 'planning',
+      current_turn: {
+        turn_id: 'turn_load_legacy',
+        assigned_role: 'pm',
+        status: 'running',
+        attempt: 1,
+        runtime_id: 'manual-pm',
+      },
+    };
+
+    writeFileSync(join(dir, STATE_PATH), JSON.stringify(legacyState, null, 2) + '\n');
+
+    const loaded = loadProjectState(dir, config);
+    assert.ok(loaded, 'Expected loadProjectState to return a reconciled governed state');
+    assert.equal(loaded.schema_version, '1.1');
+    assert.deepEqual(Object.keys(loaded.active_turns), ['turn_load_legacy']);
+    assert.equal(loaded.current_turn?.turn_id, 'turn_load_legacy');
+    assert.equal(Object.prototype.propertyIsEnumerable.call(loaded, 'current_turn'), false);
+
+    const persisted = JSON.parse(readFileSync(join(dir, STATE_PATH), 'utf8'));
+    assert.equal(persisted.schema_version, '1.1');
+    assert.ok(!Object.prototype.hasOwnProperty.call(persisted, 'current_turn'));
+    assert.deepEqual(Object.keys(persisted.active_turns), ['turn_load_legacy']);
   });
 
   // Turn 25 (DEC-DEAD-BRANCH-REMOVAL-001 / DEC-UNREACHABLE-BRANCH-COVERAGE-001):

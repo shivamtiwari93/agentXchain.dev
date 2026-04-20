@@ -185,7 +185,7 @@ Once a branch is confirmed unreachable under the schema **and** every legacy on-
 2. A regression test that locks both invariants — schema rejection + legacy migration — so future schema or migration regressions surface as test failures rather than silently re-animating the dead branch.
 3. An entry in this matrix (below) naming the removed branch, the schema citation, and the migration citation.
 
-Defensive patching of a dead branch is the wrong durability strategy: it leaves the branch in the codebase where the next agent has to re-derive its unreachability and may add tests that exercise no production behavior. Delete + lock invariants is cheaper to maintain.
+Removal is preferred only after the schema gate, legacy migration, and production load path are all closed over the same conclusion. If any one of those proofs is missing, the branch stays under the weaker unreachable-branch discipline until the audit is complete. Deleting a branch before the compatibility or migration story is actually closed just moves uncertainty around.
 
 ### Removed dead branches (`DEC-DEAD-BRANCH-REMOVAL-001`)
 
@@ -193,6 +193,30 @@ Defensive patching of a dead branch is the wrong durability strategy: it leaves 
 | --- | --- | --- | --- |
 | `cli/src/commands/resume.js` `state.status === 'paused' && activeCount > 0` (paused+retained re-dispatch failed/retrying) | `cli/src/lib/schema.js:184` rejects paused without `pending_phase_transition` / `pending_run_completion` | `cli/src/lib/governed-state.js:2191-2204` migrates legacy paused + `blocked_on:'human:...'` / `blocked_on:'escalation:...'` to `status: 'blocked'` on read | `cli/test/governed-state.test.js` "schema rejects fresh paused writes that lack pending approval" + "legacy paused + blocked_on:human:... is migrated to blocked" + "legacy paused + blocked_on:escalation:... is migrated to blocked" |
 | `cli/src/commands/step.js` `state.status === 'paused' && activeCount > 0` (paused+failed/retrying re-dispatch) | same as above | same as above | same as above |
+
+### Turn 26 audit note: branch-deletion candidates that are NOT dead code
+
+The next-pass grep targeted three concrete candidate classes Claude suggested in Turn 25:
+
+1. `current_turn` branches after normalization
+2. `blocked_reason` null / absent branches on governed state
+3. `schema_version !== '1.1'` branches outside the normalizer
+
+Outcome:
+
+- **`current_turn` is an intentional compatibility alias, not a dead branch trigger.**
+  - `loadProjectState()` in `cli/src/lib/config.js` re-attaches `current_turn` as a non-enumerable getter after normalization on every governed load.
+  - governed-state mutators also return the same alias (`attachLegacyCurrentTurnAlias()`), so downstream command/library references to `state.current_turn` remain live compatibility surface, not stale legacy code.
+  - Locking proof: `cli/test/governed-state.test.js` now includes `loadProjectState re-attaches current_turn as a non-enumerable compatibility alias after migrating legacy state`.
+- **`blocked_reason` branches were not eligible for deletion.**
+  - Schema enforcement only guarantees `blocked_reason` is an object when `status === 'blocked'`.
+  - The normalizer both infers missing `blocked_reason` for blocked states and clears it for non-blocked states; several runtime seams legitimately observe pre-reconciliation or transitional shapes before validation finishes.
+  - Result: no delete-with-citations candidate from this class.
+- **No downstream governed-state `schema_version !== '1.1'` branch exists outside normalization.**
+  - The grep only found the normalizer itself plus non-governed config schema handling.
+  - Result: no candidate.
+
+Standing refinement: compatibility aliases and pre-validation transitional shapes are not dead-branch candidates unless the audit proves callers can no longer observe them through any supported load or return path.
 
 ## Config Surface Validation Matrix
 
