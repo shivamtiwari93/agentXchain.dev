@@ -261,4 +261,31 @@ describe('current release surface', () => {
     );
     assert.doesNotMatch(HOME, /All connectors:\s*manual,\s*local_cli,\s*api_proxy,\s*MCP\b/);
   });
+
+  it('AT-CRS-022: current release notes include the tester rerun contract for shipped-package closure proof', () => {
+    const releasePage = read(CURRENT_RELEASE_DOC_PATH);
+    assert.match(
+      releasePage,
+      /## Tester Re-Run Contract/i,
+      'current release notes must include a dedicated tester rerun contract section for shipped-package verification',
+    );
+    assert.match(
+      releasePage,
+      new RegExp(`agentxchain@${escapeRegExp(CURRENT_VERSION)}`),
+      'tester rerun contract must name the exact shipped package version',
+    );
+    for (const term of [
+      'startup_latency_ms',
+      'elapsed_since_spawn_ms',
+      'undeclared_verification_outputs',
+      'verification.produced_files',
+      'git status --short',
+    ]) {
+      assert.match(
+        releasePage,
+        new RegExp(escapeRegExp(term)),
+        `tester rerun contract must mention ${term}`,
+      );
+    }
+  });
 });
