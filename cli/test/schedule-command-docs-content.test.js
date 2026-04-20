@@ -45,7 +45,11 @@ describe('schedule command docs contract', () => {
   it('documents the non-overlap and no-auto-recovery boundary explicitly', () => {
     assert.match(CLI_DOCS, /do \*\*not\*\* attach to an existing `active` or `paused` run/i);
     assert.match(CLI_DOCS, /do \*\*not\*\* auto-recover a `blocked` run/i);
-    assert.match(CLI_DOCS, /after an explicit `agentxchain unblock <id>`.*continues the same schedule-owned run on the next poll/i);
+    assert.match(CLI_DOCS, /surfaced recovery action/i);
+    assert.match(CLI_DOCS, /agentxchain unblock <id>/i);
+    assert.match(CLI_DOCS, /reissue-turn --reason ghost/i);
+    assert.match(CLI_DOCS, /reissue-turn --reason stale/i);
+    assert.match(CLI_DOCS, /continues the same schedule-owned run on the next poll/i);
   });
 
   it('documents injected p0 consumption for schedule-owned runs', () => {

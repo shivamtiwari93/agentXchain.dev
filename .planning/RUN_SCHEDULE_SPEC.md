@@ -154,7 +154,7 @@ agentxchain schedule daemon [--poll-seconds <n>] [--max-cycles <n>] [--json]
 - `--max-cycles <n>` is for deterministic tests and bounded CI proof.
 - The daemon must stay alive when a schedule-owned governed run blocks on human action.
 - The daemon must **not** auto-recover a blocked run by itself.
-- After the operator explicitly resolves the blocker with `agentxchain unblock <id>`, the next daemon poll may continue that same schedule-owned run automatically.
+- After the operator explicitly resolves the blocker with the surfaced recovery action (`agentxchain unblock <id>` for `needs_human`, `agentxchain reissue-turn --reason ghost` for retained ghost turns, `agentxchain reissue-turn --reason stale` for retained stale turns), the next daemon poll may continue that same schedule-owned run automatically.
 - If a schedule-owned run yields with `stop_reason: "priority_preempted"`, the daemon must consume the injected `p0`, plan/start it into the same governed run, and continue that run on the next poll.
 - This daemon is repo-local only. No PID management, launchctl integration, or hosted scheduler is part of this slice.
 
@@ -169,7 +169,7 @@ agentxchain schedule daemon [--poll-seconds <n>] [--max-cycles <n>] [--json]
 | repo currently `active` or `paused` | skip with recorded `last_skip_reason`, exit 0 |
 | repo currently `blocked` | skip with recorded `last_skip_reason`, exit 0 |
 | scheduled run launch returns non-zero | record failed status in `schedule-state.json`, exit 1 |
-| schedule daemon cycle hits a schedule-owned run that blocked on `needs_human` | record `last_status: "blocked"`, keep polling, wait for explicit `agentxchain unblock <id>` |
+| schedule daemon cycle hits a schedule-owned run that blocked on `needs_human` | record `last_status: "blocked"`, keep polling, wait for the surfaced recovery action (`agentxchain unblock <id>` in this case) |
 | schedule-owned run yields `priority_preempted` | record `last_status: "priority_preempted"`, consume the injected `p0`, start its governed turn, and continue on the next poll |
 | schedule-state file missing/corrupt | recreate from empty state when possible; fail only on write/read errors that prevent truthful execution |
 
@@ -183,7 +183,7 @@ agentxchain schedule daemon [--poll-seconds <n>] [--max-cycles <n>] [--json]
 - `AT-SCHED-006`: `agentxchain schedule run-due` skips active/paused repos instead of attaching to the existing run.
 - `AT-SCHED-007`: `agentxchain schedule daemon --max-cycles 1` executes the same due-run path as `run-due`.
 - `AT-SCHED-008`: `--schedule <id>` runs only the targeted schedule.
-- `AT-SCHED-009`: `agentxchain schedule daemon` survives a schedule-owned `needs_human` block and, after `agentxchain unblock <id>`, continues that same run within one polling interval.
+- `AT-SCHED-009`: `agentxchain schedule daemon` survives a schedule-owned blocked run and, after the operator runs the surfaced recovery action, continues that same run within one polling interval. The acceptance proof must cover at least the `needs_human -> unblock` path.
 - `AT-SCHED-010`: `agentxchain schedule daemon` consumes an injected `p0` after `priority_preempted`, starts the injected governed turn, clears the marker, and continues the same schedule-owned run on the next poll.
 
 ## Non-Scope

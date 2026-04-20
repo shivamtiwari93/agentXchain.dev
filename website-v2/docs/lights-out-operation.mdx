@@ -164,13 +164,20 @@ When the session pauses for a real blocker:
 
 ```bash
 agentxchain status
-agentxchain unblock <id>
+```
+
+Then run the exact recovery command surfaced by the governed state. Examples:
+
+```bash
+agentxchain unblock <id>                  # needs_human escalation
+agentxchain reissue-turn --turn <id> --reason ghost
+agentxchain reissue-turn --turn <id> --reason stale
 ```
 
 Rules that matter:
 
 - blocked continuous sessions stay **paused**, not fake-completed
-- after `agentxchain unblock <id>`, the next daemon poll resumes the **same** session
+- after the surfaced recovery action clears the blocker, the next daemon poll resumes the **same** session
 - session-budget exhaustion is a **terminal stop**, not a blocker; start a new session if you want to continue
 - non-blocked executor failure leaves the session `failed` for inspection instead of pretending the intake intent completed
 

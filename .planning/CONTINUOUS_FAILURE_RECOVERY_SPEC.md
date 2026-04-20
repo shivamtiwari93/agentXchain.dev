@@ -95,7 +95,7 @@ This does **not** invent a new intake `run_failed_at` contract. The product stil
 - `AT-CONT-FAIL-004`: schedule-compatible primitive treats `reject_exhausted` + `state.status: "blocked"` as `run_blocked`, not a successful continuous step.
 - `AT-CONT-FAIL-005`: paused session stays blocked (`still_blocked`) when governed state is still blocked — guard prevents re-advancing.
 - `AT-CONT-FAIL-006`: paused session resumes when governed state is unblocked — run completes, `runs_completed` increments.
-- `AT-SCHED-CONT-FAIL-001`: daemon E2E — schedule-owned continuous session hits adapter failure, daemon records `continuous_blocked`, keeps polling with `still_blocked` cycles, resumes after `agentxchain unblock`, completes the run with stable session_id.
+- `AT-SCHED-CONT-FAIL-001`: daemon E2E — schedule-owned continuous session hits a blocked run, daemon records `continuous_blocked`, keeps polling with `still_blocked` cycles, resumes after the surfaced recovery action, and completes the run with stable `session_id`. The proof must cover at least the `needs_human -> unblock` path.
 
 ## Open Questions
 

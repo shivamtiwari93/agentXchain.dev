@@ -164,6 +164,14 @@ describe('Recovery docs — implementation-backed contracts', () => {
     assert.match(DOC, /agentxchain config --set budget\.per_run_max_usd/);
     assert.doesNotMatch(DOC, /\.agentxchain\/config\.json/);
   });
+
+  it('documents continuous blocked recovery as surfaced recovery_action, not universal unblock', () => {
+    assert.match(DOC, /run_blocked_reason/);
+    assert.match(DOC, /run_blocked_recovery/);
+    assert.match(DOC, /follow that exact surfaced recovery action/i);
+    assert.match(DOC, /reissue-turn --reason ghost\|stale/);
+    assert.match(DOC, /agentxchain unblock <id>/);
+  });
 });
 
 describe('Recovery docs — conflict-loop operator contract (AT-CLR-003, AT-CLR-004)', () => {

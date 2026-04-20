@@ -888,14 +888,14 @@ Behavior contract:
 
 - `schedule list` shows due status, next due time, and last run/skip metadata from `.agentxchain/schedule-state.json`
 - `schedule run-due` evaluates configured schedules once and runs only the ones currently due
-- `schedule daemon` repeats that same due-run path on a fixed local poll interval and, after an explicit `agentxchain unblock <id>`, continues the same schedule-owned run on the next poll
+- `schedule daemon` repeats that same due-run path on a fixed local poll interval and, after the operator clears a blocked schedule-owned run with the surfaced recovery action (`agentxchain unblock <id>` for `needs_human`, `agentxchain reissue-turn --reason ghost` for BUG-51 ghost startup, `agentxchain reissue-turn --reason stale` for BUG-47 stale turns), continues the same schedule-owned run on the next poll
 - when a running schedule-owned turn yields with `priority_preempted`, `schedule daemon` consumes the injected `p0` intent, plans it if needed, starts it into the same schedule-owned run, and continues that run on the next poll
 - scheduled runs use `trigger: "schedule"` provenance instead of pretending they were started manually
 - scheduled runs start only from `missing` (no state file yet), `idle`, or `completed`
 - scheduled runs do **not** attach to an existing `active` or `paused` run
 - scheduled runs do **not** auto-recover a `blocked` run
 
-The skip behavior is deliberate. If a repo is already active, paused on a gate, or blocked for operator recovery, the scheduler records a skip reason and exits cleanly. It does not invent a second run and it does not hijack the current one. The only continuation exception is explicit human recovery: if a scheduled run blocks, the daemon stays alive, and once the operator resolves the blocker with `agentxchain unblock <id>`, the next daemon poll continues that same reactivated run instead of leaving it stranded in `active`.
+The skip behavior is deliberate. If a repo is already active, paused on a gate, or blocked for operator recovery, the scheduler records a skip reason and exits cleanly. It does not invent a second run and it does not hijack the current one. The only continuation exception is explicit operator recovery: if a scheduled run blocks, the daemon stays alive, and once the operator runs the surfaced recovery action (`agentxchain unblock <id>`, `agentxchain reissue-turn --reason ghost`, `agentxchain reissue-turn --reason stale`, or whatever `status` / `schedule daemon --json` reports), the next daemon poll continues that same reactivated run instead of leaving it stranded in `active`.
 
 #### Daemon health
 

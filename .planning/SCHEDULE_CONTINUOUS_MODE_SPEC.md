@@ -155,7 +155,7 @@ When the daemon is managing any `continuous.enabled` schedules, sibling continuo
 ### 4. Blocked recovery
 
 - If a schedule-owned continuous session blocks on `needs_human`, the daemon records `continuous_blocked` and keeps polling.
-- After `agentxchain unblock <id>`, the next poll resumes the same session within one polling interval.
+- After the operator runs the surfaced recovery action (`agentxchain unblock <id>` for `needs_human`, `agentxchain reissue-turn --reason ghost|stale` for retained ghost/stale turns), the next poll resumes the same session within one polling interval.
 - The daemon does not require a second operator command such as re-running `run --continuous`.
 
 ### 5. Priority injection precedence

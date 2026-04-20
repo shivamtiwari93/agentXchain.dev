@@ -49,7 +49,10 @@ describe('lights-out operation guide contract', () => {
   });
 
   it('documents recovery, priority injection, session-budget stop, and SIGINT semantics', () => {
+    assert.match(DOC, /run the exact recovery command surfaced by the governed state/i);
     assert.match(DOC, /agentxchain unblock <id>/);
+    assert.match(DOC, /reissue-turn --turn <id> --reason ghost/i);
+    assert.match(DOC, /reissue-turn --turn <id> --reason stale/i);
     assert.match(DOC, /agentxchain inject "Fix the broken release-note sidebar ordering" --priority p0/);
     assert.match(DOC, /priority_preempted/);
     assert.match(DOC, /session-budget exhaustion is a \*\*terminal stop\*\*, not a blocker/i);

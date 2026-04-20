@@ -102,7 +102,7 @@ The guide must document:
 - `agentxchain status`
 - `agentxchain schedule status`
 - blocked session behavior
-- `agentxchain unblock <id>`
+- surfaced recovery actions, including `agentxchain unblock <id>` for `needs_human` and `agentxchain reissue-turn --reason ghost|stale` for retained ghost/stale turns
 - paused-session resume on the next daemon poll
 - session-budget exhaustion as terminal stop, not blocker
 
@@ -125,7 +125,7 @@ The guide must describe:
 ## Error Cases
 
 - The guide drifts into multi-repo advice: fail the content test.
-- The guide omits blocked recovery or `unblock`: fail the content test.
+- The guide omits blocked recovery or hard-codes `agentxchain unblock <id>` as the only blocked-session recovery: fail the content test.
 - The guide claims session-budget exhaustion is a blocker: fail the content test.
 - The guide skips the bounded proof run and jumps straight to daemonization: fail the content test.
 
@@ -135,7 +135,7 @@ The guide must describe:
 - `AT-LIGHTSOUT-002`: the guide states the repo-local boundary and sends multi-repo operators to `agentxchain multi`. ✅
 - `AT-LIGHTSOUT-003`: the guide includes concrete preflight commands (`doctor`, `connector check`) and a bounded `run --continuous --max-runs 1` proof run before daemon launch. ✅
 - `AT-LIGHTSOUT-004`: the guide documents schedule-owned continuous config, `agentxchain schedule daemon`, `agentxchain status`, `agentxchain schedule status`, and `agentxchain events --follow`. ✅
-- `AT-LIGHTSOUT-005`: the guide documents blocked recovery via `agentxchain unblock <id>`, `p0` injection precedence, session-budget terminal stop, and SIGINT behavior. ✅
+- `AT-LIGHTSOUT-005`: the guide documents blocked recovery via surfaced recovery actions (`agentxchain unblock <id>` for `needs_human`, `agentxchain reissue-turn --reason ghost|stale` for retained ghost/stale turns), `p0` injection precedence, session-budget terminal stop, and SIGINT behavior. ✅
 - `AT-LIGHTSOUT-006`: `lights-out-scheduling.mdx` links to the new runbook as the end-to-end operator path, preserving page-role separation between runbook and reference. ✅
 
 ## Open Questions
