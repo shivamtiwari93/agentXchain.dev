@@ -306,6 +306,33 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
       '.agentxchain/reports/RECOVERY_REPORT.md',
     ]);
   });
+
+  it('BUG-55 sub-defect A tester paths must all survive normalization verbatim', () => {
+    // BUG-55 sub-defect A root-cause hypothesis #1 in HUMAN-ROADMAP.md fix
+    // req #1: "Audit turn-checkpoint.js — either it's silently skipping paths
+    // that fail some filter, or the files_changed stored in history isn't
+    // the full declared set." normalizeCheckpointableFiles() IS that filter.
+    // The tester report run_5fa4a26c3973e02d named four exact dirty paths
+    // after checkpoint: .planning/RELEASE_NOTES.md, .planning/acceptance-matrix.md,
+    // src/cli.js, tests/smoke.mjs. If a future refactor widens
+    // OPERATIONAL_PATH_PREFIXES, ORCHESTRATOR_STATE_FILES, or
+    // BASELINE_EXEMPT_PATH_PREFIXES to accidentally strip any of these
+    // exact paths, this test must fail before the regression hits the
+    // tester again. This is a tester-path-level regression lock, distinct
+    // from the generic "src/api.js survives" assertion above.
+    const testerPaths = [
+      '.planning/RELEASE_NOTES.md',
+      '.planning/acceptance-matrix.md',
+      'src/cli.js',
+      'tests/smoke.mjs',
+    ];
+    const normalized = normalizeCheckpointableFiles(testerPaths);
+    assert.deepStrictEqual(
+      normalized,
+      testerPaths,
+      `BUG-55 tester-reported actor paths must survive normalization verbatim; if this fails a future filter widening will silently drop declared files_changed before checkpoint ever sees them. Got: ${JSON.stringify(normalized)}`,
+    );
+  });
 });
 
 describe('run export/restore continuity roots stay aligned with repo-observer ownership truth', () => {
