@@ -99,6 +99,13 @@ for the 10-minute stale-turn watchdog.
 - `cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js`
   - proves the stale path is still reserved for turns that had dispatch-progress
     plus first-output proof and later went silent
+- `cli/test/config-governed.test.js`
+  - proves `config --set` rejects invalid `run_loop.startup_watchdog_ms` /
+    `run_loop.stale_turn_threshold_ms`
+  - proves `validate --json` fails closed on hand-edited invalid watchdog values
+- `cli/test/governed-doctor-e2e.test.js`
+  - proves `doctor --json` surfaces invalid watchdog values as a failing
+    `config_valid` check instead of silently relying on runtime defaults
 - `cli/test/local-cli-adapter.test.js`
   - preserves normal deadline timeout semantics even with the startup watchdog
 

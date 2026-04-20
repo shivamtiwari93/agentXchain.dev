@@ -438,6 +438,27 @@ describe('Governed Doctor E2E', () => {
     assert.match(configCheck.detail, /manual", "api_proxy", "mcp", or "remote_agent"/);
   });
 
+  it('AT-GD-014: doctor fails closed on hand-edited invalid run_loop watchdog values', () => {
+    const root = makeGoverned();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.run_loop = {
+      startup_watchdog_ms: 0,
+      stale_turn_threshold_ms: -1,
+    };
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const result = runCli(root, ['doctor', '--json']);
+    assert.equal(result.status, 1, 'doctor must fail for invalid run_loop watchdog config');
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'fail');
+    const configCheck = output.checks.find((c) => c.id === 'config_valid');
+    assert.ok(configCheck, 'Should include config_valid check');
+    assert.equal(configCheck.level, 'fail');
+    assert.match(configCheck.detail, /run_loop\.startup_watchdog_ms/);
+    assert.match(configCheck.detail, /run_loop\.stale_turn_threshold_ms/);
+  });
+
   it('AT-B1-001: doctor warns when the running CLI is older than the published docs floor', () => {
     const root = makeGoverned();
     const binDir = createStubNpmDir('99.99.99');

@@ -158,6 +158,31 @@ The retained-turn reconciliation column is not satisfied by generic acceptance c
 
 Every newly documented dispatch path or retry path must add one matrix row here and one executable proof per lifecycle stage it claims to support. Shared-library tests are useful, but they do not replace at least one real command-level proof for each operator-visible path.
 
+## Config Surface Validation Matrix
+
+BUG-51 exposed a separate failure mode outside dispatch itself: a config field can
+be published in schema/docs, consumed by runtime defaults, and still lie to the
+operator if the governed front doors do not reject bad values explicitly.
+
+| Surface | Required behavior | Current proof |
+| --- | --- | --- |
+| `config --set` | Reject invalid watchdog values before writing config to disk | `cli/test/config-governed.test.js` (`AT-CFGG-RL-001`..`AT-CFGG-RL-005`) |
+| `validate --json` | Fail closed on hand-edited invalid watchdog values already on disk | `cli/test/config-governed.test.js` (`AT-CFGG-RL-006`) |
+| `doctor --json` | Surface the same invalid watchdog values as a failing `config_valid` check with non-zero exit | `cli/test/governed-doctor-e2e.test.js` (`AT-GD-014`) |
+
+### Standing config-validation rule
+
+Any published config field that also has a typed runtime default must prove
+fail-closed validation on the operator-facing config surfaces:
+
+1. write path (`config --set`, or equivalent)
+2. validation path (`validate`)
+3. diagnostic path (`doctor`, or equivalent operator health front door)
+
+Runtime fallback is forward-compatibility behavior, not validation evidence.
+If bad input only "works" because runtime silently ignores it and falls back to
+defaults, the contract is still broken.
+
 ## Fourth False Closure Entry
 
 ### BUG-36 reopened as BUG-37 on `v2.135.0`
