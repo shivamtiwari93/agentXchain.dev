@@ -177,6 +177,23 @@ Coverage matrices may mark a branch as **unreachable under the current schema** 
 
 Dead-code branches may still be patched defensively, but they must not be counted as uncovered operator behavior until the schema admits them.
 
+### Standing dead-branch removal rule (Turn 25, `DEC-DEAD-BRANCH-REMOVAL-001`)
+
+Once a branch is confirmed unreachable under the schema **and** every legacy on-disk shape that could have entered it has a documented migration path to a different (reachable) branch, the dead branch is **removed**, not patched defensively. Removal requires:
+
+1. A code comment at the deletion site citing the schema gate AND the migration site that redirects legacy shapes.
+2. A regression test that locks both invariants — schema rejection + legacy migration — so future schema or migration regressions surface as test failures rather than silently re-animating the dead branch.
+3. An entry in this matrix (below) naming the removed branch, the schema citation, and the migration citation.
+
+Defensive patching of a dead branch is the wrong durability strategy: it leaves the branch in the codebase where the next agent has to re-derive its unreachability and may add tests that exercise no production behavior. Delete + lock invariants is cheaper to maintain.
+
+### Removed dead branches (`DEC-DEAD-BRANCH-REMOVAL-001`)
+
+| Removed branch | Schema citation | Migration citation | Invariant test |
+| --- | --- | --- | --- |
+| `cli/src/commands/resume.js` `state.status === 'paused' && activeCount > 0` (paused+retained re-dispatch failed/retrying) | `cli/src/lib/schema.js:184` rejects paused without `pending_phase_transition` / `pending_run_completion` | `cli/src/lib/governed-state.js:2191-2204` migrates legacy paused + `blocked_on:'human:...'` / `blocked_on:'escalation:...'` to `status: 'blocked'` on read | `cli/test/governed-state.test.js` "schema rejects fresh paused writes that lack pending approval" + "legacy paused + blocked_on:human:... is migrated to blocked" + "legacy paused + blocked_on:escalation:... is migrated to blocked" |
+| `cli/src/commands/step.js` `state.status === 'paused' && activeCount > 0` (paused+failed/retrying re-dispatch) | same as above | same as above | same as above |
+
 ## Config Surface Validation Matrix
 
 BUG-51 exposed a separate failure mode outside dispatch itself: a config field can

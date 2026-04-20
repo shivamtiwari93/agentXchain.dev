@@ -261,39 +261,14 @@ export async function stepCommand(opts) {
       printDispatchBundleWarnings(bundleResult);
     }
 
-    // Handle paused + failed/retrying turn → re-dispatch
-    if (!skipAssignment && state.status === 'paused' && activeCount > 0) {
-      const pausedTurn = targetTurn || Object.values(activeTurns)[0];
-      const turnStatus = pausedTurn?.status;
-      if (turnStatus === 'failed' || turnStatus === 'retrying') {
-        console.log(chalk.yellow(`Re-dispatching failed turn: ${pausedTurn.turn_id}`));
-        const reactivated = reactivateGovernedRun(root, state, { via: 'step --resume', notificationConfig: config });
-        if (!reactivated.ok) {
-          console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
-          process.exit(1);
-        }
-        state = reactivated.state;
-        if (reactivated.migration_notice) {
-          console.log(chalk.yellow(reactivated.migration_notice));
-        }
-        if (reactivated.phantom_notice) {
-          console.log(chalk.yellow(reactivated.phantom_notice));
-        }
-        skipAssignment = true;
-
-        // BUG-1 fix: refresh baseline snapshot to capture files dirtied between assignment and dispatch
-        refreshTurnBaselineSnapshot(root, pausedTurn.turn_id);
-        state = JSON.parse(readFileSync(join(root, '.agentxchain/state.json'), 'utf8'));
-
-        const bundleResult = writeDispatchBundle(root, state, config);
-        if (!bundleResult.ok) {
-          console.log(chalk.red(`Failed to write dispatch bundle: ${bundleResult.error}`));
-          process.exit(1);
-        }
-        bundleWritten = true;
-        printDispatchBundleWarnings(bundleResult);
-      }
-    }
+    // Removed (Turn 25): the `paused + failed/retrying retained turn → re-dispatch`
+    // branch is unreachable under the current schema. See the matching deletion in
+    // `cli/src/commands/resume.js` for the full citation chain (schema.js:184 +
+    // governed-state.js:2191-2204 + the line-187 short-circuit above). The reachable
+    // retained-turn re-dispatch path for `step --resume` is the `state.status ===
+    // 'blocked' && activeCount > 0` branch at line 193 above. Per
+    // `DEC-UNREACHABLE-BRANCH-COVERAGE-001`, dead branches are removed once the
+    // schema citation + migration citation are documented.
 
     // idle → initialize run
     if (!skipAssignment && state.status === 'idle' && !state.run_id) {

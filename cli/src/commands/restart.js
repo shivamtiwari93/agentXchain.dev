@@ -29,6 +29,7 @@ import {
   LEDGER_PATH,
 } from '../lib/governed-state.js';
 import { writeDispatchBundle } from '../lib/dispatch-bundle.js';
+import { finalizeDispatchManifest } from '../lib/dispatch-manifest.js';
 import { getDispatchTurnDir } from '../lib/turn-paths.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
@@ -403,6 +404,18 @@ export async function restartCommand(opts) {
         console.log(chalk.red(`Turn assigned but dispatch bundle write failed: ${bundleResult.error}`));
         console.log(chalk.dim('The turn is assigned in state but has no dispatch context.'));
         console.log(chalk.dim('Run `agentxchain reissue-turn` to reissue with a fresh bundle.'));
+        process.exit(1);
+      }
+      // BUG-51 follow-up: finalize the dispatch manifest so adapter-side
+      // verification matches fresh dispatches via `run`/`step`/`resume`.
+      // restart does not run after_dispatch hooks here, so finalize
+      // immediately after writeDispatchBundle.
+      const manifestResult = finalizeDispatchManifest(root, turnId, {
+        run_id: assignedState.run_id,
+        role: assignedRole,
+      });
+      if (!manifestResult.ok) {
+        console.log(chalk.red(`Turn assigned but dispatch manifest failed: ${manifestResult.error}`));
         process.exit(1);
       }
       transitionActiveTurnLifecycle(root, turnId, 'dispatched');

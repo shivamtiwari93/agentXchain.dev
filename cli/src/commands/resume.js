@@ -121,70 +121,25 @@ export async function resumeCommand(opts) {
     process.exit(1);
   }
 
-  // §47: paused + retained turn with failed/retrying status → re-dispatch same turn
-  if (state.status === 'paused' && activeCount > 0) {
-    // Resolve which turn to re-dispatch
-    let retainedTurn = null;
-    if (opts.turn) {
-      retainedTurn = activeTurns[opts.turn];
-      if (!retainedTurn) {
-        console.log(chalk.red(`No active turn found for --turn ${opts.turn}`));
-        process.exit(1);
-      }
-    } else if (activeCount > 1) {
-      console.log(chalk.red('Multiple retained turns exist. Use --turn <id> to specify which to re-dispatch.'));
-      for (const turn of Object.values(activeTurns)) {
-        console.log(`  ${chalk.yellow('●')} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${turn.status})`);
-      }
-      console.log('');
-      console.log(chalk.dim('Example: agentxchain resume --turn <turn_id>'));
-      process.exit(1);
-    } else {
-      retainedTurn = Object.values(activeTurns)[0];
-    }
-
-    const turnStatus = retainedTurn.status;
-    if (turnStatus === 'failed' || turnStatus === 'retrying') {
-      printResumeRunContext({ root, state, config });
-      console.log(chalk.yellow(`Re-dispatching failed turn: ${retainedTurn.turn_id}`));
-      console.log(`  Role:    ${retainedTurn.assigned_role}`);
-      console.log(`  Attempt: ${retainedTurn.attempt}`);
-      console.log('');
-
-      const reactivated = reactivateGovernedRun(root, state, { via: turnResumeVia, notificationConfig: config });
-      if (!reactivated.ok) {
-        console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
-        process.exit(1);
-      }
-      state = reactivated.state;
-      if (reactivated.migration_notice) {
-        console.log(chalk.yellow(reactivated.migration_notice));
-      }
-      if (reactivated.phantom_notice) {
-        console.log(chalk.yellow(reactivated.phantom_notice));
-      }
-
-      // Write dispatch bundle for the existing turn
-      const bundleResult = writeDispatchBundle(root, state, config);
-      if (!bundleResult.ok) {
-        console.log(chalk.red(`Failed to write dispatch bundle: ${bundleResult.error}`));
-        process.exit(1);
-      }
-      printDispatchBundleWarnings(bundleResult);
-
-      // after_dispatch hooks with bundle-core tamper protection
-      const hooksConfig = config.hooks || {};
-      if (hooksConfig.after_dispatch?.length > 0) {
-        const afterDispatchResult = runAfterDispatchHooks(root, hooksConfig, state, retainedTurn);
-        if (!afterDispatchResult.ok) {
-          process.exit(1);
-        }
-      }
-
-      printDispatchSummary(state, config, retainedTurn);
-      return;
-    }
-  }
+  // Removed (Turn 25): the §47 `paused + retained turn → re-dispatch failed/retrying`
+  // branch is provably unreachable under the current schema and migration contract:
+  //
+  //   1. `cli/src/lib/schema.js:184` rejects `status: 'paused'` unless
+  //      `pending_phase_transition` or `pending_run_completion` is set.
+  //   2. The guard above (line 119) short-circuits with `printRecoverySummary`
+  //      whenever either pending field is set — so any schema-valid paused state
+  //      exits before reaching this point.
+  //   3. Legacy on-disk shapes that pre-date the schema constraint (paused +
+  //      `blocked_on: 'human:...'` / `blocked_on: 'escalation:...'` with no
+  //      pending approval) are auto-migrated to `status: 'blocked'` by
+  //      `normalizeStateForRead` in `governed-state.js:2191-2204` before
+  //      `loadProjectState` returns.
+  //
+  // The reachable retained-turn re-dispatch path is the `blocked + activeCount > 0`
+  // branch immediately below, which legacy paused-pause shapes are migrated into.
+  // Per `DEC-UNREACHABLE-BRANCH-COVERAGE-001`, dead branches are removed (not
+  // patched defensively) once the schema citation + migration citation are
+  // documented in code and the coverage matrix.
 
   if (state.status === 'blocked' && activeCount > 0) {
     let retainedTurn = null;
@@ -243,6 +198,21 @@ export async function resumeCommand(opts) {
       if (!afterDispatchResult.ok) {
         process.exit(1);
       }
+    }
+
+    // BUG-51 follow-up: see comment in paused/failed retained-turn branch.
+    // The blocked re-dispatch path has the same watchdog/manifest invariant.
+    const manifestResult = finalizeDispatchManifest(root, retainedTurn.turn_id, {
+      run_id: state.run_id,
+      role: retainedTurn.assigned_role,
+    });
+    if (!manifestResult.ok) {
+      console.log(chalk.red(`Failed to finalize dispatch manifest: ${manifestResult.error}`));
+      process.exit(1);
+    }
+    const dispatched = transitionActiveTurnLifecycle(root, retainedTurn.turn_id, 'dispatched');
+    if (dispatched.ok) {
+      state = dispatched.state;
     }
 
     printDispatchSummary(state, config, retainedTurn);

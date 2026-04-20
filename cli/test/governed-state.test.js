@@ -314,6 +314,99 @@ describe('initializeGovernedRun', () => {
     assert.deepEqual(Object.keys(normalized.state.active_turns), ['turn_legacy']);
     assert.equal(normalized.state.active_turns.turn_legacy.assigned_sequence, 1);
   });
+
+  // Turn 25 (DEC-DEAD-BRANCH-REMOVAL-001 / DEC-UNREACHABLE-BRANCH-COVERAGE-001):
+  // The §47 `paused + retained turn → re-dispatch failed/retrying` branch was
+  // removed from cli/src/commands/{resume,step}.js as dead code. These tests
+  // lock the two invariants that make the deletion safe:
+  //
+  //   (a) The shared schema rejects fresh writes of `status: 'paused'` without
+  //       `pending_phase_transition` or `pending_run_completion` (schema.js:184).
+  //   (b) Legacy on-disk paused-without-approval shapes (paused +
+  //       `blocked_on: 'human:...'` / `blocked_on: 'escalation:...'`) are
+  //       auto-migrated to `status: 'blocked'` by `normalizeStateForRead`
+  //       inside `normalizeGovernedStateShape` (governed-state.js:2191-2204)
+  //       before any caller observes them.
+  //
+  // If either invariant breaks, these tests fail and the dead-branch removal
+  // must be re-evaluated.
+  it('schema rejects fresh paused writes that lack pending approval (locks deletion of §47 paused+retained branch)', async () => {
+    const { validateGovernedStateSchema } = await import('../src/lib/schema.js');
+
+    const pausedNoApproval = {
+      schema_version: '1.1',
+      run_id: 'run_dead_branch',
+      protocol_mode: 'governed',
+      phase: 'planning',
+      status: 'paused',
+      blocked_on: null,
+      active_turns: {},
+      turn_sequence: 0,
+      assigned_sequence: 0,
+      phase_gate_status: {},
+    };
+
+    const result = validateGovernedStateSchema(pausedNoApproval);
+    assert.equal(result.ok, false, 'schema must reject paused-without-approval');
+    assert.ok(
+      result.errors.some((e) => e.includes('pending_phase_transition') || e.includes('pending_run_completion')),
+      `schema error must cite the missing pending field; got: ${result.errors.join(', ')}`,
+    );
+  });
+
+  it('legacy paused + blocked_on:human:... is migrated to blocked (locks deletion of §47 paused+retained branch)', () => {
+    const legacyHumanPause = {
+      schema_version: '1.1',
+      run_id: 'run_legacy_human',
+      protocol_mode: 'governed',
+      phase: 'planning',
+      status: 'paused',
+      blocked_on: 'human:approval_pending',
+      active_turns: {
+        turn_legacy_a: {
+          turn_id: 'turn_legacy_a',
+          assigned_role: 'pm',
+          status: 'failed',
+          attempt: 1,
+          assigned_sequence: 1,
+        },
+      },
+      turn_sequence: 1,
+      assigned_sequence: 1,
+      phase_gate_status: {},
+    };
+
+    const normalized = normalizeGovernedStateShape(legacyHumanPause).state;
+    assert.equal(normalized.status, 'blocked', 'legacy human-paused must migrate to blocked');
+    assert.deepEqual(Object.keys(normalized.active_turns), ['turn_legacy_a'], 'retained turn preserved');
+  });
+
+  it('legacy paused + blocked_on:escalation:... is migrated to blocked (locks deletion of §47 paused+retained branch)', () => {
+    const legacyEscalationPause = {
+      schema_version: '1.1',
+      run_id: 'run_legacy_escalation',
+      protocol_mode: 'governed',
+      phase: 'implementation',
+      status: 'paused',
+      blocked_on: 'escalation:budget_exceeded:dev',
+      active_turns: {
+        turn_legacy_b: {
+          turn_id: 'turn_legacy_b',
+          assigned_role: 'dev',
+          status: 'retrying',
+          attempt: 2,
+          assigned_sequence: 1,
+        },
+      },
+      turn_sequence: 1,
+      assigned_sequence: 1,
+      phase_gate_status: {},
+    };
+
+    const normalized = normalizeGovernedStateShape(legacyEscalationPause).state;
+    assert.equal(normalized.status, 'blocked', 'legacy escalation-paused must migrate to blocked');
+    assert.deepEqual(Object.keys(normalized.active_turns), ['turn_legacy_b'], 'retained turn preserved');
+  });
 });
 
 describe('reactivateGovernedRun', () => {

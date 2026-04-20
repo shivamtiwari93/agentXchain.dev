@@ -5,6 +5,7 @@ import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { getActiveTurns, rejectGovernedTurn, transitionActiveTurnLifecycle } from '../lib/governed-state.js';
 import { validateStagedTurnResult } from '../lib/turn-result-validator.js';
 import { writeDispatchBundle } from '../lib/dispatch-bundle.js';
+import { finalizeDispatchManifest } from '../lib/dispatch-manifest.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { getDispatchTurnDir, getTurnStagingResultPath } from '../lib/turn-paths.js';
 
@@ -49,6 +50,17 @@ export async function rejectTurnCommand(opts) {
     const bundleResult = writeDispatchBundle(root, result.state, config, { turnId: validation.turn.turn_id });
     if (!bundleResult.ok) {
       console.log(chalk.red(`Turn rejected but dispatch bundle rewrite failed: ${bundleResult.error}`));
+      process.exit(1);
+    }
+    // BUG-51 follow-up: finalize the manifest so adapter verification matches
+    // fresh dispatches. reject-for-retry does not run after_dispatch hooks,
+    // so finalize immediately after writeDispatchBundle.
+    const manifestResult = finalizeDispatchManifest(root, validation.turn.turn_id, {
+      run_id: result.state.run_id,
+      role: validation.turn.assigned_role,
+    });
+    if (!manifestResult.ok) {
+      console.log(chalk.red(`Turn rejected but dispatch manifest failed: ${manifestResult.error}`));
       process.exit(1);
     }
     transitionActiveTurnLifecycle(root, validation.turn.turn_id, 'dispatched');

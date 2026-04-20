@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import {
   assignGovernedTurn,
   initializeGovernedRun,
+  markRunBlocked,
   reissueTurn,
   transitionActiveTurnLifecycle,
 } from '../../src/lib/governed-state.js';
@@ -535,5 +536,159 @@ describe('BUG-51: fast-startup watchdog', () => {
     const state = readState(root);
     assert.equal(state.status, 'blocked');
     assert.equal(state.blocked_reason.category, 'ghost_turn');
+  });
+
+  // BUG-51 follow-up tests (Turn 23): every recovery surface that re-writes a
+  // dispatch bundle for an active turn must (a) finalize MANIFEST.json so
+  // adapter-side `verifyDispatchManifestForAdapter` enforcement matches fresh
+  // dispatches and (b) where applicable, transition the turn lifecycle to
+  // `dispatched` so the startup watchdog (`detectGhostTurns`) treats the
+  // re-dispatched turn as freshly dispatched. Pre-fix, `resume`'s
+  // retained-turn re-dispatch branch (state.status === 'blocked' &&
+  // activeCount > 0 in resume.js) skipped both, and
+  // `reissue-turn` / `restart` / `reject-turn` skipped manifest finalize.
+  //
+  // Note: resume.js also has a §47 `paused + retained turn` branch, but
+  // schema.js:184 forbids `paused` without pending_phase_transition or
+  // pending_run_completion, and resume.js:119 short-circuits on those. So
+  // that branch is currently unreachable and not exercised here, though the
+  // patch covers it defensively.
+  it('resume re-dispatching a retained blocked turn finalizes the manifest and transitions to dispatched', () => {
+    const { root, config } = createProject();
+    const assigned = assignGovernedTurn(root, config, 'dev');
+    assert.ok(assigned.ok, assigned.error);
+    const turnId = assigned.turn.turn_id;
+
+    // Simulate the post-after_dispatch-hook-failure shape: an active turn
+    // retained while the run is blocked on operator action. This is the
+    // exact code path resume.js:189 (state.status === 'blocked' &&
+    // activeCount > 0) handles.
+    const blockResult = markRunBlocked(root, {
+      blockedOn: 'hook:after_dispatch:test',
+      category: 'dispatch_error',
+      recovery: {
+        typed_reason: 'hook_block',
+        owner: 'human',
+        recovery_action: `agentxchain resume --turn ${turnId}`,
+        turn_retained: true,
+        detail: 'after_dispatch hook blocked dispatch',
+      },
+      turnId,
+    });
+    assert.ok(blockResult.ok !== false, blockResult.error);
+
+    // Backdate started_at to simulate a stale lifecycle-start that would
+    // mis-fire the watchdog if not cleared by transitionActiveTurnLifecycle.
+    const state = readState(root);
+    state.active_turns[turnId].started_at = new Date(Date.now() - 60_000).toISOString();
+    writeState(root, state);
+
+    const result = spawnSync('node', [CLI_PATH, 'resume', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+
+    const after = readState(root);
+    const turn = after.active_turns[turnId];
+    assert.equal(turn.status, 'dispatched',
+      'resume must transition the retained blocked turn to `dispatched` so the watchdog tracks startup');
+    assert.equal(turn.started_at, undefined,
+      'transition to dispatched must clear stale started_at so ghost detection uses dispatched_at');
+    assert.equal(turn.first_output_at, undefined);
+    assert.equal(turn.worker_attached_at, undefined);
+
+    const manifestPath = join(root, '.agentxchain', 'dispatch', 'turns', turnId, 'MANIFEST.json');
+    assert.ok(existsSync(manifestPath),
+      'resume must finalize MANIFEST.json so adapter manifest verification matches fresh dispatches');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    assert.equal(manifest.turn_id, turnId);
+    assert.equal(manifest.role, 'dev');
+    assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);
+  });
+
+  it('resume re-dispatched ghost turns are now caught by the startup watchdog (closes the asymmetry)', () => {
+    const { root, config } = createProject({ run_loop: { startup_watchdog_ms: 100 } });
+    const assigned = assignGovernedTurn(root, config, 'dev');
+    assert.ok(assigned.ok, assigned.error);
+    const turnId = assigned.turn.turn_id;
+
+    // Pre-fix shape: blocked + retained turn with stale `started_at`. Without
+    // the resume transition to `dispatched`, the watchdog either ignored the
+    // turn entirely (status not in watched set) or fired immediately on
+    // stale `started_at`. After the fix, resume clears those timestamps
+    // and the watchdog uses the new `dispatched_at` for the 100ms window.
+    const blockResult = markRunBlocked(root, {
+      blockedOn: 'hook:after_dispatch:test',
+      category: 'dispatch_error',
+      recovery: {
+        typed_reason: 'hook_block',
+        owner: 'human',
+        recovery_action: `agentxchain resume --turn ${turnId}`,
+        turn_retained: true,
+        detail: 'after_dispatch hook blocked dispatch',
+      },
+      turnId,
+    });
+    assert.ok(blockResult.ok !== false);
+
+    const state = readState(root);
+    state.active_turns[turnId].started_at = new Date(Date.now() - 60_000).toISOString();
+    state.active_turns[turnId].dispatched_at = new Date(Date.now() - 60_000).toISOString();
+    writeState(root, state);
+
+    const result = spawnSync('node', [CLI_PATH, 'resume', '--turn', turnId], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+
+    // Immediately after resume: no ghost yet (dispatched_at is fresh).
+    const fresh = readState(root);
+    assert.deepEqual(detectGhostTurns(root, fresh, config), []);
+
+    // Backdate dispatched_at past the 100ms threshold to simulate a ghost.
+    backdateTurnField(root, turnId, 'dispatched_at', 5);
+    const aged = readState(root);
+    const ghosts = detectGhostTurns(root, aged, config);
+    assert.equal(ghosts.length, 1);
+    assert.equal(ghosts[0].turn_id, turnId);
+    assert.equal(ghosts[0].failure_type, 'runtime_spawn_failed');
+  });
+
+  it('reissue-turn finalizes MANIFEST.json so adapter verification matches fresh dispatches', () => {
+    const { root, config } = createProject();
+    const assigned = assignGovernedTurn(root, config, 'dev');
+    assert.ok(assigned.ok, assigned.error);
+    const oldTurnId = assigned.turn.turn_id;
+
+    const reissued = reissueTurn(root, config, { turnId: oldTurnId, reason: 'operator-initiated' });
+    assert.ok(reissued.ok, reissued.error);
+    const newTurnId = reissued.newTurn.turn_id;
+
+    // Direct lib reissueTurn does not write the bundle. The CLI command does.
+    const result = spawnSync('node', [CLI_PATH, 'reissue-turn', '--turn', newTurnId, '--reason', 'operator-initiated'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    // The lib already reissued the turn, so the CLI may or may not produce
+    // a fresh new turn — the assertion that matters is that the active turn
+    // (whatever its id) has a finalized manifest at the end.
+    const after = readState(root);
+    const activeTurnIds = Object.keys(after.active_turns);
+    assert.ok(activeTurnIds.length >= 1, result.stdout + result.stderr);
+    for (const turnId of activeTurnIds) {
+      const manifestPath = join(root, '.agentxchain', 'dispatch', 'turns', turnId, 'MANIFEST.json');
+      if (existsSync(manifestPath)) {
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        assert.equal(manifest.turn_id, turnId);
+        assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);
+        return;
+      }
+    }
+    assert.fail('At least one active turn must have a finalized MANIFEST.json after reissue-turn');
   });
 });

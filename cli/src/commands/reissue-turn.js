@@ -21,6 +21,7 @@ import {
   transitionActiveTurnLifecycle,
 } from '../lib/governed-state.js';
 import { writeDispatchBundle } from '../lib/dispatch-bundle.js';
+import { finalizeDispatchManifest } from '../lib/dispatch-manifest.js';
 
 export async function reissueTurnCommand(opts) {
   const context = loadProjectContext();
@@ -90,6 +91,19 @@ export async function reissueTurnCommand(opts) {
 
   if (!bundleResult.ok) {
     console.log(chalk.red(`Turn reissued but dispatch bundle failed: ${bundleResult.error}`));
+    process.exit(1);
+  }
+  // BUG-51 follow-up: every command that writes a dispatch bundle for an
+  // active turn must finalize the manifest so adapter-side
+  // `verifyDispatchManifestForAdapter` enforcement matches fresh dispatches.
+  // Reissue does not run after_dispatch hooks, so finalization happens
+  // immediately after writeDispatchBundle.
+  const manifestResult = finalizeDispatchManifest(root, result.newTurn.turn_id, {
+    run_id: result.state.run_id,
+    role: result.newTurn.assigned_role,
+  });
+  if (!manifestResult.ok) {
+    console.log(chalk.red(`Turn reissued but dispatch manifest failed: ${manifestResult.error}`));
     process.exit(1);
   }
   transitionActiveTurnLifecycle(root, result.newTurn.turn_id, 'dispatched');
