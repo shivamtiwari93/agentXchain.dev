@@ -253,7 +253,7 @@ cd cli
 npm run verify:post-publish -- --target-version <semver>
 ```
 
-This single command: verifies npm serves the version, runs `sync-homebrew.sh` to update the repo mirror, explicitly proves the repo-mirror formula URL and SHA256 now match the live registry tarball, then runs the full test suite without the preflight skip. If it passes, the mirror is correct and main is green.
+This single command: verifies npm serves the version, runs `sync-homebrew.sh` to update the repo mirror, explicitly proves the repo-mirror formula URL and SHA256 now match the live registry tarball, rechecks the public `npx --yes -p agentxchain@<semver>` path against the live registry, then runs the full test suite without the preflight skip. If it passes, the mirror is correct and main is green.
 
 **Option B: Manual sync + tap push**
 

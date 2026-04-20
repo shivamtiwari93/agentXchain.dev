@@ -20,6 +20,8 @@ cd "$CLI_DIR"
 TARGET_VERSION=""
 
 FORMULA_PATH="${CLI_DIR}/homebrew/agentxchain.rb"
+PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json','utf8')).name)")"
+PACKAGE_BIN_NAME="$(node -e "const pkg = JSON.parse(require('fs').readFileSync('package.json','utf8')); if (typeof pkg.bin === 'string') { console.log(pkg.name); process.exit(0); } const names = Object.keys(pkg.bin || {}); if (names.length !== 1) { console.error('package.json bin must declare exactly one entry'); process.exit(1); } console.log(names[0]);")"
 
 formula_url() {
   local formula_path="$1"
@@ -29,6 +31,29 @@ formula_url() {
 formula_sha() {
   local formula_path="$1"
   grep -E '^\s*sha256\s+"' "$formula_path" | sed 's/.*sha256 *"\([a-f0-9]*\)".*/\1/' || true
+}
+
+run_npx_smoke() {
+  local smoke_root
+  local smoke_npmrc
+
+  smoke_root="$(mktemp -d "${TMPDIR:-/tmp}/agentxchain-verify-post-publish.XXXXXX")"
+  mkdir -p "${smoke_root}/home" "${smoke_root}/cache" "${smoke_root}/npm-cache" "${smoke_root}/workspace"
+  smoke_npmrc="${smoke_root}/.npmrc"
+  echo "registry=https://registry.npmjs.org/" > "$smoke_npmrc"
+
+  (
+    cd "${smoke_root}/workspace" || exit 1
+    env -u NODE_AUTH_TOKEN \
+      HOME="${smoke_root}/home" \
+      XDG_CACHE_HOME="${smoke_root}/cache" \
+      NPM_CONFIG_CACHE="${smoke_root}/npm-cache" \
+      NPM_CONFIG_USERCONFIG="${smoke_npmrc}" \
+      npx --yes -p "${PACKAGE_NAME}@${TARGET_VERSION}" -c "${PACKAGE_BIN_NAME} --version"
+  )
+  local status=$?
+  rm -rf "$smoke_root"
+  return "$status"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -57,7 +82,7 @@ echo "============================================="
 echo ""
 
 # Step 1: Verify npm serves the version
-echo "[1/4] Checking npm registry..."
+echo "[1/5] Checking npm registry..."
 NPM_VERSION="$(npm view "agentxchain@${TARGET_VERSION}" version 2>/dev/null || echo "")"
 if [[ "$NPM_VERSION" != "$TARGET_VERSION" ]]; then
   echo "  FAIL: npm does not serve agentxchain@${TARGET_VERSION} (got: '${NPM_VERSION}')"
@@ -67,7 +92,7 @@ fi
 echo "  OK: npm serves v${TARGET_VERSION}"
 
 # Step 2: Sync the repo mirror to the published tarball
-echo "[2/4] Syncing repo mirror to published tarball..."
+echo "[2/5] Syncing repo mirror to published tarball..."
 bash "${SCRIPT_DIR}/sync-homebrew.sh" --target-version "$TARGET_VERSION"
 echo "  OK: repo mirror synced"
 
@@ -109,8 +134,34 @@ if [[ "$FORMULA_SHA" != "$TARBALL_SHA" ]]; then
 fi
 echo "  OK: repo mirror formula SHA256 matches registry tarball"
 
-# Step 4: Run the full test suite WITHOUT the preflight skip
-echo "[4/5] Running full test suite (no preflight skip)..."
+# Step 4: Recheck the public npx path against the published registry version
+echo "[4/5] Verifying public npx install path..."
+NPX_OUTPUT="$(run_npx_smoke 2>&1 || true)"
+NPX_VERSION="$(printf '%s\n' "$NPX_OUTPUT" | awk -v expected="${TARGET_VERSION}" '
+  {
+    line=$0
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+    if (line == expected) {
+      print line
+      found=1
+      exit
+    }
+  }
+  END {
+    if (!found) {
+      exit 1
+    }
+  }
+ ' || true)"
+if [[ "$NPX_VERSION" != "$TARGET_VERSION" ]]; then
+  echo "  FAIL: public npx path did not report ${TARGET_VERSION}"
+  printf '%s\n' "$NPX_OUTPUT"
+  exit 1
+fi
+echo "  OK: public npx path resolves and reports v${TARGET_VERSION}"
+
+# Step 5: Run the full test suite WITHOUT the preflight skip
+echo "[5/5] Running full test suite (no preflight skip)..."
 echo "  This verifies the broader Homebrew mirror contract passes with the real SHA."
 npm test
 echo "  OK: full test suite green"

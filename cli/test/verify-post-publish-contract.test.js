@@ -29,7 +29,7 @@ function createFixture({ version = '2.128.0' } = {}) {
   cpSync(SOURCE_SCRIPT, join(scriptsDir, 'verify-post-publish.sh'));
   writeFileSync(
     join(cliDir, 'package.json'),
-    JSON.stringify({ name: 'agentxchain', version, type: 'module' }, null, 2) + '\n',
+    JSON.stringify({ name: 'agentxchain', version, type: 'module', bin: { agentxchain: './bin/agentxchain.js' } }, null, 2) + '\n',
   );
   writeFileSync(
     join(homebrewDir, 'agentxchain.rb'),
@@ -129,6 +129,26 @@ end
   );
 
   writeExecutable(
+    join(fakeBinDir, 'npx'),
+    [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      'counter_file="${FAKE_COUNTER_DIR:?}/npx-count.txt"',
+      'count=0',
+      'if [[ -f "${counter_file}" ]]; then',
+      '  count="$(cat "${counter_file}")"',
+      'fi',
+      'count=$((count + 1))',
+      'printf "%s" "${count}" > "${counter_file}"',
+      'if [[ "${FAKE_NPX_FAIL:-0}" == "1" ]]; then',
+      '  echo "npx smoke failed" >&2',
+      '  exit 1',
+      'fi',
+      'printf "%s\\n" "${FAKE_NPX_VERSION:-2.128.0}"',
+    ].join('\n'),
+  );
+
+  writeExecutable(
     join(fakeBinDir, 'curl'),
     [
       '#!/usr/bin/env bash',
@@ -181,9 +201,11 @@ describe('verify-post-publish Homebrew phase contract', () => {
     const playbook = readFileSync(join(REPO_ROOT, '.planning', 'RELEASE_PLAYBOOK.md'), 'utf8');
 
     assert.match(spec, /AT-HPV-001/);
-    assert.match(spec, /AT-HPV-004/);
+    assert.match(spec, /AT-HPV-005/);
     assert.match(spec, /formula URL and SHA/);
+    assert.match(spec, /public `npx` path resolves and reports the target version/);
     assert.match(playbook, /formula URL and SHA256 now match the live registry tarball/);
+    assert.match(playbook, /rechecks the public `npx --yes -p agentxchain@<semver>` path/);
   });
 
   it('AT-HPV-001: proves repo-mirror URL and SHA match registry truth before npm test', () => {
@@ -198,6 +220,7 @@ describe('verify-post-publish Homebrew phase contract', () => {
       FAKE_REGISTRY_VERSION: '2.128.0',
       FAKE_DIST_TARBALL: tarballUrl,
       FAKE_TARBALL_CONTENT: tarballContent,
+      FAKE_NPX_VERSION: '2.128.0',
       FAKE_SYNC_VERSION: '2.128.0',
       FAKE_SYNC_FORMULA_URL: tarballUrl,
       FAKE_SYNC_FORMULA_SHA: tarballSha,
@@ -206,7 +229,9 @@ describe('verify-post-publish Homebrew phase contract', () => {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /OK: repo mirror formula URL matches registry tarball/);
     assert.match(result.stdout, /OK: repo mirror formula SHA256 matches registry tarball/);
+    assert.match(result.stdout, /OK: public npx path resolves and reports v2\.128\.0/);
     assert.equal(counterValue(fixture.fakeBinDir, 'sync-count.txt'), '1');
+    assert.equal(counterValue(fixture.fakeBinDir, 'npx-count.txt'), '1');
     assert.equal(counterValue(fixture.fakeBinDir, 'npm-test-count.txt'), '1');
   });
 
@@ -248,6 +273,7 @@ describe('verify-post-publish Homebrew phase contract', () => {
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FAIL: repo mirror formula URL does not match registry tarball/);
     assert.equal(counterValue(fixture.fakeBinDir, 'sync-count.txt'), '1');
+    assert.equal(counterValue(fixture.fakeBinDir, 'npx-count.txt'), null);
     assert.equal(counterValue(fixture.fakeBinDir, 'npm-test-count.txt'), null);
   });
 
@@ -270,6 +296,32 @@ describe('verify-post-publish Homebrew phase contract', () => {
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FAIL: repo mirror formula SHA256 does not match registry tarball/);
     assert.equal(counterValue(fixture.fakeBinDir, 'sync-count.txt'), '1');
+    assert.equal(counterValue(fixture.fakeBinDir, 'npx-count.txt'), null);
+    assert.equal(counterValue(fixture.fakeBinDir, 'npm-test-count.txt'), null);
+  });
+
+  it('AT-HPV-005: fails before npm test when the public npx path reports the wrong version', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const tarballUrl = 'https://registry.npmjs.org/agentxchain/-/agentxchain-2.128.0.tgz';
+    const tarballContent = 'registry-tarball-v2.128.0';
+    const tarballSha = createHash('sha256').update(tarballContent).digest('hex');
+
+    const result = runVerify(fixture.cliDir, fixture.fakeBinDir, {
+      FAKE_REGISTRY_VERSION: '2.128.0',
+      FAKE_DIST_TARBALL: tarballUrl,
+      FAKE_TARBALL_CONTENT: tarballContent,
+      FAKE_NPX_VERSION: '2.127.9',
+      FAKE_SYNC_VERSION: '2.128.0',
+      FAKE_SYNC_FORMULA_URL: tarballUrl,
+      FAKE_SYNC_FORMULA_SHA: tarballSha,
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL: public npx path did not report 2\.128\.0/);
+    assert.equal(counterValue(fixture.fakeBinDir, 'sync-count.txt'), '1');
+    assert.equal(counterValue(fixture.fakeBinDir, 'npx-count.txt'), '1');
     assert.equal(counterValue(fixture.fakeBinDir, 'npm-test-count.txt'), null);
   });
 });
