@@ -78,6 +78,10 @@ export async function resumeCommand(opts) {
 
   const staleReconciliation = reconcileStaleTurns(root, state, config);
   state = staleReconciliation.state || state;
+  if (staleReconciliation.ghost_turns.length > 0) {
+    printGhostTurnRecovery(staleReconciliation.ghost_turns);
+    process.exit(1);
+  }
   if (staleReconciliation.stale_turns.length > 0) {
     printStaleTurnRecovery(staleReconciliation.stale_turns);
     process.exit(1);
@@ -357,6 +361,19 @@ export async function resumeCommand(opts) {
   }
 
   printDispatchSummary(state, config);
+}
+
+function printGhostTurnRecovery(ghostTurns) {
+  console.log(chalk.red.bold('Ghost turn detected — subprocess never started.'));
+  console.log('');
+  for (const ghost of ghostTurns) {
+    const secs = Math.floor(ghost.running_ms / 1000);
+    console.log(`  Turn:    ${ghost.turn_id} (${ghost.role})`);
+    console.log(`  Runtime: ${ghost.runtime_id}`);
+    console.log(`  Age:     ${secs}s with no subprocess output`);
+    console.log(`  Recover: ${chalk.cyan(`agentxchain reissue-turn --turn ${ghost.turn_id} --reason ghost`)}`);
+    console.log('');
+  }
 }
 
 function printStaleTurnRecovery(staleTurns) {

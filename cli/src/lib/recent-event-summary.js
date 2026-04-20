@@ -54,6 +54,7 @@ function describeEvent(eventType, entry) {
     }
     case 'turn_checkpointed':
     case 'turn_stalled':
+    case 'turn_start_failed':
       return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;
     case 'dispatch_progress':
       return `${prefix}${eventType}${roleId ? ` [${roleId}]` : ''}`;

@@ -20,6 +20,7 @@ import {
   assignGovernedTurn,
 } from '../../src/lib/governed-state.js';
 import { detectStaleTurns } from '../../src/lib/stale-turn-watchdog.js';
+import { getDispatchProgressRelativePath } from '../../src/lib/dispatch-progress.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
@@ -88,6 +89,23 @@ function backdateTurnEvents(root, turnId, minutesAgo = 20) {
   writeFileSync(eventsPath, rewritten ? `${rewritten}\n` : '');
 }
 
+/**
+ * BUG-51 introduced ghost-turn detection (30s threshold) for turns with
+ * no dispatch-progress file. BUG-47 stale-turn tests must seed a
+ * dispatch-progress file to test the "subprocess started but went silent"
+ * path rather than the "subprocess never started" path.
+ */
+function seedOldDispatchProgress(root, turnId, minutesAgo = 20) {
+  const progressPath = join(root, getDispatchProgressRelativePath(turnId));
+  mkdirSync(join(root, '.agentxchain'), { recursive: true });
+  writeFileSync(progressPath, JSON.stringify({
+    turn_id: turnId,
+    started_at: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
+    last_activity_at: new Date(Date.now() - (minutesAgo - 1) * 60 * 1000).toISOString(),
+    output_lines: 3,
+  }));
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop(), { recursive: true, force: true });
@@ -152,6 +170,10 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
 
     backdateTurnEvents(root, turnId);
 
+    // Seed old dispatch-progress so this triggers stale detection (BUG-47),
+    // not ghost detection (BUG-51). Subprocess started but went silent.
+    seedOldDispatchProgress(root, turnId, 15);
+
     // Run CLI status --json
     const result = execSync(`node "${CLI_PATH}" status --json`, {
       cwd: root,
@@ -176,6 +198,9 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     const stateData = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
     stateData.active_turns[staleTurnId].started_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
+
+    // Seed old dispatch-progress (subprocess started but went silent)
+    seedOldDispatchProgress(root, staleTurnId, 15);
 
     const eventsPath = join(root, '.agentxchain', 'events.jsonl');
     backdateTurnEvents(root, staleTurnId);
@@ -206,6 +231,8 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
 
     backdateTurnEvents(root, turnId);
+    // Seed old dispatch-progress (subprocess started but went silent)
+    seedOldDispatchProgress(root, turnId, 15);
 
     const result = spawnSync('node', [CLI_PATH, 'resume'], {
       cwd: root,
@@ -227,6 +254,8 @@ describe('BUG-47: dead-turn watchdog detects stale running turns', () => {
     writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(stateData, null, 2));
 
     backdateTurnEvents(root, turnId);
+    // Seed old dispatch-progress (subprocess started but went silent)
+    seedOldDispatchProgress(root, turnId, 15);
 
     const result = spawnSync('node', [CLI_PATH, 'step', '--resume'], {
       cwd: root,

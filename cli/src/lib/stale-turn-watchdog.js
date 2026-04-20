@@ -1,16 +1,24 @@
 /**
- * Stale Turn Watchdog — BUG-47
+ * Stale Turn Watchdog — BUG-47 + BUG-51
  *
- * Lazy idle-threshold detection: if an active turn has status "running"
- * for >N seconds with no event log activity AND no staged result file,
- * report it as stalled.
+ * Two-tier lazy idle-threshold detection:
+ *
+ * 1. **Fast startup watchdog (BUG-51):** if an active turn has been dispatched
+ *    for >30 seconds with NO dispatch-progress file, NO staged result, and NO
+ *    recent events, it is a "ghost turn" — the subprocess never attached.
+ *    Transitions to `failed_start` immediately.
+ *
+ * 2. **Stale turn watchdog (BUG-47):** if an active turn has status "running"
+ *    for >N minutes with no event log activity AND no staged result file,
+ *    report it as stalled.
  *
  * Fires on CLI invocations (status, resume, step --resume) rather than
  * requiring a background daemon.
  *
  * Default thresholds:
- *   - local_cli turns: 10 minutes
- *   - api_proxy turns: 5 minutes
+ *   - Startup watchdog: 30 seconds (configurable via run_loop.startup_watchdog_ms)
+ *   - local_cli stale turns: 10 minutes
+ *   - api_proxy stale turns: 5 minutes
  *   - Configurable via run_loop.stale_turn_threshold_ms in agentxchain.json
  */
 
@@ -23,6 +31,7 @@ import { getDispatchProgressRelativePath } from './dispatch-progress.js';
 
 const DEFAULT_LOCAL_CLI_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 const DEFAULT_API_PROXY_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
+const DEFAULT_STARTUP_WATCHDOG_MS = 30 * 1000;          // 30 seconds (BUG-51)
 const LEGACY_STAGING_PATH = '.agentxchain/staging/turn-result.json';
 
 /**
@@ -84,6 +93,71 @@ export function detectStaleTurns(root, state, config) {
 }
 
 /**
+ * BUG-51: Detect ghost-dispatched turns — subprocess never started.
+ *
+ * A ghost turn is one that has been in "running" or "retrying" status for
+ * longer than the startup watchdog threshold (default 30s) AND has:
+ *   - no dispatch-progress file (subprocess never wrote any output)
+ *   - no staged result file
+ *   - no recent turn-scoped events (beyond the initial turn_dispatched)
+ *
+ * This is a stricter, faster check than detectStaleTurns (BUG-47).
+ * Ghost turns transition to "failed_start" rather than "stalled".
+ *
+ * @param {string} root - project root directory
+ * @param {object} state - current governed state
+ * @param {object} config - normalized config
+ * @returns {Array<{ turn_id: string, role: string, runtime_id: string, running_ms: number, threshold_ms: number, recommendation: string, failure_type: string }>}
+ */
+export function detectGhostTurns(root, state, config) {
+  const activeTurns = state?.active_turns || {};
+  const ghosts = [];
+  const now = Date.now();
+  const startupThreshold = resolveStartupThreshold(config);
+
+  for (const [turnId, turn] of Object.entries(activeTurns)) {
+    if (turn.status !== 'running' && turn.status !== 'retrying') continue;
+    if (!turn.started_at) continue;
+
+    const startedAt = new Date(turn.started_at).getTime();
+    if (isNaN(startedAt)) continue;
+
+    const runningMs = now - startedAt;
+    if (runningMs < startupThreshold) continue;
+
+    // Ghost detection: NO dispatch-progress file means subprocess never attached
+    const progressPath = join(root, getDispatchProgressRelativePath(turnId));
+    const hasProgress = existsSync(progressPath);
+
+    // If dispatch-progress exists, subprocess started — this is NOT a ghost turn.
+    // The regular stale-turn watchdog (BUG-47) will handle it if it goes silent.
+    if (hasProgress) continue;
+
+    // Also check for staged result (unlikely without progress, but be safe)
+    if (hasTurnScopedStagedResult(root, turnId)) continue;
+
+    // Check for any turn-scoped events beyond the initial dispatch event
+    if (hasRecentTurnEventActivity(root, turnId, startedAt, startupThreshold, now)) continue;
+
+    const runningSeconds = Math.floor(runningMs / 1000);
+    const failureType = 'no_subprocess_output';
+    ghosts.push({
+      turn_id: turnId,
+      role: turn.assigned_role || 'unknown',
+      runtime_id: turn.runtime_id || 'unknown',
+      running_ms: runningMs,
+      threshold_ms: startupThreshold,
+      failure_type: failureType,
+      recommendation: `Turn ${turnId} has been dispatched for ${runningSeconds}s with no subprocess output. `
+        + `The subprocess likely never started. `
+        + `Run \`agentxchain reissue-turn --turn ${turnId} --reason ghost\` to recover.`,
+    });
+  }
+
+  return ghosts;
+}
+
+/**
  * Detect stale turns and emit turn_stalled events for each.
  * Returns the stale turn list for caller display.
  */
@@ -95,18 +169,62 @@ export function detectAndEmitStaleTurns(root, state, config) {
 
 export function reconcileStaleTurns(root, state, config) {
   if (!state || typeof state !== 'object') {
-    return { stale_turns: [], state, changed: false };
+    return { stale_turns: [], ghost_turns: [], state, changed: false };
   }
 
-  const stale = detectStaleTurns(root, state, config);
-  if (stale.length === 0) {
-    return { stale_turns: [], state, changed: false };
+  // BUG-51: Fast startup watchdog — detect ghost turns first (30s threshold)
+  const ghosts = detectGhostTurns(root, state, config);
+
+  // BUG-47: Stale turn watchdog — detect turns that started but went silent (10m threshold)
+  // Exclude turns already caught by ghost detection to avoid double-counting
+  const ghostIds = new Set(ghosts.map(g => g.turn_id));
+  const stale = detectStaleTurns(root, state, config).filter(s => !ghostIds.has(s.turn_id));
+
+  if (ghosts.length === 0 && stale.length === 0) {
+    return { stale_turns: [], ghost_turns: [], state, changed: false };
   }
 
   const nowIso = new Date().toISOString();
   const activeTurns = { ...(state.active_turns || {}) };
+  const budgetReservations = { ...(state.budget_reservations || {}) };
   let changed = false;
 
+  // Process ghost turns (BUG-51) — transition to failed_start
+  for (const entry of ghosts) {
+    const turn = activeTurns[entry.turn_id];
+    if (!turn || (turn.status !== 'running' && turn.status !== 'retrying')) continue;
+
+    activeTurns[entry.turn_id] = {
+      ...turn,
+      status: 'failed_start',
+      failed_start_at: nowIso,
+      failed_start_reason: entry.failure_type,
+      failed_start_previous_status: turn.status,
+      failed_start_threshold_ms: entry.threshold_ms,
+      failed_start_running_ms: entry.running_ms,
+      recovery_command: `agentxchain reissue-turn --turn ${entry.turn_id} --reason ghost`,
+    };
+    changed = true;
+
+    // BUG-51 fix #6: Release budget reservation for ghost turns
+    delete budgetReservations[entry.turn_id];
+
+    emitRunEvent(root, 'turn_start_failed', {
+      run_id: state?.run_id || null,
+      phase: state?.phase || null,
+      status: 'blocked',
+      turn: { turn_id: entry.turn_id, role_id: entry.role },
+      payload: {
+        running_ms: entry.running_ms,
+        threshold_ms: entry.threshold_ms,
+        runtime_id: entry.runtime_id,
+        failure_type: entry.failure_type,
+        recommendation: entry.recommendation,
+      },
+    });
+  }
+
+  // Process stale turns (BUG-47) — transition to stalled
   for (const entry of stale) {
     const turn = activeTurns[entry.turn_id];
     if (!turn || (turn.status !== 'running' && turn.status !== 'retrying')) continue;
@@ -123,6 +241,9 @@ export function reconcileStaleTurns(root, state, config) {
     };
     changed = true;
 
+    // BUG-51 fix #6: Release budget reservation for stale turns too
+    delete budgetReservations[entry.turn_id];
+
     emitRunEvent(root, 'turn_stalled', {
       run_id: state?.run_id || null,
       phase: state?.phase || null,
@@ -138,21 +259,28 @@ export function reconcileStaleTurns(root, state, config) {
   }
 
   if (!changed) {
-    return { stale_turns: stale, state, changed: false };
+    return { stale_turns: stale, ghost_turns: ghosts, state, changed: false };
   }
 
-  const primary = stale[0];
+  const allDetected = [...ghosts, ...stale];
+  const primary = allDetected[0];
+  const category = ghosts.length > 0 ? 'ghost_turn' : 'stale_turn';
+  const blockedOn = allDetected.length === 1
+    ? `turn:${primary.failure_type ? 'failed_start' : 'stalled'}:${primary.turn_id}`
+    : ghosts.length > 0 ? 'turns:failed_start' : 'turns:stalled';
+
   const nextState = {
     ...state,
     status: 'blocked',
     active_turns: activeTurns,
-    blocked_on: stale.length === 1 ? `turn:stalled:${primary.turn_id}` : 'turns:stalled',
+    budget_reservations: budgetReservations,
+    blocked_on: blockedOn,
     blocked_reason: {
-      category: 'stale_turn',
+      category,
       blocked_at: nowIso,
       turn_id: primary.turn_id,
       recovery: {
-        typed_reason: 'stale_turn',
+        typed_reason: category,
         owner: 'human',
         recovery_action: primary.recommendation,
         turn_retained: true,
@@ -168,11 +296,12 @@ export function reconcileStaleTurns(root, state, config) {
     status: 'blocked',
     turn: { turn_id: primary.turn_id, role_id: primary.role },
     payload: {
-      category: 'stale_turn',
+      category,
+      ghost_turn_ids: ghosts.map((entry) => entry.turn_id),
       stalled_turn_ids: stale.map((entry) => entry.turn_id),
     },
   });
-  return { stale_turns: stale, state: nextState, changed: true };
+  return { stale_turns: stale, ghost_turns: ghosts, state: nextState, changed: true };
 }
 
 function resolveThreshold(turn, config) {
@@ -194,13 +323,21 @@ function resolveThreshold(turn, config) {
   return DEFAULT_LOCAL_CLI_THRESHOLD_MS;
 }
 
+function resolveStartupThreshold(config) {
+  const configThreshold = config?.run_loop?.startup_watchdog_ms;
+  if (typeof configThreshold === 'number' && configThreshold > 0) {
+    return configThreshold;
+  }
+  return DEFAULT_STARTUP_WATCHDOG_MS;
+}
+
 function hasRecentTurnEventActivity(root, turnId, startedAt, threshold, now) {
   try {
     const events = readRunEvents(root, { limit: 200 });
     for (let i = events.length - 1; i >= 0; i--) {
       const event = events[i];
       if (event?.turn?.turn_id !== turnId) continue;
-      if (event.event_type === 'turn_stalled') continue;
+      if (event.event_type === 'turn_stalled' || event.event_type === 'turn_start_failed') continue;
       const timestamp = Date.parse(event.timestamp || '');
       if (!Number.isFinite(timestamp)) continue;
       if (timestamp < startedAt) continue;

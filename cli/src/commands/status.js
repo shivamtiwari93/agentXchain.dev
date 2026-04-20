@@ -139,6 +139,7 @@ function renderGovernedStatus(context, opts) {
   const staleReconciliation = reconcileStaleTurns(root, state, config);
   state = staleReconciliation.state || state;
   const staleTurns = staleReconciliation.stale_turns;
+  const ghostTurns = staleReconciliation.ghost_turns || [];
   const stateRunId = state?.run_id || readRawStateRunId(root, config);
   const continuity = getContinuityStatus(root, state);
   const connectorHealth = getConnectorHealth(root, config, state);
@@ -207,6 +208,7 @@ function renderGovernedStatus(context, opts) {
       bundle_integrity: detectStateBundleDesync(root, state),
       coordinator_warnings: coordinatorWarnings,
       stale_turns: staleTurns,
+      ghost_turns: ghostTurns,
     }, null, 2));
     return;
   }
@@ -448,6 +450,19 @@ function renderGovernedStatus(context, opts) {
         console.log(`  ${chalk.dim('Authority:')} ${chalk.yellow(drift.old_authority)} → ${chalk.green(drift.new_authority)} (config changed)`);
       }
       console.log(`  ${chalk.dim('Recover:')}  ${chalk.cyan(drift.recovery_command)}`);
+    }
+  }
+
+  // BUG-51: Ghost turn warning (subprocess never started)
+  if (ghostTurns.length > 0) {
+    console.log('');
+    for (const gt of ghostTurns) {
+      const secs = Math.floor(gt.running_ms / 1000);
+      console.log(`  ${chalk.red.bold('⚠ Ghost turn detected — subprocess never started')}`);
+      console.log(`  ${chalk.dim('Turn:')}     ${gt.turn_id} (${gt.role})`);
+      console.log(`  ${chalk.dim('Runtime:')}  ${gt.runtime_id}`);
+      console.log(`  ${chalk.dim('Age:')}      ${secs}s with no subprocess output`);
+      console.log(`  ${chalk.dim('Recover:')}  ${chalk.cyan(`agentxchain reissue-turn --turn ${gt.turn_id} --reason ghost`)}`);
     }
   }
 
