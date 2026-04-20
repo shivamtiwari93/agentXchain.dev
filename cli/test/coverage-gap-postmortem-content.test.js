@@ -47,4 +47,30 @@ describe('BUG 31-33 coverage postmortem contract', () => {
     assert.match(doc, /intent retired by phase advance between dispatch and acceptance/i);
     assert.match(doc, /New dispatch paths or recovery commands must add an explicit row and command-level proof/i);
   });
+
+  it('preserves the BUG-52 gate-resolution matrix across unblock and pre-dispatch reconcile paths', () => {
+    const doc = read('.planning/BUG_31_33_COVERAGE_GAP_POSTMORTEM.md');
+
+    assert.match(doc, /## BUG-52 Gate Resolution × Phase-Advance Matrix/);
+    assert.match(doc, /`planning_signoff` -> `implementation`/);
+    assert.match(doc, /`unblock <hesc_\*>`/);
+    assert.match(doc, /`resume` \/ `step --resume`/);
+    assert.match(doc, /`reconcilePhaseAdvanceBeforeDispatch\(\)`/);
+    assert.match(doc, /`trigger: "reconciled_before_dispatch"`/);
+    assert.match(doc, /`qa_ship_verdict`/);
+    assert.match(doc, /BUG-52 happened[\s\S]*?pre-dispatch reconciliation were not owned as separate\s+proof rows/i);
+  });
+
+  it('preserves the BUG-53 continuation matrix across CLI, schedule-owned, and packaged proof modes', () => {
+    const doc = read('.planning/BUG_31_33_COVERAGE_GAP_POSTMORTEM.md');
+
+    assert.match(doc, /## BUG-53 Session Continuation × Completion Mode Matrix/);
+    assert.match(doc, /CLI-owned `run --continuous` with remaining vision candidates/);
+    assert.match(doc, /CLI-owned `run --continuous` with no remaining vision candidates/);
+    assert.match(doc, /Schedule-owned continuous session \(`schedule daemon`\)/);
+    assert.match(doc, /Packaged tarball release boundary/);
+    assert.match(doc, /`session_continuation`/);
+    assert.match(doc, /`idle_exit` \/ `completed`/);
+    assert.match(doc, /BUG-53 lived in the[\s\S]*?"the run finished"[\s\S]*?"the session truthfully kept going\."/i);
+  });
 });

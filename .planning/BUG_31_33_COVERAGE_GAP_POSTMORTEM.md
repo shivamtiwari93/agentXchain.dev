@@ -328,6 +328,66 @@ This row family exists because BUG-47..50 are exactly the kind of
 state-reconciliation fixes that can pass source tests while a published tarball
 drops the repair seam or regresses the final packaged behavior.
 
+## BUG-52 Gate Resolution × Phase-Advance Matrix
+
+BUG-52 exposed a separate blind spot: we were proving gate truth at
+`accept-turn`, but not proving what happened when that same gate became
+satisfied later through recovery or redispatch surfaces. The durable unit is:
+
+- gate family
+- post-acceptance exit path
+- whether phase advancement happens before another same-phase role is assigned
+
+| Gate family | Exit path after artifacts become truthful | Required behavior | Current proof |
+| --- | --- | --- | --- |
+| `planning_signoff` -> `implementation` | `unblock <hesc_*>` after accepted + checkpointed PM turn | mark gate `passed`, clear `last_gate_failure`, advance phase before role selection, dispatch `dev` instead of another `pm` | `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` |
+| Any previously failed phase-transition gate | `resume` / `step --resume` before dispatch | run `reconcilePhaseAdvanceBeforeDispatch()`, emit `phase_entered` with `trigger: "reconciled_before_dispatch"`, dispatch the next-phase role instead of redispatching the same-phase role | `cli/test/claim-reality-preflight.test.js` — `BUG-52 pre-dispatch reconciler is packed (governed-state + resume + step wiring)` and `BUG-52 packaged reconciler advances phase before dispatch when a failed phase-transition gate is now satisfied` |
+| Any still-failing phase-transition gate | `resume` / `step --resume` pre-dispatch reconcile | do **not** fabricate a phase advance; stay in the current phase until the gate truly passes | `cli/test/claim-reality-preflight.test.js` — `BUG-52 packaged reconciler is a no-op when the gate is still failing (does not fabricate a phase advance)` |
+
+### Remaining uncovered combinations
+
+- Final-phase human gate recovery via `qa_ship_verdict` after `unblock` still lacks a dedicated beta-tester scenario that mirrors BUG-52's exact unblock seam. The nearest proof today is `cli/test/e2e-multi-session-continuity.test.js` (`AT-SESSION-005` final-phase approval in a fresh session) plus the packaged pre-dispatch reconciler rows above. That is adjacent proof, not the same operator path.
+
+### Standing BUG-52 rule
+
+Any future gate-resolution or redispatch change must name:
+
+1. which gate family it affects (`planning_signoff`, `implementation_complete`, `qa_ship_verdict`, or a custom gate)
+2. which post-acceptance path proves it (`unblock`, `resume`, `step --resume`, `checkpoint-turn` follow-up reconcile, or equivalent)
+
+"The gate passes on accept-turn" is not sufficient coverage. BUG-52 happened
+because `unblock` and pre-dispatch reconciliation were not owned as separate
+proof rows.
+
+## BUG-53 Session Continuation × Completion Mode Matrix
+
+BUG-53 exposed the matching blind spot one layer up: we were proving that a
+run completed, but not what the surrounding continuous session did next. The
+durable unit is:
+
+- completion mode
+- session owner
+- post-completion continuation behavior
+
+| Continuation mode | Completion boundary | Required behavior | Current proof |
+| --- | --- | --- | --- |
+| CLI-owned `run --continuous` with remaining vision candidates | clean run completion before `maxRuns` | keep session `running`, derive the next vision objective, seed the next run, emit `session_continuation` | `cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js` — `chains 3 vision goals through maxRuns=3 and exits cleanly without passing through paused` |
+| CLI-owned `run --continuous` with no remaining vision candidates | clean run completion after the final objective | terminate cleanly as `idle_exit`/clean completion, never `paused` | `cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js` — `exits with idle_exit (not paused) when all vision goals are addressed after one run` |
+| Schedule-owned continuous session (`schedule daemon`) | clean completion on later daemon polls | keep the same session identity across polls, increment `runs_completed`, continue until a clean terminal limit instead of inventing `paused` after completion | `cli/test/schedule-daemon-health-e2e.test.js` (`AT-SDH-009`, `AT-SDH-010`) and `cli/test/schedule-continuous.test.js` (`idle_exit` row) |
+| Packaged tarball release boundary | same auto-chain boundary on the shipped artifact | packed CLI must ship `continuous-run.js` + `vision-reader.js` + `run-events.js`, auto-chain through multiple runs, and emit `session_continuation` with `{previous_run_id,next_run_id,next_objective}` | `cli/test/claim-reality-preflight.test.js` — `BUG-53 continuous auto-chain is packed (continuous-run + session_continuation event)` and `BUG-53 packaged continuous loop auto-chains through 2 runs and emits session_continuation` |
+
+### Standing BUG-53 rule
+
+Any future continuous-loop change must prove:
+
+1. what happens after a clean run completion
+2. whether `paused` appears anywhere on that path
+3. which owner mode is covered (CLI-owned vs schedule-owned)
+4. whether no-candidate termination ends cleanly (`idle_exit` / `completed`) instead of silently stalling
+
+"`runs_completed` incremented" is not continuation proof. BUG-53 lived in the
+gap between "the run finished" and "the session truthfully kept going."
+
 ## Config Surface Validation Matrix
 
 BUG-51 exposed a separate failure mode outside dispatch itself: a config field can
