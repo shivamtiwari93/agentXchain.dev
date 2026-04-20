@@ -49,7 +49,7 @@ The point is not “more agents.” The point is better convergence: disagreemen
 
 Latest operator slice queued for release: `v2.145.0` carries the BUG-47..50 continuation-state consistency bundle. Stale running turns now reconcile to `stalled` with explicit recovery guidance, stale injected-priority markers no longer outlive superseded intents, clean checkpoints advance the child run baseline correctly, and child-run history counters stay isolated from parent-run totals. BUG-47..50 still await tester verification per the beta-cycle closure rules.
 
-- 6,297 tests / 1,315 suites / 0 failures
+- 6,352 tests / 1,324 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 MIT licensed. Protocol v7 spec published.

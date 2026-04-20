@@ -35,7 +35,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - BUG-49 accepted baseline advancement shipped: clean checkpoints stop reporting false drift on child runs
 - BUG-50 run-history isolation shipped: fresh child runs stop inheriting contradictory phase/turn counters from parent runs
 - BUG-47..50 remain open pending tester verification on `v2.145.0`
-- 6,297 tests / 1,315 suites / 0 failures
+- 6,352 tests / 1,324 suites / 0 failures
 
 **See it in 30 seconds (no API keys needed):**
 
@@ -88,7 +88,7 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
 - Next release slice carries BUG-47..50 for tester verification: stale dead turns reconcile lazily, stale injected intents are cleared, clean checkpoints advance the child baseline, and child-run history counters stay internally consistent.
-- 6,297 tests / 1,315 suites / 0 failures
+- 6,352 tests / 1,324 suites / 0 failures
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -97,7 +97,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- 6,297 tests / 1,315 suites / 0 failures
+- 6,352 tests / 1,324 suites / 0 failures
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
@@ -126,7 +126,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-- 6,297 tests / 1,315 suites / 0 failures
+- 6,352 tests / 1,324 suites / 0 failures
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 

@@ -60,7 +60,7 @@ New in v2.145.0:
 - BUG-50 run-history isolation: child-run counters stay scoped to the child run; inherited continuity metadata moves under `parent_context`
 - BUG-47..50 remain open pending tester verification per the beta-cycle closure rules
 
-- 6,297 tests / 1,315 suites / 0 failures
+- 6,352 tests / 1,324 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

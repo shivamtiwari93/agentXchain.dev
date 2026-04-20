@@ -25,7 +25,7 @@ What that means in practice:
 - child-run `run-history.jsonl` counters stay isolated from inherited parent metadata
 - BUG-47, BUG-48, BUG-49, and BUG-50 remain open pending tester verification under the beta-cycle closure rules
 
-- 6,297 tests / 1,315 suites / 0 failures
+- 6,352 tests / 1,324 suites / 0 failures
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:
