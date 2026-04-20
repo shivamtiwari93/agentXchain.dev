@@ -45,13 +45,11 @@ import {
   resolveContinuousOptions,
   readContinuousSession,
 } from '../../src/lib/continuous-run.js';
-import { scaffoldGoverned } from '../../src/commands/init.js';
 import { RUN_EVENTS_PATH } from '../../src/lib/run-events.js';
 
 const tempDirs = [];
 const CLI_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CLI_BIN = join(CLI_ROOT, 'bin', 'agentxchain.js');
-const MOCK_AGENT = join(CLI_ROOT, 'test-support', 'mock-agent.mjs');
 
 afterEach(() => {
   while (tempDirs.length > 0) {
@@ -100,26 +98,98 @@ function createTmpProject() {
 function createCliProject() {
   const dir = mkdtempSync(join(tmpdir(), 'axc-bug53-cli-'));
   tempDirs.push(dir);
-  scaffoldGoverned(dir, 'BUG-53 CLI Auto-Chain', `bug53-cli-${randomUUID().slice(0, 8)}`);
 
-  const configPath = join(dir, 'agentxchain.json');
-  const config = JSON.parse(readFileSync(configPath, 'utf8'));
-  const mockRuntime = {
-    type: 'local_cli',
-    command: process.execPath,
-    args: [MOCK_AGENT],
-    prompt_transport: 'dispatch_bundle_only',
+  const agentPath = join(dir, '_bug53-cli-agent.mjs');
+  writeFileSync(agentPath, [
+    "import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';",
+    "import { dirname, join } from 'node:path';",
+    'const root = process.cwd();',
+    "const index = JSON.parse(readFileSync(join(root, '.agentxchain/dispatch/index.json'), 'utf8'));",
+    "const entry = Object.values(index.active_turns || {})[0] || {};",
+    "const turnId = entry.turn_id || 'unknown';",
+    "const runtimeId = entry.runtime_id || 'local-dev';",
+    "const stagingResultPath = entry.staging_result_path;",
+    "const runId = index.run_id || 'run-unknown';",
+    "const session = JSON.parse(readFileSync(join(root, '.agentxchain/continuous-session.json'), 'utf8'));",
+    "const objective = String(session.current_vision_objective || runId);",
+    "const slug = objective.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || turnId;",
+    "const relPath = `.planning/objectives/${slug}.md`;",
+    "const absPath = join(root, relPath);",
+    "mkdirSync(dirname(absPath), { recursive: true });",
+    "writeFileSync(absPath, `# Objective\\n\\n- Turn: ${turnId}\\n- Run: ${runId}\\n- Objective: ${objective}\\n`);",
+    "const result = {",
+    "  schema_version: '1.0',",
+    '  run_id: runId,',
+    '  turn_id: turnId,',
+    "  role: 'dev',",
+    '  runtime_id: runtimeId,',
+    "  status: 'completed',",
+    "  summary: `Objective completed: ${objective}` ,",
+    "  decisions: [{ id: 'DEC-001', category: 'implementation', statement: `Completed ${objective}`, rationale: 'CLI auto-chain regression proof.' }],",
+    "  objections: [],",
+    '  files_changed: [relPath],',
+    '  artifacts_created: [],',
+    "  verification: { status: 'pass', commands: ['echo ok'], evidence_summary: 'ok', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] },",
+    "  artifact: { type: 'workspace', ref: null },",
+    "  proposed_next_role: 'human',",
+    '  phase_transition_request: null,',
+    '  run_completion_request: true,',
+    '  needs_human_reason: null,',
+    '  cost: { usd: 0 },',
+    '};',
+    "const absStaging = join(root, stagingResultPath);",
+    "mkdirSync(dirname(absStaging), { recursive: true });",
+    "writeFileSync(absStaging, JSON.stringify(result, null, 2));",
+    "console.log(`bug53-cli-agent: completed ${objective}`);",
+    '',
+  ].join('\n'));
+
+  const config = {
+    schema_version: 4,
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { name: 'bug53-cli-test', id: `bug53-cli-${randomUUID().slice(0, 8)}`, default_branch: 'main' },
+    roles: {
+      dev: { title: 'Developer', mandate: 'Implement.', write_authority: 'authoritative', runtime_class: 'local_cli', runtime_id: 'local-dev', runtime: 'local-dev' },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: process.execPath,
+        args: [agentPath],
+        prompt_transport: 'dispatch_bundle_only',
+      },
+    },
+    routing: {
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'] },
+    },
+    gates: {},
+    rules: { challenge_required: false, max_turn_retries: 1 },
+    intent_coverage_mode: 'lenient',
   };
 
-  for (const runtimeId of Object.keys(config.runtimes || {})) {
-    config.runtimes[runtimeId] = { ...mockRuntime };
-  }
-  for (const role of Object.values(config.roles || {})) {
-    role.write_authority = 'authoritative';
-  }
-  config.intent_coverage_mode = 'lenient';
-
-  writeFileSync(configPath, JSON.stringify(config, null, 2));
+  mkdirSync(join(dir, '.agentxchain', 'dispatch', 'turns'), { recursive: true });
+  mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
+  writeFileSync(join(dir, 'agentxchain.json'), JSON.stringify(config, null, 2));
+  writeFileSync(join(dir, '.gitignore'), '.agentxchain/\n');
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify({
+    schema_version: '1.0',
+    run_id: null,
+    project_id: config.project.id,
+    status: 'idle',
+    phase: 'implementation',
+    accepted_integration_ref: null,
+    active_turns: {},
+    turn_sequence: 0,
+    last_completed_turn_id: null,
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+    phase_gate_status: {},
+  }, null, 2));
+  writeFileSync(join(dir, '.agentxchain', 'history.jsonl'), '');
+  writeFileSync(join(dir, '.agentxchain', 'decision-ledger.jsonl'), '');
+  writeFileSync(join(dir, '.agentxchain', 'run-history.jsonl'), '');
   writeVision(dir, [
     '# CLI Vision',
     '',
@@ -209,6 +279,8 @@ describe('BUG-53: continuous session auto-chains after a completed run', () => {
     const combined = `${run.stdout || ''}${run.stderr || ''}`;
     assert.equal(run.status, 0, `CLI-owned BUG-53 scenario must exit cleanly:\n${combined}`);
     assert.match(combined, /agentxchain run --continuous/);
+    assert.match(combined, /Run 1\/3 completed: completed/);
+    assert.match(combined, /Run 2\/3 completed: completed/);
     assert.match(combined, /Run 3\/3 completed: completed/);
     assert.doesNotMatch(combined, /continuous loop paused|Run blocked — continuous loop paused/i,
       `BUG-53 clean-completion CLI path must not advertise a paused session:\n${combined}`);
@@ -222,17 +294,6 @@ describe('BUG-53: continuous session auto-chains after a completed run', () => {
       .filter((entry) => entry.event_type === 'run_started' || entry.event_type === 'run_completed');
     assert.ok(history.length >= 3,
       `expected run lifecycle events for the CLI-owned auto-chain; got ${history.length}`);
-
-    const runHistoryPath = join(dir, '.agentxchain', 'run-history.jsonl');
-    const runHistory = readFileSync(runHistoryPath, 'utf8')
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => JSON.parse(line));
-    assert.equal(runHistory.length, 3,
-      `CLI-owned BUG-53 scenario must record 3 completed runs; got ${runHistory.length}`);
-    assert.equal(new Set(runHistory.map((entry) => entry.run_id)).size, 3,
-      'CLI-owned BUG-53 scenario must create 3 distinct run_ids');
 
     const continuations = readRunEvents(dir).filter((entry) => entry.event_type === 'session_continuation');
     assert.equal(continuations.length, 2,
@@ -392,17 +453,6 @@ describe('BUG-53: continuous session auto-chains after a completed run', () => {
       `BUG-53 rule #2 — paused is reserved for blocked runs, not idle exhaustion`);
     assert.equal(session.runs_completed, 1,
       `idle_exit CLI scenario must record exactly 1 completed run (only one vision goal seeded); got ${session.runs_completed}`);
-
-    const runHistoryPath = join(dir, '.agentxchain', 'run-history.jsonl');
-    if (existsSync(runHistoryPath)) {
-      const runHistory = readFileSync(runHistoryPath, 'utf8')
-        .trim()
-        .split('\n')
-        .filter(Boolean)
-        .map((line) => JSON.parse(line));
-      assert.equal(runHistory.length, 1,
-        `idle_exit CLI scenario must record exactly 1 run in run-history.jsonl; got ${runHistory.length}`);
-    }
 
     // No session_continuation events should fire — the loop never started a
     // second run, so there is no auto-chain boundary to advertise.

@@ -276,6 +276,55 @@ describe('turn checkpointing', () => {
     assert.deepEqual(checkpoint.already_committed_upstream, ['src/app.js']);
   });
 
+  it('checkpointAcceptedTurn refuses a declared path that is clean at HEAD but unchanged since the accepted baseline', () => {
+    const config = initGovernedGitRepo(root);
+    const assign = assignGovernedTurn(root, config, 'dev');
+    assert.ok(assign.ok, assign.error);
+    const turn = Object.values(assign.state.active_turns)[0];
+
+    const acceptedBaseline = execSync('git rev-parse HEAD', { cwd: root, encoding: 'utf8' }).trim();
+
+    writeFileSync(join(root, 'src', 'app.js'), 'export const version = 2;\n');
+    execSync('git add src/app.js', { cwd: root, stdio: 'ignore' });
+    execSync('git commit -m "wrong-branch simulation"', { cwd: root, stdio: 'ignore' });
+    execSync(`git reset --hard ${acceptedBaseline}`, { cwd: root, stdio: 'ignore' });
+
+    const stagingPath = getTurnStagingResultPath(turn.turn_id);
+    mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
+    writeFileSync(join(root, stagingPath), JSON.stringify({
+      schema_version: '1.0',
+      run_id: assign.state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'Declared file was committed away from the accepted lineage.',
+      decisions: [],
+      objections: [],
+      files_changed: ['src/app.js'],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'ok', machine_evidence: [] },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'qa',
+      phase_transition_request: null,
+      run_completion_request: false,
+      needs_human_reason: null,
+      cost: { usd: 0.01 },
+    }, null, 2));
+
+    const accept = acceptGovernedTurn(root, config, { turnId: turn.turn_id });
+    assert.ok(accept.ok, accept.error);
+
+    const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
+    assert.equal(checkpoint.ok, false, 'checkpoint should fail when the declared file never landed on the accepted lineage');
+    assert.match(checkpoint.error, /Missing from checkpoint: src\/app\.js/);
+    assert.deepEqual(checkpoint.missing_declared_paths, ['src/app.js']);
+    assert.deepEqual(checkpoint.already_committed_upstream, []);
+
+    const headSubject = execSync('git log -1 --pretty=%s', { cwd: root, encoding: 'utf8' }).trim();
+    assert.equal(headSubject, 'initial');
+  });
+
   it('accept-turn --checkpoint preserves the accepted turn when checkpoint commit fails', async () => {
     const config = initGovernedGitRepo(root);
     const assign = assignGovernedTurn(root, config, 'dev');

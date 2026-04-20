@@ -2982,6 +2982,8 @@ describe('claim-reality preflight', () => {
     const bug53ScenarioSource = readFileSync(bug53Scenario, 'utf8');
     assert.match(bug53ScenarioSource, /spawnSync\(\s*process\.execPath[\s\S]{0,500}['"]run['"][\s\S]{0,200}['"]--continuous['"]/,
       'BUG-53 tester-sequence regression must drive the real CLI command chain via spawnSync(process.execPath, [CLI_BIN, "run", "--continuous", ...]), not only executeContinuousRun() in-process. HUMAN-ROADMAP rule #13 requires the operator-facing command shape.');
+    assert.match(bug53ScenarioSource, /CLI-owned run --continuous auto-chains 3 vision goals[\s\S]{0,2500}Run 1\\\/3 completed: completed[\s\S]{0,1500}Run 2\\\/3 completed: completed[\s\S]{0,1500}Run 3\\\/3 completed: completed/,
+      'BUG-53 max-runs CLI scenario must assert all three operator-facing completion lines, not only the terminal Run 3/3 line. Otherwise an in-process batching regression can fake the auto-chain proof while still passing.');
     // BUG-53 fix requirement #1 sub-bullet 4 — `idle_exit` is a distinct
     // operator-facing terminal state, not the same code path as `max_runs`
     // termination. The original CLI-owned scenario only proves the max_runs

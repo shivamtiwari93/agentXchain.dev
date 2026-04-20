@@ -57,6 +57,14 @@ function normalizeFilesChanged(filesChanged) {
   return normalizeCheckpointableFiles(filesChanged);
 }
 
+function normalizeGitBaselineRef(ref) {
+  if (typeof ref !== 'string' || !ref.startsWith('git:')) {
+    return null;
+  }
+  const gitRef = ref.slice(4).trim();
+  return gitRef || null;
+}
+
 function supportsLegacyFilesChangedRecovery(entry) {
   const artifactType = entry?.artifact?.type;
   return artifactType === 'workspace' || artifactType === 'patch';
@@ -154,7 +162,8 @@ function diffMissingDeclaredPaths(declaredFiles, stagedFiles) {
  * already-checkpointed-upstream; treating that as "missing from checkpoint"
  * is a false positive from the completeness gate.
  */
-function partitionDeclaredPathsByUpstreamPresence(root, missingPaths) {
+function partitionDeclaredPathsByUpstreamPresence(root, missingPaths, options = {}) {
+  const baselineRef = normalizeGitBaselineRef(options.baselineRef);
   const genuinelyMissing = [];
   const alreadyCommittedUpstream = [];
   for (const filePath of missingPaths) {
@@ -179,9 +188,26 @@ function partitionDeclaredPathsByUpstreamPresence(root, missingPaths) {
     }
     if (hasDivergence) {
       genuinelyMissing.push(filePath);
-    } else {
-      alreadyCommittedUpstream.push(filePath);
+      continue;
     }
+
+    // BUG-55A wrong-branch guard: a path only counts as already checkpointed
+    // if the current branch differs from the accepted baseline on that path.
+    if (baselineRef) {
+      let changedSinceAcceptedBaseline = false;
+      try {
+        const baselineDiff = git(root, ['diff', baselineRef, 'HEAD', '--', filePath]);
+        changedSinceAcceptedBaseline = Boolean(baselineDiff);
+      } catch {
+        changedSinceAcceptedBaseline = true;
+      }
+      if (!changedSinceAcceptedBaseline) {
+        genuinelyMissing.push(filePath);
+        continue;
+      }
+    }
+
+    alreadyCommittedUpstream.push(filePath);
   }
   return { genuinelyMissing, alreadyCommittedUpstream };
 }
@@ -282,7 +308,9 @@ export function checkpointAcceptedTurn(root, opts = {}) {
 
   const rawMissingFromStage = diffMissingDeclaredPaths(filesChanged, staged);
   const { genuinelyMissing, alreadyCommittedUpstream } =
-    partitionDeclaredPathsByUpstreamPresence(root, rawMissingFromStage);
+    partitionDeclaredPathsByUpstreamPresence(root, rawMissingFromStage, {
+      baselineRef: entry?.observed_artifact?.baseline_ref ?? null,
+    });
   if (genuinelyMissing.length > 0) {
     return {
       ok: false,
