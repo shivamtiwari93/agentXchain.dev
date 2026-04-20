@@ -40,6 +40,7 @@ const CURRENT_RELEASE_DOC_ID = `releases/v${CURRENT_VERSION.replace(/\./g, '-')}
 const CURRENT_RELEASE_DOC_PATH = `website-v2/docs/${CURRENT_RELEASE_DOC_ID}.mdx`;
 const CURRENT_TARBALL_URL = `https://registry.npmjs.org/agentxchain/-/agentxchain-${CURRENT_VERSION}.tgz`;
 const CURRENT_RELEASE_ROUTE = `/docs/${CURRENT_RELEASE_DOC_ID}`;
+const BUG52_BUG53_SHIP_DOC_PATH = 'website-v2/docs/releases/v2-147-0.mdx';
 
 function extractAggregateEvidenceLine(text, label) {
   const line = _extractAggregateEvidenceLine(text);
@@ -290,5 +291,19 @@ describe('current release surface', () => {
         `tester rerun contract must mention ${term}`,
       );
     }
+  });
+
+  it('AT-CRS-023: v2.147.0 release notes redirect still-open closure work to the latest shipped rerun contract', () => {
+    const priorReleasePage = read(BUG52_BUG53_SHIP_DOC_PATH);
+    assert.match(
+      priorReleasePage,
+      /For tester closure evidence on still-open bugs/i,
+      'v2.147.0 release notes must redirect operators to the latest shipped rerun contract',
+    );
+    assert.match(
+      priorReleasePage,
+      new RegExp(escapeRegExp(`${CURRENT_RELEASE_ROUTE}#tester-re-run-contract`)),
+      'v2.147.0 release notes must link to the latest shipped tester rerun contract anchor',
+    );
   });
 });
