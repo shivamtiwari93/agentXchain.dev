@@ -46,4 +46,28 @@ describe('recent event summary helper', () => {
     assert.equal(summary.latest_event.event_type, 'run_started');
     assert.equal(summary.latest_event.summary, 'run_started');
   });
+
+  it('AT-RES-003: renders session_continuation with previous/next run ids and objective', () => {
+    const now = Date.parse('2026-04-20T12:00:00.000Z');
+    const summary = buildRecentEventSummary([
+      {
+        event_type: 'session_continuation',
+        timestamp: '2026-04-20T11:59:30.000Z',
+        repo_id: 'repo_docs',
+        payload: {
+          previous_run_id: 'run_prev_001',
+          next_run_id: 'run_next_002',
+          next_objective: 'Docs: add version-history canonical artifact',
+        },
+      },
+    ], { now, windowMs: RECENT_EVENT_WINDOW_MS });
+
+    assert.equal(summary.freshness, 'recent');
+    assert.equal(summary.recent_count, 1);
+    assert.equal(summary.latest_event.event_type, 'session_continuation');
+    assert.equal(
+      summary.latest_event.summary,
+      '[repo_docs] session_continuation run_prev_001 -> run_next_002 (Docs: add version-history canonical artifact)',
+    );
+  });
 });
