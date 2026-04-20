@@ -309,6 +309,57 @@ describe('BUG-51: fast-startup watchdog', () => {
     assert.equal(ghosts.length, 0);
   });
 
+  it('BUG-54 Turn 89: stderr-only progress is not startup proof (stdout_attach_failed still fires)', () => {
+    // DEC-BUG54-STDERR-IS-NOT-STARTUP-PROOF-002 (Turn 88) extended to the
+    // fast-startup watchdog. A starting turn whose progress file records
+    // only stderr activity (stderr_lines > 0, output_lines == 0,
+    // first_output_at == null) must still be caught as a ghost —
+    // otherwise a subprocess that spawns but only emits stderr would
+    // silently survive the 30s window and wait out the full stale-turn
+    // budget instead of failing fast.
+    const { root, config } = createProject();
+    const { turnId, state } = seedStartingTurn(root, config, 45, false);
+
+    // Swap the clean dispatch-progress for one with stderr-only activity.
+    const progressPath = join(root, getDispatchProgressRelativePath(turnId));
+    const progress = JSON.parse(readFileSync(progressPath, 'utf8'));
+    progress.stderr_lines = 7;
+    progress.output_lines = 0;
+    progress.first_output_at = null;
+    progress.activity_type = 'output';
+    progress.activity_summary = 'Producing output (0 lines)';
+    writeFileSync(progressPath, JSON.stringify(progress, null, 2) + '\n');
+
+    const ghosts = detectGhostTurns(root, state, config);
+    assert.equal(ghosts.length, 1, 'stderr-only activity must not satisfy startup proof');
+    assert.equal(ghosts[0].turn_id, turnId);
+    assert.equal(
+      ghosts[0].failure_type,
+      'stdout_attach_failed',
+      'stderr-only startup is the stdout_attach_failed family per operator contract',
+    );
+  });
+
+  it('BUG-54 Turn 89: turn.first_output_stream === "stderr" is not startup proof', () => {
+    // Defensive regression: a persisted turn.first_output_at with
+    // first_output_stream === 'stderr' (e.g., stale state from a pre-fix
+    // process, or a future regression that re-introduces stderr as
+    // lifecycle proof) must not bypass the fast-startup watchdog.
+    const { root, config } = createProject();
+    const { turnId } = seedStartingTurn(root, config, 45, false);
+
+    const state = readState(root);
+    const startedAt = state.active_turns[turnId].started_at;
+    state.active_turns[turnId].first_output_at = startedAt;
+    state.active_turns[turnId].first_output_stream = 'stderr';
+    writeState(root, state);
+
+    const ghosts = detectGhostTurns(root, state, config);
+    assert.equal(ghosts.length, 1, 'stderr-flagged first_output_at must not satisfy startup proof');
+    assert.equal(ghosts[0].turn_id, turnId);
+    assert.equal(ghosts[0].failure_type, 'stdout_attach_failed');
+  });
+
   it('reconciles ghost turns to failed_start and releases budget reservations', () => {
     const { root, config } = createProject();
     const { turnId } = seedStartingTurn(root, config, 45, false);

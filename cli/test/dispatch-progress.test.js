@@ -123,6 +123,44 @@ describe('dispatch-progress', () => {
       tracker.complete();
     });
 
+    it('BUG-54: stderr-only output does not set first_output_at (stderr is not startup proof)', () => {
+      // DEC-BUG54-STDERR-IS-NOT-STARTUP-PROOF-002 (Turn 88) + Turn 89 extension
+      // to the progress tracker: stderr is diagnostic evidence, not usable
+      // startup proof. A subprocess that emits stderr-only must leave
+      // first_output_at null so the fast-startup watchdog can still classify
+      // it as stdout_attach_failed.
+      const turn = makeTurn();
+      const tracker = createDispatchProgressTracker(root, turn, {
+        adapter_type: 'local_cli',
+        writeIntervalMs: 0,
+        silenceThresholdMs: 60000,
+      });
+
+      tracker.start();
+
+      tracker.onOutput('stderr', 3);
+      tracker.onOutput('stderr', 2);
+
+      const progress = readDispatchProgress(root, turn.turn_id);
+      assert.equal(progress.stderr_lines, 5, 'stderr_lines still tracked for diagnostics');
+      assert.equal(progress.output_lines, 0, 'output_lines untouched by stderr');
+      assert.equal(
+        progress.first_output_at,
+        null,
+        'first_output_at must remain null when only stderr has been emitted',
+      );
+
+      // Positive control: a subsequent stdout line should now set first_output_at.
+      tracker.onOutput('stdout', 1);
+      const afterStdout = readDispatchProgress(root, turn.turn_id);
+      assert.ok(
+        afterStdout.first_output_at,
+        'first_output_at set once stdout emits, regardless of prior stderr',
+      );
+
+      tracker.complete();
+    });
+
     it('updates last_activity_at on output', () => {
       const turn = makeTurn();
       const tracker = createDispatchProgressTracker(root, turn, {

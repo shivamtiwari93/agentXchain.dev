@@ -360,7 +360,16 @@ export async function executeGovernedRun(context, opts = {}) {
       };
 
       const recordOutputActivity = (stream, text) => {
-        ensureRunningState(stream);
+        // DEC-BUG54-STDERR-IS-NOT-STARTUP-PROOF-002 (Turn 88) extended to the
+        // run-command lifecycle in Turn 89: stderr activity must NOT promote a
+        // turn from `starting` to `running`. stdout (or the adapter's
+        // onFirstOutput callback, which is stdout/staged_result only post-Turn
+        // 88) is the only signal that satisfies the lifecycle transition.
+        // stderr is still tracked by the progress tracker for silence detection
+        // and operator diagnostics.
+        if (stream !== 'stderr') {
+          ensureRunningState(stream);
+        }
         const lines = text.split('\n').length - 1 || 1;
         const wasSilent = tracker.onOutput(stream, lines);
         if (wasSilent) {

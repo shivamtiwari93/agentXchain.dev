@@ -18,7 +18,12 @@ for diagnosis.
 ## Interface
 
 - `cli/src/lib/adapters/local-cli-adapter.js`
+- `cli/src/lib/dispatch-progress.js` (Turn 89 extension)
+- `cli/src/lib/stale-turn-watchdog.js` (Turn 89 extension)
+- `cli/src/commands/run.js` (Turn 89 extension)
 - `cli/test/local-cli-adapter.test.js`
+- `cli/test/dispatch-progress.test.js` (Turn 89 extension)
+- `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` (Turn 89 extension)
 - `cli/test/claim-reality-preflight.test.js`
 
 ## Behavior
@@ -42,6 +47,23 @@ for diagnosis.
   whole log stream.
 - Raw stderr lines remain in the adapter log. The structured excerpt is
   additive, not a replacement.
+- **Turn 89 extension — watchdog / progress / run-command parity.** The same
+  stderr-is-not-startup-proof contract applies to every layer that could
+  otherwise downgrade a stderr-only start into "running":
+  - `createDispatchProgressTracker().onOutput('stderr', ...)` MUST NOT set
+    `state.first_output_at`. `stderr_lines` still increments for silence
+    detection and diagnostics.
+  - `hasStartupProof(turn, progress)` in `stale-turn-watchdog.js` MUST NOT
+    treat `progress.stderr_lines > 0` as proof, and MUST NOT accept
+    `turn.first_output_at` when `turn.first_output_stream === 'stderr'`.
+    Only stdout-derived signals (`progress.output_lines > 0`,
+    `progress.first_output_at`, or `turn.first_output_at` with a non-stderr
+    stream) satisfy startup proof.
+  - `run.js` `recordOutputActivity(stream, text)` MUST NOT call
+    `ensureRunningState(stream)` for `stream === 'stderr'`. The adapter's
+    own `onFirstOutput` callback is already stdout/staged_result-only
+    (Turn 88), so the `running` lifecycle transition stays stdout-anchored
+    across both dispatch paths.
 
 ## Error Cases
 
@@ -61,11 +83,26 @@ for diagnosis.
 - `cli/test/claim-reality-preflight.test.js`
   - packed `local-cli-adapter.js` preserves the same stderr-only startup
     failure behavior at the tarball boundary
+- `cli/test/dispatch-progress.test.js` (Turn 89)
+  - `tracker.onOutput('stderr', ...)` leaves `first_output_at === null` and
+    `output_lines === 0`; a subsequent `onOutput('stdout', 1)` flips
+    `first_output_at` to a timestamp.
+- `cli/test/beta-tester-scenarios/bug-51-fast-startup-watchdog.test.js` (Turn 89)
+  - A starting turn with `progress.stderr_lines > 0` but
+    `output_lines === 0` and `first_output_at === null` is still reported as
+    a ghost with `failure_type: 'stdout_attach_failed'`.
+  - A starting turn whose state carries `turn.first_output_at` with
+    `first_output_stream === 'stderr'` is still reported as a ghost with
+    `failure_type: 'stdout_attach_failed'`.
 
 ## Open Questions
 
 - Whether a future BUG-54 slice should persist structured startup diagnostics as
   JSON alongside `stdout.log`, instead of relying on log-line parsing.
-- Whether the stale-turn watchdog should eventually distinguish stdout-proof and
+- ~~Whether the stale-turn watchdog should eventually distinguish stdout-proof and
   stderr-only progress explicitly, or whether adapter-time startup enforcement
-  is sufficient.
+  is sufficient.~~ **Resolved Turn 89 (`DEC-BUG54-WATCHDOG-STDERR-PARITY-001`):**
+  adapter-time enforcement alone is not sufficient, because dispatch-progress
+  tracking, the fast-startup watchdog, and `run.js` lifecycle promotion each
+  had independent stderr-treated-as-proof paths. All three now enforce the
+  same stdout-only startup-proof contract.

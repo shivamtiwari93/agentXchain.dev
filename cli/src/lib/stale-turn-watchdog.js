@@ -493,7 +493,14 @@ function mapStartupFailureEventType(failureType) {
 }
 
 function hasStartupProof(turn, progress) {
-  if (turn.first_output_at) {
+  // DEC-BUG54-STDERR-IS-NOT-STARTUP-PROOF-002 (Turn 88) extended to the
+  // fast-startup watchdog in Turn 89: stderr activity is not startup proof.
+  // A subprocess that spawns and emits stderr-only text must still be caught
+  // by the fast watchdog as stdout_attach_failed. Only stdout-derived signals
+  // (stream-tagged `turn.first_output_at`, `progress.first_output_at`, or
+  // `progress.output_lines`) satisfy startup proof. `progress.stderr_lines`
+  // deliberately does NOT.
+  if (turn.first_output_at && turn.first_output_stream !== 'stderr') {
     return true;
   }
   if (!progress || typeof progress !== 'object') {
@@ -502,7 +509,7 @@ function hasStartupProof(turn, progress) {
   if (progress.first_output_at) {
     return true;
   }
-  return Number(progress.output_lines || 0) > 0 || Number(progress.stderr_lines || 0) > 0;
+  return Number(progress.output_lines || 0) > 0;
 }
 
 function hasTurnScopedStagedResult(root, turnId) {

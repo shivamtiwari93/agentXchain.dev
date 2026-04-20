@@ -138,14 +138,18 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
       const now = new Date().toISOString();
       const wasSilent = state.activity_type === 'silent';
       state.last_activity_at = now;
-      state.first_output_at = state.first_output_at || now;
-      state.activity_type = 'output';
-      state.silent_since = null;
+      // DEC-BUG54-STDERR-IS-NOT-STARTUP-PROOF-002 (Turn 88) extended to the
+      // progress tracker in Turn 89: stderr is diagnostic evidence, not usable
+      // startup proof. Only stdout may set `first_output_at`. stderr still
+      // increments `stderr_lines` for silence detection and diagnostics.
       if (stream === 'stderr') {
         state.stderr_lines += lineCount;
       } else {
+        state.first_output_at = state.first_output_at || now;
         state.output_lines += lineCount;
       }
+      state.activity_type = 'output';
+      state.silent_since = null;
       state.activity_summary = `Producing output (${state.output_lines} lines)`;
       dirty = true;
       maybeWrite();
