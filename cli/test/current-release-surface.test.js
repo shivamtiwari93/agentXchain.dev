@@ -278,6 +278,7 @@ describe('current release surface', () => {
     for (const term of [
       'startup_latency_ms',
       'elapsed_since_spawn_ms',
+      'runtimes.<id>.startup_watchdog_ms',
       'undeclared_verification_outputs',
       'verification.produced_files',
       'git status --short',

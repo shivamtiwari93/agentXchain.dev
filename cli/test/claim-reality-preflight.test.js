@@ -2265,6 +2265,8 @@ describe('claim-reality preflight', () => {
       'packed stale-turn-watchdog.js must export failTurnStartup — the operator-visible startup-failure transition');
     assert.match(packedWatchdog, /run_loop\?\.startup_watchdog_ms/,
       'packed stale-turn-watchdog.js must honor run_loop.startup_watchdog_ms so operators can tune the 30s default');
+    assert.match(packedWatchdog, /runtime\.startup_watchdog_ms/,
+      'packed stale-turn-watchdog.js must honor local_cli runtime startup_watchdog_ms overrides so slower QA runtimes do not get pre-empted by the global default');
     assert.match(packedWatchdog, /status:\s*'failed_start'/,
       'packed stale-turn-watchdog.js must transition ghost turns to failed_start, not the slow "stalled" state');
     assert.match(packedWatchdog, /delete budgetReservations\[/,

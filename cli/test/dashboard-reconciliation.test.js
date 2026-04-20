@@ -127,8 +127,10 @@ describe('Dashboard reconciliation ordering', () => {
   });
 
   it('AT-DASH-RECONCILE-002: /api/state surfaces stale-turn watchdog results in next_actions', () => {
-    // Seed: a turn that has been "running" for well over the threshold
-    // (dispatched >15 minutes ago with no output).
+    // Seed: a turn that produced startup proof long ago, then went silent for
+    // well over the stale threshold. Without startup proof this fixture would
+    // be a BUG-51 ghost-turn and should fail_start first, which is not the
+    // stale-turn surface this acceptance row is supposed to prove.
     const staleTurnId = 'turn_stale_001';
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
@@ -143,6 +145,7 @@ describe('Dashboard reconciliation ordering', () => {
           status: 'running',
           started_at: fifteenMinutesAgo,
           dispatched_at: fifteenMinutesAgo,
+          first_output_at: fifteenMinutesAgo,
           turn_number: 1,
           attempt: 1,
           assigned_sequence: 1,

@@ -19,7 +19,7 @@ import {
   transitionActiveTurnLifecycle,
 } from '../../src/lib/governed-state.js';
 import { createDispatchProgressTracker, getDispatchProgressRelativePath } from '../../src/lib/dispatch-progress.js';
-import { detectGhostTurns, reconcileStaleTurns } from '../../src/lib/stale-turn-watchdog.js';
+import { detectGhostTurns, failTurnStartup, reconcileStaleTurns } from '../../src/lib/stale-turn-watchdog.js';
 import { buildScheduleExecutionResult } from '../../src/commands/schedule.js';
 import { getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
 
@@ -960,5 +960,42 @@ describe('BUG-51: fast-startup watchdog', () => {
     assert.equal(agedGhosts[0].threshold_ms, 120_000,
       'threshold_ms in the ghost record must report the per-runtime override, '
       + 'not the global, so failure metadata matches the actual fired threshold.');
+  });
+
+  it('failTurnStartup defaults to the per-runtime startup_watchdog_ms override when threshold_ms is omitted (BUG-54)', () => {
+    const overrideConfig = makeConfig({
+      run_loop: { startup_watchdog_ms: 30_000 },
+    });
+    overrideConfig.runtimes['local-dev'].startup_watchdog_ms = 120_000;
+    const root = mkdtempSync(join(tmpdir(), 'axc-bug54-fail-startup-'));
+    tempDirs.push(root);
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# BUG-54 failTurnStartup override\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(overrideConfig, null, 2));
+    execSync('git init -b main', { cwd: root, stdio: 'ignore' });
+    execSync('git config user.email "test@test.com"', { cwd: root, stdio: 'ignore' });
+    execSync('git config user.name "Test"', { cwd: root, stdio: 'ignore' });
+    execSync('git add -A && git commit -m "init"', { cwd: root, stdio: 'ignore' });
+    const init = initializeGovernedRun(root, overrideConfig);
+    assert.ok(init.ok, init.error);
+
+    const { turnId } = seedDispatchedTurn(root, overrideConfig, 130);
+    const state = readState(root);
+    const result = failTurnStartup(root, state, overrideConfig, turnId, {
+      failure_type: 'runtime_spawn_failed',
+      running_ms: 130_000,
+    });
+
+    assert.equal(result.ok, true, result.error);
+    assert.equal(result.turn.failed_start_threshold_ms, 120_000,
+      'failTurnStartup must use the runtime override when the caller omits '
+      + 'threshold_ms, otherwise event/state metadata drifts from the '
+      + 'operator-configured threshold.');
+
+    const events = readEvents(root);
+    const failedEvent = events.find((event) => event.event_type === 'turn_start_failed');
+    assert.ok(failedEvent, 'turn_start_failed event must be emitted for startup failure');
+    assert.equal(failedEvent.payload?.threshold_ms, 120_000,
+      'turn_start_failed payload must report the per-runtime override, not the global default.');
   });
 });

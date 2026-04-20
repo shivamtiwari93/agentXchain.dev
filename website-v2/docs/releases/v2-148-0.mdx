@@ -9,7 +9,7 @@ title: "v2.148.0 Release Notes"
 
 ## Bug Fixes
 
-- **BUG-54 adapter timing diagnostics**: `local-cli-adapter` now emits `startup_watchdog_ms`, `startup_latency_ms`, and `elapsed_since_spawn_ms` on the `spawn_attached`, `first_output`, `startup_watchdog_fired`, and `process_exit` diagnostic lines. Operators can compare observed startup against `run_loop.startup_watchdog_ms` from a single diagnostic row instead of diffing ISO strings.
+- **BUG-54 adapter timing diagnostics**: `local-cli-adapter` now emits `startup_watchdog_ms`, `startup_latency_ms`, and `elapsed_since_spawn_ms` on the `spawn_attached`, `first_output`, `startup_watchdog_fired`, and `process_exit` diagnostic lines. Operators can compare observed startup against the effective watchdog from a single diagnostic row instead of diffing ISO strings, whether it came from `run_loop.startup_watchdog_ms` or a `runtimes.<id>.startup_watchdog_ms` override.
 
 - **BUG-54 real-Claude stdin proof**: a CLAUDE-gated integration test now exercises the repo's actual authoritative Claude runtime contract (`claude --print --dangerously-skip-permissions` with `prompt_transport: "stdin"`) across 10 consecutive dispatches. The probe fails loudly on timeout, non-zero, or malformed `--version` output and only skips on ENOENT. Handle growth stays bounded (`<= 3`), `stdin_error` count is zero, and the watchdog→SIGTERM→close cleanup path is backed by quoted diagnostic lines instead of a soft claim.
 
@@ -32,7 +32,7 @@ title: "v2.148.0 Release Notes"
 
 ## Operator Notes
 
-- Tight `run_loop.startup_watchdog_ms` values can starve real Claude startup when auth is cold or plugins init slowly. First-stdout latency is ~276ms with warm auth on a dev machine; cold-start can exceed a tight watchdog. Use the new `startup_latency_ms` diagnostic to observe actual startup on your environment before tuning the watchdog down.
+- Tight startup watchdog values can starve real Claude startup when auth is cold or plugins init slowly. First-stdout latency is ~276ms with warm auth on a dev machine; cold-start can exceed a tight watchdog. Use the new `startup_latency_ms` diagnostic to observe actual startup on your environment before tuning the watchdog down, and prefer `runtimes.<id>.startup_watchdog_ms` when only one `local_cli` runtime is slower than the rest.
 
 ## Tester Re-Run Contract
 
@@ -44,7 +44,7 @@ npx --yes -p agentxchain@2.148.0 -c "agentxchain --version"
 
 For closure evidence on `v2.148.0`, quote the exact command output or diagnostic lines for these checks. BUG-52 and BUG-53 fixes shipped in `v2.147.0` are unchanged in `v2.148.0`; re-verify them against this shipped package so closure evidence is pinned to the latest published version.
 
-- **BUG-54 QA startup reliability**: run the tester's normal QA flow on `v2.148.0` and quote the adapter diagnostic lines that include `startup_latency_ms` and `elapsed_since_spawn_ms`. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup, not just "startup failures are detected." If QA still fails, quote the exact `startup_failure_type` and the surrounding `spawn_prepare` / `spawn_attached` / `startup_watchdog_fired` / `process_exit` lines.
+- **BUG-54 QA startup reliability**: run the tester's normal QA flow on `v2.148.0` and quote the adapter diagnostic lines that include `startup_latency_ms` and `elapsed_since_spawn_ms`. If the QA runtime is slower than the repo default, set `runtimes.<id>.startup_watchdog_ms` before rerunning and quote the effective override from the diagnostic line. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup, not just "startup failures are detected." If QA still fails, quote the exact `startup_failure_type` and the surrounding `spawn_prepare` / `spawn_attached` / `startup_watchdog_fired` / `process_exit` lines.
 - **BUG-55 sub-A checkpoint completeness**: quote the `accept-turn` + `checkpoint-turn` result for a real QA turn and the resulting `git status --short`. The tree must be clean after checkpoint, and the already-committed-upstream path must not false-positive as missing.
 - **BUG-55 sub-B verification outputs**: first quote the failure showing `undeclared_verification_outputs` together with the `verification.produced_files` remediation pointer; then quote the clean acceptance path after the produced file is declared.
 - **BUG-52 phase-gate reconciliation (rides along from v2.147.0)**: run the tester's exact CLI chain `agentxchain accept-turn` → `agentxchain checkpoint-turn` → `agentxchain unblock <hesc-id>` → `agentxchain resume` on a real `planning_signoff` escalation. Quote the resulting dispatched turn's `assigned_role` (must be `dev`, not another PM) and the `phase_entered` event line containing `trigger: "reconciled_before_dispatch"`. Repeat the same chain on a `qa_ship_verdict` escalation and quote that the next dispatched role is `launch`, not another QA. No manual `state.json` patching at any step.

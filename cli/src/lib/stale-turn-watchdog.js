@@ -24,7 +24,8 @@
  * requiring a background daemon.
  *
  * Default thresholds:
- *   - Startup watchdog: 30 seconds (configurable via run_loop.startup_watchdog_ms)
+ *   - Startup watchdog: 30 seconds (configurable via run_loop.startup_watchdog_ms
+ *     or runtimes.<id>.startup_watchdog_ms for local_cli runtimes)
  *   - local_cli stale turns: 10 minutes
  *   - api_proxy stale turns: 5 minutes
  *   - Configurable via run_loop.stale_turn_threshold_ms in agentxchain.json
@@ -306,6 +307,7 @@ export function failTurnStartup(root, state, config, turnId, details = {}) {
   if (!turn) {
     return { ok: false, error: `Turn ${turnId} not found in active turns` };
   }
+  const runtime = config?.runtimes?.[turn.runtime_id];
 
   const nowIso = new Date().toISOString();
   const activeTurns = { ...(state.active_turns || {}) };
@@ -315,7 +317,7 @@ export function failTurnStartup(root, state, config, turnId, details = {}) {
     role: turn.assigned_role || 'unknown',
     runtime_id: turn.runtime_id || 'unknown',
     running_ms: details.running_ms ?? computeLifecycleAgeMs(turn),
-    threshold_ms: details.threshold_ms ?? resolveStartupThreshold(config),
+    threshold_ms: details.threshold_ms ?? resolveStartupThreshold(config, runtime),
     failure_type: classifyStartupFailureType(turn, null, details.failure_type || 'no_subprocess_output'),
     recommendation: details.recommendation
       || `Turn ${turnId} failed to start cleanly. Run \`agentxchain reissue-turn --turn ${turnId} --reason ghost\` to recover.`,
