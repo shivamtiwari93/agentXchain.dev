@@ -169,6 +169,13 @@ function readState(root) {
   return JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
 }
 
+function readHistory(root) {
+  const filePath = join(root, '.agentxchain', 'history.jsonl');
+  const raw = readFileSync(filePath, 'utf8').trim();
+  if (!raw) return [];
+  return raw.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+}
+
 function readHumanEscalationId(root) {
   const lines = readFileSync(join(root, '.agentxchain', 'human-escalations.jsonl'), 'utf8')
     .trim()
@@ -184,11 +191,43 @@ function writeState(root, state) {
   writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
 }
 
+function writeHistory(root, entries) {
+  const content = entries.map((entry) => JSON.stringify(entry)).join('\n');
+  writeFileSync(join(root, '.agentxchain', 'history.jsonl'), content ? `${content}\n` : '');
+}
+
 function writePassingAcceptanceMatrix(root) {
   writeFileSync(
     join(root, '.planning', 'acceptance-matrix.md'),
     '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Release readiness | Ship artifacts are complete | pass | today | pass |\n',
   );
+}
+
+function repointGateFailureToNonDeclarer(root, { turnId, role, phase, runtimeId, summary }) {
+  const state = readState(root);
+  const history = readHistory(root);
+  history.push({
+    turn_id: turnId,
+    run_id: state.run_id,
+    role,
+    assigned_role: role,
+    runtime_id: runtimeId,
+    status: 'completed',
+    accepted_at: new Date().toISOString(),
+    phase,
+    phase_transition_request: null,
+    summary,
+    verification: { status: 'pass' },
+  });
+  writeHistory(root, history);
+  writeState(root, {
+    ...state,
+    last_completed_turn_id: turnId,
+    last_gate_failure: {
+      ...state.last_gate_failure,
+      requested_by_turn: turnId,
+    },
+  });
 }
 
 afterEach(() => {
@@ -230,8 +269,10 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
       cost: { usd: 0.01 },
     });
 
-    const accepted = runCli(root, ['accept-turn', '--checkpoint']);
-    assert.equal(accepted.status, 0, `accept-turn --checkpoint failed:\n${accepted.stdout}\n${accepted.stderr}`);
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
 
     const afterAccept = readState(root);
     assert.equal(afterAccept.phase, 'planning');
@@ -318,8 +359,10 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
       cost: { usd: 0.01 },
     });
 
-    const accepted = runCli(root, ['accept-turn', '--checkpoint']);
-    assert.equal(accepted.status, 0, `accept-turn --checkpoint failed:\n${accepted.stdout}\n${accepted.stderr}`);
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
 
     const afterAccept = readState(root);
     assert.equal(afterAccept.phase, 'qa');
@@ -358,5 +401,75 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.equal(finalState.last_gate_failure, null, 'reconciled gate failure must be cleared');
     assert.match(unblocked.stdout, /launch/i, 'operator output should surface the launch phase');
     assert.doesNotMatch(unblocked.stdout, /Role:\s+qa/i, 'unblock must not redispatch the qa role');
+  });
+
+  it('unblock still advances when last_gate_failure.requested_by_turn points at a non-declarer history entry', () => {
+    const { root, config, state } = createProject();
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: NO\n');
+    writeFileSync(
+      join(root, '.planning', 'SYSTEM_SPEC.md'),
+      '# System Spec\n\n## Purpose\n\nPlan the implementation handoff.\n\n## Interface\n\nPM artifacts.\n\n## Acceptance Tests\n\n- [ ] Dev can start implementation.\n',
+    );
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Planning artifacts drafted',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md', '.planning/PM_SIGNOFF.md', '.planning/SYSTEM_SPEC.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'dev',
+      phase_transition_request: 'implementation',
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    execSync('git add .planning/PM_SIGNOFF.md && git commit -m "human: approve planning signoff"', {
+      cwd: root,
+      stdio: 'ignore',
+    });
+
+    const escalated = runCli(root, [
+      'escalate',
+      '--reason', 'planning_signoff',
+      '--detail', 'human signoff recorded; unblock should advance the phase',
+    ]);
+    assert.equal(escalated.status, 0, `escalate failed:\n${escalated.stdout}\n${escalated.stderr}`);
+
+    repointGateFailureToNonDeclarer(root, {
+      turnId: 'turn_planning_noise',
+      role: 'pm',
+      phase: 'planning',
+      runtimeId: 'manual-pm',
+      summary: 'Accumulated history noise after the real declarer',
+    });
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(unblocked.status, 0, `unblock failed:\n${unblocked.stdout}\n${unblocked.stderr}`);
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'implementation', 'phase must still advance even if requested_by_turn drifted');
+    assert.equal(activeTurn?.assigned_role, 'dev', 'fallback lookup must still dispatch the implementation role');
+    assert.equal(finalState.last_gate_failure, null, 'reconciled gate failure must be cleared after fallback advance');
+    assert.match(unblocked.stdout, /implementation/i, 'operator output should surface the reconciled implementation phase');
   });
 });

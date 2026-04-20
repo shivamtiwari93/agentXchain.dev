@@ -1531,6 +1531,47 @@ function findHistoryTurnRequest(historyEntries, turnId, kind) {
   return entry;
 }
 
+function findMatchingPhaseTransitionDeclarer(historyEntries, gateFailure) {
+  if (!Array.isArray(historyEntries) || historyEntries.length === 0) {
+    return null;
+  }
+
+  const targetPhase = typeof gateFailure?.to_phase === 'string' && gateFailure.to_phase.length > 0
+    ? gateFailure.to_phase
+    : null;
+  const sourcePhase = typeof gateFailure?.from_phase === 'string' && gateFailure.from_phase.length > 0
+    ? gateFailure.from_phase
+    : null;
+
+  return [...historyEntries].reverse().find((entry) => {
+    if (!entry?.phase_transition_request) {
+      return false;
+    }
+    if (targetPhase && entry.phase_transition_request !== targetPhase) {
+      return false;
+    }
+    if (sourcePhase && entry.phase && entry.phase !== sourcePhase) {
+      return false;
+    }
+    return true;
+  }) || null;
+}
+
+function resolvePhaseTransitionSource(historyEntries, gateFailure, fallbackTurnId) {
+  const requestedTurnId = gateFailure?.requested_by_turn || fallbackTurnId || null;
+  const requestedSource = findHistoryTurnRequest(historyEntries, requestedTurnId, 'phase_transition');
+  if (requestedSource?.phase_transition_request) {
+    return requestedSource;
+  }
+
+  const fallbackSource = findMatchingPhaseTransitionDeclarer(historyEntries, gateFailure);
+  if (fallbackSource?.phase_transition_request) {
+    return { ...fallbackSource, phase_transition_request: fallbackSource.phase_transition_request };
+  }
+
+  return requestedSource;
+}
+
 function buildBlockedReason({ category, recovery, turnId, blockedAt = new Date().toISOString() }) {
   return {
     category,
@@ -2544,10 +2585,10 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
   }
 
   const historyEntries = readJsonlEntries(root, HISTORY_PATH);
-  const phaseSource = findHistoryTurnRequest(
+  const phaseSource = resolvePhaseTransitionSource(
     historyEntries,
-    gateFailure.requested_by_turn || currentState.last_completed_turn_id || null,
-    'phase_transition',
+    gateFailure,
+    currentState.last_completed_turn_id || null,
   );
   if (!phaseSource?.phase_transition_request) {
     return {

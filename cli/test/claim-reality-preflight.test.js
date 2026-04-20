@@ -2688,11 +2688,13 @@ describe('claim-reality preflight', () => {
     assert.ok(
       /planning_signoff/.test(planningBlock)
         && /phase_transition_request:\s*['"]implementation['"]/.test(planningBlock)
+        && /checkpoint-turn/.test(planningBlock)
         && /assigned_role[\s\S]{0,120}['"]dev['"]/.test(planningBlock)
         && /qa_ship_verdict/.test(qaLaunchBlock)
         && /phase_transition_request:\s*['"]launch['"]/.test(qaLaunchBlock)
+        && /checkpoint-turn/.test(qaLaunchBlock)
         && /assigned_role[\s\S]{0,120}['"]launch['"]/.test(qaLaunchBlock),
-      'BUG-52 tester-sequence regression must cover both planning_signoff -> implementation and qa_ship_verdict -> launch unblock seams from the human acceptance criteria, not only the first phase transition',
+      'BUG-52 tester-sequence regression must cover both planning_signoff -> implementation and qa_ship_verdict -> launch unblock seams with separated checkpoint-turn invocations from the human acceptance criteria, not only the first phase transition',
     );
 
     const { packageDir } = getExtractedPackage();
