@@ -127,6 +127,30 @@ describe('Coordinator spec status alignment', () => {
     );
   });
 
+  it('V2_2_PROTOCOL_CONFORMANCE_SPEC is marked Superseded', () => {
+    const content = readSpec('.planning/V2_2_PROTOCOL_CONFORMANCE_SPEC.md');
+    assert.match(
+      content,
+      /\*\*Status:\*\*\s*Superseded/i,
+      'V2_2_PROTOCOL_CONFORMANCE_SPEC must be marked Superseded — it documents the v6 contract, not the current v7 contract'
+    );
+    assert.match(
+      content,
+      /PROTOCOL_V7_SPEC/,
+      'V2_2_PROTOCOL_CONFORMANCE_SPEC must point to PROTOCOL_V7_SPEC.md as the current contract'
+    );
+  });
+
+  it('REMOTE_PROTOCOL_VERIFICATION_SPEC examples use the current protocol version', () => {
+    const content = readSpec('.planning/REMOTE_PROTOCOL_VERIFICATION_SPEC.md');
+    const v6Matches = content.match(/"protocol_version":\s*"v6"/g);
+    assert.equal(
+      v6Matches,
+      null,
+      'REMOTE_PROTOCOL_VERIFICATION_SPEC must not contain v6 protocol examples — the current protocol is v7'
+    );
+  });
+
   it('multi-repo docs describe blocked recovery as a shipped operator path', () => {
     const multiRepoDoc = readFileSync(
       join(REPO_ROOT, 'website-v2/docs/multi-repo.mdx'),

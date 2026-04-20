@@ -1,5 +1,7 @@
 # V2.2 Protocol Conformance Spec — AgentXchain.dev
 
+**Status:** Superseded — see `PROTOCOL_V7_SPEC.md` and `PROTOCOL_SPEC.md` for the current protocol contract. This spec documents the original v6/v2.2.0 conformance surface for historical reference only. Examples and surface maps in this file are intentionally frozen at v6 and do not reflect the current shipped contract.
+
 > Defines the first-cut protocol conformance surface for third-party orchestrators and alternative runners.
 
 ---

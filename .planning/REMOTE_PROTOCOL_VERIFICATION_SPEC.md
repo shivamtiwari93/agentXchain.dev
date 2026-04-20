@@ -132,7 +132,7 @@ When `--remote` is specified:
 {
   "implementation": "acme-orchestrator",
   "version": "1.0.0",
-  "protocol_version": "v6",
+  "protocol_version": "v7",
   "adapter": {
     "protocol": "http-fixture-v1"
   },
@@ -143,7 +143,14 @@ When `--remote` is specified:
     "gate_semantics": true,
     "decision_ledger": true,
     "history": true,
-    "config_schema": true
+    "config_schema": true,
+    "dispatch_manifest": true,
+    "hook_audit": true,
+    "coordinator": true,
+    "delegation": true,
+    "decision_carryover": true,
+    "parallel_turns": true,
+    "event_lifecycle": true
   }
 }
 ```
@@ -180,7 +187,7 @@ The report is **identical** to the current format. The only addition:
 {
   "report": {
     "implementation": "acme-orchestrator",
-    "protocol_version": "v6",
+    "protocol_version": "v7",
     "tier_requested": 1,
     "timestamp": "...",
     "target_root": null,
