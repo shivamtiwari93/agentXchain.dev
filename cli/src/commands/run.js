@@ -17,8 +17,8 @@ import { createInterface } from 'readline';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
-import { transitionActiveTurnLifecycle } from '../lib/governed-state.js';
 import { runLoop } from '../lib/run-loop.js';
+import { transitionActiveTurnLifecycle } from '../lib/runner-interface.js';
 import { buildRunExport } from '../lib/export.js';
 import { buildGovernanceReport, formatGovernanceReportMarkdown } from '../lib/report.js';
 import { validateParentRun } from '../lib/run-history.js';
@@ -51,6 +51,7 @@ import { createDispatchProgressTracker } from '../lib/dispatch-progress.js';
 import { emitRunEvent } from '../lib/run-events.js';
 import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
 import { failTurnStartup } from '../lib/stale-turn-watchdog.js';
+import { hasMinimumTurnResultShape } from '../lib/turn-result-shape.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
@@ -514,6 +515,18 @@ export async function executeGovernedRun(context, opts = {}) {
         turnResult = JSON.parse(readFileSync(stagingFile, 'utf8'));
       } catch (err) {
         return { accept: false, reason: `failed to parse staged result: ${err.message}` };
+      }
+
+      // Per DEC-MINIMUM-TURN-RESULT-SHAPE-001: the staged-result read shortcut
+      // must refuse payloads that lack the minimum governed envelope. Adapter
+      // pre-stage guards already reject these, but this is the final boundary
+      // before acceptance projection — fail closed on tampered or legacy
+      // adapter output rather than trust upstream.
+      if (!hasMinimumTurnResultShape(turnResult)) {
+        return {
+          accept: false,
+          reason: 'staged result missing minimum governed envelope (schema_version + identity + lifecycle fields)',
+        };
       }
 
       return { accept: true, turnResult };

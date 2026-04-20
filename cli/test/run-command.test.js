@@ -10,13 +10,15 @@ const binPath = join(cliRoot, 'bin', 'agentxchain.js');
 
 describe('agentxchain run — guard tests', () => {
 
-  // AT-RUN-GUARD-001: run.js must not import from governed-state.js directly
+  // AT-RUN-GUARD-001: run.js must not import from governed-state.js directly.
+  // Runner-specific transport lifecycle hooks are allowed, but only via the
+  // runner-interface boundary rather than the raw governed-state module.
   it('AT-RUN-GUARD-001: run.js does not import from governed-state.js', () => {
     const src = readFileSync(runCommandPath, 'utf8');
     const governedStateImport = /from\s+['"]\.\.\/lib\/governed-state\.js['"]/;
     assert.ok(
       !governedStateImport.test(src),
-      'run.js must not import from governed-state.js directly — the runLoop library owns state transitions',
+      'run.js must not import from governed-state.js directly — runner-facing lifecycle hooks go through runner-interface.js',
     );
   });
 
@@ -187,6 +189,28 @@ describe('agentxchain run — guard tests', () => {
     assert.ok(
       src.includes('agentxchain step'),
       'dry-run manual warning must point operators to agentxchain step',
+    );
+  });
+
+  // AT-RUN-GUARD-016 (DEC-MINIMUM-TURN-RESULT-SHAPE-001): the staged-result read
+  // shortcut in run.js must enforce the minimum governed envelope before returning
+  // the turnResult to runLoop. This is the final boundary before acceptance
+  // projection — adapter-side guards alone are not sufficient because operators
+  // can tamper with staging files and legacy adapters may bypass the shared
+  // helper.
+  it('AT-RUN-GUARD-016: staged-result read enforces minimum envelope shape', () => {
+    const src = readFileSync(runCommandPath, 'utf8');
+    assert.ok(
+      /from\s+['"]\.\.\/lib\/turn-result-shape\.js['"]/.test(src),
+      'run.js must import hasMinimumTurnResultShape from turn-result-shape.js',
+    );
+    assert.ok(
+      src.includes('hasMinimumTurnResultShape(turnResult)'),
+      'run.js dispatch callback must call hasMinimumTurnResultShape on the parsed staged result before returning accept:true',
+    );
+    assert.ok(
+      src.includes('staged result missing minimum governed envelope'),
+      'run.js must surface a clear rejection reason when the staged payload lacks the minimum envelope',
     );
   });
 });

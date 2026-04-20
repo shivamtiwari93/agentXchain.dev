@@ -1147,6 +1147,28 @@ describe('dispatchApiProxy', () => {
     assert.equal(requestBody.messages[0].role, 'user');
   });
 
+  it('rejects schema_version-only payloads before staging the turn result artifact', async () => {
+    const root = createAndTrack();
+    const state = makeApiState();
+    const config = makeApiConfig();
+    setupDispatchBundle(root);
+    process.env.ANTHROPIC_API_KEY = 'test-key';
+
+    global.fetch = async () => makeJsonResponse(200, {
+      content: [{ type: 'text', text: '{"schema_version":"1.0","summary":"not enough envelope"}' }],
+      usage: { input_tokens: 100, output_tokens: 25 },
+    });
+
+    const result = await dispatchApiProxy(root, state, config);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /minimum governed turn-result fields/i);
+    assert.equal(
+      existsSync(join(root, stagingResultPath(state))),
+      false,
+      'must not stage api_proxy payloads that fail the minimum turn-result envelope',
+    );
+  });
+
   it('writes preflight audit artifacts and sends the effective context when tokenization is enabled', async () => {
     const root = createAndTrack();
     const state = makeApiState();

@@ -29,6 +29,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { evaluateTokenBudget, SYSTEM_PROMPT, SEPARATOR } from '../token-budget.js';
+import { hasMinimumTurnResultShape } from '../turn-result-shape.js';
 import {
   getDispatchApiRequestPath,
   getDispatchContextPath,
@@ -1070,6 +1071,13 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
 
   if (hasUsageTelemetry && turnResult) {
     turnResult.cost = { ...aggregateUsage };
+  }
+
+  if (!hasMinimumTurnResultShape(turnResult)) {
+    return {
+      ok: false,
+      error: 'API response did not contain a valid turn result with the minimum governed turn-result fields',
+    };
   }
 
   // Stage the turn result

@@ -218,7 +218,7 @@ The run loop's `selectRole` callback checks the abort flag and returns `null` if
 
 ### Guard Tests (structural)
 
-- `AT-RUN-GUARD-001`: `run.js` does not import from `governed-state.js` directly (boundary purity — only through `runLoop`).
+- `AT-RUN-GUARD-001`: `run.js` does not import from `governed-state.js` directly. Runner-specific transport lifecycle hooks may be imported only through `runner-interface.js`; raw governed-state imports remain banned.
 - `AT-RUN-GUARD-002`: `run.js` does not call `assignTurn`, `acceptTurn`, `rejectTurn`, `approvePhaseGate`, or `approveCompletionGate` directly.
 - `AT-RUN-GUARD-003`: `run` command is registered in `agentxchain.js` with the correct options.
 
