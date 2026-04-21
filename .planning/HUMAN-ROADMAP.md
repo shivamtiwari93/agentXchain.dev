@@ -458,6 +458,80 @@ Current focus: **🎯 BUG-59 + BUG-60 (architectural pair) — "full-auto" doesn
   - Do NOT flip this checkbox without tester-quoted output on a published version showing the perpetual chain actually completing at least 2 PM-expansion → run cycles.
   - Do NOT touch `.planning/VISION.md`. (This is especially important here since BUG-60 is ABOUT reading VISION.md — tempting to "fix" it as part of the work. Resist. Humans own VISION.md.)
 
+- [ ] **BUG-61: Ghost-turn recovery requires manual operator intervention — full-auto loop stalls on every ghost turn. Compounds with BUG-54 to make lights-out unreliable.**
+
+  **Tester report 2026-04-21 on v2.150.0 `tusq.dev` dogfood:**
+  - `turn_97eee736ab49bab9`: `runtime_spawn_failed`, 58s dispatch with no subprocess output
+  - `turn_ec72b780e6347d22`: `runtime_spawn_failed`, 101s dispatch with no subprocess output (was the current blocker)
+  - `turn_70400ff1f07b8b74`: prior ghost PM turn, reissued to `turn_fae691907af78136`
+
+  Every ghost turn requires manual `agentxchain reissue-turn --turn <id> --reason ghost`. Under current behavior, full-auto lights-out cannot proceed through any ghost turn without a human. Tester: *"Ghost turns should be rare and recover cleanly without requiring repeated manual intervention."*
+
+  **Relationship to BUG-54:** BUG-54 addresses the FREQUENCY of false ghost turns (watchdog threshold was 30s, raised to 120s in v2.151.0). BUG-61 addresses the RECOVERY BEHAVIOR when a real ghost turn is detected. Different concerns: BUG-54 reduces how often ghosts fire; BUG-61 removes the manual step when they do fire. The two fixes together deliver "ghost turns are rare AND recover cleanly."
+
+  **Note on v2.151.0 impact:** the tester's 58s and 101s ghost durations were both >30s (old watchdog) but <120s (new watchdog). Under v2.151.0 they might no longer classify as ghosts — might be slow-but-working Claude dispatches. Tester should re-test on v2.151.0 before assuming every BUG-61 repro scenario still reproduces. If v2.151.0 reduces ghost-turn rate enough, BUG-61 drops from "blocking" to "resilience improvement" — still worth shipping but less urgent.
+
+  **Two fix paths — research turn decides which or both:**
+
+  1. **Automatic retry with bounded budget.** When a turn is detected as ghost (watchdog fires + zero stdout received), automatically issue `reissue-turn --reason ghost` up to N times (default 2). Track retry count in state. If all retries produce ghosts, escalate to human with full diagnostic bundle.
+  2. **Faster-fail diagnostic surface.** Keep the current "manual reissue" posture but make the diagnostic output actionable: subprocess exit code, captured stderr, spawn env boolean-presence, resolved binary path, watchdog threshold effective at dispatch time. So when the operator runs `reissue-turn`, they know WHY and whether reissuing is likely to help.
+
+  Options are compatible — Option 1 is the lights-out fix, Option 2 is the diagnostic-quality fix. Both should ship.
+
+  **Safeguards for Option 1 (auto-retry):**
+  - **Per-run retry budget:** max 3 auto-retries per run, not per turn. Prevents cascading ghost loops.
+  - **Retry fingerprinting:** if N consecutive ghosts have the same signature (same runtime, same role, same prompt shape), stop retrying and escalate — a pattern means something systematic, not transient.
+  - **Preserve manual escape hatch:** `reissue-turn --reason ghost` remains operator-facing. Auto-retry must not hide diagnostic history; every auto-retry emits an event the operator can audit.
+  - **Configurable:** `auto_retry_on_ghost: { enabled: true, max_retries_per_run: 3, cooldown_seconds: 5 }`, enabled by default for full-auto mode, disabled for manual mode.
+
+  **Fix requirements:**
+  1. Define "ghost turn" precisely in a decision record: `runtime_spawn_failed` AND zero stdout bytes received AND watchdog fired. Current detection signals at `cli/src/lib/adapters/local-cli-adapter.js:133,309,350` have the raw signal; the classification rule needs to be explicit for retry logic to key off of it reliably.
+  2. Add `auto_retry_on_ghost` config block to `cli/src/lib/normalized-config.js`'s continuous section. Defaults as above.
+  3. Implement retry mechanism in continuous-run loop. On ghost detection: check retry budget, issue `reissueTurn()` programmatically with `reason: 'auto_retry_ghost'`, reset watchdog, emit `auto_retried_ghost` event to `.agentxchain/events.jsonl`, increment run-scoped counter.
+  4. On final escalation after retries exhausted: attach full diagnostic bundle (per-attempt subprocess state, resolved runtime config, watchdog threshold, stdin transport shape, any captured stderr).
+  5. Positive + negative regression tests (Rule #13 / command-chain): (a) simulate 2 ghosts + 1 success in sequence → turn completes via auto-retry, `events.jsonl` shows two `auto_retried_ghost` entries + one success; (b) simulate 4 consecutive ghosts → session escalates to human with diagnostic bundle, `auto_retried_ghost` count = 3 (budget cap), `reason_escalated: "retry_budget_exhausted"` on the escalation.
+  6. Update tester runbook to describe auto-recovery + opt-out.
+
+  **Acceptance:** tester runs `tusq.dev` full-auto on a future shipped version. A ghost turn occurs → next event in `.agentxchain/events.jsonl` shows `auto_retried_ghost` → subsequent turn succeeds → session proceeds without operator intervention. Tester-quoted CLI output showing the recovery.
+
+- [ ] **BUG-62: Operator-commit reconcile path is missing — any manual commit on top of an agent checkpoint produces `Git HEAD has moved since checkpoint` drift and blocks all further agent work. Compounds every other full-auto defect because the workarounds require manual commits which then cause this.**
+
+  **Tester report 2026-04-21 on v2.150.0:**
+  - After manual commit `e838d9f Add M16 manifest diff PM increment`, `agentxchain status` reported: `Drift: Git HEAD has moved since checkpoint: e838d9f1 -> 369972f4`
+  - After subsequent manual commit `369972f Implement tusq manifest diff command`, the run was still BLOCKED on drift
+
+  Compounds the full-auto problem: every operator intervention for other bugs (BUG-52 third variant, BUG-61 ghost-turn, BUG-60 idle-expansion gap) creates drift that blocks further agent work, requiring ANOTHER manual intervention to recover. **Net effect: agents cannot make forward progress autonomously if ANY operator commit has ever landed on top of a checkpoint.**
+
+  Tester: *"Operator commits should be reconciled cleanly into run state or restart context."*
+
+  **Root cause hypothesis (research needed):** state.json records `checkpoint.git_sha` at the last agent-driven checkpoint. When operator commits on top of that SHA, agents detect drift and refuse to proceed because they can't prove the new HEAD is compatible with their state model. Today there is no command that says "accept the operator's commits as the new baseline." The ops workaround is to patch `.agentxchain/state.json` by hand, which is fragile and undocumented.
+
+  **Safe vs unsafe operator commits — the fix must distinguish these:**
+  - **Safe (auto-reconcile-able):** fast-forward commits on top of `checkpoint.git_sha` that don't rewrite history, don't modify `.agentxchain/` state files, don't delete accepted-turn artifacts, don't roll back completed phase evidence
+  - **Unsafe (must still block):** force-pushes, history rewrites, `state.json` edits, deletion of `history.jsonl`/`events.jsonl`/`acceptance-matrix.md`, rollback of a checkpointed phase
+
+  **Fix requirements:**
+
+  1. **New command: `agentxchain reconcile-state --accept-operator-head`.** Reads current HEAD, walks commits between `checkpoint.git_sha` and HEAD, applies safety checks (fast-forward only, no `.agentxchain/` modifications, no state-file deletions, no history rewrite), updates `checkpoint.git_sha` to new HEAD, emits `state_reconciled_operator_commits` event listing the accepted commits with SHAs and paths-touched.
+
+  2. **Automatic reconciliation for continuous / full-auto runs.** New config field: `reconcile_operator_commits: "manual" | "auto_safe_only" | "disabled"` in `normalized-config.js` continuous section. Default: `"manual"` for governed mode (preserve current block), `"auto_safe_only"` for full-auto mode (auto-run the reconcile command before each dispatch, but only if safety checks pass). Operator can override via flag or config.
+
+  3. **Diagnostic output when reconciliation is refused.** Which commit, which rule tripped (e.g., "commit abc123 modifies .agentxchain/state.json — reconcile cannot auto-accept state-file edits. Manual recovery: ..."), concrete recovery recipe. This replaces today's generic "drift detected" message.
+
+  4. **Positive + negative regression tests (Rule #13 / command-chain):**
+     - (a) Agent checkpoints at SHA A → operator commits SHA B adding only product-code files → run `reconcile-state --accept-operator-head` → assert `checkpoint.git_sha === B`, event emitted with paths touched, next agent turn dispatches without drift block.
+     - (b) Same setup but operator commit modifies `.agentxchain/state.json` → assert reconcile refuses with specific actionable error naming the offending file.
+     - (c) Same setup but operator force-pushed (rewrote history such that `checkpoint.git_sha` is no longer an ancestor of HEAD) → assert reconcile refuses with "history-rewrite" error class.
+
+  5. **Document the safety contract** in `website-v2/docs/` continuous-operation page. Explain what operator actions are safe to do mid-run, what requires `reconcile-state`, what requires a full session restart.
+
+  **Acceptance:** tester's scenario reproduced on a future shipped version — manual commit on top of a checkpoint → `agentxchain status` shows drift → `agentxchain reconcile-state --accept-operator-head` succeeds → next agent turn proceeds without further intervention. OR under `reconcile_operator_commits: "auto_safe_only"`, the reconcile happens automatically and the next turn dispatches without operator running the command manually. Tester-quoted CLI output showing the flow.
+
+  **Cross-references:**
+  - **BUG-52 third variant:** the tester's `d2ab914` and `77762c8` manual recovery commits (to unblock planning_signoff and launch_ready gates) are examples of operator commits that today create BUG-62 drift. Fixing BUG-62 reduces the blast radius of BUG-52 even if BUG-52 itself isn't closed.
+  - **BUG-61 ghost-turn manual recovery:** any manual `reissue-turn` invocation that touches git state benefits from BUG-62's reconcile path.
+  - **BUG-60 perpetual continuous:** perpetual mode that hits any of the above will inherit the drift problem unless BUG-62 is fixed.
+
 - [ ] **BUG-54: local_cli runtime spawn/attach repeatedly fails — reliability bug, not detection. ROOT CAUSE STILL NOT FIXED.** Verified. `cli/src/lib/adapters/local-cli-adapter.js:133,309,350` emits `runtime_spawn_failed` / `stdout_attach_failed` — **detection works**. But 27 commits of post-v2.148.0 "fixes" are all classification/display work, not root-cause work. Tester's v2.148.0 clean-retest (fresh worktree, session, run) reproduces the same failure on PM turns — kills state-corruption hypothesis and shows this is `local_cli` runtime-general, not QA-specific.
   - **Tester's v2.147.0 evidence (QA-specific):** run_4b24e171693ac091 had 6 consecutive QA startup failures alternating `runtime_spawn_failed` / `stdout_attach_failed`: `turn_81bbd843`, `turn_df73f5d4`, `turn_e95f8517`, `turn_1d93790`, `turn_75116ed7`, `turn_7763138`.
   - **Tester's v2.148.0 clean-retest evidence (PM-affected too):** isolated worktree `tusq.dev-21480-clean`, session `cont-68fcad95`, run `run_15787079e4eb9e07`. PM turns repeatedly fail with same 3 failure modes. Reissued repeatedly via native recovery, keeps reproducing. Bug is not role-specific and not state-corruption — it's `local_cli` runtime-general.

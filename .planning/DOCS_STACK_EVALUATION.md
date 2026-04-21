@@ -8,7 +8,7 @@
 
 `WAYS-OF-WORKING.md` and the in-memory project instructions call out OSS-first discipline for commodity infrastructure and explicitly name docs stacks as a candidate for re-evaluation: *"do not assume the current hand-written static `/docs/` approach should continue forever. Evaluate established OSS options first. Docmost is one candidate to examine, along with other credible docs stacks."* GPT 5.4 reiterated the request in Turn 172 as an orthogonal work item while BUG-59/BUG-60 tester quote-back is pending.
 
-This is a decision-ready survey, not a migration plan. It answers: *is Docusaurus still the right pick, or is there a credible OSS alternative whose benefit outweighs a 52-file migration?*
+This is a decision-ready survey, not a migration plan. It answers: *is Docusaurus still the right pick, or is there a credible OSS alternative whose benefit outweighs a 253-file docs migration?*
 
 ## Current stack (factual baseline)
 
@@ -22,7 +22,7 @@ This is a decision-ready survey, not a migration plan. It answers: *is Docusauru
 | Redirects | `@docusaurus/plugin-client-redirects` (13 redirects for compare pages) |
 | Analytics | `gtag` (Google Analytics, `anonymizeIP: true`) |
 | Sitemap | Built-in preset-classic sitemap |
-| Content count | 52 MDX files in `website-v2/docs/`, plus `compare/`, `examples/`, `integrations/` subdirs, plus `src/pages/*.tsx` for landing |
+| Content count | 253 Markdown/MDX files under `website-v2/docs/` total; 48 are top-level docs files, with additional content under `compare/`, `examples/`, `integrations/`, and `releases/`; landing surface is `src/pages/index.tsx`, `src/pages/launch.mdx`, and `src/pages/why.mdx` |
 | Versioning | Not enabled (docs are unversioned today; release notes live as individual pages under `docs/releases/`) |
 | Deploy | GitHub Actions `.github/workflows/deploy-gcs.yml` → GCS bucket serving `agentxchain.dev` |
 | License | Docusaurus MIT; search plugin MIT |
@@ -54,7 +54,7 @@ Derived from current usage patterns and VISION.md implications. Any alternative 
 - **License:** MIT (Meta/Facebook).
 - **Maturity:** v1 2017, v2 2022, v3 2023. Actively maintained, 58k+ GitHub stars, used by React, Jest, Babel, Redux.
 - **Strengths:** MDX 3 + React 19 supported today; plugin ecosystem is the largest of any docs SSG; built-in versioning, i18n, search integrations, redirects, sitemap, blog. `@docusaurus/faster` closes most of the perf gap with Rspack/Turbopack-based alternatives.
-- **Weaknesses:** Heaviest framework; cold builds of 52 docs today take ~15-25s (acceptable); client-side React hydration is comparatively heavy vs partial-hydration alternatives; TypeScript support is layered (works but not first-class the way it is in Fumadocs/Starlight).
+- **Weaknesses:** Heaviest framework; cold builds of the current 253-file docs tree are still acceptable but not measured in this evaluation turn; client-side React hydration is comparatively heavy vs partial-hydration alternatives; TypeScript support is layered (works but not first-class the way it is in Fumadocs/Starlight).
 - **Migration cost:** zero.
 
 #### Fumadocs 15.x
@@ -67,7 +67,7 @@ Derived from current usage patterns and VISION.md implications. Any alternative 
 #### Astro Starlight 0.30.x
 - **License:** MIT.
 - **Maturity:** 2023+. First-class Astro docs framework. ~5k stars on Starlight; Astro itself has 45k+. Used by Bun docs (partial), several large OSS projects.
-- **Strengths:** Smallest shipped JS bundle of any candidate (Astro's partial-hydration means most pages ship zero JS); blazing build times (linear in content size, ~5x faster than Docusaurus cold build at 52-file scale); MDX 3 supported; built-in search (Pagefind, self-hosted, excellent); i18n, versioning-via-sidebar, sitemap all built-in.
+- **Strengths:** Smallest shipped JS bundle of any candidate (Astro's partial-hydration means most pages ship zero JS); build-time profile should be materially better than a React-hydrated Docusaurus site at this content scale; MDX 3 supported; built-in search (Pagefind, self-hosted, excellent); i18n, versioning-via-sidebar, sitemap all built-in.
 - **Weaknesses:** React components inside MDX require the `@astrojs/react` integration (works but is an extra config layer vs Docusaurus's native support); ecosystem smaller than Docusaurus's; landing page patterns more Astro-shaped than React-shaped (would need to port `index.tsx` to `.astro`).
 - **Migration cost:** moderate-to-high. MDX files migrate cleanly; React components inside pages need integration setup; `src/pages/*.tsx` requires rewrite.
 
@@ -96,7 +96,7 @@ Derived from current usage patterns and VISION.md implications. Any alternative 
 
 #### Docmost
 - **License:** AGPL-3.0 (note: copyleft; AGPL network-use clause applies to self-hosted web apps).
-- **Maturity:** 2024+. ~11k stars. Confluence/Notion-style collaborative wiki.
+- **Maturity:** 2024+. ~20k GitHub stars as of GPT 5.4's Turn 174 review. Confluence/Notion-style collaborative wiki.
 - **Shape mismatch:** Docmost is a dynamic web application (Node.js backend + Postgres), NOT a static site generator. Pages are edited in a browser WYSIWYG, stored in a database, served server-side. This is the opposite shape from the project's current repo-native authoring model.
   - **Violates non-negotiable #2** (repo-native authoring via git commits — Docmost edits live in Postgres, not git).
   - **Violates non-negotiable #3** (static output to GCS — Docmost needs a live Node+DB deploy).
@@ -129,7 +129,7 @@ Scoring: ✅ fully satisfied, ⚠️ partial, ❌ not satisfied. Migration cost:
 | Zero-cost new content | ✅ | ✅ | ✅ | ✅ | ❌ UI-bound |
 | Node 20.x-only pipeline | ✅ | ✅ | ✅ | ✅ | ❌ Node+Postgres+Redis |
 | Open source, permissive | ✅ MIT | ✅ MIT | ✅ MIT | ✅ MIT | ⚠️ AGPL |
-| Build perf at 52 files | ⚠️ 15-25s cold, <5s warm | ✅ fast (Rspack) | ✅ fastest | ✅ fast | N/A |
+| Build perf at current docs size | ⚠️ acceptable but not measured this turn | ✅ likely fast | ✅ likely fastest | ✅ likely fast | N/A |
 | Shipped JS bundle size | ⚠️ heavy | ✅ moderate | ✅ lightest | ✅ moderate | N/A |
 | Versioning support | ✅ built-in | ✅ built-in | ⚠️ via sidebars | ✅ built-in | N/A |
 | React 19 support | ✅ | ✅ | ⚠️ via integration | ✅ | N/A |
@@ -139,10 +139,10 @@ Scoring: ✅ fully satisfied, ⚠️ partial, ❌ not satisfied. Migration cost:
 
 For any Tier 1 alternative (Fumadocs, Starlight, Nextra), migration involves:
 
-1. **52 MDX files** — mostly portable as-is; frontmatter syntax varies slightly; import paths for in-docs components change.
+1. **253 Markdown/MDX docs files** — mostly portable as-is, but frontmatter syntax, admonitions, imports, and generated route assumptions need a full-tree migration pass.
 2. **`sidebars.ts`** — in Docusaurus today, must be ported to each tool's sidebar format (Fumadocs: `meta.json` per folder; Starlight: config file; Nextra: `_meta.json`).
 3. **13 redirects** — move from `@docusaurus/plugin-client-redirects` to the target tool's redirect config or host-level redirects.
-4. **`src/pages/*.tsx`** — 3-5 custom landing/why/launch pages. Each needs rewriting in the target tool's page model. Non-trivial.
+4. **`src/pages/*` landing surface** — `index.tsx`, `launch.mdx`, and `why.mdx` need rewriting or framework-specific route handling in the target tool. Non-trivial.
 5. **Search index regeneration** — new search tool means first-user search quality is untested until post-deploy.
 6. **Broken-link discovery** — Docusaurus's `onBrokenLinks: 'throw'` catches these today. New tool may have different link graph and need re-audit.
 7. **Analytics + sitemap + favicon + OG metadata** — all config-per-tool. Non-trivial.
@@ -150,7 +150,7 @@ For any Tier 1 alternative (Fumadocs, Starlight, Nextra), migration involves:
 9. **Test surface** — any repo tests that grep or parse `/website-v2/docs/` content (e.g., release-note regression tests) may break depending on output-path changes.
 10. **Cross-linking from release notes, CLI output, and marketing posts** — any hardcoded `/docs/foo` URL would need re-verification.
 
-Realistic estimate: **1-2 full agent turns dedicated to migration + 1 turn for post-migration regression fixes**. Not catastrophic, but not free either.
+Realistic estimate: **2-3 full agent turns dedicated to migration + 1 turn for post-migration regression fixes**. Not catastrophic, but materially larger than a top-level-file count implies.
 
 ## Recommendation
 
@@ -160,14 +160,14 @@ Rationale:
 1. **Current stack already satisfies OSS-first.** Docusaurus is MIT, self-hosted, zero SaaS dependencies (search is `docusaurus-search-local`, no Algolia), and produces static output deployable to commodity infrastructure. The OSS-first principle is already honored.
 2. **No named pain point on the incumbent.** Nothing in AGENT-TALK, HUMAN-ROADMAP, or recent turns points to a concrete Docusaurus limitation that's blocking work. "Evaluate OSS options" is a principle, not a pain report. Migration without a named pain is churn.
 3. **Docmost is the wrong shape.** It's a wiki app, not a docs SSG. Including it in the original principle statement was likely a "candidate to examine" nudge rather than a directed recommendation. Examined and rejected for the public docs surface.
-4. **Tier 1 competitors are credible but not dramatically better.** Fumadocs and Starlight would modestly improve bundle size and build time, but at a 1-2 turn migration cost plus an ongoing ecosystem-maturity tax (smaller plugin pools, fewer production references). Docusaurus's `@docusaurus/faster` closes most of the build-perf gap. The trade is not yet favorable.
+4. **Tier 1 competitors are credible but not dramatically better.** Fumadocs and Starlight would likely improve bundle size and build time, but at a 2-3 turn migration cost plus an ongoing ecosystem-maturity tax (smaller plugin pools, fewer production references). Docusaurus's `@docusaurus/faster` closes enough of the build-perf gap for the current pain level. The trade is not yet favorable.
 5. **Agent-native authoring is already optimal.** Agents edit MDX and commit. Any migration preserves this; none of the Tier 1 alternatives meaningfully improves it.
-6. **52 files is under the breakpoint.** Below ~100 docs, migration pain is moderate; above ~500 docs, pain is severe. We are comfortably in the "can migrate later if ever needed" zone. Doing it now is premature.
+6. **253 docs files is still below the pain threshold for the incumbent, but no longer a casual migration.** The repo is large enough that a stack swap would need planned regression proof, but not so large that Docusaurus is creating an operational bottleneck. Doing it now is premature.
 
 ## When to re-evaluate
 
 Re-evaluate if any of these land:
-1. **Build time > 60s cold on the CI runner.** Currently ~15-25s; acceptable. At 60s, the `@docusaurus/faster` preset is saturating and Rspack/Turbopack-native tools become worth the migration.
+1. **Build time > 60s cold on the CI runner.** This evaluation did not measure a fresh CI-equivalent cold build. At 60s, the `@docusaurus/faster` preset is saturating and Rspack/Turbopack-native tools become worth the migration.
 2. **A specific Docusaurus limitation blocks a roadmap feature.** E.g., versioning story becomes required for protocol v8+ docs and Docusaurus's versioning is insufficient.
 3. **Shipped JS bundle becomes a marketing problem.** If competitors (Fumadocs, Starlight) ship pages with 10x smaller JS and this becomes a visible DX/SEO differentiator.
 4. **The agent-native workflow evolves to want a collaborative editing surface.** If agents want a wiki-like realtime-collab surface (not likely for the public product docs, but possible for an internal agent-collaboration knowledge base), re-examine Docmost or similar for that separate surface — do NOT replace the public docs with it.
@@ -178,6 +178,18 @@ Re-evaluate if any of these land:
 1. **Consider a Docmost-style internal agent knowledge base as a SEPARATE surface** — not as a replacement for `website-v2/`. The agents already use `.planning/*.md` as a git-tracked shared memory; moving any of that to a Docmost instance would fragment the system-of-record. Deferred — not recommended unless the current `.planning/` surface develops concrete pain.
 2. **Enable Docusaurus versioning for protocol docs** — `SPEC-GOVERNED-v5.md` and `PROTOCOL-v7.md` live in `.planning/`, but when they graduate to public docs with multiple protocol versions live simultaneously, Docusaurus's built-in versioning becomes the recommended approach. Deferred — not needed yet.
 3. **Evaluate Pagefind as a drop-in replacement for `docusaurus-search-local`.** Starlight's search UX is noticeably better. Pagefind is framework-agnostic and could be integrated into Docusaurus as a standalone post-build step. Low-risk experiment if search UX becomes a complaint.
+
+## GPT 5.4 review addendum (Turn 174)
+
+Recommendation review: **accept stay-put, no DEC.** The corrected docs-tree size strengthens the no-migration recommendation rather than weakening it: 253 docs files makes a framework swap a planned migration with regression proof, not a casual cleanup. It also means the original "52-file migration" language was too soft and has been corrected above.
+
+Current upstream spot-checks:
+
+- **Docmost:** official installation requires Docker plus a live app service backed by Postgres and Redis, and the editor depends on WebSockets (`https://docmost.github.io/docs/installation/`). The GitHub repository identifies Docmost as collaborative wiki/documentation software and lists AGPL-3.0 for the core (`https://github.com/docmost/docmost`). Claude's shape-mismatch conclusion is correct.
+- **Fumadocs:** official setup for Next.js creates content config, a Next MDX plugin, docs routes, and an API search route (`https://www.fumadocs.dev/docs/manual-installation/next`). That is a credible React/MDX docs stack, but it is a framework migration, not a drop-in Docusaurus theme swap.
+- **Pagefind:** official docs say Pagefind runs after any static generator, indexes the generated static HTML output, and has no server component (`https://pagefind.app/docs/`). It is genuinely compatible with Docusaurus's static build shape, but the current search plugin has no named complaint, so Pagefind stays a later low-risk experiment rather than work to do now.
+
+Decision boundary: do **not** write `DEC-DOCS-STACK-STAY-ON-DOCUSAURUS-001` now. A DEC would add process weight without resolving a live disagreement. Promote this advisory to a DEC only if a future agent proposes migration, search replacement, or a Docmost/internal-KB deployment.
 
 ## Non-decisions (deliberately not made here)
 
