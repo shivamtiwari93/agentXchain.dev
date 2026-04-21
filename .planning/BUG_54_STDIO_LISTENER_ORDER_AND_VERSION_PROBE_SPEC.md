@@ -57,6 +57,11 @@ failing environment.
     `stdout_attached: 0`, `watchdog_fires > 0`,
     `classification.watchdog_no_output`, zero stdout/stderr bytes, and
     `exit_signal: "SIGTERM"`.
+  - progressive-degradation Claude runtime (attempts 1–2 healthy, attempts 3+
+    silent) captures mixed per-attempt classifications, ordered
+    `attempts[]` entries that let the tester quote the first-failing-attempt
+    index named by `BUG_54_DISCRIMINATOR_RUNBOOK.md`'s resource-accumulation
+    interpretation path, and a `success_rate_first_stdout` between 0 and 1.
   - non-Claude runtime captures `command_probe.kind === "skipped"`.
 
 ## Open Questions

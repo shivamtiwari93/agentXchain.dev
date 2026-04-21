@@ -284,6 +284,92 @@ test('reproduce-bug-54: exit_clean_with_stdout (control) reports stdout + exit 0
   }
 });
 
+test('reproduce-bug-54: progressive-degradation Claude shim produces per-attempt classifications matching the "first failure at attempt N" discriminator path', () => {
+  // Mirrors the BUG_54_DISCRIMINATOR_RUNBOOK.md interpretation path:
+  // "First attempts healthy, later attempts failing means resource accumulation
+  // is still plausible. Quote the attempt index where the first failure appears."
+  //
+  // Fixture shim: attempts 1–2 return `READY attempt N` + exit 0; attempts 3+
+  // silently sleep past the watchdog. Uses a filesystem counter so the shim
+  // is stateful across the four separate spawn() calls the repro script makes.
+  const dir = makeFixture({});
+  const counterFile = join(dir, 'attempt-count');
+  const shimPath = join(dir, 'claude');
+  writeFileSync(shimPath, `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  printf '2.1.87-progressive-test (Claude Code)\\n'
+  exit 0
+fi
+N=$(cat ${JSON.stringify(counterFile)} 2>/dev/null || printf '0')
+N=$((N + 1))
+printf '%s' "$N" > ${JSON.stringify(counterFile)}
+if [ "$N" -le 2 ]; then
+  printf 'READY attempt %s\\n' "$N"
+  exit 0
+fi
+# attempts 3+ silently hang until the watchdog fires
+exec ${JSON.stringify(process.execPath)} -e "setInterval(() => {}, 10000)"
+`);
+  chmodSync(shimPath, 0o755);
+  writeFileSync(
+    join(dir, 'agentxchain.json'),
+    JSON.stringify({
+      runtimes: {
+        'claude-runtime': {
+          type: 'local_cli',
+          command: [shimPath, '--print'],
+          prompt_transport: 'stdin',
+        },
+      },
+    }, null, 2),
+  );
+  try {
+    const payload = runRepro(dir, [
+      '--runtime', 'claude-runtime',
+      '--synthetic', 'x',
+      '--attempts', '4',
+      '--watchdog-ms', '500',
+      '--delay-ms', '0',
+    ]);
+
+    // Version probe must still succeed — the shim answers --version cleanly
+    // so the runbook's "missing command_probe means stale package" interpretation
+    // path cannot be confused with this one.
+    assert.equal(payload.command_probe.kind, 'claude_version');
+    assert.equal(payload.command_probe.status, 0);
+    assert.match(payload.command_probe.stdout, /2\.1\.87-progressive-test/);
+
+    // Summary must expose the mixed shape exactly — this is the quote-back the
+    // tester uses to name "first failing attempt index" under the runbook.
+    assert.equal(payload.summary.total, 4);
+    assert.equal(payload.summary.spawn_attached, 4);
+    assert.equal(payload.summary.stdout_attached, 2);
+    assert.equal(payload.summary.watchdog_fires, 2);
+    assert.equal(payload.summary.success_rate_first_stdout, 0.5);
+    assert.equal(payload.summary.classification.exit_clean_with_stdout, 2);
+    assert.equal(payload.summary.classification.watchdog_no_output, 2);
+
+    // Per-attempt ordering matters: the runbook asks the tester to quote
+    // "the attempt index where the first failure appears". That is only
+    // readable from the ordered attempts[] list, so lock it here.
+    assert.equal(payload.attempts.length, 4);
+    assert.equal(payload.attempts[0].classification, 'exit_clean_with_stdout');
+    assert.match(payload.attempts[0].stdout, /READY attempt 1/);
+    assert.equal(payload.attempts[1].classification, 'exit_clean_with_stdout');
+    assert.match(payload.attempts[1].stdout, /READY attempt 2/);
+    assert.equal(payload.attempts[2].classification, 'watchdog_no_output');
+    assert.equal(payload.attempts[2].watchdog_fired, true);
+    assert.equal(payload.attempts[2].stdout_bytes, 0);
+    assert.equal(payload.attempts[2].exit_signal, 'SIGTERM');
+    assert.equal(payload.attempts[3].classification, 'watchdog_no_output');
+    assert.equal(payload.attempts[3].watchdog_fired, true);
+    assert.equal(payload.attempts[3].stdout_bytes, 0);
+    assert.equal(payload.attempts[3].exit_signal, 'SIGTERM');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('reproduce-bug-54: header captures redacted args, env-presence flags, and prompt-source kind', () => {
   const dir = makeFixture({
     'argv-runtime': {
