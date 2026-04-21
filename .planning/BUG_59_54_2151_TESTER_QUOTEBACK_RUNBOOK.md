@@ -88,16 +88,52 @@ equivalent generated non-credentialed guard. If the ledger has no
 ## BUG-59 Credentialed Negative Path
 
 This verifies that `credentialed: true` remains a hard stop even under the
-same auto-approval policy. Use a throwaway branch or backup the config first:
+same auto-approval policy. `agentxchain.json` is tracked by git in
+`tusq.dev`, so this path MUST NOT leave the file mutated on disk. The
+recipe below wraps mutate → run → quote → restore in a single `bash`
+subshell with an `EXIT INT TERM` trap so the config is restored on
+successful exit, on error under `set -eu`, and on Ctrl-C:
 
 ```bash
-cp agentxchain.json /tmp/agentxchain.bug59.credentialed-backup.json
-node -e 'const fs=require("fs"); const p="agentxchain.json"; const c=JSON.parse(fs.readFileSync(p,"utf8")); c.gates ||= {}; c.gates.qa_ship_verdict ||= {}; c.gates.qa_ship_verdict.credentialed = true; fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");'
+bash <<'BUG59_NEGATIVE'
+set -eu
+BACKUP="$(mktemp -t agentxchain.bug59.backup.XXXXXX.json)"
+cp agentxchain.json "$BACKUP"
+trap 'cp "$BACKUP" agentxchain.json && rm -f "$BACKUP"' EXIT INT TERM
+
+node <<'MUTATE'
+const fs = require('fs');
+const p = 'agentxchain.json';
+const c = JSON.parse(fs.readFileSync(p, 'utf8'));
+c.gates ||= {};
+c.gates.qa_ship_verdict ||= {};
+c.gates.qa_ship_verdict.credentialed = true;
+fs.writeFileSync(p, JSON.stringify(c, null, 2) + '\n');
+MUTATE
+
 npx --yes -p agentxchain@2.151.0 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+
 jq '{status, phase, pending_run_completion, blocked_on, last_gate_failure}' .agentxchain/state.json
 jq -c 'select(.type == "approval_policy") | {timestamp, gate_type, gate_id, action, reason, matched_rule}' .agentxchain/decision-ledger.jsonl
-cp /tmp/agentxchain.bug59.credentialed-backup.json agentxchain.json
+BUG59_NEGATIVE
+
+# Post-check — must print nothing. If it warns, the trap did not fire
+# cleanly; restore from the latest /tmp/agentxchain.bug59.backup.*.json
+# before doing anything else.
+git diff --quiet agentxchain.json || echo 'WARNING: agentxchain.json still differs from HEAD; restore from the most recent /tmp/agentxchain.bug59.backup.*.json file before continuing'
 ```
+
+Why the trap and not a plain `cp` at the end: if the tester hits Ctrl-C
+during the `npx` run (normal reaction when a credentialed gate correctly
+blocks and they want to stop), the final `cp` never executes and the
+config stays dirty. The `EXIT INT TERM` trap guarantees restore on every
+termination path the tester can plausibly take.
+
+`isCredentialedGate(config, gateId)` in `cli/src/lib/approval-policy.js`
+runs before any rule evaluation and only needs
+`config.gates.qa_ship_verdict.credentialed === true` to trigger the hard
+stop, so the mutation above is the minimal valid negative-case setup —
+no `requires_human_approval` or other fields need to be added.
 
 Required negative evidence:
 
@@ -106,8 +142,9 @@ Required negative evidence:
 - The status output names the human approval path instead of silently
   completing the run.
 
-If the one-line config edit creates unrelated dirty-worktree friction, quote
-that and stop; do not manually patch state to force the negative case.
+If the heredoc sequence fails before the trap fires (e.g., `cp` itself
+errors), quote what you see and stop; do not manually patch state to
+force the negative case.
 
 ## BUG-54 Ten-Dispatch Watchdog Quote-Back
 
@@ -119,13 +156,20 @@ path is the normal dogfood flow:
 npx --yes -p agentxchain@2.151.0 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
 ```
 
-If `tusq.dev` has no derivable work, use the installed-package diagnostic as a
-timing boundary check for the effective runtime instead:
+If `tusq.dev` has no derivable work, use the published-package diagnostic as a
+timing boundary check for the effective runtime instead. `npx --yes -p`
+does not install under `npm root` (neither local nor global), so extract
+the v2.151.0 repro harness directly from the registry tarball and run it
+from the `tusq.dev` repo root so it auto-discovers the project's
+`agentxchain.json` and configured runtimes:
 
 ```bash
-REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"
-[ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"
-node "$REPRO" --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-v2-151-0.json
+REPRO_DIR="$(mktemp -d -t agentxchain-bug54-repro.XXXXXX)"
+curl -fsSL https://registry.npmjs.org/agentxchain/-/agentxchain-2.151.0.tgz \
+  | tar -xzC "$REPRO_DIR"
+node "$REPRO_DIR/package/scripts/reproduce-bug-54.mjs" \
+  --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-v2-151-0.json
+rm -rf "$REPRO_DIR"
 jq '{command_probe, summary}' /tmp/bug54-v2-151-0.json
 jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-v2-151-0.json
 ```
