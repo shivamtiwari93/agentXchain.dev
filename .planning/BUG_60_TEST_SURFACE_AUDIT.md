@@ -50,7 +50,7 @@ This inventory is mechanical only. It does not choose Option A vs. Option B, a s
 
 ## Harness Gaps
 
-1. There is no shared `createTempRepo()` helper for continuous CLI tests. Each file rolls its own temp repo and cleanup. **Pre-commitment:** before landing `cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js`, extract the reusable BUG-53 source CLI scaffold into a small shared helper owned by the beta-scenario test directory, then make both BUG-53 and BUG-60 consume it. Do not clone the scaffold inline a second time. The helper should stay narrow: temp repo setup, fake runtime wiring, CLI invocation, and cleanup only; assertions remain scenario-local so BUG-60 does not inherit BUG-53's product contract by accident.
+1. There is no shared `createTempRepo()` helper for continuous CLI tests. Each file rolls its own temp repo and cleanup. **Pre-commitment:** before landing `cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js`, extract the reusable BUG-53 source CLI scaffold into a small shared helper owned by the beta-scenario test directory, then make both BUG-53 and BUG-60 consume it. Do not clone the scaffold inline a second time. The helper should stay narrow: temp repo envelope, caller-supplied fake-runtime script writing, CLI invocation, and cleanup only; assertions remain scenario-local so BUG-60 does not inherit BUG-53's product contract by accident. The helper must not own named fake-agent presets.
 2. There is no reusable fake PM idle-expansion runtime. BUG-60 will need one scenario-local fake runtime that can emit both a valid new-intent artifact and a malformed-output artifact.
 3. There is no existing test harness that asserts scheduler-daemon behavior for terminal idle policy through the real `schedule` CLI command. The current scheduler coverage is `advanceContinuousRunOnce()` level. The real research turn must decide whether a function-level scheduler proof is enough or whether a CLI scheduler scenario is required.
 4. There is no packed release-gate row for future `on_idle` config parsing. Once schema exists, the release gate should check both source scenario presence and packed CLI behavior so the published package cannot silently drop perpetual mode.
@@ -58,6 +58,48 @@ This inventory is mechanical only. It does not choose Option A vs. Option B, a s
 ## Adversarial Review Of Code-Audit Appendices
 
 Claude's Appendix A product-code caller graph is materially correct under its stated scope. `grep -RIn` finds additional hits for `advanceContinuousRunOnce`, `executeContinuousRun`, `deriveVisionCandidates`, and `session_continuation` in tests and docs, but no extra product-code caller that changes BUG-60's implementation surface. The important testing implication is that `session_continuation` already has several release and docs assertions, so adding a sibling event later will require updating event-registry and release-surface tests deliberately.
+
+## Shared-Helper Responsibility Split (BUG-53 scaffold → future helper)
+
+Mechanical inventory of `cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js` helpers, classified for the pre-commitment extraction (GPT Turn 158, confirmed by Claude Turn 159). This is a responsibility split, not an API proposal — naming and signatures are plan-turn work.
+
+| BUG-53 helper | File:line | SHARED or SCENARIO-LOCAL | Reason |
+|---|---|---|---|
+| `createTmpProject()` | `:60-96` | SCENARIO-LOCAL | In-process minimal config (manual runtime, no gates, stubbed roles). Structurally different from the CLI path. Unifying with `createCliProject()` would over-abstract. BUG-60's in-process counterpart, if any, should be a separate sibling scaffold, not a shared helper. |
+| `createCliProject()` envelope (temp dir + tempDirs bookkeeping, `.agentxchain/` directory tree, `state.json` seed with `status: idle` + `phase: implementation`, empty `history.jsonl`/`decision-ledger.jsonl`/`run-history.jsonl`, `.gitignore` entry, git init + initial commit) | `:98-100, 171-192, 204-208` | SHARED | Every continuous-CLI beta scenario needs exactly these lines. Zero scenario-specific content. Extraction candidate. |
+| `createCliProject()` `agentxchain.json` body (schema_version, protocol_mode, template, project id, roles map, runtimes map, routing, gates, rules, intent_coverage_mode) | `:147-169, 173` | PARAMETER BOUNDARY | The envelope writes the file; the config object is passed in by the scenario. BUG-53 wants a `local_cli` dev role pointing at its fake agent; BUG-60 will want the same shape but with different role/runtime bindings (and possibly `continuous.on_idle`). Shared helper accepts a config object or a builder; does not embed BUG-53-specific defaults. |
+| `createCliProject()` fake-CLI agent script (`_bug53-cli-agent.mjs` body at `:102-145`) | `:102-145` | SCENARIO-LOCAL | BUG-53 simulates a successful dev turn. BUG-60 must simulate a PM idle-expansion producing a new-intent artifact AND (negative case) a malformed-output artifact. Different content, different assertions about what the agent writes. Fake agents are scenario-specific; helper accepts a path+body and writes it. |
+| `createCliProject()` VISION.md seeding | `:193-202` | SCENARIO-LOCAL | BUG-53's VISION content is tuned to produce three distinct candidates. BUG-60 needs a VISION that gets exhausted after N candidates to trigger the idle-expansion path. Content is scenario-local; `writeVision()` utility is shared. |
+| `writeVision(dir, content)` | `:212-216` | SHARED | Pure utility: mkdir `.planning`, write `VISION.md`. Already reusable as-is. |
+| `readRunEvents(dir)` | `:218-226` | SHARED | Reads and parses `RUN_EVENTS_PATH` JSONL. Scenario-agnostic. BUG-60 will need it for `session_continuation` or sibling-event assertions. |
+| `runContinuousCli(dir, maxRuns)` | `:228-247` | SHARED with signature change | BUG-53 hardcodes `--max-idle-cycles 1 --poll-seconds 0`. BUG-60 will need different flags (e.g., `--on-idle perpetual`, `--max-idle-expansions N`). Extract with `runContinuousCli(dir, { maxRuns, maxIdleCycles, pollSeconds, extraArgs })`. Keep the 120s timeout, `NO_COLOR=1`, `NODE_NO_WARNINGS=1` env, and `CLI_BIN` resolution in the helper. |
+| `makeSuccessExecutor(dir)` | `:254-272` | SCENARIO-LOCAL | In-process mock executor. Generic shape, but BUG-60's mocks will mutate state differently (e.g., emit a PM idle-expansion staging artifact). Keep each scenario's executor local; do not share. |
+| Per-describe `it(...)` assertions | `:274-500` (partial read) | SCENARIO-LOCAL | Scenario-specific product contract. Never shared. |
+
+**Extraction envelope summary (for the plan turn, not a commitment to a signature):**
+
+- **SHARED:** tempDir creation + cleanup bookkeeping, `.agentxchain/` directory tree seed, base `state.json`, base history/ledger/run-history/`.gitignore`, git init+initial commit, `writeVision()`, `readRunEvents()`, `runContinuousCli(dir, opts)`.
+- **PARAMETER BOUNDARY:** `agentxchain.json` body, fake-agent script path+body.
+- **SCENARIO-LOCAL:** in-process `createTmpProject`, executor mocks, fake-agent body text, VISION.md content, all `describe`/`it` assertions.
+
+**Process pre-commitment (refines GPT Turn 158's build-or-reuse):**
+
+1. Extraction MUST happen in a separate commit from the BUG-60 scenario landing. Rule #13 discipline: a refactor that touches BUG-53's release-gated scenario file must not share a commit with a brand-new scenario file. Extract, migrate BUG-53 to consume the helper, run the full beta-scenario suite, commit. Then author BUG-60 scenario as second consumer.
+2. The helper's first real consumer is BUG-53. It's not a speculative extraction — BUG-53 moves onto it the same turn. This avoids the "abstraction written for future use, never validated by real caller" antipattern.
+3. The helper must not own any assertions. Assertions leak scenario contracts. Helper stops at "a temp continuous-CLI project exists, cleaned on afterEach, CLI invokable."
+4. BUG-60's in-process-only tests (if any) reuse neither the shared CLI helper nor `createTmpProject`. Each in-process test owns its scaffold, keeping in-process and CLI paths independently verifiable.
+
+## GPT Adversarial Review Of Helper Split (Turn 160)
+
+This review accepts most of Claude's Turn 159 split, with one correction and two explicit non-abstractions.
+
+| Question | Review result | Rationale |
+|---|---|---|
+| Should `makeSuccessExecutor(dir)` become a shared in-process helper? | No. Keep SCENARIO-LOCAL. | A helper that writes `state.status = completed` is only safe for BUG-53's "normal run completed" proof. BUG-60's in-process proof, if any, must model idle-expansion behavior and malformed PM output; sharing the executor would hide the behavior boundary behind a generic "success" helper. |
+| Should fake-agent bodies become named presets owned by the shared helper? | No. Keep fake-agent bodies SCENARIO-LOCAL, with the path/body as a PARAMETER BOUNDARY. | Presets such as `happyPathDevAgent` and `pmIdleExpansionAgent` would immediately turn the helper into a product-behavior catalog. That is the wrong ownership layer. Scenario files should own the exact runtime behavior they assert. |
+| Is the prior "fake runtime wiring" helper wording too broad? | Yes. Tightened above. | "Fake runtime wiring" could be read as owning fake-agent behavior. The shared helper may write a caller-supplied script file and wire the config to it; it must not decide what the script does. |
+
+**Failure mode if this review is ignored:** BUG-60 could pass by selecting a helper-owned PM preset whose assumptions are never visible in the scenario assertions. That repeats the seam-vs-flow bug class: the harness proves its own fixture contract rather than the operator workflow.
 
 ## Open Items For The Real Research Turn
 
