@@ -36,10 +36,13 @@ Quote: each `session_continuation <previous_run_id> -> <next_run_id>
 
 ## BUG-54: Local CLI Spawn/attach Reliability
 
-Run inside the failing worktree:
+Run inside the failing worktree. The diagnostic ships inside the installed
+`agentxchain` package — resolve its path without depending on the repo layout:
 
 ```bash
-node cli/scripts/reproduce-bug-54.mjs --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json
+REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"
+[ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"
+node "$REPRO" --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json
 ```
 
 Quote from JSON: `command_probe.status`, `command_probe.stdout`,

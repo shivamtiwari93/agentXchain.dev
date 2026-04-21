@@ -50,7 +50,9 @@ describe('BUG-52/53/54/55 tester unblock runbook content', () => {
     for (const command of [
       'agentxchain accept-turn --turn <accepted_turn_id> && agentxchain checkpoint-turn --turn <accepted_turn_id> && agentxchain unblock <hesc_id> && agentxchain resume',
       'agentxchain run --continuous --max-runs 3',
-      'node cli/scripts/reproduce-bug-54.mjs --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json',
+      'REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"',
+      '[ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"',
+      'node "$REPRO" --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json',
       'agentxchain accept-turn --turn <qa_turn_id> && agentxchain checkpoint-turn --turn <qa_turn_id> && git status --short',
     ]) {
       assert.match(RUNBOOK, escapedRegExp(command), `runbook must include command: ${command}`);
@@ -84,6 +86,19 @@ describe('BUG-52/53/54/55 tester unblock runbook content', () => {
     ]) {
       assert.match(RUNBOOK, escapedRegExp(marker), `BUG-53 marker missing: ${marker}`);
     }
+  });
+
+  it('resolves the BUG-54 repro script from an installed package, not the repo layout', () => {
+    // Testers reproduce BUG-54 inside their own project worktree where the
+    // `cli/` directory does not exist. The runbook must resolve the script
+    // out of the installed `agentxchain` package so the command works as-is
+    // against `agentxchain@2.150.0`. Guard against regressing to the
+    // repo-relative path.
+    assert.doesNotMatch(
+      RUNBOOK,
+      /(^|[^"\w])node\s+cli\/scripts\/reproduce-bug-54\.mjs/m,
+      'runbook must not tell testers to run node cli/scripts/reproduce-bug-54.mjs; that path exists only in the agentXchain.dev repo',
+    );
   });
 
   it('locks BUG-54 discriminator quote fields', () => {
