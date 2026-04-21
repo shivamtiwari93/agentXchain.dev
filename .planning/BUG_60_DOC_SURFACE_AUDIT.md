@@ -89,3 +89,41 @@ After tester quote-back on BUG-59 lands, the research turn extends this file (or
 2. The chosen terminal-status vocabulary (collapses MIGHT-TOUCH rows 1 and 2).
 3. The PM-idle-expansion prompt text (lands as a new scaffold artifact, referenced by the extended CLI config docs).
 4. Draft copy for the MUST-CHANGE row 1 (lights-out "how the loop stops") — since that surface has the highest operator-visibility.
+
+---
+
+## BUG-60 Release-Note Claim-Reality Matrix (added Turn 163, Rule #9 + Rule #13 prep)
+
+**Status:** Factual shape only. Concrete flag names, event names, and terminal-status spellings are deliberately unresolved (plan turn owns those). Every row below states the *category* of claim the BUG-60 release note will make, and the *category* of packed-CLI assertion that must prove it. When the plan turn picks names, each row collapses to one concrete release-note line + one concrete `cli/test/claim-reality-preflight.test.js` assertion or beta-scenario child-process assertion.
+
+**Purpose:** Prevent the BUG-52 / BUG-56 false-closure pattern. A release note claim that ships without a packed-CLI assertion is exactly how v2.147.0's "reconcile phase gates before redispatch" shipped green while failing the operator's real sequence. Rule #9 (packaged preflight) + Rule #12 (command-chain integration) + Rule #13 (positive-case regression) together require every forward-claim in the release note to have a matching shipped-binary assertion.
+
+**Scope restriction:** This matrix does NOT author release-note copy. It enumerates the proof surfaces. The plan turn writes the actual text; the implementation turns land the assertions.
+
+| # | Release-note claim category (what the v2.X.Y note will say) | Packed-CLI assertion category (what a shipped-binary test must prove) | Test surface |
+|---|---|---|---|
+| 1 | Default idle behavior unchanged — existing projects keep bounded idle-exit semantics without reconfiguration. | Run an installed `agentxchain@<BUG-60 release>` continuous session with NO new flags, empty vision after 1 run → session exits with the existing bounded terminal status (whichever name — `completed` / `idle_exit` — is load-bearing today). The existing BUG-53 packed-CLI scenario (`bug-53-continuous-auto-chain.test.js`) MUST still pass against the new shipped tarball with no edits. | `cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js` (unchanged) AND the BUG-53 row in `claim-reality-preflight.test.js` (if one exists today; if not, the preflight must acquire a BUG-53-style row). |
+| 2 | New opt-in perpetual idle policy — when configured, idle threshold triggers PM-synthesized next increment instead of terminating. | Run an installed `agentxchain@<BUG-60 release>` continuous session WITH the new perpetual-mode config flag(s) set, mocked vision producing 1 candidate, fake PM-expansion producing 1 new intent → assert session completes ≥2 chained runs where run N+1's seed intent was produced by PM idle-expansion, not pre-existing. Child-process `execFileSync('agentxchain', [...])` per Rule #12. | New `cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js` (positive case). |
+| 3 | Opt-in only; no silent default change. | Grep-shape assertion in claim-reality preflight: the packed default config fixture contains the "exit" spelling (or equivalent bounded marker) and does NOT contain the "perpetual" spelling in any default-seeded config file. If the plan turn lands a default-generator change, this assertion catches a silent-default regression. | `cli/test/claim-reality-preflight.test.js` — new row `BUG-60 default idle policy is bounded in scaffolded config`. |
+| 4 | Budget cap honored in perpetual mode — `per_session_max_usd` blocks before any PM-expansion dispatch can spend. | Packed-CLI scenario with perpetual mode enabled, `per_session_max_usd` set to a value already exceeded by prior-session cost ledger → assert session terminates with the budget terminal status BEFORE any PM-expansion event appears in the event log. Ordering assertion, not just presence. | New negative-case branch in `bug-60-perpetual-idle-expansion.test.js` OR a sibling `bug-60-perpetual-budget-cap.test.js`. |
+| 5 | `max_idle_expansions` bounds perpetual loops — N consecutive failed/malformed PM expansions stop the session. | Packed-CLI scenario with perpetual mode enabled, fake PM producing malformed output, `max_idle_expansions` set to 1 → assert session terminates with the expansion-exhausted terminal status after exactly 1 failed expansion, NOT infinite loop. Timeout-bounded child-process assertion. | Negative-case in `bug-60-perpetual-idle-expansion.test.js`. |
+| 6 | PM-declared vision exhaustion distinct from expansion-exhausted and from bounded termination. | Packed-CLI scenario where fake PM returns structured "vision_exhausted" output → assert session terminates with the PM-exhaustion terminal status, distinct string/field from the other four terminal statuses enumerated in `DEC-BUG60-IDLE-EXPANSION-OBSERVABILITY-001` (Terminal State Contract). | Third positive-case branch in `bug-60-perpetual-idle-expansion.test.js`. |
+| 7 | VISION.md immutability preserved — PM idle-expansion does not modify the vision file. | Packed-CLI scenario with perpetual mode enabled, vision file SHA snapshot taken pre-run, assert SHA unchanged after N PM idle-expansions. Guards against the PM override prompt "helpfully" rewriting vision as it synthesizes next increments. | Assertion inside the positive-case `bug-60-perpetual-idle-expansion.test.js`. |
+| 8 | Event trail observable — operators can trace idle-expansion events in run-event JSONL and `recent-event-summary.js` output. | Packed-CLI scenario asserts run-event JSONL contains chosen event names (dispatch/accept/exhaust/malformed) AND `recent-event-summary.js` renders them with non-empty summary text (no "Unknown event" fallback). Separate from Terminal State Contract (matrix row 1–6). | Event Trail Contract assertion in `bug-60-perpetual-idle-expansion.test.js`. |
+| 9 | No change to `cli/src/lib/` public interfaces that BUG-53 / BUG-54 / BUG-55 / BUG-56 / BUG-57 proof surfaces depend on. | Full beta-tester-scenarios suite AND the full `claim-reality-preflight.test.js` suite pass against the packed BUG-60 tarball. Regression of ANY prior row blocks the release. | Release gate: all of `cli/test/beta-tester-scenarios/` plus `cli/test/claim-reality-preflight.test.js`, run against the pack-installed binary per `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001`. |
+
+### Anti-false-closure checklist (row-independent)
+
+The matrix above assumes the plan turn, implementation turns, and release-cut turn respect:
+
+- **Every row's assertion runs against the packed tarball**, not the source tree. The packaged-preflight discipline from BUG-47..51 and BUG-56 applies. If a row's test only runs in-tree, it's evidence-collection, not release proof.
+- **Every row names a distinguishable terminal status or event**, not a shared "success" bit. BUG-52's false closure shipped because a seam-test asserted a function return value; the operator's real chain still hit the bug because the observable end-state was never asserted.
+- **Positive AND negative cases land together.** Per Rule #13, rows 2, 4, 5, 6 each need both a success-shape and a failure-shape assertion. Shipping only the positive case re-creates BUG-56's "gate passes in CI but fails in reality" pattern.
+- **No row collapses into another at implementation time without a DEC note.** If the plan turn decides rows 4 + 5 share a single test file, the audit trail needs a line saying why. Row collapse without justification is the BUG-52 pattern of "assert what's convenient, not what the operator sees."
+
+### What this matrix does NOT do
+
+- Does NOT pick the spelling of any terminal status, event name, or config flag. Names are plan-turn commitments.
+- Does NOT author any release-note copy. That's plan-turn + release-cut work.
+- Does NOT enumerate every assertion; only the release-claim → test-surface pairings. Detailed per-test assertion lists belong in `BUG_60_TEST_SURFACE_AUDIT.md`.
+- Does NOT resolve whether rows 4–6 share one test file or split. Plan turn decides.
