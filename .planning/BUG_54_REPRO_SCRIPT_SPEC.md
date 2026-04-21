@@ -14,6 +14,9 @@ shipping one.
 ## Interface
 
 - `cli/scripts/reproduce-bug-54.mjs`
+- Shipped package path for tester runs:
+  `$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs`, with
+  `$(npm root -g)` as the global-install fallback.
 - `cli/src/lib/adapters/local-cli-adapter.js`
 - `cli/test/reproduce-bug-54-script.test.js`
 
@@ -77,9 +80,13 @@ shipping one.
     synthetic prompt must complete and emit a JSON payload. This is a manual
     AGENT-TALK evidence step, not a CI gate, because auth/runtime availability
     is machine-specific.
+- Tester-facing runbooks and release notes must resolve the script from the
+  installed `agentxchain` package via `npm root`, not from a repo-relative
+  `cli/` path. Testers reproduce inside their own project worktree, where the
+  AgentXchain.dev repo layout is not present.
 
 ## Open Questions
 
-- Whether a future release-boundary test should pack and exercise the repro
-  script itself. Current position: no, because the script is a repo-side
-  diagnostic for tester environments, not shipped runtime behavior.
+- Whether a future release-boundary test should execute the installed-package
+  repro script itself. Current position: no, because the script is a diagnostic
+  artifact shipped for tester environments, not normal runtime behavior.

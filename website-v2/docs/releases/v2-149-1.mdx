@@ -52,7 +52,7 @@ title: "v2.149.1 Release Notes"
 
 ## Operator Notes
 
-- The BUG-54 reproduction harness is a repo-side diagnostic. Tester runs it directly from the repo checkout inside the failing worktree, then attaches the resulting JSON. It is not a shipped runtime feature of the npm package. The shipped runtime features in `v2.149.1` are the fail-fast auth-preflight contract and the richer `process_exit` forensic fields.
+- The BUG-54 reproduction harness is a diagnostic artifact shipped in the npm package. Testers should resolve it from the installed `agentxchain` package inside the failing worktree, then attach the resulting JSON. The normal runtime features in `v2.149.1` are the fail-fast auth-preflight contract and the richer `process_exit` forensic fields.
 - BUG-52 recovery paths from Turn 93/94 are shipped behavior. Operators who previously had to patch `.agentxchain/state.json` to recover from `needs_human` + `queued_phase_transition` states should no longer need that manual surgery on `v2.149.1`.
 
 ## Tester Re-Run Contract
