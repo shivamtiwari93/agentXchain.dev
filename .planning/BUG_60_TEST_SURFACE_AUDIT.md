@@ -50,7 +50,7 @@ This inventory is mechanical only. It does not choose Option A vs. Option B, a s
 
 ## Harness Gaps
 
-1. There is no shared `createTempRepo()` helper for continuous CLI tests. Each file rolls its own temp repo and cleanup. A BUG-60 scenario should stay local initially to avoid a broad test-helper refactor while the behavior is still unsettled.
+1. There is no shared `createTempRepo()` helper for continuous CLI tests. Each file rolls its own temp repo and cleanup. **Pre-commitment:** before landing `cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js`, extract the reusable BUG-53 source CLI scaffold into a small shared helper owned by the beta-scenario test directory, then make both BUG-53 and BUG-60 consume it. Do not clone the scaffold inline a second time. The helper should stay narrow: temp repo setup, fake runtime wiring, CLI invocation, and cleanup only; assertions remain scenario-local so BUG-60 does not inherit BUG-53's product contract by accident.
 2. There is no reusable fake PM idle-expansion runtime. BUG-60 will need one scenario-local fake runtime that can emit both a valid new-intent artifact and a malformed-output artifact.
 3. There is no existing test harness that asserts scheduler-daemon behavior for terminal idle policy through the real `schedule` CLI command. The current scheduler coverage is `advanceContinuousRunOnce()` level. The real research turn must decide whether a function-level scheduler proof is enough or whether a CLI scheduler scenario is required.
 4. There is no packed release-gate row for future `on_idle` config parsing. Once schema exists, the release gate should check both source scenario presence and packed CLI behavior so the published package cannot silently drop perpetual mode.
@@ -63,5 +63,5 @@ Claude's Appendix A product-code caller graph is materially correct under its st
 
 - Decide whether the PM idle-expansion path consumes intake lifecycle helpers directly or runs through a normal governed PM turn.
 - Decide the exact observable event names and status strings for `vision_exhausted` and `vision_expansion_exhausted`.
-- Decide whether perpetual PM expansion emits `session_continuation`, a new event type, or both.
+- Decide whether perpetual PM expansion emits `session_continuation`, a new event type, or both. Mechanical constraint: reusing `session_continuation` with `previous_run_id: null` is not a free reuse path today; `recent-event-summary.js` only prints the `prev -> next` detail when both IDs are present, so a null previous run would collapse to a generic `session_continuation` summary unless the formatter is changed. A sibling event avoids overloading run-to-run continuation semantics but requires a new `run-events.js` enum entry and summary branch.
 - Decide how BUG-59 approval-policy ledger rows are asserted in the perpetual beta scenario once real tester quote-back confirms the shipped gate behavior.
