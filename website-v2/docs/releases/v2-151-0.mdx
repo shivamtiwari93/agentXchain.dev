@@ -189,8 +189,8 @@ failing environment. Quote adapter diagnostic lines including
   (<objective>)`; session status stays `running` between runs, ends as
   `completed` or `idle_exit`, never `paused`.
 - **BUG-55 checkpoint completeness + verification outputs** — quote
-  `git status --short` after `accept-turn` + `checkpoint-turn` (must be
-  clean). If verification writes files outside the declared actor-owned set,
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`
+  (must be clean). If verification writes files outside the declared actor-owned set,
   the turn must fail with `undeclared_verification_outputs` naming the dirty
   paths; if those outputs are intended, declare them under
   `verification.produced_files` before acceptance. Clean tree means BUG-55 is
