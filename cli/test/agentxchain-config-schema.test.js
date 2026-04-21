@@ -86,7 +86,7 @@ describe('agentxchain config schema', () => {
     assert.equal(localCliRuntime.properties?.startup_watchdog_ms?.type, 'integer');
     assert.match(
       runLoop.properties?.startup_watchdog_ms?.description || '',
-      /failed_start|30000/i,
+      /failed_start|180000/i,
       'startup watchdog schema entry must describe the BUG-51 fast-startup contract'
     );
     assert.match(
@@ -102,8 +102,8 @@ describe('agentxchain config schema', () => {
     assert.match(PROTOCOL_REFERENCE_DOCS, /run_loop\.startup_watchdog_ms/);
     assert.match(PROTOCOL_REFERENCE_DOCS, /runtimes\.<id>\.startup_watchdog_ms/);
     assert.match(PROTOCOL_REFERENCE_DOCS, /run_loop\.stale_turn_threshold_ms/);
-    assert.match(CLI_DOCS, /config --set run_loop\.startup_watchdog_ms 45000/);
-    assert.match(CLI_DOCS, /config --set runtimes\.local-qa\.startup_watchdog_ms 60000/);
+    assert.match(CLI_DOCS, /config --set run_loop\.startup_watchdog_ms 180000/);
+    assert.match(CLI_DOCS, /config --set runtimes\.local-qa\.startup_watchdog_ms 180000/);
     assert.match(CLI_DOCS, /config --set run_loop\.stale_turn_threshold_ms 600000/);
   });
 });

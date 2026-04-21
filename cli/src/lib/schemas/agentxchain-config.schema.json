@@ -91,7 +91,7 @@
         "startup_watchdog_ms": {
           "type": "integer",
           "minimum": 1,
-          "description": "Milliseconds to wait after dispatch for worker attach/first-output proof before retaining the turn as failed_start. Default 30000."
+          "description": "Milliseconds to wait after dispatch for worker attach/first-output proof before retaining the turn as failed_start. Default 180000."
         },
         "stale_turn_threshold_ms": {
           "type": "integer",

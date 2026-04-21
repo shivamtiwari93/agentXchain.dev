@@ -712,6 +712,11 @@ exec sleep 30
       assert.match(log, /\[adapter:diag\] first_output /);
       assert.doesNotMatch(log, /\[adapter:diag\] startup_watchdog_fired /);
     });
+
+    it('uses a 180s default startup watchdog for realistic slow Claude prompt processing', () => {
+      const config = makeConfig();
+      assert.equal(resolveStartupWatchdogMs(config, config.runtimes['local-dev']), 180_000);
+    });
   });
 
   describe('saveDispatchLogs', () => {

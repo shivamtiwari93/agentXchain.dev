@@ -1,6 +1,6 @@
 /**
  * BUG-51 beta-tester scenario: fast-startup watchdog catches fake-running
- * turns within the startup window instead of leaving them "running" for the
+ * turns within an explicit tight startup window instead of leaving them "running" for the
  * slower stale-turn watchdog.
  */
 
@@ -53,6 +53,7 @@ function makeConfig(overrides = {}) {
     },
     gates: { implementation_signoff: {} },
     budget: { per_turn_max_usd: 2.0, per_run_max_usd: 10.0 },
+    run_loop: { startup_watchdog_ms: 1_000 },
     ...overrides,
   };
 }
@@ -315,7 +316,7 @@ describe('BUG-51: fast-startup watchdog', () => {
     // only stderr activity (stderr_lines > 0, output_lines == 0,
     // first_output_at == null) must still be caught as a ghost —
     // otherwise a subprocess that spawns but only emits stderr would
-    // silently survive the 30s window and wait out the full stale-turn
+    // silently survive the startup window and wait out the full stale-turn
     // budget instead of failing fast.
     const { root, config } = createProject();
     const { turnId, state } = seedStartingTurn(root, config, 45, false);

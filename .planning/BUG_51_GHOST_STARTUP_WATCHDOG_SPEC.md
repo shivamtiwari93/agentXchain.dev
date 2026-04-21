@@ -6,7 +6,7 @@ Status: Active — startup lifecycle hardening landed on HEAD; remains open pend
 
 Close the ghost-dispatch failure mode where a turn is marked `running`, the
 dispatch bundle exists, but no worker output channel ever attaches. The
-framework must detect that startup failure within 30 seconds instead of waiting
+framework must detect that startup failure within the startup watchdog window instead of waiting
 for the 10-minute stale-turn watchdog.
 
 ## Interface
@@ -43,7 +43,8 @@ for the 10-minute stale-turn watchdog.
   results. The local CLI adapter may pre-clear a prior result file before
   spawn; watchdog reconciliation must treat that placeholder as "no result yet,"
   not as proof of healthy execution.
-- Default startup threshold is 30 seconds.
+- Default startup threshold is 180 seconds after BUG-54 proved that realistic
+  Claude prompt bundles can take more than 30 seconds to produce first stdout.
 - `run_loop.startup_watchdog_ms` overrides the default.
 - The active fix path is runtime-owned, not only lazy reconciliation:
   - `step` and `run` pass a startup watchdog into `dispatchLocalCli()`

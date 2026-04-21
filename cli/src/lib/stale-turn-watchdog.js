@@ -4,7 +4,7 @@
  * Two-tier lazy idle-threshold detection:
  *
  * 1. **Fast startup watchdog (BUG-51):** if an active turn has been
- *    `dispatched`/`starting`/`running` for >30 seconds with NO startup proof
+ *    `dispatched`/`starting`/`running` for >180 seconds with NO startup proof
  *    (no first-byte output recorded on the turn or in dispatch-progress) and
  *    NO staged result, it is a "ghost turn" — the subprocess never reached a
  *    healthy running state. Transitions to `failed_start` immediately.
@@ -24,7 +24,7 @@
  * requiring a background daemon.
  *
  * Default thresholds:
- *   - Startup watchdog: 30 seconds (configurable via run_loop.startup_watchdog_ms
+ *   - Startup watchdog: 180 seconds (configurable via run_loop.startup_watchdog_ms
  *     or runtimes.<id>.startup_watchdog_ms for local_cli runtimes)
  *   - local_cli stale turns: 10 minutes
  *   - api_proxy stale turns: 5 minutes
@@ -42,7 +42,7 @@ import { hasMeaningfulStagedResult } from './staged-result-proof.js';
 
 const DEFAULT_LOCAL_CLI_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 const DEFAULT_API_PROXY_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
-const DEFAULT_STARTUP_WATCHDOG_MS = 30 * 1000;          // 30 seconds (BUG-51)
+const DEFAULT_STARTUP_WATCHDOG_MS = 180 * 1000;         // 180 seconds (BUG-54)
 const LEGACY_STAGING_PATH = '.agentxchain/staging/turn-result.json';
 
 /**

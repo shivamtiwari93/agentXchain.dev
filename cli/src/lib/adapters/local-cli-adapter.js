@@ -41,6 +41,7 @@ const DIAGNOSTIC_ENV_KEYS = [
   'AGENTXCHAIN_TURN_ID',
 ];
 const DIAGNOSTIC_STDERR_EXCERPT_LIMIT = 800;
+const DEFAULT_STARTUP_WATCHDOG_MS = 180_000;
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -579,7 +580,7 @@ function resolveStartupWatchdogMs(config, runtime) {
   if (Number.isInteger(config?.run_loop?.startup_watchdog_ms) && config.run_loop.startup_watchdog_ms > 0) {
     return config.run_loop.startup_watchdog_ms;
   }
-  return 30_000;
+  return DEFAULT_STARTUP_WATCHDOG_MS;
 }
 
 /**

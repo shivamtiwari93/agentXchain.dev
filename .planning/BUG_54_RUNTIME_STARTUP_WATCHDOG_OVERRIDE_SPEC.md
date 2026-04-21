@@ -33,7 +33,7 @@ single repo-wide `run_loop.startup_watchdog_ms` knob is too coarse for that.
   1. explicit dispatch option override
   2. `runtimes.<id>.startup_watchdog_ms`
   3. `run_loop.startup_watchdog_ms`
-  4. built-in default `30000`
+  4. built-in default `180000`
 - Adapter diagnostics must report the effective watchdog value, not the raw
   global config value.
 - `run` and `step` must pass the same effective watchdog value into
@@ -62,5 +62,5 @@ single repo-wide `run_loop.startup_watchdog_ms` knob is too coarse for that.
 
 - Whether the repo should later add phase-specific or role-specific watchdog
   overrides instead of runtime-scoped tuning.
-- Whether a future release should raise the global default after enough tester
-  evidence is collected.
+- Whether a future release should replace the scalar threshold with a richer
+  liveness model based on historical startup latency percentiles.
