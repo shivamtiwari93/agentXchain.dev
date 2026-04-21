@@ -45,6 +45,27 @@ Adversarially reviewed in Turn 161. Collapse into `DEC-BUG60-IDLE-POLICY-ARCHITE
 3. **HUMAN-ROADMAP:431 product contract.** "Existing `per_session_max_usd` MUST block perpetual-mode dispatches same as bounded-mode" is a standing product safety contract worth its own decision record.
 4. **Anti-catch-all single-concern lint.** Architecture DEC content is already at five fields; adding budget-ordering bloats it past single-concern. One-DEC-one-concern keeps `DECISIONS.md` navigable.
 
+## GPT Adversarial Review — Observability DEC Boundary
+
+Turn 161 broadened `DEC-BUG60-IDLE-EXPANSION-EVENTS-001` into `DEC-BUG60-IDLE-EXPANSION-OBSERVABILITY-001`, covering both event vocabulary and terminal-status taxonomy. Challenge accepted: status is state-machine data, while events are audit-log data. They are written by different code paths, asserted by different tests, and can fail independently.
+
+Verdict: keep the single broadened observability DEC, but make it explicitly two-part. Splitting into separate status and event DECs would reduce local broadness but create a worse product risk: the stop reason operators see in session state could drift from the event trail they use to diagnose the same stop. BUG-60's user-facing question is singular: "why did the perpetual loop continue, stop, or spend again?" A single observability DEC should own that answer.
+
+Guardrail for the future DEC: it must contain two named subsections, **Terminal State Contract** and **Event Trail Contract**, and the proof plan must assert each independently:
+
+- Terminal assertions: persisted `continuous-session.json` status and/or stop reason distinguish bounded `completed`, bounded `idle_exit`, perpetual `vision_exhausted`, perpetual `vision_expansion_exhausted`, and budget `session_budget`.
+- Event assertions: run-event JSONL contains the chosen idle-expansion dispatch/acceptance/exhaustion/malformed events with summary formatting that remains readable in `recent-event-summary.js`.
+
+Failure mode if this review is ignored: a broad "observability" DEC can become a dumping ground where tests prove only event emission while persisted terminal state stays collapsed under `completed`, or vice versa. The future DEC is acceptable only if both halves are first-class and separately tested.
+
+## GPT Adversarial Review — `on_idle` Default Placement
+
+Turn 161 recommended keeping `on_idle` default preservation inside `DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001`, not as a standalone `DEC-BUG60-BACKWARD-COMPAT-DEFAULT-001`. Challenge accepted.
+
+Verdict: keep it in the architecture DEC, but require it as an explicit compatibility clause and proof row. A standalone "perpetual is opt-in forever" DEC would overstate the contract: it would accidentally bind future major-version strategy before the product has even shipped the first perpetual mode. The durable decision needed for BUG-60 is narrower: this release must be backward-compatible, and existing projects must continue to get bounded idle exit unless they explicitly opt into perpetual behavior.
+
+Concrete failure mode if inlined too weakly: implementation adds `on_idle: "perpetual"` as a new default because it matches the marketing phrase "full-auto," breaking existing bounded sessions and invalidating BUG-53's idle-exit proof. To prevent that, the plan-turn checklist below requires default-preservation assertions before any implementation begins.
+
 ## Process-Ordering Pre-Commitments (Audit-Doc Only)
 
 These are real constraints that exist now, but do not yet deserve DEC entries. They will either be rolled into a DEC when the relevant commit lands or dissolve if the strategy they constrain is abandoned.
@@ -53,6 +74,37 @@ These are real constraints that exist now, but do not yet deserve DEC entries. T
 |---|---|---|---|
 | Helper extraction commit migrates BUG-53 first; BUG-60 scenario commit lands after, as second consumer. | Turns 158, 159 | Plan turn decides BUG-53/BUG-60 scenarios stay independent (divergence wider than anticipated). | Extraction commit lands — authored alongside `DEC-BUG60-CONTINUOUS-CLI-SCENARIO-HELPER-001`. |
 | `session_continuation` event (if overloaded for idle-expansion rather than a sibling event) must preserve non-null `previous_run_id` in all existing emission sites; new idle-expansion emission sites need a schema branch. | Turn 158 | Plan turn chooses a sibling event instead of overloading. | Plan turn chooses overload — absorbed into `DEC-BUG60-IDLE-EXPANSION-OBSERVABILITY-001`. |
+
+## Plan-Turn Gating Checklist
+
+When tester quote-back unlocks BUG-60, the plan turn must start from this checklist. This is not the plan itself and does not choose Option A/B; it prevents the plan from skipping already-banked constraints.
+
+```markdown
+### BUG-60 Plan-Turn Opening Checklist
+
+- [ ] Quote-back gate verified: BUG-59 has real tester evidence satisfying `DEC-BUG59-CLOSURE-GATE-TESTER-QUOTEBACK-001` (state summary, phase-transition policy ledger row, run-completion policy ledger row, credentialed hard-stop counter-case).
+- [ ] Current state rechecked: rerun `git status --short`; reread `.planning/HUMAN-ROADMAP.md` BUG-60 entry; confirm no newer unchecked human item supersedes BUG-60.
+- [ ] Audit inputs read in order:
+  - [ ] `.planning/BUG_60_CODE_AUDIT.md`
+  - [ ] `.planning/BUG_60_TEST_SURFACE_AUDIT.md`
+  - [ ] `.planning/BUG_60_DOC_SURFACE_AUDIT.md`
+  - [ ] `.planning/BUG_60_DECISION_CANDIDATE_AUDIT.md`
+- [ ] Architecture plan written before code: choose Option A, Option B, or a fourth option with evidence; explicitly reject the losing options.
+- [ ] DEC authoring handled before code:
+  - [ ] Create `DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001`, including the compatibility clause that default bounded behavior remains `on_idle: exit`.
+  - [ ] Create `DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001` or explicitly justify a collapse.
+  - [ ] Create `DEC-BUG60-IDLE-EXPANSION-OBSERVABILITY-001`, with separate Terminal State Contract and Event Trail Contract subsections.
+  - [ ] Defer `DEC-BUG60-CONTINUOUS-CLI-SCENARIO-HELPER-001` until the helper extraction commit lands, unless the plan abandons extraction and says why.
+- [ ] Proof plan written before code:
+  - [ ] Default `on_idle: exit` keeps existing BUG-53 idle-exit behavior.
+  - [ ] Perpetual mode dispatches PM idle-expansion after idle threshold.
+  - [ ] Budget cap blocks before PM idle-expansion dispatch can spend.
+  - [ ] `max_idle_expansions` stops runaway expansion.
+  - [ ] PM `vision_exhausted` stop is distinct from bounded `completed` / `idle_exit`.
+  - [ ] Event trail and persisted terminal state are asserted independently.
+  - [ ] Source CLI beta scenario and packed CLI release-gate proof are both required.
+- [ ] First implementation-gated item selected: either helper extraction/migration for BUG-53, or the smallest schema/default parsing slice. No `cli/src/lib/continuous-run.js`, `vision-reader.js`, `intake.js`, or `normalized-config.js` edits before the above checks are complete.
+```
 
 ## Non-Negotiable Plan-Turn Check
 
