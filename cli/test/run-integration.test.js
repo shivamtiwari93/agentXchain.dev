@@ -60,6 +60,28 @@ function makeProject() {
   return root;
 }
 
+function markGateCredentialed(root, gateId) {
+  const configPath = join(root, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.gates[gateId] = {
+    ...config.gates[gateId],
+    credentialed: true,
+  };
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+}
+
+function readJsonl(root, relativePath) {
+  const path = join(root, relativePath);
+  if (!existsSync(path)) {
+    return [];
+  }
+  return readFileSync(path, 'utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
 function runCli(root, args, opts = {}) {
   return spawnSync(process.execPath, [binPath, ...args], {
     cwd: root,
@@ -99,8 +121,9 @@ describe('agentxchain run — integration', () => {
     // Summary must show at least 3 turns executed
     assert.match(result.stdout, /Turns:\s+3/, 'Expected 3 turns in summary');
 
-    // Must have approved at least 2 gates (planning→implementation, qa→completion)
-    assert.match(result.stdout, /Gates:\s+[23]/, 'Expected 2-3 gates approved');
+    // Routine generated gates now close through approval_policy instead of the
+    // blanket --auto-approve prompt path.
+    assert.match(result.stdout, /Gates:\s+0 approved/, 'Expected routine gates to close by policy, not manual approval');
 
     // State file should be in completed status
     const state = JSON.parse(readFileSync(join(root, '.agentxchain/state.json'), 'utf8'));
@@ -116,6 +139,17 @@ describe('agentxchain run — integration', () => {
     const history = readFileSync(join(root, '.agentxchain/history.jsonl'), 'utf8')
       .trim().split('\n').filter(Boolean);
     assert.ok(history.length >= 3, `Expected at least 3 history entries, got ${history.length}`);
+
+    const ledger = readJsonl(root, '.agentxchain/decision-ledger.jsonl')
+      .filter((entry) => entry.type === 'approval_policy');
+    assert.ok(
+      ledger.some((entry) => entry.gate_id === 'planning_signoff' && entry.action === 'auto_approve'),
+      'planning gate should record approval_policy auto-approval',
+    );
+    assert.ok(
+      ledger.some((entry) => entry.gate_id === 'qa_ship_verdict' && entry.action === 'auto_approve'),
+      'QA completion gate should record approval_policy auto-approval',
+    );
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -123,9 +157,10 @@ describe('agentxchain run — integration', () => {
   // ──────────────────────────────────────────────────────────────────────────
   it('AT-RUN-INT-002: holds at gate when stdin is not TTY (fail-closed)', () => {
     const root = makeProject();
+    markGateCredentialed(root, 'planning_signoff');
 
-    // Without --auto-approve, gates should fail-closed when stdin is not a TTY
-    // (spawnSync stdin is a pipe, not a TTY)
+    // Credentialed gates remain human-gated. Without --auto-approve, they
+    // fail-closed when stdin is not a TTY (spawnSync stdin is a pipe).
     const result = runCli(root, ['run', '--max-turns', '5']);
 
     // The pm turn should succeed, but the phase gate should hold
@@ -148,6 +183,7 @@ describe('agentxchain run — integration', () => {
   // ──────────────────────────────────────────────────────────────────────────
   it('AT-RUN-INT-003: auto-approve advances through all gates', () => {
     const root = makeProject();
+    markGateCredentialed(root, 'planning_signoff');
 
     const result = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
 
