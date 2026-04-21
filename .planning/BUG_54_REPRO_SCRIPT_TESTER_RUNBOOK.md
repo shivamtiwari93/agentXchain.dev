@@ -4,9 +4,10 @@ Status: Active — BUG-54 root-cause diagnostic runbook for testers
 
 ## Purpose
 
-Tell a tester exactly how to run `cli/scripts/reproduce-bug-54.mjs` in a
-failing worktree, what a healthy capture looks like on a working machine,
-and how to map the resulting JSON to a specific root-cause hypothesis.
+Tell a tester exactly how to run the installed package's
+`agentxchain/scripts/reproduce-bug-54.mjs` in a failing worktree, what a
+healthy capture looks like on a working machine, and how to map the resulting
+JSON to a specific root-cause hypothesis.
 
 This runbook closes the gap between "the script exists" (shipped Turn 95,
 validated on real `claude` Turn 96) and "the tester ran it and shared a
@@ -14,10 +15,14 @@ JSON that names a hypothesis." It is the missing half of `DEC-BUG54-REPRO-SCRIPT
 
 ## How to run it
 
-The canonical invocation inside the failing worktree (e.g. `tusq.dev-21480-clean`):
+The canonical invocation inside the failing worktree (e.g.
+`tusq.dev-21480-clean`) resolves the diagnostic from the installed
+`agentxchain` package, not from the AgentXchain.dev repo layout:
 
 ```bash
-node cli/scripts/reproduce-bug-54.mjs \
+REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"
+[ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"
+node "$REPRO" \
   --synthetic "Say READY and nothing else." \
   --attempts 10 \
   --out ./bug-54-repro.json

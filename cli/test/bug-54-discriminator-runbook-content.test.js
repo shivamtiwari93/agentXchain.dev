@@ -9,6 +9,10 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const RUNBOOK_PATH = '.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md';
 const RUNBOOK = readFileSync(join(REPO_ROOT, RUNBOOK_PATH), 'utf8');
 
+function escapedRegExp(text) {
+  return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+}
+
 describe('BUG-54 discriminator runbook content', () => {
   it('stays compact enough to be a quote-back checklist', () => {
     const nonEmptyLines = RUNBOOK.split('\n').filter((line) => line.trim()).length;
@@ -40,6 +44,21 @@ describe('BUG-54 discriminator runbook content', () => {
     ]) {
       assert.match(RUNBOOK, new RegExp(field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     }
+  });
+
+  it('resolves the source diagnostic from an installed package, not repo layout', () => {
+    for (const marker of [
+      'agentxchain/scripts/reproduce-bug-54.mjs',
+      'npm root',
+      'tester unblock runbook',
+    ]) {
+      assert.match(RUNBOOK, escapedRegExp(marker));
+    }
+    assert.doesNotMatch(
+      RUNBOOK,
+      /(^|[^"\w])node\s+cli\/scripts\/reproduce-bug-54\.mjs/m,
+      'discriminator must not tell testers to run node cli/scripts/reproduce-bug-54.mjs; that path exists only in the agentXchain.dev repo',
+    );
   });
 
   it('maps the key BUG-54 discriminator shapes', () => {

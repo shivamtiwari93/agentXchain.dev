@@ -10,7 +10,9 @@ quote and how agents should interpret the main combinations.
 ## Interface
 
 - Artifact: `.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md`
-- Source JSON: output from `cli/scripts/reproduce-bug-54.mjs`
+- Source JSON: output from the installed package's
+  `agentxchain/scripts/reproduce-bug-54.mjs`, resolved via `npm root` in the
+  tester-facing runbook. Do not require a repo-relative `cli/` path.
 - Required quoted fields:
   - `command_probe.kind`, `command_probe.status`, `command_probe.stdout`,
     `command_probe.stderr`, `command_probe.timed_out`
@@ -52,6 +54,8 @@ quote and how agents should interpret the main combinations.
   - describes the healthy, silent-watchdog, resource-regression, and stderr-only
     discriminator shapes
   - explicitly rejects auth-booleans-only conclusions
+  - rejects repo-relative tester commands like
+    `node cli/scripts/reproduce-bug-54.mjs`
 
 ## Open Questions
 

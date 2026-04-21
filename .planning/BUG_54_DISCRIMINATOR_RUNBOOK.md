@@ -1,7 +1,8 @@
 # BUG-54 Discriminator Runbook
 
-Use this after running `cli/scripts/reproduce-bug-54.mjs`. Quote these fields,
-not the whole JSON:
+Use this after running the installed package diagnostic from
+`agentxchain/scripts/reproduce-bug-54.mjs` via the `npm root` resolver in the
+tester unblock runbook. Quote these fields, not the whole JSON:
 
 1. `command_probe.kind`, `status`, `stdout`, `stderr`, `timed_out`
 2. `summary.spawn_attached`, `stdout_attached`, `watchdog_fires`

@@ -16,19 +16,32 @@ const RUNBOOK_PATH = '.planning/BUG_54_REPRO_SCRIPT_TESTER_RUNBOOK.md';
 describe('BUG-54 reproduction script tester runbook content (Turn 97)', () => {
   const RUNBOOK = read(RUNBOOK_PATH);
 
-  it('names the script path operators run', () => {
+  it('resolves the script path operators run from the installed package', () => {
     assert.match(
       RUNBOOK,
-      /cli\/scripts\/reproduce-bug-54\.mjs/,
-      'runbook must name the script path',
+      /REPRO="\$\(npm root\)\/agentxchain\/scripts\/reproduce-bug-54\.mjs"/,
+      'runbook must resolve the local installed package script path',
+    );
+    assert.match(
+      RUNBOOK,
+      /\[ -f "\$REPRO" \] \|\| REPRO="\$\(npm root -g\)\/agentxchain\/scripts\/reproduce-bug-54\.mjs"/,
+      'runbook must include global install fallback',
     );
   });
 
   it('includes the canonical --synthetic invocation with --attempts and --out', () => {
     assert.match(
       RUNBOOK,
-      /node cli\/scripts\/reproduce-bug-54\.mjs[\s\S]*--synthetic[\s\S]*--attempts[\s\S]*--out/,
+      /node "\$REPRO"[\s\S]*--synthetic[\s\S]*--attempts[\s\S]*--out/,
       'runbook must document the canonical tester invocation',
+    );
+  });
+
+  it('does not tell testers to invoke the repo-relative script path', () => {
+    assert.doesNotMatch(
+      RUNBOOK,
+      /(^|[^"\w])node\s+cli\/scripts\/reproduce-bug-54\.mjs/m,
+      'runbook must not tell testers to run node cli/scripts/reproduce-bug-54.mjs; that path exists only in the agentXchain.dev repo',
     );
   });
 
