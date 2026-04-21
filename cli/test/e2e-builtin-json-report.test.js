@@ -41,6 +41,12 @@ function makeProject() {
   for (const role of Object.values(config.roles)) {
     role.write_authority = 'authoritative';
   }
+  for (const gateId of ['planning_signoff', 'qa_ship_verdict']) {
+    config.gates[gateId] = {
+      ...config.gates[gateId],
+      credentialed: true,
+    };
+  }
 
   writeJson(configPath, config);
   return root;
