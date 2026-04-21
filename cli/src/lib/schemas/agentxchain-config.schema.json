@@ -61,7 +61,14 @@
       "type": ["array", "object"]
     },
     "approval_policy": {
-      "type": ["object", "null"]
+      "oneOf": [
+        {
+          "$ref": "#/$defs/approval_policy"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "timeouts": {
       "type": ["object", "null"]
@@ -220,6 +227,87 @@
         },
         "requires_verification_pass": {
           "type": "boolean"
+        },
+        "credentialed": {
+          "type": "boolean",
+          "description": "When true, this gate protects a credentialed, irreversible, or operator-owned action and cannot be auto-approved by approval_policy."
+        }
+      },
+      "additionalProperties": true
+    },
+    "approval_policy": {
+      "type": "object",
+      "properties": {
+        "phase_transitions": {
+          "$ref": "#/$defs/approval_phase_transitions"
+        },
+        "run_completion": {
+          "$ref": "#/$defs/approval_run_completion"
+        }
+      },
+      "additionalProperties": true
+    },
+    "approval_phase_transitions": {
+      "type": "object",
+      "properties": {
+        "default": {
+          "enum": ["auto_approve", "require_human"]
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/approval_phase_rule"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "approval_phase_rule": {
+      "type": "object",
+      "properties": {
+        "from_phase": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "to_phase": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "action": {
+          "enum": ["auto_approve", "require_human"]
+        },
+        "when": {
+          "$ref": "#/$defs/approval_when"
+        }
+      },
+      "additionalProperties": true
+    },
+    "approval_run_completion": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "enum": ["auto_approve", "require_human"]
+        },
+        "when": {
+          "$ref": "#/$defs/approval_when"
+        }
+      },
+      "additionalProperties": true
+    },
+    "approval_when": {
+      "type": "object",
+      "properties": {
+        "gate_passed": {
+          "type": "boolean"
+        },
+        "roles_participated": {
+          "$ref": "#/$defs/string_array"
+        },
+        "all_phases_visited": {
+          "type": "boolean"
+        },
+        "credentialed_gate": {
+          "type": "boolean",
+          "enum": [false],
+          "description": "Only false is valid. Credentialed gates are hard-stopped before policy rule matching."
         }
       },
       "additionalProperties": true

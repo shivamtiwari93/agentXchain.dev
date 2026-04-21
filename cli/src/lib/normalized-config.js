@@ -557,6 +557,7 @@ export function validateV4Config(data, projectRoot) {
   // Gates (optional but validated if present)
   if (data.gates) {
     validateGateActionsConfig(data.gates, errors);
+    validateGateCredentialedConfig(data.gates, errors);
     if (data.gates && typeof data.gates === 'object' && !Array.isArray(data.gates) && data.routing) {
       for (const [, route] of Object.entries(data.routing)) {
         if (route.exit_gate && !data.gates[route.exit_gate]) {
@@ -996,6 +997,21 @@ export function validateWorkflowKitConfig(wk, routing, roles, runtimes = {}) {
 
 const VALID_APPROVAL_ACTIONS = ['auto_approve', 'require_human'];
 
+function validateGateCredentialedConfig(gates, errors) {
+  if (!gates || typeof gates !== 'object' || Array.isArray(gates)) {
+    return;
+  }
+
+  for (const [gateId, gate] of Object.entries(gates)) {
+    if (!gate || typeof gate !== 'object' || Array.isArray(gate)) {
+      continue;
+    }
+    if (gate.credentialed !== undefined && typeof gate.credentialed !== 'boolean') {
+      errors.push(`gates.${gateId}.credentialed must be a boolean when provided`);
+    }
+  }
+}
+
 /**
  * Validate the approval_policy config section.
  * Returns an array of error strings.
@@ -1097,6 +1113,13 @@ function validateApprovalWhen(when, prefix) {
   }
   if (when.all_phases_visited !== undefined && typeof when.all_phases_visited !== 'boolean') {
     errors.push(`${prefix}.when.all_phases_visited must be a boolean`);
+  }
+  if (when.credentialed_gate !== undefined) {
+    if (typeof when.credentialed_gate !== 'boolean') {
+      errors.push(`${prefix}.when.credentialed_gate must be a boolean`);
+    } else if (when.credentialed_gate !== false) {
+      errors.push(`${prefix}.when.credentialed_gate must be false when provided (DEC-BUG59-CREDENTIALED-GATE-PREDICATE-NEGATIVE-ONLY-001)`);
+    }
   }
   return errors;
 }
