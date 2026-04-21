@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.149.0
+# Launch Evidence Report — AgentXchain v2.149.1
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-20 for the v2.149.0 release-prep surface. BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.0` per discipline rule #12. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-20 for the v2.149.1 release-prep surface. BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.1` per discipline rule #12. Current aggregate release evidence:
 >
 > - node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
 > - node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
@@ -308,7 +308,7 @@
   - Tester-quoted shipped-package output (HUMAN-ROADMAP discipline rule #12)
   - Combined-shape behavior against extracted tarball source — by `DEC-BUG55-COMBINED-PACKED-SMOKE-001` the existing BUG-55A / BUG-55B packed rows plus the repo-side combined regression are sufficient; no new packed row added unless a concrete packaging regression class is named
 
-### E7 — Public Tester Rerun Contract for BUG-55 Combined Shape (v2.149.0)
+### E7 — Public Tester Rerun Contract for BUG-55 Combined Shape (v2.149.1)
 
 - **Date**: 2026-04-20
 - **Location**: `website-v2/docs/releases/v2-148-0.mdx:50`

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.149.1
+
+### Bug Fixes
+- **BUG-54 auth-preflight ordering**: `connector-probe.js:probeLocalCommand` now checks the Claude auth-preflight shape before the spawn-probe resolution step. Previously a missing `claude` binary on CI-like environments returned `probe_kind: 'command_presence'` before the auth-preflight branch could fire, so the packaged BUG-54 claim-reality preflight test correctly blocked the `v2.149.0` publish on `Re-verify tagged release before publish`. Config-shape auth-preflight is now independent of binary resolution, matching `connector-validate.js:108-138` ordering.
+
+### Status
+- `v2.149.0` was tagged but never reached npm (blocked by the preflight gate above).
+- `v2.149.1` supersedes `v2.149.0` and ships the same BUG-54/52/55/53 payload.
+- BUG-54 remains open pending tester verification on `v2.149.1` per discipline rule #12
+- BUG-52 remains open pending tester verification on `v2.149.1` per discipline rule #12
+- BUG-55 remains open pending tester verification on `v2.149.1` per discipline rule #12
+- BUG-53 remains open pending tester verification on `v2.149.1` per discipline rule #12
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
+- node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
+
 ## 2.149.0
 
 ### Bug Fixes

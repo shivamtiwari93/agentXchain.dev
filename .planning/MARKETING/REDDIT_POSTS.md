@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.149.0
+# Reddit Posts — AgentXchain v2.149.1
 
-> Ready-to-post content for Reddit for the `v2.149.0` release once tester verification lands. Updated 2026-04-20.
+> Ready-to-post content for Reddit for the `v2.149.1` release once tester verification lands. Updated 2026-04-20.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.149.0):**
+**What's in the box (v2.149.1):**
 - 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
 - All 5 adapters proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -34,7 +34,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - BUG-54 diagnostics + runbook still ship: `process_exit` forensic fields, reproduction harness, tester runbook, and per-runtime watchdog override
 - BUG-55 sub-A checkpoint completeness refined: declared `files_changed` partitioned into `staged` / `already_committed_upstream` / `genuinely_missing` so the dirty-survival gate holds while legitimate BUG-23 pre-commit patterns stop false-positiving
 - BUG-55 sub-B `undeclared_verification_outputs` error class shipped: acceptance rejects turns whose declared verification produced undeclared fixture outputs, with a remediation pointer to `verification.produced_files`
-- BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.0`
+- BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.1`
 - node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
 - node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
 
@@ -70,7 +70,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.149.0 – Claude auth preflight, reconciler proof, and checkpoint hardening
+**Title:** AgentXchain v2.149.1 – Claude auth preflight, reconciler proof, and checkpoint hardening
 
 **Body:**
 

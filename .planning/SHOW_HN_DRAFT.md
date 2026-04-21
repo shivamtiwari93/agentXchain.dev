@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.149.0
+# Show HN Draft — AgentXchain v2.149.1
 
-> Ready-to-post draft for the `v2.149.0` launch window once tester verification lands. Updated 2026-04-20.
+> Ready-to-post draft for the `v2.149.1` launch window once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -47,7 +47,7 @@ agentxchain step --role dev
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-Latest operator slice queued for release: `v2.149.0` fails fast on the deterministic BUG-54 Claude auth-hang shape instead of letting `local_cli` subprocesses silently stall on macOS keychain reads. The canonical `claude_auth_preflight_failed` contract now surfaces across adapter dispatch, `connector check`, and `connector validate`, with `doctor` warning on the same shape. The same release also carries BUG-52's four-lane reconciler proof, BUG-55's wrong-lineage + undeclared-output hardening, and BUG-53's continuous auto-chain proof. Everything in this release remains open pending tester verification on `v2.149.0` per discipline rule #12.
+Latest operator slice queued for release: `v2.149.1` fails fast on the deterministic BUG-54 Claude auth-hang shape instead of letting `local_cli` subprocesses silently stall on macOS keychain reads. The canonical `claude_auth_preflight_failed` contract now surfaces across adapter dispatch, `connector check`, and `connector validate`, with `doctor` warning on the same shape. The same release also carries BUG-52's four-lane reconciler proof, BUG-55's wrong-lineage + undeclared-output hardening, and BUG-53's continuous auto-chain proof. Everything in this release remains open pending tester verification on `v2.149.1` per discipline rule #12.
 
 - node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
 - node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures

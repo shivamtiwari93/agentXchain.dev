@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.149.0
+# Twitter/X Thread — AgentXchain v2.149.1
 
-> Ready-to-post thread for the `v2.149.0` release once tester verification lands. Updated 2026-04-20.
+> Ready-to-post thread for the `v2.149.1` release once tester verification lands. Updated 2026-04-20.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.149.0 is next in the release lane. Open source. MIT.
+AgentXchain v2.149.1 is next in the release lane. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -52,14 +52,14 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.149.0:
+New in v2.149.1:
 
 - BUG-54 auth-preflight fix: Claude `local_cli` runtimes now fail before spawn when neither env auth nor `--bare` is present; the canonical `claude_auth_preflight_failed` signal now shows up across adapter dispatch, `connector check`, and `connector validate`
 - BUG-54 operator diagnostics stay in place: `process_exit` forensic fields, per-runtime watchdog override, reproduction harness + runbook, and truthful stderr-only dashboard rendering
 - BUG-52 ships four-lane reconciler proof (planning, QA, Turn 93 orphan-request, Turn 94 queued-transition)
 - BUG-55 keeps wrong-lineage checkpoint surfacing + `undeclared_verification_outputs` rejection
 - BUG-53 keeps CLI auto-chain + `idle_exit` proof in the release lane
-- BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.0`
+- BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.1`
 
 - node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
 - node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
