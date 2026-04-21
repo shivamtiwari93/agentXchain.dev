@@ -1136,3 +1136,44 @@ If the >60m threshold is genuinely hit:
 4. **If `status == completed` and `conclusion == failure`:** do NOT immediately cut v2.149.2. First capture `gh run view <id> --log-failed`, diagnose the failing step, and decide: if it's a transient (network flake, registry 500, tap-push git race), `gh run rerun <id> --failed` is idempotent and the right call; only cut `v2.149.2` if the underlying code/packaging is wrong. The `claim-reality-preflight.test.js:2765` bug that killed v2.149.0 is already fixed on 5af9bd8e — another failure at that exact point would indicate regression and warrant a recut.
 5. **If elapsed queue time crosses 60m with no movement:** follow the override's diagnostic path (`gh api /rate_limit`, GitHub Status page, comparator repo evidence). Do not cancel. Even at 60m+ the correct response is usually still to wait — GitHub eventually assigns runners.
 6. **Do NOT touch** `.planning/VISION.md`. Do NOT flip HUMAN-ROADMAP bug checkboxes without tester evidence.
+
+### Turn 107 Post-Publish Execution Update — 2026-04-21T04:25:00Z
+
+Run `24702845949` flipped to `conclusion: success` at ~T+2h36m total (2m56s running, the rest queued — well within the override's tolerance). Executed the prepared checklist in order:
+
+1. **npm verification** → `npm view agentxchain version` returned `2.149.1`; `dist-tags.latest` updated to `2.149.1`. PASS.
+2. **GitHub release** → `gh release view v2.149.1 --json tagName,isDraft` → `{"tagName":"v2.149.1","isDraft":false}`. Created by the workflow's `Create GitHub Release` step. PASS.
+3. **Homebrew canonical tap** → `curl -sL raw.githubusercontent.com/shivamtiwari93/homebrew-tap/main/Formula/agentxchain.rb` shows `url` → `agentxchain-2.149.1.tgz`, `sha256` → `811a261179e9e6a3ca7dcc9b2c66ff78efa85355621765ae3551f9f756dad7c3`. The canonical-tap SHA differs from the Turn-106 mirror SHA (`52e12b56...`) because `sync-homebrew.sh` re-hashes the actual published tarball; mirror SHA was stale pre-publish, which is expected. PASS.
+4. **release-downstream-truth.sh** → `bash cli/scripts/release-downstream-truth.sh --target-version 2.149.1` → `3 passed, 0 failed`. PASS on all three canonical surfaces (GitHub release, tap SHA match, tap URL match).
+5. **Cancelled collateral rerun plan** → executed `gh run rerun 24702442641` (`Deploy Website to GCP GCS`) first; run is queued again against `5af9bd8e`. The push of my Turn-107 commit `ae8c2be0` separately re-queued `CI`, `CI Runner Proof`, and `Governed Todo App Proof` as fresh runs against the new HEAD, so the remaining three manual reruns were redundant and collapsed to no-ops. Net effect: all four originally-cancelled surfaces now have fresh queued coverage (3 on HEAD + deploy-gcs on v2.149.1 SHA).
+6. **Social posts** → `bash marketing/post-release.sh "v2.149.1" "Claude local_cli auth hangs fail fast across adapter, connector check/validate, and doctor — plus BUG-52 phase-reconcile hardening, BUG-55 lineage + verification fixes, BUG-53 continuous auto-chain proof. Install: npm i -g agentxchain@2.149.1 or brew upgrade agentxchain."` — X/Twitter posted cleanly, LinkedIn posted with submit-confirmation warning but the li-browser verifier confirmed the post on the company admin feed and treated the attempt as success, Reddit r/agentXchain_dev failed (exit 1 at the end of the browser flow). Per WAYS-OF-WORKING.md §8 "If a social post fails, log the error in AGENT-TALK.md and move on" — logged here, moving on. Reddit post can be retried manually later.
+7. **HUMAN-ROADMAP checkbox flip** → `RELEASE-v2.149` flipped to `- [x]` with completion note naming the run id, SHA, npm version, tap SHA, and downstream-truth result.
+8. **BUG-52/53/54/55 checkboxes** → NOT flipped. Per the block's own instructions, those require tester-quoted shipped-package output on `v2.149.1`, not agent-run success. They stay `- [ ]` OPEN.
+
+### Decisions (added this update)
+
+- `DEC-POST-PUBLISH-CHECKLIST-ORDER-LOCKED-001` (2026-04-21) — The exact order of post-publish verification is: npm → GitHub release → Homebrew tap → release-downstream-truth.sh → cancelled-run reruns → social → HUMAN-ROADMAP checkbox. **Why:** running social before downstream-truth means announcing a release whose tap parity has not been independently re-verified; flipping the checkbox before social means the roadmap claims done while the marketing surface is silent. The order sequences every claim after its proof. **How to apply:** any future release turn must run steps 1–4 before step 5, steps 1–5 before step 6, and steps 1–6 before step 7. Deviating requires an explicit turn-log justification naming what was proven instead.
+
+### Evidence (post-publish update)
+
+- `gh run view 24702845949` → `status: completed, conclusion: success, publish in 2m56s` (all steps green: `Publish tagged release`, `Verify published artifact`, `Sync Homebrew formula`, `Create GitHub Release`, `Verify release completeness`).
+- `npm view agentxchain version` → `2.149.1`. `npm view agentxchain dist-tags` → `{ latest: '2.149.1' }`.
+- `gh release view v2.149.1 --json tagName,isDraft,name,createdAt` → `{"createdAt":"2026-04-21T03:00:33Z","isDraft":false,"name":"v2.149.1","tagName":"v2.149.1"}`.
+- Canonical Homebrew tap formula → `url https://registry.npmjs.org/agentxchain/-/agentxchain-2.149.1.tgz`, `sha256 811a261179e9e6a3ca7dcc9b2c66ff78efa85355621765ae3551f9f756dad7c3`.
+- `bash cli/scripts/release-downstream-truth.sh --target-version 2.149.1` → `Results: 3 passed, 0 failed. DOWNSTREAM TRUTH PASSED — all downstream surfaces are consistent.`
+- `bash marketing/post-release.sh v2.149.1 "..."` → X ok, LinkedIn ok (verified via company-feed check after submit-confirm warning), Reddit failed (exit 1).
+- `gh run rerun 24702442641` → re-queued (was `cancelled`, now `queued`).
+- `RELEASE-v2.149` checkbox in `.planning/HUMAN-ROADMAP.md` → `- [x]` with completion-note block.
+
+### Updated HUMAN-ROADMAP Status
+
+- **RELEASE-v2.149** — CLOSED. `- [x]`. Completion evidence recorded above and in the roadmap entry itself.
+- **BUG-54, BUG-52, BUG-55, BUG-53** — still OPEN. Ready for tester re-run against `agentxchain@2.149.1`. When tester quotes shipped-package output matching each bug's acceptance contract in the v2-149-1 release notes, flip the corresponding checkbox.
+
+### Next Action For GPT 5.4 (updated)
+
+1. **Read the post-publish update above.** The release is live. The checklist is done. Do NOT re-run release-downstream-truth.sh, do NOT repost social, do NOT re-rerun the collateral runs.
+2. **Retry the Reddit post only.** `bash marketing/post-reddit.sh "AgentXchain v2.149.1 Released" "Claude local_cli auth hangs fail fast across adapter, connector check/validate, and doctor — plus BUG-52 phase-reconcile hardening, BUG-55 lineage + verification fixes, BUG-53 continuous auto-chain proof. Install: npm i -g agentxchain@2.149.1 or brew upgrade agentxchain."`. If it fails again (CAPTCHA, login timeout, browser not logged in), log the second failure and stop — Reddit is not blocking release closure.
+3. **Monitor tester channel.** Once the tester quotes shipped-package output for any of BUG-52/53/54/55, evaluate against the v2-149-1 release notes' Tester Re-Run Contract and flip the corresponding HUMAN-ROADMAP checkbox with a citation. Do NOT flip without quoted tester output.
+4. **Pick up the next item from HUMAN-ROADMAP** while waiting for tester evidence. Rank by current ordering: BUG-54 (auth-preflight tester validation), BUG-52 (four-lane reconciler tester validation), BUG-55 (checkpoint completeness tester validation), BUG-53 (continuous auto-chain tester validation). Any tester-evidence-independent subtask can proceed (e.g., hardening the reproduce-bug-54 runbook if a new classification bucket surfaces, further command-chain test coverage per Rule 12).
+5. **Do NOT touch** `.planning/VISION.md`.
