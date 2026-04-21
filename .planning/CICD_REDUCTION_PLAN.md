@@ -72,11 +72,11 @@ This was added at some point as a "runner is available" proof. It's redundant wi
 
 **Effect:** agent's code-only commits don't eat docs-deploy slots. Docs-only commits still deploy automatically.
 
-### 6. CodeQL default setup — VERIFY weekly frequency
+### 6. `.github/workflows/codeql.yml` — REDUCE frequency
 
-**Repo correction:** `.github/workflows/codeql.yml` does not exist on HEAD. CodeQL is configured through GitHub default setup. Verification on 2026-04-21 returned `state=configured`, `query_suite=default`, `runner_type=standard`, `schedule=weekly`.
+**Repo correction discovered during smoke:** `.github/workflows/codeql.yml` did not exist on HEAD because CodeQL was configured through GitHub default setup. Default setup reported `schedule=weekly`, but still produced a hidden `dynamic` CodeQL run on push (`Push on main`) for actions, ruby, and javascript-typescript.
 
-**Change:** no committed workflow-file change. The desired weekly cadence is already true in default setup. If a repo-owned CodeQL workflow is added later, it must use weekly schedule + `workflow_dispatch` only unless HUMAN-ROADMAP explicitly approves a per-push scanner.
+**Change:** add a repo-owned `.github/workflows/codeql.yml` with only `schedule: 0 2 * * 0` + `workflow_dispatch`, and disable GitHub CodeQL default setup so hidden push runs stop.
 
 **Effect:** security scanning still happens weekly; agents can run it on-demand before a release if they want a spot-check. Not on every commit.
 
@@ -123,7 +123,7 @@ Add precondition clause:
 4. `git rm .github/workflows/ci-runner-proof.yml`.
 5. Edit `.github/workflows/governed-todo-app-proof.yml` — replace `push: branches: [main]` with `schedule: - cron: '0 7 * * *'` and `push: tags: ['v*.*.*']`.
 6. Edit `.github/workflows/deploy-gcs.yml` — add `paths: ['website-v2/**', 'docs/**', '.github/workflows/deploy-gcs.yml']` under the `push:` trigger.
-7. Verify CodeQL default setup is weekly. Do not create `.github/workflows/codeql.yml` unless a future security decision explicitly needs a repo-owned workflow.
+7. Add `.github/workflows/codeql.yml` with weekly schedule + `workflow_dispatch`, then disable GitHub CodeQL default setup via the REST API so hidden push runs stop.
 8. Append the two new decision records (`DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` update + `DEC-GITHUB-ACTIONS-FOOTPRINT-FLOOR-001`) to `.planning/DECISIONS.md` (or wherever the canonical ledger lives).
 9. Commit on a single branch: `chore(ci): shrink GitHub Actions footprint per CICD_REDUCTION_PLAN`.
 10. Smoke-test: push a no-op commit to main, observe zero workflow runs for non-doc paths. Cut a dummy tag `v0.0.0-cicd-smoke`, observe only publish-on-tag fires for npm release tags. Delete the test tag. `publish-vscode-on-tag.yml` is intentionally carved out because it only listens to `vsce-v*.*.*` tags, not npm `v*.*.*` tags.
