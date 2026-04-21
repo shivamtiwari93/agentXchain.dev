@@ -71,7 +71,15 @@ For closure evidence on `v2.149.0`, quote the exact command output or diagnostic
 
 - **BUG-54 auth-shape preflight**: first run `agentxchain connector check <claude-runtime> --json` or `agentxchain connector validate <claude-runtime> --json` on `v2.149.0`. If the runtime is still in the known-hanging configuration, quote the `claude_auth_preflight_failed` output with its `auth_env_present` booleans and remediation text. That is the fastest shipped-package proof that the keychain-auth hang shape is being caught before launch.
 - **BUG-54 QA startup reliability after auth is corrected**: run the tester's normal QA flow on `v2.149.0` and quote the adapter diagnostic lines that include `startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`. If the runtime only stabilizes after raising `runtimes.<id>.startup_watchdog_ms`, quote that config too so the evidence names the exact override that made the run healthy. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup. If QA still fails after env auth or `--bare` is set, quote the full `process_exit` record for a failing attempt.
-- **BUG-54 root-cause triage when reliability stays below 90% after auth is corrected**: run `node cli/scripts/reproduce-bug-54.mjs --synthetic "Say READY and nothing else." --attempts 10 --out ./bug-54-repro.json` inside the failing worktree. The runbook at `.planning/BUG_54_REPRO_SCRIPT_TESTER_RUNBOOK.md` maps each of the 9 classification buckets to the remaining hypotheses and names the JSON fields to quote back to the agents.
+- **BUG-54 root-cause triage when reliability stays below 90% after auth is corrected**: resolve the reproduction harness from the installed `agentxchain` package (not the repo tree) inside the failing worktree:
+
+  ```bash
+  REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"
+  [ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"
+  node "$REPRO" --synthetic "Say READY and nothing else." --attempts 10 --out ./bug-54-repro.json
+  ```
+
+  The consolidated quote-back checklist lives at `.planning/BUG_52_53_54_55_TESTER_UNBLOCK_RUNBOOK.md`; the per-field reading key for this JSON lives at `.planning/BUG_54_REPRO_SCRIPT_TESTER_RUNBOOK.md`.
 - **BUG-52 phase-gate reconciliation — full four-lane coverage**: run the tester's exact CLI chain across all four shapes:
   1. `planning_signoff` with separated `checkpoint-turn` → `unblock` → next dispatch is `dev`, not PM.
   2. `qa_ship_verdict` with separated `checkpoint-turn` → `unblock` → next dispatch is `launch`, not QA.

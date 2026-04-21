@@ -47,7 +47,14 @@ npx --yes -p agentxchain@2.150.0 -c "agentxchain --version"
 
 All prior shipped-package closure contracts remain in force on `agentxchain@2.150.0`. Quote these from the latest package:
 
-- **BUG-54 new discriminator artifact**: run `node cli/scripts/reproduce-bug-54.mjs --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json` inside the failing worktree and quote the following fields from the resulting JSON per `.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md`:
+- **BUG-54 new discriminator artifact**: resolve the reproduction harness from the installed `agentxchain` package (not the repo tree) inside the failing worktree, then quote the fields below per `.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md`:
+
+  ```bash
+  REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"
+  [ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"
+  node "$REPRO" --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json
+  ```
+
   - `command_probe.status`, `command_probe.stdout` (Claude CLI version string)
   - `summary.spawn_attached`, `summary.stdout_attached`, `summary.watchdog_fires`, `summary.classification_counts`
   - First failing attempt: `first_stderr_ms`, `first_stdout_ms`, `stdout_bytes_total`, `stderr_bytes_total`
