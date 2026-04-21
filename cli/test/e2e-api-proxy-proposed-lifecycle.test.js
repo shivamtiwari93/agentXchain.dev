@@ -368,6 +368,7 @@ function makeProject(mockServerUrl) {
   config.gates.planning_signoff = {
     requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
     requires_human_approval: true,
+    credentialed: true,
   };
   config.gates.implementation_complete = {
     requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
@@ -376,6 +377,7 @@ function makeProject(mockServerUrl) {
   config.gates.qa_ship_verdict = {
     requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
     requires_human_approval: true,
+    credentialed: true,
   };
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
