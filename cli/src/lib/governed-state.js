@@ -2665,6 +2665,91 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
   });
 
   if (gateResult.action === 'awaiting_human_approval') {
+    // BUG-59 (DEC-BUG59-PLAN-LAYERED-FIX-001, slice 3): before falling back to
+    // the BUG-52 "human already unblocked" advancement path, consult
+    // approval_policy. If the configured policy auto-approves this transition
+    // (and the gate is not credentialed), advance directly and write an
+    // `approval_policy` ledger entry matching the accepted-turn path shape at
+    // governed-state.js:4909-4919. Credentialed gates are hard-stopped inside
+    // evaluateApprovalPolicy per DEC-BUG59-CREDENTIALED-GATE-HARD-STOP-001, so
+    // a credentialed gate lands here with action === 'require_human' and falls
+    // through to the existing approvePhaseTransition path (which itself
+    // requires paused/blocked status produced by a real human unblock).
+    const approvalResult = evaluateApprovalPolicy({
+      gateResult,
+      gateType: 'phase_transition',
+      state: { ...currentState, history: historyEntries },
+      config,
+    });
+
+    if (approvalResult.action === 'auto_approve') {
+      const now = new Date().toISOString();
+      const prevPhase = currentState.phase;
+      const nextState = {
+        ...currentState,
+        phase: gateResult.next_phase,
+        phase_entered_at: now,
+        blocked_on: null,
+        blocked_reason: null,
+        last_gate_failure: null,
+        pending_phase_transition: null,
+        queued_phase_transition: null,
+        phase_gate_status: {
+          ...(currentState.phase_gate_status || {}),
+          [gateResult.gate_id || 'no_gate']: 'passed',
+        },
+      };
+      writeState(root, nextState);
+      appendJsonl(root, LEDGER_PATH, {
+        type: 'approval_policy',
+        gate_type: 'phase_transition',
+        action: 'auto_approve',
+        matched_rule: approvalResult.matched_rule,
+        from_phase: prevPhase,
+        to_phase: gateResult.next_phase,
+        reason: approvalResult.reason,
+        gate_id: gateResult.gate_id || null,
+        timestamp: now,
+      });
+      const retiredIntentIds = retireApprovedPhaseScopedIntents(root, nextState, config, prevPhase, now);
+      if (retiredIntentIds.length > 0) {
+        emitRunEvent(root, 'intent_retired_by_phase_advance', {
+          run_id: nextState.run_id,
+          phase: nextState.phase,
+          status: nextState.status,
+          turn: phaseSource.turn_id ? { turn_id: phaseSource.turn_id, role_id: phaseSource.role || phaseSource.assigned_role || null } : undefined,
+          payload: {
+            exited_phase: prevPhase,
+            entered_phase: gateResult.next_phase,
+            retired_count: retiredIntentIds.length,
+            retired_intent_ids: retiredIntentIds,
+          },
+        });
+      }
+      emitRunEvent(root, 'phase_entered', {
+        run_id: nextState.run_id,
+        phase: nextState.phase,
+        status: nextState.status,
+        turn: phaseSource.turn_id ? { turn_id: phaseSource.turn_id, role_id: phaseSource.role || phaseSource.assigned_role || null } : undefined,
+        payload: {
+          from: prevPhase,
+          to: gateResult.next_phase,
+          gate_id: gateResult.gate_id || 'no_gate',
+          trigger: 'auto_approved',
+        },
+      });
+      return {
+        ok: true,
+        state: attachLegacyCurrentTurnAlias(nextState),
+        advanced: true,
+        from_phase: prevPhase,
+        to_phase: gateResult.next_phase,
+        gate_id: gateResult.gate_id || null,
+        gateResult,
+        approval_policy: approvalResult,
+      };
+    }
+
     const pausedState = {
       ...currentState,
       status: 'paused',
@@ -2689,6 +2774,7 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
       to_phase: approved.state?.phase || gateResult.next_phase || null,
       gate_id: gateResult.gate_id || null,
       gateResult,
+      approval_policy: approvalResult,
     };
   }
 
