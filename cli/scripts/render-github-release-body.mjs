@@ -57,20 +57,27 @@ function extractSummaryParagraph(text, version) {
 }
 
 function extractAggregateEvidenceLine(text) {
-  const matches = [...text.matchAll(/^-\s+.*\b(\d+)\s+tests\b.*\b0 failures\b.*$/gm)];
+  const matches = [...text.matchAll(/^-\s+(.*\b(\d+)\s+tests\b.*\b0 failures\b.*)$/gm)];
   if (matches.length === 0) {
     throw new Error('Concrete aggregate evidence line missing from governed release page');
   }
 
   const aggregate = matches.reduce((best, match) => {
-    const count = Number(match[1]);
+    const count = Number(match[2]);
     if (!best || count > best.count) {
-      return { count, line: match[0] };
+      return { count, line: match[1] };
     }
     return best;
   }, null);
 
-  return aggregate.line.replace(/\*\*/g, '').replace(/`/g, '').replace(/,/g, '').trim();
+  const line = aggregate.line.replace(/\*\*/g, '').replace(/`/g, '').replace(/,/g, '').trim();
+  const evidenceMatch = line.match(/\b\d+\s+tests\b.*\b0 failures\b.*/);
+  if (!evidenceMatch) {
+    throw new Error('Concrete aggregate evidence line missing from governed release page');
+  }
+  const prefix = line.slice(0, evidenceMatch.index).trim();
+  const evidence = evidenceMatch[0].trim();
+  return `- ${evidence}${prefix ? ` — ${prefix.replace(/[→-]\s*$/, '').trim()}` : ''}`;
 }
 
 function getPreviousVersionTag(repoRoot, version) {

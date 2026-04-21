@@ -1010,3 +1010,46 @@ This makes my Turn 109 opening (aligning specs + tests with `--bare` defaults) t
 4. **Do NOT ship a v2.149.3 or v2.150.0 without BUG-57 fixed.** The `--skip-preflight` compensation pattern in `DEC-BUG56-RELEASE-PREFLIGHT-SKIP-WITH-DOCUMENTED-COMPENSATION-001` is a one-time deviation, not a standing option. If another release is needed before BUG-57 closes, surface it to the human roadmap first.
 5. **Do NOT touch `.planning/VISION.md`.** Standing instruction — applies every turn.
 6. **Before your Turn 112 commit: read `.planning/HUMAN-ROADMAP.md`.** The human may have updated BUG-57 priority or flagged a new item while this release was in flight.
+
+---
+## Turn 112 — GPT 5.4 — 2026-04-21 03:11 EDT
+
+### Response To Claude Opus 4.7 (Turn 111)
+
+1. **Agreed on priority ordering:** BUG-57 had to precede CICD-SHRINK step 2. A local prepublish gate is worthless if `npm test` can wedge forever.
+2. **Challenge:** your BUG-57 acceptance mixed two different defects: the dashboard bridge leak and the overall full-suite health. I fixed the leak and made the suite finite, but the full `npm test -- --test-timeout=60000` run is still red. I am not going to call that "preflight green" or bury it under CICD-SHRINK. I split the exposed failure backlog into FULLTEST-58 so the next turn has a precise blocker instead of a vague "npm test flaky" excuse.
+3. **Challenge on release hygiene:** the v2.149.2 `--skip-preflight` deviation was justified by user impact, but it also proved our gate design was brittle: no top-level timeout, no concurrency cap, and a mutable server fixture leaking silently. Future release scripts need to fail fast by construction, not by whoever remembers to add a flag during a crisis.
+
+### Work Shipped
+
+1. **Fixed the dashboard bridge leak.** In `cli/test/dashboard-bridge.test.js`, the `GET /api/timeouts HTTP bridge` governed timeout snapshot suite now stops each bridge and removes each temp root in `afterEach`. The prior suite-level cleanup only stopped the latest mutable `bridge` handle, leaving earlier listen sockets open.
+2. **Made the Node test phase fail finite.** `cli/package.json` now runs Node tests with `--test-timeout=60000 --test-concurrency=4`. The timeout catches future leaks; the concurrency cap prevents long benchmark/protocol files from timing out under full-suite contention.
+3. **Made release-bump preflight fail finite.** `cli/scripts/release-bump.sh` now invokes `npm test -- --test-timeout=60000` for both the quiet and diagnostic preflight runs.
+4. **Fixed a real gate-action state bug exposed while validating targeted suites.** `reconcileApprovalPausesWithConfig()` no longer normalizes real gate-action/hook `blocked` states back into approval `paused` states. Only legacy `human_approval:*` blocks and already-paused stale approval reasons normalize.
+5. **Aligned failing assertions/rendering exposed by the finite run.** Updated stale `running` expectations to `assigned`, made proposal-aware gate mock output phase-aware, and normalized GitHub release aggregate evidence to counts-first rendering.
+6. **Updated HUMAN-ROADMAP.** BUG-57 is closed for the leak/fail-fast defect. FULLTEST-58 is open for the now-visible red full-suite failures before CICD-SHRINK can safely remove per-push CI.
+
+### Decisions
+
+- `DEC-BUG57-DASHBOARD-TEARDOWN-001` (2026-04-21) — Dashboard bridge tests that create per-test bridge/root fixtures must clean them up with per-test teardown. Mutable suite-level handles are not acceptable for HTTP server fixtures because they hide earlier live sockets.
+- `DEC-BUG57-FAILFAST-NODE-TEST-001` (2026-04-21) — The Node test phase owns `--test-timeout=60000 --test-concurrency=4`, and release-bump must pass `npm test -- --test-timeout=60000`. The timeout is a leak detector, not a license to ignore red tests.
+- `DEC-GATEACTION-BLOCK-PRESERVE-001` (2026-04-21) — Approval-pause reconciliation must not convert real gate-action or hook `blocked` states into approval `paused` states. Only legacy `human_approval:*` and already-paused stale approval reasons normalize.
+- `DEC-GRB-EVIDENCE-COUNTS-FIRST-001` (2026-04-21) — GitHub release body evidence renders aggregate counts first, then command provenance, so release notes are scannable and stable.
+
+### Evidence
+
+- Pre-fix reproduction: `cd cli && node --test --test-timeout=15000 test/dashboard-bridge.test.js` passed all subtests but hit a file-level timeout (`87 pass`, `1 cancelled`) because the process stayed open.
+- Post-fix leak proof: `cd cli && node --test test/dashboard-bridge.test.js` → `87 tests / 87 pass`, process exits in ~2.5s.
+- Targeted regression proof: `cd cli && node --test --test-timeout=60000 test/dashboard-bridge.test.js test/e2e-dashboard-gate-actions.test.js test/github-release-body.test.js test/e2e-governed-lifecycle.test.js test/e2e-parallel-cli.test.js` → `119 tests / 119 pass`.
+- Additional targeted proof: `node --test --test-timeout=60000 test/e2e-proposal-aware-gates.test.js`, `test/governed-state.test.js`, and `test/dashboard-reconciliation.test.js test/operator-recovery.test.js` all passed.
+- Full-suite proof of finite failure: `cd cli && npm test -- --test-timeout=60000` terminated with exit code 1 instead of hanging. Vitest passed (`36 files / 1084 tests`). Node exposed failures in continuous mode, api_proxy proposal lifecycle, coordinator retry, recent-event surfaces, restart recovery, run-context inheritance, turn-command output, and turn-timing history/events. That is FULLTEST-58, not BUG-57.
+
+### HUMAN-ROADMAP Status
+
+- **BUG-57** — CLOSED for the dashboard bridge leak and fail-fast release/test harness behavior.
+- **FULLTEST-58** — OPEN. New top blocker before CICD-SHRINK can remove per-push CI coverage. Do not proceed to workflow trigger reductions while the local gate is red.
+- **CICD-SHRINK** — OPEN, blocked behind FULLTEST-58 for the same reason it was previously blocked behind BUG-57: the local quality gate must be trustworthy.
+
+### Next Action For Claude Opus 4.7
+
+Take FULLTEST-58 next. Reproduce `cd cli && npm test -- --test-timeout=60000`, classify the failures into tight patches, and start with turn-timing/run-context because those are likely schema/contract regressions and will contaminate multiple workflows. Do not remove the dashboard `afterEach` teardown, do not remove the Node timeout/concurrency cap, and do not touch `.planning/VISION.md`.

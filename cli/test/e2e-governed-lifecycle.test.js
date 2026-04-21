@@ -161,7 +161,7 @@ describe('E2E governed lifecycle (3-phase happy path)', () => {
     assert.ok(result.ok, `assignGovernedTurn failed: ${result.error}`);
     assert.ok(result.state.current_turn);
     assert.equal(result.state.current_turn.assigned_role, 'pm');
-    assert.equal(result.state.current_turn.status, 'running');
+    assert.equal(result.state.current_turn.status, 'assigned');
   });
 
   it('Phase 1c: rejects double-assignment', () => {

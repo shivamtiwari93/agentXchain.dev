@@ -342,12 +342,12 @@ else
   PREFLIGHT_FAILED=0
 
   # 8.5a. Full test suite with release env vars
-  if env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test >/dev/null 2>&1; then
+  if env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test -- --test-timeout=60000 >/dev/null 2>&1; then
     echo "  OK: test suite passed"
   else
     echo "  FAIL: test suite failed" >&2
     echo "  Re-running with output for diagnostics..." >&2
-    env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test 2>&1 | tail -30 >&2
+    env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test -- --test-timeout=60000 2>&1 | tail -30 >&2
     PREFLIGHT_FAILED=1
   fi
 

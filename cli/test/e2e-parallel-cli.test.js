@@ -302,8 +302,8 @@ describe('E2E parallel CLI (Path A)', () => {
     // State must not have been mutated
     const state = readJson(root, STATE_PATH);
     assert.equal(Object.keys(state.active_turns).length, 2);
-    assert.equal(state.active_turns[firstTurnId].status, 'running');
-    assert.equal(state.active_turns[secondTurnId].status, 'running');
+    assert.equal(state.active_turns[firstTurnId].status, 'assigned');
+    assert.equal(state.active_turns[secondTurnId].status, 'assigned');
   });
 
   // ── Scenario B: Targeted Acceptance ────────────────────────────────────────
@@ -337,7 +337,7 @@ describe('E2E parallel CLI (Path A)', () => {
       updatedState.active_turns[secondTurnId],
       'sibling turn should remain active',
     );
-    assert.equal(updatedState.active_turns[secondTurnId].status, 'running');
+    assert.equal(updatedState.active_turns[secondTurnId].status, 'assigned');
 
     // Accepted turn removed from active_turns
     assert.equal(

@@ -2096,6 +2096,24 @@ function inferApprovalPauseFromState(state, config) {
   };
 }
 
+function shouldNormalizeApprovalPauseBlock(state, inferred) {
+  if (!state || typeof state !== 'object') {
+    return false;
+  }
+
+  const blockedOn = typeof state.blocked_on === 'string' ? state.blocked_on : '';
+  const recovery = state.blocked_reason?.recovery;
+  const typedReason = recovery?.typed_reason || null;
+
+  if (blockedOn.startsWith('human_approval:')) {
+    return true;
+  }
+
+  return state.status === 'paused'
+    && state.blocked_reason != null
+    && (!typedReason || typedReason === inferred.typedReason);
+}
+
 export function reconcileApprovalPausesWithConfig(state, config) {
   if (!state || typeof state !== 'object' || !config) {
     return { state, changed: false };
@@ -2117,7 +2135,7 @@ export function reconcileApprovalPausesWithConfig(state, config) {
     changed = true;
   }
 
-  if (nextState.status === 'blocked' || nextState.blocked_reason != null) {
+  if (shouldNormalizeApprovalPauseBlock(nextState, inferred)) {
     nextState = {
       ...nextState,
       status: 'paused',

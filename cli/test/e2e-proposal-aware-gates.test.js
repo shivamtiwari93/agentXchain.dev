@@ -57,6 +57,15 @@ function startMockServer() {
       return matches.length > 0 ? matches[matches.length - 1][1] : null;
     }
 
+    function getPromptPhase(promptText) {
+      const jsonPhase = getLastPromptField(promptText, 'phase');
+      if (jsonPhase) return jsonPhase;
+      const markdownPhase = promptText.match(/\*\*Phase:\*\*\s+([^\s\n]+)/);
+      if (markdownPhase) return markdownPhase[1];
+      const plainPhase = promptText.match(/^Phase:\s+([^\s\n]+)/m);
+      return plainPhase ? plainPhase[1] : null;
+    }
+
     const server = createServer((req, res) => {
       let body = '';
       req.on('data', (chunk) => { body += chunk; });
@@ -75,6 +84,7 @@ function startMockServer() {
           const runId = getLastPromptField(promptText, 'run_id') || 'run_mock';
           const turnId = getLastPromptField(promptText, 'turn_id') || 'turn_mock';
           const runtimeId = getLastPromptField(promptText, 'runtime_id') || 'api-dev';
+          const phase = getPromptPhase(promptText) || 'implementation';
 
           let turnResult;
 
@@ -123,7 +133,14 @@ function startMockServer() {
               cost: { input_tokens: 150, output_tokens: 200, usd: 0.02 },
             };
           } else {
-            // Second dev turn: verification pass + transition request
+            // Second dev turn: verification pass + the valid request for the
+            // phase observed in the dispatch prompt. Proposal apply can advance
+            // the pending implementation gate before this turn runs, so the mock
+            // must not keep requesting a transition from the final qa phase.
+            const isFinalPhase = phase === 'qa';
+            const nextRequestSummary = isFinalPhase
+              ? 'Verified implementation and requested run completion.'
+              : 'Verified implementation and requested phase transition.';
             // Still needs proposed_changes because write_authority is 'proposed'
             turnResult = {
               schema_version: '1.0',
@@ -132,11 +149,13 @@ function startMockServer() {
               role: 'dev',
               runtime_id: runtimeId,
               status: 'completed',
-              summary: 'Verified implementation and requested phase transition.',
+              summary: nextRequestSummary,
               decisions: [{
                 id: 'DEC-002',
                 category: 'implementation',
-                statement: 'Implementation verified, requesting QA phase.',
+                statement: isFinalPhase
+                  ? 'Implementation verified in QA, requesting run completion.'
+                  : 'Implementation verified, requesting QA phase.',
                 rationale: 'All proposed changes applied and committed.',
               }],
               objections: [],
@@ -149,9 +168,9 @@ function startMockServer() {
                 machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
               },
               artifact: { type: 'patch', ref: null },
-              proposed_next_role: 'qa',
-              phase_transition_request: 'qa',
-              run_completion_request: null,
+              proposed_next_role: isFinalPhase ? 'human' : 'qa',
+              phase_transition_request: isFinalPhase ? null : 'qa',
+              run_completion_request: isFinalPhase ? true : null,
               needs_human_reason: null,
               proposed_changes: [
                 {

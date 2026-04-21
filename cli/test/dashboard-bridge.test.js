@@ -8,7 +8,7 @@
  * See: DASHBOARD_GATE_ACTIONS_SPEC.md, AT-DASH-ACT-001 through AT-DASH-ACT-007.
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, chmodSync } from 'fs';
 import { join } from 'path';
@@ -3348,9 +3348,15 @@ describe('GET /api/timeouts HTTP bridge', () => {
     let port;
     let root;
 
-    after(async () => {
-      if (bridge) await bridge.stop();
-      if (root) rmSync(root, { recursive: true, force: true });
+    afterEach(async () => {
+      if (bridge) {
+        await bridge.stop();
+        bridge = null;
+      }
+      if (root) {
+        rmSync(root, { recursive: true, force: true });
+        root = null;
+      }
     });
 
     it('AT-TIMEOUT-HTTP-003: returns configured false when no timeouts are configured', async () => {

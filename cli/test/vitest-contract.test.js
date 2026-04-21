@@ -41,7 +41,7 @@ describe('Vitest coverage contract', () => {
   it('keeps the package scripts aligned with the shipped Vitest contract', () => {
     assert.equal(PACKAGE_JSON.scripts['test:vitest'], 'vitest run --reporter=verbose');
     assert.equal(PACKAGE_JSON.scripts['test:beta'], 'node --test test/beta-tester-scenarios/*.test.js');
-    assert.equal(PACKAGE_JSON.scripts['test:node'], 'node --test test/*.test.js test/beta-tester-scenarios/*.test.js');
+    assert.equal(PACKAGE_JSON.scripts['test:node'], 'node --test --test-timeout=60000 --test-concurrency=4 test/*.test.js test/beta-tester-scenarios/*.test.js');
     assert.equal(PACKAGE_JSON.scripts.test, 'npm run test:vitest && npm run test:node');
   });
 
