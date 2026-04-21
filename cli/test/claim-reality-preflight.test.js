@@ -19,6 +19,7 @@ import { after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   existsSync,
+  chmodSync,
   mkdtempSync,
   mkdirSync,
   readdirSync,
@@ -35,6 +36,15 @@ import { pathToFileURL } from 'node:url';
 const CLI_DIR = resolve(import.meta.dirname, '..');
 const SCENARIOS_DIR = join(import.meta.dirname, 'beta-tester-scenarios');
 const TEMP_PATHS = [];
+
+function writeClaudeShim(root, body) {
+  const shimDir = join(root, 'shim-bin');
+  mkdirSync(shimDir, { recursive: true });
+  const shimPath = join(shimDir, 'claude');
+  writeFileSync(shimPath, body);
+  chmodSync(shimPath, 0o755);
+  return { shimDir, shimPath };
+}
 
 const BUG46_REPLAY_SIDE_EFFECT_PATHS = [
   '.planning/RELEASE_NOTES.md',
@@ -2534,7 +2544,7 @@ describe('claim-reality preflight', () => {
     );
   });
 
-  it('BUG-54 packaged local-cli adapter fails fast before spawn when Claude lacks env auth and --bare', async () => {
+  it('BUG-56 packaged local-cli adapter fails fast only after the Claude smoke probe observes a hang', async () => {
     const { packageDir } = getExtractedPackage();
     const adapterPath = join(packageDir, 'src/lib/adapters/local-cli-adapter.js');
     const authHelperPath = join(packageDir, 'src/lib/claude-local-auth.js');
@@ -2547,6 +2557,10 @@ describe('claim-reality preflight', () => {
 
     const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-claude-auth-'));
     TEMP_PATHS.push(root);
+    const { shimPath } = writeClaudeShim(root, `#!/bin/sh
+cat > /dev/null
+exec sleep 30
+`);
 
     const turnId = 'turn_packed_claude_auth_preflight';
     const dispatchDir = join(root, '.agentxchain', 'dispatch', 'turns', turnId);
@@ -2579,7 +2593,7 @@ describe('claim-reality preflight', () => {
       runtimes: {
         'local-dev': {
           type: 'local_cli',
-          command: ['claude', '--print', '--dangerously-skip-permissions'],
+          command: [shimPath, '--print', '--dangerously-skip-permissions'],
           cwd: '.',
           prompt_transport: 'stdin',
         },
@@ -2595,12 +2609,14 @@ describe('claim-reality preflight', () => {
       CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
       CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
       CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+      AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: process.env.AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS,
     };
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.CLAUDE_API_KEY;
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     delete process.env.CLAUDE_CODE_USE_VERTEX;
     delete process.env.CLAUDE_CODE_USE_BEDROCK;
+    process.env.AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS = '500';
 
     try {
       const attached = [];
@@ -2635,6 +2651,8 @@ describe('claim-reality preflight', () => {
       const [payload] = parseDiagnosticPayloads(result.logs, 'claude_auth_preflight_failed');
       assert.equal(payload.auth_env_present.ANTHROPIC_API_KEY, false,
         'packed Claude auth-preflight diagnostic must report ANTHROPIC_API_KEY presence as false in the missing-auth proof row');
+      assert.equal(payload.smoke_probe.kind, 'hang',
+        'packed Claude auth-preflight diagnostic must prove the refusal was gated by an observed smoke-probe hang');
       assert.match(payload.recommendation, /CLAUDE_CODE_OAUTH_TOKEN/,
         'packed Claude auth-preflight diagnostic must point operators at env-based Claude auth, not only generic failure text');
     } finally {
@@ -2648,7 +2666,7 @@ describe('claim-reality preflight', () => {
     }
   });
 
-  it('BUG-54 packaged connector validate refuses the Claude auth-preflight shape before scratch workspace setup', async () => {
+  it('BUG-56 packaged connector validate refuses only observed Claude auth-hang shapes before scratch workspace setup', async () => {
     // Companion to the adapter-level proof above. The adapter row exercises
     // dispatchLocalCli's pre-spawn refusal. THIS row exercises the higher-level
     // `connector validate` command path so a future regression that wires the
@@ -2673,6 +2691,10 @@ describe('claim-reality preflight', () => {
 
     const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-validate-claude-auth-'));
     TEMP_PATHS.push(root);
+    const { shimDir } = writeClaudeShim(root, `#!/bin/sh
+cat > /dev/null
+exec sleep 30
+`);
 
     // Build a minimal governed project on disk so loadProjectContext reads
     // the right runtime shape.
@@ -2700,12 +2722,16 @@ describe('claim-reality preflight', () => {
       CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
       CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
       CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+      AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: process.env.AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS,
+      PATH: process.env.PATH,
     };
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.CLAUDE_API_KEY;
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     delete process.env.CLAUDE_CODE_USE_VERTEX;
     delete process.env.CLAUDE_CODE_USE_BEDROCK;
+    process.env.AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS = '500';
+    process.env.PATH = `${shimDir}:${process.env.PATH || ''}`;
 
     try {
       const result = await validateConfiguredConnector(root, {
@@ -2730,6 +2756,8 @@ describe('claim-reality preflight', () => {
         'packaged connector validate must name --bare as the explicit env-only auth opt-out');
       assert.equal(result.auth_env_present?.ANTHROPIC_API_KEY, false,
         'packaged connector validate must report ANTHROPIC_API_KEY presence as a boolean for diagnostic context');
+      assert.equal(result.smoke_probe?.kind, 'hang',
+        'packaged connector validate refusal must be backed by an observed smoke-probe hang');
       const preflightWarn = (result.warnings || []).find((w) => w.probe_kind === 'auth_preflight');
       assert.ok(preflightWarn,
         'packaged connector validate must add an auth_preflight row to warnings so json consumers (CI, dashboards) can filter on probe_kind without parsing free-text');
@@ -2746,7 +2774,7 @@ describe('claim-reality preflight', () => {
     }
   });
 
-  it('BUG-54 packaged connector check fails the Claude auth-preflight shape with the canonical error code', () => {
+  it('BUG-56 packaged connector check fails observed Claude auth-hang shape with the canonical error code', () => {
     const { packageDir } = getExtractedPackage();
     const cliPath = join(packageDir, 'bin', 'agentxchain.js');
     const probePath = join(packageDir, 'src/lib/connector-probe.js');
@@ -2760,6 +2788,10 @@ describe('claim-reality preflight', () => {
 
     const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-check-claude-auth-'));
     TEMP_PATHS.push(root);
+    const { shimDir } = writeClaudeShim(root, `#!/bin/sh
+cat > /dev/null
+exec sleep 30
+`);
 
     writeFileSync(join(root, 'agentxchain.json'), JSON.stringify({
       schema_version: '1.0',
@@ -2782,6 +2814,8 @@ describe('claim-reality preflight', () => {
     const env = {
       ...process.env,
       NO_COLOR: '1',
+      PATH: `${shimDir}:${process.env.PATH || ''}`,
+      AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500',
     };
     delete env.ANTHROPIC_API_KEY;
     delete env.CLAUDE_API_KEY;
@@ -2811,6 +2845,8 @@ describe('claim-reality preflight', () => {
     assert.match(localDev.fix || '', /--bare/);
     assert.equal(localDev.auth_env_present?.ANTHROPIC_API_KEY, false,
       'packaged connector check must report auth env presence as booleans, never secrets');
+    assert.equal(localDev.smoke_probe?.kind, 'hang',
+      'packaged connector check refusal must be backed by an observed smoke-probe hang');
   });
 
   it('BUG-51 packaged local-cli adapter classifies a spawn-but-silent subprocess as stdout_attach_failed via the watchdog reclassification seam', async () => {

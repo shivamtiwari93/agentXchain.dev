@@ -260,24 +260,27 @@ describe('Governed Doctor E2E', () => {
     }
   });
 
-  it('AT-GD-006: doctor warns when Claude local_cli lacks env auth and --bare', () => {
+  it('AT-GD-006: doctor warns when Claude local_cli auth smoke probe hangs', () => {
     const root = makeGoverned();
+    const claudeBinDir = createStubBinDir('claude', `#!/bin/sh
+cat > /dev/null
+exec sleep 30
+`);
+    const claudeShim = join(claudeBinDir, 'claude');
     const configPath = join(root, 'agentxchain.json');
     const config = JSON.parse(readFileSync(configPath, 'utf8'));
     config.runtimes['local-dev'] = {
       type: 'local_cli',
-      command: ['claude', '--print', '--dangerously-skip-permissions'],
+      command: [claudeShim, '--print', '--dangerously-skip-permissions'],
       cwd: '.',
       prompt_transport: 'stdin',
     };
     config.roles.dev.runtime = 'local-dev';
     writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
-    const claudeBinDir = createStubBinDir('claude', `#!/usr/bin/env node
-process.exit(0);
-`);
     const result = runCli(root, ['doctor', '--json'], {
       PATH: `${claudeBinDir}:${process.env.PATH || ''}`,
+      AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500',
       ANTHROPIC_API_KEY: '',
       CLAUDE_API_KEY: '',
       CLAUDE_CODE_OAUTH_TOKEN: '',

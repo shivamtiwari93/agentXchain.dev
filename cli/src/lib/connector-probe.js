@@ -165,29 +165,29 @@ async function probeLocalCommand(runtimeId, runtime, probeKindLabel, options = {
     };
   }
 
-  const spawnProbe = probeRuntimeSpawnContext(options.root || process.cwd(), runtime, { runtimeId });
-  const claudeAuthIssue = getClaudeSubprocessAuthIssue(runtime);
+  const claudeAuthIssue = await getClaudeSubprocessAuthIssue(runtime, process.env, {
+    timeoutMs: options.claudeAuthProbeTimeoutMs,
+  });
 
-  // DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001 / DEC-BUG54-VALIDATE-AUTH-PREFLIGHT-001
-  // Auth-preflight is a config-shape defect that must fire regardless of whether
-  // the binary currently resolves on PATH. Matches connector-validate.js:108-138
-  // ordering: a Claude local_cli runtime with no env auth and no --bare is a
-  // deterministic hang-on-spawn shape the operator must fix before anything
-  // else. If they fix auth (or add --bare) but still do not have claude
-  // installed, the next connector check surfaces command_presence after they
-  // fix the config — that is the correct operator progression.
+  // DEC-BUG56-PREFLIGHT-PROBE-OVER-SHAPE-CHECK-001
+  // Auth-preflight is observation-based: a no-env/no-bare Claude runtime is
+  // only refused when a bounded smoke probe actually hangs or fails without
+  // stdout. Working Claude Max keychain setups must pass this gate.
   if (claudeAuthIssue) {
     return {
       ...base,
       level: 'fail',
       probe_kind: 'auth_preflight',
-      command: spawnProbe.command || head,
+      command: formatTarget(runtime) || head,
       error_code: 'claude_auth_preflight_failed',
       detail: claudeAuthIssue.detail,
       fix: claudeAuthIssue.fix,
       auth_env_present: claudeAuthIssue.auth_env_present,
+      smoke_probe: claudeAuthIssue.smoke_probe,
     };
   }
+
+  const spawnProbe = probeRuntimeSpawnContext(options.root || process.cwd(), runtime, { runtimeId });
 
   if (!spawnProbe.ok) {
     return {
@@ -401,8 +401,6 @@ function analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles) {
   // Prompt transport validation
   const transport = runtime.prompt_transport || 'dispatch_bundle_only';
   const knownTransports = KNOWN_CLI_TRANSPORTS[binaryName];
-  const claudeAuthIssue = getClaudeSubprocessAuthIssue(runtime);
-
   if (transport === 'argv' && !commandTokens.some((token) => token.includes('{prompt}'))) {
     warnings.push({
       probe_kind: 'transport_intent',
@@ -419,15 +417,6 @@ function analyzeLocalCliAuthorityIntent(runtimeId, runtime, roles) {
       level: 'warn',
       detail: `${transportLabel} typically uses ${knownTransports.map((value) => `"${value}"`).join(' or ')} transport, but this runtime is configured with "${transport}"`,
       fix: `Set prompt_transport to ${knownTransports.map((value) => `"${value}"`).join(' or ')} or "dispatch_bundle_only"`,
-    });
-  }
-
-  if (claudeAuthIssue) {
-    warnings.push({
-      probe_kind: 'auth_preflight',
-      level: 'warn',
-      detail: claudeAuthIssue.detail,
-      fix: claudeAuthIssue.fix,
     });
   }
 

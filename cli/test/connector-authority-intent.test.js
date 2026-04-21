@@ -95,7 +95,7 @@ describe('authority intent analysis (unit)', () => {
     assert.ok(!authorityWarning, 'correct Claude authority flags must suppress authority_intent warnings');
   });
 
-  it('AT-B10-003b: Claude Code without env auth and without --bare warns about subprocess auth hang risk', () => {
+  it('AT-B10-003b: authority analyzer does not predict Claude auth hangs from command shape alone', () => {
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--print', '--dangerously-skip-permissions'],
@@ -104,38 +104,12 @@ describe('authority intent analysis (unit)', () => {
     const roles = {
       dev: { runtime: 'local-dev', write_authority: 'authoritative' },
     };
-    const originalEnv = {
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-      CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
-      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-      CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
-      CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
-    };
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.CLAUDE_API_KEY;
-    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    delete process.env.CLAUDE_CODE_USE_VERTEX;
-    delete process.env.CLAUDE_CODE_USE_BEDROCK;
-
-    try {
-      const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
-      const authWarning = warnings.find((w) => w.probe_kind === 'auth_preflight');
-      assert.ok(authWarning, 'missing Claude env auth must produce auth_preflight warning');
-      assert.match(authWarning.detail, /keychain reads/i);
-      assert.match(authWarning.fix, /ANTHROPIC_API_KEY/);
-      assert.match(authWarning.fix, /--bare/);
-    } finally {
-      for (const [key, value] of Object.entries(originalEnv)) {
-        if (value === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = value;
-        }
-      }
-    }
+    const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
+    const authWarning = warnings.find((w) => w.probe_kind === 'auth_preflight');
+    assert.ok(!authWarning, 'BUG-56: auth_preflight belongs to the smoke-probe path, not static authority analysis');
   });
 
-  it('AT-B10-003c: Claude Code with --bare suppresses auth preflight warning', () => {
+  it('AT-B10-003c: Claude Code with --bare still has no static auth preflight warning', () => {
     const runtime = {
       type: 'local_cli',
       command: ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
@@ -144,32 +118,9 @@ describe('authority intent analysis (unit)', () => {
     const roles = {
       dev: { runtime: 'local-dev', write_authority: 'authoritative' },
     };
-    const originalEnv = {
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-      CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
-      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-      CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
-      CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
-    };
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.CLAUDE_API_KEY;
-    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    delete process.env.CLAUDE_CODE_USE_VERTEX;
-    delete process.env.CLAUDE_CODE_USE_BEDROCK;
-
-    try {
-      const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
-      const authWarning = warnings.find((w) => w.probe_kind === 'auth_preflight');
-      assert.ok(!authWarning, 'explicit --bare should suppress the auth preflight warning');
-    } finally {
-      for (const [key, value] of Object.entries(originalEnv)) {
-        if (value === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = value;
-        }
-      }
-    }
+    const { warnings } = analyzeLocalCliAuthorityIntent('local-dev', runtime, roles);
+    const authWarning = warnings.find((w) => w.probe_kind === 'auth_preflight');
+    assert.ok(!authWarning, 'auth_preflight should not be emitted by static authority analysis');
   });
 
   it('AT-B10-004: Codex with correct flags produces no warnings', () => {

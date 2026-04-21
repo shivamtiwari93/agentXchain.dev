@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -38,6 +38,15 @@ function writeValidationAgent(root, name, body) {
   const scriptsDir = join(root, 'scripts');
   mkdirSync(scriptsDir, { recursive: true });
   writeFileSync(join(scriptsDir, name), body);
+}
+
+function writeClaudeShim(root, contents) {
+  const shimDir = join(root, 'shim-bin');
+  mkdirSync(shimDir, { recursive: true });
+  const shimPath = join(shimDir, 'claude');
+  writeFileSync(shimPath, contents);
+  chmodSync(shimPath, 0o755);
+  return shimPath;
 }
 
 afterEach(() => {
@@ -306,7 +315,8 @@ writeFileSync(stagingPath, JSON.stringify({
     assert.equal(existsSync(output.scratch_root), true);
   });
 
-  it('AT-CCV-007: Claude local_cli validation fails fast on the auth-preflight shape before scratch workspace setup', () => {
+  it('AT-CCV-007: Claude local_cli validation allows no-env/no-bare when the smoke probe observes stdout', () => {
+    let shim;
     const root = createProject((config) => {
       config.runtimes['local-dev'] = {
         type: 'local_cli',
@@ -316,11 +326,86 @@ writeFileSync(stagingPath, JSON.stringify({
       };
       config.roles.dev.runtime = 'local-dev';
       config.roles.dev.write_authority = 'authoritative';
+    }, (projectRoot) => {
+      shim = writeClaudeShim(projectRoot, `#!/bin/sh
+cat > /dev/null
+turn_id="$AGENTXCHAIN_TURN_ID"
+[ -z "$turn_id" ] && echo READY && exit 0
+node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const turnId = process.env.AGENTXCHAIN_TURN_ID;
+const assignmentPath = path.join(process.cwd(), '.agentxchain', 'dispatch', 'turns', turnId, 'ASSIGNMENT.json');
+const assignment = JSON.parse(fs.readFileSync(assignmentPath, 'utf8'));
+const stagingPath = path.join(process.cwd(), assignment.staging_result_path);
+fs.mkdirSync(path.dirname(stagingPath), { recursive: true });
+fs.writeFileSync(stagingPath, JSON.stringify({
+  schema_version: '1.0',
+  run_id: assignment.run_id,
+  turn_id: assignment.turn_id,
+  role: assignment.role,
+  runtime_id: assignment.runtime_id,
+  status: 'completed',
+  summary: 'Working Claude shim completed validation.',
+  decisions: [],
+  objections: [],
+  files_changed: [],
+  verification: { status: 'skipped', evidence_summary: 'shim validation' },
+  artifact: { type: 'review', ref: null },
+  proposed_next_role: 'human'
+}, null, 2) + '\\n');
+NODE
+echo READY
+exit 0
+`);
     });
 
-    // Strip every env-based Claude auth signal so the runtime hits the
-    // known-hanging keychain shape per DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001.
-    const env = { ...process.env };
+    // Strip every env-based Claude auth signal; the positive smoke probe must
+    // still allow this working Claude Max-style shim through.
+    const env = { ...process.env, PATH: `${dirname(shim)}:${process.env.PATH || ''}` };
+    for (const key of [
+      'ANTHROPIC_API_KEY',
+      'CLAUDE_API_KEY',
+      'CLAUDE_CODE_OAUTH_TOKEN',
+      'CLAUDE_CODE_USE_VERTEX',
+      'CLAUDE_CODE_USE_BEDROCK',
+    ]) {
+      delete env[key];
+    }
+
+    const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json'], env);
+    assert.equal(result.status, 0, result.stdout);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'pass');
+    assert.equal(output.error_code, undefined);
+    assert.equal(output.auth_env_present, undefined);
+    assert.equal(output.dispatch.ok, true);
+    assert.equal(output.validation.ok, true);
+  });
+
+  it('AT-CCV-007b: Claude local_cli validation fails fast when the auth smoke probe hangs before scratch workspace setup', () => {
+    let shim;
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['claude', '--print', '--dangerously-skip-permissions'],
+        cwd: '.',
+        prompt_transport: 'stdin',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    }, (projectRoot) => {
+      shim = writeClaudeShim(projectRoot, `#!/bin/sh
+cat > /dev/null
+exec sleep 30
+`);
+    });
+
+    const env = {
+      ...process.env,
+      AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500',
+      PATH: `${dirname(shim)}:${process.env.PATH || ''}`,
+    };
     for (const key of [
       'ANTHROPIC_API_KEY',
       'CLAUDE_API_KEY',
@@ -345,6 +430,7 @@ writeFileSync(stagingPath, JSON.stringify({
     assert.match(output.fix, /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|--bare/);
     assert.equal(output.auth_env_present.ANTHROPIC_API_KEY, false);
     assert.equal(output.auth_env_present.CLAUDE_CODE_OAUTH_TOKEN, false);
+    assert.equal(output.smoke_probe.kind, 'hang');
     const preflightWarn = (output.warnings || []).find((w) => w.probe_kind === 'auth_preflight');
     assert.ok(preflightWarn, 'expected auth_preflight warning row in warnings array');
     assert.equal(preflightWarn.level, 'fail');

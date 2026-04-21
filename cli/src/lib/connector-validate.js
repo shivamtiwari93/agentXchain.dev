@@ -105,11 +105,10 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
     };
   }
 
-  // DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001 — refuse the known-hanging Claude
-  // local_cli shape before burning the scratch-workspace + synthetic-dispatch
-  // ceremony. The adapter also refuses this shape via `claude_auth_preflight_failed`,
-  // but the operator gets a faster, identical-fix message if we catch it here.
-  const claudeAuthIssue = getClaudeSubprocessAuthIssue(runtime);
+  // DEC-BUG56-PREFLIGHT-PROBE-OVER-SHAPE-CHECK-001 — refuse Claude local_cli
+  // auth-hang shapes only after a bounded smoke probe observes no stdout.
+  // Working Claude Max keychain setups must pass instead of false-positive.
+  const claudeAuthIssue = await getClaudeSubprocessAuthIssue(runtime);
   if (claudeAuthIssue) {
     return {
       ok: false,
@@ -131,6 +130,7 @@ export async function validateConfiguredConnector(sourceRoot, options = {}) {
       error_code: 'claude_auth_preflight_failed',
       error: claudeAuthIssue.detail,
       auth_env_present: claudeAuthIssue.auth_env_present,
+      smoke_probe: claudeAuthIssue.smoke_probe,
       fix: claudeAuthIssue.fix,
       dispatch: null,
       validation: null,

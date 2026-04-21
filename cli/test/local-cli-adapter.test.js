@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
+import { chmodSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
@@ -23,6 +23,15 @@ function makeTmpDir() {
   const dir = join(tmpdir(), `axc-cli-adapter-test-${randomBytes(6).toString('hex')}`);
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+function writeClaudeShim(root, contents) {
+  const shimDir = join(root, 'shim-bin');
+  mkdirSync(shimDir, { recursive: true });
+  const shimPath = join(shimDir, 'claude');
+  writeFileSync(shimPath, contents);
+  chmodSync(shimPath, 0o755);
+  return shimPath;
 }
 
 function readJson(filePath) {
@@ -187,11 +196,15 @@ describe('local-cli-adapter', () => {
       assert.match(result.error, /Cannot resolve CLI command/);
     });
 
-    it('fails fast before spawn when Claude lacks env auth and --bare', async () => {
+    it('fails fast before governed spawn only when the Claude smoke probe observes a hang', async () => {
       const root = createAndTrack();
       const state = makeState();
+      const shim = writeClaudeShim(root, `#!/bin/sh
+cat > /dev/null
+exec sleep 30
+`);
       const config = makeConfig({
-        command: ['claude', '--print', '--dangerously-skip-permissions'],
+        command: [shim, '--print', '--dangerously-skip-permissions'],
         prompt_transport: 'stdin',
       });
       setupDispatchBundle(root, state, config);
@@ -202,12 +215,14 @@ describe('local-cli-adapter', () => {
         CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
         CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
         CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+        AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: process.env.AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS,
       };
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.CLAUDE_API_KEY;
       delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
       delete process.env.CLAUDE_CODE_USE_VERTEX;
       delete process.env.CLAUDE_CODE_USE_BEDROCK;
+      process.env.AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS = '500';
 
       try {
         const result = await dispatchLocalCli(root, state, config);
@@ -219,6 +234,7 @@ describe('local-cli-adapter', () => {
         const payloads = parseDiagPayloads(result.logs, 'claude_auth_preflight_failed');
         assert.equal(payloads.length, 1);
         assert.equal(payloads[0].auth_env_present.ANTHROPIC_API_KEY, false);
+        assert.equal(payloads[0].smoke_probe.kind, 'hang');
         assert.match(payloads[0].recommendation, /CLAUDE_CODE_OAUTH_TOKEN/);
       } finally {
         for (const [key, value] of Object.entries(originalEnv)) {

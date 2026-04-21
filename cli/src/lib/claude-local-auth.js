@@ -46,7 +46,26 @@ export function hasClaudeEnvAuth(env = process.env) {
   return Object.values(getClaudeEnvAuthPresence(env)).some(Boolean);
 }
 
-export function getClaudeSubprocessAuthIssue(runtime, env = process.env) {
+function buildClaudeSubprocessAuthIssue(env, smokeProbe = null) {
+  const auth_env_present = getClaudeEnvAuthPresence(env);
+  return {
+    auth_env_present,
+    smoke_probe: smokeProbe,
+    detail: 'Claude local_cli runtime has no env-based auth and is missing "--bare"; non-interactive subprocesses can hang on macOS keychain reads.',
+    fix: 'Export ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN before running AgentXchain, or add "--bare" to the Claude command if you intentionally want env-only auth.',
+  };
+}
+
+function resolveSmokeProbeTimeoutMs(env, options = {}) {
+  if (Number.isFinite(options?.timeoutMs) && options.timeoutMs > 0) {
+    return options.timeoutMs;
+  }
+  const raw = env?.AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SMOKE_PROBE_TIMEOUT_MS;
+}
+
+export async function getClaudeSubprocessAuthIssue(runtime, env = process.env, options = {}) {
   if (!isClaudeLocalCliRuntime(runtime)) {
     return null;
   }
@@ -55,12 +74,23 @@ export function getClaudeSubprocessAuthIssue(runtime, env = process.env) {
     return null;
   }
 
-  const auth_env_present = getClaudeEnvAuthPresence(env);
-  return {
-    auth_env_present,
-    detail: 'Claude local_cli runtime has no env-based auth and is missing "--bare"; non-interactive subprocesses can hang on macOS keychain reads.',
-    fix: 'Export ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN before running AgentXchain, or add "--bare" to the Claude command if you intentionally want env-only auth.',
-  };
+  const smokeProbe = await runClaudeSmokeProbe({
+    runtime,
+    env,
+    timeoutMs: resolveSmokeProbeTimeoutMs(env, options),
+    stdinPayload: options?.stdinPayload,
+    spawnImpl: options?.spawnImpl,
+  });
+
+  if (smokeProbe.kind === 'stdout_observed' || smokeProbe.kind === 'spawn_error' || smokeProbe.kind === 'skipped') {
+    return null;
+  }
+
+  if (smokeProbe.kind === 'hang' || smokeProbe.kind === 'exit_nonzero' || smokeProbe.kind === 'stderr_only') {
+    return buildClaudeSubprocessAuthIssue(env, smokeProbe);
+  }
+
+  return null;
 }
 
 /**

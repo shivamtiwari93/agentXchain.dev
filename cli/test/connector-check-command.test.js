@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -12,10 +12,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
 const tempDirs = [];
 
-function createProject(mutator) {
+function createProject(mutator, extraSetup) {
   const root = mkdtempSync(join(tmpdir(), 'axc-connector-check-'));
   tempDirs.push(root);
   scaffoldGoverned(root, 'Connector Check Fixture', `connector-check-${Date.now()}`);
+  extraSetup?.(root);
 
   const configPath = join(root, 'agentxchain.json');
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
@@ -31,6 +32,15 @@ function runCli(root, args, env = {}) {
     timeout: 15_000,
     env: { ...process.env, NO_COLOR: '1', ...env },
   });
+}
+
+function writeClaudeShim(root, contents) {
+  const shimDir = join(root, 'shim-bin');
+  mkdirSync(shimDir, { recursive: true });
+  const shimPath = join(shimDir, 'claude');
+  writeFileSync(shimPath, contents);
+  chmodSync(shimPath, 0o755);
+  return shimPath;
 }
 
 afterEach(() => {
@@ -176,19 +186,61 @@ describe('agentxchain connector check', () => {
     assert.match(localDev.detail, /"echo" is resolvable in the dispatch spawn context/);
   });
 
-  it('AT-CCP-011: Claude local_cli without env auth fails connector check with auth_preflight guidance', () => {
+  it('AT-CCP-011: Claude local_cli without env auth passes connector check when the smoke probe observes stdout', () => {
+    let shim;
     const root = createProject((config) => {
       config.runtimes['local-dev'] = {
         type: 'local_cli',
-        command: ['claude', '--print', '--dangerously-skip-permissions'],
+        command: [shim, '--print', '--dangerously-skip-permissions'],
         cwd: '.',
         prompt_transport: 'stdin',
       };
       config.roles.dev.runtime = 'local-dev';
       config.roles.dev.write_authority = 'authoritative';
+    }, (projectRoot) => {
+      shim = writeClaudeShim(projectRoot, `#!/bin/sh
+cat
+exit 0
+`);
     });
 
     const env = { ...process.env };
+    delete env.ANTHROPIC_API_KEY;
+    delete env.CLAUDE_API_KEY;
+    delete env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete env.CLAUDE_CODE_USE_VERTEX;
+    delete env.CLAUDE_CODE_USE_BEDROCK;
+
+    const result = runCli(root, ['connector', 'check', 'local-dev', '--json'], env);
+    assert.equal(result.status, 0, result.stdout);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'pass');
+    const localDev = output.connectors.find((c) => c.runtime_id === 'local-dev');
+    assert.equal(localDev.level, 'pass');
+    assert.notEqual(localDev.probe_kind, 'auth_preflight');
+    assert.notEqual(localDev.error_code, 'claude_auth_preflight_failed');
+    assert.equal(localDev.auth_env_present, undefined);
+  });
+
+  it('AT-CCP-011b: Claude local_cli without env auth fails connector check when the smoke probe hangs', () => {
+    let shim;
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: [shim, '--print', '--dangerously-skip-permissions'],
+        cwd: '.',
+        prompt_transport: 'stdin',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    }, (projectRoot) => {
+      shim = writeClaudeShim(projectRoot, `#!/bin/sh
+cat > /dev/null
+exec sleep 30
+`);
+    });
+
+    const env = { ...process.env, AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500' };
     delete env.ANTHROPIC_API_KEY;
     delete env.CLAUDE_API_KEY;
     delete env.CLAUDE_CODE_OAUTH_TOKEN;
@@ -208,6 +260,7 @@ describe('agentxchain connector check', () => {
     assert.match(localDev.fix, /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN/);
     assert.match(localDev.fix, /--bare/);
     assert.equal(localDev.auth_env_present.ANTHROPIC_API_KEY, false);
+    assert.equal(localDev.smoke_probe.kind, 'hang');
   });
 
   it('AT-CCP-012: connector check does not auth-preflight-fail when Claude runtime declares --bare', () => {

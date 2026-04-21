@@ -59,7 +59,7 @@ export async function doctorCommand(opts = {}) {
 
 // ── Governed (v4) Doctor ────────────────────────────────────────────────────
 
-function governedDoctor(root, rawConfig, opts) {
+async function governedDoctor(root, rawConfig, opts) {
   const checks = [];
   const cliVersionHealth = getCliVersionHealth();
   let stateRunId = null;
@@ -93,7 +93,7 @@ function governedDoctor(root, rawConfig, opts) {
   const runtimes = (normalized && normalized.runtimes) || rawConfig.runtimes || {};
   const rolesByRuntime = buildRolesByRuntime(normalized?.roles || {});
   for (const [rtId, rt] of Object.entries(runtimes)) {
-    const check = checkRuntimeReachable(root, rtId, rt, rolesByRuntime[rtId] || []);
+    const check = await checkRuntimeReachable(root, rtId, rt, rolesByRuntime[rtId] || []);
     checks.push(check);
   }
   const connectorProbe = getConnectorProbeRecommendation(runtimes);
@@ -488,7 +488,7 @@ function buildCliVersionCheck(cliVersionHealth) {
   };
 }
 
-function checkRuntimeReachable(root, rtId, rt, boundRoleEntries = []) {
+async function checkRuntimeReachable(root, rtId, rt, boundRoleEntries = []) {
   const base = { id: `runtime_${rtId}`, name: `Runtime: ${rtId}` };
 
   if (!rt || !rt.type) {
@@ -502,7 +502,7 @@ function checkRuntimeReachable(root, rtId, rt, boundRoleEntries = []) {
     case 'local_cli': {
       const probe = probeRuntimeSpawnContext(root, rt, { runtimeId: rtId });
       if (probe.ok) {
-        const claudeAuthIssue = getClaudeSubprocessAuthIssue(rt);
+        const claudeAuthIssue = await getClaudeSubprocessAuthIssue(rt);
         if (claudeAuthIssue) {
           return attachRuntimeContract({
             ...base,
