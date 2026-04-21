@@ -130,8 +130,18 @@ function markPlanningGateApproved(dir) {
     join(dir, '.planning', 'SYSTEM_SPEC.md'),
     '# System Spec — Session Continuity Fixture\n\n## Purpose\n\nProve that cross-session phase transitions work correctly.\n\n## Interface\n\nagentxchain resume / accept-turn / approve-transition across fresh CLI sessions.\n\n## Acceptance Tests\n\n- [ ] Phase transitions persist across fresh sessions.\n',
   );
-  execSync('git add .planning/PM_SIGNOFF.md .planning/SYSTEM_SPEC.md', { cwd: dir, stdio: 'ignore' });
+  execSync('git add agentxchain.json .planning/PM_SIGNOFF.md .planning/SYSTEM_SPEC.md', { cwd: dir, stdio: 'ignore' });
   execSync('git commit -m "approve planning signoff"', { cwd: dir, stdio: 'ignore' });
+}
+
+function markGateCredentialed(dir, gateId) {
+  const configPath = join(dir, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.gates[gateId] = {
+    ...config.gates[gateId],
+    credentialed: true,
+  };
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
 function createProject() {
@@ -153,6 +163,7 @@ function initGitRepo(dir) {
 function createCompletionProject() {
   const dir = mkdtempSync(join(tmpdir(), 'axc-session-completion-'));
   scaffoldGoverned(dir, 'Session Completion Fixture', 'session-completion-fixture');
+  markGateCredentialed(dir, 'qa_ship_verdict');
   mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
   mkdirSync(join(dir, '.planning'), { recursive: true });
 
@@ -387,6 +398,7 @@ describe('E2E multi-session governed continuity', () => {
   it('AT-SESSION-007: phase transitions can be requested and approved across fresh sessions', () => {
     const dir = createProject();
     dirs.push(dir);
+    markGateCredentialed(dir, 'planning_signoff');
     markPlanningGateApproved(dir);
 
     const resumePlanning = runCli(dir, ['resume', '--role', 'pm']);
