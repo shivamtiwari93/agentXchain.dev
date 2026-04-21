@@ -193,8 +193,8 @@ failing environment. Quote adapter diagnostic lines including
   (must be clean). If verification writes files outside the declared actor-owned set,
   the turn must fail with `undeclared_verification_outputs` naming the dirty
   paths; if those outputs are intended, declare them under
-  `verification.produced_files` before acceptance. Clean tree means BUG-55 is
-  fixed for your reproduction.
+  `verification.produced_files` before acceptance.
+  Clean tree means BUG-55 is fixed for your reproduction.
 - **BUG-56 probe-based auth preflight** — Claude Max + no env auth + no
   `--bare` must pass `connector check` / `connector validate` / governed
   `run`; a hanging shim must fail with `error_code:
