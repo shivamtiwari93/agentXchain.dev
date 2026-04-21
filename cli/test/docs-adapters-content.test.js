@@ -63,7 +63,7 @@ describe('Adapter docs contract', () => {
 
   describe('default Claude runtime truth', () => {
     it('documents the unattended Claude default with write permissions', () => {
-      assert.match(adapterDocs, /claude --print --dangerously-skip-permissions/,
+      assert.match(adapterDocs, /claude --print --dangerously-skip-permissions --bare/,
         'adapters.mdx must document the actual unattended default Claude command');
       assert.match(adapterDocs, /permission prompt|write access|staging a result/i,
         'adapters.mdx must explain why the extra Claude flag exists');
@@ -483,7 +483,7 @@ describe('Adapter docs contract', () => {
       assert.match(adapterDocs, /"runtime":\s*"local-dev"/,
         'local_cli config must use runtime reference format');
       // command should be an array, not string + args
-      assert.match(adapterDocs, /"command":\s*\["claude",\s*"--print",\s*"--dangerously-skip-permissions"\]/,
+      assert.match(adapterDocs, /"command":\s*\["claude",\s*"--print",\s*"--dangerously-skip-permissions",\s*"--bare"\]/,
         'local_cli config must show command as an array, not string + separate args');
     });
 
@@ -492,7 +492,7 @@ describe('Adapter docs contract', () => {
       assert.match(adapterDocs, /"command":\s*\["my-agent run \{prompt\}"\]/,
         'argv example must show command as a single string in an array');
       // stdin custom example: single string
-      assert.match(adapterDocs, /"command":\s*\["claude --print --dangerously-skip-permissions"\]/,
+      assert.match(adapterDocs, /"command":\s*\["claude --print --dangerously-skip-permissions --bare"\]/,
         'stdin custom example must show command as a single string in an array');
     });
   });

@@ -46,7 +46,7 @@ agentxchain approve-transition
 # 6. Commit the accepted planning artifacts before the authoritative dev turn
 git add -A && git commit -m "orchestrator: accept pm turn"
 
-# 7. Run dev turn (dispatches to claude --print --dangerously-skip-permissions)
+# 7. Run dev turn (dispatches to claude --print --dangerously-skip-permissions --bare)
 agentxchain step
 
 # 8. Optional but recommended: preserve the accepted implementation as an audit anchor
@@ -72,7 +72,7 @@ The default QA runtime in this example is `api_proxy`. That path can produce a s
 | Role | Runtime | Type | Transport |
 |------|---------|------|-----------|
 | pm | manual-pm | manual | File handoff |
-| dev | local-dev | local_cli | `claude --print --dangerously-skip-permissions` |
+| dev | local-dev | local_cli | `claude --print --dangerously-skip-permissions --bare` |
 | qa | api-qa | api_proxy | Anthropic API (review-only) |
 | eng_director | manual-director | manual | File handoff |
 

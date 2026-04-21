@@ -30,7 +30,7 @@ The extension activates automatically when it detects an `agentxchain.json` in y
 
 The extension provides governance UI, but the actual coding work is done by a local CLI agent. Configure any of these as your `local_cli` runtime:
 
-- [Claude Code](/docs/integrations/claude-code) — `claude --print --dangerously-skip-permissions`
+- [Claude Code](/docs/integrations/claude-code) — `claude --print --dangerously-skip-permissions --bare`
 - [OpenAI Codex CLI](/docs/integrations/openai-codex-cli) — `codex --dangerously-bypass-approvals-and-sandbox`
 - [Cline](https://github.com/cline/cline) — Cline's CLI mode
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line) — `gh copilot`
@@ -45,7 +45,7 @@ The extension provides governance UI, but the actual coding work is done by a lo
     },
     "local-dev": {
       "type": "local_cli",
-      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
       "cwd": ".",
       "prompt_transport": "stdin"
     },

@@ -533,6 +533,11 @@ describe('governed CLI support', () => {
       assert.equal(config.template, 'enterprise-app');
       assert.ok(config.roles.architect);
       assert.ok(config.roles.security_reviewer);
+      assert.deepEqual(
+        config.runtimes['local-dev'].command,
+        ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
+        'enterprise-app must scaffold Claude local_cli with --bare to avoid non-interactive keychain auth hangs',
+      );
       assert.ok(config.routing.architecture);
       assert.ok(config.routing.security_review);
       assert.deepEqual(Object.keys(config.routing), ['planning', 'architecture', 'implementation', 'security_review', 'qa']);
@@ -611,6 +616,33 @@ describe('governed CLI support', () => {
       const directorPrompt = readFileSync(join(projectDir, '.agentxchain', 'prompts', 'eng_director.md'), 'utf8');
       assert.match(qaPrompt, /You have direct write access for this role/);
       assert.match(directorPrompt, /You have direct write access for this role/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('init --governed --template full-local-cli defaults every Claude runtime to --bare', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-full-local-bare-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      const result = runCli(dir, [
+        'init',
+        '--governed',
+        '--template',
+        'full-local-cli',
+        '-y',
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      for (const runtimeId of ['local-pm', 'local-dev', 'local-qa', 'local-director']) {
+        assert.deepEqual(
+          config.runtimes[runtimeId].command,
+          ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
+          `${runtimeId} must skip keychain auth in non-interactive subprocess mode`,
+        );
+        assert.equal(config.runtimes[runtimeId].prompt_transport, 'stdin');
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

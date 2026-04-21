@@ -8,6 +8,10 @@ The framework must fail fast with actionable guidance instead of launching a sub
 
 ## Interface
 
+- `cli/src/commands/init.js`
+  - default governed Claude local runtime includes `--bare`
+- `cli/src/templates/governed/*.json`
+  - template-owned Claude local runtimes include `--bare`
 - `cli/src/lib/claude-local-auth.js`
   - shared helper for Claude-specific auth preflight evaluation
 - `cli/src/lib/adapters/local-cli-adapter.js`
@@ -24,14 +28,15 @@ The framework must fail fast with actionable guidance instead of launching a sub
 
 ## Behavior
 
-1. If a `local_cli` runtime command resolves to `claude` and the runtime command does **not** include `--bare`, the framework checks for env-based Claude auth.
-2. Env-based Claude auth is considered present when any of these are set:
+1. New governed scaffolds and governed templates that use Claude local CLI must emit `claude --print --dangerously-skip-permissions --bare` with `prompt_transport: "stdin"` so non-interactive subprocesses do not attempt macOS keychain-backed auth.
+2. If an existing or hand-edited `local_cli` runtime command resolves to `claude` and the runtime command does **not** include `--bare`, the framework checks for env-based Claude auth.
+3. Env-based Claude auth is considered present when any of these are set:
    - `ANTHROPIC_API_KEY`
    - `CLAUDE_API_KEY`
    - `CLAUDE_CODE_OAUTH_TOKEN`
    - `CLAUDE_CODE_USE_VERTEX`
    - `CLAUDE_CODE_USE_BEDROCK`
-3. If env auth is missing and `--bare` is absent:
+4. If env auth is missing and `--bare` is absent:
    - `dispatchLocalCli()` returns `ok: false` before spawn
    - adapter logs a `claude_auth_preflight_failed` diagnostic row
    - `connector check` returns `level: 'fail'`, `probe_kind: 'auth_preflight'`,
@@ -40,7 +45,7 @@ The framework must fail fast with actionable guidance instead of launching a sub
      `dispatch: null`, `validation: null`, `scratch_root: null` — no scratch
      workspace is created and the synthetic dispatch is skipped entirely
    - `doctor` reports the runtime as `warn` with actionable fix text
-4. If env auth is present, or `--bare` is already declared, the preflight does not block dispatch.
+5. If env auth is present, or `--bare` is already declared, the preflight does not block dispatch.
 
 ## Error Cases
 
@@ -67,6 +72,9 @@ The framework must fail fast with actionable guidance instead of launching a sub
   - `AT-CCP-012` — `--bare` suppresses the connector-check auth-preflight failure
 - `cli/test/governed-doctor-e2e.test.js`
   - doctor reports `warn` for a Claude runtime lacking env auth and `--bare`
+- `cli/test/governed-cli.test.js`
+  - enterprise-app scaffolds `local-dev.command` with `--bare`
+  - full-local-cli scaffolds every default Claude runtime with `--bare`
 - `cli/test/connector-validate-command.test.js`
   - `AT-CCV-007` — `connector validate` fails fast with
     `error_code: 'claude_auth_preflight_failed'` and zero scratch workspace
@@ -82,5 +90,5 @@ The framework must fail fast with actionable guidance instead of launching a sub
 
 ## Open Questions
 
-- Whether a future release should auto-add `--bare` for Claude runtimes remains open. This spec intentionally does **not** do that because it could break environments that currently rely on working keychain-based auth.
+- Whether a future release should auto-migrate existing hand-edited Claude runtimes to add `--bare` remains open. This spec intentionally changes new scaffolds/templates only and keeps the preflight refusal for legacy known-hanging shapes.
 - Whether `local_cli` schema should grow an explicit `auth_env` field for Claude remains open. The current contract uses shared well-known Claude env keys instead of a new config surface.

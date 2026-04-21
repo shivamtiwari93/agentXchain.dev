@@ -2493,6 +2493,47 @@ describe('claim-reality preflight', () => {
       'packaged dispatchLocalCli must log spawn_error diagnostics for a nonexistent binary so operator logs capture the failing spawn context, not only the final classification');
   });
 
+  it('BUG-54 packaged governed init scaffolds Claude local_cli runtimes with --bare', () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    assert.ok(existsSync(cliPath),
+      'BUG-54 packed tarball must include bin/agentxchain.js before the scaffold-default packaged proof can run');
+
+    const fullLocalRoot = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-full-local-bare-'));
+    const enterpriseRoot = mkdtempSync(join(tmpdir(), 'axc-packed-bug54-enterprise-bare-'));
+    TEMP_PATHS.push(fullLocalRoot, enterpriseRoot);
+
+    const fullLocal = spawnSync(process.execPath, [cliPath, 'init', '--governed', '--template', 'full-local-cli', '-y'], {
+      cwd: fullLocalRoot,
+      encoding: 'utf8',
+      timeout: 20_000,
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    assert.equal(fullLocal.status, 0, fullLocal.stdout || fullLocal.stderr);
+    const fullLocalConfig = JSON.parse(readFileSync(join(fullLocalRoot, 'my-agentxchain-project', 'agentxchain.json'), 'utf8'));
+    for (const runtimeId of ['local-pm', 'local-dev', 'local-qa', 'local-director']) {
+      assert.deepEqual(
+        fullLocalConfig.runtimes[runtimeId].command,
+        ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
+        `packed full-local-cli ${runtimeId} must include --bare so new projects do not scaffold the known keychain-hang shape`,
+      );
+    }
+
+    const enterprise = spawnSync(process.execPath, [cliPath, 'init', '--governed', '--template', 'enterprise-app', '-y'], {
+      cwd: enterpriseRoot,
+      encoding: 'utf8',
+      timeout: 20_000,
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    assert.equal(enterprise.status, 0, enterprise.stdout || enterprise.stderr);
+    const enterpriseConfig = JSON.parse(readFileSync(join(enterpriseRoot, 'my-agentxchain-project', 'agentxchain.json'), 'utf8'));
+    assert.deepEqual(
+      enterpriseConfig.runtimes['local-dev'].command,
+      ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
+      'packed enterprise-app local-dev must include --bare so new enterprise scaffolds avoid the known keychain-hang shape',
+    );
+  });
+
   it('BUG-54 packaged local-cli adapter fails fast before spawn when Claude lacks env auth and --bare', async () => {
     const { packageDir } = getExtractedPackage();
     const adapterPath = join(packageDir, 'src/lib/adapters/local-cli-adapter.js');

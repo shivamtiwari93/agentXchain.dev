@@ -20,7 +20,7 @@ describe('automation patterns docs surface', () => {
   it('documents the full-local-cli pattern with exact command shapes', () => {
     assert.match(AUTOMATION_PATTERNS, /all automated turns, human gate approvals only/i);
     assert.match(AUTOMATION_PATTERNS, /init --governed --template full-local-cli/);
-    assert.match(AUTOMATION_PATTERNS, /claude --print --dangerously-skip-permissions/);
+    assert.match(AUTOMATION_PATTERNS, /claude --print --dangerously-skip-permissions --bare/);
     assert.match(AUTOMATION_PATTERNS, /codex exec --dangerously-bypass-approvals-and-sandbox \{prompt\}/);
   });
 

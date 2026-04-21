@@ -24,7 +24,7 @@ Both should report clean. If they do not, fix the issues first.
 ## Step 2: Choose your local CLI tool
 
 Pick one:
-- **Claude Code:** `claude --print --dangerously-skip-permissions` with `stdin` transport
+- **Claude Code:** `claude --print --dangerously-skip-permissions --bare` with `stdin` transport
 - **Codex CLI:** `codex exec --dangerously-bypass-approvals-and-sandbox {prompt}` with `argv` transport
 
 See [Local CLI Recipes](/docs/local-cli-recipes) for the full recipe per tool.
@@ -39,19 +39,19 @@ Edit `agentxchain.json` to add local CLI runtime entries alongside the existing 
     "manual-pm": { "type": "manual" },
     "local-pm": {
       "type": "local_cli",
-      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
       "cwd": ".",
       "prompt_transport": "stdin"
     },
     "local-dev": {
       "type": "local_cli",
-      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
       "cwd": ".",
       "prompt_transport": "stdin"
     },
     "local-qa": {
       "type": "local_cli",
-      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
       "cwd": ".",
       "prompt_transport": "stdin"
     }
@@ -174,7 +174,7 @@ If you are starting fresh (not migrating an existing manual scaffold), skip all 
 ```bash
 agentxchain init --governed --template full-local-cli \
   --goal "Build a governed product slice" \
-  --dev-command "claude --print --dangerously-skip-permissions" \
+  --dev-command "claude --print --dangerously-skip-permissions --bare" \
   --dev-prompt-transport stdin \
   --dir my-project -y
 ```

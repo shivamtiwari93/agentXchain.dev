@@ -98,7 +98,7 @@ const GOVERNED_ROLES = {
 
 const DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME = Object.freeze({
   type: 'local_cli',
-  command: ['claude', '--print', '--dangerously-skip-permissions'],
+  command: ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
   cwd: '.',
   prompt_transport: 'stdin',
 });

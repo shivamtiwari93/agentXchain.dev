@@ -309,11 +309,11 @@ describe('BUG-54 real-claude reliability', () => {
       `real-claude bogus-flag loop leaked handles: delta=${handleDelta}`);
   });
 
-  it('Scenario D: 10 consecutive `claude --print --dangerously-skip-permissions` stdin dispatches expose startup latency without leaking', async (t) => {
+  it('Scenario D: 10 consecutive `claude --print --dangerously-skip-permissions --bare` stdin dispatches expose startup latency without leaking', async (t) => {
     if (!requireClaudeProbe(t)) return;
     const runtime = {
       type: 'local_cli',
-      command: ['claude', '--print', '--dangerously-skip-permissions'],
+      command: ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
       cwd: '.',
       prompt_transport: 'stdin',
     };

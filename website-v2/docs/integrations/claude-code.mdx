@@ -28,7 +28,7 @@ Add a runtime to your `agentxchain.json`:
   "runtimes": {
     "claude-dev": {
       "type": "local_cli",
-      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
       "cwd": ".",
       "prompt_transport": "stdin"
     }
@@ -47,7 +47,7 @@ Add a runtime to your `agentxchain.json`:
 
 | Field | Value | Why |
 |-------|-------|-----|
-| `command` | `["claude", "--print", "--dangerously-skip-permissions"]` | `--print` outputs to stdout (non-interactive). `--dangerously-skip-permissions` lets Claude write files without confirmation prompts. |
+| `command` | `["claude", "--print", "--dangerously-skip-permissions", "--bare"]` | `--print` outputs to stdout (non-interactive). `--dangerously-skip-permissions` lets Claude write files without confirmation prompts. `--bare` avoids non-interactive macOS keychain auth hangs; provide `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` in the parent environment. |
 | `prompt_transport` | `"stdin"` | The governed prompt is piped to Claude Code's stdin. |
 | `cwd` | `"."` | Run in the project root so Claude Code sees your repo. |
 

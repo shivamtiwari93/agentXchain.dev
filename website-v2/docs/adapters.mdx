@@ -198,7 +198,7 @@ The manual adapter's poll interval (2 seconds) and timeout (20 minutes) are buil
 
 ## local_cli adapter
 
-The local_cli adapter spawns a local subprocess and feeds it the dispatch bundle. The default scaffold targets Claude Code with `claude --print --dangerously-skip-permissions` and `stdin` prompt transport. That extra flag is not cosmetic: unattended governed implementation turns need file-write access, and bare `claude --print` can stop at a permission prompt without ever staging a result. Any local CLI tool that can accept a prompt and produce a valid turn result works — configure it at scaffold time with `--dev-command` and `--dev-prompt-transport` instead of hand-editing JSON afterward.
+The local_cli adapter spawns a local subprocess and feeds it the dispatch bundle. The default scaffold targets Claude Code with `claude --print --dangerously-skip-permissions --bare` and `stdin` prompt transport. Those extra flags are not cosmetic: unattended governed implementation turns need file-write access, and plain `claude --print` can stop at a permission prompt or macOS keychain auth read without ever staging a result. Any local CLI tool that can accept a prompt and produce a valid turn result works — configure it at scaffold time with `--dev-command` and `--dev-prompt-transport` instead of hand-editing JSON afterward.
 
 ### How it works
 
@@ -234,7 +234,7 @@ If `prompt_transport` is not set explicitly, the adapter infers the mode: if `{p
   "runtimes": {
     "local-dev": {
       "type": "local_cli",
-      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
       "cwd": ".",
       "prompt_transport": "stdin"
     }
@@ -299,13 +299,13 @@ The agent script receives no prompt on stdin or argv — it reads `PROMPT.md` an
 **Tool that reads prompt from stdin (like the Claude default):**
 
 ```bash
-agentxchain init --governed --dev-command "claude --print --dangerously-skip-permissions" --dev-prompt-transport stdin -y
+agentxchain init --governed --dev-command "claude --print --dangerously-skip-permissions --bare" --dev-prompt-transport stdin -y
 ```
 
 ```json
 {
   "type": "local_cli",
-  "command": ["claude --print --dangerously-skip-permissions"],
+  "command": ["claude --print --dangerously-skip-permissions --bare"],
   "cwd": ".",
   "prompt_transport": "stdin"
 }

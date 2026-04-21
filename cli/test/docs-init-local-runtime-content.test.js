@@ -40,7 +40,7 @@ describe('governed init local runtime docs contract', () => {
   it('quickstart documents the scaffold-time override path', () => {
     assert.match(quickstartDocs, /--dir \./, 'quickstart must document --dir . for in-place bootstrap');
     assert.match(quickstartDocs, /--dev-command/, 'quickstart must mention --dev-command');
-    assert.match(quickstartDocs, /claude --print --dangerously-skip-permissions/,
+    assert.match(quickstartDocs, /claude --print --dangerously-skip-permissions --bare/,
       'quickstart must state the unattended default Claude command');
   });
 
@@ -49,16 +49,16 @@ describe('governed init local runtime docs contract', () => {
     assert.match(cliReadme, /--dir my-agentxchain-project/, 'CLI README must show explicit --dir usage');
     assert.match(rootReadme, /--dev-command/, 'root README must mention --dev-command');
     assert.match(cliReadme, /--dev-command/, 'CLI README must mention --dev-command');
-    assert.match(rootReadme, /claude --print --dangerously-skip-permissions/,
+    assert.match(rootReadme, /claude --print --dangerously-skip-permissions --bare/,
       'root README must describe the unattended default Claude command truthfully');
-    assert.match(cliReadme, /claude --print --dangerously-skip-permissions/,
+    assert.match(cliReadme, /claude --print --dangerously-skip-permissions --bare/,
       'CLI README must describe the unattended default Claude command truthfully');
   });
 
   it('governed todo example uses the same unattended Claude runtime contract', () => {
     assert.deepEqual(
       governedExampleConfig.runtimes['local-dev'].command,
-      ['claude', '--print', '--dangerously-skip-permissions'],
+      ['claude', '--print', '--dangerously-skip-permissions', '--bare'],
       'governed example must use the unattended Claude command',
     );
     assert.equal(
@@ -68,7 +68,7 @@ describe('governed init local runtime docs contract', () => {
     );
     assert.match(
       governedExampleReadme,
-      /claude --print --dangerously-skip-permissions/,
+      /claude --print --dangerously-skip-permissions --bare/,
       'governed example README must describe the same unattended Claude command',
     );
     assert.match(

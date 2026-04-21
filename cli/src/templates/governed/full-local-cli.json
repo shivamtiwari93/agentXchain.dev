@@ -44,25 +44,25 @@
     "runtimes": {
       "local-pm": {
         "type": "local_cli",
-        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
         "cwd": ".",
         "prompt_transport": "stdin"
       },
       "local-dev": {
         "type": "local_cli",
-        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
         "cwd": ".",
         "prompt_transport": "stdin"
       },
       "local-qa": {
         "type": "local_cli",
-        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
         "cwd": ".",
         "prompt_transport": "stdin"
       },
       "local-director": {
         "type": "local_cli",
-        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
         "cwd": ".",
         "prompt_transport": "stdin"
       }

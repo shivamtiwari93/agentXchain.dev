@@ -134,7 +134,7 @@ agentxchain generate planning
 
 If you skipped `--goal` during scaffold, run `agentxchain config --set project.goal "Build an expense tracker with team splitting"` before the first governed turn so agents receive mission context in every dispatch bundle.
 
-The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it at scaffold time instead of patching JSON later:
+The default governed dev runtime is `claude --print --dangerously-skip-permissions --bare` with stdin prompt delivery. The non-interactive governed path needs write access and env-based auth, so do not pretend plain `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it at scaffold time instead of patching JSON later:
 
 ```bash
 agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
