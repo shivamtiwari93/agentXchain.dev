@@ -169,12 +169,20 @@ path is the normal dogfood flow:
 npx --yes -p agentxchain@2.151.0 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
 ```
 
-If `tusq.dev` has no derivable work, use the published-package diagnostic as a
-timing boundary check for the effective runtime instead. `npx --yes -p`
-does not install under `npm root` (neither local nor global), so extract
-the v2.151.0 repro harness directly from the registry tarball and run it
-from the `tusq.dev` repo root so it auto-discovers the project's
-`agentxchain.json` and configured runtimes:
+If `tusq.dev` has no derivable work, first try to produce ten adapter-path
+attempts with the same real project runtime config through `agentxchain run`
+or `agentxchain dispatch-turn`. The attempt bundle should be comparable to the
+failing v2.150.0 adapter dispatch; if that bundle size is unavailable, use
+10 KB or larger as the minimum fallback. Small synthetic prompts are not valid
+closure evidence because they do not exercise the startup-watchdog path that
+failed in the adapter.
+
+The published-package repro harness below is still useful as supporting timing
+evidence, but it is not sufficient for BUG-54 closure by itself. `npx --yes -p`
+does not install under `npm root` (neither local nor global), so extract the
+v2.151.0 repro harness directly from the registry tarball and run it from the
+`tusq.dev` repo root so it auto-discovers the project's `agentxchain.json` and
+configured runtimes:
 
 ```bash
 REPRO_DIR="$(mktemp -d -t agentxchain-bug54-repro.XXXXXX)"
@@ -214,11 +222,14 @@ Useful searches:
 grep -RInE 'spawn_attached|first_output|startup_watchdog_fired|stdout_attach_failed|ghost_turn' .agentxchain 2>/dev/null || true
 ```
 
-BUG-54 closure requires ten consecutive real dispatches with no
+BUG-54 closure requires ten consecutive real adapter-path dispatches with no
 `startup_watchdog_fired`, `stdout_attach_failed`, or `ghost_turn` events at the
-default v2.151.0 watchdog. If only the diagnostic path is possible, it is strong
-supporting evidence but not full closure unless the tester confirms the normal
-dogfood flow had no work to dispatch.
+default v2.151.0 watchdog. The raw repro harness is strong supporting evidence,
+but it does not close BUG-54 alone. Closure through the no-derivable-work escape
+requires all three facts to be quoted: normal dogfood flow cannot produce ten
+real dispatches, ten adapter-path attempts were still run against the real
+runtime config, and those attempts used a bundle comparable to the failing
+v2.150.0 dispatch or at least 10 KB when the original size is unavailable.
 
 ## Paste Target
 
