@@ -330,4 +330,74 @@ describe('BUG-55 combined operator shape — tester paths', () => {
     assert.match(state.accepted_integration_ref, /^git:/);
     assert.equal(state.last_completed_turn_id, turnId);
   });
+
+  // Turn 119 — coverage gap: the tester-shape closure above only exercises
+  // disposition:'ignore' for the sub-B leg. The disposition:'artifact' path
+  // (verification produced fixtures the operator WANTS committed alongside
+  // sub-A's actor mutations) lives at governed-state.js:3692-3700, where
+  // `verificationProducedFiles.artifact_files` are merged into the turn's
+  // effective `files_changed` before checkpoint. BUG-46 covers artifact-only
+  // (no files_changed) and sub-A covers files_changed-only. Nothing in the
+  // repo asserts that BOTH sets land in the same checkpoint commit cleanly.
+  it('accept-turn + checkpoint-turn commits BOTH sub-A declared files AND sub-B artifact-disposition produced files in one commit', () => {
+    const { root, turnId } = seedProject({
+      producedFiles: FIXTURE_FILES.map((path) => ({ path, disposition: 'artifact' })),
+    });
+
+    const accept = runCli(root, ['accept-turn', '--turn', turnId]);
+    assert.equal(
+      accept.status,
+      0,
+      `accept-turn must succeed when files_changed + artifact produced_files are both declared; got stdout:\n${accept.stdout}\nstderr:\n${accept.stderr}`,
+    );
+
+    // BUG-46 artifact semantics: produced files with disposition 'artifact' are
+    // NOT cleaned up after acceptance; they must survive into checkpoint.
+    for (const fixturePath of FIXTURE_FILES) {
+      assert.ok(
+        existsSync(join(root, fixturePath)),
+        `artifact-disposition fixture must survive acceptance cleanup; missing: ${fixturePath}`,
+      );
+    }
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(
+      checkpoint.status,
+      0,
+      `checkpoint-turn must succeed committing sub-A + sub-B-artifact union; got stdout:\n${checkpoint.stdout}\nstderr:\n${checkpoint.stderr}`,
+    );
+
+    // BUG-55 sub-A + sub-B-artifact union: every declared file AND every
+    // artifact-disposition produced file appears in the single HEAD commit.
+    const headSha = git(root, ['rev-parse', 'HEAD']);
+    const committedFiles = git(root, ['diff-tree', '--no-commit-id', '--name-only', '-r', headSha])
+      .split('\n')
+      .filter(Boolean)
+      .sort();
+    for (const declaredPath of DECLARED_FILES) {
+      assert.ok(
+        committedFiles.includes(declaredPath),
+        `checkpoint must commit every declared files_changed path; missing ${declaredPath} in HEAD tree: ${JSON.stringify(committedFiles)}`,
+      );
+    }
+    for (const fixturePath of FIXTURE_FILES) {
+      assert.ok(
+        committedFiles.includes(fixturePath),
+        `checkpoint must commit every artifact-disposition produced file; missing ${fixturePath} in HEAD tree: ${JSON.stringify(committedFiles)}`,
+      );
+    }
+
+    // The full operator-shape closure proof: clean working tree after the
+    // union commit — no sub-A dirt, no sub-B dirt, no leaks.
+    const status = git(root, ['status', '--short']);
+    assert.equal(
+      status,
+      '',
+      `git status must be clean after sub-A + sub-B-artifact checkpoint; got:\n${status}`,
+    );
+
+    const state = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
+    assert.match(state.accepted_integration_ref, /^git:/);
+    assert.equal(state.last_completed_turn_id, turnId);
+  });
 });

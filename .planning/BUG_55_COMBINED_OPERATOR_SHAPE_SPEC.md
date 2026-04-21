@@ -52,6 +52,25 @@ test cases is the presence of `verification.produced_files` declarations.
 - `git status --short` is empty.
 - `state.accepted_integration_ref` matches `^git:`.
 
+### Accept branch (all fixtures declared `disposition: 'artifact'`)
+
+- `accept-turn` exits 0.
+- All four fixture files **survive** acceptance (no cleanup — artifact
+  disposition keeps the produced files for checkpoint).
+- `checkpoint-turn` exits 0.
+- The HEAD commit's tree contains both the four declared
+  `files_changed` paths AND the four artifact-disposition
+  `produced_files` paths (eight total declared entries, merged via
+  `governed-state.js` `effectiveFilesChanged` into the checkpoint).
+- `git status --short` is empty.
+- This branch protects the union-commit semantics that live at
+  `cli/src/lib/governed-state.js:3692-3700` where
+  `normalizeVerificationProducedFiles(...).artifact_files` is merged
+  into the turn's effective `files_changed` prior to checkpoint.
+  BUG-46 covers artifact-only, sub-A covers files_changed-only — this
+  branch is the only coverage asserting both co-exist cleanly in one
+  commit.
+
 ## Error Cases
 
 - If the schema for `verification.produced_files` changes such that the
