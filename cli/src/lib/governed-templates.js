@@ -83,6 +83,7 @@ const VALID_SCAFFOLD_BLUEPRINT_KEYS = new Set([
   'gates',
   'policies',
   'workflow_kit',
+  'approval_policy',
 ]);
 
 function validateScaffoldBlueprint(scaffoldBlueprint, errors) {
