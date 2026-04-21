@@ -55,15 +55,21 @@ A working machine with an authenticated `claude` runtime configured as
 
 ```json
 {
+  "command_probe": {
+    "kind": "claude_version",
+    "status": 0,
+    "stdout": "2.1.87 (Claude Code)\n",
+    "timed_out": false
+  },
   "summary": {
-    "total": 3,
-    "spawn_attached": 3,
-    "stdout_attached": 3,
+    "total": 1,
+    "spawn_attached": 1,
+    "stdout_attached": 1,
     "watchdog_fires": 0,
     "spawn_errors": 0,
     "process_errors": 0,
-    "avg_first_stdout_ms": 3463,
-    "classification": { "exit_clean_with_stdout": 3 },
+    "avg_first_stdout_ms": 3039,
+    "classification": { "exit_clean_with_stdout": 1 },
     "success_rate_first_stdout": 1
   }
 }
@@ -77,6 +83,10 @@ What that means, concretely:
   Claude auth). Cold starts can be higher; that is still healthy as long
   as watchdog fires stay at zero.
 - `watchdog_fires`, `spawn_errors`, and `process_errors` are all zero.
+- `command_probe.kind === "claude_version"` and `command_probe.stdout`
+  identifies the Claude CLI build under test. This matters because BUG-56
+  proved that no-env Claude Max setups are not uniformly broken; a failing
+  environment may differ by CLI version or installed binary path.
 - `env_snapshot.auth_env_present` may report all `false` — the healthy
   capture above does. Claude authenticates via OS keychain / OAuth, not
   `ANTHROPIC_API_KEY`. **Auth env booleans are diagnostic context only,
@@ -180,13 +190,16 @@ When sharing the JSON, also quote the following four things directly:
 2. For every *first failing* attempt, the full `stderr` field. This is
    the single highest-signal piece of evidence in the capture. Do not
    truncate.
-3. `env_snapshot.auth_env_present` — booleans only, no values, so the
+3. `command_probe` — especially `kind`, `status`, `stdout`, `stderr`,
+   `error`, and `timed_out`. This is how agents compare the failing
+   machine's Claude CLI version/path against a healthy no-env machine.
+4. `env_snapshot.auth_env_present` — booleans only, no values, so the
    tester does not leak secrets.
-4. The `resolved_command`, `resolved_args_redacted`, and
+5. The `resolved_command`, `resolved_args_redacted`, and
    `prompt_transport` fields so the agents can confirm the exact spawn
    shape matches the adapter's effective configuration.
 
-A tester-quoted JSON with those four pieces is sufficient evidence for
+A tester-quoted JSON with those five pieces is sufficient evidence for
 the agents to name a hypothesis, ship the reliability fix, and publish a
 release that closes BUG-54 under rule #12.
 

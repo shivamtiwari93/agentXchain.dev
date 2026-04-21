@@ -58,7 +58,7 @@
  * purpose), and does NOT require the governed dispatcher to be running.
  */
 
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -315,20 +315,6 @@ async function runOneAttempt({
       attempt.spawn_attached_elapsed_ms = now - t0;
     });
 
-    if (child.stdin) {
-      child.stdin.on('error', (err) => {
-        // Capture but do not fail — adapter behavior matches: stdin EPIPE is
-        // logged and the spawn continues to play out via close/error events.
-        attempt.stderr += `[repro:stdin_error] ${err?.code || ''} ${err?.message || ''}\n`;
-      });
-      try {
-        if (transport === 'stdin') child.stdin.write(fullPrompt);
-        child.stdin.end();
-      } catch (err) {
-        attempt.stderr += `[repro:stdin_throw] ${err?.code || ''} ${err?.message || ''}\n`;
-      }
-    }
-
     if (child.stdout) {
       child.stdout.on('data', (chunk) => {
         const text = chunk.toString();
@@ -341,6 +327,20 @@ async function runOneAttempt({
         attempt.stdout_bytes += Buffer.byteLength(text);
         attempt.stdout_lines += (text.match(/\n/g) || []).length;
       });
+    }
+
+    if (child.stdin) {
+      child.stdin.on('error', (err) => {
+        // Capture but do not fail — adapter behavior matches: stdin EPIPE is
+        // logged and the spawn continues to play out via close/error events.
+        attempt.stderr += `[repro:stdin_error] ${err?.code || ''} ${err?.message || ''}\n`;
+      });
+      try {
+        if (transport === 'stdin') child.stdin.write(fullPrompt);
+        child.stdin.end();
+      } catch (err) {
+        attempt.stderr += `[repro:stdin_throw] ${err?.code || ''} ${err?.message || ''}\n`;
+      }
     }
 
     if (child.stderr) {
@@ -496,6 +496,7 @@ async function main() {
   const stdinBytes = transport === 'stdin' ? Buffer.byteLength(fullPrompt) : 0;
   const diagnosticArgs = redactArgs(args, fullPrompt, transport);
   const envSnapshot = snapshotEnv(spawnEnv);
+  const commandProbe = probeCommand(command, runtimeCwd, spawnEnv);
 
   const header = {
     repro_version: 1,
@@ -510,6 +511,7 @@ async function main() {
     stdin_bytes: stdinBytes,
     prompt_source: promptSource,
     env_snapshot: envSnapshot,
+    command_probe: commandProbe,
     watchdog_ms: opts.noWatchdog ? null : watchdogMs,
     no_watchdog: opts.noWatchdog,
     attempts_planned: opts.attempts,
@@ -529,6 +531,11 @@ async function main() {
   console.error(`[repro] prompt       : ${promptSource.kind} (${promptSource.length_bytes} bytes)`);
   console.error(`[repro] watchdog_ms  : ${header.watchdog_ms ?? 'disabled'}`);
   console.error(`[repro] auth env     : ${JSON.stringify(envSnapshot.auth_env_present)}`);
+  if (commandProbe.kind === 'claude_version') {
+    console.error(`[repro] claude probe : status=${commandProbe.status ?? '-'} signal=${commandProbe.signal ?? '-'} stdout=${JSON.stringify(commandProbe.stdout || '')}`);
+  } else {
+    console.error(`[repro] command probe: ${commandProbe.kind} (${commandProbe.reason})`);
+  }
   console.error(`[repro] attempts     : ${header.attempts_planned}`);
   console.error('');
 
@@ -615,6 +622,65 @@ function summarize(attempts) {
       ? Number((stdout_attached / attempts.length).toFixed(3))
       : 0,
   };
+}
+
+function probeCommand(command, cwd, env) {
+  if (!isClaudeCommand(command)) {
+    return {
+      kind: 'skipped',
+      reason: 'not a claude command',
+    };
+  }
+  try {
+    const result = spawnSync(command, ['--version'], {
+      cwd,
+      env,
+      encoding: 'utf8',
+      timeout: 10_000,
+      maxBuffer: 1024 * 1024,
+    });
+    return {
+      kind: 'claude_version',
+      command,
+      args: ['--version'],
+      timeout_ms: 10_000,
+      status: result.status,
+      signal: result.signal,
+      stdout: result.stdout || '',
+      stderr: result.stderr || '',
+      error: result.error ? {
+        code: result.error.code ?? null,
+        errno: result.error.errno ?? null,
+        syscall: result.error.syscall ?? null,
+        message: result.error.message || String(result.error),
+      } : null,
+      timed_out: result.error?.code === 'ETIMEDOUT',
+    };
+  } catch (err) {
+    return {
+      kind: 'claude_version',
+      command,
+      args: ['--version'],
+      timeout_ms: 10_000,
+      status: null,
+      signal: null,
+      stdout: '',
+      stderr: '',
+      error: {
+        code: err?.code ?? null,
+        errno: err?.errno ?? null,
+        syscall: err?.syscall ?? null,
+        message: err?.message || String(err),
+      },
+      timed_out: err?.code === 'ETIMEDOUT',
+    };
+  }
+}
+
+function isClaudeCommand(command) {
+  if (typeof command !== 'string') return false;
+  const normalized = command.replace(/\\/g, '/');
+  return normalized === 'claude' || normalized.endsWith('/claude');
 }
 
 main().catch((err) => {

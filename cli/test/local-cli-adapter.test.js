@@ -809,6 +809,36 @@ exec sleep 30
       assert.ok(staged.summary.length > 'stdin_received:'.length, 'Stdin should contain prompt text');
     });
 
+    it('captures immediate stdout from a stdin-driven subprocess before it exits', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+
+      const scriptContent = `
+        process.stdin.resume();
+        process.stdin.on('end', () => {
+          process.stdout.write('READY\\n');
+        });
+      `;
+      const scriptPath = join(root, '_stdin_fast_stdout.js');
+      writeFileSync(scriptPath, scriptContent);
+
+      const config = makeConfig({
+        command: ['node', scriptPath],
+        prompt_transport: 'stdin',
+      });
+      setupDispatchBundle(root, state, config);
+
+      const result = await dispatchLocalCli(root, state, config);
+      assert.equal(result.ok, false);
+      assert.equal(result.startupFailure, undefined, 'stdout proof must avoid startup failure');
+      assert.match(result.logs.join(''), /READY/);
+      const [firstOutput] = parseDiagPayloads(result.logs, 'first_output');
+      assert.equal(firstOutput.stream, 'stdout');
+      const [exitDiagnostic] = parseDiagPayloads(result.logs, 'process_exit');
+      assert.equal(exitDiagnostic.first_output_stream, 'stdout');
+      assert.equal(exitDiagnostic.stdout_bytes, 6);
+    });
+
     it('does NOT deliver prompt via stdin when transport is argv', async () => {
       const root = createAndTrack();
       const state = makeState();

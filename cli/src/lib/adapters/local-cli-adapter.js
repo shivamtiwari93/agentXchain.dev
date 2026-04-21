@@ -264,7 +264,29 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       armStartupWatchdog();
     });
 
-    // Deliver prompt via stdin if transport is "stdin"; otherwise close immediately
+    // Collect stdout/stderr
+    if (child.stdout) {
+      child.stdout.on('data', (chunk) => {
+        const text = chunk.toString();
+        stdoutBytes += Buffer.byteLength(text);
+        recordFirstOutput('stdout');
+        logs.push(text);
+        if (onStdout) onStdout(text);
+      });
+    }
+
+    if (child.stderr) {
+      child.stderr.on('data', (chunk) => {
+        const text = chunk.toString();
+        stderrBytes += Buffer.byteLength(text);
+        stderrExcerpt = appendDiagnosticExcerpt(stderrExcerpt, text, DIAGNOSTIC_STDERR_EXCERPT_LIMIT);
+        logs.push('[stderr] ' + text);
+        if (onStderr) onStderr(text);
+      });
+    }
+
+    // Deliver prompt only after output listeners are registered. This removes
+    // the remaining adapter-side ordering risk for fast stdin-driven children.
     if (child.stdin) {
       child.stdin.on('error', (err) => {
         appendDiagnostic(logs, 'stdin_error', {
@@ -285,27 +307,6 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
           ...normalizeDiagnosticError(err),
         });
       }
-    }
-
-    // Collect stdout/stderr
-    if (child.stdout) {
-      child.stdout.on('data', (chunk) => {
-        const text = chunk.toString();
-        stdoutBytes += Buffer.byteLength(text);
-        recordFirstOutput('stdout');
-        logs.push(text);
-        if (onStdout) onStdout(text);
-      });
-    }
-
-    if (child.stderr) {
-      child.stderr.on('data', (chunk) => {
-        const text = chunk.toString();
-        stderrBytes += Buffer.byteLength(text);
-        stderrExcerpt = appendDiagnosticExcerpt(stderrExcerpt, text, DIAGNOSTIC_STDERR_EXCERPT_LIMIT);
-        logs.push('[stderr] ' + text);
-        if (onStderr) onStderr(text);
-      });
     }
 
     // Timeout handling per §20.4

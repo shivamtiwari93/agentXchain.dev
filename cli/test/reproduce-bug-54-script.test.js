@@ -23,7 +23,7 @@
  */
 
 import { execFileSync } from 'child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -87,6 +87,51 @@ test('reproduce-bug-54: spawn_attach_failed (ENOENT) captures process_error with
     assert.equal(a.first_stdout_at, null);
     assert.equal(payload.summary.classification.spawn_attach_failed, 1);
     assert.equal(payload.summary.success_rate_first_stdout, 0);
+    assert.equal(payload.command_probe.kind, 'skipped');
+    assert.equal(payload.command_probe.reason, 'not a claude command');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('reproduce-bug-54: fake Claude runtime captures bounded command version probe', () => {
+  const dir = makeFixture({});
+  const shimPath = join(dir, 'claude');
+  writeFileSync(shimPath, `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  printf '1.2.3-test\\n'
+  exit 0
+fi
+printf 'READY\\n'
+exit 0
+`);
+  chmodSync(shimPath, 0o755);
+  writeFileSync(
+    join(dir, 'agentxchain.json'),
+    JSON.stringify({
+      runtimes: {
+        'claude-runtime': {
+          type: 'local_cli',
+          command: [shimPath, '--print'],
+          prompt_transport: 'stdin',
+        },
+      },
+    }, null, 2),
+  );
+  try {
+    const payload = runRepro(dir, [
+      '--runtime', 'claude-runtime',
+      '--synthetic', 'x',
+      '--attempts', '1',
+      '--watchdog-ms', '5000',
+      '--delay-ms', '0',
+    ]);
+    assert.equal(payload.command_probe.kind, 'claude_version');
+    assert.equal(payload.command_probe.status, 0);
+    assert.equal(payload.command_probe.signal, null);
+    assert.equal(payload.command_probe.error, null);
+    assert.match(payload.command_probe.stdout, /1\.2\.3-test/);
+    assert.equal(payload.attempts[0].classification, 'exit_clean_with_stdout');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

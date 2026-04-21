@@ -72,6 +72,8 @@ describe('BUG-54 reproduction script tester runbook content (Turn 97)', () => {
     assert.match(RUNBOOK, /exit_clean_with_stdout/);
     assert.match(RUNBOOK, /avg_first_stdout_ms/);
     assert.match(RUNBOOK, /watchdog_fires/);
+    assert.match(RUNBOOK, /command_probe/);
+    assert.match(RUNBOOK, /claude_version/);
     assert.match(
       RUNBOOK,
       /auth env booleans are diagnostic context only/i,
@@ -85,6 +87,7 @@ describe('BUG-54 reproduction script tester runbook content (Turn 97)', () => {
       /What to quote back to the agents/i,
       'runbook must contain the quote-back section',
     );
+    assert.match(RUNBOOK, /command_probe/);
     assert.match(RUNBOOK, /env_snapshot\.auth_env_present/);
     assert.match(RUNBOOK, /resolved_command/);
     assert.match(RUNBOOK, /resolved_args_redacted/);
