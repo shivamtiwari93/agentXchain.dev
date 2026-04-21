@@ -95,10 +95,19 @@ verification schema regresses. The accept branch must fail loudly when
 either sub-defect's fix regresses.
 
 The packaged release gate in `cli/test/claim-reality-preflight.test.js`
-must also execute the combined `files_changed` + `artifact` produced-files
-branch against the extracted npm tarball. Source-tree scenario coverage is
-not enough for BUG-55 because checkpoint semantics depend on shipped CLI
-commands and packaged `governed-state.js` imports.
+must also execute both combined happy paths against the extracted npm
+tarball:
+
+- `files_changed` + `produced_files[{disposition: 'ignore'}]`: fixtures
+  are cleaned by `accept-turn`, excluded from the checkpoint commit, and
+  the tree is clean after `checkpoint-turn`.
+- `files_changed` + `produced_files[{disposition: 'artifact'}]`: fixtures
+  survive `accept-turn`, are included with actor-owned files in the
+  checkpoint commit, and the tree is clean after `checkpoint-turn`.
+
+Source-tree scenario coverage is not enough for BUG-55 because checkpoint
+semantics depend on shipped CLI commands and packaged `governed-state.js`
+imports.
 
 ## Open Questions
 

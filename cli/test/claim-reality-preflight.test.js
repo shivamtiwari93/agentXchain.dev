@@ -4119,6 +4119,119 @@ exec sleep 30
     assert.equal(existsSync(join(root, BUG55_FIXTURE_PATH)), false, 'packaged BUG-55B ignore cleanup must remove the fixture output');
   });
 
+  it('BUG-55 packaged CLI commits declared files and ignores produced fixture outputs in one checkpoint', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug55-combined-ignore-'));
+    TEMP_PATHS.push(root);
+    const config = makeBug55Config();
+
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    mkdirSync(join(root, 'tests'), { recursive: true });
+
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    writeFileSync(join(root, '.gitignore'), '.agentxchain/\nTALK.md\n');
+    writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n');
+    writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n');
+    writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 1;\n');
+    writeFileSync(join(root, 'tests', 'smoke.mjs'), 'export const smoke = true;\n');
+
+    git(root, ['init']);
+    git(root, ['config', 'user.email', 'packed-bug55@test.local']);
+    git(root, ['config', 'user.name', 'Packed BUG-55']);
+    git(root, ['add', '.']);
+    git(root, ['commit', '-m', 'initial']);
+
+    const initResult = initializeGovernedRun(root, config);
+    assert.ok(initResult.ok, initResult.error);
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+    const turn = Object.values(assign.state.active_turns)[0];
+
+    writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n- qa shipped notes\n');
+    writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n\n- qa evidence\n');
+    writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 2;\n');
+    writeFileSync(join(root, 'tests', 'smoke.mjs'), 'export const smoke = "qa";\n');
+
+    for (const fixturePath of BUG55_COMBINED_FIXTURE_FILES) {
+      const fullPath = join(root, fixturePath);
+      mkdirSync(dirname(fullPath), { recursive: true });
+      writeFileSync(fullPath, JSON.stringify({ scan: 'ok', path: fixturePath }, null, 2));
+    }
+
+    mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
+    writeFileSync(join(root, getTurnStagingResultPath(turn.turn_id)), JSON.stringify({
+      schema_version: '1.0',
+      run_id: assign.state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'QA updated release evidence and ignored verification fixture outputs.',
+      decisions: [],
+      objections: [],
+      files_changed: BUG55_COMBINED_DECLARED_FILES,
+      artifacts_created: [],
+      verification: {
+        status: 'pass',
+        commands: ['node tests/smoke.mjs', 'tusq scan tests/fixtures'],
+        evidence_summary: 'smoke + fixture scans passed',
+        machine_evidence: [
+          { command: 'node tests/smoke.mjs', exit_code: 0 },
+          { command: 'tusq scan tests/fixtures', exit_code: 0 },
+        ],
+        produced_files: BUG55_COMBINED_FIXTURE_FILES.map((path) => ({ path, disposition: 'ignore' })),
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'launch',
+      phase_transition_request: 'launch',
+      run_completion_request: false,
+      needs_human_reason: null,
+      cost: { usd: 0.01 },
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turn.turn_id], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(accept.status, 0, `packaged BUG-55 combined-ignore accept-turn must succeed:\n${accept.stdout}\n${accept.stderr}`);
+    for (const fixturePath of BUG55_COMBINED_FIXTURE_FILES) {
+      assert.equal(existsSync(join(root, fixturePath)), false, `ignore produced file must be cleaned after accept-turn: ${fixturePath}`);
+    }
+
+    const checkpoint = spawnSync(process.execPath, [cliPath, 'checkpoint-turn', '--turn', turn.turn_id], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(checkpoint.status, 0, `packaged BUG-55 combined-ignore checkpoint-turn must succeed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const headSha = git(root, ['rev-parse', 'HEAD']);
+    const committedFiles = git(root, ['diff-tree', '--no-commit-id', '--name-only', '-r', headSha])
+      .split('\n')
+      .filter(Boolean)
+      .sort();
+    assert.deepEqual(committedFiles, [...BUG55_COMBINED_DECLARED_FILES].sort());
+    for (const fixturePath of BUG55_COMBINED_FIXTURE_FILES) {
+      assert.equal(
+        committedFiles.includes(fixturePath),
+        false,
+        `packaged BUG-55 combined-ignore checkpoint must not commit ignored fixture ${fixturePath}`,
+      );
+    }
+    assert.equal(git(root, ['status', '--short']), '', 'packaged BUG-55 combined-ignore checkpoint must leave a clean tree');
+  });
+
   it('BUG-55 packaged CLI commits files_changed plus artifact verification outputs in one checkpoint', async () => {
     const { packageDir } = getExtractedPackage();
     const cliPath = join(packageDir, 'bin', 'agentxchain.js');

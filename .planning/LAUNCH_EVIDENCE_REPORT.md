@@ -305,7 +305,12 @@
   - Tightest assertion: "no fixture leaked into the commit" catches the inverse of sub-B (over-commit) which the in-isolation tests do not exercise
 - **What it does NOT prove**:
   - Tester-quoted shipped-package output (HUMAN-ROADMAP discipline rule #12)
-  - Combined-shape behavior against extracted tarball source — by `DEC-BUG55-COMBINED-PACKED-SMOKE-001` the existing BUG-55A / BUG-55B packed rows plus the repo-side combined regression are sufficient; no new packed row added unless a concrete packaging regression class is named
+- **Packaged-tarball follow-up**: Turn 124 superseded the older
+  `DEC-BUG55-COMBINED-PACKED-SMOKE-001` no-extra-row boundary with
+  `DEC-BUG55-COMBINED-IGNORE-PACKAGED-PROOF-001`. The extracted-tarball
+  claim-reality gate now covers both combined happy paths:
+  `disposition: 'ignore'` fixture cleanup + declared-file checkpoint, and
+  `disposition: 'artifact'` union checkpoint.
 
 ### E7 — Public Tester Rerun Contract for BUG-55 Combined Shape (v2.149.1)
 
