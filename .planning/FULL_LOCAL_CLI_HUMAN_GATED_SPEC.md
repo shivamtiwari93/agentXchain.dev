@@ -45,8 +45,9 @@ agentxchain init --governed --template full-local-cli --dir <path> -y
 3. All four roles use `write_authority: "authoritative"`.
 4. All four runtimes are `local_cli`.
 5. The scaffold defaults to the shipped unattended Claude Code command:
-   - `["claude", "--print", "--dangerously-skip-permissions"]`
+   - `["claude", "--print", "--dangerously-skip-permissions", "--bare"]`
    - `prompt_transport: "stdin"`
+   - `--bare` is mandatory per `DEC-BUG54-NEW-SCAFFOLDS-CLAUDE-BARE-001`; without it a non-interactive subprocess hangs on a macOS keychain read (BUG-54).
 6. If init receives `--dev-command` / `--dev-prompt-transport`, that override applies to every scaffold-local runtime that still uses the shipped default local CLI contract. Do not silently customize only one role in an all-local template.
 7. Planning and completion gates still require human approval:
    - planning exit gate: `requires_human_approval: true`

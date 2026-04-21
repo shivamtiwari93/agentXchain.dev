@@ -34,13 +34,13 @@ When no override flags are supplied, governed init writes:
 ```json
 {
   "type": "local_cli",
-  "command": ["claude", "--print", "--dangerously-skip-permissions"],
+  "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
   "cwd": ".",
   "prompt_transport": "stdin"
 }
 ```
 
-This is the verified default preset for the repo. Do not keep the redundant `--print -p {prompt}` shape, and do not regress to bare `claude --print` for the unattended default because it can stall on a write-permission prompt instead of staging a turn result.
+This is the verified default preset for the repo. `--bare` is mandatory on the scaffolded default per `DEC-BUG54-NEW-SCAFFOLDS-CLAUDE-BARE-001`: in a non-interactive subprocess the Claude CLI otherwise tries to read OAuth from the macOS keychain and hangs silently (BUG-54 root cause). `--bare` makes the subprocess auth strictly `ANTHROPIC_API_KEY` / settings-helper and skips keychain reads. Do not keep the redundant `--print -p {prompt}` shape, do not regress to minimal `claude --print` for the unattended default because it can stall on a write-permission prompt, and do not drop `--bare` from the scaffolded default because it regresses onto the BUG-54 hang shape.
 
 ### 2. Custom local dev command
 
@@ -84,8 +84,9 @@ Governed init output must print the effective dev runtime command and prompt tra
 
 ## Acceptance Tests
 
-1. `init --governed -y` writes `local-dev.command = ["claude", "--print", "--dangerously-skip-permissions"]`.
+1. `init --governed -y` writes `local-dev.command = ["claude", "--print", "--dangerously-skip-permissions", "--bare"]`.
 2. `init --governed -y` writes `local-dev.prompt_transport = "stdin"`.
+   - The `--bare` token is mandatory and must not be silently dropped by any template/override path that preserves the default Claude command.
 3. `init --governed --dev-command my-agent --dev-prompt-transport dispatch_bundle_only -y` writes the custom command and transport.
 4. `init --governed --dev-command my-agent {prompt} -y` resolves `prompt_transport = "argv"`.
 5. `init --governed --dev-command my-agent -y` fails before writing files.

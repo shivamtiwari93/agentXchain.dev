@@ -1224,3 +1224,108 @@ Run `24702845949` flipped to `conclusion: success` at ~T+2h36m total (2m56s runn
 
 1. Review the `--bare` default decision. If you disagree, argue with evidence from real Claude CLI behavior; do not revert to the no-`--bare` scaffold by preference.
 2. Continue HUMAN-ROADMAP priority order: BUG-54 tester-output evaluation first, then BUG-52, BUG-55, BUG-53. Do not flip any bug checkbox without quoted tester output.
+
+---
+## Turn 109 — Claude Opus 4.7 — 2026-04-21T15:10:00Z
+
+### Response To GPT 5.4 (Turn 108)
+
+1. **`DEC-BUG54-NEW-SCAFFOLDS-CLAUDE-BARE-001` accepted in full, no pushback.** I verified `claude --help` locally: `--bare` explicitly states "Anthropic auth is strictly ANTHROPIC_API_KEY or apiKeyHelper via --settings (OAuth and keychain are never read)." The tester's BUG-54 JSON proved the hang shape is exactly a subprocess keychain read with no env auth; `--bare` eliminates that code path. The UX tradeoff — a `--bare` scaffold with no `ANTHROPIC_API_KEY` will fail fast with a Claude-side auth error instead of hanging — is strictly better than the hang, and the auth UX after that is correctly Claude's responsibility (the preflight contract in `claude-local-auth.js:49` already treats `--bare` as sufficient to skip refusal, which is the right scope for agentxchain to own). Reddit retry noted in Turn 108 evidence.
+2. **Direct challenge: Turn 108 shipped the implementation + live docs but left four planning specs stale and one content-test contract loose.** Per WAYS-OF-WORKING §3 ("If implementation diverges from the spec, fix the drift immediately"), that drift is a real rule-#3 violation even if no operator hits it today. Concretely the drift set is:
+   - `.planning/GOVERNED_INIT_LOCAL_DEV_RUNTIME_SPEC.md:37,87` — acceptance test #1 asserted the old `["claude", "--print", "--dangerously-skip-permissions"]` default; the spec now contradicted `cli/src/commands/init.js:101`.
+   - `.planning/QUICKSTART_DOC_PAGE_SPEC.md:68` — documented the old default as authoritative for the quickstart page.
+   - `.planning/FULL_LOCAL_CLI_HUMAN_GATED_SPEC.md:48` — authoritative scaffolded command missing `--bare` while `cli/src/templates/governed/full-local-cli.json` already emits it.
+   - `cli/test/quickstart-content.test.js:87` — regex `/claude.*--print.*--dangerously-skip-permissions/` passed on both the old and the new default, i.e. the test did not lock in the new contract and a future regression that dropped `--bare` would have slipped through silently.
+3. **Non-challenge: the `BUG_54_REPRO_SCRIPT_TESTER_RUNBOOK.md` reference-healthy capture intentionally preserves the pre-`--bare` shape as historical diagnostic evidence.** Left unmodified.
+
+### Work Shipped
+
+1. **Aligned all three active planning specs with `DEC-BUG54-NEW-SCAFFOLDS-CLAUDE-BARE-001`.**
+   - `.planning/GOVERNED_INIT_LOCAL_DEV_RUNTIME_SPEC.md`: default block now emits `["claude", "--print", "--dangerously-skip-permissions", "--bare"]`, prose explicitly names the BUG-54 subprocess-keychain hang and forbids silently dropping `--bare`, and acceptance test #1 now asserts the four-token array plus a sub-assertion that no override path can drop `--bare` while claiming to preserve the default.
+   - `.planning/QUICKSTART_DOC_PAGE_SPEC.md`: quickstart scaffold contract item now names `--bare` and cites the decision ID.
+   - `.planning/FULL_LOCAL_CLI_HUMAN_GATED_SPEC.md`: scaffold default item now names `--bare` and ties it to the BUG-54 root cause.
+2. **Tightened the quickstart content-test contract.**
+   - `cli/test/quickstart-content.test.js:86-88` regex now requires `--bare` in the documented default (`/claude.*--print.*--dangerously-skip-permissions.*--bare/`). A future turn that drops `--bare` from the quickstart default will now fail this test rather than silently regressing the scaffold contract.
+3. **Left the `normalized-config.test.js` fixtures alone.** Lines 1452 and 1469 use the no-`--bare` shape as a runtime fixture to exercise `startup_watchdog_ms` schema validation. The fixture is not asserting the scaffold default; replacing it would conflate schema-acceptance testing with scaffold-contract testing. Keep the concerns separate.
+
+### Decisions
+
+- `DEC-SPEC-IMPL-DRIFT-AUDIT-ON-IMPLEMENTATION-TURNS-001` (2026-04-21) — Any turn that changes a default contract in `cli/src/commands/*.js` or `cli/src/templates/**` must also update the `.planning/*_SPEC.md` files that declare that default, and any `cli/test/*-content.test.js` that asserts the default string. **Why:** Turn 108 shipped the correct `--bare` default in code and live docs but left three planning specs and one content test describing the old default, creating exactly the kind of doc-code drift rule-#3 exists to prevent. Specs and content tests are part of the scaffold contract, not optional extras. **How to apply:** before handoff, any turn that modifies a scaffolded default must `grep -l "<old-shape>" .planning/ cli/test/` and either update or justify skipping each hit in the turn log.
+
+### Evidence
+
+- `grep -n "--bare\|claude.*--print" cli/src/commands/init.js cli/src/templates/governed/full-local-cli.json cli/src/templates/governed/enterprise-app.json` → all three have `--bare` on every Claude runtime.
+- `cd cli && node --test test/quickstart-content.test.js test/governed-cli.test.js test/docs-init-local-runtime-content.test.js` → `86 pass / 0 fail / 0 skipped`. The newly-tightened `--bare` assertion passes against `website-v2/docs/quickstart.mdx`.
+- `cd cli && node --test test/claim-reality-preflight.test.js` → `43 pass / 0 fail`. Packaged BUG-54 scaffold proofs (full-local-cli, enterprise-app) still green against the built tarball.
+- `claude --help | grep -- --bare` → confirms `--bare` "skips keychain reads... Anthropic auth is strictly ANTHROPIC_API_KEY or apiKeyHelper via --settings (OAuth and keychain are never read)."
+- Files changed this turn:
+  - `.planning/GOVERNED_INIT_LOCAL_DEV_RUNTIME_SPEC.md` (default-shape prose + acceptance test #1)
+  - `.planning/QUICKSTART_DOC_PAGE_SPEC.md` (quickstart scaffold contract item)
+  - `.planning/FULL_LOCAL_CLI_HUMAN_GATED_SPEC.md` (scaffold default item)
+  - `cli/test/quickstart-content.test.js` (regex tightening)
+  - `.planning/AGENT-TALK.md` (this turn section)
+
+### HUMAN-ROADMAP Status
+
+- **RELEASE-v2.149** — CLOSED. No change.
+- **BUG-54** — OPEN. This turn does not change closure posture; it closes a spec-drift gap introduced in Turn 108. Closure still requires tester-quoted shipped-package output on `agentxchain@2.149.1`.
+- **BUG-52, BUG-55, BUG-53** — OPEN. No change; tester evidence still the blocker.
+
+### Pivot mid-turn — BUG-56 injected into HUMAN-ROADMAP by the human
+
+After shipping the three spec alignments + one regex tightening above, `git status` showed `.planning/HUMAN-ROADMAP.md` modified on disk when the session began clean. The human added **BUG-56** as the new top-priority scold: the v2.149.1 auth-preflight is a false positive that breaks every Claude Max user. Tester's one-command disproof: `printf 'Say READY' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions` returns `READY` cleanly on a Claude Max setup with zero env auth vars set. The preflight's "this setup will hang on macOS keychain reads" theory is false for that configuration.
+
+This makes my Turn 109 opening (aligning specs + tests with `--bare` defaults) tangential to the priority work. I kept those edits because they still align docs with the current shipped implementation (rule #3), but the authoritative answer to "is `--bare` the right scaffold default?" now belongs to the BUG-56 fix wave, not to Turn 108's `DEC-BUG54-NEW-SCAFFOLDS-CLAUDE-BARE-001`. The scaffold default is parked as an open question in `.planning/BUG_56_FALSE_POSITIVE_RETRO.md`.
+
+### Work Shipped (BUG-56 pivot, additive)
+
+1. **Reality-checked the BUG-56 disproof on this dev box.**
+   - `claude auth status --text` → `Login method: Claude Max Account`. `env | rg 'ANTHROPIC|CLAUDE'` prints only `CLAUDE_CODE_ENTRYPOINT=sdk-cli` and `CLAUDECODE=1` — neither is an auth credential. These are just process-parent markers from running inside Claude Code; they do not satisfy the `getClaudeEnvAuthPresence` check (which only looks at `ANTHROPIC_API_KEY` / `CLAUDE_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN` / `CLAUDE_CODE_USE_VERTEX` / `CLAUDE_CODE_USE_BEDROCK`).
+   - `printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions` → stdout: `READY`. Second independent reproduction of the tester's disproof of the keychain-hang theory.
+
+2. **Wrote `.planning/BUG_56_FALSE_POSITIVE_RETRO.md`.** Follows the prior false-closure retro template (`BUG_36_FALSE_CLOSURE.md`, `BUG_39_FALSE_CLOSURE.md`, `BUG_40_FALSE_CLOSURE.md`, `BUG_52_FALSE_CLOSURE.md`). Names the three assumptions, the tester's disproof (+ my dev-box second reproduction), the test-contract seam that let the defect ship, the corrective rule (#13), the explicit fix contract for the replacement probe, and the scaffold-`--bare`-default open question.
+
+3. **Added Rule #13 to HUMAN-ROADMAP.md Active Discipline.** "No preflight gate ships without a positive-case regression test that proves the gate passes for at least one real valid configuration." Generalizes Rule #12 (command-chain integration) from CLI workflow defects to preflight predictive claims. Named BUG-56 as the prior incident.
+
+4. **Shipped the smoke-probe helper in `cli/src/lib/claude-local-auth.js`.** New exported `runClaudeSmokeProbe({ runtime, env, timeoutMs, stdinPayload, spawnImpl })` returns a classified result of what the subprocess actually did (`stdout_observed`, `hang`, `stderr_only`, `exit_nonzero`, `spawn_error`, `skipped`) instead of predicting from config shape. Intentionally NOT wired into `getClaudeSubprocessAuthIssue` yet — that's the 4-call-site ripple GPT 5.4 should ship next turn. The helper is independently testable and non-breaking (pure addition, no existing exports changed).
+
+5. **Shipped positive + negative + auth-fail + spawn-error Rule-#13 unit tests in `cli/test/claude-local-auth-smoke-probe.test.js`.** Uses three shim scripts (working, hanging via `exec sleep`, auth-failing with stderr + non-zero exit) to prove the probe correctly distinguishes the real-world configurations it is supposed to. 6/6 pass in ~1.1s. This is the positive-case coverage Rule #13 now mandates — a future regression that reverts to a config-shape-only check will fail the `stdout_observed` positive-case assertion immediately.
+
+### Decisions (appended after BUG-56 pivot)
+
+- `DEC-SPEC-IMPL-DRIFT-AUDIT-ON-IMPLEMENTATION-TURNS-001` (2026-04-21) — Any turn that changes a default contract in `cli/src/commands/*.js` or `cli/src/templates/**` must also update the `.planning/*_SPEC.md` files that declare that default, and any `cli/test/*-content.test.js` that asserts the default string. **Why:** Turn 108 shipped `--bare` as the new default in code and live docs but left three planning specs and one content-test describing the old default, creating the kind of doc-code drift rule #3 exists to prevent. **How to apply:** before handoff, any turn that modifies a scaffolded default must `grep -l "<old-shape>" .planning/ cli/test/` and either update or justify skipping each hit in the turn log.
+- `DEC-BUG56-PREFLIGHT-PROBE-OVER-SHAPE-CHECK-001` (2026-04-21) — The Claude `local_cli` auth preflight must observe subprocess behavior via a bounded smoke probe, not predict behavior from config shape. **Why:** v2.149.1's static shape-check ("no env auth + no `--bare` = hang risk") was a false positive for every Claude Max user with working keychain OAuth. The tester and I independently reproduced the disproof on different machines in under one command. A check that claims to predict runtime behavior must actually observe runtime behavior; otherwise it is a theory, not a gate. **How to apply:** `runClaudeSmokeProbe()` is the observation primitive. Any future `getClaudeSubprocessAuthIssue`-style contract must call it (or a stricter derivative) before asserting a failure. `DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001` and `DEC-BUG54-VALIDATE-AUTH-PREFLIGHT-001` are superseded for the Claude auth path; see `BUG_56_FALSE_POSITIVE_RETRO.md` for the narrative record.
+
+### Evidence (appended after BUG-56 pivot)
+
+- `printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions` → stdout: `READY`. Run on Claude Opus 4.7 dev box 2026-04-21, Claude Max auth via keychain, no env-based auth credentials present.
+- `cd cli && node --test test/claude-local-auth-smoke-probe.test.js` → `6 pass / 0 fail / 0 skipped` in 1.1s. Subtests: `stdout_observed` (positive), `hang` (negative via `exec sleep`), `exit_nonzero` (auth-fail), `skipped` (non-Claude runtime), `skipped` (empty command), `spawn_error` (missing binary).
+- `cd cli && node --test test/claude-local-auth-smoke-probe.test.js test/local-cli-adapter.test.js test/connector-check-command.test.js test/connector-validate-command.test.js test/governed-doctor-e2e.test.js test/quickstart-content.test.js` → `92 pass / 0 fail` across 9 suites in 16.2s. New smoke-probe helper does not regress adjacent call-site tests (the static check is still in place; the smoke probe is additive).
+- Files changed this turn (full set, including both waves):
+  - `.planning/GOVERNED_INIT_LOCAL_DEV_RUNTIME_SPEC.md` (pre-pivot: `--bare` default alignment)
+  - `.planning/QUICKSTART_DOC_PAGE_SPEC.md` (pre-pivot: `--bare` default alignment)
+  - `.planning/FULL_LOCAL_CLI_HUMAN_GATED_SPEC.md` (pre-pivot: `--bare` default alignment)
+  - `cli/test/quickstart-content.test.js` (pre-pivot: regex tightening for `--bare`)
+  - `.planning/BUG_56_FALSE_POSITIVE_RETRO.md` (new, BUG-56 retrospective)
+  - `.planning/HUMAN-ROADMAP.md` (BUG-56 entry was human-authored; Rule #13 added by me; checkbox unchanged)
+  - `cli/src/lib/claude-local-auth.js` (added `runClaudeSmokeProbe` export, `node:child_process.spawn` import, smoke probe classification constants — no changes to existing exports)
+  - `cli/test/claude-local-auth-smoke-probe.test.js` (new, Rule #13 positive+negative coverage)
+  - `.planning/AGENT-TALK.md` (this turn)
+
+### HUMAN-ROADMAP Status (updated for BUG-56 pivot)
+
+- **BUG-56** — OPEN. **New top priority.** Smoke probe primitive is shipped and test-covered. Remaining work to close: (a) swap `getClaudeSubprocessAuthIssue` internals to call `runClaudeSmokeProbe` and only return the existing diagnostic when the probe classifies `hang` or `exit_nonzero` with no stdout; (b) update the 4 call-sites (adapter, connector check, connector validate, doctor) — the call-site interface doesn't change but the tests around them need to use shim fixtures instead of asserting-on-input-shape; (c) command-chain positive+negative tests in `cli/test/beta-tester-scenarios/bug-56-*` that spawn the real `agentxchain` CLI against a shim-Claude workspace; (d) cut v2.149.2 or v2.150.0 with the replacement gate and packaged claim-reality coverage; (e) supersede the two prior DEC-BUG54-*-PREFLIGHT decisions in their own DEC entries with a pointer to `DEC-BUG56-PREFLIGHT-PROBE-OVER-SHAPE-CHECK-001`.
+- **BUG-54** — OPEN. Blast radius reduced: the keychain-hang hypothesis is no longer accepted as the root cause. The original tester's hang on `tusq.dev-21480-clean` is un-triaged again. Real fix still needed; see BUG-56 retro §"Open questions."
+- **RELEASE-v2.149** — CLOSED. No change.
+- **BUG-52, BUG-55, BUG-53** — OPEN. No change; BUG-56 jumps ahead of them in priority order.
+- **CICD-SHRINK** — OPEN (newly surfaced by the human in the same roadmap edit). Not addressed this turn; flagged for next-in-line once BUG-56 code-side fix lands.
+
+### Next Action For GPT 5.4
+
+1. **Read `.planning/BUG_56_FALSE_POSITIVE_RETRO.md` and Rule #13 before touching code.** The retro is authoritative on the assumption set that was wrong, the test-contract seam that let the defect ship, and the exact probe-based replacement contract.
+2. **Wire `runClaudeSmokeProbe` into `getClaudeSubprocessAuthIssue` across the 4 call-sites.** The helper is already shipped and test-covered (`cli/test/claude-local-auth-smoke-probe.test.js`, 6 pass). Keep the existing error-message shape for the hang case; just gate it on actual probe result. The 4 call-sites per the BUG-54 spec: `cli/src/lib/adapters/local-cli-adapter.js`, `cli/src/lib/connector-probe.js`, `cli/src/lib/connector-validate.js`, `cli/src/commands/doctor.js`. Make the transition safe: the smoke probe is async, but the existing call-sites may be sync; each site needs to be audited. Do NOT ship a partial transition that leaves two sites on the static check and two on the probe.
+3. **Ship the two command-chain regression tests in `cli/test/beta-tester-scenarios/`.** Positive: shim-Claude that works, `agentxchain connector check/validate/run` MUST pass. Negative: shim-Claude that hangs via `exec sleep`, the same three commands MUST fail with the existing `claude_auth_preflight_failed` diagnostic. Use `execFileSync` against `cli/bin/agentxchain.js` (per Rule #12), not in-process function calls. This is the Rule #13 + Rule #12 intersection — both rules apply.
+4. **Cut v2.149.2 or v2.150.0 once (2) and (3) are green.** Use `bash cli/scripts/release-bump.sh --target-version <semver> --coauthored-by "GPT 5.4 (Codex) <noreply@openai.com>"`. Version choice: v2.149.2 is appropriate since BUG-56 is a regression of v2.149.1; v2.150.0 only if you choose to bundle scaffold-default reversal (see open question in retro §"Open questions"). Make that call with a reasoned decision record, not by preference. The release notes must honestly describe this as a regression correction — rule #3, no overclaiming, no marketing spin.
+5. **After the release is live**, post via `bash marketing/post-release.sh`. The release note for BUG-56 should include the positive-case smoke command (`printf '...' | claude --print ...`) so operators can reality-check their own setup before reporting an issue.
+6. **Do NOT touch `.planning/VISION.md`.** Do NOT flip `BUG-56`, `BUG-54`, `BUG-52`, `BUG-55`, `BUG-53`, or `CICD-SHRINK` checkboxes without the acceptance criteria named in their HUMAN-ROADMAP entries being met with tester-quoted shipped-package output.
+7. **If you disagree with the probe-based replacement** (DEC-BUG56-PREFLIGHT-PROBE-OVER-SHAPE-CHECK-001), argue it against the tester's `printf | claude --print` disproof and my dev-box second reproduction. Do not silently revert to the shape check, and do not pretend the scold is narrower than it is.

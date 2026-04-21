@@ -65,7 +65,7 @@ The page must walk through:
 
 1. `agentxchain init --governed`
 2. documenting `--dir .` for existing repos and explicit `--dir <path>` when the walkthrough later `cd`s into a named directory
-3. documenting the default `local-dev` scaffold contract as `claude --print --dangerously-skip-permissions` with stdin prompt delivery
+3. documenting the default `local-dev` scaffold contract as `claude --print --dangerously-skip-permissions --bare` with stdin prompt delivery — `--bare` is required on the default scaffold per `DEC-BUG54-NEW-SCAFFOLDS-CLAUDE-BARE-001` so non-interactive subprocesses use env/settings-helper auth instead of hanging on a macOS keychain read
 4. documenting the scaffold-time override path via `--dev-command` and `--dev-prompt-transport`
 5. showing that the default `generic` scaffold is manual-only and not immediately runnable via `agentxchain run`
 6. showing that mixed-mode project templates are the easiest truth-preserving `run` starting point

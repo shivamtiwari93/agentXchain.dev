@@ -83,8 +83,8 @@ describe('quickstart single-repo content contract', () => {
     assert.match(QUICKSTART, /api-qa/);
   });
 
-  it('documents the dev runtime default command', () => {
-    assert.match(QUICKSTART, /claude.*--print.*--dangerously-skip-permissions/);
+  it('documents the dev runtime default command with --bare per DEC-BUG54-NEW-SCAFFOLDS-CLAUDE-BARE-001', () => {
+    assert.match(QUICKSTART, /claude.*--print.*--dangerously-skip-permissions.*--bare/);
   });
 
   it('documents approve-transition and approve-completion as constitutional gates', () => {
