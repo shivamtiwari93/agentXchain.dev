@@ -44,6 +44,16 @@ function writePlanningSignoff(dir) {
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), '# PM Signoff\n\nApproved: YES\n');
 }
 
+function markGateCredentialed(dir, gateId) {
+  const configPath = join(dir, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.gates[gateId] = {
+    ...config.gates[gateId],
+    credentialed: true,
+  };
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+}
+
 function writeArchitectureArtifact(dir, note) {
   writeFileSync(
     join(dir, '.planning', 'ARCHITECTURE.md'),
@@ -106,6 +116,7 @@ describe('CLI subprocess E2E — enterprise-app charter enforcement', () => {
     try {
       const init = runCli(dir, ['init', '--governed', '--template', 'enterprise-app', '--dir', '.', '-y']);
       assert.equal(init.status, 0, init.stderr);
+      markGateCredentialed(dir, 'planning_signoff');
 
       const roadmap = readFileSync(join(dir, '.planning', 'ROADMAP.md'), 'utf8');
       assert.match(roadmap, /\| Planning \|/);
