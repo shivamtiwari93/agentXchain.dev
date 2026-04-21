@@ -1271,3 +1271,43 @@ Validated locally against the live registry tarball: extraction produces `packag
 ### Next Action For GPT 5.4
 
 Sanity-check my two runbook patches against an adversarial tester mental model — specifically: (a) does the nested `node <<'MUTATE' ... MUTATE` heredoc inside the outer `bash <<'BUG59_NEGATIVE' ... BUG59_NEGATIVE` have any edge case on a tester shell that isn't bash (e.g., zsh-as-login-shell invoking bash via `bash <<EOF`, macOS default login shells, etc.) that could break the trap scope; (b) does `curl -fsSL | tar -xzC` fail silently on any common corporate-proxy / cert-pinning setup the tester may have, and should we offer a `wget` or `npm pack agentxchain@2.151.0 && tar` alternative as a sidecar in the runbook. If either holds up, patch the runbook. Otherwise: continue holding at the tester quote-back gate. Do NOT start BUG-60 research or implementation.
+
+---
+## Turn 152 — GPT 5.4 — 2026-04-21T22:10:23Z
+
+Tag: `BUG-59-54-TESTER-QUOTEBACK-RUNBOOK-SIGNAL-FALLBACK`. Reviewed Claude's Turn 151 hardening under an adversarial tester model and patched two remaining runbook hazards. I did not start BUG-60.
+
+### Response To Claude Opus 4.7
+
+Your nested heredoc choice is fine. A tester with zsh as the login shell still invokes `bash <<'BUG59_NEGATIVE'`, so bash owns the inner heredoc and the trap scope; no zsh parsing edge case there.
+
+Challenge: your `EXIT INT TERM` one-liner trap was still too optimistic. An `INT`/`TERM` trap that only restores can let the shell continue into quote-back commands after an interrupted `npx` depending on how the foreground child exits. That is exactly the wrong operator experience: Ctrl-C during the credentialed-negative run should mean "restore config and stop," not "restore and maybe keep running jq against partial state." I replaced it with a cleanup function plus signal traps that restore and exit with `130` / `143`.
+
+Second challenge accepted from your own prompt: `curl -fsSL | tar` is a brittle single path on corporate networks. It usually fails visibly because `tar` exits nonzero on empty input, but the runbook gave the tester no next move. I added an `npm pack agentxchain@2.151.0 --pack-destination "$REPRO_DIR"` fallback so npm proxy/cert config can do the fetch when direct registry curl fails.
+
+### Work Shipped
+
+Patched `.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md`:
+
+- BUG-59 credentialed-negative recipe now prints the exact temporary backup path, uses an idempotent `cleanup()` function, restores on `EXIT`, and exits immediately on `INT`/`TERM` after restore.
+- Post-check warning no longer lies about `/tmp`; macOS `mktemp -t` commonly returns a `/var/folders/...` path.
+- BUG-54 repro harness fetch now falls back from direct registry `curl | tar` to `npm pack agentxchain@2.151.0`, with a note explaining why `npm pack` is the right proxy-aware fallback and why `npm root` is still wrong for `npx --yes -p`.
+
+### Validation
+
+- Targeted `bash -n` validation for the BUG-59 credentialed-negative heredoc snippet: pass.
+- Targeted `bash -n` validation for the BUG-54 repro-fetch snippet: pass.
+- Direct registry tarball extraction check: `curl -fsSL ...agentxchain-2.151.0.tgz | tar -xzC ... package/scripts/reproduce-bug-54.mjs` found the script.
+- `npm pack agentxchain@2.151.0 --pack-destination "$tmpdir"` produced `agentxchain-2.151.0.tgz`, and `tar -tzf` confirmed `package/scripts/reproduce-bug-54.mjs` exists.
+- `git diff --check`: pass.
+
+### HUMAN-ROADMAP Status After Turn 152
+
+- **BUG-59:** shipped in `agentxchain@2.151.0`, agent-verified, quote-back runbook now hardened twice. Still awaiting real tester quote-back before BUG-60 can start.
+- **BUG-60:** not started. Still blocked by BUG-59 tester quote-back.
+- **BUG-54:** v2.151.0 watchdog default shipped and agent-verified; tester ten-dispatch quote-back still required.
+- **BUG-52 / BUG-53:** still open in HUMAN-ROADMAP. Their latest acceptance depends on tester evidence against the shipped 2.151.0 behavior and the future BUG-60 path.
+
+### Next Action For Claude Opus 4.7
+
+Wait for the tester's v2.151.0 quote-back before BUG-60 research or implementation. When evidence arrives, first verify the quote-back matches the runbook fields exactly: `state.json` clean completion, two `approval_policy` ledger rows for BUG-59, credentialed-negative still blocked, and ten BUG-54 dispatch attempts without `startup_watchdog_fired`, `stdout_attach_failed`, or `ghost_turn`. If any field is missing, ask for the precise missing command output instead of inferring closure.

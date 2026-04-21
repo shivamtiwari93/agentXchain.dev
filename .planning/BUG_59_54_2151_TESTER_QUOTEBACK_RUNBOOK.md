@@ -99,7 +99,18 @@ bash <<'BUG59_NEGATIVE'
 set -eu
 BACKUP="$(mktemp -t agentxchain.bug59.backup.XXXXXX.json)"
 cp agentxchain.json "$BACKUP"
-trap 'cp "$BACKUP" agentxchain.json && rm -f "$BACKUP"' EXIT INT TERM
+echo "Temporary agentxchain.json backup: $BACKUP" >&2
+
+cleanup() {
+  if [ -f "$BACKUP" ]; then
+    cp "$BACKUP" agentxchain.json
+    rm -f "$BACKUP"
+  fi
+}
+
+trap cleanup EXIT
+trap 'trap - INT TERM; cleanup; exit 130' INT
+trap 'trap - INT TERM; cleanup; exit 143' TERM
 
 node <<'MUTATE'
 const fs = require('fs');
@@ -118,16 +129,18 @@ jq -c 'select(.type == "approval_policy") | {timestamp, gate_type, gate_id, acti
 BUG59_NEGATIVE
 
 # Post-check — must print nothing. If it warns, the trap did not fire
-# cleanly; restore from the latest /tmp/agentxchain.bug59.backup.*.json
+# cleanly. Restore from the temporary backup path printed at the start
 # before doing anything else.
-git diff --quiet agentxchain.json || echo 'WARNING: agentxchain.json still differs from HEAD; restore from the most recent /tmp/agentxchain.bug59.backup.*.json file before continuing'
+git diff --quiet agentxchain.json || echo 'WARNING: agentxchain.json still differs from HEAD; restore from the temporary backup path printed at the start before continuing'
 ```
 
 Why the trap and not a plain `cp` at the end: if the tester hits Ctrl-C
 during the `npx` run (normal reaction when a credentialed gate correctly
 blocks and they want to stop), the final `cp` never executes and the
-config stays dirty. The `EXIT INT TERM` trap guarantees restore on every
-termination path the tester can plausibly take.
+config stays dirty. The signal traps above restore the file and then exit
+immediately (`130` for Ctrl-C, `143` for SIGTERM), so the script does not
+continue into the quote-back commands after an interrupted run. The `EXIT`
+trap covers normal completion and `set -e` failures.
 
 `isCredentialedGate(config, gateId)` in `cli/src/lib/approval-policy.js`
 runs before any rule evaluation and only needs
@@ -165,14 +178,23 @@ from the `tusq.dev` repo root so it auto-discovers the project's
 
 ```bash
 REPRO_DIR="$(mktemp -d -t agentxchain-bug54-repro.XXXXXX)"
-curl -fsSL https://registry.npmjs.org/agentxchain/-/agentxchain-2.151.0.tgz \
-  | tar -xzC "$REPRO_DIR"
+if ! curl -fsSL https://registry.npmjs.org/agentxchain/-/agentxchain-2.151.0.tgz \
+  | tar -xzC "$REPRO_DIR"; then
+  echo "Direct registry download failed; retrying through npm pack..." >&2
+  TARBALL="$(npm pack agentxchain@2.151.0 --pack-destination "$REPRO_DIR" | tail -n 1)"
+  tar -xzf "$REPRO_DIR/$TARBALL" -C "$REPRO_DIR"
+fi
 node "$REPRO_DIR/package/scripts/reproduce-bug-54.mjs" \
   --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-v2-151-0.json
 rm -rf "$REPRO_DIR"
 jq '{command_probe, summary}' /tmp/bug54-v2-151-0.json
 jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-v2-151-0.json
 ```
+
+The fallback is intentionally `npm pack`, not `npm root`: `npx --yes -p`
+uses an ephemeral cache, while `npm pack` asks npm itself to fetch the same
+published tarball and usually respects corporate npm proxy/certificate
+settings better than direct `curl` to the registry URL.
 
 Quote these BUG-54 fields from the real run or diagnostic:
 
