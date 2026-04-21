@@ -1,0 +1,73 @@
+---
+sidebar_position: 0
+title: "v2.149.2 Release Notes"
+---
+
+# AgentXchain v2.149.2
+
+`v2.149.2` is a regression-correction hotfix for BUG-56. The `v2.149.0`/`v2.149.1` Claude `local_cli` auth preflight was a static shape-check — "no env auth + no `--bare` = hang risk" — that turned out to be a false positive for every Claude Max user with working keychain OAuth. The tester disproved the theory in a single command, and Claude Opus 4.7 reproduced the disproof on an independent machine. `v2.149.2` replaces the shape-check with a bounded **smoke probe** that observes what the Claude subprocess actually does, instead of predicting what it *might* do from configuration shape alone. Claude Max users with keychain OAuth and no env-based auth now pass `connector check`, `connector validate`, and governed `run` without being forced to set `ANTHROPIC_API_KEY` or add `--bare`. BUG-56 closure still requires tester-quoted shipped-package output on `agentxchain@2.149.2`.
+
+## Bug Fixes
+
+- **BUG-56 smoke-probe-based auth preflight**: `getClaudeSubprocessAuthIssue()` now delegates to `runClaudeSmokeProbe()` when env-based auth and `--bare` are both absent. The probe spawns the runtime's actual Claude command with `"ok\n"` on stdin and a 10-second watchdog, then classifies the subprocess behavior into one of `stdout_observed` (healthy — preflight passes), `hang` (no output before watchdog — preflight fails with the existing `claude_auth_preflight_failed` diagnostic), `stderr_only`, `exit_nonzero`, `spawn_error`, or `skipped`. `stdout_observed`, `spawn_error`, and `skipped` pass the preflight. Only `hang`, `stderr_only`, and `exit_nonzero` without stdout trigger the refusal. The error message shape is unchanged; only the gate condition is now observed rather than predicted.
+
+- **BUG-56 probe applied consistently across four preflight surfaces**: the adapter (`local-cli-adapter.js`), `connector check` (`connector-probe.js`), `connector validate` (`connector-validate.js`), and `doctor` (`doctor.js`) now all await the same smoke probe before asserting auth failure. There is no partial migration — all four surfaces agree. `analyzeLocalCliAuthorityIntent()` no longer predicts auth hangs from command shape; auth prediction is the probe's responsibility.
+
+- **BUG-56 probe evidence attached to failure diagnostics**: when the preflight does refuse a runtime, the `smoke_probe` field on the `claude_auth_preflight_failed` record carries the observed classification (`hang`, `stderr_only`, `exit_nonzero`) plus `elapsed_ms` and a stderr snippet where applicable. Operators triaging a failure now see what the probe observed, not just a static shape assertion.
+
+- **BUG-56 command-chain regression proof (Rule #12 + Rule #13)**: `cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js` spawns the real shipped `agentxchain` CLI against two shim-Claude workspaces. A working no-env/no-`--bare` shim must pass `connector check`, `connector validate`, and `run --continuous`. A hanging no-env/no-`--bare` shim must fail all three with `claude_auth_preflight_failed`. Packaged into the shipped tarball via `claim-reality-preflight.test.js`.
+
+- **BUG-56 helper-level positive + negative coverage (Rule #13)**: `cli/test/claude-local-auth-smoke-probe.test.js` runs six shim subprocess classifications through `runClaudeSmokeProbe` directly. A future regression that reverts the gate to a shape-only check will fail the `stdout_observed` positive-case assertion immediately.
+
+## Decisions
+
+- `DEC-BUG56-PREFLIGHT-PROBE-OVER-SHAPE-CHECK-001` — auth preflight must observe subprocess behavior, not predict it from config shape.
+- `DEC-BUG56-OBSERVED-AUTH-PREFLIGHT-001` — all four surfaces must use the shared probe helper; no partial migration.
+- `DEC-BUG56-COMMAND-CHAIN-PROOF-001` — BUG-56 closure requires both Rule #13 positive/negative subprocess proof and Rule #12 command-chain proof.
+- **Supersedes**: `DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001` and `DEC-BUG54-VALIDATE-AUTH-PREFLIGHT-001`. The static shape-check is replaced by the probe-based contract. See `.planning/BUG_56_FALSE_POSITIVE_RETRO.md` for the narrative record.
+
+## Rule additions
+
+- **Rule #13**: No preflight gate ships without a positive-case regression test that proves the gate passes for at least one real valid configuration. Added 2026-04-21 after BUG-56, the 9th false closure of the 2026-04-18/20 beta cycle. A test that only asserts the gate's failure output for the failure-case input is green in CI but says nothing about whether emitting that failure is the correct behavior for a real-world valid setup. For gates that make predictive claims about subprocess behavior, the positive-case test must exercise a real or shim subprocess that demonstrates the predicted failure does NOT occur for the supported-configuration input.
+
+## Operator Notes
+
+- Claude Max users with keychain OAuth and no env-based auth variables no longer need to set `ANTHROPIC_API_KEY` or add `--bare` to pass the preflight. The probe observes the working non-interactive path and lets the runtime proceed.
+- The `--bare` scaffold default (shipped in v2.149.1 via `DEC-BUG54-NEW-SCAFFOLDS-CLAUDE-BARE-001`) remains a defensive default for new scaffolds. It is no longer required for correctness; operators who remove `--bare` from a Claude Max setup will pass the preflight via the observed probe path.
+- The smoke probe adds up to 10 seconds of latency on the Claude no-env/no-`--bare` code path for the first preflight invocation. Setups with `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, or `--bare` still short-circuit before any subprocess is spawned. Operators can tune the timeout via `AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS`.
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.149.2 -c "agentxchain --version"
+```
+
+For BUG-56 closure evidence on `v2.149.2`, quote the following:
+
+- **Positive case (Claude Max / keychain OAuth / no env auth / no `--bare`)**: on a setup where `env | rg 'ANTHROPIC|CLAUDE_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|CLAUDE_CODE_USE_VERTEX|CLAUDE_CODE_USE_BEDROCK'` prints nothing relevant and the Claude command does NOT include `--bare`, confirm that `printf 'Say READY\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions` returns `READY`. Then quote the PASSING output of:
+
+  ```bash
+  agentxchain connector check <claude-runtime> --json
+  agentxchain connector validate <claude-runtime> --json
+  ```
+
+  Both must pass on `v2.149.2`. On `v2.149.1` the first returned `claude_auth_preflight_failed`.
+
+- **Negative case (hanging Claude shim)**: quote the FAILING output of `connector check` / `connector validate` / `run` when the Claude binary is replaced by a shim that reads stdin but never writes stdout. The failure must carry `error_code: "claude_auth_preflight_failed"` with a `smoke_probe.kind: "hang"` field.
+
+BUG-54, BUG-52, BUG-55, BUG-53 closure contracts from `v2.149.1` remain in force; see `v2-149-1.mdx` for their re-run scripts.
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 217 tests / 66 suites / 0 failures / 5 skipped
+- printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (independent reproductions on the tester's machine and Claude Opus 4.7's dev box, both with Claude Max + no env auth)
+- node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (positive + negative + auth-fail + spawn-error + non-Claude-runtime + empty-command classifications)
+- node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (working shim + hanging shim command-chain proofs)
+
+## Status
+
+- **BUG-56**: probe-based auth preflight shipped across adapter, `connector check`, `connector validate`, and `doctor`. Positive + negative Rule #13 tests + command-chain Rule #12 tests green. Awaiting tester-quoted `v2.149.2` output showing `connector check` / `connector validate` pass on Claude Max with no env auth and no `--bare`.
+- **BUG-54**: universal keychain-hang hypothesis rejected; original `tusq.dev-21480-clean` hang root cause is un-triaged. Reproduction harness + runbook remain shipped for further diagnosis. Closure still requires the real reliability fix plus tester verification.
+- **BUG-52, BUG-55, BUG-53**: no change; tester evidence still the blocker.

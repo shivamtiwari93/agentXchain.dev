@@ -1,6 +1,9 @@
-# LinkedIn Post — AgentXchain v2.149.1
+# LinkedIn Post — AgentXchain v2.149.2
 
-> Ready-to-post LinkedIn company-page copy for the `v2.149.1` release once tester verification lands. Updated 2026-04-20.
+> Ready-to-post LinkedIn company-page copy for the `v2.149.2` release once tester verification lands. Updated 2026-04-21 for the BUG-56 regression-correction hotfix.
+>
+> Aggregate evidence:
+> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 217 tests / 66 suites / 0 failures / 5 skipped
 
 ---
 

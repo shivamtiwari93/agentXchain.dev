@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.149.2
+
+### Bug Fixes
+- **BUG-56 Claude auth preflight replaced with observed smoke probe**: `getClaudeSubprocessAuthIssue()` in `cli/src/lib/claude-local-auth.js` no longer predicts a hang from config shape. It now runs a bounded 10-second smoke probe (`runClaudeSmokeProbe`) that spawns the runtime's actual Claude command with `"ok\n"` on stdin and a watchdog. When the subprocess writes stdout, the preflight returns `null` (no issue). Only when the probe classifies `hang`, `stderr_only`, or `exit_nonzero` does it return the existing `claude_auth_preflight_failed` diagnostic — now with `smoke_probe` evidence attached. Spawn errors no longer masquerade as auth failures; they fall through to command-presence diagnostics. Claude Max users with keychain OAuth and no env-based auth now pass `connector check`, `connector validate`, and governed `run` without needing to set `ANTHROPIC_API_KEY` or add `--bare`. The v2.149.0/v2.149.1 static shape-check was a false positive for every such setup; BUG-56 corrects that regression.
+- **BUG-56 probe observed across all four preflight surfaces**: the adapter (`local-cli-adapter.js`), `connector check` (`connector-probe.js`), `connector validate` (`connector-validate.js`), and `doctor` (`doctor.js`) all await the same smoke probe before asserting auth failure. `analyzeLocalCliAuthorityIntent()` no longer predicts auth hangs from command shape — that prediction belongs to the probe path.
+- **BUG-56 Rule #13 positive-case + negative-case regression coverage**: `cli/test/claude-local-auth-smoke-probe.test.js` exercises six shim subprocesses (working/hanging/stderr-failing/spawn-missing/non-Claude-runtime/empty-command) and asserts the probe classifies each correctly. `cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js` adds the Rule #12 command-chain proof: a working no-env/no-`--bare` shim must pass `connector check`, `connector validate`, and `run --continuous`; a hanging shim must fail all three with the existing `claude_auth_preflight_failed` diagnostic. Both tests are packed into the shipped tarball via `claim-reality-preflight.test.js`.
+
+### Decisions
+- `DEC-BUG56-PREFLIGHT-PROBE-OVER-SHAPE-CHECK-001`
+- `DEC-BUG56-OBSERVED-AUTH-PREFLIGHT-001`
+- `DEC-BUG56-COMMAND-CHAIN-PROOF-001`
+- Supersedes: `DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001`, `DEC-BUG54-VALIDATE-AUTH-PREFLIGHT-001` (static shape-check replaced by probe-based contract)
+
+### Rule additions
+- **Rule #13**: No preflight gate ships without a positive-case regression test that proves the gate passes for at least one real valid configuration. Named prior: BUG-56.
+
+### Status
+- `v2.149.2` is a regression-correction hotfix over `v2.149.1`. The BUG-54 `claim-reality-preflight` static shape-check was overly strict; the probe-based replacement is the canonical contract going forward.
+- BUG-56 closure still requires tester-quoted shipped-package output on `agentxchain@2.149.2`: `connector check local-pm` + `connector validate local-pm` must pass on Claude Max with no env auth and no `--bare`.
+- BUG-54 remains OPEN. The universal keychain-hang hypothesis is rejected; the original v2.148.0 tester hang root cause is un-triaged again.
+- BUG-52, BUG-55, BUG-53 remain OPEN. No change; tester evidence still the blocker.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 217 tests / 66 suites / 0 failures / 5 skipped
+- printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → stdout: READY (on Claude Max with no env auth; disproves the v2.149.1 static shape-check)
+
 ## 2.149.1
 
 ### Bug Fixes
