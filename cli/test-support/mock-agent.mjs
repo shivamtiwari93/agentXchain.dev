@@ -48,10 +48,21 @@ if (existsSync(assignmentPath)) {
 }
 
 // ── Create gate-required files based on phase ───────────────────────────────
+// Every file must carry a per-turn marker so content differs between runs.
+// Without this, continuous-mode runs 2..N overwrite run-1's committed files
+// with byte-identical content, leaving `git diff` empty. After BUG-55A the
+// checkpoint-completeness gate treats declared-but-unstaged files as
+// wrong-lineage, failing the second run. Embedding `turnId` guarantees a
+// fresh diff on every turn while keeping the mock's output deterministic
+// within a single turn.
 function ensureFile(relPath, content) {
   const absPath = join(root, relPath);
   mkdirSync(dirname(absPath), { recursive: true });
-  writeFileSync(absPath, content);
+  const isJsLike = /\.(js|mjs|cjs|ts|tsx|jsx)$/i.test(relPath);
+  const marker = isJsLike
+    ? `// mock-agent turn: ${turnId}\n`
+    : `<!-- mock-agent turn: ${turnId} -->\n`;
+  writeFileSync(absPath, marker + content);
 }
 
 if (phase === 'planning') {

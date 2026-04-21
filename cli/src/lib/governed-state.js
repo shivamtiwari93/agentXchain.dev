@@ -3052,12 +3052,19 @@ export function assignGovernedTurn(root, config, roleId, options = {}) {
   const concurrentWith = Object.keys(activeTurns);
 
   // Build the new turn object
+  // `started_at` is seeded at assignment so that direct assign→accept flows
+  // (non-dispatched, non-subprocess turns) still carry timing into history and
+  // the turn_accepted event payload (per TURN_TIMING_OBSERVABILITY_SPEC.md).
+  // BUG-51's dispatched-lifecycle path explicitly deletes this and the
+  // starting/running transitions re-set it, so dispatch-driven turns still
+  // reflect true subprocess-startup timing.
   const newTurn = {
     turn_id: turnId,
     assigned_role: roleId,
     status: 'assigned',
     attempt: 1,
     assigned_at: now,
+    started_at: now,
     deadline_at: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString(),
     runtime_id: runtimeId,
     baseline,

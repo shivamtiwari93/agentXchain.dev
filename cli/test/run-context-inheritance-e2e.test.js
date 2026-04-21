@@ -59,6 +59,11 @@ function runCli(root, args, opts = {}) {
     cwd: root,
     encoding: 'utf8',
     timeout: opts.timeout || 60000,
+    // Two-run inheritance scenarios produce ~1MB export JSON; the default
+    // spawnSync maxBuffer of 1MB causes ENOBUFS truncation and result.status
+    // comes back as null (mapped to 1 below), making it look like the export
+    // itself failed. 10MB matches gate-actions.js' large-output budget.
+    maxBuffer: opts.maxBuffer || 10 * 1024 * 1024,
     env: { ...process.env, NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
   });
 
@@ -67,6 +72,7 @@ function runCli(root, args, opts = {}) {
     stdout: result.stdout || '',
     stderr: result.stderr || '',
     combined: `${result.stdout || ''}${result.stderr || ''}`,
+    error: result.error,
   };
 }
 

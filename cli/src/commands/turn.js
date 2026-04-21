@@ -120,7 +120,14 @@ function buildArtifactIndex(root, turnId) {
 }
 
 function buildTurnPayload(turnId, turn, state, artifacts, assignment, config) {
-  const elapsedMs = getElapsedMs(turn.started_at);
+  // Effective start time for display: BUG-51 hardening clears `started_at`
+  // when a turn transitions to `dispatched` so ghost-turn detection can key
+  // off `dispatched_at`. For manual runtimes (no subprocess), no later
+  // `starting` transition re-sets `started_at`, so fall back to
+  // `dispatched_at` (operator-dispatched = effective start) and
+  // `assigned_at` as a last resort so the timing surface stays populated.
+  const effectiveStartedAt = turn.started_at || turn.dispatched_at || turn.assigned_at || null;
+  const elapsedMs = getElapsedMs(effectiveStartedAt);
   const payload = {
     turn_id: turnId,
     run_id: state.run_id || assignment?.run_id || null,
@@ -129,7 +136,7 @@ function buildTurnPayload(turnId, turn, state, artifacts, assignment, config) {
     runtime: turn.runtime_id,
     status: turn.status,
     attempt: turn.attempt,
-    started_at: turn.started_at || null,
+    started_at: effectiveStartedAt,
     elapsed_ms: elapsedMs,
     dispatch_dir: getDispatchTurnDir(turnId),
     staging_result_path: assignment?.staging_result_path || null,
@@ -152,7 +159,9 @@ function buildTurnPayload(turnId, turn, state, artifacts, assignment, config) {
 }
 
 function printTurnSummary(turnId, turn, state, artifacts, assignment, config) {
-  const elapsedMs = getElapsedMs(turn.started_at);
+  // See buildTurnPayload for rationale on fallback ordering.
+  const effectiveStartedAt = turn.started_at || turn.dispatched_at || turn.assigned_at || null;
+  const elapsedMs = getElapsedMs(effectiveStartedAt);
   console.log('');
   console.log(chalk.bold(`  Turn: ${chalk.cyan(turnId)}`));
   console.log(chalk.dim('  ' + '─'.repeat(44)));
@@ -162,8 +171,8 @@ function printTurnSummary(turnId, turn, state, artifacts, assignment, config) {
   console.log(`  ${chalk.dim('Runtime:')}  ${turn.runtime_id}`);
   console.log(`  ${chalk.dim('Status:')}   ${turn.status}`);
   console.log(`  ${chalk.dim('Attempt:')}  ${turn.attempt}`);
-  if (turn.started_at) {
-    console.log(`  ${chalk.dim('Started:')}  ${turn.started_at}`);
+  if (effectiveStartedAt) {
+    console.log(`  ${chalk.dim('Started:')}  ${effectiveStartedAt}`);
   }
   if (elapsedMs != null) {
     console.log(`  ${chalk.dim('Elapsed:')}  ${formatElapsed(elapsedMs)}`);
