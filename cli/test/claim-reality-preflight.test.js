@@ -3934,6 +3934,203 @@ exec sleep 30
       'packed full-chain resume must not re-open the planning_signoff gate');
   });
 
+  it('BUG-52 packaged full chain (accept-turn -> checkpoint-turn -> escalate -> unblock -> resume) advances qa -> launch and resume does not regress role or phase', async () => {
+    // Parity for the second HUMAN-ROADMAP BUG-52 lane. The planning ->
+    // implementation row above locks the PM signoff chain; this row locks the
+    // tester's QA -> launch reproduction against the extracted tarball. The
+    // critical assertion is the same: after the gate becomes satisfied,
+    // unblock must dispatch the next phase's entry role and a trailing resume
+    // must not redispatch the prior same-phase role.
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governed = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governed;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug52-qa-launch-full-chain-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: 'bug52-packed-qa-launch-full-chain', name: 'BUG-52 packed QA launch full chain', default_branch: 'main' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Verify', write_authority: 'authoritative', runtime: 'manual-qa' },
+        launch: { title: 'Launch', mandate: 'Ship', write_authority: 'authoritative', runtime: 'manual-launch' },
+      },
+      runtimes: {
+        'manual-qa': { type: 'manual' },
+        'manual-launch': { type: 'manual' },
+      },
+      routing: {
+        qa: { entry_role: 'qa', allowed_next_roles: ['qa', 'launch'], exit_gate: 'qa_ship_verdict' },
+        launch: { entry_role: 'launch', allowed_next_roles: ['launch'], exit_gate: 'launch_approval' },
+      },
+      gates: {
+        qa_ship_verdict: {
+          requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
+          requires_human_approval: true,
+        },
+        launch_approval: {},
+      },
+      gate_semantic_coverage_mode: 'lenient',
+    };
+
+    writeFileSync(join(root, 'README.md'), '# BUG-52 packed QA launch full chain\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2) + '\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'test@test.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    git(root, ['add', 'README.md', 'agentxchain.json']);
+    git(root, ['commit', '-m', 'init']);
+
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+    const seededState = {
+      ...init.state,
+      phase: 'qa',
+      status: 'active',
+      active_turns: {},
+      phase_gate_status: {
+        qa_ship_verdict: 'pending',
+        launch_approval: 'pending',
+      },
+      pending_phase_transition: null,
+      pending_run_completion: null,
+      last_gate_failure: null,
+    };
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(seededState, null, 2));
+
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(
+      join(root, '.planning', 'acceptance-matrix.md'),
+      '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Release readiness | Ship artifacts are complete | pending | - | pending |\n',
+    );
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: PENDING\n');
+    writeFileSync(
+      join(root, '.planning', 'RELEASE_NOTES.md'),
+      '# Release Notes\n\n## User Impact\n\n(QA fills this during the QA phase)\n\n## Verification Summary\n\n(QA fills this during the QA phase)\n',
+    );
+
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: init.state.run_id,
+      role: 'qa',
+      runtime_id: 'manual-qa',
+      status: 'completed',
+      summary: 'QA artifacts drafted',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'launch',
+      phase_transition_request: 'launch',
+      cost: { usd: 0.01 },
+    }, null, 2));
+
+    const spawnOpts = {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    };
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn'], spawnOpts);
+    assert.equal(accept.status, 0,
+      `packed QA launch full-chain accept-turn must succeed:\n${accept.stdout}\n${accept.stderr}`);
+
+    const checkpoint = spawnSync(process.execPath, [cliPath, 'checkpoint-turn', '--turn', turnId], spawnOpts);
+    assert.equal(checkpoint.status, 0,
+      `packed QA launch full-chain checkpoint-turn must succeed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const afterAccept = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    assert.equal(afterAccept.phase, 'qa',
+      'packed QA launch full-chain must stay in qa until unblock after gate failure');
+    assert.equal(afterAccept.phase_gate_status?.qa_ship_verdict, 'failed',
+      'packed QA launch full-chain qa_ship_verdict must be marked failed before human approval');
+    assert.equal(afterAccept.last_gate_failure?.gate_id, 'qa_ship_verdict',
+      'packed QA launch full-chain must record last_gate_failure for qa_ship_verdict');
+
+    writeFileSync(
+      join(root, '.planning', 'acceptance-matrix.md'),
+      '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Release readiness | Ship artifacts are complete | pass | today | pass |\n',
+    );
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: YES\n\n## QA Summary\n\nRelease is ready.\n');
+    writeFileSync(
+      join(root, '.planning', 'RELEASE_NOTES.md'),
+      '# Release Notes\n\n## User Impact\n\nLaunch role can now take over after QA approval.\n\n## Verification Summary\n\nQA artifacts are complete and release-worthy.\n',
+    );
+    git(root, ['add', '.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md']);
+    git(root, ['commit', '-m', 'human: approve qa ship verdict']);
+
+    const escalate = spawnSync(process.execPath, [
+      cliPath, 'escalate',
+      '--reason', 'qa_ship_verdict',
+      '--detail', 'ship verdict recorded; unblock should advance to launch',
+    ], spawnOpts);
+    assert.equal(escalate.status, 0,
+      `packed QA launch full-chain escalate must succeed:\n${escalate.stdout}\n${escalate.stderr}`);
+
+    const escalationLines = readFileSync(join(root, '.agentxchain', 'human-escalations.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const raisedEscalation = escalationLines.find((line) => line.kind === 'raised');
+    assert.ok(raisedEscalation?.escalation_id,
+      'packed QA launch full-chain escalate must raise a human escalation whose id unblock can consume');
+
+    const unblock = spawnSync(process.execPath, [cliPath, 'unblock', raisedEscalation.escalation_id], spawnOpts);
+    assert.equal(unblock.status, 0,
+      `packed QA launch full-chain unblock must succeed:\n${unblock.stdout}\n${unblock.stderr}`);
+
+    const afterUnblock = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    const activeAfterUnblock = Object.values(afterUnblock.active_turns || {})[0] || null;
+    assert.equal(afterUnblock.phase, 'launch',
+      'packed QA launch full-chain unblock must advance qa -> launch on the gate_failed lane');
+    assert.equal(afterUnblock.phase_gate_status?.qa_ship_verdict, 'passed',
+      'packed QA launch full-chain unblock must mark qa_ship_verdict=passed after reconcile');
+    assert.equal(afterUnblock.last_gate_failure, null,
+      'packed QA launch full-chain unblock must clear last_gate_failure after reconcile');
+    assert.equal(activeAfterUnblock?.assigned_role, 'launch',
+      'packed QA launch full-chain unblock must dispatch launch — NOT redispatch qa');
+    assert.doesNotMatch(unblock.stdout, /Role:\s+qa/i,
+      'packed QA launch full-chain unblock must not surface Role: qa — the bug was redispatching same-phase roles');
+
+    const resume = spawnSync(process.execPath, [cliPath, 'resume'], spawnOpts);
+    assert.notEqual(resume.status, 0,
+      `packed QA launch full-chain resume must reject when a turn is already active:\n${resume.stdout}\n${resume.stderr}`);
+    assert.match(resume.stdout, /A turn is already active/i,
+      'packed QA launch full-chain resume must tell the operator a turn is already active');
+    assert.match(resume.stdout, /Role:\s+launch/i,
+      'packed QA launch full-chain resume must surface the active launch turn, not replace it with qa');
+    assert.doesNotMatch(resume.stdout, /Role:\s+qa/i,
+      'packed QA launch full-chain resume must not regress to qa role after unblock advanced to launch');
+    assert.match(resume.stdout, /Phase:\s+launch/i,
+      'packed QA launch full-chain resume must surface the advanced phase=launch, not the pre-unblock qa phase');
+
+    const afterResume = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    const activeAfterResume = Object.values(afterResume.active_turns || {})[0] || null;
+    assert.equal(afterResume.phase, 'launch',
+      'packed QA launch full-chain resume must not regress phase=launch after unblock advanced');
+    assert.equal(activeAfterResume?.turn_id, activeAfterUnblock?.turn_id,
+      'packed QA launch full-chain resume must not replace the active launch turn dispatched by unblock');
+    assert.equal(activeAfterResume?.assigned_role, 'launch',
+      'packed QA launch full-chain resume must not change the active assigned_role from launch');
+    assert.equal(afterResume.phase_gate_status?.qa_ship_verdict, 'passed',
+      'packed QA launch full-chain resume must not re-open the qa_ship_verdict gate');
+  });
+
   it('BUG-53 continuous auto-chain is packed (continuous-run + session_continuation event)', () => {
     const packedFiles = getPackedFiles();
     assert.ok(packedFiles.has('src/lib/continuous-run.js'),
