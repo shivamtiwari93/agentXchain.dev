@@ -43,6 +43,16 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+function markGateCredentialed(repoRoot, gateId) {
+  const configPath = join(repoRoot, 'agentxchain.json');
+  const config = readJson(configPath);
+  config.gates[gateId] = {
+    ...config.gates[gateId],
+    credentialed: true,
+  };
+  writeJson(configPath, config);
+}
+
 function buildCoordinatorConfig() {
   return {
     schema_version: '0.1',
@@ -182,8 +192,10 @@ describe('multi-repo quickstart cold-start E2E', () => {
       assert.equal(result.status, 0, result.stderr);
 
       execSync('git init', { cwd: apiRepo, stdio: 'ignore' });
+      markGateCredentialed(apiRepo, 'planning_signoff');
       gitCommitAll(apiRepo, 'bootstrap api governed scaffold');
       execSync('git init', { cwd: webRepo, stdio: 'ignore' });
+      markGateCredentialed(webRepo, 'planning_signoff');
       gitCommitAll(webRepo, 'bootstrap web governed scaffold');
 
       result = runCli(apiRepo, ['template', 'validate']);

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -38,6 +38,16 @@ function commitAll(cwd, message) {
   execSync(`git commit -m "${message}"`, { cwd, stdio: 'ignore' });
 }
 
+function markGateCredentialed(cwd, gateId) {
+  const configPath = join(cwd, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.gates[gateId] = {
+    ...config.gates[gateId],
+    credentialed: true,
+  };
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+}
+
 describe('full-local-cli human-gated E2E', () => {
   it('AT-FULL-LOCAL-005: completes three automated turns with human gate pauses', () => {
     const root = mkdtempSync(join(tmpdir(), 'axc-full-local-'));
@@ -65,6 +75,8 @@ describe('full-local-cli human-gated E2E', () => {
         assert.deepEqual(config.runtimes[runtimeId].command, ['node', MOCK_AGENT]);
         assert.equal(config.runtimes[runtimeId].prompt_transport, 'dispatch_bundle_only');
       }
+      markGateCredentialed(root, 'planning_signoff');
+      markGateCredentialed(root, 'qa_ship_verdict');
 
       gitInitAndCommit(root, 'initial governed scaffold');
 
