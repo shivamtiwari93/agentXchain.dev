@@ -25,7 +25,7 @@ Required output of this section:
 1. **Chosen option** — A, B, or a named fourth. One sentence per rejected option explaining the concrete failure mode that made it lose, not an aesthetic preference.
 2. **Dispatch mechanism** — for the chosen option, trace a single perpetual-mode idle cycle end-to-end in prose: "idle threshold hit → [new-branch dispatch] → PM turn → intake effect (if Option A) or direct turn (if Option B) → run N+1 starts → run N+1 accepts → next idle cycle." Quote the continuous-run.js lines the new branch lives adjacent to (already cited at `continuous-run.js:348-351` in the audit).
 3. **Backward-compat clause** — explicit statement that default `on_idle` (or whichever name is chosen) = bounded `exit` semantics. Existing BUG-53 scenario keeps passing unchanged against the packed tarball. This wording lands verbatim inside `DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001`.
-4. **Vision-coherence safeguard answer** — adversarial review in Turn 160/GPT flagged: what prevents PM idle-expansion from producing an intent OUTSIDE the project's vision (scope creep via idle-expansion)? Answer this in prose before architecture is committed. If the answer is "the PM idle-expansion prompt has a vision-coherence clause," say so and specify it belongs in the PM-mandate-override (Section 3 below), not in the architecture DEC.
+4. **Vision-coherence safeguard answer** — adversarial review in Turn 160/GPT flagged: what prevents PM idle-expansion from producing an intent OUTSIDE the project's vision (scope creep via idle-expansion)? Answer this in prose before architecture is committed. Section 1 only chooses the mechanism; the authoritative wording belongs in the PM idle-expansion prompt drafted in Section 3. If the answer is "the PM idle-expansion prompt has a vision-coherence clause," say that here, then draft the exact clause once in Section 3.5.
 
 Do NOT author `DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001` yet — that happens in Section 4, after proof plan is written.
 
@@ -109,7 +109,7 @@ Required output — ordered commit list. Canonical order:
 6. **Commit 6 — Doc + spec updates.** Land the 5 MUST-CHANGE + 3 MUST-EXTEND surfaces from `BUG_60_DOC_SURFACE_AUDIT.md` in one commit.
 7. **Commit 7 — Release bump.** Per `DEC-BUG59-RELEASE-BUMP-SEPARATION-001`, this commit contains only generated version/surface outputs. No behavior or test repairs land here.
 
-Plan turn may reorder commits 2–6 with justification. Commit 1 is fixed-first; Commit 7 is fixed-last.
+Plan turn may reorder commits 2–4 with justification. Commit 5 is the fixed proof barrier: it must land after the behavior/prompt/source-expansion slices it proves and before doc/spec claims or release work. Commit 6 must land after Commit 5 so public docs cite the proof that actually exists. Commit 1 is fixed-first; Commit 7 is fixed-last.
 
 ---
 
@@ -120,7 +120,9 @@ Before the first implementation commit (Section 6, Commit 1) lands, confirm:
 - [ ] All 7 sections above are filled in — no `TBD` or `TODO` markers.
 - [ ] DECs 1–3 from Section 4 are committed to `DECISIONS.md`.
 - [ ] HUMAN-ROADMAP.md BUG-60 entry reflects the planning-complete state (no checkbox flip — just a line under the entry noting plan-turn landed).
-- [ ] The other agent (GPT 5.4 if Claude wrote the plan, Claude Opus 4.7 if GPT wrote it) has adversarially reviewed every section and signed off in AGENT-TALK with specific `agree`/`disagree` calls per section.
+- [ ] The other agent (GPT 5.4 if Claude wrote the plan, Claude Opus 4.7 if GPT wrote it) has completed two adversarial review gates in AGENT-TALK:
+  - **Plan-contract review:** Sections 1–4 reviewed together before any `cli/src/lib/` change. This catches architecture, guardrail, prompt-contract, and DEC drift while correction is still cheap.
+  - **Proof-and-sequence review:** Sections 5–7 reviewed together before Commit 1 lands. This catches test-surface, commit-order, and release-gate drift without forcing seven separate handoffs.
 - [ ] `wc -w .planning/AGENT-TALK.md` checked; if over 15k, compression block precedes any further turn-logging.
 
 ---
@@ -141,5 +143,5 @@ The unlocking sequence is:
 2. Agent verifies the quote-back in AGENT-TALK, flips BUG-59 checkbox in HUMAN-ROADMAP.
 3. BUG-60 plan turn opens by running this skeleton's Section 0 checklist.
 4. Plan turn fills Sections 1–7 in order. Each completed section appends to AGENT-TALK with a section-tag like `BUG-60-PLAN-SECTION-1` so the other agent can review in-place.
-5. Other agent adversarial-reviews each section as it lands (not all at end — point-of-landing review catches drift earlier).
+5. Other agent adversarial-reviews the filled plan at the two required gates: Sections 1–4 before `cli/src/lib` changes, then Sections 5–7 before Commit 1 lands.
 6. When Section 7's checklist is all green, implementation begins with Commit 1.
