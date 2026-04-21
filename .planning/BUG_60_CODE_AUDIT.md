@@ -42,7 +42,7 @@ HUMAN-ROADMAP.md BUG-60 section cites a current-behavior audit table. Each row r
 
 ## What this audit does NOT do (and why)
 
-- Does NOT choose Option A vs Option B. That choice depends on BUG-59's real-world behavior — if full-auto gate closure works as shipped on `tusq.dev`, the perpetual-mode chain can trust it; if not, Option B's bypass-governance risk is different.
+- Does NOT choose Option A vs Option B. The choice is an architectural commitment and is blocked by DEC-BUG59-CLOSURE-GATE-TESTER-QUOTEBACK-001 (as narrowed on Turn 154) regardless of BUG-59 outcome. For clarity: Option B's governance-bypass risk is independent of BUG-59 — it does not become acceptable if BUG-59 fails on `tusq.dev`. What BUG-59's tester quote-back unblocks is whether the shipped gate-closure contract can be relied on by a perpetual-mode chain; it does NOT retroactively make direct special-case dispatch (Option B) safer. A perpetual-mode chain that bypasses governance is worse on a working BUG-59 fix (because it voluntarily gives up the policy ledger that now works) and also worse on a failed BUG-59 fix (because it stacks an autonomy feature on an unverified substrate). Option B's downsides are monotonic.
 - Does NOT draft the PM idle-expansion prompt. Prompt text is an architectural commitment.
 - Does NOT trace the full perpetual-mode scenario. Scenario tracing is Step 4 of Pre-work Turn A and again depends on BUG-59's tester-verified state.
 - Does NOT answer the four specific research questions at HUMAN-ROADMAP.md:391-395. Each of the four has a BUG-59-dependent branch.
@@ -59,3 +59,67 @@ When tester evidence on v2.151.0 lands and BUG-59 is tester-verified (per DEC-BU
 5. Maps every test that needs updating.
 
 If BUG-59 fails on `tusq.dev`, the research turn re-scopes around what actually shipped vs. what the roadmap assumed.
+
+## Appendix A — Caller graph for the surfaces BUG-60 will touch (static, no future branch)
+
+Every callsite below is HEAD (`08fc5556`) and describes **only** what ships today. No perpetual-mode speculation.
+
+| Symbol | Declared at | Callers today | Call shape |
+|---|---|---|---|
+| `advanceContinuousRunOnce` | `cli/src/lib/continuous-run.js:337` | `cli/src/lib/continuous-run.js:693` (main loop); `cli/src/commands/schedule.js:479` (scheduler daemon single-step) | Two, both async-awaited. Scheduler calls it exactly once per tick; main loop calls it in a while(true) with sleep between iterations. |
+| `executeContinuousRun` | `cli/src/lib/continuous-run.js:661` | `cli/src/commands/run.js:80` | One, only the `run --continuous` CLI entry point. |
+| `isBlockedContinuousExecution` | `cli/src/lib/continuous-run.js:114` | `cli/src/lib/continuous-run.js:408` (resume-after-unblock branch), `:575` (post-execute branch) | Two, both inside `advanceContinuousRunOnce`. No external caller. |
+| `seedFromVision` | `cli/src/lib/continuous-run.js:224` | `cli/src/lib/continuous-run.js:456` (single call inside the idle → vision-derive branch) | One, synchronous. No test-only or external caller. |
+| `deriveVisionCandidates` | `cli/src/lib/vision-reader.js:176` | `cli/src/lib/continuous-run.js:15` import → `:225` via `seedFromVision` | One caller path in product code. Vision-reader tests import directly. |
+| `session_continuation` event | emitted at `cli/src/lib/continuous-run.js:514` | consumed by `cli/src/lib/recent-event-summary.js:82` (summary formatter); registered in `cli/src/lib/run-events.js:45` enum | Single emit site. Consumer is summary-only; no state mutation depends on it. |
+
+**Implications for the real research turn (not decisions, just factual implications):**
+
+- Any perpetual-mode branch added at `advanceContinuousRunOnce` is observable by both the main continuous loop AND the scheduler daemon. The research turn must confirm both entry points reach the branch with the same semantics, or pick one and gate the other.
+- `isBlockedContinuousExecution` is private; a perpetual-mode "PM-expansion produced a blocked state" case does not need a new public predicate — it can reuse this one if the branch sits inside `advanceContinuousRunOnce`.
+- `session_continuation`'s single emit site means the research turn has an existing precedent for the operator-visible audit event. Whether the PM-expansion path reuses this event, adds a sibling, or both, is a research-turn decision — but the mechanical surface (one producer, one summary consumer, one enum entry) is small and local.
+- `deriveVisionCandidates`'s single product caller means extending the reader to read ROADMAP.md/SYSTEM_SPEC.md can happen either by widening the existing function or by adding a sibling. The research turn chooses; the caller-graph does not force either shape.
+
+## Appendix B — Mechanical trace of today's bounded-mode idle exit (no future branch)
+
+Starting state (facts, not hypothesis): continuous session has been running, one run completed cleanly, the intake queue for `session.current_run_id` returns no dispatchable intent, and vision candidates have been exhausted.
+
+1. `executeContinuousRun` (`continuous-run.js:661`) enters its while loop and calls `advanceContinuousRunOnce` (`:693`).
+2. `advanceContinuousRunOnce` (`:337`) checks terminal conditions:
+   - `session.runs_completed >= contOpts.maxRuns` → false (one run completed, limit > 1).
+   - `session.idle_cycles >= contOpts.maxIdleCycles` → false on the first idle polling after completion (idle_cycles is 0 immediately after the last seed).
+   - Budget cap → false (within limit).
+3. `reconcileContinuousStartupState` runs (`:364`); no crash-recovery adjustment needed for this scenario.
+4. Paused-session guard at `:370` → false; `session.status` is `running`.
+5. Vision-file existence check at `:439` → true.
+6. `findNextDispatchableIntent(root, { run_id: session.current_run_id })` at `:446` → `queued.ok === false` because the completed run retired its intent and no new one exists in the current run's scope.
+7. `seedFromVision` at `:456` → returns `{ ok: true, idle: true }` because `deriveVisionCandidates` returned zero new candidates (all vision goals covered by `loadCompletedIntentSignals` + `loadActiveIntentSignals`).
+8. Branch at `:467`: `seeded.idle === true` → `session.idle_cycles += 1`, log "Idle cycle N/M — no derivable work from vision.", `writeContinuousSession`, return `{ ok: true, status: 'running', action: 'no_work_found' }`.
+9. Main loop in `executeContinuousRun` sees `status === 'running'` and sleeps for `pollSeconds`.
+10. Steps 1–9 repeat. Each iteration increments `idle_cycles` by one.
+11. Eventually `session.idle_cycles >= contOpts.maxIdleCycles` at step 2 → `session.status = 'completed'`, return `{ ok: true, status: 'idle_exit', action: 'max_idle_reached', stop_reason: 'idle_exit' }`.
+12. Main loop sees `status === 'idle_exit'`, prints the user-facing message at `:94-96` ("All vision goals appear addressed…"), and exits.
+
+**Observed final state:** `session.status = 'completed'`, `session.idle_cycles = maxIdleCycles`, `session.runs_completed` unchanged from its post-run value, `session.budget_exhausted` unset. No `session_continuation` event is emitted for this tick (the emit guard at `:513` requires `previousRunId !== preparedIntent.run_id`, and no `preparedIntent` exists in the idle branch).
+
+**This trace is what BUG-60 changes the shape of.** It intentionally stops before any "and then the perpetual branch…" step — that branch does not exist in HEAD, and speculation about its behavior is outside the narrowed DEC scope. The trace above is the "before" half of the comparison the research turn will eventually complete; it is safe to bank because it describes shipped code, not the fix.
+
+## Appendix C — `session.status` vocabulary inventory
+
+Static grep across `cli/src/lib/continuous-run.js` for `session.status = '<value>'`:
+
+| Value | Assigned at | Meaning today |
+|---|---|---|
+| `'running'` | `:387`, `:533` | Session is actively driving a run or ready to poll again. |
+| `'paused'` | `:410`, `:584` | A run hit a `blocked` governed state; operator must `unblock`. |
+| `'stopped'` | `:601`, `:716` | Run completed with `stop_reason: 'caller_stopped'`; also assigned by the main loop on operator-signal exit paths. |
+| `'failed'` | `:400`, `:426`, `:440`, `:462`, `:499`, `:545`, `:580`, `:613`, `:633` | Unrecoverable error; session will not be retried automatically. |
+| `'completed'` | `:343`, `:349`, `:357` | Terminal success — hit max_runs, max_idle_cycles, or session budget. |
+
+**No `'idle_exit'` status** — idle exit is reported via the step return-shape `status` field, not the persisted `session.status`. Persisted status in that case is `'completed'`. The research turn must preserve this distinction if it adds a perpetual-mode terminal status (e.g., `'vision_exhausted'`): the step-return status vocabulary and the session.status vocabulary are not the same, and conflating them would break `cli/test/claim-reality-preflight.test.js:4326-4526` which asserts `session.status === 'completed'` at bounded idle exit.
+
+## Appendix D — What "independent of tester quote-back" means for this audit
+
+Every claim in this document checks code that is already merged, already shipped in `agentxchain@2.151.0`, and already running on any tester machine that installed v2.151.0. None of the claims assume BUG-59 works correctly on `tusq.dev` — they describe the mechanical structure of the continuous loop, the intake lifecycle entry point, and the prompt-override seam, all of which are upstream of BUG-59's approval-policy coupling.
+
+If BUG-59 proves broken on `tusq.dev`, the facts in Appendices A, B, C, and the main body remain true. The research-turn *conclusions* that depend on BUG-59 (Option A vs Option B architectural call, PM-idle-expansion prompt text, the four questions at HUMAN-ROADMAP.md:391-395) are explicitly NOT in this document.
