@@ -67,7 +67,7 @@ describe('Runner interface docs surface', () => {
     assert.match(PAGE, /examples\/ci-runner-proof\/run-one-turn\.mjs/);
     assert.match(PAGE, /examples\/ci-runner-proof\/run-to-completion\.mjs/);
     assert.match(PAGE, /examples\/ci-runner-proof\/run-with-run-loop\.mjs/);
-    assert.match(PAGE, /\.github\/workflows\/ci-runner-proof\.yml/);
+    assert.match(PAGE, /cli\/scripts\/prepublish-gate\.sh/);
     assert.match(PAGE, /runLoop/);
     assert.match(PAGE, /agentxchain\/run-loop|run-loop\.js/);
     assert.match(PAGE, /complementary proof boundaries/);

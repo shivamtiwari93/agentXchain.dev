@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
@@ -21,6 +21,22 @@ function readJson(path) {
 }
 
 describe('benchmark command', () => {
+  // Share one `benchmark --json` invocation across the field-shape assertions
+  // (AT-BENCH-002..008). Previously each test spawned its own benchmark
+  // subprocess (~2.5s each) which made this file hit the 60s per-test timeout
+  // under `--test-concurrency=4` contention in the full gate.
+  let sharedBaselinePayload = null;
+  let sharedBaselineStderr = '';
+  let sharedBaselineStatus = null;
+  before(() => {
+    const result = runCli(['benchmark', '--json']);
+    sharedBaselineStatus = result.status;
+    sharedBaselineStderr = result.stderr;
+    if (result.status === 0) {
+      sharedBaselinePayload = JSON.parse(result.stdout);
+    }
+  });
+
   it('AT-BENCH-001: benchmark completes with exit 0 and prints PASS', () => {
     const result = runCli(['benchmark']);
     assert.equal(result.status, 0, `Expected exit 0, got ${result.status}. stderr: ${result.stderr}`);
@@ -29,56 +45,42 @@ describe('benchmark command', () => {
   });
 
   it('AT-BENCH-002: benchmark --json returns valid JSON with result: pass', () => {
-    const result = runCli(['benchmark', '--json']);
-    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}. stderr: ${result.stderr}`);
-    const payload = JSON.parse(result.stdout);
-    assert.equal(payload.result, 'pass');
-    assert.equal(payload.version, '1.0');
-    assert.equal(payload.mode, 'baseline');
-    assert.equal(payload.workload, 'baseline');
+    assert.equal(sharedBaselineStatus, 0, `Expected exit 0, got ${sharedBaselineStatus}. stderr: ${sharedBaselineStderr}`);
+    assert.equal(sharedBaselinePayload.result, 'pass');
+    assert.equal(sharedBaselinePayload.version, '1.0');
+    assert.equal(sharedBaselinePayload.mode, 'baseline');
+    assert.equal(sharedBaselinePayload.workload, 'baseline');
   });
 
   it('AT-BENCH-003: elapsed time is reported and > 0', () => {
-    const result = runCli(['benchmark', '--json']);
-    const payload = JSON.parse(result.stdout);
-    assert.ok(payload.elapsed_ms > 0, `Elapsed should be > 0, got ${payload.elapsed_ms}`);
+    assert.ok(sharedBaselinePayload.elapsed_ms > 0, `Elapsed should be > 0, got ${sharedBaselinePayload.elapsed_ms}`);
   });
 
   it('AT-BENCH-004: all three default phases are completed', () => {
-    const result = runCli(['benchmark', '--json']);
-    const payload = JSON.parse(result.stdout);
-    assert.equal(payload.phases.completed, 3);
-    assert.equal(payload.phases.total, 3);
-    assert.deepEqual(payload.phases.names, ['planning', 'implementation', 'qa']);
+    assert.equal(sharedBaselinePayload.phases.completed, 3);
+    assert.equal(sharedBaselinePayload.phases.total, 3);
+    assert.deepEqual(sharedBaselinePayload.phases.names, ['planning', 'implementation', 'qa']);
   });
 
   it('AT-BENCH-005: admission control passes', () => {
-    const result = runCli(['benchmark', '--json']);
-    const payload = JSON.parse(result.stdout);
-    assert.equal(payload.admission_control, 'pass');
+    assert.equal(sharedBaselinePayload.admission_control, 'pass');
   });
 
   it('AT-BENCH-006: export verification passes', () => {
-    const result = runCli(['benchmark', '--json']);
-    const payload = JSON.parse(result.stdout);
-    assert.equal(payload.export_verification, 'pass');
+    assert.equal(sharedBaselinePayload.export_verification, 'pass');
   });
 
   it('AT-BENCH-007: all gates pass', () => {
-    const result = runCli(['benchmark', '--json']);
-    const payload = JSON.parse(result.stdout);
-    assert.equal(payload.gates.passed, payload.gates.evaluated);
-    assert.equal(payload.gates.failed, 0);
-    assert.ok(payload.gates.evaluated >= 3, 'Should evaluate at least 3 gates');
+    assert.equal(sharedBaselinePayload.gates.passed, sharedBaselinePayload.gates.evaluated);
+    assert.equal(sharedBaselinePayload.gates.failed, 0);
+    assert.ok(sharedBaselinePayload.gates.evaluated >= 3, 'Should evaluate at least 3 gates');
   });
 
   it('AT-BENCH-008: turns are distributed across all phases', () => {
-    const result = runCli(['benchmark', '--json']);
-    const payload = JSON.parse(result.stdout);
-    assert.ok(payload.turns.total >= 3, 'Should have at least 3 turns');
-    assert.ok(payload.turns.per_phase.planning >= 1);
-    assert.ok(payload.turns.per_phase.implementation >= 1);
-    assert.ok(payload.turns.per_phase.qa >= 1);
+    assert.ok(sharedBaselinePayload.turns.total >= 3, 'Should have at least 3 turns');
+    assert.ok(sharedBaselinePayload.turns.per_phase.planning >= 1);
+    assert.ok(sharedBaselinePayload.turns.per_phase.implementation >= 1);
+    assert.ok(sharedBaselinePayload.turns.per_phase.qa >= 1);
   });
 
   it('AT-BENCH-009: stress mode records a rejected turn and still passes', () => {
