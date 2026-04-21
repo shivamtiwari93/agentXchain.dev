@@ -168,15 +168,14 @@ async function probeLocalCommand(runtimeId, runtime, probeKindLabel, options = {
   const spawnProbe = probeRuntimeSpawnContext(options.root || process.cwd(), runtime, { runtimeId });
   const claudeAuthIssue = getClaudeSubprocessAuthIssue(runtime);
 
-  if (!spawnProbe.ok) {
-    return {
-      ...base,
-      level: 'fail',
-      command: spawnProbe.command || head,
-      detail: spawnProbe.detail,
-    };
-  }
-
+  // DEC-BUG54-CLAUDE-AUTH-PREFLIGHT-001 / DEC-BUG54-VALIDATE-AUTH-PREFLIGHT-001
+  // Auth-preflight is a config-shape defect that must fire regardless of whether
+  // the binary currently resolves on PATH. Matches connector-validate.js:108-138
+  // ordering: a Claude local_cli runtime with no env auth and no --bare is a
+  // deterministic hang-on-spawn shape the operator must fix before anything
+  // else. If they fix auth (or add --bare) but still do not have claude
+  // installed, the next connector check surfaces command_presence after they
+  // fix the config — that is the correct operator progression.
   if (claudeAuthIssue) {
     return {
       ...base,
@@ -187,6 +186,15 @@ async function probeLocalCommand(runtimeId, runtime, probeKindLabel, options = {
       detail: claudeAuthIssue.detail,
       fix: claudeAuthIssue.fix,
       auth_env_present: claudeAuthIssue.auth_env_present,
+    };
+  }
+
+  if (!spawnProbe.ok) {
+    return {
+      ...base,
+      level: 'fail',
+      command: spawnProbe.command || head,
+      detail: spawnProbe.detail,
     };
   }
 
