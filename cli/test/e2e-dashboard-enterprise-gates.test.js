@@ -191,6 +191,15 @@ async function getJson(port, path) {
 function initEnterpriseApp(dir) {
   const init = runCli(dir, ['init', '--governed', '--template', 'enterprise-app', '--dir', '.', '-y']);
   assert.equal(init.status, 0, init.combined);
+  const configPath = join(dir, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  for (const gateId of ['planning_signoff', 'qa_ship_verdict']) {
+    config.gates[gateId] = {
+      ...config.gates[gateId],
+      credentialed: true,
+    };
+  }
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
 function resumeAndRead(dir, expectedRole) {
