@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.150.0
+
+### Bug Fixes
+- **BUG-54 adapter listener ordering (`dispatchLocalCli`)**: stdout and stderr listeners are now attached before the prompt is written to the subprocess stdin. Removes an adapter-side first-byte race where a subprocess producing output on the first event-loop tick could appear as `no_subprocess_output`. The repro harness `cli/scripts/reproduce-bug-54.mjs` mirrors the same ordering so tester JSON artifacts continue to match the adapter's real spawn shape.
+- **BUG-54 bounded `claude --version` probe in repro artifact**: `cli/scripts/reproduce-bug-54.mjs` now records a `command_probe` object on every configured Claude runtime (`status`, `signal`, `stdout`, `stderr`, `error`, `timed_out`). Non-Claude commands record a `skipped` probe. BUG-56 disproved the auth-env-shape-alone hypothesis; Claude CLI version/path differences are now part of the minimum BUG-54 diagnostic artifact.
+- **BUG-54 discriminator runbook**: `.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md` is a one-screen (under 60 lines) reading key for the repro JSON. Content locked by `cli/test/bug-54-discriminator-runbook-content.test.js`.
+- **BUG-55 combined tester shape — artifact-disposition union checkpoint**: `cli/test/beta-tester-scenarios/bug-55-combined-tester-shape.test.js` adds a third subtest that exercises acceptance + checkpoint with both actor-declared `files_changed` AND `verification.produced_files[{disposition:"artifact"}]` fixture outputs. The `governed-state.js:3692-3700` merge is now asserted end-to-end, including a packaged-tarball assertion via `claim-reality-preflight.test.js`.
+- **BUG-57 benchmark-suite contention flake (local gate repair)**: `cli/test/benchmark.test.js` was cancelling whole under `--test-concurrency=4` because it spawned seven redundant `benchmark --json` invocations. Consolidated via a `before()` hook into `sharedBaselinePayload`; saves ~15s and keeps the local gate under the 60s per-file timeout. `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` can now run atomically without `--skip-preflight`.
+- **Docs truth — CICD-SHRINK wake**: `cli/test/runner-interface-docs-content.test.js` AT-RID-003 now asserts the public runner-interface page references `cli/scripts/prepublish-gate.sh` rather than the removed `.github/workflows/ci-runner-proof.yml`.
+- **Collab guard repair**: `cli/test/agent-talk-word-cap.test.js` enforces the `### Open questions` header convention on the latest compressed summary.
+
+### Decisions
+- `DEC-BUG54-LISTENERS-BEFORE-STDIN-001`
+- `DEC-BUG54-REPRO-INCLUDES-CLAUDE-VERSION-001`
+- `DEC-BUG54-DISCRIMINATOR-RUNBOOK-001`
+- `DEC-BUG55-COMBINED-ARTIFACT-DISPOSITION-COVERAGE-001`
+- `DEC-BUG55-PACKAGED-COMBINED-ARTIFACT-PROOF-001`
+
+### Status
+- `v2.150.0` is a reliability-and-proof release. No BUG is closed by this bump; BUG-52/53/54/55/56 remain OPEN pending tester-quoted shipped-package output on `agentxchain@2.150.0`.
+- BUG-54 hardening removes one adapter-level race candidate and upgrades the repro artifact. The underlying tester reproduction of 0/5 stdout on `tusq.dev-21480-clean` remains un-triaged.
+- BUG-55 now has combined tester-shape + packaged claim-reality coverage for both `ignore` and `artifact` dispositions.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 219 tests / 66 suites / 0 failures / 5 skipped
+
 ## 2.149.2
 
 ### Bug Fixes

@@ -1,9 +1,9 @@
-# Twitter/X Thread — AgentXchain v2.149.2
+# Twitter/X Thread — AgentXchain v2.150.0
 
-> Ready-to-post thread for the `v2.149.2` release once tester verification lands. Updated 2026-04-21 for the BUG-56 regression-correction hotfix.
+> Ready-to-post thread for the `v2.150.0` release once tester verification lands. Updated 2026-04-21 for the reliability-and-proof release over `v2.149.2` (BUG-54 listener ordering + repro Claude version probe, BUG-55 combined artifact-disposition coverage, benchmark contention flake fix).
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 217 tests / 66 suites / 0 failures / 5 skipped
+> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 219 tests / 66 suites / 0 failures / 5 skipped
 
 ---
 

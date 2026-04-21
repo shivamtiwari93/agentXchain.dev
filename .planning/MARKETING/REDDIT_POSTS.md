@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.149.2
+# Reddit Posts — AgentXchain v2.150.0
 
-> Ready-to-post content for Reddit for the `v2.149.2` release once tester verification lands. Updated 2026-04-21 for the BUG-56 regression-correction hotfix.
+> Ready-to-post content for Reddit for the `v2.150.0` release once tester verification lands. Updated 2026-04-21 for the reliability-and-proof release over `v2.149.2`.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 217 tests / 66 suites / 0 failures / 5 skipped
+> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 219 tests / 66 suites / 0 failures / 5 skipped
 
 ---
 

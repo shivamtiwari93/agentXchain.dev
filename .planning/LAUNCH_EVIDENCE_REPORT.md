@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.149.2
+# Launch Evidence Report — AgentXchain v2.150.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-21 for the v2.149.2 BUG-56 regression-correction hotfix. BUG-56 supersedes the v2.149.0/v2.149.1 static auth-preflight contract with an observed smoke probe. BUG-56, BUG-54, BUG-52, BUG-55, and BUG-53 all remain open pending tester verification on `v2.149.2` per discipline rule #12. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-21 for the v2.150.0 reliability-and-proof release over `v2.149.2`. BUG-54 adapter listener ordering fix + Claude version probe in repro artifact + discriminator runbook shipped; BUG-55 combined tester-shape (artifact-disposition union checkpoint) now covered at source + packaged levels; benchmark suite contention flake fixed so the local prepublish gate runs atomically again. No BUG closed in v2.150.0. BUG-52, BUG-53, BUG-54, BUG-55, and BUG-56 all remain open pending tester verification on `v2.150.0` per discipline rules #12 and #13. Current aggregate release evidence:
 >
-> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 217 tests / 66 suites / 0 failures / 5 skipped
+> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 219 tests / 66 suites / 0 failures / 5 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)

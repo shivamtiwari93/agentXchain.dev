@@ -1,0 +1,75 @@
+---
+sidebar_position: 0
+title: "v2.150.0 Release Notes"
+---
+
+# AgentXchain v2.150.0
+
+`v2.150.0` is a reliability-and-proof release over `v2.149.2`. It ships two concrete hardenings on the BUG-54 local_cli path (stdout/stderr listener ordering attached before stdin prompt delivery, and a bounded `claude --version` probe captured in the BUG-54 repro artifact so the next tester JSON can discriminate CLI-version/path differences from adapter-level races), one new BUG-55 coverage slice (the combined `files_changed` + `verification.produced_files[{disposition:"artifact"}]` union checkpoint branch) locked at both source-tree and packaged-tarball levels via `claim-reality-preflight.test.js`, and one benchmark-suite contention fix that restored the local prepublish gate to green so `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` can run atomically again. No BUG is closed in `v2.150.0`: BUG-52/53/54/55 remain OPEN pending tester-quoted shipped-package output on `agentxchain@2.150.0`.
+
+## Bug Fixes
+
+- **BUG-54 adapter listener ordering (`dispatchLocalCli`)**: stdout and stderr data listeners are now attached before the prompt is written to the subprocess stdin. Prior ordering created a narrow first-byte race where a subprocess that produced output before the adapter's listeners attached could appear as `no_subprocess_output` even when it had printed on the first event-loop tick. The repro harness `cli/scripts/reproduce-bug-54.mjs` mirrors the same ordering so tester JSON artifacts continue to match the adapter's real spawn shape. This is a race-removal hardening, not a BUG-54 closure — the underlying tester reproduction of 0/5 stdout on `tusq.dev-21480-clean` is still un-triaged and cannot be explained by adapter ordering alone.
+
+- **BUG-54 bounded `claude --version` probe in repro artifact**: `cli/scripts/reproduce-bug-54.mjs` now records a `command_probe` object on every configured Claude runtime. For Claude command chains the probe shells the same binary the adapter would spawn with `--version` and a short watchdog, capturing `status`, `signal`, `stdout`, `stderr`, `error`, and `timed_out`. For non-Claude commands (or a command chain that does not resolve to a `claude` binary) the probe is recorded as `skipped` with a reason. BUG-56 disproved the auth-env-shape-alone hypothesis; Claude CLI version/path differences between failing and healthy machines are now part of the minimum BUG-54 diagnostic artifact.
+
+- **BUG-54 discriminator runbook for tester JSON reading**: `.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md` is a one-screen (under 60 lines) reading key that tells the tester exactly which `command_probe`, summary, timing, byte-count, env-boolean, and spawn-shape fields to quote from the repro JSON, and how each combination discriminates "environmental Claude CLI difference" vs "silent watchdog" vs "resource accumulation" vs "stderr-only". Auth env booleans alone are not sufficient evidence after BUG-56 — the runbook enforces the post-BUG-56 quote-back contract. Content locked by `cli/test/bug-54-discriminator-runbook-content.test.js`.
+
+- **BUG-55 combined tester shape — artifact-disposition union checkpoint**: `cli/test/beta-tester-scenarios/bug-55-combined-tester-shape.test.js` now exercises a third branch that was unprotected before `v2.150.0`: the case where acceptance seeds both actor-declared `files_changed` paths AND verification-produced fixtures with `verification.produced_files[i].disposition: "artifact"`. The merge at `cli/src/lib/governed-state.js:3692-3700` unions both sets into a single checkpoint commit; the new subtest asserts all 8 declared paths land in one commit's tree and `git status --short` is empty after. BUG-46 covered the artifact-only path; BUG-55 sub-A covered the files_changed-only path. The union semantic is now packaged into the shipped tarball via the extended `claim-reality-preflight.test.js` assertion. BUG-55 is still OPEN pending tester-quoted shipped-package output.
+
+- **BUG-57 benchmark-suite contention flake (local gate repair)**: `cli/test/benchmark.test.js` previously spawned 20 `agentxchain` subprocesses, including seven redundant `benchmark --json` invocations across AT-BENCH-002..008. Under the CICD-SHRINK `--test-concurrency=4` gate the combined wall-clock exceeded the 60s file-level timeout and the suite was cancelled whole. Consolidated to a single `benchmark --json` invocation via a `before()` hook into a shared `sharedBaselinePayload` (six subprocess spawns saved, ~15s reclaimed), so the full local gate now completes atomically at ~430s and prepublish-gate.sh can honor `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` without `--skip-preflight`.
+
+- **Docs truth: runner-interface CICD-SHRINK wake**: `cli/test/runner-interface-docs-content.test.js` AT-RID-003 now asserts the public runner-interface page references `cli/scripts/prepublish-gate.sh` rather than the removed `.github/workflows/ci-runner-proof.yml`. Truth preservation after the Turn 116 workflow shrink — no product behavior change.
+
+- **Collab surface: word-cap guard repair**: `cli/test/agent-talk-word-cap.test.js` required an explicit `### Open questions` heading in the latest compressed summary. The prior compression used an inline bullet; the guard now holds the post-Turn-116 header convention.
+
+## Decisions
+
+- `DEC-BUG54-LISTENERS-BEFORE-STDIN-001` — `local_cli` must attach stdout/stderr listeners before stdin prompt delivery. Removes the adapter-side first-byte ordering race without changing the BUG-54 classification vocabulary.
+- `DEC-BUG54-REPRO-INCLUDES-CLAUDE-VERSION-001` — BUG-54 repro artifacts for Claude runtimes must include a bounded `claude --version` probe. Auth env booleans alone are not sufficient discrimination after BUG-56.
+- `DEC-BUG54-DISCRIMINATOR-RUNBOOK-001` — BUG-54 tester JSON quote-backs must include the bounded Claude `command_probe`, aggregate spawn/stdout/watchdog/timing counts, first failing attempt byte/timing fields, env auth booleans, and resolved spawn shape.
+- `DEC-BUG55-COMBINED-ARTIFACT-DISPOSITION-COVERAGE-001` — the combined tester-shape scenario must exercise both `disposition: 'ignore'` (fixture cleanup + checkpoint of declared files) AND `disposition: 'artifact'` (fixture survives acceptance + lands in the union checkpoint with declared files).
+- `DEC-BUG55-PACKAGED-COMBINED-ARTIFACT-PROOF-001` — BUG-55 closure proof must include the source-tree combined tester scenario AND a claim-reality packaged tarball assertion that commits declared actor files and artifact-disposition verification outputs together.
+
+## Operator Notes
+
+- No CLI surface change for operators. The listener-ordering fix is internal to `dispatchLocalCli`; classification vocabulary and event shapes are unchanged.
+- Testers reporting new BUG-54 evidence on `v2.150.0` should quote the `command_probe` object from `reproduce-bug-54.mjs` output and follow `.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md` for which fields to extract. Auth env booleans alone do not prove a machine is healthy/failing after BUG-56.
+- Operators authoring QA turns that mix actor-declared `files_changed` paths with `verification.produced_files[{disposition:"artifact"}]` fixture outputs can rely on a single `checkpoint-turn` committing both sets into one commit and leaving `git status` clean. Rejected before this turn only when the fixture outputs were declared with `ignore` disposition.
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.150.0 -c "agentxchain --version"
+```
+
+All prior shipped-package closure contracts remain in force on `agentxchain@2.150.0`. Quote these from the latest package:
+
+- **BUG-54 new discriminator artifact**: run `node cli/scripts/reproduce-bug-54.mjs --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json` inside the failing worktree and quote the following fields from the resulting JSON per `.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md`:
+  - `command_probe.status`, `command_probe.stdout` (Claude CLI version string)
+  - `summary.spawn_attached`, `summary.stdout_attached`, `summary.watchdog_fires`, `summary.classification_counts`
+  - First failing attempt: `first_stderr_ms`, `first_stdout_ms`, `stdout_bytes_total`, `stderr_bytes_total`
+  - `env_snapshot.auth_env_present` booleans (for record; no longer sufficient proof alone)
+  - `spawn_shape` (command, args, prompt_transport)
+- **BUG-54 adapter reliability signal**: quote the adapter diagnostic lines including `startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`. If the runtime only stabilizes after raising `runtimes.<id>.startup_watchdog_ms`, quote that config too. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup.
+- **BUG-56 probe-based auth preflight (still in force)**: on a Claude Max + no env auth + no `--bare` setup, `agentxchain connector check <claude-runtime> --json` and `agentxchain connector validate <claude-runtime> --json` MUST both pass; on a hanging-Claude shim they MUST both fail with `error_code: "claude_auth_preflight_failed"` and `smoke_probe.kind: "hang"`.
+- **BUG-52 phase-gate reconciliation — full four-lane coverage**: tester's exact CLI chain across all four shapes (planning_signoff orphan, queued_phase_transition resume, gate_failed + last_gate_failure, qa_ship_verdict). Quote `phase_entered` with `trigger: "reconciled_before_dispatch"`; next dispatched role must be the next phase's entry role.
+- **BUG-55 sub-A checkpoint completeness + wrong-lineage**: quote `accept-turn` + `checkpoint-turn` + `git status --short` (must be clean). If a declared path was committed on a divergent lineage, quote the `divergent_from_accepted_lineage` field.
+- **BUG-55 sub-B verification outputs**: quote the `undeclared_verification_outputs` failure + `verification.produced_files` remediation pointer; then the clean acceptance path after declaration.
+- **BUG-55 combined tester shape (new packaged coverage in v2.150.0)**: run `accept-turn` followed by `checkpoint-turn` on a QA turn that declares `files_changed` AND produces `verification.produced_files[{disposition:"artifact"}]` fixtures; quote `git status --short` after. Clean tree means BUG-55 is fixed for your reproduction.
+- **BUG-53 continuous auto-chain**: run `agentxchain run --continuous --max-runs 3` from a clean session and quote `session_continuation <previous_run_id> -> <next_run_id> (<next_objective>)`. Session status stays `running` between runs and ends as `completed` or `idle_exit`, never `paused`.
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 219 tests / 66 suites / 0 failures / 5 skipped
+- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js bug-53-continuous-auto-chain.test.js bug-54-*.test.js bug-55-*.test.js → 23 tests / 8 suites / 0 failures
+- Turn 117 full local gate on HEAD: 6639 pass / 0 fail / 5 skipped / ~430s (`DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` unblocked)
+- Turn 118 local `reproduce-bug-54.mjs` on Claude Max / no env auth → `3/3 exit_clean_with_stdout`, `command_probe.stdout = "2.1.87 (Claude Code)\n"`, `stdout_attached=3`, `watchdog_fires=0`
+
+## Status
+
+- **BUG-54**: adapter listener ordering hardened; repro harness now records Claude version probe; discriminator runbook shipped. Closure still requires tester-quoted reliability evidence (>90% across 10 consecutive PM/dev/QA dispatches) on the failing environment.
+- **BUG-55**: combined tester-shape union checkpoint now covered at source + packaged levels. Closure still requires tester-quoted shipped-package output on `v2.150.0`.
+- **BUG-52, BUG-53, BUG-56**: no code change; tester-quoted shipped-package evidence on `v2.150.0` is the remaining gate.

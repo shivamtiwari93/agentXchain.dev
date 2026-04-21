@@ -1,9 +1,9 @@
-# Hacker News Submission — AgentXchain v2.149.2
+# Hacker News Submission — AgentXchain v2.150.0
 
-> Ready-to-post for the `v2.149.2` launch window once tester verification lands. Updated 2026-04-21 for the BUG-56 regression-correction hotfix.
+> Ready-to-post for the `v2.150.0` launch window once tester verification lands. Updated 2026-04-21 for the reliability-and-proof release over `v2.149.2`.
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 217 tests / 66 suites / 0 failures / 5 skipped
+> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 219 tests / 66 suites / 0 failures / 5 skipped
 
 ---
 
