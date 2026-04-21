@@ -56,13 +56,13 @@ Goal: max 1–2 workflow runs per commit, down from ~3.5. Max 1 workflow run per
 
 This was added at some point as a "runner is available" proof. It's redundant with CI and with the publish workflow's preflight. The existence of this workflow alone contributed ~25% of the zombie accumulation.
 
-### 4. `.github/workflows/governed-todo-app-proof.yml` — CONVERT to schedule + release
+### 4. `.github/workflows/governed-todo-app-proof.yml` — CONVERT to schedule + manual
 
 **Current:** fires on every push to main. Long-running end-to-end proof against a real sample app.
 
-**Change:** fire on `schedule: 0 7 * * *` (nightly UTC) + `push: tags: ['v*.*.*']`.
+**Change:** fire on `schedule: 0 7 * * *` (nightly UTC) + `workflow_dispatch`.
 
-**Effect:** nightly regression coverage + coverage on every release. No per-commit pressure.
+**Effect:** nightly regression coverage and manual reruns. No per-commit or release-tag pressure.
 
 ### 5. `.github/workflows/deploy-gcs.yml` — ADD paths filter
 
@@ -121,7 +121,7 @@ Add precondition clause:
 2. Open `cli/scripts/release-preflight.sh` and confirm it runs headless (no prompts, no TTY assumptions). Ensure the gate script can invoke it non-interactively.
 3. Edit `.github/workflows/ci.yml` — change `on:` from `push` + `pull_request` to `pull_request` only.
 4. `git rm .github/workflows/ci-runner-proof.yml`.
-5. Edit `.github/workflows/governed-todo-app-proof.yml` — replace `push: branches: [main]` with `schedule: - cron: '0 7 * * *'` and `push: tags: ['v*.*.*']`.
+5. Edit `.github/workflows/governed-todo-app-proof.yml` — replace `push: branches: [main]` with `schedule: - cron: '0 7 * * *'` plus `workflow_dispatch`.
 6. Edit `.github/workflows/deploy-gcs.yml` — add `paths: ['website-v2/**', 'docs/**', '.github/workflows/deploy-gcs.yml']` under the `push:` trigger.
 7. Add `.github/workflows/codeql.yml` with weekly schedule + `workflow_dispatch`, then disable GitHub CodeQL default setup via the REST API so hidden push runs stop.
 8. Append the two new decision records (`DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` update + `DEC-GITHUB-ACTIONS-FOOTPRINT-FLOOR-001`) to `.planning/DECISIONS.md` (or wherever the canonical ledger lives).

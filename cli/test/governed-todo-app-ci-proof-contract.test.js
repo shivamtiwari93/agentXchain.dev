@@ -40,12 +40,11 @@ describe('Governed todo app CI proof: workflow contract', () => {
     assert.match(workflow, /ANTHROPIC_API_KEY:/);
   });
 
-  it('AT-TODO-CI-004: workflow is restricted to release tags, nightly schedule, and workflow_dispatch', () => {
-    assert.match(workflow, /push:/);
-    assert.match(workflow, /tags:\s*\n\s*-\s*'v\*\.\*\.\*'/);
+  it('AT-TODO-CI-004: workflow is restricted to nightly schedule and workflow_dispatch', () => {
+    assert.doesNotMatch(workflow, /^\s+push:/m);
     assert.match(workflow, /schedule:\s*\n\s*-\s*cron: '0 7 \* \* \*'/);
     assert.match(workflow, /workflow_dispatch:/);
-    assert.match(workflow, /github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'schedule' \|\| \(github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)\)/);
+    assert.match(workflow, /github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'schedule'/);
   });
 
   it('AT-TODO-CI-005: spec exists', () => {
@@ -56,11 +55,11 @@ describe('Governed todo app CI proof: workflow contract', () => {
 describe('Governed todo app CI proof: docs contract', () => {
   it('AT-TODO-CI-006: website doc names the workflow-backed CI proof path', () => {
     assert.match(doc, /\.github\/workflows\/governed-todo-app-proof\.yml/);
-    assert.match(doc, /nightly schedule, release tags, and manual `workflow_dispatch` reruns/);
+    assert.match(doc, /nightly schedule and manual `workflow_dispatch` reruns/);
   });
 
   it('AT-TODO-CI-007: example README names the workflow-backed CI proof path', () => {
     assert.match(readme, /\.github\/workflows\/governed-todo-app-proof\.yml/);
-    assert.match(readme, /nightly schedule, release tags, and manual `workflow_dispatch` reruns/);
+    assert.match(readme, /nightly schedule and manual `workflow_dispatch` reruns/);
   });
 });

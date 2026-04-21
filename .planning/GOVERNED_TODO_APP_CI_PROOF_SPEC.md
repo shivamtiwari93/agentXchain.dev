@@ -15,7 +15,6 @@ Triggers:
 - `push` on `main`
 - `workflow_dispatch`
 - nightly schedule (`0 7 * * *`)
-- release tags (`v*.*.*`)
 
 Execution steps:
 
@@ -46,7 +45,7 @@ Environment:
 - `AT-TODO-CI-001`: `.github/workflows/governed-todo-app-proof.yml` exists.
 - `AT-TODO-CI-002`: the workflow runs `examples/governed-todo-app/run-auto.mjs` in text and JSON modes.
 - `AT-TODO-CI-003`: the workflow injects `secrets.ANTHROPIC_API_KEY`.
-- `AT-TODO-CI-004`: the workflow is restricted to release tags, nightly schedule, and `workflow_dispatch`.
+- `AT-TODO-CI-004`: the workflow is restricted to nightly schedule and `workflow_dispatch`.
 - `AT-TODO-CI-005`: `website-v2/docs/examples/governed-todo-app.mdx` names the workflow-backed CI proof.
 - `AT-TODO-CI-006`: `examples/governed-todo-app/README.md` names the workflow-backed CI proof.
 

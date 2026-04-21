@@ -18,10 +18,10 @@ describe('CICD-SHRINK workflow footprint contract', () => {
     assert.equal(existsSync(resolve(ROOT, '.github/workflows/ci-runner-proof.yml')), false);
   });
 
-  it('keeps governed todo proof on release tags, nightly schedule, and manual dispatch only', () => {
+  it('keeps governed todo proof on nightly schedule and manual dispatch only', () => {
     const workflow = read('.github/workflows/governed-todo-app-proof.yml');
 
-    assert.match(workflow, /tags:\s*\n\s*-\s*'v\*\.\*\.\*'/);
+    assert.doesNotMatch(workflow, /^\s+push:/m);
     assert.match(workflow, /schedule:\s*\n\s*-\s*cron: '0 7 \* \* \*'/);
     assert.match(workflow, /workflow_dispatch:/);
     assert.doesNotMatch(workflow, /branches:\s*\n\s*-\s*main/);

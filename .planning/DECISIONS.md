@@ -26,7 +26,7 @@ The turn's Evidence block MUST include the gate's exact `PREPUBLISH GATE PASSED 
 
 - `publish-npm-on-tag.yml` on `v*.*.*` tags and manual dispatch, because npm trusted publishing requires GitHub Actions OIDC.
 - `deploy-gcs.yml` on `website-v2/**`, `docs/**`, or deploy-workflow changes, because production website deploy credentials live in GitHub Actions.
-- `governed-todo-app-proof.yml` on nightly schedule, release tags, and manual dispatch, because the public example proof is useful but too expensive for every push.
+- `governed-todo-app-proof.yml` on nightly schedule and manual dispatch, because the public example proof is useful but too expensive for every push and npm release tags must trigger exactly one workflow.
 - `publish-vscode-on-tag.yml` on `vsce-v*.*.*` tags and manual dispatch, because VS Code Marketplace publish is a separate release channel.
 - `codeql.yml` on weekly schedule and manual dispatch. GitHub CodeQL default setup must stay disabled because it creates hidden push-triggered `dynamic` runs even when its schedule is weekly.
 

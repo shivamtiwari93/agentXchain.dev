@@ -1,9 +1,6 @@
 name: Governed Todo App Proof
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   schedule:
     - cron: '0 7 * * *'
   workflow_dispatch:
@@ -11,7 +8,7 @@ on:
 jobs:
   governed-todo-app-proof:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
