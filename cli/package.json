@@ -37,6 +37,7 @@
     "bump:release": "bash scripts/release-bump.sh",
     "sync:homebrew": "bash scripts/sync-homebrew.sh",
     "verify:post-publish": "bash scripts/verify-post-publish.sh",
+    "collect:pack-sha-diagnostic": "node scripts/collect-pack-sha-diagnostic.mjs",
     "build:macos": "bun build bin/agentxchain.js --compile --target=bun-darwin-arm64 --outfile=dist/agentxchain-macos-arm64",
     "build:linux": "bun build bin/agentxchain.js --compile --target=bun-linux-x64 --outfile=dist/agentxchain-linux-x64",
     "publish:npm": "bash scripts/publish-npm.sh"

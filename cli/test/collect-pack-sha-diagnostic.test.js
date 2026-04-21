@@ -51,6 +51,37 @@ describe('collect-pack-sha-diagnostic script shape', () => {
       'header must cite the governing decision record',
     );
   });
+
+  it('documents npm-run discoverability and threshold interpretation', () => {
+    const scriptText = readFileSync(SCRIPT_PATH, 'utf8');
+    const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'cli/package.json'), 'utf8'));
+
+    assert.equal(
+      packageJson.scripts['collect:pack-sha-diagnostic'],
+      'node scripts/collect-pack-sha-diagnostic.mjs',
+      'package.json must expose the collector as a discoverable maintenance script',
+    );
+    assert.match(
+      scriptText,
+      /npm run collect:pack-sha-diagnostic/,
+      'script header must show the npm-run entry point',
+    );
+    assert.match(
+      scriptText,
+      /Only non-rerun `MATCH` verdicts count toward the "≥3 MATCH" evidence\s+\*     threshold/,
+      'script header must explain what the ≥3 MATCH threshold actually counts',
+    );
+    assert.match(
+      scriptText,
+      /That threshold only permits designing a future gate; it is not a gate\s+\*     by itself/,
+      'script header must prevent the diagnostic threshold from being mistaken for a release gate',
+    );
+    assert.match(
+      scriptText,
+      /`missing` means the diagnostic tag was absent, usually because the run\s+\*     was an already-published rerun/,
+      'script header must explain missing vs rerun semantics',
+    );
+  });
 });
 
 describe('parseDiagnosticLines', () => {

@@ -23,11 +23,28 @@
  *   of calling `gh`. Useful for unit tests and local debugging without GH auth.
  *
  * Usage:
- *   node cli/scripts/collect-pack-sha-diagnostic.mjs                    # last 10 runs
+ *   cd cli && npm run collect:pack-sha-diagnostic --                  # last 10 runs
+ *   cd cli && npm run collect:pack-sha-diagnostic -- --limit 20
+ *   node cli/scripts/collect-pack-sha-diagnostic.mjs                    # direct path
  *   node cli/scripts/collect-pack-sha-diagnostic.mjs --limit 20
  *   node cli/scripts/collect-pack-sha-diagnostic.mjs --format json
  *   node cli/scripts/collect-pack-sha-diagnostic.mjs --workflow publish-npm-on-tag.yml
  *   node cli/scripts/collect-pack-sha-diagnostic.mjs --log-file /tmp/run.log
+ *
+ * How to read the output:
+ *   - `MATCH` means the workflow's runner-local pack value matched the npm
+ *     registry value for that release run.
+ *   - `MISMATCH` means the runner-local pack value differed from registry
+ *     truth. Treat it as investigation evidence, not an automatic release
+ *     failure.
+ *   - `unavailable` means the diagnostic ran but could not form a comparison
+ *     (for example, registry metadata was not ready).
+ *   - `missing` means the diagnostic tag was absent, usually because the run
+ *     was an already-published rerun and skipped local packing.
+ *   - Only non-rerun `MATCH` verdicts count toward the "≥3 MATCH" evidence
+ *     threshold from `DEC-PUBLISH-WORKFLOW-PACK-SHA-DIAGNOSTIC-ONLY-001`.
+ *     That threshold only permits designing a future gate; it is not a gate
+ *     by itself.
  *
  * Diagnostic-only. This script does not gate releases, mutate state, or fail
  * on MISMATCH. It prints evidence; a gate is a future decision.
