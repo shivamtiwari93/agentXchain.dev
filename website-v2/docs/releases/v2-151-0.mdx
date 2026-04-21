@@ -190,7 +190,11 @@ failing environment. Quote adapter diagnostic lines including
   `completed` or `idle_exit`, never `paused`.
 - **BUG-55 checkpoint completeness + verification outputs** — quote
   `git status --short` after `accept-turn` + `checkpoint-turn` (must be
-  clean).
+  clean). If verification writes files outside the declared actor-owned set,
+  the turn must fail with `undeclared_verification_outputs` naming the dirty
+  paths; if those outputs are intended, declare them under
+  `verification.produced_files` before acceptance. Clean tree means BUG-55 is
+  fixed for your reproduction.
 - **BUG-56 probe-based auth preflight** — Claude Max + no env auth + no
   `--bare` must pass `connector check` / `connector validate` / governed
   `run`; a hanging shim must fail with `error_code:
