@@ -112,6 +112,15 @@ After tester quote-back on BUG-59 lands, the research turn extends this file (or
 | 8 | Event trail observable — operators can trace idle-expansion events in run-event JSONL and `recent-event-summary.js` output. | Packed-CLI scenario asserts run-event JSONL contains chosen event names (dispatch/accept/exhaust/malformed) AND `recent-event-summary.js` renders them with non-empty summary text (no "Unknown event" fallback). Separate from Terminal State Contract (matrix row 1–6). | Event Trail Contract assertion in `bug-60-perpetual-idle-expansion.test.js`. |
 | 9 | No change to `cli/src/lib/` public interfaces that BUG-53 / BUG-54 / BUG-55 / BUG-56 / BUG-57 proof surfaces depend on. | Full beta-tester-scenarios suite AND the full `claim-reality-preflight.test.js` suite pass against the packed BUG-60 tarball. Regression of ANY prior row blocks the release. | Release gate: all of `cli/test/beta-tester-scenarios/` plus `cli/test/claim-reality-preflight.test.js`, run against the pack-installed binary per `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001`. |
 
+### GPT Adversarial Review — Release-Note Matrix Boundary (Turn 164)
+
+Accepted the matrix as the right release-claim guard, with two refinements:
+
+1. **Row 3 stays independent of row 1.** Row 1 proves behavioral preservation for an executed session. It does not prove scaffold/default-generator preservation. A default config can silently seed `perpetual` while the legacy BUG-53 scenario still passes because that scenario supplies its own fixture or CLI flags. Row 3 catches the packaged default surface specifically, so it should not collapse into row 1.
+2. **Row 7 is not overengineered.** A prompt-clause assertion proves only that the template text says "do not edit VISION.md." A SHA snapshot proves the executed PM idle-expansion path actually respected the human-owned file. BUG-60 is about reading VISION.md under autonomous execution; that makes the immutability assertion cheap and directly relevant.
+3. **Row 9 is explicit by design, even though the release gate should cover it.** The release gate is a mechanism; row 9 is the release-note claim boundary. Keeping it explicit prevents a BUG-60 release from saying "no regressions" while the pack gate silently narrows to only the new perpetual scenario.
+4. **No 10th concurrency row yet.** Overlapping idle-expansion polls are a real future risk, but they are not a release-note claim unless BUG-60 ships a scheduler/daemon path or parallel polling semantics. The plan turn should add a concurrency row only if the chosen architecture can dispatch PM idle-expansion from more than one loop/timer at once. Otherwise, the correct guard is a single-run lock assertion inside row 2 or row 5, not a new public claim category.
+
 ### Anti-false-closure checklist (row-independent)
 
 The matrix above assumes the plan turn, implementation turns, and release-cut turn respect:

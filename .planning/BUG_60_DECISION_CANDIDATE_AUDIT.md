@@ -90,7 +90,7 @@ When tester quote-back unlocks BUG-60, the plan turn must start from this checkl
   - [ ] `.planning/BUG_60_DOC_SURFACE_AUDIT.md`
   - [ ] `.planning/BUG_60_DECISION_CANDIDATE_AUDIT.md`
 - [ ] Architecture plan written before code: choose Option A, Option B, or a fourth option with evidence; explicitly reject the losing options.
-- [ ] DEC authoring handled before code:
+- [ ] DEC authoring handled before any `cli/src/lib/` change. Test-only infrastructure is allowed only under the deferred helper-DEC rule below:
   - [ ] Create `DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001`, including the compatibility clause that default bounded behavior remains `on_idle: exit`.
   - [ ] Create `DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001` or explicitly justify a collapse.
   - [ ] Create `DEC-BUG60-IDLE-EXPANSION-OBSERVABILITY-001`, with separate Terminal State Contract and Event Trail Contract subsections.
@@ -103,7 +103,7 @@ When tester quote-back unlocks BUG-60, the plan turn must start from this checkl
   - [ ] PM `vision_exhausted` stop is distinct from bounded `completed` / `idle_exit`.
   - [ ] Event trail and persisted terminal state are asserted independently.
   - [ ] Source CLI beta scenario and packed CLI release-gate proof are both required.
-- [ ] First implementation-gated item selected: either helper extraction/migration for BUG-53, or the smallest schema/default parsing slice. No `cli/src/lib/continuous-run.js`, `vision-reader.js`, `intake.js`, or `normalized-config.js` edits before the above checks are complete.
+- [ ] First implementation-gated item selected: schema/default parsing slice first (`on_idle` or chosen equivalent added with bounded `exit` default and no behavior change). Helper extraction/migration follows only when the BUG-60 perpetual-branch scenario is the committed next consumer. No `cli/src/lib/continuous-run.js`, `vision-reader.js`, `intake.js`, or `normalized-config.js` edits before the above checks are complete.
 ```
 
 ## Non-Negotiable Plan-Turn Check
