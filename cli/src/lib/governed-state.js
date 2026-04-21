@@ -1383,6 +1383,10 @@ function classifyAcceptanceOverlap(targetTurn, conflictFiles, historyEntries, co
   const forwardRevisionTurns = new Map();
 
   for (const entry of historyEntries) {
+    if (targetTurn?.run_id && entry.run_id && entry.run_id !== targetTurn.run_id) {
+      continue;
+    }
+
     if ((entry.accepted_sequence || 0) <= (targetTurn.assigned_sequence || 0)) {
       continue;
     }
@@ -3060,6 +3064,7 @@ export function assignGovernedTurn(root, config, roleId, options = {}) {
   // reflect true subprocess-startup timing.
   const newTurn = {
     turn_id: turnId,
+    run_id: state.run_id,
     assigned_role: roleId,
     status: 'assigned',
     attempt: 1,

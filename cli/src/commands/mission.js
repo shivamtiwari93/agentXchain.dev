@@ -1377,7 +1377,9 @@ export async function missionPlanAutopilotCommand(planTarget, opts) {
       }
 
       if (waveNum === maxWaves) {
-        terminalReason = 'wave_limit_reached';
+        terminalReason = totalFailed > 0
+          ? (continueOnFailure ? 'plan_incomplete' : 'failure_stopped')
+          : 'wave_limit_reached';
         break;
       }
 
@@ -2030,7 +2032,9 @@ async function coordinatorAutopilot(planTarget, opts, context, mission) {
       }
 
       if (waveNum === maxWaves) {
-        terminalReason = 'wave_limit_reached';
+        terminalReason = totalFailed > 0
+          ? (continueOnFailure ? 'plan_incomplete' : 'failure_stopped')
+          : 'wave_limit_reached';
         break;
       }
 

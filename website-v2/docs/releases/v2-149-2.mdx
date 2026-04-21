@@ -57,7 +57,19 @@ For BUG-56 closure evidence on `v2.149.2`, quote the following:
 
 - **Negative case (hanging Claude shim)**: quote the FAILING output of `connector check` / `connector validate` / `run` when the Claude binary is replaced by a shim that reads stdin but never writes stdout. The failure must carry `error_code: "claude_auth_preflight_failed"` with a `smoke_probe.kind: "hang"` field.
 
-BUG-54, BUG-52, BUG-55, BUG-53 closure contracts from `v2.149.1` remain in force; see `v2-149-1.mdx` for their re-run scripts.
+The earlier shipped-package closure contracts remain in force on `agentxchain@2.149.2`; quote these from the latest package as well:
+
+- **BUG-54 QA startup reliability after auth is corrected**: run the tester's normal QA flow on `v2.149.2` and quote the adapter diagnostic lines that include `startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`. If the runtime only stabilizes after raising `runtimes.<id>.startup_watchdog_ms`, quote that config too so the evidence names the exact override that made the run healthy. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup. If QA still fails after env auth, `--bare`, or the v2.149.2 smoke probe path is healthy, quote the full `process_exit` record for a failing attempt.
+- **BUG-52 phase-gate reconciliation — full four-lane coverage**: run the tester's exact CLI chain across all four shapes:
+  - `needs_human` + planning signoff orphan path after `accept-turn` followed by `checkpoint-turn`
+  - `queued_phase_transition` resume path
+  - `gate_failed` + `last_gate_failure` path
+  - QA ship-verdict transition path
+  Quote the `phase_entered` event lines, including `trigger: "reconciled_before_dispatch"`, and the next dispatched role. The next role must be the next phase's entry role, not the same-phase PM/QA role.
+- **BUG-55 sub-A checkpoint completeness + wrong-lineage**: quote `accept-turn` + `checkpoint-turn` result for a real QA turn and the resulting `git status --short` (must be clean). If a declared path was already committed on a divergent lineage, quote the `divergent_from_accepted_lineage` field on the checkpoint result — the wrong-lineage path must be surfaced distinctly from `genuinely_missing`.
+- **BUG-55 sub-B verification outputs**: quote the failure showing `undeclared_verification_outputs` + `verification.produced_files` remediation pointer; then quote the clean acceptance path after the produced file is declared.
+- **BUG-55 combined tester shape**: run `accept-turn` followed by `checkpoint-turn` on a QA turn that both declares `files_changed` and produces fixture outputs; quote `git status --short` after. Clean tree means BUG-55 is fixed for your reproduction.
+- **BUG-53 continuous auto-chain**: run `agentxchain run --continuous --max-runs 3` from a clean session and quote the `session_continuation` event lines (format `session_continuation <previous_run_id> -> <next_run_id> (<next_objective>)`). Session status must stay `running` between runs and end as `completed` or `idle_exit`, never `paused`.
 
 ## Evidence
 

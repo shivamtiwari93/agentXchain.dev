@@ -489,8 +489,8 @@ function isAcceptedRepoHistoryEntry(entry) {
   return Boolean(entry?.accepted_at) || entry?.status === 'accepted';
 }
 
-const REPO_FAILURE_STATUSES = new Set(['failed_acceptance', 'failed', 'rejected', 'retrying', 'conflicted']);
-const RETRYABLE_COORDINATOR_FAILURE_STATUSES = new Set(['failed', 'failed_acceptance']);
+const REPO_FAILURE_STATUSES = new Set(['failed_acceptance', 'failed', 'failed_start', 'rejected', 'retrying', 'conflicted']);
+const RETRYABLE_COORDINATOR_FAILURE_STATUSES = new Set(['failed', 'failed_acceptance', 'failed_start']);
 
 function getLatestRepoDispatches(launchRecord) {
   const latestByRepo = new Map();
@@ -699,6 +699,18 @@ function synchronizeCoordinatorWorkstreamStatuses(root, plan, coordinatorConfig,
       }
       if (launchRecord && launchRecord.status !== 'needs_attention') {
         launchRecord.status = 'needs_attention';
+        changed = true;
+      }
+      if (plan.status !== 'needs_attention') {
+        plan.status = 'needs_attention';
+        changed = true;
+      }
+      continue;
+    }
+
+    if (launchRecord?.status === 'failed' || (launchRecord?.terminal_reason && launchRecord.terminal_reason !== 'completed')) {
+      if (ws.launch_status !== 'needs_attention') {
+        ws.launch_status = 'needs_attention';
         changed = true;
       }
       if (plan.status !== 'needs_attention') {

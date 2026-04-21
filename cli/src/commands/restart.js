@@ -219,7 +219,7 @@ export async function restartCommand(opts) {
     process.exit(1);
   }
 
-  if (state.status === 'blocked') {
+  if (state.status === 'blocked' && !state.pending_phase_transition && !state.pending_run_completion) {
     console.log(chalk.red('Run is blocked. Resolve the blocker first.'));
     const recovery = deriveRecoveryDescriptor(state, config);
     if (recovery) {

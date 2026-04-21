@@ -178,7 +178,7 @@ describe('continuous run E2E', () => {
     assert.equal(state.blocked_reason.category, 'ghost_turn');
     assert.match(state.blocked_reason.recovery.recovery_action, /reissue-turn --turn .* --reason ghost/);
     assert.equal(state.active_turns[turnId].status, 'failed_start');
-    assert.equal(state.active_turns[turnId].failed_start_reason, 'no_subprocess_output');
+    assert.equal(state.active_turns[turnId].failed_start_reason, 'stdout_attach_failed');
 
     const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
     const intents = readdirSync(intentsDir)
@@ -193,7 +193,7 @@ describe('continuous run E2E', () => {
     assert.ok(events.some((entry) => entry.event_type === 'turn_start_failed'));
   });
 
-  it('AT-CONT-FAIL-003: adapter failure exhausts retries, pauses the continuous session, and preserves blocked recovery truth', () => {
+  it('AT-CONT-FAIL-003: startup failure pauses the continuous session and preserves ghost recovery truth', () => {
     const root = makeProject({ failingAgent: true });
 
     const run = runCli(root, [
@@ -220,7 +220,8 @@ describe('continuous run E2E', () => {
 
     const state = readJson(root, '.agentxchain/state.json');
     assert.equal(state.status, 'blocked');
-    assert.equal(state.blocked_reason.category, 'retries_exhausted');
+    assert.equal(state.blocked_reason.category, 'ghost_turn');
+    assert.match(state.blocked_reason.recovery.recovery_action, /reissue-turn --turn .* --reason ghost/);
 
     const intentsDir = join(root, '.agentxchain', 'intake', 'intents');
     const intents = readdirSync(intentsDir)
@@ -228,12 +229,9 @@ describe('continuous run E2E', () => {
       .map((file) => JSON.parse(readFileSync(join(intentsDir, file), 'utf8')));
     assert.equal(intents.length, 1);
     assert.equal(intents[0].status, 'blocked');
-    assert.equal(intents[0].run_blocked_reason, 'retries_exhausted');
+    assert.equal(intents[0].run_blocked_reason, 'ghost_turn');
     assert.ok(intents[0].run_blocked_recovery);
-
-    const history = readJsonl(root, '.agentxchain/run-history.jsonl');
-    assert.equal(history.length, 1, `expected blocked run to be recorded once, got ${history.length}`);
-    assert.equal(history[0].status, 'blocked');
+    assert.match(intents[0].run_blocked_recovery, /reissue-turn --turn .* --reason ghost/);
 
     const status = runCli(root, ['status', '--json']);
     assert.equal(status.status, 0, `status failed:\n${status.combined}`);

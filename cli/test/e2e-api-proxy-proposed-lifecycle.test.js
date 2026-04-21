@@ -91,9 +91,15 @@ function startMockAnthropicServer() {
         try {
           const parsed = JSON.parse(body);
           const userMsg = parsed.messages?.find((m) => m.role === 'user');
-          const promptText = userMsg?.content || '';
+          const promptText = Array.isArray(userMsg?.content)
+            ? userMsg.content.map((part) => (typeof part === 'string' ? part : part?.text || '')).join('\n')
+            : userMsg?.content || '';
           const runId = getLastPromptField(promptText, 'run_id') || 'run_mock';
           const turnId = getLastPromptField(promptText, 'turn_id') || 'turn_mock';
+          const currentPhase = getLastPromptField(promptText, 'phase')
+            || promptText.match(/\*\*Phase:\*\*\s*([^\n]+)/)?.[1]?.trim()
+            || promptText.match(/\bPhase:\s*([a-z_]+)/)?.[1]?.trim()
+            || 'implementation';
           const requestNumber = requestLog.length + 1;
           const roleId = requestNumber <= 2 ? 'dev' : 'qa';
           const runtimeId = roleId === 'qa' ? 'api-qa' : 'api-dev';
@@ -179,7 +185,7 @@ function startMockAnthropicServer() {
               },
               artifact: { type: 'patch', ref: null },
               proposed_next_role: 'qa',
-              phase_transition_request: 'qa',
+              phase_transition_request: currentPhase === 'qa' ? null : 'qa',
               run_completion_request: null,
               needs_human_reason: null,
               proposed_changes: [

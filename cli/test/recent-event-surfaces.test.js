@@ -80,17 +80,7 @@ function createGovernedProject() {
     run_id: 'run_recent_events_001',
     status: 'active',
     phase: 'implementation',
-    active_turns: {
-      turn_001: {
-        turn_id: 'turn_001',
-        assigned_role: 'dev',
-        status: 'running',
-        attempt: 1,
-        runtime_id: 'local-dev',
-        assigned_sequence: 1,
-        started_at: dispatchedAt,
-      },
-    },
+    active_turns: {},
     retained_turns: {},
     turn_sequence: 1,
     blocked_on: null,
@@ -105,7 +95,7 @@ function createGovernedProject() {
     {
       turn_id: 'turn_001',
       role: 'dev',
-      status: 'running',
+      status: 'completed',
       summary: 'Implementing recent event visibility.',
       decisions: [{ id: 'DEC-RECENT-EVENTS-001' }],
       objections: [],

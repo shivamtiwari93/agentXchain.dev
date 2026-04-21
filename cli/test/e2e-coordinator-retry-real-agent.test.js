@@ -340,8 +340,8 @@ describe('Coordinator retry with real agent execution', () => {
     assert.equal(wsFollowupAfterFailure.launch_status, 'blocked', 'ws-followup must stay blocked while ws-main is incomplete');
 
     const repoBStateAfterFailure = readJson(join(workspace, 'repo-b', '.agentxchain', 'state.json'));
-    const failedTurns = Object.values(repoBStateAfterFailure.active_turns || {}).filter((turn) => turn.status === 'failed');
-    assert.equal(failedTurns.length, 1, 'repo-b must retain one failed turn after the first autopilot run');
+    const failedTurns = Object.values(repoBStateAfterFailure.active_turns || {}).filter((turn) => turn.status === 'failed_start');
+    assert.equal(failedTurns.length, 1, 'repo-b must retain one failed-start turn after the first autopilot run');
     const failedTurnId = failedTurns[0].turn_id;
 
     const retryResult = await runCoordinatorRetry(planId, {
@@ -377,7 +377,7 @@ describe('Coordinator retry with real agent execution', () => {
       (dispatch) => dispatch.repo_id === 'repo-b' && dispatch.is_retry === true,
     );
     assert.ok(initialRepoBDispatch?.retried_at, 'failed repo-b dispatch must be marked retried');
-    assert.equal(initialRepoBDispatch?.retry_reason, 'failed', 'retry reason must capture the failed status');
+    assert.equal(initialRepoBDispatch?.retry_reason, 'failed_start', 'retry reason must capture the failed-start status');
     assert.equal(retriedRepoBDispatch?.retry_of, failedTurnId, 'retry metadata must point back to the failed turn');
 
     const retryEvents = readJsonl(join(workspace, '.agentxchain', 'events.jsonl'))
