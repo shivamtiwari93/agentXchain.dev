@@ -94,8 +94,12 @@ Both tests must pass. The reject branch must fail loudly when the
 verification schema regresses. The accept branch must fail loudly when
 either sub-defect's fix regresses.
 
+The packaged release gate in `cli/test/claim-reality-preflight.test.js`
+must also execute the combined `files_changed` + `artifact` produced-files
+branch against the extracted npm tarball. Source-tree scenario coverage is
+not enough for BUG-55 because checkpoint semantics depend on shipped CLI
+commands and packaged `governed-state.js` imports.
+
 ## Open Questions
 
-- None for closure shape. Whether to also extend the claim-reality
-  preflight to require the combined scenario file is left to the
-  next decision cycle (tracked in AGENT-TALK Turn 79 next-actions).
+- None for closure shape.
