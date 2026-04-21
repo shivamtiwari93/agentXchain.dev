@@ -4323,6 +4323,208 @@ exec sleep 30
       `packaged session_continuation must link two distinct runs; got same id ${evt.payload.previous_run_id}`);
   });
 
+  it('BUG-53 packaged CLI run --continuous reaches idle_exit (not paused) and emits zero session_continuation events', () => {
+    // Release-boundary proof for BUG-53 idle_exit via the real CLI chain on
+    // the extracted tarball. The prior packaged BUG-53 row imports
+    // `executeContinuousRun` from the packed module and drives a two-run
+    // auto-chain in-process — it bypasses `bin/agentxchain.js` and the
+    // `run --continuous` command wiring in `src/commands/`. That leaves a
+    // rule-#12 seam-vs-flow gap: a packaging regression that drops the CLI
+    // entrypoint, mis-parses `--max-idle-cycles`, or breaks the continuous
+    // terminal-log emission at the CLI layer would pass the structural audit
+    // AND the in-process packaged row AND the source-tree CLI test (which
+    // spawns the repo's `bin/agentxchain.js`, not the packaged one).
+    //
+    // This row closes the gap by spawning `process.execPath` against the
+    // extracted tarball's `bin/agentxchain.js` with `run --continuous` flags,
+    // seeding exactly one vision objective, and asserting the operator-facing
+    // idle_exit terminal shape: `Run 1/5 completed: completed`, no later run
+    // lines, `All vision goals appear addressed`, terminal session status is
+    // `completed` (never `paused` — BUG-53 rule #2), `runs_completed === 1`,
+    // and zero `session_continuation` events (no auto-chain boundary).
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    assert.ok(existsSync(cliPath),
+      'BUG-53 packaged CLI idle_exit row requires packed bin/agentxchain.js');
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug53-cli-idle-'));
+    TEMP_PATHS.push(root);
+
+    // Fake governed-agent that the CLI dispatches. Mirrors the source-tree
+    // BUG-53 scenario's createCliProject() agent: reads the dispatch index,
+    // writes a staged turn result with `run_completion_request: true` so the
+    // continuous loop treats run 1 as a clean completion, then the loop's
+    // next vision scan returns idle and exits via the idle_exit branch.
+    const agentPath = join(root, '_bug53-packed-cli-agent.mjs');
+    writeFileSync(agentPath, [
+      "import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';",
+      "import { dirname, join } from 'node:path';",
+      'const cwd = process.cwd();',
+      "const index = JSON.parse(readFileSync(join(cwd, '.agentxchain/dispatch/index.json'), 'utf8'));",
+      "const entry = Object.values(index.active_turns || {})[0] || {};",
+      "const turnId = entry.turn_id || 'unknown';",
+      "const runtimeId = entry.runtime_id || 'local-dev';",
+      "const stagingResultPath = entry.staging_result_path;",
+      "const runId = index.run_id || 'run-unknown';",
+      "const session = JSON.parse(readFileSync(join(cwd, '.agentxchain/continuous-session.json'), 'utf8'));",
+      "const objective = String(session.current_vision_objective || runId);",
+      "const slug = objective.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || turnId;",
+      "const relPath = `.planning/objectives/${slug}.md`;",
+      "const absPath = join(cwd, relPath);",
+      "mkdirSync(dirname(absPath), { recursive: true });",
+      "writeFileSync(absPath, `# Objective\\n\\n- Turn: ${turnId}\\n- Run: ${runId}\\n- Objective: ${objective}\\n`);",
+      "const result = {",
+      "  schema_version: '1.0',",
+      '  run_id: runId,',
+      '  turn_id: turnId,',
+      "  role: 'dev',",
+      '  runtime_id: runtimeId,',
+      "  status: 'completed',",
+      '  summary: `Objective completed: ${objective}`,',
+      "  decisions: [{ id: 'DEC-001', category: 'implementation', statement: `Completed ${objective}`, rationale: 'Packaged CLI idle_exit regression proof.' }],",
+      '  objections: [],',
+      '  files_changed: [relPath],',
+      '  artifacts_created: [],',
+      "  verification: { status: 'pass', commands: ['echo ok'], evidence_summary: 'ok', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] },",
+      "  artifact: { type: 'workspace', ref: null },",
+      "  proposed_next_role: 'human',",
+      '  phase_transition_request: null,',
+      '  run_completion_request: true,',
+      '  needs_human_reason: null,',
+      '  cost: { usd: 0 },',
+      '};',
+      "const absStaging = join(cwd, stagingResultPath);",
+      "mkdirSync(dirname(absStaging), { recursive: true });",
+      "writeFileSync(absStaging, JSON.stringify(result, null, 2));",
+      "console.log(`bug53-packed-cli-agent: completed ${objective}`);",
+      '',
+    ].join('\n'));
+
+    const config = {
+      schema_version: 4,
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { name: 'bug53-packed-cli', id: 'bug53-packed-cli-001', default_branch: 'main' },
+      roles: {
+        dev: {
+          title: 'Developer',
+          mandate: 'Implement.',
+          write_authority: 'authoritative',
+          runtime_class: 'local_cli',
+          runtime_id: 'local-dev',
+          runtime: 'local-dev',
+        },
+      },
+      runtimes: {
+        'local-dev': {
+          type: 'local_cli',
+          command: process.execPath,
+          args: [agentPath],
+          prompt_transport: 'dispatch_bundle_only',
+        },
+      },
+      routing: {
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'] },
+      },
+      gates: {},
+      rules: { challenge_required: false, max_turn_retries: 1 },
+      intent_coverage_mode: 'lenient',
+    };
+
+    mkdirSync(join(root, '.agentxchain', 'dispatch', 'turns'), { recursive: true });
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    writeFileSync(join(root, '.gitignore'), '.agentxchain/\n');
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify({
+      schema_version: '1.0',
+      run_id: null,
+      project_id: config.project.id,
+      status: 'idle',
+      phase: 'implementation',
+      accepted_integration_ref: null,
+      active_turns: {},
+      turn_sequence: 0,
+      last_completed_turn_id: null,
+      blocked_on: null,
+      blocked_reason: null,
+      escalation: null,
+      phase_gate_status: {},
+    }, null, 2));
+    writeFileSync(join(root, '.agentxchain', 'history.jsonl'), '');
+    writeFileSync(join(root, '.agentxchain', 'decision-ledger.jsonl'), '');
+    writeFileSync(join(root, '.agentxchain', 'run-history.jsonl'), '');
+
+    // Single vision goal — after run 1 satisfies it, the next vision scan
+    // returns no candidates and the loop MUST exit via idle_exit.
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'VISION.md'), [
+      '# CLI Idle Vision',
+      '',
+      '## Governed Delivery',
+      '',
+      '- singleton vision objective to satisfy once and exhaust',
+      '',
+    ].join('\n'));
+
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'bug53-cli@test.local']);
+    git(root, ['config', 'user.name', 'BUG-53 Packed CLI']);
+    git(root, ['add', '.']);
+    git(root, ['commit', '-m', 'init']);
+
+    const run = spawnSync(process.execPath, [
+      cliPath,
+      'run',
+      '--continuous',
+      '--vision',
+      '.planning/VISION.md',
+      '--max-runs',
+      '5',
+      '--max-idle-cycles',
+      '1',
+      '--poll-seconds',
+      '0',
+    ], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: { ...process.env, NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
+    });
+
+    const combined = `${run.stdout || ''}${run.stderr || ''}`;
+    assert.equal(run.status, 0,
+      `packaged CLI idle_exit must exit cleanly; status=${run.status}; signal=${run.signal}; output:\n${combined}`);
+    assert.match(combined, /Run 1\/5 completed: completed/,
+      `packaged CLI idle_exit operator output must show exactly one completed run before idle_exit; output:\n${combined}`);
+    assert.doesNotMatch(combined, /Run [2-5]\/5 completed/,
+      `packaged CLI idle_exit must NOT advance past run 1 — only one vision goal was seeded; output:\n${combined}`);
+    assert.match(combined, /All vision goals appear addressed/,
+      `packaged CLI idle_exit must surface the operator-visible idle_exit terminal log line "All vision goals appear addressed"; output:\n${combined}`);
+    assert.doesNotMatch(combined, /continuous loop paused|Run blocked — continuous loop paused/i,
+      `packaged CLI idle_exit must NEVER advertise "paused" to the operator — BUG-53 rule #2; output:\n${combined}`);
+
+    const sessionPath = join(root, '.agentxchain', 'continuous-session.json');
+    assert.ok(existsSync(sessionPath),
+      'packaged CLI idle_exit must persist .agentxchain/continuous-session.json');
+    const session = JSON.parse(readFileSync(sessionPath, 'utf8'));
+    assert.equal(session.status, 'completed',
+      `packaged CLI idle_exit terminal session.status must be "completed" (NEVER "paused") — BUG-53 rule #2; got "${session.status}"`);
+    assert.equal(session.runs_completed, 1,
+      `packaged CLI idle_exit must record exactly 1 completed run (only one vision goal seeded); got ${session.runs_completed}. A regression that loops on an exhausted vision would burn phantom runs here.`);
+
+    const eventsPath = join(root, '.agentxchain', 'events.jsonl');
+    if (existsSync(eventsPath)) {
+      const events = readFileSync(eventsPath, 'utf8')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      const continuations = events.filter((e) => e.event_type === 'session_continuation');
+      assert.equal(continuations.length, 0,
+        `packaged CLI idle_exit must emit ZERO session_continuation events — no auto-chain boundary exists when vision exhausts after run 1; got ${continuations.length}. Event types: ${events.map((e) => e.event_type).join(',')}`);
+    }
+  });
+
   it('BUG-55 packaged CLI checkpoint-turn commits every declared file and leaves the tree clean', async () => {
     const { packageDir } = getExtractedPackage();
     const cliPath = join(packageDir, 'bin', 'agentxchain.js');
