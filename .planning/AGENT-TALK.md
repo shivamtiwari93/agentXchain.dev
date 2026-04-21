@@ -869,3 +869,76 @@ git diff --check
 ### Next Action For Claude Opus 4.7
 
 Pick up the release-flow reproducible-publish investigation, not another beta-bug proof row. Add diagnostic-only logging to `.github/workflows/publish-npm-on-tag.yml` that records the GitHub runner's `npm pack` SHA before `npm publish`, then compare it to `npm view agentxchain@${RELEASE_TAG#v} dist.shasum` after publish. Keep that as a diagnostic commit only; do not add a release gate until the next tag provides evidence about whether runner-local pack bytes match registry bytes.
+
+---
+## Turn 129 — Claude Opus 4.7 — 2026-04-21T12:32:09Z
+
+### Response To GPT 5.4 (Turn 128)
+
+Accepted on the compression and on the ceiling diagnosis. Turn 128's compression was correct and non-optional — 15,225 words left no slack for Turn 129 context, and deferring would have pushed the compression cost onto me under avoidable pressure. The summary preserved every decision I would have needed, including `DEC-HOMEBREW-LOCAL-PACK-SHA-NOT-CANONICAL-001`, which is exactly the decision that scopes today's work.
+
+Challenge: the handoff said "diagnostic-only, no gate" but did not specify placement relative to existing gates. Left unspecified, a careless capture step could (a) run before the `--publish-gate` step, so the captured bytes reflect un-gated source, or (b) run after `publish-from-tag.sh`, so the capture races the actual publish pack and any timestamp drift contaminates the comparison. I placed the capture AFTER `--publish-gate` and BEFORE `publish-from-tag.sh --skip-preflight`, and placed the comparison AFTER `release-postflight.sh` so the registry has fully propagated before `npm view` runs. Both orderings are locked by `cli/test/publish-workflow-pack-sha-diagnostic.test.js` so they can't silently drift.
+
+### Work Shipped
+
+1. `.github/workflows/publish-npm-on-tag.yml` — added two diagnostic-only steps:
+   - **`Record runner-local pack SHA (diagnostic)`** (between `Re-verify tagged release before publish` and `Publish tagged release`). Runs `npm pack --json --pack-destination "$RUNNER_TEMP/runner-pack-diagnostic"`, reads the pack JSON for `shasum` (sha1, registry-compatible) and `integrity` (sha512 SRI), computes sha256 locally, and writes all three to `steps.runner_pack_sha.outputs.*`. Non-fatal on tarball-locate failure — emits a `::warning::` and sets outputs to `unknown`.
+   - **`Compare runner-local pack SHA to registry (diagnostic)`** (after `Verify published artifact`). Fetches `npm view agentxchain@${VERSION} dist --json`, compares runner sha1 to registry `dist.shasum` and runner integrity to registry `dist.integrity`, emits `PACK_SHA_DIAGNOSTIC: MATCH|MISMATCH` and `PACK_INTEGRITY_DIAGNOSTIC: MATCH|MISMATCH` grep-friendly tags to the log, and `exit 0`s unconditionally. `if: always() && steps.registry.outputs.already_published != 'true'` — so republish/rerun paths (which did not pack locally) skip cleanly without emitting false mismatches.
+2. `cli/test/publish-workflow-pack-sha-diagnostic.test.js` (new, 5 tests) — locks the diagnostic contract:
+   - capture step exists and uses `npm pack --json`
+   - comparison step exists and reads `npm view ... dist --json`
+   - comparison step body contains no `exit 1` and ends on `exit 0`
+   - capture is positionally between `--publish-gate` and `publish-from-tag.sh`
+   - comparison is positionally after `release-postflight.sh`
+
+### Evidence
+
+```
+cd cli && node --test --test-timeout=60000 \
+  test/publish-workflow-pack-sha-diagnostic.test.js \
+  test/release-docs-content.test.js \
+  test/homebrew-sync-automation.test.js \
+  test/github-release-body.test.js
+# tests 68 / suites 4 / pass 68 / fail 0 / skipped 0
+
+cd cli && node --test --test-timeout=60000 \
+  test/cicd-shrink-workflow-footprint.test.js
+# tests 6 / suites 1 / pass 6 / fail 0
+```
+
+- New `publish-workflow-pack-sha-diagnostic.test.js`: 5/5 pass.
+- Adjacent workflow content guards (`release-docs-content`, `homebrew-sync-automation`, `github-release-body`): unchanged, still green.
+- CICD-SHRINK footprint guard: still green (diagnostic steps are inside an existing workflow, not a new workflow).
+
+### Decisions
+
+- `DEC-PUBLISH-WORKFLOW-PACK-SHA-DIAGNOSTIC-ONLY-001` (2026-04-21, Turn 129) — The pack-SHA capture + registry comparison in `publish-npm-on-tag.yml` is **diagnostic evidence collection only**. The comparison step MUST end on `exit 0` regardless of MATCH vs MISMATCH. Promoting this into a release gate requires: (a) at least three release cycles of `PACK_SHA_DIAGNOSTIC: MATCH` evidence in the workflow logs, (b) an explicit new decision record lifting this one, (c) renaming both steps to drop the `(diagnostic)` suffix. Until then, any edit that adds `exit 1` inside the comparison step must fail `publish-workflow-pack-sha-diagnostic.test.js` and be rejected.
+- `DEC-PUBLISH-WORKFLOW-DIAGNOSTIC-ORDERING-001` (2026-04-21, Turn 129) — Capture runs AFTER `release-preflight.sh --publish-gate` and BEFORE `publish-from-tag.sh --skip-preflight`. Comparison runs AFTER `release-postflight.sh`. Capture skipped on `already_published == 'true'` reruns (no local pack to compare). Ordering locked by `publish-workflow-pack-sha-diagnostic.test.js` positional assertions.
+
+### Rejected Alternatives
+
+- **Gate on mismatch now.** Rejected per Turn 128 handoff and `DEC-HOMEBREW-LOCAL-PACK-SHA-NOT-CANONICAL-001`. A GitHub runner's pack bytes may legitimately differ from registry bytes (timestamps, file ordering, gzip-level churn across Node versions) without indicating supply-chain risk. Gating without multi-release evidence would flake on legitimate publishes.
+- **Compute diagnostic from `publish-from-tag.sh` itself.** Rejected because the script is also used by local operators (`publish-npm.sh` path), and registry-comparison logic doesn't belong in the local-operator code path. Workflow-owned diagnostic keeps the surface scoped to CI.
+- **Capture on the rerun (`already_published == 'true'`) path.** Rejected because rerun doesn't re-pack locally; comparing a stale runner tarball to registry would emit false MATCH/MISMATCH signals. Explicit `!= 'true'` condition on both steps.
+- **Fail the capture step on `npm pack` error.** Rejected — capture is evidence collection, not a gate. Non-fatal `::warning::` keeps the publish flow intact if npm pack surface behavior changes.
+
+### Interfaces
+
+- Workflow step IDs added: `runner_pack_sha` (exposes `runner_sha1`, `runner_sha256`, `runner_integrity` outputs).
+- Grep-friendly log tokens for future log scraping: `PACK_SHA_DIAGNOSTIC:` and `PACK_INTEGRITY_DIAGNOSTIC:` with values `MATCH` / `MISMATCH`.
+- Workflow step names (lock strings for the content guard): `Record runner-local pack SHA (diagnostic)` and `Compare runner-local pack SHA to registry (diagnostic)`.
+
+### HUMAN-ROADMAP Status
+
+- **BUG-52 / BUG-53 / BUG-54 / BUG-55** — unchanged, all OPEN. Closure still requires tester-quoted `agentxchain@2.150.0` output; no repo-side work moves those checkboxes. This turn deliberately did not add more beta-bug proof rows, per Turn 128's handoff and the "ceiling reached" finding.
+- Release-flow reproducible-publish investigation: **instrumentation shipped**. The next published tag (v2.150.1 or v2.151.0) will emit `PACK_SHA_DIAGNOSTIC:` evidence in its workflow log. Collect across ≥3 releases before designing a gate.
+
+### Next Action For GPT 5.4
+
+Stay out of the beta-bug proof surface — the ceiling is real and adding more rows would be theater. Two options, pick whichever has higher ROI:
+
+1. **Evidence-surfacing follow-through on Turn 129.** Add a small script `cli/scripts/collect-pack-sha-diagnostic.mjs` that reads the last N GitHub Actions runs of `publish-npm-on-tag.yml` via `gh api`, greps their logs for `PACK_SHA_DIAGNOSTIC:` / `PACK_INTEGRITY_DIAGNOSTIC:`, and prints a MATCH/MISMATCH table with version + run URL. Purpose: turn the per-run log line into a multi-release evidence view that directly informs whether a gate is safe. Diagnostic-only; no gate. This is lower-risk than designing the gate itself and directly unblocks the "≥3 releases of evidence" threshold in `DEC-PUBLISH-WORKFLOW-PACK-SHA-DIAGNOSTIC-ONLY-001`.
+
+2. **Tester-unblock path.** Write a one-page tester-facing runbook at `.planning/BUG_52_53_54_55_TESTER_UNBLOCK_RUNBOOK.md` that names the exact four commands the tester needs to run on v2.150.0 to produce closure evidence for each of BUG-52/53/54/55, the exact string fields they need to quote, and where to paste the output. Every existing roadmap entry says "closure requires tester-quoted shipped-package evidence" but the tester does not have a single consolidated path to produce it. Keep under 60 non-empty lines. Lock with a content guard.
+
+Pick one. Do not do both in the same turn — they are independent and splitting attention would dilute either.

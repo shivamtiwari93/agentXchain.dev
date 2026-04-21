@@ -79,6 +79,46 @@ jobs:
         shell: bash
         run: bash scripts/release-preflight.sh --publish-gate --target-version "${RELEASE_TAG#v}"
 
+      # Diagnostic-only: record the runner's local `npm pack` SHA before publish so
+      # we can later compare it to the registry's published `dist.shasum`/`dist.integrity`.
+      # This is NOT a gate — we want evidence about whether runner-local pack bytes
+      # match registry bytes before designing any reproducible-publish gate. See
+      # DEC-HOMEBREW-LOCAL-PACK-SHA-NOT-CANONICAL-001 (Turn 122) for why the
+      # developer-machine pack SHA can differ from the registry's canonical SHA.
+      - name: Record runner-local pack SHA (diagnostic)
+        id: runner_pack_sha
+        if: steps.registry.outputs.already_published != 'true'
+        working-directory: cli
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACK_DIR="${RUNNER_TEMP:-/tmp}/runner-pack-diagnostic"
+          mkdir -p "$PACK_DIR"
+          # `npm pack --json` prints the tarball metadata (filename, integrity, shasum, etc.)
+          # without uploading. This is the same pack routine `npm publish` runs internally,
+          # so the tarball bytes should match what publish-from-tag.sh produces seconds later.
+          PACK_JSON="$(npm pack --json --pack-destination "$PACK_DIR" 2>&1 | tail -n +1)"
+          echo "$PACK_JSON" > "$PACK_DIR/pack.json"
+          TARBALL="$(node -e "const p=require('${PACK_DIR}/pack.json');process.stdout.write(p[0].filename)")"
+          FULL_PATH="$PACK_DIR/$TARBALL"
+          if [[ ! -f "$FULL_PATH" ]]; then
+            echo "::warning::Runner pack diagnostic could not locate tarball at ${FULL_PATH}; skipping SHA capture (non-fatal)."
+            echo "runner_sha1=unknown" >> "$GITHUB_OUTPUT"
+            echo "runner_sha256=unknown" >> "$GITHUB_OUTPUT"
+            echo "runner_integrity=unknown" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          RUNNER_SHA1="$(node -e "const p=require('${PACK_DIR}/pack.json');process.stdout.write(p[0].shasum||'')")"
+          RUNNER_INTEGRITY="$(node -e "const p=require('${PACK_DIR}/pack.json');process.stdout.write(p[0].integrity||'')")"
+          RUNNER_SHA256="$(sha256sum "$FULL_PATH" | awk '{print $1}')"
+          echo "Runner pack tarball: $TARBALL"
+          echo "Runner pack sha1 (matches registry dist.shasum):      $RUNNER_SHA1"
+          echo "Runner pack integrity (matches registry dist.integrity): $RUNNER_INTEGRITY"
+          echo "Runner pack sha256 (local diagnostic only):           $RUNNER_SHA256"
+          echo "runner_sha1=$RUNNER_SHA1" >> "$GITHUB_OUTPUT"
+          echo "runner_sha256=$RUNNER_SHA256" >> "$GITHUB_OUTPUT"
+          echo "runner_integrity=$RUNNER_INTEGRITY" >> "$GITHUB_OUTPUT"
+
       - name: Publish tagged release
         if: steps.registry.outputs.already_published != 'true'
         working-directory: cli
@@ -92,6 +132,54 @@ jobs:
           RELEASE_POSTFLIGHT_RETRY_ATTEMPTS: 18
           RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS: 10
         run: bash scripts/release-postflight.sh --target-version "${RELEASE_TAG#v}"
+
+      # Diagnostic-only: fetch the registry's published `dist.shasum` / `dist.integrity`
+      # and compare with the runner-local pack SHA captured before publish. This step
+      # NEVER fails the workflow — mismatch is informational, not a gate. We collect
+      # this evidence first across several releases; a real gate can be designed only
+      # after the data proves runner-local pack bytes match (or do not match) registry bytes.
+      - name: Compare runner-local pack SHA to registry (diagnostic)
+        if: always() && steps.registry.outputs.already_published != 'true'
+        working-directory: cli
+        shell: bash
+        run: |
+          set -uo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          RUNNER_SHA1="${{ steps.runner_pack_sha.outputs.runner_sha1 }}"
+          RUNNER_INTEGRITY="${{ steps.runner_pack_sha.outputs.runner_integrity }}"
+          RUNNER_SHA256="${{ steps.runner_pack_sha.outputs.runner_sha256 }}"
+          echo "---- runner-local pack (captured before publish) ----"
+          echo "sha1:      ${RUNNER_SHA1}"
+          echo "integrity: ${RUNNER_INTEGRITY}"
+          echo "sha256:    ${RUNNER_SHA256}"
+          echo "---- npm registry truth (post-publish) ----"
+          REGISTRY_JSON="$(npm view "agentxchain@${VERSION}" dist --json 2>/dev/null || true)"
+          if [[ -z "$REGISTRY_JSON" ]]; then
+            echo "::warning::Could not fetch registry dist metadata for agentxchain@${VERSION} (diagnostic step is non-fatal)."
+            exit 0
+          fi
+          echo "$REGISTRY_JSON"
+          REGISTRY_SHA1="$(node -e "let d=JSON.parse(process.argv[1]);process.stdout.write(d.shasum||'')" "$REGISTRY_JSON")"
+          REGISTRY_INTEGRITY="$(node -e "let d=JSON.parse(process.argv[1]);process.stdout.write(d.integrity||'')" "$REGISTRY_JSON")"
+          echo "---- diagnostic verdict (NOT a gate) ----"
+          if [[ -z "$REGISTRY_SHA1" ]]; then
+            echo "registry dist.shasum unavailable; skipping comparison."
+          elif [[ "$RUNNER_SHA1" == "unknown" ]]; then
+            echo "runner pack SHA unavailable; skipping comparison."
+          elif [[ "$RUNNER_SHA1" == "$REGISTRY_SHA1" ]]; then
+            echo "PACK_SHA_DIAGNOSTIC: MATCH — runner-local pack sha1 equals registry dist.shasum for agentxchain@${VERSION}."
+          else
+            echo "PACK_SHA_DIAGNOSTIC: MISMATCH — runner-local pack sha1 (${RUNNER_SHA1}) differs from registry dist.shasum (${REGISTRY_SHA1}) for agentxchain@${VERSION}. Informational only; investigate before designing any reproducible-publish gate."
+          fi
+          if [[ -n "$REGISTRY_INTEGRITY" && "$RUNNER_INTEGRITY" != "unknown" && -n "$RUNNER_INTEGRITY" ]]; then
+            if [[ "$RUNNER_INTEGRITY" == "$REGISTRY_INTEGRITY" ]]; then
+              echo "PACK_INTEGRITY_DIAGNOSTIC: MATCH — runner-local pack integrity equals registry dist.integrity."
+            else
+              echo "PACK_INTEGRITY_DIAGNOSTIC: MISMATCH — runner (${RUNNER_INTEGRITY}) vs registry (${REGISTRY_INTEGRITY})."
+            fi
+          fi
+          # Diagnostic only — exit 0 regardless of mismatch.
+          exit 0
 
       - name: Sync Homebrew formula from npm registry
         id: homebrew
