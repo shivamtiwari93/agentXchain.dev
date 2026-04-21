@@ -3737,6 +3737,203 @@ exec sleep 30
       'packed resume must not redispatch dev on the Turn 94 path');
   });
 
+  it('BUG-52 packaged full chain (accept-turn -> checkpoint-turn -> escalate -> unblock -> resume) advances planning -> implementation and resume does not regress role or phase', async () => {
+    // HUMAN-ROADMAP BUG-52 fix requirement #3 names this exact child-process
+    // chain: `accept-turn` -> `checkpoint-turn` -> `unblock` -> `resume`. The
+    // existing packed rows cover the function-level reconcile seam and the
+    // Turn 93 (needs_human orphan) and Turn 94 (queued_phase_transition
+    // recovery) lanes, but NOT the tester's primary reproduction lane:
+    // `status: 'completed'` PM turn -> planning_signoff gate FAILED ->
+    // human records signoff -> escalate -> unblock -> resume. This row drives
+    // the full operator CLI chain on the extracted tarball (the shipped bits)
+    // and asserts:
+    //   1. The chain advances planning -> implementation exactly once.
+    //   2. `unblock` dispatches dev (NOT another pm — the tester-reported bug).
+    //   3. A subsequent `resume` is safe: it does NOT regress phase, does NOT
+    //      replace the active dev turn with pm, and does NOT silently
+    //      re-dispatch. It must surface the active turn and exit non-zero.
+    // The "resume safe after unblock" contract is the specific invariant
+    // HUMAN-ROADMAP names but the prior packed rows did not exercise.
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governed = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governed;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug52-full-chain-'));
+    TEMP_PATHS.push(root);
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+
+    const config = {
+      schema_version: '1.0',
+      protocol_mode: 'governed',
+      template: 'generic',
+      project: { id: 'bug52-packed-full-chain', name: 'BUG-52 packed full chain', default_branch: 'main' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'manual-pm' },
+        dev: { title: 'Dev', mandate: 'Implement', write_authority: 'authoritative', runtime: 'manual-dev' },
+      },
+      runtimes: {
+        'manual-pm': { type: 'manual' },
+        'manual-dev': { type: 'manual' },
+      },
+      routing: {
+        planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev'], exit_gate: 'planning_signoff' },
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'implementation_complete' },
+      },
+      gates: {
+        planning_signoff: {
+          requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+          requires_human_approval: true,
+        },
+        implementation_complete: {},
+      },
+      gate_semantic_coverage_mode: 'lenient',
+    };
+
+    writeFileSync(join(root, 'README.md'), '# BUG-52 packed full chain\n');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2) + '\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['config', 'user.email', 'test@test.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    git(root, ['add', 'README.md', 'agentxchain.json']);
+    git(root, ['commit', '-m', 'init']);
+
+    const init = initializeGovernedRun(root, config);
+    assert.ok(init.ok, init.error);
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    // Gate files are on-disk but PM_SIGNOFF.md says "Approved: NO" — the
+    // planning_signoff gate MUST fail on accept-turn, matching the tester's
+    // primary reproduction.
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: NO\n');
+    writeFileSync(
+      join(root, '.planning', 'SYSTEM_SPEC.md'),
+      '# System Spec\n\n## Purpose\n\nPlan the implementation handoff.\n\n## Interface\n\nPM artifacts.\n\n## Acceptance Tests\n\n- [ ] Dev can start implementation.\n',
+    );
+
+    const resultPath = join(root, getTurnStagingResultPath(turnId));
+    mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: init.state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Planning artifacts drafted',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md', '.planning/PM_SIGNOFF.md', '.planning/SYSTEM_SPEC.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'dev',
+      phase_transition_request: 'implementation',
+      cost: { usd: 0.01 },
+    }, null, 2));
+
+    const spawnOpts = {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    };
+
+    // 1. accept-turn
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn'], spawnOpts);
+    assert.equal(accept.status, 0,
+      `packed full-chain accept-turn must succeed:\n${accept.stdout}\n${accept.stderr}`);
+
+    // 2. checkpoint-turn
+    const checkpoint = spawnSync(process.execPath, [cliPath, 'checkpoint-turn', '--turn', turnId], spawnOpts);
+    assert.equal(checkpoint.status, 0,
+      `packed full-chain checkpoint-turn must succeed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const afterAccept = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    assert.equal(afterAccept.phase, 'planning',
+      'packed full-chain must stay in planning until unblock after gate failure');
+    assert.equal(afterAccept.phase_gate_status?.planning_signoff, 'failed',
+      'packed full-chain planning_signoff must be marked failed on the gate_failed lane (tester primary reproduction)');
+    assert.equal(afterAccept.last_gate_failure?.gate_id, 'planning_signoff',
+      'packed full-chain must record last_gate_failure for planning_signoff');
+
+    // Human records the signoff on disk and commits, mirroring the tester flow.
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    git(root, ['add', '.planning/PM_SIGNOFF.md']);
+    git(root, ['commit', '-m', 'human: approve planning signoff']);
+
+    // 3. escalate — raise a human escalation tied to planning_signoff so the
+    //    tester's `unblock <hesc_*>` shape has a real escalation id to consume.
+    const escalate = spawnSync(process.execPath, [
+      cliPath, 'escalate',
+      '--reason', 'planning_signoff',
+      '--detail', 'human signoff recorded; unblock should advance the phase',
+    ], spawnOpts);
+    assert.equal(escalate.status, 0,
+      `packed full-chain escalate must succeed:\n${escalate.stdout}\n${escalate.stderr}`);
+
+    const escalationLines = readFileSync(join(root, '.agentxchain', 'human-escalations.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const raisedEscalation = escalationLines.find((line) => line.kind === 'raised');
+    assert.ok(raisedEscalation?.escalation_id,
+      'packed full-chain escalate must raise a human escalation whose id unblock can consume');
+
+    // 4. unblock — the fix under test. Must reconcile phase advance before
+    //    dispatch and dispatch dev, not another pm.
+    const unblock = spawnSync(process.execPath, [cliPath, 'unblock', raisedEscalation.escalation_id], spawnOpts);
+    assert.equal(unblock.status, 0,
+      `packed full-chain unblock must succeed:\n${unblock.stdout}\n${unblock.stderr}`);
+
+    const afterUnblock = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    const activeAfterUnblock = Object.values(afterUnblock.active_turns || {})[0] || null;
+    assert.equal(afterUnblock.phase, 'implementation',
+      'packed full-chain unblock must advance planning -> implementation on the gate_failed lane (tester primary reproduction)');
+    assert.equal(afterUnblock.phase_gate_status?.planning_signoff, 'passed',
+      'packed full-chain unblock must mark planning_signoff=passed after reconcile');
+    assert.equal(afterUnblock.last_gate_failure, null,
+      'packed full-chain unblock must clear last_gate_failure after reconcile');
+    assert.equal(activeAfterUnblock?.assigned_role, 'dev',
+      'packed full-chain unblock must dispatch dev — NOT redispatch pm (the tester-reported failure mode)');
+    assert.doesNotMatch(unblock.stdout, /Role:\s+pm/i,
+      'packed full-chain unblock must not surface Role: pm — the bug was redispatching pm on planning_signoff');
+
+    // 5. resume — the final link in the HUMAN-ROADMAP chain. With an active
+    //    dev turn from step 4, resume MUST refuse to re-dispatch and MUST NOT
+    //    regress state. Any regression here (phase flipping back to planning,
+    //    role flipping back to pm, a new turn replacing the dev turn) would
+    //    re-open BUG-52 against the shipped binary.
+    const resume = spawnSync(process.execPath, [cliPath, 'resume'], spawnOpts);
+    assert.notEqual(resume.status, 0,
+      `packed full-chain resume must reject when a turn is already active (resume assigns new turns, not re-dispatches):\n${resume.stdout}\n${resume.stderr}`);
+    assert.match(resume.stdout, /A turn is already active/i,
+      'packed full-chain resume must tell the operator a turn is already active, not silently dispatch a new one');
+    assert.match(resume.stdout, /Role:\s+dev/i,
+      'packed full-chain resume must surface the active dev turn, not replace it with pm');
+    assert.doesNotMatch(resume.stdout, /Role:\s+pm/i,
+      'packed full-chain resume must not regress to pm role after unblock advanced to implementation');
+    assert.match(resume.stdout, /Phase:\s+implementation/i,
+      'packed full-chain resume must surface the advanced phase=implementation, not the pre-unblock planning phase');
+
+    const afterResume = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    const activeAfterResume = Object.values(afterResume.active_turns || {})[0] || null;
+    assert.equal(afterResume.phase, 'implementation',
+      'packed full-chain resume must not regress phase=implementation after unblock advanced');
+    assert.equal(activeAfterResume?.turn_id, activeAfterUnblock?.turn_id,
+      'packed full-chain resume must not replace the active dev turn dispatched by unblock');
+    assert.equal(activeAfterResume?.assigned_role, 'dev',
+      'packed full-chain resume must not change the active assigned_role from dev');
+    assert.equal(afterResume.phase_gate_status?.planning_signoff, 'passed',
+      'packed full-chain resume must not re-open the planning_signoff gate');
+  });
+
   it('BUG-53 continuous auto-chain is packed (continuous-run + session_continuation event)', () => {
     const packedFiles = getPackedFiles();
     assert.ok(packedFiles.has('src/lib/continuous-run.js'),
