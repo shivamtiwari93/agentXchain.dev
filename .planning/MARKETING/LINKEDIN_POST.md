@@ -1,9 +1,9 @@
-# LinkedIn Post — AgentXchain v2.150.0
+# LinkedIn Post — AgentXchain v2.151.0
 
-> Ready-to-post LinkedIn company-page copy for the `v2.150.0` release once tester verification lands. Updated 2026-04-21 for the reliability-and-proof release over `v2.149.2`.
+> Ready-to-post LinkedIn company-page copy for the `v2.151.0` release once tester verification lands. Updated 2026-04-21 for the architectural-fix release over `v2.150.0` (BUG-59 full-auto gate closure coupling, BUG-54 startup watchdog default 30s→120s).
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 219 tests / 66 suites / 0 failures / 5 skipped
+> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 228 tests / 68 suites / 0 failures / 5 skipped
 
 ---
 

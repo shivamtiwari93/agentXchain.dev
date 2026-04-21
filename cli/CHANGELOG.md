@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.151.0
+
+### Bug Fixes
+- **BUG-59 approval_policy ↔ phase-advance coupling**: `cli/src/lib/governed-state.js::reconcilePhaseAdvanceBeforeDispatch()` now consults `evaluateApprovalPolicy()` when the gate evaluator returns `awaiting_human_approval`. Matching `auto_approve` rule → phase advances directly, `type: 'approval_policy'` ledger entry written matching the accepted-turn path at `governed-state.js:4909-4919`, `phase_entered` emitted with `trigger: 'auto_approved'`. `require_human` → BUG-52 `approvePhaseTransition` fallback preserved.
+- **BUG-59 credentialed-gate hard-stop in approval-policy**: `isCredentialedGate(config, gateId)` reads `config.gates.<id>.credentialed`. Both `evaluatePhaseTransitionPolicy()` and `evaluateRunCompletionPolicy()` short-circuit to `require_human` with reason `"credentialed gate — policy auto-approval forbidden"` before any rule evaluates. A catch-all `auto_approve` rule cannot override.
+- **BUG-59 schema + normalized-config guard**: `cli/src/lib/schemas/agentxchain-config.schema.json` carries `gates.<id>.credentialed: boolean` and structured `approval_policy` defs with `when.credentialed_gate: boolean, enum: [false]`. `cli/src/lib/normalized-config.js` rejects non-boolean `credentialed` on gates and rejects `when.credentialed_gate: true` with a decision-ID-mentioning diagnostic.
+- **BUG-59 default approval_policy in generated configs + enterprise template**: `cli/src/commands/init.js` generated configs now ship explicit `approval_policy` defaults. `qa_ship_verdict` now carries `requires_verification_pass: true`. Enterprise template (`cli/src/templates/governed/enterprise-app.json`) carries the same shape with routine gates `credentialed: false`.
+- **BUG-59 template-manifest whitelist (this release fix)**: `VALID_SCAFFOLD_BLUEPRINT_KEYS` in `cli/src/lib/governed-templates.js` now includes `approval_policy`. Without this, the packaged enterprise-app template validator rejected the new default blueprint with `scaffold_blueprint contains unknown key "approval_policy"`. Surface caught by `test/claim-reality-preflight.test.js`.
+- **BUG-54 startup watchdog default 30 s → 120 s** (`36e7805e`): `runtimes.<id>.startup_watchdog_ms` defaults to 120,000 ms across `local_cli` runtimes. Evidence: Turn 137 measured 113,094 ms first-stdout on a 17,737-byte dispatch bundle; tester hit `stdout_attach_failed` at `running_ms: 30285` under the old default. Per-run and per-runtime overrides preserved.
+
+### Decisions
+- `DEC-BUG59-APPROVAL-POLICY-GATE-COUPLING-001`
+- `DEC-BUG59-RECONCILE-POLICY-COUPLING-001`
+- `DEC-BUG59-CREDENTIALED-GATE-HARD-STOP-001`
+- `DEC-BUG59-CREDENTIALED-GATE-PREDICATE-NEGATIVE-ONLY-001`
+- `DEC-BUG59-SCHEMA-NEGATIVE-GUARD-001`
+- `DEC-BUG59-KEEP-EVALUATOR-PURE-001`
+- `DEC-BUG59-AT-LABEL-UNIQUE-PER-FILE-001`
+- `DEC-BUG59-GATE-ACTIONS-NOT-POLICY-AUTO-APPROVED-001`
+- `DEC-BUG59-IMPL-SLICE-SCOPE-001`
+
+### Status
+- `v2.151.0` is an architectural-fix release. BUG-59 (approval_policy coupling) and BUG-54 (startup watchdog default) ship but close only after tester-quoted shipped-package output on `agentxchain@2.151.0`.
+- The BUG-59 coupling is expected to resolve BUG-52's third variant (`qa_ship_verdict` + `launch_ready` with no pending object) as a side-effect. Tester verification required.
+- BUG-60 (`perpetual` continuous policy) is NOT shipped; sequenced after BUG-59 tester verification per HUMAN-ROADMAP.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 228 tests / 68 suites / 0 failures / 5 skipped
+- node --test cli/test/beta-tester-scenarios/bug-59-full-auto-gate-closure.test.js → 2 tests / 2 pass
+- node --test cli/test/approval-policy.test.js cli/test/reconcile-approval-policy.test.js cli/test/normalized-config-credentialed-validation.test.js cli/test/e2e-approval-policy-lifecycle.test.js → 48 tests / 0 fail
+
 ## 2.150.0
 
 ### Bug Fixes

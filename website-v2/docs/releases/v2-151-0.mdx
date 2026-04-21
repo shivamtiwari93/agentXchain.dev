@@ -1,0 +1,224 @@
+---
+sidebar_position: 0
+title: "v2.151.0 Release Notes"
+---
+
+# AgentXchain v2.151.0
+
+`v2.151.0` is an architectural-fix release over `v2.150.0`. It ships the
+**BUG-59 full-auto gate closure** coupling — `approval_policy` is now wired into
+the governed phase-advance path so a project that configures auto-approval rules
+actually closes routine human-approval gates without operator input, while
+credentialed gates (publish, deploy, send money) hard-stop on human approval
+even against a catch-all `auto_approve` rule. It also ships the
+**BUG-54 startup watchdog default** raised from 30s to 120s after Turn 137's
+measurement of 113s first-stdout on a 17,737-byte dispatch bundle, confirmed
+independently by a tester `stdout_attach_failed` at `running_ms: 30285` on real
+`tusq.dev` full-auto. Closure of BUG-59 and BUG-54 still requires tester-quoted
+shipped-package output on `agentxchain@2.151.0` per discipline rules #12 and
+#13.
+
+## Bug Fixes
+
+- **BUG-59 approval_policy ↔ phase-advance coupling**: The full-auto product
+  promise now actually holds end-to-end. Prior to this release,
+  `requires_human_approval: true` on a phase-exit gate unconditionally paused
+  the run, regardless of what `approval_policy` said — the policy subsystem was
+  orthogonal to the gate evaluator. `v2.151.0` couples them at the state-machine
+  layer: `cli/src/lib/governed-state.js::reconcilePhaseAdvanceBeforeDispatch()`
+  now consults `evaluateApprovalPolicy()` when the gate evaluator returns
+  `awaiting_human_approval`. If a rule matches with `action: 'auto_approve'`
+  and conditions are met (`gate_passed`, `roles_participated`,
+  `acceptance_criteria_all_pass`, `verification_outcome`, etc.), the reconcile
+  path advances the phase directly, writes a `type: 'approval_policy'` ledger
+  entry matching the accepted-turn path at `governed-state.js:4909-4919`, and
+  emits `phase_entered` with `trigger: 'auto_approved'`. If the gate is tagged
+  `credentialed: true`, `evaluateApprovalPolicy()` hard-stops with
+  `reason: 'credentialed gate — policy auto-approval forbidden'` before any
+  rule evaluates — a catch-all `auto_approve` rule cannot override. Pure
+  `gate-evaluator.js` stays untouched per `DEC-BUG59-KEEP-EVALUATOR-PURE-001`.
+
+- **BUG-59 credentialed-gate hard-stop in approval-policy**: New
+  `isCredentialedGate(config, gateId)` predicate in
+  `cli/src/lib/approval-policy.js` reads `config.gates.<id>.credentialed`.
+  Both `evaluatePhaseTransitionPolicy()` and `evaluateRunCompletionPolicy()`
+  short-circuit to `require_human` with a stable
+  `"credentialed gate — policy auto-approval forbidden"` reason string (so
+  audit-log greps are reliable) before any rule is considered.
+  `when.credentialed_gate: false` is the documented valid predicate — it
+  asserts the gate is NOT credentialed as a defensive precondition on a rule.
+  The positive form `when.credentialed_gate: true` is rejected at JSON Schema
+  + normalized-config validation time (slice 2), so an operator cannot
+  configure an ambiguous "auto-approve this credentialed gate" intent.
+
+- **BUG-59 config schema + normalized-config validation**:
+  `cli/src/lib/schemas/agentxchain-config.schema.json` now carries
+  `gates.<id>.credentialed: boolean` and a structured `approval_policy`
+  (`$defs.phase_transitions`, `$defs.rules[]`, `$defs.run_completion`,
+  `$defs.when`) with `when.credentialed_gate: boolean, enum: [false]`.
+  `cli/src/lib/normalized-config.js` rejects non-boolean `credentialed` on
+  gates and rejects `when.credentialed_gate: true` with a diagnostic that
+  references `DEC-BUG59-CREDENTIALED-GATE-PREDICATE-NEGATIVE-ONLY-001`.
+
+- **BUG-59 default approval_policy in generated configs + enterprise
+  template**: `cli/src/commands/init.js` generated governed configs now ship
+  an explicit `approval_policy` block: `planning -> implementation` auto-
+  approves when `gate_passed: true` and `roles_participated: ['pm']` with
+  `credentialed_gate: false`; `run_completion` auto-approves when
+  `gate_passed: true`, `all_phases_visited: true`, and `credentialed_gate:
+  false`. All routine gates default to `credentialed: false`.
+  `qa_ship_verdict` now carries `requires_verification_pass: true` so auto-
+  approval only fires when verification evidence is present. The enterprise
+  template (`cli/src/templates/governed/enterprise-app.json`) carries the
+  same shape; projects declaring a `publish_release` / `production_deploy` /
+  `send_payments` gate MUST mark it `credentialed: true` per
+  `DEC-BUG59-GATE-ACTIONS-NOT-POLICY-AUTO-APPROVED-001`.
+
+- **BUG-59 template-manifest whitelist**: `VALID_SCAFFOLD_BLUEPRINT_KEYS` in
+  `cli/src/lib/governed-templates.js` now includes `approval_policy`.
+  Without this, the packaged enterprise-app template validator rejected the
+  new default blueprint with "scaffold_blueprint contains unknown key
+  \"approval_policy\"", breaking packaged-scaffold initialization. Surface
+  caught by `test/claim-reality-preflight.test.js`.
+
+- **BUG-54 startup watchdog default 30s → 120s** (`36e7805e`): The local CLI
+  adapter's `startup_watchdog_ms` default is raised to 120,000 ms. Turn 137
+  measured first-stdout at 113,094 ms for a 17,737-byte realistic dispatch
+  bundle under Claude Opus 4.7 on a clean dev box; a tester on `tusq.dev`
+  full-auto independently hit `stdout_attach_failed` at `running_ms: 30285`
+  under the old default. Per-run and per-runtime overrides (`AGENTXCHAIN_*`
+  env vars and `runtimes.<id>.startup_watchdog_ms`) are preserved. Operators
+  with faster setups can still lower the threshold explicitly.
+
+## Decisions
+
+- `DEC-BUG59-APPROVAL-POLICY-GATE-COUPLING-001` — BUG-59 full-auto gate
+  closure is implemented as a layered governed-state contract, not by moving
+  policy into the pure gate evaluator.
+- `DEC-BUG59-RECONCILE-POLICY-COUPLING-001` — `reconcilePhaseAdvanceBefore
+  Dispatch()` is the second site after `applyAcceptedTurn()` where
+  `evaluateApprovalPolicy()` is consulted on `awaiting_human_approval`.
+- `DEC-BUG59-CREDENTIALED-GATE-HARD-STOP-001` — credentialed gates hard-stop
+  inside `evaluatePhaseTransitionPolicy()` and `evaluateRunCompletionPolicy()`
+  before any rule is considered.
+- `DEC-BUG59-CREDENTIALED-GATE-PREDICATE-NEGATIVE-ONLY-001` —
+  `when.credentialed_gate: false` is the only documented valid predicate
+  value; `true` is rejected by schema + normalized-config validation.
+- `DEC-BUG59-SCHEMA-NEGATIVE-GUARD-001` — JSON Schema and normalized-config
+  both reject `when.credentialed_gate: true` before a policy evaluation can
+  reach it.
+- `DEC-BUG59-KEEP-EVALUATOR-PURE-001` — `cli/src/lib/gate-evaluator.js` stays
+  a pure structural predicate; policy + state-machine context live in
+  `governed-state.js` and `approval-policy.js` only.
+- `DEC-BUG59-AT-LABEL-UNIQUE-PER-FILE-001` — `AT-<area>-<NNN>` test labels
+  are per-file unique; slice-1 duplicate `AT-AP-009` labels were renamed to
+  `AT-AP-013` / `AT-AP-014` in slice 4.
+- `DEC-BUG59-GATE-ACTIONS-NOT-POLICY-AUTO-APPROVED-001` — gates with
+  release/deploy/publish `gate_actions` are human-approval automation
+  boundaries and should be marked `credentialed: true`.
+- `DEC-BUG59-IMPL-SLICE-SCOPE-001` — BUG-59 implementation was split into
+  four reviewable slices (policy primitives, schema + normalized-config
+  validation, reconcile-path policy coupling, defaults + beta scenario +
+  spec/docs).
+
+## Operator Notes
+
+- **Routine vs credentialed gate classification is now a first-class
+  config decision.** Before running `agentxchain run --continuous` unattended,
+  tag every gate that protects an external irreversible action
+  (`npm publish`, `kubectl apply`, `gcloud run deploy`, payment transfer)
+  with `credentialed: true`. Routine phase-exit gates (PM signoff, QA ship
+  verdict on internal work) stay `credentialed: false` so `approval_policy`
+  can close them when conditions are met.
+- **`approval_policy` is the autonomy surface.** `--auto-approve` remains a
+  runtime blanket override for one-off human-interactive sessions.
+  `approval_policy` is the durable project posture that survives across
+  runs and makes full-auto behavior reviewable in the config.
+- **`qa_ship_verdict` now requires `requires_verification_pass: true` in
+  init-generated configs.** Auto-approval only fires when verification
+  evidence is present on the accepted QA turn. Operators upgrading from
+  `v2.150.0` configs should add `requires_verification_pass: true` to their
+  `qa_ship_verdict` gate if they want the full-auto closure path.
+- **Startup watchdog default is now 120 s.** Operators on fast local
+  subprocess setups can lower `runtimes.<id>.startup_watchdog_ms` to keep
+  the old 30s fail-fast behavior. Projects hitting `stdout_attach_failed` at
+  `running_ms` near 30000 should NOT need to raise it anymore.
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.151.0 -c "agentxchain --version"
+```
+
+### BUG-59 full-auto gate closure (new)
+
+Configure a governed project with `approval_policy` auto-approval on
+`qa -> launch` (or `run_completion`) with `credentialed_gate: false`, then:
+
+```bash
+agentxchain init --governed
+# Run full-auto: PM -> dev -> QA -> launch, no human approval
+agentxchain run --continuous --vision .planning/VISION.md --max-runs 1
+```
+
+The run must advance through `qa -> launch` (or to `run_completion`) with
+**zero** `unblock` / `approve-completion` calls. Quote the `phase_entered`
+event with `trigger: 'auto_approved'` and the ledger entry
+`type: 'approval_policy'`. Negative path: mark the QA ship gate
+`credentialed: true`, same run — the gate must still block on human with
+`smoke_probe`-free diagnostic `credentialed gate — policy auto-approval
+forbidden` in the approval-policy evaluation.
+
+### BUG-54 startup watchdog threshold (new default)
+
+Run 10 consecutive `local_cli` dispatches across PM/dev/QA roles on the real
+failing environment. Quote adapter diagnostic lines including
+`startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`,
+`watchdog_fired`. On `v2.151.0`, `watchdog_fired` MUST be false on at least
+9 of 10 dispatches at the default threshold (no config overrides).
+
+### All prior shipped-package closure contracts remain in force
+
+- **BUG-52 phase-gate reconciliation** — full four-lane coverage; quote
+  `phase_entered` with `trigger: 'reconciled_before_dispatch'` or
+  `trigger: 'auto_approved'` (the new BUG-59 path that resolves BUG-52's
+  third variant).
+- **BUG-53 continuous auto-chain** — `session_continuation <prev> -> <next>
+  (<objective>)`; session status stays `running` between runs, ends as
+  `completed` or `idle_exit`, never `paused`.
+- **BUG-55 checkpoint completeness + verification outputs** — quote
+  `git status --short` after `accept-turn` + `checkpoint-turn` (must be
+  clean).
+- **BUG-56 probe-based auth preflight** — Claude Max + no env auth + no
+  `--bare` must pass `connector check` / `connector validate` / governed
+  `run`; a hanging shim must fail with `error_code:
+  "claude_auth_preflight_failed"` and `smoke_probe.kind: "hang"`.
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 228 tests / 68 suites / 0 failures / 5 skipped
+- node --test cli/test/beta-tester-scenarios/bug-59-full-auto-gate-closure.test.js → 2 tests / 2 pass (positive + credentialed-negative command-chain)
+- node --test cli/test/approval-policy.test.js cli/test/reconcile-approval-policy.test.js cli/test/normalized-config-credentialed-validation.test.js cli/test/e2e-approval-policy-lifecycle.test.js → 48 tests / 0 fail (slice 1-3 coverage)
+- cli/src/lib/governed-templates.js whitelist fix gate: node --test test/template-validate.test.js test/template-spec-consistency.test.js → green after `approval_policy` added to `VALID_SCAFFOLD_BLUEPRINT_KEYS`.
+
+## Status
+
+- **BUG-59**: full-auto gate closure coupling shipped. Closure requires
+  tester-quoted shipped-package output on `agentxchain@2.151.0` showing
+  (a) `trigger: 'auto_approved'` on routine gate closure + (b) credentialed-
+  gate block with policy-evaluation diagnostic.
+- **BUG-54**: startup watchdog default raised to 120,000 ms. Closure
+  requires tester-quoted `>90%` success across 10 consecutive PM/dev/QA
+  dispatches on the failing environment at the new default.
+- **BUG-52 / BUG-53**: the BUG-59 coupling is expected to resolve BUG-52's
+  third-variant (`qa_ship_verdict` + `launch_ready` with no pending object)
+  as a side-effect. Tester verification required.
+- **BUG-55 / BUG-56**: closed on prior releases. Regression coverage
+  carried.
+- **BUG-60 perpetual continuous policy**: NOT shipped in `v2.151.0`.
+  Sequenced after BUG-59 tester verification per HUMAN-ROADMAP.
+
+`v2.151.0` does not flip any HUMAN-ROADMAP checkboxes on its own. BUG-59 and
+BUG-54 close only after tester-quoted shipped-package output lands.
