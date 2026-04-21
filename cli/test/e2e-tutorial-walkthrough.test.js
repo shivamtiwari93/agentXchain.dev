@@ -74,6 +74,14 @@ function writeManualTutorialConfig(cwd) {
   config.roles.dev.runtime = 'manual-dev';
   config.roles.qa.runtime = 'manual-qa';
   config.runtimes['manual-dev'] = { type: 'manual' };
+  config.gates.planning_signoff = {
+    ...config.gates.planning_signoff,
+    credentialed: true,
+  };
+  config.gates.qa_ship_verdict = {
+    ...config.gates.qa_ship_verdict,
+    credentialed: true,
+  };
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
