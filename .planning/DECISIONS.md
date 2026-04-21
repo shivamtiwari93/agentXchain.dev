@@ -51,3 +51,40 @@ Adding a workflow that fires on every push to `main` requires explicit human app
 - QA ship gates intended for routine auto-approval require both `requires_human_approval: true` and `requires_verification_pass: true`; acceptance-matrix semantics supply the "all ACs pass" proof, while turn verification supplies smoke/test evidence.
 
 **Why:** Research showed the roadmap's original locator (`gate-evaluator.js` human-approval branch) was historically useful but incomplete. The accepted-turn path already consulted approval policy, while generated configs lacked safe defaults and reconcile could still pause on policy-closable gates. This decision ties together `DEC-BUG59-CREDENTIALED-GATE-HARD-STOP-001`, `DEC-BUG59-SCHEMA-NEGATIVE-GUARD-001`, and `DEC-BUG59-RECONCILE-POLICY-COUPLING-001` into the durable integration contract.
+
+## DEC-BUG59-CLOSURE-GATE-TESTER-QUOTEBACK-001
+
+**Status:** Active as of 2026-04-21.
+
+**Decision:** BUG-59 is shipped and agent-verified in `agentxchain@2.151.0`, but it is not closed for BUG-60 sequencing until the real tester quotes evidence from their own `tusq.dev` dogfood run.
+
+Required quote-back fields:
+
+- `.agentxchain/state.json` summary with `status`, `phase`, `pending_run_completion`, `blocked_on`, and `last_gate_failure`.
+- One `decision-ledger.jsonl` row with `type: "approval_policy"`, `gate_type: "phase_transition"`, `action: "auto_approve"`, and a non-credentialed matched rule.
+- One `decision-ledger.jsonl` row with `type: "approval_policy"`, `gate_type: "run_completion"`, `gate_id: "qa_ship_verdict"`, `action: "auto_approve"`, and a non-credentialed matched rule.
+- A credentialed-gate counter-case where `qa_ship_verdict` or the project-equivalent external/irreversible gate remains blocked under `credentialed: true`.
+
+Agent-side clean-install proof against the published package is necessary pre-proof, not sufficient closure. BUG-60 research and implementation remain blocked until this quote-back lands.
+
+**Why:** The product claim is "full-auto works on the tester's real project," not merely "the packaged regression test passes." Prior beta false closures came from proving synthetic paths while the dogfood path still failed. This decision freezes the closure bar so agents stop toggling between release-complete and tester-complete language.
+
+## DEC-BUG59-TESTER-QUOTEBACK-RUNBOOK-001
+
+**Status:** Active as of 2026-04-21.
+
+**Decision:** `.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md` is the canonical tester checklist for the `agentxchain@2.151.0` BUG-59 and BUG-54 quote-back.
+
+The runbook must include pinned `npx --yes -p agentxchain@2.151.0` commands, the exact `jq` filters for state and `approval_policy` ledger rows, the credentialed negative recipe, and the BUG-54 ten-dispatch watchdog evidence shape.
+
+**Why:** The tester should not have to infer which fields close the bug from agent debate. A short installed-package runbook reduces ambiguity and keeps BUG-60 blocked on concrete evidence rather than narrative confidence.
+
+## DEC-BUG59-RELEASE-BUMP-SEPARATION-001
+
+**Status:** Active as of 2026-04-21.
+
+**Decision:** Release bump commits must contain only version and release-surface outputs owned by `cli/scripts/release-bump.sh`. Full-suite repairs discovered during a release-bump gate must be committed independently before rerunning the bump.
+
+Do not hide fixture repairs, behavior fixes, docs rewrites, or test expectation changes inside the generated bump commit. If the release gate discovers those changes are needed, reset or stash the bump outputs, land the repair as its own commit with its own proof, then rerun the release bump.
+
+**Why:** The v2.151.0 BUG-59 release found a long tail of stale tests that depended on manual gates. Splitting those repairs from the final bump kept the release commit auditable and made it clear which changes were behavior/test repairs versus mechanical release outputs.
