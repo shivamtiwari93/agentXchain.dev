@@ -24,6 +24,8 @@ The acceptance matrix passes gate semantics only when all of the following are t
 
 If any real requirement row is still `pending`, `fail`, blank, or any other non-affirmative value, the gate fails closed.
 
+For BUG-59 full-auto semantics, QA gate evidence enters auto-approval through the existing gate predicates, not through bespoke policy predicates. A `qa_ship_verdict` gate that may close by `approval_policy` must set both `requires_human_approval: true` and `requires_verification_pass: true`; the acceptance matrix then proves "all ACs pass" while the turn verification proves smoke/test execution succeeded. `approval_policy` may remove the human pause only after those predicates pass and only when the gate is not credentialed.
+
 ## Error Cases
 
 - Missing table header: fail with a reason that the requirement table header is missing.
@@ -38,6 +40,7 @@ If any real requirement row is still `pending`, `fail`, blank, or any other non-
 - AT-QA-GATE-003: matrix with all requirement rows in `pass` status satisfies the QA gate.
 - AT-QA-GATE-004: final run completion reuses the same matrix semantics instead of checking file presence only.
 - AT-QA-GATE-005: docs distinguish scaffold proof from gate-ready acceptance proof.
+- AT-QA-GATE-006: a full-auto QA ship gate requires both a passing acceptance matrix and `verification.status` of `pass` or `attested_pass` before policy can auto-approve it.
 
 ## Open Questions
 

@@ -197,7 +197,32 @@ Standard phases: `planning` -> `implementation` -> `qa`.
 |-----------|----------|
 | `requires_files` | Listed file paths must exist |
 | `requires_verification_pass` | Turn verification status must be `pass` or `attested_pass` |
-| `requires_human_approval` | Blocks auto-advance; run pauses for explicit `approve-transition` |
+| `requires_human_approval` | Blocks auto-advance unless an `approval_policy` rule auto-approves the gate |
+| `credentialed` | When `true`, marks a gate as protecting a credentialed, irreversible, or operator-owned action. Such gates cannot be auto-approved by policy. Missing defaults to `false` for compatibility. |
+
+### 3.5.1 Approval Policy
+
+`approval_policy` is the governed autonomy surface for routine human-approval gates. It is not a new protocol mode. A project is "full-auto" only when its config explicitly marks routine gates as non-credentialed and declares the policy rules that may close them.
+
+Supported policy boundaries:
+
+- `phase_transitions.default`: fallback action, `require_human` or `auto_approve`
+- `phase_transitions.rules[]`: ordered first-match rules with optional `from_phase`, `to_phase`, and `when`
+- `run_completion`: final run-completion action and optional `when`
+
+Supported `when` predicates:
+
+- `gate_passed`: the underlying gate predicates already passed
+- `roles_participated`: listed roles have an accepted turn in the current phase
+- `all_phases_visited`: every declared routing phase was active at least once
+- `credentialed_gate: false`: the current gate is not credentialed; `true` is invalid
+
+Invariants:
+
+- The structural gate evaluator runs first. Policy cannot override missing files, failed verification, or gate semantic failures.
+- `credentialed: true` is a hard stop. No policy rule, including a catch-all `auto_approve`, can close it.
+- Policy auto-approval writes a `type: "approval_policy"` decision-ledger entry with the matched rule, reason, gate id, gate type, and timestamp.
+- `--auto-approve` is a blanket operator override and is not equivalent to project-owned full-auto policy.
 
 ### 3.6 Budget
 

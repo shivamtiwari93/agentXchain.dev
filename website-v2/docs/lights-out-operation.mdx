@@ -35,9 +35,12 @@ Confirm these inputs before you go further:
 - `.planning/VISION.md` exists and reflects the product direction for this repo
 - your runtime binding is real for the roles that will execute unattended work
 - approval policy is intentional: use auto-approval only where your governance rules allow it
+- routine gates that may close unattended are marked `credentialed: false`; gates protecting publish, deploy, payment, credential, or other external irreversible actions are marked `credentialed: true`
 - budget stance is explicit for both per-run and continuous session spend
 
 If you need human review before vision-derived work enters execution, set `triage_approval: "human"` in the continuous config instead of pretending the repo is safe for full auto-approval.
+
+Full-auto is a policy posture, not a magic mode flag. A generated governed config can close routine gates by policy after evidence passes, but credentialed gates still require human approval. For the exact config shape, read [Approval Policy](/docs/approval-policy).
 
 ## 2. Configure one schedule-owned continuous session
 
@@ -49,7 +52,7 @@ Add a schedule entry in `agentxchain.json`:
     "vision_autopilot": {
       "enabled": true,
       "every_minutes": 60,
-      "auto_approve": true,
+      "auto_approve": false,
       "max_turns": 10,
       "initial_role": "pm",
       "trigger_reason": "Repo-local lights-out execution",
@@ -72,6 +75,7 @@ What matters here:
 - `continuous.vision_path` is required when continuous mode is enabled
 - `per_session_max_usd` is the cumulative session cap; when hit, the session stops cleanly instead of blocking
 - `triage_approval: "human"` pauses vision-derived work at the intake approval boundary instead of auto-approving it
+- `auto_approve: false` keeps the scheduler from using the blanket CLI override; project-owned `approval_policy` should decide which gates are routine enough to close unattended
 
 For the field-by-field reference, see [Lights-Out Scheduling](/docs/lights-out-scheduling) and [CLI Reference](/docs/cli).
 
@@ -89,6 +93,7 @@ That command is the safety floor. It proves:
 - the intake lifecycle can seed or consume work
 - the configured adapter/runtime can complete a governed run
 - status surfaces continuous-session truth for this repo
+- routine human-approval gates close through `approval_policy` only after required files and verification pass evidence are present
 
 Skipping this proof and going straight to `schedule daemon` is lazy. If the repo cannot complete one bounded run in the foreground, the daemon will not save you.
 

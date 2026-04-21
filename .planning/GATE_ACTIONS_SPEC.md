@@ -64,6 +64,13 @@ Status/report/audit surfaces read those `gate_action` entries and expose the lat
 11. `status` shows the latest gate-action attempt for the current pending gate.
 12. `report` and `audit` include gate-action evidence from the decision ledger.
 
+Approval-policy interaction:
+
+- Gate actions are a human-approval automation boundary. They are executed by `approve-transition` or `approve-completion`, including their `--dry-run` preview path.
+- A gate with `gate_actions` should be marked `credentialed: true` when the actions publish, deploy, tag, spend money, mutate external systems, or otherwise rely on operator-owned credentials.
+- `approval_policy` auto-approval does not run gate actions. If a gate needs gate actions, keep it human-gated by setting `credentialed: true`.
+- Routine non-credentialed gates that close by policy should not declare `gate_actions`; use hooks or later workflow steps for non-approval automation.
+
 Environment variables exposed to gate-action commands:
 
 - `AGENTXCHAIN_GATE_ID`
@@ -75,6 +82,7 @@ Environment variables exposed to gate-action commands:
 ## Error Cases
 
 - `gate_actions` present on a gate without `requires_human_approval: true` → config error.
+- `gate_actions` present on a gate that is intended for policy auto-approval → configuration smell; mark the gate `credentialed: true` or remove the actions.
 - `gate_actions` not an array, empty array, or action missing `run` → config error.
 - `timeout_ms` present but outside `1000..3600000` or not an integer → config error.
 - gate action exits non-zero or fails to spawn → approval fails with `gate_action_failed`, pending gate stays intact, run blocks for retry.
@@ -91,6 +99,7 @@ Environment variables exposed to gate-action commands:
 - `AT-GA-006`: `report --format json` exposes `subject.run.gate_actions` with status, command, and exit metadata.
 - `AT-GA-007`: config validation rejects invalid `timeout_ms` values on gate actions.
 - `AT-GA-008`: a gate action that exceeds `timeout_ms` fails the approval, preserves the pending gate, and records timeout evidence in the ledger/state.
+- `AT-GA-009`: docs and config examples keep gate-action release/deploy gates credentialed so approval-policy auto-approval cannot bypass them.
 
 ## Open Questions
 

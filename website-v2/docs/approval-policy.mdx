@@ -14,9 +14,11 @@ The approval policy is the conditional auto-approval layer for governed gates. I
 | `--auto-approve` on `agentxchain run` | Bypasses ALL approval gates |
 | **Approval policy** | Auto-approves specific gates when evidence conditions are met |
 
+In generated governed projects, "full-auto" is not a separate protocol mode. It is a project-policy posture: routine gates are marked `credentialed: false`, the QA ship gate also requires verification pass evidence, and `approval_policy` contains explicit rules for the routine boundaries that may close without an operator.
+
 If you need repo-local automation **after** a human-approved gate succeeds, that is a different feature. See [Gate Actions](/docs/gate-actions). Approval policy decides whether a human pause is required; gate actions decide what runs after approval.
 
-For lights-out operation, operators need conditional approval — rules that auto-approve low-risk transitions when structural predicates pass, while still requiring human approval for high-risk transitions like `qa → release`.
+For lights-out operation, operators need conditional approval — rules that auto-approve low-risk transitions when structural predicates pass, while still requiring human approval for high-risk transitions like publishing to npm, deploying to production, or any other external credentialed action.
 
 ## Config shape
 
@@ -33,7 +35,8 @@ The `approval_policy` is an optional top-level section in `agentxchain.json`:
           "to_phase": "implementation",
           "action": "auto_approve",
           "when": {
-            "gate_passed": true
+            "gate_passed": true,
+            "credentialed_gate": false
           }
         },
         {
@@ -47,8 +50,32 @@ The `approval_policy` is an optional top-level section in `agentxchain.json`:
       "action": "auto_approve",
       "when": {
         "gate_passed": true,
-        "all_phases_visited": true
+        "all_phases_visited": true,
+        "credentialed_gate": false
       }
+    }
+  }
+}
+```
+
+Routine gates opt into policy eligibility with `credentialed: false`:
+
+```json title="agentxchain.json"
+{
+  "gates": {
+    "qa_ship_verdict": {
+      "requires_files": [
+        ".planning/acceptance-matrix.md",
+        ".planning/ship-verdict.md",
+        ".planning/RELEASE_NOTES.md"
+      ],
+      "requires_human_approval": true,
+      "requires_verification_pass": true,
+      "credentialed": false
+    },
+    "publish_release": {
+      "requires_human_approval": true,
+      "credentialed": true
     }
   }
 }
@@ -93,6 +120,7 @@ Ordered list of rules. First match wins.
 |---|---|---|
 | `gate_passed` | boolean | Gate structural predicates must have passed. In practice this is defense-in-depth, because the policy only evaluates after the gate already returned `awaiting_human_approval`. |
 | `roles_participated` | string[] | These role IDs must have at least one accepted turn in the current phase. The evaluator sees history after the just-accepted turn is appended, so the current accepted turn counts. |
+| `credentialed_gate` | `false` | Requires the current gate to be non-credentialed. `true` is rejected because credentialed gates are hard-stopped before rule matching. |
 
 ## Run completion
 
@@ -109,14 +137,16 @@ Controls auto-approval for the final run completion gate.
 |---|---|---|
 | `gate_passed` | boolean | Completion gate must have passed. This is also defense-in-depth for the same reason as phase transitions. |
 | `all_phases_visited` | boolean | Every phase declared in routing must have been active at least once. This is strict: if you declare an optional phase in routing and never visit it, completion will still require human approval. |
+| `credentialed_gate` | `false` | Requires the completion gate to be non-credentialed. |
 
 ## Invariants
 
 1. **Only applies to `requires_human_approval` gates.** Gates without that flag already auto-advance — the policy does not affect them.
-2. **`--auto-approve` overrides policy entirely.** The CLI flag is a superset — it approves everything regardless of policy rules. Backwards compatible.
-3. **Absent policy = today's behavior.** If `approval_policy` is not configured, all `requires_human_approval` gates pause for human approval.
-4. **Pure evaluation.** Policy decisions are deterministic: `(gateResult, state, config) → "auto_approve" | "require_human"`.
-5. **Auditable.** Every auto-approval decision is recorded in the decision ledger with `type: "approval_policy"`, the matched rule, and the gate context.
+2. **Credentialed gates hard-stop.** A gate with `credentialed: true` always requires human approval. A catch-all `auto_approve` rule cannot override it.
+3. **`--auto-approve` overrides policy entirely.** The CLI flag is an operator override, not a project policy. It approves everything regardless of policy rules and is not equivalent to full-auto policy defaults.
+4. **Absent policy = today's behavior.** If `approval_policy` is not configured, all `requires_human_approval` gates pause for human approval.
+5. **Pure evaluation.** Policy decisions are deterministic: `(gateResult, state, config) → "auto_approve" | "require_human"`.
+6. **Auditable.** Every auto-approval decision is recorded in the decision ledger with `type: "approval_policy"`, the matched rule, and the gate context.
 
 ## Examples
 
@@ -163,17 +193,37 @@ Controls auto-approval for the final run completion gate.
 }
 ```
 
-### Full lights-out with safety conditions
+### Full-auto policy posture with safety conditions
 
 ```json
 {
+  "gates": {
+    "planning_signoff": {
+      "requires_human_approval": true,
+      "credentialed": false
+    },
+    "qa_ship_verdict": {
+      "requires_human_approval": true,
+      "requires_verification_pass": true,
+      "credentialed": false
+    },
+    "publish_release": {
+      "requires_human_approval": true,
+      "credentialed": true
+    }
+  },
   "approval_policy": {
     "phase_transitions": {
-      "default": "auto_approve",
+      "default": "require_human",
       "rules": [
         {
+          "from_phase": "planning",
+          "to_phase": "implementation",
           "action": "auto_approve",
-          "when": { "gate_passed": true }
+          "when": {
+            "gate_passed": true,
+            "credentialed_gate": false
+          }
         }
       ]
     },
@@ -181,12 +231,15 @@ Controls auto-approval for the final run completion gate.
       "action": "auto_approve",
       "when": {
         "gate_passed": true,
-        "all_phases_visited": true
+        "all_phases_visited": true,
+        "credentialed_gate": false
       }
     }
   }
 }
 ```
+
+This is the tester-shaped routine case: QA records 38/38 acceptance criteria as passing, smoke evidence exits 0, `qa_ship_verdict` is non-credentialed, and the run completion gate closes by policy. If the same gate is changed to `credentialed: true`, the run pauses and `agentxchain approve-completion --dry-run` shows the pending human approval boundary.
 
 ## Relationship to other mechanisms
 
@@ -194,6 +247,6 @@ Controls auto-approval for the final run completion gate.
 |---|---|---|
 | [Policies](/docs/policies) | Turn acceptance rules | Independent — policies evaluate on acceptance, approval policy evaluates on gate transitions |
 | [Gates](/docs/protocol-reference) | Artifact and approval checks | Approval policy sits downstream — only evaluates after gate returns `awaiting_human_approval` |
-| [Gate Actions](/docs/gate-actions) | Post-approval repo-local automation | Adjacent but separate — gate actions run after a human-approved gate succeeds; approval policy can auto-approve the gate before that boundary |
+| [Gate Actions](/docs/gate-actions) | Post-approval repo-local automation | Adjacent but separate — gate actions run from human approval commands; gates with release/deploy actions should be `credentialed: true` so policy cannot bypass them |
 | [Hooks](/docs/plugins) | External commands/endpoints | Independent — hooks fire on lifecycle events, not on gate approval decisions |
 | `--auto-approve` | CLI flag | Overrides approval policy — approves everything |

@@ -387,9 +387,9 @@ describe('AT-AP-008: auditable policy decisions', () => {
   });
 });
 
-// ── AT-AP-009: credentialed gate hard stop (BUG-59) ─────────────────────────
+// ── AT-AP-013: credentialed gate hard stop (BUG-59) ─────────────────────────
 
-describe('AT-AP-009: credentialed gate hard stop', () => {
+describe('AT-AP-013: credentialed gate hard stop', () => {
   function makeCredentialedConfig(approvalPolicy) {
     return {
       routing: {
@@ -454,9 +454,9 @@ describe('AT-AP-009: credentialed gate hard stop', () => {
   });
 });
 
-// ── AT-AP-010: when.credentialed_gate predicate (BUG-59) ────────────────────
+// ── AT-AP-014: when.credentialed_gate predicate (BUG-59) ────────────────────
 
-describe('AT-AP-010: when.credentialed_gate predicate', () => {
+describe('AT-AP-014: when.credentialed_gate predicate', () => {
   function makeConfigWithGateFlag(approvalPolicy, credentialed) {
     return {
       routing: {

@@ -289,6 +289,20 @@ Human barriers:
 - `shared_human_gate` barriers may remain unsatisfied until the coordinator gate is approved.
 - Coordinator gate approval marks listed human barriers satisfied and records barrier transitions.
 
+## 8.1 Repo-Local Approval Policy
+
+Repo-local governed runs support conditional auto-approval through top-level `approval_policy`. This is the protocol surface behind "full-auto" operation; it is a policy posture, not a separate protocol mode.
+
+Rules:
+
+- Gate predicates run before policy. Policy cannot override missing files, failed verification, or failed semantic gate evidence.
+- `requires_human_approval: true` gates pause unless policy returns `auto_approve`.
+- Gate definitions may set `credentialed: true` for external, irreversible, or operator-owned actions such as publish or production deploy approval.
+- `credentialed: true` is a hard human-approval boundary. No policy rule, including a catch-all `auto_approve`, may close it.
+- `when.credentialed_gate` is valid only as `false`; it matches non-credentialed gates and is used as a defensive guard in generated full-auto configs.
+- Policy auto-approval records a `type: "approval_policy"` decision-ledger entry with `gate_type`, `gate_id`, `action`, `matched_rule`, `reason`, and `timestamp`.
+- `--auto-approve` remains a blanket operator override and is not equivalent to repo-owned full-auto policy.
+
 ## 9. Cross-Repo Context
 
 Before dispatch, the coordinator generates cross-repo context for the target repo under:

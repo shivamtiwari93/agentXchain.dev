@@ -27,6 +27,7 @@ describe('Approval Policy docs content guard', () => {
     assert.ok(content.includes('gate_passed'), 'must document gate_passed condition');
     assert.ok(content.includes('roles_participated'), 'must document roles_participated condition');
     assert.ok(content.includes('all_phases_visited'), 'must document all_phases_visited condition');
+    assert.ok(content.includes('credentialed_gate'), 'must document credentialed_gate condition');
   });
 
   it('documents the semantic guardrails for gate_passed and all_phases_visited', () => {
@@ -41,6 +42,12 @@ describe('Approval Policy docs content guard', () => {
 
   it('documents auditability via decision ledger', () => {
     assert.ok(content.includes('decision ledger') || content.includes('ledger'), 'must mention decision ledger');
+  });
+
+  it('documents credentialed gate hard-stop semantics', () => {
+    assert.ok(content.includes('credentialed: true'), 'must document credentialed gate marker');
+    assert.ok(content.includes('hard-stop') || content.includes('hard stop'), 'must document credentialed hard-stop behavior');
+    assert.ok(content.includes('not equivalent to full-auto policy'), 'must distinguish --auto-approve from project policy');
   });
 
   it('is linked from the sidebar', () => {

@@ -195,15 +195,44 @@ const GOVERNED_ROUTING = {
 const GOVERNED_GATES = {
   planning_signoff: {
     requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
-    requires_human_approval: true
+    requires_human_approval: true,
+    credentialed: false
   },
   implementation_complete: {
     requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
-    requires_verification_pass: true
+    requires_verification_pass: true,
+    credentialed: false
   },
   qa_ship_verdict: {
     requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
-    requires_human_approval: true
+    requires_human_approval: true,
+    requires_verification_pass: true,
+    credentialed: false
+  }
+};
+
+const GOVERNED_APPROVAL_POLICY = {
+  phase_transitions: {
+    default: 'require_human',
+    rules: [
+      {
+        from_phase: 'planning',
+        to_phase: 'implementation',
+        action: 'auto_approve',
+        when: {
+          gate_passed: true,
+          credentialed_gate: false
+        }
+      }
+    ]
+  },
+  run_completion: {
+    action: 'auto_approve',
+    when: {
+      gate_passed: true,
+      all_phases_visited: true,
+      credentialed_gate: false
+    }
   }
 };
 
@@ -713,6 +742,7 @@ function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitC
 
   const routing = cloneJsonCompatible(blueprint?.routing || GOVERNED_ROUTING);
   const gates = cloneJsonCompatible(blueprint?.gates || GOVERNED_GATES);
+  const approvalPolicy = cloneJsonCompatible(blueprint?.approval_policy || GOVERNED_APPROVAL_POLICY);
   const effectiveWorkflowKitConfig = workflowKitConfig || cloneJsonCompatible(blueprint?.workflow_kit || null);
   const prompts = Object.fromEntries(
     Object.keys(roles).map((roleId) => [roleId, `.agentxchain/prompts/${roleId}.md`])
@@ -725,6 +755,7 @@ function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitC
     runtimes,
     routing,
     gates,
+    approvalPolicy,
     policies,
     prompts,
     workflowKitConfig: effectiveWorkflowKitConfig,
@@ -778,7 +809,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   const template = loadGovernedTemplate(templateId);
   const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
   const scaffoldConfig = buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig, runtimeOptions);
-  const { roles, runtimes, routing, gates, policies, prompts, workflowKitConfig: effectiveWorkflowKitConfig } = scaffoldConfig;
+  const { roles, runtimes, routing, gates, approvalPolicy, policies, prompts, workflowKitConfig: effectiveWorkflowKitConfig } = scaffoldConfig;
   const scaffoldWorkflowKitConfig = effectiveWorkflowKitConfig
     ? normalizeWorkflowKit(effectiveWorkflowKitConfig, Object.keys(routing))
     : null;
@@ -804,6 +835,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
     runtimes,
     routing,
     gates,
+    approval_policy: approvalPolicy,
     budget: {
       per_turn_max_usd: 2.0,
       per_run_max_usd: 50.0,
