@@ -206,8 +206,6 @@ describe('run events E2E', () => {
     assert.equal(eventTypes[0], 'run_started');
     assert.ok(eventTypes.includes('turn_dispatched'));
     assert.ok(eventTypes.includes('turn_accepted'));
-    assert.ok(eventTypes.includes('gate_pending'));
-    assert.ok(eventTypes.includes('gate_approved'));
     assert.ok(eventTypes.includes('phase_entered'));
     assert.equal(eventTypes[eventTypes.length - 1], 'run_completed');
     // All phase_entered events must carry enriched payloads
@@ -220,13 +218,12 @@ describe('run events E2E', () => {
     }
     assert.ok(parsed.every((entry) => entry.run_id === state.run_id), 'all completed-run events must reference the current run');
 
-    const filtered = runCli(root, ['events', '--json', '--type', 'gate_pending,run_completed', '--limit', '0']);
+    const filtered = runCli(root, ['events', '--json', '--type', 'phase_entered,run_completed', '--limit', '0']);
     assert.equal(filtered.status, 0, `filtered events failed:\n${filtered.combined}`);
-    assert.deepEqual(parseJsonLines(filtered.stdout).map((entry) => entry.event_type), [
-      'gate_pending',
-      'gate_pending',
-      'run_completed',
-    ]);
+    assert.deepEqual(
+      parseJsonLines(filtered.stdout).map((entry) => entry.event_type),
+      ['phase_entered', 'phase_entered', 'run_completed'],
+    );
   });
 
   it('records blocked-parent and recovery-child events with separate run_ids', () => {

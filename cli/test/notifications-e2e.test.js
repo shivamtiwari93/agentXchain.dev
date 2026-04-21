@@ -90,6 +90,11 @@ function readJsonl(root, relPath) {
   return content.split('\n').filter(Boolean).map((line) => JSON.parse(line));
 }
 
+function requireCredentialedApprovalNotifications(config) {
+  config.gates.planning_signoff.credentialed = true;
+  config.gates.qa_ship_verdict.credentialed = true;
+}
+
 function waitFor(predicate, timeoutMs = 5000, intervalMs = 25) {
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
@@ -177,6 +182,7 @@ describe('notifications E2E', () => {
       const configPath = join(root, 'agentxchain.json');
       const config = JSON.parse(readFileSync(configPath, 'utf8'));
       config.notifications.webhooks[0].url = collector.url;
+      requireCredentialedApprovalNotifications(config);
       writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
       const run = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
@@ -285,6 +291,11 @@ describe('notifications E2E', () => {
       events: ['phase_transition_pending', 'run_completion_pending', 'run_completed'],
       timeoutMs: 500,
     });
+
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    requireCredentialedApprovalNotifications(config);
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
     const run = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
     assert.equal(run.status, 0, `run failed despite webhook outage:\n${run.combined}`);

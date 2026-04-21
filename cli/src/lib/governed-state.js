@@ -5585,6 +5585,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       status: 'completed',
       payload: { completed_at: updatedState.completed_at || now },
     });
+    recordRunHistory(root, updatedState, config, 'completed');
   }
 
   // Session checkpoint — non-fatal, written after every successful acceptance

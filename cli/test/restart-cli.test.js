@@ -120,6 +120,14 @@ function writePlanningArtifacts(dir) {
   execSync('git commit -m "add planning artifacts"', { cwd: dir, stdio: 'ignore' });
 }
 
+function markPlanningSignoffCredentialed(dir) {
+  const configPath = join(dir, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.gates.planning_signoff.credentialed = true;
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+  execSync('git add agentxchain.json && git commit -m "mark planning gate credentialed"', { cwd: dir, stdio: 'ignore' });
+}
+
 const dirs = [];
 
 after(() => {
@@ -286,6 +294,7 @@ describe('agentxchain restart', () => {
   it('AT-SCR-004: reconnects to an abandoned active turn in a fresh process', () => {
     const dir = createRealProject();
     dirs.push(dir);
+    markPlanningSignoffCredentialed(dir);
 
     const resumePlanning = runCli(dir, ['resume', '--role', 'pm']);
     assert.equal(resumePlanning.status, 0, `resume planning failed: ${resumePlanning.stdout}\n${resumePlanning.stderr}`);
@@ -328,6 +337,7 @@ describe('agentxchain restart', () => {
   it('AT-SCR-006: accept-turn and approve-transition update session checkpoints through the CLI', () => {
     const dir = createRealProject();
     dirs.push(dir);
+    markPlanningSignoffCredentialed(dir);
 
     const resumePlanning = runCli(dir, ['resume', '--role', 'pm']);
     assert.equal(resumePlanning.status, 0, `resume planning failed: ${resumePlanning.stdout}\n${resumePlanning.stderr}`);
@@ -433,6 +443,7 @@ describe('agentxchain restart', () => {
   it('AT-CC-008: restart surfaces pending phase approval without reactivating the run', () => {
     const dir = createRealProject();
     dirs.push(dir);
+    markPlanningSignoffCredentialed(dir);
 
     const resumePlanning = runCli(dir, ['resume', '--role', 'pm']);
     assert.equal(resumePlanning.status, 0, `resume planning failed: ${resumePlanning.stdout}\n${resumePlanning.stderr}`);

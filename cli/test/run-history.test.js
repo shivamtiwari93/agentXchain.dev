@@ -501,6 +501,17 @@ describe('run-history integration contracts', () => {
     assert.match(source, /recordRunHistory\(root,\s*updatedState,\s*config,\s*'completed'\)/);
   });
 
+  it('acceptTurn records completed runs when approval_policy completes directly', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'src', 'lib', 'governed-state.js'),
+      'utf8'
+    );
+    assert.match(
+      source,
+      /if \(updatedState\.status === 'completed'\)[\s\S]*?recordRunHistory\(root,\s*updatedState,\s*config,\s*'completed'\)/,
+    );
+  });
+
   it('repo-observer.js lists run-history.jsonl as orchestrator state', () => {
     assert.ok(ORCHESTRATOR_STATE_FILES.includes('.agentxchain/run-history.jsonl'));
   });

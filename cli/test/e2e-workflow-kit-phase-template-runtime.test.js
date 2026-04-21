@@ -175,14 +175,9 @@ describe('CLI subprocess E2E — workflow-kit phase-template runtime', () => {
       const acceptPlanning = runCli(dir, ['accept-turn']);
       assert.equal(acceptPlanning.status, 0, acceptPlanning.combined);
       state = readState(dir);
-      assert.equal(state.status, 'paused');
-      assert.equal(state.pending_phase_transition.to, 'architecture');
-
-      const approvePlanning = runCli(dir, ['approve-transition']);
-      assert.equal(approvePlanning.status, 0, approvePlanning.combined);
-      state = readState(dir);
       assert.equal(state.phase, 'architecture');
       assert.equal(state.status, 'active');
+      assert.equal(state.phase_gate_status.planning_signoff, 'passed');
 
       const resumeArchitecture = runCli(dir, ['resume']);
       assert.equal(resumeArchitecture.status, 0, resumeArchitecture.combined);
@@ -286,17 +281,20 @@ describe('CLI subprocess E2E — workflow-kit phase-template runtime', () => {
       const acceptQa = runCli(dir, ['accept-turn']);
       assert.equal(acceptQa.status, 0, acceptQa.combined);
       state = readState(dir);
-      assert.equal(state.status, 'paused');
-      assert.equal(state.pending_run_completion.gate, 'qa_ship_verdict');
-      assert.equal(state.phase_gate_status.qa_ship_verdict, 'pending');
-
-      const approveCompletion = runCli(dir, ['approve-completion']);
-      assert.equal(approveCompletion.status, 0, approveCompletion.combined);
-      state = readState(dir);
       assert.equal(state.status, 'completed');
       assert.equal(state.phase, 'qa');
-      assert.equal(state.pending_run_completion, null);
+      assert.equal(state.pending_run_completion ?? null, null);
       assert.equal(state.phase_gate_status.qa_ship_verdict, 'passed');
+
+      const ledger = readJsonl(dir, '.agentxchain/decision-ledger.jsonl');
+      assert.ok(
+        ledger.some((entry) => entry.type === 'approval_policy' && entry.gate_id === 'planning_signoff'),
+        'enterprise-app planning gate should advance through approval_policy',
+      );
+      assert.ok(
+        ledger.some((entry) => entry.type === 'approval_policy' && entry.gate_id === 'qa_ship_verdict'),
+        'enterprise-app QA completion gate should advance through approval_policy',
+      );
 
       const history = readJsonl(dir, HISTORY_PATH);
       assert.equal(history.length, 5);
