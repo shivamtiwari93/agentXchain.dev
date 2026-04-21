@@ -52,6 +52,11 @@ failing environment.
 - `cli/test/reproduce-bug-54-script.test.js`
   - fake Claude runtime captures `command_probe.kind === "claude_version"` and
     its version stdout.
+  - fake Claude runtime that answers `--version` but hangs on the main prompt
+    captures the tester quote-back shape: `spawn_attached > 0`,
+    `stdout_attached: 0`, `watchdog_fires > 0`,
+    `classification.watchdog_no_output`, zero stdout/stderr bytes, and
+    `exit_signal: "SIGTERM"`.
   - non-Claude runtime captures `command_probe.kind === "skipped"`.
 
 ## Open Questions

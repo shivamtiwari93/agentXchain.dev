@@ -137,6 +137,67 @@ exit 0
   }
 });
 
+test('reproduce-bug-54: fake Claude runtime combines version probe with silent watchdog quote-back shape', () => {
+  const dir = makeFixture({});
+  const shimPath = join(dir, 'claude');
+  writeFileSync(shimPath, `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  printf '0.0.0-test-anomalous (Claude Code)\\n'
+  exit 0
+fi
+exec ${JSON.stringify(process.execPath)} -e "setInterval(() => {}, 10000)"
+`);
+  chmodSync(shimPath, 0o755);
+  writeFileSync(
+    join(dir, 'agentxchain.json'),
+    JSON.stringify({
+      runtimes: {
+        'claude-runtime': {
+          type: 'local_cli',
+          command: [shimPath, '--print'],
+          prompt_transport: 'stdin',
+        },
+      },
+    }, null, 2),
+  );
+  try {
+    const payload = runRepro(dir, [
+      '--runtime', 'claude-runtime',
+      '--synthetic', 'x',
+      '--attempts', '2',
+      '--watchdog-ms', '500',
+      '--delay-ms', '0',
+    ]);
+
+    assert.equal(payload.command_probe.kind, 'claude_version');
+    assert.equal(payload.command_probe.status, 0);
+    assert.equal(payload.command_probe.signal, null);
+    assert.equal(payload.command_probe.error, null);
+    assert.equal(payload.command_probe.timed_out, false);
+    assert.match(payload.command_probe.stdout, /0\.0\.0-test-anomalous/);
+
+    assert.equal(payload.summary.total, 2);
+    assert.equal(payload.summary.spawn_attached, 2);
+    assert.equal(payload.summary.stdout_attached, 0);
+    assert.equal(payload.summary.watchdog_fires, 2);
+    assert.equal(payload.summary.avg_first_stdout_ms, null);
+    assert.equal(payload.summary.success_rate_first_stdout, 0);
+    assert.equal(payload.summary.classification.watchdog_no_output, 2);
+
+    for (const attempt of payload.attempts) {
+      assert.equal(attempt.classification, 'watchdog_no_output');
+      assert.equal(attempt.stdout_bytes, 0);
+      assert.equal(attempt.stderr_bytes, 0);
+      assert.equal(attempt.first_stdout_elapsed_ms, null);
+      assert.equal(attempt.first_stderr_elapsed_ms, null);
+      assert.equal(attempt.watchdog_fired, true);
+      assert.equal(attempt.exit_signal, 'SIGTERM');
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('reproduce-bug-54: exit_stderr_only captures stderr text + non-zero exit + null first_stdout_at', () => {
   const dir = makeFixture({
     'stderr-only-runtime': {
