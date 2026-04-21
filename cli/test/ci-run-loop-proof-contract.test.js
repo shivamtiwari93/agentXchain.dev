@@ -6,7 +6,7 @@
  *   2. no CLI shell-out or child_process
  *   3. executes a 3-turn lifecycle to completion via runLoop
  *   4. proves rejection/retry, gate approvals, and event emission
- *   5. is wired into CI
+ *   5. is covered by the local prepublish gate
  */
 
 import { describe, it } from 'node:test';
@@ -18,7 +18,7 @@ import { execFileSync } from 'child_process';
 const CLI_ROOT = join(import.meta.dirname, '..');
 const REPO_ROOT = join(CLI_ROOT, '..');
 const PROOF_SCRIPT = join(REPO_ROOT, 'examples', 'ci-runner-proof', 'run-with-run-loop.mjs');
-const WORKFLOW_PATH = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+const PREPUBLISH_GATE_PATH = join(CLI_ROOT, 'scripts', 'prepublish-gate.sh');
 const source = readFileSync(PROOF_SCRIPT, 'utf8');
 
 describe('CI run-loop proof: composition boundary', () => {
@@ -184,19 +184,18 @@ describe('CI run-loop proof: execution', () => {
   });
 });
 
-describe('CI run-loop proof: workflow', () => {
-  it('AT-RUNLOOP-PROOF-011a: workflow exists', () => {
-    assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof workflow must exist');
+describe('CI run-loop proof: local gate', () => {
+  it('AT-RUNLOOP-PROOF-011a: prepublish gate exists', () => {
+    assert.ok(existsSync(PREPUBLISH_GATE_PATH), 'prepublish gate must exist');
   });
 
-  it('AT-RUNLOOP-PROOF-011b: workflow runs the run-loop proof', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(workflow.includes('run-with-run-loop.mjs'), 'workflow must run the run-loop composition proof');
+  it('AT-RUNLOOP-PROOF-011b: prepublish gate runs npm test coverage', () => {
+    const gate = readFileSync(PREPUBLISH_GATE_PATH, 'utf8');
+    assert.ok(gate.includes('npm test'), 'prepublish gate must run npm test');
   });
 
-  it('AT-RUNLOOP-PROOF-011c: workflow still runs all other proofs', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(workflow.includes('run-one-turn.mjs'), 'workflow must retain single-turn proof');
-    assert.ok(workflow.includes('run-to-completion.mjs'), 'workflow must retain multi-turn primitive proof');
+  it('AT-RUNLOOP-PROOF-011c: ci-runner-proof remote workflow stays absent', () => {
+    const removedWorkflow = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+    assert.equal(existsSync(removedWorkflow), false, 'ci-runner-proof workflow must stay removed');
   });
 });

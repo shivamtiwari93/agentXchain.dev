@@ -17,13 +17,13 @@ This spec closes the gap between primitive proof and real CI execution.
 | `agentxchain run --auto-approve` | Shipped | Now proven separately via `CI_CLI_AUTO_APPROVE_PROOF_SPEC.md` |
 | `api_proxy` adapter (Anthropic/OpenAI/Google) | Shipped | Never dispatched in CI |
 | Non-TTY fail-closed gates | Shipped | Only proven by unit test |
-| `ci-runner-proof.yml` workflow | Shipped | Runs synthetic scripts only |
+| `cli/scripts/prepublish-gate.sh` local gate | Shipped | Runs the proof contracts through `npm test` before release tags |
 
 ## Scope
 
 **In scope:**
-1. A new CI proof script that uses `runLoop` with real `api_proxy` adapter dispatch
-2. A GitHub Actions workflow that runs the proof with a real API key
+1. A proof script that uses `runLoop` with real `api_proxy` adapter dispatch
+2. Local prepublish gate coverage through `npm test`
 3. Proof that `--auto-approve` gates work in non-TTY CI
 4. Proof that governed artifacts (state, history, ledger, TALK, report) are produced
 
@@ -135,30 +135,9 @@ After `runLoop` returns, the script validates:
 7. `TALK.md` includes both role names
 8. Each accepted turn has `cost.usd > 0` (real API call made, not synthetic)
 
-### GitHub Actions Workflow Update
+### Gate Coverage
 
-Add a new job to `ci-runner-proof.yml`:
-
-```yaml
-  api-dispatch-proof:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: cli/package-lock.json
-      - name: Install CLI dependencies
-        run: cd cli && npm ci
-      - name: Run CI API dispatch proof
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: node examples/ci-runner-proof/run-with-api-dispatch.mjs --json
-```
-
-**Only runs on `push` to `main`**, not on PRs — avoids leaking secrets to fork PRs and controls cost.
+`cli/scripts/prepublish-gate.sh` runs `npm test`, which includes `cli/test/ci-api-dispatch-proof-contract.test.js`. The contract test executes the proof script's missing-auth path locally and checks the script boundary. This keeps the proof inside the release quality floor without a dedicated per-push workflow. Full real-API execution remains available by running the proof script manually with `ANTHROPIC_API_KEY` in the environment.
 
 ## Behavior
 

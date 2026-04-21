@@ -5,7 +5,7 @@
  *   1. dedicated workflow exists
  *   2. workflow runs the real harness in text and JSON modes
  *   3. workflow injects ANTHROPIC_API_KEY
- *   4. workflow is restricted to trusted, cost-controlled triggers
+ *   4. workflow is restricted to trusted, low-frequency triggers
  *   5. docs and README name the workflow-backed CI proof path
  */
 
@@ -40,11 +40,12 @@ describe('Governed todo app CI proof: workflow contract', () => {
     assert.match(workflow, /ANTHROPIC_API_KEY:/);
   });
 
-  it('AT-TODO-CI-004: workflow is restricted to push on main plus workflow_dispatch', () => {
+  it('AT-TODO-CI-004: workflow is restricted to release tags, nightly schedule, and workflow_dispatch', () => {
     assert.match(workflow, /push:/);
-    assert.match(workflow, /branches:\s*\n\s*-\s*main/);
+    assert.match(workflow, /tags:\s*\n\s*-\s*'v\*\.\*\.\*'/);
+    assert.match(workflow, /schedule:\s*\n\s*-\s*cron: '0 7 \* \* \*'/);
     assert.match(workflow, /workflow_dispatch:/);
-    assert.match(workflow, /github\.event_name == 'workflow_dispatch' \|\| \(github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'\)/);
+    assert.match(workflow, /github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'schedule' \|\| \(github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)\)/);
   });
 
   it('AT-TODO-CI-005: spec exists', () => {
@@ -55,11 +56,11 @@ describe('Governed todo app CI proof: workflow contract', () => {
 describe('Governed todo app CI proof: docs contract', () => {
   it('AT-TODO-CI-006: website doc names the workflow-backed CI proof path', () => {
     assert.match(doc, /\.github\/workflows\/governed-todo-app-proof\.yml/);
-    assert.match(doc, /pushes to `main` and manual `workflow_dispatch` reruns/);
+    assert.match(doc, /nightly schedule, release tags, and manual `workflow_dispatch` reruns/);
   });
 
   it('AT-TODO-CI-007: example README names the workflow-backed CI proof path', () => {
     assert.match(readme, /\.github\/workflows\/governed-todo-app-proof\.yml/);
-    assert.match(readme, /pushes to `main` and manual `workflow_dispatch` reruns/);
+    assert.match(readme, /nightly schedule, release tags, and manual `workflow_dispatch` reruns/);
   });
 });

@@ -12,7 +12,7 @@ Freeze the operator-proof inventory for `agentxchain run` so agents stop misclas
   - `cli/test/run-integration.test.js`
   - `cli/test/run-api-proxy-integration.test.js`
   - `cli/test/ci-cli-auto-approve-proof-contract.test.js`
-  - `.github/workflows/ci-runner-proof.yml`
+  - `cli/scripts/prepublish-gate.sh`
 
 ## Behavior
 
@@ -21,15 +21,15 @@ The guard test must assert all of the following:
 1. `run-integration.test.js` exists and shells out to the real CLI binary (`cli/bin/agentxchain.js`) rather than calling library primitives directly.
 2. `run-integration.test.js` proves the primary operator path with `agentxchain run --auto-approve`, validates completion, and asserts persisted governed artifacts such as completed state and history.
 3. `run-api-proxy-integration.test.js` exists and proves mixed-adapter CLI execution across `local_cli` and `api_proxy`, including evidence that the mock API server received a request and the governed run completed.
-4. `ci-cli-auto-approve-proof-contract.test.js` exists and the CI workflow references `run-via-cli-auto-approve.mjs`, preserving a shell-out CLI proof in GitHub Actions.
-5. The contract must fail loudly if any of those files are removed, downgraded from subprocess proof to library-only proof, or disconnected from CI.
+4. `ci-cli-auto-approve-proof-contract.test.js` exists and `prepublish-gate.sh` runs `npm test`, preserving a shell-out CLI proof in the release quality floor.
+5. The contract must fail loudly if any of those files are removed, downgraded from subprocess proof to library-only proof, or disconnected from the local gate.
 
 ## Error Cases
 
 - If a test file still exists but no longer shells out to the CLI binary, the contract fails.
 - If a subprocess proof still shells out but stops asserting completion/state/history truth, the contract fails.
 - If the mixed-adapter proof no longer validates API request receipt, the contract fails.
-- If CI stops running the CLI proof script, the contract fails.
+- If the local gate stops running the test suite that covers the CLI proof script, the contract fails.
 
 ## Acceptance Tests
 

@@ -29,6 +29,7 @@ describe('deploy workflow docs truthfulness', () => {
   it('matches the real workflow trigger and build output path', () => {
     assert.match(gcsWorkflow, /workflow_dispatch:/);
     assert.match(gcsWorkflow, /-\s*'website-v2\/\*\*'/);
+    assert.match(gcsWorkflow, /-\s*'docs\/\*\*'/);
     assert.match(gcsWorkflow, /website-v2\/build\//);
   });
 

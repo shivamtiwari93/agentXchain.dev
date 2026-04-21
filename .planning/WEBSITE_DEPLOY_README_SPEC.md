@@ -20,7 +20,7 @@ Covered files:
 The README must:
 
 1. Describe `Deploy Website to GCP GCS` (`.github/workflows/deploy-gcs.yml`) as the canonical deployment path for `https://agentxchain.dev`.
-2. State that the workflow triggers on pushes to `main` that touch `website-v2/**`.
+2. State that the workflow triggers on pushes to `main` that touch `website-v2/**` or `docs/**`.
 3. State that the workflow also supports manual `workflow_dispatch`.
 4. Avoid telling operators to run `deploy-websites.sh` when that script is not part of the repo-owned deployment contract.
 5. Avoid describing GitHub Pages as an active deployment path when it is retired.

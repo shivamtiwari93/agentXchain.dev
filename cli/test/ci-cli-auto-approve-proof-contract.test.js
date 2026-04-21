@@ -6,7 +6,7 @@
  *   2. uses `run --auto-approve --max-turns 6`
  *   3. does not import runLoop or proof-local turn-result normalization
  *   4. validates governance report artifacts and real API cost
- *   5. is wired into the CI workflow
+ *   5. is covered by the local prepublish gate
  */
 
 import { describe, it } from 'node:test';
@@ -18,7 +18,7 @@ import { spawnSync } from 'child_process';
 const CLI_ROOT = join(import.meta.dirname, '..');
 const REPO_ROOT = join(CLI_ROOT, '..');
 const PROOF_SCRIPT = join(REPO_ROOT, 'examples', 'ci-runner-proof', 'run-via-cli-auto-approve.mjs');
-const WORKFLOW_PATH = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+const PREPUBLISH_GATE_PATH = join(CLI_ROOT, 'scripts', 'prepublish-gate.sh');
 const SPEC_PATH = join(REPO_ROOT, '.planning', 'CI_CLI_AUTO_APPROVE_PROOF_SPEC.md');
 const source = readFileSync(PROOF_SCRIPT, 'utf8');
 
@@ -59,27 +59,18 @@ describe('CI CLI auto-approve proof: operator boundary', () => {
   });
 });
 
-describe('CI CLI auto-approve proof: workflow wiring', () => {
+describe('CI CLI auto-approve proof: local gate wiring', () => {
   it('AT-CICLI-CONTRACT-007: proof script exists', () => {
     assert.ok(existsSync(PROOF_SCRIPT), 'run-via-cli-auto-approve.mjs must exist');
   });
 
-  it('AT-CICLI-CONTRACT-008: CI workflow references the proof script', () => {
-    assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof.yml must exist');
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(
-      workflow.includes('run-via-cli-auto-approve.mjs'),
-      'CI workflow must reference the CLI auto-approve proof script',
-    );
+  it('AT-CICLI-CONTRACT-008: prepublish gate runs npm test coverage', () => {
+    const gate = readFileSync(PREPUBLISH_GATE_PATH, 'utf8');
+    assert.ok(gate.includes('npm test'), 'prepublish gate must run npm test');
   });
 
-  it('AT-CICLI-CONTRACT-009: workflow injects ANTHROPIC_API_KEY', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(
-      workflow.includes('run-via-cli-auto-approve.mjs')
-      && workflow.includes('secrets.ANTHROPIC_API_KEY'),
-      'workflow must inject ANTHROPIC_API_KEY for the CLI proof',
-    );
+  it('AT-CICLI-CONTRACT-009: proof keeps ANTHROPIC_API_KEY auth boundary explicit', () => {
+    assert.ok(source.includes('ANTHROPIC_API_KEY'), 'proof must keep the API auth boundary explicit');
   });
 
   it('AT-CICLI-CONTRACT-010: spec exists', () => {

@@ -36,7 +36,7 @@ Canonical production deploy is the GitHub Actions workflow:
 
 It deploys `website-v2/build/` to the `agentxchain.dev` GCS bucket and is triggered by:
 
-- pushes to `main` that change `website-v2/**`
+- pushes to `main` that change `website-v2/**` or `docs/**`
 - manual `workflow_dispatch`
 
 The GCS workflow enforces:

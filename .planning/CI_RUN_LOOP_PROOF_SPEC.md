@@ -8,7 +8,7 @@ Prove that the `runLoop` library composes governed execution correctly as a reus
 
 - One proof script: `examples/ci-runner-proof/run-with-run-loop.mjs`
 - One contract test: `cli/test/ci-run-loop-proof-contract.test.js`
-- Wired into `.github/workflows/ci-runner-proof.yml`
+- Covered by `cli/scripts/prepublish-gate.sh` through the local `npm test` gate
 
 ## Interface
 
@@ -75,7 +75,7 @@ CI Run-Loop Composition Proof — AgentXchain run-loop v<version>
 - `AT-RUNLOOP-PROOF-008`: proof script does not import primitive lifecycle operations (`initRun`, `assignTurn`, `acceptTurn`, `rejectTurn`, `writeDispatchBundle`, `getTurnStagingResultPath`, `approvePhaseGate`, `approveCompletionGate`)
 - `AT-RUNLOOP-PROOF-009`: proof script imports `runLoop` from `run-loop.js`
 - `AT-RUNLOOP-PROOF-010`: proof script does not use `child_process`, `exec`, `spawn`
-- `AT-RUNLOOP-PROOF-011`: CI workflow runs the run-loop proof in both text and JSON modes
+- `AT-RUNLOOP-PROOF-011`: prepublish gate runs the local contract test that executes the run-loop proof
 - `AT-RUNLOOP-PROOF-012`: exits 0 in text mode and output includes "PASS"
 
 ## Error Cases

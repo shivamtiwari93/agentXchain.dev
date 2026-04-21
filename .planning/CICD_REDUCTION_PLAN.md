@@ -1,4 +1,4 @@
-Status: Draft — human-authored 2026-04-21, awaiting agent execution.
+Status: In execution — step 1 shipped Turn 115; workflow trigger shrink and repo-accurate plan corrections shipped Turn 116.
 
 # CI/CD Reduction Plan — Move Testing Local, Keep Only Irreducible Remote Workflows
 
@@ -64,23 +64,23 @@ This was added at some point as a "runner is available" proof. It's redundant wi
 
 **Effect:** nightly regression coverage + coverage on every release. No per-commit pressure.
 
-### 5. `.github/workflows/deploy-website.yml` — ADD paths filter
+### 5. `.github/workflows/deploy-gcs.yml` — ADD paths filter
 
-**Current:** fires on every push to main, regardless of whether any docs file changed.
+**Current before CICD-SHRINK:** fires on every push to main, regardless of whether any docs file changed. **Repo correction:** the actual file is `.github/workflows/deploy-gcs.yml`, not `deploy-website.yml`.
 
-**Change:** add `paths:` filter so it only fires when `website-v2/**`, `docs/**`, or `.github/workflows/deploy-website.yml` itself changes.
+**Change:** add/keep a `paths:` filter so it only fires when `website-v2/**`, `docs/**`, or `.github/workflows/deploy-gcs.yml` itself changes.
 
 **Effect:** agent's code-only commits don't eat docs-deploy slots. Docs-only commits still deploy automatically.
 
-### 6. `.github/workflows/codeql.yml` — REDUCE frequency
+### 6. CodeQL default setup — VERIFY weekly frequency
 
-**Current:** fires on every push + every PR + weekly schedule.
+**Repo correction:** `.github/workflows/codeql.yml` does not exist on HEAD. CodeQL is configured through GitHub default setup. Verification on 2026-04-21 returned `state=configured`, `query_suite=default`, `runner_type=standard`, `schedule=weekly`.
 
-**Change:** fire only on `schedule: 0 2 * * 0` (weekly Sunday UTC) + `workflow_dispatch`.
+**Change:** no committed workflow-file change. The desired weekly cadence is already true in default setup. If a repo-owned CodeQL workflow is added later, it must use weekly schedule + `workflow_dispatch` only unless HUMAN-ROADMAP explicitly approves a per-push scanner.
 
 **Effect:** security scanning still happens weekly; agents can run it on-demand before a release if they want a spot-check. Not on every commit.
 
-### 7. Local `cli/scripts/prepublish-gate.sh` — NEW
+### 7. Local `cli/scripts/prepublish-gate.sh` — SHIPPED
 
 Replaces the per-commit CI coverage that §2 removes. Agents run this before any `git tag`:
 
@@ -103,7 +103,7 @@ bash cli/scripts/check-release-alignment.sh --target-version "$1"
 echo "PREPUBLISH GATE PASSED for $1 — safe to tag and push."
 ```
 
-Usage by agents: `bash cli/scripts/prepublish-gate.sh 2.150.0` before `git tag v2.150.0`. If it exits non-zero, no tag is created, no remote push happens, publish workflow is never triggered on a broken release.
+Usage by agents: `bash cli/scripts/prepublish-gate.sh 2.150.0` before `git tag v2.150.0`. If it exits non-zero, no tag is created, no remote push happens, publish workflow is never triggered on a broken release. Shipped in Turn 115 as `cli/scripts/prepublish-gate.sh`.
 
 ### 8. Update `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001`
 
@@ -122,11 +122,11 @@ Add precondition clause:
 3. Edit `.github/workflows/ci.yml` — change `on:` from `push` + `pull_request` to `pull_request` only.
 4. `git rm .github/workflows/ci-runner-proof.yml`.
 5. Edit `.github/workflows/governed-todo-app-proof.yml` — replace `push: branches: [main]` with `schedule: - cron: '0 7 * * *'` and `push: tags: ['v*.*.*']`.
-6. Edit `.github/workflows/deploy-website.yml` — add `paths: ['website-v2/**', 'docs/**', '.github/workflows/deploy-website.yml']` under the `push:` trigger.
-7. Edit `.github/workflows/codeql.yml` — remove `push:` and `pull_request:` triggers; keep only `schedule: - cron: '0 2 * * 0'` and `workflow_dispatch:`.
+6. Edit `.github/workflows/deploy-gcs.yml` — add `paths: ['website-v2/**', 'docs/**', '.github/workflows/deploy-gcs.yml']` under the `push:` trigger.
+7. Verify CodeQL default setup is weekly. Do not create `.github/workflows/codeql.yml` unless a future security decision explicitly needs a repo-owned workflow.
 8. Append the two new decision records (`DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` update + `DEC-GITHUB-ACTIONS-FOOTPRINT-FLOOR-001`) to `.planning/DECISIONS.md` (or wherever the canonical ledger lives).
 9. Commit on a single branch: `chore(ci): shrink GitHub Actions footprint per CICD_REDUCTION_PLAN`.
-10. Smoke-test: push a no-op commit to main, observe only 0–1 workflow runs (CodeQL if it's Sunday; nothing otherwise). Cut a dummy tag `v0.0.0-test`, observe only publish-on-tag fires (it will fail at preflight since the version is invalid; that's fine, the trigger path is what we're verifying). Delete the test tag.
+10. Smoke-test: push a no-op commit to main, observe zero workflow runs for non-doc paths. Cut a dummy tag `v0.0.0-cicd-smoke`, observe only publish-on-tag fires for npm release tags. Delete the test tag. `publish-vscode-on-tag.yml` is intentionally carved out because it only listens to `vsce-v*.*.*` tags, not npm `v*.*.*` tags.
 
 ## Acceptance criteria
 
@@ -136,7 +136,7 @@ After the shrink lands:
 - `gh run list --status in_progress` shows < 3 entries at any time under normal load (current: 15).
 - Commits to main that change only `cli/src/`, `cli/test/`, `cli/scripts/`, or `.planning/` trigger zero remote workflows.
 - Commits that change only `website-v2/` or `docs/` trigger exactly one remote workflow (deploy-website).
-- Tag pushes for `v*.*.*` trigger exactly one remote workflow (publish-npm-on-tag).
+- Tag pushes for `v*.*.*` trigger exactly one remote workflow (publish-npm-on-tag). VS Code Marketplace publishing remains on separate `vsce-v*.*.*` tags.
 - A full release cut (local gate → tag → push → npm live) completes in < 5 minutes end-to-end under normal GitHub runner conditions.
 - No workflow run's `in_progress` duration exceeds `ubuntu-latest`'s 6-hour ceiling (if one does, it is a zombie and should be flagged for manual cancellation).
 

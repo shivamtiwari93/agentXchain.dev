@@ -9,7 +9,7 @@
  *   5. proposed changes are applied to workspace during dispatch
  *   6. no proof-local semantic coercion
  *   7. uses Haiku for cost control with budget guard
- *   8. wired into CI workflow
+ *   8. covered by the local prepublish gate
  *   9. single JSON payload on retry exhaustion
  *  10. reports gate-pass evidence through phase_gate_status
  */
@@ -23,7 +23,7 @@ import { spawnSync } from 'child_process';
 const CLI_ROOT = join(import.meta.dirname, '..');
 const REPO_ROOT = join(CLI_ROOT, '..');
 const PROOF_SCRIPT = join(REPO_ROOT, 'examples', 'ci-runner-proof', 'run-multi-phase-write.mjs');
-const WORKFLOW_PATH = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+const PREPUBLISH_GATE_PATH = join(CLI_ROOT, 'scripts', 'prepublish-gate.sh');
 const SPEC_PATH = join(REPO_ROOT, '.planning', 'CI_MULTI_PHASE_AUTHORITATIVE_PROOF_SPEC.md');
 const source = readFileSync(PROOF_SCRIPT, 'utf8');
 
@@ -148,13 +148,9 @@ describe('CI multi-phase write proof: workflow wiring', () => {
     assert.ok(existsSync(SPEC_PATH), 'CI_MULTI_PHASE_AUTHORITATIVE_PROOF_SPEC.md must exist');
   });
 
-  it('AT-CIMPA-C17: CI workflow references the proof script', () => {
-    assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof.yml must exist');
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(
-      workflow.includes('run-multi-phase-write.mjs'),
-      'CI workflow must reference the multi-phase write proof script',
-    );
+  it('AT-CIMPA-C17: prepublish gate runs npm test coverage', () => {
+    const gate = readFileSync(PREPUBLISH_GATE_PATH, 'utf8');
+    assert.ok(gate.includes('npm test'), 'prepublish gate must run npm test');
   });
 
   it('AT-CIMPA-C18: --json emits one parseable payload even after retries', () => {

@@ -6,7 +6,7 @@
  *   2. imports only through runner-interface.js for governed execution
  *   3. executes a 3-turn lifecycle to completion
  *   4. proves rejection retry, gate approvals, and dispatch cleanup
- *   5. is wired into CI
+ *   5. is covered by the local prepublish gate
  */
 
 import { describe, it } from 'node:test';
@@ -18,7 +18,7 @@ import { execFileSync } from 'child_process';
 const CLI_ROOT = join(import.meta.dirname, '..');
 const REPO_ROOT = join(CLI_ROOT, '..');
 const PROOF_SCRIPT = join(REPO_ROOT, 'examples', 'ci-runner-proof', 'run-to-completion.mjs');
-const WORKFLOW_PATH = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+const PREPUBLISH_GATE_PATH = join(CLI_ROOT, 'scripts', 'prepublish-gate.sh');
 const source = readFileSync(PROOF_SCRIPT, 'utf8');
 
 describe('CI multi-turn runner proof: no CLI shell-out', () => {
@@ -137,21 +137,18 @@ describe('CI multi-turn runner proof: execution', () => {
   });
 });
 
-describe('CI multi-turn runner proof: workflow', () => {
-  it('AT-CI-MULTI-007a: workflow exists', () => {
-    assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof workflow must exist');
+describe('CI multi-turn runner proof: local gate', () => {
+  it('AT-CI-MULTI-007a: prepublish gate exists', () => {
+    assert.ok(existsSync(PREPUBLISH_GATE_PATH), 'prepublish gate must exist');
   });
 
-  it('AT-CI-MULTI-007b: workflow runs the new proof script', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(workflow.includes('run-to-completion.mjs'), 'workflow must run the multi-turn proof');
-    assert.ok(workflow.includes('run-one-turn.mjs'), 'workflow must retain the single-turn proof');
+  it('AT-CI-MULTI-007b: prepublish gate runs npm test coverage', () => {
+    const gate = readFileSync(PREPUBLISH_GATE_PATH, 'utf8');
+    assert.ok(gate.includes('npm test'), 'prepublish gate must run npm test');
   });
 
-  it('AT-CI-MULTI-007c: workflow still targets main push and pull_request', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(workflow.includes('push'), 'workflow triggers on push');
-    assert.ok(workflow.includes('pull_request'), 'workflow triggers on pull_request');
-    assert.ok(workflow.includes('main'), 'workflow targets main');
+  it('AT-CI-MULTI-007c: ci-runner-proof remote workflow stays absent', () => {
+    const removedWorkflow = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+    assert.equal(existsSync(removedWorkflow), false, 'ci-runner-proof workflow must stay removed');
   });
 });

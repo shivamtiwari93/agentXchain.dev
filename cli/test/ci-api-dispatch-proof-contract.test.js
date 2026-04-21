@@ -6,7 +6,7 @@
  *   2. imports dispatchApiProxy (real adapter, not synthetic)
  *   3. lets runLoop/acceptTurn own validation instead of proof-local coercion
  *   4. validates governed artifacts including real API cost
- *   5. is wired into CI workflow
+ *   5. is covered by the local prepublish gate
  *   6. uses Haiku for cost control
  */
 
@@ -19,7 +19,7 @@ import { spawnSync } from 'child_process';
 const CLI_ROOT = join(import.meta.dirname, '..');
 const REPO_ROOT = join(CLI_ROOT, '..');
 const PROOF_SCRIPT = join(REPO_ROOT, 'examples', 'ci-runner-proof', 'run-with-api-dispatch.mjs');
-const WORKFLOW_PATH = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+const PREPUBLISH_GATE_PATH = join(CLI_ROOT, 'scripts', 'prepublish-gate.sh');
 const SPEC_PATH = join(REPO_ROOT, '.planning', 'CI_AUTOMATION_RUNNER_SPEC.md');
 const source = readFileSync(PROOF_SCRIPT, 'utf8');
 
@@ -88,34 +88,23 @@ describe('CI API dispatch proof: composition boundary', () => {
   });
 });
 
-describe('CI API dispatch proof: workflow wiring', () => {
+describe('CI API dispatch proof: local gate wiring', () => {
   it('AT-CIAPI-PROOF-009: proof script exists', () => {
     assert.ok(existsSync(PROOF_SCRIPT), 'run-with-api-dispatch.mjs must exist');
   });
 
-  it('AT-CIAPI-PROOF-010: CI workflow references the proof script', () => {
-    assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof.yml must exist');
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(
-      workflow.includes('run-with-api-dispatch.mjs'),
-      'CI workflow must reference the API dispatch proof script',
-    );
+  it('AT-CIAPI-PROOF-010: prepublish gate runs npm test coverage', () => {
+    const gate = readFileSync(PREPUBLISH_GATE_PATH, 'utf8');
+    assert.ok(gate.includes('npm test'), 'prepublish gate must run npm test');
   });
 
-  it('AT-CIAPI-PROOF-011: CI workflow injects ANTHROPIC_API_KEY secret', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(
-      workflow.includes('ANTHROPIC_API_KEY') && workflow.includes('secrets.ANTHROPIC_API_KEY'),
-      'CI workflow must inject ANTHROPIC_API_KEY from secrets',
-    );
+  it('AT-CIAPI-PROOF-011: proof still declares ANTHROPIC_API_KEY auth boundary', () => {
+    assert.ok(source.includes('ANTHROPIC_API_KEY'), 'proof must keep the API auth boundary explicit');
   });
 
-  it('AT-CIAPI-PROOF-012: CI workflow restricts to push on main', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(
-      workflow.includes("github.event_name == 'push'") && workflow.includes("refs/heads/main"),
-      'API dispatch job must only run on push to main (cost + secret safety)',
-    );
+  it('AT-CIAPI-PROOF-012: removed remote workflow stays absent', () => {
+    const removedWorkflow = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+    assert.equal(existsSync(removedWorkflow), false, 'ci-runner-proof workflow must stay removed');
   });
 
   it('AT-CIAPI-PROOF-013: spec exists', () => {

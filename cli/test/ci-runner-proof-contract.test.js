@@ -5,21 +5,21 @@
  *   1. Does NOT shell out to CLI commands (exec, spawn, agentxchain)
  *   2. DOES import governed execution operations from runner-interface.js
  *   3. Actually executes and produces valid output
- *   4. Is wired into a GitHub Actions workflow
+ *   4. Is covered by the local prepublish gate
  *
  * AT-CI-RUNNER-001 through AT-CI-RUNNER-005
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 
 const CLI_ROOT = join(import.meta.dirname, '..');
 const REPO_ROOT = join(CLI_ROOT, '..');
 const PROOF_SCRIPT = join(REPO_ROOT, 'examples', 'ci-runner-proof', 'run-one-turn.mjs');
-const WORKFLOW_PATH = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+const PREPUBLISH_GATE_PATH = join(CLI_ROOT, 'scripts', 'prepublish-gate.sh');
 
 // ── AT-CI-RUNNER-002 / AT-CI-RUNNER-005: No CLI shell-out ───────────────────
 
@@ -141,33 +141,27 @@ describe('CI runner proof: execution', () => {
   });
 });
 
-// ── AT-CI-RUNNER-004: Workflow exists ───────────────────────────────────────
+// ── AT-CI-RUNNER-004: Local gate coverage ───────────────────────────────────
 
-describe('CI runner proof: workflow', () => {
-  it('AT-CI-RUNNER-004: ci-runner-proof.yml exists', () => {
-    assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof.yml must exist');
+describe('CI runner proof: local gate', () => {
+  it('AT-CI-RUNNER-004: prepublish gate owns proof coverage through npm test', () => {
+    const gate = readFileSync(PREPUBLISH_GATE_PATH, 'utf8');
+    assert.ok(gate.includes('npm test'), 'prepublish gate must run npm test');
   });
 
-  it('AT-CI-RUNNER-004b: workflow runs the proof script', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+  it('AT-CI-RUNNER-004b: contract test directly runs the proof script', () => {
     assert.ok(
-      workflow.includes('run-one-turn.mjs'),
-      'workflow must reference the proof script',
+      readFileSync(import.meta.filename, 'utf8').includes('execFileSync'),
+      'contract test must execute the proof script locally',
     );
   });
 
-  it('AT-CI-RUNNER-004c: workflow does not shell out to agentxchain CLI', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(
-      !workflow.includes('agentxchain step') && !workflow.includes('agentxchain resume'),
-      'workflow must not use CLI commands',
+  it('AT-CI-RUNNER-004c: removed remote workflow stays absent', () => {
+    const removedWorkflow = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+    assert.throws(
+      () => readFileSync(removedWorkflow, 'utf8'),
+      /ENOENT/,
+      'ci-runner-proof.yml must stay removed to prevent per-push workflow pressure',
     );
-  });
-
-  it('AT-CI-RUNNER-004d: workflow runs on main push and PR', () => {
-    const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
-    assert.ok(workflow.includes('push'), 'workflow triggers on push');
-    assert.ok(workflow.includes('pull_request'), 'workflow triggers on pull_request');
-    assert.ok(workflow.includes('main'), 'workflow targets main branch');
   });
 });

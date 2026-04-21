@@ -18,7 +18,7 @@ describe('website deploy readme contract', () => {
   });
 
   it('documents the real workflow trigger modes', () => {
-    assert.match(readme, /pushes to `main` that change `website-v2\/\*\*`/);
+    assert.match(readme, /pushes to `main` that change `website-v2\/\*\*` or `docs\/\*\*`/);
     assert.match(readme, /manual `workflow_dispatch`/);
     assert.match(gcsWorkflow, /workflow_dispatch:/);
     assert.match(gcsWorkflow, /branches:\s*\n\s*-\s*main/);

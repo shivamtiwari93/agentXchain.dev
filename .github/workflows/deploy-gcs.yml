@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'website-v2/**'
+      - 'docs/**'
+      - '.github/workflows/deploy-gcs.yml'
   workflow_dispatch:
 
 concurrency:

@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Prove that the governed protocol is runner-independent by shipping a second runner — a GitHub Actions workflow step that executes one governed turn using only the runner interface library. No CLI shell-out.
+Prove that the governed protocol is runner-independent by shipping a second runner script that executes one governed turn using only the runner interface library. No CLI shell-out.
 
 This is the narrowest proof that satisfies PROTOCOL-v7.md §3: "Other runners may expose different operator commands as long as they preserve the same artifact, validation, and state-transition contract."
 
 ## Problem Statement
 
-The runner interface (`runner-interface.js`) is declared and tested programmatically. But there is no second runner that actually runs in a different execution environment. The CLI is still the only runner that has ever executed a governed turn in production or CI. Until a non-CLI runner executes a turn and produces valid artifacts, runner independence is a tested claim, not a proven fact.
+The runner interface (`runner-interface.js`) is declared and tested programmatically. The CLI is still the primary runner, so the repo keeps a non-CLI runner proof script that executes a turn and produces valid artifacts. After CICD-SHRINK, this proof is guarded by local `npm test` and `cli/scripts/prepublish-gate.sh`, not by a dedicated per-push GitHub Actions workflow.
 
 ## Design
 
@@ -22,7 +22,7 @@ A standalone Node.js script (`examples/ci-runner-proof/run-one-turn.mjs`) that:
 4. Writes a structured JSON proof report to stdout with artifact checksums
 5. Exits 0 on success, 1 on failure
 
-A GitHub Actions workflow (`ci-runner-proof.yml`) that runs this script on every push to main and on PRs, proving the runner interface works in a real CI environment.
+The local test suite runs the contract test that executes this script. The prepublish gate runs that suite before any release tag can be pushed, keeping the runner-interface proof in the release quality floor without creating a per-push remote workflow.
 
 ### What the CI Runner Proof Is NOT
 
@@ -30,7 +30,7 @@ A GitHub Actions workflow (`ci-runner-proof.yml`) that runs this script on every
 - A replacement for the CLI runner
 - A hosted runner
 - An auto-approve mechanism
-- A CI/CD integration that runs governed turns on real repos
+- A per-push CI/CD integration that runs governed turns on real repos
 
 ### Interface
 
@@ -99,7 +99,7 @@ CI Runner Proof — AgentXchain runner-interface v0.2
 - `AT-CI-RUNNER-001`: The proof script executes successfully (exit 0) and produces valid output
 - `AT-CI-RUNNER-002`: The proof script imports governed execution operations through runner-interface.js, not CLI commands or direct internal path helpers
 - `AT-CI-RUNNER-003`: Artifacts produced match the same structure as CLI-produced artifacts
-- `AT-CI-RUNNER-004`: The GitHub Actions workflow runs the proof script and succeeds
+- `AT-CI-RUNNER-004`: `cli/scripts/prepublish-gate.sh` runs `npm test`, which executes the contract test and proof script before release tags
 - `AT-CI-RUNNER-005`: The contract test guards against regression to CLI shell-out
 
 ## Open Questions

@@ -9,7 +9,7 @@ const RUN_INTEGRATION_TEST = join(CLI_ROOT, 'test', 'run-integration.test.js');
 const RUN_API_PROXY_INTEGRATION_TEST = join(CLI_ROOT, 'test', 'run-api-proxy-integration.test.js');
 const CI_CLI_PROOF_CONTRACT_TEST = join(CLI_ROOT, 'test', 'ci-cli-auto-approve-proof-contract.test.js');
 const RUN_SPEC = join(REPO_ROOT, '.planning', 'RUN_OPERATOR_PROOF_CONTRACT_SPEC.md');
-const CI_WORKFLOW = join(REPO_ROOT, '.github', 'workflows', 'ci-runner-proof.yml');
+const PREPUBLISH_GATE = join(CLI_ROOT, 'scripts', 'prepublish-gate.sh');
 
 describe('run operator proof inventory contract', () => {
   it('AT-RUN-PROOF-001: spec and guarded proof files exist', () => {
@@ -18,7 +18,7 @@ describe('run operator proof inventory contract', () => {
       RUN_INTEGRATION_TEST,
       RUN_API_PROXY_INTEGRATION_TEST,
       CI_CLI_PROOF_CONTRACT_TEST,
-      CI_WORKFLOW,
+      PREPUBLISH_GATE,
     ]) {
       assert.ok(existsSync(file), `expected file to exist: ${file}`);
     }
@@ -58,17 +58,15 @@ describe('run operator proof inventory contract', () => {
       'mixed-adapter run integration must assert persisted completed state');
   });
 
-  it('AT-RUN-PROOF-004: CI retains a shell-out CLI proof for agentxchain run', () => {
+  it('AT-RUN-PROOF-004: local gate retains a shell-out CLI proof for agentxchain run', () => {
     const proofContract = readFileSync(CI_CLI_PROOF_CONTRACT_TEST, 'utf8');
-    const workflow = readFileSync(CI_WORKFLOW, 'utf8');
+    const gate = readFileSync(PREPUBLISH_GATE, 'utf8');
 
     assert.match(proofContract, /run-via-cli-auto-approve\.mjs/,
       'CLI proof contract must guard the CLI auto-approve proof script');
     assert.match(proofContract, /shells out to the real agentxchain CLI binary/i,
       'CLI proof contract must explicitly guard the shell-out boundary');
-    assert.match(workflow, /run-via-cli-auto-approve\.mjs/,
-      'CI workflow must execute the CLI auto-approve proof');
-    assert.match(workflow, /ANTHROPIC_API_KEY/,
-      'CI workflow must preserve the auth env for the CLI proof');
+    assert.match(gate, /npm test/,
+      'prepublish gate must execute the CLI proof contract through npm test');
   });
 });
