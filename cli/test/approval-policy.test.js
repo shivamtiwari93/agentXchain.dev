@@ -386,3 +386,188 @@ describe('AT-AP-008: auditable policy decisions', () => {
     assert.ok(result.reason.length > 0);
   });
 });
+
+// ── AT-AP-009: credentialed gate hard stop (BUG-59) ─────────────────────────
+
+describe('AT-AP-009: credentialed gate hard stop', () => {
+  function makeCredentialedConfig(approvalPolicy) {
+    return {
+      routing: {
+        planning: { exit_gate: 'planning_exit' },
+        implementation: { exit_gate: 'impl_exit' },
+        qa: { exit_gate: 'qa_ship_verdict' },
+        release: {},
+      },
+      gates: {
+        planning_exit: { requires_human_approval: true },
+        impl_exit: { requires_human_approval: true },
+        qa_ship_verdict: { requires_human_approval: true, credentialed: true },
+      },
+      approval_policy: approvalPolicy,
+    };
+  }
+
+  it('hard-stops a credentialed gate under catch-all default: auto_approve', () => {
+    const policy = { phase_transitions: { default: 'auto_approve' } };
+    const result = evaluateApprovalPolicy({
+      gateResult: makeGateResult({ gate_id: 'qa_ship_verdict', next_phase: 'release' }),
+      gateType: 'phase_transition',
+      state: makeState({ phase: 'qa' }),
+      config: makeCredentialedConfig(policy),
+    });
+    assert.equal(result.action, 'require_human');
+    assert.equal(result.matched_rule, null);
+    assert.match(result.reason, /credentialed/);
+  });
+
+  it('hard-stops a credentialed gate even with a matching auto_approve rule', () => {
+    const policy = {
+      phase_transitions: {
+        default: 'require_human',
+        rules: [{ from_phase: 'qa', to_phase: 'release', action: 'auto_approve' }],
+      },
+    };
+    const result = evaluateApprovalPolicy({
+      gateResult: makeGateResult({ gate_id: 'qa_ship_verdict', next_phase: 'release' }),
+      gateType: 'phase_transition',
+      state: makeState({ phase: 'qa' }),
+      config: makeCredentialedConfig(policy),
+    });
+    assert.equal(result.action, 'require_human');
+    assert.equal(result.matched_rule, null);
+    assert.match(result.reason, /credentialed/);
+  });
+
+  it('hard-stops a credentialed gate under run_completion.action: auto_approve', () => {
+    const policy = {
+      run_completion: { action: 'auto_approve' },
+    };
+    const result = evaluateApprovalPolicy({
+      gateResult: makeGateResult({ gate_id: 'qa_ship_verdict', next_phase: null }),
+      gateType: 'run_completion',
+      state: makeState({ phase: 'qa' }),
+      config: makeCredentialedConfig(policy),
+    });
+    assert.equal(result.action, 'require_human');
+    assert.equal(result.matched_rule, null);
+    assert.match(result.reason, /credentialed/);
+  });
+});
+
+// ── AT-AP-010: when.credentialed_gate predicate (BUG-59) ────────────────────
+
+describe('AT-AP-010: when.credentialed_gate predicate', () => {
+  function makeConfigWithGateFlag(approvalPolicy, credentialed) {
+    return {
+      routing: {
+        planning: { exit_gate: 'planning_exit' },
+        implementation: { exit_gate: 'impl_exit' },
+        qa: { exit_gate: 'qa_exit' },
+        release: {},
+      },
+      gates: {
+        planning_exit: credentialed === undefined
+          ? { requires_human_approval: true }
+          : { requires_human_approval: true, credentialed },
+        impl_exit: { requires_human_approval: true },
+        qa_exit: { requires_human_approval: true },
+      },
+      approval_policy: approvalPolicy,
+    };
+  }
+
+  it('auto-approves when gate is not credentialed and when.credentialed_gate: false', () => {
+    const policy = {
+      phase_transitions: {
+        default: 'require_human',
+        rules: [
+          {
+            from_phase: 'planning',
+            to_phase: 'implementation',
+            action: 'auto_approve',
+            when: { gate_passed: true, credentialed_gate: false },
+          },
+        ],
+      },
+    };
+    const result = evaluateApprovalPolicy({
+      gateResult: makeGateResult(),
+      gateType: 'phase_transition',
+      state: makeState(),
+      config: makeConfigWithGateFlag(policy, false),
+    });
+    assert.equal(result.action, 'auto_approve');
+  });
+
+  it('hard-stop fires before predicate when gate is credentialed', () => {
+    const policy = {
+      phase_transitions: {
+        default: 'require_human',
+        rules: [
+          {
+            from_phase: 'planning',
+            to_phase: 'implementation',
+            action: 'auto_approve',
+            when: { credentialed_gate: false },
+          },
+        ],
+      },
+    };
+    const result = evaluateApprovalPolicy({
+      gateResult: makeGateResult(),
+      gateType: 'phase_transition',
+      state: makeState(),
+      config: makeConfigWithGateFlag(policy, true),
+    });
+    assert.equal(result.action, 'require_human');
+    // Must be the hard-stop reason, not the predicate's condition-unmet reason
+    assert.match(result.reason, /credentialed gate — policy auto-approval forbidden/);
+  });
+
+  it('treats missing credentialed field as non-credentialed', () => {
+    const policy = {
+      phase_transitions: {
+        default: 'require_human',
+        rules: [
+          {
+            from_phase: 'planning',
+            to_phase: 'implementation',
+            action: 'auto_approve',
+            when: { credentialed_gate: false },
+          },
+        ],
+      },
+    };
+    const result = evaluateApprovalPolicy({
+      gateResult: makeGateResult(),
+      gateType: 'phase_transition',
+      state: makeState(),
+      config: makeConfigWithGateFlag(policy, undefined),
+    });
+    assert.equal(result.action, 'auto_approve');
+  });
+
+  it('rejects credentialed_gate: true at runtime even for non-credentialed gates', () => {
+    const policy = {
+      phase_transitions: {
+        default: 'require_human',
+        rules: [
+          {
+            from_phase: 'planning',
+            to_phase: 'implementation',
+            action: 'auto_approve',
+            when: { credentialed_gate: true },
+          },
+        ],
+      },
+    };
+    const result = evaluateApprovalPolicy({
+      gateResult: makeGateResult(),
+      gateType: 'phase_transition',
+      state: makeState(),
+      config: makeConfigWithGateFlag(policy, false),
+    });
+    assert.equal(result.action, 'require_human');
+    assert.match(result.reason, /credentialed_gate: true not supported/);
+  });
+});

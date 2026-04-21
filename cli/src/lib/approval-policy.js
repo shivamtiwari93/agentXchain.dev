@@ -37,7 +37,26 @@ export function evaluateApprovalPolicy({ gateResult, gateType, state, config }) 
   return evaluatePhaseTransitionPolicy({ gateResult, state, config, policy });
 }
 
+// BUG-59 (DEC-BUG59-CREDENTIALED-GATE-HARD-STOP-001): gate definitions may
+// carry `credentialed: true` to mark gates protecting external, irreversible,
+// or operator-owned credentialed actions. Credentialed gates are never
+// auto-approvable by policy, even under a catch-all `default: auto_approve`
+// rule. The guard runs before any rule evaluation so a missing `when` block
+// cannot bypass it.
+function isCredentialedGate(config, gateId) {
+  if (!gateId) return false;
+  return config?.gates?.[gateId]?.credentialed === true;
+}
+
 function evaluateRunCompletionPolicy({ gateResult, state, config, policy }) {
+  if (isCredentialedGate(config, gateResult?.gate_id)) {
+    return {
+      action: 'require_human',
+      matched_rule: null,
+      reason: 'credentialed gate — policy auto-approval forbidden',
+    };
+  }
+
   const rc = policy.run_completion;
   if (!rc || !rc.action) {
     return { action: 'require_human', matched_rule: null, reason: 'no run_completion policy' };
@@ -59,6 +78,14 @@ function evaluateRunCompletionPolicy({ gateResult, state, config, policy }) {
 }
 
 function evaluatePhaseTransitionPolicy({ gateResult, state, config, policy }) {
+  if (isCredentialedGate(config, gateResult?.gate_id)) {
+    return {
+      action: 'require_human',
+      matched_rule: null,
+      reason: 'credentialed gate — policy auto-approval forbidden',
+    };
+  }
+
   const pt = policy.phase_transitions;
   if (!pt) {
     return { action: 'require_human', matched_rule: null, reason: 'no phase_transitions policy' };
@@ -117,6 +144,23 @@ function checkConditions(when, { gateResult, state, config }) {
       if (!participated) {
         return { ok: false, reason: `condition roles_participated not met: role "${roleId}" has no accepted turn in phase "${phase}"` };
       }
+    }
+  }
+
+  // credentialed_gate (BUG-59, DEC-BUG59-CREDENTIALED-GATE-PREDICATE-NEGATIVE-ONLY-001):
+  // only `false` is a valid runtime value — asserts the gate is NOT credentialed
+  // as a defensive precondition. Credentialed gates are hard-stopped upstream so
+  // this predicate never sees them when value is `false` (matches → condition ok).
+  // Value `true` is treated as unmet because the hard-stop prevents credentialed
+  // gates from reaching condition evaluation anyway; schema validation (slice 2)
+  // will reject `true` at config load time for unambiguous intent.
+  if (Object.prototype.hasOwnProperty.call(when, 'credentialed_gate')) {
+    const gateIsCredentialed = config?.gates?.[gateResult?.gate_id]?.credentialed === true;
+    if (when.credentialed_gate === false && gateIsCredentialed) {
+      return { ok: false, reason: 'condition credentialed_gate: false not met — gate is credentialed' };
+    }
+    if (when.credentialed_gate === true) {
+      return { ok: false, reason: 'condition credentialed_gate: true not supported — credentialed gates are hard-stopped upstream' };
     }
   }
 
