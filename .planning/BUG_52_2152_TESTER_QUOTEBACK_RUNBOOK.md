@@ -32,7 +32,7 @@ Use the same `tusq.dev` project that reproduced the loop seven times on v2.151.0
    ```
 3. **Confirm the pre-unblock state matches the loop shape**:
    ```bash
-   agentxchain status --json | jq '{phase, status, phase_gate_status, pending_phase_transition, active_turns: (.active_turns // {} | keys)}'
+   agentxchain status --json | jq '.state | {phase, status, phase_gate_status, pending_phase_transition, active_turns: (.active_turns // {} | keys)}'
    ```
    Quote-back must show:
    - `phase: "planning"`
@@ -75,7 +75,7 @@ rm -f .planning/PM_SIGNOFF.md
 HESC=$(jq -r 'select(.kind == "raised") | .escalation_id' .agentxchain/human-escalations.jsonl | tail -1)
 agentxchain unblock "$HESC"
 echo "exit: $?"
-agentxchain status --json | jq '{phase, status, planning_signoff: .phase_gate_status.planning_signoff}'
+agentxchain status --json | jq '.state | {phase, status, planning_signoff: .phase_gate_status.planning_signoff}'
 ```
 
 Quote-back must show:
