@@ -97,15 +97,17 @@ describe('website route integrity', () => {
     ];
 
     const missing = [];
+    let scannedRouteCount = 0;
     for (const filePath of scannedFiles) {
       const content = readFileSync(filePath, 'utf8');
       const relativeFile = relative(REPO_ROOT, filePath);
 
-      for (const match of content.matchAll(/(?:^|[,{;\s])(?:to|href):\s*['"](\/[^'"]+)['"]|\]\((\/[^)\s]+)\)/gm)) {
+      for (const match of content.matchAll(/(?:^|[,{;\s(])(?:to|href)\s*[:=]\s*['"](\/[^'"]+)['"]|\]\((\/[^)\s]+)\)/gm)) {
         const route = match[1] ?? match[2];
         if (!route || route.startsWith('//')) {
           continue;
         }
+        scannedRouteCount += 1;
         if (!routeExists(route, docsRoutes, pageRoutes)) {
           missing.push(`${relativeFile}: ${route}`);
         }
@@ -113,5 +115,9 @@ describe('website route integrity', () => {
     }
 
     assert.deepEqual(missing, [], `missing internal routes:\n${missing.join('\n')}`);
+    assert.ok(
+      scannedRouteCount >= 20,
+      `route scanner extracted only ${scannedRouteCount} internal routes — regex likely regressed. Expected >= 20 across navbar/footer/pages/docs.`,
+    );
   });
 });
