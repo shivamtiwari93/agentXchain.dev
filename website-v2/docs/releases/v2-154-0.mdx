@@ -1,0 +1,177 @@
+---
+sidebar_position: 0
+title: "v2.154.0 Release Notes"
+---
+
+# AgentXchain v2.154.0
+
+`v2.154.0` is the BUG-62 operator-commit reconcile release. It closes the
+recovery loop where a human workaround commit on top of an agent checkpoint
+created `Git HEAD has moved since checkpoint` drift and blocked subsequent
+governed work until the operator manually edited state.
+
+The release ships both layers of the fix: a manual command for audited
+operator recovery, and a continuous-mode `auto_safe_only` policy that can
+accept safe fast-forward operator commits before dispatch while still refusing
+governed-state edits and history rewrites.
+
+## Bug Fixes
+
+- **BUG-62 manual reconcile command**: `agentxchain reconcile-state
+  --accept-operator-head` accepts safe fast-forward operator commits as the new
+  governed baseline. It updates `accepted_integration_ref`, refreshes
+  `session.json.baseline_ref`, records `operator_commit_reconciliation`, and
+  emits `state_reconciled_operator_commits`.
+
+- **BUG-62 safety checks**: the reconciler refuses:
+  - history rewrites where the prior governed baseline is not an ancestor of
+    `HEAD`
+  - commits that modify `.agentxchain/`
+  - deletion of critical governed evidence such as
+    `.planning/acceptance-matrix.md`
+
+- **BUG-62 continuous auto-safe-only policy**:
+  `run_loop.continuous.reconcile_operator_commits` accepts `"manual"`,
+  `"auto_safe_only"`, or `"disabled"`. The `run` command also accepts
+  `--reconcile-operator-commits <mode>`. Full-auto approval-policy posture
+  promotes the default to `auto_safe_only`; explicit config and CLI flags win.
+
+- **BUG-62 refusal audit trail**: unsafe auto-reconcile pauses the session,
+  writes `blocked_on: "operator_commit_reconcile_refused"` with actionable
+  recovery detail, and emits `operator_commit_reconcile_refused`. Safe
+  auto-reconcile reuses the same `state_reconciled_operator_commits` event as
+  the manual command.
+
+## Operator Notes
+
+When status reports checkpoint drift caused by safe operator commits, run:
+
+```bash
+agentxchain reconcile-state --accept-operator-head
+```
+
+For continuous sessions that should accept only safe fast-forward operator
+commits before dispatch:
+
+```json
+{
+  "run_loop": {
+    "continuous": {
+      "reconcile_operator_commits": "auto_safe_only"
+    }
+  }
+}
+```
+
+or:
+
+```bash
+agentxchain run --continuous --reconcile-operator-commits auto_safe_only
+```
+
+Use `"manual"` to require an explicit operator command, or `"disabled"` to
+preserve drift exactly as-is for external debugging.
+
+## Decisions
+
+- `DEC-BUG62-MANUAL-OPERATOR-HEAD-RECONCILE-001`
+- `DEC-BUG62-AUTO-SAFE-ONLY-RECONCILE-001`
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 233 tests / 69 suites / 0 failures / 5 skipped
+- node --test test/continuous-run.test.js test/run-events.test.js test/beta-tester-scenarios/bug-62-operator-commit-reconcile.test.js -> 53 tests / 11 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.154.0 -c "agentxchain --version"
+```
+
+### BUG-62 manual operator-commit reconcile
+
+Create a safe product-file commit on top of the last governed checkpoint, then
+run:
+
+```bash
+agentxchain status --json
+agentxchain reconcile-state --accept-operator-head
+agentxchain status --json
+```
+
+Quote the before/after `accepted_integration_ref`,
+`operator_commit_reconciliation`, and the `state_reconciled_operator_commits`
+event. The after state should no longer report `Git HEAD has moved since
+checkpoint` drift.
+
+### BUG-62 safety refusals
+
+Repeat the manual command with an operator commit that modifies
+`.agentxchain/state.json`; quote the refusal with
+`error_class: "governance_state_modified"`. Also test a history rewrite where
+the previous baseline is no longer an ancestor of `HEAD`; quote
+`error_class: "history_rewrite"`.
+
+### BUG-62 continuous auto-safe-only reconcile
+
+Configure:
+
+```json
+{
+  "run_loop": {
+    "continuous": {
+      "reconcile_operator_commits": "auto_safe_only"
+    }
+  }
+}
+```
+
+Then start or continue a continuous session after a safe product-file operator
+commit. Quote the `state_reconciled_operator_commits` event emitted before the
+next dispatch. For an unsafe `.agentxchain/state.json` commit, quote
+`operator_commit_reconcile_refused`, `blocked_on:
+"operator_commit_reconcile_refused"`, and the recovery detail.
+
+### Existing open closure contracts
+
+BUG-52 third-variant closure still requires tester-quoted shipped-package
+output on `agentxchain@2.152.0` or newer per that release's contract. BUG-54
+still requires adapter-path watchdog evidence. BUG-59 still requires tester
+quote-back for routine auto-approval ledger rows and credentialed hard-stop
+counter-evidence. BUG-53 still requires a real multi-run chain trace. BUG-61
+still requires shipped-package quote-back for ghost auto-retry and exhaustion
+diagnostics. `v2.154.0` does not alter those closure contracts.
+
+### BUG-52 standing-gate unblock
+
+For the standing-gate unblock path, quote `phase_entered` after `unblock`.
+Older BUG-52 paths may still show `trigger: "reconciled_before_dispatch"`;
+the current standing-gate path should also show cleanup evidence through
+`phase_cleanup` when stale same-phase state existed.
+
+### BUG-53 continuous sessions
+
+For still-open BUG-53 closure proof, run the shipped package in continuous
+mode and quote `session_continuation` events across chained runs. A bounded
+idle run should end as `idle_exit`, not as a paused gate.
+
+### BUG-54 startup watchdog
+
+For still-open BUG-54 closure proof, quote adapter diagnostics from real
+`local_cli` dispatches, including `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
+adapter path, not from a standalone spawn harness.
+
+### BUG-55 checkpoint completeness
+
+For still-open BUG-55 regression proof, run `accept-turn` followed by
+`checkpoint-turn` on a turn that declares both product files and verification
+outputs. Include `verification.produced_files` with at least one artifact or
+ignored output, prove there are no `undeclared_verification_outputs`, and quote
+`git status --short` after checkpointing. Clean tree means BUG-55 is fixed for your reproduction.
+
+The key operator chain is `accept-turn` followed by `checkpoint-turn` against
+the same accepted turn.

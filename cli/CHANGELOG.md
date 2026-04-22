@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.154.0
+
+### Bug Fixes
+- **BUG-62 manual operator-commit reconciliation**: `agentxchain reconcile-state --accept-operator-head` lets an operator accept safe fast-forward commits made on top of the last governed checkpoint without editing `.agentxchain/state.json`. The reconciler updates `accepted_integration_ref`, refreshes `session.json.baseline_ref`, records `operator_commit_reconciliation`, and emits `state_reconciled_operator_commits`.
+- **BUG-62 safety refusals**: the reconciler refuses history rewrites where the previous governed baseline is not an ancestor of `HEAD`, refuses commits that modify `.agentxchain/`, and refuses deletion of critical governed evidence such as `.planning/acceptance-matrix.md`. `status` now points checkpoint drift at the reconcile command instead of generic restart guidance.
+- **BUG-62 continuous auto-safe-only mode**: `run_loop.continuous.reconcile_operator_commits` now accepts `"manual"`, `"auto_safe_only"`, or `"disabled"`, with CLI override `--reconcile-operator-commits <mode>`. Full-auto approval-policy posture promotes the default to `auto_safe_only`; explicit config and CLI flags still win.
+- **BUG-62 auto-refusal visibility**: continuous auto-reconcile routes through the same safety function as the manual command. Unsafe drift pauses the session, writes `blocked_on: "operator_commit_reconcile_refused"` with actionable recovery detail, and emits `operator_commit_reconcile_refused`.
+
+### Decisions
+- `DEC-BUG62-MANUAL-OPERATOR-HEAD-RECONCILE-001`
+- `DEC-BUG62-AUTO-SAFE-ONLY-RECONCILE-001`
+
+### Status
+- `v2.154.0` is the BUG-62 operator-commit reconcile release. It ships the manual recovery primitive plus the continuous `auto_safe_only` policy surface so operator-authored commits no longer multiply every other full-auto recovery loop.
+- BUG-62 still closes only after tester-quoted shipped-package output on `agentxchain@2.154.0`.
+- BUG-52, BUG-54, BUG-53, BUG-59, and BUG-61 remain open pending tester-quoted shipped-package output on their respective release versions.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 233 tests / 69 suites / 0 failures / 5 skipped
+- node --test test/continuous-run.test.js test/run-events.test.js test/beta-tester-scenarios/bug-62-operator-commit-reconcile.test.js -> 53 tests / 11 suites / 0 failures / 0 skipped
+
 ## 2.153.0
 
 ### Bug Fixes
