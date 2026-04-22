@@ -119,15 +119,18 @@ after `unblock`; older paths may still show
 `trigger: "reconciled_before_dispatch"`. Standing gate paths should also show
 cleanup evidence when stale same-phase state existed.
 
+For still-open BUG-54 and BUG-59 closure proof, pin to `agentxchain@2.154.7` or
+later and follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. That runbook
+covers the real adapter-path watchdog evidence plus routine auto-approval ledger
+rows and credentialed hard-stop counter-evidence.
+
 For still-open BUG-53 closure proof, run the shipped package in continuous mode
 and quote `session_continuation` events across chained runs. A bounded idle run
 should end as `idle_exit`, not as a paused gate.
 
-For still-open BUG-54 closure proof, quote adapter diagnostics from real
-`local_cli` dispatches, including `startup_latency_ms`,
-`elapsed_since_spawn_ms`, and the configured
-`runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
-adapter path, not from a standalone spawn harness.
+For still-open BUG-54 closure proof, use the BUG-54/BUG-59 runbook above. The
+closure evidence must come from the adapter path, not from a standalone spawn
+harness.
 
 For still-open BUG-55 regression proof, run `accept-turn` followed by
 `checkpoint-turn` on a turn that declares both product files and verification

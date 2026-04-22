@@ -22,6 +22,15 @@ const RUNBOOK_PATH = '.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md';
 const CHECKLIST_PATH = '.planning/BUG_54_BUG_59_TESTER_QUOTEBACK_CHECKLIST.md';
 const LEGACY_RUNBOOK_PATH = '.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md';
 const RELEASE_151_PATH = 'website-v2/docs/releases/v2-151-0.mdx';
+const RELEASE_PAGES_WITH_BUG_54_59_FOOTERS = [
+  'website-v2/docs/releases/v2-152-0.mdx',
+  'website-v2/docs/releases/v2-153-0.mdx',
+  'website-v2/docs/releases/v2-154-0.mdx',
+  'website-v2/docs/releases/v2-154-1.mdx',
+  'website-v2/docs/releases/v2-154-3.mdx',
+  'website-v2/docs/releases/v2-154-5.mdx',
+  'website-v2/docs/releases/v2-154-7.mdx',
+];
 const DOC_PATHS = [CHECKLIST_PATH, RUNBOOK_PATH];
 
 function readRepoFile(relPath) {
@@ -187,5 +196,21 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /startup watchdog default\*\* raised from 30s to 120s/,
       'v2.151.0 intro must not preserve the stale 120s BUG-54 summary',
     );
+  });
+
+  it('public still-open BUG-54/59 closure footers point to the BUG-52-safe runbook target', () => {
+    for (const relPath of RELEASE_PAGES_WITH_BUG_54_59_FOOTERS) {
+      const releasePage = readRepoFile(relPath);
+      assert.match(
+        releasePage,
+        /agentxchain@2\.154\.7[\s\S]{0,180}BUG_59_54_TESTER_QUOTEBACK_RUNBOOK\.md|BUG_59_54_TESTER_QUOTEBACK_RUNBOOK\.md[\s\S]{0,180}agentxchain@2\.154\.7/,
+        `${relPath} must route BUG-54/BUG-59 quote-back through the 2.154.7 BUG-52-safe runbook`,
+      );
+      assert.match(
+        releasePage,
+        /routine auto-approval ledger[\s\S]{0,80}credentialed hard-stop counter-evidence|credentialed hard-stop counter-evidence[\s\S]{0,80}routine auto-approval ledger/,
+        `${relPath} must preserve the BUG-59 positive and credentialed-negative evidence shape`,
+      );
+    }
   });
 });

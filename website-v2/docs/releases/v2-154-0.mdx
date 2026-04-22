@@ -150,10 +150,12 @@ BUG-52 third-variant closure requires tester-quoted shipped-package output on
 `2.152.0` and `2.154.0`–`2.154.5`) still loop on the realistic PM handoff
 shape. BUG-54 still requires adapter-path watchdog evidence. BUG-59 still
 requires tester quote-back for routine auto-approval ledger rows and
-credentialed hard-stop counter-evidence. BUG-53 still requires a real
-multi-run chain trace. BUG-61 still requires shipped-package quote-back for
-ghost auto-retry and exhaustion diagnostics. `v2.154.0` does not alter those
-closure contracts.
+credentialed hard-stop counter-evidence. Use `agentxchain@2.154.7` or later and
+`.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` for both BUG-54 and BUG-59 so
+the evidence run does not hit the BUG-52 loop window. BUG-53 still requires a
+real multi-run chain trace. BUG-61 still requires shipped-package quote-back
+for ghost auto-retry and exhaustion diagnostics. `v2.154.0` does not alter
+those closure contracts.
 
 ### BUG-52 standing-gate unblock
 
@@ -172,8 +174,9 @@ idle run should end as `idle_exit`, not as a paused gate.
 
 ### BUG-54 startup watchdog
 
-For still-open BUG-54 closure proof, quote adapter diagnostics from real
-`local_cli` dispatches, including `startup_latency_ms`,
+For still-open BUG-54 closure proof, use `agentxchain@2.154.7` or later and
+follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. Quote adapter
+diagnostics from real `local_cli` dispatches, including `startup_latency_ms`,
 `elapsed_since_spawn_ms`, and the configured
 `runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
 adapter path, not from a standalone spawn harness.

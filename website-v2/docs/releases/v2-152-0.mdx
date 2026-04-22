@@ -95,11 +95,14 @@ run should end as `idle_exit`, not as a paused gate.
 
 ### BUG-54 startup watchdog
 
-For still-open BUG-54 closure proof, quote adapter diagnostics from real
-`local_cli` dispatches, including `startup_latency_ms`,
+For still-open BUG-54 closure proof, use `agentxchain@2.154.7` or later and
+follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. Quote adapter
+diagnostics from real `local_cli` dispatches, including `startup_latency_ms`,
 `elapsed_since_spawn_ms`, and the configured
 `runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
-adapter path, not from a standalone spawn harness.
+adapter path, not from a standalone spawn harness. The same runbook is the
+current BUG-59 quote-back contract for routine auto-approval ledger rows and
+credentialed hard-stop counter-evidence.
 
 ### BUG-55 checkpoint completeness
 

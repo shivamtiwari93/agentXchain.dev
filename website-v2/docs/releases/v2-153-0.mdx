@@ -149,8 +149,9 @@ run should end as `idle_exit`, not as a paused gate.
 
 ### BUG-54 startup watchdog
 
-For still-open BUG-54 closure proof, quote adapter diagnostics from real
-`local_cli` dispatches, including `startup_latency_ms`,
+For still-open BUG-54 closure proof, use `agentxchain@2.154.7` or later and
+follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. Quote adapter
+diagnostics from real `local_cli` dispatches, including `startup_latency_ms`,
 `elapsed_since_spawn_ms`, and the configured
 `runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
 adapter path, not from a standalone spawn harness.
@@ -171,7 +172,9 @@ the same accepted turn.
 BUG-52 third-variant closure still requires tester-quoted shipped-package
 output on `agentxchain@2.154.7` or later per the canonical
 `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` contract. BUG-54 still requires
-adapter-path watchdog evidence. BUG-59 still requires tester quote-back for
-routine auto-approval ledger rows and credentialed hard-stop counter-evidence.
+adapter-path watchdog evidence through
+`.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. BUG-59 still requires
+tester quote-back through that same runbook for routine auto-approval ledger
+rows and credentialed hard-stop counter-evidence.
 BUG-53 still requires a real multi-run chain trace. `v2.153.0` does not alter
 those closure contracts.
