@@ -131,8 +131,9 @@ deletes `.planning/acceptance-matrix.md`; quote `agentxchain status`,
 `error_class`, and the recovery action.
 
 For still-open BUG-52 closure proof, quote `phase_entered` after `unblock`.
-Standing gate paths should also show cleanup evidence when stale same-phase
-state existed.
+Older paths may still show `trigger: "reconciled_before_dispatch"`. Standing
+gate paths should also show cleanup evidence when stale same-phase state
+existed.
 
 For still-open BUG-53 closure proof, run the shipped package in continuous mode
 and quote `session_continuation` events across chained runs. A bounded idle run
@@ -143,3 +144,14 @@ For still-open BUG-54 closure proof, quote adapter diagnostics from real
 `elapsed_since_spawn_ms`, and the configured
 `runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
 adapter path, not from a standalone spawn harness.
+
+For still-open BUG-55 regression proof, run `accept-turn` followed by
+`checkpoint-turn` on a turn that declares both product files and verification
+outputs. Include `verification.produced_files` with at least one artifact or
+ignored output, prove there are no `undeclared_verification_outputs`, and quote
+`git status --short` after checkpointing.
+
+Clean tree means BUG-55 is fixed for your reproduction.
+
+The key operator chain is `accept-turn` followed by `checkpoint-turn` against
+the same accepted turn.
