@@ -205,6 +205,26 @@ agentxchain reconcile-state --accept-operator-head
 
 The command accepts only fast-forward operator commits that leave `.agentxchain/` alone. It updates the governed baseline and emits `state_reconciled_operator_commits`. If it refuses, treat the refusal as real safety signal: history rewrites and governed-state edits are not safe lights-out inputs.
 
+Under full-auto approval policy, the continuous loop already runs this reconcile before every dispatch — you do not need to run the command manually for safe fast-forward operator commits. The effective default for `run_loop.continuous.reconcile_operator_commits` is `auto_safe_only` when approval policy is full-auto; explicit config and the CLI flag always win.
+
+```json
+{
+  "run_loop": {
+    "continuous": {
+      "reconcile_operator_commits": "auto_safe_only"
+    }
+  }
+}
+```
+
+Valid modes:
+
+- `manual`: continuous drift stays blocking; operator runs `agentxchain reconcile-state --accept-operator-head` by hand. Default under governed-mode approval policies.
+- `auto_safe_only`: continuous loop auto-accepts fast-forward operator commits that leave `.agentxchain/` alone before every dispatch. Default under full-auto approval policy. Unsafe commits still pause the session with `operator_commit_reconcile_refused` and the same refusal class the manual primitive uses (`governed_state_modified`, `critical_path_deleted`, `history_rewrite`, ...).
+- `disabled`: continuous loop skips the reconcile entirely. Use only if an external system owns baseline advancement.
+
+Per-run override: `agentxchain run --continuous --reconcile-operator-commits auto_safe_only`. When the auto reconcile refuses a commit, the session pauses, `status` surfaces the refusal class and the same `agentxchain reconcile-state --accept-operator-head` recovery hint, and the loop emits `operator_commit_reconcile_refused` for audit. The manual primitive remains the single audited safety function for every reconcile path.
+
 ## 6. Handle blocked and failed states correctly
 
 When the session pauses for a real blocker:

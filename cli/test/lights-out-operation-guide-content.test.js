@@ -58,6 +58,15 @@ describe('lights-out operation guide contract', () => {
     assert.match(DOC, /reissue-turn --turn <id> --reason stale/i);
     assert.match(DOC, /agentxchain reconcile-state --accept-operator-head/i);
     assert.match(DOC, /state_reconciled_operator_commits/i);
+    // BUG-62 auto_safe_only continuous reconcile policy must live on the stable
+    // operator page, not only in release notes: full-auto default, config key,
+    // CLI flag, refusal event, and the three valid modes must be discoverable.
+    assert.match(DOC, /reconcile_operator_commits/);
+    assert.match(DOC, /auto_safe_only/);
+    assert.match(DOC, /--reconcile-operator-commits/);
+    assert.match(DOC, /operator_commit_reconcile_refused/);
+    assert.match(DOC, /`disabled`/);
+    assert.match(DOC, /`manual`/);
     assert.match(DOC, /agentxchain inject "Fix the broken release-note sidebar ordering" --priority p0/);
     assert.match(DOC, /priority_preempted/);
     assert.match(DOC, /session-budget exhaustion is a \*\*terminal stop\*\*, not a blocker/i);
