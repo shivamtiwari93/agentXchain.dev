@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.153.0
+
+### Bug Fixes
+- **BUG-61 ghost-turn auto-recovery**: `run_loop.continuous.auto_retry_on_ghost` (config + CLI flags `--auto-retry-on-ghost`, `--no-auto-retry-on-ghost`, `--auto-retry-on-ghost-max-retries`, `--auto-retry-on-ghost-cooldown-seconds`) lets a continuous run auto-retry a blocked ghost turn up to the configured budget before escalating to the operator. Primitive default is off; full-auto approval-policy posture promotes it on; explicit config and CLI opt-outs always win over promotion.
+- **BUG-61 same-signature early stop**: `classifyGhostRetryDecision()` now stops after 2 consecutive identical `runtime|role|failure_type` fingerprints even when the raw retry budget is not exhausted. A systematic pattern is an operator signal, not a retry loop. Governed-state `blocked_reason.recovery.detail` carries distinct phrasing (`Auto-retry stopped early after N consecutive same-signature attempts [<sig>]` vs `Auto-retry exhausted after N/N attempts`).
+- **BUG-61 diagnostic bundle on exhaustion**: `ghost_retry_exhausted` payloads now include `exhaustion_reason` (`same_signature_repeat` | `retry_budget_exhausted`), `signature_repeat` (when present), and `diagnostic_bundle` (attempts log capped at 10 tail entries, fingerprint summary sorted by count, final signature). Operators get actionable triage, not just a counter.
+- **BUG-61 active-run continuation branch**: `advanceContinuousRunOnce()` now continues a reissued active governed run on the next loop step instead of falling back through intake/vision seeding. `hasBlockingActiveTurn()` was widened to treat `failed_start` and `stalled` as blocking alongside `failed` and `conflicted`, closing a reconciliation gap where a retained ghost could be silently forgotten.
+- **BUG-61 release-gate E2E timeout split**: BUG-61 command-chain scenarios now live in `cli/test/continuous-ghost-retry-e2e.test.js`; the original continuous E2E file no longer times out under `--test-timeout=60000`.
+
+### Decisions
+- `DEC-BUG61-GHOST-RETRY-STATE-OWNERSHIP-001`
+- `DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001`
+- `DEC-BUG61-SIGNATURE-REPEAT-EARLY-STOP-001`
+
+### Status
+- `v2.153.0` is the BUG-61 ghost-turn auto-recovery release. It ships the auto-retry primitive, same-signature early-stop safeguard, diagnostic bundle payload, and active-run continuation branch with positive + negative + opt-out command-chain proof.
+- BUG-61 still closes only after tester-quoted shipped-package output on `agentxchain@2.153.0`.
+- BUG-52, BUG-54, BUG-53, BUG-59 remain open pending tester-quoted shipped-package output on their respective release versions.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 230 tests / 68 suites / 0 failures / 5 skipped
+- node --test cli/test/continuous-ghost-retry-e2e.test.js cli/test/continuous-run-e2e.test.js cli/test/continuous-run.test.js cli/test/ghost-retry.test.js cli/test/run-events.test.js -> 93 tests / 26 suites / 0 failures / 0 skipped
+
 ## 2.152.0
 
 ### Bug Fixes

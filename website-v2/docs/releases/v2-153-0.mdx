@@ -1,0 +1,161 @@
+---
+sidebar_position: 0
+title: "v2.153.0 Release Notes"
+---
+
+# AgentXchain v2.153.0
+
+`v2.153.0` is the BUG-61 ghost-turn auto-recovery release. It closes the
+lights-out path where a full-auto continuous run would stall on every ghost
+turn — a spawn/attach failure with no subprocess output — and require a
+manual `agentxchain reissue-turn --reason ghost` from the operator.
+
+The continuous loop now detects a blocked ghost turn, checks a bounded
+per-run retry budget, reissues the turn, and records a full diagnostic bundle
+on exhaustion. A systematic failure (same `runtime|role|failure_type`
+fingerprint repeated) stops early instead of burning the whole budget against
+a deterministic failure mode.
+
+## Bug Fixes
+
+- **BUG-61 ghost-turn auto-recovery**: `run_loop.continuous.auto_retry_on_ghost`
+  lands as a primitive with:
+
+  - config: `enabled`, `max_retries_per_run`, `cooldown_seconds`
+  - CLI flags: `--auto-retry-on-ghost`, `--no-auto-retry-on-ghost`,
+    `--auto-retry-on-ghost-max-retries <n>`,
+    `--auto-retry-on-ghost-cooldown-seconds <n>`
+  - primitive default off; full-auto approval-policy posture promotes it on;
+    explicit config or CLI opt-out always wins over promotion
+
+- **BUG-61 same-signature early stop**: after two consecutive ghost attempts
+  with an identical `runtime|role|failure_type` fingerprint,
+  `classifyGhostRetryDecision()` stops retrying even if the raw budget is not
+  exhausted. The governed-state recovery detail distinguishes:
+  - `Auto-retry stopped early after N consecutive same-signature attempts [<sig>] (<failure_type>); last attempt N/M.`
+  - `Auto-retry exhausted after N/N attempts (<failure_type>); last reissue <new_id>.`
+
+- **BUG-61 diagnostic bundle on exhaustion**: the `ghost_retry_exhausted`
+  event now carries:
+  - `exhaustion_reason`: `same_signature_repeat` | `retry_budget_exhausted`
+  - `signature_repeat` (when the early-stop lane fired): `{ signature, consecutive }`
+  - `diagnostic_bundle`: `{ attempts_log (capped at 10 tail entries), fingerprint_summary (sorted count desc), final_signature }`
+
+- **BUG-61 active-run continuation branch**: `advanceContinuousRunOnce()` now
+  continues a reissued active governed run on the next loop step instead of
+  dropping back into intake/vision seeding. `hasBlockingActiveTurn()` now
+  treats `failed_start` and `stalled` as blocking, closing a latent
+  reconciliation gap where a retained ghost could be silently forgotten.
+
+- **BUG-61 release-gate E2E timeout split**: BUG-61 command-chain scenarios
+  now live in `cli/test/continuous-ghost-retry-e2e.test.js` so the original
+  continuous E2E file no longer times out under `--test-timeout=60000`.
+
+## Operator Notes
+
+Existing manual recovery still works and is preserved when auto-retry is
+disabled or exhausted:
+
+```bash
+agentxchain reissue-turn --turn <turn_id> --reason ghost
+```
+
+Explicit opt-in for BUG-59 generated safe-rule configs (whose
+`phase_transitions.default: "require_human"` posture does NOT trip the strict
+full-auto detector) is in the config or on the command line:
+
+```bash
+agentxchain run --continuous --auto-retry-on-ghost
+```
+
+or `run_loop.continuous.auto_retry_on_ghost.enabled: true` in
+`agentxchain.json`.
+
+## Decisions
+
+- `DEC-BUG61-GHOST-RETRY-STATE-OWNERSHIP-001`
+- `DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001`
+- `DEC-BUG61-SIGNATURE-REPEAT-EARLY-STOP-001`
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 230 tests / 68 suites / 0 failures / 5 skipped
+- node --test cli/test/continuous-ghost-retry-e2e.test.js cli/test/continuous-run-e2e.test.js cli/test/continuous-run.test.js cli/test/ghost-retry.test.js cli/test/run-events.test.js -> 93 tests / 26 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.153.0 -c "agentxchain --version"
+```
+
+### BUG-61 ghost-turn auto-recovery
+
+Reproduce a ghost-turn class failure in a continuous run (e.g., force a
+short startup watchdog so `local_cli` dispatches hit `runtime_spawn_failed`
+or `stdout_attach_failed`), configured with auto-retry enabled:
+
+```bash
+agentxchain run --continuous --auto-retry-on-ghost \
+  --auto-retry-on-ghost-max-retries 3 --auto-retry-on-ghost-cooldown-seconds 5
+```
+
+Quote the `auto_retried_ghost` event(s) from `.agentxchain/events.jsonl` when
+the retry succeeds. When retries exhaust, quote the `ghost_retry_exhausted`
+event with its `exhaustion_reason`, `signature_repeat` (if present), and
+`diagnostic_bundle.final_signature`. Also quote the governed-state
+`blocked_reason.recovery.detail` string so the mirrored exhaustion reason is
+visible to an auditing operator.
+
+### BUG-52 standing-gate unblock
+
+Reproduce the standing-gate unblock case with a satisfied
+`planning_signoff` or `qa_ship_verdict` gate, then run:
+
+```bash
+agentxchain unblock <human_escalation_id>
+agentxchain status --json
+```
+
+The quote-back must show the phase advanced to the next phase, the active turn
+belongs to that next phase's entry role, and no stale same-phase active turn or
+budget reservation remains.
+
+Quote the `phase_entered` event. Older BUG-52 paths may still show
+`trigger: "reconciled_before_dispatch"`; the new standing-gate path should also
+show cleanup evidence through `phase_cleanup` when stale same-phase state existed.
+
+### BUG-53 continuous sessions
+
+For still-open BUG-53 closure proof, run the shipped package in continuous mode
+and quote the `session_continuation` events across chained runs. A bounded idle
+run should end as `idle_exit`, not as a paused gate.
+
+### BUG-54 startup watchdog
+
+For still-open BUG-54 closure proof, quote adapter diagnostics from real
+`local_cli` dispatches, including `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
+adapter path, not from a standalone spawn harness.
+
+### BUG-55 checkpoint completeness
+
+For still-open BUG-55 regression proof, run `accept-turn` followed by
+`checkpoint-turn` on a turn that declares both product files and verification
+outputs. Include `verification.produced_files` with at least one artifact or
+ignored output, prove there are no `undeclared_verification_outputs`, and quote
+`git status --short` after checkpointing. Clean tree means BUG-55 is fixed for your reproduction.
+
+The key operator chain is `accept-turn` followed by `checkpoint-turn` against
+the same accepted turn.
+
+### BUG-52 / BUG-54 / BUG-59 / BUG-53 closures still require their own contracts
+
+BUG-52 third-variant closure still requires tester-quoted shipped-package
+output on `agentxchain@2.152.0` per that release's contract. BUG-54 still
+requires adapter-path watchdog evidence. BUG-59 still requires tester
+quote-back for routine auto-approval ledger rows and credentialed hard-stop
+counter-evidence. BUG-53 still requires a real multi-run chain trace.
+`v2.153.0` does not alter those closure contracts.
