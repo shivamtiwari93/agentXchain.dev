@@ -11,12 +11,18 @@ the governed phase-advance path so a project that configures auto-approval rules
 actually closes routine human-approval gates without operator input, while
 credentialed gates (publish, deploy, send money) hard-stop on human approval
 even against a catch-all `auto_approve` rule. It also ships the
-**BUG-54 startup watchdog default** raised from 30s to 120s after Turn 137's
+**BUG-54 startup watchdog default** raised from 30s to 180s after Turn 137's
 measurement of 113s first-stdout on a 17,737-byte dispatch bundle, confirmed
 independently by a tester `stdout_attach_failed` at `running_ms: 30285` on real
 `tusq.dev` full-auto. Closure of BUG-59 and BUG-54 still requires tester-quoted
-shipped-package output on `agentxchain@2.151.0` per discipline rules #12 and
-#13.
+shipped-package output per discipline rules #12 and #13.
+
+> **Current quote-back target:** use `agentxchain@2.154.7` or later for BUG-59
+> and BUG-54 tester evidence. `v2.151.0` shipped the BUG-59/BUG-54 source
+> changes, but later BUG-52 fixes are required to keep the same dogfood run from
+> looping on delegated human-gate resolution before BUG-59 evidence can be
+> collected. The canonical tester runbook is
+> `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`.
 
 ## Bug Fixes
 
@@ -81,8 +87,8 @@ shipped-package output on `agentxchain@2.151.0` per discipline rules #12 and
   \"approval_policy\"", breaking packaged-scaffold initialization. Surface
   caught by `test/claim-reality-preflight.test.js`.
 
-- **BUG-54 startup watchdog default 30s → 120s** (`36e7805e`): The local CLI
-  adapter's `startup_watchdog_ms` default is raised to 120,000 ms. Turn 137
+- **BUG-54 startup watchdog default 30s → 180s** (`36e7805e`): The local CLI
+  adapter's `startup_watchdog_ms` default is raised to 180,000 ms. Turn 137
   measured first-stdout at 113,094 ms for a 17,737-byte realistic dispatch
   bundle under Claude Opus 4.7 on a clean dev box; a tester on `tusq.dev`
   full-auto independently hit `stdout_attach_failed` at `running_ms: 30285`
@@ -146,11 +152,19 @@ shipped-package output on `agentxchain@2.151.0` per discipline rules #12 and
 
 ## Tester Re-Run Contract
 
-Run the shipped package, not the source tree:
+Run the latest shipped package that carries the BUG-59/BUG-54 fixes and the
+BUG-52 third-variant repair, not the source tree:
 
 ```bash
-npx --yes -p agentxchain@2.151.0 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
+
+The command above supersedes the original `v2.151.0` quote-back pin. `v2.151.0`
+remains the release that introduced BUG-59 approval-policy coupling and the
+BUG-54 watchdog raise, but it is not the safe tester target for current closure
+because it can still hit the BUG-52 third-variant loop. Use the canonical
+runbook in `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` for the exact
+state, ledger, credentialed-negative, and ten-dispatch evidence shape.
 
 ### BUG-59 full-auto gate closure (new)
 
@@ -176,8 +190,9 @@ forbidden` in the approval-policy evaluation.
 Run 10 consecutive `local_cli` dispatches across PM/dev/QA roles on the real
 failing environment. Quote adapter diagnostic lines including
 `startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`,
-`watchdog_fired`. On `v2.151.0`, `watchdog_fired` MUST be false on at least
-9 of 10 dispatches at the default threshold (no config overrides).
+`watchdog_fired`. On the current quote-back target, `watchdog_fired` MUST be
+false on 10 of 10 adapter-path dispatches at the default 180,000 ms threshold
+(no config overrides).
 
 ### All prior shipped-package closure contracts remain in force
 
@@ -210,15 +225,15 @@ failing environment. Quote adapter diagnostic lines including
 ## Status
 
 - **BUG-59**: full-auto gate closure coupling shipped. Closure requires
-  tester-quoted shipped-package output on `agentxchain@2.151.0` showing
+  tester-quoted shipped-package output on `agentxchain@2.154.7` or later showing
   (a) `trigger: 'auto_approved'` on routine gate closure + (b) credentialed-
   gate block with policy-evaluation diagnostic.
-- **BUG-54**: startup watchdog default raised to 120,000 ms. Closure
-  requires tester-quoted `>90%` success across 10 consecutive PM/dev/QA
-  dispatches on the failing environment at the new default.
-- **BUG-52 / BUG-53**: the BUG-59 coupling is expected to resolve BUG-52's
-  third-variant (`qa_ship_verdict` + `launch_ready` with no pending object)
-  as a side-effect. Tester verification required.
+- **BUG-54**: startup watchdog default raised to 180,000 ms. Closure
+  requires tester-quoted 10/10 success across consecutive real adapter-path
+  dispatches on the failing environment at the default threshold.
+- **BUG-52 / BUG-53**: BUG-52's delegated human-gate loop was not resolved as a
+  side-effect of BUG-59. Use `v2.154.7` or later for current BUG-52-safe
+  quote-back.
 - **BUG-55 / BUG-56**: closed on prior releases. Regression coverage
   carried.
 - **BUG-60 perpetual continuous policy**: NOT shipped in `v2.151.0`.

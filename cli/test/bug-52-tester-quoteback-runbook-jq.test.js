@@ -37,6 +37,7 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const RUNBOOK_PATH = '.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md';
 const LEGACY_PATH = '.planning/BUG_52_2152_TESTER_QUOTEBACK_RUNBOOK.md';
 const RUNBOOK = readFileSync(join(REPO_ROOT, RUNBOOK_PATH), 'utf8');
+const RELEASE_152 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-152-0.mdx'), 'utf8');
 
 describe('BUG-52 tester quote-back runbook invariants', () => {
   it('lives at the unversioned canonical path', () => {
@@ -144,6 +145,29 @@ describe('BUG-52 tester quote-back runbook invariants', () => {
       RUNBOOK,
       /rm -f \.planning\/PM_SIGNOFF\.md/,
       'runbook must not test the negative case by deleting PM_SIGNOFF after checkpoint; that proves dirty-worktree blocking instead',
+    );
+  });
+
+  it('public v2.152.0 release page points current BUG-52 quote-back to 2.154.7', () => {
+    assert.match(
+      RELEASE_152,
+      /Current quote-back target:[\s\S]*agentxchain@2\.154\.7/,
+      'v2.152.0 public release notes must warn that current BUG-52 quote-back uses the full 2.154.7 fix stack',
+    );
+    assert.match(
+      RELEASE_152,
+      /BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md/,
+      'v2.152.0 release notes must link operators to the canonical BUG-52 runbook',
+    );
+    assert.match(
+      RELEASE_152,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7\s+-c "agentxchain --version"/,
+      'v2.152.0 tester contract command must use the current 2.154.7 target',
+    );
+    assert.doesNotMatch(
+      RELEASE_152,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.152\.0\s+-c "agentxchain --version"/,
+      'v2.152.0 release notes may mention the historical version, but must not keep a live npx command pinned to it',
     );
   });
 });

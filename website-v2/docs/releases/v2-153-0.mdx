@@ -84,11 +84,17 @@ or `run_loop.continuous.auto_retry_on_ghost.enabled: true` in
 
 ## Tester Re-Run Contract
 
-Run the shipped package, not the source tree:
+Run the latest shipped package that carries the BUG-61 ghost-retry fix and the
+later BUG-52 third-variant repairs, not the source tree:
 
 ```bash
-npx --yes -p agentxchain@2.153.0 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
+
+The command above supersedes the original `v2.153.0` quote-back pin. `v2.153.0`
+introduced BUG-61 ghost-turn auto-recovery, but `v2.154.7` is the safer current
+tester target because the same full-auto dogfood run can otherwise hit the
+BUG-52 realistic human-gate loop before BUG-61 evidence is collected.
 
 ### BUG-61 ghost-turn auto-recovery
 
@@ -163,8 +169,9 @@ the same accepted turn.
 ### BUG-52 / BUG-54 / BUG-59 / BUG-53 closures still require their own contracts
 
 BUG-52 third-variant closure still requires tester-quoted shipped-package
-output on `agentxchain@2.152.0` per that release's contract. BUG-54 still
-requires adapter-path watchdog evidence. BUG-59 still requires tester
-quote-back for routine auto-approval ledger rows and credentialed hard-stop
-counter-evidence. BUG-53 still requires a real multi-run chain trace.
-`v2.153.0` does not alter those closure contracts.
+output on `agentxchain@2.154.7` or later per the canonical
+`.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` contract. BUG-54 still requires
+adapter-path watchdog evidence. BUG-59 still requires tester quote-back for
+routine auto-approval ledger rows and credentialed hard-stop counter-evidence.
+BUG-53 still requires a real multi-run chain trace. `v2.153.0` does not alter
+those closure contracts.

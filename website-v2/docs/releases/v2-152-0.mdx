@@ -15,6 +15,13 @@ AgentXchain advances to the next phase, cleans stale same-phase active turn
 state, and dispatches the next phase entry role. That prevents the observed
 `planning -> planning` or `qa -> qa` loop after a human unblock.
 
+> **Current quote-back target:** use `agentxchain@2.154.7` or later for BUG-52
+> tester evidence. `v2.152.0` shipped the first standing-gate repair, but
+> `v2.154.7` is the first package that also covers the realistic PM
+> `needs_human` handoff with `proposed_next_role: "human"` and
+> `phase_transition_request: null`. The canonical tester runbook is
+> `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`.
+
 ## Bug Fixes
 
 - **BUG-52 standing gate unblock loop**: `resumeVia: "operator_unblock"` now
@@ -50,11 +57,17 @@ agentxchain unblock <human_escalation_id>
 
 ## Tester Re-Run Contract
 
-Run the shipped package, not the source tree:
+Run the latest shipped package that carries the full BUG-52 third-variant fix
+stack, not the source tree:
 
 ```bash
-npx --yes -p agentxchain@2.152.0 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
+
+The command above supersedes the original `v2.152.0` quote-back pin. Use the
+canonical runbook in `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` for the
+exact realistic PM handoff shape, pre-/post-unblock state fields, durable
+events, and negative counter-case.
 
 ### BUG-52 standing-gate unblock
 

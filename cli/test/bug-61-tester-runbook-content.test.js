@@ -43,4 +43,27 @@ describe('BUG-61 tester runbook content', () => {
       assert.match(content, /DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001/);
     }
   });
+
+  it('points the public v2.153.0 quote-back command at the BUG-52-safe package', () => {
+    assert.match(
+      release153,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7\s+-c "agentxchain --version"/,
+      'v2.153.0 release notes must use 2.154.7 as the current BUG-61 quote-back package target',
+    );
+    assert.match(
+      release153,
+      /BUG-52 realistic human-gate loop/,
+      'v2.153.0 release notes must explain why the historical 2.153.0 pin is not the current safe tester target',
+    );
+    assert.doesNotMatch(
+      release153,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.153\.0\s+-c "agentxchain --version"/,
+      'v2.153.0 release notes may mention the historical version, but must not keep a live npx command pinned to it',
+    );
+    assert.doesNotMatch(
+      release153,
+      /output on `agentxchain@2\.152\.0` per that release's contract/,
+      'v2.153.0 BUG-52 closure wording must not point operators back to the stale 2.152.0 contract',
+    );
+  });
 });

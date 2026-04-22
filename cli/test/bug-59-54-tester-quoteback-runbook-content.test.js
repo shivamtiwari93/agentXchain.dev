@@ -21,6 +21,7 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const RUNBOOK_PATH = '.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md';
 const CHECKLIST_PATH = '.planning/BUG_54_BUG_59_TESTER_QUOTEBACK_CHECKLIST.md';
 const LEGACY_RUNBOOK_PATH = '.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md';
+const RELEASE_151_PATH = 'website-v2/docs/releases/v2-151-0.mdx';
 const DOC_PATHS = [CHECKLIST_PATH, RUNBOOK_PATH];
 
 function readRepoFile(relPath) {
@@ -146,6 +147,45 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       checklist,
       new RegExp(RUNBOOK_PATH.replace(/\./g, '\\.').replace(/\//g, '\\/')),
       'checklist must link to the canonical unversioned runbook path',
+    );
+  });
+
+  it('public v2.151.0 release page points current BUG-59/54 quote-back to 2.154.7', () => {
+    const releasePage = readRepoFile(RELEASE_151_PATH);
+    assert.match(
+      releasePage,
+      /Current quote-back target:[\s\S]*agentxchain@2\.154\.7/,
+      'v2.151.0 public release notes must warn that current BUG-59/54 quote-back uses the BUG-52-safe 2.154.7 target',
+    );
+    assert.match(
+      releasePage,
+      /BUG_59_54_TESTER_QUOTEBACK_RUNBOOK\.md/,
+      'v2.151.0 release notes must link operators to the canonical BUG-59/54 runbook',
+    );
+    assert.match(
+      releasePage,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7\s+-c "agentxchain --version"/,
+      'v2.151.0 tester contract command must use the current 2.154.7 target',
+    );
+    assert.doesNotMatch(
+      releasePage,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.151\.0\s+-c "agentxchain --version"/,
+      'v2.151.0 release notes may mention the historical version, but must not keep a live npx command pinned to it',
+    );
+    assert.match(
+      releasePage,
+      /default 180,000 ms threshold/,
+      'BUG-54 public quote-back wording must match the current 180,000 ms default',
+    );
+    assert.doesNotMatch(
+      releasePage,
+      /startup watchdog default raised to 120,000 ms/,
+      'v2.151.0 release notes must not preserve the stale 120,000 ms BUG-54 default',
+    );
+    assert.doesNotMatch(
+      releasePage,
+      /startup watchdog default\*\* raised from 30s to 120s/,
+      'v2.151.0 intro must not preserve the stale 120s BUG-54 summary',
     );
   });
 });
