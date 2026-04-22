@@ -307,6 +307,14 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /jq\s+'\.attempts\[\][\s\S]{0,240}first_stdout_elapsed_ms[\s\S]{0,120}watchdog_fired/,
       'V2 BUG-54 fallback must inline the per-attempt jq extraction (first_stdout_elapsed_ms + watchdog_fired)',
     );
+    // Turn 228: `command_probe` is only the `claude --version` probe. Runtime
+    // identity and the actual dispatch command/args live in top-level harness
+    // fields, so the first jq output must include them explicitly.
+    assert.match(
+      ask,
+      /jq\s+'\{runtime_id,\s*runtime_type,\s*resolved_command,\s*resolved_args_redacted,\s*stdin_bytes,\s*watchdog_ms,\s*command_probe,\s*summary\}'/,
+      'V2 BUG-54 fallback metadata jq must include runtime identity, resolved dispatch command/args, bundle size, watchdog threshold, probe, and summary',
+    );
     // Turn 227: BUG-54 fallback jq keys MUST match the real harness schema
     // (attempt_index, first_stdout_elapsed_ms, first_stderr_elapsed_ms,
     // stdout_bytes, stderr_bytes). The earlier key set (attempt,
@@ -330,8 +338,8 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
     );
     assert.match(
       ask,
-      /Paste both fallback `jq` outputs together[\s\S]{0,220}runtime id \/ command probe[\s\S]{0,220}ten per-attempt timing rows/,
-      'V2 BUG-54 fallback must explicitly require both jq outputs so runtime identity and timing rows are quoted together',
+      /Paste both fallback `jq` outputs together[\s\S]{0,260}runtime id,\s*resolved command\/args,\s*bundle size,\s*watchdog threshold[\s\S]{0,220}ten per-attempt timing rows/,
+      'V2 BUG-54 fallback must explicitly require both jq outputs so runtime identity, resolved command context, and timing rows are quoted together',
     );
     assert.doesNotMatch(
       ask,
@@ -354,6 +362,12 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /export\s+BUG54_START_TS="\$\(date\s+-u\s+\+"%Y-%m-%dT%H:%M:%SZ"\)"/,
       /agentxchain\s+events\s+--since\s+\\?"\$BUG54_START_TS\\?"\s+--type\s+turn_dispatched,turn_start_failed,runtime_spawn_failed,stdout_attach_failed,run_blocked\s+--json\s+--limit\s+0/,
       /node\s+<<'BUG54_DIAG'[\s\S]{0,2400}Current-window turn ids:[\s\S]{0,1800}\.agentxchain[\s\S]{0,120}dispatch[\s\S]{0,120}turns[\s\S]{0,120}stdout\.log/,
+      // Turn 228: the metadata jq field list must include top-level harness
+      // fields for runtime identity and the actual dispatch command/args. The
+      // previous `{command_probe, summary}` shape only identified the
+      // `claude --version` probe and summary counters, not the runtime that was
+      // stress-tested.
+      /jq\s+'\{runtime_id,\s*runtime_type,\s*resolved_command,\s*resolved_args_redacted,\s*stdin_bytes,\s*watchdog_ms,\s*command_probe,\s*summary\}'/,
       // Turn 227: the per-attempt jq field list MUST use the real
       // reproduce-bug-54.mjs attempt schema keys (attempt_index,
       // first_stdout_elapsed_ms, first_stderr_elapsed_ms, stdout_bytes,
@@ -382,6 +396,7 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /\{attempt, classification, first_stdout_ms/,
       /stdout_bytes_total/,
       /stderr_bytes_total/,
+      /jq\s+'\{command_probe,\s*summary\}'/,
     ];
     for (const bad of BROKEN_JQ_PATTERNS) {
       assert.doesNotMatch(

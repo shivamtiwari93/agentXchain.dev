@@ -152,11 +152,11 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
    node "$REPRO_DIR/package/scripts/reproduce-bug-54.mjs" \
      --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-latest.json
    rm -rf "$REPRO_DIR"
-   jq '{command_probe, summary}' /tmp/bug54-latest.json
+   jq '{runtime_id, runtime_type, resolved_command, resolved_args_redacted, stdin_bytes, watchdog_ms, command_probe, summary}' /tmp/bug54-latest.json
    jq '.attempts[] | {attempt_index, classification, first_stdout_elapsed_ms, first_stderr_elapsed_ms, watchdog_fired, exit_signal, stdout_bytes, stderr_bytes}' /tmp/bug54-latest.json
    ```
 
-   Paste both fallback `jq` outputs together if you use the fallback path. The first output carries the runtime id / command probe; the second carries the ten per-attempt timing rows. One without the other is incomplete.
+   Paste both fallback `jq` outputs together if you use the fallback path. The first output carries runtime id, resolved command/args, bundle size, watchdog threshold, command probe, and summary counters; the second carries the ten per-attempt timing rows. One without the other is incomplete.
 
    Quote these fields regardless of path:
    - Runtime id and command (e.g., `local-pm`, `local-dev`, `local-qa`).

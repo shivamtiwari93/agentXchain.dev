@@ -300,13 +300,14 @@ fi
 node "$REPRO_DIR/package/scripts/reproduce-bug-54.mjs" \
   --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-latest.json
 rm -rf "$REPRO_DIR"
-jq '{command_probe, summary}' /tmp/bug54-latest.json
+jq '{runtime_id, runtime_type, resolved_command, resolved_args_redacted, stdin_bytes, watchdog_ms, command_probe, summary}' /tmp/bug54-latest.json
 jq '.attempts[] | {attempt_index, classification, first_stdout_elapsed_ms, first_stderr_elapsed_ms, watchdog_fired, exit_signal, stdout_bytes, stderr_bytes}' /tmp/bug54-latest.json
 ```
 
 If you use the fallback path, paste both `jq` outputs together. The
-`{command_probe, summary}` output carries runtime id and command context;
-the `.attempts[]` output carries per-attempt timing.
+metadata output carries runtime id, resolved command/args, bundle size,
+watchdog threshold, Claude binary probe, and summary counters; the `.attempts[]`
+output carries per-attempt timing.
 
 The fallback is intentionally `npm pack`, not `npm root`: `npx --yes -p`
 uses an ephemeral cache, while `npm pack` asks npm itself to fetch the same
