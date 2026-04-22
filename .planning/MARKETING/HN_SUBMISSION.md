@@ -1,9 +1,9 @@
-# Hacker News Submission — AgentXchain v2.154.5
+# Hacker News Submission — AgentXchain v2.154.6
 
-> Ready-to-post for the `v2.154.5` launch window once tester verification lands. Updated 2026-04-22 for the BUG-52 activeCount=0 unblock-loop fix and empty-active evidence-gap proof.
+> Ready-to-post for the `v2.154.6` launch window once tester verification lands. Updated 2026-04-22 for the BUG-52 realistic PM needs_human handoff fix and verification-preserving synthetic-source guard.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 test/beta-tester-scenarios/ test/governed-cli.test.js test/claim-reality-preflight.test.js -> 299 tests / 77 suites / 0 failures / 5 skipped
+> - node --test --test-timeout=60000 test/human-escalation.test.js test/run-schedule-e2e.test.js test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 26 tests / 3 suites / 0 failures / 0 skipped
 
 ---
 
