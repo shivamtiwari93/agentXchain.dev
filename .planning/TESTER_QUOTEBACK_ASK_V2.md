@@ -196,7 +196,7 @@ Reject BUG-54 evidence if:
 - Watchdog threshold quoted is not `180000` (or higher via explicit override).
 - The evidence comes only from the standalone repro harness with no adapter-path attempts at all (harness is supporting timing evidence; closure requires adapter-path proof).
 
-When valid quote-back lands for BUG-59 and BUG-54 separately, update `.planning/HUMAN-ROADMAP.md`, record the closure decision in `.planning/DECISIONS.md`, and only then unlock BUG-60 work (BUG-52 quote-back per `TESTER_QUOTEBACK_ASK_V1.md` is also a precondition for BUG-60).
+When valid quote-back lands for BUG-59 and BUG-54 separately, update `.planning/HUMAN-ROADMAP.md`, record the closure decision in `.planning/DECISIONS.md`, and keep BUG-60 blocked until the separate BUG-52 shipped-package quote-back from `.planning/TESTER_QUOTEBACK_ASK_V1.md` also lands and BUG-60's own two-agent research/review pre-work is complete.
 
 ---
 

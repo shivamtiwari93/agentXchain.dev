@@ -252,6 +252,22 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /evidence comes only from the standalone repro harness with no adapter-path attempts at all/,
       'BUG-54 closure must still require adapter-path attempts, not harness-only timing proof',
     );
+    // Turn 255 (Claude): V2 previously said "only then unlock BUG-60 work" which
+    // implied BUG-59 + BUG-54 + BUG-52 quote-back is sufficient to start BUG-60.
+    // HUMAN-ROADMAP.md requires BUG-60's own two-agent research/review pre-work
+    // in addition to the three quote-backs. Mirror the V1 Turn-254 fix on V2 so
+    // a copy-paste ask cannot send the next agent into pre-work-skipped BUG-60
+    // implementation.
+    assert.match(
+      ask,
+      /keep BUG-60 blocked until the separate BUG-52 shipped-package quote-back from `\.planning\/TESTER_QUOTEBACK_ASK_V1\.md` also lands and BUG-60's own two-agent research\/review pre-work is complete/,
+      'V2 ask must not imply BUG-59 + BUG-54 + BUG-52 quote-back alone unlocks BUG-60',
+    );
+    assert.doesNotMatch(
+      ask,
+      /only then unlock BUG-60 work/,
+      'V2 ask must preserve the BUG-52 quote-back and BUG-60 pre-work blockers (Turn-254-shape fix mirrored on V2)',
+    );
   });
 
   it('V2 BUG-54 block 5 inlines the primary dogfood run, current-window diagnostics, and fallback harness commands', () => {
