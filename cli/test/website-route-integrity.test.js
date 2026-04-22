@@ -158,14 +158,19 @@ describe('website route integrity', () => {
 
     const missing = [];
     let scannedRouteCount = 0;
+    let scannedLinkPropertyRouteCount = 0;
     for (const filePath of scannedFiles) {
       const content = readFileSync(filePath, 'utf8');
       const relativeFile = relative(REPO_ROOT, filePath);
 
-      for (const match of content.matchAll(/(?:^|[,{;\s(])(?:to|href)\s*[:=]\s*['"](\/[^'"]+)['"]|\]\((\/[^)\s]+)\)/gm)) {
-        const route = match[1] ?? match[2];
+      for (const match of content.matchAll(/(?:^|[,{;\s(])((?:to|href|link))\s*[:=]\s*['"](\/[^'"]+)['"]|\]\((\/[^)\s]+)\)/gm)) {
+        const propertyName = match[1];
+        const route = match[2] ?? match[3];
         if (!route || route.startsWith('//')) {
           continue;
+        }
+        if (propertyName === 'link') {
+          scannedLinkPropertyRouteCount += 1;
         }
         scannedRouteCount += 1;
         if (!routeExists(route, docsRoutes, pageRoutes, anchorRoutes)) {
@@ -178,6 +183,10 @@ describe('website route integrity', () => {
     assert.ok(
       scannedRouteCount >= 20,
       `route scanner extracted only ${scannedRouteCount} internal routes — regex likely regressed. Expected >= 20 across navbar/footer/pages/docs.`,
+    );
+    assert.ok(
+      scannedLinkPropertyRouteCount >= 5,
+      `route scanner extracted only ${scannedLinkPropertyRouteCount} link: internal routes — homepage layer links are likely unguarded.`,
     );
   });
 
