@@ -38,21 +38,23 @@ describe('BUG-52/53/54/55 tester unblock runbook content', () => {
     );
   });
 
-  it('pins the package version under test and proof location', () => {
-    assert.match(RUNBOOK, /agentxchain@2\.150\.0/);
+  it('pins BUG-52 to the canonical shipped-package runbook and proof location', () => {
+    assert.match(RUNBOOK, /agentxchain@2\.154\.7/);
+    assert.match(RUNBOOK, /BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md/);
     assert.match(RUNBOOK, /agentxchain --version/);
     assert.match(RUNBOOK, /git rev-parse --show-toplevel/);
     assert.match(RUNBOOK, /\.planning\/AGENT-TALK\.md/);
     assert.match(NORMALIZED_RUNBOOK, /beta bug thread/i);
+    assert.doesNotMatch(RUNBOOK, /agentxchain@2\.150\.0/);
   });
 
   it('names the four evidence commands for the four open bugs', () => {
     for (const command of [
-      'agentxchain accept-turn --turn <accepted_turn_id> && agentxchain checkpoint-turn --turn <accepted_turn_id> && agentxchain unblock <hesc_id> && agentxchain resume',
+      "sed -n '1,220p' .planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md",
       'agentxchain run --continuous --max-runs 3',
       'REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"',
       '[ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"',
-      'node "$REPRO" --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json',
+      'node "$REPRO" --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-latest.json',
       'agentxchain accept-turn --turn <qa_turn_id> && agentxchain checkpoint-turn --turn <qa_turn_id> && git status --short',
     ]) {
       assert.match(RUNBOOK, escapedRegExp(command), `runbook must include command: ${command}`);
@@ -65,6 +67,8 @@ describe('BUG-52/53/54/55 tester unblock runbook content', () => {
       'qa_ship_verdict',
       'phase_entered',
       'trigger: "reconciled_before_dispatch"',
+      'gate_passed',
+      'negative counter-case',
       'Planning must dispatch `dev`',
       'QA must dispatch `launch`',
       '.agentxchain/state.json',
@@ -92,7 +96,7 @@ describe('BUG-52/53/54/55 tester unblock runbook content', () => {
     // Testers reproduce BUG-54 inside their own project worktree where the
     // `cli/` directory does not exist. The runbook must resolve the script
     // out of the installed `agentxchain` package so the command works as-is
-    // against `agentxchain@2.150.0`. Guard against regressing to the
+    // against the installed `agentxchain` package. Guard against regressing to the
     // repo-relative path.
     assert.doesNotMatch(
       RUNBOOK,

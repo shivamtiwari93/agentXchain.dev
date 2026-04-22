@@ -2,22 +2,24 @@
 
 ## Purpose
 
-Provide one compact tester-facing checklist that converts the four remaining
-open beta reliability bugs into quote-back evidence on `agentxchain@2.150.0`.
-The existing roadmap entries contain the closure contracts, but they are spread
-across long bug narratives. This runbook is the operator bridge.
+Provide one compact tester-facing checklist that converts the remaining open
+beta reliability bugs into quote-back evidence without pinning testers to stale
+packages. BUG-52 now has a canonical dedicated runbook because its closure shape
+changed after the v2.151.0 / v2.154.5 false closures; this combined checklist
+must point BUG-52 testers to that canonical path.
 
 ## Interface
 
 - Artifact: `.planning/BUG_52_53_54_55_TESTER_UNBLOCK_RUNBOOK.md`
 - Guard: `cli/test/bug-52-53-54-55-tester-unblock-runbook-content.test.js`
-- Package under test: `agentxchain@2.150.0`
+- BUG-52 package under test: `agentxchain@2.154.7` or later, via `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`
+- BUG-53 / BUG-54 package under test: latest shipped package unless a bug-specific runbook explicitly pins an older diagnostic contract
 
 ## Behavior
 
 - The runbook stays under 60 non-empty lines.
 - It names one executable evidence command for each open bug:
-  - BUG-52 phase-gate unblock chain
+  - BUG-52 canonical third-variant quote-back runbook
   - BUG-53 continuous auto-chain
   - BUG-54 local CLI reproduction harness
   - BUG-55 checkpoint completeness
@@ -29,6 +31,8 @@ across long bug narratives. This runbook is the operator bridge.
 
 - If a command uses local source paths without saying how to prove the package
   version, the guard fails.
+- If BUG-52 points testers at `agentxchain@2.150.0` or `v2.152.0`, the guard
+  fails because those versions do not contain the full realistic-PM fix stack.
 - If BUG-54 omits the discriminator JSON fields, the guard fails.
 - If BUG-52 omits both planning and QA gate lanes, the guard fails.
 - If BUG-55 omits `git status --short`, the guard fails.

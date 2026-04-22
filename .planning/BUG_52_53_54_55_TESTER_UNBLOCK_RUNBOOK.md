@@ -1,26 +1,29 @@
 # BUG-52/53/54/55 Tester Unblock Runbook
 
-Use this in the original failing worktree after installing or selecting
-`agentxchain@2.150.0`. First quote:
+Use this as the compact cluster checklist. For BUG-52 third-variant closure,
+do **not** use the old v2.150.0 sequence; use the canonical shipped-package
+runbook at `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` against
+`agentxchain@2.154.7` or later. First quote:
 
 ```bash
-agentxchain --version
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 git rev-parse --show-toplevel
 ```
 
 ## BUG-52: Phase-gate Unblock Advances Phase
 
-Run this twice: once for the real `planning_signoff` escalation and once for
-the real `qa_ship_verdict` escalation.
+Run the dedicated BUG-52 runbook:
 
 ```bash
-agentxchain accept-turn --turn <accepted_turn_id> && agentxchain checkpoint-turn --turn <accepted_turn_id> && agentxchain unblock <hesc_id> && agentxchain resume
+sed -n '1,220p' .planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md
 ```
 
-Quote: `phase_entered` with `trigger: "reconciled_before_dispatch"`, the next
-dispatched turn id, phase, and role. Planning must dispatch `dev`; QA must
-dispatch `launch`. State whether any manual `.agentxchain/state.json` edit was
-needed.
+Quote: package identity, pre-unblock realistic PM shape, `unblock` output,
+post-unblock state, `phase_entered` with `trigger: "reconciled_before_dispatch"`,
+`gate_passed`, no ghost turn, and the negative counter-case. Cover both
+`planning_signoff` and `qa_ship_verdict` lanes when the project reaches them.
+Planning must dispatch `dev`; QA must dispatch `launch`. State whether any
+manual `.agentxchain/state.json` edit was needed.
 
 ## BUG-53: Continuous Auto-chain
 
@@ -42,7 +45,7 @@ Run inside the failing worktree. The diagnostic ships inside the installed
 ```bash
 REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"
 [ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"
-node "$REPRO" --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json
+node "$REPRO" --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-latest.json
 ```
 
 Quote from JSON: `command_probe.status`, `command_probe.stdout`,

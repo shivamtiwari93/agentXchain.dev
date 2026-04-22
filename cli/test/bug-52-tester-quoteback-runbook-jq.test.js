@@ -130,5 +130,20 @@ describe('BUG-52 tester quote-back runbook invariants', () => {
       /exit:\s*1/,
       'runbook negative counter-case must expect exit: 1',
     );
+    assert.match(
+      RUNBOOK,
+      /proposed_next_role:\s*"dev"/,
+      'runbook negative counter-case must force the continuation path before proving missing evidence blocks it',
+    );
+    assert.match(
+      RUNBOOK,
+      /PM_SIGNOFF\.md absent before accept\/checkpoint/,
+      'runbook negative counter-case must make evidence missing before accept/checkpoint',
+    );
+    assert.doesNotMatch(
+      RUNBOOK,
+      /rm -f \.planning\/PM_SIGNOFF\.md/,
+      'runbook must not test the negative case by deleting PM_SIGNOFF after checkpoint; that proves dirty-worktree blocking instead',
+    );
   });
 });

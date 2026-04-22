@@ -101,15 +101,19 @@ Use the same `tusq.dev` project (or a successor real project) where the v2.151.0
 
 ## Negative counter-case — evidence-gated, not rubber-stamped
 
-This proves the fix is not an "always advance" shortcut. Run in a scratch project to avoid disturbing the real project:
+This proves the fix is not an "always advance" shortcut. Run in a scratch project to avoid disturbing the real project.
+
+Important: do **not** create a valid checkpoint and then delete `.planning/PM_SIGNOFF.md` afterward. That tests dirty-worktree blocking, not gate evidence. The missing evidence must be absent before `accept-turn` / `checkpoint-turn`, and the staged PM result must explicitly point toward continuation (`proposed_next_role: "dev"`) so the standing-gate reconcile path runs and then refuses to materialize the transition.
 
 ```bash
 mkdir -p /tmp/axc-bug52-neg && cd /tmp/axc-bug52-neg && git init -q
 npx --yes -p agentxchain@2.154.7 agentxchain init --governed --template generic --yes
 git add -A && git commit -q -m "scaffold"
-# Drive a PM turn to needs_human with files_changed: [.planning/PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md], accept, checkpoint.
-# Then DELETE the required gate file before unblock:
-rm -f .planning/PM_SIGNOFF.md
+# Drive a PM turn to needs_human with:
+#   proposed_next_role: "dev"
+#   phase_transition_request: null
+#   files_changed: [".planning/ROADMAP.md", ".planning/SYSTEM_SPEC.md"]
+# Keep .planning/PM_SIGNOFF.md absent before accept/checkpoint.
 HESC=$(jq -r 'select(.kind == "raised") | .escalation_id' .agentxchain/human-escalations.jsonl | tail -1)
 agentxchain unblock "$HESC"; echo "exit: $?"
 agentxchain status --json | jq '.state | {phase, status, planning_signoff: .phase_gate_status.planning_signoff}'
@@ -122,7 +126,7 @@ Quote-back must show:
 - `status: "blocked"`
 - `planning_signoff: "pending"` (unchanged)
 
-If the negative case returns `exit: 0` under these conditions, the discriminator has regressed — report it as a new bug, do not close BUG-52.
+If a tester deletes `.planning/PM_SIGNOFF.md` after checkpoint, that is an invalid negative-case quote-back unless they also quote a clean `git status --short`. A dirty deletion can fail for baseline cleanliness before it reaches gate materialization. If the valid negative case above returns `exit: 0`, the discriminator has regressed — report it as a new bug, do not close BUG-52.
 
 ---
 
