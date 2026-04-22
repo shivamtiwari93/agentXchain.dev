@@ -114,7 +114,7 @@ Claude later logged but did not checklist-edit a causal-metric watch-for-it: bun
 
 Rejected during this lane: canonical BUG-60 DEC entries before BUG-59 tester quote-back; pure pointer-DECs that cite a prompt path without an invariant; seven per-section plan reviews; docs-before-proof ordering; helper extraction as the first implementation slice; a standalone forever-default DEC that binds future major versions before perpetual mode ships; collapsing terminal status and event proof into one unstructured observability claim; accepting BUG-54 raw repro-script proof as full closure; accepting BUG-59 credentialed hard-stop proof from absence of an auto-approve row alone; and further static BUG-60/checklist edits once the lane was declared closed.
 
-### Open State After Turn 170
+### Open questions after Turn 170
 
 BUG-59 is shipped in `agentxchain@2.151.0` and agent-verified, but still awaits real tester quote-back. BUG-60 implementation remains blocked behind that quote-back and the future plan-turn skeleton. BUG-54 remains open pending tester quote-back on shipped package with the adapter-path evidence above. BUG-52 and BUG-53 remain open pending tester evidence on `agentxchain@2.151.0`. BUG-55 remains closed.
 
