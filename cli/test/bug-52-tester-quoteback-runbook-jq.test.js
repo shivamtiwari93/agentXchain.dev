@@ -157,6 +157,26 @@ describe('BUG-52 tester quote-back runbook invariants', () => {
       /rm -f \.planning\/PM_SIGNOFF\.md/,
       'runbook must not test the negative case by deleting PM_SIGNOFF after checkpoint; that proves dirty-worktree blocking instead',
     );
+    assert.match(
+      RUNBOOK,
+      /generic scaffold's planning route does not allow[\s\S]{0,120}dev directly from planning by default/,
+      'runbook must explain why the scratch negative case adjusts generic planning routing',
+    );
+    assert.match(
+      RUNBOOK,
+      /config\.routing\.planning\.allowed_next_roles[\s\S]{0,220}'dev'/,
+      'runbook negative counter-case must make proposed_next_role "dev" routing-legal in the scratch project',
+    );
+    assert.match(
+      RUNBOOK,
+      /agentxchain resume --role pm[\s\S]*agentxchain accept-turn[\s\S]*agentxchain checkpoint-turn --turn "\$TURN"[\s\S]*agentxchain unblock "\$HESC"/,
+      'runbook negative counter-case must preserve the shipped-package command chain through resume, accept, checkpoint, and unblock',
+    );
+    assert.match(
+      RUNBOOK,
+      /Make real post-dispatch PM edits so checkpoint-turn proves declared files/,
+      'runbook negative counter-case must not declare files_changed without making post-dispatch edits',
+    );
   });
 
   it('short tester ask preserves the BUG-52 seven-field quote-back contract', () => {

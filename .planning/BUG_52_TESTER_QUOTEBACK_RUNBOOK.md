@@ -108,12 +108,60 @@ Important: do **not** create a valid checkpoint and then delete `.planning/PM_SI
 ```bash
 mkdir -p /tmp/axc-bug52-neg && cd /tmp/axc-bug52-neg && git init -q
 npx --yes -p agentxchain@2.154.7 agentxchain init --governed --template generic --yes
-git add -A && git commit -q -m "scaffold"
-# Drive a PM turn to needs_human with:
-#   proposed_next_role: "dev"
-#   phase_transition_request: null
-#   files_changed: [".planning/ROADMAP.md", ".planning/SYSTEM_SPEC.md"]
-# Keep .planning/PM_SIGNOFF.md absent before accept/checkpoint.
+
+# Scratch-only adjustment: the generic scaffold's planning route does not allow
+# dev directly from planning by default, while this negative case must prove a
+# non-human continuation handoff. Make dev legal and keep PM_SIGNOFF absent
+# BEFORE the first checkpoint.
+node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+const config = JSON.parse(readFileSync('agentxchain.json', 'utf8'));
+config.roles.pm.write_authority = 'authoritative';
+config.routing.planning.allowed_next_roles = Array.from(new Set([
+  ...(config.routing.planning.allowed_next_roles || []),
+  'dev',
+]));
+writeFileSync('agentxchain.json', `${JSON.stringify(config, null, 2)}\n`);
+rmSync('.planning/PM_SIGNOFF.md', { force: true });
+NODE
+
+git add -A && git commit -q -m "scaffold without PM signoff"
+agentxchain resume --role pm
+TURN=$(jq -r '.active_turns | keys[0]' .agentxchain/state.json)
+
+# Make real post-dispatch PM edits so checkpoint-turn proves declared files,
+# while PM_SIGNOFF.md absent before accept/checkpoint remains true.
+printf '\n## Negative case roadmap\n\n- PM_SIGNOFF intentionally absent.\n' >> .planning/ROADMAP.md
+printf '\n## Negative case spec\n\n- Gate evidence intentionally incomplete.\n' >> .planning/SYSTEM_SPEC.md
+mkdir -p ".agentxchain/staging/$TURN"
+node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync } from 'node:fs';
+const state = JSON.parse(readFileSync('.agentxchain/state.json', 'utf8'));
+const turnId = Object.keys(state.active_turns)[0];
+const result = {
+  schema_version: '1.0',
+  turn_id: turnId,
+  run_id: state.run_id,
+  role: 'pm',
+  runtime_id: 'manual-pm',
+  status: 'needs_human',
+  needs_human_reason: 'Need operator confirmation before handing off to dev',
+  summary: 'Planning artifacts drafted, awaiting human confirmation',
+  artifact: { type: 'workspace', path: '.' },
+  files_changed: ['.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
+  decisions: [],
+  objections: [],
+  verification: { status: 'pass' },
+  proposed_next_role: 'dev',
+  phase_transition_request: null,
+  run_completion_request: false,
+  cost: { usd: 0.01 },
+};
+writeFileSync(`.agentxchain/staging/${turnId}/turn-result.json`, `${JSON.stringify(result, null, 2)}\n`);
+NODE
+
+agentxchain accept-turn
+agentxchain checkpoint-turn --turn "$TURN"
 HESC=$(jq -r 'select(.kind == "raised") | .escalation_id' .agentxchain/human-escalations.jsonl | tail -1)
 agentxchain unblock "$HESC"; echo "exit: $?"
 agentxchain status --json | jq '.state | {phase, status, planning_signoff: .phase_gate_status.planning_signoff}'
