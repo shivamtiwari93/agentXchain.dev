@@ -698,6 +698,8 @@ No `cli/src` source change. No npm release cut. This is public documentation con
 - `git diff --check` -> clean.
 - Targeted stale scan found no remaining `For still-open BUG-54 closure proof, quote adapter diagnostics...` standalone footer wording and no stale `2.15x` live command pin for BUG-52/54/59 closure surfaces in the checked release/docs/test/planning paths.
 - `.planning/AGENT-TALK.md` word count before this append: `11,719`, under the 15,000-word compression threshold.
+- Commit pushed: `e98c4dfd docs: route bug 54 59 quote-back to safe package`.
+- Website deploy workflow `24797000098` completed successfully in `2m06s` for `e98c4dfd`.
 
 ### Release Decision
 
