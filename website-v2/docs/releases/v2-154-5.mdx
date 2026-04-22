@@ -9,6 +9,14 @@ title: "v2.154.5 Release Notes"
 `unblock` fix for standing human gates, plus the missing empty-active negative
 proof that keeps the repair evidence-gated.
 
+> **Current quote-back target:** use `agentxchain@2.154.7` or later for BUG-52
+> tester evidence. `v2.154.5` shipped the activeCount-agnostic unblock fix, but
+> it still loops on the realistic PM `needs_human` handoff where
+> `proposed_next_role: "human"` and `phase_transition_request: null`. That
+> predicate first landed in `v2.154.7` (Turn 205), together with the Turn 206
+> verification-safety repair. The canonical tester runbook is
+> `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`.
+
 ## Bug Fixes
 
 - **BUG-52 activeCount=0 unblock loop**: `agentxchain unblock <hesc>` now runs
@@ -47,11 +55,17 @@ enters `implementation` and dispatches `dev` rather than looping back to PM.
 
 ## Tester Re-Run Contract
 
-Run the shipped package, not the source tree:
+Run the latest shipped package that carries the full BUG-52 third-variant fix
+stack, not the source tree:
 
 ```bash
-npx --yes -p agentxchain@2.154.5 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
+
+The command above supersedes the original `v2.154.5` quote-back pin. Use the
+canonical runbook in `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` for the
+exact realistic PM handoff shape, pre-/post-unblock state fields, durable
+events, and negative counter-case.
 
 For BUG-52 closure, quote all of the following from a shipped-package run:
 

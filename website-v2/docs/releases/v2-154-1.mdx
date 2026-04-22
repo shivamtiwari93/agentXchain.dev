@@ -10,6 +10,13 @@ title: "v2.154.1 Release Notes"
 so continuous sessions write schema-valid blocked state and `agentxchain
 status` shows the exact refusal class plus recovery command.
 
+> **Current BUG-52 quote-back target:** BUG-62 closure can proceed on
+> `agentxchain@2.154.1`. But BUG-52 third-variant quote-back must use
+> `agentxchain@2.154.7` or later — `v2.154.1` still loops on the realistic PM
+> `needs_human` handoff where `proposed_next_role: "human"` and
+> `phase_transition_request: null`. The canonical BUG-52 runbook is
+> `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`.
+
 ## Bug Fixes
 
 - **BUG-62 auto-refusal blocked-state schema**: continuous
@@ -106,10 +113,11 @@ should show the manual `reissue-turn --reason ghost` recovery, not
 followed by a successful subsequent turn, or `ghost_retry_exhausted` with its
 diagnostic bundle when the budget is exhausted.
 
-For still-open BUG-52 closure proof, quote `phase_entered` after `unblock`.
-Older paths may still show `trigger: "reconciled_before_dispatch"`; standing
-gate paths should also show cleanup evidence when stale same-phase state
-existed.
+For still-open BUG-52 closure proof, pin to `agentxchain@2.154.7` or later and
+follow `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`. Quote `phase_entered`
+after `unblock`; older paths may still show
+`trigger: "reconciled_before_dispatch"`. Standing gate paths should also show
+cleanup evidence when stale same-phase state existed.
 
 For still-open BUG-53 closure proof, run the shipped package in continuous mode
 and quote `session_continuation` events across chained runs. A bounded idle run

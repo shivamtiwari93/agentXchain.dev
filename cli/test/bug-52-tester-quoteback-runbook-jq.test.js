@@ -38,6 +38,10 @@ const RUNBOOK_PATH = '.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md';
 const LEGACY_PATH = '.planning/BUG_52_2152_TESTER_QUOTEBACK_RUNBOOK.md';
 const RUNBOOK = readFileSync(join(REPO_ROOT, RUNBOOK_PATH), 'utf8');
 const RELEASE_152 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-152-0.mdx'), 'utf8');
+const RELEASE_1540 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-154-0.mdx'), 'utf8');
+const RELEASE_1541 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-154-1.mdx'), 'utf8');
+const RELEASE_1543 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-154-3.mdx'), 'utf8');
+const RELEASE_1545 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-154-5.mdx'), 'utf8');
 
 describe('BUG-52 tester quote-back runbook invariants', () => {
   it('lives at the unversioned canonical path', () => {
@@ -168,6 +172,97 @@ describe('BUG-52 tester quote-back runbook invariants', () => {
       RELEASE_152,
       /npx\s+--yes\s+-p\s+agentxchain@2\.152\.0\s+-c "agentxchain --version"/,
       'v2.152.0 release notes may mention the historical version, but must not keep a live npx command pinned to it',
+    );
+  });
+
+  it('public v2.154.5 release page redirects BUG-52 quote-back to 2.154.7', () => {
+    // v2.154.5 was a BUG-52 third-variant release but shipped before the
+    // Turn 205 realistic PM handoff predicate. A tester following its original
+    // quote-back command would reproduce the loop and conclude BUG-52 is
+    // unfixed.
+    assert.match(
+      RELEASE_1545,
+      /Current quote-back target:[\s\S]*agentxchain@2\.154\.7/,
+      'v2.154.5 release notes must warn that current BUG-52 quote-back uses 2.154.7+',
+    );
+    assert.match(
+      RELEASE_1545,
+      /BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md/,
+      'v2.154.5 release notes must link the canonical BUG-52 runbook',
+    );
+    assert.match(
+      RELEASE_1545,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7\s+-c "agentxchain --version"/,
+      'v2.154.5 tester contract command must use the current 2.154.7 target',
+    );
+    assert.doesNotMatch(
+      RELEASE_1545,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.154\.5\s+-c "agentxchain --version"/,
+      'v2.154.5 release notes must not keep a live npx command pinned to the stale version',
+    );
+  });
+
+  it('public v2.154.3 release page redirects BUG-52 still-open footer to 2.154.7', () => {
+    // v2.154.3 is a BUG-61 release; its BUG-61 primary quote-back can stay
+    // pinned to 2.154.3, but the still-open BUG-52 footer must redirect.
+    assert.match(
+      RELEASE_1543,
+      /Current BUG-52 quote-back target:[\s\S]*agentxchain@2\.154\.7/,
+      'v2.154.3 release notes must warn that BUG-52 quote-back uses 2.154.7+',
+    );
+    assert.match(
+      RELEASE_1543,
+      /BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md/,
+      'v2.154.3 release notes must link the canonical BUG-52 runbook',
+    );
+    assert.match(
+      RELEASE_1543,
+      /still-open BUG-52 closure proof, pin to `agentxchain@2\.154\.7`/,
+      'v2.154.3 still-open BUG-52 footer must redirect to 2.154.7 pin',
+    );
+  });
+
+  it('public v2.154.1 release page redirects BUG-52 still-open footer to 2.154.7', () => {
+    assert.match(
+      RELEASE_1541,
+      /Current BUG-52 quote-back target:[\s\S]*agentxchain@2\.154\.7/,
+      'v2.154.1 release notes must warn that BUG-52 quote-back uses 2.154.7+',
+    );
+    assert.match(
+      RELEASE_1541,
+      /BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md/,
+      'v2.154.1 release notes must link the canonical BUG-52 runbook',
+    );
+    assert.match(
+      RELEASE_1541,
+      /still-open BUG-52 closure proof, pin to `agentxchain@2\.154\.7`/,
+      'v2.154.1 still-open BUG-52 footer must redirect to 2.154.7 pin',
+    );
+  });
+
+  it('public v2.154.0 release page no longer directs BUG-52 quote-back to 2.152.0 window', () => {
+    // v2.154.0 previously said BUG-52 third-variant closure accepted
+    // `agentxchain@2.152.0 or newer`, which includes the entire realistic-PM
+    // loop window (2.152.0–2.154.5). The BUG-52 footer must redirect.
+    assert.match(
+      RELEASE_1540,
+      /Current BUG-52 quote-back target:[\s\S]*agentxchain@2\.154\.7/,
+      'v2.154.0 release notes must warn that BUG-52 quote-back uses 2.154.7+',
+    );
+    assert.match(
+      RELEASE_1540,
+      /BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md/,
+      'v2.154.0 release notes must link the canonical BUG-52 runbook',
+    );
+    assert.doesNotMatch(
+      RELEASE_1540,
+      /agentxchain@2\.152\.0.{0,8}or newer/,
+      'v2.154.0 release notes must not direct BUG-52 closure to 2.152.0-or-newer, which includes the loop window',
+    );
+    assert.match(
+      RELEASE_1540,
+      /BUG-52 third-variant closure requires tester-quoted shipped-package[\s\S]{0,40}`agentxchain@2\.154\.7`/,
+      'v2.154.0 release notes must require 2.154.7+ for BUG-52 third-variant closure',
     );
   });
 });

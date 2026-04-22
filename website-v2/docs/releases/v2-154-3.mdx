@@ -10,6 +10,14 @@ keeps the `v2.154.1` BUG-62 visibility release intact, then makes ghost-turn
 auto-retry expectations and retry-exhaustion evidence easier to verify from a
 shipped package.
 
+> **Current BUG-52 quote-back target:** BUG-61 closure can proceed on
+> `agentxchain@2.154.3` because the strict full-auto detector and diagnostic
+> surfaces shipped here. But BUG-52 third-variant quote-back must use
+> `agentxchain@2.154.7` or later — `v2.154.3` still loops on the realistic PM
+> `needs_human` handoff where `proposed_next_role: "human"` and
+> `phase_transition_request: null`. The canonical BUG-52 runbook is
+> `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`.
+
 ## Bug Fixes
 
 - **BUG-61 tester runbook precondition**: lights-out docs and release notes now
@@ -130,10 +138,11 @@ deletes `.planning/acceptance-matrix.md`; quote `agentxchain status`,
 `agentxchain status --json`, `operator_commit_reconcile_refused`, the
 `error_class`, and the recovery action.
 
-For still-open BUG-52 closure proof, quote `phase_entered` after `unblock`.
-Older paths may still show `trigger: "reconciled_before_dispatch"`. Standing
-gate paths should also show cleanup evidence when stale same-phase state
-existed.
+For still-open BUG-52 closure proof, pin to `agentxchain@2.154.7` or later and
+follow `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`. Quote `phase_entered`
+after `unblock`; older paths may still show
+`trigger: "reconciled_before_dispatch"`. Standing gate paths should also show
+cleanup evidence when stale same-phase state existed.
 
 For still-open BUG-53 closure proof, run the shipped package in continuous mode
 and quote `session_continuation` events across chained runs. A bounded idle run

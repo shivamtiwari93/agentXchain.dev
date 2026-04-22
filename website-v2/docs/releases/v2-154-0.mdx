@@ -10,6 +10,14 @@ recovery loop where a human workaround commit on top of an agent checkpoint
 created `Git HEAD has moved since checkpoint` drift and blocked subsequent
 governed work until the operator manually edited state.
 
+> **Current BUG-52 quote-back target:** BUG-62 closure can proceed on
+> `agentxchain@2.154.0`. But BUG-52 third-variant quote-back must use
+> `agentxchain@2.154.7` or later — `v2.154.0` (and the originally suggested
+> `2.152.0`) still loop on the realistic PM `needs_human` handoff where
+> `proposed_next_role: "human"` and `phase_transition_request: null`. The
+> canonical BUG-52 runbook is
+> `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`.
+
 The release ships both layers of the fix: a manual command for audited
 operator recovery, and a continuous-mode `auto_safe_only` policy that can
 accept safe fast-forward operator commits before dispatch while still refusing
@@ -136,20 +144,25 @@ next dispatch. For an unsafe `.agentxchain/state.json` commit, quote
 
 ### Existing open closure contracts
 
-BUG-52 third-variant closure still requires tester-quoted shipped-package
-output on `agentxchain@2.152.0` or newer per that release's contract. BUG-54
-still requires adapter-path watchdog evidence. BUG-59 still requires tester
-quote-back for routine auto-approval ledger rows and credentialed hard-stop
-counter-evidence. BUG-53 still requires a real multi-run chain trace. BUG-61
-still requires shipped-package quote-back for ghost auto-retry and exhaustion
-diagnostics. `v2.154.0` does not alter those closure contracts.
+BUG-52 third-variant closure requires tester-quoted shipped-package output on
+`agentxchain@2.154.7` or later, following
+`.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`. Earlier releases (including
+`2.152.0` and `2.154.0`–`2.154.5`) still loop on the realistic PM handoff
+shape. BUG-54 still requires adapter-path watchdog evidence. BUG-59 still
+requires tester quote-back for routine auto-approval ledger rows and
+credentialed hard-stop counter-evidence. BUG-53 still requires a real
+multi-run chain trace. BUG-61 still requires shipped-package quote-back for
+ghost auto-retry and exhaustion diagnostics. `v2.154.0` does not alter those
+closure contracts.
 
 ### BUG-52 standing-gate unblock
 
-For the standing-gate unblock path, quote `phase_entered` after `unblock`.
-Older BUG-52 paths may still show `trigger: "reconciled_before_dispatch"`;
-the current standing-gate path should also show cleanup evidence through
-`phase_cleanup` when stale same-phase state existed.
+For the standing-gate unblock path, pin to `agentxchain@2.154.7` or later and
+follow `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`. Quote `phase_entered`
+after `unblock`; older BUG-52 paths may still show
+`trigger: "reconciled_before_dispatch"`. The current standing-gate path should
+also show cleanup evidence through `phase_cleanup` when stale same-phase state
+existed.
 
 ### BUG-53 continuous sessions
 
