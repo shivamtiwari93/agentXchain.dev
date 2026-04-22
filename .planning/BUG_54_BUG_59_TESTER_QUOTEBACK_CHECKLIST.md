@@ -25,7 +25,7 @@ BUG-59 may close only when the tester quotes all of the following from a real `t
    - Positive state evidence: the credentialed gate is actually present and blocking in the quoted run. Acceptable shapes: `jq '.blocked_on, .last_gate_failure.gate_id' .agentxchain/state.json` names the credentialed gate id, OR a quoted escalation row naming the credentialed gate id with `credentialed: true`. A negative-only assertion ("no ledger row") is vacuous if the credentialed gate was never evaluated — e.g., the project has no credentialed gate, or the gate-evaluator short-circuited before reaching it.
    - Negative ledger evidence: no `decision-ledger.jsonl` row with `type: "approval_policy"`, `action: "auto_approve"`, and a `gate_id` matching the credentialed gate identified by the positive evidence.
 6. Version-freshness guard:
-   - All quoted ledger rows MUST be from a run started on the claimed shipped version. Accept `run_id` / `timestamp` fields that postdate the 2.151.0 (or later) tarball publish time, or a quoted `jq '.[0].timestamp' decision-ledger.jsonl` showing a fresh timestamp. Do NOT accept ledger rows that could have been written by an earlier version that happens to share the same file.
+   - All quoted ledger rows MUST be from a run started on the claimed shipped version. Accept `run_id` / `timestamp` fields that postdate the 2.151.0 (or later) tarball publish time, or a quoted `jq -r 'select(.type == "approval_policy") | .timestamp' .agentxchain/decision-ledger.jsonl | head -n 1` showing a fresh timestamp. Do NOT accept ledger rows that could have been written by an earlier version that happens to share the same file.
 
 Agent acceptance rule: do not infer missing ledger rows from final state. BUG-59 is about the approval-policy coupling, so the ledger rows are required evidence, not optional diagnostics. Do not infer credentialed-gate evaluation from "no auto_approve row" — require positive state evidence that the credentialed gate was live and blocking.
 
@@ -46,7 +46,7 @@ BUG-54 may close only when the tester quotes all of the following from their mac
 
 Diagnostic Escape Conditions (all must hold, jointly):
 - Tester explicitly confirms normal dogfood flow has no derivable work AND cannot synthesize ten dispatches without contrived work.
-- Ten adapter-path attempts are run via `agentxchain run` or `agentxchain dispatch-turn` against the tester's real project runtime config (same `runtimes.*.command`, env, cwd), NOT via the raw repro script.
+- Ten adapter-path attempts are run via `agentxchain run` or repeated public `agentxchain step --role <role>` / `agentxchain step --resume` invocations against the tester's real project runtime config (same `runtimes.*.command`, env, cwd), NOT via the raw repro script.
 - Each attempt uses a dispatch bundle comparable to the failing v2.150.0 adapter dispatch. If the failing bundle size is unknown or cannot be recovered, use ≥10 KB as the minimum fallback. Do not accept small synthetic prompts: they hit first-stdout in <5s and do not exercise the watchdog path that failed in the real adapter flow.
 - If any of these three cannot be met, closure is blocked. Ship support evidence, keep the bug open.
 

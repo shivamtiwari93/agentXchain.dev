@@ -171,11 +171,12 @@ npx --yes -p agentxchain@2.151.0 -c 'agentxchain run --continuous --vision .plan
 
 If `tusq.dev` has no derivable work, first try to produce ten adapter-path
 attempts with the same real project runtime config through `agentxchain run`
-or `agentxchain dispatch-turn`. The attempt bundle should be comparable to the
-failing v2.150.0 adapter dispatch; if that bundle size is unavailable, use
-10 KB or larger as the minimum fallback. Small synthetic prompts are not valid
-closure evidence because they do not exercise the startup-watchdog path that
-failed in the adapter.
+or repeated public `agentxchain step --role <role>` / `agentxchain step --resume`
+invocations. The attempt bundle should be comparable to the failing v2.150.0
+adapter dispatch; if that bundle size is unavailable, use 10 KB or larger as
+the minimum fallback. Small synthetic prompts are not valid closure evidence
+because they do not exercise the startup-watchdog path that failed in the
+adapter.
 
 The published-package repro harness below is still useful as supporting timing
 evidence, but it is not sufficient for BUG-54 closure by itself. `npx --yes -p`
