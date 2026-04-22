@@ -31,7 +31,7 @@ Expected version output: `2.154.7` or a later published patch.
 
 Use a **real governed project** (e.g., `tusq.dev`) — **not** a `cli/scripts/reproduce-bug-54.mjs` harness call, and **not** a fresh `agentxchain init` scratch repo with a mock executor. Closure requires shipped-package, full-run adapter-path evidence.
 
-Ensure `.planning/VISION.md` has at least **two concretely derivable goals** before Block 1 (e.g., two unchecked roadmap items or two distinct vision bullets). Capture the session-start timestamp before the dogfood command so the jq filters below can scope to the current window.
+Ensure `.planning/VISION.md` has **at least two, but fewer than `--max-runs`, concretely derivable goals** before Block 1. Recommended shape: exactly two unchecked roadmap items or two distinct vision bullets, then run with `--max-runs 4`. This lets one current-window session prove both behaviours: run 1 → run 2 auto-chain, then clean `idle_exit` when no further goal remains. Do not mix Block 1 evidence from one session with Block 2 evidence from another session. Capture the session-start timestamp before the dogfood command so every jq filter below scopes to the same current window.
 
 ```bash
 export BUG53_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -39,7 +39,7 @@ echo "BUG53_START_TS=$BUG53_START_TS"
 
 npx --yes -p agentxchain@2.154.7 agentxchain run --continuous \
   --vision .planning/VISION.md \
-  --max-runs 3 \
+  --max-runs 4 \
   --max-idle-cycles 3 \
   --poll-seconds 5 \
   --triage-approval auto \
@@ -51,7 +51,7 @@ Paste output for Block 1 (positive: multi-run chain) AND Block 2 (negative: clea
 
 ### Block 1 — positive (run 1 completes, run 2 auto-starts, `session_continuation` event emitted)
 
-After at least one chain transition fires (watch for `Run 1/3 completed` followed by `Run 2/3` in stdout), paste:
+After at least one chain transition fires (watch for `Run 1/4 completed` followed by `Run 2/4` in stdout), paste:
 
 ```bash
 # Current-window session_continuation events: payload shape locked at exactly
@@ -71,24 +71,24 @@ jq -r '.status' .agentxchain/continuous-session.json
 Required shape:
 - At least one `session_continuation` row with `previous_run_id` and `next_run_id` as distinct non-null run ids, `next_objective` a non-null non-empty string, `runs_completed >= 1`, and `trigger` equal to `"vision_scan"` or `"intake"`.
 - The `payload` object contains exactly these seven keys and no others: `session_id`, `previous_run_id`, `next_run_id`, `next_objective`, `next_intent_id`, `runs_completed`, `trigger`. BUG-54 keys (`prompt_transport`, `env_snapshot`, `stdin_bytes`, `watchdog_ms`) and BUG-61 keys (`auto_retried_ghost`, `ghost_retry_exhausted`, `attempts_log`, `diagnostic_bundle`, `failure_type`) MUST NOT appear.
-- `continuous-session.json::status` is `running` while a chain is in flight, or `completed` after `runs_completed == max_runs`. It must NOT be `paused`.
+- `continuous-session.json::status` is `running` while a chain is in flight. The closure paste should later show Block 2's `idle_exit`; it must NOT be `paused`.
 - `runs_completed >= 2` at the end of the window so at least one auto-chain actually fired.
 
-### Block 2 — negative (vision exhausted → clean `idle_exit`, never `paused`)
+### Block 2 — negative (same session vision exhausted → clean `idle_exit`, never `paused`)
 
-Exhaust the vision goals by either (a) running Block 1 until `runs_completed == max_runs` and then re-running the dogfood command on the same repo with VISION now empty of unaddressed goals, or (b) running against a `.planning/VISION.md` that has fewer derivable goals than `--max-runs`.
+Let the same command from Block 1 continue after the first `session_continuation` event until the current session exhausts all derivable goals. Do not start a second session for Block 2. The expected terminal shape is `idle_exit` with `runs_completed < max_runs`, proving the loop exited because no next vision objective was derivable, not because the max-run cap fired.
 
 ```bash
 # Current-window session end state — after vision is exhausted and
 # max_idle_cycles consecutive idle scans produced no derivable work.
 jq '{status: .status, runs_completed: .runs_completed, max_runs: .max_runs, idle_cycles: .idle_cycles, max_idle_cycles: .max_idle_cycles}' .agentxchain/continuous-session.json
 
-# No `session_continuation` event fired for the terminal idle-exit window.
+# Current-window chain transitions. Count must equal max(runs_completed - 1, 0).
 jq -c --arg since "$BUG53_START_TS" 'select(.event_type == "session_continuation" and .timestamp >= $since)' .agentxchain/events.jsonl | wc -l
 ```
 
 Required shape:
-- `continuous-session.json::status` is `idle_exit` OR `completed` — NEVER `paused`.
+- `continuous-session.json::status` is `idle_exit` — NEVER `paused`. `completed` means the max-run cap fired before vision exhaustion and does not close Block 2.
 - `idle_cycles >= max_idle_cycles` when `status == "idle_exit"`; `runs_completed < max_runs` is acceptable in this case (the cause is vision exhaustion, not max-runs).
 - The `session_continuation` count in the window equals `max(runs_completed - 1, 0)` — one continuation event per chain transition, zero when `runs_completed` is 0 or 1.
 
@@ -115,7 +115,7 @@ Required shape:
 - `session_continuation` count equals `runs_completed - 1` when `runs_completed >= 2`; equals `0` when `runs_completed < 2`.
 - `run_completed` count equals `runs_completed`.
 - `session_paused_anomaly == 0` — a session_paused event after a clean completion is the BUG-53 regression signature; any non-zero value is a reopener.
-- `continuous-session.json::status` matches the expected terminal state for the block (running/completed for Block 1, idle_exit for Block 2).
+- `continuous-session.json::status` is `idle_exit` at terminal review time for this ask. Block 1 can be inspected while running, but the closure paste should show the same current-window session eventually reached Block 2's clean idle-exit.
 
 ---
 
@@ -130,7 +130,9 @@ Reject BUG-53 quote-back if:
 - Block 1 shows `runs_completed < 2` — without at least one chain transition the positive case is not actually exercised. v2.150.0 tester evidence already covered `runs_completed == 0`; this ask asks for more.
 - Block 1 `session_continuation.previous_run_id == session_continuation.next_run_id`, OR either id is null — the emission guard at `continuous-run.js:925` should prevent that, so a violation means the emission semantics drifted.
 - Block 1 or Block 2 shows `continuous-session.json::status == "paused"` — `paused` is reserved for `isBlockedContinuousExecution(execution)` cases (open escalations, `needs_human` gates), NOT clean completion or idle-exit. A paused terminal state on this ask is the BUG-53 regression signature.
-- Block 2 shows `status == "paused"` OR shows `status == "running"` with no forward progress — the expected terminal for exhausted vision is `idle_exit` (or `completed` if `runs_completed == max_runs`).
+- Block 1 evidence comes from one session and Block 2 evidence comes from a different session. BUG-53 V5 closure requires a single current-window continuous session so the `session_continuation == runs_completed - 1` invariant is meaningful.
+- Block 2 shows `status == "paused"`, `status == "running"` with no forward progress, or `status == "completed"`. The expected terminal for exhausted vision is `idle_exit`; `completed` proves only that `max_runs` fired.
+- Block 1 or Block 2 pauses on an open escalation, `needs_human` phase gate, or BUG-52-like phase-gate loop. That evidence belongs under BUG-52 V1 first; it does not close or reopen BUG-53 because the session did not reach the clean post-completion re-entry path.
 - Block 3 SUMMARY reports `session_paused_anomaly >= 1` — any `session_paused` event in the current window invalidates the closure.
 - Block 3 SUMMARY's `session_continuation` count disagrees with `runs_completed - 1` (Block 1) or is non-zero when `runs_completed < 2` (Block 2).
 - Any required command is replaced, paraphrased, summarized, or run without the `$BUG53_START_TS` scoping. Historical events from pre-ask sessions must not pollute the evidence.

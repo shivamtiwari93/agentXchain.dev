@@ -27,6 +27,26 @@ function readRepoFile(relPath) {
   return readFileSync(join(REPO_ROOT, relPath), 'utf8');
 }
 
+function extractObjectLiteralAfter(source, marker) {
+  const markerIndex = source.indexOf(marker);
+  assert.notEqual(markerIndex, -1, `expected to find marker ${marker}`);
+  const payloadIndex = source.indexOf('payload:', markerIndex);
+  assert.notEqual(payloadIndex, -1, `expected to find payload after marker ${marker}`);
+  const openBrace = source.indexOf('{', payloadIndex);
+  assert.notEqual(openBrace, -1, `expected payload object after marker ${marker}`);
+  let depth = 0;
+  for (let i = openBrace; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(openBrace + 1, i);
+      }
+    }
+  }
+  assert.fail(`unterminated payload object after marker ${marker}`);
+}
+
 // The session_continuation payload shape is authoritative per
 // cli/src/lib/continuous-run.js:930-938. The V5 ask must name exactly these
 // seven keys; the source regex below double-locks against drift on either
@@ -81,7 +101,7 @@ describe('BUG-53 tester quote-back ask V5', () => {
   it('requires three evidence blocks (positive chain, negative idle-exit, SUMMARY counters)', () => {
     const ask = readRepoFile(ASK_V5_PATH);
     assert.match(ask, /Block 1 — positive \(run 1 completes, run 2 auto-starts/);
-    assert.match(ask, /Block 2 — negative \(vision exhausted/);
+    assert.match(ask, /Block 2 — negative \(same session vision exhausted/);
     assert.match(ask, /Block 3 — SUMMARY counters/);
   });
 
@@ -132,10 +152,7 @@ describe('BUG-53 tester quote-back ask V5', () => {
 
   it('source contract: continuous-run.js still emits those exact seven payload keys', () => {
     const source = readRepoFile(CONTINUOUS_RUN_PATH);
-    const emitRegex = /emitRunEvent\([^,]+,\s*['"]session_continuation['"],[\s\S]*?payload:\s*\{([\s\S]*?)\n\s*\},/;
-    const match = source.match(emitRegex);
-    assert.ok(match, 'continuous-run.js must still emit session_continuation with a payload object');
-    const payloadBlock = match[1];
+    const payloadBlock = extractObjectLiteralAfter(source, "'session_continuation'");
     for (const key of REQUIRED_PAYLOAD_KEYS) {
       assert.match(
         payloadBlock,
@@ -144,12 +161,18 @@ describe('BUG-53 tester quote-back ask V5', () => {
       );
     }
     // Negative guard: emission must not smuggle extra keys beyond the seven.
-    // Count top-level key assignments in the payload block.
-    const keyAssignments = payloadBlock.match(/^\s{6,8}([a-z_]+):\s/gm) || [];
-    assert.equal(
-      keyAssignments.length,
-      REQUIRED_PAYLOAD_KEYS.length,
-      `continuous-run.js session_continuation payload must declare exactly ${REQUIRED_PAYLOAD_KEYS.length} keys; found ${keyAssignments.length}: ${keyAssignments.map((s) => s.trim()).join(', ')}`,
+    // Count top-level key assignments in the payload object without relying on
+    // indentation. This intentionally still fails if the payload is delegated
+    // to a helper: the V5 ask must be updated alongside that contract change.
+    const keyAssignments = payloadBlock
+      .split('\n')
+      .map((line) => line.trim().match(/^([a-z_]+):/))
+      .filter(Boolean)
+      .map((match) => match[1]);
+    assert.deepEqual(
+      keyAssignments.sort(),
+      [...REQUIRED_PAYLOAD_KEYS].sort(),
+      `continuous-run.js session_continuation payload keys must be exactly ${REQUIRED_PAYLOAD_KEYS.join(', ')}`,
     );
   });
 
@@ -222,6 +245,44 @@ describe('BUG-53 tester quote-back ask V5', () => {
       ask,
       /NEVER `paused`/,
       'V5 must explicitly forbid paused as a terminal state for the negative block',
+    );
+    assert.match(
+      ask,
+      /`completed` means the max-run cap fired before vision exhaustion and does not close Block 2/,
+      'V5 must reject completed as a substitute for the idle_exit negative case',
+    );
+  });
+
+  it('requires a single current-window session for Blocks 1 and 2', () => {
+    const ask = readRepoFile(ASK_V5_PATH);
+    assert.match(
+      ask,
+      /Do not mix Block 1 evidence from one session with Block 2 evidence from another session/,
+      'V5 must forbid cross-session evidence mixing',
+    );
+    assert.match(
+      ask,
+      /at least two, but fewer than `--max-runs`, concretely derivable goals/,
+      'V5 must tell testers to set up fewer derivable goals than max_runs',
+    );
+    assert.match(
+      ask,
+      /--max-runs 4/,
+      'V5 dogfood command should leave room for idle_exit after a two-goal chain',
+    );
+  });
+
+  it('routes BUG-52-like pauses out of the BUG-53 closure lane', () => {
+    const ask = readRepoFile(ASK_V5_PATH);
+    assert.match(
+      ask,
+      /BUG-52-like phase-gate loop/,
+      'V5 must call out BUG-52-like phase gate loops explicitly',
+    );
+    assert.match(
+      ask,
+      /belongs under BUG-52 V1 first/,
+      'V5 must route phase-gate pauses to BUG-52 quote-back instead of BUG-53 closure',
     );
   });
 
