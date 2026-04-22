@@ -883,6 +883,92 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.equal(phaseCleanup, undefined, 'phase_cleanup must NOT fire when empty-active phase did not advance');
   });
 
+  it('Turn 205: unblock advances standing pending gate when PM declares proposed_next_role: "human" (realistic needs_human shape)', () => {
+    // Turn 205 adversarial-review finding: the Turn 204
+    // DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001 helper
+    // `latestCompletedTurnWantsPhaseContinuation()` returns true when
+    // `entry.phase_transition_request` is set OR
+    // `entry.proposed_next_role && proposed !== 'human'`. The real-world PM
+    // shape for a planning_signoff escalation is `status: "needs_human"`,
+    // `phase_transition_request: null`, `proposed_next_role: "human"` — the
+    // PM is literally asking the human to act next. With both conditions
+    // false the discriminator denies the standing-gate branch, and the
+    // tester's exact seven-iteration loop reproduces.
+    //
+    // This is the same third-variant scenario as Turn 203, except the PM
+    // turn declares `proposed_next_role: "human"` instead of `"dev"`.
+    // `unblock` must still advance the phase — the operator-approved gate
+    // closure is the authoritative signal, not the PM's own guess about
+    // which role should act next.
+    const { root, config, state } = createProject();
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    writeFileSync(
+      join(root, '.planning', 'SYSTEM_SPEC.md'),
+      '# System Spec\n\n## Purpose\n\nPlan the implementation handoff.\n\n## Interface\n\nPM artifacts.\n\n## Acceptance Tests\n\n- [x] Dev can start implementation.\n',
+    );
+
+    // Realistic PM needs_human shape: proposed_next_role is 'human'.
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'needs_human',
+      needs_human_reason: 'Planning complete; awaiting operator sign-off on planning_signoff gate',
+      summary: 'Planning artifacts drafted, escalating to human for gate approval',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md', '.planning/PM_SIGNOFF.md', '.planning/SYSTEM_SPEC.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const blocked = readState(root);
+    writeState(root, {
+      ...blocked,
+      pending_phase_transition: null,
+      queued_phase_transition: null,
+      last_gate_failure: null,
+      phase_gate_status: {
+        ...(blocked.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {},
+    });
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(
+      unblocked.status,
+      0,
+      `unblock must advance the standing gate even when PM declared proposed_next_role: "human":\n${unblocked.stdout}\n${unblocked.stderr}`,
+    );
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'implementation', 'phase must advance even when PM proposed_next_role is "human"');
+    assert.equal(finalState.phase_gate_status?.planning_signoff, 'passed', 'planning gate must be marked passed after unblock');
+    assert.equal(activeTurn?.assigned_role, 'dev', 'next dispatch must target dev, not another PM');
+    assert.equal(activeTurn?.runtime_id, 'manual-dev');
+    assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch PM after approval');
+  });
+
   it('Turn 94: resume advances from queued_phase_transition even when the latest accepted turn had no phase request', () => {
     const { root } = createProject(makeQaLaunchConfig());
     const seededState = readState(root);

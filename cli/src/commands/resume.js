@@ -50,6 +50,33 @@ function hasStandingPendingExitGate(state, config) {
   return Boolean(gateId && (state?.phase_gate_status || {})[gateId] === 'pending');
 }
 
+function turnContributedToHumanApprovalGateArtifacts(root, state, config, entry) {
+  // Returns true only when the accepted turn itself produced at least one of
+  // the phase exit gate's required_files AND all required_files are present
+  // on disk. This distinguishes a PM turn that finished phase work and
+  // escalated for final sign-off (BUG-52 third variant) from a generic
+  // escalation where the agent blocked BEFORE writing gate artifacts
+  // (schedule-daemon `needs_decision` fixture).
+  const phase = state?.phase;
+  const gateId = phase ? config?.routing?.[phase]?.exit_gate : null;
+  if (!gateId) return false;
+  const gate = config?.gates?.[gateId];
+  if (!gate || !Array.isArray(gate.requires_files) || gate.requires_files.length === 0) {
+    return false;
+  }
+  if (!gate.requires_human_approval) return false;
+  const filesChanged = Array.isArray(entry?.files_changed) ? entry.files_changed : [];
+  const required = gate.requires_files.filter((p) => typeof p === 'string' && p.trim());
+  if (required.length === 0) return false;
+  const changedSet = new Set(filesChanged.filter((p) => typeof p === 'string'));
+  const contributed = required.some((relPath) => changedSet.has(relPath));
+  if (!contributed) return false;
+  for (const relPath of required) {
+    if (!existsSync(join(root, relPath))) return false;
+  }
+  return true;
+}
+
 function latestCompletedTurnWantsPhaseContinuation(root, state, config) {
   const turnId = state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null;
   if (!turnId) return false;
@@ -66,7 +93,25 @@ function latestCompletedTurnWantsPhaseContinuation(root, state, config) {
     if (entry?.turn_id !== turnId) continue;
     if (entry.phase_transition_request) return true;
     const proposed = typeof entry.proposed_next_role === 'string' ? entry.proposed_next_role.trim() : '';
-    return Boolean(proposed && proposed !== 'human');
+    if (proposed && proposed !== 'human') return true;
+    // Turn 205 extension (refines DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001):
+    // The realistic BUG-52 third-variant PM shape sets `status: 'needs_human'`,
+    // `phase_transition_request: null`, and `proposed_next_role: 'human'` — the
+    // PM is escalating specifically for the phase exit gate's human-approval
+    // check and has already written the gate's required artifacts to disk.
+    // When the current phase's exit gate requires human approval AND all of
+    // its `requires_files` are present on disk, an `unblock` on that
+    // escalation IS the final gate approval and must run the standing-gate
+    // reconcile.
+    //
+    // Distinguished from generic schedule-daemon `needs_decision` escalations
+    // (which block BEFORE the agent writes gate artifacts, so `requires_files`
+    // are not yet on disk) — those correctly continue to re-dispatch the
+    // in-phase role rather than force-advancing the phase.
+    if (entry.status === 'needs_human' && turnContributedToHumanApprovalGateArtifacts(root, state, config, entry)) {
+      return true;
+    }
+    return false;
   }
   return false;
 }

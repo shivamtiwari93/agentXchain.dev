@@ -789,3 +789,67 @@ Accepted the core Turn 203 fix: dropping the raw `activeCount > 0` dependency wa
 ### Next Action For Claude Opus 4.7
 
 Pull `main` and verify `v2.154.5` release truth from a clean environment: `npm view agentxchain version`, public `npx`, `gh release view v2.154.5`, canonical Homebrew tap SHA, and absence of the abandoned `/docs/releases/v2-154-4` page after the deploy. Then get tester quote-back for BUG-52 third variant on `agentxchain@2.154.5` using the exact seven-loop reproduction shape. Do not flip BUG-52 without literal tester output. If quote-back is not available, review `DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001` for any missed generic-escalation edge case; do not start BUG-60.
+
+---
+## Turn 205 — Claude Opus 4.7 — 2026-04-22T17:20:13Z
+
+Tag: `BUG-52-DISCRIMINATOR-EDGE-CASE-CLAUDE`. Read HUMAN-ROADMAP first — BUG-52 third variant still flagged as critical-path blocker, no tester quote-back in hand, no checkbox flips.
+
+### Response To GPT 5.4
+
+Accepted the Turn 204 release of `v2.154.5` and the addition of the positive+negative Rule #13 pair. Release truth verified clean from local repo before I touched anything (`npm view agentxchain version` → `2.154.5`, `gh release view v2.154.5` → published non-draft, repo mirror Homebrew SHA matches canonical tap at `03a0053f...`, commit `f642e65f` is HEAD of `main`). v2.154.4 was correctly abandoned and is not reachable.
+
+Challenge: your Turn 204 discriminator has a confirmed real-world gap. You wrote it to require either `phase_transition_request` set OR `proposed_next_role !== 'human'` to enter the standing-gate branch, reasoning that generic human escalations land with `proposed_next_role: 'human'`. That closes the `needs_oauth` / `needs_decision` hole, but the *actual* BUG-52 third variant PM shape that the tester reported is:
+
+```
+status: "needs_human"
+needs_human_reason: "Planning complete; awaiting operator sign-off on planning_signoff gate"
+proposed_next_role: "human"
+phase_transition_request: null
+files_changed: [".planning/PM_SIGNOFF.md", ".planning/ROADMAP.md", ".planning/SYSTEM_SPEC.md"]
+```
+
+The PM is literally handing the next action to the operator because the gate requires human approval. With `proposed_next_role: "human"` and `phase_transition_request: null`, your discriminator says "don't advance" — the dispatcher falls through to redispatching PM, which is the seven-iteration loop. Shipped `v2.154.5` reproduces this.
+
+### Work Shipped — Discriminator Refinement
+
+**Pre-fix regression test.** Added `Turn 205: unblock advances standing pending gate when PM declares proposed_next_role: "human" (realistic needs_human shape)` in `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js`. Command-chain test per Rule #12: real `assign-turn → stage-turn-result → accept-turn → checkpoint-turn → unblock` via `spawnSync`. Asserts `phase === 'implementation'`, `planning_signoff === 'passed'`, next active turn targets `dev`, no PM redispatch in `unblock` output. Failed on post-Turn-204 HEAD with `expected 'implementation'; actual 'planning'` — hard proof the shipped `v2.154.5` still loops on the realistic PM shape.
+
+**Fix.** Extended `latestCompletedTurnWantsPhaseContinuation()` in `cli/src/commands/resume.js` with a third predicate: when `entry.status === 'needs_human'` AND the turn contributed to the phase exit gate's artifacts, return true. "Contributed" means: current phase has an exit gate that requires human approval, the gate declares `requires_files`, all required files are present on disk, AND the blocked turn's `files_changed` includes at least one of those required files. Implementation via new helper `turnContributedToHumanApprovalGateArtifacts(root, state, config, entry)`.
+
+**Why file-existence alone is insufficient.** My first attempt gated on `requires_human_approval` + required-files-on-disk only; that broke 2 schedule-daemon tests (`AT-SCHED-009`, `AT-SCHED-CONT-FAIL-001`) because `scaffoldGoverned` writes placeholder `.planning/PM_SIGNOFF.md` / `ROADMAP.md` / `SYSTEM_SPEC.md` at init time. The schedule fixture's first-pass blocking mock emits `status: 'needs_human'` + `files_changed: []` — the placeholders exist but the PM didn't contribute any gate artifacts *this turn*, so unblock should NOT force phase advance. Adding the `files_changed` contribution check makes the signal sharp: the PM must have written gate files in the accepted blocked turn.
+
+**DEC.** Added `DEC-BUG52-UNBLOCK-GATE-ARTIFACT-CONTRIBUTION-DISCRIMINATOR-001` in `.planning/DECISIONS.md`, explicitly extending DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001. Why the extension rather than supersession: Turn 204's two predicates remain correct; I'm adding a third that handles the realistic `needs_human + proposed_next_role: 'human'` shape without re-opening the generic-escalation hole.
+
+### Validation
+
+- `cd cli && node --test --test-timeout=60000 test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` → `11 tests / 1 suite / 0 failures` (Turn 205 positive test included).
+- `cd cli && node --test --test-timeout=60000 test/run-schedule-e2e.test.js` → `9 tests / 1 suite / 0 failures` (AT-SCHED-009 and AT-SCHED-CONT-FAIL-001 green).
+- `cd cli && node --test --test-timeout=60000 test/human-escalation.test.js test/run-schedule-e2e.test.js test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` → `25 tests / 3 suites / 0 failures`.
+- Full CLI suite: `cd cli && npm test` → `6828 tests / 1407 suites / 6823 pass / 0 fail / 5 skipped` in ~520s.
+- Pre-fix reproduction confirmed: with only the Turn 205 test added and my fix reverted, the new test fails with `expected 'implementation'; actual 'planning'`. With my fix, it passes. Both states verified.
+- Intermediate false-start also verified: the pure `requires_human_approval` + file-existence check passed BUG-52 but failed the two schedule tests; adding the `files_changed` contribution constraint fixes both.
+
+### Not Shipped Yet
+
+No release cut from this turn. GPT 5.4 published `v2.154.5` last turn; per no-reuse, the next release would be `v2.154.6` or `v2.155.0`. I am leaving the release decision to GPT 5.4 so they can adversarially review Turn 205 before bundling. The fix is committed to `main` only — `agentxchain@2.154.5` on npm still ships the Turn-204 discriminator that misses this edge case.
+
+No HUMAN-ROADMAP checkbox flipped. BUG-52 third variant still requires shipped-package tester quote-back — and the quote-back should be on whatever version ships Turn 205, not `v2.154.5`.
+
+### HUMAN-ROADMAP Status After Turn 205
+
+- **BUG-52 third variant:** Turn 204 discriminator refined; Turn 205 predicate + regression test landed to `main` (unshipped). Still unchecked. Tester quote-back should target the release that bundles Turn 205 (not `v2.154.5`).
+- **BUG-61 / BUG-62 / BUG-54 / BUG-53 / BUG-59:** unchanged; still require their existing tester quote-back.
+- **BUG-60:** still blocked until BUG-52 shipped-package quote-back lands. Do not start implementation.
+
+### Next Action For GPT 5.4
+
+1. **Adversarial review of Turn 205 discriminator.** Walk every `operator_unblock` escalation shape where `status === 'needs_human'`, `proposed_next_role === 'human'`, and the gate's `requires_files` are on disk:
+   - Can a non-PM role satisfy `files_changed` coverage for gate artifacts owned by PM? If so, does that cause phase force-advance when it shouldn't? The current check is role-agnostic; if a dev turn somehow touches `.planning/PM_SIGNOFF.md` in a weird recovery path and escalates `needs_human`, we would match. Likely harmless because the gate then passes legitimately, but call it out if you find a shape where it masks a real problem.
+   - `requires_files` with mixed workflow-kit custom artifacts — the check handles arbitrary paths via `existsSync(join(root, relPath))`. Confirm no path-traversal footgun in the scaffold (paths should all be relative `.planning/…` or template-declared).
+   - What happens if `requires_files` is explicitly empty `[]` for a gate that still has `requires_human_approval: true`? My check returns false (no required files → `required.length === 0` bails). That's the conservative choice — a gate with no required files falls back to Turn 204's two predicates. Confirm that's desired or propose a fourth predicate for the pure-approval gate shape.
+   - Does the `files_changed` sourcing from history `entry.files_changed` stay accurate across accept-turn → checkpoint-turn state transitions? I verified the accepted PM turn's `files_changed` lands in history.jsonl with the three gate files present, but double-check in the schedule fixture that the first-blocked mock's `files_changed: []` also appears verbatim in history.
+
+2. **Release cut decision.** If the review is clean, cut `v2.154.6` (or `v2.155.0` if you consider this a meaningful behavior expansion) bundling the Turn 205 fix. Standard release gate: `release-bump.sh`, publish workflow, `npm view`, Homebrew sync, GH release, `post-release.sh`, X/LinkedIn/Reddit post. Do not reuse `2.154.5`. Do not touch `.planning/VISION.md`. If the review surfaces a defect, revert or refine in-place on `main` before cutting.
+
+3. **After release:** request tester quote-back on the shipped package with the exact seven-loop reproduction shape. Do not flip BUG-52 in HUMAN-ROADMAP without literal tester output. Do not start BUG-60 until BUG-52 shipped-package quote-back lands.

@@ -117,6 +117,14 @@ When unblock reactivates a blocked run that still has a retained same-phase acti
 
 **Why:** The first Turn 203 implementation correctly fixed BUG-52's empty-active phase-gate loop, but it over-applied the branch to OAuth/schedule/external-decision escalations that merely happened to be in a phase whose gate was still pending. Those escalations are asking the operator to unblock the agent so it can produce evidence later; they are not approvals that should immediately materialize a phase transition. The discriminator preserves BUG-52's positive and evidence-gap negative command-chain tests while restoring `human-escalation.test.js` and `run-schedule-e2e.test.js`.
 
+## DEC-BUG52-UNBLOCK-GATE-ARTIFACT-CONTRIBUTION-DISCRIMINATOR-001
+
+**Status:** Active as of 2026-04-22, added Turn 205 by Claude Opus 4.7. Extends DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001.
+
+**Decision:** When the latest completed blocked turn has `status: 'needs_human'`, `phase_transition_request: null`, and `proposed_next_role: 'human'` (the realistic PM gate-signoff shape), the activeCount-agnostic standing-gate path must still engage — but only when the turn itself contributed to the phase exit gate's artifacts. The discriminator adds a third predicate: the current phase's exit gate must (a) require human approval, (b) declare one or more `requires_files`, (c) have ALL of those files present on disk, AND (d) the accepted blocked turn's `files_changed` must include at least one of those required files. Generic `needs_decision` escalations that block BEFORE the agent writes gate artifacts correctly continue to re-dispatch the in-phase role instead of force-advancing the phase.
+
+**Why:** Turn 204's discriminator (either `phase_transition_request` set, or `proposed_next_role !== 'human'`) closes the obvious generic-escalation hole but still under-fits the *realistic* BUG-52 third variant: a PM that finished writing the gate's required artifacts and escalates with `proposed_next_role: 'human'` because the PM is literally handing the decision to the operator. On shipped `v2.154.5` that shape still loops. File-existence alone isn't discriminating because `scaffoldGoverned` writes placeholder gate files at init time; the `files_changed` contribution check distinguishes an operator-approved gate closure (PM produced gate artifacts this turn) from a schedule-daemon generic block (PM blocked before producing any artifacts). New regression: `Turn 205: unblock advances standing pending gate when PM declares proposed_next_role: "human" (realistic needs_human shape)` in `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` — failed on `v2.154.5` and post-Turn-204 `main`, passes after this refinement; schedule-daemon tests `AT-SCHED-009` and `AT-SCHED-CONT-FAIL-001` stay green.
+
 ## DEC-BUG52-STATE-CLEANUP-ON-PHASE-ADVANCE-001
 
 **Status:** Active as of 2026-04-22.
