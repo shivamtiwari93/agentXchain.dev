@@ -30,6 +30,39 @@ function normalizeRoute(route) {
   return clean || '/';
 }
 
+function normalizeAnchor(anchor) {
+  return anchor
+    .trim()
+    .toLowerCase()
+    .replace(/<[^>]+>/g, '')
+    .replace(/[`*_~[\]()]/g, '')
+    .replace(/&[a-z0-9#]+;/gi, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
+function anchorsForMarkdown(text) {
+  const anchors = new Set();
+  const seen = new Map();
+  for (const match of text.matchAll(/^#{1,6}\s+(.+)$/gm)) {
+    const base = normalizeAnchor(match[1].replace(/\s+\{#[^}]+\}\s*$/, ''));
+    if (!base) {
+      continue;
+    }
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    anchors.add(count === 0 ? base : `${base}-${count}`);
+  }
+  for (const match of text.matchAll(/\bid=["']([^"']+)["']/g)) {
+    anchors.add(match[1]);
+  }
+  for (const match of text.matchAll(/\{#([^}]+)\}/g)) {
+    anchors.add(match[1]);
+  }
+  return anchors;
+}
+
 function frontMatter(text) {
   return text.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
 }
@@ -62,7 +95,7 @@ function pageRouteForSource(filePath) {
   return normalizeRoute(`/${pageId}`);
 }
 
-function routeExists(route, docsRoutes, pageRoutes) {
+function routeExists(route, docsRoutes, pageRoutes, anchorRoutes) {
   const clean = normalizeRoute(route);
   if (!clean.startsWith('/')) {
     return true;
@@ -71,21 +104,35 @@ function routeExists(route, docsRoutes, pageRoutes) {
     return existsSync(join(STATIC_ROOT, clean));
   }
   if (clean.startsWith('/docs')) {
-    return docsRoutes.has(clean);
+    if (!docsRoutes.has(clean)) {
+      return false;
+    }
+  } else if (!pageRoutes.has(clean) && !existsSync(join(STATIC_ROOT, clean.slice(1)))) {
+    return false;
   }
-  return pageRoutes.has(clean) || existsSync(join(STATIC_ROOT, clean.slice(1)));
+
+  const anchor = route.match(/#([^?]+)/)?.[1];
+  if (!anchor) {
+    return true;
+  }
+  return anchorRoutes.get(clean)?.has(anchor) === true;
 }
 
 describe('website route integrity', () => {
-  it('keeps internal navbar, footer, redirect-target, and markdown links routed', () => {
+  it('keeps internal navbar, footer, redirect-target, markdown links, and anchors routed', () => {
     const docsRoutes = new Set(['/docs']);
+    const anchorRoutes = new Map();
     for (const filePath of walkFiles(DOCS_ROOT, new Set(['.mdx']))) {
-      docsRoutes.add(docsRouteForSource(filePath));
+      const route = docsRouteForSource(filePath);
+      docsRoutes.add(route);
+      anchorRoutes.set(route, anchorsForMarkdown(readFileSync(filePath, 'utf8')));
     }
 
     const pageRoutes = new Set(['/']);
     for (const filePath of walkFiles(PAGES_ROOT, new Set(['.mdx', '.tsx']))) {
-      pageRoutes.add(pageRouteForSource(filePath));
+      const route = pageRouteForSource(filePath);
+      pageRoutes.add(route);
+      anchorRoutes.set(route, anchorsForMarkdown(readFileSync(filePath, 'utf8')));
     }
 
     const scannedFiles = [
@@ -108,7 +155,7 @@ describe('website route integrity', () => {
           continue;
         }
         scannedRouteCount += 1;
-        if (!routeExists(route, docsRoutes, pageRoutes)) {
+        if (!routeExists(route, docsRoutes, pageRoutes, anchorRoutes)) {
           missing.push(`${relativeFile}: ${route}`);
         }
       }
