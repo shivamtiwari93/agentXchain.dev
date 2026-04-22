@@ -75,9 +75,9 @@ Static documentation-only audits that do not depend on the tester's BUG-59 quote
 
 **Status:** Active as of 2026-04-21.
 
-**Decision:** `.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md` is the canonical tester checklist for the `agentxchain@2.151.0` BUG-59 and BUG-54 quote-back.
+**Decision:** `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` is the canonical tester checklist for the BUG-59 and BUG-54 quote-back. The unversioned filename is intentional — versioned runbook filenames created the BUG-52 closure-path rot; see Turn 207 for the prior correction. The runbook targets `agentxchain@2.154.7` as the recommended pin because it bundles the BUG-59 / BUG-54 / BUG-52 third-variant fixes together and prevents a BUG-52 third-variant loop from blocking BUG-59 evidence collection.
 
-The runbook must include pinned `npx --yes -p agentxchain@2.151.0` commands, the exact `jq` filters for state and `approval_policy` ledger rows, the credentialed negative recipe, and the BUG-54 ten-dispatch watchdog evidence shape.
+The runbook must include pinned `npx --yes -p agentxchain@2.154.7` commands, the version-matrix table explaining which earlier releases still carry BUG-52 loops, the exact `jq` filters for state and `approval_policy` ledger rows, the credentialed negative recipe, and the BUG-54 ten-dispatch watchdog evidence shape.
 
 **Why:** The tester should not have to infer which fields close the bug from agent debate. A short installed-package runbook reduces ambiguity and keeps BUG-60 blocked on concrete evidence rather than narrative confidence.
 

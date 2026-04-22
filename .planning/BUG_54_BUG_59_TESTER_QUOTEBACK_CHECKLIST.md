@@ -1,6 +1,6 @@
 # BUG-54 / BUG-59 Tester Quote-Back Checklist
 
-Status: Static acceptance checklist for interpreting tester evidence. It does not replace `.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md`; it defines the minimum quote shape agents must require before closing BUG-59 or BUG-54.
+Status: Static acceptance checklist for interpreting tester evidence. It does not replace `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`; it defines the minimum quote shape agents must require before closing BUG-59 or BUG-54.
 
 ## Purpose
 
@@ -8,11 +8,12 @@ Prevent a closure dispute after the tester posts evidence. The long runbook tell
 
 ## BUG-59 Minimum Quote
 
-BUG-59 may close only when the tester quotes all of the following from a real `tusq.dev` dogfood run using `agentxchain@2.151.0` or a later shipped version explicitly intended to carry the same fix:
+BUG-59 may close only when the tester quotes all of the following from a real `tusq.dev` dogfood run using `agentxchain@2.154.7` or a later shipped patch that still carries the BUG-59 approval-policy coupling. Earlier shipped versions that carry the fix are `2.151.0` through `2.154.5`, but all of those reproduce the BUG-52 third-variant loop on realistic PM shapes and should not be the tester's primary pin — if the tester uses one, they must quote evidence that the run did not hit the BUG-52 loop:
 
 1. Package proof:
-   - `npx --yes -p agentxchain@2.151.0 -c 'agentxchain --version'` prints exactly `2.151.0`.
+   - `npx --yes -p agentxchain@2.154.7 -c 'agentxchain --version'` prints exactly `2.154.7`.
    - If a later version is used, the quote names that version and agents verify it is published on npm before accepting it.
+   - If a version between `2.151.0` and `2.154.5` is used, the tester must quote the BUG-52 third-variant discriminator evidence (the run did not redispatch PM after `unblock`) or redo the run on `2.154.7+`.
 2. State summary:
    - `jq '{status, phase, pending_run_completion, blocked_on, last_gate_failure}' .agentxchain/state.json`
    - Passing shape: routine gate has no remaining block: `pending_run_completion: null`, `blocked_on: null`, and `last_gate_failure: null`.
@@ -25,7 +26,7 @@ BUG-59 may close only when the tester quotes all of the following from a real `t
    - Positive state evidence: the credentialed gate is actually present and blocking in the quoted run. Acceptable shapes: `jq '.blocked_on, .last_gate_failure.gate_id' .agentxchain/state.json` names the credentialed gate id, OR a quoted escalation row naming the credentialed gate id with `credentialed: true`. A negative-only assertion ("no ledger row") is vacuous if the credentialed gate was never evaluated — e.g., the project has no credentialed gate, or the gate-evaluator short-circuited before reaching it.
    - Negative ledger evidence: no `decision-ledger.jsonl` row with `type: "approval_policy"`, `action: "auto_approve"`, and a `gate_id` matching the credentialed gate identified by the positive evidence.
 6. Version-freshness guard:
-   - All quoted ledger rows MUST be from a run started on the claimed shipped version. Accept `run_id` / `timestamp` fields that postdate the 2.151.0 (or later) tarball publish time, or a quoted `jq -r 'select(.type == "approval_policy") | .timestamp' .agentxchain/decision-ledger.jsonl | head -n 1` showing a fresh timestamp. Do NOT accept ledger rows that could have been written by an earlier version that happens to share the same file.
+   - All quoted ledger rows MUST be from a run started on the claimed shipped version. Accept `run_id` / `timestamp` fields that postdate the claimed tarball publish time (e.g., `2.154.7` publish is 2026-04-22), or a quoted `jq -r 'select(.type == "approval_policy") | .timestamp' .agentxchain/decision-ledger.jsonl | head -n 1` showing a fresh timestamp. Do NOT accept ledger rows that could have been written by an earlier version that happens to share the same file.
 
 Agent acceptance rule: do not infer missing ledger rows from final state. BUG-59 is about the approval-policy coupling, so the ledger rows are required evidence, not optional diagnostics. Do not infer credentialed-gate evaluation from "no auto_approve row" — require positive state evidence that the credentialed gate was live and blocking.
 
@@ -34,7 +35,7 @@ Agent acceptance rule: do not infer missing ledger rows from final state. BUG-59
 BUG-54 may close only when the tester quotes all of the following from their machine using the shipped package:
 
 1. Package proof:
-   - `agentxchain --version` through pinned `npx --yes -p agentxchain@2.151.0` or a later shipped fix version.
+   - `agentxchain --version` through pinned `npx --yes -p agentxchain@2.154.7` or a later shipped fix version. `2.151.0` through `2.154.5` also carry the watchdog raise; use them only if the tester quotes that the run did not hit the BUG-52 third-variant loop.
 2. Runtime identity:
    - Runtime id and command used for the real `local_cli` dispatches.
 3. Ten-dispatch proof:
@@ -57,17 +58,17 @@ Agent acceptance rule: diagnostic-only evidence is support, not full closure. Th
 BUG-59 pass shape:
 
 ```text
-agentxchain --version -> 2.151.0
+agentxchain --version -> 2.154.7
 state: pending_run_completion=null blocked_on=null last_gate_failure=null
-ledger: fresh timestamp on 2.151.0+ run, gate_type=phase_transition action=auto_approve matched_rule.when.credentialed_gate=false
-ledger: fresh timestamp on 2.151.0+ run, gate_type=run_completion gate_id=qa_ship_verdict action=auto_approve matched_rule.when.credentialed_gate=false
+ledger: fresh timestamp on 2.154.7+ run, gate_type=phase_transition action=auto_approve matched_rule.when.credentialed_gate=false
+ledger: fresh timestamp on 2.154.7+ run, gate_type=run_completion gate_id=qa_ship_verdict action=auto_approve matched_rule.when.credentialed_gate=false
 credentialed counter-case: state names qa_ship_verdict as blocked with credentialed=true; no auto_approve ledger row for credentialed qa_ship_verdict
 ```
 
 BUG-54 pass shape:
 
 ```text
-agentxchain --version -> 2.151.0
+agentxchain --version -> 2.154.7
 runtime: local-pm command=<quoted>
 attempts: 10/10
 watchdog_fired: false on every attempt
@@ -99,10 +100,10 @@ Before accepting a tester quote:
 1. Verify the quoted package version is published:
 
 ```bash
-npm view agentxchain@2.151.0 version
+npm view agentxchain@2.154.7 version
 ```
 
-2. If the tester used a later version, verify that version's release contains the relevant fix commits before accepting it as equivalent.
+2. If the tester used a later version, verify that version's release contains the relevant fix commits before accepting it as equivalent. If the tester used a version between `2.151.0` and `2.154.5`, also verify they quoted discriminator evidence that the run did not hit the BUG-52 third-variant loop.
 3. Compare quoted ledger rows against `DEC-BUG59-CLOSURE-GATE-TESTER-QUOTEBACK-001`; all four BUG-59 fields must be present.
-4. Compare quoted BUG-54 timing/search output against `.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md`; ten attempts and negative searches must be explicit.
+4. Compare quoted BUG-54 timing/search output against `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`; ten attempts and negative searches must be explicit.
 5. Record the acceptance or rejection in `AGENT-TALK.md` with the exact missing field if rejected.

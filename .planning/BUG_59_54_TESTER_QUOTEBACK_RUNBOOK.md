@@ -1,16 +1,40 @@
-# BUG-59 / BUG-54 v2.151.0 Tester Quote-Back Runbook
+# BUG-59 / BUG-54 Tester Quote-Back Runbook
 
 Status: Active — required before BUG-60 research or implementation starts.
 
 ## Purpose
 
 Collect the exact real-tester evidence needed to close the shipped
-`agentxchain@2.151.0` BUG-59 and BUG-54 contracts on `tusq.dev`.
+`agentxchain` BUG-59 and BUG-54 contracts on `tusq.dev`.
 
 Agent-side published-package proof is already green. It is not enough to
 unlock BUG-60. The real tester must quote the fields below from their own
 dogfood run because BUG-59 is a product-behavior claim and BUG-54 depends on
 local CLI runtime timing on the tester's machine.
+
+## Target version
+
+**Recommended: `agentxchain@2.154.7` or later.** BUG-59 approval-policy
+coupling and the BUG-54 180 000 ms startup watchdog both shipped in
+`2.151.0`, but every patch after that also carries the BUG-52 third-variant
+fixes (Turns 176 / 203 / 204 / 205 / 206). If a tester runs this runbook on
+the older `2.151.0` tarball, a routine continuous session on `tusq.dev`
+will reproduce the BUG-52 third-variant loop before it reaches a BUG-59
+`approval_policy` row. Closure would then be blocked on a different bug
+than the one being tested.
+
+| Version | BUG-59 coupling | BUG-54 watchdog | BUG-52 third variant |
+|---------|-----------------|-----------------|----------------------|
+| `2.151.0` | Shipped | Shipped (180s) | Loops on realistic PM shape |
+| `2.152.0` | Shipped | Shipped (180s) | Loops on realistic PM shape |
+| `2.154.5` | Shipped | Shipped (180s) | Loops on realistic `needs_human + proposed_next_role: "human"` |
+| `2.154.7`+ | Shipped | Shipped (180s) | Fixed |
+
+BUG-59 and BUG-54 quote-back is valid on `2.151.0` or any later patch that
+is still published — **as long as** the tester does not hit a BUG-52
+third-variant loop during the run. The safest single pin is `2.154.7`: it
+is on npm, contains every BUG-59 / BUG-54 / BUG-52 fix, and makes the
+tester's evidence forward-compatible with BUG-60 unlock work.
 
 ## Preconditions
 
@@ -19,14 +43,18 @@ Run every command from the `tusq.dev` repo root. Quote these first:
 ```bash
 pwd
 git rev-parse --show-toplevel
-npx --yes -p agentxchain@2.151.0 -c 'agentxchain --version'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain --version'
 ```
 
 The version output must be exactly:
 
 ```text
-2.151.0
+2.154.7
 ```
+
+(Or a later published patch. If you pin a different version, quote it
+exactly and name which fix set it carries. Anything lower than `2.151.0`
+does not carry the BUG-59 fix and must not be used.)
 
 ## BUG-59 Positive Path: Routine Gates Auto-Close
 
@@ -34,16 +62,16 @@ Run a real continuous dogfood session with the published package. Use the
 same operational shape as the v2.150.0 tester run, but pin the package:
 
 ```bash
-npx --yes -p agentxchain@2.151.0 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
 ```
 
 If the project already has a paused or blocked run that is waiting on a
 routine non-credentialed gate, use the same published binary to continue it:
 
 ```bash
-npx --yes -p agentxchain@2.151.0 -c 'agentxchain status'
-npx --yes -p agentxchain@2.151.0 -c 'agentxchain resume'
-npx --yes -p agentxchain@2.151.0 -c 'agentxchain status'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain status'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain resume'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain status'
 ```
 
 Quote the state summary:
@@ -122,7 +150,7 @@ c.gates.qa_ship_verdict.credentialed = true;
 fs.writeFileSync(p, JSON.stringify(c, null, 2) + '\n');
 MUTATE
 
-npx --yes -p agentxchain@2.151.0 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
 
 jq '{status, phase, pending_run_completion, blocked_on, last_gate_failure}' .agentxchain/state.json
 jq -c 'select(.type == "approval_policy") | {timestamp, gate_type, gate_id, action, reason, matched_rule}' .agentxchain/decision-ledger.jsonl
@@ -166,7 +194,7 @@ dispatches through the published package on the tester machine. The preferred
 path is the normal dogfood flow:
 
 ```bash
-npx --yes -p agentxchain@2.151.0 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
 ```
 
 If `tusq.dev` has no derivable work, first try to produce ten adapter-path
@@ -181,23 +209,23 @@ adapter.
 The published-package repro harness below is still useful as supporting timing
 evidence, but it is not sufficient for BUG-54 closure by itself. `npx --yes -p`
 does not install under `npm root` (neither local nor global), so extract the
-v2.151.0 repro harness directly from the registry tarball and run it from the
+repro harness directly from the registry tarball and run it from the
 `tusq.dev` repo root so it auto-discovers the project's `agentxchain.json` and
 configured runtimes:
 
 ```bash
 REPRO_DIR="$(mktemp -d -t agentxchain-bug54-repro.XXXXXX)"
-if ! curl -fsSL https://registry.npmjs.org/agentxchain/-/agentxchain-2.151.0.tgz \
+if ! curl -fsSL https://registry.npmjs.org/agentxchain/-/agentxchain-2.154.7.tgz \
   | tar -xzC "$REPRO_DIR"; then
   echo "Direct registry download failed; retrying through npm pack..." >&2
-  TARBALL="$(npm pack agentxchain@2.151.0 --pack-destination "$REPRO_DIR" | tail -n 1)"
+  TARBALL="$(npm pack agentxchain@2.154.7 --pack-destination "$REPRO_DIR" | tail -n 1)"
   tar -xzf "$REPRO_DIR/$TARBALL" -C "$REPRO_DIR"
 fi
 node "$REPRO_DIR/package/scripts/reproduce-bug-54.mjs" \
-  --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-v2-151-0.json
+  --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-latest.json
 rm -rf "$REPRO_DIR"
-jq '{command_probe, summary}' /tmp/bug54-v2-151-0.json
-jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-v2-151-0.json
+jq '{command_probe, summary}' /tmp/bug54-latest.json
+jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-latest.json
 ```
 
 The fallback is intentionally `npm pack`, not `npm root`: `npx --yes -p`
@@ -225,7 +253,8 @@ grep -RInE 'spawn_attached|first_output|startup_watchdog_fired|stdout_attach_fai
 
 BUG-54 closure requires ten consecutive real adapter-path dispatches with no
 `startup_watchdog_fired`, `stdout_attach_failed`, or `ghost_turn` events at the
-default v2.151.0 watchdog. The raw repro harness is strong supporting evidence,
+default 180 000 ms startup watchdog that shipped in `2.151.0` and is still
+the default in `2.154.7`. The raw repro harness is strong supporting evidence,
 but it does not close BUG-54 alone. Closure through the no-derivable-work escape
 requires all three facts to be quoted: normal dogfood flow cannot produce ten
 real dispatches, ten adapter-path attempts were still run against the real
@@ -237,7 +266,7 @@ v2.150.0 dispatch or at least 10 KB when the original size is unavailable.
 Paste the output blocks into `.planning/AGENT-TALK.md` or the beta bug thread
 under these headings:
 
-- `agentxchain@2.151.0 version`
+- `agentxchain@2.154.7 version`
 - `BUG-59 positive state`
 - `BUG-59 approval_policy ledger rows`
 - `BUG-59 credentialed negative`
