@@ -83,46 +83,58 @@ or a new guard this spec introduces.
 |---|---|---|---|---|
 | A1 | Run 1 completes, vision has ≥1 more candidate, `max_runs >= 2` | Run 2 auto-starts, `session.status === 'running'`, `session_continuation` event emitted with `{previous_run_id, next_run_id, next_objective}` | ✅ `bug-53-continuous-auto-chain.test.js:275-322` | None |
 | A2 | Runs 1–3 complete, `max_runs === 3` | Session exits with `status: 'completed'`, `runs_completed === 3`, 2× `session_continuation` events between the 3 runs | ✅ same test | None |
-| A3 | Runs complete until vision candidates exhausted, `max_runs > candidates` | Session exits with `status: 'idle_exit'` after `max_idle_cycles` consecutive idle scans, **NOT** `paused` | ⚠️ partial — `bug-53-continuous-auto-chain.test.js` runs vision with exactly N goals; no explicit assertion that a shorter vision than `max_runs` produces `idle_exit` | **Gap G1** |
+| A3 | Runs complete until vision candidates exhausted, `max_runs > candidates` | Session exits with `status: 'idle_exit'` after `max_idle_cycles` consecutive idle scans, **NOT** `paused` | ✅ `bug-53-continuous-auto-chain.test.js:409-463` covers the CLI path with 1 vision goal and `--max-runs 5`; `:464-520` covers the function-call path | None |
 | A4 | Run 1 completes cleanly AND governed state transitions to `completed`, session NOT paused | `session.status !== 'paused'` after the advance step | ✅ asserted at line 285–286 (doesNotMatch paused log) | Weaker than direct state assertion; acceptable |
-| A5 | `session_continuation.payload` shape locked against field rename | Payload carries exactly `{session_id, previous_run_id, next_run_id, next_objective, next_intent_id, runs_completed, trigger}` | ⚠️ existing test only checks `length === 2`, does not lock payload shape | **Gap G2** |
-| A6 | `prompt_transport` / `env_snapshot` / `auto_retry_on_ghost` fields do NOT leak into BUG-53 payload | None of those keys appear in `session_continuation.payload` (BUG-54/61 contamination) | ❌ no guard | **Gap G3** |
+| A5 | `session_continuation.payload` shape locked against field rename | Payload carries exactly `{session_id, previous_run_id, next_run_id, next_objective, next_intent_id, runs_completed, trigger}` | ✅ `bug-53-continuous-auto-chain.test.js` asserts the exact key set via `assertSessionContinuationPayloadShape()` | None after Turn 234 |
+| A6 | `prompt_transport` / `env_snapshot` / `auto_retried_ghost` fields do NOT leak into BUG-53 payload | None of those keys appear in `session_continuation.payload` (BUG-54/61 contamination) | ✅ same payload-shape assertion bans the concrete BUG-54/61 diagnostic keys listed in G3 | None after Turn 234 |
 | A7 | Shipped-package `2.154.7+` CLI produces R2/R3 behaviour end-to-end, quoted by tester | Tester-quoted `Run 2/N completed` line + `session_continuation` event JSON from `.agentxchain/events.jsonl`, run on real project (not synthetic mock executor) | ❌ not yet | **Gap G4 (tester quote-back)** |
 
 ---
 
 ## 4. Gap Remediation Plan
 
-### G1 — Idle-exit shorter-than-max-runs path (next agent-side turn)
+### G1 — Idle-exit shorter-than-max-runs path (already covered)
 
-Extend `bug-53-continuous-auto-chain.test.js` with a scenario where VISION.md
-declares exactly 2 candidates and `--max-runs 5`. Assert:
+`bug-53-continuous-auto-chain.test.js` already contains the missing CLI-shaped
+coverage this spec initially called out:
 
-- Runs 1 and 2 complete, each with `session_continuation` events between them.
-- Run 3 enters the vision-scan fallback, finds no candidate, increments
-  `idle_cycles`, and after `maxIdleCycles` consecutive idle scans the session
-  exits with `status: 'idle_exit'`, NOT `paused`.
-- `session.runs_completed === 2`, not 5 (max not reached).
+- one vision candidate with `--max-runs 5`;
+- exactly `Run 1/5 completed`;
+- no `Run 2/5` through `Run 5/5` output;
+- operator-visible `All vision goals appear addressed`;
+- terminal `continuous-session.json` status is `completed`, never `paused`;
+- `runs_completed === 1`;
+- zero `session_continuation` events because no second run was seeded.
 
 This closes R3 explicitly. Do NOT introduce ROADMAP.md/SYSTEM_SPEC.md reading
-in the fixture — that is BUG-60.
+in the fixture — that is BUG-60. A future stronger variant may use exactly 2
+candidates with `--max-runs 5`, but it is not required to close BUG-53's
+idle-exit proof because the one-candidate CLI path already proves max-runs is
+not mistaken for required work.
 
 ### G2 — `session_continuation` payload shape drift guard (next turn)
 
-Add a dedicated assertion in the existing test (or a new
-`cli/test/bug-53-session-continuation-payload-shape.test.js`) that the event's
-`payload` carries exactly the seven keys listed in §3/A5. Mirror the BUG-61
-pattern (`cli/test/bug-61-tester-quoteback-ask-content.test.js`) of locking
-field sets against source emission via a regex on
-`cli/src/lib/continuous-run.js:926-939`.
+Add a dedicated assertion in the existing test that the event's `payload`
+carries exactly the seven keys listed in §3/A5. Turn 234 implemented this in
+`cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js` via
+`assertSessionContinuationPayloadShape()`.
+
+The exact key-set lock is intentional. Additive fields are not forbidden
+forever, but they require a deliberate migration/update because tester
+quote-back consumers and downstream audit tools depend on this event shape.
 
 ### G3 — Cross-bug contamination negative guard
 
 Negative assertion: BUG-53's `session_continuation.payload` does NOT contain
-`prompt_transport`, `env_snapshot`, `auto_retried_ghost`, or any other
-BUG-54/61 key. Prevents a future refactor from over-populating the event with
-unrelated diagnostic surfaces (BUG-61's continuous counter lives on
-`continuous-session.json`, not on this event).
+the concrete BUG-54/61 diagnostic keys currently known to belong on other
+surfaces: `prompt_transport`, `env_snapshot`, `stdin_bytes`, `watchdog_ms`,
+`auto_retried_ghost`, `ghost_retry_exhausted`, `attempts_log`,
+`diagnostic_bundle`, or `failure_type`.
+
+This is not a blanket ban on all future session-level counters. If a concrete
+use case needs to add a retry summary to `session_continuation`, update the
+event contract and quote-back tests in the same change instead of smuggling it
+in as an incidental field.
 
 ### G4 — Shipped-package tester quote-back
 
@@ -208,7 +220,8 @@ the records reference real shipped changes.
 
 BUG-53 closes when ALL of the following are true:
 
-1. G1 regression committed and green in CI.
+1. G1 regression is present and green (`bug-53-continuous-auto-chain.test.js`
+   CLI idle-exit scenario).
 2. G2 payload-shape drift guard committed and green in CI.
 3. G3 cross-bug contamination negative guard committed and green in CI.
 4. G4 tester-quoted multi-run chain output from `agentxchain@2.154.7+` appended

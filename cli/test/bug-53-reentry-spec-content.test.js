@@ -89,6 +89,9 @@ describe('BUG-53 re-entry spec — drift guards', () => {
     for (const gap of ['G1', 'G2', 'G3', 'G4']) {
       assert.match(spec, new RegExp(`\\b${gap}\\b`), `gap ${gap} missing`);
     }
+    assert.match(spec, /G1 — Idle-exit shorter-than-max-runs path \(already covered\)/);
+    assert.match(spec, /Turn 234 implemented this/);
+    assert.match(spec, /known to belong on other\s+surfaces/s);
     // G4 must be named as the closure artifact, not merely the final agent-side gap.
     assert.match(spec, /G4 is the \*\*closure artifact\*\*|Closure requires G4/);
   });

@@ -50,6 +50,30 @@ import { RUN_EVENTS_PATH } from '../../src/lib/run-events.js';
 const tempDirs = [];
 const CLI_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CLI_BIN = join(CLI_ROOT, 'bin', 'agentxchain.js');
+const EXPECTED_SESSION_CONTINUATION_PAYLOAD_KEYS = [
+  'next_intent_id',
+  'next_objective',
+  'next_run_id',
+  'previous_run_id',
+  'runs_completed',
+  'session_id',
+  'trigger',
+];
+const FORBIDDEN_SESSION_CONTINUATION_PAYLOAD_KEYS = [
+  // BUG-54 reproduction metadata belongs in the BUG-54 quote-back harness,
+  // not in BUG-53's run-to-run continuation event.
+  'prompt_transport',
+  'env_snapshot',
+  'stdin_bytes',
+  'watchdog_ms',
+  // BUG-61 ghost-turn retry diagnostics belong in ghost retry events and
+  // continuous-session counters, not in session_continuation.
+  'auto_retried_ghost',
+  'ghost_retry_exhausted',
+  'attempts_log',
+  'diagnostic_bundle',
+  'failure_type',
+];
 
 afterEach(() => {
   while (tempDirs.length > 0) {
@@ -225,6 +249,22 @@ function readRunEvents(dir) {
     .map((line) => JSON.parse(line));
 }
 
+function assertSessionContinuationPayloadShape(evt) {
+  const payload = evt.payload || {};
+  assert.deepEqual(
+    Object.keys(payload).sort(),
+    EXPECTED_SESSION_CONTINUATION_PAYLOAD_KEYS,
+    `session_continuation payload shape drifted; got ${JSON.stringify(payload)}`,
+  );
+  for (const key of FORBIDDEN_SESSION_CONTINUATION_PAYLOAD_KEYS) {
+    assert.equal(
+      Object.hasOwn(payload, key),
+      false,
+      `BUG-53 session_continuation payload must not carry unrelated ${key} diagnostic data: ${JSON.stringify(payload)}`,
+    );
+  }
+}
+
 function runContinuousCli(dir, maxRuns = 3) {
   return spawnSync(process.execPath, [
     CLI_BIN,
@@ -299,6 +339,7 @@ describe('BUG-53: continuous session auto-chains after a completed run', () => {
     assert.equal(continuations.length, 2,
       `CLI-owned BUG-53 scenario must emit 2 session_continuation events across 3 runs; got ${continuations.length}`);
     for (const evt of continuations) {
+      assertSessionContinuationPayloadShape(evt);
       assert.ok(evt.payload?.previous_run_id, `missing previous_run_id: ${JSON.stringify(evt)}`);
       assert.ok(evt.payload?.next_run_id, `missing next_run_id: ${JSON.stringify(evt)}`);
       assert.ok(evt.payload?.next_objective, `missing next_objective: ${JSON.stringify(evt)}`);
@@ -390,6 +431,7 @@ describe('BUG-53: continuous session auto-chains after a completed run', () => {
       `continuous auto-chain must emit a session_continuation event at every post-completion boundary (2 boundaries for 3 runs); got ${continuations.length}. ` +
       `BUG-53 requirement #4: {previous_run_id, next_objective, next_run_id} audit trail.`);
     for (const evt of continuations) {
+      assertSessionContinuationPayloadShape(evt);
       assert.ok(evt.payload?.previous_run_id,
         `session_continuation event must carry payload.previous_run_id; got ${JSON.stringify(evt.payload)}`);
       assert.ok(evt.payload?.next_objective,
