@@ -30,16 +30,29 @@ function normalizeRoute(route) {
   return clean || '/';
 }
 
+// Mirror Docusaurus's heading-slug algorithm (github-slugger v1, which Docusaurus
+// bundles). Two semantics must match exactly or the validator silently accepts
+// links that 404 in production:
+//   1. github-slugger strips a specific punctuation set (ASCII symbols plus the
+//      Unicode "General Punctuation" block U+2000-U+206F which contains the
+//      em-dash U+2014 and en-dash U+2013) — NOT "every non-alphanumeric char".
+//   2. github-slugger replaces each single space char with `-` (`/ /g`), so two
+//      consecutive spaces become two hyphens. Using `/\s+/g` collapses runs and
+//      silently disagrees with real Docusaurus output on any heading that
+//      contains stripped punctuation surrounded by spaces (e.g., "Foo — Bar"
+//      renders `foo--bar`, not `foo-bar`).
+// Regex mirrors `github-slugger/regex.js` for the ASCII + common-unicode cases
+// that actually appear in our docs. Keep in sync with that package if we ever
+// upgrade Docusaurus and it swaps the slugger.
+const GITHUB_SLUGGER_BANNED = /[\0-\x1F!-,./:-@[-^`{-\xA9\xAB-\xB4\xB6-\xB9\xBB-\xBF\xD7\xF7\u2000-\u206F\u2E00-\u2E7F]/g;
+
 function normalizeAnchor(anchor) {
   return anchor
-    .trim()
     .toLowerCase()
     .replace(/<[^>]+>/g, '')
-    .replace(/[`*_~[\]()]/g, '')
     .replace(/&[a-z0-9#]+;/gi, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-');
+    .replace(GITHUB_SLUGGER_BANNED, '')
+    .replace(/ /g, '-');
 }
 
 function anchorsForMarkdown(text) {
@@ -166,5 +179,30 @@ describe('website route integrity', () => {
       scannedRouteCount >= 20,
       `route scanner extracted only ${scannedRouteCount} internal routes — regex likely regressed. Expected >= 20 across navbar/footer/pages/docs.`,
     );
+  });
+
+  // Parity fixture pinned against real `github-slugger` v1 output (the copy
+  // bundled by Docusaurus). Regenerate the `expected` values by running
+  //   node -e "const S=require('github-slugger');const s=new S();console.log(s.slug('<heading>'))"
+  // against `website-v2/node_modules/github-slugger`. If this test fails, the
+  // route guard is silently disagreeing with production Docusaurus URLs.
+  it('slugifies headings identically to github-slugger (production Docusaurus)', () => {
+    const cases = [
+      // Em-dash surrounded by spaces → double hyphen (NOT collapsed).
+      ['Blueprint-backed templates — custom roles and phases', 'blueprint-backed-templates--custom-roles-and-phases'],
+      ['CLI Proof — Happy Path', 'cli-proof--happy-path'],
+      ['Step 1 — Scaffold', 'step-1--scaffold'],
+      // ASCII punctuation stripped.
+      ["Don't use X", 'dont-use-x'],
+      ['What AgentXchain enforces — regardless of pattern', 'what-agentxchain-enforces--regardless-of-pattern'],
+      // Hyphens preserved, no collapse.
+      ['Blueprint-backed templates', 'blueprint-backed-templates'],
+      // Multiple spaces preserved as multiple hyphens.
+      ['Foo  Bar', 'foo--bar'],
+      // Arrow U+2192 is in U+2E00–U+2E7F? No — U+2192 is in U+2190–U+21FF (Arrows block), NOT banned. It survives.
+      // Intentionally not asserting on arrows; none of our docs use arrows inside heading text that is also targeted by an in-repo link.
+    ];
+    const actual = cases.map(([heading]) => [heading, normalizeAnchor(heading)]);
+    assert.deepEqual(actual, cases, 'slug output drifted from github-slugger');
   });
 });
