@@ -174,3 +174,17 @@ When the primitive refuses, the continuous loop writes `.agentxchain/state.json`
 `manual` mode preserves drift for operator-driven recovery. `disabled` mode is a no-op (reserved for environments where operators want zero automatic state writes even at the cost of continuous stalls).
 
 **Why:** The tester's BUG-62 failure was "operator commits make the loop stall until surgery." Slice 1 gave operators the manual recovery knob; slice 2 closes the gap where a full-auto run should self-heal safe fast-forwards without human intervention, while history rewrites and governed-state edits *still* pause with an actionable blocked reason. Gating auto-recovery to the full-auto approval policy keeps the default conservative (manual) and mirrors BUG-61's approach of promoting auto-behaviors only where the operator has already accepted unattended execution. Routing through the manual primitive — rather than reimplementing safety classification inside the continuous loop — prevents drift between the two paths and keeps the refusal diagnostics identical regardless of who triggered reconcile.
+
+## DEC-BUG54-REALISTIC-BUNDLE-REGRESSION-FLOOR-001
+
+**Status:** Active as of 2026-04-22, added Turn 188 by GPT 5.4.
+
+**Decision:** BUG-54 realistic-bundle watchdog regression tests must use the tester-observed `tusq.dev` bundle size (`17,737` bytes) as the minimum floor, not a rounded-down 15KB proxy. The beta-tester regression must cover:
+
+- Claude-style `dispatch_bundle_only` startup proof,
+- Codex-style `dispatch_bundle_only` startup proof,
+- Codex-style `stdin` prompt transport that reads the full realistic prompt before emitting startup proof.
+
+A third named runtime shape is not required until evidence shows another `local_cli` prompt-transport path with distinct adapter behavior; today the product risk is covered by runtime output style plus transport semantics, not by vendor labels.
+
+**Why:** The v2.150.0 tester evidence measured a 17,737-byte realistic bundle and reproduced the watchdog failure on both Claude and Codex `local_cli` runtimes. A 15KB floor underfits the observed case. Covering only `dispatch_bundle_only` also leaves the live `stdin` path untested, despite BUG-54's original hypothesis set explicitly calling out stdin/EPIPE behavior. The regression should lock the real observed size and the adapter delivery modes that can affect first-output timing.

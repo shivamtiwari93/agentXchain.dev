@@ -12,12 +12,13 @@
  *     runtimes; a Claude-only regression under-covers the class
  *
  * This test exercises `writeDispatchBundle` with realistic role mandate
- * content so the produced bundle is ≥15KB, then dispatches through
- * `dispatchLocalCli` using two runtime shapes (claude-style + codex-style
- * shims that each read the bundle from disk, emit representative startup
- * output, stage a result, and exit cleanly). It asserts both runtime shapes
- * complete with real startup proof and no startup_watchdog_fired under the
- * default threshold.
+ * content so the produced bundle is at least as large as the observed 17,737
+ * byte tusq.dev bundle, then dispatches through
+ * `dispatchLocalCli` using three runtime shapes (claude-style bundle-only,
+ * codex-style bundle-only, and codex-style stdin transport shims that each
+ * read the bundle from disk, emit representative startup output, stage a
+ * result, and exit cleanly). It asserts all runtime shapes complete with real
+ * startup proof and no startup_watchdog_fired under the default threshold.
  *
  * Regression value: locks the default watchdog AND the dispatch path against
  * any future change that re-lowers the threshold or introduces bundle-size
@@ -33,6 +34,7 @@ import { tmpdir } from 'node:os';
 import { dispatchLocalCli } from '../../src/lib/adapters/local-cli-adapter.js';
 import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
 
+const OBSERVED_TUSQ_BUNDLE_BYTES = 17_737;
 const tempDirs = [];
 
 afterEach(() => {
@@ -120,6 +122,13 @@ function bundleBytes(bundlePath) {
   return total;
 }
 
+function adapterDiagnostic(logs, label) {
+  const prefix = `[adapter:diag] ${label} `;
+  const line = logs.find((entry) => entry.startsWith(prefix));
+  assert.ok(line, `expected ${label} adapter diagnostic`);
+  return JSON.parse(line.slice(prefix.length));
+}
+
 /**
  * Shim styles model the two local_cli runtime shapes the tester exercised on
  * v2.150.0: Claude (stream-json-ish stdout) and Codex (plain-text stdout).
@@ -179,7 +188,39 @@ setTimeout(() => {
 `;
 }
 
-async function dispatchWithShim({ shimName, shimBody }) {
+function codexStdinStyleShim(rootAbs, turnId) {
+  return `
+const fs = require('node:fs');
+const path = require('node:path');
+const bundleDir = ${JSON.stringify(join(rootAbs, '.agentxchain', 'dispatch', 'turns', turnId))};
+const promptBytes = fs.statSync(path.join(bundleDir, 'PROMPT.md')).size;
+let stdinBytes = 0;
+process.stdin.on('data', (chunk) => { stdinBytes += chunk.length; });
+process.stdin.on('end', () => {
+  if (stdinBytes < ${OBSERVED_TUSQ_BUNDLE_BYTES}) {
+    throw new Error('stdin prompt too small: ' + stdinBytes);
+  }
+  process.stdout.write('codex stdin ready bundle=' + promptBytes + ' stdin=' + stdinBytes + '\\n');
+  setTimeout(() => {
+    process.stdout.write('codex stdin done\\n');
+    const staging = ${JSON.stringify(join(rootAbs, '.agentxchain', 'staging'))};
+    fs.mkdirSync(staging, { recursive: true });
+    fs.writeFileSync(path.join(staging, '${turnId}.json'), JSON.stringify({
+      turn_id: '${turnId}',
+      summary: 'codex-stdin realistic bundle ack',
+      next_role: 'dev',
+      files_changed: [],
+      verification: { status: 'passed', commands_run: [] },
+      decisions: [],
+      objections: [],
+    }));
+    process.exit(0);
+  }, 400);
+});
+`;
+}
+
+async function dispatchWithShim({ shimName, shimBody, promptTransport = 'dispatch_bundle_only' }) {
   const root = makeTmp();
   mkdirSync(join(root, '.agentxchain'), { recursive: true });
   const scriptPath = join(root, shimName);
@@ -190,6 +231,7 @@ async function dispatchWithShim({ shimName, shimBody }) {
     type: 'local_cli',
     command: ['node', scriptPath],
     cwd: '.',
+    prompt_transport: promptTransport,
   });
 
   const bundleRes = writeDispatchBundle(root, state, config);
@@ -201,14 +243,14 @@ async function dispatchWithShim({ shimName, shimBody }) {
 }
 
 describe('BUG-54 realistic-bundle dispatch watchdog', () => {
-  it('produces a dispatch bundle ≥15KB using a realistic role mandate', async () => {
+  it('produces a dispatch bundle at least as large as the observed tusq.dev bundle', async () => {
     const { bundleSize, bundleRes } = await dispatchWithShim({
       shimName: 'size-probe.js',
       shimBody: claudeStyleShim,
     });
     assert.ok(
-      bundleSize >= 15 * 1024,
-      `realistic bundle must be ≥15KB; measured ${bundleSize} bytes at ${bundleRes.bundlePath}`,
+      bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES,
+      `realistic bundle must be >= ${OBSERVED_TUSQ_BUNDLE_BYTES} bytes; measured ${bundleSize} bytes at ${bundleRes.bundlePath}`,
     );
   });
 
@@ -219,7 +261,7 @@ describe('BUG-54 realistic-bundle dispatch watchdog', () => {
     });
     const log = result.logs.join('');
 
-    assert.ok(bundleSize >= 15 * 1024, `bundle ${bundleSize}B must be ≥15KB`);
+    assert.ok(bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES, `bundle ${bundleSize}B must be >= observed ${OBSERVED_TUSQ_BUNDLE_BYTES}B`);
     assert.notEqual(result.startupFailure, true, 'realistic-bundle Claude dispatch must not be retained as failed_start');
     assert.match(log, /\[adapter:diag\] spawn_attached /);
     assert.match(log, /\[adapter:diag\] first_output /);
@@ -234,10 +276,30 @@ describe('BUG-54 realistic-bundle dispatch watchdog', () => {
     });
     const log = result.logs.join('');
 
-    assert.ok(bundleSize >= 15 * 1024, `bundle ${bundleSize}B must be ≥15KB`);
+    assert.ok(bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES, `bundle ${bundleSize}B must be >= observed ${OBSERVED_TUSQ_BUNDLE_BYTES}B`);
     assert.notEqual(result.startupFailure, true, 'realistic-bundle Codex dispatch must not be retained as failed_start');
     assert.match(log, /\[adapter:diag\] spawn_attached /);
     assert.match(log, /\[adapter:diag\] first_output /);
+    assert.doesNotMatch(log, /\[adapter:diag\] startup_watchdog_fired /);
+    assert.doesNotMatch(log, /"exit_signal":"SIGTERM"/);
+  });
+
+  it('Codex-style stdin local_cli shim on a realistic bundle receives the full prompt before startup proof', { timeout: 30_000 }, async () => {
+    const { result, bundleSize } = await dispatchWithShim({
+      shimName: 'codex-stdin-style.js',
+      shimBody: codexStdinStyleShim,
+      promptTransport: 'stdin',
+    });
+    const log = result.logs.join('');
+    const spawnPrepare = adapterDiagnostic(result.logs, 'spawn_prepare');
+
+    assert.ok(bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES, `bundle ${bundleSize}B must be >= observed ${OBSERVED_TUSQ_BUNDLE_BYTES}B`);
+    assert.equal(spawnPrepare.prompt_transport, 'stdin');
+    assert.ok(spawnPrepare.stdin_bytes >= OBSERVED_TUSQ_BUNDLE_BYTES, `stdin payload ${spawnPrepare.stdin_bytes}B must include realistic prompt bytes`);
+    assert.notEqual(result.startupFailure, true, 'realistic-bundle stdin Codex dispatch must not be retained as failed_start');
+    assert.match(log, /\[adapter:diag\] spawn_attached /);
+    assert.match(log, /\[adapter:diag\] first_output /);
+    assert.match(log, /codex stdin ready bundle=/);
     assert.doesNotMatch(log, /\[adapter:diag\] startup_watchdog_fired /);
     assert.doesNotMatch(log, /"exit_signal":"SIGTERM"/);
   });
@@ -247,7 +309,7 @@ describe('BUG-54 realistic-bundle dispatch watchdog', () => {
     const codexRun = await dispatchWithShim({ shimName: 'codex-style.js', shimBody: codexStyleShim });
 
     for (const { root, state, bundleSize } of [claudeRun, codexRun]) {
-      assert.ok(bundleSize >= 15 * 1024, `bundle ${bundleSize}B must be ≥15KB`);
+      assert.ok(bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES, `bundle ${bundleSize}B must be >= observed ${OBSERVED_TUSQ_BUNDLE_BYTES}B`);
       const stagingPath = join(root, '.agentxchain', 'staging', `${state.current_turn.turn_id}.json`);
       const staged = JSON.parse(readFileSync(stagingPath, 'utf8'));
       assert.equal(staged.turn_id, state.current_turn.turn_id);
