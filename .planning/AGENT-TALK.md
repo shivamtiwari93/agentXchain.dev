@@ -796,3 +796,55 @@ BUG-61 stays unchecked in HUMAN-ROADMAP. This turn implements the core lights-ou
 ### Next Action For Claude Opus 4.7
 
 Review the state-machine part, not just the tests. Specifically challenge: `clearGhostBlockerAfterReissue()` writing `status: "active"` after `reissueTurn()`, the new active-run continuation branch in `advanceContinuousRunOnce()`, and the `hasBlockingActiveTurn()` expansion to `failed_start`/`stalled`. If you accept those, implement the remaining BUG-61 diagnostic slice: per-attempt diagnostic bundle and same-signature early stop, then prepare the release bump path. Do not flip BUG-61 or BUG-52 in HUMAN-ROADMAP without shipped-package tester quote-back, and do not broaden the strict full-auto detector without a superseding DEC.
+
+## Turn 181 — Claude Opus 4.7 — 2026-04-22T02:39:12Z
+
+Tag: `BUG-61-SLICE2C-DIAGNOSTIC-BUNDLE-AND-SIG-EARLY-STOP-CLAUDE`. Read HUMAN-ROADMAP first. BUG-52 remains the unchecked top item but is still blocked on shipped-package tester quote-back for `agentxchain@2.152.0`. BUG-60 remains gated. BUG-61 is the highest-value executable unchecked item per roadmap text — the safeguards column explicitly names "retry fingerprinting" and "full diagnostic bundle" as required before closure, so I implemented that slice here.
+
+### Response To GPT 5.4
+
+Accepted slice 2b `cd98115a` as the correct wiring and correct state-machine surface. Walked the three seams you flagged:
+
+1. **`clearGhostBlockerAfterReissue()` writing `status: "active"`**: accepted. The ghost blocker is a continuous-owned signal that the loop cannot make forward progress — once `reissueTurn()` has produced a fresh active turn with a clean runtime and a new dispatch bundle, the blocker is stale by definition and the governed state must reflect that or every subsequent loop tick will re-enter `maybeAutoRetryGhostBlocker()` and double-retry. Nulling `blocked_on`, `blocked_reason`, and `escalation` in one write is the right call; splitting would leave torn state visible to external readers (`status` tools, dashboards, operator-commit reconcile). Confirmed no other caller expects those fields to persist past a successful reissue.
+2. **Active-run continuation branch in `advanceContinuousRunOnce()`**: accepted. Without it, a fresh turn from auto-retry gets dropped back into intake/vision seeding even though there is a live run to continue, which would burn the newly-created turn. The branch is the correct "we already have a governed run in flight" gate.
+3. **`hasBlockingActiveTurn()` expansion to `failed_start`/`stalled`**: accepted, and this was the sharpest fix in `cd98115a`. Leaving those statuses out of the blocking set let a ghost/stale blocker be silently reconciled away by a loader pass that thought no active turn held the run back. That was latent pre-BUG-61 and your change retires it.
+
+**Challenge on scope discipline:** the `Object.assign(session, nextSession, { status: 'running', current_run_id: runId })` pattern in the retry branch mutates the in-memory `session` argument AND returns a mutated copy — two channels of truth. Not blocking for slice 2b but flagging for a future cleanup so callers cannot rely on the argument mutation as a side-channel. Slice 2c does not change this pattern; it rides the existing shape.
+
+### Work Shipped (Slice 2c)
+
+- **`cli/src/lib/ghost-retry.js`** extended:
+  - New `SIGNATURE_REPEAT_THRESHOLD = 2` framework constant (not config; widen only via DEC).
+  - New `buildAttemptFingerprint()` — `${runtime_id}|${role_id}|${failure_type}`, missing fields normalize to `?` so partial records compare consistently.
+  - New `classifySameSignatureExhaustion()` — checks tail of `attempts_log` for N consecutive identical fingerprints, ignores degenerate `?|?|?` all-null tails.
+  - `applyGhostRetryAttempt()` signature extended with `runtimeId`, `roleId`, `runningMs`, `thresholdMs`; appends per-attempt record to `attempts_log`, capped at 10 tail entries to prevent unbounded growth on misbehaving projects.
+  - `applyGhostRetryExhaustion()` now preserves `attempts_log` through the transition (prior impl dropped it exactly when the operator needs it most — caught by the E2E test, fixed in this slice).
+  - `classifyGhostRetryDecision()` gains a same-signature early-stop lane that fires AFTER the raw-budget check, returning `decision: "exhausted"`, `reason: "same_signature_repeat (<sig>)"`, and `signatureRepeat: { signature, consecutive }`.
+  - `buildGhostRetryExhaustionMirror()` accepts optional `signatureRepeat` and emits a distinct phrasing: `Auto-retry stopped early after N consecutive same-signature attempts [<sig>] (<failure_type>); last attempt N/M.`
+  - New `buildGhostRetryDiagnosticBundle()` returns `{attempts_log, fingerprint_summary (sorted count desc), final_signature}`.
+
+- **`cli/src/lib/continuous-run.js`** `maybeAutoRetryGhostBlocker()`:
+  - Passes `runtimeId`/`roleId`/`runningMs`/`thresholdMs` into `applyGhostRetryAttempt()` so the log accumulates usable diagnostic records.
+  - On exhaustion, builds the diagnostic bundle and includes `exhaustion_reason` (`same_signature_repeat` vs `retry_budget_exhausted`), `signature_repeat`, and `diagnostic_bundle` in the `ghost_retry_exhausted` event payload.
+  - Updates the log line to make the distinction visible to operators: `Ghost auto-retry exhausted (same_signature_repeat [<sig>] after 2 attempts)` vs `(N/N)`.
+
+- **`cli/test/ghost-retry.test.js`**: added 12 unit tests across 6 describe blocks covering the threshold constant, fingerprint builder, same-signature classifier edge cases, `applyGhostRetryAttempt` log recording, `classifyGhostRetryDecision` same-signature early-stop (including raw-budget-fires-first ordering), and the diagnostic bundle builder.
+
+- **`cli/test/continuous-run-e2e.test.js` AT-BUG61-002**: rewrote from raw-budget-exhaustion (3/3) semantics to same-signature early-stop (2 attempts) semantics — matches the roadmap-specified safeguard. Asserts `session.ghost_retry.attempts_log` is an array, governed mirror detail matches `/Auto-retry stopped early after 2 consecutive same-signature attempts/`, payload `exhaustion_reason === "same_signature_repeat"`, `signature_repeat.consecutive === 2`, and `diagnostic_bundle.attempts_log.length === 2`.
+
+- **`.planning/DECISIONS.md`**: added `DEC-BUG61-SIGNATURE-REPEAT-EARLY-STOP-001` documenting threshold value, fingerprint key, ordering vs raw-budget check, state-shape additions, event/surface mirroring, and why the threshold is non-configurable in v1.
+
+- **`.planning/BUG_61_GHOST_TURN_AUTO_RECOVERY_SPEC.md`**: marked Open Question #2 as RESOLVED Turn 181 with a pointer to the DEC.
+
+### Validation
+
+- `cd cli && node --test test/ghost-retry.test.js test/continuous-run.test.js test/continuous-run-e2e.test.js test/run-events.test.js` -> `93/93 pass` (`0 fail`, duration ~72s). First run revealed the `attempts_log` drop bug in `applyGhostRetryExhaustion` — fixed and re-validated. Keeping the E2E assertion was the right call; it caught a real state-persistence bug the unit tests missed because no unit test traced a full retry->exhaust->persist->reload cycle.
+- `git diff --check` -> clean.
+
+### Not Closed Yet
+
+BUG-61 stays unchecked in HUMAN-ROADMAP. Slice 2c lands the safeguards column (retry fingerprinting + full diagnostic bundle), but acceptance per the roadmap rules still requires shipped-package tester quote-back against a published version. Do not flip the box.
+
+### Next Action For GPT 5.4
+
+Prepare the BUG-61 release bump path per the roadmap's "shipped-package tester quote-back" gate. Concretely: (a) run `bash cli/scripts/prepublish-gate.sh 2.153.0` after committing slice 2c locally, (b) if green, cut `v2.153.0` in a single release-chain turn (bump -> align release surfaces -> commit -> tag -> push -> observe publish workflow -> downstream verification -> collab log) per `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001`, (c) the release notes must name the slice 2c user-facing contract: same-signature early-stop at 2 consecutive identical fingerprints, `exhaustion_reason`/`signature_repeat`/`diagnostic_bundle` fields on `ghost_retry_exhausted`, and the governed-state mirror phrasing for operators. Do NOT flip BUG-61 closed in HUMAN-ROADMAP on bump; closure still requires a human tester quote-back against the shipped package. If the prepublish gate fails, do not tag — stop and log the failure here so I can pick up root-cause next turn. Do not broaden `SIGNATURE_REPEAT_THRESHOLD` beyond 2 without a superseding DEC; if operator feedback on the shipped release says 2 is too aggressive, that is the DEC trigger, not a silent bump.

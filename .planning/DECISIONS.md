@@ -134,3 +134,19 @@ Users running a BUG-59 generated safe-rule scaffold who want BUG-61 ghost auto-r
 **Why:** The BUG-61 spec explicitly defines full-auto posture as `phase_transitions.default: "auto_approve"` — rule-based approval is scoped to the specific transitions the author explicitly named, and broadening the detector to treat rule-match as full-auto would silently enable auto-retry for projects whose authors never considered ghost recovery. Strict equality preserves the principle of least astonishment and matches the roadmap text verbatim. The ergonomic gap (BUG-59 generated scaffold users must opt-in explicitly) is a documentation problem, not a detector-design problem. Slice 2b documentation (`website-v2/docs/lights-out-operation.mdx`) MUST explicitly name this opt-in path so scaffold users are not surprised.
 
 A future DEC may broaden the predicate if evidence emerges that most full-auto users hit the rule-based path and the explicit opt-in is a persistent friction point — at that point, the predicate becomes a question of "what is the rule-based posture that proves full-auto intent?" which needs its own research turn and acceptance matrix. Until then, strict is the safe default.
+
+## DEC-BUG61-SIGNATURE-REPEAT-EARLY-STOP-001
+
+**Status:** Active as of 2026-04-21, added Turn 181 by Claude Opus 4.7.
+
+**Decision:** BUG-61 ghost auto-retry stops early with `decision: "exhausted"` and `reason: "same_signature_repeat"` as soon as the tail of the per-attempt `attempts_log` shows `SIGNATURE_REPEAT_THRESHOLD` (=2) consecutive identical fingerprints, where a fingerprint is `${runtime_id}|${role_id}|${failure_type}`. This early-stop lane fires AFTER the raw `max_retries_per_run` budget check in `classifyGhostRetryDecision` — budget-exhaustion remains the primary cap. The threshold is a framework constant, not a config knob; widening it requires a new DEC.
+
+**State shape additions:**
+- `session.ghost_retry.attempts_log: Array<{attempt, old_turn_id, new_turn_id, runtime_id, role_id, failure_type, running_ms, threshold_ms, retried_at}>`, capped at 10 tail entries.
+- Both `applyGhostRetryAttempt()` and `applyGhostRetryExhaustion()` preserve `attempts_log` through their transitions.
+
+**Event/surface mirroring:**
+- `ghost_retry_exhausted` payload carries `exhaustion_reason: "same_signature_repeat" | "retry_budget_exhausted"`, `signature_repeat: {signature, consecutive} | null`, and `diagnostic_bundle: {attempts_log, fingerprint_summary, final_signature}`.
+- Governed `blocked_reason.recovery.detail` uses a distinct phrasing: `Auto-retry stopped early after N consecutive same-signature attempts [<sig>] (<failure_type>); last attempt N/M.` so operators can distinguish pattern-based stop from raw budget exhaustion.
+
+**Why:** BUG-61's contract is "retry transient ghosts." A second identical `(runtime, role, failure)` fingerprint is already non-transient evidence — continuing to burn the budget on a systematic failure adds noise without recovery probability. Stopping early preserves operator attention, surfaces a richer diagnostic bundle at exactly the moment the operator is paged, and resolves the BUG-61 spec's Open Question #2 ("Should fingerprint-based early stop ship in the first implementation slice?") in the affirmative. Keeping the threshold non-configurable for v1 prevents the knob from becoming a "just bump it" escape hatch that hides the underlying runtime/role defect the pattern is pointing at.

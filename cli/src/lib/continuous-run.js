@@ -29,6 +29,7 @@ import { reissueTurn } from './governed-state.js';
 import {
   applyGhostRetryAttempt,
   applyGhostRetryExhaustion,
+  buildGhostRetryDiagnosticBundle,
   buildGhostRetryExhaustionMirror,
   classifyGhostRetryDecision,
 } from './ghost-retry.js';
@@ -175,6 +176,12 @@ async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedSta
     const attempt = decision.attempts + 1;
     const nowIso = new Date().toISOString();
     const nextState = clearGhostBlockerAfterReissue(root, reissued.state);
+    // Slice 2c: pass runtime/role/timing fields so the fingerprint log can
+    // drive same-signature early-stop detection on subsequent invocations.
+    const oldRuntimeId = oldTurn.runtime_id || reissued.newTurn.runtime_id || null;
+    const oldRoleId = oldTurn.assigned_role || reissued.newTurn.assigned_role || null;
+    const oldRunningMs = oldTurn.failed_start_running_ms ?? null;
+    const oldThresholdMs = oldTurn.failed_start_threshold_ms ?? null;
     const nextSession = applyGhostRetryAttempt(session, {
       runId,
       oldTurnId,
@@ -182,6 +189,10 @@ async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedSta
       failureType: decision.ghost.failure_type,
       maxRetries: decision.maxRetries,
       nowIso,
+      runtimeId: oldRuntimeId,
+      roleId: oldRoleId,
+      runningMs: oldRunningMs,
+      thresholdMs: oldThresholdMs,
     });
     Object.assign(session, nextSession, {
       status: 'running',
@@ -230,11 +241,20 @@ async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedSta
     const manualDetail = blockedState?.blocked_reason?.recovery?.detail
       || blockedState?.blocked_reason?.recovery?.recovery_action
       || null;
+    // Slice 2c: build the per-attempt diagnostic bundle from the session's
+    // recorded attempts_log. This is the payload the operator needs to
+    // decide their next move (bump retries, change runtime, raise watchdog,
+    // or file a new bug). Also pass signatureRepeat into the mirror so the
+    // status surface distinguishes raw exhaustion from pattern-based early
+    // stop.
+    const diagnosticBundle = buildGhostRetryDiagnosticBundle(session);
+    const signatureRepeat = decision.signatureRepeat || null;
     const detail = buildGhostRetryExhaustionMirror({
       attempts: decision.attempts,
       maxRetries: decision.maxRetries,
       failureType: decision.ghost.failure_type,
       manualRecoveryDetail: manualDetail,
+      signatureRepeat,
     });
     const nextState = {
       ...blockedState,
@@ -269,12 +289,18 @@ async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedSta
         max_retries_per_run: decision.maxRetries,
         failure_type: decision.ghost.failure_type,
         runtime_id: oldTurn.runtime_id || null,
+        exhaustion_reason: signatureRepeat ? 'same_signature_repeat' : 'retry_budget_exhausted',
+        signature_repeat: signatureRepeat,
+        diagnostic_bundle: diagnosticBundle,
         diagnostic_refs: {
           recovery_action: blockedState?.blocked_reason?.recovery?.recovery_action || null,
         },
       },
     });
-    log(`Ghost auto-retry exhausted (${decision.attempts}/${decision.maxRetries}) for ${oldTurnId}.`);
+    const tag = signatureRepeat
+      ? `same_signature_repeat [${signatureRepeat.signature}] after ${signatureRepeat.consecutive} attempts`
+      : `${decision.attempts}/${decision.maxRetries}`;
+    log(`Ghost auto-retry exhausted (${tag}) for ${oldTurnId}.`);
     return null;
   }
 

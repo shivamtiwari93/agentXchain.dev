@@ -227,7 +227,12 @@ describe('continuous run E2E', () => {
     assert.equal(events.some((entry) => entry.event_type === 'ghost_retry_exhausted'), false);
   });
 
-  it('AT-BUG61-002: continuous ghost auto-retry exhausts budget and preserves manual recovery', () => {
+  it('AT-BUG61-002: continuous ghost auto-retry stops early on same-signature repeat and preserves manual recovery', () => {
+    // Slice 2c: when every attempted retry shares the same (runtime, role,
+    // failure_type) fingerprint, the loop stops at SIGNATURE_REPEAT_THRESHOLD
+    // (2) rather than burning the full `max_retries_per_run` budget. This
+    // test fixture produces 4 identical ghosts, so all 4 share the same
+    // fingerprint; slice 2c triggers early-stop after the 2nd retry.
     const root = makeProject({ ghostThenSuccessCount: 4, startupWatchdogMs: 400 });
     const configPath = join(root, 'agentxchain.json');
     const config = JSON.parse(readFileSync(configPath, 'utf8'));
@@ -258,25 +263,36 @@ describe('continuous run E2E', () => {
       '0',
     ], 45000);
 
-    assert.equal(run.status, 0, `continuous run should pause cleanly after retry exhaustion:\n${run.combined}`);
-    assert.match(run.stdout, /Ghost auto-retry exhausted \(3\/3\)/);
+    assert.equal(run.status, 0, `continuous run should pause cleanly after same-signature early stop:\n${run.combined}`);
+    assert.match(run.stdout, /Ghost auto-retry exhausted \(same_signature_repeat \[.+\|.+\|.+\] after 2 attempts\)/);
     assert.match(run.stdout, /reissue-turn --turn .* --reason ghost/);
 
     const session = readJson(root, '.agentxchain/continuous-session.json');
     assert.equal(session.status, 'paused');
     assert.equal(session.runs_completed, 0);
-    assert.equal(session.ghost_retry.attempts, 3);
+    // Same-signature early stop fires after 2 recorded attempts.
+    assert.equal(session.ghost_retry.attempts, 2);
     assert.equal(session.ghost_retry.exhausted, true);
+    assert.ok(Array.isArray(session.ghost_retry.attempts_log));
+    assert.equal(session.ghost_retry.attempts_log.length, 2);
 
     const state = readJson(root, '.agentxchain/state.json');
     assert.equal(state.status, 'blocked');
     assert.equal(state.blocked_reason.category, 'ghost_turn');
-    assert.match(state.blocked_reason.recovery.detail, /Auto-retry exhausted after 3\/3 attempts/);
+    assert.match(state.blocked_reason.recovery.detail, /Auto-retry stopped early after 2 consecutive same-signature attempts/);
     assert.match(state.blocked_reason.recovery.detail, /reissue-turn --turn .* --reason ghost/);
 
     const events = readJsonl(root, '.agentxchain/events.jsonl');
-    assert.equal(events.filter((entry) => entry.event_type === 'auto_retried_ghost').length, 3);
-    assert.equal(events.filter((entry) => entry.event_type === 'ghost_retry_exhausted').length, 1);
+    assert.equal(events.filter((entry) => entry.event_type === 'auto_retried_ghost').length, 2);
+    const exhausted = events.filter((entry) => entry.event_type === 'ghost_retry_exhausted');
+    assert.equal(exhausted.length, 1);
+    // Slice 2c payload contract: exhaustion_reason, signature_repeat, diagnostic_bundle present.
+    assert.equal(exhausted[0].payload.exhaustion_reason, 'same_signature_repeat');
+    assert.ok(exhausted[0].payload.signature_repeat);
+    assert.equal(exhausted[0].payload.signature_repeat.consecutive, 2);
+    assert.ok(exhausted[0].payload.diagnostic_bundle);
+    assert.equal(exhausted[0].payload.diagnostic_bundle.attempts_log.length, 2);
+    assert.ok(exhausted[0].payload.diagnostic_bundle.final_signature);
   });
 
   it('AT-BUG61-003: explicit ghost auto-retry opt-out preserves current manual recovery', () => {
