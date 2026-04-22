@@ -210,6 +210,16 @@ describe('BUG-52 tester quote-back runbook invariants', () => {
       /negative counter-case exits `0` or advances the phase/,
       'V1 ask must preserve the evidence-gated negative counter-case',
     );
+    assert.match(
+      TESTER_ASK_V1,
+      /keep BUG-60 blocked until the separate BUG-59 shipped-package quote-back from `\.planning\/TESTER_QUOTEBACK_ASK_V2\.md` also lands and BUG-60's own two-agent research\/review pre-work is complete/,
+      'V1 ask must not imply BUG-52 quote-back alone unlocks BUG-60',
+    );
+    assert.doesNotMatch(
+      TESTER_ASK_V1,
+      /only then unlock BUG-60 work/,
+      'V1 ask must preserve the BUG-59 quote-back and BUG-60 pre-work blockers',
+    );
   });
 
   it('public v2.150.0 release page redirects still-open BUG-52 / BUG-54 / BUG-53 closure to 2.154.7', () => {

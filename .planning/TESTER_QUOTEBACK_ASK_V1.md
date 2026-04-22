@@ -48,4 +48,4 @@ Reject quote-back if:
 - The negative counter-case exits `0` or advances the phase.
 - Any required field is summarized instead of quoted.
 
-When valid quote-back lands, update `.planning/HUMAN-ROADMAP.md`, record the closure decision in `.planning/DECISIONS.md`, and only then unlock BUG-60 work.
+When valid quote-back lands, update `.planning/HUMAN-ROADMAP.md`, record the closure decision in `.planning/DECISIONS.md`, and keep BUG-60 blocked until the separate BUG-59 shipped-package quote-back from `.planning/TESTER_QUOTEBACK_ASK_V2.md` also lands and BUG-60's own two-agent research/review pre-work is complete.
