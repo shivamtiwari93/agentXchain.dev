@@ -68,18 +68,12 @@ import {
   resolvePromptTransport,
   resolveStartupWatchdogMs,
 } from '../src/lib/adapters/local-cli-adapter.js';
+import { CLAUDE_ENV_AUTH_KEYS } from '../src/lib/claude-local-auth.js';
 
 const SCRIPT_DIR = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT_GUESS = resolve(SCRIPT_DIR, '..', '..');
 
 const DIAGNOSTIC_ENV_KEYS = ['PATH', 'HOME', 'PWD', 'SHELL', 'TMPDIR'];
-const AUTH_ENV_KEYS_TO_PROBE = [
-  'ANTHROPIC_API_KEY',
-  'CLAUDE_API_KEY',
-  'CLAUDE_CODE_OAUTH_TOKEN',
-  'CLAUDE_CODE_USE_VERTEX',
-  'CLAUDE_CODE_USE_BEDROCK',
-];
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Argv parsing — kept simple/explicit so tester can read what their flags do.
@@ -227,7 +221,7 @@ function snapshotEnv(env) {
     if (typeof env[k] === 'string' && env[k].length > 0) visible[k] = env[k];
   }
   const authProbe = {};
-  for (const k of AUTH_ENV_KEYS_TO_PROBE) {
+  for (const k of CLAUDE_ENV_AUTH_KEYS) {
     authProbe[k] = typeof env[k] === 'string' && env[k].length > 0;
   }
   return { visible, auth_env_present: authProbe };

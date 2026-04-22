@@ -29,6 +29,7 @@ import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { CLAUDE_ENV_AUTH_KEYS } from '../src/lib/claude-local-auth.js';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
@@ -391,7 +392,13 @@ test('reproduce-bug-54: header captures redacted args, env-presence flags, and p
     assert.ok(!argsJson.includes('this-is-the-secret-prompt'),
       'redacted args must not contain the raw prompt');
     assert.match(argsJson, /<prompt:\d+ bytes>/);
-    // Auth env probe shape locked
+    // Auth env probe shape locked to the same key set used by the adapter's
+    // Claude auth preflight. The harness must not drift into a parallel
+    // hypothesis vocabulary.
+    assert.deepEqual(
+      Object.keys(payload.env_snapshot.auth_env_present),
+      CLAUDE_ENV_AUTH_KEYS,
+    );
     assert.equal(typeof payload.env_snapshot.auth_env_present.ANTHROPIC_API_KEY, 'boolean');
     assert.equal(typeof payload.env_snapshot.auth_env_present.CLAUDE_CODE_OAUTH_TOKEN, 'boolean');
     // Prompt-source kind locked
