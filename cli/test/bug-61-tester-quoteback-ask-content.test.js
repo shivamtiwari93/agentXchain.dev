@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { applyGhostRetryAttempt } from '../src/lib/ghost-retry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -19,6 +20,7 @@ const ASK_V4_PATH = '.planning/TESTER_QUOTEBACK_ASK_V4.md';
 const CONTINUOUS_RUN_PATH = 'cli/src/lib/continuous-run.js';
 const RUN_EVENTS_PATH = 'cli/src/lib/run-events.js';
 const HUMAN_ROADMAP_PATH = '.planning/HUMAN-ROADMAP.md';
+const LOCAL_CLI_ADAPTER_PATH = 'cli/src/lib/adapters/local-cli-adapter.js';
 
 function readRepoFile(relPath) {
   return readFileSync(join(REPO_ROOT, relPath), 'utf8');
@@ -101,6 +103,42 @@ describe('BUG-61 tester quote-back ask V4', () => {
     }
   });
 
+  it('locks Block 2 attempts_log key-presence jq to the real ghost-retry entry shape', () => {
+    const ask = readRepoFile(ASK_V4_PATH);
+    const session = applyGhostRetryAttempt({}, {
+      runId: 'run_quote_back',
+      oldTurnId: 'turn_old',
+      newTurnId: 'turn_new',
+      failureType: 'stdout_attach_failed',
+      maxRetries: 3,
+      nowIso: '2026-04-22T00:00:00.000Z',
+      runtimeId: 'local-pm',
+      roleId: 'pm',
+      runningMs: 180001,
+      thresholdMs: 180000,
+      stderrExcerpt: '',
+      exitCode: null,
+      exitSignal: null,
+    });
+    const entry = session.ghost_retry.attempts_log[0];
+
+    for (const key of [
+      'old_turn_id',
+      'new_turn_id',
+      'failure_type',
+      'stderr_excerpt',
+      'exit_code',
+      'exit_signal',
+    ]) {
+      assert.ok(Object.hasOwn(entry, key), `real attempts_log entry must carry ${key}`);
+    }
+
+    assert.match(ask, /old_turn_id, new_turn_id, failure_type/);
+    assert.match(ask, /stderr_excerpt_present: \(has\("stderr_excerpt"\)\)/);
+    assert.match(ask, /exit_code_present: \(has\("exit_code"\)\)/);
+    assert.match(ask, /exit_signal_present: \(has\("exit_signal"\)\)/);
+  });
+
   it('names the two typed startup failure classes as the only valid ghost scope', () => {
     const ask = readRepoFile(ASK_V4_PATH);
     assert.match(ask, /runtime_spawn_failed/);
@@ -179,6 +217,25 @@ describe('BUG-61 tester quote-back ask V4', () => {
       roadmap,
       /TESTER_QUOTEBACK_ASK_V4\.md/,
       'HUMAN-ROADMAP must list V4 next to V1/V2/V3 so the human knows to use it',
+    );
+  });
+
+  it('locks BUG-54 auth-env quote-back to the adapter subprocess env path', () => {
+    const adapter = readRepoFile(LOCAL_CLI_ADAPTER_PATH);
+    assert.match(
+      adapter,
+      /const spawnEnv = \{ \.\.\.process\.env, AGENTXCHAIN_TURN_ID: turn\.turn_id \};/,
+      'local-cli adapter must build spawnEnv from the full process environment',
+    );
+    assert.match(
+      adapter,
+      /getClaudeSubprocessAuthIssue\(runtime, spawnEnv\)/,
+      'Claude auth preflight must inspect the same spawnEnv used for dispatch',
+    );
+    assert.match(
+      adapter,
+      /env: spawnEnv/,
+      'subprocess spawn must receive the same spawnEnv checked by preflight',
     );
   });
 });
