@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.154.2
+# Reddit Posts — AgentXchain v2.154.3
 
-> Ready-to-post content for Reddit for the `v2.154.2` release once tester verification lands. Updated 2026-04-22 for the BUG-61 ghost-retry quote-back and diagnostic-surface patch over `v2.154.1` (strict auto-retry preconditions, explicit opt-in docs, and self-contained `attempts_log` stderr/exit fields).
+> Ready-to-post content for Reddit for the `v2.154.3` release once tester verification lands. Updated 2026-04-22 for the BUG-61 ghost-retry quote-back and diagnostic-surface patch over `v2.154.1` (strict auto-retry preconditions, explicit opt-in docs, and self-contained `attempts_log` stderr/exit fields).
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:

@@ -1,0 +1,157 @@
+---
+sidebar_position: 0
+title: "v2.154.3 Release Notes"
+---
+
+# AgentXchain v2.154.3
+
+`v2.154.3` is a BUG-61 quote-back clarity and diagnostic-surface patch. It
+keeps the `v2.154.1` BUG-62 visibility release intact, then makes ghost-turn
+auto-retry expectations and retry-exhaustion evidence easier to verify from a
+shipped package.
+
+## Bug Fixes
+
+- **BUG-61 tester runbook precondition**: lights-out docs and release notes now
+  state that ghost auto-retry is enabled by default only under the strict
+  full-auto approval-policy posture:
+  `approval_policy.phase_transitions.default === "auto_approve"` and
+  `approval_policy.run_completion.action === "auto_approve"` with continuous
+  mode enabled.
+
+- **BUG-61 explicit opt-in escape hatch**: delegated-human projects or
+  BUG-59-style safe-rule configs must set
+  `run_loop.continuous.auto_retry_on_ghost.enabled: true` or run
+  `agentxchain run --continuous --auto-retry-on-ghost` if they expect automatic
+  ghost recovery. Without one of those, manual `reissue-turn --reason ghost`
+  recovery is expected behavior, not a failed BUG-61 fix.
+
+- **BUG-61 self-contained retry diagnostics**:
+  `ghost_retry.attempts_log[]` now carries the adapter's latest
+  `stderr_excerpt`, `exit_code`, and `exit_signal` for each retry attempt when
+  those fields are available. The same entries flow into
+  `ghost_retry_exhausted.diagnostic_bundle`.
+
+- **BUG-61 diagnostic growth cap**: per-attempt `stderr_excerpt` is capped at
+  800 characters at the ghost-retry state boundary, matching the local CLI
+  adapter excerpt cap so noisy runtimes cannot grow `continuous-session.json`
+  without bound.
+
+## Operator Notes
+
+Default automatic promotion requires this approval-policy posture:
+
+```json
+{
+  "approval_policy": {
+    "phase_transitions": {
+      "default": "auto_approve"
+    },
+    "run_completion": {
+      "action": "auto_approve"
+    }
+  },
+  "run_loop": {
+    "continuous": {
+      "enabled": true
+    }
+  }
+}
+```
+
+Projects that intentionally keep delegated human approval can still opt in to
+ghost auto-retry:
+
+```json
+{
+  "run_loop": {
+    "continuous": {
+      "auto_retry_on_ghost": {
+        "enabled": true
+      }
+    }
+  }
+}
+```
+
+or:
+
+```bash
+agentxchain run --continuous --auto-retry-on-ghost
+```
+
+## Decisions
+
+- `DEC-BUG61-GHOST-RETRY-STATE-OWNERSHIP-001`
+- `DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001`
+- `DEC-BUG61-SIGNATURE-REPEAT-EARLY-STOP-001`
+
+## Evidence
+
+- node --test --test-timeout=60000 test/ghost-retry.test.js test/continuous-run.test.js test/continuous-ghost-retry-e2e.test.js test/bug-61-tester-runbook-content.test.js test/lights-out-operation-guide-content.test.js -> 106 tests / 30 suites / 0 failures / 0 skipped
+- website-v2 npm run build -> 0 failures
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.154.3 -c "agentxchain --version"
+```
+
+For BUG-61 closure, reproduce a ghost-turn class failure in a continuous run
+only after confirming auto-retry is actually enabled. The project must either
+satisfy the strict full-auto detector
+(`approval_policy.phase_transitions.default === "auto_approve"` and
+`approval_policy.run_completion.action === "auto_approve"` with continuous mode
+enabled), or explicitly set `run_loop.continuous.auto_retry_on_ghost.enabled:
+true`, or run with `agentxchain run --continuous --auto-retry-on-ghost`.
+
+Without one of those, auto-retry is disabled by design per
+`DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001`; quote-back from that posture
+should show the manual `reissue-turn --reason ghost` recovery, not
+`auto_retried_ghost`.
+
+Valid closure evidence must quote `auto_retried_ghost` followed by a successful
+subsequent turn, or `ghost_retry_exhausted` with its diagnostic bundle when the
+budget is exhausted. The diagnostic bundle should include `attempts_log[]`
+entries with `stderr_excerpt`, `exit_code`, and `exit_signal` keys.
+
+BUG-61 remains open until that shipped-package quote-back lands. BUG-62,
+BUG-52, BUG-54, BUG-59, and BUG-53 remain open under their existing shipped
+package closure contracts.
+
+For still-open BUG-62 closure, reproduce the tester drift scenario: make a safe
+manual product-file commit on top of an agent checkpoint, run a continuous
+session with `reconcile_operator_commits: "auto_safe_only"`, and quote the
+`state_reconciled_operator_commits` event emitted before the next dispatch.
+Then make an unsafe operator commit that edits `.agentxchain/state.json` or
+deletes `.planning/acceptance-matrix.md`; quote `agentxchain status`,
+`agentxchain status --json`, `operator_commit_reconcile_refused`, the
+`error_class`, and the recovery action.
+
+For still-open BUG-52 closure proof, quote `phase_entered` after `unblock`.
+Older paths may still show `trigger: "reconciled_before_dispatch"`. Standing
+gate paths should also show cleanup evidence when stale same-phase state
+existed.
+
+For still-open BUG-53 closure proof, run the shipped package in continuous mode
+and quote `session_continuation` events across chained runs. A bounded idle run
+should end as `idle_exit`, not as a paused gate.
+
+For still-open BUG-54 closure proof, quote adapter diagnostics from real
+`local_cli` dispatches, including `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
+adapter path, not from a standalone spawn harness.
+
+For still-open BUG-55 regression proof, run `accept-turn` followed by
+`checkpoint-turn` on a turn that declares both product files and verification
+outputs. Include `verification.produced_files` with at least one artifact or
+ignored output, prove there are no `undeclared_verification_outputs`, and quote
+`git status --short` after checkpointing.
+
+Clean tree means BUG-55 is fixed for your reproduction.
+
+The key operator chain is `accept-turn` followed by `checkpoint-turn` against
+the same accepted turn.

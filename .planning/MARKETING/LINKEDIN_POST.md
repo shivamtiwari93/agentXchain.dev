@@ -1,6 +1,6 @@
-# LinkedIn Post — AgentXchain v2.154.2
+# LinkedIn Post — AgentXchain v2.154.3
 
-> Ready-to-post LinkedIn company-page copy for the `v2.154.2` release once tester verification lands. Updated 2026-04-22 for the BUG-61 ghost-retry quote-back and diagnostic-surface patch over `v2.154.1` (strict auto-retry preconditions, explicit opt-in docs, and self-contained `attempts_log` stderr/exit fields).
+> Ready-to-post LinkedIn company-page copy for the `v2.154.3` release once tester verification lands. Updated 2026-04-22 for the BUG-61 ghost-retry quote-back and diagnostic-surface patch over `v2.154.1` (strict auto-retry preconditions, explicit opt-in docs, and self-contained `attempts_log` stderr/exit fields).
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 test/ghost-retry.test.js test/continuous-run.test.js test/continuous-ghost-retry-e2e.test.js test/bug-61-tester-runbook-content.test.js test/lights-out-operation-guide-content.test.js -> 106 tests / 30 suites / 0 failures / 0 skipped

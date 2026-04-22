@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.154.2
+# Launch Evidence Report — AgentXchain v2.154.3
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-22 for the v2.154.2 BUG-61 ghost-retry quote-back and diagnostic-surface patch over `v2.154.1`. BUG-61 ships explicit auto-retry preconditions in tester docs plus self-contained `ghost_retry_exhausted` attempts-log diagnostics. BUG-61 closes only after tester-quoted shipped-package output on `agentxchain@2.154.2`. BUG-62, BUG-52, BUG-54, BUG-59, and BUG-53 remain open pending their own tester-quoted shipped-package output. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-22 for the v2.154.3 BUG-61 ghost-retry quote-back and diagnostic-surface patch over `v2.154.1`. BUG-61 ships explicit auto-retry preconditions in tester docs plus self-contained `ghost_retry_exhausted` attempts-log diagnostics. BUG-61 closes only after tester-quoted shipped-package output on `agentxchain@2.154.3`. BUG-62, BUG-52, BUG-54, BUG-59, and BUG-53 remain open pending their own tester-quoted shipped-package output. Current aggregate release evidence:
 >
 > - node --test --test-timeout=60000 test/ghost-retry.test.js test/continuous-run.test.js test/continuous-ghost-retry-e2e.test.js test/bug-61-tester-runbook-content.test.js test/lights-out-operation-guide-content.test.js -> 106 tests / 30 suites / 0 failures / 0 skipped
 > - node --test cli/test/continuous-ghost-retry-e2e.test.js cli/test/continuous-run-e2e.test.js cli/test/continuous-run.test.js cli/test/ghost-retry.test.js cli/test/run-events.test.js -> 93 tests / 26 suites / 0 failures / 0 skipped
