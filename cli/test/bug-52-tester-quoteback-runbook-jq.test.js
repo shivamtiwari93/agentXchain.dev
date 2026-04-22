@@ -36,7 +36,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const RUNBOOK_PATH = '.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md';
 const LEGACY_PATH = '.planning/BUG_52_2152_TESTER_QUOTEBACK_RUNBOOK.md';
+const TESTER_ASK_V1_PATH = '.planning/TESTER_QUOTEBACK_ASK_V1.md';
 const RUNBOOK = readFileSync(join(REPO_ROOT, RUNBOOK_PATH), 'utf8');
+const TESTER_ASK_V1 = readFileSync(join(REPO_ROOT, TESTER_ASK_V1_PATH), 'utf8');
 const RELEASE_148 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-148-0.mdx'), 'utf8');
 const RELEASE_1490 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-149-0.mdx'), 'utf8');
 const RELEASE_1491 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-149-1.mdx'), 'utf8');
@@ -154,6 +156,39 @@ describe('BUG-52 tester quote-back runbook invariants', () => {
       RUNBOOK,
       /rm -f \.planning\/PM_SIGNOFF\.md/,
       'runbook must not test the negative case by deleting PM_SIGNOFF after checkpoint; that proves dirty-worktree blocking instead',
+    );
+  });
+
+  it('short tester ask preserves the BUG-52 seven-field quote-back contract', () => {
+    assert.match(
+      TESTER_ASK_V1,
+      /full runbook is `\.planning\/BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md`/,
+      'V1 ask must point testers back to the canonical BUG-52 runbook',
+    );
+    assert.match(
+      TESTER_ASK_V1,
+      /Target package:[\s\S]{0,80}`agentxchain@2\.154\.7`/,
+      'V1 ask must keep the first BUG-52-safe shipped package target visible',
+    );
+    for (const required of [
+      /Pre-unblock state JSON/,
+      /Full `agentxchain unblock "\$HESC"` stdout, stderr, and exit code/,
+      /Immediate post-unblock state JSON/,
+      /Durable event rows for `phase_entered`, `phase_cleanup`, and `gate_passed`/,
+      /Ghost-turn check output/,
+      /Negative counter-case output/,
+    ]) {
+      assert.match(TESTER_ASK_V1, required);
+    }
+    assert.match(
+      TESTER_ASK_V1,
+      /Version is lower than `2\.154\.7`/,
+      'V1 ask must reject quote-back from packages that predate the full BUG-52 fix stack',
+    );
+    assert.match(
+      TESTER_ASK_V1,
+      /negative counter-case exits `0` or advances the phase/,
+      'V1 ask must preserve the evidence-gated negative counter-case',
     );
   });
 

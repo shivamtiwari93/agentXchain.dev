@@ -20,6 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const RUNBOOK_PATH = '.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md';
 const CHECKLIST_PATH = '.planning/BUG_54_BUG_59_TESTER_QUOTEBACK_CHECKLIST.md';
+const TESTER_ASK_V2_PATH = '.planning/TESTER_QUOTEBACK_ASK_V2.md';
 const LEGACY_RUNBOOK_PATH = '.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md';
 const RELEASE_151_PATH = 'website-v2/docs/releases/v2-151-0.mdx';
 const RELEASE_PAGES_WITH_BUG_54_59_FOOTERS = [
@@ -217,5 +218,39 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
         `${relPath} must preserve the BUG-59 positive and credentialed-negative evidence shape`,
       );
     }
+  });
+
+  it('short tester ask preserves BUG-59/BUG-54 rejection boundaries', () => {
+    const ask = readRepoFile(TESTER_ASK_V2_PATH);
+    assert.match(
+      ask,
+      /Companion ask for BUG-52 lives at `\.planning\/TESTER_QUOTEBACK_ASK_V1\.md`/,
+      'V2 ask must cross-link the separate BUG-52 quote-back ask',
+    );
+    assert.match(
+      ask,
+      /Target package:[\s\S]{0,80}`agentxchain@2\.154\.7`/,
+      'V2 ask must keep the BUG-52-safe package target visible in the copy-paste message',
+    );
+    assert.match(
+      ask,
+      /matched_rule\.when\.credentialed_gate: false` or an equivalent generated non-credentialed guard/,
+      'V2 ask must accept either the explicit credentialed_gate:false field or an equivalent generated non-credentialed guard',
+    );
+    assert.match(
+      ask,
+      /do not show `matched_rule\.when\.credentialed_gate: false` or an equivalent generated non-credentialed guard/,
+      'V2 ask must reject missing non-credentialed guard evidence, not only credentialed_gate:true evidence',
+    );
+    assert.match(
+      ask,
+      /10 KB on the fallback path/,
+      'BUG-54 fallback evidence must preserve the runbook minimum realistic bundle size',
+    );
+    assert.match(
+      ask,
+      /evidence comes only from the standalone repro harness with no adapter-path attempts at all/,
+      'BUG-54 closure must still require adapter-path attempts, not harness-only timing proof',
+    );
   });
 });

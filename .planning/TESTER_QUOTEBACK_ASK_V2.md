@@ -77,6 +77,7 @@ Reject BUG-59 positive evidence if:
 - `state.json` reports `status != "completed"` with the auto-approval rows missing.
 - The ledger has zero `approval_policy` rows, or every row has `action != "auto_approve"`.
 - No row covers `gate_type == "run_completion" && gate_id == "qa_ship_verdict"`.
+- The positive auto-approval rows do not show `matched_rule.when.credentialed_gate: false` or an equivalent generated non-credentialed guard. Missing guard evidence is not enough.
 - `matched_rule.when.credentialed_gate` is `true` (that's the wrong lane — credentialed hard-stop is the negative case, not the positive case).
 
 Reject BUG-59 credentialed negative if:
