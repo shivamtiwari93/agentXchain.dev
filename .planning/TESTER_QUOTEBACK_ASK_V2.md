@@ -59,11 +59,44 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
    - The `approval_policy` ledger output from inside the heredoc (it MUST NOT contain any row with `gate_id == "qa_ship_verdict" && action == "auto_approve"`).
    - The `git diff --quiet agentxchain.json` post-check line (silent = clean; any `WARNING:` text means quote it and restore manually before continuing).
 
-5. **BUG-54 ten-dispatch watchdog evidence** — ten real adapter-path dispatches from the shipped `2.154.7` package on your machine. Preferred path: a real `agentxchain run --continuous --max-runs 10 ...` on `tusq.dev`. If no derivable work exists, fall back to the repro harness extracted from the registry tarball per the runbook (`--attempts 10 --watchdog-ms 180000`). Quote these fields:
+5. **BUG-54 ten-dispatch watchdog evidence** — ten real adapter-path dispatches from the shipped `2.154.7` package on your machine.
+
+   **Primary path (dogfood).** Run from the `tusq.dev` repo root:
+
+   ```bash
+   npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+   ```
+
+   Then, from the same `tusq.dev` repo root, paste the adapter-diagnostic grep (matches zero lines is the success case — `|| true` keeps the exit code clean):
+
+   ```bash
+   grep -RInE 'spawn_attached|first_output|startup_watchdog_fired|stdout_attach_failed|ghost_turn' .agentxchain 2>/dev/null || true
+   ```
+
+   **Fallback path (no derivable work on `tusq.dev`).** Extract the shipped repro harness from the published tarball and run it from the `tusq.dev` repo root so it auto-discovers the project's `agentxchain.json` runtimes. This mirrors `BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` verbatim — if a drift ever appears between the two, the runbook is canonical:
+
+   ```bash
+   REPRO_DIR="$(mktemp -d -t agentxchain-bug54-repro.XXXXXX)"
+   if ! curl -fsSL https://registry.npmjs.org/agentxchain/-/agentxchain-2.154.7.tgz \
+     | tar -xzC "$REPRO_DIR"; then
+     echo "Direct registry download failed; retrying through npm pack..." >&2
+     TARBALL="$(npm pack agentxchain@2.154.7 --pack-destination "$REPRO_DIR" | tail -n 1)"
+     tar -xzf "$REPRO_DIR/$TARBALL" -C "$REPRO_DIR"
+   fi
+   node "$REPRO_DIR/package/scripts/reproduce-bug-54.mjs" \
+     --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-latest.json
+   rm -rf "$REPRO_DIR"
+   jq '{command_probe, summary}' /tmp/bug54-latest.json
+   jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-latest.json
+   ```
+
+   Quote these fields regardless of path:
    - Runtime id and command (e.g., `local-pm`, `local-dev`, `local-qa`).
    - Ten attempted dispatches or ten diagnostic attempts (per-attempt `first_stdout_ms` or equivalent adapter timing).
    - Every adapter diagnostic line containing `spawn_attached` or `first_output`.
    - Confirmation that NO line contains `startup_watchdog_fired`, `stdout_attach_failed`, or `ghost_turn`.
+
+   The fallback harness alone is supporting timing evidence. Closure still requires ten real adapter-path attempts — if the dogfood run produced fewer than ten, name the `agentxchain run` / `agentxchain step` invocations you attempted so we can tell the BUG-54 closure path from a harness-only proof.
 
 Do not paraphrase the output. BUG-59 and BUG-54 only close if all five blocks are quoted from the same shipped `2.154.7+` install. If any command differs from the runbook, include the exact command you ran.
 

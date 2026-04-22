@@ -253,4 +253,76 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       'BUG-54 closure must still require adapter-path attempts, not harness-only timing proof',
     );
   });
+
+  it('V2 BUG-54 block 5 inlines the primary dogfood run, diagnostic grep, and fallback harness commands', () => {
+    // Turn 223: V2's BUG-54 block previously said "fall back to the repro harness
+    // extracted from the registry tarball per the runbook" without inlining the
+    // commands, forcing the tester to flip between V2 and the runbook. Block 5 now
+    // inlines the primary run, the adapter-diagnostic grep, and the fallback
+    // harness extraction. These guards prevent silent regression back to "see the
+    // runbook" wording for BUG-54 evidence.
+    const ask = readRepoFile(TESTER_ASK_V2_PATH);
+    assert.match(
+      ask,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7\s+-c\s+'agentxchain\s+run\s+--continuous[\s\S]{0,220}--max-runs\s+10/,
+      'V2 BUG-54 block must inline the primary dogfood run command pinned to 2.154.7 with --max-runs 10',
+    );
+    assert.match(
+      ask,
+      /grep\s+-RInE\s+'spawn_attached\|first_output\|startup_watchdog_fired\|stdout_attach_failed\|ghost_turn'\s+\.agentxchain\s+2>\/dev\/null\s+\|\|\s+true/,
+      'V2 BUG-54 block must inline the adapter-diagnostic grep verbatim from the runbook',
+    );
+    assert.match(
+      ask,
+      /curl\s+-fsSL\s+https:\/\/registry\.npmjs\.org\/agentxchain\/-\/agentxchain-2\.154\.7\.tgz/,
+      'V2 BUG-54 fallback must inline the runbook tarball URL pinned to 2.154.7',
+    );
+    assert.match(
+      ask,
+      /npm\s+pack\s+agentxchain@2\.154\.7\s+--pack-destination/,
+      'V2 BUG-54 fallback must inline the npm pack retry pinned to 2.154.7',
+    );
+    assert.match(
+      ask,
+      /node\s+"\$REPRO_DIR\/package\/scripts\/reproduce-bug-54\.mjs"\s+\\?\s*\n?\s*--attempts\s+10\s+--watchdog-ms\s+180000\s+--out\s+\/tmp\/bug54-latest\.json/,
+      'V2 BUG-54 fallback must inline the harness invocation with --attempts 10 --watchdog-ms 180000',
+    );
+    assert.match(
+      ask,
+      /jq\s+'\.attempts\[\][\s\S]{0,240}first_stdout_ms[\s\S]{0,120}watchdog_fired/,
+      'V2 BUG-54 fallback must inline the per-attempt jq extraction (first_stdout_ms + watchdog_fired)',
+    );
+    assert.doesNotMatch(
+      ask,
+      /fall back to the repro harness extracted from the registry tarball per the runbook/,
+      'V2 BUG-54 block must not regress to the "per the runbook" fallback stub',
+    );
+  });
+
+  it('V2 BUG-54 inlined commands match the runbook exact shape (no silent drift)', () => {
+    // Turn 223: inlining creates drift risk. Fail loud if V2 inlines the harness
+    // tarball URL, the curl/tar fallback pattern, the reproduce-bug-54.mjs flags,
+    // or the per-attempt jq field list differently from the canonical runbook.
+    const ask = readRepoFile(TESTER_ASK_V2_PATH);
+    const runbook = readRepoFile(RUNBOOK_PATH);
+    const SHARED_SHAPES = [
+      /curl\s+-fsSL\s+https:\/\/registry\.npmjs\.org\/agentxchain\/-\/agentxchain-2\.154\.7\.tgz/,
+      /npm\s+pack\s+agentxchain@2\.154\.7\s+--pack-destination\s+"\$REPRO_DIR"/,
+      /node\s+"\$REPRO_DIR\/package\/scripts\/reproduce-bug-54\.mjs"/,
+      /--attempts\s+10\s+--watchdog-ms\s+180000\s+--out\s+\/tmp\/bug54-latest\.json/,
+      /grep\s+-RInE\s+'spawn_attached\|first_output\|startup_watchdog_fired\|stdout_attach_failed\|ghost_turn'\s+\.agentxchain\s+2>\/dev\/null\s+\|\|\s+true/,
+    ];
+    for (const pat of SHARED_SHAPES) {
+      assert.match(
+        runbook,
+        pat,
+        `Runbook must still contain canonical shape ${pat} (V2 inlines this verbatim)`,
+      );
+      assert.match(
+        ask,
+        pat,
+        `V2 ask must still inline canonical shape ${pat} (matches the runbook)`,
+      );
+    }
+  });
 });
