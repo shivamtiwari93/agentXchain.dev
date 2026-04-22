@@ -64,13 +64,49 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
    **Primary path (dogfood).** Run from the `tusq.dev` repo root:
 
    ```bash
+   export BUG54_START_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+   echo "BUG54_START_TS=$BUG54_START_TS"
    npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
    ```
 
-   Then, from the same `tusq.dev` repo root, paste the adapter-diagnostic grep (matches zero lines is the success case — `|| true` keeps the exit code clean):
+   Then, from the same `tusq.dev` repo root, paste the current-window events and adapter diagnostics. This deliberately scopes evidence to turns dispatched after `BUG54_START_TS`; do not use a repo-wide `.agentxchain/` grep, because old failed runs can pollute the quote-back:
 
    ```bash
-   grep -RInE 'spawn_attached|first_output|startup_watchdog_fired|stdout_attach_failed|ghost_turn' .agentxchain 2>/dev/null || true
+   npx --yes -p agentxchain@2.154.7 -c "agentxchain events --since \"$BUG54_START_TS\" --type turn_dispatched,turn_start_failed,runtime_spawn_failed,stdout_attach_failed,run_blocked --json --limit 0" || true
+
+   node <<'BUG54_DIAG'
+   const fs = require('fs');
+   const path = require('path');
+   const sinceMs = Date.parse(process.env.BUG54_START_TS || '');
+   if (!Number.isFinite(sinceMs)) {
+     console.error('BUG54_START_TS is missing or invalid');
+     process.exit(1);
+   }
+   const eventsPath = path.join('.agentxchain', 'events.jsonl');
+   const eventLines = fs.existsSync(eventsPath)
+     ? fs.readFileSync(eventsPath, 'utf8').split('\n').filter(Boolean)
+     : [];
+   const turnIds = new Set();
+   for (const line of eventLines) {
+     try {
+       const evt = JSON.parse(line);
+       if (Date.parse(evt.timestamp || '') < sinceMs) continue;
+       if (evt?.turn?.turn_id) turnIds.add(evt.turn.turn_id);
+     } catch {}
+   }
+   console.log(`Current-window turn ids: ${turnIds.size ? [...turnIds].join(', ') : '(none)'}`);
+   const diagPattern = /\[adapter:diag\] (spawn_attached|first_output|startup_watchdog_fired)\b|stdout_attach_failed|ghost_turn/;
+   for (const turnId of turnIds) {
+     const logPath = path.join('.agentxchain', 'dispatch', 'turns', turnId, 'stdout.log');
+     if (!fs.existsSync(logPath)) {
+       console.log(`${logPath}: missing stdout.log`);
+       continue;
+     }
+     fs.readFileSync(logPath, 'utf8').split('\n').forEach((line, idx) => {
+       if (diagPattern.test(line)) console.log(`${logPath}:${idx + 1}:${line}`);
+     });
+   }
+   BUG54_DIAG
    ```
 
    **Fallback path (no derivable work on `tusq.dev`).** Extract the shipped repro harness from the published tarball and run it from the `tusq.dev` repo root so it auto-discovers the project's `agentxchain.json` runtimes. This mirrors `BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` verbatim — if a drift ever appears between the two, the runbook is canonical:
@@ -89,6 +125,8 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
    jq '{command_probe, summary}' /tmp/bug54-latest.json
    jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-latest.json
    ```
+
+   Paste both fallback `jq` outputs together if you use the fallback path. The first output carries the runtime id / command probe; the second carries the ten per-attempt timing rows. One without the other is incomplete.
 
    Quote these fields regardless of path:
    - Runtime id and command (e.g., `local-pm`, `local-dev`, `local-qa`).

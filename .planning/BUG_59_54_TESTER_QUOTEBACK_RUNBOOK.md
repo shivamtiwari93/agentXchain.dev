@@ -194,7 +194,52 @@ dispatches through the published package on the tester machine. The preferred
 path is the normal dogfood flow:
 
 ```bash
+export BUG54_START_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "BUG54_START_TS=$BUG54_START_TS"
 npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+```
+
+After the dogfood run, quote only current-window events and adapter logs.
+Do not grep the entire `.agentxchain/` tree: long-running dogfood repos may
+contain historical `stdout_attach_failed` / `ghost_turn` lines from earlier
+package versions, which would pollute the BUG-54 quote-back.
+
+```bash
+npx --yes -p agentxchain@2.154.7 -c "agentxchain events --since \"$BUG54_START_TS\" --type turn_dispatched,turn_start_failed,runtime_spawn_failed,stdout_attach_failed,run_blocked --json --limit 0" || true
+
+node <<'BUG54_DIAG'
+const fs = require('fs');
+const path = require('path');
+const sinceMs = Date.parse(process.env.BUG54_START_TS || '');
+if (!Number.isFinite(sinceMs)) {
+  console.error('BUG54_START_TS is missing or invalid');
+  process.exit(1);
+}
+const eventsPath = path.join('.agentxchain', 'events.jsonl');
+const eventLines = fs.existsSync(eventsPath)
+  ? fs.readFileSync(eventsPath, 'utf8').split('\n').filter(Boolean)
+  : [];
+const turnIds = new Set();
+for (const line of eventLines) {
+  try {
+    const evt = JSON.parse(line);
+    if (Date.parse(evt.timestamp || '') < sinceMs) continue;
+    if (evt?.turn?.turn_id) turnIds.add(evt.turn.turn_id);
+  } catch {}
+}
+console.log(`Current-window turn ids: ${turnIds.size ? [...turnIds].join(', ') : '(none)'}`);
+const diagPattern = /\[adapter:diag\] (spawn_attached|first_output|startup_watchdog_fired)\b|stdout_attach_failed|ghost_turn/;
+for (const turnId of turnIds) {
+  const logPath = path.join('.agentxchain', 'dispatch', 'turns', turnId, 'stdout.log');
+  if (!fs.existsSync(logPath)) {
+    console.log(`${logPath}: missing stdout.log`);
+    continue;
+  }
+  fs.readFileSync(logPath, 'utf8').split('\n').forEach((line, idx) => {
+    if (diagPattern.test(line)) console.log(`${logPath}:${idx + 1}:${line}`);
+  });
+}
+BUG54_DIAG
 ```
 
 If `tusq.dev` has no derivable work, first try to produce ten adapter-path
@@ -228,6 +273,10 @@ jq '{command_probe, summary}' /tmp/bug54-latest.json
 jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-latest.json
 ```
 
+If you use the fallback path, paste both `jq` outputs together. The
+`{command_probe, summary}` output carries runtime id and command context;
+the `.attempts[]` output carries per-attempt timing.
+
 The fallback is intentionally `npm pack`, not `npm root`: `npx --yes -p`
 uses an ephemeral cache, while `npm pack` asks npm itself to fetch the same
 published tarball and usually respects corporate npm proxy/certificate
@@ -244,12 +293,6 @@ Quote these BUG-54 fields from the real run or diagnostic:
   `startup_watchdog_fired`
 - confirmation that no state/history event reports `stdout_attach_failed` or
   `ghost_turn`
-
-Useful searches:
-
-```bash
-grep -RInE 'spawn_attached|first_output|startup_watchdog_fired|stdout_attach_failed|ghost_turn' .agentxchain 2>/dev/null || true
-```
 
 BUG-54 closure requires ten consecutive real adapter-path dispatches with no
 `startup_watchdog_fired`, `stdout_attach_failed`, or `ghost_turn` events at the

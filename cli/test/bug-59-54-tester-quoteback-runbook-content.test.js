@@ -254,13 +254,13 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
     );
   });
 
-  it('V2 BUG-54 block 5 inlines the primary dogfood run, diagnostic grep, and fallback harness commands', () => {
+  it('V2 BUG-54 block 5 inlines the primary dogfood run, current-window diagnostics, and fallback harness commands', () => {
     // Turn 223: V2's BUG-54 block previously said "fall back to the repro harness
     // extracted from the registry tarball per the runbook" without inlining the
     // commands, forcing the tester to flip between V2 and the runbook. Block 5 now
-    // inlines the primary run, the adapter-diagnostic grep, and the fallback
+    // inlines the primary run, current-window event/log extraction, and the fallback
     // harness extraction. These guards prevent silent regression back to "see the
-    // runbook" wording for BUG-54 evidence.
+    // runbook" wording or broad historical grep for BUG-54 evidence.
     const ask = readRepoFile(TESTER_ASK_V2_PATH);
     assert.match(
       ask,
@@ -269,8 +269,23 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
     );
     assert.match(
       ask,
+      /export\s+BUG54_START_TS="\$\(date\s+-u\s+\+"%Y-%m-%dT%H:%M:%SZ"\)"/,
+      'V2 BUG-54 block must capture a current-run timestamp before the dogfood run',
+    );
+    assert.match(
+      ask,
+      /agentxchain\s+events\s+--since\s+\\?"\$BUG54_START_TS\\?"\s+--type\s+turn_dispatched,turn_start_failed,runtime_spawn_failed,stdout_attach_failed,run_blocked\s+--json\s+--limit\s+0/,
+      'V2 BUG-54 block must scope event evidence to the current timestamp window',
+    );
+    assert.match(
+      ask,
+      /node\s+<<'BUG54_DIAG'[\s\S]{0,1600}Current-window turn ids:[\s\S]{0,900}\.agentxchain[\s\S]{0,80}dispatch[\s\S]{0,80}turns[\s\S]{0,80}stdout\.log/,
+      'V2 BUG-54 block must inline the current-window dispatch-log extractor',
+    );
+    assert.doesNotMatch(
+      ask,
       /grep\s+-RInE\s+'spawn_attached\|first_output\|startup_watchdog_fired\|stdout_attach_failed\|ghost_turn'\s+\.agentxchain\s+2>\/dev\/null\s+\|\|\s+true/,
-      'V2 BUG-54 block must inline the adapter-diagnostic grep verbatim from the runbook',
+      'V2 BUG-54 block must not use a repo-wide .agentxchain grep that can pick up historical failures',
     );
     assert.match(
       ask,
@@ -292,6 +307,11 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /jq\s+'\.attempts\[\][\s\S]{0,240}first_stdout_ms[\s\S]{0,120}watchdog_fired/,
       'V2 BUG-54 fallback must inline the per-attempt jq extraction (first_stdout_ms + watchdog_fired)',
     );
+    assert.match(
+      ask,
+      /Paste both fallback `jq` outputs together[\s\S]{0,220}runtime id \/ command probe[\s\S]{0,220}ten per-attempt timing rows/,
+      'V2 BUG-54 fallback must explicitly require both jq outputs so runtime identity and timing rows are quoted together',
+    );
     assert.doesNotMatch(
       ask,
       /fall back to the repro harness extracted from the registry tarball per the runbook/,
@@ -310,7 +330,9 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /npm\s+pack\s+agentxchain@2\.154\.7\s+--pack-destination\s+"\$REPRO_DIR"/,
       /node\s+"\$REPRO_DIR\/package\/scripts\/reproduce-bug-54\.mjs"/,
       /--attempts\s+10\s+--watchdog-ms\s+180000\s+--out\s+\/tmp\/bug54-latest\.json/,
-      /grep\s+-RInE\s+'spawn_attached\|first_output\|startup_watchdog_fired\|stdout_attach_failed\|ghost_turn'\s+\.agentxchain\s+2>\/dev\/null\s+\|\|\s+true/,
+      /export\s+BUG54_START_TS="\$\(date\s+-u\s+\+"%Y-%m-%dT%H:%M:%SZ"\)"/,
+      /agentxchain\s+events\s+--since\s+\\?"\$BUG54_START_TS\\?"\s+--type\s+turn_dispatched,turn_start_failed,runtime_spawn_failed,stdout_attach_failed,run_blocked\s+--json\s+--limit\s+0/,
+      /node\s+<<'BUG54_DIAG'[\s\S]{0,1600}Current-window turn ids:[\s\S]{0,900}\.agentxchain[\s\S]{0,80}dispatch[\s\S]{0,80}turns[\s\S]{0,80}stdout\.log/,
     ];
     for (const pat of SHARED_SHAPES) {
       assert.match(
