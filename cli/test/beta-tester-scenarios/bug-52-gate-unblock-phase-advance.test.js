@@ -696,6 +696,107 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.equal(phaseCleanup, undefined, 'phase_cleanup must NOT fire when phase did not advance');
   });
 
+  it('Turn 203: unblock advances standing pending gate when active_turns is empty AND PM history has no phase_transition_request', () => {
+    // HUMAN-ROADMAP BUG-52 third variant — tester's v2.151.0 lights-out flow on
+    // `tusq.dev`. The shape is narrower than Turn 176:
+    //
+    //   - PM accepts + checkpoints + returns needs_human WITHOUT declaring
+    //     `phase_transition_request`. (Claude-Opus-driven PM roles that merely
+    //     need human sign-off sometimes leave the field null — the tester's
+    //     repro exhibits this.)
+    //   - After accept+checkpoint, `active_turns` is empty (no retained turn).
+    //   - `pending_phase_transition: null`, `phase_gate_status.planning_signoff:
+    //     pending`, `last_gate_failure: null`, `queued_phase_transition: null`.
+    //   - Open human escalation tied to the planning_signoff gate.
+    //
+    // Until Turn 203, resume.js line 146 only fired the standing-gate
+    // reconciliation path when `activeCount > 0`. With no retained turn, resume
+    // fell through to the line 321 reconcile (no `allow_standing_gate` opt-in),
+    // which bailed because `resolvePhaseTransitionSource` could not find a
+    // phase_transition_request anywhere. The dispatcher then redispatched PM in
+    // planning — the tester observed this loop seven consecutive iterations on
+    // `run_8543d07bd34cc982`.
+    //
+    // Acceptance: `unblock` must route through the standing-gate reconcile
+    // regardless of `activeCount`, materialize the pending transition, and
+    // dispatch `dev` in `implementation`.
+    const { root, config, state } = createProject();
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    writeFileSync(
+      join(root, '.planning', 'SYSTEM_SPEC.md'),
+      '# System Spec\n\n## Purpose\n\nPlan the implementation handoff.\n\n## Interface\n\nPM artifacts.\n\n## Acceptance Tests\n\n- [x] Dev can start implementation.\n',
+    );
+
+    // PM turn declares no phase_transition_request — the tester's actual flow.
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'needs_human',
+      needs_human_reason: 'Need operator confirmation before handing off to dev',
+      summary: 'Planning artifacts drafted, awaiting human confirmation',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md', '.planning/PM_SIGNOFF.md', '.planning/SYSTEM_SPEC.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'dev',
+      phase_transition_request: null,
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const blocked = readState(root);
+    // Force the tester's precise third-variant shape: standing pending gate, no
+    // pending phase transition, no retained active turn.
+    writeState(root, {
+      ...blocked,
+      pending_phase_transition: null,
+      queued_phase_transition: null,
+      last_gate_failure: null,
+      phase_gate_status: {
+        ...(blocked.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {},
+    });
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(
+      unblocked.status,
+      0,
+      `unblock must advance the standing gate even when active_turns is empty:\n${unblocked.stdout}\n${unblocked.stderr}`,
+    );
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'implementation', 'phase must advance even with empty active_turns and null phase_transition_request');
+    assert.equal(finalState.phase_gate_status?.planning_signoff, 'passed', 'planning gate must be marked passed after unblock');
+    assert.equal(activeTurn?.assigned_role, 'dev', 'next dispatch must target dev, not another PM');
+    assert.equal(activeTurn?.runtime_id, 'manual-dev');
+    assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch PM after approval');
+
+    const events = readEvents(root);
+    const phaseEntered = events.find((entry) => entry.event_type === 'phase_entered'
+      && entry.payload?.from === 'planning'
+      && entry.payload?.to === 'implementation');
+    assert.ok(phaseEntered, 'phase_entered event must fire for planning -> implementation');
+  });
+
   it('Turn 94: resume advances from queued_phase_transition even when the latest accepted turn had no phase request', () => {
     const { root } = createProject(makeQaLaunchConfig());
     const seededState = readState(root);

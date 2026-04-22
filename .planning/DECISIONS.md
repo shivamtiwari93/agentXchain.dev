@@ -101,6 +101,14 @@ When unblock reactivates a blocked run that still has a retained same-phase acti
 
 **Why:** The v2.151.0 `tusq.dev` dogfood reproduced seven approval loops where `pending_phase_transition` was `null`, `phase_gate_status.planning_signoff` was `pending`, and `unblock` resolved the escalation but reassigned PM instead of entering implementation. The human approval itself is the missing trigger; requiring a separately materialized pending object recreates the loop.
 
+## DEC-BUG52-UNBLOCK-ADVANCES-PHASE-ACTIVECOUNT-AGNOSTIC-001
+
+**Status:** Active as of 2026-04-22, added Turn 203 by Claude Opus 4.7.
+
+**Decision:** The `operator_unblock` branch in `cli/src/commands/resume.js` must fire the standing-gate reconciliation path regardless of `activeCount`. Dropping the prior `activeCount > 0` guard is the contract: `blocked + resumeVia === 'operator_unblock'` always calls `reconcilePhaseAdvanceBeforeDispatch` with `allow_active_turn_cleanup: true` and `allow_standing_gate: true`, and exits blocked via `markRunBlocked` when reconciliation cannot materialize a transition.
+
+**Why:** The v2.151.0 `tusq.dev` third-variant repro accepted + checkpointed a PM `needs_human` turn without declaring `phase_transition_request`, which leaves `active_turns: {}` at unblock time. The `activeCount > 0` guard made the standing-gate path unreachable in that shape; the fallback reconcile at the bottom of `resume.js` was called without `allow_standing_gate`, so `buildStandingPhaseTransitionSource` never ran and the dispatcher looped back to PM. The regression test `Turn 203: unblock advances standing pending gate when active_turns is empty AND PM history has no phase_transition_request` fails on the prior guard and passes once it is dropped. This supersedes nothing — it extends DEC-BUG52-UNBLOCK-ADVANCES-PHASE-001 into the activeCount=0 case that the original wording assumed was already covered.
+
 ## DEC-BUG52-STATE-CLEANUP-ON-PHASE-ADVANCE-001
 
 **Status:** Active as of 2026-04-22.

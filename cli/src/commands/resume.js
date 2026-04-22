@@ -143,7 +143,18 @@ export async function resumeCommand(opts) {
   // patched defensively) once the schema citation + migration citation are
   // documented in code and the coverage matrix.
 
-  if (state.status === 'blocked' && activeCount > 0 && resumeVia === 'operator_unblock') {
+  // BUG-52 third variant (Turn 203): the standing-gate reconcile path must
+  // fire on operator_unblock regardless of `activeCount`. The tester's
+  // v2.151.0 lights-out repro on `tusq.dev` accepted + checkpointed a PM turn
+  // that returned `needs_human` without declaring `phase_transition_request`,
+  // which leaves `active_turns: {}` at unblock time. The prior
+  // `activeCount > 0` guard skipped the standing-gate reconciliation entirely,
+  // so `unblock` fell through to the generic reconcile at the bottom of this
+  // command (no `allow_standing_gate` opt-in) and redispatched PM in planning
+  // seven consecutive iterations. With the guard dropped, operator_unblock
+  // always routes through the standing-gate reconcile + `markRunBlocked`
+  // fallback — the same contract whether or not a retained turn exists.
+  if (state.status === 'blocked' && resumeVia === 'operator_unblock') {
     const reactivated = reactivateGovernedRun(root, state, { via: resumeVia, notificationConfig: config });
     if (!reactivated.ok) {
       console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
