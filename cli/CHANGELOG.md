@@ -1,13 +1,13 @@
 # Changelog
 
-## 2.154.4
+## 2.154.5
 
 ### Bug Fixes
 - **BUG-52 activeCount=0 unblock loop**: `agentxchain unblock <hesc>` now routes every blocked operator-unblock resume through the standing-gate reconcile path, even when `active_turns` is empty. This closes the v2.151.0 delegated-human approval loop where `pending_phase_transition: null` and a pending planning gate caused PM to be redispatched repeatedly instead of advancing to implementation.
 - **BUG-52 empty-active evidence-gap proof**: added the missing command-chain negative case for the same empty-active standing-gate shape. Missing required gate evidence now stays blocked in the original phase, keeps the gate pending, avoids next-phase dispatch, and emits no phase-entered or cleanup events.
 
 ### Status
-- `v2.154.4` is the BUG-52 third-variant activeCount=0 fix release. BUG-52 still closes only after tester-quoted shipped-package output showing `unblock` advances to implementation, marks `planning_signoff` passed, dispatches `dev`, and does not require ghost recovery.
+- `v2.154.5` is the BUG-52 third-variant activeCount=0 fix release. BUG-52 still closes only after tester-quoted shipped-package output showing `unblock` advances to implementation, marks `planning_signoff` passed, dispatches `dev`, and does not require ghost recovery.
 - BUG-61, BUG-62, BUG-54, BUG-59, and BUG-53 remain open pending their existing tester quote-back contracts.
 
 ### Evidence

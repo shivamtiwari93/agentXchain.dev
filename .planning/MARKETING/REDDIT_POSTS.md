@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.154.4
+# Reddit Posts — AgentXchain v2.154.5
 
-> Ready-to-post content for Reddit for the `v2.154.4` release once tester verification lands. Updated 2026-04-22 for the BUG-52 activeCount=0 unblock-loop fix and empty-active evidence-gap proof.
+> Ready-to-post content for Reddit for the `v2.154.5` release once tester verification lands. Updated 2026-04-22 for the BUG-52 activeCount=0 unblock-loop fix and empty-active evidence-gap proof.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
