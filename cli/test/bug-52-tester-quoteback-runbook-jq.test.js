@@ -37,6 +37,7 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const RUNBOOK_PATH = '.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md';
 const LEGACY_PATH = '.planning/BUG_52_2152_TESTER_QUOTEBACK_RUNBOOK.md';
 const RUNBOOK = readFileSync(join(REPO_ROOT, RUNBOOK_PATH), 'utf8');
+const RELEASE_150 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-150-0.mdx'), 'utf8');
 const RELEASE_152 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-152-0.mdx'), 'utf8');
 const RELEASE_1540 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-154-0.mdx'), 'utf8');
 const RELEASE_1541 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-154-1.mdx'), 'utf8');
@@ -149,6 +150,46 @@ describe('BUG-52 tester quote-back runbook invariants', () => {
       RUNBOOK,
       /rm -f \.planning\/PM_SIGNOFF\.md/,
       'runbook must not test the negative case by deleting PM_SIGNOFF after checkpoint; that proves dirty-worktree blocking instead',
+    );
+  });
+
+  it('public v2.150.0 release page redirects still-open BUG-52 / BUG-54 / BUG-53 closure to 2.154.7', () => {
+    // v2.150.0 predates both the BUG-54 watchdog raise (2.151.0) and the full
+    // BUG-52 third-variant fix stack (2.154.7). Its original Tester Re-Run
+    // Contract invited testers to quote closure evidence on 2.150.0, which
+    // can reproduce the BUG-52 standing-gate loop on any run that traverses
+    // phase-gate recovery. Turn 213: retargeted every still-open closure pin
+    // to 2.154.7 and added the BUG-52-safe admonition + canonical runbook
+    // links. Same pattern as Turn 210 on v2-152-0 and Turn 211 on v2-154-5.
+    assert.match(
+      RELEASE_150,
+      /Current quote-back target:[\s\S]*agentxchain@2\.154\.7/,
+      'v2.150.0 release notes must warn that current still-open closure quote-back uses the 2.154.7 fix stack',
+    );
+    assert.match(
+      RELEASE_150,
+      /BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md/,
+      'v2.150.0 release notes must link operators to the canonical BUG-52 runbook',
+    );
+    assert.match(
+      RELEASE_150,
+      /BUG_59_54_TESTER_QUOTEBACK_RUNBOOK\.md/,
+      'v2.150.0 release notes must link operators to the canonical BUG-59/54 runbook',
+    );
+    assert.match(
+      RELEASE_150,
+      /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7\s+-c "agentxchain --version"/,
+      'v2.150.0 tester contract command must use the current 2.154.7 target',
+    );
+    assert.doesNotMatch(
+      RELEASE_150,
+      /All prior shipped-package closure contracts remain in force on `agentxchain@2\.150\.0`/,
+      'v2.150.0 must not keep the defective "closure contracts in force on 2.150.0" framing',
+    );
+    assert.doesNotMatch(
+      RELEASE_150,
+      /bug54-v2-150-0\.json/,
+      'v2.150.0 must not carry the stale /tmp/bug54-v2-150-0.json discriminator pin in the rerun contract',
     );
   });
 

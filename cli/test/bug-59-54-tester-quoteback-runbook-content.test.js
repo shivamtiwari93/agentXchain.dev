@@ -23,6 +23,7 @@ const CHECKLIST_PATH = '.planning/BUG_54_BUG_59_TESTER_QUOTEBACK_CHECKLIST.md';
 const LEGACY_RUNBOOK_PATH = '.planning/BUG_59_54_2151_TESTER_QUOTEBACK_RUNBOOK.md';
 const RELEASE_151_PATH = 'website-v2/docs/releases/v2-151-0.mdx';
 const RELEASE_PAGES_WITH_BUG_54_59_FOOTERS = [
+  'website-v2/docs/releases/v2-150-0.mdx',
   'website-v2/docs/releases/v2-152-0.mdx',
   'website-v2/docs/releases/v2-153-0.mdx',
   'website-v2/docs/releases/v2-154-0.mdx',

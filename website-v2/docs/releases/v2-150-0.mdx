@@ -5,7 +5,17 @@ title: "v2.150.0 Release Notes"
 
 # AgentXchain v2.150.0
 
-`v2.150.0` is a reliability-and-proof release over `v2.149.2`. It ships two concrete hardenings on the BUG-54 local_cli path (stdout/stderr listener ordering attached before stdin prompt delivery, and a bounded `claude --version` probe captured in the BUG-54 repro artifact so the next tester JSON can discriminate CLI-version/path differences from adapter-level races), one new BUG-55 coverage slice (the combined `files_changed` + `verification.produced_files[{disposition:"artifact"}]` union checkpoint branch) locked at both source-tree and packaged-tarball levels via `claim-reality-preflight.test.js`, and one benchmark-suite contention fix that restored the local prepublish gate to green so `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` can run atomically again. No BUG is closed in `v2.150.0`: BUG-52/53/54/55 remain OPEN pending tester-quoted shipped-package output on `agentxchain@2.150.0`.
+`v2.150.0` is a reliability-and-proof release over `v2.149.2`. It ships two concrete hardenings on the BUG-54 local_cli path (stdout/stderr listener ordering attached before stdin prompt delivery, and a bounded `claude --version` probe captured in the BUG-54 repro artifact so the next tester JSON can discriminate CLI-version/path differences from adapter-level races), one new BUG-55 coverage slice (the combined `files_changed` + `verification.produced_files[{disposition:"artifact"}]` union checkpoint branch) locked at both source-tree and packaged-tarball levels via `claim-reality-preflight.test.js`, and one benchmark-suite contention fix that restored the local prepublish gate to green so `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` can run atomically again. No BUG is closed in `v2.150.0`: BUG-52/53/54/55 remain OPEN pending tester-quoted shipped-package output on a later release.
+
+> **Current quote-back target:** use `agentxchain@2.154.7` or later for any
+> still-open BUG-52 / BUG-54 / BUG-55 / BUG-53 tester evidence. `v2.150.0`
+> predates the BUG-54 watchdog raise (landed in `v2.151.0`) and the full BUG-52
+> third-variant fix stack (landed in `v2.154.7`), so running the closure
+> contracts below against `agentxchain@2.150.0` can reproduce the BUG-52
+> standing-gate loop on any run that traverses phase-gate recovery. The
+> canonical BUG-52 runbook is `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`
+> and the canonical BUG-59/54 runbook is
+> `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`.
 
 ## Bug Fixes
 
@@ -39,34 +49,72 @@ title: "v2.150.0 Release Notes"
 
 ## Tester Re-Run Contract
 
-Run the shipped package, not the source tree:
+Run the latest shipped package that carries the full BUG-54 watchdog raise and
+BUG-52 third-variant fix stack, not the source tree:
 
 ```bash
-npx --yes -p agentxchain@2.150.0 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
 
-All prior shipped-package closure contracts remain in force on `agentxchain@2.150.0`. Quote these from the latest package:
+The command above supersedes the original `v2.150.0` quote-back pin. `v2.150.0`
+is historically installable via `npx --yes -p agentxchain@2.150.0` for
+provenance inspection, but every still-open closure contract below must use
+`agentxchain@2.154.7` or later so the tester does not reproduce the BUG-52
+standing-gate loop while collecting evidence for an unrelated bug.
 
-- **BUG-54 new discriminator artifact**: resolve the reproduction harness from the installed `agentxchain` package (not the repo tree) inside the failing worktree, then quote the fields below per `.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md`:
+### BUG-54 adapter reliability (current pin)
 
-  ```bash
-  REPRO="$(npm root)/agentxchain/scripts/reproduce-bug-54.mjs"
-  [ -f "$REPRO" ] || REPRO="$(npm root -g)/agentxchain/scripts/reproduce-bug-54.mjs"
-  node "$REPRO" --attempts 10 --watchdog-ms 10000 --out /tmp/bug54-v2-150-0.json
-  ```
+For still-open BUG-54 closure proof, pin to `agentxchain@2.154.7` or later and
+follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. Quote adapter
+diagnostics from real `local_cli` dispatches, including `startup_latency_ms`,
+`elapsed_since_spawn_ms`, `first_output_stream`, `watchdog_fired`, and
+`exit_signal` on `process_exit`. If the runtime only stabilizes after raising
+`runtimes.<id>.startup_watchdog_ms`, quote that config too. The closure
+evidence must come from the adapter path, not from a standalone spawn
+harness. The same runbook is the current BUG-59 quote-back contract for
+routine auto-approval ledger rows and credentialed hard-stop counter-evidence.
 
-  - `command_probe.status`, `command_probe.stdout` (Claude CLI version string)
-  - `summary.spawn_attached`, `summary.stdout_attached`, `summary.watchdog_fires`, `summary.classification_counts`
-  - First failing attempt: `first_stderr_ms`, `first_stdout_ms`, `stdout_bytes_total`, `stderr_bytes_total`
-  - `env_snapshot.auth_env_present` booleans (for record; no longer sufficient proof alone)
-  - `spawn_shape` (command, args, prompt_transport)
-- **BUG-54 adapter reliability signal**: quote the adapter diagnostic lines including `startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`. If the runtime only stabilizes after raising `runtimes.<id>.startup_watchdog_ms`, quote that config too. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup.
-- **BUG-56 probe-based auth preflight (still in force)**: on a Claude Max + no env auth + no `--bare` setup, `agentxchain connector check <claude-runtime> --json` and `agentxchain connector validate <claude-runtime> --json` MUST both pass; on a hanging-Claude shim they MUST both fail with `error_code: "claude_auth_preflight_failed"` and `smoke_probe.kind: "hang"`.
-- **BUG-52 phase-gate reconciliation — full four-lane coverage**: tester's exact CLI chain across all four shapes (planning_signoff orphan, queued_phase_transition resume, gate_failed + last_gate_failure, qa_ship_verdict). Quote `phase_entered` with `trigger: "reconciled_before_dispatch"`; next dispatched role must be the next phase's entry role.
-- **BUG-55 sub-A checkpoint completeness + wrong-lineage**: quote `accept-turn` + `checkpoint-turn` + `git status --short` (must be clean). If a declared path was committed on a divergent lineage, quote the `divergent_from_accepted_lineage` field.
-- **BUG-55 sub-B verification outputs**: quote the `undeclared_verification_outputs` failure + `verification.produced_files` remediation pointer; then the clean acceptance path after declaration.
-- **BUG-55 combined tester shape (new packaged coverage in v2.150.0)**: run `accept-turn` followed by `checkpoint-turn` on a QA turn that declares `files_changed` AND produces `verification.produced_files[{disposition:"artifact"}]` fixtures; quote `git status --short` after. Clean tree means BUG-55 is fixed for your reproduction.
-- **BUG-53 continuous auto-chain**: run `agentxchain run --continuous --max-runs 3` from a clean session and quote `session_continuation <previous_run_id> -> <next_run_id> (<next_objective>)`. Session status stays `running` between runs and ends as `completed` or `idle_exit`, never `paused`.
+The historical `reproduce-bug-54.mjs` discriminator artifact still ships in
+the package and remains valid per
+`.planning/BUG_54_DISCRIMINATOR_RUNBOOK.md`, but it is no longer sufficient
+closure proof on its own — the adapter-path evidence above is required.
+
+### BUG-56 probe-based auth preflight (still in force)
+
+On a Claude Max + no env auth + no `--bare` setup,
+`agentxchain connector check <claude-runtime> --json` and
+`agentxchain connector validate <claude-runtime> --json` MUST both pass; on a
+hanging-Claude shim they MUST both fail with
+`error_code: "claude_auth_preflight_failed"` and `smoke_probe.kind: "hang"`.
+
+### BUG-52 phase-gate reconciliation (current pin)
+
+For still-open BUG-52 closure proof, pin to `agentxchain@2.154.7` or later and
+follow `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md`. The canonical runbook
+covers all four shapes (planning_signoff orphan, queued_phase_transition
+resume, gate_failed + last_gate_failure, qa_ship_verdict) plus the realistic
+PM `needs_human` handoff (`proposed_next_role: "human"`,
+`phase_transition_request: null`) that only lands in `2.154.7`. Quote the
+`phase_entered` event and confirm the next dispatched role is the next
+phase's entry role.
+
+### BUG-55 checkpoint completeness (coverage validated in v2.150.0)
+
+For still-open BUG-55 regression proof on the current pin, run `accept-turn`
+followed by `checkpoint-turn` on a turn that declares both product files and
+verification outputs. Include `verification.produced_files` with at least one
+artifact or ignored output, prove there are no
+`undeclared_verification_outputs`, and quote `git status --short` after
+checkpointing. Clean tree means BUG-55 is fixed for your reproduction. Use
+`agentxchain@2.154.7` or later.
+
+### BUG-53 continuous auto-chain (current pin)
+
+Run `agentxchain run --continuous --max-runs 3` from a clean session on
+`agentxchain@2.154.7` or later and quote
+`session_continuation <previous_run_id> -> <next_run_id> (<next_objective>)`.
+Session status stays `running` between runs and ends as `completed` or
+`idle_exit`, never `paused`.
 
 ## Evidence
 
