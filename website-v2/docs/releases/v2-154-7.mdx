@@ -84,8 +84,9 @@ should end as `idle_exit`, not as a paused gate.
 
 For still-open BUG-54 and BUG-59 closure proof, pin to `agentxchain@2.154.7` or
 later and follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. That runbook
-covers the real adapter-path watchdog evidence plus routine auto-approval ledger
-rows and credentialed hard-stop counter-evidence.
+covers the real adapter-path watchdog evidence (`startup_latency_ms`,
+`elapsed_since_spawn_ms`, and any `runtimes.<id>.startup_watchdog_ms` override)
+plus routine auto-approval ledger rows and credentialed hard-stop counter-evidence.
 
 For still-open BUG-54 closure proof, use the BUG-54/BUG-59 runbook above. The
 closure evidence must come from the adapter path, not from a standalone spawn

@@ -9,8 +9,8 @@
  * asserts the *current* release is listed; it does not cover historical
  * coverage, which is what LLM crawlers rely on for the full release index.
  *
- * Scope is intentionally narrow: one file:one entry presence check. It
- * does not police ordering, formatting, or titles.
+ * Scope is intentionally narrow: one file:one entry presence check in both
+ * directions. It does not police ordering, formatting, or titles.
  */
 
 import assert from 'node:assert/strict';
@@ -25,7 +25,7 @@ const RELEASES_DIR = join(REPO_ROOT, 'website-v2', 'docs', 'releases');
 const LLMS_TXT_PATH = join(REPO_ROOT, 'website-v2', 'static', 'llms.txt');
 
 describe('llms.txt release-page coverage', () => {
-  it('lists every release-notes page under website-v2/docs/releases/', () => {
+  it('keeps release-notes pages and llms.txt release routes in sync', () => {
     const pages = readdirSync(RELEASES_DIR)
       .filter((f) => f.endsWith('.mdx'))
       .map((f) => f.replace(/\.mdx$/, ''));
@@ -42,6 +42,16 @@ describe('llms.txt release-page coverage', () => {
       missing,
       [],
       `llms.txt is missing release-notes entries for: ${missing.join(', ')}`,
+    );
+
+    const pageSet = new Set(pages);
+    const routeMatches = llms.matchAll(/\]\(https:\/\/agentxchain\.dev\/docs\/releases\/([^)]+)\)/g);
+    const stale = Array.from(routeMatches, (match) => match[1]).filter((docId) => !pageSet.has(docId));
+
+    assert.deepEqual(
+      stale,
+      [],
+      `llms.txt contains release-notes routes without matching .mdx pages: ${stale.join(', ')}`,
     );
   });
 });
