@@ -37,7 +37,7 @@ Reject **Choice 2: per-dispatch prompt override**. It mutates the stable dispatc
 
 Backward compatibility: default `continuous.on_idle` is `"exit"`. Existing bounded BUG-53 idle-exit behavior must pass unchanged for projects that do not opt in.
 
-Vision-coherence invariant: every synthesized intake intent must cite at least one VISION.md heading or goal it advances; every `vision_exhausted` declaration must classify all top-level VISION.md headings as complete, deferred, or out of scope. The validator enforces this against a `session.vision_headings_snapshot` captured when the continuous session starts, not against live VISION.md headings at acceptance time. If VISION.md changes between sessions, the next session captures the new heading set. If VISION.md changes during an active session, the active session keeps its snapshot and the implementation emits an observable `vision_snapshot_stale` warning rather than silently rematching against a moving human-owned document.
+Vision-coherence invariant: every synthesized intake intent must cite at least one VISION.md heading or goal it advances; every `vision_exhausted` declaration must classify all top-level VISION.md headings as complete, deferred, or out of scope. The validator enforces this against `session.vision_headings_snapshot` captured when the continuous session starts, not against live VISION.md headings at acceptance time. The session also stores `session.vision_sha_at_snapshot` so the runner can detect content drift even when headings are unchanged. If VISION.md changes between sessions, the next session captures the new heading set and content hash. If VISION.md changes during an active session, the active session keeps its snapshot and the implementation emits an observable `vision_snapshot_stale` warning rather than silently rematching against a moving human-owned document.
 
 ## 2. Config Schema
 
@@ -69,9 +69,9 @@ Supported `on_idle` values for the first BUG-60 implementation:
 - `exit`: current bounded behavior. Default.
 - `perpetual`: after idle threshold, dispatch PM idle-expansion instead of terminal idle exit.
 
-`human_review` is reserved but intentionally unsupported in the first slice. The config validator must reject it with an actionable error: `continuous.on_idle: "human_review" is reserved but not supported yet. Use "exit" or "perpetual"; tracked as a BUG-64 candidate.` No parser may silently accept it as an alias for `exit` or `perpetual`.
+`human_review` is reserved but intentionally unsupported in the first slice. The config validator must reject it with an actionable error: `continuous.on_idle: "human_review" is reserved but not supported yet. Use "exit" or "perpetual".` No parser may silently accept it as an alias for `exit` or `perpetual`.
 
-Use `idle_expansion`, not `on_idle_perpetual`, because the block names the sub-feature rather than one enum value. That keeps future modes from inheriting a value-specific config namespace.
+Use `idle_expansion`, not `on_idle_perpetual`, because the block names the sub-feature rather than one enum value. That keeps future modes from inheriting a value-specific config namespace. The human roadmap used `max_idle_expansions`; the plan uses `idle_expansion.max_expansions` because the nested block already scopes the field to idle expansion. Tester docs and final specs must name the shipped field, not the earlier roadmap placeholder.
 
 `sources` parsing contract: default sources are VISION, ROADMAP, and SYSTEM_SPEC. VISION.md missing or malformed is fail-fast because it is the human-owned source of truth. ROADMAP.md and SYSTEM_SPEC.md missing are warnings in the PM charter context, not hard failures, because new or small projects may not have them yet. ROADMAP/SYSTEM_SPEC are malformed if they cannot be decoded as UTF-8, exceed 64KB, or parse into fewer than one H1/H2 heading. Malformed ROADMAP/SYSTEM_SPEC entries are included in the PM source manifest with warning metadata; the PM can still declare exhaustion or propose a repair intent.
 
@@ -204,8 +204,11 @@ Event trail additions:
 - `idle_expansion_ingested`
 - `idle_expansion_malformed`
 - `idle_expansion_ingestion_failed`
+- `vision_snapshot_stale`
 - `vision_exhausted`
 - `vision_expansion_exhausted`
+
+`vision_snapshot_stale` is informational, not terminal. Detect it at `advanceContinuousRunOnce()` entry by comparing the current VISION.md content hash to `session.vision_sha_at_snapshot`; emit it at most once per `session_id + current_vision_sha` so repeated idle cycles do not spam the event trail. No scheduler mapping is required.
 
 `schedule.js` must map `vision_exhausted -> continuous_vision_exhausted`, `vision_expansion_exhausted -> continuous_vision_expansion_exhausted`, and `idle_expansion_dispatched -> continuous_running`.
 
@@ -220,7 +223,7 @@ Implementation order:
 5. `cli/src/lib/normalized-config.js`: parse `continuous.on_idle` and `continuous.idle_expansion`; reject reserved `human_review`.
 6. `cli/src/lib/vision-reader.js`: add bounded source-manifest helpers, VISION heading snapshot capture, deterministic malformed-source warnings, and preview truncation. Do not add a broad markdown parser rewrite.
 7. `cli/src/lib/intake.js`: add `vision_idle_expansion` to `VALID_SOURCES`; keep signal deterministic.
-8. `cli/src/lib/continuous-run.js`: move budget guard above idle, capture/persist `session.vision_headings_snapshot`, add perpetual branch, add `ingestAcceptedIdleExpansion()`, and include the source manifest in the synthesized PM charter.
+8. `cli/src/lib/continuous-run.js`: move budget guard above idle, capture/persist `session.vision_headings_snapshot` and `session.vision_sha_at_snapshot`, add perpetual branch, add `ingestAcceptedIdleExpansion()`, and include the source manifest in the synthesized PM charter.
 9. `cli/src/commands/schedule.js`: map new terminal/action statuses.
 10. `.agentxchain/prompts/pm-idle-expansion.md`: add prompt scaffold matching the charter.
 11. `SPEC-GOVERNED-v5.md`, `PROTOCOL-v7.md`, docs/spec surfaces from `BUG_60_DOC_SURFACE_AUDIT.md`.
@@ -230,8 +233,8 @@ No cycle is required. Schema and validator land before the continuous loop consu
 
 ## 8. Test Update Order
 
-1. Schema and validator tests for valid `new_intake_intent`, valid `vision_exhausted`, missing required result for idle-expansion turn, mismatched `expansion_iteration`, missing VISION traceability, VISION snapshot exact-match behavior, and VISION.md immutability hash.
-2. Config tests for default `on_idle: "exit"`, valid `perpetual`, reserved `human_review` rejected with the actionable BUG-64 message, invalid enum, `idle_expansion.max_expansions`, and migration from missing `expansion_iteration`.
+1. Schema and validator tests for valid `new_intake_intent`, valid `vision_exhausted`, missing required result for idle-expansion turn, mismatched `expansion_iteration`, missing VISION traceability, VISION snapshot exact-match behavior, and VISION.md content-sha drift detection.
+2. Config tests for default `on_idle: "exit"`, valid `perpetual`, reserved `human_review` rejected with the actionable unsupported-value message, invalid enum, `idle_expansion.max_expansions`, and migration from missing `expansion_iteration`.
 3. Source-manifest tests for ROADMAP/SYSTEM_SPEC missing warnings, malformed warning rules, 16KB-per-source and 48KB-total truncation, and head+tail preview behavior.
 4. Intake test for `vision_idle_expansion` source and deterministic signal/dedup.
 5. Continuous-loop unit/integration tests for budget-before-idle ordering, bounded default preservation, and cap terminal statuses. Include the dual-cap regression explicitly: `idle_cycles >= maxIdleCycles && cumulative_spent_usd >= per_session_max_usd` returns `session_budget`, not `idle_exit`.
@@ -275,6 +278,8 @@ Decision: BUG-60 perpetual continuous mode uses the governed intake pipeline, no
 
 Why: Intake gives auditability, lifecycle reuse, approval policy inheritance, and operator inspection. Direct dispatch creates a second autonomy path. A dedicated role is deferred until there is a concrete runtime/tool/budget need.
 
+Deferred scope: `continuous.on_idle: "human_review"` is reserved for a future roadmap entry that defines pause-and-ask-human semantics. The first BUG-60 slice rejects it explicitly instead of accepting a silent stub or pre-reserving a speculative bug ID.
+
 ### DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001
 
 Status: Draft.
@@ -289,7 +294,7 @@ Status: Draft.
 
 Decision: BUG-60 owns separate terminal state and event trail contracts. Terminal states distinguish `completed`, `idle_exit`, `vision_exhausted`, `vision_expansion_exhausted`, and `session_budget`. Event trail distinguishes dispatch, ingestion, malformed result, ingestion failure, PM-declared exhaustion, and expansion-cap exhaustion. Scheduler mappings must preserve these distinctions.
 
-Why: Operators need to know whether the loop stopped because bounded work ended, PM declared the vision done, the expansion mechanism failed, or budget blocked further work.
+Why: Operators need to know whether the loop stopped because bounded work ended, PM declared the vision done, the expansion mechanism failed, budget blocked further work, or the human-owned VISION.md moved during an active session.
 
 ### DEC-BUG60-RESULT-SCHEMA-EXTENSION-001
 
@@ -341,3 +346,11 @@ GPT accepts Claude's Turn 265 material challenges with the following locks:
 - Challenge 3: source access uses file references plus a bounded source manifest. ROADMAP/SYSTEM_SPEC malformed rules and preview caps are now testable.
 
 GPT also accepts the dual-cap regression test, VISION snapshot test, and three additional draft DECs above. Architecture-side plan agreement is therefore closed unless Claude finds a new code-cited contradiction. BUG-60 implementation remains blocked by the HUMAN-ROADMAP shipped-package quote-back gates for BUG-52 and BUG-59.
+
+### Turn 268 Plan Cleanup
+
+GPT accepts Claude's Turn 267 F1-F4 findings and resolves them in this plan:
+
+- F1/F2: add `session.vision_sha_at_snapshot`, use it for content-drift detection, and define `vision_snapshot_stale` as an informational event emitted once per `session_id + current_vision_sha` at `advanceContinuousRunOnce()` entry.
+- F3: keep `idle_expansion.max_expansions` and explicitly document the rename from the roadmap placeholder `max_idle_expansions`.
+- F4: remove the speculative `BUG-64` reference from operator-facing validator text and record `human_review` only as deferred future scope in the draft DEC.
