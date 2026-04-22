@@ -14,6 +14,7 @@ import {
   findNextQueuedIntent,
   executeContinuousRun,
 } from '../src/lib/continuous-run.js';
+import { validateRunLoopConfig } from '../src/lib/normalized-config.js';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const binPath = join(cliRoot, 'bin', 'agentxchain.js');
@@ -121,6 +122,88 @@ describe('Continuous Run', () => {
       assert.equal(opts.enabled, true);
       assert.equal(opts.triageApproval, 'human');
       assert.equal(opts.maxIdleCycles, 5);
+    });
+
+    it('BUG-61: defaults ghost auto-retry off for non-full-auto continuous sessions', () => {
+      const opts = resolveContinuousOptions({ continuous: true }, {
+        approval_policy: {
+          phase_transitions: { default: 'require_human' },
+          run_completion: { action: 'auto_approve' },
+        },
+      });
+      assert.deepEqual(opts.autoRetryOnGhost, {
+        enabled: false,
+        maxRetriesPerRun: 3,
+        cooldownSeconds: 5,
+      });
+    });
+
+    it('BUG-61: promotes ghost auto-retry on for full-auto approval-policy posture', () => {
+      const opts = resolveContinuousOptions({ continuous: true }, {
+        approval_policy: {
+          phase_transitions: { default: 'auto_approve' },
+          run_completion: { action: 'auto_approve' },
+        },
+      });
+      assert.equal(opts.autoRetryOnGhost.enabled, true);
+      assert.equal(opts.autoRetryOnGhost.maxRetriesPerRun, 3);
+      assert.equal(opts.autoRetryOnGhost.cooldownSeconds, 5);
+    });
+
+    it('BUG-61: explicit config opt-out wins over full-auto promotion', () => {
+      const opts = resolveContinuousOptions({ continuous: true }, {
+        run_loop: {
+          continuous: {
+            auto_retry_on_ghost: { enabled: false, max_retries_per_run: 7, cooldown_seconds: 9 },
+          },
+        },
+        approval_policy: {
+          phase_transitions: { default: 'auto_approve' },
+          run_completion: { action: 'auto_approve' },
+        },
+      });
+      assert.deepEqual(opts.autoRetryOnGhost, {
+        enabled: false,
+        maxRetriesPerRun: 7,
+        cooldownSeconds: 9,
+      });
+    });
+
+    it('BUG-61: CLI ghost retry flags override config and full-auto posture', () => {
+      const fullAutoConfig = {
+        run_loop: { continuous: { auto_retry_on_ghost: { enabled: false } } },
+        approval_policy: {
+          phase_transitions: { default: 'auto_approve' },
+          run_completion: { action: 'auto_approve' },
+        },
+      };
+      assert.equal(
+        resolveContinuousOptions({ continuous: true, autoRetryOnGhost: true }, fullAutoConfig).autoRetryOnGhost.enabled,
+        true,
+      );
+      assert.equal(
+        resolveContinuousOptions({ continuous: true, autoRetryOnGhost: false }, fullAutoConfig).autoRetryOnGhost.enabled,
+        false,
+      );
+    });
+
+    it('BUG-61: validates auto_retry_on_ghost config shape', () => {
+      assert.deepEqual(
+        validateRunLoopConfig({
+          continuous: {
+            auto_retry_on_ghost: {
+              enabled: 'yes',
+              max_retries_per_run: 0,
+              cooldown_seconds: '5',
+            },
+          },
+        }),
+        [
+          'run_loop.continuous.auto_retry_on_ghost.enabled must be a boolean',
+          'run_loop.continuous.auto_retry_on_ghost.max_retries_per_run must be a positive integer (retry count)',
+          'run_loop.continuous.auto_retry_on_ghost.cooldown_seconds must be a positive integer (seconds)',
+        ],
+      );
     });
   });
 
@@ -402,6 +485,8 @@ describe('Continuous Run', () => {
       assert.ok(content.includes("'--vision <path>'"));
       assert.ok(content.includes("'--max-runs <n>'"));
       assert.ok(content.includes("'--max-idle-cycles <n>'"));
+      assert.ok(content.includes("'--auto-retry-on-ghost'"));
+      assert.ok(content.includes("'--no-auto-retry-on-ghost'"));
     });
 
     it('S04: intake accepts vision_scan as a valid source', async () => {

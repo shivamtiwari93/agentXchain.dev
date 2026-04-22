@@ -640,7 +640,36 @@ export function validateRunLoopConfig(runLoop) {
   }
   validateRunLoopPositiveInteger('run_loop.startup_watchdog_ms', runLoop.startup_watchdog_ms, errors);
   validateRunLoopPositiveInteger('run_loop.stale_turn_threshold_ms', runLoop.stale_turn_threshold_ms, errors);
+  if (runLoop.continuous !== undefined && runLoop.continuous !== null) {
+    validateRunLoopContinuousConfig('run_loop.continuous', runLoop.continuous, errors);
+  }
   return errors;
+}
+
+function validateRunLoopContinuousConfig(path, continuous, errors) {
+  if (typeof continuous !== 'object' || Array.isArray(continuous)) {
+    errors.push(`${path} must be an object`);
+    return;
+  }
+  if (continuous.auto_retry_on_ghost !== undefined && continuous.auto_retry_on_ghost !== null) {
+    validateAutoRetryOnGhostConfig(`${path}.auto_retry_on_ghost`, continuous.auto_retry_on_ghost, errors);
+  }
+}
+
+function validateAutoRetryOnGhostConfig(path, value, errors) {
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    errors.push(`${path} must be an object`);
+    return;
+  }
+  if ('enabled' in value && typeof value.enabled !== 'boolean') {
+    errors.push(`${path}.enabled must be a boolean`);
+  }
+  if ('max_retries_per_run' in value) {
+    validatePositiveInteger(`${path}.max_retries_per_run`, value.max_retries_per_run, 'retry count', errors);
+  }
+  if ('cooldown_seconds' in value) {
+    validatePositiveInteger(`${path}.cooldown_seconds`, value.cooldown_seconds, 'seconds', errors);
+  }
 }
 
 function validateRunLoopPositiveInteger(path, value, errors) {
@@ -653,6 +682,15 @@ function validateRunLoopPositiveInteger(path, value, errors) {
   }
   if (value < 1) {
     errors.push(`${path} must be a positive integer (milliseconds)`);
+  }
+}
+
+function validatePositiveInteger(path, value, unitLabel, errors) {
+  if (value === undefined || value === null) {
+    return;
+  }
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    errors.push(`${path} must be a positive integer (${unitLabel})`);
   }
 }
 

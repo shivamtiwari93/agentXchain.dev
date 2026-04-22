@@ -110,3 +110,13 @@ When unblock reactivates a blocked run that still has a retained same-phase acti
 Completed or accepted turns are not removed by cleanup. The cleanup is for retained/dispatched/retrying artifacts from the phase being exited.
 
 **Why:** The BUG-52 third variant left stale PM active turns and budget reservations in state after the operator had approved the planning gate. Without atomic cleanup, the dispatcher sees a retained same-phase turn and loops back to PM even though the phase gate has been approved.
+
+## DEC-BUG61-GHOST-RETRY-STATE-OWNERSHIP-001
+
+**Status:** Active as of 2026-04-22.
+
+**Decision:** BUG-61 ghost-turn auto-retry is a continuous-session behavior, not a governed-state counter. `run_loop.continuous.auto_retry_on_ghost` defaults to primitive off, promotes on only when continuous mode runs under a full-auto approval-policy posture (`phase_transitions.default: "auto_approve"` and `run_completion.action: "auto_approve"`), and respects explicit CLI/config opt-out.
+
+The mutable retry budget belongs in `.agentxchain/continuous-session.json`. When the retry budget is exhausted, governed state may mirror only the exhaustion outcome in `blocked_reason.recovery.detail` so `agentxchain status` and dashboards show that automatic recovery already failed.
+
+**Why:** Manual continuous sessions should keep manual ghost recovery visible. Full-auto sessions have already opted into unattended routine gate closure, so bounded ghost retry is consistent there. Keeping counters out of governed state avoids widening BUG-62's future operator-commit reconcile surface with ephemeral retry metadata while still preserving operator visibility after exhaustion.

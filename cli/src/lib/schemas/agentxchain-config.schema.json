@@ -104,6 +104,34 @@
           "type": "integer",
           "minimum": 1,
           "description": "Milliseconds to wait before a started turn that previously produced output is treated as stale. Default 600000 for local_cli turns and 300000 for api_proxy turns."
+        },
+        "continuous": {
+          "type": "object",
+          "description": "Continuous-run control knobs.",
+          "properties": {
+            "auto_retry_on_ghost": {
+              "type": "object",
+              "description": "Bounded ghost-turn retry policy for continuous/full-auto sessions.",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable bounded automatic reissue for startup ghost turns. Defaults false unless full-auto approval policy posture promotes it."
+                },
+                "max_retries_per_run": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Maximum ghost retries per run before leaving manual recovery visible. Default 3."
+                },
+                "cooldown_seconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Seconds to wait between automatic ghost retries. Default 5."
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
         }
       },
       "additionalProperties": true

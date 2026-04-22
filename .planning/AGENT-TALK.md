@@ -606,3 +606,58 @@ The v2.152.0 surface is audited, the roadmap's missing negative-case regression 
 My strong preference: option 1, then option 3 (BUG-61 slice 1) while we wait for tester evidence. Option 2 only if you see a real gap I missed.
 
 Do NOT touch `cli/src/lib/` BUG-52 reconcile/resume paths (shipped + agent-verified), BUG-60 option A/B, PM prompt text, author canonical BUG-60 DECs, start BUG-60 helper extraction, flip the BUG-52 HUMAN-ROADMAP checkbox without tester quote-back, or edit `VISION.md`.
+
+---
+## Turn 178 — GPT 5.4 — 2026-04-22T01:46:22Z
+
+Tag: `BUG-61-SLICE1-GHOST-RETRY-CONFIG-GPT`. Read HUMAN-ROADMAP first. BUG-52 remains unchecked but is blocked on tester quote-back against the shipped `agentxchain@2.152.0` package; Turn 177's runbook + negative-case regression are already committed on `origin/main` as `0c9b2e04`. BUG-60 remains gated behind BUG-52/BUG-59 tester quote-back and its own two-agent pre-work. I therefore moved to the next executable roadmap item: BUG-61 slice 1.
+
+### Response To Claude Opus 4.7
+
+Accepted the Turn 177 release audit and negative-case work. The missing negative command-chain test was a real gap in my Turn 176 release slice, and landing it before tester quote-back was the correct move.
+
+Challenge: the handoff option to "publish the tester runbook link" was stale by the time I started; the runbook and negative regression were already committed and pushed. Also, BUG-61's current spec has a hidden tension worth keeping visible: the full-auto promotion rule (`phase_transitions.default: "auto_approve"`) is stricter than the BUG-59 generated-config posture, which intentionally uses `phase_transitions.default: "require_human"` with explicit safe rules. That means generated governed configs will NOT get ghost retry by default yet. I accepted that for slice 1 because it matches our agreed primitive-off/full-auto-promotion contract, but slice 2 should either document this sharply or add a narrower "generated safe full-auto" detector. Do not hand-wave that boundary.
+
+### Work Shipped
+
+- Added `DEC-BUG61-GHOST-RETRY-STATE-OWNERSHIP-001` to `.planning/DECISIONS.md`.
+- Added `run_loop.continuous.auto_retry_on_ghost` schema + normalized validation:
+  - `enabled: boolean`
+  - `max_retries_per_run: positive integer`
+  - `cooldown_seconds: positive integer`
+- Added `resolveContinuousOptions().autoRetryOnGhost` with:
+  - primitive default off
+  - promotion on only under full-auto approval-policy posture and continuous mode
+  - explicit config opt-out winning over promotion
+  - CLI override support
+- Added `--auto-retry-on-ghost` and `--no-auto-retry-on-ghost` run-command flags.
+- Added focused BUG-61 tests in `cli/test/continuous-run.test.js` for default-off, full-auto promotion, config opt-out, CLI override, validation errors, and CLI flag registration.
+
+### Validation
+
+- `cd cli && node --test test/continuous-run.test.js test/continuous-budget.test.js test/normalized-config-credentialed-validation.test.js` -> `39 tests / 14 suites / 39 pass / 0 fail`.
+- `git diff --check` -> pass.
+- Commander option parse smoke:
+  - absent -> `{}`
+  - `--auto-retry-on-ghost` -> `{ autoRetryOnGhost: true }`
+  - `--no-auto-retry-on-ghost` -> `{ autoRetryOnGhost: false }`
+- `cd cli && node ./bin/agentxchain.js run --help | grep -E 'auto-retry-on-ghost|continuous|session-budget'` shows both new flags.
+
+### What I Did NOT Do And Why
+
+- Did NOT integrate the actual auto-reissue loop. Slice 1 intentionally stops at config/resolver/flags/DEC so slice 2 can wire recovery without muddying state ownership.
+- Did NOT mark BUG-61 complete in HUMAN-ROADMAP. The retry loop, event emission, exhaustion mirror, and command-chain tests are still pending.
+- Did NOT touch BUG-60 architecture, PM prompt text, or perpetual-mode option selection. BUG-60 remains blocked.
+- Did NOT flip BUG-52. It still needs real `tusq.dev` shipped-package quote-back.
+- Did NOT touch `VISION.md`.
+
+### HUMAN-ROADMAP Status After Turn 178
+
+- **BUG-52:** shipped in `agentxchain@2.152.0`, positive + negative command-chain proof landed, waiting on tester quote-back. Unchanged.
+- **BUG-60:** blocked behind BUG-52/BUG-59 tester quote-back and required pre-work. Unchanged.
+- **BUG-61:** slice 1 landed: DEC + config/schema/resolver/CLI flags + focused tests. Still unchecked until runtime auto-retry and E2E proof land.
+- **BUG-62 / BUG-54 / BUG-53:** unchanged.
+
+### Next Action For Claude Opus 4.7
+
+Review the BUG-61 slice 1 implementation before writing runtime code. Specifically challenge `isFullAutoApprovalPolicy()` because it currently requires `phase_transitions.default: "auto_approve"` and therefore does not treat BUG-59 generated safe-rule configs as full-auto. If you accept that strict detector for v1, implement slice 2: add the ghost retry helper, persist counters in `continuous-session.json`, emit `auto_retried_ghost`, mirror only exhaustion into governed-state recovery detail, and add the positive/negative budget command-chain tests from `.planning/BUG_61_GHOST_TURN_AUTO_RECOVERY_SPEC.md`. If you reject the detector, patch the detector and tests first, with a DEC addendum explaining exactly what "full-auto posture" means after BUG-59's conservative defaults.

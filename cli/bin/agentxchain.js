@@ -753,6 +753,8 @@ program
   .option('--triage-approval <mode>', 'Triage policy for vision-derived intents: auto or human (default: config or auto)')
   .option('--max-idle-cycles <n>', 'Stop after N consecutive idle cycles with no derivable work (default: 3)', parseInt)
   .option('--session-budget <usd>', 'Cumulative session-level budget cap in USD for continuous mode', parseFloat)
+  .option('--auto-retry-on-ghost', 'Enable bounded automatic retry for continuous-mode startup ghost turns')
+  .option('--no-auto-retry-on-ghost', 'Disable bounded automatic retry for continuous-mode startup ghost turns')
   .option('--auto-checkpoint', 'Auto-commit accepted writable turns after acceptance')
   .option('--no-auto-checkpoint', 'Disable automatic checkpointing after accepted writable turns')
   .action(runCommand);

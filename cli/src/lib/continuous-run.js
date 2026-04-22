@@ -301,6 +301,11 @@ export function seedFromVision(root, visionPath, options = {}) {
 
 export function resolveContinuousOptions(opts, config) {
   const configCont = config?.run_loop?.continuous || {};
+  const configGhostRetry = configCont.auto_retry_on_ghost || {};
+  const explicitConfigGhostEnabled = Object.prototype.hasOwnProperty.call(configGhostRetry, 'enabled');
+  const fullAutoGhostDefault = Boolean((opts.continuous ?? configCont.enabled ?? false) && isFullAutoApprovalPolicy(config));
+  const resolvedGhostEnabled = opts.autoRetryOnGhost
+    ?? (explicitConfigGhostEnabled ? configGhostRetry.enabled : fullAutoGhostDefault);
 
   return {
     enabled: opts.continuous ?? configCont.enabled ?? false,
@@ -313,7 +318,23 @@ export function resolveContinuousOptions(opts, config) {
     cooldownSeconds: opts.cooldownSeconds ?? configCont.cooldown_seconds ?? 5,
     perSessionMaxUsd: opts.sessionBudget ?? configCont.per_session_max_usd ?? null,
     autoCheckpoint: opts.autoCheckpoint ?? configCont.auto_checkpoint ?? true,
+    autoRetryOnGhost: {
+      enabled: resolvedGhostEnabled ?? false,
+      maxRetriesPerRun: opts.autoRetryOnGhostMaxRetries
+        ?? configGhostRetry.max_retries_per_run
+        ?? 3,
+      cooldownSeconds: opts.autoRetryOnGhostCooldownSeconds
+        ?? configGhostRetry.cooldown_seconds
+        ?? 5,
+    },
   };
+}
+
+export function isFullAutoApprovalPolicy(config) {
+  const policy = config?.approval_policy;
+  if (!policy || typeof policy !== 'object') return false;
+  return policy.phase_transitions?.default === 'auto_approve'
+    && policy.run_completion?.action === 'auto_approve';
 }
 
 // ---------------------------------------------------------------------------
