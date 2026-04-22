@@ -23,7 +23,7 @@ import {
   initializeGovernedRun,
   assignGovernedTurn,
 } from '../../src/lib/governed-state.js';
-import { getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
+import { getDispatchTurnDir, getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const CLI_PATH = join(ROOT, 'bin', 'agentxchain.js');
@@ -171,6 +171,13 @@ function readState(root) {
 
 function readHistory(root) {
   const filePath = join(root, '.agentxchain', 'history.jsonl');
+  const raw = readFileSync(filePath, 'utf8').trim();
+  if (!raw) return [];
+  return raw.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+}
+
+function readEvents(root) {
+  const filePath = join(root, '.agentxchain', 'events.jsonl');
   const raw = readFileSync(filePath, 'utf8').trim();
   if (!raw) return [];
   return raw.split('\n').filter(Boolean).map((line) => JSON.parse(line));
@@ -479,6 +486,95 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.equal(activeTurn?.assigned_role, 'dev', 'next dispatch must target the implementation role, not another pm turn');
     assert.equal(activeTurn?.runtime_id, 'manual-dev');
     assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch the planning role on the needs_human path');
+  });
+
+  it('Turn 176: unblock advances standing pending gate and cleans stale same-phase active turn before redispatch', () => {
+    const { root, config, state } = createProject();
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    writeFileSync(
+      join(root, '.planning', 'SYSTEM_SPEC.md'),
+      '# System Spec\n\n## Purpose\n\nPlan the implementation handoff.\n\n## Interface\n\nPM artifacts.\n\n## Acceptance Tests\n\n- [x] Dev can start implementation.\n',
+    );
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'needs_human',
+      needs_human_reason: 'Need operator confirmation before handing off to dev',
+      summary: 'Planning artifacts drafted, awaiting human confirmation',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md', '.planning/PM_SIGNOFF.md', '.planning/SYSTEM_SPEC.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'dev',
+      phase_transition_request: 'implementation',
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const blocked = readState(root);
+    const staleTurnId = blocked.blocked_reason?.turn_id;
+    assert.equal(staleTurnId, turnId, 'fixture sanity: escalation should remain tied to the accepted PM turn');
+
+    mkdirSync(join(root, getDispatchTurnDir(staleTurnId)), { recursive: true });
+    writeFileSync(join(root, getDispatchTurnDir(staleTurnId), 'PROMPT.md'), 'stale PM dispatch\n');
+    writeState(root, {
+      ...blocked,
+      pending_phase_transition: null,
+      phase_gate_status: {
+        ...(blocked.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {
+        [staleTurnId]: {
+          turn_id: staleTurnId,
+          run_id: blocked.run_id,
+          assigned_role: 'pm',
+          runtime_id: 'manual-pm',
+          status: 'dispatched',
+          attempt: 1,
+          assigned_sequence: blocked.turn_sequence || 1,
+        },
+      },
+      budget_reservations: {
+        ...(blocked.budget_reservations || {}),
+        [staleTurnId]: { reserved_usd: 0.25, reason: 'stale tester-loop reservation' },
+      },
+    });
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(unblocked.status, 0, `unblock failed:\n${unblocked.stdout}\n${unblocked.stderr}`);
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'implementation', 'standing pending gate must advance to implementation after unblock');
+    assert.equal(finalState.phase_gate_status?.planning_signoff, 'passed', 'planning gate must be marked passed');
+    assert.equal(activeTurn?.assigned_role, 'dev', 'unblock must dispatch the implementation entry role, not the stale PM role');
+    assert.notEqual(activeTurn?.turn_id, staleTurnId, 'stale PM turn must be cleared before dispatching the next phase');
+    assert.equal(finalState.budget_reservations?.[staleTurnId], undefined, 'stale PM budget reservation must be cleared');
+    assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch PM after approval');
+
+    const events = readEvents(root);
+    const cleanup = events.find((entry) => entry.event_type === 'phase_cleanup'
+      && entry.payload?.from_phase === 'planning'
+      && entry.payload?.removed_turn_ids?.includes(staleTurnId));
+    assert.ok(cleanup, 'phase advance must emit phase_cleanup for the stale PM turn');
   });
 
   it('Turn 94: resume advances from queued_phase_transition even when the latest accepted turn had no phase request', () => {

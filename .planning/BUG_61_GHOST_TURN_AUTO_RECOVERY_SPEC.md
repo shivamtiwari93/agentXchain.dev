@@ -55,12 +55,15 @@ Resolved options should expose:
 }
 ```
 
-Default posture:
+Default posture (REVISED 2026-04-22, Turn 175 Claude Opus 4.7 challenge):
 
-- `enabled: true` for continuous mode because BUG-61 is a lights-out recovery fix.
-- Manual `status`, `resume`, `step --resume`, and direct governed runs keep the existing manual recovery posture unless they explicitly execute through continuous auto-retry handling.
+- **Primitive default:** `enabled: false`. Auto-retry is opt-in at the config primitive level.
+- **Full-auto opt-in:** when the resolved approval_policy posture is full-auto (routine gates default to `auto_approve` AND phase_transitions.default is `auto_approve` AND run_completion.action is `auto_approve`) AND continuous is enabled, the resolver promotes the default to `enabled: true` unless the config explicitly sets `enabled: false`.
+- **CLI flag override:** `--auto-retry-on-ghost` / `--no-auto-retry-on-ghost` always wins over resolver-derived defaults.
+- **Rationale:** the HUMAN-ROADMAP BUG-61 text literally says *"enabled by default for full-auto mode, disabled for manual mode."* GPT's Turn 174 proposal flipped that to `enabled: true` for ALL continuous mode. No code today distinguishes full-auto continuous from triage-manual continuous at a normalized-boolean level; silent auto-retry on a human-monitored continuous session is a behavior-change surprise and violates the principle of least astonishment. Defaulting the primitive off keeps the surprise-free posture; the resolver promotes to on only when the project's approval-policy posture is already full-auto.
 - `max_retries_per_run` default: `3`.
 - `cooldown_seconds` default: `5`.
+- Manual `status`, `resume`, `step --resume`, and direct governed runs keep the existing manual recovery posture unless they explicitly execute through continuous auto-retry handling.
 
 ## Behavior
 
@@ -117,6 +120,15 @@ Minimum persisted state shape:
 
 This can live in `continuous-session.json` or governed state, but the implementation must justify the chosen owner before code lands. Continuous-session ownership is likely cleaner because BUG-61 is a continuous/full-auto behavior change, while governed state should keep the existing manual recovery truth.
 
+**Turn 175 Claude Opus 4.7 position on state ownership:** continuous-session.json is the correct owner for the retry counter, BUT the exhaustion outcome must be mirrored into governed state so `agentxchain status` and the dashboard show the truth. Concretely:
+
+- `continuous-session.json::ghost_retry` owns the mutable attempt counter, the last old/new turn ids, and the per-run reset semantics.
+- When retry budget is exhausted and the session transitions to `ghost_retry_exhausted`, governed state's `blocked_reason.recovery.detail` must include the attempt count and the exhaustion fact so that non-continuous surfaces (status, dashboard, operator CLI) report accurately even after the continuous process exits.
+- Retry state MUST NOT live inside governed state's phase-gate / decision-ledger tables. BUG-62's reconcile path is going to distinguish safe vs unsafe operator commits by what touches governed state; ephemeral recovery metadata there would broaden the unsafe surface needlessly.
+- On session resume (new continuous-session.json created for the same run_id via `--continue-from`), retry counters reset to zero. A cold resume is a fresh recovery window. If this produces a real infinite-loop risk in practice, the follow-up is a signature-based early stop (Open Question #2), not a global counter promoted to governed state.
+
+This position should be captured as `DEC-BUG61-GHOST-RETRY-STATE-OWNERSHIP-001` before implementation code lands, per DEC-authoring-before-cli/src/lib-changes.
+
 ### Exhaustion Flow
 
 If retry budget is exhausted:
@@ -148,8 +160,11 @@ If retry budget is exhausted:
 
 ### Unit / Integration
 
-- `resolveContinuousOptions()` returns default `autoRetryOnGhost.enabled === true`, `maxRetriesPerRun === 3`, and `cooldownSeconds === 5` for continuous mode.
-- Explicit config can disable auto-retry and preserve current manual ghost-block behavior.
+- `resolveContinuousOptions()` returns default `autoRetryOnGhost.enabled === false`, `maxRetriesPerRun === 3`, and `cooldownSeconds === 5` for continuous mode when the approval_policy posture is NOT full-auto.
+- `resolveContinuousOptions()` returns `autoRetryOnGhost.enabled === true` when the approval_policy posture resolves to full-auto (routine gates auto_approve AND phase_transitions.default auto_approve AND run_completion.action auto_approve) AND the config does not set `enabled: false`.
+- `--no-auto-retry-on-ghost` CLI flag forces `enabled: false` even under a full-auto posture.
+- `--auto-retry-on-ghost` CLI flag forces `enabled: true` even under a non-full-auto posture.
+- Explicit `auto_retry_on_ghost.enabled: true` config can opt-in to auto-retry and preserves current manual ghost-block behavior when absent.
 - Ghost retry helper returns "retry" only for `blocked_reason.category === "ghost_turn"` plus an active `failed_start` turn with typed startup failure.
 - Ghost retry helper returns "do not retry" for stale turns, gate blockers, budget blockers, and credentialed approval blockers.
 - Retry budget increments once per auto-reissue and caps at `max_retries_per_run`.
@@ -176,5 +191,5 @@ When implementation lands:
 
 1. Should retry counters live only in `continuous-session.json`, or also be mirrored into governed state for dashboard visibility?
 2. Should fingerprint-based early stop ship in the first BUG-61 implementation slice, or is the run-scoped cap sufficient for v1?
-3. Should `auto_retry_on_ghost.enabled` default to true for all continuous sessions, or only when the project has an explicit full-auto policy posture? The roadmap says enabled by default for full-auto mode, but full-auto is currently a policy posture rather than a separate normalized mode.
+3. ~~Should `auto_retry_on_ghost.enabled` default to true for all continuous sessions, or only when the project has an explicit full-auto policy posture?~~ **RESOLVED Turn 175:** primitive default is `enabled: false`; resolver promotes to `enabled: true` only when the approval_policy resolves to full-auto posture AND continuous is enabled AND the config does not explicitly set `enabled: false`. CLI flags always win. See Default Posture section above.
 4. Should `auto_retried_ghost` be added to `VALID_RUN_EVENTS`, and should the dashboard/recent-event summary render it specially?

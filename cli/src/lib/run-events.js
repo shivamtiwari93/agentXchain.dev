@@ -38,6 +38,7 @@ export const VALID_RUN_EVENTS = [
   'gate_pending',
   'gate_approved',
   'gate_failed',
+  'phase_cleanup',
   'budget_exceeded_warn',
   'human_escalation_raised',
   'human_escalation_resolved',

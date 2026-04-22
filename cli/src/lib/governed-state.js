@@ -1600,6 +1600,95 @@ function resolvePhaseTransitionSource(historyEntries, gateFailure, fallbackTurnI
   return requestedSource;
 }
 
+function buildStandingPhaseTransitionSource(state, config) {
+  const phase = state?.phase;
+  const routing = phase ? config?.routing?.[phase] : null;
+  const gateId = routing?.exit_gate || null;
+  const nextPhase = getNextPhase(phase, config?.routing || {});
+  if (!phase || !gateId || !nextPhase) {
+    return null;
+  }
+  if ((state?.phase_gate_status || {})[gateId] !== 'pending') {
+    return null;
+  }
+  return {
+    turn_id: state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null,
+    run_id: state?.run_id || null,
+    role: null,
+    assigned_role: null,
+    phase,
+    status: 'completed',
+    phase_transition_request: nextPhase,
+    summary: `Synthetic ${gateId} transition source for operator-unblocked standing gate.`,
+    verification: { status: 'pass' },
+  };
+}
+
+function getPhaseRoles(config, phase) {
+  const routing = config?.routing?.[phase] || {};
+  const roles = new Set();
+  if (typeof routing.entry_role === 'string' && routing.entry_role) {
+    roles.add(routing.entry_role);
+  }
+  if (Array.isArray(routing.allowed_next_roles)) {
+    for (const role of routing.allowed_next_roles) {
+      if (typeof role === 'string' && role) roles.add(role);
+    }
+  }
+  return roles;
+}
+
+function cleanupPhaseAdvanceArtifacts(root, state, config, fromPhase) {
+  const phaseRoles = getPhaseRoles(config, fromPhase);
+  const activeTurns = getActiveTurns(state);
+  const removedTurnIds = [];
+  const nextActiveTurns = {};
+  for (const [turnId, turn] of Object.entries(activeTurns)) {
+    const role = turn?.assigned_role || turn?.role_id || turn?.role || null;
+    if (phaseRoles.has(role) && turn?.status !== 'accepted' && turn?.status !== 'completed') {
+      removedTurnIds.push(turnId);
+      continue;
+    }
+    nextActiveTurns[turnId] = turn;
+  }
+
+  const nextReservations = { ...(state?.budget_reservations || {}) };
+  const clearedBudgetTurnIds = [];
+  for (const turnId of removedTurnIds) {
+    if (Object.prototype.hasOwnProperty.call(nextReservations, turnId)) {
+      delete nextReservations[turnId];
+      clearedBudgetTurnIds.push(turnId);
+    }
+  }
+
+  const removedDispatchTurnIds = [];
+  for (const turnId of removedTurnIds) {
+    const dispatchDir = join(root, getDispatchTurnDir(turnId));
+    if (existsSync(dispatchDir)) {
+      try {
+        rmSync(dispatchDir, { recursive: true, force: true });
+        removedDispatchTurnIds.push(turnId);
+      } catch {
+        // Best-effort cleanup; state correctness must not depend on filesystem pruning.
+      }
+    }
+  }
+
+  return {
+    state: {
+      ...state,
+      active_turns: nextActiveTurns,
+      budget_reservations: nextReservations,
+    },
+    payload: {
+      from_phase: fromPhase,
+      removed_turn_ids: removedTurnIds,
+      cleared_budget_turn_ids: clearedBudgetTurnIds,
+      removed_dispatch_turn_ids: removedDispatchTurnIds,
+    },
+  };
+}
+
 function buildBlockedReason({ category, recovery, turnId, blockedAt = new Date().toISOString() }) {
   return {
     category,
@@ -2355,7 +2444,7 @@ export function markRunBlocked(root, details) {
     blockedAt,
   });
 
-  const updatedState = {
+  let updatedState = {
     ...state,
     status: 'blocked',
     blocked_on: details.blockedOn,
@@ -2607,13 +2696,15 @@ export function reactivateGovernedRun(root, state, details = {}) {
   };
 }
 
-export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) {
+export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null, opts = {}) {
   const currentState = state && typeof state === 'object' ? state : readState(root);
   if (!currentState) {
     return { ok: false, error: 'No governed state.json found' };
   }
 
-  if (currentState.status !== 'active' || getActiveTurnCount(currentState) > 0) {
+  const activeTurnCount = getActiveTurnCount(currentState);
+  const allowActiveTurnCleanup = opts?.allow_active_turn_cleanup === true;
+  if (currentState.status !== 'active' || (activeTurnCount > 0 && !allowActiveTurnCleanup)) {
     return {
       ok: true,
       state: attachLegacyCurrentTurnAlias(currentState),
@@ -2643,12 +2734,15 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
   }
 
   const historyEntries = readJsonlEntries(root, HISTORY_PATH);
-  const phaseSource = resolvePhaseTransitionSource(
+  let phaseSource = resolvePhaseTransitionSource(
     historyEntries,
     gateFailure,
     currentState.last_completed_turn_id || null,
     currentState.queued_phase_transition || null,
   );
+  if (!phaseSource?.phase_transition_request && opts?.allow_standing_gate === true) {
+    phaseSource = buildStandingPhaseTransitionSource(currentState, config);
+  }
   if (!phaseSource?.phase_transition_request) {
     return {
       ok: true,
@@ -2685,7 +2779,7 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
     if (approvalResult.action === 'auto_approve') {
       const now = new Date().toISOString();
       const prevPhase = currentState.phase;
-      const nextState = {
+      let nextState = {
         ...currentState,
         phase: gateResult.next_phase,
         phase_entered_at: now,
@@ -2699,6 +2793,8 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
           [gateResult.gate_id || 'no_gate']: 'passed',
         },
       };
+      const cleanup = cleanupPhaseAdvanceArtifacts(root, nextState, config, prevPhase);
+      nextState = cleanup.state;
       writeState(root, nextState);
       appendJsonl(root, LEDGER_PATH, {
         type: 'approval_policy',
@@ -2735,6 +2831,17 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
           from: prevPhase,
           to: gateResult.next_phase,
           gate_id: gateResult.gate_id || 'no_gate',
+          trigger: 'auto_approved',
+        },
+      });
+      emitRunEvent(root, 'phase_cleanup', {
+        run_id: nextState.run_id,
+        phase: nextState.phase,
+        status: nextState.status,
+        payload: {
+          ...cleanup.payload,
+          to_phase: gateResult.next_phase,
+          gate_id: gateResult.gate_id || null,
           trigger: 'auto_approved',
         },
       });
@@ -2789,7 +2896,7 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
 
   const now = new Date().toISOString();
   const prevPhase = currentState.phase;
-  const nextState = {
+  let nextState = {
     ...currentState,
     phase: gateResult.next_phase,
     phase_entered_at: now,
@@ -2803,6 +2910,8 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
       [gateResult.gate_id || 'no_gate']: 'passed',
     },
   };
+  const cleanup = cleanupPhaseAdvanceArtifacts(root, nextState, config, prevPhase);
+  nextState = cleanup.state;
 
   writeState(root, nextState);
   const retiredIntentIds = retireApprovedPhaseScopedIntents(root, nextState, config, prevPhase, now);
@@ -2829,6 +2938,18 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null) 
       from: prevPhase,
       to: gateResult.next_phase,
       gate_id: gateResult.gate_id || 'no_gate',
+      trigger: 'reconciled_before_dispatch',
+    },
+  });
+  emitRunEvent(root, 'phase_cleanup', {
+    run_id: nextState.run_id,
+    phase: nextState.phase,
+    status: nextState.status,
+    turn: phaseSource.turn_id ? { turn_id: phaseSource.turn_id, role_id: phaseSource.role || phaseSource.assigned_role || null } : undefined,
+    payload: {
+      ...cleanup.payload,
+      to_phase: gateResult.next_phase,
+      gate_id: gateResult.gate_id || null,
       trigger: 'reconciled_before_dispatch',
     },
   });
@@ -2876,7 +2997,7 @@ export function initializeGovernedRun(root, config, options = {}) {
   const now = new Date().toISOString();
   const provenance = buildDefaultRunProvenance(options.provenance);
   const repoDecisions = getActiveRepoDecisions(root);
-  const updatedState = {
+  let updatedState = {
     ...state,
     run_id: runId,
     created_at: now,
@@ -4604,7 +4725,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const remainingReservations = { ...(state.budget_reservations || {}) };
   delete remainingReservations[currentTurn.turn_id];
   const costUsd = turnResult.cost?.usd || 0;
-  const updatedState = {
+  let updatedState = {
     ...state,
     turn_sequence: acceptedSequence,
     last_completed_turn_id: currentTurn.turn_id,
@@ -4946,6 +5067,8 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             [gateResult.gate_id || 'no_gate']: 'passed',
           };
           updatedState.queued_phase_transition = null;
+          const cleanup = cleanupPhaseAdvanceArtifacts(root, updatedState, config, prevPhase);
+          updatedState = cleanup.state;
           const retiredIntentIds = retireApprovedPhaseScopedIntents(root, updatedState, config, prevPhase, now);
           if (retiredIntentIds.length > 0) {
             emitRunEvent(root, 'intent_retired_by_phase_advance', {
@@ -4973,6 +5096,18 @@ function _acceptGovernedTurnLocked(root, config, opts) {
               trigger: 'auto',
             },
           });
+          emitRunEvent(root, 'phase_cleanup', {
+            run_id: updatedState.run_id,
+            phase: updatedState.phase,
+            status: updatedState.status,
+            turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+            payload: {
+              ...cleanup.payload,
+              to_phase: gateResult.next_phase,
+              gate_id: gateResult.gate_id || null,
+              trigger: 'auto',
+            },
+          });
         } else if (gateResult.action === 'awaiting_human_approval') {
           // Evaluate approval policy — may auto-approve
           const approvalResult = evaluateApprovalPolicy({
@@ -4992,6 +5127,8 @@ function _acceptGovernedTurnLocked(root, config, opts) {
               [gateResult.gate_id || 'no_gate']: 'passed',
             };
             updatedState.queued_phase_transition = null;
+            const cleanup = cleanupPhaseAdvanceArtifacts(root, updatedState, config, prevPhase);
+            updatedState = cleanup.state;
             ledgerEntries.push({
               type: 'approval_policy',
               gate_type: 'phase_transition',
@@ -5027,6 +5164,18 @@ function _acceptGovernedTurnLocked(root, config, opts) {
                 from: prevPhase,
                 to: gateResult.next_phase,
                 gate_id: gateResult.gate_id || 'no_gate',
+                trigger: 'auto_approved',
+              },
+            });
+            emitRunEvent(root, 'phase_cleanup', {
+              run_id: updatedState.run_id,
+              phase: updatedState.phase,
+              status: updatedState.status,
+              turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+              payload: {
+                ...cleanup.payload,
+                to_phase: gateResult.next_phase,
+                gate_id: gateResult.gate_id || null,
                 trigger: 'auto_approved',
               },
             });
@@ -5975,7 +6124,7 @@ export function approvePhaseTransition(root, config, opts = {}) {
     appendJsonl(root, LEDGER_PATH, entry);
   }
 
-  const updatedState = {
+  let updatedState = {
     ...state,
     phase: transition.to,
     phase_entered_at: new Date().toISOString(),
@@ -5989,6 +6138,8 @@ export function approvePhaseTransition(root, config, opts = {}) {
       [transition.gate]: 'passed',
     },
   };
+  const cleanup = cleanupPhaseAdvanceArtifacts(root, updatedState, config, transition.from);
+  updatedState = cleanup.state;
 
   writeState(root, updatedState);
   clearSlaReminders(root, 'pending_phase_transition');
@@ -6006,6 +6157,17 @@ export function approvePhaseTransition(root, config, opts = {}) {
       from: transition.from,
       to: transition.to,
       gate_id: transition.gate || 'no_gate',
+      trigger: 'human_approved',
+    },
+  });
+  emitRunEvent(root, 'phase_cleanup', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'active',
+    payload: {
+      ...cleanup.payload,
+      to_phase: transition.to,
+      gate_id: transition.gate || null,
       trigger: 'human_approved',
     },
   });

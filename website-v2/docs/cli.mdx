@@ -750,6 +750,8 @@ No flags.
 
 Resolves the current open human escalation record from `.agentxchain/human-escalations.jsonl`, updates `HUMAN_TASKS.md`, and continues the governed run through the same recovery path `resume` would use. This is the operator-focused command when `status` shows a concrete human task id such as `hesc_abcd1234`.
 
+For phase-gate escalations, `unblock` reconciles the gate before re-dispatching. If the gate is now satisfied, it marks the gate passed, advances to the next phase, clears stale retained turns from the phase being exited, emits `phase_cleanup`, and dispatches the new phase's entry role.
+
 ### `inject`
 
 ```bash

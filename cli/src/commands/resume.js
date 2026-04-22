@@ -94,6 +94,7 @@ export async function resumeCommand(opts) {
   const activeTurns = getActiveTurns(state);
   const resumeVia = opts?._via || 'resume';
   const turnResumeVia = opts?._via || 'resume --turn';
+  let skipRetainedRedispatch = false;
 
   if (state.status === 'active' && activeCount > 0) {
     if (activeCount === 1) {
@@ -142,7 +143,53 @@ export async function resumeCommand(opts) {
   // patched defensively) once the schema citation + migration citation are
   // documented in code and the coverage matrix.
 
-  if (state.status === 'blocked' && activeCount > 0) {
+  if (state.status === 'blocked' && activeCount > 0 && resumeVia === 'operator_unblock') {
+    const reactivated = reactivateGovernedRun(root, state, { via: resumeVia, notificationConfig: config });
+    if (!reactivated.ok) {
+      console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
+      process.exit(1);
+    }
+    state = reactivated.state;
+    console.log(chalk.green(`Resumed blocked run: ${state.run_id}`));
+    if (reactivated.migration_notice) {
+      console.log(chalk.yellow(reactivated.migration_notice));
+    }
+    if (reactivated.phantom_notice) {
+      console.log(chalk.yellow(reactivated.phantom_notice));
+    }
+
+    const phaseReconciliation = reconcilePhaseAdvanceBeforeDispatch(root, config, state, {
+      allow_active_turn_cleanup: true,
+      allow_standing_gate: true,
+    });
+    if (!phaseReconciliation.ok && !phaseReconciliation.state) {
+      console.log(chalk.red(`Failed to reconcile phase gate before dispatch: ${phaseReconciliation.error}`));
+      process.exit(1);
+    }
+    state = phaseReconciliation.state || state;
+    if (phaseReconciliation.advanced) {
+      console.log(chalk.green(`Advanced phase before dispatch: ${phaseReconciliation.from_phase} → ${phaseReconciliation.to_phase}`));
+      skipRetainedRedispatch = true;
+    } else {
+      markRunBlocked(root, {
+        category: 'needs_human',
+        blockedOn: state.blocked_on || 'human:unblock_reconcile_failed',
+        recovery: {
+          typed_reason: 'needs_human',
+          owner: 'human',
+          recovery_action: 'agentxchain approve-transition or agentxchain gate show <gate>',
+          turn_retained: true,
+          detail: 'Operator unblock resolved the escalation, but no phase transition could be materialized from the current gate state.',
+        },
+        turnId: opts.turn || null,
+        notificationConfig: config,
+      });
+      console.log(chalk.red('Unblock did not materialize a phase transition; leaving the run blocked for manual recovery.'));
+      process.exit(1);
+    }
+  }
+
+  if (state.status === 'blocked' && activeCount > 0 && !skipRetainedRedispatch) {
     let retainedTurn = null;
     if (opts.turn) {
       retainedTurn = activeTurns[opts.turn];

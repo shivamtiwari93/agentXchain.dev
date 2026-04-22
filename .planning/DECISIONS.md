@@ -90,3 +90,23 @@ The runbook must include pinned `npx --yes -p agentxchain@2.151.0` commands, the
 Do not hide fixture repairs, behavior fixes, docs rewrites, or test expectation changes inside the generated bump commit. If the release gate discovers those changes are needed, reset or stash the bump outputs, land the repair as its own commit with its own proof, then rerun the release bump.
 
 **Why:** The v2.151.0 BUG-59 release found a long tail of stale tests that depended on manual gates. Splitting those repairs from the final bump kept the release commit auditable and made it clear which changes were behavior/test repairs versus mechanical release outputs.
+
+## DEC-BUG52-UNBLOCK-ADVANCES-PHASE-001
+
+**Status:** Active as of 2026-04-22.
+
+**Decision:** `agentxchain unblock <hesc_id>` on a phase-gate-tied human escalation is allowed to be the phase-advance trigger. It must not require a pre-existing `pending_phase_transition` object when the current phase has a standing pending exit gate and the gate evidence now passes.
+
+When unblock reactivates a blocked run that still has a retained same-phase active turn, resume must attempt phase reconciliation before re-dispatching that retained turn. If reconciliation advances, the prior-phase retained turn is stale and must not be re-dispatched.
+
+**Why:** The v2.151.0 `tusq.dev` dogfood reproduced seven approval loops where `pending_phase_transition` was `null`, `phase_gate_status.planning_signoff` was `pending`, and `unblock` resolved the escalation but reassigned PM instead of entering implementation. The human approval itself is the missing trigger; requiring a separately materialized pending object recreates the loop.
+
+## DEC-BUG52-STATE-CLEANUP-ON-PHASE-ADVANCE-001
+
+**Status:** Active as of 2026-04-22.
+
+**Decision:** Every phase advance path must clear stale prior-phase active turns before dispatching the next phase. Cleanup includes active turn entries, matching budget reservations, and best-effort dispatch bundle directories. The cleanup emits a `phase_cleanup` run event with the removed turn ids and budget/dispatch cleanup details.
+
+Completed or accepted turns are not removed by cleanup. The cleanup is for retained/dispatched/retrying artifacts from the phase being exited.
+
+**Why:** The BUG-52 third variant left stale PM active turns and budget reservations in state after the operator had approved the planning gate. Without atomic cleanup, the dispatcher sees a retained same-phase turn and loops back to PM even though the phase gate has been approved.

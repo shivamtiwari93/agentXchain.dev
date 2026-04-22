@@ -3165,6 +3165,10 @@ exec sleep 30
       bug52ScenarioContent,
       'Turn 94: resume advances from queued_phase_transition even when the latest accepted turn had no phase request',
     );
+    const standingGateCleanupBlock = extractScenarioItBlock(
+      bug52ScenarioContent,
+      'Turn 176: unblock advances standing pending gate and cleans stale same-phase active turn before redispatch',
+    );
     assert.ok(
       /planning_signoff/.test(planningBlock)
         && /phase_transition_request:\s*['"]implementation['"]/.test(planningBlock)
@@ -3180,8 +3184,13 @@ exec sleep 30
         && /assigned_role[\s\S]{0,120}['"]dev['"]/.test(needsHumanBlock)
         && /queued_phase_transition/.test(queuedRecoveryBlock)
         && /last_completed_turn_id/.test(queuedRecoveryBlock)
-        && /assigned_role[\s\S]{0,120}['"]qa['"]/.test(queuedRecoveryBlock),
-      'BUG-52 tester-sequence regression must cover the separated checkpoint planning/qa lanes plus the Turn 93 needs_human orphan-request path and Turn 94 queued_phase_transition recovery path. If this fails, the repo test matrix is narrower than the shipped reconcile behavior it claims to prove.',
+        && /assigned_role[\s\S]{0,120}['"]qa['"]/.test(queuedRecoveryBlock)
+        && /pending_phase_transition:\s*null/.test(standingGateCleanupBlock)
+        && /planning_signoff:\s*['"]pending['"]/.test(standingGateCleanupBlock)
+        && /phase_cleanup/.test(standingGateCleanupBlock)
+        && /budget_reservations/.test(standingGateCleanupBlock)
+        && /assigned_role[\s\S]{0,120}['"]dev['"]/.test(standingGateCleanupBlock),
+      'BUG-52 tester-sequence regression must cover the separated checkpoint planning/qa lanes, Turn 93 needs_human orphan-request path, Turn 94 queued_phase_transition recovery path, and Turn 176 standing pending gate + stale active turn cleanup path. If this fails, the repo test matrix is narrower than the shipped reconcile behavior it claims to prove.',
     );
 
     const { packageDir } = getExtractedPackage();

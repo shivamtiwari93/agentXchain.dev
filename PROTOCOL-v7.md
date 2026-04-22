@@ -114,6 +114,9 @@ These are the current reference-runner commands. Other runners may expose differ
 - `agentxchain reject-turn`
 - `agentxchain approve-transition`
 - `agentxchain approve-completion`
+- `agentxchain unblock`
+
+If `unblock <hesc_id>` resolves a human escalation tied to a satisfied phase exit gate, the runner may advance the phase even when no `pending_phase_transition` object was previously materialized. The approval must be auditable: the gate is marked passed, stale active turns from the exited phase are cleared before redispatch, and a `phase_cleanup` event records the cleanup.
 
 ## 4. Coordinator Initiative Model
 

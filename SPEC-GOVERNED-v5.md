@@ -482,6 +482,7 @@ Five stages, executed in order. Short-circuits on first failure.
 | active (conflicted) | reject --reassign | retries remaining | active (rebased, attempt++) | Re-baselines, redispatches with conflict context |
 | active (conflicted) | human_merge | operator resolves | active (re-validate) | Re-runs acceptance pipeline |
 | paused (pending_phase_transition) | approveTransition | human approval | active (new phase) | Advances phase |
+| blocked (human escalation on phase gate) | unblock | human approval + standing pending exit gate passes | active (new phase) | Resolves escalation, materializes/consumes the phase transition, clears stale prior-phase active turns, emits `phase_cleanup` |
 | paused (pending_run_completion) | approveCompletion | human approval | completed | Terminal |
 | blocked | step --resume | operator resolves | active | Clears blocked state |
 
@@ -490,6 +491,7 @@ Five stages, executed in order. Short-circuits on first failure.
 - The orchestrator never enters `accepting` for an unvalidated turn result
 - Phase advancement is gate-driven and orchestrator-enforced, never from agent suggestion alone
 - Phase transitions require all active turns resolved before gate evaluation (v1.1)
+- `unblock <hesc_id>` may be the phase-advance trigger for a human escalation tied to a standing pending phase exit gate, even when `pending_phase_transition` is null. In that path, the runner must clear stale retained turns from the phase being exited before dispatching the next phase.
 - Acceptance never auto-assigns the next turn
 - Retry is per turn assignment, not per phase
 - Budget tracking is monotonically non-decreasing
@@ -664,6 +666,7 @@ Adapters may not:
 | `reject-turn --reason <text>` | Reject the staged turn result, retry, or escalate |
 | `approve-transition` | Approve pending phase transition |
 | `approve-completion` | Approve pending run completion |
+| `unblock <hesc_id>` | Resolve the current human escalation; if it is tied to a satisfied phase exit gate, advance the phase before redispatch |
 | `validate` | Validate governed config, state, and staged artifacts |
 
 ### 11.2 Parallel Turn Targeting (v1.1)
