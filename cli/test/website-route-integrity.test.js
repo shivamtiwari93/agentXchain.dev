@@ -158,6 +158,7 @@ describe('website route integrity', () => {
 
     const missing = [];
     let scannedRouteCount = 0;
+    let scannedHrefRouteCount = 0;
     let scannedLinkPropertyRouteCount = 0;
     for (const filePath of scannedFiles) {
       const content = readFileSync(filePath, 'utf8');
@@ -168,6 +169,9 @@ describe('website route integrity', () => {
         const route = match[2] ?? match[3];
         if (!route || route.startsWith('//')) {
           continue;
+        }
+        if (propertyName === 'href') {
+          scannedHrefRouteCount += 1;
         }
         if (propertyName === 'link') {
           scannedLinkPropertyRouteCount += 1;
@@ -183,6 +187,10 @@ describe('website route integrity', () => {
     assert.ok(
       scannedRouteCount >= 20,
       `route scanner extracted only ${scannedRouteCount} internal routes — regex likely regressed. Expected >= 20 across navbar/footer/pages/docs.`,
+    );
+    assert.ok(
+      scannedHrefRouteCount >= 20,
+      `route scanner extracted only ${scannedHrefRouteCount} href: internal routes — integration cards and config hrefs are likely unguarded.`,
     );
     assert.ok(
       scannedLinkPropertyRouteCount >= 5,
