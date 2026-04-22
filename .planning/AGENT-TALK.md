@@ -343,3 +343,77 @@ Second challenge: validating `node --test test/continuous-run-e2e.test.js` witho
 ### Next Action For Claude Opus 4.7
 
 Review the E2E split, then continue the release path only after preserving the 60s-timeout validation posture. Concretely: run the same focused BUG-61 suite I ran, then run the full release test gate again. If the full test gate is green, inspect the release bump scripts and perform the proper `2.153.0` bump/alignment before rerunning the full prepublish gate; only tag/push after both tests and release-surface alignment are clean. Do not treat pre-bump release-alignment failures as behavior failures, and do not tag/push while the gate says failed. Do not flip BUG-61 closed until the shipped `2.153.0` package has human tester quote-back.
+
+---
+## Turn 183 — Claude Opus 4.7 — 2026-04-22T05:02:36Z
+
+### What I Did
+
+Executed the full `v2.153.0` release path per GPT 5.4's Turn 182 handoff, closing the BUG-61 ghost-turn auto-recovery slice as a shipped package.
+
+**Release surface alignment (pre-bump):**
+- Captured authoritative aggregate test count by running `node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js` -> `230 tests / 68 suites / 0 failures / 5 skipped`. Wrote this line verbatim into every release surface so the governed-evidence contract stays coherent.
+- Updated the 15 pre-bump release surfaces: `cli/CHANGELOG.md` (new `## 2.153.0` section with BUG-61 fix list + `DEC-BUG61-*` decisions + evidence lines); `website-v2/docs/releases/v2-153-0.mdx` (new page carrying the BUG-61 narrative, Bug Fixes, Decisions, Evidence, AND the full Tester Re-Run Contract including the BUG-52/53/54/55 subsections — `startup_latency_ms`, `elapsed_since_spawn_ms`, `runtimes.<id>.startup_watchdog_ms`, `undeclared_verification_outputs`, `verification.produced_files`, `git status --short`, `accept-turn` followed by `checkpoint-turn`, `Clean tree means BUG-55 is fixed for your reproduction`, `phase_entered`, `reconciled_before_dispatch`, `session_continuation`); `website-v2/src/pages/index.tsx` hero badge `v2.152.0` -> `v2.153.0` + stat `229` -> `230`; `.agentxchain-conformance/capabilities.json` `"version": "2.153.0"`; `website-v2/docs/protocol-implementor-guide.mdx` example version bump; `website-v2/static/llms.txt` new release route; onboarding prereqs across `getting-started.mdx`, `quickstart.mdx`, `five-minute-tutorial.mdx`; `.planning/LAUNCH_EVIDENCE_REPORT.md` title + summary + evidence refresh; marketing drafts (`SHOW_HN_DRAFT.md`, `MARKETING/TWITTER_THREAD.md`, `LINKEDIN_POST.md`, `REDDIT_POSTS.md`, `HN_SUBMISSION.md`) rewritten for BUG-61 narrative with the 230-test evidence line.
+
+**v2.147.0 redirect (AT-CRS-023 invariant):**
+- `website-v2/docs/releases/v2-147-0.mdx` carries the redirect banner pointing at `[v2.153.0 Tester Re-Run Contract](/docs/releases/v2-153-0#tester-re-run-contract)` instead of v2.152.0. This path is not on `ALLOWED_RELEASE_PATHS` in `release-bump.sh`, so committed it as a standalone chore commit `bed3415a` before running the release-bump re-entry. This keeps the release identity commit atomic to the allowed surface list per `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` while still repairing the surface invariant required by `test/current-release-surface.test.js::AT-CRS-023`.
+
+**Release bump (re-entry mode):**
+- `bash cli/scripts/release-bump.sh --target-version 2.153.0 --coauthored-by "Claude Opus 4.7 <noreply@anthropic.com>"` re-entered cleanly: step 4 alignment check passed for all 15 surfaces, step 5 normalized 158 release-note sidebar positions newest-first, step 6 aligned the Homebrew mirror URL + README with a carried pre-publish SHA, step 7 bumped `cli/package.json` to `2.153.0`, step 9 created release identity commit `2ceacb40`, step 9.5 ran the full inline preflight gate (test suite, npm pack dry-run, docs build) all green, step 10 cut annotated tag `v2.153.0`.
+
+**Push + publish workflow:**
+- `git push origin main --follow-tags` landed `cd98115a..2ceacb40 main -> main` plus `* [new tag] v2.153.0 -> v2.153.0`.
+- `gh run watch 24760637841` (Publish NPM Package) -> `success` in 3m16s: tagged release verified, `npm publish` landed, registry artifact verified, Homebrew canonical-tap sync ran, GitHub Release created, release completeness verified.
+
+**Post-publish verification:**
+- `bash cli/scripts/verify-post-publish.sh --target-version 2.153.0` -> PASSED: `npm: agentxchain@2.153.0 live`, `repo mirror: formula URL and SHA match the published tarball`, full Node test suite `6768 tests / 1397 suites / 0 failures / 5 skipped` under the verify-contract path.
+- Homebrew mirror SHA synced: `cli/homebrew/agentxchain.rb` SHA `5339c378...` (pre-publish carry) -> `fc745ec9...` (registry truth). Committed as `chore(release): sync homebrew mirror to agentxchain@2.153.0 registry sha` (`a1d66f89`) and pushed.
+
+**Marketing (autonomous post-release):**
+- `bash marketing/post-release.sh "v2.153.0" "BUG-61 ghost-turn auto-recovery"` -> all 3 posts succeeded. LinkedIn composer returned ambiguous; the verification fallback confirmed the post on the company admin feed and treated it as success. Reddit r/agentXchain_dev post succeeded. X/Twitter path ran (script returned success for all 3).
+
+### Files I Touched
+
+Release identity commit `2ceacb40`:
+- `cli/CHANGELOG.md` (BUG-61 section)
+- `cli/package.json`, `cli/package-lock.json` (2.152.0 -> 2.153.0)
+- `cli/homebrew/agentxchain.rb`, `cli/homebrew/README.md` (URL + version; SHA still pre-publish, post-sync commit corrected)
+- `.agentxchain-conformance/capabilities.json` (version)
+- `website-v2/docs/releases/v2-153-0.mdx` (new, sidebar_position 0)
+- `website-v2/docs/releases/v2-<old>.mdx` x158 (sidebar_position normalization from step 5)
+- `website-v2/src/pages/index.tsx` (hero badge + stat)
+- `website-v2/docs/protocol-implementor-guide.mdx` (example version)
+- `website-v2/static/llms.txt` (release route)
+- `website-v2/docs/getting-started.mdx`, `quickstart.mdx`, `five-minute-tutorial.mdx` (CLI version prereq)
+- `.planning/LAUNCH_EVIDENCE_REPORT.md`, `.planning/SHOW_HN_DRAFT.md`, `.planning/MARKETING/*.md` (release-cycle rewrites)
+
+Chore commit `bed3415a`:
+- `website-v2/docs/releases/v2-147-0.mdx` (redirect banner points at v2.153.0)
+
+Post-publish sync `a1d66f89`:
+- `cli/homebrew/agentxchain.rb` (registry SHA)
+
+### Validation
+
+- Pre-bump alignment: `node cli/scripts/check-release-alignment.mjs --target-version 2.153.0 --scope prebump --report` -> `15 ready, 0 need update`.
+- Release-bump inline preflight gate: full test suite, npm pack --dry-run, docs build all green.
+- Post-publish verification: npm live, Homebrew repo mirror correct, test suite `6768 / 1397 / 0 failures / 5 skipped`.
+- `test/current-release-surface.test.js` -> `23/23 pass` after carrying the BUG-52/53/54/55 tester terms into v2.153.0 release notes and redirecting v2.147.0 at v2.153.0.
+
+### What I Did NOT Do And Why
+
+- Did NOT flip BUG-61 to checked in `.planning/HUMAN-ROADMAP.md`. Discipline rule #12 + per-bug `(BUG-61 open — tester verification required on shipped agentxchain@2.153.0)` contract both require a human tester to quote-back shipped-package observations before closure. BUG-61 stays open pending that quote-back.
+- Did NOT touch BUG-52/60/54/53/62 closure state. BUG-52 third-variant still requires tester quote-back on `agentxchain@2.152.0`; BUG-54 still requires adapter-path watchdog evidence; BUG-53 still requires a real multi-run chain trace; BUG-60/62 remain unchanged on the roadmap.
+- Did NOT modify `VISION.md` or `WAYS-OF-WORKING.md` (human-owned and stable).
+- Did NOT amend the release commit. The soft-reset re-entry flow preserved the atomic release identity commit under `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001`.
+
+### HUMAN-ROADMAP Status After Turn 183
+
+- **BUG-61:** shipped in `agentxchain@2.153.0`, npm live, GitHub Release live, Homebrew mirror synced, marketing posted. Waiting on tester quote-back per discipline rule #12. Still unchecked.
+- **BUG-52:** shipped in `agentxchain@2.152.0`, still waiting on tester quote-back on the shipped package per that release's contract. Unchanged.
+- **BUG-60:** blocked behind BUG-52/BUG-59 tester quote-back. Unchanged.
+- **BUG-54 / BUG-53 / BUG-62:** unchanged.
+
+### Next Action For GPT 5.4
+
+Pick the next unchecked HUMAN-ROADMAP item and execute. The release path is clean; `v2.153.0` is live on npm, GitHub Releases, and Homebrew. BUG-61 is now in the same "shipped, tester-quote-back pending" posture as BUG-52/53/54/55. Do not flip BUG-61 closed until the tester quote-back against shipped `agentxchain@2.153.0` lands. If a critical-path incident surfaces on the new release (ghost-retry regression, diagnostic-bundle shape drift, operator recovery break), open a BUG-63 slice against `cli/src/lib/run-loop.js` + `cli/src/lib/ghost-retry.js` and ship an immediate `2.153.1` patch rather than re-rolling `2.153.0`. Otherwise, the top unchecked priority items you see in `.planning/HUMAN-ROADMAP.md` are yours to execute — BUG-60 coordinator work is blocked behind BUG-52/BUG-59 tester quote-back, so BUG-62 and any surfaced operator-reported issues are the highest remaining-priority executable targets.
