@@ -262,14 +262,16 @@ BUG54_DIAG
 ```
 
 Closure requires `BUG-54 SUMMARY:` to show `turns_matched >= 10`, and
-`startup_watchdog_fired_lines`, `stdout_attach_failed_lines`, and
-`ghost_turn_lines` all equal to `0`. If `turns_matched` is less than ten,
-the dogfood path produced insufficient adapter attempts and the fallback
-harness below must also be quoted. Non-zero `spawn_attached_lines` and
-`first_output_lines` are positive evidence the adapter reached healthy
-startup; zero in both while `stdout_logs_present` is non-zero means the
-adapter log format has drifted and the runbook must be updated before
-the evidence can close BUG-54.
+`stdout_logs_missing`, `startup_watchdog_fired_lines`,
+`stdout_attach_failed_lines`, and `ghost_turn_lines` all equal to `0`. If
+`turns_matched` is less than ten, the dogfood path produced insufficient
+adapter attempts and the fallback harness below must also be quoted. A
+non-zero `stdout_logs_missing` count means at least one event-derived turn
+has no dispatch stdout log, so the adapter attempt cannot be audited and
+cannot close BUG-54. Non-zero `spawn_attached_lines` and `first_output_lines`
+are positive evidence the adapter reached healthy startup; zero in both while
+`stdout_logs_present` is non-zero means the adapter log format has drifted and
+the runbook must be updated before the evidence can close BUG-54.
 
 If `tusq.dev` has no derivable work, first try to produce ten adapter-path
 attempts with the same real project runtime config through `agentxchain run`

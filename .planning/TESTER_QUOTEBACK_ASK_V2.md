@@ -130,12 +130,14 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
 
    The `BUG-54 SUMMARY:` JSON line is the single check. Closure requires
    `turns_matched >= 10` AND
-   `startup_watchdog_fired_lines: 0, stdout_attach_failed_lines: 0, ghost_turn_lines: 0`.
+   `stdout_logs_missing: 0, startup_watchdog_fired_lines: 0, stdout_attach_failed_lines: 0, ghost_turn_lines: 0`.
    If `turns_matched < 10`, run the fallback harness below and paste
-   both outputs. Zero `spawn_attached_lines` and `first_output_lines`
-   while `stdout_logs_present > 0` means the adapter log format drifted
-   and the runbook needs updating before closure — quote the SUMMARY and
-   stop.
+   both outputs. Non-zero `stdout_logs_missing` means at least one
+   event-derived turn has no dispatch stdout log, so the adapter attempt
+   cannot be audited and cannot close BUG-54. Zero `spawn_attached_lines`
+   and `first_output_lines` while `stdout_logs_present > 0` means the adapter
+   log format drifted and the runbook needs updating before closure — quote
+   the SUMMARY and stop.
 
    **Fallback path (no derivable work on `tusq.dev`).** Extract the shipped repro harness from the published tarball and run it from the `tusq.dev` repo root so it auto-discovers the project's `agentxchain.json` runtimes. This mirrors `BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` verbatim — if a drift ever appears between the two, the runbook is canonical:
 

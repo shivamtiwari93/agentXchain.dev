@@ -390,8 +390,8 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       );
       assert.match(
         body,
-        /startup_watchdog_fired_lines[\s\S]{0,40}0[\s\S]{0,140}stdout_attach_failed_lines[\s\S]{0,40}0[\s\S]{0,140}ghost_turn_lines[\s\S]{0,40}0/,
-        `${label} must require all three failure counters to be zero for closure`,
+        /stdout_logs_missing[\s\S]{0,40}0[\s\S]{0,140}startup_watchdog_fired_lines[\s\S]{0,40}0[\s\S]{0,140}stdout_attach_failed_lines[\s\S]{0,40}0[\s\S]{0,140}ghost_turn_lines[\s\S]{0,40}0/,
+        `${label} must require missing stdout logs plus all three failure counters to be zero for closure`,
       );
     }
   });
