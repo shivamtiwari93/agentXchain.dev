@@ -4,7 +4,7 @@
 > **Author:** GPT 5.4 (Codex), Turn 264
 > **Status:** Documentation-only plan. No implementation. No source files modified.
 > **Written at:** 2026-04-22T23:27:02Z
-> **Inputs:** `BUG_60_RESEARCH_CLAUDE.md`, `BUG_60_REVIEW_GPT.md`, `BUG_60_PLAN_PREFACE.md`, `BUG_60_PLAN_PREFACE_GPT_REVIEW.md`, `BUG_60_PLAN_PREFACE_RECONCILIATION_CLAUDE.md`, `BUG_60_DECISION_CANDIDATE_AUDIT.md`, `BUG_60_DOC_SURFACE_AUDIT.md`, `BUG_60_TEST_SURFACE_AUDIT.md`.
+> **Inputs:** `BUG_60_RESEARCH_CLAUDE.md`, `BUG_60_REVIEW_GPT.md`, `BUG_60_PLAN_PREFACE.md`, `BUG_60_PLAN_PREFACE_GPT_REVIEW.md`, `BUG_60_PLAN_PREFACE_RECONCILIATION_CLAUDE.md`, `BUG_60_DECISION_CANDIDATE_AUDIT.md`, `BUG_60_DOC_SURFACE_AUDIT.md`, `BUG_60_TEST_SURFACE_AUDIT.md`, `BUG_60_PLAN_REVIEW_CLAUDE.md`.
 
 This plan is intentionally not an implementation start. BUG-60 code remains blocked until the published-package BUG-52 and BUG-59 tester quote-back gates are satisfied. The value of this artifact is to remove ambiguity before that gate opens, so implementation does not reopen architecture, schema, prompt, budget, or proof questions under pressure.
 
@@ -37,7 +37,7 @@ Reject **Choice 2: per-dispatch prompt override**. It mutates the stable dispatc
 
 Backward compatibility: default `continuous.on_idle` is `"exit"`. Existing bounded BUG-53 idle-exit behavior must pass unchanged for projects that do not opt in.
 
-Vision-coherence invariant: every synthesized intake intent must cite at least one existing VISION.md heading or goal it advances; every `vision_exhausted` declaration must classify all top-level VISION.md headings as complete, deferred, or out of scope. The validator enforces this by exact heading match at acceptance time, not by prompt text alone.
+Vision-coherence invariant: every synthesized intake intent must cite at least one VISION.md heading or goal it advances; every `vision_exhausted` declaration must classify all top-level VISION.md headings as complete, deferred, or out of scope. The validator enforces this against a `session.vision_headings_snapshot` captured when the continuous session starts, not against live VISION.md headings at acceptance time. If VISION.md changes between sessions, the next session captures the new heading set. If VISION.md changes during an active session, the active session keeps its snapshot and the implementation emits an observable `vision_snapshot_stale` warning rather than silently rematching against a moving human-owned document.
 
 ## 2. Config Schema
 
@@ -64,15 +64,18 @@ Ship this schema under the existing continuous config block:
 }
 ```
 
-`on_idle` values:
+Supported `on_idle` values for the first BUG-60 implementation:
 
 - `exit`: current bounded behavior. Default.
 - `perpetual`: after idle threshold, dispatch PM idle-expansion instead of terminal idle exit.
-- `human_review`: stop and surface operator action rather than expanding autonomously. Implementation can parse this value in the first schema slice, but behavior may initially be equivalent to a distinct blocked/exit state if the plan's proof budget requires narrowing.
+
+`human_review` is reserved but intentionally unsupported in the first slice. The config validator must reject it with an actionable error: `continuous.on_idle: "human_review" is reserved but not supported yet. Use "exit" or "perpetual"; tracked as a BUG-64 candidate.` No parser may silently accept it as an alias for `exit` or `perpetual`.
 
 Use `idle_expansion`, not `on_idle_perpetual`, because the block names the sub-feature rather than one enum value. That keeps future modes from inheriting a value-specific config namespace.
 
-`sources` parsing contract: default sources are VISION, ROADMAP, and SYSTEM_SPEC. VISION.md missing or malformed is fail-fast because it is the human-owned source of truth. ROADMAP.md and SYSTEM_SPEC.md missing are warnings in the PM charter context, not hard failures, because new or small projects may not have them yet. Malformed ROADMAP/SYSTEM_SPEC content is included as raw context with a warning; the PM can still declare exhaustion or propose a repair intent.
+`sources` parsing contract: default sources are VISION, ROADMAP, and SYSTEM_SPEC. VISION.md missing or malformed is fail-fast because it is the human-owned source of truth. ROADMAP.md and SYSTEM_SPEC.md missing are warnings in the PM charter context, not hard failures, because new or small projects may not have them yet. ROADMAP/SYSTEM_SPEC are malformed if they cannot be decoded as UTF-8, exceed 64KB, or parse into fewer than one H1/H2 heading. Malformed ROADMAP/SYSTEM_SPEC entries are included in the PM source manifest with warning metadata; the PM can still declare exhaustion or propose a repair intent.
+
+Source access contract: the synthesized PM charter carries file references plus a bounded source manifest, not full arbitrary file contents. The manifest includes path, presence, byte count, warning code, extracted H1/H2 headings, and a bounded preview. Full source reading remains a normal PM turn responsibility using repo file access. Preview truncation is deterministic: at most 16KB per source and 48KB total, using head+tail with `[...truncated middle...]` inserted between halves. This keeps the dispatch prompt bounded while still giving the PM enough orientation to decide what to read.
 
 Persist `session.expansion_iteration` in the continuous session JSON. Deriving this from events is attractive but too expensive and fragile under event compaction. Existing sessions missing the field migrate to `0`.
 
@@ -212,12 +215,12 @@ Implementation order:
 
 1. `cli/src/lib/schemas/turn-result.schema.json`: add optional `idle_expansion_result`.
 2. `cli/src/lib/idle-expansion-result-validator.js`: new validation helper.
-3. `cli/src/lib/turn-result-validator.js`: call helper when result is an idle-expansion turn.
+3. `cli/src/lib/turn-result-validator.js`: call helper when result is an idle-expansion turn and pass the session VISION heading snapshot.
 4. `cli/src/lib/governed-state.js`: project `idle_expansion_result_summary` into history.
-5. `cli/src/lib/normalized-config.js`: parse `continuous.on_idle` and `continuous.idle_expansion`.
-6. `cli/src/lib/intake.js`: add `vision_idle_expansion` to `VALID_SOURCES`; keep signal deterministic.
-7. `cli/src/lib/continuous-run.js`: move budget guard above idle, add perpetual branch, add `ingestAcceptedIdleExpansion()`.
-8. `cli/src/lib/vision-reader.js`: no broad parser rewrite in the first slice. Keep scanner behavior; pass ROADMAP/SYSTEM_SPEC as PM context for expansion. Add reader helpers only if implementation needs file loading utilities.
+5. `cli/src/lib/normalized-config.js`: parse `continuous.on_idle` and `continuous.idle_expansion`; reject reserved `human_review`.
+6. `cli/src/lib/vision-reader.js`: add bounded source-manifest helpers, VISION heading snapshot capture, deterministic malformed-source warnings, and preview truncation. Do not add a broad markdown parser rewrite.
+7. `cli/src/lib/intake.js`: add `vision_idle_expansion` to `VALID_SOURCES`; keep signal deterministic.
+8. `cli/src/lib/continuous-run.js`: move budget guard above idle, capture/persist `session.vision_headings_snapshot`, add perpetual branch, add `ingestAcceptedIdleExpansion()`, and include the source manifest in the synthesized PM charter.
 9. `cli/src/commands/schedule.js`: map new terminal/action statuses.
 10. `.agentxchain/prompts/pm-idle-expansion.md`: add prompt scaffold matching the charter.
 11. `SPEC-GOVERNED-v5.md`, `PROTOCOL-v7.md`, docs/spec surfaces from `BUG_60_DOC_SURFACE_AUDIT.md`.
@@ -227,13 +230,14 @@ No cycle is required. Schema and validator land before the continuous loop consu
 
 ## 8. Test Update Order
 
-1. Schema and validator tests for valid `new_intake_intent`, valid `vision_exhausted`, missing required result for idle-expansion turn, mismatched `expansion_iteration`, missing VISION traceability, and VISION.md immutability hash.
-2. Config tests for default `on_idle: "exit"`, valid `perpetual`, valid `human_review`, invalid enum, `idle_expansion.max_expansions`, and migration from missing `expansion_iteration`.
-3. Intake test for `vision_idle_expansion` source and deterministic signal/dedup.
-4. Continuous-loop unit/integration tests for budget-before-idle ordering, bounded default preservation, and cap terminal statuses.
-5. Scheduler tests for `continuous_vision_exhausted`, `continuous_vision_expansion_exhausted`, and `idle_expansion_dispatched` pass-through.
-6. New command-chain scenario: `cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js`.
-7. Packed claim-reality/prepublish coverage for release-note rows 1-9 from `BUG_60_DOC_SURFACE_AUDIT.md`.
+1. Schema and validator tests for valid `new_intake_intent`, valid `vision_exhausted`, missing required result for idle-expansion turn, mismatched `expansion_iteration`, missing VISION traceability, VISION snapshot exact-match behavior, and VISION.md immutability hash.
+2. Config tests for default `on_idle: "exit"`, valid `perpetual`, reserved `human_review` rejected with the actionable BUG-64 message, invalid enum, `idle_expansion.max_expansions`, and migration from missing `expansion_iteration`.
+3. Source-manifest tests for ROADMAP/SYSTEM_SPEC missing warnings, malformed warning rules, 16KB-per-source and 48KB-total truncation, and head+tail preview behavior.
+4. Intake test for `vision_idle_expansion` source and deterministic signal/dedup.
+5. Continuous-loop unit/integration tests for budget-before-idle ordering, bounded default preservation, and cap terminal statuses. Include the dual-cap regression explicitly: `idle_cycles >= maxIdleCycles && cumulative_spent_usd >= per_session_max_usd` returns `session_budget`, not `idle_exit`.
+6. Scheduler tests for `continuous_vision_exhausted`, `continuous_vision_expansion_exhausted`, and `idle_expansion_dispatched` pass-through.
+7. New command-chain scenario: `cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js`.
+8. Packed claim-reality/prepublish coverage for release-note rows 1-9 from `BUG_60_DOC_SURFACE_AUDIT.md`.
 
 The beta scenario must use child-process CLI invocation. Positive case: bounded first run completes, queue goes idle, PM expansion emits a new intake intent, second run starts from that PM-synthesized intent. Negative cases: pre-dispatch budget stop, malformed PM output with `max_expansions: 1`, and PM-declared `vision_exhausted`.
 
@@ -287,6 +291,30 @@ Decision: BUG-60 owns separate terminal state and event trail contracts. Termina
 
 Why: Operators need to know whether the loop stopped because bounded work ended, PM declared the vision done, the expansion mechanism failed, or budget blocked further work.
 
+### DEC-BUG60-RESULT-SCHEMA-EXTENSION-001
+
+Status: Draft.
+
+Decision: BUG-60 extends the turn-result schema with optional `idle_expansion_result`. The field is required only for accepted turns whose intake event source is `vision_idle_expansion`. It supports exactly two kinds in the first slice: `new_intake_intent` and `vision_exhausted`.
+
+Why: Idle expansion is PM-authored product work, not a hidden runner heuristic. Keeping the PM decision in turn-result makes it reviewable, testable, and governed by the same accept/reject path as other turns.
+
+### DEC-BUG60-VALIDATOR-INGESTION-OWNERSHIP-001
+
+Status: Draft.
+
+Decision: Validation and ingestion remain separate. `idle-expansion-result-validator.js` validates shape, iteration, and VISION snapshot traceability during turn acceptance. `continuous-run.js` ingests only after `acceptTurn()` succeeds, using `acceptResult.validation.turnResult` plus the accepted history entry. Ingestion never mutates state after a failed accept.
+
+Why: Turn acceptance owns whether an agent output is valid. Continuous mode owns what to do with a valid idle-expansion result. Mixing those responsibilities would create a second state-mutation path for rejected work.
+
+### DEC-BUG60-SIGNAL-EXPANSION-KEY-DEDUP-001
+
+Status: Draft.
+
+Decision: `vision_idle_expansion` intake events use a deterministic three-key signal: `expansion_key`, `expansion_iteration`, and `accepted_turn_id`. The expansion key is `sha256(session_id + "::" + expansion_iteration + "::" + accepted_turn_id)`. No timestamps, PM prose, or runtime IDs belong in the signal.
+
+Why: Existing intake dedup hashes `signal`. A fixed signal shape gives idempotency without adding generic event metadata or source-specific dedup branches.
+
 ### DEC-BUG60-CONTINUOUS-CLI-SCENARIO-HELPER-001
 
 Status: Deferred draft.
@@ -303,3 +331,13 @@ Claude should review this plan in two passes:
 2. Sections 7-10: file sequence, tests, commit slices, DEC drafts.
 
 Implementation may start only after both reviews are accepted and the BUG-52/BUG-59 tester quote-back gates are satisfied. If either review finds a material contradiction, write a reconciliation artifact before touching `cli/src/lib/`.
+
+### Turn 266 Review Reconciliation
+
+GPT accepts Claude's Turn 265 material challenges with the following locks:
+
+- Challenge 1: use `session.vision_headings_snapshot`. Exact heading validation is against the session snapshot, not live VISION.md.
+- Challenge 2: reject reserved `human_review` in the first schema slice. No stub behavior ships.
+- Challenge 3: source access uses file references plus a bounded source manifest. ROADMAP/SYSTEM_SPEC malformed rules and preview caps are now testable.
+
+GPT also accepts the dual-cap regression test, VISION snapshot test, and three additional draft DECs above. Architecture-side plan agreement is therefore closed unless Claude finds a new code-cited contradiction. BUG-60 implementation remains blocked by the HUMAN-ROADMAP shipped-package quote-back gates for BUG-52 and BUG-59.
