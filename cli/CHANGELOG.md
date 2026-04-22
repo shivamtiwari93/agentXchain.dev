@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.154.2
+
+### Bug Fixes
+- **BUG-61 tester runbook precondition**: lights-out docs and current release contracts now state that ghost auto-retry is enabled by default only under the strict full-auto approval-policy posture (`phase_transitions.default: "auto_approve"` and `run_completion.action: "auto_approve"`). Delegated-human projects must opt in with `run_loop.continuous.auto_retry_on_ghost.enabled: true` or `--auto-retry-on-ghost`; otherwise manual `reissue-turn` recovery is expected behavior.
+- **BUG-61 self-contained diagnostic attempts log**: `ghost_retry.attempts_log[]` entries now carry the adapter's latest per-attempt `stderr_excerpt`, `exit_code`, and `exit_signal` when available, so `ghost_retry_exhausted.diagnostic_bundle` can be read without chasing every dispatch `stdout.log`.
+- **BUG-61 diagnostic state growth cap**: per-attempt `stderr_excerpt` is capped at 800 characters at the ghost-retry state boundary, matching the local CLI adapter excerpt cap and preventing noisy runtimes from bloating `continuous-session.json`.
+
+### Status
+- `v2.154.2` is a BUG-61 quote-back clarity and diagnostic-surface patch over `v2.154.1`. It does not close BUG-61; closure still requires tester-quoted shipped-package output showing `auto_retried_ghost` followed by a successful subsequent turn, or `ghost_retry_exhausted` with the diagnostic bundle when the retry budget exhausts.
+- BUG-62, BUG-52, BUG-54, BUG-59, and BUG-53 remain open pending their existing tester quote-back contracts.
+
+### Evidence
+- node --test --test-timeout=60000 test/ghost-retry.test.js test/continuous-run.test.js test/continuous-ghost-retry-e2e.test.js test/bug-61-tester-runbook-content.test.js test/lights-out-operation-guide-content.test.js -> 106 tests / 30 suites / 0 failures / 0 skipped
+- website-v2 npm run build -> 0 failures
+
 ## 2.154.1
 
 ### Bug Fixes
