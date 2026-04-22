@@ -32,7 +32,9 @@ import {
   buildGhostRetryDiagnosticBundle,
   buildGhostRetryExhaustionMirror,
   classifyGhostRetryDecision,
+  extractLatestStderrDiagnostic,
 } from './ghost-retry.js';
+import { getDispatchLogPath } from './turn-paths.js';
 import { reconcileOperatorHead } from './operator-commit-reconcile.js';
 import { getContinuityStatus } from './continuity-status.js';
 import {
@@ -153,6 +155,25 @@ function clearGhostBlockerAfterReissue(root, state) {
   return nextState;
 }
 
+/**
+ * Slice 2d (Turn 201): read the per-turn adapter dispatch log and return the
+ * most recent stderr excerpt + exit code + signal from `process_exit` or
+ * `spawn_error` lines. Best-effort — when the log is missing, unreadable, or
+ * contains only spawn_prepare diagnostics, returns a null record so the caller
+ * can still record the attempt with the runtime/role/timing fields.
+ */
+function readLatestDispatchDiagnostic(root, turnId) {
+  if (!turnId) return { stderr_excerpt: null, exit_code: null, exit_signal: null };
+  try {
+    const p = join(root, getDispatchLogPath(turnId));
+    if (!existsSync(p)) return { stderr_excerpt: null, exit_code: null, exit_signal: null };
+    const content = readFileSync(p, 'utf8');
+    return extractLatestStderrDiagnostic(content);
+  } catch {
+    return { stderr_excerpt: null, exit_code: null, exit_signal: null };
+  }
+}
+
 async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log = console.log) {
   const { root, config } = context;
   const decision = classifyGhostRetryDecision({
@@ -184,6 +205,11 @@ async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedSta
     const oldRoleId = oldTurn.assigned_role || reissued.newTurn.assigned_role || null;
     const oldRunningMs = oldTurn.failed_start_running_ms ?? null;
     const oldThresholdMs = oldTurn.failed_start_threshold_ms ?? null;
+    // Slice 2d: pull the adapter's process_exit / spawn_error diagnostic for
+    // the ghost turn so the per-attempt log entry is self-contained. Reads
+    // the dispatch stdout.log for the OLD turn id; the NEW reissued turn
+    // hasn't run yet so has nothing to surface.
+    const oldDiag = readLatestDispatchDiagnostic(root, oldTurnId);
     const nextSession = applyGhostRetryAttempt(session, {
       runId,
       oldTurnId,
@@ -195,6 +221,9 @@ async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedSta
       roleId: oldRoleId,
       runningMs: oldRunningMs,
       thresholdMs: oldThresholdMs,
+      stderrExcerpt: oldDiag.stderr_excerpt,
+      exitCode: oldDiag.exit_code,
+      exitSignal: oldDiag.exit_signal,
     });
     Object.assign(session, nextSession, {
       status: 'running',

@@ -328,6 +328,9 @@ export function applyGhostRetryAttempt(session, {
   roleId = null,
   runningMs = null,
   thresholdMs = null,
+  stderrExcerpt = null,
+  exitCode = null,
+  exitSignal = null,
 }) {
   const base = resetGhostRetryForRun(session, runId);
   const at = nowIso || new Date().toISOString();
@@ -336,6 +339,16 @@ export function applyGhostRetryAttempt(session, {
   // diagnostic bundle. We cap its size to 10 entries to prevent unbounded
   // growth on misbehaving projects — the tail is what matters for pattern
   // detection.
+  //
+  // Slice 2d (Turn 201): fold the per-attempt adapter `process_exit` /
+  // `spawn_error` diagnostic fields (stderr_excerpt, exit_code, exit_signal)
+  // into the log entry. This makes `ghost_retry_exhausted.diagnostic_bundle`
+  // self-contained — an operator reading `continuous-session.json` or the
+  // event payload no longer has to cross-reference
+  // `.agentxchain/dispatch/turns/<turnId>/stdout.log` to see WHY the last few
+  // spawns failed. Bounded by the adapter's own 800-byte stderr excerpt cap
+  // (DIAGNOSTIC_STDERR_EXCERPT_LIMIT at local-cli-adapter.js:43) so session
+  // state does not grow unbounded on a noisy-stderr runtime.
   const nextEntry = {
     attempt: base.attempts + 1,
     old_turn_id: oldTurnId ?? null,
@@ -345,6 +358,9 @@ export function applyGhostRetryAttempt(session, {
     failure_type: failureType ?? null,
     running_ms: runningMs ?? null,
     threshold_ms: thresholdMs ?? null,
+    stderr_excerpt: typeof stderrExcerpt === 'string' && stderrExcerpt.length > 0 ? stderrExcerpt : null,
+    exit_code: Number.isInteger(exitCode) ? exitCode : null,
+    exit_signal: typeof exitSignal === 'string' && exitSignal.length > 0 ? exitSignal : null,
     retried_at: at,
   };
   const attemptsLog = [...base.attempts_log, nextEntry].slice(-10);
@@ -411,6 +427,58 @@ export function buildGhostRetryExhaustionMirror({
     return `Auto-retry stopped early after ${consec} consecutive same-signature attempts [${sig}] (${ft}); last attempt ${count}.${suffix}`;
   }
   return `Auto-retry exhausted after ${count} attempts (${ft}).${suffix}`;
+}
+
+/**
+ * Slice 2d (Turn 201): extract the most recent `process_exit` / `spawn_error`
+ * adapter diagnostic from a rendered dispatch log. The adapter writes lines of
+ * the form `[adapter:diag] <label> <json>\n` (see
+ * `cli/src/lib/adapters/local-cli-adapter.js::appendDiagnostic`); ghost-turn
+ * failures always emit one of `process_exit` or `spawn_error` before settling.
+ *
+ * Returns `{ stderr_excerpt, exit_code, exit_signal }`. Each field is `null`
+ * when the log is empty, malformed, or did not surface that particular field.
+ * Purity: takes a string, does not read the filesystem; the caller is
+ * responsible for loading the log.
+ */
+export function extractLatestStderrDiagnostic(dispatchLogContent) {
+  if (typeof dispatchLogContent !== 'string' || dispatchLogContent.length === 0) {
+    return { stderr_excerpt: null, exit_code: null, exit_signal: null };
+  }
+  const LABELS = new Set(['process_exit', 'spawn_error']);
+  const lines = dispatchLogContent.split(/\n+/);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const line = lines[i];
+    if (!line || !line.startsWith('[adapter:diag] ')) continue;
+    const rest = line.slice('[adapter:diag] '.length);
+    const spaceIdx = rest.indexOf(' ');
+    if (spaceIdx <= 0) continue;
+    const label = rest.slice(0, spaceIdx);
+    if (!LABELS.has(label)) continue;
+    const jsonText = rest.slice(spaceIdx + 1);
+    let payload;
+    try {
+      payload = JSON.parse(jsonText);
+    } catch {
+      continue;
+    }
+    if (!payload || typeof payload !== 'object') continue;
+    const stderr = typeof payload.stderr_excerpt === 'string' && payload.stderr_excerpt.length > 0
+      ? payload.stderr_excerpt
+      : null;
+    const rawExit = payload.exit_code;
+    const exitCode = Number.isInteger(rawExit) ? rawExit : null;
+    const rawSignal = payload.signal ?? payload.exit_signal ?? null;
+    const exitSignal = typeof rawSignal === 'string' && rawSignal.length > 0 ? rawSignal : null;
+    if (stderr === null && exitCode === null && exitSignal === null && label === 'process_exit') {
+      // Nothing useful on this line — keep looking for an earlier entry that
+      // had stderr or an exit code. Prevents a final benign process_exit from
+      // masking a prior spawn_error with real evidence.
+      continue;
+    }
+    return { stderr_excerpt: stderr, exit_code: exitCode, exit_signal: exitSignal };
+  }
+  return { stderr_excerpt: null, exit_code: null, exit_signal: null };
 }
 
 /**

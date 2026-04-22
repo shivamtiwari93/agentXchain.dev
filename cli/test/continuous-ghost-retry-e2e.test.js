@@ -205,6 +205,18 @@ describe('BUG-61 continuous ghost auto-retry E2E', () => {
     assert.equal(session.ghost_retry.exhausted, true);
     assert.ok(Array.isArray(session.ghost_retry.attempts_log));
     assert.equal(session.ghost_retry.attempts_log.length, 2);
+    // Slice 2d (Turn 201): each attempt entry carries the adapter's
+    // process_exit / spawn_error diagnostic (stderr_excerpt / exit_code /
+    // exit_signal). The fields may legitimately be null when the adapter did
+    // not surface that particular piece of evidence for this ghost, but the
+    // KEYS MUST always be present so operators reading session.json or the
+    // exhaustion event payload never have to cross-reference the per-turn
+    // stdout.log file just to know whether stderr evidence was available.
+    for (const entry of session.ghost_retry.attempts_log) {
+      assert.ok(Object.hasOwn(entry, 'stderr_excerpt'), 'attempts_log entry must carry stderr_excerpt key');
+      assert.ok(Object.hasOwn(entry, 'exit_code'), 'attempts_log entry must carry exit_code key');
+      assert.ok(Object.hasOwn(entry, 'exit_signal'), 'attempts_log entry must carry exit_signal key');
+    }
 
     const state = readJson(root, '.agentxchain/state.json');
     assert.equal(state.status, 'blocked');

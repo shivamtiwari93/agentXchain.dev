@@ -14,6 +14,7 @@ import {
   buildAttemptFingerprint,
   classifySameSignatureExhaustion,
   buildGhostRetryDiagnosticBundle,
+  extractLatestStderrDiagnostic,
 } from '../src/lib/ghost-retry.js';
 
 function ghostState({
@@ -573,6 +574,144 @@ describe('ghost-retry helper', () => {
       assert.deepEqual(bundle.attempts_log, []);
       assert.deepEqual(bundle.fingerprint_summary, []);
       assert.equal(bundle.final_signature, null);
+    });
+  });
+
+  // Slice 2d (Turn 201): per-attempt stderr excerpt + exit code surfacing.
+  describe('extractLatestStderrDiagnostic', () => {
+    it('returns nulls for empty or non-string input', () => {
+      assert.deepEqual(
+        extractLatestStderrDiagnostic(''),
+        { stderr_excerpt: null, exit_code: null, exit_signal: null },
+      );
+      assert.deepEqual(
+        extractLatestStderrDiagnostic(null),
+        { stderr_excerpt: null, exit_code: null, exit_signal: null },
+      );
+    });
+
+    it('extracts stderr_excerpt, exit_code, and exit_signal from a process_exit line', () => {
+      const log = [
+        '[adapter:diag] spawn_prepare {"pid":null,"command":"claude"}',
+        '[adapter:diag] process_exit {"pid":1234,"exit_code":1,"signal":null,"stderr_excerpt":"Error: auth failed","stderr_bytes":18,"watchdog_fired":true}',
+      ].join('\n');
+      const d = extractLatestStderrDiagnostic(log);
+      assert.equal(d.stderr_excerpt, 'Error: auth failed');
+      assert.equal(d.exit_code, 1);
+      assert.equal(d.exit_signal, null);
+    });
+
+    it('reads exit_signal when the process was killed', () => {
+      const log = '[adapter:diag] process_exit {"pid":99,"exit_code":null,"signal":"SIGTERM","stderr_excerpt":"killed"}\n';
+      const d = extractLatestStderrDiagnostic(log);
+      assert.equal(d.exit_signal, 'SIGTERM');
+      assert.equal(d.exit_code, null);
+      assert.equal(d.stderr_excerpt, 'killed');
+    });
+
+    it('prefers the most recent diagnostic entry when multiple exist', () => {
+      const log = [
+        '[adapter:diag] process_exit {"exit_code":2,"stderr_excerpt":"first run"}',
+        '[adapter:diag] process_exit {"exit_code":3,"stderr_excerpt":"latest run"}',
+      ].join('\n');
+      const d = extractLatestStderrDiagnostic(log);
+      assert.equal(d.exit_code, 3);
+      assert.equal(d.stderr_excerpt, 'latest run');
+    });
+
+    it('falls back to a spawn_error line when no process_exit with evidence exists', () => {
+      const log = '[adapter:diag] spawn_error {"code":"ENOENT","errno":-2,"syscall":"spawn","message":"spawn claude ENOENT"}\n';
+      const d = extractLatestStderrDiagnostic(log);
+      // spawn_error has no stderr_excerpt/exit_code, but since the log contains
+      // ONLY that entry we still return nulls — honest.
+      assert.equal(d.stderr_excerpt, null);
+      assert.equal(d.exit_code, null);
+    });
+
+    it('skips benign final process_exit line and returns a prior spawn_error evidence', () => {
+      const log = [
+        '[adapter:diag] spawn_error {"message":"spawn claude ENOENT","stderr_excerpt":"bash: claude: command not found","exit_code":127}',
+        '[adapter:diag] process_exit {"pid":null}',
+      ].join('\n');
+      const d = extractLatestStderrDiagnostic(log);
+      // The final process_exit has no useful field → we keep scanning back and
+      // land on the spawn_error entry with real evidence.
+      assert.equal(d.stderr_excerpt, 'bash: claude: command not found');
+      assert.equal(d.exit_code, 127);
+    });
+
+    it('ignores malformed JSON lines without throwing', () => {
+      const log = [
+        '[adapter:diag] process_exit this is not json',
+        '[adapter:diag] process_exit {"exit_code":9,"stderr_excerpt":"recovered"}',
+      ].join('\n');
+      const d = extractLatestStderrDiagnostic(log);
+      assert.equal(d.exit_code, 9);
+      assert.equal(d.stderr_excerpt, 'recovered');
+    });
+  });
+
+  describe('applyGhostRetryAttempt with stderr/exit diagnostics', () => {
+    it('records stderr_excerpt, exit_code, and exit_signal on the attempt entry', () => {
+      const s = applyGhostRetryAttempt({}, {
+        runId: 'run_x',
+        oldTurnId: 't_old',
+        newTurnId: 't_new',
+        failureType: 'runtime_spawn_failed',
+        maxRetries: 3,
+        nowIso: 'now',
+        runtimeId: 'claude',
+        roleId: 'pm',
+        runningMs: 30285,
+        thresholdMs: 30000,
+        stderrExcerpt: 'Error: Claude auth token invalid',
+        exitCode: 1,
+        exitSignal: null,
+      });
+      const e = s.ghost_retry.attempts_log[0];
+      assert.equal(e.stderr_excerpt, 'Error: Claude auth token invalid');
+      assert.equal(e.exit_code, 1);
+      assert.equal(e.exit_signal, null);
+    });
+
+    it('normalizes missing / malformed diagnostics to null', () => {
+      const s = applyGhostRetryAttempt({}, {
+        runId: 'run_x',
+        oldTurnId: 't_old',
+        newTurnId: 't_new',
+        failureType: 'stdout_attach_failed',
+        maxRetries: 3,
+        nowIso: 'now',
+        runtimeId: 'codex',
+        roleId: 'qa',
+        stderrExcerpt: '',
+        exitCode: 'not-a-number',
+        exitSignal: '',
+      });
+      const e = s.ghost_retry.attempts_log[0];
+      assert.equal(e.stderr_excerpt, null);
+      assert.equal(e.exit_code, null);
+      assert.equal(e.exit_signal, null);
+    });
+
+    it('preserves new diagnostic fields in the buildGhostRetryDiagnosticBundle output', () => {
+      let s = applyGhostRetryAttempt({}, {
+        runId: 'run_x', oldTurnId: 't1', newTurnId: 't2', failureType: 'runtime_spawn_failed',
+        maxRetries: 3, nowIso: 'n1', runtimeId: 'claude', roleId: 'pm',
+        stderrExcerpt: 'first stderr', exitCode: 1, exitSignal: null,
+      });
+      s = applyGhostRetryAttempt(s, {
+        runId: 'run_x', oldTurnId: 't2', newTurnId: 't3', failureType: 'stdout_attach_failed',
+        maxRetries: 3, nowIso: 'n2', runtimeId: 'claude', roleId: 'pm',
+        stderrExcerpt: 'second stderr', exitCode: 2, exitSignal: 'SIGTERM',
+      });
+      const bundle = buildGhostRetryDiagnosticBundle(s);
+      assert.equal(bundle.attempts_log.length, 2);
+      assert.equal(bundle.attempts_log[0].stderr_excerpt, 'first stderr');
+      assert.equal(bundle.attempts_log[0].exit_code, 1);
+      assert.equal(bundle.attempts_log[1].stderr_excerpt, 'second stderr');
+      assert.equal(bundle.attempts_log[1].exit_code, 2);
+      assert.equal(bundle.attempts_log[1].exit_signal, 'SIGTERM');
     });
   });
 });
