@@ -237,4 +237,54 @@ describe('BUG-62 operator commit reconcile command-chain', () => {
     );
     assert.match(payload.state.blocked_reason.recovery.detail, /governance_state_modified/);
   });
+
+  it('surfaces auto-reconcile refusal for critical_artifact_deleted through status', () => {
+    const { dir } = setupGovernedGitProject();
+
+    rmSync(join(dir, '.planning', 'acceptance-matrix.md'), { force: true });
+    git(dir, ['add', '-A']);
+    git(dir, ['commit', '-m', 'operator: delete critical acceptance matrix']);
+
+    const context = loadProjectContext(dir);
+    assert.ok(context, 'expected governed project context');
+    const session = {
+      session_id: 'cont-bug62-critical',
+      status: 'running',
+      current_run_id: 'run_bug62',
+      runs_completed: 0,
+    };
+    const result = maybeAutoReconcileOperatorCommits(
+      context,
+      session,
+      { reconcileOperatorCommits: 'auto_safe_only' },
+      () => {}
+    );
+
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.action, 'operator_commit_reconcile_refused');
+    assert.equal(result.error_class, 'critical_artifact_deleted');
+    assert.equal(result.recovery_action, 'agentxchain reconcile-state --accept-operator-head');
+
+    const humanStatus = runCli(dir, ['status']);
+    assert.equal(humanStatus.status, 0, `status failed: ${humanStatus.stdout}\n${humanStatus.stderr}`);
+    assert.match(humanStatus.stdout, /BLOCKED/);
+    assert.match(humanStatus.stdout, /Operator-commit auto-reconcile refused \(critical_artifact_deleted\)/);
+    assert.match(humanStatus.stdout, /agentxchain reconcile-state --accept-operator-head/);
+
+    const jsonStatus = runCli(dir, ['status', '--json']);
+    assert.equal(jsonStatus.status, 0, `status --json failed: ${jsonStatus.stdout}\n${jsonStatus.stderr}`);
+    const payload = JSON.parse(jsonStatus.stdout);
+    assert.equal(payload.state.status, 'blocked');
+    assert.equal(payload.state.blocked_on, 'operator_commit_reconcile_refused');
+    assert.equal(payload.state.blocked_reason.error_class, 'critical_artifact_deleted');
+    assert.equal(
+      payload.state.blocked_reason.recovery.typed_reason,
+      'operator_commit_reconcile_refused'
+    );
+    assert.equal(
+      payload.state.blocked_reason.recovery.recovery_action,
+      'agentxchain reconcile-state --accept-operator-head'
+    );
+    assert.match(payload.state.blocked_reason.recovery.detail, /critical_artifact_deleted/);
+  });
 });
