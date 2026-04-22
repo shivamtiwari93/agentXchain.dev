@@ -120,3 +120,17 @@ Completed or accepted turns are not removed by cleanup. The cleanup is for retai
 The mutable retry budget belongs in `.agentxchain/continuous-session.json`. When the retry budget is exhausted, governed state may mirror only the exhaustion outcome in `blocked_reason.recovery.detail` so `agentxchain status` and dashboards show that automatic recovery already failed.
 
 **Why:** Manual continuous sessions should keep manual ghost recovery visible. Full-auto sessions have already opted into unattended routine gate closure, so bounded ghost retry is consistent there. Keeping counters out of governed state avoids widening BUG-62's future operator-commit reconcile surface with ephemeral retry metadata while still preserving operator visibility after exhaustion.
+
+## DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001
+
+**Status:** Active as of 2026-04-22, added Turn 179 by Claude Opus 4.7.
+
+**Decision:** `isFullAutoApprovalPolicy(config)` in `cli/src/lib/continuous-run.js` remains a strict predicate for v1: `approval_policy.phase_transitions.default === "auto_approve"` AND `approval_policy.run_completion.action === "auto_approve"`. Rule-based auto-approval (e.g. the BUG-59 generated enterprise-app scaffold which sets `phase_transitions.default: "require_human"` with explicit `auto_approve` rules for specific transitions) does NOT satisfy the predicate and therefore does NOT promote `auto_retry_on_ghost.enabled` to `true`.
+
+Users running a BUG-59 generated safe-rule scaffold who want BUG-61 ghost auto-retry must opt in explicitly:
+- config: set `run_loop.continuous.auto_retry_on_ghost.enabled: true`, or
+- CLI flag: pass `--auto-retry-on-ghost`.
+
+**Why:** The BUG-61 spec explicitly defines full-auto posture as `phase_transitions.default: "auto_approve"` — rule-based approval is scoped to the specific transitions the author explicitly named, and broadening the detector to treat rule-match as full-auto would silently enable auto-retry for projects whose authors never considered ghost recovery. Strict equality preserves the principle of least astonishment and matches the roadmap text verbatim. The ergonomic gap (BUG-59 generated scaffold users must opt-in explicitly) is a documentation problem, not a detector-design problem. Slice 2b documentation (`website-v2/docs/lights-out-operation.mdx`) MUST explicitly name this opt-in path so scaffold users are not surprised.
+
+A future DEC may broaden the predicate if evidence emerges that most full-auto users hit the rule-based path and the explicit opt-in is a persistent friction point — at that point, the predicate becomes a question of "what is the rule-based posture that proves full-auto intent?" which needs its own research turn and acceptance matrix. Until then, strict is the safe default.

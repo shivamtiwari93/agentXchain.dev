@@ -44,6 +44,8 @@ export const VALID_RUN_EVENTS = [
   'human_escalation_resolved',
   'dispatch_progress',
   'session_continuation',
+  'auto_retried_ghost',
+  'ghost_retry_exhausted',
 ];
 
 /**

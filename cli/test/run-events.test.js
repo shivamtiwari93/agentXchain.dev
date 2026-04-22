@@ -134,8 +134,12 @@ describe('run-events', () => {
   });
 
   // Additional: VALID_RUN_EVENTS is complete
-  it('VALID_RUN_EVENTS contains all 32 event types', () => {
-    assert.equal(VALID_RUN_EVENTS.length, 32);
+  it('VALID_RUN_EVENTS contains all 34 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 34);
+    assert.ok(VALID_RUN_EVENTS.includes('auto_retried_ghost'),
+      'auto_retried_ghost must be registered (BUG-61 continuous ghost auto-recovery)');
+    assert.ok(VALID_RUN_EVENTS.includes('ghost_retry_exhausted'),
+      'ghost_retry_exhausted must be registered (BUG-61 retry-budget exhaustion signal)');
     assert.ok(VALID_RUN_EVENTS.includes('session_continuation'),
       'session_continuation must be registered (BUG-53 continuous auto-chain audit trail)');
     assert.ok(VALID_RUN_EVENTS.includes('run_started'));
