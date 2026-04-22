@@ -33,6 +33,7 @@ import { tmpdir } from 'node:os';
 
 import { dispatchLocalCli } from '../../src/lib/adapters/local-cli-adapter.js';
 import { writeDispatchBundle } from '../../src/lib/dispatch-bundle.js';
+import { getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
 
 const OBSERVED_TUSQ_BUNDLE_BYTES = 17_737;
 const tempDirs = [];
@@ -146,9 +147,9 @@ const promptBytes = fs.statSync(path.join(bundleDir, 'PROMPT.md')).size;
 process.stdout.write(JSON.stringify({ type: 'message_start', role: 'assistant' }) + '\\n');
 setTimeout(() => {
   process.stdout.write(JSON.stringify({ type: 'content_block_delta', delta: { text: 'bundle=' + promptBytes } }) + '\\n');
-  const staging = ${JSON.stringify(join(rootAbs, '.agentxchain', 'staging'))};
+  const staging = ${JSON.stringify(join(rootAbs, '.agentxchain', 'staging', turnId))};
   fs.mkdirSync(staging, { recursive: true });
-  fs.writeFileSync(path.join(staging, '${turnId}.json'), JSON.stringify({
+  fs.writeFileSync(path.join(staging, 'turn-result.json'), JSON.stringify({
     turn_id: '${turnId}',
     summary: 'claude-style realistic bundle ack',
     next_role: 'dev',
@@ -172,9 +173,9 @@ const promptBytes = fs.statSync(path.join(bundleDir, 'PROMPT.md')).size;
 process.stdout.write('codex ready bundle=' + promptBytes + '\\n');
 setTimeout(() => {
   process.stdout.write('codex done\\n');
-  const staging = ${JSON.stringify(join(rootAbs, '.agentxchain', 'staging'))};
+  const staging = ${JSON.stringify(join(rootAbs, '.agentxchain', 'staging', turnId))};
   fs.mkdirSync(staging, { recursive: true });
-  fs.writeFileSync(path.join(staging, '${turnId}.json'), JSON.stringify({
+  fs.writeFileSync(path.join(staging, 'turn-result.json'), JSON.stringify({
     turn_id: '${turnId}',
     summary: 'codex-style realistic bundle ack',
     next_role: 'dev',
@@ -203,9 +204,9 @@ process.stdin.on('end', () => {
   process.stdout.write('codex stdin ready bundle=' + promptBytes + ' stdin=' + stdinBytes + '\\n');
   setTimeout(() => {
     process.stdout.write('codex stdin done\\n');
-    const staging = ${JSON.stringify(join(rootAbs, '.agentxchain', 'staging'))};
+    const staging = ${JSON.stringify(join(rootAbs, '.agentxchain', 'staging', turnId))};
     fs.mkdirSync(staging, { recursive: true });
-    fs.writeFileSync(path.join(staging, '${turnId}.json'), JSON.stringify({
+    fs.writeFileSync(path.join(staging, 'turn-result.json'), JSON.stringify({
       turn_id: '${turnId}',
       summary: 'codex-stdin realistic bundle ack',
       next_role: 'dev',
@@ -262,6 +263,7 @@ describe('BUG-54 realistic-bundle dispatch watchdog', () => {
     const log = result.logs.join('');
 
     assert.ok(bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES, `bundle ${bundleSize}B must be >= observed ${OBSERVED_TUSQ_BUNDLE_BYTES}B`);
+    assert.equal(result.ok, true, 'realistic-bundle Claude dispatch must be recognized as completed by the adapter');
     assert.notEqual(result.startupFailure, true, 'realistic-bundle Claude dispatch must not be retained as failed_start');
     assert.match(log, /\[adapter:diag\] spawn_attached /);
     assert.match(log, /\[adapter:diag\] first_output /);
@@ -277,6 +279,7 @@ describe('BUG-54 realistic-bundle dispatch watchdog', () => {
     const log = result.logs.join('');
 
     assert.ok(bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES, `bundle ${bundleSize}B must be >= observed ${OBSERVED_TUSQ_BUNDLE_BYTES}B`);
+    assert.equal(result.ok, true, 'realistic-bundle Codex dispatch must be recognized as completed by the adapter');
     assert.notEqual(result.startupFailure, true, 'realistic-bundle Codex dispatch must not be retained as failed_start');
     assert.match(log, /\[adapter:diag\] spawn_attached /);
     assert.match(log, /\[adapter:diag\] first_output /);
@@ -296,6 +299,7 @@ describe('BUG-54 realistic-bundle dispatch watchdog', () => {
     assert.ok(bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES, `bundle ${bundleSize}B must be >= observed ${OBSERVED_TUSQ_BUNDLE_BYTES}B`);
     assert.equal(spawnPrepare.prompt_transport, 'stdin');
     assert.ok(spawnPrepare.stdin_bytes >= OBSERVED_TUSQ_BUNDLE_BYTES, `stdin payload ${spawnPrepare.stdin_bytes}B must include realistic prompt bytes`);
+    assert.equal(result.ok, true, 'realistic-bundle stdin Codex dispatch must be recognized as completed by the adapter');
     assert.notEqual(result.startupFailure, true, 'realistic-bundle stdin Codex dispatch must not be retained as failed_start');
     assert.match(log, /\[adapter:diag\] spawn_attached /);
     assert.match(log, /\[adapter:diag\] first_output /);
@@ -308,9 +312,10 @@ describe('BUG-54 realistic-bundle dispatch watchdog', () => {
     const claudeRun = await dispatchWithShim({ shimName: 'claude-style.js', shimBody: claudeStyleShim });
     const codexRun = await dispatchWithShim({ shimName: 'codex-style.js', shimBody: codexStyleShim });
 
-    for (const { root, state, bundleSize } of [claudeRun, codexRun]) {
+    for (const { root, state, bundleSize, result } of [claudeRun, codexRun]) {
       assert.ok(bundleSize >= OBSERVED_TUSQ_BUNDLE_BYTES, `bundle ${bundleSize}B must be >= observed ${OBSERVED_TUSQ_BUNDLE_BYTES}B`);
-      const stagingPath = join(root, '.agentxchain', 'staging', `${state.current_turn.turn_id}.json`);
+      assert.equal(result.ok, true, 'adapter must report success after reading the staged turn result');
+      const stagingPath = join(root, getTurnStagingResultPath(state.current_turn.turn_id));
       const staged = JSON.parse(readFileSync(stagingPath, 'utf8'));
       assert.equal(staged.turn_id, state.current_turn.turn_id);
       assert.equal(staged.verification.status, 'passed');
