@@ -73,6 +73,7 @@ import { injectCommand } from '../src/commands/inject.js';
 import { escalateCommand } from '../src/commands/escalate.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
 import { checkpointTurnCommand } from '../src/commands/checkpoint-turn.js';
+import { reconcileStateCommand } from '../src/commands/reconcile-state.js';
 import { rejectTurnCommand } from '../src/commands/reject-turn.js';
 import { reissueTurnCommand } from '../src/commands/reissue-turn.js';
 import { proposalListCommand, proposalDiffCommand, proposalApplyCommand, proposalRejectCommand } from '../src/commands/proposal.js';
@@ -700,6 +701,12 @@ program
   .description('Checkpoint the latest accepted turn into git so the next writable turn has a clean baseline')
   .option('--turn <id>', 'Checkpoint a specific accepted turn from history')
   .action(checkpointTurnCommand);
+
+program
+  .command('reconcile-state')
+  .description('Reconcile safe operator commits into governed run state')
+  .option('--accept-operator-head', 'Accept safe fast-forward operator commits as the new governed baseline')
+  .action(reconcileStateCommand);
 
 program
   .command('reject-turn')

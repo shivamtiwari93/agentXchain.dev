@@ -82,6 +82,7 @@ describe('Recovery docs — command coverage', () => {
       'approve-completion',
       'reject-turn',
       'accept-turn',
+      'reconcile-state --accept-operator-head',
       'escalate',
       'status',
     ];
@@ -171,6 +172,15 @@ describe('Recovery docs — implementation-backed contracts', () => {
     assert.match(DOC, /follow that exact surfaced recovery action/i);
     assert.match(DOC, /reissue-turn --reason ghost\|stale/);
     assert.match(DOC, /agentxchain unblock <id>/);
+  });
+
+  it('documents operator-commit reconcile safety contract', () => {
+    assert.match(DOC, /Git HEAD has moved since checkpoint/);
+    assert.match(DOC, /agentxchain reconcile-state --accept-operator-head/);
+    assert.match(DOC, /state_reconciled_operator_commits/);
+    assert.match(DOC, /fast-forward operator commits/);
+    assert.match(DOC, /\.agentxchain\//);
+    assert.match(DOC, /history rewrites/);
   });
 });
 

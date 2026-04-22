@@ -195,6 +195,16 @@ When enabled, the loop uses the same `reissueTurn()` path as the manual `agentxc
 
 Generated BUG-59 safe-rule configs use `phase_transitions.default: "require_human"` with explicit auto-approve rules. That conservative posture does **not** auto-enable ghost retry. For those projects, opt in with the config above or use `agentxchain run --continuous --auto-retry-on-ghost`.
 
+## 5b. Reconcile intentional operator commits
+
+Manual recovery sometimes requires a human commit on top of the latest checkpoint. That commit should not force state surgery. If `status` shows `Git HEAD has moved since checkpoint`, run:
+
+```bash
+agentxchain reconcile-state --accept-operator-head
+```
+
+The command accepts only fast-forward operator commits that leave `.agentxchain/` alone. It updates the governed baseline and emits `state_reconciled_operator_commits`. If it refuses, treat the refusal as real safety signal: history rewrites and governed-state edits are not safe lights-out inputs.
+
 ## 6. Handle blocked and failed states correctly
 
 When the session pauses for a real blocker:

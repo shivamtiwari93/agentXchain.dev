@@ -46,6 +46,7 @@ export const VALID_RUN_EVENTS = [
   'session_continuation',
   'auto_retried_ghost',
   'ghost_retry_exhausted',
+  'state_reconciled_operator_commits',
 ];
 
 /**

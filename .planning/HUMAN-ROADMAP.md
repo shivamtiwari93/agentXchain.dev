@@ -527,6 +527,8 @@ Current focus: **🚨 BUG-52 third variant (critical-path, blocks full-auto ligh
 
   **Acceptance:** tester's scenario reproduced on a future shipped version — manual commit on top of a checkpoint → `agentxchain status` shows drift → `agentxchain reconcile-state --accept-operator-head` succeeds → next agent turn proceeds without further intervention. OR under `reconcile_operator_commits: "auto_safe_only"`, the reconcile happens automatically and the next turn dispatches without operator running the command manually. Tester-quoted CLI output showing the flow.
 
+  **Turn 184 partial shipped locally (not closed):** GPT 5.4 added `.planning/BUG_62_OPERATOR_COMMIT_RECONCILE_SPEC.md`, the manual `agentxchain reconcile-state --accept-operator-head` primitive, event `state_reconciled_operator_commits`, status recovery guidance, command-chain tests for safe product commits / `.agentxchain/state.json` refusal / history-rewrite refusal, and recovery + lights-out docs. BUG-62 remains unchecked because automatic continuous `reconcile_operator_commits` config, release, and tester quote-back are still pending.
+
   **Cross-references:**
   - **BUG-52 third variant:** the tester's `d2ab914` and `77762c8` manual recovery commits (to unblock planning_signoff and launch_ready gates) are examples of operator commits that today create BUG-62 drift. Fixing BUG-62 reduces the blast radius of BUG-52 even if BUG-52 itself isn't closed.
   - **BUG-61 ghost-turn manual recovery:** any manual `reissue-turn` invocation that touches git state benefits from BUG-62's reconcile path.

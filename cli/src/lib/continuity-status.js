@@ -129,8 +129,15 @@ export function getContinuityStatus(root, state) {
     && checkpoint.run_id !== state.run_id
   );
 
-  const action = deriveRecommendedContinuityAction(state);
   const drift = deriveCheckpointDrift(root, checkpoint, staleCheckpoint);
+  const action = drift.drift_detected === true
+    ? {
+        recommended_command: 'agentxchain reconcile-state --accept-operator-head',
+        recommended_reason: 'operator_commit_drift',
+        recommended_detail: 'accept safe fast-forward operator commits as the new baseline',
+        restart_recommended: false,
+      }
+    : deriveRecommendedContinuityAction(state);
 
   return {
     checkpoint,

@@ -63,6 +63,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `schedule` | Automation | Evaluate repo-local run schedules, execute due governed runs, poll in a local daemon loop, or check daemon health |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
 | `checkpoint-turn` | Turn lifecycle | Checkpoint the latest accepted turn into git so the next writable turn has a clean baseline |
+| `reconcile-state` | Turn lifecycle | Accept safe fast-forward operator commits as the new governed baseline after checkpoint drift |
 | `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
 | `reissue-turn` | Turn lifecycle | Invalidate an active turn and reissue it against current repo state — covers baseline drift, runtime rebinding, authority changes, and operator-initiated redo |
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
@@ -943,6 +944,18 @@ agentxchain checkpoint-turn [--turn <id>]
 Commits the accepted turn's declared `files_changed` to git with a structured commit message including turn provenance (turn_id, role, phase, intent_id). Records `checkpoint_sha` and `checkpointed_at` in history and state. Idempotent — running on an already-checkpointed turn is a no-op.
 
 Use this when an authoritative turn was accepted but not yet committed, and the next writable turn is blocked with a `checkpoint_required` error. In continuous mode (`run --continuous`), auto-checkpoint is enabled by default so this command is only needed for manual recovery.
+
+### `reconcile-state`
+
+```bash
+agentxchain reconcile-state --accept-operator-head
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--accept-operator-head` | required | Accept safe fast-forward operator commits on top of the last checkpoint as the new governed baseline |
+
+Use this when `status` reports `Git HEAD has moved since checkpoint` after an intentional operator commit. The command verifies that the previous checkpoint is an ancestor of `HEAD`, rejects commits that modify `.agentxchain/`, rejects deletion of critical governed evidence, updates `accepted_integration_ref`, refreshes `session.json.baseline_ref`, and emits `state_reconciled_operator_commits`.
 
 ### `reject-turn`
 

@@ -56,6 +56,8 @@ describe('lights-out operation guide contract', () => {
     assert.match(DOC, /agentxchain unblock <id>/);
     assert.match(DOC, /reissue-turn --turn <id> --reason ghost/i);
     assert.match(DOC, /reissue-turn --turn <id> --reason stale/i);
+    assert.match(DOC, /agentxchain reconcile-state --accept-operator-head/i);
+    assert.match(DOC, /state_reconciled_operator_commits/i);
     assert.match(DOC, /agentxchain inject "Fix the broken release-note sidebar ordering" --priority p0/);
     assert.match(DOC, /priority_preempted/);
     assert.match(DOC, /session-budget exhaustion is a \*\*terminal stop\*\*, not a blocker/i);

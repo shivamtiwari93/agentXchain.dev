@@ -169,6 +169,19 @@ After reissue, run `agentxchain step --resume` to dispatch the fresh turn.
 
 See also: [Runtime Matrix](/docs/runtime-matrix) for valid runtime/authority combinations.
 
+### Operator Commits After Checkpoint
+
+If a human intentionally commits on top of the last governed checkpoint, `agentxchain status` reports:
+
+```text
+Drift: Git HEAD has moved since checkpoint
+Action: agentxchain reconcile-state --accept-operator-head
+```
+
+Use that command only for safe fast-forward operator commits. It verifies that the checkpoint baseline is still an ancestor of `HEAD`, rejects commits that modify `.agentxchain/`, rejects deletion of critical governed evidence, updates the accepted integration ref to the current `HEAD`, refreshes `session.json.baseline_ref`, and emits `state_reconciled_operator_commits`.
+
+Unsafe cases still block: history rewrites, commits that edit `.agentxchain/state.json`, and deletion of critical evidence require explicit manual recovery or restart from a known checkpoint.
+
 ### Other States
 
 | Condition | Recovery |
@@ -213,6 +226,7 @@ The recovery surface uses these existing commands — no dedicated `recover` com
 | `approve-completion` | Approve run completion |
 | `reject-turn` | Reject a failed turn and trigger retry or reassignment |
 | `reissue-turn` | Invalidate a stale turn and reissue against current state (baseline, runtime, or authority drift) |
+| `reconcile-state --accept-operator-head` | Accept safe fast-forward operator commits as the new governed baseline |
 | `accept-turn` | Manually accept a turn after validation failure and manual fix |
 | `checkpoint-turn` | Commit the latest accepted authoritative turn so the next writable role starts from a clean baseline |
 | `escalate` | Raise an operator escalation on an active or blocked turn |

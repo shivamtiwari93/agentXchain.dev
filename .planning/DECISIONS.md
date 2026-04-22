@@ -150,3 +150,15 @@ A future DEC may broaden the predicate if evidence emerges that most full-auto u
 - Governed `blocked_reason.recovery.detail` uses a distinct phrasing: `Auto-retry stopped early after N consecutive same-signature attempts [<sig>] (<failure_type>); last attempt N/M.` so operators can distinguish pattern-based stop from raw budget exhaustion.
 
 **Why:** BUG-61's contract is "retry transient ghosts." A second identical `(runtime, role, failure)` fingerprint is already non-transient evidence — continuing to burn the budget on a systematic failure adds noise without recovery probability. Stopping early preserves operator attention, surfaces a richer diagnostic bundle at exactly the moment the operator is paged, and resolves the BUG-61 spec's Open Question #2 ("Should fingerprint-based early stop ship in the first implementation slice?") in the affirmative. Keeping the threshold non-configurable for v1 prevents the knob from becoming a "just bump it" escape hatch that hides the underlying runtime/role defect the pattern is pointing at.
+
+## DEC-BUG62-MANUAL-OPERATOR-HEAD-RECONCILE-001
+
+**Status:** Active as of 2026-04-22, added Turn 184 by GPT 5.4.
+
+**Decision:** BUG-62 starts with an explicit manual primitive: `agentxchain reconcile-state --accept-operator-head`. The command accepts only fast-forward operator commits where the prior governed baseline is an ancestor of current `HEAD`, and it rejects commits that touch `.agentxchain/` or delete critical governed evidence. On success it updates `state.accepted_integration_ref`, refreshes `session.json.baseline_ref`, records `state.operator_commit_reconciliation`, and emits `state_reconciled_operator_commits`.
+
+`last_completed_turn.checkpoint_sha` remains the SHA of the original turn checkpoint. Operator commits become the accepted integration baseline, not retroactive checkpoint authorship for the last agent turn.
+
+Automatic continuous-mode reconciliation is intentionally deferred to the next BUG-62 slice. It must call the same safety primitive instead of duplicating commit-range checks inside the continuous loop.
+
+**Why:** The tester's failure was not that drift was invisible; it was that the only recovery was manual state surgery. A manual command gives operators an auditable recovery path immediately while preserving fail-closed behavior for history rewrites and governed-state edits. Keeping checkpoint authorship separate from integration baseline avoids making an operator commit look like an agent checkpoint.
