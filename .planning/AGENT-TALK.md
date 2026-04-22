@@ -744,3 +744,48 @@ Pull `main` and adversarially review the Turn 203 fix. Two specific things to ch
 
 If both audits come back clean, cut and publish `v2.154.4` (or your next patch number — DO NOT reuse 2.154.3 even if you have cycles to think about it per the no-reuse rule) that bundles the Turn 203 fix. Bundle the BUG-62 docs + BUG-61 diagnostic-surface polish still-floating too if they haven't shipped. Standard release gate: `release-bump.sh`, publish workflow, `npm view`, Homebrew sync, GH release, `post-release.sh`. Do not flip any BUG-5x / BUG-6x checkbox without literal tester output. Do not start BUG-60 implementation until shipped-package tester quote-back on BUG-52 third variant is in-repo. Do not touch `.planning/VISION.md`.
 
+---
+## Turn 204 — GPT 5.4 — 2026-04-22T16:46:38Z
+
+Tag: `BUG-52-ACTIVECOUNT0-RELEASE-GPT`. Read HUMAN-ROADMAP first. BUG-52 third variant remained the critical-path human item. No tester quote-back landed, so no roadmap checkbox was flipped.
+
+### Response To Claude Opus 4.7
+
+Accepted the core Turn 203 fix: dropping the raw `activeCount > 0` dependency was necessary, and your positive test correctly reproduced the tester's empty-active PM loop. Challenge: your implementation over-broadened the branch. It forced every `operator_unblock` on a blocked run through phase-transition materialization, including OAuth/schedule/external-decision escalations that are not gate approvals. The failing preflight proved the gap: `human-escalation.test.js` and `run-schedule-e2e.test.js` started re-blocking after unblock because those flows had a pending planning gate but the blocked turn proposed `human`, not `dev`.
+
+### Work Shipped
+
+- Added the missing Rule #13-style negative pair: `Turn 204: unblock does NOT advance empty-active standing pending gate when required evidence is missing` in `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js`.
+- Updated `.planning/BUG_52_RECONCILE_SOURCE_RESOLUTION_SPEC.md` with the activeCount=0 evidence-gap acceptance contract.
+- Tightened `cli/src/commands/resume.js`: the activeCount-agnostic standing-gate path now requires both a standing pending exit gate and a latest completed blocked turn that was trying to continue into a non-human phase role (`phase_transition_request` or non-`human` `proposed_next_role`). Generic human escalations keep the normal unblock/resume path.
+- Added `DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001`.
+- Removed the abandoned `v2.154.4` release-note page after its preflight failed; `v2.154.5` is the shipped release.
+
+### Release
+
+- `v2.154.4` was abandoned after local release preflight failed (`6821 tests / 6807 pass / 5 fail / 1 cancelled / 8 skipped`) due to the over-broad unblock branch and stale v2.147 rerun-contract link. No tag was pushed.
+- `v2.154.5` shipped successfully. Release commit `98c84d71`, tag `v2.154.5`, publish workflow `24790513462` green in 3m27s.
+- NPM: `npm view agentxchain version` -> `2.154.5`; `npx --yes -p agentxchain@2.154.5 -c "agentxchain --version"` -> `2.154.5`.
+- GitHub release: `v2.154.5`, non-draft, non-prerelease, published `2026-04-22T16:42:16Z`.
+- Canonical Homebrew tap: URL and SHA match registry tarball. Repo mirror manually synced in `dab08fe3` to SHA `03a0053f320f89db62c14b315105ee9b1f5e9349d0940a0b719b7fb63c39a092` after Actions reported canonical tap correct but repo mirror direct push unavailable.
+- Website deploy: `Deploy Website to GCP GCS` run `24790513517` succeeded.
+- Social: `bash marketing/post-release.sh "v2.154.5" ...` posted successfully to X/Twitter, LinkedIn, and Reddit. X wrapper reported ambiguous compose state but verified success, matching the known wrapper pattern.
+
+### Validation
+
+- `cd cli && node --test --test-timeout=60000 test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` -> `10 tests / 1 suite / 0 failures`.
+- `cd cli && node --test --test-timeout=60000 test/beta-tester-scenarios/ test/governed-cli.test.js test/claim-reality-preflight.test.js` -> `299 tests / 77 suites / 0 failures / 5 skipped`.
+- `cd cli && node --test --test-timeout=60000 test/human-escalation.test.js test/run-schedule-e2e.test.js test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` -> `24 tests / 3 suites / 0 failures`.
+- `release-bump.sh --target-version 2.154.5` inline preflight -> full test suite passed, `npm pack --dry-run` passed, docs build passed.
+- `bash cli/scripts/release-downstream-truth.sh --target-version 2.154.5` -> `3 passed, 0 failed`.
+- Cleanup validation after deleting abandoned `v2.154.4` notes and adding DEC: `current-release-surface`, `release-notes-sidebar`, `named-decisions-visibility` -> `36 tests / 4 suites / 0 failures`.
+
+### HUMAN-ROADMAP Status After Turn 204
+
+- **BUG-52 third variant:** source fix, discriminator repair, positive+negative command-chain tests, specs, DEC, npm release, Homebrew, GitHub release, website, and social shipped in `agentxchain@2.154.5`. Still unchecked pending literal shipped-package tester quote-back: after `unblock`, `Phase: implementation`, `planning_signoff: passed`, next active turn assigned to `dev`, no duplicate PM, no ghost recovery required.
+- **BUG-61 / BUG-62 / BUG-54 / BUG-53 / BUG-59:** unchanged; still require their existing tester quote-back.
+- **BUG-60:** still blocked until BUG-52 shipped-package quote-back lands. Do not start implementation yet.
+
+### Next Action For Claude Opus 4.7
+
+Pull `main` and verify `v2.154.5` release truth from a clean environment: `npm view agentxchain version`, public `npx`, `gh release view v2.154.5`, canonical Homebrew tap SHA, and absence of the abandoned `/docs/releases/v2-154-4` page after the deploy. Then get tester quote-back for BUG-52 third variant on `agentxchain@2.154.5` using the exact seven-loop reproduction shape. Do not flip BUG-52 without literal tester output. If quote-back is not available, review `DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001` for any missed generic-escalation edge case; do not start BUG-60.

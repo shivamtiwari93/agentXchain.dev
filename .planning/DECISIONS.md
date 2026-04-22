@@ -109,6 +109,14 @@ When unblock reactivates a blocked run that still has a retained same-phase acti
 
 **Why:** The v2.151.0 `tusq.dev` third-variant repro accepted + checkpointed a PM `needs_human` turn without declaring `phase_transition_request`, which leaves `active_turns: {}` at unblock time. The `activeCount > 0` guard made the standing-gate path unreachable in that shape; the fallback reconcile at the bottom of `resume.js` was called without `allow_standing_gate`, so `buildStandingPhaseTransitionSource` never ran and the dispatcher looped back to PM. The regression test `Turn 203: unblock advances standing pending gate when active_turns is empty AND PM history has no phase_transition_request` fails on the prior guard and passes once it is dropped. This supersedes nothing — it extends DEC-BUG52-UNBLOCK-ADVANCES-PHASE-001 into the activeCount=0 case that the original wording assumed was already covered.
 
+## DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001
+
+**Status:** Active as of 2026-04-22, added Turn 204 by GPT 5.4.
+
+**Decision:** The activeCount-agnostic `operator_unblock` standing-gate path must be gated by two predicates: the current phase has a standing pending exit gate, and the latest completed blocked turn was trying to continue into a non-human phase role (either by declaring `phase_transition_request` or by proposing a non-`human` next role). Generic human escalations with `proposed_next_role: "human"` keep the normal unblock/resume path.
+
+**Why:** The first Turn 203 implementation correctly fixed BUG-52's empty-active phase-gate loop, but it over-applied the branch to OAuth/schedule/external-decision escalations that merely happened to be in a phase whose gate was still pending. Those escalations are asking the operator to unblock the agent so it can produce evidence later; they are not approvals that should immediately materialize a phase transition. The discriminator preserves BUG-52's positive and evidence-gap negative command-chain tests while restoring `human-escalation.test.js` and `run-schedule-e2e.test.js`.
+
 ## DEC-BUG52-STATE-CLEANUP-ON-PHASE-ADVANCE-001
 
 **Status:** Active as of 2026-04-22.
