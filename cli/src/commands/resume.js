@@ -44,6 +44,33 @@ import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
 import { reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
 
+function hasStandingPendingExitGate(state, config) {
+  const phase = state?.phase;
+  const gateId = phase ? config?.routing?.[phase]?.exit_gate : null;
+  return Boolean(gateId && (state?.phase_gate_status || {})[gateId] === 'pending');
+}
+
+function latestCompletedTurnWantsPhaseContinuation(root, state, config) {
+  const turnId = state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null;
+  if (!turnId) return false;
+  const historyPath = join(root, config?.files?.history || '.agentxchain/history.jsonl');
+  if (!existsSync(historyPath)) return false;
+  const lines = readFileSync(historyPath, 'utf8').trim().split('\n').filter(Boolean);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    let entry = null;
+    try {
+      entry = JSON.parse(lines[index]);
+    } catch {
+      continue;
+    }
+    if (entry?.turn_id !== turnId) continue;
+    if (entry.phase_transition_request) return true;
+    const proposed = typeof entry.proposed_next_role === 'string' ? entry.proposed_next_role.trim() : '';
+    return Boolean(proposed && proposed !== 'human');
+  }
+  return false;
+}
+
 export async function resumeCommand(opts) {
   const context = loadProjectContext();
   if (!context) {
@@ -143,18 +170,23 @@ export async function resumeCommand(opts) {
   // patched defensively) once the schema citation + migration citation are
   // documented in code and the coverage matrix.
 
-  // BUG-52 third variant (Turn 203): the standing-gate reconcile path must
-  // fire on operator_unblock regardless of `activeCount`. The tester's
-  // v2.151.0 lights-out repro on `tusq.dev` accepted + checkpointed a PM turn
-  // that returned `needs_human` without declaring `phase_transition_request`,
-  // which leaves `active_turns: {}` at unblock time. The prior
-  // `activeCount > 0` guard skipped the standing-gate reconciliation entirely,
-  // so `unblock` fell through to the generic reconcile at the bottom of this
-  // command (no `allow_standing_gate` opt-in) and redispatched PM in planning
-  // seven consecutive iterations. With the guard dropped, operator_unblock
-  // always routes through the standing-gate reconcile + `markRunBlocked`
-  // fallback — the same contract whether or not a retained turn exists.
-  if (state.status === 'blocked' && resumeVia === 'operator_unblock') {
+  // BUG-52 third variant (Turn 203/204): operator_unblock must run the
+  // standing-gate reconcile path regardless of `activeCount`, but only when the
+  // current phase actually has a standing pending exit gate and the blocked
+  // turn was trying to continue into a non-human phase role. The tester's
+  // v2.151.0 lights-out repro on `tusq.dev` left `active_turns: {}` with
+  // `phase_gate_status.planning_signoff: "pending"`, so the old
+  // `activeCount > 0` guard skipped the only path that could synthesize the
+  // missing transition source. Non-gate human escalations (OAuth, external
+  // decisions, schedule recovery with `proposed_next_role: "human"`) must keep
+  // the normal unblock/resume behavior instead of being forced through a
+  // phase-transition materialization check.
+  if (
+    state.status === 'blocked'
+    && resumeVia === 'operator_unblock'
+    && hasStandingPendingExitGate(state, config)
+    && latestCompletedTurnWantsPhaseContinuation(root, state, config)
+  ) {
     const reactivated = reactivateGovernedRun(root, state, { via: resumeVia, notificationConfig: config });
     if (!reactivated.ok) {
       console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
