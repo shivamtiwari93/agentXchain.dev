@@ -797,6 +797,92 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.ok(phaseEntered, 'phase_entered event must fire for planning -> implementation');
   });
 
+  it('Turn 204: unblock does NOT advance empty-active standing pending gate when required evidence is missing', () => {
+    // Mirror the Turn 203 third-variant shape, but omit PM_SIGNOFF.md. This is
+    // the activeCount=0 half of the Turn 177 negative case: the standing-gate
+    // reconcile branch is allowed to run, but it must remain evidence-gated.
+    const { root, config, state } = createProject();
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    // PM_SIGNOFF.md is intentionally absent.
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'needs_human',
+      needs_human_reason: 'Need operator confirmation before handing off to dev',
+      summary: 'Planning artifacts drafted, awaiting human confirmation',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'dev',
+      phase_transition_request: null,
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const blocked = readState(root);
+    writeState(root, {
+      ...blocked,
+      pending_phase_transition: null,
+      queued_phase_transition: null,
+      last_gate_failure: null,
+      phase_gate_status: {
+        ...(blocked.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {},
+    });
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.notEqual(
+      unblocked.status,
+      0,
+      `unblock must fail when empty-active standing gate evidence is missing:\n${unblocked.stdout}\n${unblocked.stderr}`,
+    );
+
+    const combinedOutput = `${unblocked.stdout}\n${unblocked.stderr}`;
+    assert.match(
+      combinedOutput,
+      /did not materialize|no phase transition could be materialized|unblock_reconcile_failed/i,
+      'operator must see an actionable reconcile-failure message',
+    );
+
+    const finalState = readState(root);
+    assert.equal(finalState.phase, 'planning', 'phase must NOT advance when empty-active standing gate evidence is missing');
+    assert.equal(finalState.status, 'blocked', 'run must remain blocked pending operator recovery');
+    assert.equal(finalState.phase_gate_status?.planning_signoff, 'pending', 'planning gate must remain pending');
+
+    const activeTurns = Object.values(finalState.active_turns || {});
+    for (const turn of activeTurns) {
+      assert.notEqual(turn?.assigned_role, 'dev', 'dev must NOT be dispatched when planning gate evidence is missing');
+    }
+
+    const events = readEvents(root);
+    const phaseEntered = events.find((entry) => entry.event_type === 'phase_entered'
+      && entry.payload?.from === 'planning'
+      && entry.payload?.to === 'implementation');
+    assert.equal(phaseEntered, undefined, 'phase_entered must NOT fire on empty-active evidence-missing unblock');
+    const phaseCleanup = events.find((entry) => entry.event_type === 'phase_cleanup'
+      && entry.payload?.from_phase === 'planning');
+    assert.equal(phaseCleanup, undefined, 'phase_cleanup must NOT fire when empty-active phase did not advance');
+  });
+
   it('Turn 94: resume advances from queued_phase_transition even when the latest accepted turn had no phase request', () => {
     const { root } = createProject(makeQaLaunchConfig());
     const seededState = readState(root);

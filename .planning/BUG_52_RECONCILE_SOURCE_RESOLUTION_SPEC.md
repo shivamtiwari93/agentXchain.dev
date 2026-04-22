@@ -49,6 +49,7 @@ Define how `reconcilePhaseAdvanceBeforeDispatch()` finds the accepted turn that 
 - **Turn 94 queued-request recovery path:** `resume` must advance from `queued_phase_transition.requested_by_turn` even when `last_completed_turn_id` points at a later accepted turn with `phase_transition_request: null`.
 - **Turn 94 null-source fail-closed path:** `resume` must not advance when the latest blocked turn had no `phase_transition_request` and the only matching request lives deeper in history with no surviving `last_gate_failure` or `queued_phase_transition`.
 - **Turn 203 activeCount=0 standing-gate path:** a PM turn accepted + checkpointed with `needs_human` and `phase_transition_request: null` leaves `active_turns: {}` at unblock time; `unblock <hesc>` must still advance the phase via the standing-gate reconcile (gate evidence present, `planning_signoff: pending`, `pending_phase_transition: null`, `queued_phase_transition: null`, `last_gate_failure: null`).
+- **Turn 204 activeCount=0 evidence-gap negative path:** the same empty-active standing-gate shape must not advance when required gate evidence is missing. `unblock <hesc>` must exit non-zero, keep the run blocked in the original phase, keep the gate pending, avoid dispatching the next phase role, and emit no `phase_entered` / `phase_cleanup` events.
 - Claim-reality guard fails if the BUG-52 scenario drops the separated `checkpoint-turn` invocation.
 
 ### Open Questions
