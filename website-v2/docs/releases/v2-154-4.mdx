@@ -1,0 +1,101 @@
+---
+sidebar_position: 0
+title: "v2.154.4 Release Notes"
+---
+
+# AgentXchain v2.154.4
+
+`v2.154.4` is a BUG-52 third-variant release. It ships the activeCount-agnostic
+`unblock` fix for standing human gates, plus the missing empty-active negative
+proof that keeps the repair evidence-gated.
+
+## Bug Fixes
+
+- **BUG-52 activeCount=0 unblock loop**: `agentxchain unblock <hesc>` now runs
+  the standing-gate reconciliation path for every blocked operator-unblock
+  resume, even when `active_turns` is empty. This closes the tester's v2.151.0
+  loop where `pending_phase_transition: null`, `planning_signoff: pending`, and
+  no retained PM turn caused `unblock` to redispatch PM instead of entering
+  implementation.
+
+- **BUG-52 evidence-gated empty-active negative path**: the empty-active
+  standing-gate path now has command-chain proof that missing required evidence
+  leaves the run blocked in the original phase, keeps the gate pending, avoids
+  dispatching the next phase role, and emits no `phase_entered` or
+  `phase_cleanup` events.
+
+- **BUG-52 spec alignment**: `.planning/BUG_52_RECONCILE_SOURCE_RESOLUTION_SPEC.md`
+  now records the activeCount=0 positive and negative acceptance contract.
+
+## Operator Notes
+
+For BUG-52 closure, run the tester chain against the shipped package: accept and
+checkpoint a PM `needs_human` turn with no `phase_transition_request`, resolve
+the human escalation with `agentxchain unblock <hesc>`, then verify the run
+enters `implementation` and dispatches `dev` rather than looping back to PM.
+
+## Decisions
+
+- `DEC-BUG52-UNBLOCK-ADVANCES-PHASE-001`
+- `DEC-BUG52-UNBLOCK-ADVANCES-PHASE-ACTIVECOUNT-AGNOSTIC-001`
+- `DEC-BUG52-STATE-CLEANUP-ON-PHASE-ADVANCE-001`
+
+## Evidence
+
+- node --test --test-timeout=60000 test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 10 tests / 1 suite / 0 failures / 0 skipped
+- node --test --test-timeout=60000 test/beta-tester-scenarios/ test/governed-cli.test.js test/claim-reality-preflight.test.js -> 299 tests / 77 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.154.4 -c "agentxchain --version"
+```
+
+For BUG-52 closure, quote all of the following from a shipped-package run:
+
+- `agentxchain status` reports `Phase: implementation` after `unblock`
+- `agentxchain gate show planning_signoff` reports `Status: passed`
+- the next active turn is assigned to `dev`
+- no duplicate PM redispatch occurs
+- no ghost recovery is required for the phase advance
+
+BUG-52 remains open until that shipped-package quote-back lands. BUG-61,
+BUG-62, BUG-54, BUG-59, and BUG-53 remain open under their existing shipped
+package closure contracts.
+
+For still-open BUG-62 closure, reproduce the tester drift scenario: make a safe
+manual product-file commit on top of an agent checkpoint, run a continuous
+session with `reconcile_operator_commits: "auto_safe_only"`, and quote the
+`state_reconciled_operator_commits` event emitted before the next dispatch.
+Then make an unsafe operator commit that edits `.agentxchain/state.json` or
+deletes `.planning/acceptance-matrix.md`; quote `agentxchain status`,
+`agentxchain status --json`, `operator_commit_reconcile_refused`, the
+`error_class`, and the recovery action.
+
+For still-open BUG-52 closure proof, quote `phase_entered` after `unblock`.
+Older paths may still show `trigger: "reconciled_before_dispatch"`. Standing
+gate paths should also show cleanup evidence when stale same-phase state
+existed.
+
+For still-open BUG-53 closure proof, run the shipped package in continuous mode
+and quote `session_continuation` events across chained runs. A bounded idle run
+should end as `idle_exit`, not as a paused gate.
+
+For still-open BUG-54 closure proof, quote adapter diagnostics from real
+`local_cli` dispatches, including `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
+adapter path, not from a standalone spawn harness.
+
+For still-open BUG-55 regression proof, run `accept-turn` followed by
+`checkpoint-turn` on a turn that declares both product files and verification
+outputs. Include `verification.produced_files` with at least one artifact or
+ignored output, prove there are no `undeclared_verification_outputs`, and quote
+`git status --short` after checkpointing.
+
+Clean tree means BUG-55 is fixed for your reproduction.
+
+The key operator chain is `accept-turn` followed by `checkpoint-turn` against
+the same accepted turn.
