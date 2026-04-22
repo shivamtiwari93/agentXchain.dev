@@ -71,7 +71,13 @@ Required shape:
 
 ```bash
 # Simulate an unsafe operator commit on top of the current baseline.
-node -e 'const fs=require("fs");const p=".agentxchain/state.json";const s=JSON.parse(fs.readFileSync(p,"utf8"));s.operator_touched=true;fs.writeFileSync(p, JSON.stringify(s, null, 2)+"\n");'
+node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync } from 'node:fs';
+const path = '.agentxchain/state.json';
+const state = JSON.parse(readFileSync(path, 'utf8'));
+state.operator_touched = true;
+writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`);
+NODE
 git add .agentxchain/state.json && git commit -q -m "operator: unsafe state edit"
 
 agentxchain reconcile-state --accept-operator-head; echo "exit: $?"
@@ -86,7 +92,7 @@ Required shape:
 ### Block 3 — negative (history rewrite makes baseline a non-ancestor)
 
 ```bash
-# Rewind to before the state-edit commit, then make an orphan commit so the
+# Rewind to the original scaffold baseline, then make a divergent commit so the
 # prior accepted_head from Block 1 is no longer an ancestor of HEAD.
 git reset --hard "$BASE"
 git commit --allow-empty -q -m "operator: rewritten history"
@@ -101,7 +107,7 @@ Required shape:
 
 ### Post-test cleanup note
 
-The scratch directory `/tmp/axc-bug62` can be removed after quote-back. Do not attempt to reuse it for other quote-back asks — the rewritten history from Block 3 makes subsequent reconciles unreliable.
+The scratch directory `/tmp/axc-bug62` can be removed after quote-back. Do not attempt to reuse it for other quote-back asks — Block 3 intentionally rewrites this scratch repo's history and makes subsequent reconciles unreliable.
 
 ---
 

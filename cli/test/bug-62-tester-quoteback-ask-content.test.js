@@ -92,6 +92,39 @@ describe('BUG-62 tester quote-back ask V3', () => {
     );
   });
 
+  it('uses a heredoc state mutation instead of a brittle inline node -e command', () => {
+    const ask = readRepoFile(ASK_V3_PATH);
+    assert.match(
+      ask,
+      /node --input-type=module <<'NODE'[\s\S]*state\.operator_touched = true;[\s\S]*NODE/,
+      'V3 Block 2 must use the portable heredoc mutation pattern',
+    );
+    assert.doesNotMatch(
+      ask,
+      /node -e 'const fs=require/,
+      'V3 must not rely on shell-sensitive inline node -e quoting',
+    );
+  });
+
+  it('describes the history rewrite as a divergent scratch commit, not an orphan commit', () => {
+    const ask = readRepoFile(ASK_V3_PATH);
+    assert.match(
+      ask,
+      /make a divergent commit so the[\s\S]{0,120}accepted_head/,
+      'V3 Block 3 must describe the actual non-ancestor shape',
+    );
+    assert.doesNotMatch(
+      ask,
+      /orphan commit/,
+      'V3 Block 3 must not mislabel the reset-plus-empty-commit shape as orphan history',
+    );
+    assert.match(
+      ask,
+      /Block 3 intentionally rewrites this scratch repo's history/,
+      'V3 cleanup note must explain that only the scratch repo history is rewritten',
+    );
+  });
+
   it('requires scratch-only execution to avoid polluting real projects', () => {
     const ask = readRepoFile(ASK_V3_PATH);
     assert.match(
