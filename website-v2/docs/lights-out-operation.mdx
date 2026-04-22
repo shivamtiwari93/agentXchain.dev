@@ -220,10 +220,10 @@ Under full-auto approval policy, the continuous loop already runs this reconcile
 Valid modes:
 
 - `manual`: continuous drift stays blocking; operator runs `agentxchain reconcile-state --accept-operator-head` by hand. Default under governed-mode approval policies.
-- `auto_safe_only`: continuous loop auto-accepts fast-forward operator commits that leave `.agentxchain/` alone before every dispatch. Default under full-auto approval policy. Unsafe commits still pause the session with `operator_commit_reconcile_refused` and the same refusal class the manual primitive uses (`governed_state_modified`, `critical_path_deleted`, `history_rewrite`, ...).
+- `auto_safe_only`: continuous loop auto-accepts fast-forward operator commits that leave `.agentxchain/` alone before every dispatch. Default under full-auto approval policy. Unsafe commits still pause the session with `operator_commit_reconcile_refused` and the same refusal class the shared reconcile primitive returns (`governance_state_modified`, `critical_artifact_deleted`, `history_rewrite`, `missing_baseline`, `git_unavailable`, `not_git_repo`, or `commit_walk_failed`).
 - `disabled`: continuous loop skips the reconcile entirely. Use only if an external system owns baseline advancement.
 
-Per-run override: `agentxchain run --continuous --reconcile-operator-commits auto_safe_only`. When the auto reconcile refuses a commit, the session pauses, `status` surfaces the refusal class and the same `agentxchain reconcile-state --accept-operator-head` recovery hint, and the loop emits `operator_commit_reconcile_refused` for audit. The manual primitive remains the single audited safety function for every reconcile path.
+Per-run override: `agentxchain run --continuous --reconcile-operator-commits auto_safe_only`. When the auto reconcile refuses a commit, the session pauses, `status` surfaces the refusal class and the same `agentxchain reconcile-state --accept-operator-head` recovery hint, and the loop emits `operator_commit_reconcile_refused` for audit. Manual and automatic reconcile both route through the same audited safety primitive; the auto path adds a blocked-state/event wrapper instead of reimplementing commit-range checks.
 
 ## 6. Handle blocked and failed states correctly
 

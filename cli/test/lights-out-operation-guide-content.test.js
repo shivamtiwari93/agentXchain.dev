@@ -65,6 +65,14 @@ describe('lights-out operation guide contract', () => {
     assert.match(DOC, /auto_safe_only/);
     assert.match(DOC, /--reconcile-operator-commits/);
     assert.match(DOC, /operator_commit_reconcile_refused/);
+    assert.match(DOC, /governance_state_modified/);
+    assert.match(DOC, /critical_artifact_deleted/);
+    assert.match(DOC, /history_rewrite/);
+    assert.match(DOC, /missing_baseline/);
+    assert.doesNotMatch(DOC, /governed_state_modified/);
+    assert.doesNotMatch(DOC, /critical_path_deleted/);
+    assert.match(DOC, /same audited safety primitive/i);
+    assert.match(DOC, /blocked-state\/event wrapper/i);
     assert.match(DOC, /`disabled`/);
     assert.match(DOC, /`manual`/);
     assert.match(DOC, /agentxchain inject "Fix the broken release-note sidebar ordering" --priority p0/);

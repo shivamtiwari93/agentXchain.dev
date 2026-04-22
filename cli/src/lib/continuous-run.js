@@ -383,6 +383,7 @@ export function maybeAutoReconcileOperatorCommits(context, session, contOpts, lo
   const detail = detailLines.join(' ');
 
   if (state) {
+    const blockedAt = new Date().toISOString();
     const nextState = {
       ...state,
       status: 'blocked',
@@ -390,10 +391,15 @@ export function maybeAutoReconcileOperatorCommits(context, session, contOpts, lo
       blocked_reason: {
         ...(state.blocked_reason || {}),
         category: 'operator_commit_reconcile_refused',
+        blocked_at: blockedAt,
+        turn_id: null,
         error_class: errorClass,
         recovery: {
           ...((state.blocked_reason || {}).recovery || {}),
+          typed_reason: 'operator_commit_reconcile_refused',
+          owner: 'human',
           recovery_action: 'agentxchain reconcile-state --accept-operator-head',
+          turn_retained: false,
           detail,
         },
       },

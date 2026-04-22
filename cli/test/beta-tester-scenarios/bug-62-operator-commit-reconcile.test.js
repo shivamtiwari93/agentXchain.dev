@@ -6,6 +6,8 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { scaffoldGoverned } from '../../src/commands/init.js';
+import { loadProjectContext } from '../../src/lib/config.js';
+import { maybeAutoReconcileOperatorCommits } from '../../src/lib/continuous-run.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', '..', 'bin', 'agentxchain.js');
@@ -184,5 +186,55 @@ describe('BUG-62 operator commit reconcile command-chain', () => {
     assert.equal(reconcile.status, 1, `reconcile unexpectedly succeeded: ${reconcile.stdout}`);
     assert.match(reconcile.stdout, /history_rewrite/);
     assert.match(reconcile.stdout, /baseline .* is not an ancestor of current HEAD/);
+  });
+
+  it('surfaces auto-reconcile refusal class and recovery action through status', () => {
+    const { dir } = setupGovernedGitProject();
+
+    const statePath = join(dir, '.agentxchain', 'state.json');
+    writeJson(statePath, {
+      ...readJson(statePath),
+      unsafe_operator_edit: true,
+    });
+    git(dir, ['add', '-f', '.agentxchain/state.json']);
+    git(dir, ['commit', '-m', 'operator: edit governed state for auto refusal']);
+
+    const context = loadProjectContext(dir);
+    assert.ok(context, 'expected governed project context');
+    const session = {
+      session_id: 'cont-bug62-status',
+      status: 'running',
+      current_run_id: 'run_bug62',
+      runs_completed: 0,
+    };
+    const result = maybeAutoReconcileOperatorCommits(
+      context,
+      session,
+      { reconcileOperatorCommits: 'auto_safe_only' },
+      () => {}
+    );
+
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.action, 'operator_commit_reconcile_refused');
+    assert.equal(result.error_class, 'governance_state_modified');
+    assert.equal(result.recovery_action, 'agentxchain reconcile-state --accept-operator-head');
+
+    const humanStatus = runCli(dir, ['status']);
+    assert.equal(humanStatus.status, 0, `status failed: ${humanStatus.stdout}\n${humanStatus.stderr}`);
+    assert.match(humanStatus.stdout, /BLOCKED/);
+    assert.match(humanStatus.stdout, /Operator-commit auto-reconcile refused \(governance_state_modified\)/);
+    assert.match(humanStatus.stdout, /agentxchain reconcile-state --accept-operator-head/);
+
+    const jsonStatus = runCli(dir, ['status', '--json']);
+    assert.equal(jsonStatus.status, 0, `status --json failed: ${jsonStatus.stdout}\n${jsonStatus.stderr}`);
+    const payload = JSON.parse(jsonStatus.stdout);
+    assert.equal(payload.state.status, 'blocked');
+    assert.equal(payload.state.blocked_on, 'operator_commit_reconcile_refused');
+    assert.equal(payload.state.blocked_reason.error_class, 'governance_state_modified');
+    assert.equal(
+      payload.state.blocked_reason.recovery.recovery_action,
+      'agentxchain reconcile-state --accept-operator-head'
+    );
+    assert.match(payload.state.blocked_reason.recovery.detail, /governance_state_modified/);
   });
 });

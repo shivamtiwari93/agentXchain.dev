@@ -569,6 +569,12 @@ describe('Continuous Run', () => {
       assert.equal(nextState.status, 'blocked');
       assert.equal(nextState.blocked_on, 'operator_commit_reconcile_refused');
       assert.equal(nextState.blocked_reason.error_class, 'governance_state_modified');
+      assert.equal(nextState.blocked_reason.category, 'operator_commit_reconcile_refused');
+      assert.match(nextState.blocked_reason.blocked_at, /^\d{4}-\d{2}-\d{2}T/);
+      assert.equal(nextState.blocked_reason.turn_id, null);
+      assert.equal(nextState.blocked_reason.recovery.typed_reason, 'operator_commit_reconcile_refused');
+      assert.equal(nextState.blocked_reason.recovery.owner, 'human');
+      assert.equal(nextState.blocked_reason.recovery.turn_retained, false);
       assert.match(nextState.blocked_reason.recovery.detail, /auto-reconcile refused/);
       assert.match(nextState.blocked_reason.recovery.detail, /governance_state_modified/);
 
