@@ -577,6 +577,125 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.ok(cleanup, 'phase advance must emit phase_cleanup for the stale PM turn');
   });
 
+  it('Turn 177: unblock does NOT advance standing pending gate when required evidence is missing (negative case)', () => {
+    // HUMAN-ROADMAP BUG-52 third variant — sharpened fix requirement #5 negative
+    // case: standing `planning_signoff: pending` with `pending_phase_transition:
+    // null` AND the gate's `requires_files` list includes a file that is NOT
+    // present on disk → `unblock` must NOT advance the phase. The escalation is
+    // resolved (status transitions out of `blocked`), but the run is re-blocked
+    // with a clear operator-facing message and the original gate state is
+    // preserved. This proves the Turn 176 standing-gate path is evidence-gated,
+    // not a rubber stamp.
+    const { root, config, state } = createProject();
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    // Deliberately write ROADMAP.md but NOT PM_SIGNOFF.md. The planning_signoff
+    // gate declares `requires_files: ['.planning/PM_SIGNOFF.md',
+    // '.planning/ROADMAP.md']` in makePlanningConfig(), so the gate evaluator
+    // will return `gate_failed` when reconcilePhaseAdvanceBeforeDispatch reruns
+    // evaluatePhaseExit against the synthetic standing-gate source.
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    // PM_SIGNOFF.md is INTENTIONALLY absent — this is the evidence-missing seam.
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'needs_human',
+      needs_human_reason: 'Need operator confirmation before handing off to dev',
+      summary: 'Planning artifacts drafted, awaiting human confirmation',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'dev',
+      phase_transition_request: 'implementation',
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const blocked = readState(root);
+    const staleTurnId = blocked.blocked_reason?.turn_id;
+    assert.equal(staleTurnId, turnId, 'fixture sanity: escalation should remain tied to the accepted PM turn');
+
+    // Recreate the third-variant shape: pending_phase_transition null, gate
+    // standing pending, retained PM active turn.
+    writeState(root, {
+      ...blocked,
+      pending_phase_transition: null,
+      phase_gate_status: {
+        ...(blocked.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {
+        [staleTurnId]: {
+          turn_id: staleTurnId,
+          run_id: blocked.run_id,
+          assigned_role: 'pm',
+          runtime_id: 'manual-pm',
+          status: 'dispatched',
+          attempt: 1,
+          assigned_sequence: blocked.turn_sequence || 1,
+        },
+      },
+    });
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+
+    // resume.js:188 exits non-zero when the standing-gate reconcile cannot
+    // materialize a phase transition. This proves the failure is surfaced to
+    // the operator, not silently swallowed.
+    assert.notEqual(unblocked.status, 0, `unblock must fail when required evidence is missing:\n${unblocked.stdout}\n${unblocked.stderr}`);
+
+    const combinedOutput = `${unblocked.stdout}\n${unblocked.stderr}`;
+    assert.match(
+      combinedOutput,
+      /did not materialize|no phase transition could be materialized|unblock_reconcile_failed/i,
+      'operator must see an actionable reconcile-failure message',
+    );
+
+    const finalState = readState(root);
+    assert.equal(finalState.phase, 'planning', 'phase must NOT advance when required evidence is missing');
+    assert.equal(
+      finalState.phase_gate_status?.planning_signoff,
+      'pending',
+      'planning_signoff gate must remain pending — evidence gap was not papered over',
+    );
+    // The retained PM turn state is preserved OR the run is re-blocked with a
+    // recovery pointer. Either way: no new implementation-phase dispatch.
+    const activeTurns = Object.values(finalState.active_turns || {});
+    for (const turn of activeTurns) {
+      assert.notEqual(turn?.assigned_role, 'dev', 'dev must NOT be dispatched when planning gate evidence is missing');
+    }
+    assert.equal(
+      finalState.status,
+      'blocked',
+      'run must remain blocked pending operator recovery (providing the missing evidence)',
+    );
+
+    // No phase_entered / phase_cleanup events should have fired.
+    const events = readEvents(root);
+    const phaseEntered = events.find((entry) => entry.event_type === 'phase_entered'
+      && entry.payload?.from === 'planning'
+      && entry.payload?.to === 'implementation');
+    assert.equal(phaseEntered, undefined, 'phase_entered must NOT fire on evidence-missing unblock');
+    const phaseCleanup = events.find((entry) => entry.event_type === 'phase_cleanup'
+      && entry.payload?.from_phase === 'planning');
+    assert.equal(phaseCleanup, undefined, 'phase_cleanup must NOT fire when phase did not advance');
+  });
+
   it('Turn 94: resume advances from queued_phase_transition even when the latest accepted turn had no phase request', () => {
     const { root } = createProject(makeQaLaunchConfig());
     const seededState = readState(root);
