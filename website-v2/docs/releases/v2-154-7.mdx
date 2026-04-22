@@ -1,11 +1,11 @@
 ---
 sidebar_position: 0
-title: "v2.154.6 Release Notes"
+title: "v2.154.7 Release Notes"
 ---
 
-# AgentXchain v2.154.6
+# AgentXchain v2.154.7
 
-`v2.154.6` is the BUG-52 third-variant discriminator repair release. It ships
+`v2.154.7` is the BUG-52 third-variant discriminator repair release. It ships
 the realistic PM `needs_human` handoff fix that `v2.154.5` missed, while
 preserving verification-gated QA safety for synthetic standing-gate recovery.
 
@@ -51,13 +51,16 @@ checkpointed with planning gate artifacts present, followed by
 Run the shipped package:
 
 ```bash
-npx --yes -p agentxchain@2.154.6 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
 
 For BUG-52 closure, quote all of the following from a shipped-package run:
 
 - `agentxchain status` reports `Phase: implementation` after `unblock`
 - `agentxchain gate show planning_signoff` reports `Status: passed`
+- `phase_entered` is present after `unblock` (standing-gate paths may report
+  `trigger: "reconciled_before_dispatch"` or `trigger: "auto_approved"`,
+  depending on policy)
 - the next active turn is assigned to `dev`
 - no duplicate PM redispatch occurs
 - no ghost recovery is required for the phase advance

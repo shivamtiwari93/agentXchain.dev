@@ -1,13 +1,13 @@
 # Changelog
 
-## 2.154.6
+## 2.154.7
 
 ### Bug Fixes
 - **BUG-52 realistic PM `needs_human` handoff**: `agentxchain unblock <hesc>` now advances a standing pending human-approval gate when the accepted PM turn set `status: "needs_human"`, left `phase_transition_request: null`, and set `proposed_next_role: "human"`, provided the turn contributed required gate artifacts and all required gate files exist on disk.
 - **BUG-52 synthetic-source verification guard**: standing-gate recovery no longer fabricates a passing verifier for gates with `requires_verification_pass: true`. If the latest blocked turn failed verification, `unblock` stays in the current phase instead of advancing from a synthetic transition source.
 
 ### Status
-- `v2.154.6` supersedes `v2.154.5` for BUG-52 third-variant tester quote-back. BUG-52 still closes only after tester-quoted shipped-package output showing `unblock` advances to implementation, marks `planning_signoff` passed, dispatches `dev`, and does not require ghost recovery.
+- `v2.154.7` supersedes `v2.154.5` for BUG-52 third-variant tester quote-back. BUG-52 still closes only after tester-quoted shipped-package output showing `unblock` advances to implementation, marks `planning_signoff` passed, dispatches `dev`, and does not require ghost recovery.
 - BUG-61, BUG-62, BUG-54, BUG-59, and BUG-53 remain open pending their existing tester quote-back contracts.
 
 ### Evidence

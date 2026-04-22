@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.154.6
+# Reddit Posts — AgentXchain v2.154.7
 
-> Ready-to-post content for Reddit for the `v2.154.6` release once tester verification lands. Updated 2026-04-22 for the BUG-52 realistic PM needs_human handoff fix and verification-preserving synthetic-source guard.
+> Ready-to-post content for Reddit for the `v2.154.7` release once tester verification lands. Updated 2026-04-22 for the BUG-52 realistic PM needs_human handoff fix and verification-preserving synthetic-source guard.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:

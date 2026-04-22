@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.154.6
+# Launch Evidence Report — AgentXchain v2.154.7
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-22 for the v2.154.6 BUG-52 delegated-human gate recovery repair over `v2.154.5`. BUG-52 ships the realistic PM `needs_human` handoff discriminator plus verification-preserving synthetic standing-gate recovery. BUG-52 closes only after tester-quoted shipped-package output on `agentxchain@2.154.6`. BUG-62, BUG-61, BUG-54, BUG-59, and BUG-53 remain open pending their own tester-quoted shipped-package output. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-22 for the v2.154.7 BUG-52 delegated-human gate recovery repair over `v2.154.5`. BUG-52 ships the realistic PM `needs_human` handoff discriminator plus verification-preserving synthetic standing-gate recovery. BUG-52 closes only after tester-quoted shipped-package output on `agentxchain@2.154.7`. BUG-62, BUG-61, BUG-54, BUG-59, and BUG-53 remain open pending their own tester-quoted shipped-package output. Current aggregate release evidence:
 >
 > - node --test --test-timeout=60000 test/human-escalation.test.js test/run-schedule-e2e.test.js test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 26 tests / 3 suites / 0 failures / 0 skipped
 > - node --test cli/test/continuous-ghost-retry-e2e.test.js cli/test/continuous-run-e2e.test.js cli/test/continuous-run.test.js cli/test/ghost-retry.test.js cli/test/run-events.test.js -> 93 tests / 26 suites / 0 failures / 0 skipped
