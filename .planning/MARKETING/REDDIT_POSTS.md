@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.154.0
+# Reddit Posts — AgentXchain v2.154.1
 
-> Ready-to-post content for Reddit for the `v2.154.0` release once tester verification lands. Updated 2026-04-22 for the BUG-62 operator-commit reconcile release over `v2.153.0` (manual `reconcile-state --accept-operator-head`, continuous `reconcile_operator_commits`, safe fast-forward acceptance, governed-state and history-rewrite refusals).
+> Ready-to-post content for Reddit for the `v2.154.1` release once tester verification lands. Updated 2026-04-22 for the BUG-62 auto-reconcile visibility patch over `v2.154.0` (auto-refusal status schema, real refusal-class names, and stable operator docs for `auto_safe_only`).
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 233 tests / 69 suites / 0 failures / 5 skipped
+> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 241 tests / 71 suites / 0 failures / 5 skipped
 
 ---
 

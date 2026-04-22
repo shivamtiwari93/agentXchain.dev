@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.154.1
+
+### Bug Fixes
+- **BUG-62 auto-refusal blocked-state schema**: continuous `auto_safe_only` refusal now writes schema-valid blocked state (`blocked_at`, `turn_id`, `recovery.typed_reason`, `owner`, and `turn_retained`) so `agentxchain status` can render the blocker instead of falling back to unknown phase/run output.
+- **BUG-62 status recovery contract**: `agentxchain status` and `agentxchain status --json` now expose `operator_commit_reconcile_refused`, the concrete `error_class`, and `agentxchain reconcile-state --accept-operator-head` for unsafe automatic operator-commit reconciliation.
+- **BUG-62 refusal-class docs**: stable lights-out docs and `DEC-BUG62-AUTO-SAFE-ONLY-RECONCILE-001` now name the real reconciler classes: `governance_state_modified`, `critical_artifact_deleted`, and `history_rewrite`.
+- **BUG-54 startup-proof docs**: local CLI watchdog docs now state the implementation contract: stdout or staged result clears startup, while stderr-only output is diagnostic evidence and not startup proof.
+
+### Status
+- `v2.154.1` is a BUG-62 visibility patch over `v2.154.0`. It does not close BUG-62; closure still requires tester-quoted shipped-package output for safe automatic reconciliation and unsafe refusal status surfacing.
+- BUG-52, BUG-54, BUG-59, BUG-53, and BUG-61 remain open pending their existing tester quote-back contracts.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 241 tests / 71 suites / 0 failures / 5 skipped
+- node --test --test-timeout=60000 test/continuous-run.test.js test/lights-out-operation-guide-content.test.js test/beta-tester-scenarios/bug-62-operator-commit-reconcile.test.js -> 50 tests / 12 suites / 0 failures / 0 skipped
+
 ## 2.154.0
 
 ### Bug Fixes

@@ -1,0 +1,119 @@
+---
+sidebar_position: 0
+title: "v2.154.1 Release Notes"
+---
+
+# AgentXchain v2.154.1
+
+`v2.154.1` is the BUG-62 auto-reconcile visibility patch. It keeps the
+`v2.154.0` operator-commit reconcile surface, then fixes the auto-refusal path
+so continuous sessions write schema-valid blocked state and `agentxchain
+status` shows the exact refusal class plus recovery command.
+
+## Bug Fixes
+
+- **BUG-62 auto-refusal blocked-state schema**: continuous
+  `auto_safe_only` refusal now writes `blocked_at`, `turn_id: null`,
+  `recovery.typed_reason`, `owner`, and `turn_retained`. Status can load and
+  render the run instead of falling back to `Phase: unknown` / `Run: unknown`.
+
+- **BUG-62 status recovery contract**: `agentxchain status` and
+  `agentxchain status --json` now surface
+  `operator_commit_reconcile_refused`, the concrete `error_class`, and the
+  recovery action `agentxchain reconcile-state --accept-operator-head` for
+  unsafe automatic reconciliation.
+
+- **BUG-62 refusal-class documentation**: docs and decisions now use the real
+  refusal classes from the reconciler: `governance_state_modified`,
+  `critical_artifact_deleted`, and `history_rewrite`.
+
+- **BUG-54 operator docs correction**: local CLI startup-watchdog docs now
+  state the actual proof contract: first stdout or staged `turn-result.json`
+  clears startup, while stderr-only output is diagnostic evidence and does not
+  prove the governed turn started.
+
+## Operator Notes
+
+For continuous sessions that should accept only safe fast-forward operator
+commits before dispatch:
+
+```json
+{
+  "run_loop": {
+    "continuous": {
+      "reconcile_operator_commits": "auto_safe_only"
+    }
+  }
+}
+```
+
+If the automatic path refuses a commit, inspect:
+
+```bash
+agentxchain status
+agentxchain status --json
+```
+
+Then either remove the unsafe commit or explicitly accept the operator head:
+
+```bash
+agentxchain reconcile-state --accept-operator-head
+```
+
+## Decisions
+
+- `DEC-BUG62-AUTO-SAFE-ONLY-RECONCILE-001`
+- `DEC-BUG54-STDERR-IS-NOT-STARTUP-PROOF-002`
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 241 tests / 71 suites / 0 failures / 5 skipped
+- node --test --test-timeout=60000 test/continuous-run.test.js test/lights-out-operation-guide-content.test.js test/beta-tester-scenarios/bug-62-operator-commit-reconcile.test.js -> 50 tests / 12 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.154.1 -c "agentxchain --version"
+```
+
+For BUG-62 closure, reproduce the tester drift scenario: make a safe manual
+product-file commit on top of an agent checkpoint, run a continuous session
+with `reconcile_operator_commits: "auto_safe_only"`, and quote the
+`state_reconciled_operator_commits` event emitted before the next dispatch.
+
+Then make an unsafe operator commit that edits `.agentxchain/state.json` or
+deletes `.planning/acceptance-matrix.md`. Quote `agentxchain status`,
+`agentxchain status --json`, `operator_commit_reconcile_refused`, the
+`error_class`, and the recovery action.
+
+BUG-62 remains open until that shipped-package quote-back lands. BUG-52,
+BUG-54, BUG-59, BUG-53, and BUG-61 remain open under their existing shipped
+package closure contracts.
+
+For still-open BUG-52 closure proof, quote `phase_entered` after `unblock`.
+Older paths may still show `trigger: "reconciled_before_dispatch"`; standing
+gate paths should also show cleanup evidence when stale same-phase state
+existed.
+
+For still-open BUG-53 closure proof, run the shipped package in continuous mode
+and quote `session_continuation` events across chained runs. A bounded idle run
+should end as `idle_exit`, not as a paused gate.
+
+For still-open BUG-54 closure proof, quote adapter diagnostics from real
+`local_cli` dispatches, including `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
+adapter path, not from a standalone spawn harness.
+
+For still-open BUG-55 regression proof, run `accept-turn` followed by
+`checkpoint-turn` on a turn that declares both product files and verification
+outputs. Include `verification.produced_files` with at least one artifact or
+ignored output, prove there are no `undeclared_verification_outputs`, and quote
+`git status --short` after checkpointing.
+
+Clean tree means BUG-55 is fixed for your reproduction.
+
+The key operator chain is `accept-turn` followed by `checkpoint-turn` against
+the same accepted turn.

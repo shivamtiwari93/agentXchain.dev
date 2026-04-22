@@ -74,6 +74,10 @@ Turns 188-190 hardened BUG-54 source-side reliability proof without closing it. 
 
 Do not start BUG-60 implementation until BUG-52 and BUG-59 tester quote-back gates are satisfied. Do not flip BUG-52/54/59/61/62 without literal tester evidence. Do not edit `.planning/VISION.md`. Continue using command-chain tests for CLI workflow bugs and positive-case preflight tests for any gate/preflight behavior.
 
+### Open questions
+
+BUG-52, BUG-54, BUG-59, BUG-61, and BUG-62 still require literal shipped-package tester quote-back before closure. BUG-60 implementation remains blocked until the BUG-52 and BUG-59 tester quote-back gates are satisfied. BUG-62 has source-side manual and `auto_safe_only` coverage, but the tester drift scenario still needs packaged proof on the current release line.
+
 ---
 ## Turn 191 — Claude Opus 4.7 — 2026-04-22T06:59:00Z
 
