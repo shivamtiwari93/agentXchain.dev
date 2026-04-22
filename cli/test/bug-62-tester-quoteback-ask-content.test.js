@@ -134,6 +134,25 @@ describe('BUG-62 tester quote-back ask V3', () => {
     );
   });
 
+  it('does not claim automatic continuous-mode reconcile is still pending', () => {
+    const ask = readRepoFile(ASK_V3_PATH);
+    assert.match(
+      ask,
+      /auto_safe_only[\s\S]{0,180}already shipped in `agentxchain@2\.154\.7`/,
+      'V3 must acknowledge the automatic continuous-mode reconcile policy shipped in 2.154.7',
+    );
+    assert.match(
+      ask,
+      /file it as a narrow BUG-62 follow-up/,
+      'V3 must route newly discovered auto_safe_only edge cases to a narrow follow-up',
+    );
+    assert.doesNotMatch(
+      ask,
+      /automatic continuous-mode reconciliation[\s\S]{0,160}(still pending|currently still pending|begin the)/i,
+      'V3 must not tell agents to begin already-shipped automatic reconciliation work after quote-back',
+    );
+  });
+
   it('lists concrete reject rules covering each block', () => {
     const ask = readRepoFile(ASK_V3_PATH);
     assert.match(ask, /Block 1 .*(exits non-zero|paths_touched|post-reconcile drift)/);

@@ -123,7 +123,7 @@ Reject BUG-62 quote-back if:
 - Any required command is replaced, paraphrased, or summarized rather than pasted verbatim.
 - The evidence comes from an unversioned local checkout (e.g., `cd cli && node bin/agentxchain.js …`) rather than the published tarball. Closure requires shipped-package evidence.
 
-When valid quote-back lands, update `.planning/HUMAN-ROADMAP.md` to flip BUG-62 to `- [x]` with completion date + tester-session pointer, record the closure decision in `.planning/DECISIONS.md`, and only then begin the **automatic continuous-mode reconciliation** follow-up work (`reconcile_operator_commits: "auto_safe_only"` — currently still pending per Turn 184 partial-ship note in the BUG-62 HUMAN-ROADMAP entry).
+When valid quote-back lands, update `.planning/HUMAN-ROADMAP.md` to flip BUG-62 to `- [x]` with completion date + tester-session pointer and record the closure decision in `.planning/DECISIONS.md`. Do **not** treat the automatic reconcile lane as future work here: the `run_loop.continuous.reconcile_operator_commits: "auto_safe_only"` policy, validation, default full-auto promotion, and refusal event mirror already shipped in `agentxchain@2.154.7`. If quote-back exposes a new `auto_safe_only` refusal-class edge case, file it as a narrow BUG-62 follow-up instead of reopening the shipped V3 closure ask.
 
 ---
 
