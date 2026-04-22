@@ -1,0 +1,46 @@
+import { strict as assert } from 'node:assert';
+import { describe, it } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..');
+
+function read(relPath) {
+  return readFileSync(join(REPO_ROOT, relPath), 'utf8');
+}
+
+function compact(content) {
+  return content.replace(/\s+/g, ' ');
+}
+
+describe('BUG-61 tester runbook content', () => {
+  const release153 = read('website-v2/docs/releases/v2-153-0.mdx');
+  const release1541 = read('website-v2/docs/releases/v2-154-1.mdx');
+  const lightsOut = read('website-v2/docs/lights-out-operation.mdx');
+
+  it('states the strict full-auto approval-policy precondition for shipped quote-back', () => {
+    for (const content of [release153, release1541, lightsOut]) {
+      const normalized = compact(content);
+      assert.match(normalized, /approval_policy\.phase_transitions\.default === "auto_approve"/);
+      assert.match(normalized, /approval_policy\.run_completion\.action === "auto_approve"/);
+    }
+  });
+
+  it('states the explicit opt-in escape hatch when the strict detector does not apply', () => {
+    for (const content of [release153, release1541, lightsOut]) {
+      const normalized = compact(content);
+      assert.match(normalized, /run_loop\.continuous\.auto_retry_on_ghost\.enabled: true/);
+      assert.match(content, /--auto-retry-on-ghost/);
+    }
+  });
+
+  it('warns that missing the precondition means manual recovery is expected, not a failed fix', () => {
+    for (const content of [release153, release1541]) {
+      assert.match(content, /auto-retry is disabled by design/i);
+      assert.match(content, /manual `reissue-turn/i);
+      assert.match(content, /DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001/);
+    }
+  });
+});

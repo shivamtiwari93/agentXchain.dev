@@ -193,7 +193,7 @@ Continuous mode can automatically recover from transient startup ghosts: turns t
 
 When enabled, the loop uses the same `reissueTurn()` path as the manual `agentxchain reissue-turn --turn <id> --reason ghost` recovery, records attempts in `continuous-session.json`, emits `auto_retried_ghost`, and continues the same run. If the run hits `max_retries_per_run`, it emits `ghost_retry_exhausted`, keeps the session paused, and preserves the manual `reissue-turn` command in `status`.
 
-Generated BUG-59 safe-rule configs use `phase_transitions.default: "require_human"` with explicit auto-approve rules. That conservative posture does **not** auto-enable ghost retry. For those projects, opt in with the config above or use `agentxchain run --continuous --auto-retry-on-ghost`.
+Auto-retry is enabled by default only for the strict full-auto approval posture: `approval_policy.phase_transitions.default === "auto_approve"` and `approval_policy.run_completion.action === "auto_approve"` with continuous mode enabled. Generated BUG-59 safe-rule configs use `phase_transitions.default: "require_human"` with explicit auto-approve rules. That conservative posture does **not** auto-enable ghost retry. For those projects, opt in with the config above (`run_loop.continuous.auto_retry_on_ghost.enabled: true`) or use `agentxchain run --continuous --auto-retry-on-ghost`.
 
 ## 5b. Reconcile intentional operator commits
 

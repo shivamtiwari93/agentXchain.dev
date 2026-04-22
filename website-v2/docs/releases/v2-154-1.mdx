@@ -92,6 +92,20 @@ BUG-62 remains open until that shipped-package quote-back lands. BUG-52,
 BUG-54, BUG-59, BUG-53, and BUG-61 remain open under their existing shipped
 package closure contracts.
 
+For still-open BUG-61 closure proof, reproduce a ghost-turn class failure in a
+continuous run only after confirming auto-retry is actually enabled. The
+project must either satisfy the strict full-auto detector
+(`approval_policy.phase_transitions.default === "auto_approve"` and
+`approval_policy.run_completion.action === "auto_approve"` with continuous mode
+enabled), or explicitly set `run_loop.continuous.auto_retry_on_ghost.enabled:
+true`, or run with `agentxchain run --continuous --auto-retry-on-ghost`.
+Without one of those, auto-retry is disabled by design per
+`DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001`; quote-back from that posture
+should show the manual `reissue-turn --reason ghost` recovery, not
+`auto_retried_ghost`. Valid closure evidence must quote `auto_retried_ghost`
+followed by a successful subsequent turn, or `ghost_retry_exhausted` with its
+diagnostic bundle when the budget is exhausted.
+
 For still-open BUG-52 closure proof, quote `phase_entered` after `unblock`.
 Older paths may still show `trigger: "reconciled_before_dispatch"`; standing
 gate paths should also show cleanup evidence when stale same-phase state

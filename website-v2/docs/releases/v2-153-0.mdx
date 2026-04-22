@@ -94,7 +94,16 @@ npx --yes -p agentxchain@2.153.0 -c "agentxchain --version"
 
 Reproduce a ghost-turn class failure in a continuous run (e.g., force a
 short startup watchdog so `local_cli` dispatches hit `runtime_spawn_failed`
-or `stdout_attach_failed`), configured with auto-retry enabled:
+or `stdout_attach_failed`), configured with auto-retry enabled.
+
+The quote-back precondition is strict: the project must either run with
+continuous mode plus `approval_policy.phase_transitions.default ===
+"auto_approve"` and `approval_policy.run_completion.action ===
+"auto_approve"`, or it must explicitly opt in with
+`run_loop.continuous.auto_retry_on_ghost.enabled: true` / the CLI flag below.
+Without one of those, auto-retry is disabled by design under
+`DEC-BUG61-FULL-AUTO-DETECTOR-STRICT-V1-001` and the expected recovery remains
+manual `reissue-turn`:
 
 ```bash
 agentxchain run --continuous --auto-retry-on-ghost \
