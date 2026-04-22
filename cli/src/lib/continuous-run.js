@@ -25,6 +25,13 @@ import {
 import { loadProjectState } from './config.js';
 import { safeWriteJson } from './safe-write.js';
 import { emitRunEvent } from './run-events.js';
+import { reissueTurn } from './governed-state.js';
+import {
+  applyGhostRetryAttempt,
+  applyGhostRetryExhaustion,
+  buildGhostRetryExhaustionMirror,
+  classifyGhostRetryDecision,
+} from './ghost-retry.js';
 import {
   archiveStaleIntentsForRun,
   formatLegacyIntentMigrationNotice,
@@ -125,6 +132,153 @@ function getBlockedRecoveryAction(state) {
 
 function getBlockedCategory(state) {
   return state?.blocked_reason?.category || null;
+}
+
+function writeGovernedState(root, state) {
+  safeWriteJson(join(root, '.agentxchain', 'state.json'), state);
+}
+
+function clearGhostBlockerAfterReissue(root, state) {
+  const nextState = {
+    ...state,
+    status: 'active',
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+  };
+  writeGovernedState(root, nextState);
+  return nextState;
+}
+
+async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log = console.log) {
+  const { root, config } = context;
+  const decision = classifyGhostRetryDecision({
+    state: blockedState,
+    session,
+    autoRetryOnGhost: contOpts.autoRetryOnGhost,
+    runId: session.current_run_id || blockedState?.run_id || null,
+  });
+
+  if (decision.decision === 'retry') {
+    const oldTurnId = decision.ghost.turn_id;
+    const oldTurn = blockedState?.active_turns?.[oldTurnId] || {};
+    const reissued = reissueTurn(root, config, {
+      turnId: oldTurnId,
+      reason: 'auto_retry_ghost',
+    });
+    if (!reissued.ok) {
+      log(`Ghost auto-retry skipped: ${reissued.error}`);
+      return null;
+    }
+
+    const runId = session.current_run_id || blockedState?.run_id || reissued.state?.run_id || null;
+    const attempt = decision.attempts + 1;
+    const nowIso = new Date().toISOString();
+    const nextState = clearGhostBlockerAfterReissue(root, reissued.state);
+    const nextSession = applyGhostRetryAttempt(session, {
+      runId,
+      oldTurnId,
+      newTurnId: reissued.newTurn.turn_id,
+      failureType: decision.ghost.failure_type,
+      maxRetries: decision.maxRetries,
+      nowIso,
+    });
+    Object.assign(session, nextSession, {
+      status: 'running',
+      current_run_id: runId,
+    });
+    writeContinuousSession(root, session);
+
+    emitRunEvent(root, 'auto_retried_ghost', {
+      run_id: runId,
+      phase: nextState.phase || blockedState?.phase || null,
+      status: 'active',
+      turn: { turn_id: reissued.newTurn.turn_id, role_id: reissued.newTurn.assigned_role },
+      intent_id: oldTurn.intake_context?.intent_id || null,
+      payload: {
+        old_turn_id: oldTurnId,
+        new_turn_id: reissued.newTurn.turn_id,
+        failure_type: decision.ghost.failure_type,
+        attempt,
+        max_retries_per_run: decision.maxRetries,
+        runtime_id: oldTurn.runtime_id || reissued.newTurn.runtime_id || null,
+        running_ms: oldTurn.failed_start_running_ms ?? null,
+        threshold_ms: oldTurn.failed_start_threshold_ms ?? null,
+      },
+    });
+
+    log(`Ghost turn auto-retried (${attempt}/${decision.maxRetries}): ${oldTurnId} -> ${reissued.newTurn.turn_id}`);
+    if ((contOpts.autoRetryOnGhost?.cooldownSeconds ?? 0) > 0) {
+      await new Promise((resolve) => setTimeout(resolve, contOpts.autoRetryOnGhost.cooldownSeconds * 1000));
+    }
+    return {
+      ok: true,
+      status: 'running',
+      action: 'auto_retried_ghost',
+      run_id: runId,
+      old_turn_id: oldTurnId,
+      new_turn_id: reissued.newTurn.turn_id,
+      attempt,
+      max_retries_per_run: decision.maxRetries,
+    };
+  }
+
+  if (decision.decision === 'exhausted') {
+    const runId = session.current_run_id || blockedState?.run_id || null;
+    const oldTurnId = decision.ghost.turn_id;
+    const oldTurn = blockedState?.active_turns?.[oldTurnId] || {};
+    const manualDetail = blockedState?.blocked_reason?.recovery?.detail
+      || blockedState?.blocked_reason?.recovery?.recovery_action
+      || null;
+    const detail = buildGhostRetryExhaustionMirror({
+      attempts: decision.attempts,
+      maxRetries: decision.maxRetries,
+      failureType: decision.ghost.failure_type,
+      manualRecoveryDetail: manualDetail,
+    });
+    const nextState = {
+      ...blockedState,
+      blocked_reason: {
+        ...(blockedState.blocked_reason || {}),
+        recovery: {
+          ...(blockedState.blocked_reason?.recovery || {}),
+          detail,
+        },
+      },
+    };
+    writeGovernedState(root, nextState);
+    const nextSession = applyGhostRetryExhaustion(session, {
+      runId,
+      failureType: decision.ghost.failure_type,
+      turnId: oldTurnId,
+      maxRetries: decision.maxRetries,
+      nowIso: new Date().toISOString(),
+    });
+    Object.assign(session, nextSession, { status: 'paused' });
+    writeContinuousSession(root, session);
+
+    emitRunEvent(root, 'ghost_retry_exhausted', {
+      run_id: runId,
+      phase: blockedState?.phase || null,
+      status: 'blocked',
+      turn: { turn_id: oldTurnId, role_id: oldTurn.assigned_role || null },
+      intent_id: oldTurn.intake_context?.intent_id || null,
+      payload: {
+        turn_id: oldTurnId,
+        attempts: decision.attempts,
+        max_retries_per_run: decision.maxRetries,
+        failure_type: decision.ghost.failure_type,
+        runtime_id: oldTurn.runtime_id || null,
+        diagnostic_refs: {
+          recovery_action: blockedState?.blocked_reason?.recovery?.recovery_action || null,
+        },
+      },
+    });
+    log(`Ghost auto-retry exhausted (${decision.attempts}/${decision.maxRetries}) for ${oldTurnId}.`);
+    return null;
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +545,8 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   if (session.status === 'paused') {
     const governedState = loadProjectState(root, context.config);
     if (governedState?.status === 'blocked') {
+      const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, governedState, log);
+      if (retried) return retried;
       // Still blocked — stay paused, do not attempt new work
       writeContinuousSession(root, session);
       return {
@@ -427,7 +583,10 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     const resumeStopReason = execution.result?.stop_reason;
 
     if (isBlockedContinuousExecution(execution)) {
-      const blockedRecoveryAction = getBlockedRecoveryAction(execution?.result?.state || loadProjectState(root, context.config));
+      const blockedState = execution?.result?.state || loadProjectState(root, context.config);
+      const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log);
+      if (retried) return retried;
+      const blockedRecoveryAction = getBlockedRecoveryAction(blockedState);
       session.status = 'paused';
       log(blockedRecoveryAction
         ? `Resumed run blocked again — continuous loop re-paused. Recovery: ${blockedRecoveryAction}`
@@ -439,7 +598,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
         action: 'run_blocked',
         run_id: session.current_run_id,
         recovery_action: blockedRecoveryAction,
-        blocked_category: getBlockedCategory(execution?.result?.state || loadProjectState(root, context.config)),
+        blocked_category: getBlockedCategory(blockedState),
       };
     }
 
@@ -454,6 +613,64 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     log(`Resumed run completed (${session.runs_completed}/${contOpts.maxRuns}): ${resumeStopReason || 'completed'}`);
     writeContinuousSession(root, session);
     return { ok: true, status: 'running', action: 'resumed_after_unblock', run_id: session.current_run_id };
+  }
+
+  const activeGovernedState = loadProjectState(root, context.config);
+  if (
+    session.current_run_id
+    && activeGovernedState?.status === 'active'
+    && activeGovernedState.run_id === session.current_run_id
+    && Object.keys(activeGovernedState.active_turns || {}).length > 0
+  ) {
+    log('Continuing active governed run.');
+    let execution;
+    try {
+      execution = await executeGovernedRun(context, {
+        autoApprove: true,
+        autoCheckpoint: contOpts.autoCheckpoint,
+        report: true,
+        log,
+      });
+    } catch (err) {
+      session.status = 'failed';
+      writeContinuousSession(root, session);
+      return { ok: false, status: 'failed', action: 'run_failed', stop_reason: err.message, run_id: session.current_run_id };
+    }
+
+    session.cumulative_spent_usd = (session.cumulative_spent_usd || 0) + getExecutionRunSpentUsd(execution);
+    const resumeStopReason = execution.result?.stop_reason;
+
+    if (isBlockedContinuousExecution(execution)) {
+      const blockedState = execution?.result?.state || loadProjectState(root, context.config);
+      const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log);
+      if (retried) return retried;
+      const blockedRecoveryAction = getBlockedRecoveryAction(blockedState);
+      session.status = 'paused';
+      log(blockedRecoveryAction
+        ? `Active run blocked — continuous loop paused. Recovery: ${blockedRecoveryAction}`
+        : 'Active run blocked — continuous loop paused.');
+      writeContinuousSession(root, session);
+      return {
+        ok: true,
+        status: 'blocked',
+        action: 'run_blocked',
+        run_id: session.current_run_id,
+        recovery_action: blockedRecoveryAction,
+        blocked_category: getBlockedCategory(blockedState),
+      };
+    }
+
+    if (execution.exitCode !== 0 || !execution.result) {
+      session.status = 'failed';
+      writeContinuousSession(root, session);
+      return { ok: false, status: 'failed', action: 'run_failed', stop_reason: resumeStopReason || `exit_code_${execution.exitCode}`, run_id: session.current_run_id };
+    }
+
+    session.runs_completed += 1;
+    session.current_run_id = execution.result?.state?.run_id || session.current_run_id;
+    log(`Active run completed (${session.runs_completed}/${contOpts.maxRuns}): ${resumeStopReason || 'completed'}`);
+    writeContinuousSession(root, session);
+    return { ok: true, status: 'running', action: 'continued_active_run', run_id: session.current_run_id };
   }
 
   // Validate vision file
@@ -594,7 +811,10 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   }
 
   if (isBlockedContinuousExecution(execution)) {
-    const blockedRecoveryAction = getBlockedRecoveryAction(execution?.result?.state || loadProjectState(root, context.config));
+    const blockedState = execution?.result?.state || loadProjectState(root, context.config);
+    const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log);
+    if (retried) return retried;
+    const blockedRecoveryAction = getBlockedRecoveryAction(blockedState);
     const resolved = resolveIntent(root, targetIntentId);
     if (!resolved.ok) {
       log(`Continuous resolve error: ${resolved.error}`);
@@ -614,7 +834,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
       run_id: session.current_run_id,
       intent_id: targetIntentId,
       recovery_action: blockedRecoveryAction,
-      blocked_category: getBlockedCategory(execution?.result?.state || loadProjectState(root, context.config)),
+      blocked_category: getBlockedCategory(blockedState),
     };
   }
 

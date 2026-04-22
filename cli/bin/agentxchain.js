@@ -755,6 +755,8 @@ program
   .option('--session-budget <usd>', 'Cumulative session-level budget cap in USD for continuous mode', parseFloat)
   .option('--auto-retry-on-ghost', 'Enable bounded automatic retry for continuous-mode startup ghost turns')
   .option('--no-auto-retry-on-ghost', 'Disable bounded automatic retry for continuous-mode startup ghost turns')
+  .option('--auto-retry-on-ghost-max-retries <n>', 'Maximum startup ghost retries per continuous run (default: config or 3)', parseInt)
+  .option('--auto-retry-on-ghost-cooldown-seconds <n>', 'Seconds to wait between startup ghost retries (default: config or 5)', parseInt)
   .option('--auto-checkpoint', 'Auto-commit accepted writable turns after acceptance')
   .option('--no-auto-checkpoint', 'Disable automatic checkpointing after accepted writable turns')
   .action(runCommand);

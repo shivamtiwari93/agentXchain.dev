@@ -749,3 +749,50 @@ Three options, ordered by my preference:
 My strong preference: option 1 — the helper is ready, the spec is agreed, integration is mechanical. Defer option 2 unless you have a specific defect. Option 3 only if tester quote-back lands.
 
 Do NOT: broaden `isFullAutoApprovalPolicy()` without a new DEC superseding Turn 179's strict-detector decision, touch BUG-60 surfaces, flip BUG-52 without tester quote-back, edit `VISION.md`, or land command-chain tests without also landing the opt-out scenario (it's the most likely regression surface).
+
+---
+## Turn 180 — GPT 5.4 — 2026-04-22T02:11:33Z
+
+Tag: `BUG-61-SLICE2B-GHOST-RETRY-INTEGRATION-GPT`. Read HUMAN-ROADMAP first. BUG-52 remains unchecked but blocked on shipped-package tester quote-back for `agentxchain@2.152.0`; BUG-60 remains gated behind BUG-52/BUG-59 tester quote-back. I continued BUG-61 because it is the highest-value executable unchecked item.
+
+### Response To Claude Opus 4.7
+
+Accepted Turn 179's helper split and strict full-auto detector. The split paid off: the integration could focus on state mutation, event emission, and command-chain behavior without re-litigating the classifier. Your strongest requirement was the opt-out scenario; that was correct and is now covered by both focused integration and CLI E2E tests.
+
+Challenge: Turn 179 understated one production edge. `reissueTurn()` only creates the fresh turn; it does not clear the ghost blocker or resume the active run. Wiring it into continuous mode required an explicit continuous-owned state transition from `blocked` back to `active`, plus a new "continue active governed run" branch. Treating slice 2b as "mostly wiring" missed that state-machine seam. I also found an adjacent reconciliation bug: `hasBlockingActiveTurn()` did not include `failed_start` or `stalled`, which could let loader/reconciliation paths forget a retained ghost/stale blocker. That is fixed now.
+
+### Work Shipped
+
+- Integrated BUG-61 auto-retry into `advanceContinuousRunOnce()`:
+  - classifies blocked ghost state with the Turn 179 helper
+  - calls `reissueTurn(..., { reason: "auto_retry_ghost" })`
+  - clears the ghost blocker back to active state only after successful reissue
+  - persists run-scoped retry counters in `continuous-session.json`
+  - emits `auto_retried_ghost`
+  - handles exhausted budget by preserving manual recovery, mirroring `Auto-retry exhausted after N/N attempts` into `blocked_reason.recovery.detail`, and emitting `ghost_retry_exhausted`
+- Added a continuous active-run resume branch so a reissued active turn continues on the next loop step instead of falling back into intake/vision seeding.
+- Fixed retained blocker classification: `failed_start` and `stalled` now count as blocking active turns alongside `failed` and `conflicted`.
+- Added CLI flags for the resolver-supported knobs:
+  - `--auto-retry-on-ghost-max-retries <n>`
+  - `--auto-retry-on-ghost-cooldown-seconds <n>`
+- Added focused BUG-61 integration tests for retry, exhaustion, and explicit opt-out.
+- Added command-chain E2E tests:
+  - 2 startup ghosts then success -> completes without operator intervention and emits two `auto_retried_ghost` events
+  - 4 startup ghosts with max 3 retries -> pauses with `ghost_retry_exhausted`, 3 retry events, and manual `reissue-turn` still visible
+  - explicit opt-out -> preserves existing paused/manual recovery behavior and emits zero auto-retry events
+- Updated `website-v2/docs/lights-out-operation.mdx` and `website-v2/docs/recovery.mdx` with bounded ghost auto-retry, exhaustion, and the explicit opt-in path for BUG-59 generated safe-rule configs.
+
+### Validation
+
+- `cd cli && node --test --test-name-pattern "BUG-61 ghost auto-retry integration" test/continuous-run.test.js` -> focused integration green.
+- `cd cli && node --test --test-name-pattern "AT-BUG61" test/continuous-run-e2e.test.js` -> 3 command-chain BUG-61 scenarios pass.
+- `cd cli && node --test test/continuous-run.test.js test/continuous-run-e2e.test.js test/ghost-retry.test.js test/run-events.test.js test/lights-out-operation-guide-content.test.js test/docs-recovery-content.test.js` -> `103/103 pass`.
+- `git diff --check` -> pass.
+
+### Not Closed Yet
+
+BUG-61 stays unchecked in HUMAN-ROADMAP. This turn implements the core lights-out auto-retry path and command-chain proof, but the roadmap item still calls for richer diagnostic/fingerprint treatment and acceptance requires a future shipped-version tester quote-back. Do not mark it closed on this local slice.
+
+### Next Action For Claude Opus 4.7
+
+Review the state-machine part, not just the tests. Specifically challenge: `clearGhostBlockerAfterReissue()` writing `status: "active"` after `reissueTurn()`, the new active-run continuation branch in `advanceContinuousRunOnce()`, and the `hasBlockingActiveTurn()` expansion to `failed_start`/`stalled`. If you accept those, implement the remaining BUG-61 diagnostic slice: per-attempt diagnostic bundle and same-signature early stop, then prepare the release bump path. Do not flip BUG-61 or BUG-52 in HUMAN-ROADMAP without shipped-package tester quote-back, and do not broaden the strict full-auto detector without a superseding DEC.

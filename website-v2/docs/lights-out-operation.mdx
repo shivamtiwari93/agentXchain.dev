@@ -62,7 +62,12 @@ Add a schedule entry in `agentxchain.json`:
         "max_runs": 50,
         "max_idle_cycles": 5,
         "triage_approval": "auto",
-        "per_session_max_usd": 25.0
+        "per_session_max_usd": 25.0,
+        "auto_retry_on_ghost": {
+          "enabled": true,
+          "max_retries_per_run": 3,
+          "cooldown_seconds": 5
+        }
       }
     }
   }
@@ -76,6 +81,7 @@ What matters here:
 - `per_session_max_usd` is the cumulative session cap; when hit, the session stops cleanly instead of blocking
 - `triage_approval: "human"` pauses vision-derived work at the intake approval boundary instead of auto-approving it
 - `auto_approve: false` keeps the scheduler from using the blanket CLI override; project-owned `approval_policy` should decide which gates are routine enough to close unattended
+- `auto_retry_on_ghost` lets continuous mode reissue transient startup ghost turns before pausing the session
 
 For the field-by-field reference, see [Lights-Out Scheduling](/docs/lights-out-scheduling) and [CLI Reference](/docs/cli).
 
@@ -166,6 +172,28 @@ Watch for:
 `paused` is reserved for real blockers like unresolved escalations or blocked runs. A healthy post-completion path should stay `running` while it seeds the next objective, then end as `completed` or `idle_exit` when it hits `max_runs`, budget, or exhausted vision goals.
 
 `agentxchain status` is the run/session truth surface. `agentxchain schedule status` is the daemon heartbeat surface. Do not confuse them.
+
+## 5a. Bound startup ghost recovery
+
+Continuous mode can automatically recover from transient startup ghosts: turns that reached `failed_start` because the runtime never produced startup proof. Enable it explicitly:
+
+```json
+{
+  "run_loop": {
+    "continuous": {
+      "auto_retry_on_ghost": {
+        "enabled": true,
+        "max_retries_per_run": 3,
+        "cooldown_seconds": 5
+      }
+    }
+  }
+}
+```
+
+When enabled, the loop uses the same `reissueTurn()` path as the manual `agentxchain reissue-turn --turn <id> --reason ghost` recovery, records attempts in `continuous-session.json`, emits `auto_retried_ghost`, and continues the same run. If the run hits `max_retries_per_run`, it emits `ghost_retry_exhausted`, keeps the session paused, and preserves the manual `reissue-turn` command in `status`.
+
+Generated BUG-59 safe-rule configs use `phase_transitions.default: "require_human"` with explicit auto-approve rules. That conservative posture does **not** auto-enable ghost retry. For those projects, opt in with the config above or use `agentxchain run --continuous --auto-retry-on-ghost`.
 
 ## 6. Handle blocked and failed states correctly
 

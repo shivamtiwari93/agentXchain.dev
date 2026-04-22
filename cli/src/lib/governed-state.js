@@ -1514,7 +1514,12 @@ function buildConflictDetail(conflict) {
 }
 
 function hasBlockingActiveTurn(activeTurns) {
-  return Object.values(activeTurns || {}).some((turn) => turn?.status === 'failed' || turn?.status === 'conflicted');
+  return Object.values(activeTurns || {}).some((turn) => [
+    'failed',
+    'conflicted',
+    'failed_start',
+    'stalled',
+  ].includes(turn?.status));
 }
 
 function findHistoryTurnRequest(historyEntries, turnId, kind) {

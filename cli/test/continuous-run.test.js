@@ -10,6 +10,7 @@ import {
   resolveContinuousOptions,
   readContinuousSession,
   writeContinuousSession,
+  advanceContinuousRunOnce,
   seedFromVision,
   findNextQueuedIntent,
   executeContinuousRun,
@@ -80,6 +81,69 @@ function writeIntent(dir, { intentId, status, charter }) {
     history: [],
   };
   writeFileSync(join(intentsDir, `${intentId}.json`), JSON.stringify(intent, null, 2));
+}
+
+function writeGhostBlockedState(dir, overrides = {}) {
+  const turnId = overrides.turnId || 'turn_ghost_001';
+  const state = {
+    schema_version: '1.0',
+    run_id: overrides.runId || 'run_ghost_001',
+    project_id: 'ct-001',
+    status: 'blocked',
+    phase: 'implementation',
+    accepted_integration_ref: null,
+    active_turns: {
+      [turnId]: {
+        turn_id: turnId,
+        assigned_role: 'dev',
+        status: 'failed_start',
+        attempt: 1,
+        assigned_at: '2026-04-22T00:00:00.000Z',
+        assigned_sequence: 1,
+        runtime_id: 'manual-dev',
+        baseline: { kind: 'no_git', head_ref: null, clean: true, captured_at: '2026-04-22T00:00:00.000Z' },
+        failed_start_reason: overrides.failureType || 'stdout_attach_failed',
+        failed_start_threshold_ms: 400,
+        failed_start_running_ms: 450,
+      },
+    },
+    turn_sequence: 1,
+    last_completed_turn_id: null,
+    blocked_on: 'ghost_turn',
+    blocked_reason: {
+      category: 'ghost_turn',
+      blocked_at: '2026-04-22T00:00:01.000Z',
+      turn_id: turnId,
+      recovery: {
+        typed_reason: 'ghost_turn',
+        owner: 'human',
+        recovery_action: `agentxchain reissue-turn --turn ${turnId} --reason ghost`,
+        turn_retained: true,
+        detail: `Run \`agentxchain reissue-turn --turn ${turnId} --reason ghost\` to recover.`,
+      },
+    },
+    escalation: null,
+    phase_gate_status: {},
+  };
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+  return { state, turnId };
+}
+
+function readEvents(dir) {
+  const path = join(dir, '.agentxchain', 'events.jsonl');
+  if (!existsSync(path)) return [];
+  return readFileSync(path, 'utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+function readTestConfig(dir) {
+  return {
+    ...JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8')),
+    files: { state: '.agentxchain/state.json' },
+  };
 }
 
 describe('Continuous Run', () => {
@@ -215,6 +279,131 @@ describe('Continuous Run', () => {
       const read = readContinuousSession(tmpDir);
       assert.equal(read.session_id, 'cont-test');
       assert.equal(read.runs_completed, 2);
+    });
+  });
+
+  describe('BUG-61 ghost auto-retry integration', () => {
+    it('auto-reissues a paused ghost-blocked run and clears only the ghost blocker', async () => {
+      const { turnId } = writeGhostBlockedState(tmpDir);
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const session = {
+        session_id: 'cont-ghost',
+        status: 'paused',
+        current_run_id: 'run_ghost_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        autoRetryOnGhost: { enabled: true, maxRetriesPerRun: 3, cooldownSeconds: 0 },
+      };
+
+      const step = await advanceContinuousRunOnce(
+        context,
+        session,
+        contOpts,
+        async () => assert.fail('blocked paused auto-retry should not execute a governed run in the same step'),
+        () => {},
+      );
+
+      assert.equal(step.status, 'running');
+      assert.equal(step.action, 'auto_retried_ghost');
+      assert.equal(step.old_turn_id, turnId);
+      assert.equal(step.attempt, 1);
+
+      const savedSession = readContinuousSession(tmpDir);
+      assert.equal(savedSession.status, 'running');
+      assert.equal(savedSession.ghost_retry.attempts, 1);
+      assert.equal(savedSession.ghost_retry.last_old_turn_id, turnId);
+      assert.equal(savedSession.ghost_retry.last_new_turn_id, step.new_turn_id);
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'active');
+      assert.equal(state.blocked_reason, null);
+      assert.equal(state.blocked_on, null);
+      assert.equal(state.active_turns[turnId], undefined);
+      assert.equal(state.active_turns[step.new_turn_id].status, 'assigned');
+      assert.equal(state.active_turns[step.new_turn_id].reissued_from, turnId);
+
+      const events = readEvents(tmpDir);
+      const autoEvents = events.filter((entry) => entry.event_type === 'auto_retried_ghost');
+      assert.equal(autoEvents.length, 1);
+      assert.equal(autoEvents[0].payload.old_turn_id, turnId);
+      assert.equal(autoEvents[0].payload.new_turn_id, step.new_turn_id);
+      assert.equal(autoEvents[0].payload.attempt, 1);
+      assert.equal(autoEvents[0].payload.failure_type, 'stdout_attach_failed');
+    });
+
+    it('pauses and mirrors exhaustion detail when the ghost retry budget is spent', async () => {
+      const { turnId } = writeGhostBlockedState(tmpDir);
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const session = {
+        session_id: 'cont-ghost',
+        status: 'paused',
+        current_run_id: 'run_ghost_001',
+        runs_completed: 0,
+        ghost_retry: {
+          run_id: 'run_ghost_001',
+          attempts: 3,
+          max_retries_per_run: 3,
+          last_old_turn_id: turnId,
+          last_failure_type: 'stdout_attach_failed',
+        },
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        autoRetryOnGhost: { enabled: true, maxRetriesPerRun: 3, cooldownSeconds: 0 },
+      };
+
+      const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+        assert.fail('exhausted ghost retry should not execute governed run');
+      }, () => {});
+
+      assert.equal(step.status, 'blocked');
+      assert.equal(step.action, 'still_blocked');
+      const savedSession = readContinuousSession(tmpDir);
+      assert.equal(savedSession.status, 'paused');
+      assert.equal(savedSession.ghost_retry.exhausted, true);
+      assert.equal(savedSession.ghost_retry.attempts, 3);
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'blocked');
+      assert.match(state.blocked_reason.recovery.detail, /Auto-retry exhausted after 3\/3 attempts/);
+      assert.match(state.blocked_reason.recovery.detail, /reissue-turn --turn turn_ghost_001 --reason ghost/);
+
+      const events = readEvents(tmpDir);
+      const exhaustedEvents = events.filter((entry) => entry.event_type === 'ghost_retry_exhausted');
+      assert.equal(exhaustedEvents.length, 1);
+      assert.equal(exhaustedEvents[0].payload.turn_id, turnId);
+      assert.equal(exhaustedEvents[0].payload.attempts, 3);
+    });
+
+    it('preserves manual recovery unchanged when ghost auto-retry is disabled', async () => {
+      const { turnId } = writeGhostBlockedState(tmpDir);
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const session = {
+        session_id: 'cont-ghost',
+        status: 'paused',
+        current_run_id: 'run_ghost_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        autoRetryOnGhost: { enabled: false, maxRetriesPerRun: 3, cooldownSeconds: 0 },
+      };
+
+      const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+        assert.fail('disabled ghost retry should not execute governed run while blocked');
+      }, () => {});
+
+      assert.equal(step.status, 'blocked');
+      assert.equal(step.action, 'still_blocked');
+      assert.match(step.recovery_action, /reissue-turn --turn turn_ghost_001 --reason ghost/);
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'blocked');
+      assert.equal(state.active_turns[turnId].status, 'failed_start');
+      assert.match(state.blocked_reason.recovery.recovery_action, /reissue-turn --turn turn_ghost_001 --reason ghost/);
+      assert.equal(readEvents(tmpDir).some((entry) => entry.event_type === 'auto_retried_ghost'), false);
     });
   });
 
@@ -487,6 +676,8 @@ describe('Continuous Run', () => {
       assert.ok(content.includes("'--max-idle-cycles <n>'"));
       assert.ok(content.includes("'--auto-retry-on-ghost'"));
       assert.ok(content.includes("'--no-auto-retry-on-ghost'"));
+      assert.ok(content.includes("'--auto-retry-on-ghost-max-retries <n>'"));
+      assert.ok(content.includes("'--auto-retry-on-ghost-cooldown-seconds <n>'"));
     });
 
     it('S04: intake accepts vision_scan as a valid source', async () => {
