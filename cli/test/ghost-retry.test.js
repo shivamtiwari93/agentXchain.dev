@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  ATTEMPT_STDERR_EXCERPT_LIMIT,
   GHOST_FAILURE_TYPES,
   SIGNATURE_REPEAT_THRESHOLD,
   readGhostRetryState,
@@ -692,6 +693,25 @@ describe('ghost-retry helper', () => {
       assert.equal(e.stderr_excerpt, null);
       assert.equal(e.exit_code, null);
       assert.equal(e.exit_signal, null);
+    });
+
+    it('caps stderr_excerpt to the per-attempt session-state limit', () => {
+      const longExcerpt = 'x'.repeat(ATTEMPT_STDERR_EXCERPT_LIMIT + 50);
+      const s = applyGhostRetryAttempt({}, {
+        runId: 'run_x',
+        oldTurnId: 't_old',
+        newTurnId: 't_new',
+        failureType: 'runtime_spawn_failed',
+        maxRetries: 3,
+        nowIso: 'now',
+        runtimeId: 'claude',
+        roleId: 'pm',
+        stderrExcerpt: longExcerpt,
+        exitCode: 1,
+      });
+      const e = s.ghost_retry.attempts_log[0];
+      assert.equal(e.stderr_excerpt.length, ATTEMPT_STDERR_EXCERPT_LIMIT);
+      assert.equal(e.stderr_excerpt, longExcerpt.slice(0, ATTEMPT_STDERR_EXCERPT_LIMIT));
     });
 
     it('preserves new diagnostic fields in the buildGhostRetryDiagnosticBundle output', () => {

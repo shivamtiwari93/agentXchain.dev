@@ -42,6 +42,12 @@ export const GHOST_FAILURE_TYPES = Object.freeze([
  * through a new DEC rather than silently widening.
  */
 export const SIGNATURE_REPEAT_THRESHOLD = 2;
+export const ATTEMPT_STDERR_EXCERPT_LIMIT = 800;
+
+function normalizeAttemptStderrExcerpt(value) {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  return value.slice(0, ATTEMPT_STDERR_EXCERPT_LIMIT);
+}
 
 /**
  * Read (or default) the ghost_retry state object from a continuous session.
@@ -348,7 +354,9 @@ export function applyGhostRetryAttempt(session, {
   // `.agentxchain/dispatch/turns/<turnId>/stdout.log` to see WHY the last few
   // spawns failed. Bounded by the adapter's own 800-byte stderr excerpt cap
   // (DIAGNOSTIC_STDERR_EXCERPT_LIMIT at local-cli-adapter.js:43) so session
-  // state does not grow unbounded on a noisy-stderr runtime.
+  // state does not grow unbounded on a noisy-stderr runtime. The local cap
+  // mirrors that adapter cap so direct callers cannot accidentally persist
+  // larger excerpts.
   const nextEntry = {
     attempt: base.attempts + 1,
     old_turn_id: oldTurnId ?? null,
@@ -358,7 +366,7 @@ export function applyGhostRetryAttempt(session, {
     failure_type: failureType ?? null,
     running_ms: runningMs ?? null,
     threshold_ms: thresholdMs ?? null,
-    stderr_excerpt: typeof stderrExcerpt === 'string' && stderrExcerpt.length > 0 ? stderrExcerpt : null,
+    stderr_excerpt: normalizeAttemptStderrExcerpt(stderrExcerpt),
     exit_code: Number.isInteger(exitCode) ? exitCode : null,
     exit_signal: typeof exitSignal === 'string' && exitSignal.length > 0 ? exitSignal : null,
     retried_at: at,
