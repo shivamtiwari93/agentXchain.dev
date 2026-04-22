@@ -228,19 +228,48 @@ for (const line of eventLines) {
   } catch {}
 }
 console.log(`Current-window turn ids: ${turnIds.size ? [...turnIds].join(', ') : '(none)'}`);
+const counters = {
+  turns_matched: turnIds.size,
+  stdout_logs_present: 0,
+  stdout_logs_missing: 0,
+  spawn_attached_lines: 0,
+  first_output_lines: 0,
+  startup_watchdog_fired_lines: 0,
+  stdout_attach_failed_lines: 0,
+  ghost_turn_lines: 0,
+};
 const diagPattern = /\[adapter:diag\] (spawn_attached|first_output|startup_watchdog_fired)\b|stdout_attach_failed|ghost_turn/;
 for (const turnId of turnIds) {
   const logPath = path.join('.agentxchain', 'dispatch', 'turns', turnId, 'stdout.log');
   if (!fs.existsSync(logPath)) {
+    counters.stdout_logs_missing += 1;
     console.log(`${logPath}: missing stdout.log`);
     continue;
   }
+  counters.stdout_logs_present += 1;
   fs.readFileSync(logPath, 'utf8').split('\n').forEach((line, idx) => {
-    if (diagPattern.test(line)) console.log(`${logPath}:${idx + 1}:${line}`);
+    if (!diagPattern.test(line)) return;
+    console.log(`${logPath}:${idx + 1}:${line}`);
+    if (/\[adapter:diag\] spawn_attached\b/.test(line)) counters.spawn_attached_lines += 1;
+    if (/\[adapter:diag\] first_output\b/.test(line)) counters.first_output_lines += 1;
+    if (/\[adapter:diag\] startup_watchdog_fired\b/.test(line)) counters.startup_watchdog_fired_lines += 1;
+    if (/stdout_attach_failed/.test(line)) counters.stdout_attach_failed_lines += 1;
+    if (/ghost_turn/.test(line)) counters.ghost_turn_lines += 1;
   });
 }
+console.log(`BUG-54 SUMMARY: ${JSON.stringify(counters)}`);
 BUG54_DIAG
 ```
+
+Closure requires `BUG-54 SUMMARY:` to show `turns_matched >= 10`, and
+`startup_watchdog_fired_lines`, `stdout_attach_failed_lines`, and
+`ghost_turn_lines` all equal to `0`. If `turns_matched` is less than ten,
+the dogfood path produced insufficient adapter attempts and the fallback
+harness below must also be quoted. Non-zero `spawn_attached_lines` and
+`first_output_lines` are positive evidence the adapter reached healthy
+startup; zero in both while `stdout_logs_present` is non-zero means the
+adapter log format has drifted and the runbook must be updated before
+the evidence can close BUG-54.
 
 If `tusq.dev` has no derivable work, first try to produce ten adapter-path
 attempts with the same real project runtime config through `agentxchain run`

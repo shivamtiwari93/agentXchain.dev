@@ -95,19 +95,47 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
      } catch {}
    }
    console.log(`Current-window turn ids: ${turnIds.size ? [...turnIds].join(', ') : '(none)'}`);
+   const counters = {
+     turns_matched: turnIds.size,
+     stdout_logs_present: 0,
+     stdout_logs_missing: 0,
+     spawn_attached_lines: 0,
+     first_output_lines: 0,
+     startup_watchdog_fired_lines: 0,
+     stdout_attach_failed_lines: 0,
+     ghost_turn_lines: 0,
+   };
    const diagPattern = /\[adapter:diag\] (spawn_attached|first_output|startup_watchdog_fired)\b|stdout_attach_failed|ghost_turn/;
    for (const turnId of turnIds) {
      const logPath = path.join('.agentxchain', 'dispatch', 'turns', turnId, 'stdout.log');
      if (!fs.existsSync(logPath)) {
+       counters.stdout_logs_missing += 1;
        console.log(`${logPath}: missing stdout.log`);
        continue;
      }
+     counters.stdout_logs_present += 1;
      fs.readFileSync(logPath, 'utf8').split('\n').forEach((line, idx) => {
-       if (diagPattern.test(line)) console.log(`${logPath}:${idx + 1}:${line}`);
+       if (!diagPattern.test(line)) return;
+       console.log(`${logPath}:${idx + 1}:${line}`);
+       if (/\[adapter:diag\] spawn_attached\b/.test(line)) counters.spawn_attached_lines += 1;
+       if (/\[adapter:diag\] first_output\b/.test(line)) counters.first_output_lines += 1;
+       if (/\[adapter:diag\] startup_watchdog_fired\b/.test(line)) counters.startup_watchdog_fired_lines += 1;
+       if (/stdout_attach_failed/.test(line)) counters.stdout_attach_failed_lines += 1;
+       if (/ghost_turn/.test(line)) counters.ghost_turn_lines += 1;
      });
    }
+   console.log(`BUG-54 SUMMARY: ${JSON.stringify(counters)}`);
    BUG54_DIAG
    ```
+
+   The `BUG-54 SUMMARY:` JSON line is the single check. Closure requires
+   `turns_matched >= 10` AND
+   `startup_watchdog_fired_lines: 0, stdout_attach_failed_lines: 0, ghost_turn_lines: 0`.
+   If `turns_matched < 10`, run the fallback harness below and paste
+   both outputs. Zero `spawn_attached_lines` and `first_output_lines`
+   while `stdout_logs_present > 0` means the adapter log format drifted
+   and the runbook needs updating before closure — quote the SUMMARY and
+   stop.
 
    **Fallback path (no derivable work on `tusq.dev`).** Extract the shipped repro harness from the published tarball and run it from the `tusq.dev` repo root so it auto-discovers the project's `agentxchain.json` runtimes. This mirrors `BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` verbatim — if a drift ever appears between the two, the runbook is canonical:
 

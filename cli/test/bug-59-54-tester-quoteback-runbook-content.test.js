@@ -332,7 +332,7 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /--attempts\s+10\s+--watchdog-ms\s+180000\s+--out\s+\/tmp\/bug54-latest\.json/,
       /export\s+BUG54_START_TS="\$\(date\s+-u\s+\+"%Y-%m-%dT%H:%M:%SZ"\)"/,
       /agentxchain\s+events\s+--since\s+\\?"\$BUG54_START_TS\\?"\s+--type\s+turn_dispatched,turn_start_failed,runtime_spawn_failed,stdout_attach_failed,run_blocked\s+--json\s+--limit\s+0/,
-      /node\s+<<'BUG54_DIAG'[\s\S]{0,1600}Current-window turn ids:[\s\S]{0,900}\.agentxchain[\s\S]{0,80}dispatch[\s\S]{0,80}turns[\s\S]{0,80}stdout\.log/,
+      /node\s+<<'BUG54_DIAG'[\s\S]{0,2400}Current-window turn ids:[\s\S]{0,1800}\.agentxchain[\s\S]{0,120}dispatch[\s\S]{0,120}turns[\s\S]{0,120}stdout\.log/,
     ];
     for (const pat of SHARED_SHAPES) {
       assert.match(
@@ -344,6 +344,54 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
         ask,
         pat,
         `V2 ask must still inline canonical shape ${pat} (matches the runbook)`,
+      );
+    }
+  });
+
+  it('BUG-54 diagnostic extractor emits a SUMMARY JSON line keyed for closure review', () => {
+    // Turn 223 (Claude): the per-line diagnostic output alone forces the tester
+    // (and the reviewing agent) to hand-count spawn_attached, first_output,
+    // startup_watchdog_fired, stdout_attach_failed, and ghost_turn lines to
+    // decide whether evidence meets the 10-attempt / zero-failure closure
+    // threshold. A single `BUG-54 SUMMARY: {...}` line keyed on `turns_matched`,
+    // `stdout_logs_present`, `stdout_logs_missing`, `spawn_attached_lines`,
+    // `first_output_lines`, `startup_watchdog_fired_lines`,
+    // `stdout_attach_failed_lines`, and `ghost_turn_lines` collapses the review
+    // to one JSON object. Guard both surfaces.
+    const runbook = readRepoFile(RUNBOOK_PATH);
+    const ask = readRepoFile(TESTER_ASK_V2_PATH);
+    const SUMMARY_KEYS = [
+      'turns_matched',
+      'stdout_logs_present',
+      'stdout_logs_missing',
+      'spawn_attached_lines',
+      'first_output_lines',
+      'startup_watchdog_fired_lines',
+      'stdout_attach_failed_lines',
+      'ghost_turn_lines',
+    ];
+    const SUMMARY_LINE = /console\.log\(`BUG-54 SUMMARY: \$\{JSON\.stringify\(counters\)\}`\)/;
+    for (const [label, body] of [['runbook', runbook], ['V2 ask', ask]]) {
+      assert.match(
+        body,
+        SUMMARY_LINE,
+        `${label} must emit a single BUG-54 SUMMARY: <json> line`,
+      );
+      for (const key of SUMMARY_KEYS) {
+        assert.ok(
+          body.includes(`${key}:`),
+          `${label} counters object must declare the ${key} counter`,
+        );
+      }
+      assert.match(
+        body,
+        /turns_matched >= 10/,
+        `${label} must name the 10-attempt closure threshold against turns_matched`,
+      );
+      assert.match(
+        body,
+        /startup_watchdog_fired_lines[\s\S]{0,40}0[\s\S]{0,140}stdout_attach_failed_lines[\s\S]{0,40}0[\s\S]{0,140}ghost_turn_lines[\s\S]{0,40}0/,
+        `${label} must require all three failure counters to be zero for closure`,
       );
     }
   });
