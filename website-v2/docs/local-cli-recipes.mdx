@@ -131,6 +131,97 @@ Use `dispatch_bundle_only` when the agent reads its own prompt from the dispatch
 | `argv` | `{prompt}` placeholder replaced in command array | Codex CLI, any tool accepting prompt as CLI argument |
 | `dispatch_bundle_only` | No prompt delivery; agent reads `PROMPT.md` from disk | Self-managing agents, custom runners |
 
+## Startup watchdog and diagnostics
+
+Every `local_cli` dispatch is gated by a **startup watchdog**. The adapter arms the watchdog as soon as the subprocess reports a successful `spawn` and clears it the instant the process produces its first byte on stdout/stderr or stages a `turn-result.json`. If the watchdog fires before either happens, the adapter SIGTERMs the child and classifies the turn as `startupFailureType: "no_subprocess_output"` so `run --continuous` can recover cleanly instead of wedging.
+
+### Default and overrides
+
+The default is **180 seconds** (`180000` ms) — long enough for realistic dispatch bundles (the `tusq.dev` beta floor measured 17,737 bytes of prompt + context) to reach Claude Code or Codex CLI and produce their first log line, short enough that a genuinely wedged runtime does not stall lights-out operation for an hour.
+
+Two overrides exist; precedence is **per-runtime > global > default**:
+
+```json title="agentxchain.json (global override)"
+{
+  "run_loop": {
+    "startup_watchdog_ms": 240000
+  }
+}
+```
+
+```json title="agentxchain.json (per-runtime override)"
+{
+  "runtimes": {
+    "slow-model": {
+      "type": "local_cli",
+      "command": ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"],
+      "prompt_transport": "argv",
+      "startup_watchdog_ms": 300000
+    }
+  }
+}
+```
+
+| Scope | Field | When to use |
+|-------|-------|-------------|
+| Per-runtime | `runtimes.<id>.startup_watchdog_ms` | One runtime needs more (cold-start model download) or less (fast local binary) than others. |
+| Global | `run_loop.startup_watchdog_ms` | Every runtime in this project has a consistent startup profile that differs from the 180s default. |
+| Default | `180000` (built-in) | You have not observed `startup_watchdog_fired` and dispatches regularly produce first output within ~60s. |
+
+### When to raise
+
+Raise the watchdog when any of the following is true for a specific runtime:
+
+- Cold-start latency is dominated by model download or JIT compile (e.g., Codex against a cold local model, MLX first-load, Ollama pulling a tag).
+- The dispatch bundle is unusually large (multi-MB context packs) and the runtime reads the full bundle before printing any startup banner.
+- Your operator observed repeated `startup_watchdog_fired` entries on a runtime that, when re-run manually, completes successfully with visible output appearing in the 120–180s window.
+
+Raise it on the **specific runtime** if only one is slow. Raise the global only if every runtime shares the same startup profile.
+
+### When to lower
+
+Lower the watchdog when:
+
+- You run an in-house runtime that always prints a startup banner within a few seconds, and you want silent hangs to surface faster in `run --continuous`.
+- You configure a ghost-turn recovery policy (e.g., `run_loop.continuous.auto_retry_on_ghost`) that reissues the turn cheaply — a shorter watchdog trades a slightly higher false-positive rate for faster lights-out recovery.
+
+Do **not** lower the default below the observed p99 of `first_output` `startup_latency_ms` for your slowest runtime; you will false-kill healthy dispatches and produce ghost turns.
+
+### Inspecting diagnostics
+
+Every adapter run writes structured diagnostic lines to `.agentxchain/dispatch/turns/<turnId>/stdout.log` with the prefix `[adapter:diag]`. The three labels you should know:
+
+| Label | Meaning | Payload highlights |
+|-------|---------|--------------------|
+| `spawn_attached` | Node confirmed the OS spawned the child process. The watchdog is now armed. | `pid`, `at`, `startup_watchdog_ms` |
+| `first_output` | Watchdog cleared — the child produced its first stdout/stderr byte or a staged `turn-result.json`. | `at`, `stream` (`stdout` \| `stderr` \| `staged_result`), `startup_latency_ms` |
+| `startup_watchdog_fired` | Watchdog elapsed with no first output and no staged result. The adapter SIGTERMs the child; the turn is retained as a failed start. | `startup_watchdog_ms`, `pid`, `spawn_confirmed_at`, `elapsed_since_spawn_ms` |
+
+Two companion diagnostics help you classify the failure when the watchdog fires:
+
+- `process_exit` — always emitted; includes `startup_failure_type` (`no_subprocess_output` or `runtime_spawn_failed`), `stdout_bytes`, `stderr_bytes`, and a `stderr_excerpt` if the child printed anything on stderr before exiting.
+- `spawn_error` — emitted only when the Node spawn itself errored (binary not found, EACCES, etc.); includes `code`, `errno`, `syscall`.
+
+To triage a suspected ghost turn quickly:
+
+```bash
+# Did the child ever attach?
+grep 'adapter:diag.*spawn_attached' .agentxchain/dispatch/turns/<turnId>/stdout.log
+
+# Did it produce first output before the watchdog fired?
+grep -E 'adapter:diag (first_output|startup_watchdog_fired)' \
+  .agentxchain/dispatch/turns/<turnId>/stdout.log
+
+# If the watchdog fired, how long did the child survive?
+grep 'adapter:diag startup_watchdog_fired' .agentxchain/dispatch/turns/<turnId>/stdout.log
+```
+
+A `spawn_attached` + `startup_watchdog_fired` pair with no `first_output` between them is the canonical "runtime started but never spoke" signature — usually a keychain prompt, an auth hang, or a genuinely stuck model. A missing `spawn_attached` is the signature of a spawn-time failure (bad path, missing binary, sandbox denial) and should show up as `spawn_error`.
+
+### BUG-54 context
+
+Before `agentxchain@2.151.0` the built-in default was 30,000 ms. Realistic dispatch bundles reliably produced first output in the 60–113s range on working Claude Max setups, so the 30s watchdog false-killed healthy dispatches and generated the ghost-turn stream that dominated early beta reports. The default is now 180s; if you inherited a project pinned to `startup_watchdog_ms: 30000` from the old default, unpin it to adopt the new built-in.
+
 ## Cursor, Windsurf, and other editors
 
 Cursor and Windsurf are editor extensions, not headless CLI tools. They do not have a governed local CLI runtime.
@@ -158,11 +249,13 @@ See the [Authority Model](/docs/authority-model) page for the full three-axis ex
 
 ### Turn times out or hangs
 
-The subprocess is likely waiting for approval input.
+Check `.agentxchain/dispatch/turns/<turnId>/stdout.log` first. Three signatures are common:
 
-**Fix:** Add the full-authority flag for your CLI:
-- Claude Code: `--dangerously-skip-permissions`
-- Codex: `--dangerously-bypass-approvals-and-sandbox`
+1. **`spawn_attached` present, no `first_output`, then `startup_watchdog_fired`.** The subprocess is alive but silent — usually waiting for approval input, a keychain prompt, or a cold model load. Add the full-authority flag for your CLI, then see [Startup watchdog and diagnostics](#startup-watchdog-and-diagnostics) if the hang persists and you need to raise the watchdog for a genuinely slow runtime:
+   - Claude Code: `--dangerously-skip-permissions`
+   - Codex: `--dangerously-bypass-approvals-and-sandbox`
+2. **`spawn_error` with `code: "ENOENT"`.** The CLI binary is not on `PATH` for the dispatch environment. Use an absolute path in `runtime.command` or add the directory to `PATH` in your shell rc.
+3. **`first_output` present but no staged `turn-result.json`.** The subprocess is running and producing output but never writes the governed turn artifact. Run `agentxchain connector validate <runtime>` to confirm the runtime can complete a synthetic turn end-to-end.
 
 ### `connector check` shows WARN for authority_intent
 
