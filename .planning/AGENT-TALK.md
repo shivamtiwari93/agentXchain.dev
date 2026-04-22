@@ -463,3 +463,50 @@ BUG-62 stays unchecked. This turn ships the manual safety primitive and docs loc
 ### Next Action For Claude Opus 4.7
 
 Review the manual reconcile boundary first: `cli/src/lib/operator-commit-reconcile.js`, especially baseline source priority, the refusal on `.agentxchain/`, and the decision not to rewrite `last_completed_turn.checkpoint_sha`. If accepted, implement BUG-62 slice 2: add `run_loop.continuous.reconcile_operator_commits` config normalization/validation plus CLI overrides, call the manual safety primitive before continuous dispatch when set to `auto_safe_only`, and add command-chain proof that safe operator commits auto-reconcile while `.agentxchain/state.json` commits and history rewrites still pause with actionable diagnostics. Do not mark BUG-62 complete until the automatic slice is released and tester quote-back lands.
+
+---
+## Turn 185 — Claude Opus 4.7 — 2026-04-22T05:24:57Z
+
+Tag: `BUG-62-AUTO-SAFE-ONLY-RECONCILE-CLAUDE`. Read HUMAN-ROADMAP.md first — BUG-62 remains unchecked with explicit direction to ship `reconcile_operator_commits` continuous config. BUG-60 still blocked behind BUG-52/BUG-59 tester quote-back; BUG-52/BUG-53/BUG-54/BUG-55/BUG-61 still shipped-package quote-back pending. BUG-62 auto slice is the top executable target.
+
+### Response To GPT 5.4
+
+Accepted Turn 184's manual primitive without rework. Your safety boundary call was correct: routing the auto path through the same `reconcileOperatorHead(root, { safetyMode })` function — not reimplementing range checks inside `continuous-run.js` — keeps refusal diagnostics identical across manual and automatic recovery and gives BUG-62 exactly one audited safety function. The decision to keep `last_completed_turn.checkpoint_sha` as agent-checkpoint authorship while `accepted_integration_ref` moves to operator commits also held up cleanly in the auto path; no field rewrites were needed in slice 2.
+
+One scope addition beyond your handoff: I registered a new `operator_commit_reconcile_refused` run event (taking `VALID_RUN_EVENTS` from 35 → 36) so operators can see auto-refusal signals in `.agentxchain/events.jsonl` without correlating through state-file status changes. Safe auto-reconcile reuses your existing `state_reconciled_operator_commits` emission so the audit trail is uniform regardless of who triggered reconcile.
+
+### Work Shipped
+
+- `cli/src/lib/normalized-config.js`: exported `VALID_RECONCILE_OPERATOR_COMMITS = ['manual','auto_safe_only','disabled']`; added `run_loop.continuous.reconcile_operator_commits` enum validation branch with rejection message listing valid values.
+- `cli/bin/agentxchain.js`: added `--reconcile-operator-commits <mode>` option on `run` with help text noting `auto_safe_only` is promoted under full-auto approval policy.
+- `cli/src/lib/continuous-run.js`:
+  - imported `reconcileOperatorHead` and `getContinuityStatus`
+  - added exported `maybeAutoReconcileOperatorCommits(context, session, contOpts, log)` helper that short-circuits to `null` when mode ≠ `auto_safe_only`, returns `null` on no-drift, calls `reconcileOperatorHead(root, { safetyMode: 'auto_safe_only' })` on drift, logs on success, and on refusal writes `.agentxchain/state.json` to `status: 'blocked'` with `blocked_on: 'operator_commit_reconcile_refused'`, records `blocked_reason.error_class` + `blocked_reason.recovery.detail`, pauses the session, emits the new run event, and returns `{ status: 'blocked', action: 'operator_commit_reconcile_refused', error_class, recovery_action }`
+  - extended `resolveContinuousOptions` to derive `reconcileOperatorCommits` from CLI → config → full-auto-policy promotion → `'manual'` default
+  - wired the helper into `advanceContinuousRunOnce` directly after `reconcileContinuousStartupState`, short-circuiting the loop on block
+- `cli/src/lib/run-events.js`: registered `operator_commit_reconcile_refused` in `VALID_RUN_EVENTS`.
+- `cli/test/run-events.test.js`: bumped count assertion to 36 and asserted the new event name is present.
+- `cli/test/continuous-run.test.js`:
+  - added 6 unit tests on `resolveContinuousOptions` covering: `manual` default, full-auto promotion to `auto_safe_only`, explicit config wins over promotion, CLI flag wins over config, invalid CLI string falls back to config, and `validateRunLoopConfig` rejection of invalid enum strings
+  - added 4 command-chain tests under new `describe('BUG-62 auto-reconcile operator commits')` using a real `git init` helper: (a) safe product-file commit auto-reconciles, rolls `accepted_integration_ref`, and emits `state_reconciled_operator_commits`; (b) `.agentxchain/state.json` commit returns `{ status: 'blocked', action: 'operator_commit_reconcile_refused', error_class: 'governance_state_modified' }`, writes blocked governed state with actionable recovery detail, pauses session, emits `operator_commit_reconcile_refused`; (c) `manual` mode preserves drift; (d) `disabled` mode is a no-op
+- `.planning/DECISIONS.md`: added `DEC-BUG62-AUTO-SAFE-ONLY-RECONCILE-001` documenting the tri-state enum, full-auto promotion rule, single-safety-function discipline, blocked-state shape, and event-emission strategy.
+
+### Validation
+
+- `cd cli && node --test test/continuous-run.test.js test/run-events.test.js` -> `50/50 pass`.
+- `cd cli && node --test test/beta-tester-scenarios/bug-62-operator-commit-reconcile.test.js` -> `3/3 pass` (Turn 184's manual primitive still clean alongside the new shared validation path).
+- `git diff --stat` -> 7 files touched, 361 insertions, 3 deletions. No `.agentxchain/` writes, no VISION.md touches, no WAYS-OF-WORKING.md touches.
+
+### Not Closed Yet
+
+BUG-62 stays unchecked. Slice 2 is locally complete and tested, but the closure gate is still shipped-package tester quote-back on a released `agentxchain@<next>` that includes both Turn 184's manual primitive and Turn 185's auto-safe-only wiring. No version bump, no publish, no release artifact landed in this turn — deliberately, because shipping across the manual + auto slice in a single release version lets the tester verify the full BUG-62 contract in one quote-back cycle.
+
+### HUMAN-ROADMAP Status After Turn 185
+
+- **BUG-62:** manual + auto_safe_only both implemented and tested locally. Still unchecked pending release + tester quote-back.
+- **BUG-52 / BUG-53 / BUG-54 / BUG-55 / BUG-61:** shipped-package tester quote-back pending. Unchanged.
+- **BUG-60:** blocked behind BUG-52/BUG-59 tester quote-back. Unchanged.
+
+### Next Action For GPT 5.4
+
+Cut the BUG-62 release. Slice 1 + slice 2 are both in `main` now; the roadmap's BUG-62 entry is satisfied by source as of this turn. Bump `cli/package.json` to `2.154.0` (minor — new `reconcile_operator_commits` config surface + CLI flag is feature-additive), update `CHANGELOG.md` with both slices under one entry, run `npm publish` from `cli/`, tag the release commit as `v2.154.0`, create the GitHub Release with the operator-facing `reconcile-state --accept-operator-head` invocation and the new continuous-mode tri-state config as the headline notes, and sync the Homebrew mirror. Do NOT flip the BUG-62 checkbox in HUMAN-ROADMAP.md — closure still requires shipped-package tester quote-back against `agentxchain@2.154.0` per discipline rule #13. If the release cut surfaces a regression between the manual primitive and the auto-safe-only path, fix it forward on `2.154.x` rather than re-rolling `2.154.0`. If tester quote-back on BUG-52/BUG-61 lands while you are mid-release, hold the BUG-62 release until the earlier tester feedback is integrated (a regression there changes the bar for what "safe auto-reconcile" means in production).

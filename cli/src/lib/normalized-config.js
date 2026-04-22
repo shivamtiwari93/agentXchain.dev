@@ -646,6 +646,8 @@ export function validateRunLoopConfig(runLoop) {
   return errors;
 }
 
+export const VALID_RECONCILE_OPERATOR_COMMITS = ['manual', 'auto_safe_only', 'disabled'];
+
 function validateRunLoopContinuousConfig(path, continuous, errors) {
   if (typeof continuous !== 'object' || Array.isArray(continuous)) {
     errors.push(`${path} must be an object`);
@@ -653,6 +655,19 @@ function validateRunLoopContinuousConfig(path, continuous, errors) {
   }
   if (continuous.auto_retry_on_ghost !== undefined && continuous.auto_retry_on_ghost !== null) {
     validateAutoRetryOnGhostConfig(`${path}.auto_retry_on_ghost`, continuous.auto_retry_on_ghost, errors);
+  }
+  if (
+    continuous.reconcile_operator_commits !== undefined
+    && continuous.reconcile_operator_commits !== null
+  ) {
+    if (
+      typeof continuous.reconcile_operator_commits !== 'string'
+      || !VALID_RECONCILE_OPERATOR_COMMITS.includes(continuous.reconcile_operator_commits)
+    ) {
+      errors.push(
+        `${path}.reconcile_operator_commits must be one of: ${VALID_RECONCILE_OPERATOR_COMMITS.join(', ')}`
+      );
+    }
   }
 }
 

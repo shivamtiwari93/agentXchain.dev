@@ -33,6 +33,8 @@ import {
   buildGhostRetryExhaustionMirror,
   classifyGhostRetryDecision,
 } from './ghost-retry.js';
+import { reconcileOperatorHead } from './operator-commit-reconcile.js';
+import { getContinuityStatus } from './continuity-status.js';
 import {
   archiveStaleIntentsForRun,
   formatLegacyIntentMigrationNotice,
@@ -335,6 +337,99 @@ export function findNextQueuedIntent(root, options = {}) {
   return findNextDispatchableIntent(root, { run_id: options.run_id || null });
 }
 
+/**
+ * BUG-62 slice 2: when `run_loop.continuous.reconcile_operator_commits` is
+ * `auto_safe_only`, the continuous loop consults the session-checkpoint /
+ * governed-state baseline vs current git HEAD before dispatch. If operator
+ * commits landed on top of the baseline and the Turn 184 safety primitive
+ * accepts them, the baseline is auto-rolled forward so the next dispatch
+ * proceeds without manual `agentxchain reconcile-state` intervention. If the
+ * safety primitive refuses the commits (governed-state edits or history
+ * rewrite), the continuous loop pauses with the refusal class mirrored into
+ * `blocked_reason.recovery.detail`, preserving the manual primitive as the
+ * operator's single audited safety function per the BUG-62 spec.
+ */
+export function maybeAutoReconcileOperatorCommits(context, session, contOpts, log = console.log) {
+  const mode = contOpts.reconcileOperatorCommits || 'manual';
+  if (mode !== 'auto_safe_only') {
+    return null;
+  }
+  const { root } = context;
+  const state = loadProjectState(root, context.config);
+  const continuity = getContinuityStatus(root, state);
+  if (!continuity || continuity.drift_detected !== true) {
+    return null;
+  }
+
+  const result = reconcileOperatorHead(root, { safetyMode: 'auto_safe_only' });
+  if (result.ok) {
+    if (result.no_op) {
+      return null;
+    }
+    const acceptedCount = result.accepted_commits?.length || 0;
+    log(
+      `Operator-commit auto-reconcile accepted ${acceptedCount} commit${acceptedCount === 1 ? '' : 's'} `
+      + `(${result.previous_baseline.slice(0, 8)} -> ${result.accepted_head.slice(0, 8)}).`
+    );
+    return null;
+  }
+
+  const errorClass = result.error_class || 'reconcile_refused';
+  const detailLines = [
+    `Operator-commit auto-reconcile refused (${errorClass}).`,
+    result.error || 'Unsafe operator commits detected; manual recovery required.',
+    'Run: agentxchain reconcile-state --accept-operator-head once the unsafe changes are resolved, or revert them.',
+  ];
+  const detail = detailLines.join(' ');
+
+  if (state) {
+    const nextState = {
+      ...state,
+      status: 'blocked',
+      blocked_on: state.blocked_on || 'operator_commit_reconcile_refused',
+      blocked_reason: {
+        ...(state.blocked_reason || {}),
+        category: 'operator_commit_reconcile_refused',
+        error_class: errorClass,
+        recovery: {
+          ...((state.blocked_reason || {}).recovery || {}),
+          recovery_action: 'agentxchain reconcile-state --accept-operator-head',
+          detail,
+        },
+      },
+    };
+    safeWriteJson(join(root, '.agentxchain', 'state.json'), nextState);
+  }
+
+  emitRunEvent(root, 'operator_commit_reconcile_refused', {
+    run_id: state?.run_id || session.current_run_id || null,
+    phase: state?.phase || state?.current_phase || null,
+    status: 'blocked',
+    payload: {
+      error_class: errorClass,
+      message: result.error || null,
+      previous_baseline: result.previous_baseline || null,
+      current_head: result.current_head || null,
+      offending_commit: result.offending_commit || null,
+      offending_path: result.offending_path || null,
+      safety_mode: 'auto_safe_only',
+    },
+  });
+
+  session.status = 'paused';
+  writeContinuousSession(root, session);
+  log(detail);
+  return {
+    ok: true,
+    status: 'blocked',
+    action: 'operator_commit_reconcile_refused',
+    run_id: session.current_run_id,
+    recovery_action: 'agentxchain reconcile-state --accept-operator-head',
+    blocked_category: 'operator_commit_reconcile_refused',
+    error_class: errorClass,
+  };
+}
+
 function reconcileContinuousStartupState(context, session, contOpts, log) {
   const { root, config } = context;
   const governedState = loadProjectState(root, config);
@@ -483,9 +578,23 @@ export function resolveContinuousOptions(opts, config) {
   const configCont = config?.run_loop?.continuous || {};
   const configGhostRetry = configCont.auto_retry_on_ghost || {};
   const explicitConfigGhostEnabled = Object.prototype.hasOwnProperty.call(configGhostRetry, 'enabled');
-  const fullAutoGhostDefault = Boolean((opts.continuous ?? configCont.enabled ?? false) && isFullAutoApprovalPolicy(config));
+  const fullAuto = Boolean((opts.continuous ?? configCont.enabled ?? false) && isFullAutoApprovalPolicy(config));
+  const fullAutoGhostDefault = fullAuto;
   const resolvedGhostEnabled = opts.autoRetryOnGhost
     ?? (explicitConfigGhostEnabled ? configGhostRetry.enabled : fullAutoGhostDefault);
+
+  const validReconcileModes = new Set(['manual', 'auto_safe_only', 'disabled']);
+  const configuredReconcile = typeof configCont.reconcile_operator_commits === 'string'
+    && validReconcileModes.has(configCont.reconcile_operator_commits)
+    ? configCont.reconcile_operator_commits
+    : null;
+  const cliReconcile = typeof opts.reconcileOperatorCommits === 'string'
+    && validReconcileModes.has(opts.reconcileOperatorCommits)
+    ? opts.reconcileOperatorCommits
+    : null;
+  const reconcileOperatorCommits = cliReconcile
+    ?? configuredReconcile
+    ?? (fullAuto ? 'auto_safe_only' : 'manual');
 
   return {
     enabled: opts.continuous ?? configCont.enabled ?? false,
@@ -507,6 +616,7 @@ export function resolveContinuousOptions(opts, config) {
         ?? configGhostRetry.cooldown_seconds
         ?? 5,
     },
+    reconcileOperatorCommits,
   };
 }
 
@@ -563,6 +673,9 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   }
 
   reconcileContinuousStartupState(context, session, contOpts, log);
+
+  const reconcileBlock = maybeAutoReconcileOperatorCommits(context, session, contOpts, log);
+  if (reconcileBlock) return reconcileBlock;
 
   // Paused-session guard: if session is paused (blocked run awaiting unblock),
   // check governed state before attempting to advance. Without this guard, the

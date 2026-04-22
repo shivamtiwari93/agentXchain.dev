@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { randomUUID } from 'crypto';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 import {
@@ -14,6 +15,7 @@ import {
   seedFromVision,
   findNextQueuedIntent,
   executeContinuousRun,
+  maybeAutoReconcileOperatorCommits,
 } from '../src/lib/continuous-run.js';
 import { validateRunLoopConfig } from '../src/lib/normalized-config.js';
 
@@ -269,6 +271,65 @@ describe('Continuous Run', () => {
         ],
       );
     });
+
+    it('BUG-62: defaults reconcile_operator_commits to manual without full-auto policy', () => {
+      const opts = resolveContinuousOptions({ continuous: true }, {});
+      assert.equal(opts.reconcileOperatorCommits, 'manual');
+    });
+
+    it('BUG-62: promotes reconcile_operator_commits to auto_safe_only under full-auto approval policy', () => {
+      const opts = resolveContinuousOptions({ continuous: true }, {
+        approval_policy: {
+          phase_transitions: { default: 'auto_approve' },
+          run_completion: { action: 'auto_approve' },
+        },
+      });
+      assert.equal(opts.reconcileOperatorCommits, 'auto_safe_only');
+    });
+
+    it('BUG-62: explicit config value wins over full-auto promotion', () => {
+      const opts = resolveContinuousOptions({ continuous: true }, {
+        run_loop: { continuous: { reconcile_operator_commits: 'disabled' } },
+        approval_policy: {
+          phase_transitions: { default: 'auto_approve' },
+          run_completion: { action: 'auto_approve' },
+        },
+      });
+      assert.equal(opts.reconcileOperatorCommits, 'disabled');
+    });
+
+    it('BUG-62: CLI --reconcile-operator-commits overrides config and policy', () => {
+      const opts = resolveContinuousOptions(
+        { continuous: true, reconcileOperatorCommits: 'manual' },
+        {
+          run_loop: { continuous: { reconcile_operator_commits: 'auto_safe_only' } },
+          approval_policy: {
+            phase_transitions: { default: 'auto_approve' },
+            run_completion: { action: 'auto_approve' },
+          },
+        },
+      );
+      assert.equal(opts.reconcileOperatorCommits, 'manual');
+    });
+
+    it('BUG-62: ignores invalid CLI value and falls back to config', () => {
+      const opts = resolveContinuousOptions(
+        { continuous: true, reconcileOperatorCommits: 'banana' },
+        { run_loop: { continuous: { reconcile_operator_commits: 'auto_safe_only' } } },
+      );
+      assert.equal(opts.reconcileOperatorCommits, 'auto_safe_only');
+    });
+
+    it('BUG-62: validates reconcile_operator_commits config shape', () => {
+      assert.deepEqual(
+        validateRunLoopConfig({
+          continuous: { reconcile_operator_commits: 'sometimes' },
+        }),
+        [
+          'run_loop.continuous.reconcile_operator_commits must be one of: manual, auto_safe_only, disabled',
+        ],
+      );
+    });
   });
 
   describe('session state', () => {
@@ -404,6 +465,159 @@ describe('Continuous Run', () => {
       assert.equal(state.active_turns[turnId].status, 'failed_start');
       assert.match(state.blocked_reason.recovery.recovery_action, /reissue-turn --turn turn_ghost_001 --reason ghost/);
       assert.equal(readEvents(tmpDir).some((entry) => entry.event_type === 'auto_retried_ghost'), false);
+    });
+  });
+
+  describe('BUG-62 auto-reconcile operator commits', () => {
+    function initGovernedGitProject(dir) {
+      const git = (args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+      git(['init', '-q']);
+      git(['config', 'user.email', 'test@example.com']);
+      git(['config', 'user.name', 'Test User']);
+      git(['add', '.']);
+      git(['commit', '-q', '-m', 'checkpoint baseline']);
+      const baseline = git(['rev-parse', 'HEAD']);
+      writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify({
+        schema_version: '1.0',
+        run_id: 'run_bug62',
+        project_id: 'ct-001',
+        status: 'active',
+        phase: 'implementation',
+        accepted_integration_ref: `git:${baseline}`,
+        active_turns: {},
+        turn_sequence: 0,
+        last_completed_turn_id: null,
+        last_completed_turn: {
+          turn_id: 'turn_checkpointed',
+          role: 'dev',
+          phase: 'implementation',
+          checkpoint_sha: baseline,
+          checkpointed_at: '2026-04-22T00:00:00Z',
+          intent_id: 'intent_bug62',
+        },
+        blocked_on: null,
+        blocked_reason: null,
+        escalation: null,
+        phase_gate_status: {},
+      }, null, 2));
+      writeFileSync(join(dir, '.agentxchain', 'session.json'), JSON.stringify({
+        session_id: 'session_bug62',
+        run_id: 'run_bug62',
+        started_at: '2026-04-22T00:00:00Z',
+        last_checkpoint_at: '2026-04-22T00:00:00Z',
+        checkpoint_reason: 'turn_checkpointed',
+        run_status: 'active',
+        phase: 'implementation',
+        baseline_ref: {
+          git_head: baseline,
+          git_branch: git(['rev-parse', '--abbrev-ref', 'HEAD']),
+          workspace_dirty: false,
+        },
+      }, null, 2));
+      return { baseline, git };
+    }
+
+    it('auto_safe_only accepts safe operator commits and rolls the baseline forward', () => {
+      const { baseline, git } = initGovernedGitProject(tmpDir);
+      writeFileSync(join(tmpDir, 'product.txt'), 'operator safe edit\n');
+      git(['add', 'product.txt']);
+      git(['commit', '-q', '-m', 'operator: product change']);
+      const operatorHead = git(['rev-parse', 'HEAD']);
+      assert.notEqual(operatorHead, baseline);
+
+      const session = { session_id: 'cont-bug62', status: 'running', current_run_id: 'run_bug62', runs_completed: 0 };
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true }, context.config), reconcileOperatorCommits: 'auto_safe_only' };
+
+      const result = maybeAutoReconcileOperatorCommits(context, session, contOpts, () => {});
+      assert.equal(result, null, 'safe reconcile should continue the loop (helper returns null)');
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.accepted_integration_ref, `git:${operatorHead}`);
+      assert.equal(state.operator_commit_reconciliation.accepted_head, operatorHead);
+      assert.equal(state.operator_commit_reconciliation.safety_mode, 'auto_safe_only');
+      const events = readEvents(tmpDir);
+      const reconciled = events.find((e) => e.event_type === 'state_reconciled_operator_commits');
+      assert.ok(reconciled, 'expected state_reconciled_operator_commits event');
+      assert.equal(reconciled.payload.accepted_head, operatorHead);
+      assert.deepEqual(reconciled.payload.paths_touched, ['product.txt']);
+    });
+
+    it('auto_safe_only pauses the session when operator commits modify governed state', () => {
+      const { git } = initGovernedGitProject(tmpDir);
+      const statePath = join(tmpDir, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      writeFileSync(statePath, JSON.stringify({ ...state, unsafe_edit: true }, null, 2));
+      git(['add', '-f', '.agentxchain/state.json']);
+      git(['commit', '-q', '-m', 'operator: edit governed state']);
+
+      const session = { session_id: 'cont-bug62-unsafe', status: 'running', current_run_id: 'run_bug62', runs_completed: 0 };
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true }, context.config), reconcileOperatorCommits: 'auto_safe_only' };
+
+      const result = maybeAutoReconcileOperatorCommits(context, session, contOpts, () => {});
+      assert.ok(result, 'unsafe reconcile must return a blocked step');
+      assert.equal(result.status, 'blocked');
+      assert.equal(result.action, 'operator_commit_reconcile_refused');
+      assert.equal(result.error_class, 'governance_state_modified');
+      assert.equal(result.recovery_action, 'agentxchain reconcile-state --accept-operator-head');
+
+      const savedSession = readContinuousSession(tmpDir);
+      assert.equal(savedSession.status, 'paused');
+
+      const nextState = JSON.parse(readFileSync(statePath, 'utf8'));
+      assert.equal(nextState.status, 'blocked');
+      assert.equal(nextState.blocked_on, 'operator_commit_reconcile_refused');
+      assert.equal(nextState.blocked_reason.error_class, 'governance_state_modified');
+      assert.match(nextState.blocked_reason.recovery.detail, /auto-reconcile refused/);
+      assert.match(nextState.blocked_reason.recovery.detail, /governance_state_modified/);
+
+      const events = readEvents(tmpDir);
+      const refusal = events.find((e) => e.event_type === 'operator_commit_reconcile_refused');
+      assert.ok(refusal, 'expected operator_commit_reconcile_refused event');
+      assert.equal(refusal.payload.error_class, 'governance_state_modified');
+      assert.equal(refusal.payload.safety_mode, 'auto_safe_only');
+    });
+
+    it('manual mode preserves existing drift behavior (no auto reconcile)', () => {
+      const { baseline, git } = initGovernedGitProject(tmpDir);
+      writeFileSync(join(tmpDir, 'product.txt'), 'operator safe edit\n');
+      git(['add', 'product.txt']);
+      git(['commit', '-q', '-m', 'operator: product change']);
+      const operatorHead = git(['rev-parse', 'HEAD']);
+      assert.notEqual(operatorHead, baseline);
+
+      const session = { session_id: 'cont-bug62-manual', status: 'running', current_run_id: 'run_bug62', runs_completed: 0 };
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true }, context.config), reconcileOperatorCommits: 'manual' };
+
+      const result = maybeAutoReconcileOperatorCommits(context, session, contOpts, () => {});
+      assert.equal(result, null);
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.accepted_integration_ref, `git:${baseline}`, 'manual mode must not silently advance baseline');
+      const events = readEvents(tmpDir);
+      assert.equal(
+        events.some((e) => e.event_type === 'state_reconciled_operator_commits'),
+        false,
+        'manual mode must not emit reconcile events',
+      );
+    });
+
+    it('disabled mode skips reconcile entirely regardless of drift', () => {
+      const { baseline, git } = initGovernedGitProject(tmpDir);
+      writeFileSync(join(tmpDir, 'product.txt'), 'operator safe edit\n');
+      git(['add', 'product.txt']);
+      git(['commit', '-q', '-m', 'operator: product change']);
+
+      const session = { session_id: 'cont-bug62-disabled', status: 'running', current_run_id: 'run_bug62', runs_completed: 0 };
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true }, context.config), reconcileOperatorCommits: 'disabled' };
+
+      const result = maybeAutoReconcileOperatorCommits(context, session, contOpts, () => {});
+      assert.equal(result, null);
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.accepted_integration_ref, `git:${baseline}`);
     });
   });
 

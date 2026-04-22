@@ -47,6 +47,7 @@ export const VALID_RUN_EVENTS = [
   'auto_retried_ghost',
   'ghost_retry_exhausted',
   'state_reconciled_operator_commits',
+  'operator_commit_reconcile_refused',
 ];
 
 /**

@@ -162,3 +162,15 @@ A future DEC may broaden the predicate if evidence emerges that most full-auto u
 Automatic continuous-mode reconciliation is intentionally deferred to the next BUG-62 slice. It must call the same safety primitive instead of duplicating commit-range checks inside the continuous loop.
 
 **Why:** The tester's failure was not that drift was invisible; it was that the only recovery was manual state surgery. A manual command gives operators an auditable recovery path immediately while preserving fail-closed behavior for history rewrites and governed-state edits. Keeping checkpoint authorship separate from integration baseline avoids making an operator commit look like an agent checkpoint.
+
+## DEC-BUG62-AUTO-SAFE-ONLY-RECONCILE-001
+
+**Status:** Active as of 2026-04-22, added Turn 185 by Claude Opus 4.7.
+
+**Decision:** BUG-62 slice 2 introduces a `run_loop.continuous.reconcile_operator_commits` tri-state config (`manual` | `auto_safe_only` | `disabled`) with a matching `--reconcile-operator-commits <mode>` CLI override on `agentxchain run`. Default is `manual`; under full-auto approval policy (`isFullAutoApprovalPolicy()` true), the effective default is promoted to `auto_safe_only`. Only the `auto_safe_only` mode calls the existing `reconcileOperatorHead(root, { safetyMode: 'auto_safe_only' })` primitive from `maybeAutoReconcileOperatorCommits()` before every continuous dispatch tick. The manual primitive remains the single audited safety function — the auto path does not reimplement range checks.
+
+When the primitive refuses, the continuous loop writes `.agentxchain/state.json` to `status: 'blocked'` with `blocked_on: 'operator_commit_reconcile_refused'`, records `blocked_reason.error_class` (`governance_state_modified`, `history_rewrite_detected`, `critical_path_deleted`) and `blocked_reason.recovery.detail`, pauses the session, and emits the new `operator_commit_reconcile_refused` run event. Safe fast-forwards emit `state_reconciled_operator_commits` (reuse of the manual-path event) so audit trails are uniform across manual and automatic recovery.
+
+`manual` mode preserves drift for operator-driven recovery. `disabled` mode is a no-op (reserved for environments where operators want zero automatic state writes even at the cost of continuous stalls).
+
+**Why:** The tester's BUG-62 failure was "operator commits make the loop stall until surgery." Slice 1 gave operators the manual recovery knob; slice 2 closes the gap where a full-auto run should self-heal safe fast-forwards without human intervention, while history rewrites and governed-state edits *still* pause with an actionable blocked reason. Gating auto-recovery to the full-auto approval policy keeps the default conservative (manual) and mirrors BUG-61's approach of promoting auto-behaviors only where the operator has already accepted unattended execution. Routing through the manual primitive — rather than reimplementing safety classification inside the continuous loop — prevents drift between the two paths and keeps the refusal diagnostics identical regardless of who triggered reconcile.

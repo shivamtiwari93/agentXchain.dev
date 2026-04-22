@@ -134,8 +134,8 @@ describe('run-events', () => {
   });
 
   // Additional: VALID_RUN_EVENTS is complete
-  it('VALID_RUN_EVENTS contains all 35 event types', () => {
-    assert.equal(VALID_RUN_EVENTS.length, 35);
+  it('VALID_RUN_EVENTS contains all 36 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 36);
     assert.ok(VALID_RUN_EVENTS.includes('auto_retried_ghost'),
       'auto_retried_ghost must be registered (BUG-61 continuous ghost auto-recovery)');
     assert.ok(VALID_RUN_EVENTS.includes('ghost_retry_exhausted'),
@@ -144,6 +144,8 @@ describe('run-events', () => {
       'session_continuation must be registered (BUG-53 continuous auto-chain audit trail)');
     assert.ok(VALID_RUN_EVENTS.includes('state_reconciled_operator_commits'),
       'state_reconciled_operator_commits must be registered (BUG-62 operator commit reconcile audit trail)');
+    assert.ok(VALID_RUN_EVENTS.includes('operator_commit_reconcile_refused'),
+      'operator_commit_reconcile_refused must be registered (BUG-62 auto_safe_only refusal signal)');
     assert.ok(VALID_RUN_EVENTS.includes('run_started'));
     assert.ok(VALID_RUN_EVENTS.includes('run_completed'));
     assert.ok(VALID_RUN_EVENTS.includes('run_blocked'));

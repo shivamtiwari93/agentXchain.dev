@@ -764,6 +764,7 @@ program
   .option('--no-auto-retry-on-ghost', 'Disable bounded automatic retry for continuous-mode startup ghost turns')
   .option('--auto-retry-on-ghost-max-retries <n>', 'Maximum startup ghost retries per continuous run (default: config or 3)', parseInt)
   .option('--auto-retry-on-ghost-cooldown-seconds <n>', 'Seconds to wait between startup ghost retries (default: config or 5)', parseInt)
+  .option('--reconcile-operator-commits <mode>', 'Continuous reconcile posture for operator commits: manual, auto_safe_only, or disabled (default: config or manual; auto_safe_only under full-auto approval policy)')
   .option('--auto-checkpoint', 'Auto-commit accepted writable turns after acceptance')
   .option('--no-auto-checkpoint', 'Disable automatic checkpointing after accepted writable turns')
   .action(runCommand);
