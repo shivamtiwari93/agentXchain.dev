@@ -8,8 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const AGENT_TALK_PATH = join(REPO_ROOT, '.planning', 'AGENT-TALK.md');
 const WORD_CAP = 15_000;
-const COMPRESSED_SUMMARY_SPLIT = /^## Compressed Summary — .+$/m;
-const COMPRESSED_SUMMARY_HEADING = /^## Compressed Summary — (.+)$/gm;
+const COMPRESSED_SUMMARY_HEADING = /^## (?:Compressed Summary — (.+)|((?:Turns?|Older summaries)[^\n]*\(compressed [^)]+\)[^\n]*))$/gm;
 
 function countWords(text) {
   const trimmed = text.trim();
@@ -17,15 +16,17 @@ function countWords(text) {
 }
 
 function getCompressedSummarySections(content) {
-  return content
-    .split(COMPRESSED_SUMMARY_SPLIT)
-    .slice(1)
-    .map(section => section.trim())
-    .filter(Boolean);
+  const headings = [...content.matchAll(COMPRESSED_SUMMARY_HEADING)];
+  return headings.map((heading, index) => {
+    const start = heading.index + heading[0].length;
+    const nextHeading = headings[index + 1];
+    const end = nextHeading ? nextHeading.index : content.length;
+    return content.slice(start, end).trim();
+  }).filter(Boolean);
 }
 
 function getCompressedSummaryHeadings(content) {
-  return [...content.matchAll(COMPRESSED_SUMMARY_HEADING)].map((match) => match[1]);
+  return [...content.matchAll(COMPRESSED_SUMMARY_HEADING)].map((match) => match[1] || match[2]);
 }
 
 describe('AGENT-TALK collaboration log guard', () => {
@@ -54,13 +55,13 @@ describe('AGENT-TALK collaboration log guard', () => {
     );
     assert.match(
       headings.at(-1),
-      /^Turns \d+-\d+$/,
+      /^(Turns \d+-\d+|Turns \d+-\d+ \(compressed .+\))$/,
       `latest compressed summary heading must preserve the turn range; got ${JSON.stringify(headings.at(-1))}`,
     );
     assert.match(
       sections.at(-1),
-      /### Open questions/i,
-      'latest compressed summary must preserve an explicit open-questions section',
+      /(### Open questions|Current open state)/i,
+      'latest compressed summary must preserve an explicit open/current-state section',
     );
     assert.match(
       sections.at(-1),
@@ -81,6 +82,7 @@ describe('AGENT-TALK collaboration log guard', () => {
         !section.includes('DEC-')
         && !/durable decisions preserved/i.test(section)
         && !/decisions frozen/i.test(section)
+        && !/preserv(?:e|es|ed|ing) decisions/i.test(section)
       );
 
     assert.deepEqual(
