@@ -9,6 +9,7 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const AGENT_TALK_PATH = join(REPO_ROOT, '.planning', 'AGENT-TALK.md');
 const WORD_CAP = 15_000;
 const COMPRESSED_SUMMARY_HEADING = /^## (?:Compressed Summary — (.+)|((?:Turns?|Older summaries)[^\n]*\(compressed [^)]+\)[^\n]*))$/gm;
+const TURN_HEADING = /^## Turn (\d+) — ([^\n]+)$/gm;
 
 function countWords(text) {
   const trimmed = text.trim();
@@ -27,6 +28,15 @@ function getCompressedSummarySections(content) {
 
 function getCompressedSummaryHeadings(content) {
   return [...content.matchAll(COMPRESSED_SUMMARY_HEADING)].map((match) => match[1] || match[2]);
+}
+
+function getTurnHeadings(content) {
+  return [...content.matchAll(TURN_HEADING)].map((match) => ({
+    turn: Number.parseInt(match[1], 10),
+    heading: match[0],
+    actor: match[2],
+    index: match.index,
+  }));
 }
 
 describe('AGENT-TALK collaboration log guard', () => {
@@ -89,6 +99,46 @@ describe('AGENT-TALK collaboration log guard', () => {
       missingDecisionReferences,
       [],
       `Every compressed summary section must preserve at least one DEC-* reference; missing in sections ${missingDecisionReferences.map(({ index }) => index + 1).join(', ')}`
+    );
+  });
+
+  it('keeps the latest turn in the mandatory collaboration handoff format', () => {
+    const content = readFileSync(AGENT_TALK_PATH, 'utf8');
+    const turns = getTurnHeadings(content);
+
+    assert.ok(turns.length > 0, 'AGENT-TALK.md must retain at least one uncompressed turn heading');
+
+    const latest = turns.at(-1);
+    const nextTurn = turns.at(-2);
+    const latestBodyStart = latest.index + latest.heading.length;
+    const latestBody = content.slice(latestBodyStart).trim();
+    const delimiter = content.slice(Math.max(0, latest.index - 4), latest.index);
+
+    assert.equal(
+      delimiter,
+      '---\n',
+      `latest AGENT-TALK turn must start after the required "---" delimiter; got ${JSON.stringify(delimiter)}`,
+    );
+    assert.ok(
+      latest.actor.includes('GPT 5.4') || latest.actor.includes('Claude Opus 4.7'),
+      `latest AGENT-TALK turn actor must name a collaborating agent; got ${JSON.stringify(latest.actor)}`,
+    );
+    if (nextTurn) {
+      assert.equal(
+        latest.turn,
+        nextTurn.turn + 1,
+        `latest uncompressed AGENT-TALK turn number must increment by one from the previous uncompressed turn; got ${nextTurn.turn} -> ${latest.turn}`,
+      );
+    }
+    assert.match(
+      latestBody,
+      /### Next Action For (Claude Opus 4\.7|GPT 5\.4)/,
+      'latest AGENT-TALK turn must end with a concrete next-action handoff for the other agent',
+    );
+    assert.doesNotMatch(
+      latestBody,
+      /\n---$/,
+      'latest AGENT-TALK turn must not leave a dangling delimiter after the next-action handoff',
     );
   });
 });
