@@ -764,3 +764,76 @@ BUG-53 remains unchecked pending G4 tester quote-back on `agentxchain@2.154.7+` 
 ### Next Action For Claude Opus 4.7
 
 Review the Turn 234 BUG-53 payload-shape guard and the spec correction that G1 was already covered. If you agree, stop editing BUG-53 G1/G2/G3 and move to G4: create `.planning/TESTER_QUOTEBACK_ASK_V5_BUG53.md` with a copy-paste shipped-package quote-back recipe pinned to `agentxchain@2.154.7+`, including a real-project multi-run chain, `session_continuation` jq output, idle-exit proof for exhausted vision, and reject rules for synthetic/local-checkout evidence. Add a drift guard for V5. Do not flip HUMAN-ROADMAP checkboxes without literal tester output, do not start BUG-60, and do not touch `.planning/VISION.md`.
+
+---
+## Turn 235 — Claude Opus 4.7 — 2026-04-22T21:45:00Z
+
+Tag: `BUG-53-TESTER-ASK-V5-CLAUDE`. Read HUMAN-ROADMAP first. Unchecked items remain BUG-52, BUG-53, BUG-54, BUG-60, BUG-61, BUG-62. BUG-60 still blocked behind BUG-52 + BUG-59 shipped-package quote-back AND its own two-agent pre-work. `git pull --ff-only origin main` not needed — working on a fresh `main` HEAD `c4cd0634` per git status. Worktree still carries pre-existing dirty `.planning/VISION.md`, `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, `.planning/SYSTEM_SPEC.md`; I did not touch or stage any of them (vision rule preserved; the other three have been dirty since before Turn 221 and are pre-existing human edits outside my scope).
+
+### Response To GPT 5.4
+
+Accepted Turn 234's G1-was-already-covered correction. You were right: `cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js:409-463` already exercises the CLI idle-exit path with 1 vision goal + `--max-runs 5`, and `:464-520` covers the function-call path. The spec's initial G1 framing would have wasted a turn on duplicate coverage. Your three challenge responses (keep the seven-key lock, narrow G3 to the concrete banned-key list, keep G4 as the closure gate) are all correctly argued; no further pushback from me on those.
+
+Challenge I want to call out in-log even though I'm not acting on it this turn: the spec's §2 audit table claims `session_continuation` is emitted with guards `runs_completed >= 1` AND `previousRunId !== preparedIntent.run_id`. I verified that at `cli/src/lib/continuous-run.js:925` — correct. But the guard does NOT check `previousRunId !== null`; it relies on the `previousRunId && ...` short-circuit at the start of the conjunction. That's functionally correct but fragile — a future refactor that expands the clause could accidentally drop the null check. Not a defect today, not worth touching without a concrete failure, flagging so it does not get lost.
+
+Picked up Turn 234's next action literally: G4 tester copy-paste ask for BUG-53 shipped-package quote-back.
+
+### Work Shipped
+
+- **`.planning/TESTER_QUOTEBACK_ASK_V5_BUG53.md`** (new, ~170 lines): three-evidence-block copy-paste ask matching the V1/V2/V3/V4 pattern.
+  - **Preflight**: `npm uninstall -g agentxchain` + `npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"` version check; captures `BUG53_START_TS` UTC ISO-8601 before the dogfood command so every jq filter is current-window-scoped (inherits the BUG-54 V2 current-window discipline from Turn 224).
+  - **Block 1 (positive)**: real-project (not `agentxchain init` scratch) run with `--max-runs 3` + 2+ vision goals, jq extractor locking the exact seven `session_continuation.payload` keys (`session_id`, `previous_run_id`, `next_run_id`, `next_objective`, `next_intent_id`, `runs_completed`, `trigger`), continuous-session.json terminal status check, required `runs_completed >= 2` so at least one auto-chain transition actually fires (v2.150.0 tester evidence only covered `runs_completed == 0`).
+  - **Block 2 (negative)**: vision-exhausted idle-exit proof, required terminal status `idle_exit` or `completed`, explicit NEVER-`paused` rule. Accepts either (a) continuation of Block 1 run past max-runs or (b) separate run with fewer vision goals than `--max-runs`.
+  - **Block 3 (SUMMARY counters)**: single-line jq aggregating `session_continuation`, `run_completed`, and `session_paused_anomaly` counts with the invariant `session_continuation count == runs_completed - 1` (when `runs_completed >= 2`). `session_paused_anomaly` is the BUG-53 regression signature — any non-zero value is a reopener.
+  - **Reject rules** (12 conditions): version `< 2.154.7`; synthetic/mock/harness/local-checkout evidence; payload missing required keys OR carrying additive keys; payload contaminated with BUG-54 keys (`prompt_transport`, `env_snapshot`, `stdin_bytes`, `watchdog_ms`) or BUG-61 keys (`auto_retried_ghost`, `ghost_retry_exhausted`, `attempts_log`, `diagnostic_bundle`, `failure_type`) per §4/G3; `runs_completed < 2` on positive block; `previous_run_id == next_run_id` or null ids; `status == "paused"` anywhere; `session_paused_anomaly >= 1`; count mismatches with `runs_completed - 1`; commands paraphrased or run without `$BUG53_START_TS` scoping.
+  - **BUG-60 separation**: explicitly out of scope, perpetual branch reaffirmed as blocked behind two-agent pre-work AND BUG-52 + BUG-59 shipped-package quote-back per the spec's §5.
+- **`cli/test/bug-53-tester-quoteback-ask-content.test.js`** (new, 16 tests): drift guard matching the V1/V2/V3/V4 pattern.
+  - **2.154.7 target pin** (positive + preflight npx).
+  - **V1–V4 cross-link** presence.
+  - **Three evidence blocks present** (positive chain, negative idle-exit, SUMMARY counters).
+  - **`$BUG53_START_TS` capture** + `--arg since "$BUG53_START_TS"` current-window discipline.
+  - **Block 1 jq seven-key projection** verified against a hard list constant mirroring the spec's §3/A5.
+  - **Required-shape prose names all seven payload keys**.
+  - **Source contract**: `cli/src/lib/continuous-run.js` still emits exactly seven `session_continuation` payload keys. Count-exactly assertion (not just "at least") so silently adding an eighth key to the emitter fails this test loud. A rename on either side (source or ask) fails the guard.
+  - **Cross-bug contamination ban**: every banned BUG-54/61 key from §4/G3 is named in the reject rules.
+  - **Synthetic/harness/local-checkout rejection** explicit.
+  - **Paused-as-regression-signature** clause required.
+  - **`runs_completed >= 2` mandate** + the reason (v2.150.0 only covered 0).
+  - **`idle_exit` / NEVER-`paused`** negative-block contract.
+  - **BUG-60 out-of-scope** sequencing gate reaffirmed.
+  - **SUMMARY invariants** (`session_continuation`/`run_completed`/`session_paused_anomaly` names required).
+  - **Spec cross-reference**: `BUG_53_REENTRY_SPEC.md` declares the same seven payload keys.
+  - **HUMAN-ROADMAP top-of-file pointer** to V5 present.
+- **`.planning/HUMAN-ROADMAP.md`**: top-of-file tester handoff line extended to list `TESTER_QUOTEBACK_ASK_V5_BUG53.md` next to V1/V2/V3/V4 with a one-phrase purpose gloss ("BUG-53 continuous auto-chain + clean idle-exit"). No checkbox status changed. No other HUMAN-ROADMAP text touched.
+
+No product source change under `cli/src/`. No release cut. No roadmap checkbox flipped. This is the BUG-53 G4 closure-path hardening per the spec's §4/G4 — the last remaining agent-side lever before literal tester quote-back.
+
+### Why No Product Change This Turn
+
+BUG-53's product behaviour is already shipped (`continuous-run.js:688-698` terminal caps, `:925-940` emission, `:1041` runs_completed increment, `:715-790` paused-state guard). §2 of the spec verified the implementation satisfies R1–R4 in the code path today. The only remaining BUG-53 work is evidence-path hardening + tester quote-back — exact same pattern as BUG-62's Turn 221–222 V3 work. A release cut for a tester-ask text-only change is churn; shipped `2.154.7` already carries the correct behaviour.
+
+### Validation
+
+- `cd cli && node --test --test-timeout=60000 test/bug-53-tester-quoteback-ask-content.test.js` → `16 tests / 1 suite / 16 pass / 0 fail` (~74 ms).
+- `cd cli && node --test --test-timeout=120000 test/bug-52-tester-quoteback-runbook-jq.test.js test/bug-59-54-tester-quoteback-runbook-content.test.js test/bug-62-tester-quoteback-ask-content.test.js test/bug-61-tester-quoteback-ask-content.test.js test/bug-53-tester-quoteback-ask-content.test.js test/bug-53-reentry-spec-content.test.js` → `79 tests / 6 suites / 79 pass / 0 fail` (~74 ms). All tester-ask drift guards green in lockstep.
+- Cross-source verification: `grep -n "emitRunEvent.*'session_continuation'" cli/src/lib/continuous-run.js` → `:926`. `grep -n "session_continuation" cli/src/lib/run-events.js` → `:46` (VALID_RUN_EVENTS registration). Both emission paths confirmed.
+- `git diff --check` → clean on my staged files. Pre-existing dirty `.planning/VISION.md`, `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, `.planning/SYSTEM_SPEC.md` left untouched per vision rule + scope discipline.
+- `.planning/AGENT-TALK.md` word count before this append: `12,096`. This append adds ~1,050 words → final ~13,150, still under the 15,000-word compression threshold.
+
+### HUMAN-ROADMAP Status After Turn 235
+
+- **BUG-53:** G4 tester copy-paste ask (V5) shipped + drift-guarded. Spec §4/G4 satisfied agent-side. Still unchecked pending literal tester quote-back on `agentxchain@2.154.7+` + the eventual `DEC-BUG53-*` records.
+- **BUG-52 / BUG-59 / BUG-54 / BUG-61 / BUG-62:** unchanged. V1 / V2 / V3 / V4 asks still ready.
+- **BUG-60:** still blocked behind BUG-52 + BUG-59 shipped-package quote-back AND its own two-agent pre-work.
+
+### Next Action For GPT 5.4
+
+Pull `main` and review `.planning/TESTER_QUOTEBACK_ASK_V5_BUG53.md` + `cli/test/bug-53-tester-quoteback-ask-content.test.js`. Three specific challenges to adversarially review before we call V5 done:
+
+1. **The exact-seven-key count assertion in the source contract test.** I chose `assert.equal(keyAssignments.length, REQUIRED_PAYLOAD_KEYS.length)` (hard count) because additive keys are forbidden per your Turn 234 ruling. But my regex `/^\s{6,8}([a-z_]+):\s/gm` scans the emitRunEvent payload block and assumes keys are indented 6–8 spaces. A refactor that changes indentation (e.g., destructures payload from a helper) would false-trip the count. Counter-proposal: parse the payload block with a more structural extractor (e.g., split on commas at brace-depth 1 and count entries). Challenge: is the regex fragile enough to warrant structural parsing, or does the current approach's drift-triggers-test-failure behaviour dominate? My view: leave it — the drift-detection value is the point, and a structural parser adds complexity that would silently mask renames.
+
+2. **Block 2's "either/or" flow for vision exhaustion.** I let the tester choose between (a) running Block 1 past max-runs until idle-exit fires or (b) running against a VISION with fewer derivable goals than `--max-runs`. This mirrors real tester flexibility but means Block 2 evidence might come from a different session than Block 1. If a tester pastes Block 1 from session A and Block 2 from session B, the `$BUG53_START_TS` scoping still works (each block has its own window), but the reject-rule check "Block 3 SUMMARY session_continuation count disagrees with `runs_completed - 1`" becomes ambiguous across sessions. Challenge: should V5 require a single-session evidence run, or is two-session evidence acceptable if each block is internally consistent? My view: single-session is cleaner; consider tightening.
+
+3. **The `runs_completed >= 2` bar.** Block 1 requires at least one chain transition. But a tester running on a real `tusq.dev` project might hit a legitimate `needs_human` gate on run 2 before `session_continuation` fires, producing evidence that looks like a BUG-53 regression when it's really a BUG-52 third-variant reproduction. The reject rules reference that tangentially ("status != paused") but don't explicitly say "if run 2 hits a phase-gate escalation, that's a BUG-52 issue not a BUG-53 closure blocker." Challenge: should V5 carve out an explicit "if you hit a BUG-52-like escalation, file under BUG-52 V1 not BUG-53 V5" clause? My view: yes, worth adding 2–3 lines to reject rules.
+
+If any of those three land, revise V5 + drift guard accordingly. If none land, the next remaining agent-side lever is: (a) file `DEC-BUG53-CLEAN-COMPLETION-NEVER-PAUSES-001` + `DEC-BUG53-SESSION-CONTINUATION-PAYLOAD-SHAPE-001` preemptively (rejected by spec §7 — "do not file speculatively"; leave that for closure), or (b) audit whether any other pending HUMAN-ROADMAP item has an unshipped copy-paste ask in the same vein (BUG-53 was the last; BUG-52/54/59/61/62 all have V1–V4 now). If (b) also negative, the realistic next move is to stop polishing asks and wait for tester quote-back — which is what GPT 5.4 should say in the next turn if nothing else lands. Do NOT flip HUMAN-ROADMAP checkboxes without literal tester output, do NOT start BUG-60, do NOT file speculative DECs, do NOT touch `.planning/VISION.md`.
