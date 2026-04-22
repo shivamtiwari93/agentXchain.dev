@@ -304,8 +304,29 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
     );
     assert.match(
       ask,
-      /jq\s+'\.attempts\[\][\s\S]{0,240}first_stdout_ms[\s\S]{0,120}watchdog_fired/,
-      'V2 BUG-54 fallback must inline the per-attempt jq extraction (first_stdout_ms + watchdog_fired)',
+      /jq\s+'\.attempts\[\][\s\S]{0,240}first_stdout_elapsed_ms[\s\S]{0,120}watchdog_fired/,
+      'V2 BUG-54 fallback must inline the per-attempt jq extraction (first_stdout_elapsed_ms + watchdog_fired)',
+    );
+    // Turn 227: BUG-54 fallback jq keys MUST match the real harness schema
+    // (attempt_index, first_stdout_elapsed_ms, first_stderr_elapsed_ms,
+    // stdout_bytes, stderr_bytes). The earlier key set (attempt,
+    // first_stdout_ms, stdout_bytes_total, ...) produced all-null rows when
+    // run against the 2.154.7 tarball output — a real tester would have
+    // concluded there was no evidence. Guard against regression.
+    assert.match(
+      ask,
+      /jq\s+'\.attempts\[\][\s\S]{0,320}attempt_index[\s\S]{0,120}first_stdout_elapsed_ms[\s\S]{0,120}first_stderr_elapsed_ms[\s\S]{0,120}watchdog_fired[\s\S]{0,120}exit_signal[\s\S]{0,120}stdout_bytes[\s\S]{0,80}stderr_bytes/,
+      'V2 BUG-54 fallback jq must use the real reproduce-bug-54.mjs attempt schema keys',
+    );
+    assert.doesNotMatch(
+      ask,
+      /\{attempt, classification, first_stdout_ms/,
+      'V2 BUG-54 fallback must not regress to the broken jq keys (attempt/first_stdout_ms/etc.)',
+    );
+    assert.doesNotMatch(
+      ask,
+      /stdout_bytes_total|stderr_bytes_total/,
+      'V2 BUG-54 fallback must not use non-existent stdout_bytes_total/stderr_bytes_total keys',
     );
     assert.match(
       ask,
@@ -333,6 +354,15 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /export\s+BUG54_START_TS="\$\(date\s+-u\s+\+"%Y-%m-%dT%H:%M:%SZ"\)"/,
       /agentxchain\s+events\s+--since\s+\\?"\$BUG54_START_TS\\?"\s+--type\s+turn_dispatched,turn_start_failed,runtime_spawn_failed,stdout_attach_failed,run_blocked\s+--json\s+--limit\s+0/,
       /node\s+<<'BUG54_DIAG'[\s\S]{0,2400}Current-window turn ids:[\s\S]{0,1800}\.agentxchain[\s\S]{0,120}dispatch[\s\S]{0,120}turns[\s\S]{0,120}stdout\.log/,
+      // Turn 227: the per-attempt jq field list MUST use the real
+      // reproduce-bug-54.mjs attempt schema keys (attempt_index,
+      // first_stdout_elapsed_ms, first_stderr_elapsed_ms, stdout_bytes,
+      // stderr_bytes). The earlier key set (attempt, first_stdout_ms,
+      // stdout_bytes_total, stderr_bytes_total) produced all-null rows when
+      // piped through the 2.154.7 tarball output — a tester following the
+      // recipe verbatim would have concluded there was no per-attempt
+      // evidence. Lock the shape on both surfaces.
+      /jq\s+'\.attempts\[\][\s\S]{0,40}attempt_index,\s*classification,\s*first_stdout_elapsed_ms,\s*first_stderr_elapsed_ms,\s*watchdog_fired,\s*exit_signal,\s*stdout_bytes,\s*stderr_bytes\}/,
     ];
     for (const pat of SHARED_SHAPES) {
       assert.match(
@@ -344,6 +374,25 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
         ask,
         pat,
         `V2 ask must still inline canonical shape ${pat} (matches the runbook)`,
+      );
+    }
+    // Turn 227: negative guard — neither surface may regress to the broken
+    // jq key set that produced all-null rows against the real harness output.
+    const BROKEN_JQ_PATTERNS = [
+      /\{attempt, classification, first_stdout_ms/,
+      /stdout_bytes_total/,
+      /stderr_bytes_total/,
+    ];
+    for (const bad of BROKEN_JQ_PATTERNS) {
+      assert.doesNotMatch(
+        runbook,
+        bad,
+        `Runbook must not regress to the broken jq key set (${bad})`,
+      );
+      assert.doesNotMatch(
+        ask,
+        bad,
+        `V2 ask must not regress to the broken jq key set (${bad})`,
       );
     }
   });

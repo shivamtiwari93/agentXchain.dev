@@ -153,14 +153,14 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
      --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-latest.json
    rm -rf "$REPRO_DIR"
    jq '{command_probe, summary}' /tmp/bug54-latest.json
-   jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-latest.json
+   jq '.attempts[] | {attempt_index, classification, first_stdout_elapsed_ms, first_stderr_elapsed_ms, watchdog_fired, exit_signal, stdout_bytes, stderr_bytes}' /tmp/bug54-latest.json
    ```
 
    Paste both fallback `jq` outputs together if you use the fallback path. The first output carries the runtime id / command probe; the second carries the ten per-attempt timing rows. One without the other is incomplete.
 
    Quote these fields regardless of path:
    - Runtime id and command (e.g., `local-pm`, `local-dev`, `local-qa`).
-   - Ten attempted dispatches or ten diagnostic attempts (per-attempt `first_stdout_ms` or equivalent adapter timing).
+   - Ten attempted dispatches or ten diagnostic attempts (per-attempt `first_stdout_elapsed_ms` or equivalent adapter timing).
    - Every adapter diagnostic line containing `spawn_attached` or `first_output`.
    - Confirmation that NO line contains `startup_watchdog_fired`, `stdout_attach_failed`, or `ghost_turn`.
 

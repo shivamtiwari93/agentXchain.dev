@@ -301,7 +301,7 @@ node "$REPRO_DIR/package/scripts/reproduce-bug-54.mjs" \
   --attempts 10 --watchdog-ms 180000 --out /tmp/bug54-latest.json
 rm -rf "$REPRO_DIR"
 jq '{command_probe, summary}' /tmp/bug54-latest.json
-jq '.attempts[] | {attempt, classification, first_stdout_ms, first_stderr_ms, watchdog_fired, exit_signal, stdout_bytes_total, stderr_bytes_total}' /tmp/bug54-latest.json
+jq '.attempts[] | {attempt_index, classification, first_stdout_elapsed_ms, first_stderr_elapsed_ms, watchdog_fired, exit_signal, stdout_bytes, stderr_bytes}' /tmp/bug54-latest.json
 ```
 
 If you use the fallback path, paste both `jq` outputs together. The
@@ -318,7 +318,7 @@ Quote these BUG-54 fields from the real run or diagnostic:
 - runtime id and command (`local-pm`, `local-dev`, `local-qa`, or the project
   equivalent)
 - ten attempted dispatches or ten diagnostic attempts
-- per-attempt `first_stdout_ms`
+- per-attempt `first_stdout_elapsed_ms`
 - every adapter diagnostic line containing `spawn_attached` or `first_output`
 - confirmation that no adapter diagnostic line contains
   `startup_watchdog_fired`
