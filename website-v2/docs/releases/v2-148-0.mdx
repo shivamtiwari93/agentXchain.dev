@@ -5,7 +5,16 @@ title: "v2.148.0 Release Notes"
 
 # AgentXchain v2.148.0
 
-`v2.148.0` hardens the local-CLI adapter diagnostics for BUG-54 and lands both BUG-55 sub-defects at the source and release-boundary layers. BUG-54 is not closed — it remains open pending tester-quoted proof of >90% QA dispatch reliability on this shipped package. BUG-55 sub-A and sub-B fixes are both in the tarball and covered by packaged claim-reality preflight.
+`v2.148.0` hardens the local-CLI adapter diagnostics for BUG-54 and lands both BUG-55 sub-defects at the source and release-boundary layers. BUG-54 is not closed — it remains open pending tester-quoted proof of >90% QA dispatch reliability on the current quote-back target below. BUG-55 sub-A and sub-B fixes are both in the tarball and covered by packaged claim-reality preflight.
+
+> **Current quote-back target:** use `agentxchain@2.154.7` or later for any
+> still-open BUG-52 / BUG-54 / BUG-55 / BUG-53 tester evidence. `v2.148.0`
+> predates the BUG-56 probe-based Claude auth preflight, the BUG-54 watchdog
+> raise, and the full BUG-52 third-variant fix stack, so running closure
+> contracts against `agentxchain@2.148.0` can recreate already-fixed false
+> closures before it proves the intended behavior. The canonical BUG-52 runbook
+> is `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` and the canonical BUG-59/54
+> runbook is `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`.
 
 ## Bug Fixes
 
@@ -36,15 +45,20 @@ title: "v2.148.0 Release Notes"
 
 ## Tester Re-Run Contract
 
-Run the shipped package, not the source tree:
+Run the latest shipped package that carries the full BUG-56, BUG-54, and
+BUG-52 fix stack, not the source tree:
 
 ```bash
-npx --yes -p agentxchain@2.148.0 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
 
-For closure evidence on `v2.148.0`, quote the exact command output or diagnostic lines for these checks. BUG-52 and BUG-53 fixes shipped in `v2.147.0` are unchanged in `v2.148.0`; re-verify them against this shipped package so closure evidence is pinned to the latest published version.
+The command above supersedes the original `v2.148.0` quote-back pin.
+`v2.148.0` remains historically installable for provenance inspection, but
+every still-open closure contract below must use `agentxchain@2.154.7` or
+later so tester evidence is not polluted by the older Claude auth-preflight and
+phase-gate recovery defects.
 
-- **BUG-54 QA startup reliability**: run the tester's normal QA flow on `v2.148.0` and quote the adapter diagnostic lines that include `startup_latency_ms` and `elapsed_since_spawn_ms`. If the QA runtime is slower than the repo default, set `runtimes.<id>.startup_watchdog_ms` before rerunning and quote the effective override from the diagnostic line. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup, not just "startup failures are detected." If QA still fails, quote the exact `startup_failure_type` and the surrounding `spawn_prepare` / `spawn_attached` / `startup_watchdog_fired` / `process_exit` lines.
+- **BUG-54 QA startup reliability**: follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` on `agentxchain@2.154.7` or later and quote adapter diagnostics from real `local_cli` dispatches, including `startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`. If the runtime only stabilizes after raising `runtimes.<id>.startup_watchdog_ms`, quote that config too. Closure evidence must come from the adapter path; standalone harness output is diagnostic-only. The same runbook is the current BUG-59 quote-back contract for routine auto-approval ledger rows and credentialed hard-stop counter-evidence.
 - **BUG-54 root-cause triage when reliability stays below 90%**: when QA dispatches keep failing, resolve the reproduction harness from the installed `agentxchain` package (not the repo tree) and attach the resulting JSON:
 
   ```bash
@@ -57,16 +71,16 @@ For closure evidence on `v2.148.0`, quote the exact command output or diagnostic
 - **BUG-55 sub-A checkpoint completeness**: quote the `accept-turn` + `checkpoint-turn` result for a real QA turn and the resulting `git status --short`. The tree must be clean after checkpoint, and the already-committed-upstream path must not false-positive as missing.
 - **BUG-55 sub-B verification outputs**: first quote the failure showing `undeclared_verification_outputs` together with the `verification.produced_files` remediation pointer; then quote the clean acceptance path after the produced file is declared.
 - **BUG-55 combined tester shape**: if the same QA turn both declares `files_changed` and its verification commands produce fixture outputs, run `accept-turn` followed by `checkpoint-turn` and quote `git status --short` after. Clean tree means BUG-55 is fixed for your reproduction; any leftover actor-owned file or fixture path means it is not.
-- **BUG-52 phase-gate reconciliation (rides along from v2.147.0)**: run the tester's exact CLI chain `agentxchain accept-turn` → `agentxchain checkpoint-turn` → `agentxchain unblock <hesc-id>` → `agentxchain resume` on a real `planning_signoff` escalation. Quote the resulting dispatched turn's `assigned_role` (must be `dev`, not another PM) and the `phase_entered` event line containing `trigger: "reconciled_before_dispatch"`. Repeat the same chain on a `qa_ship_verdict` escalation and quote that the next dispatched role is `launch`, not another QA. No manual `state.json` patching at any step.
-- **BUG-53 continuous auto-chain (rides along from v2.147.0)**: run `agentxchain run --continuous --max-runs 3` from a clean session. After the first run completes cleanly, quote the `session_continuation` event line (format `session_continuation <previous_run_id> -> <next_run_id> (<next_objective>)`) and confirm session status stays `running`, never transitions to `paused` between runs. On reaching `--max-runs`, status must end as `completed` or `idle_exit`, never `paused`.
+- **BUG-52 phase-gate reconciliation (current pin)**: follow `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` on `agentxchain@2.154.7` or later. Quote the `phase_entered` event and confirm the next dispatched role is the next phase's entry role, including the realistic PM `needs_human` handoff shape (`proposed_next_role: "human"`, `phase_transition_request: null`).
+- **BUG-53 continuous auto-chain (current pin)**: run `agentxchain run --continuous --max-runs 3` from a clean session on `agentxchain@2.154.7` or later. Quote the `session_continuation` event line (format `session_continuation <previous_run_id> -> <next_run_id> (<next_objective>)`) and confirm session status stays `running`, never transitions to `paused` between runs. On reaching `--max-runs`, status must end as `completed` or `idle_exit`, never `paused`.
 
 The closure artifact is the tester's quoted shipped-package output. No source-tree run, local green test, or agent summary is sufficient for BUG-52, BUG-53, BUG-54, or BUG-55.
 
 ## Status
 
-- **BUG-54**: adapter diagnostics + real-Claude stdin loop shipped, awaiting tester-quoted QA dispatch reliability proof on `v2.148.0`.
-- **BUG-55 sub-A**: checkpoint completeness refined to partition staged / already-committed-upstream / genuinely-missing; awaiting tester verification on `v2.148.0`.
-- **BUG-55 sub-B**: undeclared verification outputs rejection shipped; awaiting tester verification on `v2.148.0`.
+- **BUG-54**: adapter diagnostics + real-Claude stdin loop shipped, awaiting tester-quoted QA dispatch reliability proof on `agentxchain@2.154.7` or later.
+- **BUG-55 sub-A**: checkpoint completeness refined to partition staged / already-committed-upstream / genuinely-missing; awaiting tester verification on `agentxchain@2.154.7` or later.
+- **BUG-55 sub-B**: undeclared verification outputs rejection shipped; awaiting tester verification on `agentxchain@2.154.7` or later.
 - **BUG-52**: v2.147.0 fix remains under tester verification — no changes in this release.
 - **BUG-53**: v2.147.0 fix remains under tester verification — no changes in this release.
 

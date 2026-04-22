@@ -7,6 +7,14 @@ title: "v2.149.1 Release Notes"
 
 `v2.149.1` turns BUG-54 from “better diagnostics” into an actual fail-fast product contract. Claude `local_cli` runtimes now refuse the known non-interactive keychain-auth hang shape before spawn when neither env-based auth nor `--bare` is present, and that refusal now surfaces consistently across adapter dispatch, `connector check`, and `connector validate`, with `doctor` warning on the same shape. The release also carries BUG-52’s four-lane reconciler recovery proof, BUG-55’s checkpoint/verification hardening, and BUG-53’s continuous auto-chain proof. None of BUG-52/53/54/55 flip to closed here — closure still requires tester-quoted shipped-package output per rule #12.
 
+> **Current quote-back target:** use `agentxchain@2.154.7` or later for any
+> still-open BUG-52 / BUG-54 / BUG-55 / BUG-53 tester evidence. The
+> `v2.149.1` auth-preflight contract was later proven false-positive for valid
+> Claude Max users, and the full BUG-52 third-variant fix stack only lands in
+> `2.154.7`. The canonical BUG-52 runbook is
+> `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` and the canonical BUG-59/54
+> runbook is `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`.
+
 ## Bug Fixes
 
 - **BUG-52 reconciler recovery — needs_human orphan path (Turn 93)**: `unblock` now advances the phase when the most recent accepted turn is `needs_human` with a declared `phase_transition_request` but no recorded gate failure. The operator chain `accept-turn` → `checkpoint-turn` → `unblock <hesc>` clears the planning_signoff escalation, transitions `planning → implementation`, and dispatches `dev` without manual `state.json` surgery. Packaged claim-reality proof runs the real shipped CLI through the full chain.
@@ -57,16 +65,18 @@ title: "v2.149.1 Release Notes"
 
 ## Tester Re-Run Contract
 
-Run the shipped package, not the source tree:
+Run the latest shipped package that carries the full BUG-56, BUG-54, and
+BUG-52 fix stack, not the source tree:
 
 ```bash
-npx --yes -p agentxchain@2.149.1 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
 
-For closure evidence on `v2.149.1`, quote the exact command output or diagnostic lines for these checks:
+The command above supersedes the original `v2.149.1` quote-back pin. `v2.149.1`
+remains historically installable, but every still-open closure contract below
+must use `agentxchain@2.154.7` or later.
 
-- **BUG-54 auth-shape preflight**: first run `agentxchain connector check <claude-runtime> --json` or `agentxchain connector validate <claude-runtime> --json` on `v2.149.1`. If the runtime is still in the known-hanging configuration, quote the `claude_auth_preflight_failed` output with its `auth_env_present` booleans and remediation text. That is the fastest shipped-package proof that the keychain-auth hang shape is being caught before launch.
-- **BUG-54 QA startup reliability after auth is corrected**: run the tester's normal QA flow on `v2.149.1` and quote the adapter diagnostic lines that include `startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`. If the runtime only stabilizes after raising `runtimes.<id>.startup_watchdog_ms`, quote that config too so the evidence names the exact override that made the run healthy. Closure requires QA dispatches succeeding at `>90%` on the tester's real setup. If QA still fails after env auth or `--bare` is set, quote the full `process_exit` record for a failing attempt.
+- **BUG-54 auth preflight and startup reliability**: follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` on `agentxchain@2.154.7` or later. The current contract requires real adapter-path dispatch diagnostics (`startup_latency_ms`, `elapsed_since_spawn_ms`, `first_output_stream`, `watchdog_fired`, and `exit_signal` on `process_exit`) and the BUG-59 routine auto-approval ledger rows and credentialed hard-stop counter-evidence. The older static auth-shape failure is historical, not current closure proof.
 - **BUG-54 root-cause triage when reliability stays below 90% after auth is corrected**: resolve the reproduction harness from the installed `agentxchain` package (not the repo tree) inside the failing worktree:
 
   ```bash
@@ -76,16 +86,11 @@ For closure evidence on `v2.149.1`, quote the exact command output or diagnostic
   ```
 
   The consolidated quote-back checklist lives at `.planning/BUG_52_53_54_55_TESTER_UNBLOCK_RUNBOOK.md`; the per-field reading key for this JSON lives at `.planning/BUG_54_REPRO_SCRIPT_TESTER_RUNBOOK.md`.
-- **BUG-52 phase-gate reconciliation — full four-lane coverage**: run the tester's exact CLI chain across all four shapes:
-  1. `planning_signoff` with separated `checkpoint-turn` → `unblock` → next dispatch is `dev`, not PM.
-  2. `qa_ship_verdict` with separated `checkpoint-turn` → `unblock` → next dispatch is `launch`, not QA.
-  3. `needs_human` orphan `phase_transition_request` → `unblock` → phase advances, no redundant same-role dispatch.
-  4. `queued_phase_transition` → `resume` → phase advances, `queued_phase_transition` clears.
-  Quote the dispatched turn's `assigned_role` and the `phase_entered` event line with `trigger: "reconciled_before_dispatch"` for each lane. No manual `state.json` patching at any step.
+- **BUG-52 phase-gate reconciliation — current contract**: follow `.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md` on `agentxchain@2.154.7` or later. Quote the `phase_entered` event and the next dispatched role for every required shape, including the realistic PM `needs_human` handoff (`proposed_next_role: "human"`, `phase_transition_request: null`) that older packages miss.
 - **BUG-55 sub-A checkpoint completeness + wrong-lineage**: quote `accept-turn` + `checkpoint-turn` result for a real QA turn and the resulting `git status --short` (must be clean). If a declared path was already committed on a divergent lineage, quote the `divergent_from_accepted_lineage` field on the checkpoint result — the wrong-lineage path must be surfaced distinctly from `genuinely_missing`.
 - **BUG-55 sub-B verification outputs**: quote the failure showing `undeclared_verification_outputs` + `verification.produced_files` remediation pointer; then quote the clean acceptance path after the produced file is declared.
 - **BUG-55 combined tester shape**: run `accept-turn` followed by `checkpoint-turn` on a QA turn that both declares `files_changed` and produces fixture outputs; quote `git status --short` after. Clean tree means BUG-55 is fixed for your reproduction.
-- **BUG-53 continuous auto-chain**: run `agentxchain run --continuous --max-runs 3` from a clean session and quote the `session_continuation` event lines (format `session_continuation <previous_run_id> -> <next_run_id> (<next_objective>)`). Session status must stay `running` between runs and end as `completed` or `idle_exit`, never `paused`.
+- **BUG-53 continuous auto-chain**: run `agentxchain run --continuous --max-runs 3` from a clean session on `agentxchain@2.154.7` or later and quote the `session_continuation` event lines (format `session_continuation <previous_run_id> -> <next_run_id> (<next_objective>)`). Session status must stay `running` between runs and end as `completed` or `idle_exit`, never `paused`.
 
 The closure artifact is the tester's quoted shipped-package output. No source-tree run, local green test, or agent summary is sufficient for BUG-52, BUG-53, BUG-54, or BUG-55.
 
@@ -98,7 +103,7 @@ The closure artifact is the tester's quoted shipped-package output. No source-tr
 
 ## Status
 
-- **BUG-54**: auth preflight now fails fast across adapter dispatch, `connector check`, and `connector validate`; `doctor` warns on the same shape; `process_exit` forensic fields, reproduction harness, runbook, per-runtime watchdog override, and dashboard rendering fix remain shipped. Awaiting tester-quoted `v2.149.1` output.
-- **BUG-52**: four-lane reconciler coverage shipped (planning/qa separated checkpoint, Turn 93 orphan, Turn 94 queued). Awaiting tester-quoted operator chain output on `v2.149.1` with no manual `state.json` patching.
-- **BUG-55**: sub-A wrong-lineage distinct surfacing + sub-B undeclared-output rejection + combined tester-shape regression + silent-filter tester-path lock. Awaiting tester-quoted `git status --short` clean output on `v2.149.1`.
-- **BUG-53**: CLI auto-chain + idle_exit + packaged session_continuation coverage. Awaiting tester-quoted `session_continuation` output on `v2.149.1`.
+- **BUG-54**: auth preflight now fails fast across adapter dispatch, `connector check`, and `connector validate`; `doctor` warns on the same shape; `process_exit` forensic fields, reproduction harness, runbook, per-runtime watchdog override, and dashboard rendering fix remain shipped. Awaiting tester-quoted `agentxchain@2.154.7` or later output.
+- **BUG-52**: four-lane reconciler coverage shipped (planning/qa separated checkpoint, Turn 93 orphan, Turn 94 queued). Awaiting tester-quoted operator chain output on `agentxchain@2.154.7` or later with no manual `state.json` patching.
+- **BUG-55**: sub-A wrong-lineage distinct surfacing + sub-B undeclared-output rejection + combined tester-shape regression + silent-filter tester-path lock. Awaiting tester-quoted `git status --short` clean output on `agentxchain@2.154.7` or later.
+- **BUG-53**: CLI auto-chain + idle_exit + packaged session_continuation coverage. Awaiting tester-quoted `session_continuation` output on `agentxchain@2.154.7` or later.

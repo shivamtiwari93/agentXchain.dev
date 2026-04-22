@@ -37,6 +37,10 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const RUNBOOK_PATH = '.planning/BUG_52_TESTER_QUOTEBACK_RUNBOOK.md';
 const LEGACY_PATH = '.planning/BUG_52_2152_TESTER_QUOTEBACK_RUNBOOK.md';
 const RUNBOOK = readFileSync(join(REPO_ROOT, RUNBOOK_PATH), 'utf8');
+const RELEASE_148 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-148-0.mdx'), 'utf8');
+const RELEASE_1490 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-149-0.mdx'), 'utf8');
+const RELEASE_1491 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-149-1.mdx'), 'utf8');
+const RELEASE_1492 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-149-2.mdx'), 'utf8');
 const RELEASE_150 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-150-0.mdx'), 'utf8');
 const RELEASE_152 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-152-0.mdx'), 'utf8');
 const RELEASE_1540 = readFileSync(join(REPO_ROOT, 'website-v2/docs/releases/v2-154-0.mdx'), 'utf8');
@@ -191,6 +195,43 @@ describe('BUG-52 tester quote-back runbook invariants', () => {
       /bug54-v2-150-0\.json/,
       'v2.150.0 must not carry the stale /tmp/bug54-v2-150-0.json discriminator pin in the rerun contract',
     );
+  });
+
+  it('public v2.148/v2.149 release pages redirect stale live quote-back pins to 2.154.7', () => {
+    const olderPages = [
+      ['v2.148.0', RELEASE_148, /agentxchain@2\.148\.0/],
+      ['v2.149.0', RELEASE_1490, /agentxchain@2\.149\.0/],
+      ['v2.149.1', RELEASE_1491, /agentxchain@2\.149\.1/],
+      ['v2.149.2', RELEASE_1492, /agentxchain@2\.149\.2/],
+    ];
+
+    for (const [label, releasePage, staleCommandPattern] of olderPages) {
+      assert.match(
+        releasePage,
+        /Current quote-back target:[\s\S]*agentxchain@2\.154\.7/,
+        `${label} release notes must warn that current still-open closure quote-back uses the 2.154.7 fix stack`,
+      );
+      assert.match(
+        releasePage,
+        /BUG_52_TESTER_QUOTEBACK_RUNBOOK\.md/,
+        `${label} release notes must link operators to the canonical BUG-52 runbook`,
+      );
+      assert.match(
+        releasePage,
+        /BUG_59_54_TESTER_QUOTEBACK_RUNBOOK\.md/,
+        `${label} release notes must link operators to the canonical BUG-59/54 runbook`,
+      );
+      assert.match(
+        releasePage,
+        /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7\s+-c "agentxchain --version"/,
+        `${label} tester contract command must use the current 2.154.7 target`,
+      );
+      assert.doesNotMatch(
+        releasePage,
+        new RegExp(`npx\\s+--yes\\s+-p\\s+${staleCommandPattern.source}\\s+-c "agentxchain --version"`),
+        `${label} release notes may mention the historical version, but must not keep a live npx command pinned to it`,
+      );
+    }
   });
 
   it('public v2.152.0 release page points current BUG-52 quote-back to 2.154.7', () => {
