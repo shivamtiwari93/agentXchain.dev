@@ -657,3 +657,55 @@ BUG-54 stays unchecked. This is a regression-hardening commit only. Closure stil
 ### Next Action For Claude Opus 4.7
 
 Pull `main` and review the hardened BUG-54 regression commit. Do not add another runtime label unless you can show a distinct adapter behavior not already covered by output style plus `dispatch_bundle_only`/`stdin` transport. If no tester quote-back has landed, the next executable work is to add the missing 10-consecutive-turn local_cli reliability sequence test from the BUG-54 roadmap, spanning PM/dev/QA roles and asserting at least 9 successful staged results without `stdout_attach_failed` / `ghost_turn` classifications. Keep it test-only unless that sequence exposes a real adapter defect. Do not flip BUG-54 or any other checkbox without literal tester evidence, and do not touch `VISION.md`.
+
+---
+## Turn 189 — Claude Opus 4.7 — 2026-04-22T06:44:30Z
+
+Tag: `BUG-54-TEN-TURN-SEQUENCE-CLAUDE`. Read HUMAN-ROADMAP first. No tester quote-back has landed on BUG-52/53/54/59/61/62, so closure flips stay blocked. BUG-60 remains gated behind BUG-52 + BUG-59 tester quote-back. Per Turn 188's handoff, the only legitimate executable work is the missing 10-consecutive-turn local_cli reliability sequence test for BUG-54 fix requirement #4 — I landed that this turn.
+
+### Response To GPT 5.4
+
+Accepted Turn 188's hardening: raising the realistic-bundle floor from 15KB to the actually observed `OBSERVED_TUSQ_BUNDLE_BYTES = 17_737` and adding a `stdin` transport shim were correct corrections to my Turn 187 work. No rework needed — the observed-size floor + output-style × transport matrix is the right axis, and I deliberately reused both constants in the ten-turn test rather than relitigating the floor.
+
+Challenge: Turn 188's `DEC-BUG54-REALISTIC-BUNDLE-REGRESSION-FLOOR-001` locks the floor and matrix for *single-dispatch* realistic-bundle coverage, but the BUG-54 roadmap lists TWO separate reliability-test gaps: single-dispatch (which Turn 187/188 addressed) AND a 10-consecutive-turn sequence across PM/dev/QA (fix requirement #4 verbatim: *"Add tester-sequence test that dispatches 10 consecutive `local_cli` turns (PM, dev, and QA) and asserts ≥9 complete successfully. Current single-turn tests don't catch this reliability class."*). The existing `bug-54-repeated-dispatch-reliability.test.js` covers only *failing* repeated dispatch (10x spawn-but-silent, 10x nonexistent-binary) to assert deterministic classification and no handle leak. Neither file covers the positive-case sequence invariant the tester's `tusq.dev` acceptance actually keys off of. Leaving that gap unclosed means a future regression that silently fails 2-3 of every 10 real turns passes all existing BUG-54 tests.
+
+### Work Shipped
+
+- `cli/test/beta-tester-scenarios/bug-54-ten-turn-reliability-sequence.test.js` — one-suite, one-test file that dispatches 10 consecutive `local_cli` turns end-to-end and asserts:
+  1. **Role coverage:** PM, dev, and QA each dispatch ≥ 3 turns (the test schedule rotates `['pm','dev','qa']` across 10 iterations).
+  2. **Runtime-shape coverage:** rotates Claude-style (stream-json startup + `dispatch_bundle_only`), Codex-style (plain-text startup + `dispatch_bundle_only`), and Codex-style (plain-text startup + `stdin` transport) across iterations — every shape ≥ 3 turns.
+  3. **Realistic bundle on every iteration:** each iteration's dispatch bundle ≥ `OBSERVED_TUSQ_BUNDLE_BYTES` (17,737 bytes), proved via `bundleBytes(bundleRes.bundlePath)`.
+  4. **Zero `stdout_attach_failed`:** no iteration classifies `result.startupFailureType === 'stdout_attach_failed'`.
+  5. **Zero `startup_watchdog_fired`:** no iteration emits the watchdog-fired diagnostic and no SIGTERM in logs — the adapter-level analogue of "no ghost_turn classification on the success path."
+  6. **≥ 9/10 end-to-end success:** adapter returns `ok: true` AND a valid `.agentxchain/staging/<turnId>/turn-result.json` exists with matching `turn_id`, `verification.status === 'passed'`, and the role-correct `next_role`.
+  7. **Distinct PIDs ≥ 10:** every iteration spawned a fresh subprocess, guarding against a future regression that silently reattaches to a stale child.
+  8. **Handle leak guard:** `process._getActiveHandles().length` delta ≤ 3 across the 10-turn sequence — the positive-path analogue of the leak guard in `bug-54-repeated-dispatch-reliability.test.js`.
+
+The shims each read `PROMPT.md` from the dispatch bundle before emitting startup proof, locking in that realistic-bundle delivery actually reaches the subprocess (not just writes to disk). I deliberately did NOT add a third runtime label (e.g., "Gemini") — no evidence of a distinct adapter behavior beyond the output-style × transport matrix already covered, per Turn 188's decision to wait for evidence before parameterizing a named third runtime.
+
+Test-only: no product-code changes. No new DEC — this is coverage of an existing DEC/roadmap invariant, not a new architectural decision.
+
+### Validation
+
+- `cd cli && node --test --test-timeout=60000 test/beta-tester-scenarios/bug-54-ten-turn-reliability-sequence.test.js` → `1 test / 1 suite / 1 pass / 0 fail / ~1.6s`.
+- `cd cli && node --test --test-timeout=60000 test/beta-tester-scenarios/bug-54-ten-turn-reliability-sequence.test.js test/beta-tester-scenarios/bug-54-realistic-bundle-watchdog.test.js test/beta-tester-scenarios/bug-54-repeated-dispatch-reliability.test.js test/beta-tester-scenarios/bug-54-watchdog-threshold-default.test.js test/local-cli-adapter.test.js` → `45 tests / 9 suites / 45 pass / 0 fail / 31.3s`.
+- `git diff --check` → clean.
+- Initial red run caught a real gap: I originally wrote staged results to `.agentxchain/staging/<turnId>.json` (copying `bug-54-realistic-bundle-watchdog.test.js`'s path which was asserting staging-file-existence at the wrong path and therefore never exercised the adapter's real `hasResult` check). Corrected to `.agentxchain/staging/<turnId>/turn-result.json` per `getTurnStagingResultPath(turnId)` contract in `cli/src/lib/turn-paths.js:47-49`. The existing realistic-bundle test still passes because it only asserts the file it wrote exists; my test asserts `result.ok === true` which requires the adapter's `isStagedResultReady(join(root, getTurnStagingResultPath(turn.turn_id)))` to actually find the file. This is a latent correctness hole in the realistic-bundle test (asserting presence of the wrong-path file, which proves nothing about adapter success), but NOT a bug in product code — the adapter is correct. I'm flagging it here rather than silently fixing it in `bug-54-realistic-bundle-watchdog.test.js` because GPT 5.4's Turn 188 `DEC-BUG54-REALISTIC-BUNDLE-REGRESSION-FLOOR-001` governs that file; any staging-path tightening there should land on top of GPT's decision, not under it. See "Next Action" below.
+
+### Not Closed Yet
+
+BUG-54 stays unchecked. Fix requirement #4 (10-turn sequence test) is now covered in source. Full closure still requires:
+- Shipped-package tester quote-back on `agentxchain@2.151.x+` showing both Claude and Codex `local_cli` runtimes complete 10 consecutive turns with zero `stdout_attach_failed`/`ghost_turn` at the default watchdog threshold.
+- Only the tester can produce that. No agent work this turn can close the checkbox.
+
+No version bump this turn — test-only addition, belongs on `main` between release cuts. No website change. No marketing. No VISION.md touch.
+
+### HUMAN-ROADMAP Status After Turn 189
+
+- **BUG-54:** Ten-turn PM/dev/QA positive-reliability sequence test landed locally. Fix requirement #4 now covered in source. Still unchecked pending tester quote-back.
+- **BUG-62 / BUG-61 / BUG-52 / BUG-53 / BUG-59:** unchanged; shipped-package quote-back pending.
+- **BUG-60:** still blocked behind BUG-52 + BUG-59 tester quote-back.
+
+### Next Action For GPT 5.4
+
+Review `bug-54-ten-turn-reliability-sequence.test.js` adversarially: (a) is the 3-role × 3-shim rotation deterministic enough — or should a future slice add a shuffled-order variant to catch order-dependent regressions? (b) the handle-delta tolerance is `<= 3`; run it locally a few times to see whether 0-1 is the real steady state and we should tighten. (c) separately, `bug-54-realistic-bundle-watchdog.test.js` has a latent correctness hole — the "both shim styles successfully stage a turn result on a realistic bundle" test asserts a staging file at `.agentxchain/staging/<turnId>.json` but the adapter's real staging contract is `.agentxchain/staging/<turnId>/turn-result.json` (see `cli/src/lib/turn-paths.js:47-49`). The existing test only proves the shim wrote a file, not that the adapter recognized it. Tightening that test to assert `result.ok === true` AND the correct staging path would strengthen the surface without changing DEC-BUG54-REALISTIC-BUNDLE-REGRESSION-FLOOR-001's scope — but since that file is under your Turn 188 decision, you should be the one to decide whether to tighten it or leave it. Do not flip any roadmap checkbox without literal tester evidence. Do not touch VISION.md. If tester quote-back for any open BUG-5x lands while you're reviewing, the quote-back work takes priority per discipline rule #13.
