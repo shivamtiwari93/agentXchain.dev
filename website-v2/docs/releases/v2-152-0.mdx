@@ -1,0 +1,100 @@
+---
+sidebar_position: 0
+title: "v2.152.0 Release Notes"
+---
+
+# AgentXchain v2.152.0
+
+`v2.152.0` is the BUG-52 third-variant fix release. It repairs the recovery path
+where `agentxchain unblock <hesc>` could resume a retained blocked turn from the
+phase being exited even though the human-owned standing phase gate was already
+satisfied.
+
+The runtime now reconciles that gate before redispatch. When the gate passes,
+AgentXchain advances to the next phase, cleans stale same-phase active turn
+state, and dispatches the next phase entry role. That prevents the observed
+`planning -> planning` or `qa -> qa` loop after a human unblock.
+
+## Bug Fixes
+
+- **BUG-52 standing gate unblock loop**: `resumeVia: "operator_unblock"` now
+  calls the pre-dispatch phase reconciler with standing-gate support before it
+  reuses retained active turns. This covers the case where
+  `pending_phase_transition` is absent but `phase_gate_status.<gate>.status`
+  is still `pending`.
+- **Phase cleanup on successful advance**: the phase-advance path removes stale
+  active turns, matching budget reservations, and matching dispatch bundle
+  directories for the exited phase. Accepted and completed turns remain durable
+  history.
+- **Durable cleanup event**: `phase_cleanup` is now a first-class run event so
+  recovery audits can see which stale turn ids, reservations, and bundles were
+  cleaned during phase advancement.
+
+## Operator Notes
+
+- Operators should still use the same recovery command:
+
+```bash
+agentxchain unblock <human_escalation_id>
+```
+
+- If the standing phase gate is still failing, `unblock` does not fabricate
+  progress. The run remains blocked with actionable gate-failure detail.
+- If the gate is satisfied, the next dispatch should target the next phase entry
+  role, not the retained blocked role from the previous phase.
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 229 tests / 68 suites / 0 failures / 5 skipped
+- node --test test/agent-talk-word-cap.test.js test/run-events.test.js -> 16 tests / 2 suites / 0 failures
+
+## Tester Re-Run Contract
+
+Run the shipped package, not the source tree:
+
+```bash
+npx --yes -p agentxchain@2.152.0 -c "agentxchain --version"
+```
+
+### BUG-52 standing-gate unblock
+
+Reproduce the standing-gate unblock case with a satisfied
+`planning_signoff` or `qa_ship_verdict` gate, then run:
+
+```bash
+agentxchain unblock <human_escalation_id>
+agentxchain status --json
+```
+
+The quote-back must show the phase advanced to the next phase, the active turn
+belongs to that next phase's entry role, and no stale same-phase active turn or
+budget reservation remains.
+
+Quote the `phase_entered` event. Older BUG-52 paths may still show
+`trigger: "reconciled_before_dispatch"`; the new standing-gate path should also
+show cleanup evidence through `phase_cleanup` when stale same-phase state existed.
+
+### BUG-53 continuous sessions
+
+For still-open BUG-53 closure proof, run the shipped package in continuous mode
+and quote the `session_continuation` events across chained runs. A bounded idle
+run should end as `idle_exit`, not as a paused gate.
+
+### BUG-54 startup watchdog
+
+For still-open BUG-54 closure proof, quote adapter diagnostics from real
+`local_cli` dispatches, including `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`. The closure evidence must come from the
+adapter path, not from a standalone spawn harness.
+
+### BUG-55 checkpoint completeness
+
+For still-open BUG-55 regression proof, run `accept-turn` followed by
+`checkpoint-turn` on a turn that declares both product files and verification
+outputs. Include `verification.produced_files` with at least one artifact or
+ignored output, prove there are no `undeclared_verification_outputs`, and quote
+`git status --short` after checkpointing. Clean tree means BUG-55 is fixed for your reproduction.
+
+The key operator chain is `accept-turn` followed by `checkpoint-turn` against
+the same accepted turn.

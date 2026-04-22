@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.152.0
+
+### Bug Fixes
+- **BUG-52 standing gate unblock loop**: `agentxchain unblock <hesc>` now rechecks a standing `pending` phase-exit gate before redispatch when a retained same-phase active turn exists. If the gate is now satisfied, the run advances phase first and dispatches the next phase entry role instead of looping the stale same-phase role.
+- **BUG-52 phase-advance cleanup**: phase advancement now removes stale active turns, budget reservations, and dispatch bundles owned by the phase being exited, while preserving accepted/completed turn history. A durable `phase_cleanup` event records what was removed.
+- **BUG-52 standing-gate source reconstruction**: `reconcilePhaseAdvanceBeforeDispatch()` can synthesize a transition source from current routing when `pending_phase_transition` is absent but the current phase gate is standing `pending`. This covers the `planning_signoff` / `qa_ship_verdict` variant where human unblock previously resumed the retained blocked role.
+- **Release-gate guard repair**: `cli/test/run-events.test.js` now counts the new `phase_cleanup` event, and the compressed collaboration-log summary keeps the required `### Open questions` heading.
+
+### Decisions
+- `DEC-BUG52-UNBLOCK-ADVANCES-PHASE-001`
+- `DEC-BUG52-STATE-CLEANUP-ON-PHASE-ADVANCE-001`
+
+### Status
+- `v2.152.0` is the BUG-52 third-variant fix release. It ships source, docs, protocol, and packaged claim-reality proof for unblock advancing a standing satisfied phase gate before redispatch.
+- BUG-52 still closes only after tester-quoted shipped-package output on `agentxchain@2.152.0`.
+- BUG-60 remains blocked until BUG-52 is shipped and BUG-59 tester quote-back sequencing is satisfied.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 229 tests / 68 suites / 0 failures / 5 skipped
+- node --test test/agent-talk-word-cap.test.js test/run-events.test.js -> 16 tests / 2 suites / 0 failures
+
 ## 2.151.0
 
 ### Bug Fixes
@@ -27,7 +48,7 @@
 - BUG-60 (`perpetual` continuous policy) is NOT shipped; sequenced after BUG-59 tester verification per HUMAN-ROADMAP.
 
 ### Evidence
-- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 228 tests / 68 suites / 0 failures / 5 skipped
+- node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 229 tests / 68 suites / 0 failures / 5 skipped
 - node --test cli/test/beta-tester-scenarios/bug-59-full-auto-gate-closure.test.js → 2 tests / 2 pass
 - node --test cli/test/approval-policy.test.js cli/test/reconcile-approval-policy.test.js cli/test/normalized-config-credentialed-validation.test.js cli/test/e2e-approval-policy-lifecycle.test.js → 48 tests / 0 fail
 

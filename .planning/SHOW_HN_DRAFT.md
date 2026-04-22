@@ -1,9 +1,9 @@
-# Show HN Draft — AgentXchain v2.151.0
+# Show HN Draft — AgentXchain v2.152.0
 
-> Ready-to-post draft for the `v2.151.0` launch window once tester verification lands. Updated 2026-04-21 for the architectural-fix release over `v2.150.0` (BUG-59 full-auto gate closure approval_policy ↔ phase-advance coupling, BUG-54 startup watchdog default 30s→120s, BUG-59 template-manifest whitelist repair).
+> Ready-to-post draft for the `v2.152.0` launch window once tester verification lands. Updated 2026-04-21 for the architectural-fix release over `v2.150.0` (BUG-59 full-auto gate closure approval_policy ↔ phase-advance coupling, BUG-54 startup watchdog default 30s→120s, BUG-59 template-manifest whitelist repair).
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js → 228 tests / 68 suites / 0 failures / 5 skipped
+> - node --test cli/test/beta-tester-scenarios/ cli/test/claim-reality-preflight.test.js -> 229 tests / 68 suites / 0 failures / 5 skipped
 
 ---
 
