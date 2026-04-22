@@ -310,10 +310,22 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
     // Turn 228: `command_probe` is only the `claude --version` probe. Runtime
     // identity and the actual dispatch command/args live in top-level harness
     // fields, so the first jq output must include them explicitly.
+    // Turn 229: also require `prompt_transport` and `env_snapshot` in the
+    // metadata jq. `env_snapshot.auth_env_present` is the tester-visible
+    // signal for BUG-54 Hypothesis 5 (auth env not propagating to the Claude
+    // subprocess — the most-likely remaining root cause per roadmap).
+    // `prompt_transport` is the signal for Hypothesis 4 (stdin/EPIPE).
+    // Without these fields, a tester quote-back cannot surface either
+    // hypothesis even when the harness captured the evidence.
     assert.match(
       ask,
+      /jq\s+'\{runtime_id,\s*runtime_type,\s*resolved_command,\s*resolved_args_redacted,\s*prompt_transport,\s*stdin_bytes,\s*watchdog_ms,\s*env_snapshot,\s*command_probe,\s*summary\}'/,
+      'V2 BUG-54 fallback metadata jq must include prompt_transport (H4) and env_snapshot (H5) alongside runtime identity, resolved dispatch command/args, bundle size, watchdog threshold, probe, and summary',
+    );
+    assert.doesNotMatch(
+      ask,
       /jq\s+'\{runtime_id,\s*runtime_type,\s*resolved_command,\s*resolved_args_redacted,\s*stdin_bytes,\s*watchdog_ms,\s*command_probe,\s*summary\}'/,
-      'V2 BUG-54 fallback metadata jq must include runtime identity, resolved dispatch command/args, bundle size, watchdog threshold, probe, and summary',
+      'V2 BUG-54 fallback must not regress to the Turn 228 metadata jq that omitted prompt_transport and env_snapshot',
     );
     // Turn 227: BUG-54 fallback jq keys MUST match the real harness schema
     // (attempt_index, first_stdout_elapsed_ms, first_stderr_elapsed_ms,
@@ -338,8 +350,8 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
     );
     assert.match(
       ask,
-      /Paste both fallback `jq` outputs together[\s\S]{0,260}runtime id,\s*resolved command\/args,\s*bundle size,\s*watchdog threshold[\s\S]{0,220}ten per-attempt timing rows/,
-      'V2 BUG-54 fallback must explicitly require both jq outputs so runtime identity, resolved command context, and timing rows are quoted together',
+      /Paste both fallback `jq` outputs together[\s\S]{0,320}runtime id,\s*resolved command\/args,\s*prompt transport,\s*bundle size,\s*watchdog threshold,\s*auth env snapshot\s*\(`env_snapshot\.auth_env_present`\)[\s\S]{0,280}ten per-attempt timing rows/,
+      'V2 BUG-54 fallback prose must name prompt transport and auth env snapshot (H4 + H5 signals) alongside runtime identity, resolved command context, bundle size, watchdog threshold, and the ten per-attempt timing rows',
     );
     assert.doesNotMatch(
       ask,
@@ -367,7 +379,10 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       // previous `{command_probe, summary}` shape only identified the
       // `claude --version` probe and summary counters, not the runtime that was
       // stress-tested.
-      /jq\s+'\{runtime_id,\s*runtime_type,\s*resolved_command,\s*resolved_args_redacted,\s*stdin_bytes,\s*watchdog_ms,\s*command_probe,\s*summary\}'/,
+      // Turn 229: extended with prompt_transport (H4: stdin/EPIPE) and
+      // env_snapshot (H5: auth env not propagating). Both surfaces must
+      // inline the extended shape verbatim.
+      /jq\s+'\{runtime_id,\s*runtime_type,\s*resolved_command,\s*resolved_args_redacted,\s*prompt_transport,\s*stdin_bytes,\s*watchdog_ms,\s*env_snapshot,\s*command_probe,\s*summary\}'/,
       // Turn 227: the per-attempt jq field list MUST use the real
       // reproduce-bug-54.mjs attempt schema keys (attempt_index,
       // first_stdout_elapsed_ms, first_stderr_elapsed_ms, stdout_bytes,
@@ -392,11 +407,14 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
     }
     // Turn 227: negative guard — neither surface may regress to the broken
     // jq key set that produced all-null rows against the real harness output.
+    // Turn 229: also guard against regressing to the Turn 228 metadata shape
+    // that omitted prompt_transport (H4 signal) and env_snapshot (H5 signal).
     const BROKEN_JQ_PATTERNS = [
       /\{attempt, classification, first_stdout_ms/,
       /stdout_bytes_total/,
       /stderr_bytes_total/,
       /jq\s+'\{command_probe,\s*summary\}'/,
+      /jq\s+'\{runtime_id,\s*runtime_type,\s*resolved_command,\s*resolved_args_redacted,\s*stdin_bytes,\s*watchdog_ms,\s*command_probe,\s*summary\}'/,
     ];
     for (const bad of BROKEN_JQ_PATTERNS) {
       assert.doesNotMatch(
