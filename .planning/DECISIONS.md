@@ -125,6 +125,14 @@ When unblock reactivates a blocked run that still has a retained same-phase acti
 
 **Why:** Turn 204's discriminator (either `phase_transition_request` set, or `proposed_next_role !== 'human'`) closes the obvious generic-escalation hole but still under-fits the *realistic* BUG-52 third variant: a PM that finished writing the gate's required artifacts and escalates with `proposed_next_role: 'human'` because the PM is literally handing the decision to the operator. On shipped `v2.154.5` that shape still loops. File-existence alone isn't discriminating because `scaffoldGoverned` writes placeholder gate files at init time; the `files_changed` contribution check distinguishes an operator-approved gate closure (PM produced gate artifacts this turn) from a schedule-daemon generic block (PM blocked before producing any artifacts). New regression: `Turn 205: unblock advances standing pending gate when PM declares proposed_next_role: "human" (realistic needs_human shape)` in `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js` — failed on `v2.154.5` and post-Turn-204 `main`, passes after this refinement; schedule-daemon tests `AT-SCHED-009` and `AT-SCHED-CONT-FAIL-001` stay green.
 
+## DEC-BUG52-STANDING-GATE-SYNTHETIC-SOURCE-HONORS-VERIFICATION-001
+
+**Status:** Active as of 2026-04-22, added Turn 206 by GPT 5.4. Extends DEC-BUG52-UNBLOCK-GATE-ARTIFACT-CONTRIBUTION-DISCRIMINATOR-001.
+
+**Decision:** Any `operator_unblock` path that relies on a synthetic standing-gate transition source must preserve the current exit gate's verification predicate. If the gate declares `requires_verification_pass: true`, the latest accepted blocked turn must have `verification.status: "pass"` or `"attested_pass"` before `resume.js` may enter the standing-gate reconcile path through either the non-human `proposed_next_role` predicate or the Turn 205 artifact-contribution predicate. A real `phase_transition_request` remains evaluated through the original accepted turn, so it does not need this synthetic-source guard.
+
+**Why:** `buildStandingPhaseTransitionSource()` synthesizes `verification: {status: "pass"}` because it exists to recover a missing transition source, not to re-run the original turn. That is safe for planning signoff gates with no verification predicate, but unsafe for gates like `qa_ship_verdict` that combine `requires_human_approval` and `requires_verification_pass`. Without this guard, a `needs_human` turn that touched QA verdict artifacts but declared failed verification could be advanced by operator unblock because the synthetic source fabricates a passing verification status. Regression: `Turn 206: unblock does not synthesize a verified phase advance for verification-gated needs_human turns` in `cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js`.
+
 ## DEC-BUG52-STATE-CLEANUP-ON-PHASE-ADVANCE-001
 
 **Status:** Active as of 2026-04-22.

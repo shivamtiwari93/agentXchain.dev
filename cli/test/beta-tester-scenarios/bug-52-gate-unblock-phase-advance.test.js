@@ -969,6 +969,88 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch PM after approval');
   });
 
+  it('Turn 206: unblock does not synthesize a verified phase advance for verification-gated needs_human turns', () => {
+    const config = makeQaLaunchConfig();
+    config.gates.qa_ship_verdict.requires_verification_pass = true;
+    const { root } = createProject(config);
+
+    const seededState = readState(root);
+    seededState.phase = 'qa';
+    seededState.status = 'active';
+    seededState.active_turns = {};
+    seededState.phase_gate_status = {
+      planning_signoff: 'passed',
+      implementation_complete: 'passed',
+      qa_ship_verdict: 'pending',
+      launch_approval: 'pending',
+    };
+    seededState.pending_phase_transition = null;
+    seededState.pending_run_completion = null;
+    seededState.last_gate_failure = null;
+    writeState(root, seededState);
+
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+    const qaState = readState(root);
+
+    writePassingAcceptanceMatrix(root);
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: NEEDS HUMAN\n');
+    writeFileSync(
+      join(root, '.planning', 'RELEASE_NOTES.md'),
+      '# Release Notes\n\n## User Impact\n\nLaunch role waits for verified QA approval.\n\n## Verification Summary\n\nVerification is not passing yet.\n',
+    );
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: qaState.run_id,
+      role: 'qa',
+      runtime_id: 'manual-qa',
+      status: 'needs_human',
+      needs_human_reason: 'QA verdict artifacts are present but verification failed',
+      summary: 'QA artifacts drafted, but verification is not passing',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'fail' },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const blocked = readState(root);
+    writeState(root, {
+      ...blocked,
+      pending_phase_transition: null,
+      queued_phase_transition: null,
+      last_gate_failure: null,
+      phase_gate_status: {
+        ...(blocked.phase_gate_status || {}),
+        qa_ship_verdict: 'pending',
+      },
+      active_turns: {},
+    });
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(unblocked.status, 0, `unblock should resume without force-advancing failed verification:\n${unblocked.stdout}\n${unblocked.stderr}`);
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'qa', 'phase must not advance when a verification-gated synthetic source would be unverified');
+    assert.equal(finalState.phase_gate_status?.qa_ship_verdict, 'pending', 'qa ship gate must remain pending');
+    assert.equal(activeTurn?.assigned_role, 'qa', 'next dispatch must stay in QA so verification can be repaired');
+    assert.doesNotMatch(unblocked.stdout, /Advanced phase before dispatch/i, 'unblock output must not claim a phase advance');
+  });
+
   it('Turn 94: resume advances from queued_phase_transition even when the latest accepted turn had no phase request', () => {
     const { root } = createProject(makeQaLaunchConfig());
     const seededState = readState(root);

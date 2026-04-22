@@ -50,6 +50,21 @@ function hasStandingPendingExitGate(state, config) {
   return Boolean(gateId && (state?.phase_gate_status || {})[gateId] === 'pending');
 }
 
+function getStandingPendingExitGate(state, config) {
+  const phase = state?.phase;
+  const gateId = phase ? config?.routing?.[phase]?.exit_gate : null;
+  if (!gateId || (state?.phase_gate_status || {})[gateId] !== 'pending') {
+    return null;
+  }
+  return config?.gates?.[gateId] || null;
+}
+
+function entrySatisfiesSyntheticGateVerification(gate, entry) {
+  if (!gate?.requires_verification_pass) return true;
+  const verificationStatus = entry?.verification?.status;
+  return verificationStatus === 'pass' || verificationStatus === 'attested_pass';
+}
+
 function turnContributedToHumanApprovalGateArtifacts(root, state, config, entry) {
   // Returns true only when the accepted turn itself produced at least one of
   // the phase exit gate's required_files AND all required_files are present
@@ -92,15 +107,19 @@ function latestCompletedTurnWantsPhaseContinuation(root, state, config) {
     }
     if (entry?.turn_id !== turnId) continue;
     if (entry.phase_transition_request) return true;
+    const standingGate = getStandingPendingExitGate(state, config);
     const proposed = typeof entry.proposed_next_role === 'string' ? entry.proposed_next_role.trim() : '';
-    if (proposed && proposed !== 'human') return true;
+    if (proposed && proposed !== 'human') {
+      return entrySatisfiesSyntheticGateVerification(standingGate, entry);
+    }
     // Turn 205 extension (refines DEC-BUG52-UNBLOCK-STANDING-GATE-DISCRIMINATOR-001):
     // The realistic BUG-52 third-variant PM shape sets `status: 'needs_human'`,
     // `phase_transition_request: null`, and `proposed_next_role: 'human'` — the
     // PM is escalating specifically for the phase exit gate's human-approval
     // check and has already written the gate's required artifacts to disk.
-    // When the current phase's exit gate requires human approval AND all of
-    // its `requires_files` are present on disk, an `unblock` on that
+    // When the current phase's exit gate requires human approval, all of its
+    // `requires_files` are present on disk, and any gate-level verification
+    // predicate was satisfied by the accepted turn, an `unblock` on that
     // escalation IS the final gate approval and must run the standing-gate
     // reconcile.
     //
@@ -108,7 +127,11 @@ function latestCompletedTurnWantsPhaseContinuation(root, state, config) {
     // (which block BEFORE the agent writes gate artifacts, so `requires_files`
     // are not yet on disk) — those correctly continue to re-dispatch the
     // in-phase role rather than force-advancing the phase.
-    if (entry.status === 'needs_human' && turnContributedToHumanApprovalGateArtifacts(root, state, config, entry)) {
+    if (
+      entry.status === 'needs_human'
+      && entrySatisfiesSyntheticGateVerification(standingGate, entry)
+      && turnContributedToHumanApprovalGateArtifacts(root, state, config, entry)
+    ) {
       return true;
     }
     return false;
