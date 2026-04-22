@@ -81,11 +81,50 @@ describe('BUG-54 startup-watchdog operator docs (local-cli-recipes.mdx)', () => 
     }
   });
 
+  it('states that stderr-only output is diagnostic evidence, not startup proof', () => {
+    assert.match(
+      RECIPES,
+      /Stderr is diagnostic evidence only; stderr by itself does not prove the governed turn started\./,
+      'docs must not claim stderr clears the startup watchdog; DEC-BUG54-STDERR-IS-NOT-STARTUP-PROOF-002 says stderr-only startup is still a failed start',
+    );
+    assert.doesNotMatch(
+      RECIPES,
+      /stdout\/stderr byte/,
+      'docs must not describe stderr as first-output proof',
+    );
+    assert.match(
+      RECIPES,
+      /stream` \(`stdout` \\?\| `staged_result`\)/,
+      'first_output payload docs must list only startup-proof streams',
+    );
+  });
+
+  it('gives a p99-based rule of thumb for tuning slow runtimes', () => {
+    assert.match(
+      RECIPES,
+      /max\(p99 \+ 30000, ceil\(p99 \* 1\.5\)\)/,
+      'docs must give operators a concrete p99-based starting point rather than vague "raise if slow" guidance',
+    );
+    assert.match(
+      RECIPES,
+      /at least 30s of headroom/,
+      'docs must tell operators to keep headroom when lowering below the default',
+    );
+  });
+
   it('names the dispatch log path where diagnostics are written', () => {
     assert.match(
       RECIPES,
       /\.agentxchain\/dispatch\/turns\/<turnId>\/stdout\.log/,
       'docs must name the stdout.log path so operators know where to look',
+    );
+  });
+
+  it('shows the events command for finding startup-failure turns before grepping dispatch logs', () => {
+    assert.match(
+      RECIPES,
+      /agentxchain events --type turn_start_failed,runtime_spawn_failed,stdout_attach_failed --limit 20 --json/,
+      'docs must point operators at events.jsonl-backed triage before requiring a known turn id',
     );
   });
 

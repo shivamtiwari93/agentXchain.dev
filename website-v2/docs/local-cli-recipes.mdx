@@ -133,7 +133,7 @@ Use `dispatch_bundle_only` when the agent reads its own prompt from the dispatch
 
 ## Startup watchdog and diagnostics
 
-Every `local_cli` dispatch is gated by a **startup watchdog**. The adapter arms the watchdog as soon as the subprocess reports a successful `spawn` and clears it the instant the process produces its first byte on stdout/stderr or stages a `turn-result.json`. If the watchdog fires before either happens, the adapter SIGTERMs the child and classifies the turn as `startupFailureType: "no_subprocess_output"` so `run --continuous` can recover cleanly instead of wedging.
+Every `local_cli` dispatch is gated by a **startup watchdog**. The adapter arms the watchdog as soon as the subprocess reports a successful `spawn` and clears it the instant the process produces its first stdout byte or stages a `turn-result.json`. Stderr is diagnostic evidence only; stderr by itself does not prove the governed turn started. If the watchdog fires before stdout or a staged result appears, the adapter SIGTERMs the child and classifies the turn as `startupFailureType: "no_subprocess_output"` so `run --continuous` can recover cleanly instead of wedging.
 
 ### Default and overrides
 
@@ -168,6 +168,8 @@ Two overrides exist; precedence is **per-runtime > global > default**:
 | Global | `run_loop.startup_watchdog_ms` | Every runtime in this project has a consistent startup profile that differs from the 180s default. |
 | Default | `180000` (built-in) | You have not observed `startup_watchdog_fired` and dispatches regularly produce first output within ~60s. |
 
+For observed slow runtimes, set the watchdog above the measured p99 `first_output.startup_latency_ms`: use `max(p99 + 30000, ceil(p99 * 1.5))` as a starting point, then keep tuning per runtime unless every runtime shares the same latency profile.
+
 ### When to raise
 
 Raise the watchdog when any of the following is true for a specific runtime:
@@ -185,7 +187,7 @@ Lower the watchdog when:
 - You run an in-house runtime that always prints a startup banner within a few seconds, and you want silent hangs to surface faster in `run --continuous`.
 - You configure a ghost-turn recovery policy (e.g., `run_loop.continuous.auto_retry_on_ghost`) that reissues the turn cheaply — a shorter watchdog trades a slightly higher false-positive rate for faster lights-out recovery.
 
-Do **not** lower the default below the observed p99 of `first_output` `startup_latency_ms` for your slowest runtime; you will false-kill healthy dispatches and produce ghost turns.
+Do **not** lower the default below the observed p99 of `first_output` `startup_latency_ms` for your slowest runtime; leave at least 30s of headroom or you will false-kill healthy dispatches and produce ghost turns.
 
 ### Inspecting diagnostics
 
@@ -194,13 +196,19 @@ Every adapter run writes structured diagnostic lines to `.agentxchain/dispatch/t
 | Label | Meaning | Payload highlights |
 |-------|---------|--------------------|
 | `spawn_attached` | Node confirmed the OS spawned the child process. The watchdog is now armed. | `pid`, `at`, `startup_watchdog_ms` |
-| `first_output` | Watchdog cleared — the child produced its first stdout/stderr byte or a staged `turn-result.json`. | `at`, `stream` (`stdout` \| `stderr` \| `staged_result`), `startup_latency_ms` |
+| `first_output` | Watchdog cleared — the child produced its first stdout byte or a staged `turn-result.json`. | `at`, `stream` (`stdout` \| `staged_result`), `startup_latency_ms` |
 | `startup_watchdog_fired` | Watchdog elapsed with no first output and no staged result. The adapter SIGTERMs the child; the turn is retained as a failed start. | `startup_watchdog_ms`, `pid`, `spawn_confirmed_at`, `elapsed_since_spawn_ms` |
 
 Two companion diagnostics help you classify the failure when the watchdog fires:
 
 - `process_exit` — always emitted; includes `startup_failure_type` (`no_subprocess_output` or `runtime_spawn_failed`), `stdout_bytes`, `stderr_bytes`, and a `stderr_excerpt` if the child printed anything on stderr before exiting.
 - `spawn_error` — emitted only when the Node spawn itself errored (binary not found, EACCES, etc.); includes `code`, `errno`, `syscall`.
+
+To locate the failing turn before opening its dispatch log, use the event stream:
+
+```bash
+agentxchain events --type turn_start_failed,runtime_spawn_failed,stdout_attach_failed --limit 20 --json
+```
 
 To triage a suspected ghost turn quickly:
 
