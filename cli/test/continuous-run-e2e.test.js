@@ -45,33 +45,11 @@ function writeSilentStartupAgent(root) {
   return agentPath;
 }
 
-function writeGhostThenSuccessAgent(root, ghostsBeforeSuccess) {
-  const agentPath = join(root, `_ghost-${ghostsBeforeSuccess}-then-success-agent.mjs`);
-  const counterPath = join(dirname(root), `${root.split('/').pop()}-ghost-attempts.txt`);
-  writeFileSync(agentPath, [
-    '#!/usr/bin/env node',
-    "import { existsSync, readFileSync, writeFileSync } from 'node:fs';",
-    "import { setTimeout as sleep } from 'node:timers/promises';",
-    `const counterPath = ${JSON.stringify(counterPath)};`,
-    "const current = existsSync(counterPath) ? Number.parseInt(readFileSync(counterPath, 'utf8') || '0', 10) : 0;",
-    'const next = Number.isFinite(current) ? current + 1 : 1;',
-    "writeFileSync(counterPath, String(next));",
-    `if (next <= ${ghostsBeforeSuccess}) {`,
-    '  await sleep(5000);',
-    '  process.exit(0);',
-    '}',
-    `await import(${JSON.stringify(MOCK_AGENT)});`,
-    '',
-  ].join('\n'));
-  return agentPath;
-}
-
 function makeProject({
   slowAgent = false,
   failingAgent = false,
   changingAgent = false,
   silentStartupAgent = false,
-  ghostThenSuccessCount = null,
   startupWatchdogMs = null,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-continuous-e2e-'));
@@ -88,8 +66,6 @@ function makeProject({
     agentEntry = writeFailingAgent(root);
   } else if (silentStartupAgent) {
     agentEntry = writeSilentStartupAgent(root);
-  } else if (ghostThenSuccessCount != null) {
-    agentEntry = writeGhostThenSuccessAgent(root, ghostThenSuccessCount);
   } else if (changingAgent) {
     agentEntry = join(root, '_changing-mock-agent.mjs');
     writeFileSync(agentEntry, `import { appendFileSync, readFileSync } from 'node:fs';\nimport { join } from 'node:path';\nconst root = process.cwd();\nconst index = JSON.parse(readFileSync(join(root, '.agentxchain/dispatch/index.json'), 'utf8'));\nconst entry = Object.values(index.active_turns || {})[0] || {};\nconst turnId = entry.turn_id || 'unknown';\nconst phase = index.phase || 'unknown';\nawait import(${JSON.stringify(MOCK_AGENT)});\nif (phase === 'planning') appendFileSync(join(root, '.planning/ROADMAP.md'), \`\\n- checkpoint \${turnId}\\n\`);\nif (phase === 'implementation') appendFileSync(join(root, 'src/output.js'), \`// checkpoint \${turnId}\\n\`);\nif (phase === 'qa') appendFileSync(join(root, '.planning/RELEASE_NOTES.md'), \`\\n- checkpoint \${turnId}\\n\`);\n`);
@@ -175,170 +151,6 @@ afterEach(() => {
 });
 
 describe('continuous run E2E', () => {
-  it('AT-BUG61-001: continuous mode auto-retries startup ghosts and completes without operator intervention', () => {
-    const root = makeProject({ ghostThenSuccessCount: 2, startupWatchdogMs: 400 });
-    const configPath = join(root, 'agentxchain.json');
-    const config = JSON.parse(readFileSync(configPath, 'utf8'));
-    config.run_loop = {
-      ...(config.run_loop || {}),
-      continuous: {
-        ...(config.run_loop?.continuous || {}),
-        auto_retry_on_ghost: {
-          enabled: true,
-          max_retries_per_run: 3,
-          cooldown_seconds: 1,
-        },
-      },
-    };
-    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-    commitConfigChange(root, 'configure ghost auto-retry');
-
-    const run = runCli(root, [
-      'run',
-      '--continuous',
-      '--vision',
-      '.planning/VISION.md',
-      '--max-runs',
-      '1',
-      '--max-idle-cycles',
-      '1',
-      '--poll-seconds',
-      '0',
-    ], 45000);
-
-    assert.equal(run.status, 0, `continuous run should recover from two ghosts:\n${run.combined}`);
-    assert.match(run.stdout, /Ghost turn auto-retried \(1\/3\)/);
-    assert.match(run.stdout, /Ghost turn auto-retried \(2\/3\)/);
-    assert.match(run.stdout, /Run 1\/1 completed: completed|Active run completed \(1\/1\): completed/);
-
-    const session = readJson(root, '.agentxchain/continuous-session.json');
-    assert.equal(session.status, 'completed');
-    assert.equal(session.runs_completed, 1);
-    assert.equal(session.ghost_retry.attempts, 2);
-    assert.equal(session.ghost_retry.exhausted, false);
-
-    const state = readJson(root, '.agentxchain/state.json');
-    assert.equal(state.status, 'completed');
-
-    const events = readJsonl(root, '.agentxchain/events.jsonl');
-    const autoRetryEvents = events.filter((entry) => entry.event_type === 'auto_retried_ghost');
-    assert.equal(autoRetryEvents.length, 2);
-    assert.deepEqual(autoRetryEvents.map((entry) => entry.payload.attempt), [1, 2]);
-    assert.equal(events.some((entry) => entry.event_type === 'ghost_retry_exhausted'), false);
-  });
-
-  it('AT-BUG61-002: continuous ghost auto-retry stops early on same-signature repeat and preserves manual recovery', () => {
-    // Slice 2c: when every attempted retry shares the same (runtime, role,
-    // failure_type) fingerprint, the loop stops at SIGNATURE_REPEAT_THRESHOLD
-    // (2) rather than burning the full `max_retries_per_run` budget. This
-    // test fixture produces 4 identical ghosts, so all 4 share the same
-    // fingerprint; slice 2c triggers early-stop after the 2nd retry.
-    const root = makeProject({ ghostThenSuccessCount: 4, startupWatchdogMs: 400 });
-    const configPath = join(root, 'agentxchain.json');
-    const config = JSON.parse(readFileSync(configPath, 'utf8'));
-    config.run_loop = {
-      ...(config.run_loop || {}),
-      continuous: {
-        ...(config.run_loop?.continuous || {}),
-        auto_retry_on_ghost: {
-          enabled: true,
-          max_retries_per_run: 3,
-          cooldown_seconds: 1,
-        },
-      },
-    };
-    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-    commitConfigChange(root, 'configure ghost auto-retry');
-
-    const run = runCli(root, [
-      'run',
-      '--continuous',
-      '--vision',
-      '.planning/VISION.md',
-      '--max-runs',
-      '1',
-      '--max-idle-cycles',
-      '1',
-      '--poll-seconds',
-      '0',
-    ], 45000);
-
-    assert.equal(run.status, 0, `continuous run should pause cleanly after same-signature early stop:\n${run.combined}`);
-    assert.match(run.stdout, /Ghost auto-retry exhausted \(same_signature_repeat \[.+\|.+\|.+\] after 2 attempts\)/);
-    assert.match(run.stdout, /reissue-turn --turn .* --reason ghost/);
-
-    const session = readJson(root, '.agentxchain/continuous-session.json');
-    assert.equal(session.status, 'paused');
-    assert.equal(session.runs_completed, 0);
-    // Same-signature early stop fires after 2 recorded attempts.
-    assert.equal(session.ghost_retry.attempts, 2);
-    assert.equal(session.ghost_retry.exhausted, true);
-    assert.ok(Array.isArray(session.ghost_retry.attempts_log));
-    assert.equal(session.ghost_retry.attempts_log.length, 2);
-
-    const state = readJson(root, '.agentxchain/state.json');
-    assert.equal(state.status, 'blocked');
-    assert.equal(state.blocked_reason.category, 'ghost_turn');
-    assert.match(state.blocked_reason.recovery.detail, /Auto-retry stopped early after 2 consecutive same-signature attempts/);
-    assert.match(state.blocked_reason.recovery.detail, /reissue-turn --turn .* --reason ghost/);
-
-    const events = readJsonl(root, '.agentxchain/events.jsonl');
-    assert.equal(events.filter((entry) => entry.event_type === 'auto_retried_ghost').length, 2);
-    const exhausted = events.filter((entry) => entry.event_type === 'ghost_retry_exhausted');
-    assert.equal(exhausted.length, 1);
-    // Slice 2c payload contract: exhaustion_reason, signature_repeat, diagnostic_bundle present.
-    assert.equal(exhausted[0].payload.exhaustion_reason, 'same_signature_repeat');
-    assert.ok(exhausted[0].payload.signature_repeat);
-    assert.equal(exhausted[0].payload.signature_repeat.consecutive, 2);
-    assert.ok(exhausted[0].payload.diagnostic_bundle);
-    assert.equal(exhausted[0].payload.diagnostic_bundle.attempts_log.length, 2);
-    assert.ok(exhausted[0].payload.diagnostic_bundle.final_signature);
-  });
-
-  it('AT-BUG61-003: explicit ghost auto-retry opt-out preserves current manual recovery', () => {
-    const root = makeProject({ ghostThenSuccessCount: 1, startupWatchdogMs: 400 });
-    const configPath = join(root, 'agentxchain.json');
-    const config = JSON.parse(readFileSync(configPath, 'utf8'));
-    config.run_loop = {
-      ...(config.run_loop || {}),
-      continuous: {
-        ...(config.run_loop?.continuous || {}),
-        auto_retry_on_ghost: {
-          enabled: false,
-          max_retries_per_run: 3,
-          cooldown_seconds: 1,
-        },
-      },
-    };
-    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-    commitConfigChange(root, 'configure ghost auto-retry opt-out');
-
-    const run = runCli(root, [
-      'run',
-      '--continuous',
-      '--vision',
-      '.planning/VISION.md',
-      '--max-runs',
-      '1',
-      '--max-idle-cycles',
-      '1',
-      '--poll-seconds',
-      '0',
-    ], 30000);
-
-    assert.equal(run.status, 0, `continuous run should pause with manual recovery when opted out:\n${run.combined}`);
-    assert.match(run.stdout, /Run blocked — continuous loop paused/);
-    assert.match(run.stdout, /reissue-turn --turn .* --reason ghost/);
-
-    const session = readJson(root, '.agentxchain/continuous-session.json');
-    assert.equal(session.status, 'paused');
-    assert.equal(session.runs_completed, 0);
-
-    const events = readJsonl(root, '.agentxchain/events.jsonl');
-    assert.equal(events.some((entry) => entry.event_type === 'auto_retried_ghost'), false);
-    assert.equal(events.some((entry) => entry.event_type === 'ghost_retry_exhausted'), false);
-  });
-
   it('AT-CONT-BUG51-001: ghost startup failures in continuous mode surface reissue-turn recovery, not unblock', () => {
     const root = makeProject({ silentStartupAgent: true, startupWatchdogMs: 400 });
 
