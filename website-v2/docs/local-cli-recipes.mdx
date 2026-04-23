@@ -133,7 +133,7 @@ Use `dispatch_bundle_only` when the agent reads its own prompt from the dispatch
 
 ## Startup watchdog and diagnostics
 
-Every `local_cli` dispatch is gated by a **startup watchdog**. The adapter arms the watchdog as soon as the subprocess reports a successful `spawn` and clears it the instant the process produces its first stdout byte or stages a `turn-result.json`. Stderr is diagnostic evidence only; stderr by itself does not prove the governed turn started. If the watchdog fires before stdout or a staged result appears, the adapter SIGTERMs the child and classifies the turn as `startupFailureType: "no_subprocess_output"` so `run --continuous` can recover cleanly instead of wedging.
+Every `local_cli` dispatch is gated by a **startup watchdog**. The adapter arms the watchdog as soon as the subprocess reports a successful `spawn` and clears it the instant the process produces its first stdout byte or stages a `turn-result.json`. Stderr is diagnostic evidence only; stderr by itself does not prove the governed turn started. If the watchdog fires before stdout or a staged result appears, the adapter SIGTERMs the child, escalates to SIGKILL after the grace window if the child ignores SIGTERM, and classifies the turn as `startupFailureType: "no_subprocess_output"` so `run --continuous` can recover cleanly instead of wedging.
 
 ### Default and overrides
 
@@ -191,13 +191,14 @@ Do **not** lower the default below the observed p99 of `first_output` `startup_l
 
 ### Inspecting diagnostics
 
-Every adapter run writes structured diagnostic lines to `.agentxchain/dispatch/turns/<turnId>/stdout.log` with the prefix `[adapter:diag]`. The three labels you should know:
+Every adapter run writes structured diagnostic lines to `.agentxchain/dispatch/turns/<turnId>/stdout.log` with the prefix `[adapter:diag]`. The four startup labels you should know:
 
 | Label | Meaning | Payload highlights |
 |-------|---------|--------------------|
 | `spawn_attached` | Node confirmed the OS spawned the child process. The watchdog is now armed. | `pid`, `at`, `startup_watchdog_ms` |
 | `first_output` | Watchdog cleared — the child produced its first stdout byte or a staged `turn-result.json`. | `at`, `stream` (`stdout` \| `staged_result`), `startup_latency_ms` |
-| `startup_watchdog_fired` | Watchdog elapsed with no first output and no staged result. The adapter SIGTERMs the child; the turn is retained as a failed start. | `startup_watchdog_ms`, `pid`, `spawn_confirmed_at`, `elapsed_since_spawn_ms` |
+| `startup_watchdog_fired` | Watchdog elapsed with no first output and no staged result. The adapter SIGTERMs the child; the turn is retained as a failed start. | `startup_watchdog_ms`, `startup_watchdog_sigkill_grace_ms`, `pid`, `spawn_confirmed_at`, `elapsed_since_spawn_ms` |
+| `startup_watchdog_sigkill` | The startup watchdog grace window elapsed and the child ignored SIGTERM, so the adapter sent SIGKILL instead of waiting for the longer turn deadline. | `startup_watchdog_ms`, `startup_watchdog_sigkill_grace_ms`, `pid`, `elapsed_since_spawn_ms` |
 
 Two companion diagnostics help you classify the failure when the watchdog fires:
 
@@ -220,8 +221,9 @@ grep 'adapter:diag.*spawn_attached' .agentxchain/dispatch/turns/<turnId>/stdout.
 grep -E 'adapter:diag (first_output|startup_watchdog_fired)' \
   .agentxchain/dispatch/turns/<turnId>/stdout.log
 
-# If the watchdog fired, how long did the child survive?
-grep 'adapter:diag startup_watchdog_fired' .agentxchain/dispatch/turns/<turnId>/stdout.log
+# If the watchdog fired, did it need SIGKILL after SIGTERM?
+grep -E 'adapter:diag (startup_watchdog_fired|startup_watchdog_sigkill)' \
+  .agentxchain/dispatch/turns/<turnId>/stdout.log
 ```
 
 A `spawn_attached` + `startup_watchdog_fired` pair with no `first_output` between them is the canonical "runtime started but never spoke" signature — usually a keychain prompt, an auth hang, or a genuinely stuck model. A missing `spawn_attached` is the signature of a spawn-time failure (bad path, missing binary, sandbox denial) and should show up as `spawn_error`.

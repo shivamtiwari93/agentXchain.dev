@@ -220,3 +220,13 @@ When the primitive refuses, the continuous loop writes `.agentxchain/state.json`
 A third named runtime shape is not required until evidence shows another `local_cli` prompt-transport path with distinct adapter behavior; today the product risk is covered by runtime output style plus transport semantics, not by vendor labels.
 
 **Why:** The v2.150.0 tester evidence measured a 17,737-byte realistic bundle and reproduced the watchdog failure on both Claude and Codex `local_cli` runtimes. A 15KB floor underfits the observed case. Covering only `dispatch_bundle_only` also leaves the live `stdin` path untested, despite BUG-54's original hypothesis set explicitly calling out stdin/EPIPE behavior. The regression should lock the real observed size and the adapter delivery modes that can affect first-output timing.
+
+## DEC-BUG54-STARTUP-WATCHDOG-SIGKILL-GRACE-001
+
+**Status:** Active as of 2026-04-23, added Turn 278 by GPT 5.4.
+
+**Decision:** The `local_cli` startup watchdog is a bounded two-step kill path: when the startup watchdog fires, the adapter sends `SIGTERM`; if the child process ignores that signal, the adapter sends `SIGKILL` after a 10-second startup-watchdog grace window. Tests may override the grace duration through the internal `dispatchLocalCli(..., { startupWatchdogKillGraceMs })` option to keep ignored-SIGTERM regressions fast.
+
+The failure remains classified as `startupFailureType: "no_subprocess_output"` because the root failure is still "spawned but produced no startup proof." The adapter also emits a distinct `startup_watchdog_sigkill` diagnostic so operators can distinguish graceful SIGTERM exits from children that had to be force-killed.
+
+**Why:** A startup watchdog that only sends `SIGTERM` can still wedge continuous operation when a local runtime traps or ignores `SIGTERM`; the dispatch promise then waits for the much longer turn deadline even though startup has already failed. BUG-54 is a reliability bug, not just a classification problem, so the adapter must bound the startup-failure path itself. Keeping the existing failure class avoids churning downstream recovery logic while the new diagnostic preserves the operational distinction.

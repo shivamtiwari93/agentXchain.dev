@@ -72,8 +72,8 @@ describe('BUG-54 startup-watchdog operator docs (local-cli-recipes.mdx)', () => 
     assert.match(RECIPES, /^### When to lower$/m);
   });
 
-  it('names all three adapter diagnostic labels', () => {
-    for (const label of ['spawn_attached', 'first_output', 'startup_watchdog_fired']) {
+  it('names all four startup adapter diagnostic labels', () => {
+    for (const label of ['spawn_attached', 'first_output', 'startup_watchdog_fired', 'startup_watchdog_sigkill']) {
       assert.ok(
         RECIPES.includes(label),
         `docs must reference the '${label}' diagnostic label so operators can grep for it`,

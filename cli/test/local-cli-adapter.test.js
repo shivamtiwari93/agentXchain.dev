@@ -653,6 +653,49 @@ exec sleep 30
       assert.equal(exitDiagnostic.first_output_stream, null);
     });
 
+    it('SIGKILLs a startup-watchdog subprocess that ignores SIGTERM before the turn deadline', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const scriptPath = join(root, '_ignore_sigterm_silent.js');
+      writeFileSync(scriptPath, `
+        process.on('SIGTERM', () => {});
+        setInterval(() => {}, 1000);
+      `);
+
+      const config = makeConfig({
+        command: ['node', scriptPath],
+      });
+      config.run_loop = { startup_watchdog_ms: 100 };
+      setupDispatchBundle(root, state, config);
+
+      const startedAt = Date.now();
+      const result = await dispatchLocalCli(root, state, config, {
+        startupWatchdogKillGraceMs: 100,
+      });
+      const elapsedMs = Date.now() - startedAt;
+
+      assert.equal(result.ok, false);
+      assert.equal(result.startupFailure, true);
+      assert.equal(result.startupFailureType, 'no_subprocess_output');
+      assert.ok(
+        elapsedMs < 2000,
+        `startup watchdog SIGKILL path must return promptly, not wait for the turn deadline; elapsed=${elapsedMs}ms`,
+      );
+
+      const log = result.logs.join('');
+      assert.match(log, /\[adapter:diag\] startup_watchdog_fired /);
+      assert.match(log, /"startup_watchdog_sigkill_grace_ms":100/);
+      assert.match(log, /\[adapter:diag\] startup_watchdog_sigkill /);
+      assert.match(log, /\[adapter:diag\] process_exit /);
+
+      const [exitDiagnostic] = parseDiagPayloads(result.logs, 'process_exit');
+      assert.equal(exitDiagnostic.watchdog_fired, true);
+      assert.equal(exitDiagnostic.exit_signal, 'SIGKILL');
+      assert.equal(exitDiagnostic.signal, 'SIGKILL');
+      assert.equal(exitDiagnostic.first_output_stream, null);
+      assert.equal(exitDiagnostic.startup_failure_type, 'no_subprocess_output');
+    });
+
     it('treats stderr-only startup as no_subprocess_output and preserves a stderr excerpt', async () => {
       const root = createAndTrack();
       const state = makeState();

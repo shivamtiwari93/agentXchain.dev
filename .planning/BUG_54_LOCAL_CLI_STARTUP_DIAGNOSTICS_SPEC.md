@@ -54,6 +54,10 @@ defect. It makes the failure observable enough to reproduce and distinguish:
   - first-byte proof stream if any (`stdout`, `staged_result`, or `null` when no startup-proof stream arrived)
   - whether the startup watchdog actually fired on this attempt
   - startup-failure classification if known
+- When the startup watchdog fires, the adapter must send `SIGTERM` and then
+  enforce a bounded `SIGKILL` grace path if the subprocess ignores `SIGTERM`.
+  The startup watchdog path must not wait for the full turn deadline after it
+  has already decided startup failed.
 - Existing stderr capture remains intact. Structured diagnostics are additive,
   not a replacement for raw stderr lines.
 - Diagnostics must fail closed on secrets:
@@ -66,6 +70,9 @@ defect. It makes the failure observable enough to reproduce and distinguish:
   must now show the resolved spawn context that failed.
 - Spawn-but-silent subprocesses still classify as `no_subprocess_output`
   inside the adapter, but the log must now show spawn proof plus exit summary.
+- Spawn-but-silent subprocesses that ignore `SIGTERM` must be killed by the
+  startup-watchdog `SIGKILL` grace path and still return `no_subprocess_output`
+  promptly instead of hanging until the much longer turn deadline.
 - Stdin `EPIPE` / broken-pipe paths must be logged instead of swallowed.
 - Missing optional env keys must serialize as absent, not as errors.
 
@@ -77,6 +84,9 @@ defect. It makes the failure observable enough to reproduce and distinguish:
   - spawn-but-silent subprocess emits `spawn_attached` + `process_exit`
     diagnostics with `watchdog_fired: true`, `exit_signal: 'SIGTERM'`, and
     `first_output_stream: null`
+  - spawn-but-silent subprocess that ignores `SIGTERM` emits
+    `startup_watchdog_sigkill`, returns before the turn deadline, and records
+    `process_exit.exit_signal: 'SIGKILL'`
   - stderr-only natural exit preserves `watchdog_fired: false`,
     `exit_signal: null`, and `first_output_stream: null`
   - staged-result proof preserves `first_output_stream: 'staged_result'`

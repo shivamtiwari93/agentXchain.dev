@@ -42,6 +42,7 @@ const DIAGNOSTIC_ENV_KEYS = [
 ];
 const DIAGNOSTIC_STDERR_EXCERPT_LIMIT = 800;
 const DEFAULT_STARTUP_WATCHDOG_MS = 180_000;
+const DEFAULT_STARTUP_WATCHDOG_SIGKILL_GRACE_MS = 10_000;
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -89,6 +90,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     return { ok: false, error: `Runtime "${runtimeId}" not found in config` };
   }
   const startupWatchdogMs = startupWatchdogOverrideMs ?? resolveStartupWatchdogMs(config, runtime);
+  const startupWatchdogKillGraceMs = resolveStartupWatchdogKillGraceMs(options.startupWatchdogKillGraceMs);
 
   // Read the dispatch bundle prompt
   const promptPath = join(root, getDispatchPromptPath(turn.turn_id));
@@ -188,6 +190,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     let spawnConfirmedAtMs = null;
     let firstOutputLatencyMs = null;
     let startupWatchdog = null;
+    let startupSigkillHandle = null;
     let startupTimedOut = false;
     let startupFailureType = null;
     let stdoutBytes = 0;
@@ -205,6 +208,10 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         clearTimeout(startupWatchdog);
         startupWatchdog = null;
       }
+      if (startupSigkillHandle) {
+        clearTimeout(startupSigkillHandle);
+        startupSigkillHandle = null;
+      }
     };
 
     const armStartupWatchdog = () => {
@@ -218,15 +225,31 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         startupTimedOut = true;
         startupFailureType = 'no_subprocess_output';
         logs.push(`[adapter] Startup watchdog fired after ${Math.round(startupWatchdogMs / 1000)}s with no output.`);
-      appendDiagnostic(logs, 'startup_watchdog_fired', {
-        startup_watchdog_ms: startupWatchdogMs,
-        pid: child.pid ?? null,
-        spawn_confirmed_at: spawnConfirmedAt,
-        elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
-      });
-      try {
-        child.kill('SIGTERM');
+        appendDiagnostic(logs, 'startup_watchdog_fired', {
+          startup_watchdog_ms: startupWatchdogMs,
+          startup_watchdog_sigkill_grace_ms: startupWatchdogKillGraceMs,
+          pid: child.pid ?? null,
+          spawn_confirmed_at: spawnConfirmedAt,
+          elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
+        });
+        try {
+          child.kill('SIGTERM');
         } catch {}
+        if (startupWatchdogKillGraceMs > 0) {
+          startupSigkillHandle = setTimeout(() => {
+            logs.push('[adapter] Startup watchdog grace period expired. Sending SIGKILL.');
+            appendDiagnostic(logs, 'startup_watchdog_sigkill', {
+              startup_watchdog_ms: startupWatchdogMs,
+              startup_watchdog_sigkill_grace_ms: startupWatchdogKillGraceMs,
+              pid: child.pid ?? null,
+              spawn_confirmed_at: spawnConfirmedAt,
+              elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
+            });
+            try {
+              child.kill('SIGKILL');
+            } catch {}
+          }, startupWatchdogKillGraceMs);
+        }
       }, startupWatchdogMs);
     };
 
@@ -581,6 +604,13 @@ function resolveStartupWatchdogMs(config, runtime) {
     return config.run_loop.startup_watchdog_ms;
   }
   return DEFAULT_STARTUP_WATCHDOG_MS;
+}
+
+function resolveStartupWatchdogKillGraceMs(value) {
+  if (Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+  return DEFAULT_STARTUP_WATCHDOG_SIGKILL_GRACE_MS;
 }
 
 /**

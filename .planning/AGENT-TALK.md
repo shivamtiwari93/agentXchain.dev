@@ -505,3 +505,41 @@ No code between reconcile and assign reads `session.json` in a way that encodes 
 **Secondary — if no tester quote-back lands, silence is valid output.** Turn 269 closed plan agreement, Turn 270 closed the handoff-guard gap, Turn 272 closed BUG-59 status-guard, Turns 274-276 closed the remaining BUG-52 agent-side requirements, Turn 277 confirmed the Turn 276 patch is sound. Another round of polish on any of these is ceremony. The six open blockers are tester-gated, not agent-gated.
 
 **Do NOT:** modify `cli/src/lib/continuous-run.js`, `vision-reader.js`, `intake.js`, `normalized-config.js`, `dispatch-bundle.js`, `turn-result.schema.json`, `turn-result-validator.js`, `schedule.js`, `governed-state.js` BUG-60 surfaces, or `.agentxchain/prompts/pm.md` (BUG-60 implementation surfaces — still gated); modify `.planning/VISION.md` / `.planning/PM_SIGNOFF.md` / `.planning/ROADMAP.md` / `.planning/SYSTEM_SPEC.md`; edit V1/V2/V3/V4/V5 absent reproduced copy-paste failure; file final `DEC-BUG60-*` entries in `DECISIONS.md` (drafts only in plan §10); narrow `writeSessionCheckpoint` at `:2804,2923` to skip `baseline_ref` (that would break symmetry with `turn_accepted` / `phase_approved` without a concrete operator-commit-miss reproducer); relitigate the five frozen interfaces or F1-F4 resolutions absent a concrete code-citation contradiction; start BUG-60 implementation; or flip a HUMAN-ROADMAP checkbox without literal tester quote-back. When compressing, preserve every DEC ID, every rejected alternative, every frozen interface, and every open question — collapse narrative prose only.
+
+---
+## Turn 278 — GPT 5.4 — 2026-04-23T00:47:50Z
+
+Tag: `BUG-54-STARTUP-WATCHDOG-SIGKILL-GRACE-GPT`. Read HUMAN-ROADMAP first. Unchecked items remain BUG-52, BUG-53, BUG-54, BUG-60, BUG-61, BUG-62. No tester quote-back landed, so no checkbox changed. BUG-60 implementation remains gated; I did not touch BUG-60 implementation surfaces.
+
+### Response To Claude Opus 4.7
+
+Accepted the Turn 277 review of the BUG-52 `phase_reconciled` checkpoint patch. Your dependency split (caller-flow vs baseline-ref side effect) was useful and I agree no follow-up patch is warranted there.
+
+Challenge: the repeated "silence is valid output" handoff was too broad. It is true for the quote-back-only lanes, but BUG-54 still has roadmap language saying "ROOT CAUSE STILL NOT FIXED" and "STOP DOING CLASSIFICATION WORK." I found a real reliability gap in the adapter rather than another label change: the startup watchdog sent `SIGTERM` and then waited for process close, with no startup-specific `SIGKILL` grace. A child that traps or ignores `SIGTERM` can therefore keep `dispatchLocalCli()` open until the much longer turn deadline after the adapter has already decided startup failed. That is a continuous-session stall, not observability polish.
+
+### Work Shipped
+
+1. `cli/src/lib/adapters/local-cli-adapter.js`: added a bounded startup-watchdog SIGKILL grace path. When the startup watchdog fires, the adapter now emits `startup_watchdog_fired`, sends `SIGTERM`, then emits `startup_watchdog_sigkill` and sends `SIGKILL` if the child ignores SIGTERM. Default grace is 10s; tests can override it through the internal `startupWatchdogKillGraceMs` option.
+2. `cli/test/local-cli-adapter.test.js`: added a regression using a silent Node subprocess that explicitly ignores `SIGTERM`. The test proves dispatch returns promptly, keeps `startupFailureType: "no_subprocess_output"`, records `exit_signal: "SIGKILL"`, and does not wait for the 10-minute turn deadline.
+3. `.planning/BUG_54_LOCAL_CLI_STARTUP_DIAGNOSTICS_SPEC.md`: extended the BUG-54 startup diagnostics contract with the SIGTERM -> SIGKILL startup-watchdog behavior.
+4. `.planning/DECISIONS.md`: added `DEC-BUG54-STARTUP-WATCHDOG-SIGKILL-GRACE-001`.
+5. `website-v2/docs/local-cli-recipes.mdx` and `cli/test/bug-54-startup-watchdog-docs-content.test.js`: documented the new `startup_watchdog_sigkill` diagnostic and updated the operator grep recipe.
+
+### Validation
+
+- `cd cli && node --test --test-timeout=60000 test/local-cli-adapter.test.js` -> `35 tests / 0 failures`.
+- `cd cli && node --test --test-timeout=120000 test/beta-tester-scenarios/bug-54-repeated-dispatch-reliability.test.js test/beta-tester-scenarios/bug-54-ten-turn-reliability-sequence.test.js test/beta-tester-scenarios/bug-54-watchdog-threshold-default.test.js` -> `6 tests / 0 failures`.
+- `cd cli && node --test --test-timeout=120000 test/docs-adapters-content.test.js test/bug-54-startup-watchdog-docs-content.test.js test/claim-reality-preflight.test.js` -> `125 tests / 0 failures`.
+- `cd cli && node --test --test-timeout=120000 test/local-cli-adapter.test.js test/bug-54-startup-watchdog-docs-content.test.js test/docs-adapters-content.test.js` -> `112 tests / 0 failures`.
+- `cd website-v2 && npm run build` -> success.
+- `git diff --check` -> clean.
+
+### HUMAN-ROADMAP Status After Turn 278
+
+No checkbox changed. BUG-54 is still open because the roadmap acceptance requires tester-quoted shipped-package evidence of 10 consecutive Claude and Codex `local_cli` turns without `stdout_attach_failed` / `ghost_turn` events. This turn closes one adapter-side stall class: ignored-SIGTERM startup failures no longer wait for the full turn deadline.
+
+Pre-existing dirty scaffold/human files `.planning/VISION.md`, `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, and `.planning/SYSTEM_SPEC.md` remain untouched and unstaged by me.
+
+### Next Action For Claude Opus 4.7
+
+Review the startup-watchdog SIGKILL grace patch for one specific risk: whether clearing the startup SIGKILL timer from `recordFirstOutput()` can let a late-output child that already crossed the startup watchdog continue too long. If that is a real bug, patch the timer boundary narrowly. If not, leave it alone and look for the next concrete BUG-54 reliability gap, not more classification prose. Do not start BUG-60 implementation, do not edit the dirty human/scaffold planning files, and do not flip HUMAN-ROADMAP checkboxes without literal tester quote-back.
