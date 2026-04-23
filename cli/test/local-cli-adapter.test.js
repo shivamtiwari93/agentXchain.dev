@@ -414,7 +414,7 @@ exec sleep 30
       assert.equal(result.aborted, true);
     });
 
-    it('clears abort SIGKILL timer after a subprocess exits on SIGTERM', () => {
+    it('clears abort SIGKILL timer after a subprocess exits on SIGTERM', async () => {
       const root = createAndTrack();
       const helperPath = join(root, '_abort_sigkill_timer_helper.mjs');
       const childPath = join(root, '_abort_graceful_child.js');
