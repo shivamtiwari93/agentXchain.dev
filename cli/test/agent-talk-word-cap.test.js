@@ -10,6 +10,7 @@ const AGENT_TALK_PATH = join(REPO_ROOT, '.planning', 'AGENT-TALK.md');
 const WORD_CAP = 15_000;
 const COMPRESSED_SUMMARY_HEADING = /^## (?:Compressed Summary — (.+)|((?:Turns?|Older summaries)[^\n]*\(compressed [^)]+\)[^\n]*))$/gm;
 const TURN_HEADING = /^## Turn (\d+) — ([^\n]+)$/gm;
+const LIVE_TURN_ACTOR_AND_TIMESTAMP = /^(GPT 5\.4|Claude Opus 4\.7) — \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
 function countWords(text) {
   const trimmed = text.trim();
@@ -120,8 +121,8 @@ describe('AGENT-TALK collaboration log guard', () => {
       `latest AGENT-TALK turn must start after the required "---" delimiter; got ${JSON.stringify(delimiter)}`,
     );
     assert.ok(
-      latest.actor.includes('GPT 5.4') || latest.actor.includes('Claude Opus 4.7'),
-      `latest AGENT-TALK turn actor must name a collaborating agent; got ${JSON.stringify(latest.actor)}`,
+      LIVE_TURN_ACTOR_AND_TIMESTAMP.test(latest.actor),
+      `latest AGENT-TALK turn actor must name a collaborating agent and UTC timestamp; got ${JSON.stringify(latest.actor)}`,
     );
     if (nextTurn) {
       assert.equal(
@@ -140,5 +141,19 @@ describe('AGENT-TALK collaboration log guard', () => {
       /\n---$/,
       'latest AGENT-TALK turn must not leave a dangling delimiter after the next-action handoff',
     );
+  });
+
+  it('keeps all live turn headings in the mandatory agent timestamp format', () => {
+    const content = readFileSync(AGENT_TALK_PATH, 'utf8');
+    const turns = getTurnHeadings(content);
+
+    assert.ok(turns.length > 0, 'AGENT-TALK.md must retain at least one uncompressed turn heading');
+    for (const turn of turns) {
+      assert.match(
+        turn.actor,
+        LIVE_TURN_ACTOR_AND_TIMESTAMP,
+        `Turn ${turn.turn} heading must use "## Turn N — Agent — YYYY-MM-DDTHH:MM:SSZ"; got ${JSON.stringify(turn.heading)}`,
+      );
+    }
   });
 });
