@@ -35,6 +35,40 @@ function extractRoadmapItem(roadmap, bugId) {
 }
 
 describe('HUMAN-ROADMAP open blocker status', () => {
+  it('keeps BUG-52 third variant as the explicit current focus until quote-back lands', () => {
+    const roadmap = readRoadmap();
+    const currentFocusLine = roadmap
+      .split('\n')
+      .find((line) => line.startsWith('Current focus:'));
+
+    assert.ok(currentFocusLine, 'roadmap must keep a current focus line');
+    assert.match(
+      currentFocusLine,
+      /BUG-52 third variant/,
+      'current focus must keep BUG-52 third variant as the named top priority',
+    );
+    assert.match(
+      currentFocusLine,
+      /`unblock`-based human-gate resolution/,
+      'current focus must preserve the delegated unblock failure lane',
+    );
+    assert.match(
+      currentFocusLine,
+      /pending_phase_transition` is `null`/,
+      'current focus must preserve the null pending_phase_transition reproducer',
+    );
+    assert.match(
+      currentFocusLine,
+      /MUST ship before BUG-60/,
+      'current focus must preserve BUG-52 before BUG-60 sequencing',
+    );
+    assert.match(
+      currentFocusLine,
+      /implementation waits for BUG-52 to ship/,
+      'current focus must keep BUG-60 implementation blocked behind BUG-52',
+    );
+  });
+
   it('keeps the current tester handoff line pointing at V1 through V5', () => {
     const roadmap = readRoadmap();
     const handoffLine = roadmap
