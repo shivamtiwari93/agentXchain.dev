@@ -2,8 +2,10 @@
  * HUMAN-ROADMAP open blocker guard.
  *
  * The current roadmap has two different open-blocker classes:
- *   - BUG-52/53/54/59/61/62 closure requires literal tester quote-back from
- *     the published package asks.
+ *   - BUG-52/53/54/61/62 closure requires literal tester quote-back from the
+ *     published package asks.
+ *   - BUG-59 is shipped and checked, but its tester quote-back still gates
+ *     BUG-60 implementation.
  *   - BUG-60 is not in that quote-back-only class; it is blocked behind
  *     BUG-52 + BUG-59 shipped-package quote-back and its own two-agent
  *     research/review gate before implementation.
@@ -94,6 +96,38 @@ describe('HUMAN-ROADMAP open blocker status', () => {
       bug60,
       /Do NOT skip the research turns/,
       'BUG-60 must preserve the no-shortcut research-turn warning',
+    );
+  });
+
+  it('keeps BUG-59 shipped-but-still-gating-BUG-60 status explicit', () => {
+    const roadmap = readRoadmap();
+    const uncheckedBug59 = roadmap.search(/^- \[ \] \*\*BUG-59(?::|\b)/m);
+    const checkedBug59 = roadmap.search(/^- \[x\] \*\*BUG-59(?::|\b)/m);
+
+    assert.equal(
+      uncheckedBug59,
+      -1,
+      'BUG-59 must not regress into an unchecked roadmap blocker; its remaining role is BUG-60 gating evidence',
+    );
+    assert.notEqual(checkedBug59, -1, 'BUG-59 must remain present as a checked shipped item');
+
+    const next = roadmap.indexOf('\n- [', checkedBug59 + 1);
+    const bug59 = roadmap.slice(checkedBug59, next === -1 ? roadmap.length : next);
+
+    assert.match(
+      bug59,
+      /Shipped 2026-04-21 in `agentxchain@2\.151\.0`/,
+      'BUG-59 checked item must preserve the shipped-package baseline',
+    );
+    assert.match(
+      bug59,
+      /Tester quote-back is still required before BUG-60 implementation starts/,
+      'BUG-59 checked item must preserve its BUG-60 gating quote-back requirement',
+    );
+    assert.match(
+      bug59,
+      /BUG-52 third variant/,
+      'BUG-59 checked item must preserve the BUG-52 third-variant distinction',
     );
   });
 
