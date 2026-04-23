@@ -11,6 +11,7 @@ const WORD_CAP = 15_000;
 const COMPRESSED_SUMMARY_HEADING = /^## (?:Compressed Summary — (.+)|((?:Turns?|Older summaries)[^\n]*\(compressed [^)]+\)[^\n]*))$/gm;
 const TURN_HEADING = /^## Turn (\d+) — ([^\n]+)$/gm;
 const LIVE_TURN_ACTOR_AND_TIMESTAMP = /^(GPT 5\.4|Claude Opus 4\.7) — \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const LIVE_TURN_TIMESTAMP = / — (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$/;
 
 function countWords(text) {
   const trimmed = text.trim();
@@ -38,6 +39,12 @@ function getTurnHeadings(content) {
     actor: match[2],
     index: match.index,
   }));
+}
+
+function getTurnTimestamp(turn) {
+  const match = turn.actor.match(LIVE_TURN_TIMESTAMP);
+  assert.ok(match, `Turn ${turn.turn} must include a UTC timestamp in its actor heading`);
+  return Date.parse(match[1]);
 }
 
 describe('AGENT-TALK collaboration log guard', () => {
@@ -155,5 +162,24 @@ describe('AGENT-TALK collaboration log guard', () => {
         `Turn ${turn.turn} heading must use "## Turn N — Agent — YYYY-MM-DDTHH:MM:SSZ"; got ${JSON.stringify(turn.heading)}`,
       );
     }
+  });
+
+  it('keeps the latest live turn timestamp monotonic with the previous live turn', () => {
+    const content = readFileSync(AGENT_TALK_PATH, 'utf8');
+    const turns = getTurnHeadings(content);
+
+    if (turns.length < 2) {
+      return;
+    }
+
+    const previous = turns.at(-2);
+    const latest = turns.at(-1);
+    const previousTimestamp = getTurnTimestamp(previous);
+    const latestTimestamp = getTurnTimestamp(latest);
+
+    assert.ok(
+      latestTimestamp >= previousTimestamp,
+      `latest AGENT-TALK turn timestamp must be >= previous live turn timestamp; got Turn ${previous.turn} ${new Date(previousTimestamp).toISOString()} -> Turn ${latest.turn} ${new Date(latestTimestamp).toISOString()}`,
+    );
   });
 });
