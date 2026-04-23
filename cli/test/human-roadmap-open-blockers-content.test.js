@@ -192,6 +192,32 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
   });
 
+  it('keeps BUG-52 agent-side implementation status distinct from tester quote-back closure', () => {
+    const roadmap = readRoadmap();
+    const bug52 = extractRoadmapItem(roadmap, 'BUG-52');
+
+    assert.match(
+      bug52,
+      /Agent-side implementation surfaces are complete in `agentxchain@2\.154\.7`/,
+      'BUG-52 must preserve that the agent-side implementation already shipped in the current target package',
+    );
+    assert.match(
+      bug52,
+      /Turn 274[\s\S]{0,240}`unblock`[\s\S]{0,240}`pending_phase_transition` is `null`/,
+      'BUG-52 must preserve the delegated-unblock command-surface convergence work',
+    );
+    assert.match(
+      bug52,
+      /Turn 276[\s\S]{0,240}`phase_reconciled` session checkpoint/,
+      'BUG-52 must preserve the session checkpoint cleanup work',
+    );
+    assert.match(
+      bug52,
+      /BUG-52 remains unchecked only because literal tester quote-back[\s\S]{0,180}TESTER_QUOTEBACK_ASK_V1\.md/,
+      'BUG-52 must remain open for quote-back only, not because implementation status is unknown',
+    );
+  });
+
   it('keeps quote-back closure language visible on the other still-open blocker asks', () => {
     const roadmap = readRoadmap();
     const bugToExpectedAsk = new Map([
