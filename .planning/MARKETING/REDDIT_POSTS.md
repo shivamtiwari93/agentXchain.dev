@@ -4,7 +4,7 @@
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suite / 0 failures / 0 skipped
+> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suites / 0 failures / 0 skipped
 
 ---
 

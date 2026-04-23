@@ -11,7 +11,7 @@
 - BUG-61, BUG-62, BUG-54, BUG-59, and BUG-53 remain open pending their existing tester quote-back contracts.
 
 ### Evidence
-- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suite / 0 failures / 0 skipped
+- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suites / 0 failures / 0 skipped
 
 ## 2.154.8
 
