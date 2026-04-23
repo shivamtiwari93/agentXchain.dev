@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.154.8
+
+### Bug Fixes
+- **BUG-52 escalation-turn recovery**: `agentxchain unblock <hesc>` now evaluates the turn tied to the open human escalation before falling back to `last_completed_turn_id`. This closes the tusq.dev quote-back failure where a stale completed-turn pointer caused operator approval to redispatch PM in `planning` instead of advancing the satisfied `planning_signoff` gate to `implementation`.
+- **BUG-52 gate approval audit**: standing gate recovery events now carry `gate_id` and `requested_by_turn`, so tester quote-backs can prove which PM turn received human approval.
+- **Vitest slice contract cleanup**: `local-cli-adapter.test.js` no longer statically imports `node:child_process`, keeping the node:test-only subprocess test out of the Vitest-included static dependency surface.
+
+### Status
+- `v2.154.8` supersedes `v2.154.7` for BUG-52 tusq.dev tester quote-back. BUG-52 still closes only after tester-quoted shipped-package output showing `unblock` advances to implementation, marks `planning_signoff` passed, dispatches `dev`, attributes the gate approval to the escalation-linked PM turn, and does not require ghost recovery.
+- BUG-61, BUG-62, BUG-54, BUG-59, and BUG-53 remain open pending their existing tester quote-back contracts.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js && node --test cli/test/vitest-contract.test.js -> 26 tests / 3 suites / 0 failures / 0 skipped
+
 ## 2.154.7
 
 ### Bug Fixes
