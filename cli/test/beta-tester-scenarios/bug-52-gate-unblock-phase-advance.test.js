@@ -1058,6 +1058,103 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch PM after approval');
   });
 
+  it('Turn 277: unblock uses escalation turn when last_completed_turn_id is stale', () => {
+    // tusq.dev beta quote-back on 2.154.7: the open human escalation was tied
+    // to the PM planning-signoff turn, but `last_completed_turn_id` pointed at
+    // an unrelated older turn. The standing-gate discriminator trusted only
+    // `last_completed_turn_id`, skipped phase reconciliation, and redispatched
+    // PM in planning. `unblock <hesc>` must evaluate the escalation turn first.
+    const { root, config, state } = createProject();
+
+    const assign = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    writeFileSync(
+      join(root, '.planning', 'SYSTEM_SPEC.md'),
+      '# System Spec\n\n## Purpose\n\nPlan the implementation handoff.\n\n## Interface\n\nPM artifacts.\n\n## Acceptance Tests\n\n- [x] Dev can start implementation.\n',
+    );
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'needs_human',
+      needs_human_reason: 'Planning complete; awaiting operator sign-off on planning_signoff gate',
+      summary: 'Planning artifacts drafted, escalating to human for gate approval',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: ['.planning/ROADMAP.md', '.planning/PM_SIGNOFF.md', '.planning/SYSTEM_SPEC.md'],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const staleTurnId = 'turn_stale_launch_marker';
+    const blocked = readState(root);
+    const history = readHistory(root);
+    writeHistory(root, [
+      ...history,
+      {
+        turn_id: staleTurnId,
+        run_id: state.run_id,
+        role: 'product_marketing',
+        assigned_role: 'product_marketing',
+        status: 'completed',
+        accepted_at: new Date().toISOString(),
+        phase: 'launch',
+        proposed_next_role: 'human',
+        phase_transition_request: null,
+        verification: { status: 'pass' },
+      },
+    ]);
+    writeState(root, {
+      ...blocked,
+      last_completed_turn_id: staleTurnId,
+      pending_phase_transition: null,
+      queued_phase_transition: null,
+      last_gate_failure: null,
+      phase_gate_status: {
+        ...(blocked.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {},
+    });
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(
+      unblocked.status,
+      0,
+      `unblock must use the escalation turn instead of stale last_completed_turn_id:\n${unblocked.stdout}\n${unblocked.stderr}`,
+    );
+
+    const finalState = readState(root);
+    const activeTurn = Object.values(finalState.active_turns || {})[0] || null;
+    assert.equal(finalState.phase, 'implementation', 'phase must advance using the escalation-linked PM turn');
+    assert.equal(finalState.phase_gate_status?.planning_signoff, 'passed', 'planning gate must be marked passed after unblock');
+    assert.equal(activeTurn?.assigned_role, 'dev', 'next dispatch must target dev, not another PM');
+    assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch PM after approval');
+
+    const events = readEvents(root);
+    const approved = events.find((entry) => entry.event_type === 'gate_approved'
+      && entry.payload?.gate_id === 'planning_signoff'
+      && entry.payload?.requested_by_turn === turnId);
+    assert.ok(approved, 'gate approval audit must be attributed to the escalation-linked PM turn');
+  });
+
   it('Turn 274: approve-transition explains pending standing gate with no prepared transition', () => {
     // HUMAN-ROADMAP BUG-52 third-variant command-surface inconsistency:
     // `gate show planning_signoff` can truthfully report a pending human gate

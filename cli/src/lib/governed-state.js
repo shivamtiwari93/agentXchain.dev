@@ -1605,7 +1605,7 @@ function resolvePhaseTransitionSource(historyEntries, gateFailure, fallbackTurnI
   return requestedSource;
 }
 
-function buildStandingPhaseTransitionSource(state, config) {
+function buildStandingPhaseTransitionSource(state, config, opts = {}) {
   const phase = state?.phase;
   const routing = phase ? config?.routing?.[phase] : null;
   const gateId = routing?.exit_gate || null;
@@ -1617,7 +1617,7 @@ function buildStandingPhaseTransitionSource(state, config) {
     return null;
   }
   return {
-    turn_id: state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null,
+    turn_id: opts?.turn_id || state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null,
     run_id: state?.run_id || null,
     role: null,
     assigned_role: null,
@@ -2746,7 +2746,9 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null, 
     currentState.queued_phase_transition || null,
   );
   if (!phaseSource?.phase_transition_request && opts?.allow_standing_gate === true) {
-    phaseSource = buildStandingPhaseTransitionSource(currentState, config);
+    phaseSource = buildStandingPhaseTransitionSource(currentState, config, {
+      turn_id: opts?.standing_gate_turn_id || null,
+    });
   }
   if (!phaseSource?.phase_transition_request) {
     return {
@@ -6154,17 +6156,26 @@ export function approvePhaseTransition(root, config, opts = {}) {
     run_id: updatedState.run_id,
     phase: updatedState.phase,
     status: 'active',
-    payload: { gate_type: 'phase_transition', from: transition.from, to: transition.to },
+    turn: transition.requested_by_turn ? { turn_id: transition.requested_by_turn, role_id: null } : undefined,
+    payload: {
+      gate_id: transition.gate || null,
+      gate_type: 'phase_transition',
+      from: transition.from,
+      to: transition.to,
+      requested_by_turn: transition.requested_by_turn || null,
+    },
   });
   emitRunEvent(root, 'phase_entered', {
     run_id: updatedState.run_id,
     phase: updatedState.phase,
     status: 'active',
+    turn: transition.requested_by_turn ? { turn_id: transition.requested_by_turn, role_id: null } : undefined,
     payload: {
       from: transition.from,
       to: transition.to,
       gate_id: transition.gate || 'no_gate',
       trigger: 'human_approved',
+      requested_by_turn: transition.requested_by_turn || null,
     },
   });
   emitRunEvent(root, 'phase_cleanup', {

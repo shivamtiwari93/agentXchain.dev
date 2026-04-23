@@ -1,6 +1,5 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -484,6 +483,7 @@ exec sleep 30
         }
       `);
 
+      const { execFileSync } = await import('node:child_process');
       assert.doesNotThrow(() => {
         execFileSync(process.execPath, [helperPath, root], {
           cwd: root,

@@ -92,8 +92,8 @@ function turnContributedToHumanApprovalGateArtifacts(root, state, config, entry)
   return true;
 }
 
-function latestCompletedTurnWantsPhaseContinuation(root, state, config) {
-  const turnId = state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null;
+function latestCompletedTurnWantsPhaseContinuation(root, state, config, opts = {}) {
+  const turnId = opts?.turnId || state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null;
   if (!turnId) return false;
   const historyPath = join(root, config?.files?.history || '.agentxchain/history.jsonl');
   if (!existsSync(historyPath)) return false;
@@ -253,7 +253,7 @@ export async function resumeCommand(opts) {
     state.status === 'blocked'
     && resumeVia === 'operator_unblock'
     && hasStandingPendingExitGate(state, config)
-    && latestCompletedTurnWantsPhaseContinuation(root, state, config)
+    && latestCompletedTurnWantsPhaseContinuation(root, state, config, { turnId: opts.turn || null })
   ) {
     const reactivated = reactivateGovernedRun(root, state, { via: resumeVia, notificationConfig: config });
     if (!reactivated.ok) {
@@ -272,6 +272,7 @@ export async function resumeCommand(opts) {
     const phaseReconciliation = reconcilePhaseAdvanceBeforeDispatch(root, config, state, {
       allow_active_turn_cleanup: true,
       allow_standing_gate: true,
+      standing_gate_turn_id: opts.turn || null,
     });
     if (!phaseReconciliation.ok && !phaseReconciliation.state) {
       console.log(chalk.red(`Failed to reconcile phase gate before dispatch: ${phaseReconciliation.error}`));
