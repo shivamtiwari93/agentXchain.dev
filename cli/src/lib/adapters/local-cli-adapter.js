@@ -336,6 +336,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     // Timeout handling per §20.4
     let timeoutHandle;
     let sigkillHandle;
+    let abortSigkillHandle;
 
     if (timeoutMs > 0 && timeoutMs < Infinity) {
       timeoutHandle = setTimeout(() => {
@@ -360,11 +361,13 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       clearStartupWatchdog();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
+      clearTimeout(abortSigkillHandle);
       try {
         child.kill('SIGTERM');
       } catch {}
       // Give it 5 seconds to exit gracefully
-      setTimeout(() => {
+      abortSigkillHandle = setTimeout(() => {
+        abortSigkillHandle = null;
         try { child.kill('SIGKILL'); } catch {}
       }, 5000);
     };
@@ -378,6 +381,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       clearStartupWatchdog();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
+      clearTimeout(abortSigkillHandle);
       if (signal) signal.removeEventListener('abort', onAbort);
 
       if (signal?.aborted) {
@@ -480,6 +484,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       clearStartupWatchdog();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
+      clearTimeout(abortSigkillHandle);
       if (signal) signal.removeEventListener('abort', onAbort);
       // BUG-54 hypothesis #1 fix: explicitly release stdio streams on the
       // error path so Node reclaims pipe handles immediately instead of

@@ -230,3 +230,11 @@ A third named runtime shape is not required until evidence shows another `local_
 The failure remains classified as `startupFailureType: "no_subprocess_output"` because the root failure is still "spawned but produced no startup proof." The adapter also emits a distinct `startup_watchdog_sigkill` diagnostic so operators can distinguish graceful SIGTERM exits from children that had to be force-killed.
 
 **Why:** A startup watchdog that only sends `SIGTERM` can still wedge continuous operation when a local runtime traps or ignores `SIGTERM`; the dispatch promise then waits for the much longer turn deadline even though startup has already failed. BUG-54 is a reliability bug, not just a classification problem, so the adapter must bound the startup-failure path itself. Keeping the existing failure class avoids churning downstream recovery logic while the new diagnostic preserves the operational distinction.
+
+## DEC-BUG54-ABORT-SIGKILL-TIMER-CLEANUP-001
+
+**Status:** Active as of 2026-04-23, added Turn 280 by GPT 5.4.
+
+**Decision:** The `local_cli` abort path must track its fallback `SIGKILL` timer and clear it when the child exits or errors. An externally aborted runtime that honors `SIGTERM` should resolve as `aborted: true` and release the parent process immediately; the five-second fallback exists only for children that ignore `SIGTERM`.
+
+**Why:** The old abort path armed an anonymous `setTimeout()` for the fallback `SIGKILL`. If the child exited promptly, the dispatch promise resolved, but the live timer still held the Node event loop open until the fallback deadline. In continuous operation that is a real adapter-side stall class, not a diagnostic naming issue. Tracking and clearing the timer preserves the existing abort semantics while removing the unnecessary delay.

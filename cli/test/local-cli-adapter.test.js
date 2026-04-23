@@ -1,9 +1,11 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
+import { pathToFileURL } from 'node:url';
 
 import {
   dispatchLocalCli,
@@ -411,6 +413,84 @@ exec sleep 30
 
       assert.equal(result.ok, false);
       assert.equal(result.aborted, true);
+    });
+
+    it('clears abort SIGKILL timer after a subprocess exits on SIGTERM', () => {
+      const root = createAndTrack();
+      const helperPath = join(root, '_abort_sigkill_timer_helper.mjs');
+      const childPath = join(root, '_abort_graceful_child.js');
+      const adapterUrl = pathToFileURL(join(import.meta.dirname, '..', 'src', 'lib', 'adapters', 'local-cli-adapter.js')).href;
+      const bundleUrl = pathToFileURL(join(import.meta.dirname, '..', 'src', 'lib', 'dispatch-bundle.js')).href;
+
+      writeFileSync(childPath, 'setInterval(() => {}, 1000);');
+      writeFileSync(helperPath, `
+        import { dispatchLocalCli } from ${JSON.stringify(adapterUrl)};
+        import { writeDispatchBundle } from ${JSON.stringify(bundleUrl)};
+
+        const root = process.argv[2];
+        const childPath = ${JSON.stringify(childPath)};
+        const state = {
+          run_id: 'run_abort_timer',
+          status: 'active',
+          phase: 'implementation',
+          accepted_integration_ref: 'git:abc123',
+          current_turn: {
+            turn_id: 'turn_abort_timer',
+            assigned_role: 'dev',
+            status: 'running',
+            attempt: 1,
+            started_at: new Date().toISOString(),
+            deadline_at: new Date(Date.now() + 600000).toISOString(),
+            runtime_id: 'local-dev',
+          },
+          budget_status: { spent_usd: 0, remaining_usd: 50 },
+          phase_gate_status: {},
+        };
+        const config = {
+          schema_version: 4,
+          protocol_mode: 'governed',
+          project: { id: 'test-project', name: 'Test', default_branch: 'main' },
+          roles: {
+            dev: {
+              title: 'Developer',
+              mandate: 'Implement approved work.',
+              write_authority: 'authoritative',
+              runtime_class: 'local_cli',
+              runtime_id: 'local-dev',
+            },
+          },
+          runtimes: {
+            'local-dev': {
+              type: 'local_cli',
+              command: ['node', childPath],
+              cwd: '.',
+            },
+          },
+          routing: {
+            implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'] },
+          },
+          gates: {},
+          budget: { per_turn_max_usd: 2.0, per_run_max_usd: 50.0 },
+          rules: { challenge_required: true, max_turn_retries: 2 },
+        };
+
+        writeDispatchBundle(root, state, config);
+        const ac = new AbortController();
+        setTimeout(() => ac.abort(), 50);
+        const result = await dispatchLocalCli(root, state, config, { signal: ac.signal });
+        if (!result.aborted) {
+          console.error(JSON.stringify(result, null, 2));
+          process.exit(2);
+        }
+      `);
+
+      assert.doesNotThrow(() => {
+        execFileSync(process.execPath, [helperPath, root], {
+          cwd: root,
+          timeout: 2500,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      }, 'helper process must exit promptly after abort; stale abort SIGKILL timers hold it open');
     });
 
     it('handles pre-aborted signal', async () => {

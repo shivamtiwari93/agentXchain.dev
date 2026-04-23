@@ -58,6 +58,11 @@ defect. It makes the failure observable enough to reproduce and distinguish:
   enforce a bounded `SIGKILL` grace path if the subprocess ignores `SIGTERM`.
   The startup watchdog path must not wait for the full turn deadline after it
   has already decided startup failed.
+- When the dispatch is externally aborted, the adapter must send `SIGTERM`,
+  arm the existing abort `SIGKILL` fallback, and clear that fallback as soon as
+  the child exits or errors. A child that honors `SIGTERM` must not leave a
+  stale timer holding the parent event loop open after `dispatchLocalCli()`
+  resolves.
 - Existing stderr capture remains intact. Structured diagnostics are additive,
   not a replacement for raw stderr lines.
 - Diagnostics must fail closed on secrets:
@@ -73,6 +78,9 @@ defect. It makes the failure observable enough to reproduce and distinguish:
 - Spawn-but-silent subprocesses that ignore `SIGTERM` must be killed by the
   startup-watchdog `SIGKILL` grace path and still return `no_subprocess_output`
   promptly instead of hanging until the much longer turn deadline.
+- Aborted subprocesses that exit promptly on `SIGTERM` must clear the abort
+  fallback timer instead of delaying the CLI process until the fallback's
+  five-second `SIGKILL` deadline.
 - Stdin `EPIPE` / broken-pipe paths must be logged instead of swallowed.
 - Missing optional env keys must serialize as absent, not as errors.
 
@@ -87,6 +95,8 @@ defect. It makes the failure observable enough to reproduce and distinguish:
   - spawn-but-silent subprocess that ignores `SIGTERM` emits
     `startup_watchdog_sigkill`, returns before the turn deadline, and records
     `process_exit.exit_signal: 'SIGKILL'`
+  - an aborted subprocess that exits on `SIGTERM` lets a helper Node process
+    terminate promptly instead of staying alive for the abort fallback timer
   - stderr-only natural exit preserves `watchdog_fired: false`,
     `exit_signal: null`, and `first_output_stream: null`
   - staged-result proof preserves `first_output_stream: 'staged_result'`
