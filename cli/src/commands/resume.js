@@ -65,31 +65,38 @@ function entrySatisfiesSyntheticGateVerification(gate, entry) {
   return verificationStatus === 'pass' || verificationStatus === 'attested_pass';
 }
 
-function turnContributedToHumanApprovalGateArtifacts(root, state, config, entry) {
-  // Returns true only when the accepted turn itself produced at least one of
-  // the phase exit gate's required_files AND all required_files are present
-  // on disk. This distinguishes a PM turn that finished phase work and
-  // escalated for final sign-off (BUG-52 third variant) from a generic
-  // escalation where the agent blocked BEFORE writing gate artifacts
-  // (schedule-daemon `needs_decision` fixture).
+function evaluateHumanApprovalGateArtifacts(root, state, config, entry) {
+  // Returns the artifact readiness shape for a human-required phase exit gate.
+  // A turn can be a valid standing-gate source either by producing one of the
+  // required files, or by re-verifying already-complete gate artifacts as the
+  // phase entry role before escalating to the human reviewer.
   const phase = state?.phase;
   const gateId = phase ? config?.routing?.[phase]?.exit_gate : null;
-  if (!gateId) return false;
+  if (!gateId) return { ready: false, contributed: false, entryRole: false };
   const gate = config?.gates?.[gateId];
   if (!gate || !Array.isArray(gate.requires_files) || gate.requires_files.length === 0) {
-    return false;
+    return { ready: false, contributed: false, entryRole: false };
   }
-  if (!gate.requires_human_approval) return false;
+  if (!gate.requires_human_approval) return { ready: false, contributed: false, entryRole: false };
   const filesChanged = Array.isArray(entry?.files_changed) ? entry.files_changed : [];
   const required = gate.requires_files.filter((p) => typeof p === 'string' && p.trim());
-  if (required.length === 0) return false;
+  if (required.length === 0) return { ready: false, contributed: false, entryRole: false };
   const changedSet = new Set(filesChanged.filter((p) => typeof p === 'string'));
   const contributed = required.some((relPath) => changedSet.has(relPath));
-  if (!contributed) return false;
-  for (const relPath of required) {
-    if (!existsSync(join(root, relPath))) return false;
-  }
-  return true;
+  const ready = required.every((relPath) => existsSync(join(root, relPath)));
+  const entryRole = Boolean(config?.routing?.[phase]?.entry_role)
+    && (entry?.role === config.routing[phase].entry_role || entry?.assigned_role === config.routing[phase].entry_role);
+  return { ready, contributed, entryRole };
+}
+
+function turnCanApproveHumanGateFromEscalation(root, state, config, entry, proposed) {
+  const artifacts = evaluateHumanApprovalGateArtifacts(root, state, config, entry);
+  if (!artifacts.ready) return false;
+  if (artifacts.contributed) return true;
+  // tusq.dev BUG-52 real shape: PM re-verified already-complete planning
+  // artifacts, changed no files by design, and escalated to human because the
+  // gate requires human approval. The human unblock is the gate approval.
+  return proposed === 'human' && artifacts.entryRole;
 }
 
 function latestCompletedTurnWantsPhaseContinuation(root, state, config, opts = {}) {
@@ -130,7 +137,7 @@ function latestCompletedTurnWantsPhaseContinuation(root, state, config, opts = {
     if (
       entry.status === 'needs_human'
       && entrySatisfiesSyntheticGateVerification(standingGate, entry)
-      && turnContributedToHumanApprovalGateArtifacts(root, state, config, entry)
+      && turnCanApproveHumanGateFromEscalation(root, state, config, entry, proposed)
     ) {
       return true;
     }
