@@ -93,10 +93,31 @@ function turnCanApproveHumanGateFromEscalation(root, state, config, entry, propo
   const artifacts = evaluateHumanApprovalGateArtifacts(root, state, config, entry);
   if (!artifacts.ready) return false;
   if (artifacts.contributed) return true;
+  const phase = state?.phase;
+  const gateId = phase ? config?.routing?.[phase]?.exit_gate : null;
+  const gateApprovalText = [
+    entry?.summary,
+    entry?.needs_human_reason,
+    entry?.verification?.evidence_summary,
+    state?.blocked_on,
+    state?.blocked_reason?.recovery?.detail,
+    ...(Array.isArray(entry?.decisions)
+      ? entry.decisions.flatMap((decision) => [decision?.statement, decision?.rationale])
+      : []),
+  ]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join('\n')
+    .toLowerCase();
+  const referencesHumanGateApproval = Boolean(gateId)
+    && (
+      gateApprovalText.includes(gateId.toLowerCase())
+      || (gateApprovalText.includes('gate') && gateApprovalText.includes('human approval'))
+      || (gateApprovalText.includes('gate') && gateApprovalText.includes('human-required'))
+    );
   // tusq.dev BUG-52 real shape: PM re-verified already-complete planning
   // artifacts, changed no files by design, and escalated to human because the
   // gate requires human approval. The human unblock is the gate approval.
-  return proposed === 'human' && artifacts.entryRole;
+  return proposed === 'human' && artifacts.entryRole && referencesHumanGateApproval;
 }
 
 function latestCompletedTurnWantsPhaseContinuation(root, state, config, opts = {}) {
