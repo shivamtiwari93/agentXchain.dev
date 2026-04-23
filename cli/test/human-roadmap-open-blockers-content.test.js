@@ -22,6 +22,33 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const HUMAN_ROADMAP_PATH = join(REPO_ROOT, '.planning', 'HUMAN-ROADMAP.md');
+const TESTER_QUOTEBACK_ASKS = [
+  {
+    path: '.planning/TESTER_QUOTEBACK_ASK_V1.md',
+    bugs: ['BUG-52'],
+    evidence: ['seven fields', 'BUG_52_TESTER_QUOTEBACK_RUNBOOK.md'],
+  },
+  {
+    path: '.planning/TESTER_QUOTEBACK_ASK_V2.md',
+    bugs: ['BUG-59', 'BUG-54'],
+    evidence: ['five evidence blocks', 'ten real adapter-path dispatches'],
+  },
+  {
+    path: '.planning/TESTER_QUOTEBACK_ASK_V3.md',
+    bugs: ['BUG-62'],
+    evidence: ['three evidence blocks', 'reconcile-state --accept-operator-head'],
+  },
+  {
+    path: '.planning/TESTER_QUOTEBACK_ASK_V4.md',
+    bugs: ['BUG-61'],
+    evidence: ['one or both of the evidence blocks', 'auto_retry_on_ghost'],
+  },
+  {
+    path: '.planning/TESTER_QUOTEBACK_ASK_V5_BUG53.md',
+    bugs: ['BUG-53'],
+    evidence: ['evidence blocks below', 'session_continuation'],
+  },
+];
 
 function readRoadmap() {
   return readFileSync(HUMAN_ROADMAP_PATH, 'utf8');
@@ -193,6 +220,39 @@ describe('HUMAN-ROADMAP open blocker status', () => {
         new RegExp(askPath),
         `top-of-file handoff must point at ${askPath}`,
       );
+    }
+  });
+
+  it('keeps tester quote-back ask files aligned with their open-blocker closure lanes', () => {
+    for (const ask of TESTER_QUOTEBACK_ASKS) {
+      const content = readFileSync(join(REPO_ROOT, ask.path), 'utf8');
+
+      assert.match(
+        content,
+        /Target package: `agentxchain@2\.154\.7` or later/,
+        `${ask.path} must preserve the current shipped-package floor`,
+      );
+      assert.match(
+        content,
+        /Do not paraphrase|literal command output|literal event output|literal output/i,
+        `${ask.path} must preserve the literal quote-back requirement`,
+      );
+      assert.match(
+        content,
+        /When valid quote-back lands[\s\S]{0,120}update `.planning\/HUMAN-ROADMAP\.md`/,
+        `${ask.path} must preserve the roadmap closure instruction`,
+      );
+
+      for (const bugId of ask.bugs) {
+        assert.match(content, new RegExp(bugId), `${ask.path} must name ${bugId}`);
+      }
+      for (const evidencePhrase of ask.evidence) {
+        assert.match(
+          content,
+          new RegExp(evidencePhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+          `${ask.path} must preserve evidence phrase ${JSON.stringify(evidencePhrase)}`,
+        );
+      }
     }
   });
 });
