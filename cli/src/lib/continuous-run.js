@@ -790,10 +790,15 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   }
 
   const activeGovernedState = loadProjectState(root, context.config);
+  const queuedIntent = session.current_run_id
+    ? findNextDispatchableIntent(root, { run_id: session.current_run_id })
+    : { ok: false };
   if (
     session.current_run_id
     && activeGovernedState?.status === 'active'
     && activeGovernedState.run_id === session.current_run_id
+    && !contOpts.continueFrom
+    && !queuedIntent.ok
   ) {
     log('Continuing active governed run.');
     let execution;
@@ -854,7 +859,9 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   }
 
   // Step 1: Check intake queue for pending work (BUG-34: scope to current run)
-  const queued = findNextDispatchableIntent(root, { run_id: session.current_run_id });
+  const queued = queuedIntent.ok
+    ? queuedIntent
+    : findNextDispatchableIntent(root, { run_id: session.current_run_id });
   let targetIntentId = null;
   let visionObjective = null;
 
