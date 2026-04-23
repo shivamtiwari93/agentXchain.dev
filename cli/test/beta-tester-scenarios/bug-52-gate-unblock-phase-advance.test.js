@@ -129,7 +129,7 @@ function makeQaLaunchConfig() {
   };
 }
 
-function makeLaunchCompletionConfig() {
+function makeLaunchCompletionConfig({ requiresHumanApproval = true } = {}) {
   return {
     schema_version: '1.0',
     protocol_mode: 'governed',
@@ -157,7 +157,7 @@ function makeLaunchCompletionConfig() {
           '.planning/CONTENT_CALENDAR.md',
           '.planning/ANNOUNCEMENT.md',
         ],
-        requires_human_approval: true,
+        requires_human_approval: requiresHumanApproval,
       },
     },
     gate_semantic_coverage_mode: 'lenient',
@@ -217,6 +217,11 @@ function readEvents(root) {
   const raw = readFileSync(filePath, 'utf8').trim();
   if (!raw) return [];
   return raw.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+}
+
+function readContinuousSession(root) {
+  const filePath = join(root, '.agentxchain', 'continuous-session.json');
+  return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
 function readHumanEscalationId(root) {
@@ -1210,6 +1215,22 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.equal(blocked.phase, 'launch');
     assert.equal(blocked.phase_gate_status?.launch_ready, 'pending');
     assert.equal(blocked.pending_run_completion ?? null, null);
+    writeFileSync(join(root, '.agentxchain', 'continuous-session.json'), JSON.stringify({
+      session_id: 'cont_bug52_launch_completion',
+      started_at: new Date().toISOString(),
+      vision_path: '.planning/VISION.md',
+      runs_completed: 0,
+      max_runs: 10,
+      idle_cycles: 0,
+      max_idle_cycles: 3,
+      current_run_id: state.run_id,
+      current_vision_objective: 'Ship launch-ready release',
+      status: 'paused',
+      per_session_max_usd: null,
+      cumulative_spent_usd: 0,
+      budget_exhausted: false,
+      startup_reconciled_run_id: state.run_id,
+    }, null, 2));
 
     const escalationId = readHumanEscalationId(root);
     const unblocked = runCli(root, ['unblock', escalationId]);
@@ -1229,6 +1250,87 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     const events = readEvents(root);
     assert.ok(events.some((entry) => entry.event_type === 'gate_approved' && entry.payload?.gate_type === 'run_completion'));
     assert.ok(events.some((entry) => entry.event_type === 'run_completed'));
+
+    const session = readContinuousSession(root);
+    assert.equal(session.status, 'completed', 'paused continuous session must be terminalized after out-of-band completion');
+    assert.equal(session.runs_completed, 1, 'out-of-band completion must count the completed blocked run');
+  });
+
+  it('unblock emits gate_approved and terminalizes the paused session when the final standing gate does not require explicit approval', () => {
+    const { root, config, state } = createProject(makeLaunchCompletionConfig({ requiresHumanApproval: false }));
+
+    writeFileSync(join(root, '.planning', 'MESSAGING.md'), '# Messaging\n\nLaunch copy is ready.\n');
+    writeFileSync(join(root, '.planning', 'LAUNCH_PLAN.md'), '# Launch Plan\n\nShip the accepted release.\n');
+    writeFileSync(join(root, '.planning', 'CONTENT_CALENDAR.md'), '# Content Calendar\n\n- Launch post\n');
+    writeFileSync(join(root, '.planning', 'ANNOUNCEMENT.md'), '# Announcement\n\nReady to announce.\n');
+    execSync('git add .planning && git commit -m "seed launch artifacts"', { cwd: root, stdio: 'ignore' });
+
+    const assign = assignGovernedTurn(root, config, 'product_marketing');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'product_marketing',
+      runtime_id: 'manual-product-marketing',
+      status: 'needs_human',
+      needs_human_reason: 'Launch artifacts are complete; operator should unblock and let standing-gate reconciliation finish the run',
+      summary: 'Re-verified complete launch_ready artifacts and requested run completion',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: [],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      run_completion_request: true,
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    writeFileSync(join(root, '.agentxchain', 'continuous-session.json'), JSON.stringify({
+      session_id: 'cont_bug52_direct_completion',
+      started_at: new Date().toISOString(),
+      vision_path: '.planning/VISION.md',
+      runs_completed: 0,
+      max_runs: 10,
+      idle_cycles: 0,
+      max_idle_cycles: 3,
+      current_run_id: state.run_id,
+      current_vision_objective: 'Ship launch-ready release',
+      status: 'paused',
+      per_session_max_usd: null,
+      cumulative_spent_usd: 0,
+      budget_exhausted: false,
+      startup_reconciled_run_id: state.run_id,
+    }, null, 2));
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(unblocked.status, 0, `unblock failed:\n${unblocked.stdout}\n${unblocked.stderr}`);
+
+    const finalState = readState(root);
+    assert.equal(finalState.status, 'completed');
+    assert.equal(finalState.phase_gate_status?.launch_ready, 'passed');
+
+    const events = readEvents(root);
+    assert.ok(
+      events.some((entry) => entry.event_type === 'gate_approved'
+        && entry.payload?.gate_type === 'run_completion'
+        && entry.payload?.gate_id === 'launch_ready'),
+      'standing-gate run completion must emit a gate_approved audit row even on the direct completion path',
+    );
+    assert.ok(events.some((entry) => entry.event_type === 'run_completed'));
+
+    const session = readContinuousSession(root);
+    assert.equal(session.status, 'completed');
+    assert.equal(session.runs_completed, 1);
   });
 
   it('Turn 277: unblock uses escalation turn when last_completed_turn_id is stale', () => {

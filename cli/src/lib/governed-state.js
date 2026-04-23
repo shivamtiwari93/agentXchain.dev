@@ -89,6 +89,7 @@ const TALK_PATH = 'TALK.md';
 const ACCEPTANCE_LOCK_PATH = '.agentxchain/locks/accept-turn.lock';
 const ACCEPTANCE_JOURNAL_DIR = '.agentxchain/transactions/accept';
 const INTAKE_INTENTS_DIR = '.agentxchain/intake/intents';
+const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
 const STALE_LOCK_TIMEOUT_MS = 30_000;
 const GOVERNED_SCHEMA_VERSION = '1.1';
 
@@ -1653,6 +1654,35 @@ function buildStandingRunCompletionSource(state, config, opts = {}) {
   };
 }
 
+function syncPausedContinuousSessionAfterOutOfBandCompletion(root, completedState, opts = {}) {
+  const sessionPath = join(root, CONTINUOUS_SESSION_PATH);
+  if (!existsSync(sessionPath) || !completedState?.run_id) {
+    return null;
+  }
+
+  let session = null;
+  try {
+    session = JSON.parse(readFileSync(sessionPath, 'utf8'));
+  } catch {
+    return null;
+  }
+
+  if (!session || session.status !== 'paused' || session.current_run_id !== completedState.run_id) {
+    return session;
+  }
+
+  const nextSession = {
+    ...session,
+    status: 'completed',
+    runs_completed: Number.isInteger(session.runs_completed) ? session.runs_completed + 1 : 1,
+    idle_cycles: 0,
+    completed_at: completedState.completed_at || new Date().toISOString(),
+    completed_via: opts.completed_via || 'out_of_band_run_completion',
+  };
+  safeWriteJson(sessionPath, nextSession);
+  return nextSession;
+}
+
 function getPhaseRoles(config, phase) {
   const routing = config?.routing?.[phase] || {};
   const roles = new Set();
@@ -3110,6 +3140,9 @@ export function reconcileRunCompletionBeforeDispatch(root, config, state = null,
         payload: { completed_at: updatedState.completed_at },
       });
       writeSessionCheckpoint(root, updatedState, 'run_completed');
+      syncPausedContinuousSessionAfterOutOfBandCompletion(root, updatedState, {
+        completed_via: 'approval_policy_reconciled_before_dispatch',
+      });
       recordRunHistory(root, updatedState, config, 'completed');
       return {
         ok: true,
@@ -3179,6 +3212,18 @@ export function reconcileRunCompletionBeforeDispatch(root, config, state = null,
     gate: completionResult.gate_id || null,
     requested_by_turn: completionSource.turn_id || null,
   }, null);
+  emitRunEvent(root, 'gate_approved', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'completed',
+    turn: completionSource.turn_id ? { turn_id: completionSource.turn_id, role_id: completionSource.role || completionSource.assigned_role || null } : undefined,
+    payload: {
+      gate_type: 'run_completion',
+      gate_id: completionResult.gate_id || null,
+      requested_by_turn: completionSource.turn_id || null,
+      trigger: 'reconciled_before_dispatch',
+    },
+  });
   emitRunEvent(root, 'run_completed', {
     run_id: updatedState.run_id,
     phase: updatedState.phase,
@@ -3186,6 +3231,9 @@ export function reconcileRunCompletionBeforeDispatch(root, config, state = null,
     payload: { completed_at: updatedState.completed_at },
   });
   writeSessionCheckpoint(root, updatedState, 'run_completed');
+  syncPausedContinuousSessionAfterOutOfBandCompletion(root, updatedState, {
+    completed_via: 'reconciled_before_dispatch',
+  });
   recordRunHistory(root, updatedState, config, 'completed');
   return {
     ok: true,
@@ -6574,6 +6622,9 @@ export function approveRunCompletion(root, config, opts = {}) {
 
   // Session checkpoint — non-fatal
   writeSessionCheckpoint(root, updatedState, 'run_completed');
+  syncPausedContinuousSessionAfterOutOfBandCompletion(root, updatedState, {
+    completed_via: 'approve_run_completion',
+  });
 
   // Run history — non-fatal
   recordRunHistory(root, updatedState, config, 'completed');
