@@ -44,7 +44,8 @@ run:
 
 - `agentxchain status` reports `Phase: implementation` after `unblock`
 - `agentxchain gate show planning_signoff` reports `Status: passed`
-- `phase_entered` is present after `unblock`
+- `phase_entered` is present after `unblock` with a valid recovery trigger such
+  as `reconciled_before_dispatch`
 - `gate_approved.payload.requested_by_turn` matches the PM turn tied to the
   human escalation
 - the next active turn is assigned to `dev`
@@ -54,3 +55,25 @@ run:
 BUG-52 remains open until that shipped-package quote-back lands. BUG-61,
 BUG-62, BUG-54, BUG-59, and BUG-53 remain open under their existing shipped
 package closure contracts.
+
+For still-open BUG-54 and BUG-59 closure proof, pin to `agentxchain@2.154.8`
+or later and follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. That
+runbook covers the real adapter-path watchdog evidence (`startup_latency_ms`,
+`elapsed_since_spawn_ms`, and any `runtimes.<id>.startup_watchdog_ms` override)
+plus routine auto-approval ledger rows and credentialed hard-stop
+counter-evidence.
+
+For still-open BUG-53 closure proof, run the shipped package in continuous mode
+and quote `session_continuation` events across chained runs. A bounded idle run
+should end as `idle_exit`, not as a paused gate.
+
+For still-open BUG-55 regression proof, run `accept-turn` followed by
+`checkpoint-turn` on a turn that declares both product files and verification
+outputs. Include `verification.produced_files` with at least one artifact or
+ignored output, prove there are no `undeclared_verification_outputs`, and quote
+`git status --short` after checkpointing.
+
+Clean tree means BUG-55 is fixed for your reproduction.
+
+The key operator chain is `accept-turn` followed by `checkpoint-turn` against
+the same accepted turn.
