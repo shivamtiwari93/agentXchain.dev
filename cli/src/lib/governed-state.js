@@ -2801,6 +2801,7 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null, 
       const cleanup = cleanupPhaseAdvanceArtifacts(root, nextState, config, prevPhase);
       nextState = cleanup.state;
       writeState(root, nextState);
+      writeSessionCheckpoint(root, nextState, 'phase_reconciled');
       appendJsonl(root, LEDGER_PATH, {
         type: 'approval_policy',
         gate_type: 'phase_transition',
@@ -2919,6 +2920,7 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null, 
   nextState = cleanup.state;
 
   writeState(root, nextState);
+  writeSessionCheckpoint(root, nextState, 'phase_reconciled');
   const retiredIntentIds = retireApprovedPhaseScopedIntents(root, nextState, config, prevPhase, now);
   if (retiredIntentIds.length > 0) {
     emitRunEvent(root, 'intent_retired_by_phase_advance', {

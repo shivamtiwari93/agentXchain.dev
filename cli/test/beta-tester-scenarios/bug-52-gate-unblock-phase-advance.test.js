@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os';
 import {
   initializeGovernedRun,
   assignGovernedTurn,
+  reconcilePhaseAdvanceBeforeDispatch,
 } from '../../src/lib/governed-state.js';
 import { getDispatchTurnDir, getTurnStagingResultPath } from '../../src/lib/turn-paths.js';
 
@@ -575,6 +576,94 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
       && entry.payload?.from_phase === 'planning'
       && entry.payload?.removed_turn_ids?.includes(staleTurnId));
     assert.ok(cleanup, 'phase advance must emit phase_cleanup for the stale PM turn');
+  });
+
+  it('Turn 276: reconciled phase advance refreshes session checkpoint before any next dispatch', () => {
+    const config = makePlanningConfig();
+    config.gates.planning_signoff = {
+      requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+    };
+    const { root, state } = createProject(config);
+
+    const staleTurnId = 'turn_stale_pm_session';
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n- Ship implementation handoff\n');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    mkdirSync(join(root, getDispatchTurnDir(staleTurnId)), { recursive: true });
+    writeFileSync(join(root, getDispatchTurnDir(staleTurnId), 'PROMPT.md'), 'stale PM dispatch\n');
+
+    const acceptedAt = new Date().toISOString();
+    writeHistory(root, [{
+      turn_id: staleTurnId,
+      run_id: state.run_id,
+      role: 'pm',
+      assigned_role: 'pm',
+      status: 'completed',
+      accepted_at: acceptedAt,
+      phase: 'planning',
+      phase_transition_request: 'implementation',
+      verification: { status: 'pass' },
+    }]);
+    writeState(root, {
+      ...state,
+      status: 'active',
+      active_turns: {
+        [staleTurnId]: {
+          turn_id: staleTurnId,
+          run_id: state.run_id,
+          assigned_role: 'pm',
+          runtime_id: 'manual-pm',
+          status: 'dispatched',
+          attempt: 1,
+        },
+      },
+      budget_reservations: {
+        [staleTurnId]: { reserved_usd: 0.25, reason: 'stale tester-loop reservation' },
+      },
+      last_completed_turn_id: staleTurnId,
+      last_gate_failure: {
+        gate_id: 'planning_signoff',
+        gate_type: 'phase_transition',
+        requested_by_turn: staleTurnId,
+        requested_phase: 'implementation',
+        failed_at: acceptedAt,
+      },
+      phase_gate_status: {
+        ...(state.phase_gate_status || {}),
+        planning_signoff: 'failed',
+      },
+    });
+    writeFileSync(join(root, '.agentxchain', 'session.json'), JSON.stringify({
+      session_id: 'session_stale_pm',
+      run_id: state.run_id,
+      checkpoint_reason: 'turn_assigned',
+      run_status: 'active',
+      phase: 'planning',
+      active_turn_ids: [staleTurnId],
+    }, null, 2));
+
+    const result = reconcilePhaseAdvanceBeforeDispatch(root, config, null, {
+      allow_active_turn_cleanup: true,
+    });
+    assert.equal(result.ok, true, result.error);
+    assert.equal(result.advanced, true, 'reconciler must advance the now-satisfied planning gate');
+
+    const finalState = readState(root);
+    assert.equal(finalState.phase, 'implementation', 'state must advance before dispatch');
+    assert.equal(finalState.active_turns?.[staleTurnId], undefined, 'stale PM active turn must be cleared');
+    assert.equal(finalState.budget_reservations?.[staleTurnId], undefined, 'stale PM budget reservation must be cleared');
+
+    const session = JSON.parse(readFileSync(join(root, '.agentxchain', 'session.json'), 'utf8'));
+    assert.equal(session.checkpoint_reason, 'phase_reconciled', 'reconciled phase advance must write its own session checkpoint');
+    assert.equal(session.phase, 'implementation', 'session phase must match the reconciled state before any next dispatch');
+    assert.deepEqual(session.active_turn_ids, [], 'session checkpoint must not retain stale prior-phase turn ids');
+
+    const events = readEvents(root);
+    const cleanup = events.find((entry) => entry.event_type === 'phase_cleanup'
+      && entry.payload?.from_phase === 'planning'
+      && entry.payload?.removed_turn_ids?.includes(staleTurnId)
+      && entry.payload?.cleared_budget_turn_ids?.includes(staleTurnId)
+      && entry.payload?.removed_dispatch_turn_ids?.includes(staleTurnId));
+    assert.ok(cleanup, 'phase_cleanup must audit stale state, budget, and dispatch cleanup');
   });
 
   it('Turn 177: unblock does NOT advance standing pending gate when required evidence is missing (negative case)', () => {

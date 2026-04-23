@@ -137,7 +137,7 @@ When unblock reactivates a blocked run that still has a retained same-phase acti
 
 **Status:** Active as of 2026-04-22.
 
-**Decision:** Every phase advance path must clear stale prior-phase active turns before dispatching the next phase. Cleanup includes active turn entries, matching budget reservations, and best-effort dispatch bundle directories. The cleanup emits a `phase_cleanup` run event with the removed turn ids and budget/dispatch cleanup details.
+**Decision:** Every phase advance path must clear stale prior-phase active turns before dispatching the next phase. Cleanup includes active turn entries, matching budget reservations, best-effort dispatch bundle directories, and a refreshed session checkpoint whose `active_turn_ids` no longer retains the cleared turns. The cleanup emits a `phase_cleanup` run event with the removed turn ids and budget/dispatch cleanup details.
 
 Completed or accepted turns are not removed by cleanup. The cleanup is for retained/dispatched/retrying artifacts from the phase being exited.
 
