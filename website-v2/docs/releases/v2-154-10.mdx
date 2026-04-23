@@ -1,0 +1,57 @@
+---
+sidebar_position: 0
+title: "v2.154.10 Release Notes"
+---
+
+# AgentXchain v2.154.10
+
+`v2.154.10` is the downstream full-auto recovery release after the accepted
+BUG-52 fix. It targets the next tusq.dev blockers: continuous mode idling
+instead of continuing an active governed run, and `launch_ready` unblock
+redispatching product marketing instead of completing the run.
+
+## Bug Fixes
+
+- **Continuous current-run continuation**: `run --continuous` now continues the
+  active governed run even when `active_turns` is empty. An active phase waiting
+  for its next assignment is real work, not a vision idle cycle.
+
+- **Terminal gate unblock completion**: `unblock <hesc>` now reconciles final
+  standing gates before dispatch. If a launch turn re-verified complete
+  `launch_ready` artifacts, returned `needs_human`, changed no files, and routed
+  to `human` for run-completion approval, AgentXchain marks the terminal gate
+  passed and emits completion instead of assigning another launch turn.
+
+## Evidence
+
+- node --test cli/test/beta-tester-scenarios/bug-59-full-auto-gate-closure.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js cli/test/continuous-run-e2e.test.js cli/test/beta-tester-scenarios/bug-54-qa-cli-chain-reliability.test.js cli/test/beta-tester-scenarios/bug-61-tester-quoteback-ask-content.test.js -> 56 tests / 13 suites / 0 failures / 0 skipped
+- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js -> 24 tests / 2 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.154.10 -c "agentxchain --version"
+```
+
+For downstream closure, start from the same clean tusq.dev checkpoint used for
+the `v2.154.9` BUG-52 acceptance and quote:
+
+- `run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report` continues the active governed run instead of ending with `runs_completed=0` and `idle_cycles=3`
+- the current run reaches QA and launch through the real adapter path; quote any `startup_latency_ms`, `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence relevant to BUG-54
+- approval-policy evidence is quoted when the project config contains `approval_policy`; if status still reports `approval_policy: null`, say so explicitly rather than fabricating ledger rows
+- `launch_ready` approval after a no-change launch re-verification marks `launch_ready=passed`
+- final state is `status=completed`, `pending_run_completion=null`, and `active_turns={}`
+- durable events include `gate_approved` for `run_completion` and `run_completed`
+- no duplicate `product_marketing` dispatch occurs after terminal human approval
+- `session_continuation` rows are quoted if the continuous session actually chains to a next run; otherwise quote the terminal reason
+
+For BUG-55 regression proof, continue using the `accept-turn` followed by
+`checkpoint-turn` chain and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
+
+Keep BUG-62 separate in scratch because prior tusq.dev history mixed checkpoint
+baselines with governed `.agentxchain` changes.

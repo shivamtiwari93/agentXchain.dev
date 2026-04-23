@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.154.10
+
+### Bug Fixes
+- **Continuous active-run continuation**: `agentxchain run --continuous` now continues the current governed run when state is `active` and `active_turns` is empty, instead of falling through to vision idle cycles. This matches the tusq.dev downstream quote-back where the run was already in `qa` with `qa_ship_verdict=pending` and needed the next QA turn assignment.
+- **Terminal human-gate completion recovery**: `agentxchain unblock <hesc>` now reconciles final-phase human approvals before dispatch. If the launch turn re-verified already-complete `launch_ready` artifacts, changed no files, and escalated to human for run-completion approval, unblock marks the terminal gate passed and completes the run instead of redispatching `product_marketing`.
+
+### Status
+- `v2.154.10` supersedes `v2.154.9` for downstream tusq.dev full-auto quote-back after BUG-52. BUG-52 remains accepted fixed on `v2.154.9`; this release targets the next blockers: continuous current-run continuation and terminal launch-ready completion.
+- BUG-62 remains separate pending clean scratch evidence.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/bug-59-full-auto-gate-closure.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js cli/test/continuous-run-e2e.test.js cli/test/beta-tester-scenarios/bug-54-qa-cli-chain-reliability.test.js cli/test/beta-tester-scenarios/bug-61-tester-quoteback-ask-content.test.js -> 56 tests / 13 suites / 0 failures / 0 skipped
+- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js cli/test/beta-tester-scenarios/bug-53-continuous-auto-chain.test.js -> 24 tests / 2 suites / 0 failures / 0 skipped
+
 ## 2.154.9
 
 ### Bug Fixes

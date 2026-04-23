@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.154.9
+# Launch Evidence Report — AgentXchain v2.154.10
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-22 for the v2.154.9 BUG-52 delegated-human gate recovery repair over `v2.154.5`. BUG-52 ships the realistic PM `needs_human` handoff discriminator plus verification-preserving synthetic standing-gate recovery. BUG-52 closes only after tester-quoted shipped-package output on `agentxchain@2.154.9`. BUG-62, BUG-61, BUG-54, BUG-59, and BUG-53 remain open pending their own tester-quoted shipped-package output. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-23 for v2.154.10 downstream full-auto recovery after the accepted BUG-52 fix. This release continues active governed runs even when the current run is waiting for the next turn assignment, and completes terminal human-gated launch approvals instead of redispatching product_marketing. BUG-62 remains separate pending clean scratch evidence. Current aggregate release evidence:
 >
-> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suites / 0 failures / 0 skipped
+> - node --test cli/test/beta-tester-scenarios/bug-59-full-auto-gate-closure.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js cli/test/continuous-run-e2e.test.js cli/test/beta-tester-scenarios/bug-54-qa-cli-chain-reliability.test.js cli/test/beta-tester-scenarios/bug-61-tester-quoteback-ask-content.test.js -> 56 tests / 13 suites / 0 failures / 0 skipped
 > - node --test cli/test/continuous-ghost-retry-e2e.test.js cli/test/continuous-run-e2e.test.js cli/test/continuous-run.test.js cli/test/ghost-retry.test.js cli/test/run-events.test.js -> 93 tests / 26 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
