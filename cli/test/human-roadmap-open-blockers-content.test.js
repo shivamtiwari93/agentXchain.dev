@@ -86,13 +86,13 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       currentFocusLine,
-      /MUST ship before BUG-60/,
-      'current focus must preserve BUG-52 before BUG-60 sequencing',
+      /agent-side surfaces are now shipped in `agentxchain@2\.154\.7`/,
+      'current focus must preserve that BUG-52 agent-side surfaces shipped in the current target package',
     );
     assert.match(
       currentFocusLine,
-      /implementation waits for BUG-52 to ship/,
-      'current focus must keep BUG-60 implementation blocked behind BUG-52',
+      /BUG-60 implementation still waits for literal BUG-52 tester quote-back\/closure/,
+      'current focus must keep BUG-60 implementation blocked behind BUG-52 tester closure evidence',
     );
   });
 
