@@ -27,6 +27,7 @@ import {
   getActiveTurnCount,
   reactivateGovernedRun,
   reconcilePhaseAdvanceBeforeDispatch,
+  reconcileRunCompletionBeforeDispatch,
   transitionActiveTurnLifecycle,
   STATE_PATH,
 } from '../lib/governed-state.js';
@@ -57,6 +58,13 @@ function getStandingPendingExitGate(state, config) {
     return null;
   }
   return config?.gates?.[gateId] || null;
+}
+
+function isFinalPhase(state, config) {
+  const phase = state?.phase;
+  if (!phase) return false;
+  const phases = Object.keys(config?.routing || {});
+  return phases.length > 0 && phases[phases.length - 1] === phase;
 }
 
 function entrySatisfiesSyntheticGateVerification(gate, entry) {
@@ -122,7 +130,7 @@ function turnCanApproveHumanGateFromEscalation(root, state, config, entry, propo
 
 function latestCompletedTurnWantsPhaseContinuation(root, state, config, opts = {}) {
   const turnId = opts?.turnId || state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null;
-  if (!turnId) return false;
+  if (!turnId || isFinalPhase(state, config)) return false;
   const historyPath = join(root, config?.files?.history || '.agentxchain/history.jsonl');
   if (!existsSync(historyPath)) return false;
   const lines = readFileSync(historyPath, 'utf8').trim().split('\n').filter(Boolean);
@@ -155,6 +163,35 @@ function latestCompletedTurnWantsPhaseContinuation(root, state, config, opts = {
     // (which block BEFORE the agent writes gate artifacts, so `requires_files`
     // are not yet on disk) — those correctly continue to re-dispatch the
     // in-phase role rather than force-advancing the phase.
+    if (
+      entry.status === 'needs_human'
+      && entrySatisfiesSyntheticGateVerification(standingGate, entry)
+      && turnCanApproveHumanGateFromEscalation(root, state, config, entry, proposed)
+    ) {
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+function latestCompletedTurnWantsRunCompletion(root, state, config, opts = {}) {
+  const turnId = opts?.turnId || state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null;
+  if (!turnId || !isFinalPhase(state, config)) return false;
+  const historyPath = join(root, config?.files?.history || '.agentxchain/history.jsonl');
+  if (!existsSync(historyPath)) return false;
+  const lines = readFileSync(historyPath, 'utf8').trim().split('\n').filter(Boolean);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    let entry = null;
+    try {
+      entry = JSON.parse(lines[index]);
+    } catch {
+      continue;
+    }
+    if (entry?.turn_id !== turnId) continue;
+    if (entry.run_completion_request === true) return true;
+    const standingGate = getStandingPendingExitGate(state, config);
+    const proposed = typeof entry.proposed_next_role === 'string' ? entry.proposed_next_role.trim() : '';
     if (
       entry.status === 'needs_human'
       && entrySatisfiesSyntheticGateVerification(standingGate, entry)
@@ -327,6 +364,57 @@ export async function resumeCommand(opts) {
       console.log(chalk.red('Unblock did not materialize a phase transition; leaving the run blocked for manual recovery.'));
       process.exit(1);
     }
+  }
+
+  if (
+    state.status === 'blocked'
+    && resumeVia === 'operator_unblock'
+    && hasStandingPendingExitGate(state, config)
+    && latestCompletedTurnWantsRunCompletion(root, state, config, { turnId: opts.turn || null })
+  ) {
+    const reactivated = reactivateGovernedRun(root, state, { via: resumeVia, notificationConfig: config });
+    if (!reactivated.ok) {
+      console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
+      process.exit(1);
+    }
+    state = reactivated.state;
+    console.log(chalk.green(`Resumed blocked run: ${state.run_id}`));
+    if (reactivated.migration_notice) {
+      console.log(chalk.yellow(reactivated.migration_notice));
+    }
+    if (reactivated.phantom_notice) {
+      console.log(chalk.yellow(reactivated.phantom_notice));
+    }
+
+    const completionReconciliation = reconcileRunCompletionBeforeDispatch(root, config, state, {
+      allow_active_turn_cleanup: true,
+      allow_standing_gate: true,
+      standing_gate_turn_id: opts.turn || null,
+    });
+    if (!completionReconciliation.ok && !completionReconciliation.state) {
+      console.log(chalk.red(`Failed to reconcile run completion before dispatch: ${completionReconciliation.error}`));
+      process.exit(1);
+    }
+    state = completionReconciliation.state || state;
+    if (completionReconciliation.completed) {
+      console.log(chalk.green(`Completed run before dispatch: ${state.run_id}`));
+      return;
+    }
+    markRunBlocked(root, {
+      category: 'needs_human',
+      blockedOn: state.blocked_on || 'human:unblock_completion_reconcile_failed',
+      recovery: {
+        typed_reason: 'needs_human',
+        owner: 'human',
+        recovery_action: 'agentxchain approve-completion',
+        turn_retained: true,
+        detail: 'Operator unblock resolved the escalation, but no run completion could be materialized from the current gate state.',
+      },
+      turnId: opts.turn || null,
+      notificationConfig: config,
+    });
+    console.log(chalk.red('Unblock did not materialize run completion; leaving the run blocked for manual recovery.'));
+    process.exit(1);
   }
 
   if (state.status === 'blocked' && activeCount > 0 && !skipRetainedRedispatch) {

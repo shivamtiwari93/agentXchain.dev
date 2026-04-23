@@ -129,6 +129,41 @@ function makeQaLaunchConfig() {
   };
 }
 
+function makeLaunchCompletionConfig() {
+  return {
+    schema_version: '1.0',
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { id: 'bug52-launch-completion-test', name: 'BUG-52 Launch Completion Test', default_branch: 'main' },
+    roles: {
+      product_marketing: {
+        title: 'Product Marketing',
+        mandate: 'Prepare launch.',
+        write_authority: 'authoritative',
+        runtime: 'manual-product-marketing',
+      },
+    },
+    runtimes: {
+      'manual-product-marketing': { type: 'manual' },
+    },
+    routing: {
+      launch: { entry_role: 'product_marketing', allowed_next_roles: ['product_marketing'], exit_gate: 'launch_ready' },
+    },
+    gates: {
+      launch_ready: {
+        requires_files: [
+          '.planning/MESSAGING.md',
+          '.planning/LAUNCH_PLAN.md',
+          '.planning/CONTENT_CALENDAR.md',
+          '.planning/ANNOUNCEMENT.md',
+        ],
+        requires_human_approval: true,
+      },
+    },
+    gate_semantic_coverage_mode: 'lenient',
+  };
+}
+
 function createProject(config = makePlanningConfig()) {
   const root = mkdtempSync(join(tmpdir(), 'axc-bug52-'));
   tempDirs.push(root);
@@ -1129,6 +1164,71 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.equal(finalState.phase_gate_status?.planning_signoff, 'passed', 'planning gate must be marked passed after unblock');
     assert.equal(activeTurn?.assigned_role, 'dev', 'next dispatch must target dev, not another PM');
     assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch PM after approval');
+  });
+
+  it('unblock completes the final run when launch re-verified complete gate artifacts without changing files', () => {
+    const { root, config, state } = createProject(makeLaunchCompletionConfig());
+
+    writeFileSync(join(root, '.planning', 'MESSAGING.md'), '# Messaging\n\nLaunch copy is ready.\n');
+    writeFileSync(join(root, '.planning', 'LAUNCH_PLAN.md'), '# Launch Plan\n\nShip the accepted release.\n');
+    writeFileSync(join(root, '.planning', 'CONTENT_CALENDAR.md'), '# Content Calendar\n\n- Launch post\n');
+    writeFileSync(join(root, '.planning', 'ANNOUNCEMENT.md'), '# Announcement\n\nReady to announce.\n');
+    execSync('git add .planning && git commit -m "seed launch artifacts"', { cwd: root, stdio: 'ignore' });
+
+    const assign = assignGovernedTurn(root, config, 'product_marketing');
+    assert.ok(assign.ok, assign.error);
+    const turnId = assign.turn.turn_id;
+
+    stageTurnResult(root, turnId, {
+      schema_version: '1.0',
+      turn_id: turnId,
+      run_id: state.run_id,
+      role: 'product_marketing',
+      runtime_id: 'manual-product-marketing',
+      status: 'needs_human',
+      needs_human_reason: 'launch_ready exit gate requires human approval before run completion; launch artifacts are complete',
+      summary: 'Re-verified complete launch_ready artifacts and escalated to human for run-completion approval',
+      artifact: { type: 'workspace', path: '.' },
+      files_changed: [],
+      decisions: [],
+      objections: [],
+      verification: { status: 'pass' },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      run_completion_request: false,
+      cost: { usd: 0.01 },
+    });
+
+    const accepted = runCli(root, ['accept-turn']);
+    assert.equal(accepted.status, 0, `accept-turn failed:\n${accepted.stdout}\n${accepted.stderr}`);
+
+    const checkpoint = runCli(root, ['checkpoint-turn', '--turn', turnId]);
+    assert.equal(checkpoint.status, 0, `checkpoint-turn failed:\n${checkpoint.stdout}\n${checkpoint.stderr}`);
+
+    const blocked = readState(root);
+    assert.equal(blocked.status, 'blocked');
+    assert.equal(blocked.phase, 'launch');
+    assert.equal(blocked.phase_gate_status?.launch_ready, 'pending');
+    assert.equal(blocked.pending_run_completion ?? null, null);
+
+    const escalationId = readHumanEscalationId(root);
+    const unblocked = runCli(root, ['unblock', escalationId]);
+    assert.equal(
+      unblocked.status,
+      0,
+      `unblock must complete no-change launch re-verification when required artifacts are present:\n${unblocked.stdout}\n${unblocked.stderr}`,
+    );
+
+    const finalState = readState(root);
+    assert.equal(finalState.status, 'completed', 'run must complete after human approves final no-change launch re-verification');
+    assert.equal(finalState.phase, 'launch');
+    assert.equal(finalState.phase_gate_status?.launch_ready, 'passed', 'launch gate must be marked passed after unblock');
+    assert.equal(Object.keys(finalState.active_turns || {}).length, 0, 'unblock must not redispatch product_marketing after completion approval');
+    assert.doesNotMatch(unblocked.stdout, /Role:\s+Product Marketing/i, 'unblock must not redispatch launch after completion approval');
+
+    const events = readEvents(root);
+    assert.ok(events.some((entry) => entry.event_type === 'gate_approved' && entry.payload?.gate_type === 'run_completion'));
+    assert.ok(events.some((entry) => entry.event_type === 'run_completed'));
   });
 
   it('Turn 277: unblock uses escalation turn when last_completed_turn_id is stale', () => {

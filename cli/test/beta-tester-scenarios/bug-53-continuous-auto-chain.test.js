@@ -233,6 +233,65 @@ function createCliProject() {
   return dir;
 }
 
+it('continues an active governed run that is waiting for its next turn assignment', async () => {
+  const root = createTmpProject();
+  mkdirSync(join(root, '.planning'), { recursive: true });
+  writeFileSync(join(root, '.planning', 'VISION.md'), '# Vision\n\n## Goals\n\n- Already scoped active run\n');
+  const config = JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8'));
+  const runId = `run_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify({
+    schema_version: '1.0',
+    run_id: runId,
+    project_id: 'bug53-001',
+    status: 'active',
+    phase: 'implementation',
+    accepted_integration_ref: null,
+    active_turns: {},
+    turn_sequence: 0,
+    last_completed_turn_id: null,
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+    phase_gate_status: {},
+  }, null, 2));
+
+  let executions = 0;
+  const result = await executeContinuousRun(
+    { root, config },
+    {
+      visionPath: '.planning/VISION.md',
+      maxRuns: 1,
+      maxIdleCycles: 3,
+      pollSeconds: 0,
+      cooldownSeconds: 0,
+      triageApproval: 'auto',
+      autoCheckpoint: false,
+    },
+    async () => {
+      executions += 1;
+      return {
+        exitCode: 0,
+        result: {
+          stop_reason: 'completed',
+          state: {
+            run_id: runId,
+            status: 'completed',
+            budget_status: { spent_usd: 0 },
+          },
+        },
+      };
+    },
+    () => {},
+  );
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(executions, 1, 'continuous mode must continue active current runs even when active_turns is empty');
+  const session = readContinuousSession(root);
+  assert.equal(session.runs_completed, 1);
+  assert.equal(session.status, 'completed');
+  assert.equal(session.idle_cycles, 0, 'active current runs must not be counted as vision idle cycles');
+});
+
 function writeVision(dir, content) {
   const planDir = join(dir, '.planning');
   mkdirSync(planDir, { recursive: true });

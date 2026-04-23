@@ -1629,6 +1629,30 @@ function buildStandingPhaseTransitionSource(state, config, opts = {}) {
   };
 }
 
+function buildStandingRunCompletionSource(state, config, opts = {}) {
+  const phase = state?.phase;
+  const routing = phase ? config?.routing?.[phase] : null;
+  const gateId = routing?.exit_gate || null;
+  const nextPhase = getNextPhase(phase, config?.routing || {});
+  if (!phase || !gateId || nextPhase) {
+    return null;
+  }
+  if ((state?.phase_gate_status || {})[gateId] !== 'pending') {
+    return null;
+  }
+  return {
+    turn_id: opts?.turn_id || state?.last_completed_turn_id || state?.blocked_reason?.turn_id || null,
+    run_id: state?.run_id || null,
+    role: null,
+    assigned_role: null,
+    phase,
+    status: 'completed',
+    run_completion_request: true,
+    summary: `Synthetic ${gateId} completion source for operator-unblocked standing gate.`,
+    verification: { status: 'pass' },
+  };
+}
+
 function getPhaseRoles(config, phase) {
   const routing = config?.routing?.[phase] || {};
   const roles = new Set();
@@ -2971,6 +2995,204 @@ export function reconcilePhaseAdvanceBeforeDispatch(root, config, state = null, 
     to_phase: gateResult.next_phase,
     gate_id: gateResult.gate_id || null,
     gateResult,
+  };
+}
+
+export function reconcileRunCompletionBeforeDispatch(root, config, state = null, opts = {}) {
+  const currentState = state && typeof state === 'object' ? state : readState(root);
+  if (!currentState) {
+    return { ok: false, error: 'No governed state.json found' };
+  }
+
+  const activeTurnCount = getActiveTurnCount(currentState);
+  const allowActiveTurnCleanup = opts?.allow_active_turn_cleanup === true;
+  if (currentState.status !== 'active' || (activeTurnCount > 0 && !allowActiveTurnCleanup)) {
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(currentState),
+      completed: false,
+    };
+  }
+
+  const gateFailure = currentState.last_gate_failure;
+  if (gateFailure && gateFailure.gate_type !== 'run_completion') {
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(currentState),
+      completed: false,
+    };
+  }
+
+  const historyEntries = readJsonlEntries(root, HISTORY_PATH);
+  const requestedTurnId = gateFailure?.requested_by_turn
+    || currentState.queued_run_completion?.requested_by_turn
+    || currentState.last_completed_turn_id
+    || null;
+  let completionSource = findHistoryTurnRequest(historyEntries, requestedTurnId, 'run_completion');
+  if (!completionSource?.run_completion_request && opts?.allow_standing_gate === true) {
+    completionSource = buildStandingRunCompletionSource(currentState, config, {
+      turn_id: opts?.standing_gate_turn_id || null,
+    });
+  }
+  if (!completionSource?.run_completion_request) {
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(currentState),
+      completed: false,
+    };
+  }
+
+  const completionResult = evaluateRunCompletion({
+    state: { ...currentState, history: historyEntries },
+    config,
+    acceptedTurn: completionSource,
+    root,
+  });
+
+  if (completionResult.action === 'awaiting_human_approval') {
+    const approvalResult = evaluateApprovalPolicy({
+      gateResult: completionResult,
+      gateType: 'run_completion',
+      state: { ...currentState, history: historyEntries },
+      config,
+    });
+
+    if (approvalResult.action === 'auto_approve') {
+      const now = new Date().toISOString();
+      const updatedState = {
+        ...currentState,
+        status: 'completed',
+        completed_at: now,
+        blocked_on: null,
+        blocked_reason: null,
+        last_gate_failure: null,
+        pending_run_completion: null,
+        queued_run_completion: null,
+        queued_phase_transition: null,
+        phase_gate_status: {
+          ...(currentState.phase_gate_status || {}),
+          [completionResult.gate_id || 'no_gate']: 'passed',
+        },
+      };
+      writeState(root, updatedState);
+      clearSlaReminders(root, 'pending_run_completion');
+      appendJsonl(root, LEDGER_PATH, {
+        type: 'approval_policy',
+        gate_type: 'run_completion',
+        action: 'auto_approve',
+        matched_rule: approvalResult.matched_rule,
+        reason: approvalResult.reason,
+        gate_id: completionResult.gate_id || null,
+        timestamp: now,
+      });
+      emitPendingLifecycleNotification(root, config, updatedState, 'run_completed', {
+        completed_at: updatedState.completed_at,
+        completed_via: 'approval_policy_reconciled_before_dispatch',
+        gate: completionResult.gate_id || null,
+        requested_by_turn: completionSource.turn_id || null,
+      }, null);
+      emitRunEvent(root, 'gate_approved', {
+        run_id: updatedState.run_id,
+        phase: updatedState.phase,
+        status: 'completed',
+        turn: completionSource.turn_id ? { turn_id: completionSource.turn_id, role_id: completionSource.role || completionSource.assigned_role || null } : undefined,
+        payload: {
+          gate_type: 'run_completion',
+          gate_id: completionResult.gate_id || null,
+          requested_by_turn: completionSource.turn_id || null,
+          trigger: 'auto_approved',
+        },
+      });
+      emitRunEvent(root, 'run_completed', {
+        run_id: updatedState.run_id,
+        phase: updatedState.phase,
+        status: 'completed',
+        payload: { completed_at: updatedState.completed_at },
+      });
+      writeSessionCheckpoint(root, updatedState, 'run_completed');
+      recordRunHistory(root, updatedState, config, 'completed');
+      return {
+        ok: true,
+        state: attachLegacyCurrentTurnAlias(updatedState),
+        completed: true,
+        gate_id: completionResult.gate_id || null,
+        completionResult,
+        approval_policy: approvalResult,
+      };
+    }
+
+    const pausedState = {
+      ...currentState,
+      status: 'paused',
+      blocked_on: `human_approval:${completionResult.gate_id}`,
+      blocked_reason: null,
+      pending_run_completion: {
+        gate: completionResult.gate_id,
+        requested_by_turn: completionSource.turn_id,
+        requested_at: new Date().toISOString(),
+      },
+      queued_run_completion: null,
+      queued_phase_transition: null,
+    };
+    writeState(root, pausedState);
+    const approved = approveRunCompletion(root, config);
+    return {
+      ok: approved.ok,
+      error: approved.error,
+      state: approved.state || attachLegacyCurrentTurnAlias(readState(root)),
+      completed: approved.ok,
+      gate_id: completionResult.gate_id || null,
+      completionResult,
+      approval_policy: approvalResult,
+    };
+  }
+
+  if (completionResult.action !== 'complete') {
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(currentState),
+      completed: false,
+      completionResult,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const updatedState = {
+    ...currentState,
+    status: 'completed',
+    completed_at: now,
+    blocked_on: null,
+    blocked_reason: null,
+    last_gate_failure: null,
+    pending_run_completion: null,
+    queued_run_completion: null,
+    queued_phase_transition: null,
+    phase_gate_status: {
+      ...(currentState.phase_gate_status || {}),
+      [completionResult.gate_id || 'no_gate']: 'passed',
+    },
+  };
+  writeState(root, updatedState);
+  emitPendingLifecycleNotification(root, config, updatedState, 'run_completed', {
+    completed_at: updatedState.completed_at,
+    completed_via: 'reconciled_before_dispatch',
+    gate: completionResult.gate_id || null,
+    requested_by_turn: completionSource.turn_id || null,
+  }, null);
+  emitRunEvent(root, 'run_completed', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'completed',
+    payload: { completed_at: updatedState.completed_at },
+  });
+  writeSessionCheckpoint(root, updatedState, 'run_completed');
+  recordRunHistory(root, updatedState, config, 'completed');
+  return {
+    ok: true,
+    state: attachLegacyCurrentTurnAlias(updatedState),
+    completed: true,
+    gate_id: completionResult.gate_id || null,
+    completionResult,
   };
 }
 

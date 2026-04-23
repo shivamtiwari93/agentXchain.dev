@@ -794,7 +794,6 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     session.current_run_id
     && activeGovernedState?.status === 'active'
     && activeGovernedState.run_id === session.current_run_id
-    && Object.keys(activeGovernedState.active_turns || {}).length > 0
   ) {
     log('Continuing active governed run.');
     let execution;
