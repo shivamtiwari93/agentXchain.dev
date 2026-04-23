@@ -312,4 +312,23 @@ function showGate(requestedGateId, { root, config, state, gateIds, opts }) {
     }
     console.log('');
   }
+
+  const standingHint = getStandingRecoveryHint(gate, state);
+  if (standingHint) {
+    console.log(chalk.dim('  Recovery:'));
+    console.log(chalk.dim(`    No phase transition is prepared for "${standingHint.gateId}".`));
+    console.log(chalk.dim('    If a human escalation is open, resolve with: agentxchain unblock <hesc_id>'));
+    console.log(chalk.dim('    After resolution, run: agentxchain approve-transition'));
+    console.log('');
+  }
+}
+
+function getStandingRecoveryHint(gate, state) {
+  if (!gate) return null;
+  if (!gate.requires_human_approval) return null;
+  if (gate.status !== 'pending') return null;
+  const currentPhase = state?.phase || null;
+  if (!currentPhase || gate.linked_phase !== currentPhase) return null;
+  if (state?.pending_phase_transition) return null;
+  return { gateId: gate.id };
 }

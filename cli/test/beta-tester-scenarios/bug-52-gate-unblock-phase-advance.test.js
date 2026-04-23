@@ -1016,6 +1016,84 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.match(output, /agentxchain gate show planning_signoff --evaluate/i);
   });
 
+  it('Turn 275: gate show explains pending standing gate recovery when no transition is prepared', () => {
+    // Symmetric half of Turn 274: approve-transition now points to
+    // `gate show <gate> --evaluate` in the standing-gate shape. The roadmap
+    // BUG-52 fix requirement 3 says both surfaces must converge on a consistent
+    // truth — without this hint, gate show still reports only "Status: pending"
+    // and sends the operator back to approve-transition in a diagnostic loop.
+    const { root } = createProject();
+    const state = readState(root);
+
+    writeState(root, {
+      ...state,
+      phase: 'planning',
+      status: 'blocked',
+      pending_phase_transition: null,
+      pending_run_completion: null,
+      phase_gate_status: {
+        ...(state.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {},
+      blocked_on: 'escalation:operator:planning-signoff',
+      blocked_reason: {
+        category: 'operator_escalation',
+        blocked_at: new Date().toISOString(),
+        turn_id: null,
+        recovery: {
+          typed_reason: 'operator_escalation',
+          owner: 'human',
+          recovery_action: 'agentxchain unblock <hesc_id>',
+          turn_retained: false,
+          detail: 'planning_signoff',
+        },
+      },
+    });
+
+    const shown = runCli(root, ['gate', 'show', 'planning_signoff']);
+    assert.equal(shown.status, 0, `gate show must succeed: ${shown.stdout}\n${shown.stderr}`);
+    const output = `${shown.stdout}\n${shown.stderr}`;
+    assert.match(output, /Status:\s+pending/i);
+    assert.match(output, /Recovery:/);
+    assert.match(output, /No phase transition is prepared for "planning_signoff"/i);
+    assert.match(output, /agentxchain unblock <hesc_id>/i);
+    assert.match(output, /agentxchain approve-transition/i);
+  });
+
+  it('Turn 275: gate show does NOT emit standing-gate recovery when a transition is prepared', () => {
+    // Negative: when pending_phase_transition exists, approve-transition is the
+    // correct recovery path and the standing-gate hint must stay silent so it
+    // does not mislead operators into chasing an escalation that does not
+    // apply.
+    const { root } = createProject();
+    const state = readState(root);
+
+    writeState(root, {
+      ...state,
+      phase: 'planning',
+      status: 'active',
+      pending_phase_transition: {
+        from_phase: 'planning',
+        to_phase: 'implementation',
+        requested_at: new Date().toISOString(),
+        source_turn_id: null,
+      },
+      phase_gate_status: {
+        ...(state.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {},
+    });
+
+    const shown = runCli(root, ['gate', 'show', 'planning_signoff']);
+    assert.equal(shown.status, 0);
+    const output = `${shown.stdout}\n${shown.stderr}`;
+    assert.match(output, /Status:\s+pending/i);
+    assert.doesNotMatch(output, /No phase transition is prepared/i);
+    assert.doesNotMatch(output, /unblock <hesc_id>/i);
+  });
+
   it('Turn 206: unblock does not synthesize a verified phase advance for verification-gated needs_human turns', () => {
     const config = makeQaLaunchConfig();
     config.gates.qa_ship_verdict.requires_verification_pass = true;

@@ -551,6 +551,8 @@ These commands expose the governed gate contract — the predicate definitions, 
 
 The `--evaluate` flag adds live runtime gate semantics: it checks the merged artifact contract the runtime actually enforces, including workflow-kit additive artifacts, path-based semantic validators, artifact ownership participation in the linked phase, and `requires_verification_pass` against the latest accepted turn in that phase. This is a read-only snapshot, not a gate transition attempt.
 
+When a human-approval gate is `pending` for the current phase and no `pending_phase_transition` object is prepared, `gate show` prints a Recovery hint pointing at `agentxchain unblock <hesc_id>` for open escalations and `agentxchain approve-transition` for post-resolution approval. This mirrors the diagnostic emitted by `approve-transition` itself and keeps the two surfaces consistent.
+
 ```bash
 # List all gates
 agentxchain gate list
