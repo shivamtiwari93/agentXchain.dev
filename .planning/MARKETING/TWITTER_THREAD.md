@@ -1,9 +1,9 @@
-# Twitter/X Thread — AgentXchain v2.154.10
+# Twitter/X Thread — AgentXchain v2.154.11
 
-> Ready-to-post thread for the `v2.154.10` release once tester verification lands. Updated 2026-04-23 for active continuous-run continuation and terminal launch_ready unblock completion.
+> Ready-to-post thread for the `v2.154.11` release once tester verification lands. Updated 2026-04-23 for out-of-band completion accounting and terminal standing-gate approval audit after tusq.dev downstream verification.
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/bug-59-full-auto-gate-closure.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js cli/test/continuous-run-e2e.test.js cli/test/beta-tester-scenarios/bug-54-qa-cli-chain-reliability.test.js cli/test/beta-tester-scenarios/bug-61-tester-quoteback-ask-content.test.js -> 56 tests / 13 suites / 0 failures / 0 skipped
+> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js -> 67 tests / 11 suites / 0 failures / 0 skipped
 
 ---
 

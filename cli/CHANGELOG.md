@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.154.11
+
+### Bug Fixes
+- **Out-of-band completion session accounting**: when a blocked continuous run is completed later by `agentxchain unblock <hesc>` or `agentxchain approve-completion`, the paused `.agentxchain/continuous-session.json` snapshot is now terminalized and its blocked run is counted. This closes the tusq.dev quote-back where the governed state was `completed` but the continuous session still showed `paused` with `runs_completed=0`.
+- **Standing-gate completion audit**: final standing-gate run completion reconciliation now emits a `gate_approved` audit event before `run_completed`, including `gate_id`, `gate_type: "run_completion"`, and `requested_by_turn`. This keeps the terminal unblock path auditable even when completion is synthesized from the standing gate rather than a pre-existing `pending_run_completion`.
+
+### Status
+- `v2.154.11` supersedes `v2.154.10` for the remaining tusq.dev downstream accounting gaps after functional full-auto progression was confirmed fixed on `v2.154.10`.
+- Functional downstream behavior remains fixed: continuous no longer idles in QA, QA advances, `launch_ready` unblock completes the run, and duplicate `product_marketing` redispatch is gone.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js -> 67 tests / 11 suites / 0 failures / 0 skipped
+
 ## 2.154.10
 
 ### Bug Fixes

@@ -1,9 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.154.10
+# Launch Evidence Report — AgentXchain v2.154.11
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-23 for v2.154.10 downstream full-auto recovery after the accepted BUG-52 fix. This release continues active governed runs even when the current run is waiting for the next turn assignment, and completes terminal human-gated launch approvals instead of redispatching product_marketing. BUG-62 remains separate pending clean scratch evidence. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-23 for v2.154.11 downstream accounting follow-up after `v2.154.10` fixed the functional tusq.dev progression bugs. This release closes the remaining session/audit gaps: out-of-band terminal approvals now terminalize the paused continuous session instead of leaving `runs_completed=0`, and standing-gate terminal reconciliation emits `gate_approved` before `run_completed`. BUG-62 remains separate pending clean scratch evidence. Current aggregate release evidence:
 >
-> - node --test cli/test/beta-tester-scenarios/bug-59-full-auto-gate-closure.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js cli/test/continuous-run-e2e.test.js cli/test/beta-tester-scenarios/bug-54-qa-cli-chain-reliability.test.js cli/test/beta-tester-scenarios/bug-61-tester-quoteback-ask-content.test.js -> 56 tests / 13 suites / 0 failures / 0 skipped
-> - node --test cli/test/continuous-ghost-retry-e2e.test.js cli/test/continuous-run-e2e.test.js cli/test/continuous-run.test.js cli/test/ghost-retry.test.js cli/test/run-events.test.js -> 93 tests / 26 suites / 0 failures / 0 skipped
+> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js -> 67 tests / 11 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)
