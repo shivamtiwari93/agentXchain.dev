@@ -969,6 +969,53 @@ describe('BUG-52: unblock advances the phase before dispatch', () => {
     assert.doesNotMatch(unblocked.stdout, /Role:\s+pm/i, 'unblock must not redispatch PM after approval');
   });
 
+  it('Turn 274: approve-transition explains pending standing gate with no prepared transition', () => {
+    // HUMAN-ROADMAP BUG-52 third-variant command-surface inconsistency:
+    // `gate show planning_signoff` can truthfully report a pending human gate
+    // while `approve-transition --dry-run` used to say only "No pending phase
+    // transition to approve." That message is technically true but
+    // operationally misleading in the standing-gate shape; the operator needs
+    // to know the gate exists and that `unblock <hesc_id>` is the recovery path
+    // when a human escalation is open.
+    const { root } = createProject();
+    const state = readState(root);
+
+    writeState(root, {
+      ...state,
+      phase: 'planning',
+      status: 'blocked',
+      pending_phase_transition: null,
+      pending_run_completion: null,
+      phase_gate_status: {
+        ...(state.phase_gate_status || {}),
+        planning_signoff: 'pending',
+      },
+      active_turns: {},
+      blocked_on: 'escalation:operator:planning-signoff',
+      blocked_reason: {
+        category: 'operator_escalation',
+        blocked_at: new Date().toISOString(),
+        turn_id: null,
+        recovery: {
+          typed_reason: 'operator_escalation',
+          owner: 'human',
+          recovery_action: 'agentxchain unblock <hesc_id>',
+          turn_retained: false,
+          detail: 'planning_signoff',
+        },
+      },
+    });
+
+    const approved = runCli(root, ['approve-transition', '--dry-run']);
+    assert.notEqual(approved.status, 0, 'approve-transition must still fail closed without a prepared transition');
+    const output = `${approved.stdout}\n${approved.stderr}`;
+    assert.match(output, /No pending phase transition to approve/i);
+    assert.match(output, /Gate "planning_signoff" is pending human approval/i);
+    assert.match(output, /Expected transition:\s+planning\s+→\s+implementation/i);
+    assert.match(output, /agentxchain unblock <hesc_id>/i);
+    assert.match(output, /agentxchain gate show planning_signoff --evaluate/i);
+  });
+
   it('Turn 206: unblock does not synthesize a verified phase advance for verification-gated needs_human turns', () => {
     const config = makeQaLaunchConfig();
     config.gates.qa_ship_verdict.requires_verification_pass = true;

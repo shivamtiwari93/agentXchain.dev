@@ -1,9 +1,24 @@
 import chalk from 'chalk';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { approvePhaseTransition } from '../lib/governed-state.js';
+import { getNextPhase } from '../lib/gate-evaluator.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { resolveGovernedRole } from '../lib/role-resolution.js';
 import { checkCleanBaseline } from '../lib/repo-observer.js';
+
+function getStandingPendingHumanExitGate(state, config) {
+  const phase = state?.phase || null;
+  const gateId = phase ? config?.routing?.[phase]?.exit_gate || null : null;
+  if (!phase || !gateId) return null;
+  const gate = config?.gates?.[gateId] || null;
+  if (!gate?.requires_human_approval) return null;
+  if ((state?.phase_gate_status || {})[gateId] !== 'pending') return null;
+  return {
+    gateId,
+    from: phase,
+    to: getNextPhase(phase, config?.routing || {}) || null,
+  };
+}
 
 export async function approveTransitionCommand(opts) {
   const context = loadProjectContext();
@@ -24,6 +39,16 @@ export async function approveTransitionCommand(opts) {
     console.log(chalk.yellow('No pending phase transition to approve.'));
     if (state?.phase) {
       console.log(chalk.dim(`  Current phase: ${state.phase}`));
+    }
+    const standingGate = getStandingPendingHumanExitGate(state, config);
+    if (standingGate) {
+      console.log('');
+      console.log(chalk.yellow(`  Gate "${standingGate.gateId}" is pending human approval, but no phase transition object is prepared.`));
+      if (standingGate.to) {
+        console.log(chalk.dim(`  Expected transition: ${standingGate.from} → ${standingGate.to}`));
+      }
+      console.log(chalk.dim('  If this gate has an open human escalation, run: agentxchain unblock <hesc_id>'));
+      console.log(chalk.dim(`  To inspect gate evidence, run: agentxchain gate show ${standingGate.gateId} --evaluate`));
     }
     process.exit(1);
   }

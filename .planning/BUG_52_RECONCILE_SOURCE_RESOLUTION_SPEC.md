@@ -7,6 +7,7 @@ Define how `reconcilePhaseAdvanceBeforeDispatch()` finds the accepted turn that 
 ### Interface
 
 - Production seam: `reconcilePhaseAdvanceBeforeDispatch(root, config, state?)`
+- Operator diagnostic seam: `agentxchain approve-transition`
 - Internal source inputs:
   - `.agentxchain/state.json` `last_gate_failure`
   - `.agentxchain/state.json` `queued_phase_transition`
@@ -33,6 +34,7 @@ Define how `reconcilePhaseAdvanceBeforeDispatch()` finds the accepted turn that 
 8. **Turn 203 extension — operator_unblock fires standing-gate reconcile regardless of activeCount.** `cli/src/commands/resume.js` must route every `blocked + resumeVia === 'operator_unblock'` invocation through `reconcilePhaseAdvanceBeforeDispatch` with `allow_active_turn_cleanup: true` and `allow_standing_gate: true`, whether or not any active turns are retained. The prior `activeCount > 0` guard made `buildStandingPhaseTransitionSource` unreachable for the tester's v2.151.0 `tusq.dev` repro shape (PM `needs_human` accepted + checkpointed without declaring `phase_transition_request`, leaving `active_turns: {}` at unblock time), causing the dispatcher to loop back to PM. See `DEC-BUG52-UNBLOCK-ADVANCES-PHASE-ACTIVECOUNT-AGNOSTIC-001`.
 9. **Turn 205 extension — human-proposed gate signoff counts only with artifact contribution.** A `needs_human` turn with `phase_transition_request: null` and `proposed_next_role: "human"` may still enter the standing-gate reconcile path when the current exit gate requires human approval, declares one or more `requires_files`, all required files exist, and the accepted turn's `files_changed` includes at least one required gate file. This covers the realistic PM handoff shape while keeping generic `needs_decision` escalations on the normal re-dispatch path.
 10. **Turn 206 extension — synthetic standing-gate sources must not fabricate verification.** When the standing-gate path would rely on `buildStandingPhaseTransitionSource()` rather than a real `phase_transition_request`, `resume.js` must require the latest accepted blocked turn to satisfy `verification.status: "pass"` or `"attested_pass"` if the current exit gate declares `requires_verification_pass: true`. This prevents operator unblock from advancing a human-approved but verification-failed QA gate merely because the synthetic source contains `verification: {status: "pass"}`.
+11. **Turn 274 extension — approve-transition must not hide standing pending gates.** When `state.pending_phase_transition` is `null` but the current phase's exit gate is marked `pending` and requires human approval, `agentxchain approve-transition` must still fail closed, but its message must name the pending gate and point the operator at `agentxchain unblock <hesc_id>` when an escalation exists and `agentxchain gate show <gate> --evaluate` for evidence inspection.
 
 ### Error Cases
 
@@ -42,6 +44,7 @@ Define how `reconcilePhaseAdvanceBeforeDispatch()` finds the accepted turn that 
 - If `last_gate_failure` is `null`, `queued_phase_transition` is `null`, and `last_completed_turn_id` does not resolve to a turn with a `phase_transition_request`, reconciliation is a no-op (dispatcher's existing role-selection path handles this correctly).
 - If `queued_phase_transition.requested_by_turn` is missing from history, fallback search must remain constrained to `queued_phase_transition.from` / `queued_phase_transition.to`; it must not broaden into an unscoped history scan.
 - If a standing pending gate requires verification and the latest accepted blocked turn did not pass verification, `unblock` must not synthesize a passing transition source.
+- If a standing pending human gate exists but no `pending_phase_transition` object exists, `approve-transition` must not silently report only "No pending phase transition"; it must surface the gate/transition mismatch and an actionable recovery command.
 
 ### Acceptance Tests
 
@@ -55,6 +58,7 @@ Define how `reconcilePhaseAdvanceBeforeDispatch()` finds the accepted turn that 
 - **Turn 204 activeCount=0 evidence-gap negative path:** the same empty-active standing-gate shape must not advance when required gate evidence is missing. `unblock <hesc>` must exit non-zero, keep the run blocked in the original phase, keep the gate pending, avoid dispatching the next phase role, and emit no `phase_entered` / `phase_cleanup` events.
 - **Turn 205 realistic needs_human path:** a PM turn accepted + checkpointed with `needs_human`, `phase_transition_request: null`, `proposed_next_role: "human"`, and `files_changed` including required planning gate artifacts must advance planning -> implementation after `unblock <hesc>` when all required gate files exist.
 - **Turn 206 verification-gated synthetic-source negative path:** a QA `needs_human` turn with `phase_transition_request: null`, `proposed_next_role: "human"`, required QA gate files present, and `verification.status: "fail"` must not advance qa -> launch on `unblock <hesc>` when `qa_ship_verdict.requires_verification_pass: true`; the next dispatch must stay in QA.
+- **Turn 274 approve-transition diagnostic path:** with `phase_gate_status.planning_signoff: "pending"` and `pending_phase_transition: null`, `agentxchain approve-transition --dry-run` exits non-zero and prints the pending gate id, expected transition, `agentxchain unblock <hesc_id>`, and `agentxchain gate show planning_signoff --evaluate`.
 - Claim-reality guard fails if the BUG-52 scenario drops the separated `checkpoint-turn` invocation.
 
 ### Open Questions

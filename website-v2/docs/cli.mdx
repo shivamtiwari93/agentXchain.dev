@@ -981,6 +981,8 @@ agentxchain approve-transition [--dry-run]
 
 Approves a pending phase transition gate. The run must be in `blocked:gate` state with a pending `phase_transition_request`. On approval, the phase advances (e.g., `planning` to `implementation`, `implementation` to `verification`).
 
+If the current phase's exit gate is pending but no `pending_phase_transition` object exists, `approve-transition` fails closed and prints the gate mismatch. Use `agentxchain unblock <hesc_id>` when the gate is tied to an open human escalation, or `agentxchain gate show <gate_id> --evaluate` to inspect the missing evidence.
+
 | Flag | Description |
 |------|-------------|
 | `--dry-run` | Preview configured gate actions without executing them or mutating state |
