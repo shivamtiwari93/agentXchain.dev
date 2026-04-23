@@ -44,11 +44,12 @@ the `v2.154.9` BUG-52 acceptance and quote:
 - `launch_ready` approval after a no-change launch re-verification marks `launch_ready=passed`
 - final state is `status=completed`, `pending_run_completion=null`, and `active_turns={}`
 - durable events include `gate_approved` for `run_completion` and `run_completed`
+- phase-transition recovery still quotes `phase_entered` with `reconciled_before_dispatch` when a non-terminal phase advances
 - no duplicate `product_marketing` dispatch occurs after terminal human approval
 - `session_continuation` rows are quoted if the continuous session actually chains to a next run; otherwise quote the terminal reason
 
-For BUG-55 regression proof, continue using the `accept-turn` followed by
-`checkpoint-turn` chain and quote `verification.produced_files`,
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
 `undeclared_verification_outputs`, and `git status --short`.
 
 Clean tree means BUG-55 is fixed for your reproduction.
