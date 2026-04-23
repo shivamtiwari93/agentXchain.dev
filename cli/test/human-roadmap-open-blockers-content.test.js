@@ -218,6 +218,37 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
   });
 
+  it('keeps BUG-54 agent-side implementation status distinct from tester quote-back closure', () => {
+    const roadmap = readRoadmap();
+    const bug54 = extractRoadmapItem(roadmap, 'BUG-54');
+
+    assert.match(
+      bug54,
+      /Agent-side implementation surfaces are complete in `agentxchain@2\.154\.7`/,
+      'BUG-54 must preserve that the agent-side implementation already shipped in the current target package',
+    );
+    assert.match(
+      bug54,
+      /startup watchdog default[\s\S]{0,180}180s default[\s\S]{0,180}`run_loop\.startup_watchdog_ms`[\s\S]{0,180}`runtimes\.<id>\.startup_watchdog_ms`/,
+      'BUG-54 must preserve the raised default and explicit override surfaces',
+    );
+    assert.match(
+      bug54,
+      /17,737[\s\S]{0,240}bug-54-realistic-bundle-watchdog\.test\.js/,
+      'BUG-54 must preserve realistic-bundle regression coverage at the tester-observed size',
+    );
+    assert.match(
+      bug54,
+      /Turn 278[\s\S]{0,220}DEC-BUG54-STARTUP-WATCHDOG-SIGKILL-GRACE-001[\s\S]{0,220}Turn 280[\s\S]{0,220}DEC-BUG54-ABORT-SIGKILL-TIMER-CLEANUP-001/,
+      'BUG-54 must preserve the two adapter lifecycle hardening decisions',
+    );
+    assert.match(
+      bug54,
+      /BUG-54 remains unchecked only because literal tester quote-back[\s\S]{0,180}TESTER_QUOTEBACK_ASK_V2\.md/,
+      'BUG-54 must remain open for quote-back only, not because implementation status is unknown',
+    );
+  });
+
   it('keeps quote-back closure language visible on the other still-open blocker asks', () => {
     const roadmap = readRoadmap();
     const bugToExpectedAsk = new Map([
