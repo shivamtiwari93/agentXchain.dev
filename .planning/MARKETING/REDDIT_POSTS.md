@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.154.8
+# Reddit Posts — AgentXchain v2.154.9
 
-> Ready-to-post content for Reddit for the `v2.154.8` release once tester verification lands. Updated 2026-04-22 for the BUG-52 realistic PM needs_human handoff fix and verification-preserving synthetic-source guard.
+> Ready-to-post content for Reddit for the `v2.154.9` release once tester verification lands. Updated 2026-04-22 for the BUG-52 realistic PM needs_human handoff fix and verification-preserving synthetic-source guard.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js && node --test cli/test/vitest-contract.test.js -> 26 tests / 3 suites / 0 failures / 0 skipped
+> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suite / 0 failures / 0 skipped
 
 ---
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.154.9
+
+### Bug Fixes
+- **BUG-52 no-change PM re-verification**: `agentxchain unblock <hesc>` now advances a satisfied human-required planning gate when the escalation-linked phase entry role re-verified already-complete gate artifacts, changed no files by design, and routed to `human` for approval. This matches the tusq.dev `turn_b68e40fbb7b5d1f4` quote-back shape that `v2.154.8` still redispatched to PM.
+- **BUG-52 no-change regression proof**: added a beta scenario where planning artifacts are committed before the PM turn, the PM returns `needs_human` with `files_changed: []`, and unblock must mark `planning_signoff` passed and dispatch `dev`.
+
+### Status
+- `v2.154.9` supersedes `v2.154.8` for BUG-52 tusq.dev tester quote-back. BUG-52 still closes only after tester-quoted shipped-package output showing `unblock` advances to implementation, marks `planning_signoff` passed, dispatches `dev`, attributes the gate approval to the escalation-linked PM turn, and does not require ghost recovery.
+- BUG-61, BUG-62, BUG-54, BUG-59, and BUG-53 remain open pending their existing tester quote-back contracts.
+
+### Evidence
+- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suite / 0 failures / 0 skipped
+
 ## 2.154.8
 
 ### Bug Fixes

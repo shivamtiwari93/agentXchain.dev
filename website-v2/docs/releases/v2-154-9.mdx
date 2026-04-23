@@ -1,42 +1,38 @@
 ---
-sidebar_position: 1
-title: "v2.154.8 Release Notes"
+sidebar_position: 0
+title: "v2.154.9 Release Notes"
 ---
 
-# AgentXchain v2.154.8
+# AgentXchain v2.154.9
 
-`v2.154.8` is the BUG-52 escalation-turn repair release. It fixes the tusq.dev
-quote-back failure where `agentxchain unblock <hesc>` resolved the human
-escalation but redispatched PM in `planning` because a stale
-`last_completed_turn_id` overrode the turn that actually requested human gate
-approval.
+`v2.154.9` is the BUG-52 no-change PM re-verification repair release. It fixes
+the remaining tusq.dev quote-back failure where `agentxchain unblock <hesc>`
+still redispatched PM after the PM correctly changed no files because the
+planning gate artifacts were already complete.
 
 ## Bug Fixes
 
-- **BUG-52 escalation-linked standing gate recovery**: operator unblock now uses
-  the escalation-linked turn as the standing gate source before falling back to
-  `last_completed_turn_id`. If the PM turn tied to the open escalation satisfied
-  `planning_signoff`, unblock advances to `implementation` and dispatches `dev`
-  instead of looping PM.
+- **BUG-52 no-change gate re-verification**: operator unblock now treats the
+  escalation-linked phase entry role as a valid standing-gate source when all
+  required human-gated artifacts are already present, the turn passed
+  verification, and `proposed_next_role` is `human`. The human unblock is the
+  gate approval, even when `files_changed: []`.
 
-- **BUG-52 approval attribution**: `gate_approved` and `phase_entered` events
-  now include `requested_by_turn` for the approved phase transition, giving beta
-  testers a stable quote-back field for the exact PM turn approved by the human.
-
-- **Vitest contract cleanup**: the local CLI adapter subprocess test now imports
-  `node:child_process` dynamically inside the node:test-only test body, keeping
-  the Vitest static dependency contract green.
+- **BUG-52 tusq.dev checkpoint proof**: the patched local CLI was verified
+  against the tester checkpoint `a6a388e15674efa89d09e4a0e507f14a702540f3`.
+  `unblock hesc_0b1b166cd606d86d` advanced `planning -> implementation`,
+  marked `planning_signoff` passed, and dispatched `dev`.
 
 ## Evidence
 
-- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js && node --test cli/test/vitest-contract.test.js -> 26 tests / 3 suites / 0 failures / 0 skipped
+- node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suite / 0 failures / 0 skipped
 
 ## Tester Re-Run Contract
 
 Run the shipped package:
 
 ```bash
-npx --yes -p agentxchain@2.154.8 -c "agentxchain --version"
+npx --yes -p agentxchain@2.154.9 -c "agentxchain --version"
 ```
 
 For BUG-52 closure, quote all of the following from a shipped-package tusq.dev
@@ -56,7 +52,7 @@ BUG-52 remains open until that shipped-package quote-back lands. BUG-61,
 BUG-62, BUG-54, BUG-59, and BUG-53 remain open under their existing shipped
 package closure contracts.
 
-For still-open BUG-54 and BUG-59 closure proof, pin to `agentxchain@2.154.8`
+For still-open BUG-54 and BUG-59 closure proof, pin to `agentxchain@2.154.9`
 or later and follow `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md`. That
 runbook covers the real adapter-path watchdog evidence (`startup_latency_ms`,
 `elapsed_since_spawn_ms`, and any `runtimes.<id>.startup_watchdog_ms` override)

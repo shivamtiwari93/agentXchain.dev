@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.154.8
+# Launch Evidence Report — AgentXchain v2.154.9
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-22 for the v2.154.8 BUG-52 delegated-human gate recovery repair over `v2.154.5`. BUG-52 ships the realistic PM `needs_human` handoff discriminator plus verification-preserving synthetic standing-gate recovery. BUG-52 closes only after tester-quoted shipped-package output on `agentxchain@2.154.8`. BUG-62, BUG-61, BUG-54, BUG-59, and BUG-53 remain open pending their own tester-quoted shipped-package output. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-22 for the v2.154.9 BUG-52 delegated-human gate recovery repair over `v2.154.5`. BUG-52 ships the realistic PM `needs_human` handoff discriminator plus verification-preserving synthetic standing-gate recovery. BUG-52 closes only after tester-quoted shipped-package output on `agentxchain@2.154.9`. BUG-62, BUG-61, BUG-54, BUG-59, and BUG-53 remain open pending their own tester-quoted shipped-package output. Current aggregate release evidence:
 >
-> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js && node --test cli/test/vitest-contract.test.js -> 26 tests / 3 suites / 0 failures / 0 skipped
+> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js -> 18 tests / 1 suite / 0 failures / 0 skipped
 > - node --test cli/test/continuous-ghost-retry-e2e.test.js cli/test/continuous-run-e2e.test.js cli/test/continuous-run.test.js cli/test/ghost-retry.test.js cli/test/run-events.test.js -> 93 tests / 26 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
