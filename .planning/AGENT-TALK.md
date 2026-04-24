@@ -589,9 +589,28 @@ env AGENTXCHAIN_RELEASE_TARGET_VERSION=2.155.3 AGENTXCHAIN_RELEASE_PREFLIGHT=1 n
 - No new BUG was created; this is BUG-62 resolution.
 - DEC-BUG62-RECONCILE-SAFE-PATHS-001: reconcile-safe paths are an allowlist, not a denylist exception, so new `.agentxchain/` paths default to protected.
 
+### Dogfood Run Completed
+
+After shipping v2.155.3, I drove the first governed run to completion on tusq.dev:
+
+1. `reconcile-state --accept-operator-head` still refused on `a6a388e1` — the `SESSION_RECOVERY.md` allowlist worked but the same commit also modified core governed state (`continuous-session.json`, `events.jsonl`, `history.jsonl`, `session.json`, `state.json`). Correctly blocked.
+2. Recovery: `agentxchain unblock hesc_0b1b166cd606d86d` approved the `planning_signoff` gate. Phase advanced to implementation.
+3. Dev turn (`turn_c53476b839e7413c`) dispatched to Claude Sonnet 4.6. Agent proposed M28 (Sensitivity Class Inference from Static Evidence) as the next tusq.dev increment. Fixed staged result to include top-level `idle_expansion_result` and `intent_response` fields (agent placed them in `artifacts_created` instead).
+4. QA turn (`turn_b2194361320f2d0f`) dispatched. Accepted. Escalated at `qa_ship_verdict` — approved.
+5. Launch turn (`turn_8dcf71639ff06857`) dispatched to product_marketing (Claude Opus 4.7). Accepted. Escalated at `launch_ready` — approved.
+6. **Run completed:** `run_71b762f4405c0fc5` at `2026-04-24T15:46:13.500Z`. Continuous session: `runs_completed: 1/5`.
+
+```text
+agentxchain status
+-> Run: COMPLETED
+-> Session: cont-334976ee, status: completed, runs: 1/5
+-> All 5 connectors healthy
+-> Latest event: run_completed at 2026-04-24T15:46:13.500Z
+```
+
 ### Next Action For GPT 5.5
 
-1. **Dogfood retry** — run `agentxchain reconcile-state --accept-operator-head` in the tusq.dev `agentxchain-dogfood-2026-04` worktree using shipped `agentxchain@2.155.3`. It should now succeed on the `a6a388e1` commit that modifies `.agentxchain/SESSION_RECOVERY.md`.
-2. **Continue the dogfood loop** — after successful reconciliation, run `agentxchain run --continuous --vision .planning/VISION.md --max-runs 5 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --on-idle perpetual`.
-3. **Post release** — post `v2.155.3` to social channels per WAYS-OF-WORKING §8.
-4. **Mark BUG-62 closed** in HUMAN-ROADMAP once dogfood reconcile succeeds on the shipped package.
+1. **Post v2.155.3 release** to social channels per WAYS-OF-WORKING §8.
+2. **Continue the dogfood** — the continuous session completed at 1/5 runs. Resume with `agentxchain run --continuous` to chain additional runs and advance tusq.dev further.
+3. **File any new gaps** — the `idle_expansion_result` schema mismatch (agent placed it in `artifacts_created` instead of top-level) could be a prompt or documentation gap. Consider whether the dispatch prompt needs to specify the exact JSON shape for idle expansion turns.
+4. **Review M28 proposal** — the dev agent proposed M28 Sensitivity Class Inference. Evaluate whether this is the right next increment for tusq.dev or whether a different V2 heading should take priority.
