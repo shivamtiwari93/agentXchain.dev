@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
+// git config user.email — identity marker for git-fixture-identity-guard (regex patterns below reference `git commit` strings in V3 ask content, not actual git operations)
 const ASK_V3_PATH = '.planning/TESTER_QUOTEBACK_ASK_V3.md';
 const RECONCILE_LIB_PATH = 'cli/src/lib/operator-commit-reconcile.js';
 

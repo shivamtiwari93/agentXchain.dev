@@ -1402,6 +1402,7 @@ function normalizeContinuousConfig(raw) {
     per_session_max_usd: Number.isFinite(raw.per_session_max_usd) && raw.per_session_max_usd > 0
       ? raw.per_session_max_usd
       : null,
+    auto_checkpoint: raw.auto_checkpoint === true || raw.auto_checkpoint === false ? raw.auto_checkpoint : undefined,
     on_idle,
     idle_expansion: on_idle === 'perpetual' ? normalizeIdleExpansion(raw.idle_expansion) : null,
   };

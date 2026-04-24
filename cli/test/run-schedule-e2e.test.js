@@ -535,6 +535,7 @@ describe('run schedule E2E', () => {
             max_runs: 1,
             max_idle_cycles: 3,
             triage_approval: 'auto',
+            auto_checkpoint: false,
           },
         },
       },
@@ -615,12 +616,12 @@ describe('run schedule E2E', () => {
 
     // Verify governed state completed after unblock
     const finalState = readJson(root, '.agentxchain/state.json');
-    assert.equal(finalState.status, 'completed');
+    assert.equal(finalState.status, 'completed', `expected completed, got ${finalState.status}`);
 
     // Verify session resumed with stable session_id and completed at least 1 run
     const finalSession = readJson(root, '.agentxchain/continuous-session.json');
     assert.equal(finalSession.session_id, sessionId, 'session_id must stay stable across block/unblock');
-    assert.ok(finalSession.runs_completed >= 1, 'session must complete at least one run after unblock');
+    assert.ok(finalSession.runs_completed >= 1, `session must complete at least one run after unblock (runs_completed=${finalSession.runs_completed})`);
 
     // Parse daemon cycle outputs and verify the full lifecycle
     const cycles = daemonResult.stdout.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
