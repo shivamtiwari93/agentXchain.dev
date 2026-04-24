@@ -13,7 +13,7 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { getActiveTurn } from './governed-state.js';
 import { getInvalidPhaseTransitionReason } from './gate-evaluator.js';
 import { validateIdleExpansionTurnResult } from './idle-expansion-result-validator.js';
@@ -71,6 +71,8 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     return result('schema', 'schema_error', [`Invalid JSON in ${stagingRel}: ${err.message}`]);
   }
 
+  const activeTurn = getActiveTurn(state) || state?.current_turn || null;
+
   // ── Pre-validation normalization ───────────────────────────────────────
   // Build context for role/phase-aware normalization rules
   const normContext = {};
@@ -80,7 +82,6 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     // current_turn compatibility alias for callers that pass a state shape
     // built outside loadProjectState() (e.g. raw fixtures). Both surfaces are
     // live per DEC-CURRENT-TURN-COMPAT-ALIAS-001 — current_turn is not legacy.
-    const activeTurn = getActiveTurn(state) || state.current_turn;
     if (activeTurn) {
       const roleKey = activeTurn.assigned_role || activeTurn.role;
       normContext.assignedRole = roleKey;
@@ -92,7 +93,17 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
   }
   const { normalized, corrections } = normalizeTurnResult(turnResult, config, normContext);
   turnResult = normalized;
-  const normWarnings = corrections.map((c) => `[normalized] ${c}`);
+  const sidecarResult = maybeAttachIdleExpansionSidecar(
+    root,
+    stagingRel,
+    turnResult,
+    buildIdleExpansionValidationContext(state, opts, activeTurn),
+  );
+  turnResult = sidecarResult.turnResult;
+  const normWarnings = [
+    ...corrections.map((c) => `[normalized] ${c}`),
+    ...sidecarResult.warnings,
+  ];
 
   // ── Stage A: Schema Validation ─────────────────────────────────────────
   const schemaErrors = validateSchema(turnResult);
@@ -100,7 +111,6 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     return result('schema', 'schema_error', schemaErrors);
   }
 
-  const activeTurn = getActiveTurn(state) || state?.current_turn || null;
   const idleExpansionResult = validateIdleExpansionTurnResult(turnResult, buildIdleExpansionValidationContext(state, opts, activeTurn));
   if (idleExpansionResult.errors.length > 0) {
     return result('schema', 'schema_error', idleExpansionResult.errors, idleExpansionResult.warnings);
@@ -466,6 +476,112 @@ function buildIdleExpansionValidationContext(state, opts, activeTurn) {
       ?? state?.continuous?.vision_headings_snapshot
       ?? [],
   };
+}
+
+function maybeAttachIdleExpansionSidecar(root, stagingRel, turnResult, context) {
+  if (context.required !== true || turnResult?.idle_expansion_result !== undefined) {
+    return { turnResult, warnings: [] };
+  }
+
+  const sidecarRel = join(dirname(stagingRel), 'idle-expansion-result.json');
+  const sidecarAbs = join(root, sidecarRel);
+  if (!existsSync(sidecarAbs)) {
+    return { turnResult, warnings: [] };
+  }
+
+  let raw;
+  try {
+    raw = readFileSync(sidecarAbs, 'utf8');
+  } catch (err) {
+    return { turnResult, warnings: [`[normalized] Cannot read idle expansion sidecar ${sidecarRel}: ${err.message}`] };
+  }
+
+  let sidecar;
+  try {
+    sidecar = JSON.parse(raw);
+  } catch (err) {
+    return { turnResult, warnings: [`[normalized] Invalid JSON in idle expansion sidecar ${sidecarRel}: ${err.message}`] };
+  }
+
+  const idleExpansionResult = normalizeIdleExpansionSidecar(sidecar, context);
+  return {
+    turnResult: {
+      ...turnResult,
+      idle_expansion_result: idleExpansionResult,
+    },
+    warnings: [`[normalized] Loaded idle_expansion_result from ${sidecarRel}.`],
+  };
+}
+
+function normalizeIdleExpansionSidecar(sidecar, context) {
+  if (!sidecar || typeof sidecar !== 'object' || Array.isArray(sidecar)) {
+    return sidecar;
+  }
+
+  const result = {
+    ...sidecar,
+    expansion_iteration: Number.isInteger(sidecar.expansion_iteration)
+      ? sidecar.expansion_iteration
+      : context.expansionIteration,
+  };
+
+  const intent = sidecar.new_intake_intent || sidecar.proposed_intent;
+  if (sidecar.kind === 'new_intake_intent' && intent && typeof intent === 'object' && !Array.isArray(intent)) {
+    result.new_intake_intent = {
+      title: intent.title,
+      charter: intent.charter,
+      acceptance_contract: intent.acceptance_contract,
+      priority: intent.priority,
+      template: intent.template,
+    };
+    result.vision_traceability = normalizeVisionTraceabilityForTurnResult(
+      sidecar.vision_traceability || intent.vision_traceability,
+    );
+  } else if (sidecar.vision_traceability !== undefined) {
+    result.vision_traceability = normalizeVisionTraceabilityForTurnResult(sidecar.vision_traceability);
+  }
+
+  if (
+    sidecar.kind === 'vision_exhausted'
+    && sidecar.vision_exhausted
+    && typeof sidecar.vision_exhausted === 'object'
+    && !Array.isArray(sidecar.vision_exhausted)
+    && Array.isArray(sidecar.vision_exhausted.classification)
+  ) {
+    result.vision_exhausted = {
+      ...sidecar.vision_exhausted,
+      classification: sidecar.vision_exhausted.classification.map((entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          return entry;
+        }
+        return {
+          ...entry,
+          vision_heading: entry.vision_heading || entry.heading,
+        };
+      }),
+    };
+  }
+
+  return result;
+}
+
+function normalizeVisionTraceabilityForTurnResult(traceability) {
+  if (!Array.isArray(traceability)) {
+    return traceability;
+  }
+
+  return traceability.map((entry) => {
+    if (typeof entry === 'string') {
+      return { vision_heading: entry };
+    }
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return entry;
+    }
+    return {
+      ...entry,
+      vision_heading: entry.vision_heading || entry.heading,
+    };
+  });
 }
 
 // ── Stage B: Assignment Validation ───────────────────────────────────────────

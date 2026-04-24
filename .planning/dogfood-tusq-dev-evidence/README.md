@@ -24,6 +24,7 @@ The human `tusq.dev` main worktree was dirty at session start with existing test
 | --- | --- | --- |
 | [`GAP-001-blocked-run-idle-expansion.md`](./GAP-001-blocked-run-idle-expansion.md) | Closed in `agentxchain@2.155.2` | Continuous perpetual queued an idle-expansion intent before detecting the inherited blocked run was ineligible to start. |
 | [`GAP-002-bug62-governed-state-drift.md`](./GAP-002-bug62-governed-state-drift.md) | Fixed in `agentxchain@2.155.3` | After BUG-63 closed, the real tusq.dev baseline hit `governance_state_modified` reconcile refusal on `.agentxchain/SESSION_RECOVERY.md`. Fixed by reconcile-safe-paths allowlist. |
+| [`GAP-003-bug64-idle-expansion-sidecar.md`](./GAP-003-bug64-idle-expansion-sidecar.md) | Local fix implemented, pending release/retry | PM idle-expansion produced `idle-expansion-result.json`, but acceptance required top-level `turnResult.idle_expansion_result` and blocked the run. |
 
 ## Completed Runs
 

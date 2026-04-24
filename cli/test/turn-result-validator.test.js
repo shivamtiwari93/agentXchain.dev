@@ -26,6 +26,15 @@ function writeStagedResult(data) {
   );
 }
 
+function writeIdleExpansionSidecar(data, dir = join(TMP_ROOT, '.agentxchain', 'staging')) {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'idle-expansion-result.json'),
+    typeof data === 'string' ? data : JSON.stringify(data, null, 2),
+    'utf8'
+  );
+}
+
 function makeValidTurnResult(overrides = {}) {
   return {
     schema_version: '1.0',
@@ -297,6 +306,52 @@ describe('turn-result-validator', () => {
       const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
       assert.equal(res.ok, true);
       assert.equal(res.turnResult.idle_expansion_result.kind, 'new_intake_intent');
+    });
+
+    it('BUG-64: accepts idle_expansion_result from sibling sidecar for a vision_idle_expansion turn', () => {
+      const tr = makeIdleExpansionTurnResult();
+      delete tr.idle_expansion_result;
+      writeStagedResult(tr);
+      writeIdleExpansionSidecar(makeIdleExpansionTurnResult().idle_expansion_result);
+
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+
+      assert.equal(res.ok, true);
+      assert.equal(res.turnResult.idle_expansion_result.kind, 'new_intake_intent');
+      assert.equal(res.turnResult.idle_expansion_result.expansion_iteration, 2);
+      assert.ok(res.warnings.some((w) => w.includes('Loaded idle_expansion_result from .agentxchain/staging/idle-expansion-result.json')));
+    });
+
+    it('BUG-64: normalizes dogfood sidecar shape into canonical idle_expansion_result', () => {
+      const turnDir = join(TMP_ROOT, '.agentxchain', 'staging', 'turn-0004');
+      const tr = makeIdleExpansionTurnResult();
+      delete tr.idle_expansion_result;
+      mkdirSync(turnDir, { recursive: true });
+      writeFileSync(join(turnDir, 'turn-result.json'), JSON.stringify(tr, null, 2), 'utf8');
+      writeIdleExpansionSidecar({
+        schema_version: '1.0',
+        kind: 'new_intake_intent',
+        proposed_intent: {
+          title: 'Harden policy-backed next-objective selection',
+          charter: 'Ship a governed increment that improves policy-backed next-objective selection.',
+          acceptance_contract: ['A repeatable test proves the next objective is policy-backed.'],
+          priority: 'p1',
+          template: 'generic',
+          vision_traceability: ['Human Role'],
+        },
+      }, turnDir);
+
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig(), {
+        stagingPath: '.agentxchain/staging/turn-0004/turn-result.json',
+      });
+
+      assert.equal(res.ok, true);
+      assert.equal(res.turnResult.idle_expansion_result.kind, 'new_intake_intent');
+      assert.equal(res.turnResult.idle_expansion_result.expansion_iteration, 2);
+      assert.equal(res.turnResult.idle_expansion_result.new_intake_intent.title, 'Harden policy-backed next-objective selection');
+      assert.deepEqual(res.turnResult.idle_expansion_result.vision_traceability, [
+        { vision_heading: 'Human Role' },
+      ]);
     });
 
     it('requires idle_expansion_result for a vision_idle_expansion turn', () => {
