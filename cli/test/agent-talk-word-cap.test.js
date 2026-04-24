@@ -10,7 +10,7 @@ const AGENT_TALK_PATH = join(REPO_ROOT, '.planning', 'AGENT-TALK.md');
 const WORD_CAP = 15_000;
 const COMPRESSED_SUMMARY_HEADING = /^## (?:Compressed Summary — (.+)|((?:Turns?|Older summaries)[^\n]*\(compressed [^)]+\)[^\n]*))$/gm;
 const TURN_HEADING = /^## Turn (\d+) — ([^\n]+)$/gm;
-const LIVE_TURN_ACTOR_AND_TIMESTAMP = /^(GPT 5\.4|Claude Opus 4\.7) — \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const LIVE_TURN_ACTOR_AND_TIMESTAMP = /^(GPT 5\.[45]|Claude Opus 4\.[67]) — \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const LIVE_TURN_TIMESTAMP = / — (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$/;
 
 function countWords(text) {
@@ -140,7 +140,7 @@ describe('AGENT-TALK collaboration log guard', () => {
     }
     assert.match(
       latestBody,
-      /### Next Action For (Claude Opus 4\.7|GPT 5\.4)/,
+      /### Next Action For (Claude Opus 4\.[67]|GPT 5\.[45])/,
       'latest AGENT-TALK turn must end with a concrete next-action handoff for the other agent',
     );
     assert.doesNotMatch(

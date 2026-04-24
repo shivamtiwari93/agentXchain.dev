@@ -2,12 +2,13 @@
  * HUMAN-ROADMAP open blocker guard.
  *
  * The current roadmap has two different open-blocker classes:
- *   - BUG-52/53/54/61/62 closure requires literal tester quote-back from the
+ *   - BUG-53/54/61/62 closure requires literal tester quote-back from the
  *     published package asks.
+ *   - BUG-52 is now CLOSED with tester-verified evidence on agentxchain@2.154.11.
  *   - BUG-59 is shipped and checked, but its tester quote-back still gates
  *     BUG-60 implementation.
  *   - BUG-60 is not in that quote-back-only class; it is blocked behind
- *     BUG-52 + BUG-59 shipped-package quote-back and its own two-agent
+ *     BUG-59 shipped-package quote-back and its own two-agent
  *     research/review gate before implementation.
  *
  * This guard prevents future status edits from collapsing those classes.
@@ -62,7 +63,7 @@ function extractRoadmapItem(roadmap, bugId) {
 }
 
 describe('HUMAN-ROADMAP open blocker status', () => {
-  it('keeps BUG-52 third variant as the explicit current focus until quote-back lands', () => {
+  it('keeps the current focus reflecting BUG-52 closure and remaining blockers', () => {
     const roadmap = readRoadmap();
     const currentFocusLine = roadmap
       .split('\n')
@@ -71,28 +72,23 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     assert.ok(currentFocusLine, 'roadmap must keep a current focus line');
     assert.match(
       currentFocusLine,
-      /BUG-52 third variant/,
-      'current focus must keep BUG-52 third variant as the named top priority',
+      /now past BUG-52/,
+      'current focus must reflect that BUG-52 is closed',
     );
     assert.match(
       currentFocusLine,
-      /`unblock`-based human-gate resolution/,
-      'current focus must preserve the delegated unblock failure lane',
+      /agentxchain@2\.154\.11/,
+      'current focus must cite the shipped-package closure version',
     );
     assert.match(
       currentFocusLine,
-      /pending_phase_transition` is `null`/,
-      'current focus must preserve the null pending_phase_transition reproducer',
+      /remaining live blockers are BUG-54, BUG-61, BUG-62/,
+      'current focus must name the remaining live blockers',
     );
     assert.match(
       currentFocusLine,
-      /agent-side surfaces are now shipped in `agentxchain@2\.154\.7`/,
-      'current focus must preserve that BUG-52 agent-side surfaces shipped in the current target package',
-    );
-    assert.match(
-      currentFocusLine,
-      /BUG-60 implementation still waits for literal BUG-52 tester quote-back\/closure/,
-      'current focus must keep BUG-60 implementation blocked behind BUG-52 tester closure evidence',
+      /BUG-60 remains a later product expansion/,
+      'current focus must keep BUG-60 as a later expansion, not an immediate blocker',
     );
   });
 
@@ -192,29 +188,24 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
   });
 
-  it('keeps BUG-52 agent-side implementation status distinct from tester quote-back closure', () => {
+  it('keeps BUG-52 marked as closed with tester-verified closure evidence', () => {
     const roadmap = readRoadmap();
-    const bug52 = extractRoadmapItem(roadmap, 'BUG-52');
+    const checkedBug52 = roadmap.search(/^- \[x\] \*\*BUG-52(?::|\b)/m);
+
+    assert.notEqual(checkedBug52, -1, 'BUG-52 must be a checked (closed) roadmap item');
+
+    const next = roadmap.indexOf('\n- [', checkedBug52 + 1);
+    const bug52 = roadmap.slice(checkedBug52, next === -1 ? roadmap.length : next);
 
     assert.match(
       bug52,
-      /Agent-side implementation surfaces are complete in `agentxchain@2\.154\.7`/,
-      'BUG-52 must preserve that the agent-side implementation already shipped in the current target package',
+      /CLOSED 2026-04-23[\s\S]{0,300}agentxchain@2\.154\.11/,
+      'BUG-52 must preserve the tester-verified closure date and package version',
     );
     assert.match(
       bug52,
-      /Turn 274[\s\S]{0,240}`unblock`[\s\S]{0,240}`pending_phase_transition` is `null`/,
-      'BUG-52 must preserve the delegated-unblock command-surface convergence work',
-    );
-    assert.match(
-      bug52,
-      /Turn 276[\s\S]{0,240}`phase_reconciled` session checkpoint/,
-      'BUG-52 must preserve the session checkpoint cleanup work',
-    );
-    assert.match(
-      bug52,
-      /BUG-52 remains unchecked only because literal tester quote-back[\s\S]{0,180}TESTER_QUOTEBACK_ASK_V1\.md/,
-      'BUG-52 must remain open for quote-back only, not because implementation status is unknown',
+      /tester-verified shipped-package evidence/,
+      'BUG-52 must preserve that closure came from tester quote-back',
     );
   });
 
@@ -255,7 +246,6 @@ describe('HUMAN-ROADMAP open blocker status', () => {
       ['BUG-61', 'TESTER_QUOTEBACK_ASK_V4.md'],
       ['BUG-62', 'TESTER_QUOTEBACK_ASK_V3.md'],
       ['BUG-54', 'TESTER_QUOTEBACK_ASK_V2.md'],
-      ['BUG-52', 'TESTER_QUOTEBACK_ASK_V1.md'],
       ['BUG-53', 'TESTER_QUOTEBACK_ASK_V5_BUG53.md'],
     ]);
 
