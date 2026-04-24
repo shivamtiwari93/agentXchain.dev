@@ -33,8 +33,8 @@ Found queued intent: intent_1777046032635_2eab (approved)
   Errors:  1
     acceptTurn(pm): Validation failed at stage schema: idle_expansion_result is required for vision_idle_expansion turns.
 
-Run blocked — continuous loop paused. Use `agentxchain unblock <id>` to resume.
-Continuous loop paused on blocker. Use "agentxchain unblock <id>" to resume.
+Run blocked — continuous loop paused. Recovery action: `agentxchain unblock <id>` was printed, but `blocked_category=schema_validation` made that action insufficient because the turn needed a corrected idle-expansion result contract.
+Continuous loop paused on blocker. Recovery action: `agentxchain unblock <id>` was printed, but the blocker was schema validation, not a human approval.
 ```
 
 `agentxchain status` showed:

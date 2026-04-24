@@ -1,0 +1,73 @@
+---
+sidebar_position: 0
+title: "v2.155.4 Release Notes"
+---
+
+# AgentXchain v2.155.4
+
+`v2.155.4` is a dogfood unblock patch over `v2.155.3`. It fixes the idle-expansion
+acceptance contract exposed by the tusq.dev dogfood branch: PM produced a valid
+structured `idle-expansion-result.json` sidecar, but the acceptor only looked for
+top-level `turnResult.idle_expansion_result`.
+
+## Bug Fixes
+
+- **BUG-64 idle-expansion sidecar acceptance**: `accept-turn` now loads a sibling
+  `.agentxchain/staging/<turn>/idle-expansion-result.json` for required
+  `vision_idle_expansion` turns when `turn-result.json` does not contain
+  top-level `idle_expansion_result`.
+- **Canonical normalization preserved**: dogfood-observed sidecar fields such as
+  `proposed_intent` and string `vision_traceability` are normalized into the
+  canonical `idle_expansion_result` contract before validation. The canonical
+  validator still rejects missing or malformed idle-expansion output.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 107 tests / 21 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.4 -c "agentxchain --version"
+```
+
+For BUG-64 closure, resume the tusq.dev dogfood branch and quote:
+
+- the same PM idle-expansion turn can be accepted without manually editing
+  `turn-result.json`
+- `.agentxchain/staging/<turn>/idle-expansion-result.json` is normalized into
+  accepted history as `idle_expansion_result`
+- `idle_expansion_ingested` fires with `payload.kind == "new_intake_intent"`
+- the continuous session advances beyond the BUG-64 paused state
+
+For regression proof, quote that a required `vision_idle_expansion` turn with
+neither top-level `idle_expansion_result` nor sibling sidecar still fails schema
+validation.
+
+For downstream closure, start from a clean checkpoint and quote:
+
+- functional downstream behavior remains fixed: continuous does not idle out in
+  QA, QA advances, `launch_ready` unblock completes the run, and no duplicate
+  dispatch occurs
+- quote any `startup_latency_ms`, `elapsed_since_spawn_ms`, and
+  `runtimes.<id>.startup_watchdog_ms` evidence relevant to adapter-path
+  reliability while confirming the downstream flow still uses the real runtime
+  path
+- after final terminal approval, status is `completed`,
+  `pending_run_completion=null`, and `active_turns={}`
+- durable events include both `gate_approved` for `run_completion` and
+  `run_completed`
+- non-terminal phase recovery should still quote `phase_entered` with
+  `reconciled_before_dispatch` if a standing gate advances before dispatch
+- `.agentxchain/continuous-session.json` no longer stays at `paused` with
+  `runs_completed=0`; quote the terminal session shape after the run completes
+- `session_continuation` should still be quoted if the continuous session chains
+  into another run; otherwise quote the terminal reason instead
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.155.4
+
+### Bug Fixes
+- **BUG-64 idle-expansion sidecar acceptance**: `accept-turn` now loads a sibling `.agentxchain/staging/<turn>/idle-expansion-result.json` for required `vision_idle_expansion` turns when `turn-result.json` does not contain top-level `idle_expansion_result`. The sidecar is normalized into the canonical contract before validation, including dogfood-observed `proposed_intent` and string `vision_traceability` fields.
+- **BUG-64 strict negative path preserved**: missing idle-expansion output still fails when neither top-level `idle_expansion_result` nor a sibling sidecar exists, and malformed sidecar content still flows through the canonical idle-expansion validator.
+
+### Status
+- `v2.155.4` is a dogfood unblock patch over `v2.155.3`. The tusq.dev `agentxchain-dogfood-2026-04` branch produced a valid PM idle-expansion sidecar for M28, but the shipped acceptor only read the top-level result field and blocked the run with `idle_expansion_result is required for vision_idle_expansion turns`.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 107 tests / 21 suites / 0 failures / 0 skipped
+
 ## 2.155.3
 
 ### Bug Fixes

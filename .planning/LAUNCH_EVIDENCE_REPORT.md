@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.155.3
+# Launch Evidence Report — AgentXchain v2.155.4
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.3 — BUG-62 reconcile-safe-paths allowlist patch. Operator commits modifying non-state `.agentxchain/` files (SESSION_RECOVERY.md, prompts/) no longer block reconciliation; core state files remain protected. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.4 — BUG-64 idle-expansion sidecar acceptance patch. Idle-expansion PM turns that emit `idle-expansion-result.json` are now accepted after canonical normalization, while missing or malformed results still fail validation. Current aggregate release evidence:
 >
-> - cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 101 tests / 33 suites / 0 failures
+> - cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 107 tests / 21 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)
