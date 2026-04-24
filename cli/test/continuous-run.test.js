@@ -1041,6 +1041,7 @@ describe('Continuous Run', () => {
       assert.ok(content.includes("'--vision <path>'"));
       assert.ok(content.includes("'--max-runs <n>'"));
       assert.ok(content.includes("'--max-idle-cycles <n>'"));
+      assert.ok(content.includes("'--on-idle <mode>'"));
       assert.ok(content.includes("'--auto-retry-on-ghost'"));
       assert.ok(content.includes("'--no-auto-retry-on-ghost'"));
       assert.ok(content.includes("'--auto-retry-on-ghost-max-retries <n>'"));
