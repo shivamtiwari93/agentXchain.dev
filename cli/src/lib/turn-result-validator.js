@@ -479,7 +479,15 @@ function buildIdleExpansionValidationContext(state, opts, activeTurn) {
 }
 
 function maybeAttachIdleExpansionSidecar(root, stagingRel, turnResult, context) {
-  if (context.required !== true || turnResult?.idle_expansion_result !== undefined) {
+  if (turnResult?.idle_expansion_result !== undefined) {
+    // Normalize embedded idle_expansion_result in-place (same transforms as sidecar path)
+    const normalizedResult = normalizeIdleExpansionSidecar(turnResult.idle_expansion_result, context);
+    return {
+      turnResult: { ...turnResult, idle_expansion_result: normalizedResult },
+      warnings: [],
+    };
+  }
+  if (context.required !== true) {
     return { turnResult, warnings: [] };
   }
 
@@ -525,7 +533,24 @@ function normalizeIdleExpansionSidecar(sidecar, context) {
       : context.expansionIteration,
   };
 
-  const intent = sidecar.new_intake_intent || sidecar.proposed_intent;
+  let intent = sidecar.new_intake_intent || sidecar.proposed_intent;
+  // Normalize flat new_intake_intent fields: if the PM put title/charter at the
+  // top level instead of nesting under new_intake_intent, extract them.
+  if (sidecar.kind === 'new_intake_intent' && !intent && sidecar.title && sidecar.charter) {
+    intent = {
+      title: sidecar.title,
+      charter: sidecar.charter,
+      acceptance_contract: sidecar.acceptance_contract,
+      priority: sidecar.priority,
+      template: sidecar.template,
+    };
+    // Remove flat fields from result to avoid schema pollution
+    delete result.title;
+    delete result.charter;
+    delete result.acceptance_contract;
+    delete result.priority;
+    delete result.template;
+  }
   if (sidecar.kind === 'new_intake_intent' && intent && typeof intent === 'object' && !Array.isArray(intent)) {
     result.new_intake_intent = {
       title: intent.title,
