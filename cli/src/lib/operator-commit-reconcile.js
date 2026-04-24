@@ -10,6 +10,16 @@ const CRITICAL_DELETION_PATHS = new Set([
   '.planning/acceptance-matrix.md',
 ]);
 
+// Files under .agentxchain/ that are documentation or operator-customizable
+// configuration, NOT core governed state. Modifications to these should not
+// block operator-commit reconciliation.
+const RECONCILE_SAFE_AGENTXCHAIN_PATHS = new Set([
+  '.agentxchain/SESSION_RECOVERY.md',
+]);
+const RECONCILE_SAFE_AGENTXCHAIN_PREFIXES = [
+  '.agentxchain/prompts/',
+];
+
 function git(root, args) {
   return execFileSync('git', args, {
     cwd: root,
@@ -90,16 +100,26 @@ function summarizeCommit(root, sha) {
   };
 }
 
+function isReconcileSafeAgentxchainPath(pathName) {
+  if (RECONCILE_SAFE_AGENTXCHAIN_PATHS.has(pathName)) return true;
+  for (const prefix of RECONCILE_SAFE_AGENTXCHAIN_PREFIXES) {
+    if (pathName.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
 function classifyUnsafeCommit(commit) {
   for (const entry of commit.name_status) {
     for (const pathName of entry.paths) {
       if (pathName === '.agentxchain' || pathName.startsWith('.agentxchain/')) {
-        return {
-          error_class: 'governance_state_modified',
-          message: `Commit ${commit.sha.slice(0, 8)} modifies governed state path ${pathName}; reconcile cannot auto-accept .agentxchain edits.`,
-          commit: commit.sha,
-          path: pathName,
-        };
+        if (!isReconcileSafeAgentxchainPath(pathName)) {
+          return {
+            error_class: 'governance_state_modified',
+            message: `Commit ${commit.sha.slice(0, 8)} modifies governed state path ${pathName}; reconcile cannot auto-accept .agentxchain edits.`,
+            commit: commit.sha,
+            path: pathName,
+          };
+        }
       }
       if (entry.status.startsWith('D') && CRITICAL_DELETION_PATHS.has(pathName)) {
         return {
@@ -239,6 +259,8 @@ export function reconcileOperatorHead(root, opts = {}) {
       safety_checks: {
         baseline_is_ancestor: true,
         rejected_state_paths: ['.agentxchain/'],
+        reconcile_safe_paths: [...RECONCILE_SAFE_AGENTXCHAIN_PATHS],
+        reconcile_safe_prefixes: [...RECONCILE_SAFE_AGENTXCHAIN_PREFIXES],
         rejected_deletions: [...CRITICAL_DELETION_PATHS],
       },
     },

@@ -1,7 +1,7 @@
 import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -286,5 +286,59 @@ describe('BUG-62 operator commit reconcile command-chain', () => {
       'agentxchain reconcile-state --accept-operator-head'
     );
     assert.match(payload.state.blocked_reason.recovery.detail, /critical_artifact_deleted/);
+  });
+
+  it('AT-BUG62-004 accepts operator commits that only modify reconcile-safe .agentxchain paths (SESSION_RECOVERY.md)', () => {
+    const { dir, baseline } = setupGovernedGitProject();
+
+    // Operator modifies SESSION_RECOVERY.md — this is a recovery documentation file, not core state
+    const recoveryPath = join(dir, '.agentxchain', 'SESSION_RECOVERY.md');
+    writeFileSync(recoveryPath, '# Recovery\nOperator updated recovery notes.\n');
+    git(dir, ['add', '-f', '.agentxchain/SESSION_RECOVERY.md']);
+    git(dir, ['commit', '-m', 'operator: update recovery documentation']);
+    const operatorHead = git(dir, ['rev-parse', 'HEAD']);
+
+    const reconcile = runCli(dir, ['reconcile-state', '--accept-operator-head']);
+    assert.equal(reconcile.status, 0, `reconcile should succeed for SESSION_RECOVERY.md: ${reconcile.stdout}\n${reconcile.stderr}`);
+    assert.match(reconcile.stdout, /Reconciled 1 operator commit/);
+
+    const state = readJson(join(dir, '.agentxchain', 'state.json'));
+    assert.equal(state.accepted_integration_ref, `git:${operatorHead}`);
+
+    const events = readJsonl(join(dir, '.agentxchain', 'events.jsonl'));
+    const event = events.find((entry) => entry.event_type === 'state_reconciled_operator_commits');
+    assert.ok(event, 'expected state_reconciled_operator_commits event');
+    assert.ok(event.payload.safety_checks.reconcile_safe_paths.includes('.agentxchain/SESSION_RECOVERY.md'));
+  });
+
+  it('AT-BUG62-005 accepts operator commits that only modify reconcile-safe .agentxchain/prompts/ paths', () => {
+    const { dir } = setupGovernedGitProject();
+
+    // Operator adds/modifies a prompt override — this is operator-customizable configuration
+    const promptsDir = join(dir, '.agentxchain', 'prompts');
+    mkdirSync(promptsDir, { recursive: true });
+    writeFileSync(join(promptsDir, 'pm-idle-expansion.md'), '# Custom PM idle-expansion\nOperator override.\n');
+    git(dir, ['add', '-f', '.agentxchain/prompts/pm-idle-expansion.md']);
+    git(dir, ['commit', '-m', 'operator: customize PM idle-expansion prompt']);
+
+    const reconcile = runCli(dir, ['reconcile-state', '--accept-operator-head']);
+    assert.equal(reconcile.status, 0, `reconcile should succeed for prompts/: ${reconcile.stdout}\n${reconcile.stderr}`);
+    assert.match(reconcile.stdout, /Reconciled 1 operator commit/);
+  });
+
+  it('AT-BUG62-006 still blocks when operator commit modifies both safe and unsafe .agentxchain paths', () => {
+    const { dir } = setupGovernedGitProject();
+
+    // Operator modifies SESSION_RECOVERY.md (safe) AND state.json (unsafe) in the same commit
+    writeFileSync(join(dir, '.agentxchain', 'SESSION_RECOVERY.md'), '# Recovery\nModified.\n');
+    const statePath = join(dir, '.agentxchain', 'state.json');
+    writeJson(statePath, { ...readJson(statePath), unsafe_edit: true });
+    git(dir, ['add', '-f', '.agentxchain/SESSION_RECOVERY.md', '.agentxchain/state.json']);
+    git(dir, ['commit', '-m', 'operator: mixed safe and unsafe edits']);
+
+    const reconcile = runCli(dir, ['reconcile-state', '--accept-operator-head']);
+    assert.equal(reconcile.status, 1, `reconcile should refuse mixed edits: ${reconcile.stdout}`);
+    assert.match(reconcile.stdout, /governance_state_modified/);
+    assert.match(reconcile.stdout, /\.agentxchain\/state\.json/);
   });
 });
