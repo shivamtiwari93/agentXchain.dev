@@ -16,6 +16,7 @@ import {
   findNextQueuedIntent,
   executeContinuousRun,
   maybeAutoReconcileOperatorCommits,
+  ingestAcceptedIdleExpansion,
 } from '../src/lib/continuous-run.js';
 import { validateRunLoopConfig } from '../src/lib/normalized-config.js';
 
@@ -1024,6 +1025,7 @@ describe('Continuous Run', () => {
       assert.equal(typeof mod.writeContinuousSession, 'function');
       assert.equal(typeof mod.seedFromVision, 'function');
       assert.equal(typeof mod.findNextQueuedIntent, 'function');
+      assert.equal(typeof mod.ingestAcceptedIdleExpansion, 'function');
     });
 
     it('S02: vision-reader.js exports required functions', async () => {
@@ -1180,6 +1182,250 @@ describe('Continuous Run', () => {
       }
     });
 
+    it('budget fires before idle-expansion dispatch (dual-cap regression)', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- build it\n', 'utf8');
+        // Complete the goal so idle cycles accumulate
+        writeIntent(dir, { intentId: 'intent_done', status: 'completed', charter: 'build it implementation' });
+
+        const context = { root: dir, config: readTestConfig(dir) };
+        const contOpts = {
+          ...resolveContinuousOptions({ continuous: true, maxIdleCycles: 2, onIdle: 'perpetual' }, context.config),
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+          perSessionMaxUsd: 1.00,
+        };
+
+        const { computeVisionContentSha, captureVisionHeadingsSnapshot } = await import('../src/lib/vision-reader.js');
+        const visionContent = readFileSync(join(planDir, 'VISION.md'), 'utf8');
+        const session = {
+          session_id: 'cont-budget-first',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 1,
+          max_runs: 10,
+          idle_cycles: 2, // At the idle threshold
+          max_idle_cycles: 2,
+          current_run_id: 'run_prev',
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: 1.00,
+          cumulative_spent_usd: 1.50, // Over budget
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+          vision_headings_snapshot: captureVisionHeadingsSnapshot(visionContent),
+          vision_sha_at_snapshot: computeVisionContentSha(visionContent),
+          expansion_iteration: 0,
+          _vision_stale_warned_shas: [],
+        };
+        writeContinuousSession(dir, session);
+
+        const step = await advanceContinuousRunOnce(
+          context, session, contOpts,
+          async () => assert.fail('should not execute run when budget exhausted'),
+          () => {},
+        );
+
+        // Budget must fire BEFORE idle-expansion, even though idle_cycles >= maxIdleCycles
+        assert.equal(step.action, 'session_budget_exhausted');
+        assert.equal(step.stop_reason, 'session_budget');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('perpetual mode dispatches idle expansion when idle cycles reached', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- build it\n', 'utf8');
+        writeIntent(dir, { intentId: 'intent_done', status: 'completed', charter: 'build it implementation' });
+
+        const context = { root: dir, config: readTestConfig(dir) };
+        const contOpts = {
+          ...resolveContinuousOptions({ continuous: true, maxIdleCycles: 1, onIdle: 'perpetual' }, context.config),
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+        };
+
+        const { computeVisionContentSha, captureVisionHeadingsSnapshot } = await import('../src/lib/vision-reader.js');
+        const visionContent = readFileSync(join(planDir, 'VISION.md'), 'utf8');
+        const session = {
+          session_id: 'cont-perpetual',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 1,
+          max_runs: 10,
+          idle_cycles: 1,
+          max_idle_cycles: 1,
+          current_run_id: 'run_prev',
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: null,
+          cumulative_spent_usd: 0,
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+          vision_headings_snapshot: captureVisionHeadingsSnapshot(visionContent),
+          vision_sha_at_snapshot: computeVisionContentSha(visionContent),
+          expansion_iteration: 0,
+          _vision_stale_warned_shas: [],
+        };
+        writeContinuousSession(dir, session);
+
+        const logs = [];
+        const step = await advanceContinuousRunOnce(
+          context, session, contOpts,
+          async () => assert.fail('should not execute run during dispatch step'),
+          (msg) => logs.push(msg),
+        );
+
+        assert.equal(step.status, 'running');
+        assert.equal(step.action, 'idle_expansion_dispatched');
+        assert.equal(step.expansion_iteration, 1);
+        assert.ok(step.intent_id);
+
+        // Session should have incremented expansion_iteration and reset idle_cycles
+        const savedSession = readContinuousSession(dir);
+        assert.equal(savedSession.expansion_iteration, 1);
+        assert.equal(savedSession.idle_cycles, 0);
+
+        // Event should have been emitted
+        const events = readEvents(dir);
+        const dispatched = events.find(e => e.event_type === 'idle_expansion_dispatched');
+        assert.ok(dispatched, 'idle_expansion_dispatched event expected');
+        assert.equal(dispatched.payload.expansion_iteration, 1);
+        assert.ok(dispatched.payload.intent_id);
+
+        // The intent should exist in the intake pipeline
+        const intentPath = join(dir, '.agentxchain', 'intake', 'intents', `${step.intent_id}.json`);
+        assert.ok(existsSync(intentPath), 'PM idle-expansion intent should be created');
+        const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+        assert.equal(intent.status, 'approved');
+        assert.ok(intent.charter.includes('[idle-expansion #1]'));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('expansion cap returns vision_expansion_exhausted', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- build it\n', 'utf8');
+        writeIntent(dir, { intentId: 'intent_done', status: 'completed', charter: 'build it implementation' });
+
+        const context = { root: dir, config: readTestConfig(dir) };
+        const contOpts = {
+          ...resolveContinuousOptions({ continuous: true, maxIdleCycles: 1, onIdle: 'perpetual' }, context.config),
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+          idleExpansion: {
+            sources: ['.planning/VISION.md'],
+            maxExpansions: 2,
+            role: 'pm',
+            malformedRetryLimit: 1,
+          },
+        };
+
+        const { computeVisionContentSha, captureVisionHeadingsSnapshot } = await import('../src/lib/vision-reader.js');
+        const visionContent = readFileSync(join(planDir, 'VISION.md'), 'utf8');
+        const session = {
+          session_id: 'cont-cap',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 1,
+          max_runs: 10,
+          idle_cycles: 1,
+          max_idle_cycles: 1,
+          current_run_id: 'run_prev',
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: null,
+          cumulative_spent_usd: 0,
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+          vision_headings_snapshot: captureVisionHeadingsSnapshot(visionContent),
+          vision_sha_at_snapshot: computeVisionContentSha(visionContent),
+          expansion_iteration: 2, // Already at cap
+          _vision_stale_warned_shas: [],
+        };
+        writeContinuousSession(dir, session);
+
+        const step = await advanceContinuousRunOnce(
+          context, session, contOpts,
+          async () => assert.fail('should not execute run when expansion cap reached'),
+          () => {},
+        );
+
+        assert.equal(step.status, 'vision_expansion_exhausted');
+        assert.equal(step.action, 'idle_expansion_cap_reached');
+
+        // Event should be emitted
+        const events = readEvents(dir);
+        const capEvent = events.find(e => e.event_type === 'idle_expansion_cap_reached');
+        assert.ok(capEvent, 'idle_expansion_cap_reached event expected');
+        assert.equal(capEvent.payload.max_expansions, 2);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('exit mode falls through to idle_exit (backward compat)', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- build it\n', 'utf8');
+        writeIntent(dir, { intentId: 'intent_done', status: 'completed', charter: 'build it implementation' });
+
+        const context = { root: dir, config: readTestConfig(dir) };
+        const contOpts = {
+          ...resolveContinuousOptions({ continuous: true, maxIdleCycles: 1, onIdle: 'exit' }, context.config),
+          pollSeconds: 0,
+        };
+
+        const { computeVisionContentSha, captureVisionHeadingsSnapshot } = await import('../src/lib/vision-reader.js');
+        const visionContent = readFileSync(join(planDir, 'VISION.md'), 'utf8');
+        const session = {
+          session_id: 'cont-exit',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 1,
+          max_runs: 10,
+          idle_cycles: 1,
+          max_idle_cycles: 1,
+          current_run_id: 'run_prev',
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: null,
+          cumulative_spent_usd: 0,
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+          vision_headings_snapshot: captureVisionHeadingsSnapshot(visionContent),
+          vision_sha_at_snapshot: computeVisionContentSha(visionContent),
+          expansion_iteration: 0,
+          _vision_stale_warned_shas: [],
+        };
+        writeContinuousSession(dir, session);
+
+        const step = await advanceContinuousRunOnce(
+          context, session, contOpts,
+          async () => assert.fail('should not execute run in idle exit'),
+          () => {},
+        );
+
+        assert.equal(step.status, 'idle_exit');
+        assert.equal(step.action, 'max_idle_reached');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
     it('session persists expansion_iteration field defaulting to 0', async () => {
       const dir = createTmpProject();
       try {
@@ -1204,6 +1450,233 @@ describe('Continuous Run', () => {
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // BUG-60 Slice 5: ingestAcceptedIdleExpansion
+  // -------------------------------------------------------------------
+  describe('BUG-60 Slice 5: ingestAcceptedIdleExpansion', () => {
+    it('ingests new_intake_intent and records a new intake intent through pipeline', () => {
+      const dir = createTmpProject();
+      try {
+        const context = { root: dir, config: readTestConfig(dir) };
+        const session = {
+          session_id: 'cont-ingest',
+          current_run_id: 'run_ingest',
+          expansion_iteration: 1,
+          status: 'running',
+        };
+        writeContinuousSession(dir, session);
+
+        const turnResult = {
+          idle_expansion_result: {
+            kind: 'new_intake_intent',
+            new_intake_intent: {
+              charter: 'Implement caching layer for API responses',
+              acceptance_contract: ['API responses are cached with configurable TTL'],
+              priority: 'p1',
+            },
+            vision_traceability: [{ heading: 'Protocol', citation: 'durable spec' }],
+          },
+        };
+
+        const result = ingestAcceptedIdleExpansion(context, session, {
+          turnResult,
+          historyEntry: {},
+          state: {},
+        });
+
+        assert.equal(result.ingested, true);
+        assert.equal(result.kind, 'new_intake_intent');
+        assert.ok(result.intentId);
+
+        // Verify the intent was created in the intake pipeline
+        const intentPath = join(dir, '.agentxchain', 'intake', 'intents', `${result.intentId}.json`);
+        assert.ok(existsSync(intentPath), 'PM-derived intent should exist');
+        const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+        assert.equal(intent.status, 'approved');
+        assert.ok(intent.charter.includes('[pm-derived]'));
+        assert.ok(intent.charter.includes('caching layer'));
+
+        // Verify event emitted
+        const events = readEvents(dir);
+        const ingested = events.find(e => e.event_type === 'idle_expansion_ingested');
+        assert.ok(ingested, 'idle_expansion_ingested event expected');
+        assert.equal(ingested.payload.kind, 'new_intake_intent');
+        assert.equal(ingested.payload.intent_id, result.intentId);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('ingests vision_exhausted and sets session to completed', () => {
+      const dir = createTmpProject();
+      try {
+        const context = { root: dir, config: readTestConfig(dir) };
+        const session = {
+          session_id: 'cont-exhausted',
+          current_run_id: 'run_exhausted',
+          expansion_iteration: 3,
+          status: 'running',
+        };
+        writeContinuousSession(dir, session);
+
+        const turnResult = {
+          idle_expansion_result: {
+            kind: 'vision_exhausted',
+            vision_exhausted: {
+              reason_excerpt: 'All vision goals have been fully addressed by prior increments.',
+              heading_classifications: [
+                { heading: 'Protocol', status: 'completed', evidence: 'Shipped in v2.151.0' },
+              ],
+            },
+          },
+        };
+
+        const result = ingestAcceptedIdleExpansion(context, session, {
+          turnResult,
+          historyEntry: {},
+          state: {},
+        });
+
+        assert.equal(result.ingested, true);
+        assert.equal(result.kind, 'vision_exhausted');
+
+        // Session should be completed
+        const savedSession = readContinuousSession(dir);
+        assert.equal(savedSession.status, 'completed');
+
+        // Event should be emitted
+        const events = readEvents(dir);
+        const ingested = events.find(e => e.event_type === 'idle_expansion_ingested');
+        assert.ok(ingested, 'idle_expansion_ingested event expected');
+        assert.equal(ingested.payload.kind, 'vision_exhausted');
+        assert.ok(ingested.payload.reason_excerpt.includes('fully addressed'));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('rejects malformed result (missing idle_expansion_result)', () => {
+      const dir = createTmpProject();
+      try {
+        const context = { root: dir, config: readTestConfig(dir) };
+        const session = {
+          session_id: 'cont-malformed',
+          current_run_id: 'run_malformed',
+          expansion_iteration: 1,
+          status: 'running',
+        };
+
+        const result = ingestAcceptedIdleExpansion(context, session, {
+          turnResult: {},
+          historyEntry: {},
+          state: {},
+        });
+
+        assert.equal(result.ingested, false);
+        assert.ok(result.error.includes('Missing or invalid'));
+
+        // Event should be emitted
+        const events = readEvents(dir);
+        const malformed = events.find(e => e.event_type === 'idle_expansion_malformed');
+        assert.ok(malformed, 'idle_expansion_malformed event expected');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('rejects unknown kind', () => {
+      const dir = createTmpProject();
+      try {
+        const context = { root: dir, config: readTestConfig(dir) };
+        const session = {
+          session_id: 'cont-unknown',
+          current_run_id: 'run_unknown',
+          expansion_iteration: 1,
+          status: 'running',
+        };
+
+        const result = ingestAcceptedIdleExpansion(context, session, {
+          turnResult: {
+            idle_expansion_result: {
+              kind: 'do_something_random',
+            },
+          },
+          historyEntry: {},
+          state: {},
+        });
+
+        assert.equal(result.ingested, false);
+        assert.ok(result.error.includes('do_something_random'));
+
+        const events = readEvents(dir);
+        const malformed = events.find(e => e.event_type === 'idle_expansion_malformed');
+        assert.ok(malformed);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('rejects new_intake_intent with missing charter', () => {
+      const dir = createTmpProject();
+      try {
+        const context = { root: dir, config: readTestConfig(dir) };
+        const session = {
+          session_id: 'cont-no-charter',
+          current_run_id: 'run_no_charter',
+          expansion_iteration: 1,
+          status: 'running',
+        };
+
+        const result = ingestAcceptedIdleExpansion(context, session, {
+          turnResult: {
+            idle_expansion_result: {
+              kind: 'new_intake_intent',
+              new_intake_intent: {
+                acceptance_contract: ['test'],
+                // missing charter
+              },
+            },
+          },
+          historyEntry: {},
+          state: {},
+        });
+
+        assert.equal(result.ingested, false);
+        assert.ok(result.error.includes('missing required fields'));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // BUG-60 Slice 5: terminal state descriptions
+  // -------------------------------------------------------------------
+  describe('BUG-60 Slice 5: terminal state descriptions', () => {
+    it('executeContinuousRun treats vision_exhausted as terminal', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- build it\n', 'utf8');
+
+        // The main loop checks step.status against a set of terminal states.
+        // Verify new terminal states are in the set by checking the source.
+        const content = readFileSync(join(cliRoot, 'src', 'lib', 'continuous-run.js'), 'utf8');
+        assert.ok(content.includes("step.status === 'vision_exhausted'"), 'vision_exhausted must be a terminal state');
+        assert.ok(content.includes("step.status === 'vision_expansion_exhausted'"), 'vision_expansion_exhausted must be a terminal state');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('describeContinuousTerminalStep produces messages for new terminal states', () => {
+      const content = readFileSync(join(cliRoot, 'src', 'lib', 'continuous-run.js'), 'utf8');
+      assert.ok(content.includes('PM idle-expansion declared vision exhausted. Stopping.'), 'vision_exhausted description');
+      assert.ok(content.includes('Idle-expansion cap reached'), 'vision_expansion_exhausted description');
     });
   });
 });

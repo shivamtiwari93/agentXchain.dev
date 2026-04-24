@@ -17,6 +17,7 @@ import {
   deriveVisionCandidates,
   captureVisionHeadingsSnapshot,
   computeVisionContentSha,
+  buildSourceManifest,
 } from './vision-reader.js';
 import {
   recordEvent,
@@ -26,6 +27,7 @@ import {
   prepareIntentForDispatch,
   consumeNextApprovedIntent,
   resolveIntent,
+  buildVisionIdleExpansionSignal,
 } from './intake.js';
 import { loadProjectState } from './config.js';
 import { safeWriteJson } from './safe-write.js';
@@ -116,6 +118,12 @@ function describeContinuousTerminalStep(step, contOpts) {
   }
   if (step.status === 'idle_exit') {
     return `All vision goals appear addressed (${contOpts.maxIdleCycles} consecutive idle cycles). Stopping.`;
+  }
+  if (step.status === 'vision_exhausted') {
+    return 'PM idle-expansion declared vision exhausted. Stopping.';
+  }
+  if (step.status === 'vision_expansion_exhausted') {
+    return `Idle-expansion cap reached (${contOpts.idleExpansion?.maxExpansions ?? '?'} expansions without productive run). Stopping.`;
   }
   if (step.status === 'failed') {
     const reason = step.stop_reason || step.action || 'unknown';
@@ -617,6 +625,325 @@ export function seedFromVision(root, visionPath, options = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// BUG-60: Idle-expansion dispatch + ingestion for perpetual continuous mode
+// ---------------------------------------------------------------------------
+
+/**
+ * Dispatch a PM idle-expansion turn via the intake pipeline.
+ *
+ * Called when on_idle === "perpetual" and idle_cycles >= maxIdleCycles.
+ * Records a `vision_idle_expansion` intake event with deterministic signal,
+ * triages and auto-approves the synthesized PM intent, then returns a
+ * non-terminal step so the main loop re-enters on the next cycle.
+ *
+ * Returns null if the expansion cannot be dispatched (cap reached, source
+ * manifest fails, etc.) — caller falls through to idle_exit.
+ *
+ * @returns {{ ok, status, action, ... } | null}
+ */
+async function dispatchIdleExpansion(context, session, contOpts, absVisionPath, log = console.log) {
+  const { root } = context;
+  const expansion = contOpts.idleExpansion;
+  if (!expansion) return null;
+
+  // Check expansion iteration cap
+  const currentIteration = (session.expansion_iteration || 0) + 1;
+  if (currentIteration > expansion.maxExpansions) {
+    session.status = 'completed';
+    writeContinuousSession(root, session);
+    log(`Idle-expansion cap reached (${expansion.maxExpansions} expansions). Stopping.`);
+    emitRunEvent(root, 'idle_expansion_cap_reached', {
+      run_id: session.current_run_id || null,
+      phase: null,
+      status: 'completed',
+      payload: {
+        session_id: session.session_id,
+        expansion_iteration: currentIteration - 1,
+        max_expansions: expansion.maxExpansions,
+      },
+    });
+    return {
+      ok: true,
+      status: 'vision_expansion_exhausted',
+      action: 'idle_expansion_cap_reached',
+      stop_reason: 'vision_expansion_exhausted',
+    };
+  }
+
+  // Build bounded source manifest
+  const manifest = buildSourceManifest(root, expansion.sources);
+  if (!manifest.ok) {
+    log(`Idle-expansion source manifest failed: ${manifest.error}`);
+    return null; // Fall through to idle_exit
+  }
+
+  // Build the PM charter for idle-expansion
+  const sourceList = manifest.entries
+    .filter(e => e.present)
+    .map(e => `  - ${e.path} (${e.headings.length} headings, ${e.byte_count} bytes${e.warning ? `, warning: ${e.warning}` : ''})`)
+    .join('\n');
+  const visionHeadings = (session.vision_headings_snapshot || []).map(h => `  - ${h}`).join('\n');
+
+  const charter = [
+    `[idle-expansion #${currentIteration}] Inspect VISION.md, ROADMAP.md, SYSTEM_SPEC.md, and current project state.`,
+    `Derive the next concrete increment as a new intake intent with charter + acceptance_contract + priority.`,
+    `If ALL vision goals are genuinely exhausted, declare vision_exhausted with per-heading classification.`,
+    ``,
+    `CONSTRAINTS:`,
+    `- Do NOT modify .planning/VISION.md (human-owned, read-only).`,
+    `- ROADMAP.md and SYSTEM_SPEC.md may be updated as supporting evidence.`,
+    `- Every proposed intent MUST cite at least one VISION.md heading from the snapshot below.`,
+    `- Output MUST be a structured idle_expansion_result (new_intake_intent or vision_exhausted).`,
+    ``,
+    `VISION headings snapshot:`,
+    visionHeadings || '  (none captured)',
+    ``,
+    `Source manifest:`,
+    sourceList || '  (no sources available)',
+  ].join('\n');
+
+  // Use a placeholder accepted_turn_id for the signal — it will be the turn assigned by intake
+  // We use session_id + iteration as a pre-dispatch key; the real signal with accepted_turn_id
+  // is built after the PM turn completes and is accepted via ingestAcceptedIdleExpansion.
+  const preDispatchSignal = buildVisionIdleExpansionSignal(
+    session.session_id,
+    currentIteration,
+    `pre_dispatch_${session.session_id}_${currentIteration}`,
+  );
+
+  const idleExpansionContext = {
+    expansion_iteration: currentIteration,
+    vision_headings_snapshot: session.vision_headings_snapshot || [],
+  };
+
+  // Record through intake pipeline
+  const eventResult = recordEvent(root, {
+    source: 'vision_idle_expansion',
+    category: 'idle_expansion',
+    signal: preDispatchSignal,
+    idle_expansion_context: idleExpansionContext,
+    evidence: [
+      { type: 'text', value: `Idle-expansion iteration ${currentIteration}/${expansion.maxExpansions} — PM deriving next increment from vision/roadmap/spec.` },
+    ],
+  });
+
+  if (!eventResult.ok) {
+    if (eventResult.deduplicated) {
+      log(`Idle-expansion iteration ${currentIteration} already recorded (deduplicated). Skipping.`);
+      return null;
+    }
+    log(`Idle-expansion intake record failed: ${eventResult.error}`);
+    return null;
+  }
+
+  const intentId = eventResult.intent.intent_id;
+
+  // Triage with idle-expansion charter
+  const triageResult = triageIntent(root, intentId, {
+    priority: 'p1',
+    template: 'generic',
+    charter,
+    acceptance_contract: [
+      'Produces a structured idle_expansion_result with kind "new_intake_intent" or "vision_exhausted".',
+      'If new_intake_intent: contains charter, acceptance_contract (array), priority, and vision_traceability citing snapshot headings.',
+      'If vision_exhausted: contains per-heading classification covering all snapshot headings.',
+    ],
+  });
+
+  if (!triageResult.ok) {
+    log(`Idle-expansion triage failed: ${triageResult.error}`);
+    return null;
+  }
+
+  // Auto-approve (idle-expansion intents are always auto-approved in perpetual mode)
+  const approveResult = approveIntent(root, intentId, {
+    approver: 'continuous_loop_idle_expansion',
+    reason: `idle-expansion iteration ${currentIteration}`,
+  });
+
+  if (!approveResult.ok) {
+    log(`Idle-expansion approve failed: ${approveResult.error}`);
+    return null;
+  }
+
+  // Update session state
+  session.expansion_iteration = currentIteration;
+  session.idle_cycles = 0; // Reset idle cycles after dispatching expansion
+  writeContinuousSession(root, session);
+
+  emitRunEvent(root, 'idle_expansion_dispatched', {
+    run_id: session.current_run_id || null,
+    phase: null,
+    status: 'running',
+    payload: {
+      session_id: session.session_id,
+      expansion_iteration: currentIteration,
+      max_expansions: expansion.maxExpansions,
+      intent_id: intentId,
+      role: expansion.role,
+      source_count: manifest.entries.length,
+      sources_present: manifest.entries.filter(e => e.present).length,
+    },
+  });
+
+  log(`Idle-expansion ${currentIteration}/${expansion.maxExpansions} dispatched — PM intent ${intentId} queued.`);
+  return {
+    ok: true,
+    status: 'running',
+    action: 'idle_expansion_dispatched',
+    intent_id: intentId,
+    expansion_iteration: currentIteration,
+  };
+}
+
+/**
+ * Ingest the accepted result of a PM idle-expansion turn.
+ *
+ * Called after a PM turn with `intake_context.source === 'vision_idle_expansion'`
+ * has been accepted. Reads the `idle_expansion_result` from the accepted turn
+ * result and either:
+ *   (a) records a new intake intent from `new_intake_intent` → returns { ingested: true, kind: 'new_intake_intent', intentId }
+ *   (b) sets session status to `vision_exhausted` → returns { ingested: true, kind: 'vision_exhausted' }
+ *   (c) returns { ingested: false, error } on malformed output
+ *
+ * @param {object} context - { root, config }
+ * @param {object} session - mutable session
+ * @param {{ turnResult: object, historyEntry: object, state: object }} accepted
+ * @returns {{ ingested: boolean, kind?: string, intentId?: string, error?: string }}
+ */
+export function ingestAcceptedIdleExpansion(context, session, accepted) {
+  const { root } = context;
+  const { turnResult } = accepted;
+  const result = turnResult?.idle_expansion_result;
+
+  if (!result || typeof result !== 'object') {
+    emitRunEvent(root, 'idle_expansion_malformed', {
+      run_id: session.current_run_id || null,
+      phase: null,
+      status: 'running',
+      payload: {
+        session_id: session.session_id,
+        expansion_iteration: session.expansion_iteration,
+        error: 'Missing or invalid idle_expansion_result in accepted turn result.',
+      },
+    });
+    return { ingested: false, error: 'Missing or invalid idle_expansion_result in accepted turn result.' };
+  }
+
+  if (result.kind === 'new_intake_intent') {
+    const intent = result.new_intake_intent;
+    if (!intent || !intent.charter || !Array.isArray(intent.acceptance_contract) || intent.acceptance_contract.length === 0) {
+      emitRunEvent(root, 'idle_expansion_malformed', {
+        run_id: session.current_run_id || null,
+        phase: null,
+        status: 'running',
+        payload: {
+          session_id: session.session_id,
+          expansion_iteration: session.expansion_iteration,
+          error: 'new_intake_intent missing required fields (charter, acceptance_contract).',
+        },
+      });
+      return { ingested: false, error: 'new_intake_intent missing required fields (charter, acceptance_contract).' };
+    }
+
+    // Record the PM-derived intent through the normal intake pipeline
+    const eventResult = recordEvent(root, {
+      source: 'vision_scan',
+      category: 'pm_idle_expansion_derived',
+      signal: {
+        description: intent.charter,
+        derived: true,
+        expansion_iteration: session.expansion_iteration,
+        vision_traceability: result.vision_traceability || null,
+      },
+      evidence: [
+        { type: 'text', value: `PM idle-expansion #${session.expansion_iteration} derived: ${intent.charter}` },
+      ],
+    });
+
+    if (!eventResult.ok) {
+      if (eventResult.deduplicated) {
+        return { ingested: true, kind: 'new_intake_intent', intentId: null, deduplicated: true };
+      }
+      return { ingested: false, error: `Intake record for PM-derived intent failed: ${eventResult.error}` };
+    }
+
+    const newIntentId = eventResult.intent.intent_id;
+
+    // Triage with PM-derived charter and acceptance contract
+    const triageResult = triageIntent(root, newIntentId, {
+      priority: intent.priority || 'p2',
+      template: 'generic',
+      charter: `[pm-derived] ${intent.charter}`,
+      acceptance_contract: intent.acceptance_contract,
+    });
+
+    if (!triageResult.ok) {
+      return { ingested: false, error: `Triage for PM-derived intent failed: ${triageResult.error}` };
+    }
+
+    // Auto-approve the PM-derived intent
+    const approveResult = approveIntent(root, newIntentId, {
+      approver: 'idle_expansion_ingestion',
+      reason: `PM idle-expansion #${session.expansion_iteration} derived intent`,
+    });
+
+    if (!approveResult.ok) {
+      return { ingested: false, error: `Approve for PM-derived intent failed: ${approveResult.error}` };
+    }
+
+    emitRunEvent(root, 'idle_expansion_ingested', {
+      run_id: session.current_run_id || null,
+      phase: null,
+      status: 'running',
+      payload: {
+        session_id: session.session_id,
+        expansion_iteration: session.expansion_iteration,
+        kind: 'new_intake_intent',
+        intent_id: newIntentId,
+        charter: intent.charter,
+        priority: intent.priority || 'p2',
+      },
+    });
+
+    return { ingested: true, kind: 'new_intake_intent', intentId: newIntentId };
+  }
+
+  if (result.kind === 'vision_exhausted') {
+    session.status = 'completed';
+    writeContinuousSession(root, session);
+
+    emitRunEvent(root, 'idle_expansion_ingested', {
+      run_id: session.current_run_id || null,
+      phase: null,
+      status: 'completed',
+      payload: {
+        session_id: session.session_id,
+        expansion_iteration: session.expansion_iteration,
+        kind: 'vision_exhausted',
+        reason_excerpt: result.vision_exhausted?.reason_excerpt || null,
+        heading_classifications: result.vision_exhausted?.heading_classifications || null,
+      },
+    });
+
+    return { ingested: true, kind: 'vision_exhausted' };
+  }
+
+  // Unknown kind
+  emitRunEvent(root, 'idle_expansion_malformed', {
+    run_id: session.current_run_id || null,
+    phase: null,
+    status: 'running',
+    payload: {
+      session_id: session.session_id,
+      expansion_iteration: session.expansion_iteration,
+      error: `Unknown idle_expansion_result.kind: "${result.kind}". Expected "new_intake_intent" or "vision_exhausted".`,
+    },
+  });
+  return { ingested: false, error: `Unknown idle_expansion_result.kind: "${result.kind}".` };
+}
+
+// ---------------------------------------------------------------------------
 // Resolve continuous options from CLI flags + config
 // ---------------------------------------------------------------------------
 
@@ -743,20 +1070,15 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     }
   }
 
-  // Terminal checks
+  // Terminal checks — order matters: max_runs, then budget, then idle policy.
+  // Budget MUST fire before idle-expansion dispatch (BUG-60 Plan §5).
   if (session.runs_completed >= contOpts.maxRuns) {
     session.status = 'completed';
     writeContinuousSession(root, session);
     return { ok: true, status: 'completed', action: 'max_runs_reached', stop_reason: 'max_runs' };
   }
 
-  if (session.idle_cycles >= contOpts.maxIdleCycles) {
-    session.status = 'completed';
-    writeContinuousSession(root, session);
-    return { ok: true, status: 'idle_exit', action: 'max_idle_reached', stop_reason: 'idle_exit' };
-  }
-
-  // Session budget check (cumulative spend across all runs)
+  // Session budget check (cumulative spend across all runs) — before idle policy
   const sessionBudget = session.per_session_max_usd ?? contOpts.perSessionMaxUsd ?? null;
   if (sessionBudget != null && (session.cumulative_spent_usd || 0) >= sessionBudget) {
     session.status = 'completed';
@@ -764,6 +1086,19 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     writeContinuousSession(root, session);
     log(`Session budget exhausted: $${(session.cumulative_spent_usd || 0).toFixed(2)} spent of $${sessionBudget.toFixed(2)} limit.`);
     return { ok: true, status: 'completed', action: 'session_budget_exhausted', stop_reason: 'session_budget' };
+  }
+
+  // Idle-cycle check: on_idle policy determines behavior
+  if (session.idle_cycles >= contOpts.maxIdleCycles) {
+    if (contOpts.onIdle === 'perpetual' && contOpts.idleExpansion) {
+      // BUG-60: perpetual mode — dispatch PM idle-expansion instead of exiting
+      const expansionResult = await dispatchIdleExpansion(context, session, contOpts, absVisionPath, log);
+      if (expansionResult) return expansionResult;
+      // If dispatchIdleExpansion returned null, fall through to idle_exit
+    }
+    session.status = 'completed';
+    writeContinuousSession(root, session);
+    return { ok: true, status: 'idle_exit', action: 'max_idle_reached', stop_reason: 'idle_exit' };
   }
 
   reconcileContinuousStartupState(context, session, contOpts, log);
@@ -1186,7 +1521,7 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
       const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
 
       // Terminal states
-      if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped') {
+      if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped' || step.status === 'vision_exhausted' || step.status === 'vision_expansion_exhausted') {
         const terminalMessage = describeContinuousTerminalStep(step, contOpts);
         if (terminalMessage) {
           log(terminalMessage);
