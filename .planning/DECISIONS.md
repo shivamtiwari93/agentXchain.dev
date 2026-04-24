@@ -306,3 +306,37 @@ Scheduler mappings: `vision_exhausted → continuous_vision_exhausted`, `vision_
 **Decision:** `vision_idle_expansion` intake events use a deterministic three-key signal: `expansion_key`, `expansion_iteration`, and `accepted_turn_id`. The expansion key is `sha256(session_id + "::" + expansion_iteration + "::" + accepted_turn_id)`. No timestamps, PM prose, or runtime IDs belong in the signal. Pre-dispatch events use a placeholder `accepted_turn_id` of `pre_dispatch_{session_id}_{iteration}` because the real turn ID does not exist until after intake assigns it; post-acceptance PM-derived intents use the real accepted turn ID when available.
 
 **Why:** Existing intake dedup hashes `signal`. A fixed signal shape gives idempotency without adding generic event metadata or source-specific dedup branches. The pre-dispatch/post-acceptance split is a pragmatic concession to the intake lifecycle ordering.
+
+## DEC-BUG60-PERPETUAL-DOGFOOD-CLOSURE-001
+
+**Status:** Active as of 2026-04-24, added by GPT 5.5.
+
+**Decision:** BUG-60 is closed on shipped `agentxchain@2.155.10` dogfood evidence. The accepted closure lane is the repo-owned tusq.dev self-drive run, not another external copy-paste ask: the dogfood branch ran `agentxchain run --continuous --on-idle perpetual`, dispatched idle-expansion PM turns, accepted generated intake intents, and completed three full governed runs through planning, implementation, QA, and launch after the final v2.155.10 fix.
+
+**Why:** HUMAN-ROADMAP explicitly promoted dogfood as the replacement for the slower tester quote-back cycle for remaining full-auto blockers. Keeping BUG-60 open after three shipped-package perpetual-mode runs would preserve a stale process requirement over stronger live product evidence.
+
+## DEC-BUG53-PERPETUAL-CHAIN-CLOSURE-001
+
+**Status:** Active as of 2026-04-24, added by GPT 5.5.
+
+**Decision:** BUG-53 is closed by the same shipped `agentxchain@2.155.10` dogfood evidence that closes BUG-60. For the current product lane, the accepted multi-run proof is perpetual continuation: run completes, idle-expansion derives the next governed increment, and the next full run starts and completes without a clean-completion pause.
+
+The older bounded-mode `session_continuation` ask remains a useful regression contract for vision-scan-only sessions, but it is no longer the active closure blocker for the marketed full-auto product lane.
+
+**Why:** The roadmap itself sharpened BUG-53's acceptance to the BUG-60 path: with `--on-idle perpetual`, the session must complete run 1, PM-expand, run 2, PM-expand, and run 3 without entering the paused regression state. The v2.155.10 dogfood does that.
+
+## DEC-BUG54-DOGFOOD-RELIABILITY-CLOSURE-001
+
+**Status:** Active as of 2026-04-24, added by GPT 5.5.
+
+**Decision:** BUG-54 is closed on shipped `agentxchain@2.155.10` tusq.dev dogfood evidence. The current-window dogfood event scan showed 65 `turn_dispatched` events, 19 accepted turns, five total run completions across the session history, and zero `runtime_spawn_failed`, `stdout_attach_failed`, `ghost_turn`, or `startup_watchdog_fired` signals. After the final v2.155.10 fix, three full governed runs completed without agent-level runtime failures.
+
+**Why:** The original acceptance asked for ten consecutive local-cli dispatches without spawn/attach/watchdog failure. The dogfood proof is stronger: it exercises shipped CLI behavior on the real tusq.dev full-auto branch over multiple PM/dev/QA/product-marketing turns and run completions.
+
+## DEC-BUG62-SHIPPED-PACKAGE-CLOSURE-001
+
+**Status:** Active as of 2026-04-24, added by GPT 5.5.
+
+**Decision:** BUG-62 is closed on scratch shipped-package proof using `agentxchain@2.155.10`. The proof accepted a real governed baseline turn, reconciled a safe product commit (`NOTES.md`) with `agentxchain reconcile-state --accept-operator-head`, emitted `state_reconciled_operator_commits`, cleared drift, and preserved fail-closed behavior for both `.agentxchain/state.json` edits and history rewrites.
+
+**Why:** BUG-62's closure contract is specifically about the reconcile primitive and safety boundaries. The tusq.dev dogfood uncovered and shipped the safe-path allowlist, but the scratch V3 proof is the cleaner place to prove the full positive and negative reconcile matrix without contaminating the dogfood branch.
