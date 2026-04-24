@@ -202,6 +202,68 @@ describe('BUG-14: intent coverage validation', () => {
     const accepted = runCli(['accept-turn']);
     assert.equal(accepted.status, 0, accepted.combined);
   });
+
+  it('BUG-64: treats idle-expansion sidecar result as conditional intent coverage', () => {
+    inject('Expand from VISION.md idle state', 'p0', [
+      'If new_intake_intent contains charter acceptance_contract array priority and vision_traceability citing snapshot headings.',
+      'If vision_exhausted contains per-heading classification covering all snapshot headings.',
+    ]);
+
+    const resume = runCli(['resume', '--role', 'pm']);
+    assert.equal(resume.status, 0, resume.combined);
+
+    const state = readJson('.agentxchain/state.json');
+    const turn = getSingleActiveTurn(state);
+    state.active_turns[turn.turn_id].intake_context.source = 'vision_idle_expansion';
+    state.active_turns[turn.turn_id].idle_expansion_context = {
+      expansion_iteration: 2,
+      vision_headings_snapshot: ['Product North Star', 'Operating Model'],
+    };
+    writeFileSync(join(root, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2) + '\n');
+
+    const stagingDir = join(root, '.agentxchain', 'staging', turn.turn_id);
+    mkdirSync(stagingDir, { recursive: true });
+    writeFileSync(join(stagingDir, 'turn-result.json'), JSON.stringify({
+      schema_version: '1.0',
+      run_id: state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'Produced a new intake intent from the idle VISION.md expansion sidecar.',
+      decisions: [],
+      objections: [
+        { id: 'OBJ-001', severity: 'low', statement: 'No objection.', status: 'raised' },
+      ],
+      files_changed: ['.planning/ROADMAP.md'],
+      artifacts_created: ['.planning/ROADMAP.md'],
+      verification: { status: 'pass', evidence_summary: 'Idle expansion sidecar validated.' },
+      artifact: { type: 'review', ref: 'review:bug-64-idle-expansion-sidecar' },
+      proposed_next_role: 'human',
+      cost: { usd: 0.01 },
+    }, null, 2));
+    writeFileSync(join(stagingDir, 'idle-expansion-result.json'), JSON.stringify({
+      kind: 'new_intake_intent',
+      expansion_iteration: 2,
+      proposed_intent: {
+        title: 'Infer static sensitivity classes',
+        charter: 'Classify sensitivity from static manifest evidence before implementation.',
+        acceptance_contract: [
+          'Static manifest inputs are enumerated.',
+          'Sensitivity classes are derived without live credentials.',
+        ],
+        priority: 'p1',
+        template: 'cli-tool',
+      },
+      vision_traceability: [
+        { heading: 'Product North Star', reason: 'Connects idle expansion to governed product goals.' },
+      ],
+      vision_exhausted: false,
+    }, null, 2));
+
+    const accepted = runCli(['accept-turn']);
+    assert.equal(accepted.status, 0, accepted.combined);
+  });
 });
 
 describe('BUG-15: status surfaces pending intents', () => {

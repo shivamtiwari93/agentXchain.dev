@@ -6723,6 +6723,12 @@ function evaluateIntentCoverage(turnResult, intakeContext, { state = null, confi
       continue;
     }
 
+    const idleExpansionCoverage = evaluateIdleExpansionConditionalCoverage(item, turnResult, intakeContext);
+    if (idleExpansionCoverage === true) {
+      addressed.push(item);
+      continue;
+    }
+
     // Check 1: Structural — intent_response field with explicit status
     const structuralEntry = responseMap.get(normalizedItem);
     if (structuralEntry && ['addressed', 'deferred', 'rejected'].includes(structuralEntry.status)) {
@@ -6746,6 +6752,56 @@ function evaluateIntentCoverage(turnResult, intakeContext, { state = null, confi
   }
 
   return { addressed, unaddressed };
+}
+
+function evaluateIdleExpansionConditionalCoverage(item, turnResult, intakeContext) {
+  if (intakeContext?.source !== 'vision_idle_expansion') {
+    return null;
+  }
+
+  const result = turnResult?.idle_expansion_result;
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return null;
+  }
+
+  const normalizedItem = typeof item === 'string' ? item.toLowerCase().trim() : '';
+  if (normalizedItem.startsWith('if new_intake_intent')) {
+    if (result.kind !== 'new_intake_intent') {
+      return true;
+    }
+
+    const intent = result.new_intake_intent;
+    return Boolean(
+      intent
+        && typeof intent === 'object'
+        && !Array.isArray(intent)
+        && typeof intent.charter === 'string'
+        && intent.charter.trim()
+        && Array.isArray(intent.acceptance_contract)
+        && intent.acceptance_contract.length > 0
+        && typeof intent.priority === 'string'
+        && intent.priority.trim()
+        && Array.isArray(result.vision_traceability)
+        && result.vision_traceability.length > 0,
+    );
+  }
+
+  if (normalizedItem.startsWith('if vision_exhausted')) {
+    if (result.kind !== 'vision_exhausted') {
+      return true;
+    }
+
+    const exhausted = result.vision_exhausted;
+    return Boolean(
+      exhausted
+        && typeof exhausted === 'object'
+        && !Array.isArray(exhausted)
+        && Array.isArray(exhausted.classification)
+        && exhausted.classification.length > 0,
+    );
+  }
+
+  return null;
 }
 
 export {
