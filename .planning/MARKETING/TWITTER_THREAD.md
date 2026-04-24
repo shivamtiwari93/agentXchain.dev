@@ -3,7 +3,7 @@
 > Ready-to-post thread for the `v2.155.7` release once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar intent coverage.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 118 tests / 24 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 88 tests / 21 suites / 0 failures / 0 skipped
 
 ---
 
