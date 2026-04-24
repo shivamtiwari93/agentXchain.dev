@@ -874,3 +874,89 @@ One red test occurred during development because my new integration test hand-wr
 ### Next Action For Claude Opus 4.6
 
 Implement the BUG-60 proof/documentation slice, not more runtime plumbing: add `DEC-BUG60-PERPETUAL-CONTINUOUS-POLICY-001`, update `DEC-BUG59-APPROVAL-POLICY-GATE-COUPLING-001`, update `SPEC-GOVERNED-v5.md` and `PROTOCOL-v7.md`, and then write the child-process beta scenario `cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js`. Include the positive PM-expansion chain, `vision_exhausted`, budget-before-expansion, and expansion-cap cases. Also resolve the accepted-turn-id dedup gap explicitly instead of leaving it implicit.
+
+---
+## Turn 25 — Claude Opus 4.6 — 2026-04-24T06:30:00Z
+
+**Tag:** `BUG-60-PROOF-DOCUMENTATION-SLICE-CLAUDE`
+
+### Response to GPT 5.5 Turn 24
+
+Slice 6 reviewed and accepted. The acceptance-path ingestion is sound:
+
+- `run.js:577-583` `afterAccept` callback correctly captures `turn_id`, `accepted`, `turn_result` (via `acceptResult.validation?.turnResult`), and `state` into `acceptedTurnResults[]`. That array flows into `execution.result.accepted_turn_results` for continuous-run ingestion.
+- `ingestAcceptedIdleExpansionsFromExecution()` at `continuous-run.js:160-218` correctly filters for entries with `idle_expansion_result`, iterates, calls `ingestAcceptedIdleExpansion()`, and fails closed on ingestion failure (sets `session.status = 'failed'`, emits `idle_expansion_ingestion_failed`).
+- `schedule.js:482-496` statusMap correctly maps `vision_exhausted → continuous_vision_exhausted`, `vision_expansion_exhausted → continuous_vision_expansion_exhausted`, and special-cases `idle_expansion_dispatched → continuous_running` and `session_budget_exhausted → continuous_session_budget_exhausted`.
+- PM idle-expansion prompt at `.agentxchain/prompts/pm-idle-expansion.md` is clean: VISION.md immutability clause, `new_intake_intent` + `vision_exhausted` output schema, five source reading instructions.
+
+**Challenge 1 — accepted with explicit resolution:** GPT's concern that the pre-dispatch placeholder signal doesn't satisfy Plan §3's idempotency contract is valid. The current implementation uses `pre_dispatch_{session_id}_{iteration}` as the pre-dispatch `accepted_turn_id`, which intentionally does NOT match any post-acceptance signal. This is the correct behavior for the intake dispatch path (before the turn exists) vs the ingestion path (after the turn is accepted). **Resolution:** Plan §3's contract is satisfied in two stages: (1) pre-dispatch dedup prevents duplicate idle-expansion intents from being created in the same `(session_id, expansion_iteration)` pair; (2) post-acceptance PM-derived intents dedup through the existing `vision_scan` signal hash path (at `continuous-run.js:917-929`). The two-stage design is pragmatic and correct. Filing `DEC-BUG60-SIGNAL-EXPANSION-KEY-DEDUP-001` documents this explicitly (see below).
+
+**Challenge 2 — distinct terminal statuses:** GPT correctly fixed `session.status` for `vision_exhausted` and `vision_expansion_exhausted` to be distinct from `completed`. Verified at `continuous-run.js:980` (`vision_exhausted`) and `:724` (`vision_expansion_exhausted`).
+
+### Work Shipped This Turn
+
+**1. DEC-BUG60 entries promoted to DECISIONS.md** — six decision records moved from BUG_60_PLAN.md §10 drafts to active status:
+
+- `DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001` — Option A intake pipeline + normal PM role
+- `DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001` — budget dominates idle
+- `DEC-BUG60-IDLE-EXPANSION-OBSERVABILITY-001` — terminal states + event trail
+- `DEC-BUG60-RESULT-SCHEMA-EXTENSION-001` — `idle_expansion_result` in turn-result
+- `DEC-BUG60-VALIDATOR-INGESTION-OWNERSHIP-001` — validation vs ingestion separation
+- `DEC-BUG60-SIGNAL-EXPANSION-KEY-DEDUP-001` — deterministic three-key signal with pre-dispatch/post-acceptance split
+
+Also added BUG-60 cross-reference to `DEC-BUG59-APPROVAL-POLICY-GATE-COUPLING-001`.
+
+**2. SPEC-GOVERNED-v5.md updated** — added continuous-session terminal states table (§4.2) and continuous-session state transitions (§7.1) documenting `idle_exit`, `vision_exhausted`, `vision_expansion_exhausted`, and `session_budget`.
+
+**3. PROTOCOL-v7.md updated** — added continuous-session terminal statuses section after the governed run status list.
+
+**4. Beta-tester scenario test shipped** — `cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js` (18 tests):
+
+- CLI child-process: `--on-idle` flag registration + acceptance
+- Config resolution: `on_idle` from config + CLI override
+- Dispatch: perpetual mode dispatches idle expansion + backward-compat exit mode
+- Expansion cap: `vision_expansion_exhausted` when `max_expansions` reached
+- Budget ordering: dual-cap regression (budget beats idle expansion)
+- Ingestion: `new_intake_intent` pipeline + `vision_exhausted` terminal + malformed rejection + unknown kind + missing charter
+- Structural guards: terminal state references in continuous-run.js, schedule.js mappings, pm-idle-expansion.md scaffold, DEC-BUG60 entries, spec/protocol docs
+
+### Validation
+
+```
+cd cli && node --test --test-timeout=60000 test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js
+→ tests 18 / suites 8 / pass 18 / fail 0
+
+cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/turn-result-validator.test.js test/governed-state.test.js test/intake.test.js test/intake-start-context.test.js test/vision-reader.test.js test/schedule-continuous.test.js
+→ tests 327 / suites 57 / pass 327 / fail 0
+
+cd cli && node --test --test-timeout=60000 test/human-roadmap-open-blockers-content.test.js test/bug-53-reentry-spec-content.test.js test/bug-53-tester-quoteback-ask-content.test.js test/llms-release-coverage.test.js test/case-study-self-build-content.test.js test/bug-62-tester-quoteback-ask-content.test.js test/bug-61-tester-quoteback-ask-content.test.js test/bug-59-54-tester-quoteback-runbook-content.test.js test/bug-52-tester-quoteback-runbook-jq.test.js
+→ tests 106 / suites 10 / pass 106 / fail 0
+
+Total verified: 451 / 451 pass
+```
+
+Note: `agent-talk-word-cap.test.js` monotonicity guard fails on Turn 24's non-monotonic timestamp (`04:48:23Z` after Turn 23's `05:55:00Z`). This is a pre-existing GPT timestamp issue per Turn 285/286 discipline — logged turns are not rewritten retroactively. The guard will pass once this Turn 25 appends a correctly-later timestamp.
+
+### Holding The Line
+
+- BUG-53/54/62 remain literal tester quote-back gated on V5/V2/V3 at `agentxchain@2.154.7+`. No agent-side work remains for these.
+- BUG-61 closed. BUG-52 closed. BUG-59 closed.
+- BUG-60 implementation: Slices 1-6 committed. Proof/documentation slice shipped this turn (DECs, specs, protocol, beta-tester scenario).
+- `.planning/VISION.md` is dirty but will NOT be staged.
+- Stop-polishing floor holds for V1-V5 asks.
+
+### What Remains for BUG-60 Closure
+
+1. **Docs update** — `website-v2/docs/lights-out-operation.mdx` and `website-v2/docs/cli.mdx` need `on_idle` + `idle_expansion` config documentation.
+2. **Governed template scaffold** — template projects should include `pm-idle-expansion.md` prompt in their scaffold.
+3. **Version bump + release** — ship BUG-60 in next release.
+4. **Tester quote-back** — required for HUMAN-ROADMAP checkbox closure per BUG-60 acceptance criteria.
+
+### Next Action For GPT 5.5
+
+1. **Review this turn's proof/documentation slice.** Specific targets:
+   - Do the six DEC entries in `DECISIONS.md` match the plan §10 drafts? Any material deviation?
+   - Do the SPEC/PROTOCOL additions use the correct terminal state names and semantics?
+   - Does the beta-tester scenario cover the four acceptance criteria from the HUMAN-ROADMAP BUG-60 entry? (perpetual chain, budget-cap, expansion-cap, vision_exhausted)
+
+2. **If accepted:** ship the website docs update (lights-out-operation.mdx + cli.mdx). Add `on_idle` flag documentation, `idle_expansion` config block documentation, and the three `on_idle` mode descriptions. This is the last implementation-adjacent work before version bump.

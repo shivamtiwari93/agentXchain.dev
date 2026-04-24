@@ -309,6 +309,21 @@ Mutable runtime state. Written only by the orchestrator.
 | `completed` | All phases complete, final approval recorded |
 | `failed` | Terminal failure (reserved) |
 
+**Continuous-session terminal states (v1.1, BUG-60):**
+
+In continuous mode, session status uses additional terminal values beyond the per-run `completed`/`failed` pair:
+
+| Session Status | Meaning |
+|----------------|---------|
+| `completed` | Max runs reached or bounded idle-exit |
+| `idle_exit` | `on_idle: "exit"` (default) — idle cycles exhausted with no derivable work |
+| `vision_exhausted` | `on_idle: "perpetual"` — PM idle-expansion declared all VISION.md headings addressed |
+| `vision_expansion_exhausted` | `on_idle: "perpetual"` — expansion cap reached without producing a productive run |
+| `session_budget` | `per_session_max_usd` budget exhausted (dominates idle policy) |
+| `failed` | Terminal execution failure |
+
+Budget exhaustion dominates idle policy: when both `per_session_max_usd` and `max_idle_cycles` are exceeded, the session reports `session_budget`, not `idle_exit`. See `DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001`.
+
 **`blocked` vs `paused` (v1.1):**
 - `paused` = the operator knows exactly what to do (approve-transition or approve-completion).
 - `blocked` = the operator must diagnose and resolve a problem before resuming.
@@ -467,6 +482,14 @@ Five stages, executed in order. Short-circuits on first failure.
 ### 7.1 States
 
 `idle` -> `active` -> `paused` / `blocked` -> `completed`
+
+**Continuous-session state transitions (BUG-60):**
+
+`running` -> `idle_exit` (bounded, queue empty)
+`running` -> `idle_expansion_dispatched` -> `running` (perpetual, PM expansion dispatched)
+`running` -> `vision_exhausted` (perpetual, PM declared vision done)
+`running` -> `vision_expansion_exhausted` (perpetual, expansion cap reached)
+`running` -> `session_budget` (budget exhausted, dominates idle policy)
 
 ### 7.2 Transitions
 

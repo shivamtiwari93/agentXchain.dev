@@ -52,6 +52,8 @@ Adding a workflow that fires on every push to `main` requires explicit human app
 
 **Why:** Research showed the roadmap's original locator (`gate-evaluator.js` human-approval branch) was historically useful but incomplete. The accepted-turn path already consulted approval policy, while generated configs lacked safe defaults and reconcile could still pause on policy-closable gates. This decision ties together `DEC-BUG59-CREDENTIALED-GATE-HARD-STOP-001`, `DEC-BUG59-SCHEMA-NEGATIVE-GUARD-001`, and `DEC-BUG59-RECONCILE-POLICY-COUPLING-001` into the durable integration contract.
 
+**Cross-reference (added 2026-04-24):** BUG-60 perpetual continuous mode depends on this decision. PM-synthesized increments that run through the full phase chain hit qa_ship_verdict and launch_ready gates; BUG-59's gate-closure coupling ensures those gates close correctly under full-auto approval policy. See `DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001`.
+
 ## DEC-BUG59-CLOSURE-GATE-TESTER-QUOTEBACK-001
 
 **Status:** Satisfied as of 2026-04-24. BUG-59 is checked in HUMAN-ROADMAP, shipped in `agentxchain@2.151.0`. BUG-60 implementation unblocked — Slice 1 committed at `ef9c4d32`.
@@ -248,3 +250,59 @@ The failure remains classified as `startupFailureType: "no_subprocess_output"` b
 **Decision:** The `local_cli` abort path must track its fallback `SIGKILL` timer and clear it when the child exits or errors. An externally aborted runtime that honors `SIGTERM` should resolve as `aborted: true` and release the parent process immediately; the five-second fallback exists only for children that ignore `SIGTERM`.
 
 **Why:** The old abort path armed an anonymous `setTimeout()` for the fallback `SIGKILL`. If the child exited promptly, the dispatch promise resolved, but the live timer still held the Node event loop open until the fallback deadline. In continuous operation that is a real adapter-side stall class, not a diagnostic naming issue. Tracking and clearing the timer preserves the existing abort semantics while removing the unnecessary delay.
+
+## DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001
+
+**Status:** Active as of 2026-04-24.
+
+**Decision:** BUG-60 perpetual continuous mode uses the governed intake pipeline (Option A), not direct special-case PM dispatch. Default `continuous.on_idle` remains `exit`; `perpetual` is opt-in. Idle expansion uses the normal `pm` role with an idle-expansion charter carried by the synthesized intake intent. Every `new_intake_intent` result must cite at least one matching VISION.md heading or goal; every `vision_exhausted` result must classify every top-level VISION.md heading.
+
+**Why:** Intake gives auditability, lifecycle reuse, approval policy inheritance, and operator inspection. Direct dispatch creates a second autonomy path outside governance. A dedicated `pm_idle_expansion` role is deferred until there is a concrete runtime/tool/budget need that the normal PM role cannot satisfy.
+
+**Deferred scope:** `continuous.on_idle: "human_review"` is reserved for a future roadmap entry that defines pause-and-ask-human semantics. The first BUG-60 slice rejects it explicitly with an actionable error instead of accepting a silent stub or pre-reserving a speculative bug ID.
+
+## DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001
+
+**Status:** Active as of 2026-04-24.
+
+**Decision:** `per_session_max_usd` is evaluated before any PM idle-expansion can dispatch or spend. Budget exhaustion dominates idle exhaustion when both are true. This invariant applies under bounded, perpetual, scheduled, and future idle policies. The ordering in `advanceContinuousRunOnce()` is: (1) `runs_completed >= maxRuns`, (2) `per_session_max_usd`, (3) idle-exit/perpetual-expansion. A dual-cap session reports `session_budget`, not `idle_exit`.
+
+**Why:** Perpetual mode must not spend past an operator's categorical budget cap. Moving budget above idle also corrects the existing dual-cap reporting ambiguity where a session that exhausted both budget and idle cycles reported `idle_exit` instead of `session_budget`.
+
+## DEC-BUG60-IDLE-EXPANSION-OBSERVABILITY-001
+
+**Status:** Active as of 2026-04-24.
+
+**Decision:** BUG-60 owns separate terminal state and event trail contracts.
+
+Terminal states: `completed` (bounded), `idle_exit` (bounded queue empty), `vision_exhausted` (PM declared vision done), `vision_expansion_exhausted` (expansion cap reached without productive run), `session_budget` (budget exhausted). These are distinct session statuses that the scheduler maps to schedule-specific values.
+
+Event trail: `idle_expansion_dispatched`, `idle_expansion_ingested`, `idle_expansion_malformed`, `idle_expansion_ingestion_failed`, `vision_snapshot_stale`, `vision_exhausted`, `vision_expansion_exhausted`. `vision_snapshot_stale` is an informational event emitted at most once per `session_id + current_vision_sha` at `advanceContinuousRunOnce()` entry; it has no scheduler mapping (it is not terminal).
+
+Scheduler mappings: `vision_exhausted → continuous_vision_exhausted`, `vision_expansion_exhausted → continuous_vision_expansion_exhausted`, `idle_expansion_dispatched → continuous_running`.
+
+**Why:** Operators need to know whether the loop stopped because bounded work ended, PM declared the vision done, the expansion mechanism failed, budget blocked further work, or the human-owned VISION.md moved during an active session.
+
+## DEC-BUG60-RESULT-SCHEMA-EXTENSION-001
+
+**Status:** Active as of 2026-04-24.
+
+**Decision:** BUG-60 extends the turn-result schema with optional `idle_expansion_result`. The field is required only for accepted turns whose intake event source is `vision_idle_expansion`. It supports exactly two kinds in the first slice: `new_intake_intent` (with charter, acceptance_contract, priority, template, vision_traceability) and `vision_exhausted` (with heading-level classification). Validation lives in `idle-expansion-result-validator.js`; ingestion lives in `continuous-run.js:ingestAcceptedIdleExpansion()`.
+
+**Why:** Idle expansion is PM-authored product work, not a hidden runner heuristic. Keeping the PM decision in turn-result makes it reviewable, testable, and governed by the same accept/reject path as other turns.
+
+## DEC-BUG60-VALIDATOR-INGESTION-OWNERSHIP-001
+
+**Status:** Active as of 2026-04-24.
+
+**Decision:** Validation and ingestion remain separate. `idle-expansion-result-validator.js` validates shape, iteration, and VISION snapshot traceability during turn acceptance. `continuous-run.js:ingestAcceptedIdleExpansion()` ingests only after `acceptTurn()` succeeds, using `acceptResult.validation.turnResult` plus the accepted history entry. Ingestion never mutates state after a failed accept. The canonical ingestion call shape is `ingestAcceptedIdleExpansion(context, session, { turnResult, historyEntry, state })`.
+
+**Why:** Turn acceptance owns whether an agent output is valid. Continuous mode owns what to do with a valid idle-expansion result. Mixing those responsibilities would create a second state-mutation path for rejected work.
+
+## DEC-BUG60-SIGNAL-EXPANSION-KEY-DEDUP-001
+
+**Status:** Active as of 2026-04-24.
+
+**Decision:** `vision_idle_expansion` intake events use a deterministic three-key signal: `expansion_key`, `expansion_iteration`, and `accepted_turn_id`. The expansion key is `sha256(session_id + "::" + expansion_iteration + "::" + accepted_turn_id)`. No timestamps, PM prose, or runtime IDs belong in the signal. Pre-dispatch events use a placeholder `accepted_turn_id` of `pre_dispatch_{session_id}_{iteration}` because the real turn ID does not exist until after intake assigns it; post-acceptance PM-derived intents use the real accepted turn ID when available.
+
+**Why:** Existing intake dedup hashes `signal`. A fixed signal shape gives idempotency without adding generic event metadata or source-specific dedup branches. The pre-dispatch/post-acceptance split is a pragmatic concession to the intake lifecycle ordering.

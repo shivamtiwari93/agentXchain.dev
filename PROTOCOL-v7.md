@@ -93,6 +93,13 @@ Governed run statuses are:
 - `completed`
 - `failed`
 
+Continuous-session terminal statuses (BUG-60, `on_idle` policy):
+
+- `idle_exit` — bounded mode, no derivable work after idle cycles exhausted
+- `vision_exhausted` — perpetual mode, PM declared all VISION.md headings addressed
+- `vision_expansion_exhausted` — perpetual mode, expansion cap reached without productive run
+- `session_budget` — budget exhausted (dominates idle policy when both are true)
+
 Write authorities are:
 
 - `authoritative`
