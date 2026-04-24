@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.155.0
+# Reddit Posts — AgentXchain v2.155.1
 
-> Ready-to-post content for Reddit for the `v2.155.0` release once tester verification lands. Updated 2026-04-24 for BUG-60 perpetual continuous idle-expansion policy.
+> Ready-to-post content for Reddit for the `v2.155.1` release once tester verification lands. Updated 2026-04-24 for BUG-60 perpetual continuous idle-expansion policy.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - node --test cli/test/continuous-run.test.js cli/test/schedule-daemon-health-e2e.test.js cli/test/claim-reality-preflight.test.js cli/test/docs-cli-intake-content.test.js -> 136 tests / 28 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 109 tests / 39 suites / 0 failures / 0 skipped
 
 ---
 

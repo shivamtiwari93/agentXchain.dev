@@ -1,0 +1,55 @@
+---
+sidebar_position: 0
+title: "v2.155.1 Release Notes"
+---
+
+# AgentXchain v2.155.1
+
+`v2.155.1` is a BUG-60 release-truth patch over `v2.155.0`. It keeps the
+perpetual continuous idle-expansion feature intact while aligning the tester
+quote-back ask, budget terminal status, and release evidence with the shipped
+implementation.
+
+## Bug Fixes
+
+- **Tester ask V6 copy-paste repair**: the BUG-60 quote-back ask now uses
+  `agentxchain init -y --governed --dir .`, preserves the scaffolded governed
+  routing/gates/prompts, patches only the continuous-mode and approval-policy
+  fields it owns, preserves the ROADMAP `## Phases` marker, and validates the
+  scratch fixture before committing it.
+
+- **BUG-60 event-trail correction**: the V6 ask now checks the actual events:
+  `idle_expansion_ingested` with `payload.kind == "vision_exhausted"` for
+  PM-declared exhaustion, and `idle_expansion_cap_reached` for the
+  `vision_expansion_exhausted` cap state.
+
+- **Distinct budget terminal status**: continuous budget exhaustion now persists
+  and returns `status: "session_budget"` instead of generic `completed`.
+  Schedule-owned continuous sessions treat `session_budget` as terminal and keep
+  mapping it to `continuous_session_budget_exhausted`.
+
+## Evidence
+
+- node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 109 tests / 39 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.1 -c "agentxchain --version"
+```
+
+For BUG-60 verification, use the self-contained fixture in
+`.planning/TESTER_QUOTEBACK_ASK_V6_BUG60.md` and quote:
+
+- `idle_expansion_dispatched` after the vision queue empties under
+  `--on-idle perpetual`
+- `idle_expansion_ingested` with `payload.kind == "new_intake_intent"` or
+  `payload.kind == "vision_exhausted"`
+- `idle_expansion_cap_reached` when expansion cap exhaustion is the terminal
+  path
+- `.agentxchain/continuous-session.json` with non-zero `expansion_iteration`
+  and non-empty `vision_headings_snapshot`
+- budget-stop evidence as `status: "session_budget"` and
+  `budget_exhausted: true` if the session budget path is exercised

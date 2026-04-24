@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.155.0
+# Launch Evidence Report — AgentXchain v2.155.1
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.0 — BUG-60 perpetual continuous idle-expansion policy. When `--on-idle perpetual` is set and the vision queue is exhausted, a PM idle-expansion turn synthesizes next work from VISION/ROADMAP/SYSTEM_SPEC and ingests it via `vision_idle_expansion` intake events. Three idle policies shipped: `exit` (default, bounded), `perpetual` (PM expansion), `human_review` (pause for operator). Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.1 — BUG-60 perpetual continuous idle-expansion policy. When `--on-idle perpetual` is set and the vision queue is exhausted, a PM idle-expansion turn synthesizes next work from VISION/ROADMAP/SYSTEM_SPEC and ingests it via `vision_idle_expansion` intake events. Three idle policies shipped: `exit` (default, bounded), `perpetual` (PM expansion), `human_review` (pause for operator). Current aggregate release evidence:
 >
-> - node --test cli/test/continuous-run.test.js cli/test/schedule-daemon-health-e2e.test.js cli/test/claim-reality-preflight.test.js cli/test/docs-cli-intake-content.test.js -> 136 tests / 28 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 109 tests / 39 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)

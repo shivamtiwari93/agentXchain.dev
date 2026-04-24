@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.155.1
+
+### Bug Fixes
+- **BUG-60 tester ask V6 copy-paste repair**: the V6 BUG-60 quote-back ask now uses a non-interactive governed scaffold prelude, preserves scaffolded routing/gates/prompts, patches the valid `approval_policy.phase_transitions` / `run_completion` schema, preserves the ROADMAP `## Phases` marker, and validates the scratch fixture before committing it.
+- **BUG-60 terminal event contract correction**: V6 now checks the actual event trail: `idle_expansion_ingested` with `payload.kind == "vision_exhausted"` for PM-declared exhaustion and `idle_expansion_cap_reached` for the `vision_expansion_exhausted` cap state.
+- **Session budget terminal status**: continuous budget exhaustion now persists and returns `status: "session_budget"` instead of generic `completed`, and schedule-owned sessions treat that status as terminal while preserving `continuous_session_budget_exhausted` in schedule state.
+
+### Status
+- `v2.155.1` is the BUG-60 release-truth patch over `v2.155.0`. It keeps the perpetual continuous mode feature intact while making the shipped package, tester ask, and terminal-status taxonomy agree before tester quote-back.
+
+### Evidence
+- node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 109 tests / 39 suites / 0 failures / 0 skipped
+
 ## 2.155.0
 
 ### Features

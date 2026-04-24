@@ -1,9 +1,9 @@
-# Show HN Draft — AgentXchain v2.155.0
+# Show HN Draft — AgentXchain v2.155.1
 
-> Ready-to-post draft for the `v2.155.0` launch window once tester verification lands. Updated 2026-04-24 for BUG-60 perpetual continuous idle-expansion policy.
+> Ready-to-post draft for the `v2.155.1` launch window once tester verification lands. Updated 2026-04-24 for BUG-60 perpetual continuous idle-expansion policy.
 >
 > Aggregate evidence:
-> - node --test cli/test/continuous-run.test.js cli/test/schedule-daemon-health-e2e.test.js cli/test/claim-reality-preflight.test.js cli/test/docs-cli-intake-content.test.js -> 136 tests / 28 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 109 tests / 39 suites / 0 failures / 0 skipped
 
 ---
 

@@ -22,7 +22,7 @@ This ask bundles its own scratch fixture to avoid baseline-assumption defects. T
 ```bash
 # 1. Install the shipped package
 npm uninstall -g agentxchain 2>/dev/null || true
-TARGET_VERSION="2.155.0"
+TARGET_VERSION="2.155.1"
 npx --yes -p "agentxchain@${TARGET_VERSION}" -c "agentxchain --version"
 ```
 
