@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.155.2
+
+### Bug Fixes
+- **BUG-63 dogfood continuous startup eligibility**: `run --continuous --on-idle perpetual` now checks inherited blocked-run state and operator-commit checkpoint drift before dispatching idle-expansion work. Blocked governed runs pause with `still_blocked` and preserve the original recovery action instead of mutating intake state first.
+- **BUG-63 no-mutation regressions**: added continuous-mode fixtures proving no `idle_expansion_dispatched` event and no new intake intent are created when the inherited run is blocked or when `auto_safe_only` operator reconciliation refuses unsafe governed-state drift.
+
+### Status
+- `v2.155.2` is the dogfood unblock patch over `v2.155.1`. It keeps BUG-60 perpetual idle expansion intact while making tusq.dev full-auto dogfood retryable without enqueuing PM expansion work into a run that cannot legally start.
+
+### Evidence
+- node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 111 tests / 39 suites / 0 failures / 0 skipped
+
 ## 2.155.1
 
 ### Bug Fixes

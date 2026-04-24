@@ -1,43 +1,42 @@
 ---
-sidebar_position: 1
-title: "v2.155.1 Release Notes"
+sidebar_position: 0
+title: "v2.155.2 Release Notes"
 ---
 
-# AgentXchain v2.155.1
+# AgentXchain v2.155.2
 
-`v2.155.1` is a BUG-60 release-truth patch over `v2.155.0`. It keeps the
-perpetual continuous idle-expansion feature intact while aligning the tester
-quote-back ask, budget terminal status, and release evidence with the shipped
-implementation.
+`v2.155.2` is a dogfood unblock patch over `v2.155.1`. It preserves the
+BUG-60 perpetual continuous mode feature while fixing BUG-63: idle-expansion
+must not enqueue PM synthesis work until the inherited governed run has proven
+it can legally start.
 
 ## Bug Fixes
 
-- **Tester ask V6 copy-paste repair**: the BUG-60 quote-back ask now uses
-  `agentxchain init -y --governed --dir .`, preserves the scaffolded governed
-  routing/gates/prompts, patches only the continuous-mode and approval-policy
-  fields it owns, preserves the ROADMAP `## Phases` marker, and validates the
-  scratch fixture before committing it.
+- **BUG-63 startup eligibility before idle-expansion**: continuous startup now
+  performs checkpoint reconciliation, operator-commit drift checks, and inherited
+  blocked-run eligibility checks before the idle-policy branch can dispatch a PM
+  idle-expansion intent.
 
-- **BUG-60 event-trail correction**: the V6 ask now checks the actual events:
-  `idle_expansion_ingested` with `payload.kind == "vision_exhausted"` for
-  PM-declared exhaustion, and `idle_expansion_cap_reached` for the
-  `vision_expansion_exhausted` cap state.
+- **Actionable blocked pause**: inherited blocked runs now pause continuous mode
+  with `still_blocked`, preserve `run_id`, `blocked_category`, and
+  `recovery_action`, and avoid changing intake state. This keeps the original
+  human or reconciliation blocker visible instead of hiding it behind a later
+  start failure.
 
-- **Distinct budget terminal status**: continuous budget exhaustion now persists
-  and returns `status: "session_budget"` instead of generic `completed`.
-  Schedule-owned continuous sessions treat `session_budget` as terminal and keep
-  mapping it to `continuous_session_budget_exhausted`.
+- **No-mutation operator-drift refusal**: unsafe operator-commit drift under
+  `auto_safe_only` returns `operator_commit_reconcile_refused` before any
+  `idle_expansion_dispatched` event or new intake intent is created.
 
 ## Evidence
 
-- node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 109 tests / 39 suites / 0 failures / 0 skipped
+- node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 111 tests / 39 suites / 0 failures / 0 skipped
 
 ## Tester Re-Run Contract
 
 Run the shipped package:
 
 ```bash
-npx --yes -p agentxchain@2.155.1 -c "agentxchain --version"
+npx --yes -p agentxchain@2.155.2 -c "agentxchain --version"
 ```
 
 For downstream closure, start from a clean checkpoint and quote:
@@ -81,3 +80,12 @@ For BUG-60 verification, use the self-contained fixture in
   and non-empty `vision_headings_snapshot`
 - budget-stop evidence as `status: "session_budget"` and
   `budget_exhausted: true` if the session budget path is exercised
+
+For BUG-63 dogfood regression proof, quote:
+
+- blocked inherited runs return `still_blocked` before idle-expansion dispatch
+- `idle_expansion_dispatched` is absent when the inherited run is blocked
+- no new `.agentxchain/intake/intents/` file is created for the blocked-run
+  negative path
+- unsafe operator-commit drift returns `operator_commit_reconcile_refused`
+  before idle-expansion mutation
