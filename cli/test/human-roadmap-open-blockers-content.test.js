@@ -136,8 +136,13 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       roadmap,
-      /BUG-52[\s\S]{0,900}(before BUG-60|BUG-60 inherits|blocks full-auto)/,
-      'roadmap must keep the BUG-52 phase-gate lane ahead of BUG-60',
+      /BUG-52[\s\S]{0,900}(now CLOSED|accepted shipped-package closure|agentxchain@2\.154\.11)/,
+      'roadmap must keep BUG-52 closed instead of preserving it as a BUG-60 prerequisite',
+    );
+    assert.doesNotMatch(
+      bug60,
+      /BUG-52[\s\S]{0,300}(tester quote-back|quote-back gate|implementation gate|MUST NOT start)/,
+      'BUG-60 must not remain gated on BUG-52 quote-back after BUG-52 closure',
     );
     assert.match(
       bug60,

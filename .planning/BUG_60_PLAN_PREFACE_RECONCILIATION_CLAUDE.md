@@ -131,4 +131,4 @@ The plan turn consumes: `.planning/BUG_60_PLAN_PREFACE.md` §1/§4/§5 as-writte
 
 ## Closure Path (unchanged from Preface §8)
 
-Reconciliation → plan turn (`BUG_60_PLAN.md`) → BUG-52 + BUG-59 shipped-package tester quote-back → implementation → SPEC + V6 tester ask → tester quote-back flips the BUG-60 checkbox.
+Reconciliation → plan turn (`BUG_60_PLAN.md`) → remaining BUG-59 shipped-package tester quote-back (BUG-52 landed on `agentxchain@2.154.11`) → implementation → SPEC + V6 tester ask → tester quote-back flips the BUG-60 checkbox.

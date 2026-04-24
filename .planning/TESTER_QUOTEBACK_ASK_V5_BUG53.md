@@ -10,7 +10,7 @@ Companion asks:
 - BUG-62 reconcile-state: `.planning/TESTER_QUOTEBACK_ASK_V3.md`
 - BUG-61 ghost auto-retry: `.planning/TESTER_QUOTEBACK_ASK_V4.md`
 
-BUG-60 (perpetual idle-expansion from ROADMAP/SYSTEM_SPEC when VISION is exhausted) is **explicitly out of scope** for this ask. BUG-53 only asks the tester to prove that (a) run N+1 automatically starts from the next vision candidate after run N completes, and (b) the session cleanly exits with `status: idle_exit` (NOT `paused`) when no vision candidate remains. Evidence that attempts to exercise BUG-60's `on_idle: 'perpetual'` branch will be rejected — BUG-60 is blocked behind its own two-agent pre-work AND behind BUG-52 + BUG-59 shipped-package quote-back.
+BUG-60 (perpetual idle-expansion from ROADMAP/SYSTEM_SPEC when VISION is exhausted) is **explicitly out of scope** for this ask. BUG-53 only asks the tester to prove that (a) run N+1 automatically starts from the next vision candidate after run N completes, and (b) the session cleanly exits with `status: idle_exit` (NOT `paused`) when no vision candidate remains. Evidence that attempts to exercise BUG-60's `on_idle: 'perpetual'` branch will be rejected — BUG-60 is blocked behind its own two-agent pre-work AND the remaining BUG-59 shipped-package quote-back. BUG-52's separate shipped-package quote-back landed on `agentxchain@2.154.11`.
 
 ---
 

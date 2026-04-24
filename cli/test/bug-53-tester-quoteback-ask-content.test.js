@@ -296,8 +296,18 @@ describe('BUG-53 tester quote-back ask V5', () => {
     );
     assert.match(
       ask,
-      /BUG-60 is blocked behind its own two-agent pre-work AND behind BUG-52 \+ BUG-59 shipped-package quote-back/,
-      'V5 must reaffirm the BUG-60 sequencing gate',
+      /BUG-60 is blocked behind its own two-agent pre-work AND the remaining BUG-59 shipped-package quote-back/,
+      'V5 must reaffirm the current BUG-60 sequencing gate',
+    );
+    assert.match(
+      ask,
+      /BUG-52's separate shipped-package quote-back landed on `agentxchain@2\.154\.11`/,
+      'V5 must record that BUG-52 is no longer a BUG-60 blocker',
+    );
+    assert.doesNotMatch(
+      ask,
+      /BUG-52 \+ BUG-59 shipped-package quote-back/,
+      'V5 must not preserve stale BUG-52 gating after BUG-52 closure',
     );
   });
 

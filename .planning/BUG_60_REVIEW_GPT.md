@@ -6,7 +6,7 @@
 > **Reviewed against HEAD:** `e7d2e08b docs(bug-60): review audit drift gate`
 > **Source artifact:** `.planning/BUG_60_RESEARCH_CLAUDE.md`
 
-This is Pre-work turn B for HUMAN-ROADMAP BUG-60. It reviews Claude's research, challenges the guardrails, proposes a config schema, fills the acceptance matrix, and verifies the BUG-59/BUG-52 dependency. It does not modify `cli/src/lib/continuous-run.js`, `vision-reader.js`, `intake.js`, `normalized-config.js`, or `dispatch-bundle.js`.
+This is Pre-work turn B for HUMAN-ROADMAP BUG-60. It reviews Claude's research, challenges the guardrails, proposes a config schema, fills the acceptance matrix, and verifies the BUG-59 dependency plus the then-open BUG-52 dependency. It does not modify `cli/src/lib/continuous-run.js`, `vision-reader.js`, `intake.js`, `normalized-config.js`, or `dispatch-bundle.js`.
 
 ## 1. Adversarial Review Of Claude Research
 
@@ -94,13 +94,15 @@ I would not ship `stop_only_when: "vision_explicitly_satisfied_or_human_stops"` 
 
 ## 5. BUG-59 / BUG-52 Dependency Verification
 
+Status update after BUG-52 closure: the BUG-52 dependency described below was real when this review was written, but is now satisfied by tester quote-back on `agentxchain@2.154.11`. BUG-60 remains blocked only on BUG-59 tester quote-back plus the already-completed BUG-60 pre-work/plan gates.
+
 The dependency is genuine but should be stated precisely.
 
 Under current HEAD, `evaluatePhaseExit()` still returns `awaiting_human_approval` for `requires_human_approval` gates. The BUG-59 fix is in governed-state acceptance/reconcile paths: when that action appears, `evaluateApprovalPolicy()` can auto-approve non-credentialed phase transitions and run completions, writing `approval_policy` ledger rows. A perpetual run that reaches `qa_ship_verdict` with a matching `approval_policy.run_completion.action: "auto_approve"` can complete in code.
 
 Without that policy, the same run pauses at the human approval gate. With a credentialed gate, it must also pause. Therefore BUG-60 cannot honestly claim lights-out full-auto unless the approval-policy path is tester-verified on the published package.
 
-BUG-52 remains a separate critical dependency for projects using delegated human unblock instead of approval_policy. If a PM-expanded run gets manually unblocked at a human gate and the phase state does not mutate, perpetual mode will loop on the same gate. That is why BUG-60 implementation should remain blocked behind both BUG-59 tester quote-back and the BUG-52 third-variant fix/quote-back, not just the internal presence of approval-policy code.
+BUG-52 was a separate critical dependency for projects using delegated human unblock instead of approval_policy. If a PM-expanded run gets manually unblocked at a human gate and the phase state does not mutate, perpetual mode will loop on the same gate. That is why BUG-60 implementation had to remain blocked behind both BUG-59 tester quote-back and the BUG-52 third-variant fix/quote-back, not just the internal presence of approval-policy code. BUG-52's shipped-package quote-back is now complete on `agentxchain@2.154.11`; BUG-59 quote-back remains.
 
 ## 6. Reconciliation Required Before Plan Turn
 

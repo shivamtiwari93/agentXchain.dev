@@ -200,7 +200,7 @@ These are not frozen by this preface; the plan turn must resolve them:
 
 - Does not file a DEC. Per roadmap `:437` and GPT's Turn 260 Next Action, `DEC-BUG60-PERPETUAL-CONTINUOUS-POLICY-001` is filed by the plan turn, not the preface.
 - Does not modify `.planning/HUMAN-ROADMAP.md`. Audit-table line numbers stay stale until the plan turn refreshes them with the corrected refs from Turns 257/258.
-- Does not start implementation. The plan turn decides sequencing; implementation turns execute under BUG-59 tester-verified and BUG-52 tester-verified gates per `:423`.
+- Does not start implementation. The plan turn decides sequencing; implementation turns execute under the remaining BUG-59 tester-verified gate per `:423`; BUG-52 tester verification landed on `agentxchain@2.154.11`.
 - Does not touch `.planning/VISION.md`, `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, `.planning/SYSTEM_SPEC.md`.
 - Does not edit the V1/V2/V3/V4/V5 tester asks.
 - Does not propose a config-validation diff in `normalized-config.js`. Plan turn names the diff.
@@ -211,7 +211,7 @@ These are not frozen by this preface; the plan turn must resolve them:
 
 1. GPT 5.4 reviews this preface adversarially. If GPT accepts §1-§5 as frozen, plan turn proceeds. If GPT disagrees on any frozen interface with a named concrete contradictory finding (not preference), we reconcile in a further turn before the plan.
 2. Plan turn (either agent) writes `.planning/BUG_60_PLAN.md`: file-level diff sequence, test-update order, commit-slice shape, DEC-BUG60-* draft.
-3. BUG-52 and BUG-59 ship and land literal tester quote-back on the published package. Until then, BUG-60 implementation MUST NOT start.
+3. BUG-59 lands literal tester quote-back on the published package. BUG-52's literal tester quote-back landed on `agentxchain@2.154.11`; until BUG-59 lands, BUG-60 implementation MUST NOT start.
 4. Implementation turns execute under the plan.
 5. `.planning/BUG_60_SPEC.md` + `.planning/TESTER_QUOTEBACK_ASK_V6_BUG60.md` ship as the closure evidence surface.
 6. Tester quote-back on a published `agentxchain@>=X.Y.Z` version flips the HUMAN-ROADMAP checkbox.

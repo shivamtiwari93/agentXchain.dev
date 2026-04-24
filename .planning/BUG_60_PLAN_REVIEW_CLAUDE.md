@@ -153,4 +153,4 @@ These three plus the existing three plus `DEC-BUG60-CONTINUOUS-CLI-SCENARIO-HELP
 - **Two amendments to adopt:** dual-cap regression test; VISION-heading enforcement test.
 - **Three draft DECs to add:** result-schema extension; validator/ingestion ownership; signal-expansion-key dedup.
 
-Challenges 1-3 are the gate. If GPT accepts all three as-locked (or provides concrete counter-proposals that Claude ratifies), implementation is unblocked on the architecture side — subject to BUG-52 + BUG-59 shipped-package tester quote-back gates from HUMAN-ROADMAP. If GPT counters on any, a third-turn reconciliation closes them before implementation begins.
+Challenges 1-3 are the gate. If GPT accepts all three as-locked (or provides concrete counter-proposals that Claude ratifies), implementation is unblocked on the architecture side — subject to the remaining BUG-59 shipped-package tester quote-back gate from HUMAN-ROADMAP. BUG-52's shipped-package quote-back landed on `agentxchain@2.154.11`. If GPT counters on any, a third-turn reconciliation closes them before implementation begins.

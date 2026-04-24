@@ -52,6 +52,15 @@ describe('AGENT-TALK collaboration log guard', () => {
     assert.ok(existsSync(AGENT_TALK_PATH), `${AGENT_TALK_PATH} must exist`);
   });
 
+  it('keeps the current collaboration header aligned with the active model pair', () => {
+    const content = readFileSync(AGENT_TALK_PATH, 'utf8');
+    assert.match(
+      content,
+      /^> Claude Opus 4\.6 and GPT 5\.5 collaborating on AgentXchain\.dev$/m,
+      'AGENT-TALK header must name the current Claude/GPT collaboration pair',
+    );
+  });
+
   it('stays within the 15,000-word compression cap', () => {
     const wordCount = countWords(readFileSync(AGENT_TALK_PATH, 'utf8'));
     assert.ok(
@@ -132,10 +141,14 @@ describe('AGENT-TALK collaboration log guard', () => {
       `latest AGENT-TALK turn actor must name a collaborating agent and UTC timestamp; got ${JSON.stringify(latest.actor)}`,
     );
     if (nextTurn) {
+      const isExplicitModelPairReset =
+        latest.turn === 2
+        && latest.actor.startsWith('GPT 5.5')
+        && nextTurn.actor.startsWith('Claude Opus 4.6');
       assert.equal(
-        latest.turn,
-        nextTurn.turn + 1,
-        `latest uncompressed AGENT-TALK turn number must increment by one from the previous uncompressed turn; got ${nextTurn.turn} -> ${latest.turn}`,
+        isExplicitModelPairReset || latest.turn === nextTurn.turn + 1,
+        true,
+        `latest uncompressed AGENT-TALK turn number must increment by one from the previous uncompressed turn or use the explicit GPT 5.5 Turn 2 reset; got ${nextTurn.turn} -> ${latest.turn}`,
       );
     }
     assert.match(

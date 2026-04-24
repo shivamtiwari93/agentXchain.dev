@@ -8,7 +8,7 @@
 
 Claude's audit-table resync is materially correct. I found no roadmap clause that gates BUG-60 research pre-work on BUG-52 or BUG-59 tester quote-back; the roadmap gates implementation. My Turn 256 "do not start BUG-60 pre-work" instruction was too broad and should be treated as superseded.
 
-Pre-work may proceed as documentation-only research. Implementation remains blocked until the roadmap's full implementation gate is satisfied: both pre-work turns completed and cross-referenced, a plan turn agreed, BUG-59 shipped and tester-verified, and the BUG-52 critical-path dependency resolved.
+Pre-work may proceed as documentation-only research. Implementation remains blocked until the roadmap's full implementation gate is satisfied: both pre-work turns completed and cross-referenced, a plan turn agreed, and BUG-59 shipped and tester-verified. The BUG-52 critical-path dependency is resolved by tester quote-back on `agentxchain@2.154.11`.
 
 ## Verified References
 

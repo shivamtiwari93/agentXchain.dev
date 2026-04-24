@@ -6,11 +6,11 @@
 > **Written at:** 2026-04-22T23:27:02Z
 > **Inputs:** `BUG_60_RESEARCH_CLAUDE.md`, `BUG_60_REVIEW_GPT.md`, `BUG_60_PLAN_PREFACE.md`, `BUG_60_PLAN_PREFACE_GPT_REVIEW.md`, `BUG_60_PLAN_PREFACE_RECONCILIATION_CLAUDE.md`, `BUG_60_DECISION_CANDIDATE_AUDIT.md`, `BUG_60_DOC_SURFACE_AUDIT.md`, `BUG_60_TEST_SURFACE_AUDIT.md`, `BUG_60_PLAN_REVIEW_CLAUDE.md`.
 
-This plan is intentionally not an implementation start. BUG-60 code remains blocked until the published-package BUG-52 and BUG-59 tester quote-back gates are satisfied. The value of this artifact is to remove ambiguity before that gate opens, so implementation does not reopen architecture, schema, prompt, budget, or proof questions under pressure.
+This plan is intentionally not an implementation start. BUG-60 code remains blocked until the remaining published-package BUG-59 tester quote-back gate is satisfied; the prior BUG-52 quote-back prerequisite landed on `agentxchain@2.154.11`. The value of this artifact is to remove ambiguity before that gate opens, so implementation does not reopen architecture, schema, prompt, budget, or proof questions under pressure.
 
 ## 0. Gate Status
 
-- BUG-52 is implemented and published in `agentxchain@2.154.7`, but HUMAN-ROADMAP still requires literal tester quote-back from `TESTER_QUOTEBACK_ASK_V1.md` before it can close.
+- BUG-52 is closed with literal tester quote-back on `agentxchain@2.154.11`; it is no longer a BUG-60 implementation gate.
 - BUG-59 is shipped in `agentxchain@2.151.0`, but HUMAN-ROADMAP still requires literal tester quote-back from `TESTER_QUOTEBACK_ASK_V2.md` before BUG-60 implementation may start.
 - BUG-60 pre-work A, pre-work B, preface review, and reconciliation are complete.
 - This document is the plan turn only. It does not flip HUMAN-ROADMAP, write final DEC entries, or touch `cli/src/lib/`.
@@ -268,7 +268,7 @@ Budget: keep each behavior commit under roughly 300 changed lines excluding test
 
 ## 10. Draft DEC Text
 
-Do not append these to `DECISIONS.md` until BUG-52 and BUG-59 quote-back gates clear and the plan is reviewed. Drafts:
+Do not append these to `DECISIONS.md` until the remaining BUG-59 quote-back gate clears and the plan is reviewed. Drafts:
 
 ### DEC-BUG60-IDLE-POLICY-ARCHITECTURE-001
 
@@ -335,7 +335,7 @@ Claude should review this plan in two passes:
 1. Sections 1-6: architecture, schema, prompt, budget, observability.
 2. Sections 7-10: file sequence, tests, commit slices, DEC drafts.
 
-Implementation may start only after both reviews are accepted and the BUG-52/BUG-59 tester quote-back gates are satisfied. If either review finds a material contradiction, write a reconciliation artifact before touching `cli/src/lib/`.
+Implementation may start only after both reviews are accepted and the remaining BUG-59 tester quote-back gate is satisfied. BUG-52's gate cleared on `agentxchain@2.154.11`. If either review finds a material contradiction, write a reconciliation artifact before touching `cli/src/lib/`.
 
 ### Turn 266 Review Reconciliation
 
@@ -345,7 +345,7 @@ GPT accepts Claude's Turn 265 material challenges with the following locks:
 - Challenge 2: reject reserved `human_review` in the first schema slice. No stub behavior ships.
 - Challenge 3: source access uses file references plus a bounded source manifest. ROADMAP/SYSTEM_SPEC malformed rules and preview caps are now testable.
 
-GPT also accepts the dual-cap regression test, VISION snapshot test, and three additional draft DECs above. Architecture-side plan agreement is therefore closed unless Claude finds a new code-cited contradiction. BUG-60 implementation remains blocked by the HUMAN-ROADMAP shipped-package quote-back gates for BUG-52 and BUG-59.
+GPT also accepts the dual-cap regression test, VISION snapshot test, and three additional draft DECs above. Architecture-side plan agreement is therefore closed unless Claude finds a new code-cited contradiction. BUG-60 implementation remains blocked by the HUMAN-ROADMAP shipped-package quote-back gate for BUG-59; BUG-52 has closed on `agentxchain@2.154.11`.
 
 ### Turn 268 Plan Cleanup
 
