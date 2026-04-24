@@ -1,0 +1,103 @@
+---
+sidebar_position: 0
+title: "v2.155.3 Release Notes"
+---
+
+# AgentXchain v2.155.3
+
+`v2.155.3` is a dogfood unblock patch over `v2.155.2`. It narrows the
+BUG-62 reconcile-state governed-path check so that non-state `.agentxchain/`
+files no longer block operator-commit reconciliation.
+
+## Bug Fixes
+
+- **BUG-62 reconcile-safe-paths allowlist**: `reconcile-state --accept-operator-head`
+  no longer refuses operator commits that only modify non-state `.agentxchain/`
+  files. Two categories are now reconcile-safe:
+  - `.agentxchain/SESSION_RECOVERY.md` — auto-generated recovery documentation
+  - `.agentxchain/prompts/*` — operator-customizable prompt overrides
+
+  Core governed state files (`state.json`, `history.jsonl`, `events.jsonl`,
+  `continuous-session.json`, `session.json`) remain protected. Mixed commits
+  that touch both safe and unsafe paths are still blocked.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 101 tests / 33 suites / 0 failures
+- cd cli && node --test --test-timeout=60000 test/beta-tester-scenarios/bug-62-operator-commit-reconcile.test.js -> 8 tests (3 new: AT-BUG62-004, -005, -006) / 0 failures
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.3 -c "agentxchain --version"
+```
+
+For BUG-62 regression proof, quote:
+
+- operator commit that only modifies `.agentxchain/SESSION_RECOVERY.md`
+  is reconciled successfully by `agentxchain reconcile-state --accept-operator-head`
+- operator commit that modifies `.agentxchain/prompts/*` is reconciled successfully
+- operator commit that modifies `.agentxchain/state.json` is still refused with
+  `governance_state_modified`
+- mixed commit touching both `SESSION_RECOVERY.md` and `state.json` is still
+  refused
+
+For downstream dogfood proof, quote:
+
+- tusq.dev `agentxchain-dogfood-2026-04` branch reconcile succeeds on shipped
+  `agentxchain@2.155.3` where `v2.155.2` refused with `governance_state_modified`
+  on `.agentxchain/SESSION_RECOVERY.md`
+- continuous perpetual mode dispatches after successful reconciliation
+
+For downstream closure, start from a clean checkpoint and quote:
+
+- functional downstream behavior remains fixed: continuous does not idle out in
+  QA, QA advances, `launch_ready` unblock completes the run, and no duplicate
+  dispatch occurs
+- quote any `startup_latency_ms`, `elapsed_since_spawn_ms`, and
+  `runtimes.<id>.startup_watchdog_ms` evidence relevant to adapter-path
+  reliability while confirming the downstream flow still uses the real runtime
+  path
+- after final terminal approval, status is `completed`,
+  `pending_run_completion=null`, and `active_turns={}`
+- durable events include both `gate_approved` for `run_completion` and
+  `run_completed`
+- non-terminal phase recovery should still quote `phase_entered` with
+  `reconciled_before_dispatch` if a standing gate advances before dispatch
+- `.agentxchain/continuous-session.json` no longer stays at `paused` with
+  `runs_completed=0`; quote the terminal session shape after the run completes
+- `session_continuation` should still be quoted if the continuous session chains
+  into another run; otherwise quote the terminal reason instead
+- if the project still reports `approval_policy: null`, say so explicitly rather
+  than fabricating approval-policy ledger evidence
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
+
+For BUG-60 verification, use the self-contained fixture in
+`.planning/TESTER_QUOTEBACK_ASK_V6_BUG60.md` and quote:
+
+- `idle_expansion_dispatched` after the vision queue empties under
+  `--on-idle perpetual`
+- `idle_expansion_ingested` with `payload.kind == "new_intake_intent"` or
+  `payload.kind == "vision_exhausted"`
+- `idle_expansion_cap_reached` when expansion cap exhaustion is the terminal
+  path
+- `.agentxchain/continuous-session.json` with non-zero `expansion_iteration`
+  and non-empty `vision_headings_snapshot`
+- budget-stop evidence as `status: "session_budget"` and
+  `budget_exhausted: true` if the session budget path is exercised
+
+For BUG-63 dogfood regression proof, quote:
+
+- blocked inherited runs return `still_blocked` before idle-expansion dispatch
+- `idle_expansion_dispatched` is absent when the inherited run is blocked
+- no new `.agentxchain/intake/intents/` file is created for the blocked-run
+  negative path
+- unsafe operator-commit drift returns `operator_commit_reconcile_refused`
+  before idle-expansion mutation

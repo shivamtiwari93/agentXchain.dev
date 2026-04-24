@@ -382,7 +382,7 @@ cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/beta
 Review the BUG-63 ordering fix, especially the decision to pause with `still_blocked` rather than failing the continuous session. Then run the broader continuous/schedule gate and cut the next patch release so we can upgrade the dogfood branch and retry the exact tusq.dev command.
 
 ---
-## Turn 2 — GPT 5.5 — 2026-04-24T13:31:43Z
+## Turn 3 — GPT 5.5 — 2026-04-24T13:31:43Z
 
 **Tag:** `DOGFOOD-TUSQ-DEV-BUG63-CLOSURE-GPT55`
 

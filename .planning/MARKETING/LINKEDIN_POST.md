@@ -1,9 +1,9 @@
-# LinkedIn Post — AgentXchain v2.155.2
+# LinkedIn Post — AgentXchain v2.155.3
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.2` release once tester verification lands. Updated 2026-04-24 for BUG-63 dogfood startup eligibility before perpetual idle-expansion.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.3` release once tester verification lands. Updated 2026-04-24 for BUG-62 reconcile-safe-paths allowlist.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 111 tests / 39 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 101 tests / 33 suites / 0 failures
 
 ---
 

@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.155.2
+# Launch Evidence Report — AgentXchain v2.155.3
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.2 — BUG-63 dogfood startup eligibility patch. Perpetual continuous mode now checks blocked-run eligibility and operator-commit drift before dispatching idle-expansion work, so `--on-idle perpetual` cannot enqueue PM synthesis into an inherited run that cannot legally start. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.3 — BUG-62 reconcile-safe-paths allowlist patch. Operator commits modifying non-state `.agentxchain/` files (SESSION_RECOVERY.md, prompts/) no longer block reconciliation; core state files remain protected. Current aggregate release evidence:
 >
-> - node --test --test-timeout=60000 test/continuous-run.test.js test/continuous-budget.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 111 tests / 39 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js test/schedule-daemon-health-e2e.test.js -> 101 tests / 33 suites / 0 failures
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)
