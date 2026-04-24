@@ -65,7 +65,7 @@ describe('CLI intake docs contract', () => {
   });
 
   it('documents record sources from VALID_SOURCES', () => {
-    assert.deepEqual(validSources, ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vision_scan']);
+    assert.deepEqual(validSources, ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vision_scan', 'vision_idle_expansion']);
     for (const source of validSources) {
       assert.match(
         intakeSection,

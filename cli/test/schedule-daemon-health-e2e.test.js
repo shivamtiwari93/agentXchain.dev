@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { scaffoldGoverned } from '../src/commands/init.js';
@@ -55,6 +55,14 @@ function makeProject({ schedules, mockAgentPath = MOCK_AGENT } = {}) {
   };
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+  // Initialize git repo and commit scaffolded files so auto-checkpoint
+  // (now enabled by default via resolveContinuousOptions) does not fail
+  // with "requires a git repository".
+  execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@test.com', 'commit', '-m', 'init'], { cwd: root, stdio: 'ignore' });
+
   return root;
 }
 
@@ -88,6 +96,16 @@ function writeVision(root, content) {
   const planningDir = join(root, '.planning');
   mkdirSync(planningDir, { recursive: true });
   writeFileSync(join(planningDir, 'VISION.md'), content);
+}
+
+/** Stage and commit all pending changes so auto-checkpoint (enabled by default) works. */
+function gitCommitAll(root, message = 'test setup') {
+  try {
+    execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
+    execFileSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@test.com', 'commit', '--allow-empty', '-m', message], { cwd: root, stdio: 'ignore' });
+  } catch {
+    // Ignore if nothing to commit
+  }
 }
 
 afterEach(() => {
@@ -276,6 +294,7 @@ describe('AT-SDH-008: daemon selects a due continuous schedule instead of the fi
       },
     }, null, 2));
 
+    gitCommitAll(root, 'AT-SDH-008 setup');
     const daemon = runCli(root, ['schedule', 'daemon', '--max-cycles', '1', '--json'], { timeout: 120000 });
     assert.equal(daemon.status, 0, `daemon failed: ${daemon.combined}`);
 
@@ -320,6 +339,7 @@ describe('AT-SDH-009: daemon --max-cycles 2 executes two governed runs through a
 - conformance fixtures for protocol boundaries
 `);
 
+    gitCommitAll(root, 'AT-SDH-009 setup');
     const daemon = runCli(root, [
       'schedule', 'daemon',
       '--max-cycles', '2',
@@ -437,6 +457,7 @@ describe('AT-SDH-010: schedule-owned continuous session stops cleanly when the s
 - truthful operator status
 `);
 
+    gitCommitAll(root, 'AT-SDH-010 setup');
     const daemon = runCli(root, [
       'schedule', 'daemon',
       '--max-cycles', '3',
@@ -543,6 +564,7 @@ describe('AT-SDH-011: sibling continuous schedules do not leak into the normal d
 - beta marketplace packaging formula release
 `);
 
+    gitCommitAll(root, 'AT-SDH-011 setup');
     const daemon = runCli(root, [
       'schedule', 'daemon',
       '--max-cycles', '3',

@@ -1822,7 +1822,7 @@ The intake command family is the repo-native entrypoint for continuous governed 
 
 | Subcommand | Purpose | Key contract |
 |------------|---------|--------------|
-| `record` | Record one delivery trigger event and create a detected intent | Accepts inline, file, or stdin payloads. Supported sources: `manual`, `ci_failure`, `git_ref_change`, `schedule`, `vision_scan` |
+| `record` | Record one delivery trigger event and create a detected intent | Accepts inline, file, or stdin payloads. Supported sources: `manual`, `ci_failure`, `git_ref_change`, `schedule`, `vision_scan`, `vision_idle_expansion` |
 | `triage` | Turn a detected intent into governed work, or suppress/reject it | Sets priority, template, charter, and acceptance contract for real work |
 | `approve` | Authorize a `triaged` or re-reviewed `blocked` intent for planning | Approval is an explicit gate. It does not start a governed run |
 | `plan` | Materialize template-backed planning artifacts and move `approved -> planned` | Generates `.planning/` artifacts and fails on conflicts unless `--force` is supplied |

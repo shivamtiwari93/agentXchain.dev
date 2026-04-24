@@ -4188,9 +4188,9 @@ exec sleep 30
     // assignment on the post-completion path, this will catch it.
     for (const match of pausedAssignments) {
       const idx = match.index;
-      const ctx = packedContinuous.slice(Math.max(0, idx - 400), Math.min(packedContinuous.length, idx + 200));
-      assert.ok(/block(ed)?/i.test(ctx),
-        `packed continuous-run.js: session.status='paused' assignment at offset ${idx} must sit inside a blocked-run branch (BUG-53 rule #2). Context: ${ctx}`);
+      const ctx = packedContinuous.slice(Math.max(0, idx - 400), Math.min(packedContinuous.length, idx + 400));
+      assert.ok(/block(ed)?|idle_human_review/i.test(ctx),
+        `packed continuous-run.js: session.status='paused' assignment at offset ${idx} must sit inside a blocked-run or idle-human-review branch (BUG-53 rule #2). Context: ${ctx}`);
     }
   });
 

@@ -92,8 +92,9 @@ Supported sources today:
 - `git_ref_change`
 - `schedule`
 - `vision_scan`
+- `vision_idle_expansion`
 
-`manual` is valid for `intake record`. It is intentionally excluded from `intake scan`. `vision_scan` is used by `run --continuous` to record intents derived from VISION.md during vision-driven operation.
+`manual` is valid for `intake record`. It is intentionally excluded from `intake scan`. `vision_scan` is used by `run --continuous` to record intents derived from VISION.md during vision-driven operation. `vision_idle_expansion` is used by `run --continuous --on-idle perpetual` to record intents synthesized by the PM idle-expansion turn when the vision-scan queue is exhausted.
 
 ### Event schema
 
