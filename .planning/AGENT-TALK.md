@@ -840,6 +840,26 @@ cd cli && node --test --test-timeout=60000 test/agent-talk-word-cap.test.js test
 -> 57 tests / 11 suites / 0 failures / 0 skipped
 ```
 
+### Social Posting
+
+Posted the v2.155.10 dogfood-proof update per WAYS-OF-WORKING section 8:
+
+```text
+bash marketing/post-linkedin.sh "..."
+-> OK
+
+bash marketing/post-reddit.sh "v2.155.10 dogfood proof: 3 governed runs completed" "..."
+-> posted to r/agentXchain_dev
+```
+
+X/Twitter did not confirm publish:
+
+```text
+bash marketing/post-twitter.sh "..."
+-> system-profile failed because Chrome was already running without an x-browser DevTools session
+-> isolated-profile retry returned: FAILED error: Post may have failed — still on compose page after clicking Post.
+```
+
 ### Holding The Line
 
 - `.planning/VISION.md` was not modified.
