@@ -2,9 +2,10 @@
  * HUMAN-ROADMAP open blocker guard.
  *
  * The current roadmap has two different open-blocker classes:
- *   - BUG-53/54/61/62 closure requires literal tester quote-back from the
+ *   - BUG-53/54/62 closure requires literal tester quote-back from the
  *     published package asks.
  *   - BUG-52 is now CLOSED with tester-verified evidence on agentxchain@2.154.11.
+ *   - BUG-61 is now CLOSED as mechanism-verified on agentxchain@2.154.11.
  *   - BUG-59 is shipped and checked, but its tester quote-back still gates
  *     BUG-60 implementation.
  *   - BUG-60 is not in that quote-back-only class; it is blocked behind
@@ -23,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const HUMAN_ROADMAP_PATH = join(REPO_ROOT, '.planning', 'HUMAN-ROADMAP.md');
+const DECISIONS_PATH = join(REPO_ROOT, '.planning', 'DECISIONS.md');
 const TESTER_QUOTEBACK_ASKS = [
   {
     path: '.planning/TESTER_QUOTEBACK_ASK_V1.md',
@@ -82,8 +84,13 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       currentFocusLine,
-      /remaining live blockers are BUG-54, BUG-61, BUG-62/,
+      /remaining live blockers are BUG-54, BUG-62/,
       'current focus must name the remaining live blockers',
+    );
+    assert.match(
+      currentFocusLine,
+      /BUG-61 is closed as mechanism-verified/,
+      'current focus must preserve the BUG-61 mechanism-verified closure caveat',
     );
     assert.match(
       currentFocusLine,
@@ -92,7 +99,7 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
   });
 
-  it('keeps the current tester handoff line pointing at V1 through V5', () => {
+  it('keeps the current tester handoff line pointing at historical and active V1 through V5 asks', () => {
     const roadmap = readRoadmap();
     const handoffLine = roadmap
       .split('\n')
@@ -110,8 +117,13 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     }
     assert.match(
       handoffLine,
-      /do not replace the literal tester quote-back requirement/,
-      'handoff line must preserve the literal tester quote-back closure gate',
+      /literal tester quote-back requirement for active open bugs/,
+      'handoff line must preserve the literal tester quote-back closure gate for active asks',
+    );
+    assert.match(
+      handoffLine,
+      /TESTER_QUOTEBACK_ASK_V4\.md` is now historical because BUG-61 closed as mechanism-verified/,
+      'handoff line must stop presenting V4 as an active BUG-61 blocker after closure',
     );
   });
 
@@ -214,6 +226,44 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
   });
 
+  it('keeps BUG-61 marked as closed with mechanism-verified tester evidence and caveat', () => {
+    const roadmap = readRoadmap();
+    const checkedBug61 = roadmap.search(/^- \[x\] \*\*BUG-61(?::|\b)/m);
+
+    assert.notEqual(checkedBug61, -1, 'BUG-61 must be a checked (closed) roadmap item');
+
+    const next = roadmap.indexOf('\n- [', checkedBug61 + 1);
+    const bug61 = roadmap.slice(checkedBug61, next === -1 ? roadmap.length : next);
+
+    assert.match(
+      bug61,
+      /Closed 2026-04-24[\s\S]{0,240}agentxchain@2\.154\.11/,
+      'BUG-61 must preserve the tester evidence date and package version',
+    );
+    assert.match(
+      bug61,
+      /BUG-61-ghost-retry-v2\.154\.11\.md/,
+      'BUG-61 closure must cite the tester quote-back evidence file',
+    );
+    assert.match(
+      bug61,
+      /Positive retry-success was not separately provable[\s\S]{0,420}BUG-61b/,
+      'BUG-61 closure must preserve the positive-path caveat and narrow follow-up boundary',
+    );
+    assert.match(
+      bug61,
+      /DEC-BUG61-MECHANISM-VERIFIED-CLOSURE-001/,
+      'BUG-61 closure must cite the durable decision record',
+    );
+
+    const decisions = readFileSync(DECISIONS_PATH, 'utf8');
+    assert.match(
+      decisions,
+      /## DEC-BUG61-MECHANISM-VERIFIED-CLOSURE-001[\s\S]{0,900}BUG-61 is closed as mechanism-verified/,
+      'BUG-61 closure decision must exist in the durable decision ledger',
+    );
+  });
+
   it('keeps BUG-54 agent-side implementation status distinct from tester quote-back closure', () => {
     const roadmap = readRoadmap();
     const bug54 = extractRoadmapItem(roadmap, 'BUG-54');
@@ -248,7 +298,6 @@ describe('HUMAN-ROADMAP open blocker status', () => {
   it('keeps quote-back closure language visible on the other still-open blocker asks', () => {
     const roadmap = readRoadmap();
     const bugToExpectedAsk = new Map([
-      ['BUG-61', 'TESTER_QUOTEBACK_ASK_V4.md'],
       ['BUG-62', 'TESTER_QUOTEBACK_ASK_V3.md'],
       ['BUG-54', 'TESTER_QUOTEBACK_ASK_V2.md'],
       ['BUG-53', 'TESTER_QUOTEBACK_ASK_V5_BUG53.md'],

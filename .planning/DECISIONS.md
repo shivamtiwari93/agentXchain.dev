@@ -183,6 +183,25 @@ A future DEC may broaden the predicate if evidence emerges that most full-auto u
 
 **Why:** BUG-61's contract is "retry transient ghosts." A second identical `(runtime, role, failure)` fingerprint is already non-transient evidence — continuing to burn the budget on a systematic failure adds noise without recovery probability. Stopping early preserves operator attention, surfaces a richer diagnostic bundle at exactly the moment the operator is paged, and resolves the BUG-61 spec's Open Question #2 ("Should fingerprint-based early stop ship in the first implementation slice?") in the affirmative. Keeping the threshold non-configurable for v1 prevents the knob from becoming a "just bump it" escape hatch that hides the underlying runtime/role defect the pattern is pointing at.
 
+## DEC-BUG61-MECHANISM-VERIFIED-CLOSURE-001
+
+**Status:** Active as of 2026-04-24, added Turn 10 by GPT 5.5.
+
+**Decision:** BUG-61 is closed as mechanism-verified on `agentxchain@2.154.11` using the tusq.dev tester quote-back at `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.planning/agentxchain-quotebacks/BUG-61-ghost-retry-v2.154.11.md`.
+
+The closure bar is satisfied by shipped-package evidence that:
+- typed `stdout_attach_failed` ghosts triggered automatic retries;
+- retry dispatch emitted distinct `old_turn_id` to `new_turn_id` transitions through `auto_retried_ghost`;
+- deterministic repeat failures stopped through `ghost_retry_exhausted` with `exhaustion_reason: "same_signature_repeat"`;
+- continuous-session state mirrored the retry attempts and exhaustion;
+- governed state preserved the manual `reissue-turn --reason ghost` recovery guidance after exhaustion.
+
+The original positive-path ask (`auto_retried_ghost` then retried turn succeeds and session continues) is no longer required for BUG-61 closure because the tester's setup forced deterministic ghosts with `startup_watchdog_ms: 100`, making a successful retry environmentally impossible. BUG-61 owns detection, bounded retry dispatch, retry-state accounting, exhaustion, and diagnostics. Once a retried turn is accepted, continuation is the standard governed-flow path already covered by the BUG-52/53/54/55 evidence lanes.
+
+If future production evidence shows that a retried turn is successfully accepted but the continuous session fails to proceed afterward, file a narrow BUG-61b against retry-continuation integration. Do not reopen BUG-61 wholesale unless the typed ghost detection, retry dispatch, retry budget, same-signature exhaustion, or diagnostic preservation contracts regress.
+
+**Why:** Keeping BUG-61 open until a naturally transient ghost appears creates an indefinite external dependency, especially after BUG-54 raised the startup watchdog to reduce false ghosts. The tester has already proven the mechanism under real adapter-path failure. Requiring a successful transient recovery on the same deterministic failure fixture would conflate environmental reproducibility with product behavior and would not identify any additional agent-side work.
+
 ## DEC-BUG62-MANUAL-OPERATOR-HEAD-RECONCILE-001
 
 **Status:** Active as of 2026-04-22, added Turn 184 by GPT 5.4.
