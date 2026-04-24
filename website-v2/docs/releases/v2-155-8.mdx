@@ -1,0 +1,70 @@
+---
+sidebar_position: 0
+title: "v2.155.8 Release Notes"
+---
+
+# AgentXchain v2.155.8
+
+`v2.155.8` is a dogfood patch over `v2.155.7`. It aligns the PM
+idle-expansion charter's JSON schema with the validator's expectations.
+`v2.155.7` fixed the missing output format (GAP-004), but the charter
+specified `vision_traceability` as an object and `new_intake_intent`
+fields at the top level, while the validator expects `vision_traceability`
+as an array and `new_intake_intent` as a nested object.
+
+## Bug Fixes
+
+- **Charter/validator schema alignment**: the PM charter now specifies
+  `new_intake_intent` as a nested object (matching the validator) and
+  `vision_traceability` as an array of `{vision_heading, goal, kind}`
+  entries (matching the validator schema).
+- **Backward-compatible normalization**: the `vision_traceability`
+  normalizer now transforms object-shaped traceability (`{headings,
+  rationale}`) into the expected array format, so PMs that cached the
+  prior charter format still pass validation.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 178 tests / 34 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.8 -c "agentxchain --version"
+```
+
+For charter/validator alignment proof, run a continuous perpetual session and quote:
+
+- the PM dispatch prompt includes the corrected OUTPUT FORMAT section with
+  `new_intake_intent` as a nested object and `vision_traceability` as an array
+- the PM produces a structured `idle_expansion_result` that passes schema
+  validation without manual JSON surgery
+- acceptance succeeds on the first attempt
+
+For downstream closure, start from a clean checkpoint and quote:
+
+- functional downstream behavior remains fixed: continuous does not idle out in
+  QA, QA advances, `launch_ready` unblock completes the run, and no duplicate
+  dispatch occurs
+- quote any `startup_latency_ms`, `elapsed_since_spawn_ms`, and
+  `runtimes.<id>.startup_watchdog_ms` evidence relevant to adapter-path
+  reliability while confirming the downstream flow still uses the real runtime
+  path
+- after final terminal approval, status is `completed`,
+  `pending_run_completion=null`, and `active_turns={}`
+- durable events include both `gate_approved` for `run_completion` and
+  `run_completed`
+- non-terminal phase recovery should still quote `phase_entered` with
+  `reconciled_before_dispatch` if a standing gate advances before dispatch
+- `.agentxchain/continuous-session.json` no longer stays at `paused` with
+  `runs_completed=0`; quote the terminal session shape after the run completes
+- `session_continuation` should still be quoted if the continuous session chains
+  into another run; otherwise quote the terminal reason instead
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

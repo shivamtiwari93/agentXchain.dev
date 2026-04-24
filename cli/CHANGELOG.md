@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.155.8
+
+### Bug Fixes
+- **Idle-expansion charter schema alignment with validator**: the PM idle-expansion charter now specifies `new_intake_intent` as a nested object and `vision_traceability` as an array, matching the validator's expected shapes. The normalizer handles backward-compatible object-shaped traceability so older charter outputs still pass validation.
+
+### Status
+- `v2.155.8` aligns the idle-expansion charter schema with validator expectations so PM turns that follow the charter produce output the validator accepts without normalization drift.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 178 tests / 34 suites / 0 failures / 0 skipped
+
 ## 2.155.7
 
 ### Bug Fixes
