@@ -16,6 +16,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { getActiveTurn } from './governed-state.js';
 import { getInvalidPhaseTransitionReason } from './gate-evaluator.js';
+import { validateIdleExpansionTurnResult } from './idle-expansion-result-validator.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,12 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
   const schemaErrors = validateSchema(turnResult);
   if (schemaErrors.length > 0) {
     return result('schema', 'schema_error', schemaErrors);
+  }
+
+  const activeTurn = getActiveTurn(state) || state?.current_turn || null;
+  const idleExpansionResult = validateIdleExpansionTurnResult(turnResult, buildIdleExpansionValidationContext(state, opts, activeTurn));
+  if (idleExpansionResult.errors.length > 0) {
+    return result('schema', 'schema_error', idleExpansionResult.errors, idleExpansionResult.warnings);
   }
 
   // ── Stage B: Assignment Validation ─────────────────────────────────────
@@ -441,6 +448,24 @@ function validateDelegation(del, index) {
   }
 
   return errors;
+}
+
+function buildIdleExpansionValidationContext(state, opts, activeTurn) {
+  const source = activeTurn?.intake_context?.source || null;
+  const context = activeTurn?.idle_expansion_context || activeTurn?.intake_context?.idle_expansion || {};
+  return {
+    required: source === 'vision_idle_expansion',
+    expansionIteration: opts.idleExpansionIteration
+      ?? context.expansion_iteration
+      ?? state?.idle_expansion?.current_iteration
+      ?? state?.continuous?.expansion_iteration
+      ?? null,
+    visionHeadingsSnapshot: opts.visionHeadingsSnapshot
+      ?? context.vision_headings_snapshot
+      ?? state?.vision_headings_snapshot
+      ?? state?.continuous?.vision_headings_snapshot
+      ?? [],
+  };
 }
 
 // ── Stage B: Assignment Validation ───────────────────────────────────────────

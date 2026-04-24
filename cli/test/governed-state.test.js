@@ -876,6 +876,53 @@ describe('acceptGovernedTurn', () => {
     assert.ok(!existsSync(join(dir, STAGING_PATH)));
   });
 
+  it('projects idle_expansion_result_summary into accepted history', () => {
+    const assignResult = assignGovernedTurn(dir, config, 'pm', {
+      intakeContext: {
+        source: 'vision_idle_expansion',
+      },
+    });
+    assert.ok(assignResult.ok, `Assignment failed: ${assignResult.error}`);
+
+    const state = readJson(dir, STATE_PATH);
+    state.active_turns[state.current_turn.turn_id].idle_expansion_context = {
+      expansion_iteration: 1,
+      vision_headings_snapshot: ['Human Role'],
+    };
+    writeFileSync(join(dir, STATE_PATH), JSON.stringify(state, null, 2));
+
+    const turnResult = makeTurnResult(state);
+    turnResult.idle_expansion_result = {
+      kind: 'new_intake_intent',
+      expansion_iteration: 1,
+      vision_traceability: [
+        { vision_heading: 'Human Role', goal: 'derive next work from policy', kind: 'advances' },
+      ],
+      new_intake_intent: {
+        title: 'Implement policy-backed idle expansion ingestion',
+        charter: 'Create the next governed increment from idle expansion output.',
+        acceptance_contract: ['Accepted history carries only a compact idle expansion summary.'],
+        priority: 'p1',
+        template: 'generic',
+      },
+    };
+    writeFileSync(join(dir, STAGING_PATH), JSON.stringify(turnResult, null, 2));
+
+    const result = acceptGovernedTurn(dir, config);
+    assert.ok(result.ok, `Accept failed: ${result.error}`);
+
+    const history = readJsonl(dir, HISTORY_PATH);
+    assert.equal(history.length, 1);
+    assert.deepEqual(history[0].idle_expansion_result_summary, {
+      kind: 'new_intake_intent',
+      expansion_iteration: 1,
+      new_intent_title: 'Implement policy-backed idle expansion ingestion',
+      priority: 'p1',
+      template: 'generic',
+    });
+    assert.equal(history[0].idle_expansion_result, undefined);
+  });
+
   it('materializes a derived review artifact for api_proxy review turns', () => {
     execSync('git init', { cwd: dir, stdio: 'ignore' });
     execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { join } from 'path';
 import { validateStagedTurnResult, normalizeTurnResult, STAGING_PATH } from '../src/lib/turn-result-validator.js';
+import { summarizeIdleExpansionResult } from '../src/lib/idle-expansion-result-validator.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -118,6 +119,55 @@ function makeConfig(overrides = {}) {
     compat: { next_owner_source: 'state-json', lock_based_coordination: false, original_version: 4 },
     ...overrides,
   };
+}
+
+function makeIdleExpansionState(overrides = {}) {
+  return makeState({
+    phase: 'planning',
+    current_turn: {
+      turn_id: 'turn-0004',
+      assigned_role: 'pm',
+      status: 'running',
+      attempt: 1,
+      runtime_id: 'manual-pm',
+      intake_context: {
+        intent_id: 'intent_idle_001',
+        event_id: 'evt_idle_001',
+        source: 'vision_idle_expansion',
+      },
+      idle_expansion_context: {
+        expansion_iteration: 2,
+        vision_headings_snapshot: ['Human Role', 'Operating Modes'],
+      },
+    },
+    ...overrides,
+  });
+}
+
+function makeIdleExpansionTurnResult(overrides = {}) {
+  return makeValidTurnResult({
+    role: 'pm',
+    runtime_id: 'manual-pm',
+    files_changed: [],
+    artifact: { type: 'review', ref: null },
+    objections: [{ id: 'OBJ-001', severity: 'low', statement: 'Scope remains within the human-owned vision.', status: 'raised' }],
+    proposed_next_role: 'human',
+    idle_expansion_result: {
+      kind: 'new_intake_intent',
+      expansion_iteration: 2,
+      vision_traceability: [
+        { vision_heading: 'Human Role', goal: 'mechanical next-objective selection moves upstream into policy', kind: 'advances' },
+      ],
+      new_intake_intent: {
+        title: 'Harden policy-backed next-objective selection',
+        charter: 'Ship a governed increment that improves policy-backed next-objective selection.',
+        acceptance_contract: ['A repeatable test proves the next objective is policy-backed.'],
+        priority: 'p1',
+        template: 'generic',
+      },
+    },
+    ...overrides,
+  });
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -240,6 +290,124 @@ describe('turn-result-validator', () => {
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, false);
       assert.equal(res.error_class, 'schema_error');
+    });
+
+    it('accepts valid idle_expansion_result for a vision_idle_expansion turn', () => {
+      writeStagedResult(makeIdleExpansionTurnResult());
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+      assert.equal(res.ok, true);
+      assert.equal(res.turnResult.idle_expansion_result.kind, 'new_intake_intent');
+    });
+
+    it('requires idle_expansion_result for a vision_idle_expansion turn', () => {
+      const tr = makeIdleExpansionTurnResult();
+      delete tr.idle_expansion_result;
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'schema');
+      assert.equal(res.error_class, 'schema_error');
+      assert.ok(res.errors.some((e) => e.includes('idle_expansion_result is required')));
+    });
+
+    it('rejects idle_expansion_result with a mismatched expansion_iteration', () => {
+      writeStagedResult(makeIdleExpansionTurnResult({
+        idle_expansion_result: {
+          ...makeIdleExpansionTurnResult().idle_expansion_result,
+          expansion_iteration: 3,
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('expansion_iteration mismatch')));
+    });
+
+    it('rejects new_intake_intent without VISION.md traceability', () => {
+      writeStagedResult(makeIdleExpansionTurnResult({
+        idle_expansion_result: {
+          ...makeIdleExpansionTurnResult().idle_expansion_result,
+          vision_traceability: [],
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('must cite at least one VISION.md heading')));
+    });
+
+    it('rejects traceability headings outside the session VISION.md snapshot', () => {
+      writeStagedResult(makeIdleExpansionTurnResult({
+        idle_expansion_result: {
+          ...makeIdleExpansionTurnResult().idle_expansion_result,
+          vision_traceability: [
+            { vision_heading: 'Invented Scope', goal: 'Do unrelated work', kind: 'advances' },
+          ],
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('not present in the session VISION.md heading snapshot')));
+    });
+
+    it('accepts valid vision_exhausted idle_expansion_result', () => {
+      writeStagedResult(makeIdleExpansionTurnResult({
+        idle_expansion_result: {
+          kind: 'vision_exhausted',
+          expansion_iteration: 2,
+          vision_traceability: [],
+          vision_exhausted: {
+            classification: [
+              { vision_heading: 'Human Role', status: 'complete', reason: 'The current source set has no justified next increment.' },
+              { vision_heading: 'Operating Modes', status: 'deferred', reason: 'Remaining work is intentionally deferred.' },
+            ],
+          },
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+      assert.equal(res.ok, true);
+    });
+
+    it('rejects vision_exhausted results that do not classify every VISION.md snapshot heading', () => {
+      writeStagedResult(makeIdleExpansionTurnResult({
+        idle_expansion_result: {
+          kind: 'vision_exhausted',
+          expansion_iteration: 2,
+          vision_traceability: [],
+          vision_exhausted: {
+            classification: [
+              { vision_heading: 'Human Role', status: 'complete', reason: 'No further work.' },
+            ],
+          },
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('must classify VISION.md heading "Operating Modes"')));
+    });
+
+    it('validates optional idle_expansion_result when present on a non-idle turn', () => {
+      writeStagedResult(makeValidTurnResult({
+        idle_expansion_result: {
+          kind: 'side_quest',
+          expansion_iteration: 1,
+          vision_traceability: [],
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('idle_expansion_result.kind')));
+    });
+  });
+
+  describe('idle expansion history summary helper', () => {
+    it('summarizes new intake intents without retaining raw charter text', () => {
+      const summary = summarizeIdleExpansionResult(makeIdleExpansionTurnResult());
+      assert.deepEqual(summary, {
+        kind: 'new_intake_intent',
+        expansion_iteration: 2,
+        new_intent_title: 'Harden policy-backed next-objective selection',
+        priority: 'p1',
+        template: 'generic',
+      });
     });
   });
 

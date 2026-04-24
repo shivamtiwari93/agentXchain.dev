@@ -251,6 +251,73 @@
         }
       }
     },
+    "idle_expansion_result": {
+      "type": "object",
+      "description": "Required only for vision_idle_expansion turns. PM output that either proposes the next intake intent or declares the product vision exhausted.",
+      "required": ["kind", "expansion_iteration", "vision_traceability"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["new_intake_intent", "vision_exhausted"]
+        },
+        "expansion_iteration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "vision_traceability": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["vision_heading"],
+            "additionalProperties": false,
+            "properties": {
+              "vision_heading": { "type": "string", "minLength": 1 },
+              "goal": { "type": "string", "minLength": 1 },
+              "kind": { "enum": ["advances", "supports", "unblocks"] }
+            }
+          }
+        },
+        "new_intake_intent": {
+          "type": "object",
+          "required": ["title", "charter", "acceptance_contract", "priority", "template"],
+          "additionalProperties": false,
+          "properties": {
+            "title": { "type": "string", "minLength": 1 },
+            "charter": { "type": "string", "minLength": 1 },
+            "acceptance_contract": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "priority": { "enum": ["p0", "p1", "p2", "p3"] },
+            "template": {
+              "enum": ["generic", "api-service", "cli-tool", "library", "web-app", "full-local-cli", "enterprise-app"]
+            }
+          }
+        },
+        "vision_exhausted": {
+          "type": "object",
+          "required": ["classification"],
+          "additionalProperties": false,
+          "properties": {
+            "classification": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["vision_heading", "status", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "vision_heading": { "type": "string", "minLength": 1 },
+                  "status": { "enum": ["complete", "deferred", "out_of_scope"] },
+                  "reason": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "cost": {
       "type": "object",
       "properties": {

@@ -20,6 +20,7 @@ import { join, dirname } from 'path';
 import { randomBytes, createHash } from 'crypto';
 import { safeWriteJson } from './safe-write.js';
 import { validateStagedTurnResult } from './turn-result-validator.js';
+import { summarizeIdleExpansionResult } from './idle-expansion-result-validator.js';
 import { evaluatePhaseExit, evaluateRunCompletion, getNextPhase } from './gate-evaluator.js';
 import { evaluateApprovalPolicy } from './approval-policy.js';
 import { evaluatePolicies } from './policy-evaluator.js';
@@ -4870,6 +4871,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   const acceptedSequence = (state.turn_sequence || 0) + 1;
+  const idleExpansionResultSummary = summarizeIdleExpansionResult(turnResult);
   const historyEntry = {
     turn_id: turnResult.turn_id,
     run_id: turnResult.run_id,
@@ -4891,6 +4893,9 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     proposed_next_role: turnResult.proposed_next_role,
     phase_transition_request: turnResult.phase_transition_request,
     run_completion_request: Boolean(turnResult.run_completion_request),
+    ...(idleExpansionResultSummary
+      ? { idle_expansion_result_summary: idleExpansionResultSummary }
+      : {}),
     assigned_sequence: Number.isInteger(currentTurn.assigned_sequence) ? currentTurn.assigned_sequence : acceptedSequence,
     accepted_sequence: acceptedSequence,
     concurrent_with: Array.isArray(currentTurn.concurrent_with) ? currentTurn.concurrent_with : [],
