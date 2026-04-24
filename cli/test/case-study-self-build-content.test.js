@@ -17,7 +17,7 @@ const spec = readFileSync(resolve(__dirname, '../../.planning/CASE_STUDY_DISCOVE
 describe('Case Study: Self-Build docs content', () => {
   it('AT-CS-001: page names both collaborating agents', () => {
     assert.ok(page.includes('Claude Opus 4.6'), 'must name Claude Opus 4.6');
-    assert.ok(page.includes('GPT 5.4'), 'must name GPT 5.4');
+    assert.ok(page.includes('GPT 5.5'), 'must name GPT 5.5');
   });
 
   it('AT-CS-002: page includes concrete evidence metrics', () => {
