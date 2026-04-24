@@ -12,6 +12,10 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - **Workflow Kit**: Opinionated operating model for planning, specs, implementation, QA, release, escalation, recovery, and documentation.
 - **Integrations**: Dashboards, notifications, ticketing, compliance hooks, release surfaces.
 
+## Latest Release
+
+- v2.155.9: handle top-level idle_expansion_result acceptance item in intent coverage — coverage evaluator now recognizes the structured result acceptance criterion
+
 ## Key Features
 
 - Governed multi-agent coordination with structured turns and mandatory challenge

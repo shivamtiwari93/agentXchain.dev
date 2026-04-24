@@ -1,0 +1,65 @@
+---
+sidebar_position: 0
+title: "v2.155.9 Release Notes"
+---
+
+# AgentXchain v2.155.9
+
+`v2.155.9` is a dogfood patch over `v2.155.8`. It fixes an intent coverage
+gap where the top-level idle-expansion acceptance item "Produces a structured
+idle_expansion_result..." was not recognized by the coverage evaluator, even
+though the PM produced valid, schema-validated structured JSON.
+
+## Bug Fixes
+
+- **Idle-expansion intent coverage**: the `evaluateIdleExpansionConditionalCoverage`
+  function now handles the top-level acceptance item "Produces a structured
+  idle_expansion_result with kind 'new_intake_intent' or 'vision_exhausted'"
+  by checking whether the turn result contains a valid `idle_expansion_result`
+  with one of the expected `kind` values.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 28 tests / 11 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.9 -c "agentxchain --version"
+```
+
+For intent coverage proof, run a continuous perpetual session and quote:
+
+- the PM produces a structured `idle_expansion_result` that passes both schema
+  validation and intent coverage without manual intervention
+- all three acceptance items are addressed: structured result produced, conditional
+  `new_intake_intent` or `vision_exhausted` branch verified
+- acceptance succeeds on the first attempt
+
+For downstream closure, start from a clean checkpoint and quote:
+
+- functional downstream behavior remains fixed: continuous does not idle out in
+  QA, QA advances, `launch_ready` unblock completes the run, and no duplicate
+  dispatch occurs
+- quote any `startup_latency_ms`, `elapsed_since_spawn_ms`, and
+  `runtimes.<id>.startup_watchdog_ms` evidence relevant to adapter-path
+  reliability while confirming the downstream flow still uses the real runtime
+  path
+- after final terminal approval, status is `completed`,
+  `pending_run_completion=null`, and `active_turns={}`
+- durable events include both `gate_approved` for `run_completion` and
+  `run_completed`
+- non-terminal phase recovery should still quote `phase_entered` with
+  `reconciled_before_dispatch` if a standing gate advances before dispatch
+- `.agentxchain/continuous-session.json` no longer stays at `paused` with
+  `runs_completed=0`; quote the terminal session shape after the run completes
+- `session_continuation` should still be quoted if the continuous session chains
+  into another run; otherwise quote the terminal reason instead
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

@@ -1,9 +1,9 @@
-# Show HN Draft — AgentXchain v2.155.8
+# Show HN Draft — AgentXchain v2.155.9
 
-> Ready-to-post draft for the `v2.155.8` launch window once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar intent coverage.
+> Ready-to-post draft for the `v2.155.9` launch window once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar intent coverage.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 178 tests / 34 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 28 tests / 11 suites / 0 failures / 0 skipped
 
 ---
 

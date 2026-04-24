@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.9
+
+### Bug Fixes
+- **Handle top-level idle_expansion_result acceptance item in intent coverage**: coverage evaluator now recognizes the structured result acceptance criterion.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 28 tests / 11 suites / 0 failures / 0 skipped
+
 ## 2.155.8
 
 ### Bug Fixes
