@@ -29,7 +29,7 @@ import {
   getPhaseOrder,
 } from './intent-phase-scope.js';
 
-const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vision_scan'];
+const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vision_scan', 'vision_idle_expansion'];
 const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
 const EVENT_ID_RE = /^evt_\d+_[0-9a-f]{4}$/;
 const INTENT_ID_RE = /^intent_\d+_[0-9a-f]{4}$/;

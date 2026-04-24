@@ -332,6 +332,153 @@ describe('Continuous Run', () => {
     });
   });
 
+  describe('BUG-60: on_idle and idle_expansion config resolution', () => {
+    it('defaults on_idle to exit with no idle_expansion block', () => {
+      const opts = resolveContinuousOptions({}, {});
+      assert.equal(opts.onIdle, 'exit');
+      assert.equal(opts.idleExpansion, null);
+    });
+
+    it('reads on_idle from config', () => {
+      const opts = resolveContinuousOptions({}, {
+        run_loop: { continuous: { on_idle: 'perpetual' } },
+      });
+      assert.equal(opts.onIdle, 'perpetual');
+      assert.notEqual(opts.idleExpansion, null);
+    });
+
+    it('CLI --on-idle overrides config', () => {
+      const opts = resolveContinuousOptions(
+        { onIdle: 'exit' },
+        { run_loop: { continuous: { on_idle: 'perpetual' } } },
+      );
+      assert.equal(opts.onIdle, 'exit');
+      assert.equal(opts.idleExpansion, null);
+    });
+
+    it('perpetual mode resolves default idle_expansion block', () => {
+      const opts = resolveContinuousOptions(
+        { onIdle: 'perpetual' },
+        {},
+      );
+      assert.equal(opts.onIdle, 'perpetual');
+      assert.deepEqual(opts.idleExpansion.sources, [
+        '.planning/VISION.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md',
+      ]);
+      assert.equal(opts.idleExpansion.maxExpansions, 5);
+      assert.equal(opts.idleExpansion.role, 'pm');
+      assert.equal(opts.idleExpansion.malformedRetryLimit, 1);
+    });
+
+    it('perpetual mode reads custom idle_expansion config', () => {
+      const opts = resolveContinuousOptions(
+        { onIdle: 'perpetual' },
+        {
+          run_loop: {
+            continuous: {
+              idle_expansion: {
+                sources: ['.planning/VISION.md'],
+                max_expansions: 3,
+                role: 'architect',
+                malformed_retry_limit: 0,
+              },
+            },
+          },
+        },
+      );
+      assert.deepEqual(opts.idleExpansion.sources, ['.planning/VISION.md']);
+      assert.equal(opts.idleExpansion.maxExpansions, 3);
+      assert.equal(opts.idleExpansion.role, 'architect');
+      assert.equal(opts.idleExpansion.malformedRetryLimit, 0);
+    });
+
+    it('exit mode ignores idle_expansion config', () => {
+      const opts = resolveContinuousOptions({}, {
+        run_loop: {
+          continuous: {
+            on_idle: 'exit',
+            idle_expansion: { max_expansions: 10 },
+          },
+        },
+      });
+      assert.equal(opts.onIdle, 'exit');
+      assert.equal(opts.idleExpansion, null);
+    });
+
+    it('ignores invalid on_idle values and defaults to exit', () => {
+      const opts = resolveContinuousOptions({}, {
+        run_loop: { continuous: { on_idle: 'banana' } },
+      });
+      assert.equal(opts.onIdle, 'exit');
+      assert.equal(opts.idleExpansion, null);
+    });
+
+    it('validates on_idle rejects reserved human_review with actionable error', () => {
+      const errors = validateRunLoopConfig({
+        continuous: { on_idle: 'human_review' },
+      });
+      assert.ok(errors.some(e => e.includes('"human_review" is reserved but not supported yet')));
+      assert.ok(errors.some(e => e.includes('Use "exit" or "perpetual"')));
+    });
+
+    it('validates on_idle rejects non-string values', () => {
+      const errors = validateRunLoopConfig({
+        continuous: { on_idle: 42 },
+      });
+      assert.ok(errors.some(e => e.includes('on_idle must be one of: exit, perpetual')));
+    });
+
+    it('validates on_idle rejects unknown string values', () => {
+      const errors = validateRunLoopConfig({
+        continuous: { on_idle: 'auto_decide' },
+      });
+      assert.ok(errors.some(e => e.includes('on_idle must be one of: exit, perpetual')));
+    });
+
+    it('validates on_idle accepts valid values without errors', () => {
+      assert.deepEqual(
+        validateRunLoopConfig({ continuous: { on_idle: 'exit' } }),
+        [],
+      );
+      assert.deepEqual(
+        validateRunLoopConfig({ continuous: { on_idle: 'perpetual' } }),
+        [],
+      );
+    });
+
+    it('validates idle_expansion.max_expansions rejects non-positive values', () => {
+      const errors = validateRunLoopConfig({
+        continuous: {
+          on_idle: 'perpetual',
+          idle_expansion: { max_expansions: 0 },
+        },
+      });
+      assert.ok(errors.some(e => e.includes('max_expansions must be a positive integer')));
+    });
+
+    it('validates idle_expansion.malformed_retry_limit rejects negative values', () => {
+      const errors = validateRunLoopConfig({
+        continuous: {
+          on_idle: 'perpetual',
+          idle_expansion: { malformed_retry_limit: -1 },
+        },
+      });
+      assert.ok(errors.some(e => e.includes('malformed_retry_limit must be a non-negative integer')));
+    });
+
+    it('validates idle_expansion accepts valid config without errors', () => {
+      assert.deepEqual(
+        validateRunLoopConfig({
+          continuous: {
+            on_idle: 'perpetual',
+            idle_expansion: { max_expansions: 3, malformed_retry_limit: 0 },
+          },
+        }),
+        [],
+      );
+    });
+  });
+
   describe('session state', () => {
     it('reads and writes session state', () => {
       assert.equal(readContinuousSession(tmpDir), null);

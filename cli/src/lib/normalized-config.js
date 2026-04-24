@@ -647,6 +647,7 @@ export function validateRunLoopConfig(runLoop) {
 }
 
 export const VALID_RECONCILE_OPERATOR_COMMITS = ['manual', 'auto_safe_only', 'disabled'];
+export { VALID_ON_IDLE, RESERVED_ON_IDLE };
 
 function validateRunLoopContinuousConfig(path, continuous, errors) {
   if (typeof continuous !== 'object' || Array.isArray(continuous)) {
@@ -667,6 +668,36 @@ function validateRunLoopContinuousConfig(path, continuous, errors) {
       errors.push(
         `${path}.reconcile_operator_commits must be one of: ${VALID_RECONCILE_OPERATOR_COMMITS.join(', ')}`
       );
+    }
+  }
+  // BUG-60: validate on_idle policy
+  if (continuous.on_idle !== undefined && continuous.on_idle !== null) {
+    if (typeof continuous.on_idle !== 'string') {
+      errors.push(`${path}.on_idle must be one of: ${VALID_ON_IDLE.join(', ')}`);
+    } else if (RESERVED_ON_IDLE.includes(continuous.on_idle)) {
+      errors.push(
+        `${path}.on_idle: "${continuous.on_idle}" is reserved but not supported yet. Use "exit" or "perpetual".`
+      );
+    } else if (!VALID_ON_IDLE.includes(continuous.on_idle)) {
+      errors.push(`${path}.on_idle must be one of: ${VALID_ON_IDLE.join(', ')}`);
+    }
+  }
+  // BUG-60: validate idle_expansion block when present
+  if (continuous.idle_expansion !== undefined && continuous.idle_expansion !== null) {
+    if (typeof continuous.idle_expansion !== 'object' || Array.isArray(continuous.idle_expansion)) {
+      errors.push(`${path}.idle_expansion must be an object`);
+    } else {
+      if (continuous.idle_expansion.max_expansions !== undefined) {
+        validatePositiveInteger(`${path}.idle_expansion.max_expansions`, continuous.idle_expansion.max_expansions, 'expansion count', errors);
+      }
+      if (continuous.idle_expansion.malformed_retry_limit !== undefined
+          && continuous.idle_expansion.malformed_retry_limit !== null) {
+        if (typeof continuous.idle_expansion.malformed_retry_limit !== 'number'
+            || !Number.isInteger(continuous.idle_expansion.malformed_retry_limit)
+            || continuous.idle_expansion.malformed_retry_limit < 0) {
+          errors.push(`${path}.idle_expansion.malformed_retry_limit must be a non-negative integer`);
+        }
+      }
     }
   }
 }
@@ -1329,9 +1360,43 @@ export function normalizeV4(raw) {
   };
 }
 
+const VALID_ON_IDLE = ['exit', 'perpetual'];
+const RESERVED_ON_IDLE = ['human_review'];
+
+function normalizeIdleExpansion(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {
+      sources: ['.planning/VISION.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
+      max_expansions: 5,
+      role: 'pm',
+      output: 'intake_intent_or_vision_exhausted',
+      malformed_retry_limit: 1,
+    };
+  }
+  const sources = Array.isArray(raw.sources) && raw.sources.length > 0
+    ? raw.sources.filter(s => typeof s === 'string' && s.length > 0)
+    : ['.planning/VISION.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'];
+  return {
+    sources: sources.length > 0 ? sources : ['.planning/VISION.md'],
+    max_expansions: Number.isInteger(raw.max_expansions) && raw.max_expansions >= 1 ? raw.max_expansions : 5,
+    role: typeof raw.role === 'string' && raw.role.length > 0 ? raw.role : 'pm',
+    output: 'intake_intent_or_vision_exhausted',
+    malformed_retry_limit: Number.isInteger(raw.malformed_retry_limit) && raw.malformed_retry_limit >= 0
+      ? raw.malformed_retry_limit : 1,
+  };
+}
+
 function normalizeContinuousConfig(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   if (raw.enabled !== true) return null;
+
+  // Normalize on_idle — reserved and invalid values fall back to 'exit';
+  // validation layer reports actionable errors to the operator.
+  let on_idle = 'exit';
+  if (typeof raw.on_idle === 'string' && VALID_ON_IDLE.includes(raw.on_idle)) {
+    on_idle = raw.on_idle;
+  }
+
   return {
     enabled: true,
     vision_path: raw.vision_path || '.planning/VISION.md',
@@ -1341,6 +1406,8 @@ function normalizeContinuousConfig(raw) {
     per_session_max_usd: Number.isFinite(raw.per_session_max_usd) && raw.per_session_max_usd > 0
       ? raw.per_session_max_usd
       : null,
+    on_idle,
+    idle_expansion: on_idle === 'perpetual' ? normalizeIdleExpansion(raw.idle_expansion) : null,
   };
 }
 

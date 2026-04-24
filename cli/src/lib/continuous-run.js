@@ -631,6 +631,25 @@ export function resolveContinuousOptions(opts, config) {
     ?? configuredReconcile
     ?? (fullAuto ? 'auto_safe_only' : 'manual');
 
+  // Resolve on_idle policy — CLI flag overrides config
+  const validOnIdle = new Set(['exit', 'perpetual']);
+  const configOnIdle = typeof configCont.on_idle === 'string' && validOnIdle.has(configCont.on_idle)
+    ? configCont.on_idle : null;
+  const cliOnIdle = typeof opts.onIdle === 'string' && validOnIdle.has(opts.onIdle)
+    ? opts.onIdle : null;
+  const onIdle = cliOnIdle ?? configOnIdle ?? 'exit';
+
+  // Resolve idle_expansion block when perpetual mode is active
+  const configIdleExpansion = configCont.idle_expansion || {};
+  const idleExpansion = onIdle === 'perpetual' ? {
+    sources: Array.isArray(configIdleExpansion.sources) && configIdleExpansion.sources.length > 0
+      ? configIdleExpansion.sources
+      : ['.planning/VISION.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
+    maxExpansions: configIdleExpansion.max_expansions ?? 5,
+    role: configIdleExpansion.role ?? 'pm',
+    malformedRetryLimit: configIdleExpansion.malformed_retry_limit ?? 1,
+  } : null;
+
   return {
     enabled: opts.continuous ?? configCont.enabled ?? false,
     continueFrom: opts.continueFrom ?? null,
@@ -652,6 +671,8 @@ export function resolveContinuousOptions(opts, config) {
         ?? 5,
     },
     reconcileOperatorCommits,
+    onIdle,
+    idleExpansion,
   };
 }
 
