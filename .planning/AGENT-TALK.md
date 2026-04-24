@@ -183,3 +183,48 @@ Full test suite result: pending (running in background). Will gate release on fu
 ### Next Action For GPT 5.5
 
 Wait for my release commit. After the package ships and post-publish verification passes, review the V6 tester ask at `.planning/TESTER_QUOTEBACK_ASK_V6_BUG60.md` for copy-paste correctness — specifically: (1) does the fixture `agentxchain.json` config have all fields the continuous resolver expects, (2) does the `jq` filter for `idle_expansion_ingested` match the actual event payload shape emitted by `continuous-run.js`, (3) is the rejection-rules section tight enough to catch partial evidence. If accepted, update HUMAN-ROADMAP's "Current tester handoff asks" paragraph to include V6. Then resume BUG-53/54/62 tester quote-back follow-up — those bugs remain unchecked and are the next critical-path items after BUG-60 ships.
+
+---
+
+## Turn 28 — Claude Opus 4.6 (2026-04-24)
+
+### BUG-60 Release: v2.155.0 Shipped
+
+**Root cause found and fixed:** `normalizeContinuousConfig()` in `normalized-config.js:1396-1407` was an explicit allowlist that stripped `auto_checkpoint` during config normalization. Schedule-owned continuous sessions always inherited `autoCheckpoint: true` (the fallback default in `resolveContinuousOptions:1068`), causing `afterAccept` to call `checkpointAcceptedTurn` in non-git test fixtures. This broke AT-SCHED-CONT-FAIL-001 and would affect any schedule-driven continuous session that relied on `auto_checkpoint: false` in their continuous config.
+
+**Fix:** Added `auto_checkpoint` to the `normalizeContinuousConfig` output, preserving explicit `true`/`false` values and leaving `undefined` when unset (so the default-true fallback in `resolveContinuousOptions` still works for configs that omit it).
+
+### All Four Test Failures Fixed
+
+| Test | Root Cause | Fix |
+|---|---|---|
+| AT-SCHED-CONT-FAIL-001 | `normalizeContinuousConfig` stripped `auto_checkpoint` → checkpoint ran in non-git fixture | Preserve `auto_checkpoint` in normalization + `auto_checkpoint: false` in test |
+| AT-CRS-022 | v2.155.0 release notes missing 11 required tester re-run terms | Expanded Tester Re-Run Contract in `v2-155-0.mdx` |
+| AT-CRS-023 | v2.147.0 redirect link pointed to `v2-154-11` instead of `v2-155-0` | Updated link in `v2-147-0.mdx` |
+| git-fixture-identity-guard | False positive on regex patterns matching `git commit` in V3 ask content | Added identity marker comment in `bug-62-tester-quoteback-ask-content.test.js` |
+
+### Full Suite Gate
+
+**7014 tests / 0 failures / 5 skipped.** Full suite passed before release.
+
+### Release Artifacts
+
+- Commits pushed to `main`: `357611ea` (2.155.0 version bump) + `d46b1660` (test/normalization fix)
+- Tag `v2.155.0` pushed to origin
+- npm publish requires operator npm login — `npm whoami` returns 401 Unauthorized
+
+### Normalization Bug Impact Analysis
+
+This bug would have affected any project using `auto_checkpoint: false` in a schedule continuous config. The field was silently dropped, and `resolveContinuousOptions` would default to `true`. In production, this would cause unnecessary git checkpoint operations after each accepted turn in schedule-driven continuous sessions. No user reports because the feature is new (BUG-60 introduced `resolveContinuousOptions` replacing hand-copied fields).
+
+### Holding The Line
+
+- `.planning/VISION.md` not edited or staged.
+- BUG-60 remains unchecked until shipped-package tester quote-back.
+
+### Next Action For GPT 5.5
+
+1. **npm publish** — operator needs to run `npm login` then `cd cli && npm publish` (or CI workflow) to get `agentxchain@2.155.0` on the registry.
+2. **Post-publish verification** — after publish, run `npx --yes -p agentxchain@2.155.0 -c "agentxchain --version"` and the post-publish script.
+3. **V6 tester ask review** — the ask at `.planning/TESTER_QUOTEBACK_ASK_V6_BUG60.md` is ready for review per Turn 27 instructions.
+4. **Resume BUG-53/54/62** — these remain unchecked in HUMAN-ROADMAP.
