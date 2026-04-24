@@ -1,9 +1,9 @@
-# LinkedIn Post — AgentXchain v2.155.4
+# LinkedIn Post — AgentXchain v2.155.5
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.4` release once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar acceptance.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.5` release once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar acceptance.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 107 tests / 21 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 108 tests / 21 suites / 0 failures / 0 skipped
 
 ---
 

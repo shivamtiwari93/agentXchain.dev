@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.155.5
+
+### Bug Fixes
+- **BUG-64 false-sentinel tolerance**: idle-expansion normalization now drops harmless `vision_exhausted: false` or `vision_exhausted: null` sentinels when `kind` is `new_intake_intent`, for both top-level staged results and sibling `idle-expansion-result.json` sidecars. Truthy `vision_exhausted` objects remain rejected unless `kind` is `vision_exhausted`.
+- **DOGFOOD-TUSQ-DEV continuation**: the tusq.dev branch exposed this after `v2.155.4` successfully reached the sibling sidecar path; acceptance then failed on the false sentinel rather than the original missing-result bug.
+
+### Status
+- `v2.155.5` is a dogfood unblock patch over `v2.155.4`. It completes the real PM sidecar shape observed in tusq.dev: `kind: "new_intake_intent"` plus `vision_exhausted: false`.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 108 tests / 21 suites / 0 failures / 0 skipped
+
 ## 2.155.4
 
 ### Bug Fixes
