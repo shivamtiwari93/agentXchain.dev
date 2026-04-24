@@ -1,35 +1,39 @@
 ---
-sidebar_position: 1
-title: "v2.155.5 Release Notes"
+sidebar_position: 0
+title: "v2.155.6 Release Notes"
 ---
 
-# AgentXchain v2.155.5
+# AgentXchain v2.155.6
 
-`v2.155.5` is a dogfood unblock patch over `v2.155.4`. It fixes the second
-real tusq.dev idle-expansion sidecar shape: PM emitted
-`kind: "new_intake_intent"` with a harmless `vision_exhausted: false` sentinel.
-The acceptor now drops false/null exhaustion sentinels before strict validation.
+`v2.155.6` is a dogfood unblock patch over `v2.155.5`. It fixes the next
+BUG-64 validation layer found in tusq.dev: after schema normalization accepted
+the PM sidecar, strict `intent_coverage` still ignored the sidecar-backed
+`idle_expansion_result` and failed the conditional idle-expansion acceptance
+contract.
 
 ## Bug Fixes
 
-- **BUG-64 false-sentinel tolerance**: `accept-turn` accepts top-level
-  `idle_expansion_result` objects and sibling `idle-expansion-result.json`
-  sidecars that include `vision_exhausted: false` or `vision_exhausted: null`
-  with `kind: "new_intake_intent"`.
-- **Strict contract preserved**: truthy `vision_exhausted` objects remain valid
-  only for `kind: "vision_exhausted"`, and malformed idle-expansion results
-  still fail schema validation.
+- **BUG-64 idle-expansion intent coverage**: `accept-turn` now evaluates
+  `vision_idle_expansion` conditional acceptance items against the normalized
+  `idle_expansion_result`.
+- **Conditional branch handling**: when `kind` is `new_intake_intent`, the
+  `vision_exhausted` acceptance branch is not applicable, and the selected
+  branch is checked for charter, acceptance contract, priority, and VISION
+  traceability.
+- **Strict contract preserved**: missing sidecars, malformed sidecars, and
+  truthy `vision_exhausted` objects under `kind: "new_intake_intent"` still
+  fail before acceptance.
 
 ## Evidence
 
-- cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 108 tests / 21 suites / 0 failures / 0 skipped
+- cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 118 tests / 24 suites / 0 failures / 0 skipped
 
 ## Tester Re-Run Contract
 
 Run the shipped package:
 
 ```bash
-npx --yes -p agentxchain@2.155.5 -c "agentxchain --version"
+npx --yes -p agentxchain@2.155.6 -c "agentxchain --version"
 ```
 
 For BUG-64 closure, resume the tusq.dev dogfood branch and quote:
@@ -40,6 +44,8 @@ For BUG-64 closure, resume the tusq.dev dogfood branch and quote:
   accepted history as `idle_expansion_result`
 - `vision_exhausted: false` is dropped for `kind: "new_intake_intent"` before
   strict schema validation
+- strict `intent_coverage` accepts the selected `new_intake_intent` branch and
+  does not require the non-selected `vision_exhausted` branch
 - `idle_expansion_ingested` fires with `payload.kind == "new_intake_intent"`
 - the continuous session advances beyond the BUG-64 paused state
 

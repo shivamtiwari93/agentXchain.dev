@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.155.5
+# Launch Evidence Report — AgentXchain v2.155.6
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.5 — BUG-64 idle-expansion sidecar false-sentinel patch. Idle-expansion PM turns that emit `idle-expansion-result.json` with `kind: "new_intake_intent"` and `vision_exhausted: false` are now accepted after canonical normalization, while missing or malformed results still fail validation. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.6 — BUG-64 idle-expansion sidecar intent-coverage patch. Idle-expansion PM turns that emit `idle-expansion-result.json` with `kind: "new_intake_intent"` now satisfy strict conditional intent coverage after canonical sidecar normalization, while missing or malformed results still fail validation. Current aggregate release evidence:
 >
-> - cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 108 tests / 21 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 118 tests / 24 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)

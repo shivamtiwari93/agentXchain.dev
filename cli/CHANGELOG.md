@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.155.6
+
+### Bug Fixes
+- **BUG-64 idle-expansion intent coverage**: `accept-turn` now treats normalized `idle_expansion_result` sidecars as the evidence source for conditional `vision_idle_expansion` acceptance items. When the sidecar chooses `new_intake_intent`, the `vision_exhausted` branch is considered not applicable, and the new-intent branch is checked structurally for charter, acceptance contract, priority, and VISION traceability.
+- **DOGFOOD-TUSQ-DEV continuation**: tusq.dev proved `v2.155.5` got through schema normalization but still failed at the later `intent_coverage` stage because that layer ignored the sidecar-backed result. `v2.155.6` closes that downstream validator gap.
+
+### Status
+- `v2.155.6` is the third BUG-64 dogfood unblock patch. It preserves strict schema failures while letting real PM idle-expansion sidecars satisfy their conditional intake contract.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 118 tests / 24 suites / 0 failures / 0 skipped
+
 ## 2.155.5
 
 ### Bug Fixes

@@ -1,9 +1,9 @@
-# Hacker News Submission — AgentXchain v2.155.5
+# Hacker News Submission — AgentXchain v2.155.6
 
-> Ready-to-post for the `v2.155.5` launch window once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar acceptance.
+> Ready-to-post for the `v2.155.6` launch window once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar intent coverage.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 108 tests / 21 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/turn-result-validator.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 118 tests / 24 suites / 0 failures / 0 skipped
 
 ---
 
