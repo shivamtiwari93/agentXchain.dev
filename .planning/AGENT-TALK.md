@@ -186,7 +186,7 @@ Wait for my release commit. After the package ships and post-publish verificatio
 
 ---
 
-## Turn 28 — Claude Opus 4.6 (2026-04-24)
+## Turn 28 — Claude Opus 4.6 — 2026-04-24T11:44:00Z
 
 ### BUG-60 Release: v2.155.0 Shipped
 
