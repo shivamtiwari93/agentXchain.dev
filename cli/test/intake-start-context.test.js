@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { scaffoldGoverned } from '../src/commands/init.js';
 import {
   approveIntent,
+  buildVisionIdleExpansionSignal,
   planIntent,
   recordEvent,
   startIntent,
@@ -25,6 +26,7 @@ function preparePlannedIntent(root, overrides = {}) {
     source: overrides.source || 'manual',
     signal: overrides.signal || { description: 'start intake with truthful context' },
     evidence: overrides.evidence || [{ type: 'text', value: 'operator-reported work item' }],
+    ...(overrides.idleExpansionContext ? { idle_expansion_context: overrides.idleExpansionContext } : {}),
   });
   assert.equal(record.ok, true, 'recordEvent must succeed');
 
@@ -149,5 +151,71 @@ describe('intake start context bridge', () => {
       assignment.intake_context.charter,
       'Reuse the current run but still preserve intake context on the new turn',
     );
+  });
+
+  it('BUG-60: vision_idle_expansion rejects non-deterministic signal payloads', () => {
+    const signal = buildVisionIdleExpansionSignal('cont-test', 1, 'turn_previous');
+    const record = recordEvent(root, {
+      source: 'vision_idle_expansion',
+      signal: { ...signal, description: 'free text must not affect idle-expansion dedup' },
+      evidence: [{ type: 'text', value: 'idle expansion requested after accepted turn' }],
+      idle_expansion_context: {
+        expansion_iteration: 1,
+        vision_headings_snapshot: ['AgentXchain Vision'],
+      },
+    });
+
+    assert.equal(record.ok, false);
+    assert.match(record.error, /signal must contain exactly/);
+  });
+
+  it('BUG-60: vision_idle_expansion signal dedups and carries idle_expansion_context into the turn', () => {
+    const signal = buildVisionIdleExpansionSignal('cont-test', 1, 'turn_previous');
+    const idleExpansionContext = {
+      expansion_iteration: 1,
+      vision_headings_snapshot: ['AgentXchain Vision', 'Full Auto Mode'],
+    };
+    const first = recordEvent(root, {
+      source: 'vision_idle_expansion',
+      signal,
+      evidence: [{ type: 'text', value: 'idle expansion requested after accepted turn' }],
+      idle_expansion_context: idleExpansionContext,
+    });
+    assert.equal(first.ok, true, first.error || 'first idle-expansion record must succeed');
+
+    const second = recordEvent(root, {
+      source: 'vision_idle_expansion',
+      signal,
+      evidence: [{ type: 'text', value: 'same deterministic expansion requested again' }],
+      idle_expansion_context: idleExpansionContext,
+    });
+    assert.equal(second.ok, true, second.error || 'duplicate idle-expansion record must succeed');
+    assert.equal(second.deduplicated, true);
+    assert.equal(second.event.event_id, first.event.event_id);
+    assert.equal(second.intent.intent_id, first.intent.intent_id);
+
+    const intentId = first.intent.intent_id;
+    const triage = triageIntent(root, intentId, {
+      priority: 'p1',
+      template: 'generic',
+      charter: 'Run idle-expansion PM synthesis from governed product sources',
+      acceptance_contract: ['Emit exactly one validated idle_expansion_result'],
+    });
+    assert.equal(triage.ok, true, triage.error || 'triage must succeed');
+    const approve = approveIntent(root, intentId);
+    assert.equal(approve.ok, true, approve.error || 'approval must succeed');
+    const plan = planIntent(root, intentId, { projectName: 'Idle Expansion Context Test' });
+    assert.equal(plan.ok, true, plan.error || 'planning must succeed');
+
+    const started = startIntent(root, intentId, { role: 'pm' });
+    assert.equal(started.ok, true, started.error || 'start must succeed');
+
+    const assignment = readJson(root, join(started.dispatch_dir, 'ASSIGNMENT.json'));
+    assert.deepEqual(assignment.intake_context.idle_expansion, idleExpansionContext);
+
+    const state = readJson(root, '.agentxchain/state.json');
+    const turn = state.active_turns[started.turn_id];
+    assert.deepEqual(turn.idle_expansion_context, idleExpansionContext);
+    assert.deepEqual(turn.intake_context.idle_expansion, idleExpansionContext);
   });
 });

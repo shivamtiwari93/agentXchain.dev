@@ -3566,6 +3566,9 @@ export function assignGovernedTurn(root, config, roleId, options = {}) {
   if (options.intakeContext) {
     newTurn.intake_context = options.intakeContext;
   }
+  if (options.idleExpansionContext) {
+    newTurn.idle_expansion_context = options.idleExpansionContext;
+  }
 
   // Attach delegation context if this turn fulfills a pending delegation
   const delegationQueue = state.delegation_queue || [];

@@ -33,6 +33,7 @@ const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vi
 const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
 const EVENT_ID_RE = /^evt_\d+_[0-9a-f]{4}$/;
 const INTENT_ID_RE = /^intent_\d+_[0-9a-f]{4}$/;
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
 
 // V3-S1 through S5 states. `failed` remains read-tolerant for historical/manual
 // intent files, but current first-party intake writers do not transition into it.
@@ -64,6 +65,17 @@ function computeDedupKey(source, signal) {
   const sorted = JSON.stringify(signal, Object.keys(signal).sort());
   const hash = createHash('sha256').update(sorted).digest('hex').slice(0, 16);
   return `${source}:${hash}`;
+}
+
+export function buildVisionIdleExpansionSignal(sessionId, expansionIteration, acceptedTurnId) {
+  const expansionKey = createHash('sha256')
+    .update(`${sessionId}::${expansionIteration}::${acceptedTurnId}`)
+    .digest('hex');
+  return {
+    expansion_key: expansionKey,
+    expansion_iteration: expansionIteration,
+    accepted_turn_id: acceptedTurnId,
+  };
 }
 
 function nowISO() {
@@ -268,6 +280,13 @@ export function validateEventPayload(payload) {
     errors.push('signal must be a non-empty object');
   }
 
+  if (payload.source === 'vision_idle_expansion' && payload.signal && typeof payload.signal === 'object' && !Array.isArray(payload.signal)) {
+    errors.push(...validateVisionIdleExpansionSignal(payload.signal));
+    errors.push(...validateVisionIdleExpansionContext(payload.idle_expansion_context));
+  } else if (payload.idle_expansion_context !== undefined) {
+    errors.push('idle_expansion_context is only allowed for source "vision_idle_expansion"');
+  }
+
   if (!Array.isArray(payload.evidence) || payload.evidence.length === 0) {
     errors.push('evidence must be a non-empty array');
   } else {
@@ -286,6 +305,57 @@ export function validateEventPayload(payload) {
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+function validateVisionIdleExpansionSignal(signal) {
+  const errors = [];
+  const keys = Object.keys(signal).sort();
+  const expected = ['accepted_turn_id', 'expansion_iteration', 'expansion_key'];
+  if (JSON.stringify(keys) !== JSON.stringify(expected)) {
+    errors.push(`vision_idle_expansion signal must contain exactly: ${expected.join(', ')}`);
+    return errors;
+  }
+  if (typeof signal.expansion_key !== 'string' || !SHA256_HEX_RE.test(signal.expansion_key)) {
+    errors.push('vision_idle_expansion signal.expansion_key must be a SHA-256 hex string');
+  }
+  if (!Number.isInteger(signal.expansion_iteration) || signal.expansion_iteration < 1) {
+    errors.push('vision_idle_expansion signal.expansion_iteration must be an integer >= 1');
+  }
+  if (typeof signal.accepted_turn_id !== 'string' || !signal.accepted_turn_id.trim()) {
+    errors.push('vision_idle_expansion signal.accepted_turn_id must be a non-empty string');
+  }
+  return errors;
+}
+
+function validateVisionIdleExpansionContext(context) {
+  const errors = [];
+  if (!context || typeof context !== 'object' || Array.isArray(context)) {
+    return ['idle_expansion_context must be a JSON object for source "vision_idle_expansion"'];
+  }
+  if (!Number.isInteger(context.expansion_iteration) || context.expansion_iteration < 1) {
+    errors.push('idle_expansion_context.expansion_iteration must be an integer >= 1');
+  }
+  if (!Array.isArray(context.vision_headings_snapshot) || context.vision_headings_snapshot.length === 0) {
+    errors.push('idle_expansion_context.vision_headings_snapshot must be a non-empty array');
+  } else {
+    for (let i = 0; i < context.vision_headings_snapshot.length; i++) {
+      const heading = context.vision_headings_snapshot[i];
+      if (typeof heading !== 'string' || !heading.trim()) {
+        errors.push(`idle_expansion_context.vision_headings_snapshot[${i}] must be a non-empty string`);
+      }
+    }
+  }
+  return errors;
+}
+
+function normalizeVisionIdleExpansionContext(context) {
+  if (!context || typeof context !== 'object' || Array.isArray(context)) return null;
+  return {
+    expansion_iteration: context.expansion_iteration,
+    vision_headings_snapshot: Array.isArray(context.vision_headings_snapshot)
+      ? context.vision_headings_snapshot.map((heading) => String(heading).trim()).filter(Boolean)
+      : [],
+  };
 }
 
 export function validateTriageFields(fields, config = null) {
@@ -357,6 +427,12 @@ export function recordEvent(root, payload) {
     evidence: payload.evidence,
     dedup_key: dedupKey,
   };
+  const idleExpansionContext = payload.source === 'vision_idle_expansion'
+    ? normalizeVisionIdleExpansionContext(payload.idle_expansion_context)
+    : null;
+  if (idleExpansionContext) {
+    event.idle_expansion_context = idleExpansionContext;
+  }
 
   safeWriteJson(join(dirs.events, `${eventId}.json`), event);
 
@@ -380,6 +456,9 @@ export function recordEvent(root, payload) {
       { from: null, to: 'detected', at: now, reason: 'event ingested' },
     ],
   };
+  if (idleExpansionContext) {
+    intent.idle_expansion_context = idleExpansionContext;
+  }
 
   safeWriteJson(join(dirs.intents, `${intentId}.json`), intent);
 
@@ -968,6 +1047,9 @@ export function startIntent(root, intentId, options = {}) {
     return loadedEvent;
   }
   const { event } = loadedEvent;
+  const idleExpansionContext = event.source === 'vision_idle_expansion'
+    ? normalizeVisionIdleExpansionContext(intent.idle_expansion_context || event.idle_expansion_context)
+    : null;
   const intakeContext = {
     intent_id: intent.intent_id,
     event_id: intent.event_id,
@@ -976,6 +1058,7 @@ export function startIntent(root, intentId, options = {}) {
     charter: intent.charter || null,
     acceptance_contract: Array.isArray(intent.acceptance_contract) ? intent.acceptance_contract : [],
     phase_scope: intent.phase_scope || null,
+    ...(idleExpansionContext ? { idle_expansion: idleExpansionContext } : {}),
   };
 
   // Load governed project context
@@ -1072,6 +1155,7 @@ export function startIntent(root, intentId, options = {}) {
   // Assign governed turn
   const assignResult = assignGovernedTurn(root, config, roleId.role, {
     intakeContext,
+    ...(idleExpansionContext ? { idleExpansionContext } : {}),
   });
   if (!assignResult.ok) {
     return { ok: false, error: `turn assignment failed: ${assignResult.error}`, exitCode: 1 };
