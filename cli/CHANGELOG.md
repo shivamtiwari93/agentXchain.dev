@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.155.0
+
+### Features
+- **Perpetual continuous idle-expansion policy (BUG-60)**: when `--on-idle perpetual` is set and the vision-scan queue is exhausted, a PM idle-expansion turn synthesizes next work from VISION/ROADMAP/SYSTEM_SPEC and ingests it via `vision_idle_expansion` intake events. Three idle policies shipped: `exit` (default, bounded), `perpetual` (PM expansion), `human_review` (pause for operator).
+- **Schedule-owned session vision snapshot**: schedule daemon now captures vision headings and content SHA at session creation via `resolveContinuousOptions()`, enabling idle-expansion and stale-drift detection.
+- **PM idle-expansion prompt scaffold**: `agentxchain init` writes `.agentxchain/prompts/pm-idle-expansion.md` with charter-aware expansion constraints.
+
+### Bug Fixes
+- **Schedule daemon E2E test fixtures (AT-SDH-008–011)**: `resolveContinuousOptions()` defaults `autoCheckpoint: true`; added git init to test fixtures so checkpoint-turn succeeds.
+- **Claim-reality preflight BUG-53 paused guard**: expanded context window from 200→400 chars and added `idle_human_review` to blocked regex.
+- **Intake docs source guard**: added `vision_idle_expansion` to cli.mdx and continuous-delivery-intake.mdx.
+
+### Status
+- `v2.155.0` is the BUG-60 feature release shipping perpetual continuous mode. Supersedes `v2.154.11`.
+
+### Evidence
+- node --test cli/test/continuous-run.test.js cli/test/schedule-daemon-health-e2e.test.js cli/test/claim-reality-preflight.test.js cli/test/docs-cli-intake-content.test.js -> 136 tests / 28 suites / 0 failures / 0 skipped
+
 ## 2.154.11
 
 ### Bug Fixes

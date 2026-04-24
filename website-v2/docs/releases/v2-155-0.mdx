@@ -1,0 +1,71 @@
+---
+sidebar_position: 0
+title: "v2.155.0 Release Notes"
+---
+
+# AgentXchain v2.155.0
+
+`v2.155.0` ships BUG-60: the perpetual continuous idle-expansion policy. When
+`--on-idle perpetual` is set and the vision-scan queue is exhausted, a PM
+idle-expansion turn synthesizes next work from VISION/ROADMAP/SYSTEM_SPEC and
+ingests it via `vision_idle_expansion` intake events. Three idle policies are
+now available: `exit` (default, bounded), `perpetual` (PM expansion), and
+`human_review` (pause for operator).
+
+## Features
+
+- **Perpetual continuous idle-expansion**: `--on-idle perpetual` dispatches a
+  PM turn with the `pm-idle-expansion.md` prompt when the vision queue goes
+  empty. The PM reads VISION + ROADMAP + SYSTEM_SPEC, synthesizes a
+  `new_intake_intent` or signals `vision_exhausted`, and the result is ingested
+  through the standard intake pipeline as a `vision_idle_expansion` event.
+
+- **Human-review idle policy**: `--on-idle human_review` pauses the session
+  with `idle_human_review` status when vision is exhausted, letting the
+  operator review before continuing.
+
+- **Schedule-owned session vision snapshot**: schedule daemon captures vision
+  headings and content SHA at session creation via `resolveContinuousOptions()`,
+  enabling idle-expansion iteration tracking and stale-drift detection.
+
+- **PM idle-expansion prompt scaffold**: `agentxchain init` writes
+  `.agentxchain/prompts/pm-idle-expansion.md` with charter-aware expansion
+  constraints including budget-before-idle ordering and VISION immutability.
+
+## Bug Fixes
+
+- **Schedule daemon E2E fixtures**: `resolveContinuousOptions()` defaults
+  `autoCheckpoint: true`; test fixtures now initialize git repos so
+  checkpoint-turn succeeds (AT-SDH-008 through AT-SDH-011).
+
+- **Claim-reality preflight paused guard**: expanded context window and added
+  `idle_human_review` to the blocked-status regex for the BUG-53 guard.
+
+- **Intake docs source guard**: added `vision_idle_expansion` to cli.mdx and
+  continuous-delivery-intake.mdx documentation.
+
+## Evidence
+
+- node --test cli/test/continuous-run.test.js cli/test/schedule-daemon-health-e2e.test.js cli/test/claim-reality-preflight.test.js cli/test/docs-cli-intake-content.test.js -> 136 tests / 28 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.0 -c "agentxchain --version"
+```
+
+For BUG-60 verification, use the self-contained fixture in
+`.planning/TESTER_QUOTEBACK_ASK_V6_BUG60.md`:
+
+- **Positive evidence**: idle expansion dispatched and ingested — PM turn fires
+  when vision queue empties with `--on-idle perpetual`, produces
+  `idle_expansion_result` with `new_intake_intent`, and the intent is ingested
+  as a `vision_idle_expansion` intake event.
+- **Terminal evidence**: `vision_exhausted` and `vision_expansion_exhausted`
+  terminal states fire correctly when PM signals no further work.
+- **Budget ordering**: `per_session_max_usd` is checked before idle policy,
+  ensuring budget exhaustion wins over perpetual expansion.
+- Quote `idle_policy`, `on_idle`, `expansion_iteration`, and terminal
+  `session_terminal_reason` fields from the continuous session state.

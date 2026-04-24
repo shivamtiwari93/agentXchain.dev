@@ -1,9 +1,9 @@
-# Hacker News Submission — AgentXchain v2.154.11
+# Hacker News Submission — AgentXchain v2.155.0
 
-> Ready-to-post for the `v2.154.11` launch window once tester verification lands. Updated 2026-04-23 for out-of-band completion accounting and terminal standing-gate approval audit after tusq.dev downstream verification.
+> Ready-to-post for the `v2.155.0` launch window once tester verification lands. Updated 2026-04-24 for BUG-60 perpetual continuous idle-expansion policy.
 >
 > Aggregate evidence:
-> - node --test cli/test/beta-tester-scenarios/bug-52-gate-unblock-phase-advance.test.js cli/test/run-schedule-e2e.test.js cli/test/continuous-run.test.js -> 67 tests / 11 suites / 0 failures / 0 skipped
+> - node --test cli/test/continuous-run.test.js cli/test/schedule-daemon-health-e2e.test.js cli/test/claim-reality-preflight.test.js cli/test/docs-cli-intake-content.test.js -> 136 tests / 28 suites / 0 failures / 0 skipped
 
 ---
 
