@@ -1148,11 +1148,11 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   // Session budget check (cumulative spend across all runs) — before idle policy
   const sessionBudget = session.per_session_max_usd ?? contOpts.perSessionMaxUsd ?? null;
   if (sessionBudget != null && (session.cumulative_spent_usd || 0) >= sessionBudget) {
-    session.status = 'completed';
+    session.status = 'session_budget';
     session.budget_exhausted = true;
     writeContinuousSession(root, session);
     log(`Session budget exhausted: $${(session.cumulative_spent_usd || 0).toFixed(2)} spent of $${sessionBudget.toFixed(2)} limit.`);
-    return { ok: true, status: 'completed', action: 'session_budget_exhausted', stop_reason: 'session_budget' };
+    return { ok: true, status: 'session_budget', action: 'session_budget_exhausted', stop_reason: 'session_budget' };
   }
 
   // Idle-cycle check: on_idle policy determines behavior
@@ -1634,7 +1634,7 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
       const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
 
       // Terminal states
-      if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped' || step.status === 'vision_exhausted' || step.status === 'vision_expansion_exhausted') {
+      if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped' || step.status === 'vision_exhausted' || step.status === 'vision_expansion_exhausted' || step.status === 'session_budget') {
         const terminalMessage = describeContinuousTerminalStep(step, contOpts);
         if (terminalMessage) {
           log(terminalMessage);

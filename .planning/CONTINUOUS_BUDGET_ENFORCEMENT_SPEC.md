@@ -80,12 +80,12 @@ Before starting a new governed run in `advanceContinuousRunOnce()`, check:
 
 ```
 if per_session_max_usd is set AND cumulative_spent_usd >= per_session_max_usd:
-  → session.status = 'completed'
+  → session.status = 'session_budget'
   → session.budget_exhausted = true
-  → return { status: 'completed', action: 'session_budget_exhausted', stop_reason: 'session_budget' }
+  → return { status: 'session_budget', action: 'session_budget_exhausted', stop_reason: 'session_budget' }
 ```
 
-This check happens after the terminal checks (max_runs, max_idle_cycles) and before the vision file validation. It is a pre-run gate, not a mid-run interruption — the per-run budget enforcement already handles mid-run spend caps.
+This check happens after the `max_runs` terminal check and before idle-policy handling, so a dual-cap session reports `session_budget` instead of `idle_exit` and never dispatches PM idle-expansion while over budget. It is a pre-run gate, not a mid-run interruption — the per-run budget enforcement already handles mid-run spend caps.
 
 ### `local_cli` zero-cost runs
 
@@ -137,7 +137,7 @@ Add:
 
 ## Acceptance Tests
 
-- `AT-CONT-BUDGET-001`: `run --continuous --session-budget 10 --max-runs 5` with api_proxy mock (each run costs $4). After 2 runs ($8 spent), third run pre-check finds $8 < $10 so starts. After 3rd run ($12 spent), 4th run pre-check finds $12 >= $10 → session stops with `session_budget_exhausted`. Assert: `cumulative_spent_usd: 12`, `budget_exhausted: true`, `runs_completed: 3`, `status: completed`.
+- `AT-CONT-BUDGET-001`: `run --continuous --session-budget 10 --max-runs 5` with api_proxy mock (each run costs $4). After 2 runs ($8 spent), third run pre-check finds $8 < $10 so starts. After 3rd run ($12 spent), 4th run pre-check finds $12 >= $10 → session stops with `session_budget_exhausted`. Assert: `cumulative_spent_usd: 12`, `budget_exhausted: true`, `runs_completed: 3`, `status: session_budget`.
 
 - `AT-CONT-BUDGET-002`: `run --continuous --session-budget 100 --max-runs 2` with local_cli (zero cost). Both runs complete. Assert: `cumulative_spent_usd: 0`, `budget_exhausted: false`, `runs_completed: 2`, `status: completed`, `stop_reason: max_runs`.
 

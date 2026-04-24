@@ -319,6 +319,8 @@ describe('BUG-60: perpetual idle-expansion beta-tester scenario', () => {
         result: { stop_reason: 'completed', state: { run_id: session.current_run_id, status: 'completed' } },
       }), console.log);
 
+      assert.equal(result.status, 'session_budget',
+        'budget must be a distinct terminal status, not generic completed');
       assert.equal(result.stop_reason, 'session_budget',
         'budget must beat idle expansion — dual-cap sessions report session_budget');
     });

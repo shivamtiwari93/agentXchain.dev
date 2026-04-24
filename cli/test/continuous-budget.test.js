@@ -173,13 +173,14 @@ describe('Continuous Budget Enforcement', () => {
       assert.equal(session.runs_completed, 3);
       assert.equal(session.cumulative_spent_usd, 12);
       assert.equal(session.budget_exhausted, true);
-      assert.equal(session.status, 'completed');
+      assert.equal(session.status, 'session_budget');
 
       // Session file should persist budget state
       const saved = readContinuousSession(tmpDir);
       assert.equal(saved.cumulative_spent_usd, 12);
       assert.equal(saved.budget_exhausted, true);
       assert.equal(saved.per_session_max_usd, 10);
+      assert.equal(saved.status, 'session_budget');
 
       // Logs should mention budget exhaustion
       const budgetLog = logs.find(l => l.includes('Session budget exhausted'));
@@ -326,15 +327,16 @@ describe('Continuous Budget Enforcement', () => {
       const step = await advanceContinuousRunOnce(context, session, contOpts, mockExecutor, (msg) => logs.push(msg));
 
       assert.equal(step.ok, true);
-      assert.equal(step.status, 'completed');
+      assert.equal(step.status, 'session_budget');
       assert.equal(step.action, 'session_budget_exhausted');
       assert.equal(step.stop_reason, 'session_budget');
       assert.equal(session.budget_exhausted, true);
-      assert.equal(session.status, 'completed');
+      assert.equal(session.status, 'session_budget');
 
       // Session should be persisted
       const saved = readContinuousSession(tmpDir);
       assert.equal(saved.budget_exhausted, true);
+      assert.equal(saved.status, 'session_budget');
     });
   });
 });

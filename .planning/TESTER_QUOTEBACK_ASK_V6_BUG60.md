@@ -22,7 +22,7 @@ This ask bundles its own scratch fixture to avoid baseline-assumption defects. T
 ```bash
 # 1. Install the shipped package
 npm uninstall -g agentxchain 2>/dev/null || true
-TARGET_VERSION="2.155.0"   # Update to actual shipped version
+TARGET_VERSION="2.155.0"
 npx --yes -p "agentxchain@${TARGET_VERSION}" -c "agentxchain --version"
 ```
 
@@ -35,7 +35,7 @@ rm -rf "$BUG60_DIR" && mkdir -p "$BUG60_DIR" && cd "$BUG60_DIR"
 git init && git commit --allow-empty -m "init"
 
 # 3. Scaffold a governed project
-npx --yes -p "agentxchain@${TARGET_VERSION}" agentxchain init --governed --template full-local-cli
+npx --yes -p "agentxchain@${TARGET_VERSION}" agentxchain init -y --governed --dir . --template full-local-cli --goal "BUG-60 perpetual idle-expansion tester fixture"
 
 # 4. Seed VISION.md with exactly 3 concrete goals (two derivable + one already done)
 cat > .planning/VISION.md << 'VISION_EOF'
@@ -54,6 +54,14 @@ VISION_EOF
 # 5. Seed ROADMAP.md with supporting context
 cat > .planning/ROADMAP.md << 'ROADMAP_EOF'
 # Roadmap
+
+## Phases
+
+| Phase | Goal | Status |
+|-------|------|--------|
+| Planning | Protect user value, scope clarity, and acceptance criteria. | In progress |
+| Implementation | Implement approved work safely and verify behavior. | Pending |
+| QA | Challenge correctness, acceptance coverage, and ship readiness. | Pending |
 
 ## Current
 - [ ] CLI help system: --help flag for all commands
@@ -77,41 +85,47 @@ cat > .agentxchain/intake/intent_scaffold_done.json << 'INTENT_EOF'
 }
 INTENT_EOF
 
-# 7. Configure perpetual mode with auto-approval and tight caps for the test
-cat > agentxchain.json << 'CONFIG_EOF'
-{
-  "project_name": "bug60-test",
-  "roles": {
-    "pm": { "mandate": "Product manager", "runtime": "local_cli" }
-  },
-  "runtimes": {
-    "local_cli": { "command": "claude", "args": ["-p"], "prompt_transport": "cli_arg" }
-  },
-  "run_loop": {
-    "continuous": {
-      "enabled": true,
-      "vision_path": ".planning/VISION.md",
-      "max_runs": 5,
-      "max_idle_cycles": 2,
-      "on_idle": "perpetual",
-      "triage_approval": "auto",
-      "per_session_max_usd": 50,
-      "idle_expansion": {
-        "sources": [".planning/VISION.md", ".planning/ROADMAP.md"],
-        "max_expansions": 3,
-        "role": "pm"
-      }
-    }
-  },
-  "approval_policy": {
-    "rules": [
-      { "gate_type": "planning_signoff", "action": "auto_approve", "reason": "test fixture" },
-      { "gate_type": "qa_ship_verdict", "action": "auto_approve", "reason": "test fixture" },
-      { "gate_type": "launch_ready", "action": "auto_approve", "reason": "test fixture" }
-    ]
+# 7. Configure perpetual mode with auto-approval and tight caps for the test.
+# Preserve the scaffolded governed routing/gates/prompts; only patch the fields
+# this BUG-60 fixture owns.
+node << 'NODE_EOF'
+const fs = require('fs');
+const path = 'agentxchain.json';
+const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+config.run_loop = config.run_loop || {};
+config.run_loop.continuous = {
+  enabled: true,
+  vision_path: '.planning/VISION.md',
+  max_runs: 5,
+  max_idle_cycles: 2,
+  on_idle: 'perpetual',
+  triage_approval: 'auto',
+  per_session_max_usd: 50,
+  auto_checkpoint: true,
+  idle_expansion: {
+    sources: ['.planning/VISION.md', '.planning/ROADMAP.md'],
+    max_expansions: 3,
+    role: 'pm'
   }
-}
-CONFIG_EOF
+};
+config.approval_policy = {
+  phase_transitions: {
+    default: 'auto_approve',
+    rules: []
+  },
+  run_completion: {
+    action: 'auto_approve',
+    when: {
+      gate_passed: true,
+      all_phases_visited: true,
+      credentialed_gate: false
+    }
+  }
+};
+fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+NODE_EOF
+
+npx --yes -p "agentxchain@${TARGET_VERSION}" agentxchain validate
 
 git add -A && git commit -m "fixture: BUG-60 perpetual idle-expansion test setup"
 ```
@@ -174,13 +188,13 @@ Do NOT expect `idle_exit` — that is the bounded-mode terminal. Perpetual mode 
 # Terminal session state
 jq '{status, runs_completed, max_runs, idle_cycles, expansion_iteration}' .agentxchain/continuous-session.json
 
-# Vision-exhausted or expansion-exhausted event
-jq -c --arg since "$BUG60_START_TS" 'select((.event_type == "vision_exhausted" or .event_type == "vision_expansion_exhausted") and .timestamp >= $since) | {event_type, timestamp}' .agentxchain/events.jsonl
+# PM-declared vision exhaustion or expansion-cap event
+jq -c --arg since "$BUG60_START_TS" 'select(((.event_type == "idle_expansion_ingested" and .payload.kind == "vision_exhausted") or .event_type == "idle_expansion_cap_reached") and .timestamp >= $since) | {event_type, timestamp, payload}' .agentxchain/events.jsonl
 ```
 
 Required shape:
 - `continuous-session.json::status` is one of `vision_exhausted`, `vision_expansion_exhausted`, or `session_budget`. NOT `idle_exit`, NOT `paused`, NOT `completed` (which means max_runs fired).
-- At least one terminal event (`vision_exhausted` or `vision_expansion_exhausted`) in the current window.
+- At least one terminal event in the current window: `idle_expansion_ingested` with `payload.kind == "vision_exhausted"` for a PM exhaustion declaration, or `idle_expansion_cap_reached` for the `vision_expansion_exhausted` cap state.
 
 ### Block 3 — SUMMARY
 
@@ -189,8 +203,8 @@ jq -s --arg since "$BUG60_START_TS" '{
   idle_expansion_dispatched: map(select(.event_type == "idle_expansion_dispatched" and .timestamp >= $since)) | length,
   idle_expansion_ingested: map(select(.event_type == "idle_expansion_ingested" and .timestamp >= $since)) | length,
   idle_expansion_malformed: map(select(.event_type == "idle_expansion_malformed" and .timestamp >= $since)) | length,
-  vision_exhausted: map(select(.event_type == "vision_exhausted" and .timestamp >= $since)) | length,
-  vision_expansion_exhausted: map(select(.event_type == "vision_expansion_exhausted" and .timestamp >= $since)) | length,
+  vision_exhausted: map(select(.event_type == "idle_expansion_ingested" and .payload.kind == "vision_exhausted" and .timestamp >= $since)) | length,
+  idle_expansion_cap_reached: map(select(.event_type == "idle_expansion_cap_reached" and .timestamp >= $since)) | length,
   run_completed: map(select(.event_type == "run_completed" and .timestamp >= $since)) | length,
   session_continuation: map(select(.event_type == "session_continuation" and .timestamp >= $since)) | length
 }' .agentxchain/events.jsonl
@@ -200,7 +214,7 @@ jq '{status, runs_completed, expansion_iteration, idle_cycles}' .agentxchain/con
 
 Required shape:
 - `idle_expansion_dispatched >= 1` — the perpetual branch fired at least once.
-- `vision_exhausted + vision_expansion_exhausted >= 1` — the session terminated through a BUG-60 terminal path.
+- `vision_exhausted + idle_expansion_cap_reached >= 1` — the session terminated through a BUG-60 terminal path.
 - `expansion_iteration >= 1` in `continuous-session.json`.
 
 ---

@@ -484,12 +484,12 @@ describe('AT-SDH-010: schedule-owned continuous session stops cleanly when the s
     assert.equal(cont2.runs_completed, 2);
     assert.equal(cont3.runs_completed, 2, 'budget stop must happen before a third run starts');
     assert.equal(cont3.action, 'session_budget_exhausted');
-    assert.equal(cont3.status, 'completed');
+    assert.equal(cont3.status, 'session_budget');
 
     const session = JSON.parse(readFileSync(join(root, '.agentxchain', 'continuous-session.json'), 'utf8'));
     assert.equal(session.owner_type, 'schedule');
     assert.equal(session.owner_id, 'budgeted_factory');
-    assert.equal(session.status, 'completed');
+    assert.equal(session.status, 'session_budget');
     assert.equal(session.budget_exhausted, true);
     assert.equal(session.runs_completed, 2);
     assert.equal(session.per_session_max_usd, 0.1);
@@ -508,7 +508,7 @@ describe('AT-SDH-010: schedule-owned continuous session stops cleanly when the s
     const status = runCli(root, ['status', '--json']);
     assert.equal(status.status, 0, `status failed:\n${status.combined}`);
     const parsedStatus = JSON.parse(status.stdout.trim());
-    assert.equal(parsedStatus.continuous_session.status, 'completed');
+    assert.equal(parsedStatus.continuous_session.status, 'session_budget');
     assert.equal(parsedStatus.continuous_session.budget_exhausted, true);
     assert.ok(Math.abs(parsedStatus.continuous_session.cumulative_spent_usd - 0.12) < 1e-9,
       `expected status cumulative spend near 0.12, got ${parsedStatus.continuous_session.cumulative_spent_usd}`);

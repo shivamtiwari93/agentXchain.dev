@@ -349,7 +349,7 @@ async function runDueSchedules(context, opts = {}) {
 // ---------------------------------------------------------------------------
 
 function isSessionTerminal(session) {
-  return ['completed', 'idle_exit', 'failed', 'stopped', 'vision_exhausted', 'vision_expansion_exhausted'].includes(session?.status);
+  return ['completed', 'idle_exit', 'failed', 'stopped', 'vision_exhausted', 'vision_expansion_exhausted', 'session_budget'].includes(session?.status);
 }
 
 function getContinuousEnabledScheduleIds(config) {
@@ -498,6 +498,7 @@ async function advanceScheduleContinuousSession(context, entry, opts = {}) {
     blocked: 'continuous_blocked',
     vision_exhausted: 'continuous_vision_exhausted',
     vision_expansion_exhausted: 'continuous_vision_expansion_exhausted',
+    session_budget: 'continuous_session_budget_exhausted',
     running: 'continuous_running',
   };
   let schedStatus = statusMap[step.status] || 'continuous_running';

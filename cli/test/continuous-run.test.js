@@ -1239,8 +1239,10 @@ describe('Continuous Run', () => {
         );
 
         // Budget must fire BEFORE idle-expansion, even though idle_cycles >= maxIdleCycles
+        assert.equal(step.status, 'session_budget');
         assert.equal(step.action, 'session_budget_exhausted');
         assert.equal(step.stop_reason, 'session_budget');
+        assert.equal(readContinuousSession(dir).status, 'session_budget');
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
