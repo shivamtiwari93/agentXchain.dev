@@ -12,7 +12,12 @@
 import { existsSync, readFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { resolveVisionPath, deriveVisionCandidates } from './vision-reader.js';
+import {
+  resolveVisionPath,
+  deriveVisionCandidates,
+  captureVisionHeadingsSnapshot,
+  computeVisionContentSha,
+} from './vision-reader.js';
 import {
   recordEvent,
   triageIntent,
@@ -74,7 +79,7 @@ export function removeContinuousSession(root) {
   }
 }
 
-function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd, currentRunId = null) {
+function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd, currentRunId = null, snapshotOpts = {}) {
   return {
     session_id: `cont-${randomUUID().slice(0, 8)}`,
     started_at: new Date().toISOString(),
@@ -90,6 +95,12 @@ function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd, cur
     cumulative_spent_usd: 0,
     budget_exhausted: false,
     startup_reconciled_run_id: null,
+    // BUG-60 Slice 3: vision snapshot for idle-expansion traceability
+    vision_headings_snapshot: snapshotOpts.visionHeadingsSnapshot || null,
+    vision_sha_at_snapshot: snapshotOpts.visionShaAtSnapshot || null,
+    expansion_iteration: snapshotOpts.expansionIteration ?? 0,
+    // Track which vision SHA values have already emitted a stale warning
+    _vision_stale_warned_shas: [],
   };
 }
 
@@ -705,6 +716,33 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   const { root } = context;
   const absVisionPath = resolveVisionPath(root, contOpts.visionPath);
 
+  // BUG-60 Slice 3: detect VISION.md content drift since session snapshot
+  if (session.vision_sha_at_snapshot && existsSync(absVisionPath)) {
+    try {
+      const currentContent = readFileSync(absVisionPath, 'utf8');
+      const currentSha = computeVisionContentSha(currentContent);
+      const warnedShas = session._vision_stale_warned_shas || [];
+      if (currentSha !== session.vision_sha_at_snapshot && !warnedShas.includes(currentSha)) {
+        emitRunEvent(root, 'vision_snapshot_stale', {
+          run_id: session.current_run_id || null,
+          phase: null,
+          status: session.status || 'running',
+          payload: {
+            session_id: session.session_id,
+            snapshot_sha: session.vision_sha_at_snapshot,
+            current_sha: currentSha,
+            vision_path: contOpts.visionPath,
+          },
+        });
+        session._vision_stale_warned_shas = [...warnedShas, currentSha];
+        writeContinuousSession(root, session);
+        log(`Warning: VISION.md has changed since session started (snapshot: ${session.vision_sha_at_snapshot.slice(0, 8)}, current: ${currentSha.slice(0, 8)}). Active session keeps its heading snapshot.`);
+      }
+    } catch {
+      // VISION.md read failed — will be caught by the vision_missing guard below
+    }
+  }
+
   // Terminal checks
   if (session.runs_completed >= contOpts.maxRuns) {
     session.status = 'completed';
@@ -1113,12 +1151,25 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
 
   const startupState = loadProjectState(root, context.config);
   const initialRunId = contOpts.continueFrom || startupState?.run_id || null;
+
+  // BUG-60 Slice 3: capture vision heading snapshot + content hash at session start
+  let visionHeadingsSnapshot = null;
+  let visionShaAtSnapshot = null;
+  try {
+    const visionContent = readFileSync(absVisionPath, 'utf8');
+    visionHeadingsSnapshot = captureVisionHeadingsSnapshot(visionContent);
+    visionShaAtSnapshot = computeVisionContentSha(visionContent);
+  } catch {
+    // VISION.md unreadable — will fail at first advanceContinuousRunOnce anyway
+  }
+
   const session = createSession(
     contOpts.visionPath,
     contOpts.maxRuns,
     contOpts.maxIdleCycles,
     contOpts.perSessionMaxUsd,
     initialRunId,
+    { visionHeadingsSnapshot, visionShaAtSnapshot },
   );
   writeContinuousSession(root, session);
 

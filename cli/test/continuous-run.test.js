@@ -1064,4 +1064,146 @@ describe('Continuous Run', () => {
       assert.ok(content.includes('continuous_session'));
     });
   });
+
+  // -------------------------------------------------------------------
+  // BUG-60 Slice 3: Session vision snapshot persistence
+  // -------------------------------------------------------------------
+  describe('BUG-60 Slice 3: session vision snapshot persistence', () => {
+    it('executeContinuousRun captures vision_headings_snapshot in session', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Human Role\n- sovereignty at boundaries\n## Protocol\n- durable spec\n', 'utf8');
+
+        const context = { root: dir, config: { schema_version: '1.0' } };
+        const contOpts = resolveContinuousOptions({
+          continuous: true,
+          vision: '.planning/VISION.md',
+          maxRuns: 1,
+          maxIdleCycles: 1,
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+        }, context.config);
+
+        let callCount = 0;
+        const fakeExecutor = async () => {
+          callCount++;
+          return { exitCode: 1, result: null };
+        };
+
+        await executeContinuousRun(context, contOpts, fakeExecutor, () => {});
+
+        const session = readContinuousSession(dir);
+        assert.ok(session, 'session should be written');
+        assert.ok(Array.isArray(session.vision_headings_snapshot), 'vision_headings_snapshot should be an array');
+        assert.ok(session.vision_headings_snapshot.includes('Human Role'));
+        assert.ok(session.vision_headings_snapshot.includes('Protocol'));
+        assert.ok(typeof session.vision_sha_at_snapshot === 'string');
+        assert.equal(session.vision_sha_at_snapshot.length, 64);
+        assert.equal(session.expansion_iteration, 0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('advanceContinuousRunOnce emits vision_snapshot_stale when VISION.md changes', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        const visionPath = join(planDir, 'VISION.md');
+        writeFileSync(visionPath, '## Goals\n- build it\n', 'utf8');
+
+        const context = { root: dir, config: { schema_version: '1.0' } };
+        const contOpts = resolveContinuousOptions({
+          continuous: true,
+          vision: '.planning/VISION.md',
+          maxRuns: 1,
+          maxIdleCycles: 1,
+        }, context.config);
+
+        // Create a session with the original snapshot
+        const { computeVisionContentSha, captureVisionHeadingsSnapshot } = await import('../src/lib/vision-reader.js');
+        const originalContent = '## Goals\n- build it\n';
+        const session = {
+          session_id: 'cont-test1234',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 0,
+          max_runs: 1,
+          idle_cycles: 0,
+          max_idle_cycles: 1,
+          current_run_id: null,
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: null,
+          cumulative_spent_usd: 0,
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+          vision_headings_snapshot: captureVisionHeadingsSnapshot(originalContent),
+          vision_sha_at_snapshot: computeVisionContentSha(originalContent),
+          expansion_iteration: 0,
+          _vision_stale_warned_shas: [],
+        };
+        writeContinuousSession(dir, session);
+
+        // Now change VISION.md
+        writeFileSync(visionPath, '## Goals\n- build something else\n## New Section\n- extra\n', 'utf8');
+
+        const logs = [];
+        const fakeExecutor = async () => ({ exitCode: 1, result: null });
+
+        await advanceContinuousRunOnce(context, session, contOpts, fakeExecutor, (msg) => logs.push(msg));
+
+        // Check that the stale warning was logged
+        const staleLog = logs.find(l => l.includes('VISION.md has changed since session started'));
+        assert.ok(staleLog, `Expected stale warning in logs: ${JSON.stringify(logs)}`);
+
+        // Check that event was emitted
+        const eventsPath = join(dir, '.agentxchain', 'events.jsonl');
+        assert.ok(existsSync(eventsPath), 'events.jsonl should exist');
+        const events = readFileSync(eventsPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+        const staleEvent = events.find(e => e.event_type === 'vision_snapshot_stale');
+        assert.ok(staleEvent, 'vision_snapshot_stale event should be emitted');
+        assert.equal(staleEvent.payload.session_id, 'cont-test1234');
+        assert.equal(staleEvent.payload.snapshot_sha, session.vision_sha_at_snapshot);
+
+        // Check dedup: calling again with same changed content should NOT re-emit
+        const logs2 = [];
+        const session2 = readContinuousSession(dir);
+        await advanceContinuousRunOnce(context, session2, contOpts, fakeExecutor, (msg) => logs2.push(msg));
+        const staleLog2 = logs2.find(l => l.includes('VISION.md has changed since session started'));
+        assert.ok(!staleLog2, 'stale warning should NOT repeat for same SHA');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('session persists expansion_iteration field defaulting to 0', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- do things\n', 'utf8');
+
+        const context = { root: dir, config: { schema_version: '1.0' } };
+        const contOpts = resolveContinuousOptions({
+          continuous: true,
+          vision: '.planning/VISION.md',
+          maxRuns: 1,
+          maxIdleCycles: 1,
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+        }, context.config);
+
+        await executeContinuousRun(context, contOpts, async () => ({ exitCode: 1, result: null }), () => {});
+
+        const session = readContinuousSession(dir);
+        assert.equal(session.expansion_iteration, 0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
 });

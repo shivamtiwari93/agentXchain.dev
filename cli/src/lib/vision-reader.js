@@ -11,8 +11,9 @@
  * Spec: .planning/VISION_DRIVEN_CONTINUOUS_SPEC.md
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve as pathResolve, isAbsolute } from 'node:path';
+import { createHash } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Parsing
@@ -214,6 +215,169 @@ export function deriveVisionCandidates(root, visionPath) {
   }
 
   return { ok: true, candidates };
+}
+
+// ---------------------------------------------------------------------------
+// Vision snapshot capture (BUG-60 Slice 3)
+// ---------------------------------------------------------------------------
+
+const MAX_PREVIEW_PER_SOURCE_BYTES = 16 * 1024;
+const MAX_PREVIEW_TOTAL_BYTES = 48 * 1024;
+const MAX_SOURCE_FILE_BYTES = 64 * 1024;
+
+/**
+ * Capture a heading snapshot from parsed VISION.md content.
+ * Returns an array of unique heading strings (H1/H2/H3).
+ *
+ * @param {string} content - Raw VISION.md markdown
+ * @returns {string[]}
+ */
+export function captureVisionHeadingsSnapshot(content) {
+  if (!content || typeof content !== 'string') return [];
+  const headings = [];
+  for (const line of content.split('\n')) {
+    const match = line.match(/^(#{1,3})\s+(.+)$/);
+    if (match) {
+      const heading = match[2].trim();
+      if (heading && !headings.includes(heading)) {
+        headings.push(heading);
+      }
+    }
+  }
+  return headings;
+}
+
+/**
+ * Compute a SHA-256 content hash for VISION.md content.
+ *
+ * @param {string} content - Raw file content
+ * @returns {string} Hex-encoded SHA-256
+ */
+export function computeVisionContentSha(content) {
+  if (!content || typeof content !== 'string') return '';
+  return createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+/**
+ * Build a bounded source manifest for idle-expansion PM charter context.
+ *
+ * Per BUG-60 Plan §2: manifest includes path, presence, byte_count, warning,
+ * extracted H1/H2 headings, and a bounded preview. Preview truncation is
+ * deterministic: at most 16KB per source and 48KB total, using head+tail
+ * with `[...truncated middle...]` inserted between halves.
+ *
+ * VISION.md missing/malformed is a hard error. ROADMAP.md and SYSTEM_SPEC.md
+ * missing are warnings. ROADMAP/SYSTEM_SPEC malformed if they cannot be
+ * decoded as UTF-8, exceed 64KB, or parse into fewer than one H1/H2 heading.
+ *
+ * @param {string} root - Project root
+ * @param {string[]} sources - Array of project-relative source paths
+ * @returns {{ ok: boolean, entries: Array<object>, error?: string }}
+ */
+export function buildSourceManifest(root, sources) {
+  if (!Array.isArray(sources) || sources.length === 0) {
+    return { ok: false, entries: [], error: 'No sources configured for idle expansion.' };
+  }
+
+  const entries = [];
+  let totalPreviewBytes = 0;
+
+  for (const sourcePath of sources) {
+    const absPath = isAbsolute(sourcePath) ? sourcePath : pathResolve(root, sourcePath);
+    const isVision = sourcePath.toLowerCase().includes('vision');
+    const entry = { path: sourcePath, present: false, byte_count: 0, warning: null, headings: [], preview: null };
+
+    if (!existsSync(absPath)) {
+      entry.warning = 'file_not_found';
+      if (isVision) {
+        return { ok: false, entries, error: `VISION.md not found at ${absPath}. Cannot run idle expansion without VISION.md.` };
+      }
+      entries.push(entry);
+      continue;
+    }
+
+    let content;
+    let byteCount;
+    try {
+      const stat = statSync(absPath);
+      byteCount = stat.size;
+      entry.byte_count = byteCount;
+      entry.present = true;
+
+      if (byteCount > MAX_SOURCE_FILE_BYTES && !isVision) {
+        entry.warning = 'exceeds_64kb';
+        // Still read what we can for preview, but flag it
+        content = readFileSync(absPath, 'utf8');
+      } else {
+        content = readFileSync(absPath, 'utf8');
+      }
+    } catch (err) {
+      entry.warning = 'read_error';
+      if (isVision) {
+        return { ok: false, entries, error: `Cannot read VISION.md at ${absPath}: ${err.message}` };
+      }
+      entries.push(entry);
+      continue;
+    }
+
+    // Extract H1/H2 headings
+    const headings = [];
+    for (const line of content.split('\n')) {
+      const match = line.match(/^(#{1,2})\s+(.+)$/);
+      if (match) {
+        const heading = match[2].trim();
+        if (heading && !headings.includes(heading)) {
+          headings.push(heading);
+        }
+      }
+    }
+    entry.headings = headings;
+
+    // Malformed check for non-VISION sources
+    if (!isVision) {
+      if (byteCount > MAX_SOURCE_FILE_BYTES) {
+        entry.warning = 'exceeds_64kb';
+      } else if (headings.length === 0) {
+        entry.warning = 'no_headings';
+      }
+    }
+
+    // Bounded preview
+    const remainingBudget = MAX_PREVIEW_TOTAL_BYTES - totalPreviewBytes;
+    const perSourceCap = Math.min(MAX_PREVIEW_PER_SOURCE_BYTES, remainingBudget);
+    if (perSourceCap > 0 && content.length > 0) {
+      entry.preview = truncatePreview(content, perSourceCap);
+      totalPreviewBytes += Buffer.byteLength(entry.preview, 'utf8');
+    }
+
+    entries.push(entry);
+  }
+
+  return { ok: true, entries };
+}
+
+/**
+ * Deterministic head+tail preview truncation.
+ * If content fits within cap, return as-is. Otherwise split into
+ * head half + `[...truncated middle...]` + tail half.
+ *
+ * @param {string} content
+ * @param {number} capBytes
+ * @returns {string}
+ */
+function truncatePreview(content, capBytes) {
+  const contentBytes = Buffer.byteLength(content, 'utf8');
+  if (contentBytes <= capBytes) return content;
+
+  const marker = '\n[...truncated middle...]\n';
+  const markerBytes = Buffer.byteLength(marker, 'utf8');
+  const usable = capBytes - markerBytes;
+  if (usable <= 0) return content.slice(0, 100) + marker;
+
+  const halfChars = Math.floor(usable / 2);
+  const head = content.slice(0, halfChars);
+  const tail = content.slice(-halfChars);
+  return head + marker + tail;
 }
 
 /**

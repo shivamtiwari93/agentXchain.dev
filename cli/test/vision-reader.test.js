@@ -11,6 +11,9 @@ import {
   isGoalAddressed,
   loadCompletedIntentSignals,
   resolveVisionPath,
+  captureVisionHeadingsSnapshot,
+  computeVisionContentSha,
+  buildSourceManifest,
 } from '../src/lib/vision-reader.js';
 
 function createTmpProject() {
@@ -176,6 +179,153 @@ describe('Vision Reader', () => {
       const signals = loadCompletedIntentSignals(tmpDir);
       assert.equal(signals.length, 1);
       assert.equal(signals[0], 'build the protocol layer');
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // BUG-60 Slice 3: Vision snapshot helpers
+  // -------------------------------------------------------------------
+
+  describe('captureVisionHeadingsSnapshot', () => {
+    it('extracts H1, H2, H3 headings from VISION.md content', () => {
+      const content = `# Top Level
+## Section A
+Some text
+### Sub Section
+## Section B
+`;
+      const headings = captureVisionHeadingsSnapshot(content);
+      assert.deepEqual(headings, ['Top Level', 'Section A', 'Sub Section', 'Section B']);
+    });
+
+    it('deduplicates identical heading text', () => {
+      const content = `## Goals
+- thing
+## Goals
+- other thing
+`;
+      const headings = captureVisionHeadingsSnapshot(content);
+      assert.equal(headings.length, 1);
+      assert.equal(headings[0], 'Goals');
+    });
+
+    it('returns empty array for null/empty content', () => {
+      assert.deepEqual(captureVisionHeadingsSnapshot(null), []);
+      assert.deepEqual(captureVisionHeadingsSnapshot(''), []);
+    });
+
+    it('ignores H4+ headings', () => {
+      const content = `## Valid
+#### Too Deep
+##### Way Too Deep
+`;
+      const headings = captureVisionHeadingsSnapshot(content);
+      assert.deepEqual(headings, ['Valid']);
+    });
+  });
+
+  describe('computeVisionContentSha', () => {
+    it('returns consistent SHA-256 hex for same content', () => {
+      const content = '## My Vision\n- build the thing\n';
+      const sha1 = computeVisionContentSha(content);
+      const sha2 = computeVisionContentSha(content);
+      assert.equal(sha1, sha2);
+      assert.equal(sha1.length, 64); // SHA-256 hex is 64 chars
+    });
+
+    it('returns different hash for different content', () => {
+      const sha1 = computeVisionContentSha('## A\n');
+      const sha2 = computeVisionContentSha('## B\n');
+      assert.notEqual(sha1, sha2);
+    });
+
+    it('returns empty string for null/empty', () => {
+      assert.equal(computeVisionContentSha(null), '');
+      assert.equal(computeVisionContentSha(''), '');
+    });
+  });
+
+  describe('buildSourceManifest', () => {
+    it('builds manifest with present VISION.md', () => {
+      writeVision(tmpDir, '## Goals\n- build it\n');
+      const result = buildSourceManifest(tmpDir, ['.planning/VISION.md']);
+      assert.ok(result.ok);
+      assert.equal(result.entries.length, 1);
+      assert.equal(result.entries[0].present, true);
+      assert.ok(result.entries[0].byte_count > 0);
+      assert.ok(result.entries[0].headings.includes('Goals'));
+      assert.ok(result.entries[0].preview.includes('Goals'));
+    });
+
+    it('fails hard when VISION.md is missing', () => {
+      const result = buildSourceManifest(tmpDir, ['.planning/VISION.md']);
+      assert.ok(!result.ok);
+      assert.ok(result.error.includes('VISION.md not found'));
+    });
+
+    it('warns but continues when non-VISION source is missing', () => {
+      writeVision(tmpDir, '## Goals\n- build it\n');
+      const result = buildSourceManifest(tmpDir, [
+        '.planning/VISION.md',
+        '.planning/ROADMAP.md',
+      ]);
+      assert.ok(result.ok);
+      assert.equal(result.entries.length, 2);
+      assert.equal(result.entries[1].present, false);
+      assert.equal(result.entries[1].warning, 'file_not_found');
+    });
+
+    it('warns when non-VISION source has no headings', () => {
+      writeVision(tmpDir, '## Goals\n- build it\n');
+      const roadmapDir = join(tmpDir, '.planning');
+      mkdirSync(roadmapDir, { recursive: true });
+      writeFileSync(join(roadmapDir, 'ROADMAP.md'), 'Just plain text, no headings.\n', 'utf8');
+      const result = buildSourceManifest(tmpDir, [
+        '.planning/VISION.md',
+        '.planning/ROADMAP.md',
+      ]);
+      assert.ok(result.ok);
+      assert.equal(result.entries[1].warning, 'no_headings');
+    });
+
+    it('returns error for empty sources array', () => {
+      const result = buildSourceManifest(tmpDir, []);
+      assert.ok(!result.ok);
+      assert.ok(result.error.includes('No sources configured'));
+    });
+
+    it('truncates large previews with head+tail marker', () => {
+      writeVision(tmpDir, '## Goals\n- build it\n');
+      const roadmapDir = join(tmpDir, '.planning');
+      mkdirSync(roadmapDir, { recursive: true });
+      // Write a large ROADMAP that exceeds 16KB per-source cap
+      const bigContent = '## Roadmap\n' + 'x'.repeat(20000) + '\n';
+      writeFileSync(join(roadmapDir, 'ROADMAP.md'), bigContent, 'utf8');
+      const result = buildSourceManifest(tmpDir, [
+        '.planning/VISION.md',
+        '.planning/ROADMAP.md',
+      ]);
+      assert.ok(result.ok);
+      assert.ok(result.entries[1].preview.includes('[...truncated middle...]'));
+      // Preview should be bounded
+      const previewBytes = Buffer.byteLength(result.entries[1].preview, 'utf8');
+      assert.ok(previewBytes <= 16 * 1024 + 100); // small tolerance for marker
+    });
+
+    it('extracts H1 and H2 headings only in manifest', () => {
+      writeVision(tmpDir, '## Goals\n- build it\n');
+      const roadmapDir = join(tmpDir, '.planning');
+      mkdirSync(roadmapDir, { recursive: true });
+      writeFileSync(join(roadmapDir, 'ROADMAP.md'), '# Phase 1\n## Milestone A\n### Detail\n', 'utf8');
+      const result = buildSourceManifest(tmpDir, [
+        '.planning/VISION.md',
+        '.planning/ROADMAP.md',
+      ]);
+      assert.ok(result.ok);
+      // ROADMAP manifest headings should include H1 and H2 only
+      assert.ok(result.entries[1].headings.includes('Phase 1'));
+      assert.ok(result.entries[1].headings.includes('Milestone A'));
+      assert.ok(!result.entries[1].headings.includes('Detail'));
     });
   });
 });
