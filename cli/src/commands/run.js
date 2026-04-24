@@ -258,6 +258,7 @@ export async function executeGovernedRun(context, opts = {}) {
     // ── Track first-call for --role override ────────────────────────────────
     let firstSelectRole = true;
     let qaMissingCredentialsFallback = null;
+    const acceptedTurnResults = [];
 
     // ── Callbacks ───────────────────────────────────────────────────────────
     const callbacks = {
@@ -573,7 +574,15 @@ export async function executeGovernedRun(context, opts = {}) {
       return approved;
     },
 
-    async afterAccept({ turn }) {
+    async afterAccept({ turn, acceptResult }) {
+      if (acceptResult) {
+        acceptedTurnResults.push({
+          turn_id: turn.turn_id,
+          accepted: acceptResult.accepted || null,
+          turn_result: acceptResult.validation?.turnResult || null,
+          state: acceptResult.state || null,
+        });
+      }
       if (!autoCheckpoint) {
         return { ok: true };
       }
@@ -688,7 +697,10 @@ export async function executeGovernedRun(context, opts = {}) {
     const successReasons = new Set(['completed', 'gate_held', 'caller_stopped', 'max_turns_reached']);
     return {
       exitCode: result.ok || successReasons.has(result.stop_reason) ? 0 : 1,
-      result,
+      result: {
+        ...result,
+        accepted_turn_results: acceptedTurnResults,
+      },
       skipped: false,
       skipReason: null,
       provenance: provenance || null,

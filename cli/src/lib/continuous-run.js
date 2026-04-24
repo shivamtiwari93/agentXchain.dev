@@ -150,6 +150,73 @@ function isBlockedContinuousExecution(execution) {
     || stopReason === 'reject_exhausted';
 }
 
+function getAcceptedIdleExpansionEntries(execution) {
+  const entries = Array.isArray(execution?.result?.accepted_turn_results)
+    ? execution.result.accepted_turn_results
+    : [];
+  return entries.filter((entry) => entry?.turn_result?.idle_expansion_result);
+}
+
+function ingestAcceptedIdleExpansionsFromExecution(context, session, execution, log = console.log) {
+  const entries = getAcceptedIdleExpansionEntries(execution);
+  if (entries.length === 0) {
+    return null;
+  }
+
+  let lastIngested = null;
+  for (const entry of entries) {
+    const ingested = ingestAcceptedIdleExpansion(context, session, {
+      turnResult: entry.turn_result,
+      historyEntry: entry.accepted || null,
+      state: entry.state || execution?.result?.state || null,
+    });
+
+    if (!ingested.ingested) {
+      session.status = 'failed';
+      writeContinuousSession(context.root, session);
+      emitRunEvent(context.root, 'idle_expansion_ingestion_failed', {
+        run_id: session.current_run_id || null,
+        phase: null,
+        status: 'failed',
+        payload: {
+          session_id: session.session_id,
+          expansion_iteration: session.expansion_iteration,
+          turn_id: entry.turn_id || null,
+          error: ingested.error || 'unknown idle-expansion ingestion failure',
+        },
+      });
+      log(`Idle-expansion ingestion failed: ${ingested.error || 'unknown error'}`);
+      return {
+        ok: false,
+        status: 'failed',
+        action: 'idle_expansion_ingestion_failed',
+        stop_reason: ingested.error || 'idle_expansion_ingestion_failed',
+        run_id: session.current_run_id || null,
+      };
+    }
+
+    lastIngested = ingested;
+  }
+
+  if (lastIngested?.kind === 'vision_exhausted') {
+    return {
+      ok: true,
+      status: 'vision_exhausted',
+      action: 'idle_expansion_ingested',
+      stop_reason: 'vision_exhausted',
+      run_id: session.current_run_id || null,
+    };
+  }
+
+  return {
+    ok: true,
+    status: 'running',
+    action: 'idle_expansion_ingested',
+    intent_id: lastIngested?.intentId || null,
+    run_id: session.current_run_id || null,
+  };
+}
+
 function getBlockedRecoveryAction(state) {
   return state?.blocked_reason?.recovery?.recovery_action || null;
 }
@@ -649,7 +716,7 @@ async function dispatchIdleExpansion(context, session, contOpts, absVisionPath, 
   // Check expansion iteration cap
   const currentIteration = (session.expansion_iteration || 0) + 1;
   if (currentIteration > expansion.maxExpansions) {
-    session.status = 'completed';
+    session.status = 'vision_expansion_exhausted';
     writeContinuousSession(root, session);
     log(`Idle-expansion cap reached (${expansion.maxExpansions} expansions). Stopping.`);
     emitRunEvent(root, 'idle_expansion_cap_reached', {
@@ -873,7 +940,7 @@ export function ingestAcceptedIdleExpansion(context, session, accepted) {
     // Triage with PM-derived charter and acceptance contract
     const triageResult = triageIntent(root, newIntentId, {
       priority: intent.priority || 'p2',
-      template: 'generic',
+      template: intent.template || 'generic',
       charter: `[pm-derived] ${intent.charter}`,
       acceptance_contract: intent.acceptance_contract,
     });
@@ -910,7 +977,7 @@ export function ingestAcceptedIdleExpansion(context, session, accepted) {
   }
 
   if (result.kind === 'vision_exhausted') {
-    session.status = 'completed';
+    session.status = 'vision_exhausted';
     writeContinuousSession(root, session);
 
     emitRunEvent(root, 'idle_expansion_ingested', {
@@ -921,8 +988,8 @@ export function ingestAcceptedIdleExpansion(context, session, accepted) {
         session_id: session.session_id,
         expansion_iteration: session.expansion_iteration,
         kind: 'vision_exhausted',
-        reason_excerpt: result.vision_exhausted?.reason_excerpt || null,
-        heading_classifications: result.vision_exhausted?.heading_classifications || null,
+        reason_excerpt: result.vision_exhausted?.classification?.[0]?.reason || null,
+        classification: result.vision_exhausted?.classification || null,
       },
     });
 
@@ -1176,6 +1243,12 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
       return { ok: false, status: 'failed', action: 'run_failed', stop_reason: resumeStopReason || `exit_code_${execution.exitCode}`, run_id: session.current_run_id };
     }
 
+    const idleExpansionStep = ingestAcceptedIdleExpansionsFromExecution(context, session, execution, log);
+    if (idleExpansionStep) {
+      writeContinuousSession(root, session);
+      return idleExpansionStep;
+    }
+
     session.runs_completed += 1;
     session.current_run_id = execution.result?.state?.run_id || session.current_run_id;
     log(`Resumed run completed (${session.runs_completed}/${contOpts.maxRuns}): ${resumeStopReason || 'completed'}`);
@@ -1236,6 +1309,12 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
       session.status = 'failed';
       writeContinuousSession(root, session);
       return { ok: false, status: 'failed', action: 'run_failed', stop_reason: resumeStopReason || `exit_code_${execution.exitCode}`, run_id: session.current_run_id };
+    }
+
+    const idleExpansionStep = ingestAcceptedIdleExpansionsFromExecution(context, session, execution, log);
+    if (idleExpansionStep) {
+      writeContinuousSession(root, session);
+      return idleExpansionStep;
     }
 
     session.runs_completed += 1;
@@ -1438,9 +1517,6 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     };
   }
 
-  session.runs_completed += 1;
-  log(`Run ${session.runs_completed}/${contOpts.maxRuns} completed: ${stopReason || 'unknown'}`);
-
   // Resolve the consumed intent
   const resolved = resolveIntent(root, targetIntentId);
   if (!resolved.ok) {
@@ -1449,6 +1525,18 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     writeContinuousSession(root, session);
     return { ok: false, status: 'failed', action: 'resolve_failed', stop_reason: resolved.error, intent_id: targetIntentId };
   }
+
+  const idleExpansionStep = ingestAcceptedIdleExpansionsFromExecution(context, session, execution, log);
+  if (idleExpansionStep) {
+    writeContinuousSession(root, session);
+    return {
+      ...idleExpansionStep,
+      intent_id: idleExpansionStep.intent_id || targetIntentId,
+    };
+  }
+
+  session.runs_completed += 1;
+  log(`Run ${session.runs_completed}/${contOpts.maxRuns} completed: ${stopReason || 'unknown'}`);
 
   writeContinuousSession(root, session);
   return {

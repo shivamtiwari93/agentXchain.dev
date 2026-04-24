@@ -1364,6 +1364,7 @@ describe('Continuous Run', () => {
 
         assert.equal(step.status, 'vision_expansion_exhausted');
         assert.equal(step.action, 'idle_expansion_cap_reached');
+        assert.equal(readContinuousSession(dir).status, 'vision_expansion_exhausted');
 
         // Event should be emitted
         const events = readEvents(dir);
@@ -1525,10 +1526,11 @@ describe('Continuous Run', () => {
         const turnResult = {
           idle_expansion_result: {
             kind: 'vision_exhausted',
+            expansion_iteration: 3,
+            vision_traceability: [],
             vision_exhausted: {
-              reason_excerpt: 'All vision goals have been fully addressed by prior increments.',
-              heading_classifications: [
-                { heading: 'Protocol', status: 'completed', evidence: 'Shipped in v2.151.0' },
+              classification: [
+                { vision_heading: 'Protocol', status: 'complete', reason: 'All vision goals have been fully addressed by prior increments.' },
               ],
             },
           },
@@ -1545,7 +1547,7 @@ describe('Continuous Run', () => {
 
         // Session should be completed
         const savedSession = readContinuousSession(dir);
-        assert.equal(savedSession.status, 'completed');
+        assert.equal(savedSession.status, 'vision_exhausted');
 
         // Event should be emitted
         const events = readEvents(dir);
@@ -1553,6 +1555,121 @@ describe('Continuous Run', () => {
         assert.ok(ingested, 'idle_expansion_ingested event expected');
         assert.equal(ingested.payload.kind, 'vision_exhausted');
         assert.ok(ingested.payload.reason_excerpt.includes('fully addressed'));
+        assert.equal(ingested.payload.classification[0].vision_heading, 'Protocol');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('advanceContinuousRunOnce ingests accepted idle-expansion results from execution output', async () => {
+      const dir = createTmpProject();
+      try {
+        writeVision(dir, '## Goals\n- build it\n');
+        writeIntent(dir, {
+          intentId: 'intent_idle_expansion',
+          status: 'approved',
+          charter: '[idle-expansion #1] derive next increment',
+        });
+        const intentPath = join(dir, '.agentxchain', 'intake', 'intents', 'intent_idle_expansion.json');
+        const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+        const eventsDir = join(dir, '.agentxchain', 'intake', 'events');
+        mkdirSync(eventsDir, { recursive: true });
+        writeFileSync(join(eventsDir, `${intent.event_id}.json`), JSON.stringify({
+          schema_version: '1.0',
+          event_id: intent.event_id,
+          source: 'vision_idle_expansion',
+          category: 'idle_expansion',
+          created_at: new Date().toISOString(),
+          signal: { expansion_key: 'a'.repeat(64), expansion_iteration: 1, accepted_turn_id: 'pre_dispatch_test' },
+          evidence: [{ type: 'text', value: 'idle expansion test event' }],
+          dedup_key: 'vision_idle_expansion:test',
+          idle_expansion_context: {
+            expansion_iteration: 1,
+            vision_headings_snapshot: ['Goals'],
+          },
+        }, null, 2));
+
+        const context = { root: dir, config: readTestConfig(dir) };
+        const contOpts = {
+          ...resolveContinuousOptions({ continuous: true, maxRuns: 5, maxIdleCycles: 1 }, context.config),
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+        };
+        const session = {
+          session_id: 'cont-exec-ingest',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 1,
+          max_runs: 5,
+          idle_cycles: 0,
+          max_idle_cycles: 1,
+          current_run_id: null,
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: null,
+          cumulative_spent_usd: 0,
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+          vision_headings_snapshot: ['Goals'],
+          vision_sha_at_snapshot: 'abc',
+          expansion_iteration: 1,
+          _vision_stale_warned_shas: [],
+        };
+        writeContinuousSession(dir, session);
+
+        const step = await advanceContinuousRunOnce(
+          context,
+          session,
+          contOpts,
+          async () => ({
+            exitCode: 0,
+            result: {
+              ok: true,
+              stop_reason: 'completed',
+              state: { run_id: 'run_idle_expansion', status: 'completed' },
+              accepted_turn_results: [
+                {
+                  turn_id: 'turn_idle_expansion',
+                  accepted: { turn_id: 'turn_idle_expansion' },
+                  turn_result: {
+                    idle_expansion_result: {
+                      kind: 'new_intake_intent',
+                      expansion_iteration: 1,
+                      vision_traceability: [
+                        { vision_heading: 'Goals', goal: 'build it', kind: 'advances' },
+                      ],
+                      new_intake_intent: {
+                        title: 'Implement next build increment',
+                        charter: 'Implement the next build increment derived from the idle-expansion PM turn.',
+                        acceptance_contract: ['The next build increment has executable proof.'],
+                        priority: 'p1',
+                        template: 'generic',
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+          () => {},
+        );
+
+        assert.equal(step.status, 'running');
+        assert.equal(step.action, 'idle_expansion_ingested');
+        assert.ok(step.intent_id);
+
+        const savedSession = readContinuousSession(dir);
+        assert.equal(savedSession.runs_completed, 1, 'PM idle-expansion turn must not count as a completed product run');
+
+        const createdIntentPath = join(dir, '.agentxchain', 'intake', 'intents', `${step.intent_id}.json`);
+        assert.ok(existsSync(createdIntentPath), 'PM-derived intake intent should be created');
+        const createdIntent = JSON.parse(readFileSync(createdIntentPath, 'utf8'));
+        assert.equal(createdIntent.status, 'approved');
+        assert.equal(createdIntent.priority, 'p1');
+        assert.ok(createdIntent.charter.includes('[pm-derived]'));
+
+        const events = readEvents(dir);
+        assert.ok(events.find(e => e.event_type === 'idle_expansion_ingested'), 'idle_expansion_ingested event expected');
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }

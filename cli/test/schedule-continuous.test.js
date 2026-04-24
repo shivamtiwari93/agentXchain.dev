@@ -958,3 +958,13 @@ describe('continuous schedule selection', () => {
     assert.equal(selected.id, 'alpha');
   });
 });
+
+describe('BUG-60 scheduler status mapping', () => {
+  it('maps perpetual idle-expansion terminal states distinctly', () => {
+    const source = readFileSync(join(cliRoot, 'src', 'commands', 'schedule.js'), 'utf8');
+    assert.match(source, /vision_exhausted:\s*'continuous_vision_exhausted'/);
+    assert.match(source, /vision_expansion_exhausted:\s*'continuous_vision_expansion_exhausted'/);
+    assert.match(source, /'vision_exhausted'/);
+    assert.match(source, /'vision_expansion_exhausted'/);
+  });
+});
