@@ -42,9 +42,12 @@ For downstream closure, start from the same clean tusq.dev checkpoint used for
 the `v2.154.10` downstream retest and quote:
 
 - functional downstream behavior remains fixed: continuous does not idle out in QA, QA advances, `launch_ready` unblock completes the run, and no duplicate `product_marketing` dispatch occurs
+- quote any `startup_latency_ms`, `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence relevant to adapter-path reliability while confirming the downstream flow still uses the real runtime path
 - after final terminal approval, status is `completed`, `pending_run_completion=null`, and `active_turns={}`
 - durable events include both `gate_approved` for `run_completion` and `run_completed`
+- non-terminal phase recovery should still quote `phase_entered` with `reconciled_before_dispatch` if a standing gate advances before dispatch
 - `.agentxchain/continuous-session.json` no longer stays at `paused` with `runs_completed=0`; quote the terminal session shape after the run completes
+- `session_continuation` should still be quoted if the continuous session chains into another run; otherwise quote the terminal reason instead
 - if the project still reports `approval_policy: null`, say so explicitly rather than fabricating approval-policy ledger evidence
 
 For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
