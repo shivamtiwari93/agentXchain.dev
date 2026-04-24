@@ -147,6 +147,8 @@ node examples/live-governed-proof/run-continuous-mixed-proof.mjs --json --output
 
 That harness drives the real `run --continuous` CLI surface, uses a real Anthropic-backed `api_proxy` QA turn, and validates the continuous session, intake provenance, review artifact, and recorded spend. The checked-in evidence artifact at [`continuous-mixed-proof.latest.json`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/examples/live-governed-proof/evidence/continuous-mixed-proof.latest.json) backs this claim.
 
+For perpetual mode with `--on-idle perpetual`, see the [tusq.dev Dogfood Proof](/docs/examples/live-dogfood-tusq-dev-proof) — three full governed runs completed autonomously on a real production codebase with PM idle-expansion chaining runs and zero reliability failures.
+
 ## 4. Start the daemon
 
 Once the bounded proof run is clean, start the scheduler:

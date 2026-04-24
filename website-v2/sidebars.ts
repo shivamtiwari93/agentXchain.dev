@@ -63,6 +63,7 @@ const sidebars: SidebarsConfig = {
             'examples/live-governed-proof',
             'examples/checkpoint-handoff-proof',
             'examples/live-continuous-3run-proof',
+            'examples/live-dogfood-tusq-dev-proof',
             'examples/mcp-echo-agent',
             'examples/mcp-http-echo-agent',
             'examples/mcp-anthropic-agent',

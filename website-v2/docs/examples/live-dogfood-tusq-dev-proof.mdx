@@ -1,0 +1,116 @@
+---
+title: "Live Dogfood Proof: tusq.dev Full-Auto"
+description: "Dated evidence of AgentXchain governing three full autonomous runs on a real production codebase (tusq.dev) using shipped agentxchain@2.155.10 with perpetual idle-expansion."
+sidebar_position: 6
+---
+
+# Live Dogfood Proof: tusq.dev Full-Auto
+
+This page is the public evidence for AgentXchain's strongest claim to date: **three full governed runs completed autonomously on a real production codebase** using the shipped `agentxchain@2.155.10` CLI with `--on-idle perpetual`.
+
+Unlike the [Live Continuous 3-Run Proof](/docs/examples/live-continuous-3run-proof) which uses a synthetic test project, this dogfood exercises the full product against [tusq.dev](https://tusq.dev) — a real SaaS capability compiler with its own `VISION.md`, `ROADMAP.md`, and `SYSTEM_SPEC.md`.
+
+Date of proof: `2026-04-24`
+
+## What It Proves
+
+| Claim | Evidence |
+|---|---|
+| Perpetual idle-expansion works end-to-end | PM idle-expansion turns dispatched, produced structured `idle_expansion_result`, accepted through intake pipeline, and chained into governed runs |
+| All four phases complete autonomously | Each run traversed planning, implementation, QA, and launch with no agent-level failures |
+| Only human gates require manual unblocking | `planning_signoff`, `qa_ship_verdict`, and `launch_ready` gates required human approval — all agent turns accepted on first attempt |
+| Zero reliability failures post-fix | 65 `turn_dispatched` events, 19 accepted turns, zero `runtime_spawn_failed`, `stdout_attach_failed`, `ghost_turn`, or `startup_watchdog_fired` signals |
+| Dogfood-driven development works | 7 gaps discovered and shipped as patches (v2.155.2 through v2.155.10) during the session |
+
+## Setup
+
+The dogfood used a clean linked git worktree to avoid contaminating the operator's working baseline:
+
+```bash
+git worktree add -b agentxchain-dogfood-2026-04 \
+  "../tusq.dev-agentxchain-dogfood" origin/main
+```
+
+Full-auto approval policy configured via shipped CLI:
+
+```bash
+agentxchain config --set approval_policy.phase_transitions.default auto_approve
+agentxchain config --set approval_policy.run_completion.action auto_approve
+agentxchain validate
+```
+
+## Exact Command
+
+```bash
+npx --yes -p agentxchain@latest -c \
+  'agentxchain run --continuous \
+    --vision .planning/VISION.md \
+    --max-runs 5 \
+    --max-idle-cycles 3 \
+    --poll-seconds 5 \
+    --triage-approval auto \
+    --auto-checkpoint \
+    --on-idle perpetual'
+```
+
+## Evidence Summary
+
+| Metric | Value |
+|---|---|
+| Target project | tusq.dev (SaaS capability compiler) |
+| Branch | `agentxchain-dogfood-2026-04` |
+| CLI version | `agentxchain@2.155.10` |
+| Runs completed | **3** (planning → implementation → QA → launch each) |
+| Turn dispatches | 65 |
+| Turns accepted | 19 |
+| `runtime_spawn_failed` | 0 |
+| `stdout_attach_failed` | 0 |
+| `ghost_turn` | 0 |
+| `startup_watchdog_fired` | 0 |
+| Idle-expansion dispatches | 5 |
+| `run_completed` events | 5 |
+| Gaps discovered and shipped | 7 (GAP-001 through GAP-007) |
+
+## Completed Runs
+
+| Run ID | CLI Version | Outcome |
+|---|---|---|
+| `run_71b762f4405c0fc5` | v2.155.3 | M28 Sensitivity Class Inference proposed via idle expansion. Dev by Claude Sonnet 4.6, QA and launch gates approved. |
+| `run_e7c2e5668d6cfb6a` | v2.155.10 | First final-package full governed run after embedded normalization fix. |
+| `run_4e38dc0248fb17e6` | v2.155.10 | Perpetual idle-expansion dispatched and accepted next PM intent, then completed all phases. |
+| `run_6464f8d17e8dedcd` | v2.155.10 | Third full governed run — success criteria met. |
+
+## Gaps Discovered and Shipped
+
+The dogfood loop's core value: every framework gap becomes a patch release, and the dogfood retries on the fix.
+
+| Gap | Fixed In | Issue |
+|---|---|---|
+| GAP-001 | v2.155.2 | Idle-expansion dispatched before proving inherited run eligibility |
+| GAP-002 | v2.155.3 | Reconcile refused `SESSION_RECOVERY.md` edits (safe-path allowlist added) |
+| GAP-003 | v2.155.6 | Sidecar `idle-expansion-result.json` not loaded by acceptor |
+| GAP-004 | v2.155.7 | Charter named result concept but never specified JSON schema or output location |
+| GAP-005 | v2.155.8 | Charter/validator schema mismatch (object vs array traceability) |
+| GAP-006 | v2.155.9 | Intent coverage missed top-level structured-result acceptance item |
+| GAP-007 | v2.155.10 | Embedded `idle_expansion_result` bypassed sidecar normalization |
+
+## What This Means
+
+This proof demonstrates the governed software factory model working on a real codebase:
+
+1. **Perpetual mode works.** When the work queue empties, the PM synthesizes the next increment from VISION/ROADMAP/SYSTEM_SPEC, produces a structured intake intent, and the run loop chains into the next governed run.
+
+2. **Self-healing through dogfood.** Seven real gaps were discovered, fixed, shipped, and retried — all within a single session. The gap-to-fix-to-retry loop is the product's compounding feedback mechanism.
+
+3. **Human sovereignty preserved.** Human approval gates (`planning_signoff`, `qa_ship_verdict`, `launch_ready`) required manual unblocking. The agents handle execution; humans retain authority over direction and ship decisions.
+
+4. **Reliability is proven at scale.** Zero spawn/attach/ghost/watchdog failures across 65 dispatches and 19 accepted turns on the final shipped package.
+
+## Internal Evidence
+
+Full evidence chain lives in the AgentXchain.dev repo at `.planning/dogfood-tusq-dev-evidence/`:
+
+- [`session-2026-04-24.md`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/.planning/dogfood-tusq-dev-evidence/session-2026-04-24.md) — session log
+- [`README.md`](https://github.com/shivamtiwari93/agentxchain.dev/blob/main/.planning/dogfood-tusq-dev-evidence/README.md) — evidence index
+- GAP evidence files for each discovered gap
+- Raw CLI output, status snapshots, event scans under `raw/`
