@@ -562,7 +562,7 @@ function normalizeIdleExpansionSidecar(sidecar, context) {
     };
   }
 
-  return result;
+  return normalizeIdleExpansionMutualExclusionSentinel(result).value;
 }
 
 function normalizeVisionTraceabilityForTurnResult(traceability) {
@@ -1020,6 +1020,14 @@ export function normalizeTurnResult(tr, config, context = {}) {
     normalized.artifacts_created = coerced;
   }
 
+  const idleExpansionCleanup = normalizeIdleExpansionMutualExclusionSentinel(
+    normalized.idle_expansion_result,
+  );
+  if (idleExpansionCleanup.changed) {
+    normalized.idle_expansion_result = idleExpansionCleanup.value;
+    corrections.push(idleExpansionCleanup.correction);
+  }
+
   // ── Rule 2: exit-gate-as-phase auto-correction ────────────────────────
   const gates = config?.gates;
   if (
@@ -1171,6 +1179,28 @@ export function normalizeTurnResult(tr, config, context = {}) {
   }
 
   return { normalized, corrections };
+}
+
+function normalizeIdleExpansionMutualExclusionSentinel(result) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return { changed: false, value: result, correction: '' };
+  }
+
+  if (
+    result.kind === 'new_intake_intent'
+    && ('vision_exhausted' in result)
+    && (result.vision_exhausted === false || result.vision_exhausted === null)
+  ) {
+    const normalized = { ...result };
+    delete normalized.vision_exhausted;
+    return {
+      changed: true,
+      value: normalized,
+      correction: 'idle_expansion_result.vision_exhausted: removed false sentinel for new_intake_intent',
+    };
+  }
+
+  return { changed: false, value: result, correction: '' };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

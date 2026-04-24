@@ -331,6 +331,7 @@ describe('turn-result-validator', () => {
       writeIdleExpansionSidecar({
         schema_version: '1.0',
         kind: 'new_intake_intent',
+        vision_exhausted: false,
         proposed_intent: {
           title: 'Harden policy-backed next-objective selection',
           charter: 'Ship a governed increment that improves policy-backed next-objective selection.',
@@ -349,9 +350,22 @@ describe('turn-result-validator', () => {
       assert.equal(res.turnResult.idle_expansion_result.kind, 'new_intake_intent');
       assert.equal(res.turnResult.idle_expansion_result.expansion_iteration, 2);
       assert.equal(res.turnResult.idle_expansion_result.new_intake_intent.title, 'Harden policy-backed next-objective selection');
+      assert.equal('vision_exhausted' in res.turnResult.idle_expansion_result, false);
       assert.deepEqual(res.turnResult.idle_expansion_result.vision_traceability, [
         { vision_heading: 'Human Role' },
       ]);
+    });
+
+    it('normalizes false vision_exhausted sentinel on top-level new_intake_intent results', () => {
+      const tr = makeIdleExpansionTurnResult();
+      tr.idle_expansion_result.vision_exhausted = false;
+      writeStagedResult(tr);
+
+      const res = validateStagedTurnResult(TMP_ROOT, makeIdleExpansionState(), makeConfig());
+
+      assert.equal(res.ok, true);
+      assert.equal('vision_exhausted' in res.turnResult.idle_expansion_result, false);
+      assert.ok(res.warnings.some((w) => w.includes('removed false sentinel')));
     });
 
     it('requires idle_expansion_result for a vision_idle_expansion turn', () => {
