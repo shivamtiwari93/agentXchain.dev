@@ -114,6 +114,9 @@ describe('framework-owned write paths are excluded from agent observation', () =
     LEGACY_DISPATCH_PROGRESS_PATH,
     getDispatchProgressRelativePath('turn_abc123'),
     RUN_EVENTS_PATH,
+    '.agentxchain/reports/report-run_123.md',
+    '.agentxchain/reports/export-run_123.json',
+    '.agentxchain/reports/chain-123.json',
     `${PLUGINS_DIR}/plugin-slack-notify/agentxchain-plugin.json`,
   ];
 
@@ -296,6 +299,7 @@ describe('normalizeCheckpointableFiles strips operational paths from declared fi
       '.agentxchain/reviews/turn_1234-qa-review.md',
       '.agentxchain/proposed/turn_1234/PROPOSAL.md',
       '.agentxchain/reports/RECOVERY_REPORT.md',
+      '.agentxchain/reports/report-run_123.md',
       '.agentxchain/state.json',
       '.agentxchain/prompts/dev.md',
     ];

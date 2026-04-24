@@ -694,6 +694,11 @@ function validateRunLoopContinuousConfig(path, continuous, errors) {
           errors.push(`${path}.idle_expansion.malformed_retry_limit must be a non-negative integer`);
         }
       }
+      if (continuous.idle_expansion.pm_prompt_path !== undefined
+          && continuous.idle_expansion.pm_prompt_path !== null
+          && typeof continuous.idle_expansion.pm_prompt_path !== 'string') {
+        errors.push(`${path}.idle_expansion.pm_prompt_path must be a string`);
+      }
     }
   }
 }
@@ -1365,9 +1370,10 @@ function normalizeIdleExpansion(raw) {
       sources: ['.planning/VISION.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
       max_expansions: 5,
       role: 'pm',
-      output: 'intake_intent_or_vision_exhausted',
-      malformed_retry_limit: 1,
-    };
+    output: 'intake_intent_or_vision_exhausted',
+    malformed_retry_limit: 1,
+    pm_prompt_path: '.agentxchain/prompts/pm-idle-expansion.md',
+  };
   }
   const sources = Array.isArray(raw.sources) && raw.sources.length > 0
     ? raw.sources.filter(s => typeof s === 'string' && s.length > 0)
@@ -1379,6 +1385,9 @@ function normalizeIdleExpansion(raw) {
     output: 'intake_intent_or_vision_exhausted',
     malformed_retry_limit: Number.isInteger(raw.malformed_retry_limit) && raw.malformed_retry_limit >= 0
       ? raw.malformed_retry_limit : 1,
+    pm_prompt_path: typeof raw.pm_prompt_path === 'string' && raw.pm_prompt_path.trim().length > 0
+      ? raw.pm_prompt_path.trim()
+      : '.agentxchain/prompts/pm-idle-expansion.md',
   };
 }
 

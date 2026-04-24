@@ -69,6 +69,12 @@ export const BASELINE_EXEMPT_PATH_PREFIXES = Object.freeze([
   '.agentxchain/proposed/',
 ]);
 
+const GENERATED_REPORT_PATH_PATTERNS = Object.freeze([
+  /^\.agentxchain\/reports\/report-[^/]+\.md$/,
+  /^\.agentxchain\/reports\/export-[^/]+\.json$/,
+  /^\.agentxchain\/reports\/chain-[^/]+\.json$/,
+]);
+
 // Continuity export/restore must stay aligned with orchestrator ownership,
 // but only for the subset that represents governed run state.
 export const RUN_CONTINUITY_STATE_FILES = Object.freeze([
@@ -93,6 +99,10 @@ function pathMatchesAnyRoot(filePath, roots) {
   return roots.some((root) => filePath === root || filePath.startsWith(`${root}/`));
 }
 
+function isGeneratedReportPath(filePath) {
+  return GENERATED_REPORT_PATH_PATTERNS.some((pattern) => pattern.test(filePath));
+}
+
 /**
  * Return the repo-owned vs framework-owned classification flags for a path.
  *
@@ -106,7 +116,8 @@ function pathMatchesAnyRoot(filePath, roots) {
  */
 export function classifyRepoPath(filePath) {
   const operational = pathMatchesAnyPrefix(filePath, OPERATIONAL_PATH_PREFIXES)
-    || ORCHESTRATOR_STATE_FILES.includes(filePath);
+    || ORCHESTRATOR_STATE_FILES.includes(filePath)
+    || isGeneratedReportPath(filePath);
   const continuityState = RUN_CONTINUITY_STATE_FILES.includes(filePath)
     || pathMatchesAnyRoot(filePath, RUN_CONTINUITY_DIRECTORY_ROOTS);
   const baselineExempt = operational

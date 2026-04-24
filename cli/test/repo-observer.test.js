@@ -190,6 +190,25 @@ describe('classifyRepoPath', () => {
     assert.equal(classification.projectOwned, false);
   });
 
+  it('BUG-65: generated governance reports are operational but custom report artifacts remain checkpointable', () => {
+    for (const generatedPath of [
+      '.agentxchain/reports/report-run_123.md',
+      '.agentxchain/reports/export-run_123.json',
+      '.agentxchain/reports/chain-123.json',
+    ]) {
+      const classification = classifyRepoPath(generatedPath);
+      assert.equal(classification.operational, true, `${generatedPath} should be operational`);
+      assert.equal(classification.baselineExempt, true, `${generatedPath} should be baseline-exempt`);
+      assert.equal(classification.continuityState, true, `${generatedPath} should remain continuity state`);
+      assert.equal(classification.projectOwned, false, `${generatedPath} should not be project-owned`);
+    }
+
+    const customClassification = classifyRepoPath('.agentxchain/reports/RECOVERY_REPORT.md');
+    assert.equal(customClassification.operational, false);
+    assert.equal(customClassification.baselineExempt, true);
+    assert.equal(customClassification.continuityState, true);
+  });
+
   it('AT-PCLASS-002: project-owned files stay observable', () => {
     const classification = classifyRepoPath('README.md');
     assert.equal(classification.operational, false);
@@ -665,7 +684,7 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('src/index.ts'), false);
     assert.equal(isOperationalPath('.planning/ROADMAP.md'), false);
     assert.equal(isOperationalPath('.agentxchain/reviews/turn-0004.md'), false);
-    assert.equal(isOperationalPath('.agentxchain/reports/report-run_123.md'), false);
+    assert.equal(isOperationalPath('.agentxchain/reports/RECOVERY_REPORT.md'), false);
   });
 });
 
@@ -687,6 +706,24 @@ describe('observeChanges — operational path exclusion', () => {
     const observation = observeChanges(dir, baseline);
     assert.ok(observation.files_changed.includes('src-file.js'), 'actor file should be observed');
     assert.ok(!observation.files_changed.some(f => f.startsWith('.agentxchain/dispatch/')), 'dispatch paths should be excluded');
+  });
+
+  it('BUG-65: excludes generated governance reports but keeps custom reports observable', () => {
+    const baseline = captureBaseline(dir);
+    mkdirSync(join(dir, '.agentxchain', 'reports'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'report-run_123.md'), '# Generated report\n');
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'export-run_123.json'), '{}\n');
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'chain-abc.json'), '{}\n');
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'RECOVERY_REPORT.md'), '# Custom report\n');
+
+    const observation = observeChanges(dir, baseline);
+    assert.ok(!observation.files_changed.includes('.agentxchain/reports/report-run_123.md'));
+    assert.ok(!observation.files_changed.includes('.agentxchain/reports/export-run_123.json'));
+    assert.ok(!observation.files_changed.includes('.agentxchain/reports/chain-abc.json'));
+    assert.ok(
+      observation.files_changed.includes('.agentxchain/reports/RECOVERY_REPORT.md'),
+      'custom report artifacts should remain observable and checkpointable',
+    );
   });
 
   it('excludes staging paths from observed changes', () => {
@@ -837,13 +874,25 @@ describe('captureBaseline — dirty workspace snapshot', () => {
       'review evidence must remain in dirty_snapshot so later observation can filter unchanged baseline dirt');
   });
 
-  it('marks report evidence as baseline-clean while still tracking it in dirty snapshot', () => {
+  it('marks custom report evidence as baseline-clean while still tracking it in dirty snapshot', () => {
     mkdirSync(join(dir, '.agentxchain', 'reports'), { recursive: true });
-    writeFileSync(join(dir, '.agentxchain', 'reports', 'report-run_1234.md'), '# Report\n');
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'qa-verdict.md'), '# Report\n');
     const baseline = captureBaseline(dir);
     assert.equal(baseline.clean, true, 'report evidence should not make the baseline fail clean-checks');
-    assert.ok('.agentxchain/reports/report-run_1234.md' in (baseline.dirty_snapshot || {}),
-      'report evidence must remain in dirty_snapshot so later observation can filter unchanged baseline dirt');
+    assert.ok('.agentxchain/reports/qa-verdict.md' in (baseline.dirty_snapshot || {}),
+      'custom report evidence must remain in dirty_snapshot so later observation can filter unchanged baseline dirt');
+  });
+
+  it('BUG-65: generated governance reports are baseline-clean and excluded from dirty snapshot', () => {
+    mkdirSync(join(dir, '.agentxchain', 'reports'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'report-run_1234.md'), '# Report\n');
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'export-run_1234.json'), '{}\n');
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'chain-1234.json'), '{}\n');
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, true, 'generated reports should not make the baseline fail clean-checks');
+    assert.ok(!('.agentxchain/reports/report-run_1234.md' in (baseline.dirty_snapshot || {})));
+    assert.ok(!('.agentxchain/reports/export-run_1234.json' in (baseline.dirty_snapshot || {})));
+    assert.ok(!('.agentxchain/reports/chain-1234.json' in (baseline.dirty_snapshot || {})));
   });
 
   it('marks proposal artifacts as baseline-clean while still tracking them in dirty snapshot', () => {

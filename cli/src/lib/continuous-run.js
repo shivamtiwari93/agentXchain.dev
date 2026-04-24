@@ -157,6 +157,32 @@ function getAcceptedIdleExpansionEntries(execution) {
   return entries.filter((entry) => entry?.turn_result?.idle_expansion_result);
 }
 
+function readIdleExpansionPrompt(root, config) {
+  const configuredPath = config?.run_loop?.continuous?.idle_expansion?.pm_prompt_path
+    ?? config?.continuous?.idle_expansion?.pm_prompt_path;
+  const promptPath = typeof configuredPath === 'string' && configuredPath.trim().length > 0
+    ? configuredPath.trim()
+    : '.agentxchain/prompts/pm-idle-expansion.md';
+
+  const absPromptPath = join(root, promptPath);
+  if (!existsSync(absPromptPath)) {
+    return { promptPath, content: '' };
+  }
+
+  try {
+    return {
+      promptPath,
+      content: readFileSync(absPromptPath, 'utf8').trim(),
+    };
+  } catch (err) {
+    return {
+      promptPath,
+      content: '',
+      warning: `Failed to load PM idle-expansion prompt "${promptPath}": ${err.message}`,
+    };
+  }
+}
+
 function ingestAcceptedIdleExpansionsFromExecution(context, session, execution, log = console.log) {
   const entries = getAcceptedIdleExpansionEntries(execution);
   if (entries.length === 0) {
@@ -750,6 +776,19 @@ async function dispatchIdleExpansion(context, session, contOpts, absVisionPath, 
     .map(e => `  - ${e.path} (${e.headings.length} headings, ${e.byte_count} bytes${e.warning ? `, warning: ${e.warning}` : ''})`)
     .join('\n');
   const visionHeadings = (session.vision_headings_snapshot || []).map(h => `  - ${h}`).join('\n');
+  const idleExpansionPrompt = readIdleExpansionPrompt(root, context.config);
+  const promptBlock = idleExpansionPrompt.content
+    ? [
+      ``,
+      `PM idle-expansion prompt from ${idleExpansionPrompt.promptPath}:`,
+      idleExpansionPrompt.content,
+    ]
+    : idleExpansionPrompt.warning
+      ? [
+        ``,
+        `PM idle-expansion prompt warning: ${idleExpansionPrompt.warning}`,
+      ]
+      : [];
 
   const charter = [
     `[idle-expansion #${currentIteration}] Inspect VISION.md, ROADMAP.md, SYSTEM_SPEC.md, and current project state.`,
@@ -786,6 +825,7 @@ async function dispatchIdleExpansion(context, session, contOpts, absVisionPath, 
     ``,
     `Source manifest:`,
     sourceList || '  (no sources available)',
+    ...promptBlock,
   ].join('\n');
 
   // Use a placeholder accepted_turn_id for the signal — it will be the turn assigned by intake
@@ -1072,6 +1112,10 @@ export function resolveContinuousOptions(opts, config) {
     maxExpansions: configIdleExpansion.max_expansions ?? 5,
     role: configIdleExpansion.role ?? 'pm',
     malformedRetryLimit: configIdleExpansion.malformed_retry_limit ?? 1,
+    pmPromptPath: typeof configIdleExpansion.pm_prompt_path === 'string'
+      && configIdleExpansion.pm_prompt_path.trim().length > 0
+      ? configIdleExpansion.pm_prompt_path.trim()
+      : '.agentxchain/prompts/pm-idle-expansion.md',
   } : null;
 
   return {

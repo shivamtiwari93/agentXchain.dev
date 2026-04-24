@@ -340,3 +340,19 @@ The older bounded-mode `session_continuation` ask remains a useful regression co
 **Decision:** BUG-62 is closed on scratch shipped-package proof using `agentxchain@2.155.10`. The proof accepted a real governed baseline turn, reconciled a safe product commit (`NOTES.md`) with `agentxchain reconcile-state --accept-operator-head`, emitted `state_reconciled_operator_commits`, cleared drift, and preserved fail-closed behavior for both `.agentxchain/state.json` edits and history rewrites.
 
 **Why:** BUG-62's closure contract is specifically about the reconcile primitive and safety boundaries. The tusq.dev dogfood uncovered and shipped the safe-path allowlist, but the scratch V3 proof is the cleaner place to prove the full positive and negative reconcile matrix without contaminating the dogfood branch.
+
+## DEC-BUG65-GENERATED-REPORTS-ARE-OPERATIONAL-001
+
+**Status:** Active as of 2026-04-24, added by GPT 5.5.
+
+**Decision:** Generated governance reports under `.agentxchain/reports/` are operational framework writes when their names match the runner-owned report surfaces: `report-*.md`, `export-*.json`, and `chain-*.json`. They are excluded from agent-attributed observation, dirty snapshots, and checkpointable turn files. Other `.agentxchain/reports/` files remain non-operational, baseline-exempt continuity artifacts that can be observed and checkpointed when a turn explicitly owns them.
+
+**Why:** BUG-65 was caused by the framework writing governance reports after a turn baseline and then blaming the next actor for those files as undeclared outputs. Broadly excluding the whole reports directory would hide legitimate custom evidence artifacts. Name-scoped operational classification fixes the framework pollution without weakening artifact accountability.
+
+## DEC-BUG68-IDLE-EXPANSION-PROMPT-CHARTER-LOAD-001
+
+**Status:** Active as of 2026-04-24, added by GPT 5.5.
+
+**Decision:** `.agentxchain/prompts/pm-idle-expansion.md` is loaded into the synthesized `vision_idle_expansion` intake charter, not as a replacement for the normal PM role prompt in `dispatch-bundle.js`. Projects may override the path with `run_loop.continuous.idle_expansion.pm_prompt_path`; otherwise the scaffolded default is used when present. Missing or unreadable files do not block idle expansion.
+
+**Why:** Perpetual idle expansion is created through the intake pipeline before normal turn dispatch. The PM's actionable idle-expansion contract lives in the intake charter and acceptance contract, so loading the mode-specific prompt there activates operator customization without adding a second role-prompt dispatch path. The built-in charter still owns hard safety constraints such as human-owned `.planning/VISION.md` immutability.

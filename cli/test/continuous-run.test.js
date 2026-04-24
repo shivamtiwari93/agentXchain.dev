@@ -431,6 +431,7 @@ describe('Continuous Run', () => {
                 max_expansions: 3,
                 role: 'architect',
                 malformed_retry_limit: 0,
+                pm_prompt_path: '.agentxchain/prompts/custom-idle.md',
               },
             },
           },
@@ -440,6 +441,7 @@ describe('Continuous Run', () => {
       assert.equal(opts.idleExpansion.maxExpansions, 3);
       assert.equal(opts.idleExpansion.role, 'architect');
       assert.equal(opts.idleExpansion.malformedRetryLimit, 0);
+      assert.equal(opts.idleExpansion.pmPromptPath, '.agentxchain/prompts/custom-idle.md');
     });
 
     it('exit mode ignores idle_expansion config', () => {
@@ -530,11 +532,25 @@ describe('Continuous Run', () => {
         validateRunLoopConfig({
           continuous: {
             on_idle: 'perpetual',
-            idle_expansion: { max_expansions: 3, malformed_retry_limit: 0 },
+            idle_expansion: {
+              max_expansions: 3,
+              malformed_retry_limit: 0,
+              pm_prompt_path: '.agentxchain/prompts/pm-idle-expansion.md',
+            },
           },
         }),
         [],
       );
+    });
+
+    it('validates idle_expansion.pm_prompt_path rejects non-string values', () => {
+      const errors = validateRunLoopConfig({
+        continuous: {
+          on_idle: 'perpetual',
+          idle_expansion: { pm_prompt_path: 12 },
+        },
+      });
+      assert.ok(errors.some(e => e.includes('pm_prompt_path must be a string')));
     });
   });
 
@@ -1366,6 +1382,71 @@ describe('Continuous Run', () => {
         const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
         assert.equal(intent.status, 'approved');
         assert.ok(intent.charter.includes('[idle-expansion #1]'));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('BUG-68: loads pm-idle-expansion.md into the dispatched intake charter', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- build it\n', 'utf8');
+        writeIntent(dir, { intentId: 'intent_done', status: 'completed', charter: 'build it implementation' });
+
+        const promptDir = join(dir, '.agentxchain', 'prompts');
+        mkdirSync(promptDir, { recursive: true });
+        writeFileSync(
+          join(promptDir, 'pm-idle-expansion.md'),
+          'CUSTOM BUG-68 PROMPT: prefer roadmap-backed intake titles.\n',
+          'utf8',
+        );
+
+        const context = { root: dir, config: readTestConfig(dir) };
+        const contOpts = {
+          ...resolveContinuousOptions({ continuous: true, maxIdleCycles: 1, onIdle: 'perpetual' }, context.config),
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+        };
+
+        const { computeVisionContentSha, captureVisionHeadingsSnapshot } = await import('../src/lib/vision-reader.js');
+        const visionContent = readFileSync(join(planDir, 'VISION.md'), 'utf8');
+        const session = {
+          session_id: 'cont-bug68',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 1,
+          max_runs: 10,
+          idle_cycles: 1,
+          max_idle_cycles: 1,
+          current_run_id: 'run_prev',
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: null,
+          cumulative_spent_usd: 0,
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+          vision_headings_snapshot: captureVisionHeadingsSnapshot(visionContent),
+          vision_sha_at_snapshot: computeVisionContentSha(visionContent),
+          expansion_iteration: 0,
+          _vision_stale_warned_shas: [],
+        };
+        writeContinuousSession(dir, session);
+
+        const step = await advanceContinuousRunOnce(
+          context,
+          session,
+          contOpts,
+          async () => assert.fail('should not execute run during dispatch step'),
+          () => {},
+        );
+
+        assert.equal(step.action, 'idle_expansion_dispatched');
+        const intentPath = join(dir, '.agentxchain', 'intake', 'intents', `${step.intent_id}.json`);
+        const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+        assert.ok(intent.charter.includes('PM idle-expansion prompt from .agentxchain/prompts/pm-idle-expansion.md'));
+        assert.ok(intent.charter.includes('CUSTOM BUG-68 PROMPT: prefer roadmap-backed intake titles.'));
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }

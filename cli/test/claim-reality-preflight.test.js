@@ -4948,6 +4948,75 @@ exec sleep 30
     assert.equal(git(root, ['status', '--short']), '', 'packaged BUG-55 combined checkpoint must leave a clean tree');
   });
 
+  it('BUG-65 packaged CLI accepts declared work when generated governance reports are dirty', async () => {
+    const { packageDir } = getExtractedPackage();
+    const cliPath = join(packageDir, 'bin', 'agentxchain.js');
+    const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
+    const turnPaths = await import(pathToFileURL(join(packageDir, 'src/lib/turn-paths.js')).href);
+    const { initializeGovernedRun, assignGovernedTurn } = governedState;
+    const { getTurnStagingResultPath } = turnPaths;
+
+    const root = mkdtempSync(join(tmpdir(), 'axc-packed-bug65-reports-'));
+    TEMP_PATHS.push(root);
+    const config = makeBug55Config();
+
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+    mkdirSync(join(root, 'src'), { recursive: true });
+
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 1;\n');
+
+    git(root, ['init']);
+    git(root, ['config', 'user.email', 'packed-bug65@test.local']);
+    git(root, ['config', 'user.name', 'Packed BUG-65']);
+    git(root, ['add', '.']);
+    git(root, ['commit', '-m', 'initial']);
+
+    const initResult = initializeGovernedRun(root, config);
+    assert.ok(initResult.ok, initResult.error);
+    const assign = assignGovernedTurn(root, config, 'qa');
+    assert.ok(assign.ok, assign.error);
+    const turn = Object.values(assign.state.active_turns)[0];
+
+    writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 2;\n');
+    mkdirSync(join(root, '.agentxchain', 'reports'), { recursive: true });
+    writeFileSync(join(root, '.agentxchain', 'reports', 'report-run_1234.md'), '# Generated report\n');
+    writeFileSync(join(root, '.agentxchain', 'reports', 'export-run_1234.json'), '{}\n');
+    writeFileSync(join(root, '.agentxchain', 'reports', 'chain-1234.json'), '{}\n');
+
+    mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
+    writeFileSync(join(root, getTurnStagingResultPath(turn.turn_id)), JSON.stringify({
+      schema_version: '1.0',
+      run_id: assign.state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'QA updated the CLI while framework reports existed.',
+      decisions: [],
+      objections: [],
+      files_changed: ['src/cli.js'],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'ok', machine_evidence: [] },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'launch',
+      phase_transition_request: 'launch',
+      run_completion_request: false,
+      needs_human_reason: null,
+      cost: { usd: 0.01 },
+    }, null, 2));
+
+    const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turn.turn_id], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120000,
+      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
+    });
+    const combined = `${accept.stdout}\n${accept.stderr}`;
+    assert.equal(accept.status, 0, `BUG-65 accept-turn must ignore generated governance reports:\n${combined}`);
+    assert.doesNotMatch(combined, /undeclared_verification_outputs|artifact_mismatch|report-run_1234/);
+  });
+
   it('scenario test count matches expected range', () => {
     const scenarioFiles = readdirSync(SCENARIOS_DIR)
       .filter(f => f.endsWith('.test.js') && f.startsWith('bug-'));

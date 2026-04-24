@@ -136,6 +136,10 @@
                   "type": "integer",
                   "minimum": 0,
                   "description": "Reserved retry budget for malformed idle_expansion_result outputs. Default 1."
+                },
+                "pm_prompt_path": {
+                  "type": "string",
+                  "description": "Project-relative prompt supplement loaded into PM idle-expansion charters. Default .agentxchain/prompts/pm-idle-expansion.md."
                 }
               },
               "additionalProperties": true
