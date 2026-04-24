@@ -566,6 +566,15 @@ function normalizeIdleExpansionSidecar(sidecar, context) {
 }
 
 function normalizeVisionTraceabilityForTurnResult(traceability) {
+  // Handle object-shaped traceability: { headings: [...], rationale: "..." }
+  if (traceability && typeof traceability === 'object' && !Array.isArray(traceability) && Array.isArray(traceability.headings)) {
+    const rationale = traceability.rationale || '';
+    return traceability.headings.map((h) => {
+      if (typeof h === 'string') return { vision_heading: h, goal: rationale, kind: 'advances' };
+      if (h && typeof h === 'object') return { vision_heading: h.heading || h.vision_heading || '', goal: h.goal || h.rationale || rationale, kind: h.kind || 'advances' };
+      return { vision_heading: String(h), goal: rationale, kind: 'advances' };
+    });
+  }
   if (!Array.isArray(traceability)) {
     return traceability;
   }
