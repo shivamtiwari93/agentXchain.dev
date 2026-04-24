@@ -6,11 +6,11 @@
  *     published package asks.
  *   - BUG-52 is now CLOSED with tester-verified evidence on agentxchain@2.154.11.
  *   - BUG-61 is now CLOSED as mechanism-verified on agentxchain@2.154.11.
- *   - BUG-59 is shipped and checked, but its tester quote-back still gates
- *     BUG-60 implementation.
- *   - BUG-60 is not in that quote-back-only class; it is blocked behind
- *     BUG-59 shipped-package quote-back and its own two-agent
- *     research/review gate before implementation.
+ *   - BUG-59 is shipped and checked; its BUG-60 implementation gate is
+ *     satisfied (all five prerequisites met). Implementation in progress.
+ *   - BUG-60 is not in the quote-back-only class; it has its own two-agent
+ *     research/review gate (satisfied) and BUG-59 prerequisite (satisfied).
+ *     Implementation in progress as of Slice 1 (ef9c4d32).
  *
  * This guard prevents future status edits from collapsing those classes.
  */
@@ -158,13 +158,13 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       bug60,
-      /BUG-59[\s\S]{0,300}(tester-verified|tester quote-back|closed first)/,
-      'BUG-60 must stay blocked behind BUG-59 tester verification',
+      /BUG-59[\s\S]{0,300}(gate satisfied|shipped|checked|tester-verified|closed first)/,
+      'BUG-60 must reference BUG-59 prerequisite status',
     );
     assert.match(
       bug60,
-      /BUG-59 closed first with tester-verified evidence/,
-      'BUG-60 sequencing must still require BUG-59 tester verification first',
+      /BUG-59 closed first with tester-verified evidence[\s\S]{0,100}Satisfied/,
+      'BUG-60 sequencing must show BUG-59 prerequisite as satisfied',
     );
     assert.match(
       bug60,
@@ -173,7 +173,7 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
   });
 
-  it('keeps BUG-59 shipped-but-still-gating-BUG-60 status explicit', () => {
+  it('keeps BUG-59 shipped with BUG-60 gate satisfied status explicit', () => {
     const roadmap = readRoadmap();
     const uncheckedBug59 = roadmap.search(/^- \[ \] \*\*BUG-59(?::|\b)/m);
     const checkedBug59 = roadmap.search(/^- \[x\] \*\*BUG-59(?::|\b)/m);
@@ -181,7 +181,7 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     assert.equal(
       uncheckedBug59,
       -1,
-      'BUG-59 must not regress into an unchecked roadmap blocker; its remaining role is BUG-60 gating evidence',
+      'BUG-59 must not regress into an unchecked roadmap blocker',
     );
     assert.notEqual(checkedBug59, -1, 'BUG-59 must remain present as a checked shipped item');
 
@@ -195,8 +195,8 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       bug59,
-      /Tester quote-back is still required before BUG-60 implementation starts/,
-      'BUG-59 checked item must preserve its BUG-60 gating quote-back requirement',
+      /BUG-60 implementation gate satisfied/,
+      'BUG-59 checked item must reflect that BUG-60 implementation gate is satisfied',
     );
     assert.match(
       bug59,

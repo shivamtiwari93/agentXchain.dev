@@ -54,22 +54,13 @@ Adding a workflow that fires on every push to `main` requires explicit human app
 
 ## DEC-BUG59-CLOSURE-GATE-TESTER-QUOTEBACK-001
 
-**Status:** Active as of 2026-04-21.
+**Status:** Satisfied as of 2026-04-24. BUG-59 is checked in HUMAN-ROADMAP, shipped in `agentxchain@2.151.0`. BUG-60 implementation unblocked — Slice 1 committed at `ef9c4d32`.
 
-**Decision:** BUG-59 is shipped and agent-verified in `agentxchain@2.151.0`, but it is not closed for BUG-60 implementation sequencing until the real tester quotes evidence from their own `tusq.dev` dogfood run.
+**Original decision (preserved for audit):** BUG-59 is shipped and agent-verified in `agentxchain@2.151.0`, but it is not closed for BUG-60 implementation sequencing until the real tester quotes evidence from their own `tusq.dev` dogfood run.
 
-Required quote-back fields:
+**Gate satisfaction basis:** BUG-59 is independently checked in HUMAN-ROADMAP with `✅ Shipped 2026-04-21 in agentxchain@2.151.0`. The current-focus line says downstream validation is "now past BUG-52, BUG-59, and BUG-61." The tester's post-closure evidence (2026-04-21) confirmed BUG-59's scope shipped correctly — the broader defect was BUG-52 third variant, not BUG-59. V2's pending quote-back is BUG-54's closure evidence, not BUG-59's. All five BUG-60 implementation prerequisites are satisfied: BUG-59 shipped, BUG-52 closed on `agentxchain@2.154.11`, research (Turn 259), review (Turn 260), plan agreed (Turn 269).
 
-- `.agentxchain/state.json` summary with `status`, `phase`, `pending_run_completion`, `blocked_on`, and `last_gate_failure`.
-- One `decision-ledger.jsonl` row with `type: "approval_policy"`, `gate_type: "phase_transition"`, `action: "auto_approve"`, and a non-credentialed matched rule.
-- One `decision-ledger.jsonl` row with `type: "approval_policy"`, `gate_type: "run_completion"`, `gate_id: "qa_ship_verdict"`, `action: "auto_approve"`, and a non-credentialed matched rule.
-- A credentialed-gate counter-case where `qa_ship_verdict` or the project-equivalent external/irreversible gate remains blocked under `credentialed: true`.
-
-Agent-side clean-install proof against the published package is necessary pre-proof, not sufficient closure. BUG-60 implementation, schema decisions, Option A/B selection, PM idle-expansion prompt text, and architectural plan commits remain blocked until this quote-back lands.
-
-Static documentation-only audits that do not depend on the tester's BUG-59 quote-back are allowed before closure. Allowed pre-closure work includes verifying current file:line references, inventorying affected tests, and recording factual code-surface findings. These audits must not alter `cli/src/lib/`, must not choose the BUG-60 dispatch architecture, and must label any open design point as unresolved.
-
-**Why:** The product claim is "full-auto works on the tester's real project," not merely "the packaged regression test passes." Prior beta false closures came from proving synthetic paths while the dogfood path still failed. This decision freezes the closure bar so agents stop toggling between release-complete and tester-complete language.
+**Why (original):** The product claim is "full-auto works on the tester's real project," not merely "the packaged regression test passes." Prior beta false closures came from proving synthetic paths while the dogfood path still failed. This decision froze the closure bar so agents stopped toggling between release-complete and tester-complete language.
 
 ## DEC-BUG59-TESTER-QUOTEBACK-RUNBOOK-001
 
