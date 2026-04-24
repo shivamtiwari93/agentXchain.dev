@@ -1,0 +1,114 @@
+{
+  "schema_version": "1.1",
+  "run_id": "run_71b762f4405c0fc5",
+  "project_id": "tusq-dev",
+  "status": "blocked",
+  "phase": "planning",
+  "accepted_integration_ref": "git:22e4cbe56ee52f9c149095572cd342c7189391c6",
+  "active_turns": {},
+  "turn_sequence": 5,
+  "last_completed_turn_id": "turn_b68e40fbb7b5d1f4",
+  "blocked_on": "human:planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.",
+  "blocked_reason": {
+    "category": "needs_human",
+    "recovery": {
+      "typed_reason": "needs_human",
+      "owner": "human",
+      "recovery_action": "Resolve the stated issue, then run agentxchain resume",
+      "turn_retained": false,
+      "detail": "planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer."
+    },
+    "blocked_at": "2026-04-23T01:46:39.107Z",
+    "turn_id": "turn_b68e40fbb7b5d1f4"
+  },
+  "escalation": null,
+  "pending_phase_transition": null,
+  "pending_run_completion": null,
+  "queued_phase_transition": null,
+  "queued_run_completion": null,
+  "last_gate_failure": null,
+  "phase_gate_status": {
+    "planning_signoff": "pending",
+    "implementation_complete": "pending",
+    "qa_ship_verdict": "pending",
+    "launch_ready": "pending"
+  },
+  "budget_reservations": {},
+  "budget_status": {
+    "spent_usd": 0,
+    "remaining_usd": 50
+  },
+  "created_at": "2026-04-22T14:02:18.399Z",
+  "phase_entered_at": "2026-04-22T14:02:18.399Z",
+  "provenance": {
+    "trigger": "continuation",
+    "parent_run_id": "run_995056dd29cb9f11",
+    "trigger_reason": null,
+    "intake_intent_id": null,
+    "created_by": "operator"
+  },
+  "inherited_context": {
+    "schema_version": "0.1",
+    "parent_run_id": "run_995056dd29cb9f11",
+    "parent_status": "blocked",
+    "parent_completed_at": null,
+    "parent_phases_completed": [
+      "planning"
+    ],
+    "parent_roles_used": [
+      "pm"
+    ],
+    "parent_blocked_reason": "human:planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) now cover M27 scope and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test is green (9 scenarios). An agent PM cannot self-declare gate satisfaction regardless of artifact completeness; routing to human reviewer.",
+    "parent_retrospective": {
+      "headline": "planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) now cover M27 scope and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test is green (9 scenarios). An agent PM cannot self-declare gate satisfaction regardless of artifact completeness; routing to human reviewer.",
+      "terminal_reason": "needs_human",
+      "next_operator_action": "Resolve the stated issue, then run agentxchain resume",
+      "follow_on_hint": null
+    },
+    "recent_decisions": [
+      {
+        "id": "DEC-002",
+        "statement": "M27 adds a new CLI noun `redaction` parallel to the existing `policy` noun (M21/M22/M23), not a top-level `pii-review` command or a flag on the existing `tusq review` approval-gate command.",
+        "decided_by": "pm",
+        "phase": "planning"
+      },
+      {
+        "id": "DEC-003",
+        "statement": "The V1.8 nine-entry PII_REVIEW_ADVISORY_BY_CATEGORY advisory set is frozen in src/cli.js and enumerated in SYSTEM_SPEC § M27. No override file, no environment variable, no flag, no locale in V1.8. Every advisory ends with a reviewer-directive reminder ('reviewer: ...') so the output makes clear the decision still belongs to the reviewer.",
+        "decided_by": "pm",
+        "phase": "planning"
+      },
+      {
+        "id": "DEC-004",
+        "statement": "M27 causes zero capability_digest flips on first post-M27 run because the manifest is not mutated. In contrast with M25 (narrow flip on PII-name capabilities) and M26 (broad flip across every capability), M27 is observationally invisible in `tusq diff`.",
+        "decided_by": "pm",
+        "phase": "planning"
+      },
+      {
+        "id": "DEC-005",
+        "statement": "Challenged the prior accepted turn (turn_e21bcbf7e08e9f4c, role=product_marketing, phase=launch, HEAD c1cd53a) rather than rubber-stamping. The M26 launch pass completed (DEC-887–DEC-889) but cannot satisfy a fresh M27 planning acceptance contract; M27 requires its own planning artifacts.",
+        "decided_by": "pm",
+        "phase": "planning"
+      },
+      {
+        "id": "DEC-006",
+        "statement": "Modified only the four PM-owned planning_signoff gate artifacts: .planning/PM_SIGNOFF.md, .planning/ROADMAP.md, .planning/SYSTEM_SPEC.md, .planning/command-surface.md. Did NOT modify reserved orchestrator state files, QA-owned artifacts, launch-owned artifacts, dev-owned src/, or intake-template stubs.",
+        "decided_by": "pm",
+        "phase": "planning"
+      }
+    ],
+    "recent_accepted_turns": [
+      {
+        "turn_id": "turn_4a4545d1e454f260",
+        "role": "pm",
+        "summary": "Derived M27 as a bounded reviewer-facing PII redaction review subcommand (tusq redaction review) that aggregates M25/M26 PII evidence with frozen advisory text and strictly does not mutate the manifest, retention_days, log_level, mask_in_traces, sensitivity_class, serve, or policy verify.",
+        "phase": "planning"
+      }
+    ],
+    "inherited_at": "2026-04-22T14:02:18.394Z"
+  },
+  "repo_decisions": null,
+  "delegation_queue": [],
+  "next_recommended_role": null,
+  "pending_delegation_review": null
+}

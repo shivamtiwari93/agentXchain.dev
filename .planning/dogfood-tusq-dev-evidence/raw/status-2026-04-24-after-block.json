@@ -1,0 +1,895 @@
+{
+  "version": 4,
+  "protocol_mode": "governed",
+  "template": "cli-tool",
+  "project_goal": "Build tusq.dev as the open-source capability compiler and governed AI-enablement engine for SaaS products.",
+  "config": {
+    "schema_version": 4,
+    "protocol_mode": "governed",
+    "template": "cli-tool",
+    "project": {
+      "id": "tusq-dev",
+      "name": "tusq.dev",
+      "goal": "Build tusq.dev as the open-source capability compiler and governed AI-enablement engine for SaaS products.",
+      "default_branch": "main"
+    },
+    "roles": {
+      "pm": {
+        "title": "Product Manager",
+        "mandate": "Protect user value, scope clarity, and acceptance criteria.",
+        "write_authority": "authoritative",
+        "runtime_class": "local_cli",
+        "runtime_id": "local-pm"
+      },
+      "dev": {
+        "title": "Developer",
+        "mandate": "Implement approved work safely and verify behavior.",
+        "write_authority": "authoritative",
+        "runtime_class": "local_cli",
+        "runtime_id": "local-dev"
+      },
+      "qa": {
+        "title": "QA",
+        "mandate": "Challenge correctness, acceptance coverage, and ship readiness.",
+        "write_authority": "authoritative",
+        "runtime_class": "local_cli",
+        "runtime_id": "local-qa"
+      },
+      "product_marketing": {
+        "title": "Staff Product Marketing Manager",
+        "mandate": "Sharpen positioning, launch clarity, and market-facing narrative without drifting from product truth.",
+        "write_authority": "authoritative",
+        "runtime_class": "local_cli",
+        "runtime_id": "local-product-marketing"
+      },
+      "eng_director": {
+        "title": "Engineering Director",
+        "mandate": "Resolve tactical deadlocks and enforce technical coherence.",
+        "write_authority": "authoritative",
+        "runtime_class": "local_cli",
+        "runtime_id": "local-director"
+      }
+    },
+    "runtimes": {
+      "local-pm": {
+        "type": "local_cli",
+        "command": [
+          "claude",
+          "--print",
+          "--effort",
+          "high",
+          "--permission-mode",
+          "bypassPermissions",
+          "--model",
+          "claude-opus-4-7",
+          "--output-format",
+          "stream-json",
+          "--include-partial-messages",
+          "--verbose",
+          "--dangerously-skip-permissions"
+        ],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      },
+      "local-dev": {
+        "type": "local_cli",
+        "command": [
+          "claude",
+          "--print",
+          "--effort",
+          "high",
+          "--permission-mode",
+          "bypassPermissions",
+          "--model",
+          "claude-sonnet-4-6",
+          "--output-format",
+          "stream-json",
+          "--include-partial-messages",
+          "--verbose",
+          "--dangerously-skip-permissions"
+        ],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      },
+      "local-qa": {
+        "type": "local_cli",
+        "command": [
+          "claude",
+          "--print",
+          "--effort",
+          "high",
+          "--permission-mode",
+          "bypassPermissions",
+          "--model",
+          "claude-sonnet-4-6",
+          "--output-format",
+          "stream-json",
+          "--include-partial-messages",
+          "--verbose",
+          "--dangerously-skip-permissions"
+        ],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      },
+      "local-product-marketing": {
+        "type": "local_cli",
+        "command": [
+          "claude",
+          "--print",
+          "--effort",
+          "high",
+          "--permission-mode",
+          "bypassPermissions",
+          "--model",
+          "claude-opus-4-7",
+          "--output-format",
+          "stream-json",
+          "--include-partial-messages",
+          "--verbose",
+          "--dangerously-skip-permissions"
+        ],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      },
+      "local-director": {
+        "type": "local_cli",
+        "command": [
+          "/Applications/Codex.app/Contents/Resources/codex",
+          "exec",
+          "--dangerously-bypass-approvals-and-sandbox",
+          "-c",
+          "model_reasoning_effort=\"high\"",
+          "--model",
+          "gpt-5.4"
+        ],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      }
+    },
+    "routing": {
+      "planning": {
+        "entry_role": "pm",
+        "allowed_next_roles": [
+          "pm",
+          "dev",
+          "product_marketing",
+          "eng_director",
+          "human"
+        ],
+        "exit_gate": "planning_signoff"
+      },
+      "implementation": {
+        "entry_role": "dev",
+        "allowed_next_roles": [
+          "dev",
+          "qa",
+          "product_marketing",
+          "eng_director",
+          "human"
+        ],
+        "exit_gate": "implementation_complete"
+      },
+      "qa": {
+        "entry_role": "qa",
+        "allowed_next_roles": [
+          "dev",
+          "qa",
+          "product_marketing",
+          "eng_director",
+          "human"
+        ],
+        "exit_gate": "qa_ship_verdict"
+      },
+      "launch": {
+        "entry_role": "product_marketing",
+        "allowed_next_roles": [
+          "product_marketing",
+          "dev",
+          "qa",
+          "pm",
+          "eng_director",
+          "human"
+        ],
+        "exit_gate": "launch_ready"
+      }
+    },
+    "gates": {
+      "planning_signoff": {
+        "requires_files": [
+          ".planning/PM_SIGNOFF.md",
+          ".planning/ROADMAP.md",
+          ".planning/SYSTEM_SPEC.md"
+        ],
+        "requires_human_approval": true
+      },
+      "implementation_complete": {
+        "requires_files": [
+          ".planning/IMPLEMENTATION_NOTES.md"
+        ],
+        "requires_verification_pass": true
+      },
+      "qa_ship_verdict": {
+        "requires_files": [
+          ".planning/acceptance-matrix.md",
+          ".planning/ship-verdict.md",
+          ".planning/RELEASE_NOTES.md"
+        ],
+        "requires_human_approval": true
+      },
+      "launch_ready": {
+        "requires_files": [
+          ".planning/MESSAGING.md",
+          ".planning/LAUNCH_PLAN.md",
+          ".planning/CONTENT_CALENDAR.md",
+          ".planning/ANNOUNCEMENT.md"
+        ]
+      }
+    },
+    "hooks": {},
+    "notifications": {},
+    "schedules": {},
+    "budget": {
+      "per_turn_max_usd": 2,
+      "per_run_max_usd": 50,
+      "on_exceed": "pause_and_escalate"
+    },
+    "policies": [],
+    "approval_policy": null,
+    "timeouts": null,
+    "workflow_kit": {
+      "phases": {
+        "planning": {
+          "artifacts": [
+            {
+              "path": ".planning/PM_SIGNOFF.md",
+              "semantics": "pm_signoff",
+              "semantics_config": null,
+              "owned_by": "pm",
+              "required": true
+            },
+            {
+              "path": ".planning/ROADMAP.md",
+              "semantics": null,
+              "semantics_config": null,
+              "owned_by": "pm",
+              "required": true
+            },
+            {
+              "path": ".planning/SYSTEM_SPEC.md",
+              "semantics": "system_spec",
+              "semantics_config": null,
+              "owned_by": "pm",
+              "required": true
+            },
+            {
+              "path": ".planning/command-surface.md",
+              "semantics": "section_check",
+              "semantics_config": {
+                "required_sections": [
+                  "## Primary Commands",
+                  "## Flags And Options",
+                  "## Failure UX"
+                ]
+              },
+              "owned_by": "pm",
+              "required": true
+            }
+          ]
+        },
+        "implementation": {
+          "artifacts": [
+            {
+              "path": ".planning/IMPLEMENTATION_NOTES.md",
+              "semantics": "implementation_notes",
+              "semantics_config": null,
+              "owned_by": "dev",
+              "required": true
+            }
+          ]
+        },
+        "qa": {
+          "artifacts": [
+            {
+              "path": ".planning/acceptance-matrix.md",
+              "semantics": "acceptance_matrix",
+              "semantics_config": null,
+              "owned_by": "qa",
+              "required": true
+            },
+            {
+              "path": ".planning/ship-verdict.md",
+              "semantics": "ship_verdict",
+              "semantics_config": null,
+              "owned_by": "qa",
+              "required": true
+            },
+            {
+              "path": ".planning/RELEASE_NOTES.md",
+              "semantics": "release_notes",
+              "semantics_config": null,
+              "owned_by": "qa",
+              "required": true
+            }
+          ]
+        },
+        "launch": {
+          "artifacts": [
+            {
+              "path": ".planning/MESSAGING.md",
+              "semantics": "section_check",
+              "semantics_config": {
+                "required_sections": [
+                  "## Audience",
+                  "## Positioning",
+                  "## Product Truth",
+                  "## Claims We Can Defend",
+                  "## Claims We Must Not Make"
+                ]
+              },
+              "owned_by": "product_marketing",
+              "required": true
+            },
+            {
+              "path": ".planning/LAUNCH_PLAN.md",
+              "semantics": "section_check",
+              "semantics_config": {
+                "required_sections": [
+                  "## Launch Goals",
+                  "## Required Assets",
+                  "## Dependencies",
+                  "## Risks"
+                ]
+              },
+              "owned_by": "product_marketing",
+              "required": true
+            },
+            {
+              "path": ".planning/CONTENT_CALENDAR.md",
+              "semantics": "section_check",
+              "semantics_config": {
+                "required_sections": [
+                  "## Launch Day",
+                  "## Week 1",
+                  "## Follow-ups"
+                ]
+              },
+              "owned_by": "product_marketing",
+              "required": true
+            },
+            {
+              "path": ".planning/ANNOUNCEMENT.md",
+              "semantics": "section_check",
+              "semantics_config": {
+                "required_sections": [
+                  "## Headline",
+                  "## Product Summary",
+                  "## Blog Draft",
+                  "## Social Copy"
+                ]
+              },
+              "owned_by": "product_marketing",
+              "required": true
+            }
+          ]
+        }
+      },
+      "_explicit": true
+    },
+    "retention": {
+      "talk_strategy": "append_only",
+      "history_strategy": "jsonl_append_only"
+    },
+    "rules": {
+      "challenge_required": true,
+      "max_turn_retries": 2,
+      "max_deadlock_cycles": 2,
+      "max_consecutive_claims": null,
+      "verify_command": null,
+      "compress_after_words": null,
+      "ttl_minutes": null
+    },
+    "files": {
+      "talk": "TALK.md",
+      "history": ".agentxchain/history.jsonl",
+      "state": ".agentxchain/state.json",
+      "log": null
+    },
+    "compat": {
+      "next_owner_source": "state-json",
+      "lock_based_coordination": false,
+      "original_version": 4
+    }
+  },
+  "state": {
+    "schema_version": "1.1",
+    "run_id": "run_71b762f4405c0fc5",
+    "project_id": "tusq-dev",
+    "status": "blocked",
+    "phase": "planning",
+    "accepted_integration_ref": "git:22e4cbe56ee52f9c149095572cd342c7189391c6",
+    "active_turns": {},
+    "turn_sequence": 5,
+    "last_completed_turn_id": "turn_b68e40fbb7b5d1f4",
+    "blocked_on": "human:planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.",
+    "blocked_reason": {
+      "category": "needs_human",
+      "recovery": {
+        "typed_reason": "needs_human",
+        "owner": "human",
+        "recovery_action": "Resolve the stated issue, then run agentxchain resume",
+        "turn_retained": false,
+        "detail": "planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer."
+      },
+      "blocked_at": "2026-04-23T01:46:39.107Z",
+      "turn_id": "turn_b68e40fbb7b5d1f4"
+    },
+    "escalation": null,
+    "pending_phase_transition": null,
+    "pending_run_completion": null,
+    "queued_phase_transition": null,
+    "queued_run_completion": null,
+    "last_gate_failure": null,
+    "phase_gate_status": {
+      "planning_signoff": "pending",
+      "implementation_complete": "pending",
+      "qa_ship_verdict": "pending",
+      "launch_ready": "pending"
+    },
+    "budget_reservations": {},
+    "budget_status": {
+      "spent_usd": 0,
+      "remaining_usd": 50
+    },
+    "created_at": "2026-04-22T14:02:18.399Z",
+    "phase_entered_at": "2026-04-22T14:02:18.399Z",
+    "provenance": {
+      "trigger": "continuation",
+      "parent_run_id": "run_995056dd29cb9f11",
+      "trigger_reason": null,
+      "intake_intent_id": null,
+      "created_by": "operator"
+    },
+    "inherited_context": {
+      "schema_version": "0.1",
+      "parent_run_id": "run_995056dd29cb9f11",
+      "parent_status": "blocked",
+      "parent_completed_at": null,
+      "parent_phases_completed": [
+        "planning"
+      ],
+      "parent_roles_used": [
+        "pm"
+      ],
+      "parent_blocked_reason": "human:planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) now cover M27 scope and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test is green (9 scenarios). An agent PM cannot self-declare gate satisfaction regardless of artifact completeness; routing to human reviewer.",
+      "parent_retrospective": {
+        "headline": "planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) now cover M27 scope and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test is green (9 scenarios). An agent PM cannot self-declare gate satisfaction regardless of artifact completeness; routing to human reviewer.",
+        "terminal_reason": "needs_human",
+        "next_operator_action": "Resolve the stated issue, then run agentxchain resume",
+        "follow_on_hint": null
+      },
+      "recent_decisions": [
+        {
+          "id": "DEC-002",
+          "statement": "M27 adds a new CLI noun `redaction` parallel to the existing `policy` noun (M21/M22/M23), not a top-level `pii-review` command or a flag on the existing `tusq review` approval-gate command.",
+          "decided_by": "pm",
+          "phase": "planning"
+        },
+        {
+          "id": "DEC-003",
+          "statement": "The V1.8 nine-entry PII_REVIEW_ADVISORY_BY_CATEGORY advisory set is frozen in src/cli.js and enumerated in SYSTEM_SPEC § M27. No override file, no environment variable, no flag, no locale in V1.8. Every advisory ends with a reviewer-directive reminder ('reviewer: ...') so the output makes clear the decision still belongs to the reviewer.",
+          "decided_by": "pm",
+          "phase": "planning"
+        },
+        {
+          "id": "DEC-004",
+          "statement": "M27 causes zero capability_digest flips on first post-M27 run because the manifest is not mutated. In contrast with M25 (narrow flip on PII-name capabilities) and M26 (broad flip across every capability), M27 is observationally invisible in `tusq diff`.",
+          "decided_by": "pm",
+          "phase": "planning"
+        },
+        {
+          "id": "DEC-005",
+          "statement": "Challenged the prior accepted turn (turn_e21bcbf7e08e9f4c, role=product_marketing, phase=launch, HEAD c1cd53a) rather than rubber-stamping. The M26 launch pass completed (DEC-887–DEC-889) but cannot satisfy a fresh M27 planning acceptance contract; M27 requires its own planning artifacts.",
+          "decided_by": "pm",
+          "phase": "planning"
+        },
+        {
+          "id": "DEC-006",
+          "statement": "Modified only the four PM-owned planning_signoff gate artifacts: .planning/PM_SIGNOFF.md, .planning/ROADMAP.md, .planning/SYSTEM_SPEC.md, .planning/command-surface.md. Did NOT modify reserved orchestrator state files, QA-owned artifacts, launch-owned artifacts, dev-owned src/, or intake-template stubs.",
+          "decided_by": "pm",
+          "phase": "planning"
+        }
+      ],
+      "recent_accepted_turns": [
+        {
+          "turn_id": "turn_4a4545d1e454f260",
+          "role": "pm",
+          "summary": "Derived M27 as a bounded reviewer-facing PII redaction review subcommand (tusq redaction review) that aggregates M25/M26 PII evidence with frozen advisory text and strictly does not mutate the manifest, retention_days, log_level, mask_in_traces, sensitivity_class, serve, or policy verify.",
+          "phase": "planning"
+        }
+      ],
+      "inherited_at": "2026-04-22T14:02:18.394Z"
+    },
+    "repo_decisions": null,
+    "delegation_queue": [],
+    "next_recommended_role": null,
+    "pending_delegation_review": null
+  },
+  "provenance": {
+    "trigger": "continuation",
+    "parent_run_id": "run_995056dd29cb9f11",
+    "trigger_reason": null,
+    "intake_intent_id": null,
+    "created_by": "operator"
+  },
+  "inherited_context": {
+    "schema_version": "0.1",
+    "parent_run_id": "run_995056dd29cb9f11",
+    "parent_status": "blocked",
+    "parent_completed_at": null,
+    "parent_phases_completed": [
+      "planning"
+    ],
+    "parent_roles_used": [
+      "pm"
+    ],
+    "parent_blocked_reason": "human:planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) now cover M27 scope and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test is green (9 scenarios). An agent PM cannot self-declare gate satisfaction regardless of artifact completeness; routing to human reviewer.",
+    "parent_retrospective": {
+      "headline": "planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) now cover M27 scope and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test is green (9 scenarios). An agent PM cannot self-declare gate satisfaction regardless of artifact completeness; routing to human reviewer.",
+      "terminal_reason": "needs_human",
+      "next_operator_action": "Resolve the stated issue, then run agentxchain resume",
+      "follow_on_hint": null
+    },
+    "recent_decisions": [
+      {
+        "id": "DEC-002",
+        "statement": "M27 adds a new CLI noun `redaction` parallel to the existing `policy` noun (M21/M22/M23), not a top-level `pii-review` command or a flag on the existing `tusq review` approval-gate command.",
+        "decided_by": "pm",
+        "phase": "planning"
+      },
+      {
+        "id": "DEC-003",
+        "statement": "The V1.8 nine-entry PII_REVIEW_ADVISORY_BY_CATEGORY advisory set is frozen in src/cli.js and enumerated in SYSTEM_SPEC § M27. No override file, no environment variable, no flag, no locale in V1.8. Every advisory ends with a reviewer-directive reminder ('reviewer: ...') so the output makes clear the decision still belongs to the reviewer.",
+        "decided_by": "pm",
+        "phase": "planning"
+      },
+      {
+        "id": "DEC-004",
+        "statement": "M27 causes zero capability_digest flips on first post-M27 run because the manifest is not mutated. In contrast with M25 (narrow flip on PII-name capabilities) and M26 (broad flip across every capability), M27 is observationally invisible in `tusq diff`.",
+        "decided_by": "pm",
+        "phase": "planning"
+      },
+      {
+        "id": "DEC-005",
+        "statement": "Challenged the prior accepted turn (turn_e21bcbf7e08e9f4c, role=product_marketing, phase=launch, HEAD c1cd53a) rather than rubber-stamping. The M26 launch pass completed (DEC-887–DEC-889) but cannot satisfy a fresh M27 planning acceptance contract; M27 requires its own planning artifacts.",
+        "decided_by": "pm",
+        "phase": "planning"
+      },
+      {
+        "id": "DEC-006",
+        "statement": "Modified only the four PM-owned planning_signoff gate artifacts: .planning/PM_SIGNOFF.md, .planning/ROADMAP.md, .planning/SYSTEM_SPEC.md, .planning/command-surface.md. Did NOT modify reserved orchestrator state files, QA-owned artifacts, launch-owned artifacts, dev-owned src/, or intake-template stubs.",
+        "decided_by": "pm",
+        "phase": "planning"
+      }
+    ],
+    "recent_accepted_turns": [
+      {
+        "turn_id": "turn_4a4545d1e454f260",
+        "role": "pm",
+        "summary": "Derived M27 as a bounded reviewer-facing PII redaction review subcommand (tusq redaction review) that aggregates M25/M26 PII evidence with frozen advisory text and strictly does not mutate the manifest, retention_days, log_level, mask_in_traces, sensitivity_class, serve, or policy verify.",
+        "phase": "planning"
+      }
+    ],
+    "inherited_at": "2026-04-22T14:02:18.394Z"
+  },
+  "repo_decisions": null,
+  "repo_decision_summary": null,
+  "continuity": {
+    "checkpoint": {
+      "session_id": "session_351808e1465719b6",
+      "run_id": "run_71b762f4405c0fc5",
+      "started_at": "2026-04-17T19:54:00.074Z",
+      "last_checkpoint_at": "2026-04-23T01:46:39.599Z",
+      "checkpoint_reason": "turn_accepted",
+      "run_status": "blocked",
+      "phase": "planning",
+      "last_phase": "planning",
+      "last_turn_id": "turn_b68e40fbb7b5d1f4",
+      "last_completed_turn_id": "turn_b68e40fbb7b5d1f4",
+      "active_turn_ids": [],
+      "last_role": "pm",
+      "pending_gate": null,
+      "pending_run_completion": null,
+      "blocked": true,
+      "baseline_ref": {
+        "git_head": "22e4cbe56ee52f9c149095572cd342c7189391c6",
+        "git_branch": "main",
+        "workspace_dirty": true
+      },
+      "agent_context": {
+        "adapter": null,
+        "dispatch_dir": null
+      }
+    },
+    "stale_checkpoint": false,
+    "recovery_report_path": ".agentxchain/SESSION_RECOVERY.md",
+    "restart_recommended": false,
+    "recommended_command": "agentxchain reconcile-state --accept-operator-head",
+    "recommended_reason": "operator_commit_drift",
+    "recommended_detail": "accept safe fast-forward operator commits as the new baseline",
+    "drift_detected": true,
+    "drift_warnings": [
+      "Git HEAD has moved since checkpoint: 22e4cbe5 -> a6a388e1",
+      "Branch changed since checkpoint: main -> agentxchain-dogfood-2026-04"
+    ]
+  },
+  "recovery": {
+    "typed_reason": "needs_human",
+    "owner": "human",
+    "recovery_action": "Resolve the stated issue, then run agentxchain resume",
+    "turn_retained": false,
+    "detail": "planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.",
+    "runtime_guidance": []
+  },
+  "runtime_guidance": [],
+  "next_actions": [
+    {
+      "command": "Resolve the stated issue, then run agentxchain resume",
+      "reason": "Run is blocked: needs_human."
+    }
+  ],
+  "connector_health": {
+    "connectors": [
+      {
+        "runtime_id": "local-dev",
+        "type": "local_cli",
+        "target": "claude --print --effort high --permission-mode bypassPermissions --model claude-sonnet-4-6 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions",
+        "state": "healthy",
+        "reachable": "unknown",
+        "active_turn_ids": [],
+        "active_roles": [],
+        "last_turn_id": "turn_15fa820a626aac33",
+        "last_role": "dev",
+        "last_phase": "implementation",
+        "last_attempt_at": null,
+        "last_success_at": "2026-04-22T13:16:42.371Z",
+        "last_failure_at": null,
+        "latency_ms": null,
+        "attempts_made": null,
+        "last_error": null
+      },
+      {
+        "runtime_id": "local-director",
+        "type": "local_cli",
+        "target": "/Applications/Codex.app/Contents/Resources/codex exec --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort=\"high\" --model gpt-5.4",
+        "state": "healthy",
+        "reachable": "unknown",
+        "active_turn_ids": [],
+        "active_roles": [],
+        "last_turn_id": "turn_e21bcbf7e08e9f4c",
+        "last_role": "product_marketing",
+        "last_phase": "launch",
+        "last_attempt_at": null,
+        "last_success_at": "2026-04-22T12:20:54.476Z",
+        "last_failure_at": null,
+        "latency_ms": null,
+        "attempts_made": null,
+        "last_error": null
+      },
+      {
+        "runtime_id": "local-pm",
+        "type": "local_cli",
+        "target": "claude --print --effort high --permission-mode bypassPermissions --model claude-opus-4-7 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions",
+        "state": "failing",
+        "reachable": "unknown",
+        "active_turn_ids": [],
+        "active_roles": [],
+        "last_turn_id": "turn_b68e40fbb7b5d1f4",
+        "last_role": null,
+        "last_phase": "planning",
+        "last_attempt_at": null,
+        "last_success_at": "2026-04-23T01:46:39.107Z",
+        "last_failure_at": "2026-04-23T01:46:39.107Z",
+        "latency_ms": null,
+        "attempts_made": null,
+        "last_error": "planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer."
+      },
+      {
+        "runtime_id": "local-product-marketing",
+        "type": "local_cli",
+        "target": "claude --print --effort high --permission-mode bypassPermissions --model claude-opus-4-7 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions",
+        "state": "healthy",
+        "reachable": "unknown",
+        "active_turn_ids": [],
+        "active_roles": [],
+        "last_turn_id": "turn_4b9edcf6f13f0d30",
+        "last_role": "product_marketing",
+        "last_phase": "launch",
+        "last_attempt_at": null,
+        "last_success_at": "2026-04-22T13:59:36.219Z",
+        "last_failure_at": null,
+        "latency_ms": null,
+        "attempts_made": null,
+        "last_error": null
+      },
+      {
+        "runtime_id": "local-qa",
+        "type": "local_cli",
+        "target": "claude --print --effort high --permission-mode bypassPermissions --model claude-sonnet-4-6 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions",
+        "state": "healthy",
+        "reachable": "unknown",
+        "active_turn_ids": [],
+        "active_roles": [],
+        "last_turn_id": "turn_7de1d2affebb3f59",
+        "last_role": "qa",
+        "last_phase": "qa",
+        "last_attempt_at": null,
+        "last_success_at": "2026-04-22T13:38:15.986Z",
+        "last_failure_at": null,
+        "latency_ms": null,
+        "attempts_made": null,
+        "last_error": null
+      }
+    ]
+  },
+  "recent_event_summary": {
+    "window_minutes": 15,
+    "freshness": "recent",
+    "recent_count": 1,
+    "latest_event": {
+      "event_type": "idle_expansion_dispatched",
+      "timestamp": "2026-04-24T12:46:55.839Z",
+      "phase": null,
+      "status": "running",
+      "turn_id": null,
+      "role_id": null,
+      "repo_id": null,
+      "summary": "idle_expansion_dispatched"
+    }
+  },
+  "dispatch_progress": {},
+  "human_escalation": {
+    "kind": "raised",
+    "escalation_id": "hesc_0b1b166cd606d86d",
+    "created_at": "2026-04-23T01:46:39.107Z",
+    "run_id": "run_71b762f4405c0fc5",
+    "phase": "planning",
+    "blocked_on": "human:planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.",
+    "category": "needs_human",
+    "typed_reason": "needs_human",
+    "type": "needs_decision",
+    "service": "npm",
+    "action": "Review the blocker, make the required decision, and confirm the run can continue.",
+    "recovery_action": "Resolve the stated issue, then run agentxchain resume",
+    "resolution_command": "agentxchain unblock hesc_0b1b166cd606d86d",
+    "detail": "planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.",
+    "turn_id": "turn_b68e40fbb7b5d1f4",
+    "role_id": "pm",
+    "status": "open",
+    "resolved_at": null,
+    "resolved_via": null,
+    "resolution_notes": null
+  },
+  "preemption_marker": null,
+  "pending_intents": [],
+  "continuous_session": {
+    "session_id": "cont-de73cf47",
+    "started_at": "2026-04-24T12:46:40.757Z",
+    "vision_path": ".planning/VISION.md",
+    "runs_completed": 0,
+    "max_runs": 5,
+    "idle_cycles": 0,
+    "max_idle_cycles": 3,
+    "current_run_id": "run_71b762f4405c0fc5",
+    "current_vision_objective": null,
+    "status": "failed",
+    "per_session_max_usd": null,
+    "cumulative_spent_usd": 0,
+    "budget_exhausted": false,
+    "startup_reconciled_run_id": "run_71b762f4405c0fc5",
+    "vision_headings_snapshot": [
+      "Vision for tusq.dev",
+      "Mission",
+      "The fight",
+      "The promise",
+      "What tusq.dev does",
+      "The core insight",
+      "The canonical artifact",
+      "Why we move fast",
+      "Why wide works for us",
+      "Coherence is expensive, implementation is cheaper than before",
+      "Wide OSS compounds faster than narrow OSS",
+      "Breadth turns into retention",
+      "The guardrails on width",
+      "Design principles",
+      "Velocity over surface area",
+      "Reviewable over opaque",
+      "Explicit side effects",
+      "Self-hostable or it does not ship",
+      "Plugins are how we scale",
+      "Product modules",
+      "The full transition we automate",
+      "Capability discovery and normalization",
+      "Auth and permission mapping",
+      "Data and schema understanding",
+      "Runtime instrumentation",
+      "Safe execution wrappers",
+      "Skill and agent composition",
+      "AI-facing interface generation",
+      "Eval and regression infrastructure",
+      "Documentation and adoption surfaces",
+      "Migration and rollout tooling",
+      "Governance and review workflows",
+      "Competitive transition intelligence",
+      "Roadmap shape: V1, V2, V3",
+      "Must-have in V1",
+      "High-leverage in V2",
+      "Moat features in V3",
+      "Who this is for",
+      "Why open source",
+      "What we resist",
+      "Vision for maturity",
+      "Relationship to tusq.cloud",
+      "Final statement"
+    ],
+    "vision_sha_at_snapshot": "43b8fba7e12477333521ae553821c8505e3d910082b45d101a5a4bd0d8f38950",
+    "expansion_iteration": 1,
+    "_vision_stale_warned_shas": []
+  },
+  "gate_action_attempt": null,
+  "workflow_kit_artifacts": {
+    "ok": true,
+    "phase": "planning",
+    "artifacts": [
+      {
+        "path": ".planning/command-surface.md",
+        "required": true,
+        "semantics": "section_check",
+        "owned_by": "pm",
+        "owner_resolution": "explicit",
+        "exists": true
+      },
+      {
+        "path": ".planning/PM_SIGNOFF.md",
+        "required": true,
+        "semantics": "pm_signoff",
+        "owned_by": "pm",
+        "owner_resolution": "explicit",
+        "exists": true
+      },
+      {
+        "path": ".planning/ROADMAP.md",
+        "required": true,
+        "semantics": null,
+        "owned_by": "pm",
+        "owner_resolution": "explicit",
+        "exists": true
+      },
+      {
+        "path": ".planning/SYSTEM_SPEC.md",
+        "required": true,
+        "semantics": "system_spec",
+        "owned_by": "pm",
+        "owner_resolution": "explicit",
+        "exists": true
+      }
+    ]
+  },
+  "dashboard_session": {
+    "status": "not_running",
+    "pid": null,
+    "url": null,
+    "started_at": null
+  },
+  "binding_drift": [],
+  "bundle_integrity": {
+    "ok": true,
+    "desynced": []
+  },
+  "coordinator_warnings": {
+    "count": 0,
+    "reconciliation_required": false,
+    "warnings": []
+  },
+  "stale_turns": [],
+  "ghost_turns": []
+}

@@ -1155,7 +1155,30 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     return { ok: true, status: 'session_budget', action: 'session_budget_exhausted', stop_reason: 'session_budget' };
   }
 
-  // Idle-cycle check: on_idle policy determines behavior
+  reconcileContinuousStartupState(context, session, contOpts, log);
+
+  const reconcileBlock = maybeAutoReconcileOperatorCommits(context, session, contOpts, log);
+  if (reconcileBlock) return reconcileBlock;
+
+  const startupGovernedState = loadProjectState(root, context.config);
+  if (startupGovernedState?.status === 'blocked') {
+    const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, startupGovernedState, log);
+    if (retried) return retried;
+    session.status = 'paused';
+    writeContinuousSession(root, session);
+    return {
+      ok: true,
+      status: 'blocked',
+      action: 'still_blocked',
+      run_id: session.current_run_id || startupGovernedState.run_id || null,
+      recovery_action: getBlockedRecoveryAction(startupGovernedState),
+      blocked_category: getBlockedCategory(startupGovernedState),
+    };
+  }
+
+  // Idle-cycle check: on_idle policy determines behavior. This MUST run after
+  // startup blocked/reconcile checks so perpetual mode cannot enqueue new
+  // idle-expansion work into a run that is already ineligible to start.
   if (session.idle_cycles >= contOpts.maxIdleCycles) {
     if (contOpts.onIdle === 'perpetual' && contOpts.idleExpansion) {
       // BUG-60: perpetual mode — dispatch PM idle-expansion instead of exiting
@@ -1192,11 +1215,6 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     writeContinuousSession(root, session);
     return { ok: true, status: 'idle_exit', action: 'max_idle_reached', stop_reason: 'idle_exit' };
   }
-
-  reconcileContinuousStartupState(context, session, contOpts, log);
-
-  const reconcileBlock = maybeAutoReconcileOperatorCommits(context, session, contOpts, log);
-  if (reconcileBlock) return reconcileBlock;
 
   // Paused-session guard: if session is paused (blocked run awaiting unblock),
   // check governed state before attempting to advance. Without this guard, the

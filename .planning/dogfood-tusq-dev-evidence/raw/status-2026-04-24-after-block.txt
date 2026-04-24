@@ -1,0 +1,85 @@
+
+  AgentXchain Status
+  ────────────────────────────────────────────
+
+  🔄 Continuous Vision-Driven Session
+  Session:     cont-de73cf47
+  Vision:      .planning/VISION.md
+  Status:      failed
+  Runs:        0/5
+  ────────────────────────────────────────────
+
+  Project:  tusq.dev
+  Goal:     Build tusq.dev as the open-source capability compiler and governed AI-enablement engine for SaaS products.
+  Protocol: governed (v4)
+  Template: cli-tool
+  Phase:    planning
+  Run:      BLOCKED
+  Origin:   continuation from run_995056dd29cb9f11
+  Inherits: parent run_995056dd29cb9f11 (blocked)
+  Accepted: git:22e4cbe56ee52f9c149095572cd342c7189391c6
+
+  Continuity:
+  Session:  session_351808e1465719b6
+  Checkpoint: turn_accepted at 2026-04-23T01:46:39.599Z
+  Last turn: turn_b68e40fbb7b5d1f4
+  Last role: pm
+  Drift:    Git HEAD has moved since checkpoint: 22e4cbe5 -> a6a388e1
+            Branch changed since checkpoint: main -> agentxchain-dogfood-2026-04
+  Action:   agentxchain reconcile-state --accept-operator-head (accept safe fast-forward operator commits as the new baseline)
+  Report:   .agentxchain/SESSION_RECOVERY.md
+
+  Connectors:
+    ● healthy local-dev — local_cli (claude --print --effort high --permission-mode bypassPermissions --model claude-sonnet-4-6 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions)
+      Last success: 2026-04-22T13:16:42.371Z
+    ● healthy local-director — local_cli (/Applications/Codex.app/Contents/Resources/codex exec --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high" --model gpt-5.4)
+      Last success: 2026-04-22T12:20:54.476Z
+    ✗ failing local-pm — local_cli (claude --print --effort high --permission-mode bypassPermissions --model claude-opus-4-7 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions)
+      Last error: planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.
+    ● healthy local-product-marketing — local_cli (claude --print --effort high --permission-mode bypassPermissions --model claude-opus-4-7 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions)
+      Last success: 2026-04-22T13:59:36.219Z
+    ● healthy local-qa — local_cli (claude --print --effort high --permission-mode bypassPermissions --model claude-sonnet-4-6 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions)
+      Last success: 2026-04-22T13:38:15.986Z
+
+  Recent events: recent (1 in last 15m)
+  Latest:   idle_expansion_dispatched
+  When:     2026-04-24T12:46:55.839Z
+
+  Turn:     No active turn
+
+  Blocked:  BLOCKED — planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.
+
+  Reason:   needs_human
+  Owner:    human
+  Action:   Resolve the stated issue, then run agentxchain resume
+  Turn:     cleared
+  Detail:   planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.
+
+  Human task: hesc_0b1b166cd606d86d (npm)
+  Type:     needs_decision
+  Unblock:  agentxchain unblock hesc_0b1b166cd606d86d
+  Task:     Review the blocker, make the required decision, and confirm the run can continue.
+
+  Gates:
+    ○ planning_signoff: pending
+      Files: PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md
+      Needs: human approval
+    ○ implementation_complete: pending
+    ○ qa_ship_verdict: pending
+    ○ launch_ready: pending
+
+  Artifacts: (planning)
+    ✓ .planning/command-surface.md [pm]
+    ✓ .planning/PM_SIGNOFF.md [pm]
+    ✓ .planning/ROADMAP.md [pm]
+    ✓ .planning/SYSTEM_SPEC.md [pm]
+
+  Budget:   spent $0.00 / remaining $50.00
+
+  Roles:    5
+    ○ pm — Product Manager [authoritative]
+    ○ dev — Developer [authoritative]
+    ○ qa — QA [authoritative]
+    ○ product_marketing — Staff Product Marketing Manager [authoritative]
+    ○ eng_director — Engineering Director [authoritative]
+

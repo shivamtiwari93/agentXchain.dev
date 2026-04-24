@@ -149,6 +149,55 @@ function readTestConfig(dir) {
   };
 }
 
+function initContinuousGitProject(dir) {
+  const git = (args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
+  git(['init', '-q']);
+  git(['config', 'user.email', 'test@example.com']);
+  git(['config', 'user.name', 'Test User']);
+  writeFileSync(join(dir, 'product.txt'), 'baseline\n');
+  git(['add', 'agentxchain.json', '.agentxchain/state.json', '.agentxchain/history.jsonl', '.agentxchain/decision-ledger.jsonl', 'product.txt']);
+  git(['commit', '-q', '-m', 'baseline']);
+  const baseline = git(['rev-parse', 'HEAD']);
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify({
+    schema_version: '1.0',
+    run_id: 'run_bug62',
+    project_id: 'ct-001',
+    status: 'active',
+    phase: 'implementation',
+    accepted_integration_ref: `git:${baseline}`,
+    active_turns: {},
+    turn_sequence: 0,
+    last_completed_turn_id: null,
+    last_completed_turn: {
+      turn_id: 'turn_checkpointed',
+      role: 'dev',
+      phase: 'implementation',
+      checkpoint_sha: baseline,
+      checkpointed_at: '2026-04-22T00:00:00Z',
+      intent_id: 'intent_bug62',
+    },
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+    phase_gate_status: {},
+  }, null, 2));
+  writeFileSync(join(dir, '.agentxchain', 'session.json'), JSON.stringify({
+    session_id: 'session_bug62',
+    run_id: 'run_bug62',
+    started_at: '2026-04-22T00:00:00Z',
+    last_checkpoint_at: '2026-04-22T00:00:00Z',
+    checkpoint_reason: 'turn_checkpointed',
+    run_status: 'active',
+    phase: 'implementation',
+    baseline_ref: {
+      git_head: baseline,
+      git_branch: git(['rev-parse', '--abbrev-ref', 'HEAD']),
+      workspace_dirty: false,
+    },
+  }, null, 2));
+  return { baseline, git };
+}
+
 describe('Continuous Run', () => {
   let tmpDir;
 
@@ -701,7 +750,7 @@ describe('Continuous Run', () => {
     });
 
     it('auto_safe_only pauses the session when operator commits modify governed state', () => {
-      const { git } = initGovernedGitProject(tmpDir);
+      const { git } = initContinuousGitProject(tmpDir);
       const statePath = join(tmpDir, '.agentxchain', 'state.json');
       const state = JSON.parse(readFileSync(statePath, 'utf8'));
       writeFileSync(statePath, JSON.stringify({ ...state, unsafe_edit: true }, null, 2));
@@ -1320,6 +1369,138 @@ describe('Continuous Run', () => {
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
+    });
+
+    it('BUG-63: perpetual mode does not dispatch idle expansion into an inherited blocked run', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- build it\n', 'utf8');
+        writeIntent(dir, { intentId: 'intent_done', status: 'completed', charter: 'build it implementation' });
+
+        writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify({
+          schema_version: '1.0',
+          run_id: 'run_blocked_001',
+          project_id: 'ct-001',
+          status: 'blocked',
+          phase: 'implementation',
+          accepted_integration_ref: null,
+          active_turns: {},
+          turn_sequence: 1,
+          last_completed_turn_id: 'turn_pm_001',
+          blocked_on: 'human:planning_signoff requires approval',
+          blocked_reason: {
+            category: 'needs_human',
+            blocked_at: '2026-04-24T00:00:00.000Z',
+            turn_id: 'turn_pm_001',
+            recovery: {
+              typed_reason: 'needs_human',
+              owner: 'human',
+              recovery_action: 'agentxchain unblock hesc_blocked_001',
+              turn_retained: false,
+              detail: 'planning_signoff requires approval',
+            },
+          },
+          escalation: null,
+          phase_gate_status: {},
+        }, null, 2));
+
+        const context = { root: dir, config: readTestConfig(dir) };
+        const contOpts = {
+          ...resolveContinuousOptions({ continuous: true, maxIdleCycles: 1, onIdle: 'perpetual' }, context.config),
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+        };
+
+        const session = {
+          session_id: 'cont-bug63-blocked',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 1,
+          max_runs: 10,
+          idle_cycles: 1,
+          max_idle_cycles: 1,
+          current_run_id: 'run_blocked_001',
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: null,
+          cumulative_spent_usd: 0,
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+          expansion_iteration: 0,
+          _vision_stale_warned_shas: [],
+        };
+        writeContinuousSession(dir, session);
+
+        const step = await advanceContinuousRunOnce(
+          context, session, contOpts,
+          async () => assert.fail('blocked startup must not execute governed run'),
+          () => {},
+        );
+
+        assert.equal(step.status, 'blocked');
+        assert.equal(step.action, 'still_blocked');
+        assert.equal(step.recovery_action, 'agentxchain unblock hesc_blocked_001');
+        assert.equal(step.blocked_category, 'needs_human');
+        assert.equal(readContinuousSession(dir).status, 'paused');
+
+        const events = readEvents(dir);
+        assert.equal(events.some(e => e.event_type === 'idle_expansion_dispatched'), false);
+        const intentsDir = join(dir, '.agentxchain', 'intake', 'intents');
+        const intentFiles = existsSync(intentsDir) ? readdirSync(intentsDir) : [];
+        assert.deepEqual(intentFiles.sort(), ['intent_done.json']);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('BUG-63: operator-commit reconcile refusal wins over idle-expansion mutation at idle threshold', async () => {
+      const { git } = initContinuousGitProject(tmpDir);
+      writeVision(tmpDir, '## Goals\n- build it\n');
+      writeIntent(tmpDir, { intentId: 'intent_done', status: 'completed', charter: 'build it implementation' });
+      const statePath = join(tmpDir, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      writeFileSync(statePath, JSON.stringify({ ...state, unsafe_edit: true }, null, 2));
+      git(['add', '-f', '.agentxchain/state.json']);
+      git(['commit', '-q', '-m', 'operator: edit governed state']);
+
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true, maxIdleCycles: 1, onIdle: 'perpetual' }, context.config),
+        reconcileOperatorCommits: 'auto_safe_only',
+        pollSeconds: 0,
+        cooldownSeconds: 0,
+      };
+      const session = {
+        session_id: 'cont-bug63-drift',
+        status: 'running',
+        current_run_id: 'run_bug62',
+        runs_completed: 1,
+        idle_cycles: 1,
+        max_idle_cycles: 1,
+        expansion_iteration: 0,
+        cumulative_spent_usd: 0,
+      };
+      writeContinuousSession(tmpDir, session);
+
+      const step = await advanceContinuousRunOnce(
+        context, session, contOpts,
+        async () => assert.fail('unsafe reconcile must stop before execution'),
+        () => {},
+      );
+
+      assert.equal(step.status, 'blocked');
+      assert.equal(step.action, 'operator_commit_reconcile_refused');
+      assert.equal(step.error_class, 'governance_state_modified');
+      assert.equal(readContinuousSession(tmpDir).status, 'paused');
+
+      const events = readEvents(tmpDir);
+      assert.ok(events.some(e => e.event_type === 'operator_commit_reconcile_refused'));
+      assert.equal(events.some(e => e.event_type === 'idle_expansion_dispatched'), false);
+      const intentsDir = join(tmpDir, '.agentxchain', 'intake', 'intents');
+      const intentFiles = existsSync(intentsDir) ? readdirSync(intentsDir) : [];
+      assert.deepEqual(intentFiles.sort(), ['intent_done.json']);
     });
 
     it('human_review mode pauses when idle cycles reached', async () => {

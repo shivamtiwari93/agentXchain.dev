@@ -1,0 +1,12 @@
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 5, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Idle cycle 1/3 — no derivable work from vision.
+Idle cycle 2/3 — no derivable work from vision.
+Idle cycle 3/3 — no derivable work from vision.
+Idle-expansion 1/5 dispatched — PM intent intent_1777034815829_43d8 queued.
+Found queued intent: intent_1777034815829_43d8 (approved)
+Continuous start error: start failed: cannot start: run is blocked (planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.)
+Continuous loop failed: start failed: cannot start: run is blocked (planning_signoff gate explicitly requires human approval before transitioning from planning to implementation. All four PM-owned workflow-kit artifacts (PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md, command-surface.md) cover M27 scope completely and are internally consistent with SYSTEM_SPEC Constraints 19 and 20. Baseline npm test green (10 scenarios); 13-command CLI surface intact with `redaction` noun at position 11. No PM edits are defensible without a new charter (see DEC-900). An agent PM cannot self-declare gate satisfaction on a human-required gate; routing to human reviewer.). Check "agentxchain status" for details.
