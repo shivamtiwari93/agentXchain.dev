@@ -1,0 +1,5 @@
+Reconcile refused (governance_state_modified).
+Commit a6a388e1 modifies governed state path .agentxchain/SESSION_RECOVERY.md; reconcile cannot auto-accept .agentxchain edits.
+Offending path: .agentxchain/SESSION_RECOVERY.md
+Offending commit: a6a388e15674efa89d09e4a0e507f14a702540f3
+Manual recovery: inspect the commit range, restore governed state artifacts if needed, then restart from an explicit checkpoint.

@@ -66,3 +66,23 @@ The full reproduction currently depends on the tusq.dev baseline state. A smalle
 ## Linked BUG
 
 Filed as BUG-63 in `.planning/HUMAN-ROADMAP.md`.
+
+## Closure
+
+Closed on 2026-04-24 in `agentxchain@2.155.2`.
+
+Shipped fix:
+
+- release commit `2538a26e` / tag `v2.155.2`
+- publish workflow `24891238388` succeeded
+- post-publish verification passed with `7015 tests / 7010 pass / 0 fail / 5 skipped`
+
+Dogfood retry evidence on shipped `agentxchain@latest` (`2.155.2`):
+
+- raw CLI: `raw/cli-2026-04-24-bug63-retry-v2.155.2.log`
+- intent count: `38 -> 38`
+- no new `idle_expansion_dispatched` event after the retry
+- continuous session: `status: "paused"`, `runs_completed: 0`, `expansion_iteration: 0`
+
+The retry preserved the original `planning_signoff` blocker and surfaced a typed
+pause instead of mutating idle-expansion intake state.

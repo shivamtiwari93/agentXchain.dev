@@ -1,0 +1,6 @@
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 5, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Continuous loop paused on blocker. Recovery: Resolve the stated issue, then run agentxchain resume
