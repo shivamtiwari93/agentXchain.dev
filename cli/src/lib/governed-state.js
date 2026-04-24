@@ -1385,6 +1385,17 @@ function classifyAcceptanceOverlap(targetTurn, conflictFiles, historyEntries, co
   const forwardRevisionTurns = new Map();
 
   for (const entry of historyEntries) {
+    // BUG-66: skip reissued turns — they are superseded, not competing.
+    // A reissued turn's archived observation must not trigger overlap against
+    // its replacement turn (or any subsequent turn).
+    if (entry.status === 'reissued') {
+      continue;
+    }
+    // Also skip if this turn is the direct replacement for the history entry
+    if (targetTurn?.reissued_from && targetTurn.reissued_from === entry.turn_id) {
+      continue;
+    }
+
     if (targetTurn?.run_id && entry.run_id && entry.run_id !== targetTurn.run_id) {
       continue;
     }
@@ -6818,4 +6829,5 @@ export {
   LEDGER_PATH,
   STAGING_PATH,
   TALK_PATH,
+  classifyAcceptanceOverlap as _classifyAcceptanceOverlap,
 };

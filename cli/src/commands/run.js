@@ -673,7 +673,7 @@ export async function executeGovernedRun(context, opts = {}) {
         const reportsDir = join(root, '.agentxchain', 'reports');
         mkdirSync(reportsDir, { recursive: true });
 
-        const exportResult = buildRunExport(root);
+        const exportResult = buildRunExport(root, { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024 });
         if (exportResult.ok) {
           const runId = result.state.run_id || 'unknown';
           const exportPath = join(reportsDir, `export-${runId}.json`);

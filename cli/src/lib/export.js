@@ -107,13 +107,15 @@ function parseJsonl(relPath, raw) {
     });
 }
 
-function parseFile(root, relPath) {
+function parseFile(root, relPath, opts = {}) {
   const absPath = join(root, relPath);
   const buffer = readFileSync(absPath);
   const raw = buffer.toString('utf8');
 
   let format = 'text';
   let data = raw;
+  let truncated = false;
+  let totalEntries = null;
 
   if (relPath.endsWith('.json')) {
     try {
@@ -123,17 +125,37 @@ function parseFile(root, relPath) {
       throw new Error(`${relPath}: invalid JSON: ${error.message}`);
     }
   } else if (relPath.endsWith('.jsonl')) {
-    data = parseJsonl(relPath, raw);
+    const allEntries = parseJsonl(relPath, raw);
     format = 'jsonl';
+    const maxEntries = opts.maxJsonlEntries;
+    if (maxEntries && allEntries.length > maxEntries) {
+      totalEntries = allEntries.length;
+      data = allEntries.slice(-maxEntries);
+      truncated = true;
+    } else {
+      data = allEntries;
+    }
   }
 
-  return {
+  const skipBase64 = truncated || (opts.maxBase64Bytes && buffer.byteLength > opts.maxBase64Bytes);
+  const result = {
     format,
     bytes: buffer.byteLength,
     sha256: sha256(buffer),
-    content_base64: buffer.toString('base64'),
+    content_base64: skipBase64 ? null : buffer.toString('base64'),
     data,
   };
+
+  if (truncated) {
+    result.truncated = true;
+    result.total_entries = totalEntries;
+    result.retained_entries = data.length;
+  }
+  if (skipBase64 && !truncated) {
+    result.content_base64_skipped = true;
+  }
+
+  return result;
 }
 
 function countJsonl(files, relPath) {
@@ -366,7 +388,7 @@ export function buildRunWorkspaceMetadata(root) {
   };
 }
 
-export function buildRunExport(startDir = process.cwd()) {
+export function buildRunExport(startDir = process.cwd(), exportOpts = {}) {
   const context = loadProjectContext(startDir);
   if (!context) {
     return {
@@ -388,9 +410,17 @@ export function buildRunExport(startDir = process.cwd()) {
   const collectedPaths = [...new Set(RUN_EXPORT_INCLUDED_ROOTS.flatMap((relPath) => collectPaths(root, relPath)))]
     .sort((a, b) => a.localeCompare(b, 'en'));
 
+  const parseOpts = {};
+  if (exportOpts.maxJsonlEntries) {
+    parseOpts.maxJsonlEntries = exportOpts.maxJsonlEntries;
+  }
+  if (exportOpts.maxBase64Bytes) {
+    parseOpts.maxBase64Bytes = exportOpts.maxBase64Bytes;
+  }
+
   const files = {};
   for (const relPath of collectedPaths) {
-    files[relPath] = parseFile(root, relPath);
+    files[relPath] = parseFile(root, relPath, parseOpts);
   }
 
   const activeTurns = Object.keys(state?.active_turns || {}).sort((a, b) => a.localeCompare(b, 'en'));
