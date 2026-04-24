@@ -1,0 +1,55 @@
+---
+sidebar_position: 0
+title: "v2.155.7 Release Notes"
+---
+
+# AgentXchain v2.155.7
+
+`v2.155.7` is a dogfood patch over `v2.155.6`. It fixes a PM idle-expansion
+charter gap discovered during the tusq.dev dogfood: the charter told the PM
+to produce a structured `idle_expansion_result` but did not specify the output
+location (top-level JSON key or sidecar file) or the exact JSON schema. The PM
+understood the concept but produced only text descriptions instead of the
+required structured JSON object.
+
+## Bug Fixes
+
+- **Idle-expansion charter output format**: the PM idle-expansion charter now
+  includes an explicit OUTPUT FORMAT section specifying both accepted output
+  locations (top-level `idle_expansion_result` key in turn-result.json or
+  sibling `idle-expansion-result.json` sidecar), the complete JSON schema for
+  `new_intake_intent` and `vision_exhausted` branches, and an explicit
+  instruction to produce the actual JSON object rather than describing it in
+  text.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 88 tests / 21 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.7 -c "agentxchain --version"
+```
+
+For charter format proof, run a continuous perpetual session and quote:
+
+- the PM dispatch prompt includes the OUTPUT FORMAT section with both accepted
+  output locations and the complete JSON schema
+- the PM produces a structured `idle_expansion_result` as either a top-level
+  JSON key or a sidecar file
+- acceptance succeeds without manual JSON surgery
+
+For downstream closure, start from a clean checkpoint and quote:
+
+- functional downstream behavior remains fixed: continuous does not idle out in
+  QA, QA advances, `launch_ready` unblock completes the run, and no duplicate
+  dispatch occurs
+- after final terminal approval, status is `completed`,
+  `pending_run_completion=null`, and `active_turns={}`
+- durable events include both `gate_approved` for `run_completion` and
+  `run_completed`
+- `.agentxchain/continuous-session.json` no longer stays at `paused` with
+  `runs_completed=0`; quote the terminal session shape after the run completes

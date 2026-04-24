@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.155.6
+# Reddit Posts — AgentXchain v2.155.7
 
-> Ready-to-post content for Reddit for the `v2.155.6` release once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar intent coverage.
+> Ready-to-post content for Reddit for the `v2.155.7` release once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar intent coverage.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:

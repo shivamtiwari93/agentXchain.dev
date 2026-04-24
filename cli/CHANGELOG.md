@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.155.7
+
+### Bug Fixes
+- **Idle-expansion charter output format**: the PM idle-expansion charter now includes an explicit OUTPUT FORMAT section specifying both accepted output locations (top-level JSON key or sidecar file), the complete JSON schema for `new_intake_intent` and `vision_exhausted` branches, and an instruction to produce actual JSON rather than text descriptions.
+- **DOGFOOD-TUSQ-DEV continuation**: the tusq.dev dogfood exposed this when a second PM idle-expansion turn understood the concept but only described the result in text decisions instead of producing the structured JSON object.
+
+### Status
+- `v2.155.7` is a dogfood charter-quality patch. The PM prompt now gives explicit output format instructions so the idle-expansion result is always produced as structured JSON.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 88 tests / 21 suites / 0 failures / 0 skipped
+
 ## 2.155.6
 
 ### Bug Fixes
