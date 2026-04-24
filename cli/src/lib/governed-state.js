@@ -6765,6 +6765,14 @@ function evaluateIdleExpansionConditionalCoverage(item, turnResult, intakeContex
   }
 
   const normalizedItem = typeof item === 'string' ? item.toLowerCase().trim() : '';
+
+  // Handle the top-level "produces a structured idle_expansion_result" acceptance item
+  if (normalizedItem.startsWith('produces a structured idle_expansion_result')) {
+    return Boolean(
+      result.kind === 'new_intake_intent' || result.kind === 'vision_exhausted',
+    );
+  }
+
   if (normalizedItem.startsWith('if new_intake_intent')) {
     if (result.kind !== 'new_intake_intent') {
       return true;
