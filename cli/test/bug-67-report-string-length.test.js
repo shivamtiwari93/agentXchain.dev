@@ -14,6 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { Buffer } from 'node:buffer';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { buildRunExport } = await import(join(cliRoot, 'src', 'lib', 'export.js'));
@@ -173,5 +174,32 @@ describe('BUG-67: report generation string length guard', () => {
     assert.strictEqual(eventsFile.data.length, 100, 'all 100 entries');
     assert.strictEqual(eventsFile.truncated, undefined, 'no truncation');
     assert.ok(eventsFile.content_base64, 'base64 present');
+  });
+
+  it('AT-BUG67-005: capped JSONL export does not stringify the whole large JSONL buffer', () => {
+    const root = createGovernedProject(200);
+    roots.push(root);
+
+    const originalToString = Buffer.prototype.toString;
+    Buffer.prototype.toString = function guardedToString(encoding, start, end) {
+      if ((encoding === 'utf8' || encoding === undefined)
+        && start === undefined
+        && end === undefined
+        && this.length > 1000) {
+        throw new Error('BUG-67 regression: attempted whole-buffer UTF-8 conversion');
+      }
+      return originalToString.call(this, encoding, start, end);
+    };
+
+    try {
+      const result = buildRunExport(root, { maxJsonlEntries: 50 });
+      assert.ok(result.ok, 'export should succeed');
+      const eventsFile = result.export.files['.agentxchain/events.jsonl'];
+      assert.strictEqual(eventsFile.truncated, true, 'should still truncate');
+      assert.strictEqual(eventsFile.data.length, 50, 'should retain capped tail');
+      assert.strictEqual(eventsFile.data[0].turn_id, 'turn_0150', 'first retained entry should be entry 150');
+    } finally {
+      Buffer.prototype.toString = originalToString;
+    }
   });
 });

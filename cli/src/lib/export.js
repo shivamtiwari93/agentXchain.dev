@@ -107,17 +107,64 @@ function parseJsonl(relPath, raw) {
     });
 }
 
+function parseJsonlBuffer(relPath, buffer, maxEntries) {
+  const shouldWindow = Number.isInteger(maxEntries) && maxEntries > 0;
+  const retained = [];
+  let totalEntries = 0;
+  let physicalLine = 1;
+  let lineStart = 0;
+
+  const retainLine = (line, lineNumber) => {
+    if (!line.trim()) {
+      return;
+    }
+    totalEntries += 1;
+    if (shouldWindow && retained.length >= maxEntries) {
+      retained.shift();
+    }
+    retained.push({ line, lineNumber });
+  };
+
+  for (let i = 0; i <= buffer.length; i += 1) {
+    if (i !== buffer.length && buffer[i] !== 10) {
+      continue;
+    }
+
+    let lineEnd = i;
+    if (lineEnd > lineStart && buffer[lineEnd - 1] === 13) {
+      lineEnd -= 1;
+    }
+    retainLine(buffer.toString('utf8', lineStart, lineEnd), physicalLine);
+    lineStart = i + 1;
+    physicalLine += 1;
+  }
+
+  const entries = retained.map(({ line, lineNumber }) => {
+    try {
+      return JSON.parse(line);
+    } catch (error) {
+      throw new Error(`${relPath}: invalid JSONL at line ${lineNumber}: ${error.message}`);
+    }
+  });
+
+  return {
+    entries,
+    totalEntries,
+    truncated: shouldWindow && totalEntries > maxEntries,
+  };
+}
+
 function parseFile(root, relPath, opts = {}) {
   const absPath = join(root, relPath);
   const buffer = readFileSync(absPath);
-  const raw = buffer.toString('utf8');
 
   let format = 'text';
-  let data = raw;
+  let data = null;
   let truncated = false;
   let totalEntries = null;
 
   if (relPath.endsWith('.json')) {
+    const raw = buffer.toString('utf8');
     try {
       data = JSON.parse(raw);
       format = 'json';
@@ -125,16 +172,16 @@ function parseFile(root, relPath, opts = {}) {
       throw new Error(`${relPath}: invalid JSON: ${error.message}`);
     }
   } else if (relPath.endsWith('.jsonl')) {
-    const allEntries = parseJsonl(relPath, raw);
-    format = 'jsonl';
     const maxEntries = opts.maxJsonlEntries;
-    if (maxEntries && allEntries.length > maxEntries) {
-      totalEntries = allEntries.length;
-      data = allEntries.slice(-maxEntries);
-      truncated = true;
-    } else {
-      data = allEntries;
-    }
+    const parsed = Number.isInteger(maxEntries) && maxEntries > 0
+      ? parseJsonlBuffer(relPath, buffer, maxEntries)
+      : { entries: parseJsonl(relPath, buffer.toString('utf8')), totalEntries: null, truncated: false };
+    format = 'jsonl';
+    data = parsed.entries;
+    truncated = parsed.truncated;
+    totalEntries = parsed.totalEntries;
+  } else {
+    data = buffer.toString('utf8');
   }
 
   const skipBase64 = truncated || (opts.maxBase64Bytes && buffer.byteLength > opts.maxBase64Bytes);

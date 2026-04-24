@@ -22,6 +22,14 @@ Accepts optional `opts`:
 - `maxJsonlEntries`: when set and JSONL entry count exceeds this, keep only the **tail** (most recent) entries. Mark `truncated: true`, `total_entries`, `retained_entries` on the returned object.
 - `maxBase64Bytes`: when set and file size exceeds this, skip `content_base64` (set to `null`). Mark `content_base64_skipped: true`.
 
+When `maxJsonlEntries` is set, JSONL parsing must be windowed before JSON parsing:
+- scan the file line-by-line from the buffer
+- retain only the last `maxJsonlEntries` non-empty lines
+- parse only those retained lines into JSON objects
+- avoid converting the whole JSONL buffer into one UTF-8 string
+
+This is required because capping only after `raw.split('\n').map(JSON.parse).slice(...)` still builds a large intermediate string and array before the export object is capped.
+
 ### `buildRunExport()` in `export.js`
 
 Accepts optional second parameter `exportOpts` and propagates `maxJsonlEntries` and `maxBase64Bytes` to `parseFile()`. Default behavior (no opts) is unchanged — full export for the CLI `export` command.
@@ -45,3 +53,4 @@ Passes `{ maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024 }` to `buildRunExpo
 2. `parseFile()` with large file and `maxBase64Bytes` skips base64
 3. `parseFile()` without options returns full data (backward compatibility)
 4. `buildRunExport()` with `maxJsonlEntries` propagates to parsed files
+5. Capped JSONL export does not call whole-buffer UTF-8 conversion for the large JSONL file before truncating
