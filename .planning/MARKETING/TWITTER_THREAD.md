@@ -1,9 +1,9 @@
-# Twitter/X Thread — AgentXchain v2.155.9
+# Twitter/X Thread — AgentXchain v2.155.10
 
-> Ready-to-post thread for the `v2.155.9` release once tester verification lands. Updated 2026-04-24 for BUG-64 idle-expansion sidecar intent coverage.
+> Ready-to-post thread for the `v2.155.10` release once tester verification lands. Updated 2026-04-24 for embedded idle-expansion normalization gap.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 test/intent-coverage-status.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 28 tests / 11 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/turn-result-validator.test.js test/intent-coverage-status.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 188 tests / 37 suites / 0 failures / 0 skipped
 
 ---
 
@@ -15,7 +15,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.9 is next in the release lane. Open source. MIT.
+AgentXchain v2.155.10 is next in the release lane. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 

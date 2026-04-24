@@ -1,0 +1,73 @@
+---
+sidebar_position: 0
+title: "v2.155.10 Release Notes"
+---
+
+# AgentXchain v2.155.10
+
+`v2.155.10` is a dogfood patch over `v2.155.9`. It fixes a normalization
+gap where `idle_expansion_result` embedded directly in `turn-result.json`
+bypassed the backward-compatible normalization pipeline. `v2.155.8` added
+normalizers for object-shaped `vision_traceability` and flat
+`new_intake_intent` fields, but those normalizers only ran for sidecar-loaded
+results. Embedded results hit schema validation before normalization, causing
+spurious rejection.
+
+## Bug Fixes
+
+- **Embedded idle-expansion normalization**: `maybeAttachIdleExpansionSidecar`
+  now normalizes `idle_expansion_result` in-place when it is already embedded
+  in the turn result, running the same `normalizeIdleExpansionSidecar`
+  transforms as the sidecar path before schema validation.
+- **Flat new_intake_intent extraction**: when the PM puts `title`, `charter`,
+  `acceptance_contract`, `priority`, and `template` at the top level of the
+  idle expansion result instead of nesting them under `new_intake_intent`, the
+  normalizer now extracts them into the expected nested object shape.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/turn-result-validator.test.js test/intent-coverage-status.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 188 tests / 37 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.10 -c "agentxchain --version"
+```
+
+For embedded normalization proof, run a continuous perpetual session and quote:
+
+- the PM produces a structured `idle_expansion_result` embedded directly in
+  `turn-result.json` (not via sidecar)
+- the embedded result passes both backward-compatible normalization (object
+  `vision_traceability` transformed to array, flat `new_intake_intent` fields
+  extracted into nested object) and schema validation without manual intervention
+- intent coverage succeeds for all acceptance items
+- acceptance succeeds on the first attempt
+
+For downstream closure, start from a clean checkpoint and quote:
+
+- functional downstream behavior remains fixed: continuous does not idle out in
+  QA, QA advances, `launch_ready` unblock completes the run, and no duplicate
+  dispatch occurs
+- quote any `startup_latency_ms`, `elapsed_since_spawn_ms`, and
+  `runtimes.<id>.startup_watchdog_ms` evidence relevant to adapter-path
+  reliability while confirming the downstream flow still uses the real runtime
+  path
+- after final terminal approval, status is `completed`,
+  `pending_run_completion=null`, and `active_turns={}`
+- durable events include both `gate_approved` for `run_completion` and
+  `run_completed`
+- non-terminal phase recovery should still quote `phase_entered` with
+  `reconciled_before_dispatch` if a standing gate advances before dispatch
+- `.agentxchain/continuous-session.json` no longer stays at `paused` with
+  `runs_completed=0`; quote the terminal session shape after the run completes
+- `session_continuation` should still be quoted if the continuous session chains
+  into another run; otherwise quote the terminal reason instead
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
