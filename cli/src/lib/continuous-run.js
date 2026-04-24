@@ -1037,7 +1037,7 @@ export function resolveContinuousOptions(opts, config) {
     ?? (fullAuto ? 'auto_safe_only' : 'manual');
 
   // Resolve on_idle policy — CLI flag overrides config
-  const validOnIdle = new Set(['exit', 'perpetual']);
+  const validOnIdle = new Set(['exit', 'perpetual', 'human_review']);
   const configOnIdle = typeof configCont.on_idle === 'string' && validOnIdle.has(configCont.on_idle)
     ? configCont.on_idle : null;
   const cliOnIdle = typeof opts.onIdle === 'string' && validOnIdle.has(opts.onIdle)
@@ -1162,6 +1162,31 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
       const expansionResult = await dispatchIdleExpansion(context, session, contOpts, absVisionPath, log);
       if (expansionResult) return expansionResult;
       // If dispatchIdleExpansion returned null, fall through to idle_exit
+    }
+    if (contOpts.onIdle === 'human_review') {
+      session.status = 'paused';
+      writeContinuousSession(root, session);
+      emitRunEvent(root, 'idle_human_review_required', {
+        run_id: session.current_run_id || null,
+        phase: null,
+        status: 'blocked',
+        payload: {
+          session_id: session.session_id,
+          idle_cycles: session.idle_cycles,
+          max_idle_cycles: contOpts.maxIdleCycles,
+          vision_path: contOpts.visionPath,
+        },
+      });
+      log(`Idle threshold reached (${session.idle_cycles}/${contOpts.maxIdleCycles}) — pausing for human review.`);
+      return {
+        ok: true,
+        status: 'blocked',
+        action: 'idle_human_review_required',
+        stop_reason: 'human_review',
+        run_id: session.current_run_id || null,
+        recovery_action: 'Review .agentxchain/continuous-session.json and either inject/approve new work or rerun with --on-idle exit/perpetual.',
+        blocked_category: 'idle_human_review',
+      };
     }
     session.status = 'completed';
     writeContinuousSession(root, session);

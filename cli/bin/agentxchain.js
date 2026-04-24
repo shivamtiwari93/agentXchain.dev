@@ -759,7 +759,7 @@ program
   .option('--poll-seconds <n>', 'Seconds between idle-detection cycles in continuous mode (default: 30)', parseInt)
   .option('--triage-approval <mode>', 'Triage policy for vision-derived intents: auto or human (default: config or auto)')
   .option('--max-idle-cycles <n>', 'Stop after N consecutive idle cycles with no derivable work (default: 3)', parseInt)
-  .option('--on-idle <mode>', 'Continuous idle policy: exit or perpetual (default: config or exit)')
+  .option('--on-idle <mode>', 'Continuous idle policy: exit, perpetual, or human_review (default: config or exit)')
   .option('--session-budget <usd>', 'Cumulative session-level budget cap in USD for continuous mode', parseFloat)
   .option('--auto-retry-on-ghost', 'Enable bounded automatic retry for continuous-mode startup ghost turns')
   .option('--no-auto-retry-on-ghost', 'Disable bounded automatic retry for continuous-mode startup ghost turns')

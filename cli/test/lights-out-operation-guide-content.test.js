@@ -48,7 +48,22 @@ describe('lights-out operation guide contract', () => {
     assert.match(DOC, /owner_type: "schedule"/);
     assert.match(DOC, /session_continuation <previous_run_id> -> <next_run_id> \(<objective>\)/);
     assert.match(DOC, /`paused` is reserved for real blockers/i);
-    assert.match(DOC, /end as `completed` or `idle_exit`/i);
+    assert.match(DOC, /`on_idle: "human_review"`/i);
+    assert.match(DOC, /end as `completed`, `idle_exit`, `vision_exhausted`, or `vision_expansion_exhausted`/i);
+  });
+
+  it('documents BUG-60 idle policies and PM idle-expansion safeguards', () => {
+    assert.match(DOC, /`on_idle`/);
+    assert.match(DOC, /`exit`/);
+    assert.match(DOC, /`perpetual`/);
+    assert.match(DOC, /`human_review`/);
+    assert.match(DOC, /`vision_idle_expansion`/);
+    assert.match(DOC, /`idle_expansion_result`/);
+    assert.match(DOC, /new_intake_intent/);
+    assert.match(DOC, /`vision_exhausted`/);
+    assert.match(DOC, /\.agentxchain\/prompts\/pm-idle-expansion\.md/);
+    assert.match(DOC, /`idle_expansion\.max_expansions`/);
+    assert.match(DOC, /`per_session_max_usd` is checked before idle expansion/);
   });
 
   it('documents recovery, priority injection, session-budget stop, and SIGINT semantics', () => {

@@ -21,8 +21,8 @@ import {
   advanceContinuousRunOnce,
   resolveContinuousOptions,
 } from '../lib/continuous-run.js';
-import { resolveVisionPath } from '../lib/vision-reader.js';
-import { existsSync } from 'node:fs';
+import { captureVisionHeadingsSnapshot, computeVisionContentSha, resolveVisionPath } from '../lib/vision-reader.js';
+import { existsSync, readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
 function loadScheduleContext() {
@@ -393,7 +393,7 @@ export function selectContinuousScheduleEntry(root, config, opts = {}) {
   return { id: dueEntry.id, schedule: config.schedules[dueEntry.id], due: dueEntry.due };
 }
 
-function createScheduleOwnedSession(schedule, scheduleId) {
+function createScheduleOwnedSession(schedule, scheduleId, snapshotOpts = {}) {
   return {
     session_id: `cont-${randomUUID().slice(0, 8)}`,
     started_at: new Date().toISOString(),
@@ -410,6 +410,10 @@ function createScheduleOwnedSession(schedule, scheduleId) {
     per_session_max_usd: schedule.continuous.per_session_max_usd || null,
     cumulative_spent_usd: 0,
     budget_exhausted: false,
+    vision_headings_snapshot: snapshotOpts.visionHeadingsSnapshot || null,
+    vision_sha_at_snapshot: snapshotOpts.visionShaAtSnapshot || null,
+    expansion_iteration: 0,
+    _vision_stale_warned_shas: [],
   };
 }
 
@@ -453,7 +457,11 @@ async function advanceScheduleContinuousSession(context, entry, opts = {}) {
       return { ok: false, action: 'failed', reason: `VISION.md not found at ${absVision}` };
     }
 
-    session = createScheduleOwnedSession(schedule, scheduleId);
+    const visionContent = readFileSync(absVision, 'utf8');
+    session = createScheduleOwnedSession(schedule, scheduleId, {
+      visionHeadingsSnapshot: captureVisionHeadingsSnapshot(visionContent),
+      visionShaAtSnapshot: computeVisionContentSha(visionContent),
+    });
     writeContinuousSession(root, session);
     log(chalk.cyan(`Started schedule-owned continuous session: ${session.session_id} (schedule: ${scheduleId})`));
 
@@ -467,13 +475,17 @@ async function advanceScheduleContinuousSession(context, entry, opts = {}) {
   }
 
   // Build contOpts from schedule continuous config
-  const contOpts = {
-    visionPath: contConfig.vision_path,
-    maxRuns: contConfig.max_runs,
-    maxIdleCycles: contConfig.max_idle_cycles,
-    triageApproval: contConfig.triage_approval,
-    perSessionMaxUsd: contConfig.per_session_max_usd || null,
-  };
+  const contOpts = resolveContinuousOptions({ continuous: true }, {
+    ...config,
+    run_loop: {
+      ...(config.run_loop || {}),
+      continuous: {
+        ...(config.run_loop?.continuous || {}),
+        ...contConfig,
+        enabled: true,
+      },
+    },
+  });
 
   // Advance one step
   const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);

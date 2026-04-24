@@ -68,8 +68,9 @@ Supported `on_idle` values for the first BUG-60 implementation:
 
 - `exit`: current bounded behavior. Default.
 - `perpetual`: after idle threshold, dispatch PM idle-expansion instead of terminal idle exit.
+- `human_review`: after idle threshold, pause the continuous session with `idle_human_review_required` so an operator can decide whether to inject/approve work, rerun with another idle policy, or stop.
 
-`human_review` is reserved but intentionally unsupported in the first slice. The config validator must reject it with an actionable error: `continuous.on_idle: "human_review" is reserved but not supported yet. Use "exit" or "perpetual".` No parser may silently accept it as an alias for `exit` or `perpetual`.
+Turn 26 amendment: earlier plan text reserved `human_review`, but the human roadmap fix requirements explicitly require `exit | perpetual | human_review`. The implementation now supports minimal real human-review semantics instead of rejecting it or silently aliasing it.
 
 Use `idle_expansion`, not `on_idle_perpetual`, because the block names the sub-feature rather than one enum value. That keeps future modes from inheriting a value-specific config namespace. The human roadmap used `max_idle_expansions`; the plan uses `idle_expansion.max_expansions` because the nested block already scopes the field to idle expansion. Tester docs and final specs must name the shipped field, not the earlier roadmap placeholder.
 
@@ -274,11 +275,11 @@ Do not append these to `DECISIONS.md` until the remaining BUG-59 quote-back gate
 
 Status: Draft.
 
-Decision: BUG-60 perpetual continuous mode uses the governed intake pipeline, not direct special-case PM dispatch. Default `continuous.on_idle` remains `exit`; `perpetual` is opt-in. Idle expansion uses the normal `pm` role with an idle-expansion charter carried by the synthesized intake intent. Every `new_intake_intent` result must cite at least one matching VISION.md heading or goal; every `vision_exhausted` result must classify every top-level VISION.md heading.
+Decision: BUG-60 perpetual continuous mode uses the governed intake pipeline, not direct special-case PM dispatch. Default `continuous.on_idle` remains `exit`; `perpetual` is opt-in. `human_review` pauses at the idle threshold with `idle_human_review_required`. Idle expansion uses the normal `pm` role with an idle-expansion charter carried by the synthesized intake intent. Every `new_intake_intent` result must cite at least one matching VISION.md heading or goal; every `vision_exhausted` result must classify every top-level VISION.md heading.
 
 Why: Intake gives auditability, lifecycle reuse, approval policy inheritance, and operator inspection. Direct dispatch creates a second autonomy path. A dedicated role is deferred until there is a concrete runtime/tool/budget need.
 
-Deferred scope: `continuous.on_idle: "human_review"` is reserved for a future roadmap entry that defines pause-and-ask-human semantics. The first BUG-60 slice rejects it explicitly instead of accepting a silent stub or pre-reserving a speculative bug ID.
+Turn 26 amendment: `continuous.on_idle: "human_review"` is no longer deferred. It is implemented as a non-terminal pause policy with an auditable idle-review event.
 
 ### DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001
 

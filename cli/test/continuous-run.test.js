@@ -406,6 +406,19 @@ describe('Continuous Run', () => {
       assert.equal(opts.idleExpansion, null);
     });
 
+    it('human_review mode pauses instead of resolving idle_expansion config', () => {
+      const opts = resolveContinuousOptions({}, {
+        run_loop: {
+          continuous: {
+            on_idle: 'human_review',
+            idle_expansion: { max_expansions: 10 },
+          },
+        },
+      });
+      assert.equal(opts.onIdle, 'human_review');
+      assert.equal(opts.idleExpansion, null);
+    });
+
     it('ignores invalid on_idle values and defaults to exit', () => {
       const opts = resolveContinuousOptions({}, {
         run_loop: { continuous: { on_idle: 'banana' } },
@@ -414,26 +427,18 @@ describe('Continuous Run', () => {
       assert.equal(opts.idleExpansion, null);
     });
 
-    it('validates on_idle rejects reserved human_review with actionable error', () => {
-      const errors = validateRunLoopConfig({
-        continuous: { on_idle: 'human_review' },
-      });
-      assert.ok(errors.some(e => e.includes('"human_review" is reserved but not supported yet')));
-      assert.ok(errors.some(e => e.includes('Use "exit" or "perpetual"')));
-    });
-
     it('validates on_idle rejects non-string values', () => {
       const errors = validateRunLoopConfig({
         continuous: { on_idle: 42 },
       });
-      assert.ok(errors.some(e => e.includes('on_idle must be one of: exit, perpetual')));
+      assert.ok(errors.some(e => e.includes('on_idle must be one of: exit, perpetual, human_review')));
     });
 
     it('validates on_idle rejects unknown string values', () => {
       const errors = validateRunLoopConfig({
         continuous: { on_idle: 'auto_decide' },
       });
-      assert.ok(errors.some(e => e.includes('on_idle must be one of: exit, perpetual')));
+      assert.ok(errors.some(e => e.includes('on_idle must be one of: exit, perpetual, human_review')));
     });
 
     it('validates on_idle accepts valid values without errors', () => {
@@ -443,6 +448,10 @@ describe('Continuous Run', () => {
       );
       assert.deepEqual(
         validateRunLoopConfig({ continuous: { on_idle: 'perpetual' } }),
+        [],
+      );
+      assert.deepEqual(
+        validateRunLoopConfig({ continuous: { on_idle: 'human_review' } }),
         [],
       );
     });
@@ -1306,6 +1315,63 @@ describe('Continuous Run', () => {
         const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
         assert.equal(intent.status, 'approved');
         assert.ok(intent.charter.includes('[idle-expansion #1]'));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('human_review mode pauses when idle cycles reached', async () => {
+      const dir = createTmpProject();
+      try {
+        const planDir = join(dir, '.planning');
+        mkdirSync(planDir, { recursive: true });
+        writeFileSync(join(planDir, 'VISION.md'), '## Goals\n- build it\n', 'utf8');
+        writeIntent(dir, { intentId: 'intent_done', status: 'completed', charter: 'build it implementation' });
+
+        const context = { root: dir, config: readTestConfig(dir) };
+        const contOpts = {
+          ...resolveContinuousOptions({ continuous: true, maxIdleCycles: 1, onIdle: 'human_review' }, context.config),
+          pollSeconds: 0,
+          cooldownSeconds: 0,
+        };
+
+        const session = {
+          session_id: 'cont-human-review',
+          started_at: new Date().toISOString(),
+          vision_path: '.planning/VISION.md',
+          runs_completed: 1,
+          max_runs: 10,
+          idle_cycles: 1,
+          max_idle_cycles: 1,
+          current_run_id: 'run_prev',
+          current_vision_objective: null,
+          status: 'running',
+          per_session_max_usd: null,
+          cumulative_spent_usd: 0,
+          budget_exhausted: false,
+          startup_reconciled_run_id: null,
+        };
+        writeContinuousSession(dir, session);
+
+        const step = await advanceContinuousRunOnce(
+          context, session, contOpts,
+          async () => assert.fail('should not execute run while pausing for human review'),
+          () => {},
+        );
+
+        assert.equal(step.status, 'blocked');
+        assert.equal(step.action, 'idle_human_review_required');
+        assert.equal(step.stop_reason, 'human_review');
+        assert.equal(step.blocked_category, 'idle_human_review');
+        assert.match(step.recovery_action, /continuous-session\.json/);
+
+        const savedSession = readContinuousSession(dir);
+        assert.equal(savedSession.status, 'paused');
+
+        const events = readEvents(dir);
+        const reviewEvent = events.find(e => e.event_type === 'idle_human_review_required');
+        assert.ok(reviewEvent, 'idle_human_review_required event expected');
+        assert.equal(reviewEvent.payload.session_id, 'cont-human-review');
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }

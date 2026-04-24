@@ -61,8 +61,15 @@ Add a schedule entry in `agentxchain.json`:
         "vision_path": ".planning/VISION.md",
         "max_runs": 50,
         "max_idle_cycles": 5,
+        "on_idle": "perpetual",
         "triage_approval": "auto",
         "per_session_max_usd": 25.0,
+        "idle_expansion": {
+          "sources": [".planning/VISION.md", ".planning/ROADMAP.md", ".planning/SYSTEM_SPEC.md"],
+          "max_expansions": 5,
+          "role": "pm",
+          "malformed_retry_limit": 1
+        },
         "auto_retry_on_ghost": {
           "enabled": true,
           "max_retries_per_run": 3,
@@ -78,12 +85,29 @@ What matters here:
 
 - `every_minutes` controls **when the daemon may start or restart** the session
 - `continuous.vision_path` is required when continuous mode is enabled
+- `continuous.on_idle` chooses what happens after `max_idle_cycles` with no derivable work
 - `per_session_max_usd` is the cumulative session cap; when hit, the session stops cleanly instead of blocking
 - `triage_approval: "human"` pauses vision-derived work at the intake approval boundary instead of auto-approving it
 - `auto_approve: false` keeps the scheduler from using the blanket CLI override; project-owned `approval_policy` should decide which gates are routine enough to close unattended
 - `auto_retry_on_ghost` lets continuous mode reissue transient startup ghost turns before pausing the session
 
 For the field-by-field reference, see [Lights-Out Scheduling](/docs/lights-out-scheduling) and [CLI Reference](/docs/cli).
+
+## 2a. Choose the idle policy
+
+Continuous mode separates "nothing derivable from the current queue scan" from "the product vision is exhausted." Use `on_idle` to make that policy explicit:
+
+| Mode | Behavior | Use it when |
+|------|----------|-------------|
+| `exit` | Stop with `idle_exit` after `max_idle_cycles` empty scans | You want a bounded proof run or a finite delivery batch |
+| `perpetual` | Dispatch a PM idle-expansion turn after the idle threshold | You want full-auto product development to derive the next increment from broader repo context |
+| `human_review` | Pause the session with `idle_human_review_required` | You want an operator to decide whether to stop, inject work, or switch to perpetual mode |
+
+`perpetual` mode uses the normal intake pipeline. The loop records a `vision_idle_expansion` signal, assigns the configured role (default `pm`), and requires a structured `idle_expansion_result`. A successful PM result either creates a new intake intent (`kind: "new_intake_intent"`) or stops cleanly as `vision_exhausted`.
+
+The PM idle-expansion prompt scaffold is `.agentxchain/prompts/pm-idle-expansion.md`. It is committed into new governed projects by `agentxchain init --governed` so teams can review the contract. The runtime's first implementation carries the same requirements through the synthesized charter: `VISION.md` is read-only, proposed work must cite a human-owned vision heading, and `ROADMAP.md` / `SYSTEM_SPEC.md` may be updated only as supporting evidence.
+
+`idle_expansion.max_expansions` is a hard loop guard. If the PM expansion path cannot produce productive work for the configured number of attempts, the session stops as `vision_expansion_exhausted` instead of spending forever. `per_session_max_usd` is checked before idle expansion, so budget exhaustion wins over all idle policies.
 
 ## 3. Prove the loop once before starting the daemon
 
@@ -143,7 +167,8 @@ What happens next:
 2. Later polls advance the **same session** even if the schedule is not due again yet.
 3. The daemon checks queued work first.
 4. If nothing is queued, it seeds work from `.planning/VISION.md`.
-5. Each run still goes through the real intake lifecycle: plan → start → governed run → resolve.
+5. If the queue stays empty through the idle threshold, `on_idle` decides whether the loop exits, pauses for human review, or dispatches PM idle-expansion.
+6. Each run still goes through the real intake lifecycle: plan → start → governed run → resolve.
 
 This is why `schedule daemon` is the correct unattended owner for schedule-driven operation: it owns heartbeat, status, and later-poll continuation without inventing a second scheduler.
 
@@ -165,11 +190,11 @@ Watch for:
 - `owner_type: "schedule"` and the owning schedule id
 - `runs_completed` versus `max_runs`
 - `current_vision_objective`
-- `continuous_blocked`, `continuous_running`, `continuous_completed`, or `continuous_failed`
+- `continuous_blocked`, `continuous_running`, `continuous_completed`, `continuous_vision_exhausted`, `continuous_vision_expansion_exhausted`, or `continuous_failed`
 
 `agentxchain events --follow` is also the auto-chain audit trail. On every clean hand-off from one completed run to the next, you should see `session_continuation <previous_run_id> -> <next_run_id> (<objective>)`. If a run completed cleanly and there is no continuation event, treat that as a defect, not as normal operator ambiguity.
 
-`paused` is reserved for real blockers like unresolved escalations or blocked runs. A healthy post-completion path should stay `running` while it seeds the next objective, then end as `completed` or `idle_exit` when it hits `max_runs`, budget, or exhausted vision goals.
+`paused` is reserved for real blockers like unresolved escalations, blocked runs, or explicit `on_idle: "human_review"`. A healthy post-completion path should stay `running` while it seeds the next objective, then end as `completed`, `idle_exit`, `vision_exhausted`, or `vision_expansion_exhausted` when it hits `max_runs`, bounded idle policy, PM exhaustion, PM expansion cap, or budget.
 
 `agentxchain status` is the run/session truth surface. `agentxchain schedule status` is the daemon heartbeat surface. Do not confuse them.
 

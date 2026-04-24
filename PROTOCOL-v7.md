@@ -100,6 +100,8 @@ Continuous-session terminal statuses (BUG-60, `on_idle` policy):
 - `vision_expansion_exhausted` — perpetual mode, expansion cap reached without productive run
 - `session_budget` — budget exhausted (dominates idle policy when both are true)
 
+`on_idle: "human_review"` is not a terminal session status. It pauses the continuous session and emits `idle_human_review_required` so an operator can decide whether to inject work, approve work, rerun with another idle policy, or stop.
+
 Write authorities are:
 
 - `authoritative`

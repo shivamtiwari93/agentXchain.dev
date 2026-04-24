@@ -322,6 +322,8 @@ In continuous mode, session status uses additional terminal values beyond the pe
 | `session_budget` | `per_session_max_usd` budget exhausted (dominates idle policy) |
 | `failed` | Terminal execution failure |
 
+`on_idle: "human_review"` is intentionally non-terminal: after the idle threshold, the session becomes `paused`, emits `idle_human_review_required`, and waits for the operator to inject or approve work, rerun with a different idle policy, or stop the session.
+
 Budget exhaustion dominates idle policy: when both `per_session_max_usd` and `max_idle_cycles` are exceeded, the session reports `session_budget`, not `idle_exit`. See `DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001`.
 
 **`blocked` vs `paused` (v1.1):**
@@ -487,6 +489,7 @@ Five stages, executed in order. Short-circuits on first failure.
 
 `running` -> `idle_exit` (bounded, queue empty)
 `running` -> `idle_expansion_dispatched` -> `running` (perpetual, PM expansion dispatched)
+`running` -> `paused` with `idle_human_review_required` (human-review idle policy)
 `running` -> `vision_exhausted` (perpetual, PM declared vision done)
 `running` -> `vision_expansion_exhausted` (perpetual, expansion cap reached)
 `running` -> `session_budget` (budget exhausted, dominates idle policy)

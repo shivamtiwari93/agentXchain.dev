@@ -109,6 +109,37 @@
           "type": "object",
           "description": "Continuous-run control knobs.",
           "properties": {
+            "on_idle": {
+              "type": "string",
+              "enum": ["exit", "perpetual", "human_review"],
+              "description": "Policy after max_idle_cycles with no derivable work: exit, dispatch PM idle-expansion, or pause for operator review."
+            },
+            "idle_expansion": {
+              "type": "object",
+              "description": "PM idle-expansion policy used when on_idle is perpetual.",
+              "properties": {
+                "sources": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Project-relative source files the PM expansion turn should inspect. Defaults to VISION, ROADMAP, and SYSTEM_SPEC."
+                },
+                "max_expansions": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Maximum consecutive PM idle-expansion attempts before stopping with vision_expansion_exhausted. Default 5."
+                },
+                "role": {
+                  "type": "string",
+                  "description": "Role used for the PM idle-expansion turn. Default pm."
+                },
+                "malformed_retry_limit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Reserved retry budget for malformed idle_expansion_result outputs. Default 1."
+                }
+              },
+              "additionalProperties": true
+            },
             "auto_retry_on_ghost": {
               "type": "object",
               "description": "Bounded ghost-turn retry policy for continuous/full-auto sessions.",

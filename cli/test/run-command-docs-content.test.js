@@ -39,9 +39,16 @@ describe('run command documentation surface', () => {
   });
 
   it('CLI docs page documents all run flags', () => {
-    for (const flag of ['--role', '--max-turns', '--auto-approve', '--verbose', '--dry-run', '--continue-from', '--recover-from']) {
+    for (const flag of ['--role', '--max-turns', '--auto-approve', '--verbose', '--dry-run', '--continue-from', '--recover-from', '--on-idle']) {
       assert.ok(CLI_DOCS.includes(flag),
         `CLI docs must document ${flag} flag for run command`);
+    }
+  });
+
+  it('CLI docs documents continuous idle policies', () => {
+    for (const token of ['on_idle', 'idle_expansion', 'human_review', 'vision_expansion_exhausted', 'pm-idle-expansion.md']) {
+      assert.ok(CLI_DOCS.includes(token),
+        `CLI docs must document continuous idle token: ${token}`);
     }
   });
 

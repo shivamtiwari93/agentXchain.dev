@@ -960,6 +960,15 @@ describe('continuous schedule selection', () => {
 });
 
 describe('BUG-60 scheduler status mapping', () => {
+  it('builds schedule-owned continuous options through the shared resolver', () => {
+    const source = readFileSync(join(cliRoot, 'src', 'commands', 'schedule.js'), 'utf8');
+    assert.match(source, /resolveContinuousOptions\(\{\s*continuous:\s*true\s*\}/s);
+    assert.match(source, /\.\.\.contConfig/);
+    assert.match(source, /captureVisionHeadingsSnapshot/);
+    assert.match(source, /computeVisionContentSha/);
+    assert.doesNotMatch(source, /const contOpts = \{\s*visionPath:/);
+  });
+
   it('maps perpetual idle-expansion terminal states distinctly', () => {
     const source = readFileSync(join(cliRoot, 'src', 'commands', 'schedule.js'), 'utf8');
     assert.match(source, /vision_exhausted:\s*'continuous_vision_exhausted'/);

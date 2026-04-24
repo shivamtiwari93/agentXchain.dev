@@ -836,6 +836,7 @@ agentxchain run [options]
 | `--max-runs <n>` | `100` | Maximum consecutive governed runs in continuous mode |
 | `--poll-seconds <n>` | `30` | Seconds between idle-detection cycles in continuous mode |
 | `--max-idle-cycles <n>` | `3` | Stop after N consecutive idle cycles with no derivable work |
+| `--on-idle <mode>` | `"exit"` | Idle policy after `--max-idle-cycles`: `exit`, `perpetual`, or `human_review` |
 | `--session-budget <usd>` | `null` | Cumulative session-level budget cap in USD for continuous mode. Stops the session cleanly when total spend across all runs reaches this limit |
 
 Drives a governed run to completion using the `runLoop` library. Continuously assigns turns, dispatches to adapters, handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). The manual adapter is not supported — use `step` for manual dispatch workflows. When a gate pause is reached, the command prompts interactively on stdin unless `--auto-approve` is set. In non-TTY environments (e.g., CI), gates fail closed unless `--auto-approve` is explicitly passed. If `project.goal` is set in `agentxchain.json`, every dispatched turn's `CONTEXT.md` includes a `## Project Goal` section so agents know what the project is trying to accomplish.
@@ -846,7 +847,27 @@ Drives a governed run to completion using the `runLoop` library. Continuously as
 
 **Context inheritance:** Add `--inherit-context` to either `--continue-from` or `--recover-from` to carry a read-only summary of the selected parent run into the child run. The inherited summary includes the parent's terminal status, phases completed, roles used, terminal retrospective, recent decisions, and recent accepted-turn summaries from that parent run's recorded `run-history.jsonl` snapshot. The child run remains a fresh run — no phase state, gate approvals, or mutable state is copied. The inherited summary is rendered in the first turn's `CONTEXT.md`, exposed in `status --json`, `report`, and `export`, and persists in `state.json` as `inherited_context`. If you target an older parent run recorded before inheritance snapshots existed, inheritance degrades to metadata-only with warnings instead of reading today's repo-global history and pretending it came from that parent.
 
-**Continuous vision-driven mode:** `--continuous` enables a lights-out loop where the only human-supplied input is VISION.md. The loop derives candidate intents from unaddressed vision goals, records them through the intake pipeline, and executes governed runs automatically. Each run's provenance traces back to a specific vision section (`trigger: "vision_scan"`). The loop stops on `--max-runs`, `--max-idle-cycles` (when all vision goals appear addressed), `--session-budget` (when cumulative spend exceeds the cap), SIGINT, or a human-blocking escalation. Configure `triage_approval: "human"` in `run_loop.continuous` config to require operator approval for vision-derived intents instead of auto-approving. Use `agentxchain status` to view the continuous session and current vision-derived objective. VISION.md is project-relative — each governed project has its own VISION.md, never the agentxchain.dev repo's VISION.md.
+**Continuous vision-driven mode:** `--continuous` enables a lights-out loop where the only human-supplied input is VISION.md. The loop derives candidate intents from unaddressed vision goals, records them through the intake pipeline, and executes governed runs automatically. Each run's provenance traces back to a specific vision section (`trigger: "vision_scan"`). The loop stops on `--max-runs`, `--session-budget` (when cumulative spend exceeds the cap), SIGINT, or a human-blocking escalation. After `--max-idle-cycles` empty scans, `--on-idle exit` stops with `idle_exit`, `--on-idle perpetual` dispatches a PM idle-expansion turn through the intake pipeline, and `--on-idle human_review` pauses with `idle_human_review_required`. Configure `triage_approval: "human"` in `run_loop.continuous` config to require operator approval for vision-derived intents instead of auto-approving. Use `agentxchain status` to view the continuous session and current vision-derived objective. VISION.md is project-relative — each governed project has its own VISION.md, never the agentxchain.dev repo's VISION.md.
+
+Perpetual mode reads `run_loop.continuous.idle_expansion`:
+
+```json
+{
+  "run_loop": {
+    "continuous": {
+      "on_idle": "perpetual",
+      "idle_expansion": {
+        "sources": [".planning/VISION.md", ".planning/ROADMAP.md", ".planning/SYSTEM_SPEC.md"],
+        "max_expansions": 5,
+        "role": "pm",
+        "malformed_retry_limit": 1
+      }
+    }
+  }
+}
+```
+
+The PM expansion turn must return one `idle_expansion_result`: `kind: "new_intake_intent"` with a concrete intake charter and acceptance contract, or `kind: "vision_exhausted"` with per-heading classification. New governed projects include `.agentxchain/prompts/pm-idle-expansion.md` as the reviewable prompt scaffold. `per_session_max_usd` is checked before idle expansion, and `idle_expansion.max_expansions` stops repeated unproductive expansion as `vision_expansion_exhausted`.
 
 **Startup and stale-turn watchdogs:** local CLI turns now use two distinct watchdogs. `run_loop.startup_watchdog_ms` controls how long AgentXchain waits for real startup proof (worker attach plus first output or an equivalent staged result) before retaining the turn as `failed_start`; the default is 180 seconds. When one local runtime is slower than the others, set `runtimes.<id>.startup_watchdog_ms` to override the global startup watchdog for that runtime only. `run_loop.stale_turn_threshold_ms` controls how long a turn that already produced startup proof may go silent before it is retained as `stalled`; the default is 10 minutes for `local_cli` turns and 5 minutes for `api_proxy` turns. Operators should tune these through config, not code edits: `agentxchain config --set run_loop.startup_watchdog_ms 180000`, `agentxchain config --set runtimes.local-qa.startup_watchdog_ms 180000`, and `agentxchain config --set run_loop.stale_turn_threshold_ms 600000`.
 
@@ -888,6 +909,11 @@ Repo-local run scheduling is the narrow first step from "tool you invoke" to "sy
 | `continuous.vision_path` | — | Required when enabled. Project-relative path to VISION.md |
 | `continuous.max_runs` | `50` | Max governed runs before the continuous session exits |
 | `continuous.max_idle_cycles` | `5` | Max polls with no derivable work before idle exit |
+| `continuous.on_idle` | `"exit"` | `exit`, `perpetual`, or `human_review` after the idle threshold |
+| `continuous.idle_expansion.sources` | VISION, ROADMAP, SYSTEM_SPEC | Source files for PM idle-expansion when `on_idle` is `perpetual` |
+| `continuous.idle_expansion.max_expansions` | `5` | Max consecutive PM idle-expansion attempts before `vision_expansion_exhausted` |
+| `continuous.idle_expansion.role` | `"pm"` | Role assigned to the PM idle-expansion turn |
+| `continuous.idle_expansion.malformed_retry_limit` | `1` | Reserved retry budget for malformed idle-expansion outputs |
 | `continuous.triage_approval` | `"auto"` | `"auto"` or `"human"` for vision-derived intent approval |
 | `continuous.per_session_max_usd` | `null` | Cumulative session-level budget cap in USD. Session stops cleanly when total spend reaches this limit |
 

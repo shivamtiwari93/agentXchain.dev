@@ -255,11 +255,11 @@ The failure remains classified as `startupFailureType: "no_subprocess_output"` b
 
 **Status:** Active as of 2026-04-24.
 
-**Decision:** BUG-60 perpetual continuous mode uses the governed intake pipeline (Option A), not direct special-case PM dispatch. Default `continuous.on_idle` remains `exit`; `perpetual` is opt-in. Idle expansion uses the normal `pm` role with an idle-expansion charter carried by the synthesized intake intent. Every `new_intake_intent` result must cite at least one matching VISION.md heading or goal; every `vision_exhausted` result must classify every top-level VISION.md heading.
+**Decision:** BUG-60 perpetual continuous mode uses the governed intake pipeline (Option A), not direct special-case PM dispatch. Default `continuous.on_idle` remains `exit`; `perpetual` is opt-in. `human_review` is also a supported idle policy: after the idle threshold it pauses the continuous session and emits `idle_human_review_required` instead of claiming vision exhaustion or dispatching PM expansion. Idle expansion uses the normal `pm` role with an idle-expansion charter carried by the synthesized intake intent. Every `new_intake_intent` result must cite at least one matching VISION.md heading or goal; every `vision_exhausted` result must classify every top-level VISION.md heading.
 
 **Why:** Intake gives auditability, lifecycle reuse, approval policy inheritance, and operator inspection. Direct dispatch creates a second autonomy path outside governance. A dedicated `pm_idle_expansion` role is deferred until there is a concrete runtime/tool/budget need that the normal PM role cannot satisfy.
 
-**Deferred scope:** `continuous.on_idle: "human_review"` is reserved for a future roadmap entry that defines pause-and-ask-human semantics. The first BUG-60 slice rejects it explicitly with an actionable error instead of accepting a silent stub or pre-reserving a speculative bug ID.
+**Turn 26 amendment:** The earlier deferred-scope note for `continuous.on_idle: "human_review"` is superseded. The roadmap's BUG-60 fix requirements explicitly require `exit | perpetual | human_review`, so `human_review` now has minimal real semantics: pause for operator review, preserve the session, and surface an auditable idle-review event.
 
 ## DEC-BUG60-BUDGET-BEFORE-IDLE-EXPANSION-001
 

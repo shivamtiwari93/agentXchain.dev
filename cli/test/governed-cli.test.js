@@ -246,6 +246,14 @@ describe('governed CLI support', () => {
       assert.equal(config.roles.qa.runtime, 'manual-qa');
       assert.equal(config.runtimes['manual-dev'].type, 'manual');
       assert.equal(config.runtimes['manual-qa'].type, 'manual');
+      const idleExpansionPrompt = readFileSync(
+        join(dir, 'my-agentxchain-project', '.agentxchain', 'prompts', 'pm-idle-expansion.md'),
+        'utf8',
+      );
+      assert.match(idleExpansionPrompt, /IDLE-EXPANSION mode/);
+      assert.match(idleExpansionPrompt, /Do not modify `\.planning\/VISION\.md`/);
+      assert.match(idleExpansionPrompt, /new_intake_intent/);
+      assert.match(idleExpansionPrompt, /vision_exhausted/);
       assert.match(result.stdout, /Ready:\s+manual-only scaffold/i);
       assert.match(result.stdout, /Dev runtime:\s+manual-dev \(manual\)/);
       assert.match(result.stdout, /Use agentxchain step for the first governed turn; run requires automatable runtimes\./);

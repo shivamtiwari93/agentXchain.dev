@@ -191,8 +191,14 @@ A schedule can opt into **continuous vision-driven execution** by adding a `cont
         "vision_path": ".planning/VISION.md",
         "max_runs": 100,
         "max_idle_cycles": 8,
+        "on_idle": "perpetual",
         "triage_approval": "auto",
-        "per_session_max_usd": 500.0
+        "per_session_max_usd": 500.0,
+        "idle_expansion": {
+          "sources": [".planning/VISION.md", ".planning/ROADMAP.md", ".planning/SYSTEM_SPEC.md"],
+          "max_expansions": 5,
+          "role": "pm"
+        }
       }
     }
   }
@@ -204,7 +210,9 @@ A schedule can opt into **continuous vision-driven execution** by adding a `cont
 | `continuous.enabled` | `false` | Opt the schedule into continuous mode |
 | `continuous.vision_path` | — | **Required when enabled.** Project-relative path to the VISION file |
 | `continuous.max_runs` | `50` | Max governed runs before the session exits terminally |
-| `continuous.max_idle_cycles` | `5` | Max daemon polls with no derivable work before idle exit |
+| `continuous.max_idle_cycles` | `5` | Max daemon polls with no derivable work before the `on_idle` policy fires |
+| `continuous.on_idle` | `"exit"` | `exit`, `perpetual`, or `human_review` after the idle threshold |
+| `continuous.idle_expansion.*` | see CLI reference | PM idle-expansion sources, role, malformed-output retry budget, and max expansion cap for `on_idle: "perpetual"` |
 | `continuous.triage_approval` | `"auto"` | `"auto"` auto-approves vision-derived intents; `"human"` pauses for operator triage |
 | `continuous.per_session_max_usd` | `null` | Cumulative session-level budget cap in USD. When total spend across all runs reaches this limit, the session stops cleanly. `null` disables |
 

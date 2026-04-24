@@ -674,10 +674,6 @@ function validateRunLoopContinuousConfig(path, continuous, errors) {
   if (continuous.on_idle !== undefined && continuous.on_idle !== null) {
     if (typeof continuous.on_idle !== 'string') {
       errors.push(`${path}.on_idle must be one of: ${VALID_ON_IDLE.join(', ')}`);
-    } else if (RESERVED_ON_IDLE.includes(continuous.on_idle)) {
-      errors.push(
-        `${path}.on_idle: "${continuous.on_idle}" is reserved but not supported yet. Use "exit" or "perpetual".`
-      );
     } else if (!VALID_ON_IDLE.includes(continuous.on_idle)) {
       errors.push(`${path}.on_idle must be one of: ${VALID_ON_IDLE.join(', ')}`);
     }
@@ -1360,8 +1356,8 @@ export function normalizeV4(raw) {
   };
 }
 
-const VALID_ON_IDLE = ['exit', 'perpetual'];
-const RESERVED_ON_IDLE = ['human_review'];
+const VALID_ON_IDLE = ['exit', 'perpetual', 'human_review'];
+const RESERVED_ON_IDLE = [];
 
 function normalizeIdleExpansion(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
