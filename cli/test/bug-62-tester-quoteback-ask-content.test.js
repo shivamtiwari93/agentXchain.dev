@@ -33,6 +33,30 @@ describe('BUG-62 tester quote-back ask V3', () => {
       /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7/,
       'V3 preflight must use the 2.154.7 published tarball',
     );
+    assert.doesNotMatch(
+      ask,
+      /(^|\n)(agentxchain\s+(status|reconcile-state|step|init)\b)/,
+      'V3 live CLI commands must not assume a globally installed bare agentxchain binary',
+    );
+  });
+
+  it('establishes a real checkpoint baseline before reconcile blocks', () => {
+    const ask = readRepoFile(ASK_V3_PATH);
+    assert.match(
+      ask,
+      /step --role pm --poll 1[\s\S]{0,2600}turn-result\.json[\s\S]{0,900}baseline_step_exit: \$STEP_EXIT/,
+      'V3 setup must accept a real governed turn before recording BASE',
+    );
+    assert.match(
+      ask,
+      /reconcile-state refuses with missing_baseline until a[\s\S]{0,100}checkpoint baseline/,
+      'V3 setup must document why init-only scratch repos are insufficient',
+    );
+    assert.match(
+      ask,
+      /Reject BUG-62 quote-back if:[\s\S]{0,220}baseline_step_exit: 0/,
+      'V3 review rules must reject evidence that skipped the baseline turn',
+    );
   });
 
   it('cross-links V1 (BUG-52) and V2 (BUG-59/BUG-54)', () => {
@@ -46,6 +70,20 @@ describe('BUG-62 tester quote-back ask V3', () => {
     assert.match(ask, /Block 1 — positive reconcile/);
     assert.match(ask, /Block 2 — negative \(operator commit modifies governed state\)/);
     assert.match(ask, /Block 3 — negative \(history rewrite/);
+  });
+
+  it('force-adds governed state only for the unsafe negative block', () => {
+    const ask = readRepoFile(ASK_V3_PATH);
+    assert.match(
+      ask,
+      /git add -f \.agentxchain\/state\.json && git commit -q -m "operator: unsafe state edit"/,
+      'V3 Block 2 must force-add gitignored governed state so the unsafe commit really exists',
+    );
+    assert.doesNotMatch(
+      ask,
+      /git add \.agentxchain\/state\.json && git commit/,
+      'V3 must not use plain git add for gitignored .agentxchain/state.json',
+    );
   });
 
   it('names the real event type emitted by reconcileOperatorHead', () => {

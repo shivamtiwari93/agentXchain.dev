@@ -5,12 +5,14 @@ Status: Active — required before BUG-60 research or implementation starts.
 ## Purpose
 
 Collect the exact real-tester evidence needed to close the shipped
-`agentxchain` BUG-59 and BUG-54 contracts on `tusq.dev`.
+`agentxchain` BUG-59 and BUG-54 contracts on the tester machine, using a
+self-contained fixture instead of assuming the tester's current dogfood repo
+already has the right policy and derivable-work baseline.
 
 Agent-side published-package proof is already green. It is not enough to
 unlock BUG-60. The real tester must quote the fields below from their own
-dogfood run because BUG-59 is a product-behavior claim and BUG-54 depends on
-local CLI runtime timing on the tester's machine.
+published-package run because BUG-59 is a product-behavior claim and BUG-54
+depends on local CLI runtime timing on the tester's machine.
 
 ## Target version
 
@@ -38,11 +40,9 @@ tester's evidence forward-compatible with BUG-60 unlock work.
 
 ## Preconditions
 
-Run every command from the `tusq.dev` repo root. Quote these first:
+Run these commands from a clean shell. Do not run from the AgentXchain repo checkout. Quote these first:
 
 ```bash
-pwd
-git rev-parse --show-toplevel
 npx --yes -p agentxchain@2.154.7 -c 'agentxchain --version'
 ```
 
@@ -56,13 +56,80 @@ The version output must be exactly:
 exactly and name which fix set it carries. Anything lower than `2.151.0`
 does not carry the BUG-59 fix and must not be used.)
 
-## BUG-59 Positive Path: Routine Gates Auto-Close
-
-Run a real continuous dogfood session with the published package. Use the
-same operational shape as the v2.150.0 tester run, but pin the package:
+Create the prepared fixture. This fixture is intentional: the 2026-04-24
+`tusq.dev` retest showed two baseline-assumption failures that made older V2
+instructions non-copy-pasteable (`approval_policy: null`, and no derivable work
+to drive ten adapter turns). The fixture uses the shipped `full-local-cli`
+template, forces the two routine gates to non-credentialed, ensures
+`approval_policy` is present, and gives continuous mode enough goals to keep
+dispatching. It does not modify `tusq.dev/.planning/VISION.md`.
 
 ```bash
-npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+rm -rf /tmp/axc-bug59-54 && mkdir -p /tmp/axc-bug59-54 && cd /tmp/axc-bug59-54
+git init -q
+git config user.email tester@example.com
+git config user.name tester
+npx --yes -p agentxchain@2.154.7 agentxchain init --governed --template full-local-cli --yes
+node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync } from 'node:fs';
+const config = JSON.parse(readFileSync('agentxchain.json', 'utf8'));
+if (!config.approval_policy) {
+  config.approval_policy = {
+    phase_transitions: {
+      default: 'require_human',
+      rules: [
+        {
+          from_phase: 'planning',
+          to_phase: 'implementation',
+          action: 'auto_approve',
+          when: { gate_passed: true, credentialed_gate: false }
+        }
+      ]
+    },
+    run_completion: {
+      action: 'auto_approve',
+      when: { gate_passed: true, credentialed_gate: false }
+    }
+  };
+}
+for (const gateId of ['planning_signoff', 'qa_ship_verdict']) {
+  config.gates ||= {};
+  config.gates[gateId] ||= {};
+  config.gates[gateId].credentialed = false;
+}
+writeFileSync('agentxchain.json', `${JSON.stringify(config, null, 2)}\n`);
+NODE
+cat > /tmp/axc-bug59-54-vision.md <<'EOF'
+# BUG-59 / BUG-54 Fixture Vision
+
+Build a tiny governed evidence project in small increments.
+
+## Goals
+- Add planning notes for slice 1.
+- Add planning notes for slice 2.
+- Add planning notes for slice 3.
+- Add implementation notes for slice 4.
+- Add implementation notes for slice 5.
+- Add implementation notes for slice 6.
+- Add QA evidence for slice 7.
+- Add QA evidence for slice 8.
+- Add QA evidence for slice 9.
+- Add release-readiness notes for slice 10.
+- Add operator handoff notes for slice 11.
+- Add cleanup notes for slice 12.
+EOF
+git add -A && git commit -q -m "scaffold BUG-59 BUG-54 fixture"
+pwd
+git rev-parse --show-toplevel
+jq '{approval_policy, gates: {planning_signoff: .gates.planning_signoff, qa_ship_verdict: .gates.qa_ship_verdict}, runtimes}' agentxchain.json
+```
+
+## BUG-59 Positive Path: Routine Gates Auto-Close
+
+Run a real continuous fixture session with the published package:
+
+```bash
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision /tmp/axc-bug59-54-vision.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
 ```
 
 If the project already has a paused or blocked run that is waiting on a
@@ -116,8 +183,8 @@ equivalent generated non-credentialed guard. If the ledger has no
 ## BUG-59 Credentialed Negative Path
 
 This verifies that `credentialed: true` remains a hard stop even under the
-same auto-approval policy. `agentxchain.json` is tracked by git in
-`tusq.dev`, so this path MUST NOT leave the file mutated on disk. The
+same auto-approval policy. `agentxchain.json` is tracked by git in the
+prepared fixture, so this path MUST NOT leave the file mutated on disk. The
 recipe below wraps mutate → run → quote → restore in a single `bash`
 subshell with an `EXIT INT TERM` trap so the config is restored on
 successful exit, on error under `set -eu`, and on Ctrl-C:
@@ -150,7 +217,7 @@ c.gates.qa_ship_verdict.credentialed = true;
 fs.writeFileSync(p, JSON.stringify(c, null, 2) + '\n');
 MUTATE
 
-npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision /tmp/axc-bug59-54-vision.md --max-runs 1 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
 
 jq '{status, phase, pending_run_completion, blocked_on, last_gate_failure}' .agentxchain/state.json
 jq -c 'select(.type == "approval_policy") | {timestamp, gate_type, gate_id, action, reason, matched_rule}' .agentxchain/decision-ledger.jsonl
@@ -191,15 +258,15 @@ force the negative case.
 
 BUG-54 is not closed by source tests alone. Run ten real `local_cli`
 dispatches through the published package on the tester machine. The preferred
-path is the normal dogfood flow:
+path is the prepared fixture flow:
 
 ```bash
 export BUG54_START_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 echo "BUG54_START_TS=$BUG54_START_TS"
-npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision /tmp/axc-bug59-54-vision.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
 ```
 
-After the dogfood run, quote only current-window events and adapter logs.
+After the fixture run, quote only current-window events and adapter logs.
 Do not grep the entire `.agentxchain/` tree: long-running dogfood repos may
 contain historical `stdout_attach_failed` / `ghost_turn` lines from earlier
 package versions, which would pollute the BUG-54 quote-back.
@@ -273,20 +340,20 @@ are positive evidence the adapter reached healthy startup; zero in both while
 `stdout_logs_present` is non-zero means the adapter log format has drifted and
 the runbook must be updated before the evidence can close BUG-54.
 
-If `tusq.dev` has no derivable work, first try to produce ten adapter-path
-attempts with the same real project runtime config through `agentxchain run`
-or repeated public `agentxchain step --role <role>` / `agentxchain step --resume`
-invocations. The attempt bundle should be comparable to the failing v2.150.0
-adapter dispatch; if that bundle size is unavailable, use 10 KB or larger as
-the minimum fallback. Small synthetic prompts are not valid closure evidence
-because they do not exercise the startup-watchdog path that failed in the
-adapter.
+If the fixture still produces fewer than ten dispatches, first try to produce
+ten adapter-path attempts with the same real fixture runtime config through
+`agentxchain run` or repeated public `agentxchain step --role <role>` /
+`agentxchain step --resume` invocations. The attempt bundle should be comparable
+to the failing v2.150.0 adapter dispatch; if that bundle size is unavailable,
+use 10 KB or larger as the minimum fallback. Small synthetic prompts are not
+valid closure evidence because they do not exercise the startup-watchdog path
+that failed in the adapter.
 
 The published-package repro harness below is still useful as supporting timing
 evidence, but it is not sufficient for BUG-54 closure by itself. `npx --yes -p`
 does not install under `npm root` (neither local nor global), so extract the
 repro harness directly from the registry tarball and run it from the
-`tusq.dev` repo root so it auto-discovers the project's `agentxchain.json` and
+fixture root so it auto-discovers the fixture's `agentxchain.json` and
 configured runtimes:
 
 ```bash
@@ -335,11 +402,11 @@ BUG-54 closure requires ten consecutive real adapter-path dispatches with no
 `startup_watchdog_fired`, `stdout_attach_failed`, or `ghost_turn` events at the
 default 180 000 ms startup watchdog that shipped in `2.151.0` and is still
 the default in `2.154.7`. The raw repro harness is strong supporting evidence,
-but it does not close BUG-54 alone. Closure through the no-derivable-work escape
-requires all three facts to be quoted: normal dogfood flow cannot produce ten
-real dispatches, ten adapter-path attempts were still run against the real
-runtime config, and those attempts used a bundle comparable to the failing
-v2.150.0 dispatch or at least 10 KB when the original size is unavailable.
+but it does not close BUG-54 alone. Closure through the fallback escape requires
+all three facts to be quoted: the prepared fixture could not produce ten real
+dispatches, ten adapter-path attempts were still run against the real runtime
+config, and those attempts used a bundle comparable to the failing v2.150.0
+dispatch or at least 10 KB when the original size is unavailable.
 
 ## Paste Target
 

@@ -165,6 +165,35 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
     );
   });
 
+  it('canonical runbook creates the V2 prepared fixture and synthetic vision', () => {
+    const runbook = readRepoFile(RUNBOOK_PATH);
+    assert.match(
+      runbook,
+      /rm -rf \/tmp\/axc-bug59-54 && mkdir -p \/tmp\/axc-bug59-54 && cd \/tmp\/axc-bug59-54/,
+      'runbook must create the same self-contained fixture as V2',
+    );
+    assert.match(
+      runbook,
+      /agentxchain init --governed --template full-local-cli --yes/,
+      'runbook must use a full-local-cli fixture for adapter-path evidence',
+    );
+    assert.match(
+      runbook,
+      /if \(!config\.approval_policy\)[\s\S]{0,900}credentialed_gate: false/,
+      'runbook must seed approval_policy when the tester project baseline would be null',
+    );
+    assert.match(
+      runbook,
+      /\/tmp\/axc-bug59-54-vision\.md[\s\S]{0,900}slice 12/,
+      'runbook must seed enough synthetic vision goals to avoid immediate idle exit',
+    );
+    assert.doesNotMatch(
+      runbook,
+      /Run every command from the `tusq\.dev` repo root/,
+      'runbook must not assume tusq.dev is already prepared',
+    );
+  });
+
   it('public v2.151.0 release page points current BUG-59/54 quote-back to 2.154.7', () => {
     const releasePage = readRepoFile(RELEASE_151_PATH);
     assert.match(
@@ -270,6 +299,26 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       /(keep BUG-60 blocked until the separate BUG-52 shipped-package quote-back|only then unlock BUG-60 work)/,
       'V2 ask must not preserve stale BUG-52 gating or old unlock wording',
     );
+    assert.match(
+      ask,
+      /rm -rf \/tmp\/axc-bug59-54 && mkdir -p \/tmp\/axc-bug59-54 && cd \/tmp\/axc-bug59-54/,
+      'V2 ask must create a self-contained fixture instead of assuming tester-project baseline',
+    );
+    assert.match(
+      ask,
+      /agentxchain init --governed --template full-local-cli --yes/,
+      'V2 ask must use a prepared local_cli fixture for BUG-54 adapter-path evidence',
+    );
+    assert.match(
+      ask,
+      /if \(!config\.approval_policy\)[\s\S]{0,900}credentialed_gate: false/,
+      'V2 ask must seed approval_policy when the project baseline has approval_policy:null',
+    );
+    assert.match(
+      ask,
+      /\/tmp\/axc-bug59-54-vision\.md[\s\S]{0,900}slice 12/,
+      'V2 ask must seed enough synthetic vision goals to avoid immediate idle exit',
+    );
   });
 
   it('V2 BUG-54 block 5 inlines the primary dogfood run, current-window diagnostics, and fallback harness commands', () => {
@@ -284,6 +333,11 @@ describe('BUG-59 / BUG-54 tester quote-back docs', () => {
       ask,
       /npx\s+--yes\s+-p\s+agentxchain@2\.154\.7\s+-c\s+'agentxchain\s+run\s+--continuous[\s\S]{0,220}--max-runs\s+10/,
       'V2 BUG-54 block must inline the primary dogfood run command pinned to 2.154.7 with --max-runs 10',
+    );
+    assert.match(
+      ask,
+      /--vision\s+\/tmp\/axc-bug59-54-vision\.md/,
+      'V2 BUG-54 block must use the prepared synthetic vision instead of tester-project VISION.md',
     );
     assert.match(
       ask,

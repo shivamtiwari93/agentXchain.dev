@@ -3150,3 +3150,60 @@ Supporting evidence:
 5. **Runbook for new adopters** (docs): document that `local_cli` + Claude requires `ANTHROPIC_API_KEY` to be set in the shell that invokes `agentxchain`. Make this a prereq in getting-started.
 
 **Severity confirmation:** P0. Not a reliability issue — a deterministic environmental dependency that's never surfaced to the operator. Fixes the false-auto-recovery loops + makes first-time setup work on clean machines.
+
+---
+
+## Closed Items Migrated from HUMAN-ROADMAP.md — 2026-04-24
+
+This section preserves the full detailed closure bodies for eight items (BUG-52, BUG-55, BUG-56, BUG-57, BUG-59, CICD-SHRINK, FULLTEST-58, RELEASE-v2.149) that were closed during the 2026-04-21 through 2026-04-23 beta cycle. The live HUMAN-ROADMAP.md now carries short closure stubs for these; the full decision records, tester evidence, commit references, and implementation detail remain accessible here and in git history.
+
+Items below are ordered by HUMAN-ROADMAP.md line order at time of migration (not by close date).
+
+### BUG-56: v2.149.1 auth-preflight false positive — closed v2.149.2
+
+See git commits `c87a142a` (release), `ebacc07e` (homebrew sync), tag `v2.149.2`, publish workflow `24707400591` for shipped closure. `runClaudeSmokeProbe()` replaced the static shape-check at `connector-probe.js:168`, `connector-validate.js:111`, `local-cli-adapter.js:131`, `doctor.js:505`. Tests: `cli/test/claude-local-auth-smoke-probe.test.js` + `cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js`. Retro at `.planning/BUG_56_FALSE_POSITIVE_RETRO.md`. Rule #13 added to WAYS-OF-WORKING. Original entry text retained in HUMAN-ROADMAP.md git history at any commit before 2026-04-24.
+
+### BUG-57: dashboard-bridge resource leak — closed (Turn 112)
+
+Fix in `cli/test/dashboard-bridge.test.js` (per-test teardown via `afterEach`). `cli/package.json` pins `--test-timeout=60000 --test-concurrency=4`. `cli/scripts/release-bump.sh` passes `npm test -- --test-timeout=60000` for fail-fast on future leaks. Evidence: dashboard-bridge tests pass in ~2.5s; `npm test` no longer wedges.
+
+### FULLTEST-58: full npm test gate red post-BUG-57 — closed (Turn 114)
+
+Full CLI gate green: `6639 tests / 6634 pass / 0 fail / 5 skipped` in ~476s. Fixes spanned run-scoped acceptance overlap, BUG-51 continuous-mode expectation drift, current release rerun docs, recent-event fixtures, coordinator wave/retry handling, restart pending-approval recovery, and api_proxy proposed-lifecycle fixture. Unblocked CICD-SHRINK.
+
+### CICD-SHRINK: GitHub Actions footprint reduction — closed (Turn 116)
+
+Shipped local prepublish gate (Turn 115) + workflow trigger shrink (Turn 116, commits `7999a251`, `c95bf975`, `652a931f`, `10913fc0`). `ci.yml` pull-request-only; `ci-runner-proof.yml` deleted; `governed-todo-app-proof.yml` nightly/manual only; `deploy-gcs.yml` scoped to `website-v2/**`, `docs/**`, self; `codeql.yml` weekly/manual only. `DEC-RELEASE-CUT-AND-PUSH-AS-ATOMIC-001` + `DEC-GITHUB-ACTIONS-FOOTPRINT-FLOOR-001` in `.planning/DECISIONS.md`. Smoke: commits `652a931f`/`10913fc0` triggered the expected workflows; dummy tag `v0.0.0-cicd-smoke` triggered only `Publish NPM Package`. Queue/in-progress both `0` after post-shrink cleanup.
+
+### RELEASE-v2.149: v2.149.1 hotfix push — closed (Turn 107, `ae8c2be0`)
+
+Publish workflow `24702845949` went green after ~2h36m queued + 2m56s running (runner backlog cleared). Verified: npm `2.149.1`, homebrew tap synced with sha `811a261179e9e6a3ca7dcc9b2c66ff78efa85355621765ae3551f9f756dad7c3`, gh release live, `release-downstream-truth.sh --target-version 2.149.1` 3/3. Root cause of original stuck publish: v2.149.0 publish workflow failed at the claim-reality preflight (`auth_preflight` vs `command_presence` ordering); v2.149.1 hotfix reordered correctly but the Turn 106 cut-without-push pattern delayed it. Acceptance criteria met. Marketing posted X + LinkedIn (Reddit verification failed, non-blocker per WAYS-OF-WORKING §8).
+
+### BUG-59 (architectural): approval_policy ↔ requires_human_approval coupling — shipped v2.151.0 (Turn 145, release commit `8c4a8ba6`, homebrew mirror sync `1ee770e9`)
+
+Post-publish proof: `verify-post-publish.sh --target-version 2.151.0` passed, public npx resolved `2.151.0`, full suite `6706 pass / 0 fail / 5 skipped`, repo homebrew SHA `98c26a10f24ce4049dfa5792634c922eeb7c1bca6ab5a8a083d0f7622fe8d2ee` matches registry tarball. Reconcile-path coupling wired via `reconcilePhaseAdvanceBeforeDispatch()`; credentialed gates hard-stop via `evaluateApprovalPolicy()`. `gate-evaluator.js` kept pure per `DEC-BUG59-KEEP-EVALUATOR-PURE-001`.
+
+**Post-closure tester evidence (2026-04-21):** Tester titled their follow-up *"BUG-59 Not Fully Fixed"* but the evidence showed BUG-59's actual scope shipped correctly and works for projects that configure auto-approval rules. The tester's flow uses delegated human approval via `agentxchain unblock <hesc>`, which is a different code path. Seven escalations (`hesc_37d43f0e3908a30b`, `hesc_cccf32a1430eaed5`, `hesc_0e34b2c5c12f6f2b`, `hesc_c5ee0f264325e114`, `hesc_89c97a9477832e35`, `hesc_7143573d66bbf1ea`, `hesc_a0c5bbfb4ad56e61`) resolved but reassigned PM. Five PM turns became ghosts (`turn_719f9e187ae539fc`, `turn_a1e82454ecca3929`, `turn_73e99edc50407733`, `turn_3401760aa1a60052`, `turn_cc4fb94452048b4b`). Manual state.json repair unblocked; after repair, system worked cleanly through dev → QA → checkpoint, confirming product artifacts were valid and the blocker was framework state. **The tester was hitting BUG-52 third variant, not BUG-59.** Earlier prediction that BUG-59 would resolve BUG-52 third variant as a side-effect was wrong; BUG-52 needed its own implementation work, which shipped in v2.152.0 through v2.154.11. BUG-59 remains quote-back-gated for BUG-60 implementation start per roadmap sequencing.
+
+### BUG-55: checkpoint completeness + verification side-effects — closed 2026-04-21 tester-verified on v2.150.0
+
+First clean tester-verified closure in the BUG-52/53/54/55 cluster. Tester dogfood on real tusq.dev project confirmed:
+1. `agentxchain.json` runtime rebind correctly rejected as `undeclared_verification_outputs` — event `evt_c223ff55ee31cb4b`, turn `turn_60592eb9651f6728`, error text *"Verification was declared, but these files are dirty and not classified: agentxchain.json"*
+2. After separate commit `ecdbdcf`, `agentxchain accept-turn --turn turn_60592eb9651f6728 --checkpoint` succeeded cleanly.
+
+Tester quote: *"BUG-55 appears fixed based on both tusq.dev dogfood behavior and targeted regression tests."* Targeted regression: 26/26 pass / 0 fail / 31.6s.
+
+Original two sub-defects — Sub-A: checkpoint doesn't commit all declared `files_changed` (tester's `run_5fa4a26c3973e02d`, four actor-owned files remained dirty post-checkpoint). Sub-B: verification side-effects (fixture generation) break acceptance (four untracked `tests/fixtures/*` files produced by verification commands). Both resolved in the v2.150.0 fix.
+
+### BUG-52: phase-gate reconcile / unblock advances phase — closed 2026-04-23 tester-verified on v2.154.11
+
+Closure arrived across four patch releases: `2.154.9` (state progression), `2.154.10` (continuous/full-auto continuation + launch-ready completion), `2.154.11` (terminal accounting/audit parity). Final tusq.dev tester quote-back verified: final human-gate unblock reaches the correct terminal state, emits both `gate_approved` + `run_completed`, and updates `.agentxchain/continuous-session.json` to `status: completed` with `runs_completed: 1`.
+
+Three failure shapes originally reported, all resolved:
+1. Original v2.147.0 false-loop: PM turn accepted + checkpointed + escalation resolved via `unblock` → system dispatched new PM turn in planning instead of advancing to implementation. Partial fix in v2.147.0 (`31e53de2 fix(governed): reconcile phase gates before redispatch`); incomplete — hit additional lanes.
+2. Third variant: `pending_phase_transition: null` + `phase_gate_status.<gate>: pending` — `approve-completion --dry-run` returned "No pending run completion to approve" while `gate show` showed "Human approval: yes, Status: pending" — command-surface disagreement. Fixed via `9f166195 fix(governed): advance standing gates after unblock` in v2.152.0.
+3. PM-needs-human-shape turn contributed gate artifacts + synthetic gate unblock with verification — fixed across `2.154.5`, `2.154.6` (burned by release gate), `2.154.7`.
+
+Key decisions shipped: `DEC-BUG52-STATE-CLEANUP-ON-PHASE-ADVANCE-001` (session.json checkpoint refresh + stale `active_turn_ids` cleanup); `unblock` command-surface converged with approve-transition; `phase_reconciled` event emitted on reconciled phase advance with full cleanup.
+
+Tester evidence trail: seven `hesc_*` resolved + five ghost PM turns in the original reproduction (listed in BUG-59 archive entry above). Final v2.154.11 acceptance: tusq.dev continuous-session transitions to `status: completed` with `runs_completed: 1` after the human-gate unblock without manual state surgery.

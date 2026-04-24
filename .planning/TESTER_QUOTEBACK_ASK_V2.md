@@ -14,20 +14,85 @@ Please re-test BUG-59 (approval-policy auto-approval) and BUG-54 (local_cli star
 
 Target package: `agentxchain@2.154.7` or later. Earlier versions (`2.151.0` through `2.154.5`) carry the BUG-59 coupling and the 180 000 ms BUG-54 watchdog, but a routine continuous session on `tusq.dev` will reproduce the BUG-52 third-variant loop before the approval_policy ledger gets exercised. `2.154.7` is the first published pin that is BUG-52-safe for BUG-59/BUG-54 proof.
 
-Run this preflight from the `tusq.dev` repo root, not from the AgentXchain repo checkout:
+Run this preflight from a clean shell. Do not run from the AgentXchain repo checkout:
 
 ```bash
 npm uninstall -g agentxchain 2>/dev/null || true
-pwd
-git rev-parse --show-toplevel
 npx --yes -p agentxchain@2.154.7 -c "agentxchain --version"
 ```
 
 Expected version output: `2.154.7` or a later published patch.
 
+Then create a self-contained fixture project. Do **not** rely on the current
+`tusq.dev` baseline for this ask: the 2026-04-24 retest showed that
+`tusq.dev/agentxchain.json` can have `approval_policy: null`, and its current
+vision may idle out before ten adapter dispatches. This fixture bakes in the
+approval-policy setup and a synthetic multi-goal vision without modifying
+`tusq.dev/.planning/VISION.md`.
+
+```bash
+rm -rf /tmp/axc-bug59-54 && mkdir -p /tmp/axc-bug59-54 && cd /tmp/axc-bug59-54
+git init -q
+git config user.email tester@example.com
+git config user.name tester
+npx --yes -p agentxchain@2.154.7 agentxchain init --governed --template full-local-cli --yes
+node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync } from 'node:fs';
+const config = JSON.parse(readFileSync('agentxchain.json', 'utf8'));
+if (!config.approval_policy) {
+  config.approval_policy = {
+    phase_transitions: {
+      default: 'require_human',
+      rules: [
+        {
+          from_phase: 'planning',
+          to_phase: 'implementation',
+          action: 'auto_approve',
+          when: { gate_passed: true, credentialed_gate: false }
+        }
+      ]
+    },
+    run_completion: {
+      action: 'auto_approve',
+      when: { gate_passed: true, credentialed_gate: false }
+    }
+  };
+}
+for (const gateId of ['planning_signoff', 'qa_ship_verdict']) {
+  config.gates ||= {};
+  config.gates[gateId] ||= {};
+  config.gates[gateId].credentialed = false;
+}
+writeFileSync('agentxchain.json', `${JSON.stringify(config, null, 2)}\n`);
+NODE
+cat > /tmp/axc-bug59-54-vision.md <<'EOF'
+# BUG-59 / BUG-54 Fixture Vision
+
+Build a tiny governed evidence project in small increments.
+
+## Goals
+- Add planning notes for slice 1.
+- Add planning notes for slice 2.
+- Add planning notes for slice 3.
+- Add implementation notes for slice 4.
+- Add implementation notes for slice 5.
+- Add implementation notes for slice 6.
+- Add QA evidence for slice 7.
+- Add QA evidence for slice 8.
+- Add QA evidence for slice 9.
+- Add release-readiness notes for slice 10.
+- Add operator handoff notes for slice 11.
+- Add cleanup notes for slice 12.
+EOF
+git add -A && git commit -q -m "scaffold BUG-59 BUG-54 fixture"
+pwd
+git rev-parse --show-toplevel
+jq '{approval_policy, gates: {planning_signoff: .gates.planning_signoff, qa_ship_verdict: .gates.qa_ship_verdict}, runtimes}' agentxchain.json
+```
+
 Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact quote-back blocks:
 
-1. **Package identity** — the `agentxchain --version` output from the preflight above, next to the `pwd` / `git rev-parse --show-toplevel` lines so we can see the run happened on `tusq.dev`.
+1. **Package + fixture identity** — the `agentxchain --version` output from the preflight above, next to the fixture `pwd` / `git rev-parse --show-toplevel` lines and the `jq '{approval_policy, gates, runtimes}' agentxchain.json` output so we can see the run happened in the prepared fixture with non-null `approval_policy`.
 
 2. **BUG-59 positive state** — after a real continuous run that clears a routine non-credentialed gate, paste:
 
@@ -61,15 +126,15 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
 
 5. **BUG-54 ten-dispatch watchdog evidence** — ten real adapter-path dispatches from the shipped `2.154.7` package on your machine.
 
-   **Primary path (dogfood).** Run from the `tusq.dev` repo root:
+   **Primary path (prepared fixture).** Run from the `/tmp/axc-bug59-54` fixture root:
 
    ```bash
    export BUG54_START_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
    echo "BUG54_START_TS=$BUG54_START_TS"
-   npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
+   npx --yes -p agentxchain@2.154.7 -c 'agentxchain run --continuous --vision /tmp/axc-bug59-54-vision.md --max-runs 10 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint --no-report'
    ```
 
-   Then, from the same `tusq.dev` repo root, paste the current-window events and adapter diagnostics. This deliberately scopes evidence to turns dispatched after `BUG54_START_TS`; do not use a repo-wide `.agentxchain/` grep, because old failed runs can pollute the quote-back:
+   Then, from the same fixture root, paste the current-window events and adapter diagnostics. This deliberately scopes evidence to turns dispatched after `BUG54_START_TS`; do not use a repo-wide `.agentxchain/` grep, because old failed runs can pollute the quote-back:
 
    ```bash
    npx --yes -p agentxchain@2.154.7 -c "agentxchain events --since \"$BUG54_START_TS\" --type turn_dispatched,turn_start_failed,runtime_spawn_failed,stdout_attach_failed,run_blocked --json --limit 0" || true
@@ -139,7 +204,7 @@ Then use `.planning/BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` and paste these exact
    log format drifted and the runbook needs updating before closure — quote
    the SUMMARY and stop.
 
-   **Fallback path (no derivable work on `tusq.dev`).** Extract the shipped repro harness from the published tarball and run it from the `tusq.dev` repo root so it auto-discovers the project's `agentxchain.json` runtimes. This mirrors `BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` verbatim — if a drift ever appears between the two, the runbook is canonical:
+   **Fallback path (fixture still produced fewer than ten dispatches).** Extract the shipped repro harness from the published tarball and run it from the `/tmp/axc-bug59-54` fixture root so it auto-discovers the fixture's `agentxchain.json` runtimes. This mirrors `BUG_59_54_TESTER_QUOTEBACK_RUNBOOK.md` verbatim — if a drift ever appears between the two, the runbook is canonical:
 
    ```bash
    REPRO_DIR="$(mktemp -d -t agentxchain-bug54-repro.XXXXXX)"
@@ -190,7 +255,7 @@ Reject BUG-59 credentialed negative if:
 Reject BUG-54 evidence if:
 
 - Fewer than ten adapter-path attempts are quoted.
-- The attempts use synthetic sub-KB prompts (bundle must be the real `tusq.dev` dispatch shape or at least 10 KB on the fallback path).
+- The attempts use synthetic sub-KB prompts (bundle must be the prepared full-local-cli fixture dispatch shape or at least 10 KB on the fallback path).
 - Any attempt line shows `startup_watchdog_fired: true`.
 - Any state/history event shows `stdout_attach_failed` or `ghost_turn` for those ten attempts.
 - Watchdog threshold quoted is not `180000` (or higher via explicit override).

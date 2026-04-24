@@ -28,10 +28,73 @@ Expected version output: `2.154.7` or a later published patch.
 Then in a scratch directory (do **not** run in `tusq.dev` or any other real project — these cases intentionally create drift):
 
 ```bash
-mkdir -p /tmp/axc-bug62 && cd /tmp/axc-bug62 && git init -q
+rm -rf /tmp/axc-bug62 && mkdir -p /tmp/axc-bug62 && cd /tmp/axc-bug62 && git init -q
 git config user.email tester@example.com && git config user.name tester
 npx --yes -p agentxchain@2.154.7 agentxchain init --governed --template generic --yes
 git add -A && git commit -q -m "scaffold"
+
+# Establish the checkpoint baseline through a real accepted governed turn.
+# This is required: reconcile-state refuses with missing_baseline until a
+# checkpoint baseline exists through session.json or an accepted integration ref.
+npx --yes -p agentxchain@2.154.7 agentxchain step --role pm --poll 1 > /tmp/axc-bug62-step.log 2>&1 &
+STEP_PID=$!
+node --input-type=module <<'NODE'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+const statePath = '.agentxchain/state.json';
+let state;
+for (let i = 0; i < 60; i += 1) {
+  if (existsSync(statePath)) {
+    state = JSON.parse(readFileSync(statePath, 'utf8'));
+    if (state.run_id && state.active_turns && Object.keys(state.active_turns).length > 0) break;
+  }
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+}
+if (!state?.run_id || !state.active_turns || Object.keys(state.active_turns).length === 0) {
+  console.error('No active governed turn appeared; step output follows:');
+  if (existsSync('/tmp/axc-bug62-step.log')) console.error(readFileSync('/tmp/axc-bug62-step.log', 'utf8'));
+  process.exit(1);
+}
+const turn = Object.values(state.active_turns)[0];
+const stagingDir = `.agentxchain/staging/${turn.turn_id}`;
+mkdirSync(stagingDir, { recursive: true });
+const result = {
+  schema_version: '1.0',
+  run_id: state.run_id,
+  turn_id: turn.turn_id,
+  role: turn.assigned_role,
+  runtime_id: turn.runtime_id,
+  status: 'completed',
+  summary: 'BUG-62 baseline turn accepted to establish a real session checkpoint.',
+  decisions: [{
+    id: 'DEC-BUG62-BASELINE-001',
+    category: 'testing',
+    statement: 'Create a real accepted governed turn before reconcile-state proof.',
+    rationale: 'reconcile-state requires a checkpoint baseline; init-only scratch repos do not have one.'
+  }],
+  objections: [],
+  files_changed: [],
+  artifacts_created: [],
+  verification: {
+    status: 'pass',
+    commands: [],
+    evidence_summary: 'Baseline-only turn; no product mutation.',
+    machine_evidence: []
+  },
+  artifact: { type: 'review', ref: null },
+  proposed_next_role: 'human',
+  phase_transition_request: null,
+  run_completion_request: false,
+  needs_human_reason: null,
+  cost: { input_tokens: 0, output_tokens: 0, usd: 0 }
+};
+writeFileSync(`${stagingDir}/turn-result.json`, `${JSON.stringify(result, null, 2)}\n`);
+console.log(`staged baseline turn: ${turn.turn_id}`);
+NODE
+wait "$STEP_PID"; STEP_EXIT=$?
+cat /tmp/axc-bug62-step.log
+echo "baseline_step_exit: $STEP_EXIT"
+npx --yes -p agentxchain@2.154.7 agentxchain status
+
 # Record the baseline SHA as-checkpointed.
 BASE=$(git rev-parse HEAD)
 echo "baseline: $BASE"
@@ -49,16 +112,16 @@ HEAD_AFTER=$(git rev-parse HEAD)
 echo "head_after: $HEAD_AFTER"
 
 # Drift must be visible in status.
-agentxchain status 2>&1 | grep -iE "drift|HEAD has moved" || echo "NO_DRIFT_LINE"
+npx --yes -p agentxchain@2.154.7 agentxchain status 2>&1 | grep -iE "drift|HEAD has moved" || echo "NO_DRIFT_LINE"
 
 # Reconcile.
-agentxchain reconcile-state --accept-operator-head; echo "exit: $?"
+npx --yes -p agentxchain@2.154.7 agentxchain reconcile-state --accept-operator-head; echo "exit: $?"
 
 # Durable event.
 jq -c 'select(.event_type == "state_reconciled_operator_commits") | {event_type, payload: {previous_baseline: .payload.previous_baseline, accepted_head: .payload.accepted_head, accepted_commits: (.payload.accepted_commits | length), paths_touched: .payload.paths_touched}}' .agentxchain/events.jsonl | tail -3
 
 # Drift clears after reconcile.
-agentxchain status 2>&1 | grep -iE "drift|HEAD has moved" || echo "NO_DRIFT_AFTER_RECONCILE"
+npx --yes -p agentxchain@2.154.7 agentxchain status 2>&1 | grep -iE "drift|HEAD has moved" || echo "NO_DRIFT_AFTER_RECONCILE"
 ```
 
 Required shape:
@@ -78,9 +141,9 @@ const state = JSON.parse(readFileSync(path, 'utf8'));
 state.operator_touched = true;
 writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`);
 NODE
-git add .agentxchain/state.json && git commit -q -m "operator: unsafe state edit"
+git add -f .agentxchain/state.json && git commit -q -m "operator: unsafe state edit"
 
-agentxchain reconcile-state --accept-operator-head; echo "exit: $?"
+npx --yes -p agentxchain@2.154.7 agentxchain reconcile-state --accept-operator-head; echo "exit: $?"
 ```
 
 Required shape:
@@ -97,7 +160,7 @@ Required shape:
 git reset --hard "$BASE"
 git commit --allow-empty -q -m "operator: rewritten history"
 
-agentxchain reconcile-state --accept-operator-head; echo "exit: $?"
+npx --yes -p agentxchain@2.154.7 agentxchain reconcile-state --accept-operator-head; echo "exit: $?"
 ```
 
 Required shape:
@@ -116,6 +179,7 @@ The scratch directory `/tmp/axc-bug62` can be removed after quote-back. Do not a
 Reject BUG-62 quote-back if:
 
 - Version is lower than `2.154.7`.
+- The scratch setup does not show `baseline_step_exit: 0` after a real `npx --yes -p agentxchain@2.154.7 agentxchain step --role pm --poll 1` accepted turn.
 - Block 1 drift line does not quote both short-SHAs from `$BASE` and `$HEAD_AFTER`.
 - Block 1 reconcile exits non-zero, OR the `state_reconciled_operator_commits` event is missing, OR `paths_touched` does not include `NOTES.md`, OR post-reconcile drift is still reported.
 - Block 2 exits `0`, OR the refusal does not name `.agentxchain/state.json`, OR the refusal class is not `governance_state_modified`.
