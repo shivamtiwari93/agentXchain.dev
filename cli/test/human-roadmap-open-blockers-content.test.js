@@ -65,6 +65,18 @@ function extractCheckedItem(roadmap, bugId) {
   return roadmap.slice(start, next === -1 ? roadmap.length : next);
 }
 
+function assertDecisionExists(decisions, decisionId, requiredPhrase) {
+  const start = decisions.indexOf(`## ${decisionId}`);
+  assert.notEqual(start, -1, `${decisionId} must exist in the durable decision ledger`);
+  const next = decisions.indexOf('\n## ', start + 1);
+  const decision = decisions.slice(start, next === -1 ? decisions.length : next);
+  assert.match(
+    decision,
+    new RegExp(requiredPhrase),
+    `${decisionId} must preserve ${requiredPhrase}`,
+  );
+}
+
 describe('HUMAN-ROADMAP open blocker status', () => {
   it('keeps the current focus reflecting full-auto closure sweep completion', () => {
     const roadmap = readRoadmap();
@@ -111,6 +123,7 @@ describe('HUMAN-ROADMAP open blocker status', () => {
   it('keeps BUG-60 marked as closed with dogfood evidence', () => {
     const roadmap = readRoadmap();
     const bug60 = extractCheckedItem(roadmap, 'BUG-60');
+    const decisions = readFileSync(DECISIONS_PATH, 'utf8');
 
     assert.match(
       bug60,
@@ -121,6 +134,11 @@ describe('HUMAN-ROADMAP open blocker status', () => {
       bug60,
       /DEC-BUG60-PERPETUAL-DOGFOOD-CLOSURE-001/,
       'BUG-60 closure must cite the durable decision record',
+    );
+    assertDecisionExists(
+      decisions,
+      'DEC-BUG60-PERPETUAL-DOGFOOD-CLOSURE-001',
+      'BUG-60 is closed',
     );
   });
 
@@ -218,6 +236,7 @@ describe('HUMAN-ROADMAP open blocker status', () => {
   it('keeps BUG-54 marked as closed with dogfood reliability evidence', () => {
     const roadmap = readRoadmap();
     const bug54 = extractCheckedItem(roadmap, 'BUG-54');
+    const decisions = readFileSync(DECISIONS_PATH, 'utf8');
 
     assert.match(
       bug54,
@@ -229,12 +248,18 @@ describe('HUMAN-ROADMAP open blocker status', () => {
       /DEC-BUG54-DOGFOOD-RELIABILITY-CLOSURE-001/,
       'BUG-54 closure must cite the durable decision record',
     );
+    assertDecisionExists(
+      decisions,
+      'DEC-BUG54-DOGFOOD-RELIABILITY-CLOSURE-001',
+      'BUG-54 is closed',
+    );
   });
 
   it('keeps BUG-53 and BUG-62 marked as closed with dogfood evidence', () => {
     const roadmap = readRoadmap();
     const bug53 = extractCheckedItem(roadmap, 'BUG-53');
     const bug62 = extractCheckedItem(roadmap, 'BUG-62');
+    const decisions = readFileSync(DECISIONS_PATH, 'utf8');
 
     assert.match(
       bug53,
@@ -245,6 +270,26 @@ describe('HUMAN-ROADMAP open blocker status', () => {
       bug62,
       /Closed 2026-04-24[\s\S]{0,300}agentxchain@2\.155\.10/,
       'BUG-62 must preserve the dogfood closure date and package version',
+    );
+    assert.match(
+      bug53,
+      /DEC-BUG53-PERPETUAL-CHAIN-CLOSURE-001/,
+      'BUG-53 closure must cite the durable decision record',
+    );
+    assert.match(
+      bug62,
+      /DEC-BUG62-SHIPPED-PACKAGE-CLOSURE-001/,
+      'BUG-62 closure must cite the durable decision record',
+    );
+    assertDecisionExists(
+      decisions,
+      'DEC-BUG53-PERPETUAL-CHAIN-CLOSURE-001',
+      'BUG-53 is closed',
+    );
+    assertDecisionExists(
+      decisions,
+      'DEC-BUG62-SHIPPED-PACKAGE-CLOSURE-001',
+      'BUG-62 is closed',
     );
   });
 
