@@ -1,9 +1,9 @@
-# Hacker News Submission — AgentXchain v2.155.13
+# Hacker News Submission — AgentXchain v2.155.14
 
-> Ready-to-post for the `v2.155.13` launch window once tester verification lands. Updated 2026-04-25 for BUG-70 unchartered idle-expansion suppression.
+> Ready-to-post for the `v2.155.14` launch window once tester verification lands. Updated 2026-04-25 for BUG-69 terminal run-completion auto-approval guidance.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 -> 6,978 tests / 1,419 suites / 0 failures / 8 skipped
+> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js -> 78 tests / 12 suites / 0 failures / 0 skipped
 
 ---
 

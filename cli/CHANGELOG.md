@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.14
+
+### Bug Fixes
+- **BUG-69 terminal run-completion prompt contract**: final-phase `authoritative` and `proposed` roles now receive the same full-auto run-completion guidance already provided to `review_only` roles. Under `approval_policy.run_completion.action: "auto_approve"`, terminal writers are explicitly told not to set `status: "needs_human"` solely for final approval and to use `status: "completed"` with `run_completion_request: true`.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js -> 78 tests / 12 suites / 0 failures / 0 skipped
+
 ## 2.155.13
 
 ### Bug Fixes

@@ -1,0 +1,56 @@
+---
+sidebar_position: 0
+title: "v2.155.14 Release Notes"
+---
+
+# AgentXchain v2.155.14
+
+`v2.155.14` is a patch over `v2.155.13` fixing the terminal-role half of
+BUG-69: final-phase authoritative roles could still escalate for human run
+approval even when `approval_policy.run_completion.action` was `auto_approve`.
+
+## Bug Fixes
+
+- **BUG-69 terminal run-completion prompt contract**: final-phase
+  `authoritative` and `proposed` roles now receive the same full-auto
+  run-completion guidance already provided to `review_only` roles. Under
+  `approval_policy.run_completion.action: "auto_approve"`, terminal writers
+  are explicitly told not to set `status: "needs_human"` solely for final
+  approval and to use `status: "completed"` with `run_completion_request: true`.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js -> 78 tests / 12 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.14 -c "agentxchain --version"
+```
+
+For dogfood verification, use shipped `agentxchain@latest` on the tusq.dev
+dogfood branch and quote direct diff evidence:
+
+```bash
+git diff --stat origin/main..HEAD -- src/ tests/ bin/ tusq.manifest.json
+```
+
+The release should not be treated as closed by prompt inspection alone. Closure
+requires the full-auto run to get past terminal launch completion without a
+human-only approval escalation, then reach the next idle-expansion cycle and
+land real product code in `src/`, `tests/`, `bin/`, or `tusq.manifest.json`.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

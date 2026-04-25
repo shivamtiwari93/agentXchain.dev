@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.155.13
+# Reddit Posts — AgentXchain v2.155.14
 
-> Ready-to-post content for Reddit for the `v2.155.13` release once tester verification lands. Updated 2026-04-25 for BUG-70 unchartered idle-expansion suppression.
+> Ready-to-post content for Reddit for the `v2.155.14` release once tester verification lands. Updated 2026-04-25 for BUG-69 terminal run-completion auto-approval guidance.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 -> 6,978 tests / 1,419 suites / 0 failures / 8 skipped
+> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js -> 78 tests / 12 suites / 0 failures / 0 skipped
 
 ---
 
