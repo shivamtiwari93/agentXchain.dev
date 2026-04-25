@@ -3312,7 +3312,38 @@ export function initializeGovernedRun(root, config, options = {}) {
     }
   }
 
+  // BUG-74: When a new run starts from an idle-expansion-derived intent,
+  // set charter_materialization_pending so the first PM turn receives the
+  // "You MUST create or update these planning artifacts" directive.
+  const intakeCtx = options.intakeContext;
+  if (intakeCtx?.category === 'pm_idle_expansion_derived') {
+    updatedState.charter_materialization_pending = {
+      charter: intakeCtx.charter || null,
+      acceptance_contract: Array.isArray(intakeCtx.acceptance_contract)
+        ? intakeCtx.acceptance_contract
+        : [],
+      suppressed_transition: 'implementation',
+      source_turn_id: null,
+      recorded_at: new Date().toISOString(),
+    };
+  }
+
   writeState(root, updatedState);
+
+  // BUG-74: emit event so consumers know materialization is required from run start
+  if (updatedState.charter_materialization_pending) {
+    emitRunEvent(root, 'charter_materialization_required', {
+      run_id: runId,
+      phase: updatedState.phase,
+      status: 'active',
+      payload: {
+        suppressed_transition: 'implementation',
+        reason: 'New run from idle-expansion-derived intent must materialize charter into planning artifacts.',
+        new_intake_charter: updatedState.charter_materialization_pending.charter,
+        source: 'run_initialization',
+      },
+    });
+  }
 
   const startupIntents = archiveStaleIntentsForRun(root, runId, {
     protocolVersion: updatedState.protocol_version || '2.x',

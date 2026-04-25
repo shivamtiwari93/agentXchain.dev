@@ -1139,6 +1139,7 @@ export function startIntent(root, intentId, options = {}) {
     const initResult = initializeGovernedRun(root, config, {
       provenance: startProvenance,
       allow_terminal_restart: allowCompletedRestart,
+      intakeContext,
     });
     if (!initResult.ok) {
       return { ok: false, error: `run initialization failed: ${initResult.error}`, exitCode: 1 };
