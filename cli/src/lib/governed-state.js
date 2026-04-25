@@ -2500,6 +2500,99 @@ export function normalizeGovernedStateShape(state) {
   return { state: stripLegacyCurrentTurn(nextState), changed };
 }
 
+// BUG-75: Recover stale idle-expansion runs created before BUG-74 that lack
+// charter_materialization_pending. These runs loop on gate_semantic_coverage
+// because the PM prompt never receives the materialization directive.
+const INTAKE_EVENTS_DIR = '.agentxchain/intake/events';
+
+export function recoverStaleIdleExpansionRun(root, state) {
+  if (!state || typeof state !== 'object') {
+    return { state, changed: false };
+  }
+
+  // Only recover active planning runs missing the materialization flag
+  if (
+    state.status !== 'active'
+    || state.phase !== 'planning'
+    || state.charter_materialization_pending
+  ) {
+    return { state, changed: false };
+  }
+
+  // Trace the run back to its intake intent via provenance
+  const intentId = state.provenance?.intake_intent_id;
+  if (!intentId) {
+    return { state, changed: false };
+  }
+
+  // Read the intent file
+  const intentPath = join(root, INTAKE_INTENTS_DIR, `${intentId}.json`);
+  if (!existsSync(intentPath)) {
+    return { state, changed: false };
+  }
+
+  let intent;
+  try {
+    intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+  } catch {
+    return { state, changed: false };
+  }
+
+  const eventId = intent.event_id;
+  if (!eventId) {
+    return { state, changed: false };
+  }
+
+  // Read the event file to check the category
+  const eventPath = join(root, INTAKE_EVENTS_DIR, `${eventId}.json`);
+  if (!existsSync(eventPath)) {
+    return { state, changed: false };
+  }
+
+  let event;
+  try {
+    event = JSON.parse(readFileSync(eventPath, 'utf8'));
+  } catch {
+    return { state, changed: false };
+  }
+
+  if (event.category !== 'pm_idle_expansion_derived') {
+    return { state, changed: false };
+  }
+
+  // Reconstruct charter_materialization_pending from the intake context
+  const recoveredState = {
+    ...state,
+    charter_materialization_pending: {
+      charter: intent.charter || null,
+      acceptance_contract: Array.isArray(intent.acceptance_contract)
+        ? intent.acceptance_contract
+        : [],
+      suppressed_transition: 'implementation',
+      source_turn_id: null,
+      recorded_at: new Date().toISOString(),
+    },
+  };
+
+  // Emit recovery event
+  emitRunEvent(root, 'charter_materialization_required', {
+    run_id: state.run_id,
+    phase: state.phase,
+    status: state.status,
+    payload: {
+      suppressed_transition: 'implementation',
+      reason: 'Stale run from idle-expansion-derived intent recovered missing charter_materialization_pending flag.',
+      new_intake_charter: intent.charter || null,
+      source: 'stale_run_recovery',
+      recovered_missing_flag: true,
+      intent_id: intentId,
+      event_id: eventId,
+    },
+  });
+
+  return { state: recoveredState, changed: true };
+}
+
 export function markRunBlocked(root, details) {
   const state = readState(root);
   if (!state) {

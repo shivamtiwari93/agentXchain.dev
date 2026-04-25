@@ -9,6 +9,7 @@ import {
   reconcileApprovalPausesWithConfig,
   reconcileBudgetStatusWithConfig,
   reconcileRecoveryActionsWithConfig,
+  recoverStaleIdleExpansionRun,
 } from './governed-state.js';
 
 function attachLegacyCurrentTurnAlias(state) {
@@ -160,7 +161,10 @@ export function loadProjectState(root, config) {
     stateData = reconciledBudget.state;
     const reconciledRecovery = reconcileRecoveryActionsWithConfig(stateData, config);
     stateData = reconciledRecovery.state;
-    if (normalized.changed || reconciledApprovals.changed || reconciledBudget.changed || reconciledRecovery.changed) {
+    // BUG-75: recover stale idle-expansion runs missing charter_materialization_pending
+    const staleRecovery = recoverStaleIdleExpansionRun(root, stateData);
+    stateData = staleRecovery.state;
+    if (normalized.changed || reconciledApprovals.changed || reconciledBudget.changed || reconciledRecovery.changed || staleRecovery.changed) {
       safeWriteJson(filePath, stateData);
     }
   }
