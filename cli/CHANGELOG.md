@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.15
+
+### Bug Fixes
+- **BUG-71 idle-expansion needs-human materialization**: idle-expansion PM results that propose a `new_intake_intent` with `status: "needs_human"` are now converted into active `charter_materialization_pending` state under the idle-expansion lane instead of blocking on a human-only scope escalation. The orchestrator keeps the run in planning, leaves `blocked_on` null, recommends PM for materialization, and emits `charter_materialization_required` with `suppressed_needs_human: true`.
+- **BUG-70 residual closure shape**: the charter materialization guard now handles both emitted shapes seen in dogfood: `new_intake_intent` plus `phase_transition_request` and `new_intake_intent` plus `needs_human` with no transition request.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 169 tests / 33 suites / 0 failures / 0 skipped
+
 ## 2.155.14
 
 ### Bug Fixes

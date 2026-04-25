@@ -1,8 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.155.14
+# Launch Evidence Report — AgentXchain v2.155.15
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.14 — BUG-69 terminal run-completion prompt contract. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.15 — BUG-71 idle-expansion needs-human materialization. Current aggregate release evidence:
 >
-> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js -> 78 tests / 12 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 169 tests / 33 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)

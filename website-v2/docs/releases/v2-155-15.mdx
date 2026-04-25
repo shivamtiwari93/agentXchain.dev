@@ -1,0 +1,50 @@
+---
+sidebar_position: 0
+title: "v2.155.15 Release Notes"
+---
+
+# AgentXchain v2.155.15
+
+`v2.155.15` is a patch over `v2.155.14` fixing the remaining DOGFOOD-EXTENDED
+idle-expansion blocker: a PM can emit `new_intake_intent` with
+`status: "needs_human"` and no `phase_transition_request`. That shape must still
+become charter materialization under full-auto operation.
+
+## Bug Fixes
+
+- **BUG-71 idle-expansion needs-human materialization**: idle-expansion PM
+  results that propose a `new_intake_intent` with `status: "needs_human"` are
+  now converted into active `charter_materialization_pending` state under the
+  idle-expansion lane instead of blocking on a human-only scope escalation. The
+  orchestrator keeps the run in planning, leaves `blocked_on` null, recommends
+  PM for materialization, and emits `charter_materialization_required` with
+  `suppressed_needs_human: true`.
+- **BUG-70 residual closure shape**: the charter materialization guard now
+  handles both emitted shapes seen in dogfood: `new_intake_intent` plus
+  `phase_transition_request` and `new_intake_intent` plus `needs_human` with no
+  transition request.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 169 tests / 33 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.15 -c "agentxchain --version"
+```
+
+For dogfood verification, use shipped `agentxchain@latest` on the tusq.dev
+dogfood branch and quote direct diff evidence:
+
+```bash
+git diff --stat origin/main..HEAD -- src/ tests/ bin/ tusq.manifest.json
+```
+
+The release should not be treated as closed by prompt inspection alone. Closure
+requires a fresh full-auto idle-expansion PM turn to materialize the charter
+without a human-only scope escalation, then reach implementation and land real
+product code in `src/`, `tests/`, `bin/`, or `tusq.manifest.json`.
+

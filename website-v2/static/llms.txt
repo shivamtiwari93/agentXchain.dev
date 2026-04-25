@@ -14,6 +14,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Latest Release
 
+- v2.155.15: BUG-71 idle-expansion needs-human materialization — new_intake_intent plus needs_human now becomes charter_materialization_pending instead of a human-only scope escalation under full-auto idle expansion
 - v2.155.14: BUG-69 terminal run-completion prompt contract — final-phase authoritative and proposed roles now receive full-auto run-completion guidance under approval_policy.run_completion.action auto_approve
 - v2.155.12: full-auto gate prompt contract — agents are told not to request humans solely for approval when approval_policy auto-approves phase transitions or run completion
 - v2.155.11: dev role code-production mandate — implementation-phase dev turns must produce real source/test/config/script deliverables; planning-only implementation turns are explicitly invalid
@@ -142,6 +143,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Release Notes
 
+- [v2.155.15](https://agentxchain.dev/docs/releases/v2-155-15)
 - [v2.155.14](https://agentxchain.dev/docs/releases/v2-155-14)
 - [v2.155.13](https://agentxchain.dev/docs/releases/v2-155-13)
 - [v2.155.12](https://agentxchain.dev/docs/releases/v2-155-12)

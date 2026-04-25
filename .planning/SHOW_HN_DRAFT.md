@@ -1,9 +1,9 @@
-# Show HN Draft — AgentXchain v2.155.14
+# Show HN Draft — AgentXchain v2.155.15
 
-> Ready-to-post draft for the `v2.155.14` launch window once tester verification lands. Updated 2026-04-25 for BUG-69 terminal run-completion auto-approval guidance.
+> Ready-to-post draft for the `v2.155.15` launch window once tester verification lands. Updated 2026-04-25 for BUG-71 idle-expansion needs-human materialization.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js -> 78 tests / 12 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 169 tests / 33 suites / 0 failures / 0 skipped
 
 ---
 
