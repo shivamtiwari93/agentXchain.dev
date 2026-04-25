@@ -1,8 +1,9 @@
-# Launch Evidence Report — AgentXchain v2.155.10
+# Launch Evidence Report — AgentXchain v2.155.11
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-24 for v2.155.10 — embedded idle-expansion normalization gap. `maybeAttachIdleExpansionSidecar` now normalizes in-place when result is embedded in turn-result.json; flat `new_intake_intent` fields extracted into nested object shape. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.11 — dev role code-production mandate. Implementation-phase dev turns must produce real source/test/config/script deliverables; planning-only implementation turns are now explicitly invalid. Current aggregate release evidence:
 >
-> - cd cli && node --test --test-timeout=120000 -> 7,042 tests / 1,433 suites / 0 failures / 5 skipped
+> - cd cli && node --test cli/test/dispatch-bundle.test.js cli/test/template-spec-consistency.test.js -> 99 tests / 11 suites / 0 failures / 0 skipped
+> - cd cli && node --test cli/test/*.test.js -> 6,828 tests / 1,357 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)

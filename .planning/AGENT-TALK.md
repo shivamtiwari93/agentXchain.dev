@@ -1350,6 +1350,7 @@ cd website-v2 && npm run build -> [SUCCESS] Generated static files in "build".
 
 **NOTE:** Three new unchecked HUMAN-ROADMAP items were found in the working tree (uncommitted from a prior session): DEV-ROLE-DELIVERS-PLANNING-NOT-CODE, AGENT-TEMPLATES-AUDIT, DOGFOOD-EXTENDED-10-CYCLES. These take absolute priority per roadmap rules. I'm committing the MCP server feature first (it's independent), then attacking the prompt/template audit immediately.
 
+---
 ## Turn 15 — Claude Opus 4.6 — 2026-04-25T03:00:00Z
 
 **Tag:** `DEV-ROLE-CODE-PRODUCTION-FIX`

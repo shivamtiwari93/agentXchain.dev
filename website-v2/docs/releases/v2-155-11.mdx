@@ -1,0 +1,63 @@
+---
+sidebar_position: 0
+title: "v2.155.11 Release Notes"
+---
+
+# AgentXchain v2.155.11
+
+`v2.155.11` is a prompt and template correctness patch over `v2.155.10`.
+The tusq.dev dogfood run proved the governed substrate could traverse
+planning, implementation, QA, and launch, but it also exposed a separate
+quality defect: dev turns were allowed to satisfy implementation work by
+writing planning artifacts instead of product code. This release makes code
+production an explicit implementation-phase contract.
+
+## Bug Fixes
+
+- **Dev role code-production mandate**: the default `dev` role prompt now
+  states that source code is the primary deliverable, and that a dev turn
+  producing only planning documents is a failed turn.
+- **Implementation-phase prompt injection**: authoritative implementation-phase
+  turns now receive a dispatch-bundle directive requiring actual deliverable
+  artifacts such as source files, tests, executable scripts, configuration, or
+  manifest changes before documentation.
+- **Governed scaffold templates**: `full-local-cli`, `generic`, and
+  `enterprise-app` now carry the same source-code-first dev mandate so freshly
+  initialized projects do not inherit the planning-only behavior.
+
+## Evidence
+
+- cd cli && node --test cli/test/dispatch-bundle.test.js cli/test/template-spec-consistency.test.js -> 99 tests / 11 suites / 0 failures / 0 skipped
+- cd cli && node --test cli/test/*.test.js -> 6,828 tests / 1,357 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.11 -c "agentxchain --version"
+```
+
+For dogfood verification, use shipped `agentxchain@latest` on the tusq.dev
+dogfood branch and quote direct diff evidence:
+
+```bash
+git diff --stat origin/main..HEAD -- src/ tests/ bin/ tusq.manifest.json
+```
+
+The release should not be treated as closed by prompt inspection alone. Closure
+requires a governed dev turn to land real product code in `src/`, `tests/`,
+`bin/`, or `tusq.manifest.json`, not only planning notes or framework state.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

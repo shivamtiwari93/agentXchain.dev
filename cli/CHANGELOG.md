@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.155.11
+
+### Bug Fixes
+- **Dev role code-production mandate**: the default `dev` role prompt now states that source code is the primary deliverable, and that a dev turn producing only planning documents is a failed turn.
+- **Implementation-phase prompt injection**: authoritative implementation-phase turns now receive a dispatch-bundle directive requiring actual deliverable artifacts such as source files, tests, executable scripts, configuration, or manifest changes before documentation.
+- **Governed scaffold templates**: `full-local-cli`, `generic`, and `enterprise-app` now carry the same source-code-first dev mandate so freshly initialized projects do not inherit the planning-only behavior.
+
+### Evidence
+- cd cli && node --test cli/test/dispatch-bundle.test.js cli/test/template-spec-consistency.test.js -> 99 tests / 11 suites / 0 failures / 0 skipped
+- cd cli && node --test cli/test/*.test.js -> 6,828 tests / 1,357 suites / 0 failures / 0 skipped
+
 ## 2.155.10
 
 ### Bug Fixes

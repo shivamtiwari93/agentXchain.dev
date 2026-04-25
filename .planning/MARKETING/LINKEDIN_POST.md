@@ -1,9 +1,9 @@
-# LinkedIn Post — AgentXchain v2.155.10
+# LinkedIn Post — AgentXchain v2.155.11
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.10` release once tester verification lands. Updated 2026-04-24 for embedded idle-expansion normalization gap.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.11` release once tester verification lands. Updated 2026-04-25 for the dev role code-production mandate.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=120000 -> 7,042 tests / 1,433 suites / 0 failures / 5 skipped
+> - cd cli && node --test cli/test/*.test.js -> 6,828 tests / 1,357 suites / 0 failures / 0 skipped
 
 ---
 

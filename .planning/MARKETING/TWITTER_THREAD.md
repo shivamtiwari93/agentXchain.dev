@@ -1,9 +1,9 @@
-# Twitter/X Thread — AgentXchain v2.155.10
+# Twitter/X Thread — AgentXchain v2.155.11
 
-> Ready-to-post thread for the `v2.155.10` release once tester verification lands. Updated 2026-04-24 for embedded idle-expansion normalization gap.
+> Ready-to-post thread for the `v2.155.11` release once tester verification lands. Updated 2026-04-25 for the dev role code-production mandate.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=120000 -> 7,042 tests / 1,433 suites / 0 failures / 5 skipped
+> - cd cli && node --test cli/test/*.test.js -> 6,828 tests / 1,357 suites / 0 failures / 0 skipped
 
 ---
 
@@ -15,7 +15,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.10 is next in the release lane. Open source. MIT.
+AgentXchain v2.155.11 is next in the release lane. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
