@@ -63,5 +63,23 @@ describe('CrewAI comparison claims', () => {
     assert.match(SPEC, /no built-in cross-repo coordinator surface/i);
     assert.match(SPEC, /no audit trail/i);
     assert.match(SPEC, /AT-CREWAI-CLAIMS-004/);
+    assert.match(SPEC, /AT-CREWAI-CLAIMS-005/);
+  });
+
+  it('AT-CREWAI-CLAIMS-005: vs-crewai exposes official CrewAI source links on-page', () => {
+    assert.match(VS_CREWAI, /Last checked against CrewAI official docs on 2026-04-25/);
+    for (const url of [
+      'https://docs.crewai.com/',
+      'https://docs.crewai.com/en/concepts/crews',
+      'https://docs.crewai.com/en/concepts/flows',
+      'https://docs.crewai.com/en/concepts/tasks',
+      'https://docs.crewai.com/en/learn/human-in-the-loop',
+      'https://docs.crewai.com/en/concepts/checkpointing',
+      'https://docs.crewai.com/en/learn/a2a-agent-delegation',
+      'https://docs.crewai.com/en/observability/overview',
+      'https://docs.crewai.com/en/observability/tracing',
+    ]) {
+      assert.ok(VS_CREWAI.includes(url), `CrewAI comparison page must link to ${url}`);
+    }
   });
 });

@@ -79,6 +79,9 @@ describe('comparison pages content', () => {
     assert.match(pages.crewai, /guardrail/i, 'CrewAI page must acknowledge task-level guardrails');
     assert.match(pages.crewai, /checkpoint|resume/i, 'CrewAI page must acknowledge checkpoint/resume capability');
     assert.match(pages.crewai, /A2A/i, 'CrewAI page must acknowledge first-class A2A delegation support');
+    assert.match(pages.crewai, /Source baseline/, 'CrewAI page must expose the source baseline on-page');
+    assert.match(pages.crewai, /https:\/\/docs\.crewai\.com\/en\/concepts\/tasks/, 'CrewAI page must link to official task docs');
+    assert.match(pages.crewai, /https:\/\/docs\.crewai\.com\/en\/observability\/tracing/, 'CrewAI page must link to official tracing docs');
   });
 
   it('keeps the LangGraph page honest and code-backed', () => {
