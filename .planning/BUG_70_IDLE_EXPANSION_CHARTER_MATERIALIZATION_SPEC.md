@@ -67,7 +67,9 @@ Non-output:
 7. While `charter_materialization_pending` is active, routing must ignore the
    idle-expansion turn's proposed implementation role and send the next planning
    turn back to the proposing planning role so that role materializes the
-   PM-owned charter artifacts.
+   PM-owned charter artifacts. This applies both at acceptance time and at
+   dispatch-time role resolution, because older persisted state may already
+   contain `next_recommended_role: "dev"` before the recovery release runs.
 8. Under full-auto approval policy, auto-approval may approve a phase transition
    only after the new intake is chartered or explicitly scoped as a
    non-implementation analysis run.
@@ -90,6 +92,9 @@ Non-output:
 - PM proposes `proposed_next_role: "dev"` while materialization is still pending;
   the orchestrator must not dispatch dev in the planning phase to write PM-owned
   planning artifacts.
+- Persisted state has both `charter_materialization_pending` and stale
+  `next_recommended_role: "dev"`; dispatch-time role resolution must still
+  choose PM for planning materialization.
 - Dev returns `files_changed` containing only planning notes for a proposed
   source-code increment.
 
@@ -121,6 +126,10 @@ Non-output:
   `proposed_next_role: "dev"`, acceptance still sets `next_recommended_role` to
   the proposing planning role so the materialization turn is routed to PM before
   implementation.
+- AT-BUG73-002: If persisted planning state already has
+  `charter_materialization_pending` plus stale `next_recommended_role: "dev"`,
+  dispatch-time role resolution ignores the stale recommendation and routes to
+  PM.
 
 ## Open Questions
 

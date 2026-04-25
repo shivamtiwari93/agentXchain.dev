@@ -77,6 +77,15 @@ function getDependencyBarrierId(workstreamId) {
 
 function resolveRecommendedRole(repoState, repoConfig, workstreamPhase) {
   const routing = repoConfig.routing?.[workstreamPhase];
+  if (repoState.charter_materialization_pending && workstreamPhase === 'planning') {
+    if (repoConfig.roles?.pm) {
+      return 'pm';
+    }
+    if (routing?.entry_role && repoConfig.roles?.[routing.entry_role]) {
+      return routing.entry_role;
+    }
+  }
+
   const recommendedRole = repoState.next_recommended_role;
   if (
     recommendedRole

@@ -25,6 +25,7 @@ import {
   getActiveTurn,
 } from '../src/lib/governed-state.js';
 import { readRunEvents } from '../src/lib/run-events.js';
+import { resolveGovernedRole } from '../src/lib/role-resolution.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -344,6 +345,26 @@ describe('BUG-70: charter materialization guard', () => {
     assert.ok(postState.charter_materialization_pending);
     assert.strictEqual(postState.next_recommended_role, 'pm',
       'the PM who proposed the idle-expansion intake must receive the materialization turn');
+  });
+
+  it('AT-BUG73-002: dispatch-time role resolution ignores stale dev recommendation while materialization is pending', () => {
+    const config = makeAutoApproveConfig();
+    const result = resolveGovernedRole({
+      state: {
+        phase: 'planning',
+        next_recommended_role: 'dev',
+        charter_materialization_pending: {
+          charter: 'Build feature X',
+          suppressed_transition: 'implementation',
+          source_turn_id: 'turn_old_pm',
+        },
+      },
+      config,
+    });
+
+    assert.strictEqual(result.error, null);
+    assert.strictEqual(result.roleId, 'pm',
+      'role resolution must force PM while charter materialization is pending');
   });
 
   it('AT-BUG70-002: suppression emits charter_materialization_required event with descriptive message', () => {

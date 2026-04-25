@@ -95,6 +95,24 @@ export function resolveGovernedRole({ override = null, state = null, config }) {
     };
   }
 
+  // BUG-73: charter materialization is planning-owned work. Persisted state from
+  // older releases may still recommend dev, so resolve the role from the pending
+  // materialization rather than trusting a stale implementation recommendation.
+  if (state?.charter_materialization_pending && phase === 'planning') {
+    const materializationRole = config?.roles?.pm
+      ? 'pm'
+      : (routing?.entry_role && config?.roles?.[routing.entry_role] ? routing.entry_role : null);
+    if (materializationRole) {
+      return {
+        roleId: materializationRole,
+        warnings,
+        error: null,
+        availableRoles: roles,
+        phase,
+      };
+    }
+  }
+
   if (state?.next_recommended_role && config?.roles?.[state.next_recommended_role]) {
     const recommended = state.next_recommended_role;
     const isLegal = !routing?.allowed_next_roles || routing.allowed_next_roles.includes(recommended);
