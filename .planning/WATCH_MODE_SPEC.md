@@ -260,6 +260,73 @@ Each failure is non-fatal to the watch command itself (exit 0 with error metadat
 - AT-WATCH-START-008: route with `auto_start: true` but no `overwrite_planning_artifacts` preserves existing planning artifacts, reports `routed.planned: false`, leaves the intent approved, and does not start.
 - AT-WATCH-START-009: route with `overwrite_planning_artifacts: true` may overwrite template planning artifacts, then start the governed run.
 
+## Slice 5: Durable Watch Result Output
+
+### Purpose
+
+Slices 1-4 emit the watch pipeline result to stdout (JSON or text) and then exit. There is no durable on-disk audit trail of what happened. Operators and CI workflows that want to review past watch invocations must parse logs or re-derive state from `.agentxchain/intake/` files.
+
+Watch result output closes this gap: every non-dry-run `watch --event-file` invocation writes exactly one structured result file to `.agentxchain/watch-results/`. The result contains the full pipeline trace — event, intent, route match, triage/approve/plan/start statuses, errors, and timestamps — in a single file that both operators and future automation (daemon, CI) can consume.
+
+### Interface
+
+No new CLI flags. `watch --event-file` automatically writes the result file after pipeline completion. The result ID is included in the JSON stdout output as `watch_result_id`.
+
+Result files are written to: `.agentxchain/watch-results/<result_id>.json`
+
+### Result Schema
+
+```json
+{
+  "result_id": "wr_<timestamp>_<random>",
+  "timestamp": "2026-04-25T20:00:00.000Z",
+  "event_id": "evt_...",
+  "intent_id": "intent_...",
+  "intent_status": "approved",
+  "deduplicated": false,
+  "payload": {
+    "source": "git_ref_change",
+    "category": "github_pull_request_opened",
+    "repo": "acme/widgets",
+    "ref": "feature/review"
+  },
+  "route": {
+    "matched": true,
+    "triaged": true,
+    "approved": true,
+    "planned": false,
+    "started": false,
+    "auto_start": false,
+    "preferred_role": "qa",
+    "run_id": null,
+    "role": null
+  },
+  "errors": []
+}
+```
+
+When no route matches, `route` is `{ "matched": false }`.
+
+### Behavior
+
+- Every non-dry-run `watch --event-file` writes one result file. Each invocation produces its own file, including deduplicated events.
+- `--dry-run` does NOT write a result file (consistent with dry-run writing no state).
+- The `result_id` uses the format `wr_<unix_ms>_<8_hex_chars>` for uniqueness without coordination.
+- The `watch_result_id` field is added to the CLI JSON output so callers can locate the result file by ID.
+- The `errors` array captures `auto_start_error` and `auto_start_skipped` strings from the routing pipeline.
+- The `payload` section is a summary (source, category, repo, ref) — not the full normalized signal. The full signal is in the intake event file.
+- The directory `.agentxchain/watch-results/` is created on first write.
+
+### Acceptance Tests (Slice 5)
+
+- AT-WATCH-RESULT-001: routed auto-approved event writes one result file with `route.matched: true`, correct event/intent IDs, payload summary, and empty errors.
+- AT-WATCH-RESULT-002: unrouted event (no routes) writes one result file with `route.matched: false`.
+- AT-WATCH-RESULT-003: deduplicated event writes its own result file with `deduplicated: true`.
+- AT-WATCH-RESULT-004: auto_start error (active turns) writes a result file with non-empty errors array.
+- AT-WATCH-RESULT-005: `--dry-run` does not create the `watch-results` directory or any result file.
+- AT-WATCH-RESULT-006: auto_start success writes a result file with `route.started: true`, `route.run_id` set, and `route.role` set.
+- AT-WATCH-RESULT-007: multiple events produce unique result IDs.
+
 ## Open Questions
 
 - Should the later webhook server live in the CLI process (`agentxchain watch --listen`) or as a separate hosted/CI runner?

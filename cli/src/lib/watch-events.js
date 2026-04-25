@@ -1,3 +1,7 @@
+import { mkdirSync } from 'fs';
+import { join } from 'path';
+import { safeWriteJson } from './safe-write.js';
+
 export function normalizeWatchEvent(input) {
   const event = unwrapEvent(input);
 
@@ -231,6 +235,70 @@ export function resolveWatchRoute(payload, routes) {
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Watch result persistence
+// ---------------------------------------------------------------------------
+
+/**
+ * Write a durable watch result file to `.agentxchain/watch-results/`.
+ *
+ * Every non-dry-run `watch --event-file` invocation writes exactly one result
+ * file containing the full pipeline trace: event, intent, route match,
+ * triage/approve/plan/start statuses, errors, and timestamps.
+ *
+ * @param {string} root - project root
+ * @param {object} pipelineResult - the result object from ingestWatchEvent
+ * @param {object} payload - the normalized watch event payload
+ * @returns {{ result_id: string, result_path: string }}
+ */
+export function writeWatchResult(root, pipelineResult, payload) {
+  const ts = Date.now();
+  const suffix = Math.random().toString(16).slice(2, 10);
+  const resultId = `wr_${ts}_${suffix}`;
+
+  const routed = pipelineResult.routed || null;
+  const errors = [];
+
+  if (routed?.auto_start_error) errors.push(routed.auto_start_error);
+  if (routed?.auto_start_skipped) errors.push(`auto_start_skipped: ${routed.auto_start_skipped}`);
+
+  const record = {
+    result_id: resultId,
+    timestamp: new Date(ts).toISOString(),
+    event_id: pipelineResult.event?.event_id || null,
+    intent_id: pipelineResult.intent?.intent_id || null,
+    intent_status: pipelineResult.intent?.status || null,
+    deduplicated: pipelineResult.deduplicated === true,
+    payload: {
+      source: payload.source,
+      category: payload.category,
+      repo: payload.repo || null,
+      ref: payload.ref || null,
+    },
+    route: routed
+      ? {
+          matched: true,
+          triaged: routed.triaged === true,
+          approved: routed.approved === true,
+          planned: routed.planned === true,
+          started: routed.started === true,
+          auto_start: routed.auto_start === true || routed.started === true,
+          preferred_role: routed.preferred_role || null,
+          run_id: routed.run_id || null,
+          role: routed.role || null,
+        }
+      : { matched: false },
+    errors: errors.length > 0 ? errors : [],
+  };
+
+  const dir = join(root, '.agentxchain', 'watch-results');
+  mkdirSync(dir, { recursive: true });
+  const resultPath = join(dir, `${resultId}.json`);
+  safeWriteJson(resultPath, record);
+
+  return { result_id: resultId, result_path: resultPath };
 }
 
 function interpolateCharter(template, signal) {

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
 import { recordEvent, triageIntent, approveIntent, planIntent, startIntent } from '../lib/intake.js';
-import { normalizeWatchEvent, resolveWatchRoute } from '../lib/watch-events.js';
+import { normalizeWatchEvent, resolveWatchRoute, writeWatchResult } from '../lib/watch-events.js';
 import { safeWriteJson } from '../lib/safe-write.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
 import { validateProject } from '../lib/validation.js';
@@ -301,6 +301,10 @@ async function ingestWatchEvent(opts) {
   if (routed) {
     result.routed = routed;
   }
+
+  // Write durable watch result file
+  const watchResult = writeWatchResult(root, result, payload);
+  result.watch_result_id = watchResult.result_id;
 
   if (opts.json) {
     console.log(JSON.stringify(result, null, 2));
