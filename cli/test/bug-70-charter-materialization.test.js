@@ -14,14 +14,17 @@
 import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import {
   initializeGovernedRun,
   assignGovernedTurn,
   acceptGovernedTurn,
+  reissueTurn,
   getActiveTurn,
 } from '../src/lib/governed-state.js';
 import { readRunEvents } from '../src/lib/run-events.js';
@@ -29,6 +32,8 @@ import { resolveGovernedRole } from '../src/lib/role-resolution.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
 const tempDirs = [];
 
 afterEach(() => {
@@ -129,6 +134,97 @@ function stageTurnResult(dir, state, turnResult) {
   const stagingDir = join(dir, '.agentxchain', 'staging', turn.turn_id);
   mkdirSync(stagingDir, { recursive: true });
   writeFileSync(join(stagingDir, 'turn-result.json'), JSON.stringify(turnResult, null, 2));
+}
+
+function runCli(dir, args) {
+  return spawnSync(process.execPath, [CLI_BIN, ...args], {
+    cwd: dir,
+    encoding: 'utf8',
+    timeout: 15000,
+  });
+}
+
+function makeLocalCliMaterializationConfig() {
+  const noopCommand = [
+    process.execPath,
+    '-e',
+    "console.log('agentxchain retained-turn recovery fixture'); process.exit(1);",
+  ];
+  return makeAutoApproveConfig({
+    roles: {
+      pm: {
+        title: 'PM',
+        mandate: 'Plan',
+        write_authority: 'authoritative',
+        runtime_class: 'local_cli',
+        runtime_id: 'local-pm',
+        runtime: 'local-pm',
+      },
+      dev: {
+        title: 'Developer',
+        mandate: 'Build',
+        write_authority: 'authoritative',
+        runtime_class: 'local_cli',
+        runtime_id: 'local-dev',
+        runtime: 'local-dev',
+      },
+    },
+    runtimes: {
+      'local-pm': {
+        type: 'local_cli',
+        command: noopCommand,
+        prompt_transport: 'dispatch_bundle_only',
+        startup_watchdog_ms: 5000,
+      },
+      'local-dev': {
+        type: 'local_cli',
+        command: noopCommand,
+        prompt_transport: 'dispatch_bundle_only',
+        startup_watchdog_ms: 5000,
+      },
+    },
+  });
+}
+
+function createBlockedStaleDevMaterializationFixture() {
+  const dir = makeTmpDir();
+  const config = makeLocalCliMaterializationConfig();
+  scaffoldProject(dir, config);
+
+  const initResult = initializeGovernedRun(dir, config);
+  assert.ok(initResult.ok);
+  const assignResult = assignGovernedTurn(dir, config, 'dev');
+  assert.ok(assignResult.ok);
+
+  let state = readState(dir);
+  const staleTurnId = getActiveTurn(state).turn_id;
+  state = {
+    ...state,
+    phase: 'planning',
+    status: 'blocked',
+    blocked_on: `dispatch:failed_start:${staleTurnId}`,
+    blocked_reason: {
+      category: 'dispatch_error',
+      turn_id: staleTurnId,
+      blocked_at: new Date().toISOString(),
+      recovery: {
+        typed_reason: 'dispatch_error',
+        owner: 'human',
+        recovery_action: 'Resolve dispatch issue, then run agentxchain step --resume',
+        turn_retained: true,
+        detail: 'Fixture retained stale dev turn.',
+      },
+    },
+    next_recommended_role: 'dev',
+    charter_materialization_pending: {
+      charter: 'Build feature X',
+      suppressed_transition: 'implementation',
+      source_turn_id: 'turn_old_pm',
+    },
+  };
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+
+  return { dir, staleTurnId };
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -365,6 +461,93 @@ describe('BUG-70: charter materialization guard', () => {
     assert.strictEqual(result.error, null);
     assert.strictEqual(result.roleId, 'pm',
       'role resolution must force PM while charter materialization is pending');
+  });
+
+  it('AT-BUG73-003: retained stale dev turn can be reissued as PM for materialization recovery', () => {
+    const dir = makeTmpDir();
+    const config = makeAutoApproveConfig();
+    scaffoldProject(dir, config);
+
+    const initResult = initializeGovernedRun(dir, config);
+    assert.ok(initResult.ok);
+    const assignResult = assignGovernedTurn(dir, config, 'dev');
+    assert.ok(assignResult.ok);
+
+    let state = readState(dir);
+    const staleTurnId = getActiveTurn(state).turn_id;
+    state = {
+      ...state,
+      phase: 'planning',
+      status: 'active',
+      next_recommended_role: 'dev',
+      charter_materialization_pending: {
+        charter: 'Build feature X',
+        suppressed_transition: 'implementation',
+        source_turn_id: 'turn_old_pm',
+      },
+    };
+    writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+
+    const reissued = reissueTurn(dir, config, {
+      turnId: staleTurnId,
+      roleId: 'pm',
+      reason: 'charter materialization pending superseded stale retained dev turn',
+    });
+    assert.ok(reissued.ok, `reissue failed: ${reissued.error}`);
+    assert.strictEqual(reissued.newTurn.assigned_role, 'pm');
+    assert.strictEqual(reissued.newTurn.reissued_from, staleTurnId);
+
+    const postState = readState(dir);
+    assert.equal(postState.active_turns[staleTurnId], undefined);
+    assert.equal(postState.active_turns[reissued.newTurn.turn_id].assigned_role, 'pm');
+    assert.ok(postState.charter_materialization_pending,
+      'materialization pending must survive retained-turn role correction');
+  });
+
+  it('AT-BUG73-004: step --resume reissues retained stale dev turn as PM before dispatch', () => {
+    const { dir, staleTurnId } = createBlockedStaleDevMaterializationFixture();
+
+    const result = runCli(dir, ['step', '--resume']);
+    const combined = result.stdout + result.stderr;
+    assert.notStrictEqual(result.status, 0,
+      'fixture runtime exits non-zero after dispatch; the recovery assertion is pre-dispatch');
+    assert.match(combined, /Reissued retained turn for charter materialization/);
+    assert.match(combined, /Role:\s+pm/);
+
+    const postState = readState(dir);
+    const activeTurns = Object.values(postState.active_turns || {});
+    assert.equal(activeTurns.length, 1);
+    assert.equal(activeTurns[0].assigned_role, 'pm',
+      'step --resume must dispatch the retained materialization turn to PM, not stale dev');
+    assert.notEqual(activeTurns[0].turn_id, staleTurnId,
+      'stale retained dev turn must be replaced before dispatch');
+    assert.equal(activeTurns[0].reissued_from, staleTurnId);
+
+    const assignmentPath = join(dir, '.agentxchain', 'dispatch', 'turns', activeTurns[0].turn_id, 'ASSIGNMENT.json');
+    const assignment = JSON.parse(readFileSync(assignmentPath, 'utf8'));
+    assert.equal(assignment.role, 'pm');
+  });
+
+  it('AT-BUG73-005: resume reissues retained stale dev turn as PM before writing dispatch bundle', () => {
+    const { dir, staleTurnId } = createBlockedStaleDevMaterializationFixture();
+
+    const result = runCli(dir, ['resume']);
+    const combined = result.stdout + result.stderr;
+    assert.equal(result.status, 0, combined);
+    assert.match(combined, /Reissued retained turn for charter materialization/);
+    assert.match(combined, /Role:\s+pm/);
+
+    const postState = readState(dir);
+    const activeTurns = Object.values(postState.active_turns || {});
+    assert.equal(activeTurns.length, 1);
+    assert.equal(activeTurns[0].assigned_role, 'pm',
+      'resume must write the retained materialization dispatch bundle for PM, not stale dev');
+    assert.notEqual(activeTurns[0].turn_id, staleTurnId);
+    assert.equal(activeTurns[0].reissued_from, staleTurnId);
+
+    const assignmentPath = join(dir, '.agentxchain', 'dispatch', 'turns', activeTurns[0].turn_id, 'ASSIGNMENT.json');
+    const assignment = JSON.parse(readFileSync(assignmentPath, 'utf8'));
+    assert.equal(assignment.role, 'pm');
   });
 
   it('AT-BUG70-002: suppression emits charter_materialization_required event with descriptive message', () => {

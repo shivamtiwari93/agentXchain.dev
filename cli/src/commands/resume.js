@@ -21,6 +21,7 @@ import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import {
   initializeGovernedRun,
   assignGovernedTurn,
+  reissueTurn,
   deriveAfterDispatchHookRecoveryAction,
   markRunBlocked,
   getActiveTurns,
@@ -44,6 +45,7 @@ import { runHooks } from '../lib/hook-runner.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
 import { reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
+import { resolveGovernedRole } from '../lib/role-resolution.js';
 
 function hasStandingPendingExitGate(state, config) {
   const phase = state?.phase;
@@ -442,12 +444,6 @@ export async function resumeCommand(opts) {
       process.exit(1);
     }
 
-    printResumeRunContext({ root, state, config });
-    console.log(chalk.yellow(`Re-dispatching blocked turn: ${retainedTurn.turn_id}`));
-    console.log(`  Role:    ${retainedTurn.assigned_role}`);
-    console.log(`  Attempt: ${retainedTurn.attempt}`);
-    console.log('');
-
     const reactivated = reactivateGovernedRun(root, state, { via: turnResumeVia, notificationConfig: config });
     if (!reactivated.ok) {
       console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
@@ -459,6 +455,38 @@ export async function resumeCommand(opts) {
     }
     if (reactivated.phantom_notice) {
       console.log(chalk.yellow(reactivated.phantom_notice));
+    }
+
+    const materializationResolution = resolveGovernedRole({ state, config });
+    if (
+      state.charter_materialization_pending
+      && state.phase === 'planning'
+      && materializationResolution.roleId
+      && materializationResolution.roleId !== retainedTurn.assigned_role
+      && !opts.turn
+    ) {
+      const reason = `charter materialization pending superseded stale retained ${retainedTurn.assigned_role} turn`;
+      const reissued = reissueTurn(root, config, {
+        turnId: retainedTurn.turn_id,
+        roleId: materializationResolution.roleId,
+        reason,
+      });
+      if (!reissued.ok) {
+        console.log(chalk.red(`Failed to reissue retained turn for materialization: ${reissued.error}`));
+        process.exit(1);
+      }
+      state = reissued.state;
+      retainedTurn = reissued.newTurn;
+      console.log(chalk.yellow(`Reissued retained turn for charter materialization: ${retainedTurn.turn_id}`));
+      console.log(`  Role:    ${retainedTurn.assigned_role}`);
+      console.log(`  Reason:  ${reason}`);
+      console.log('');
+    } else {
+      printResumeRunContext({ root, state, config });
+      console.log(chalk.yellow(`Re-dispatching blocked turn: ${retainedTurn.turn_id}`));
+      console.log(`  Role:    ${retainedTurn.assigned_role}`);
+      console.log(`  Attempt: ${retainedTurn.attempt}`);
+      console.log('');
     }
 
     const bundleResult = writeDispatchBundle(root, state, config, { turnId: retainedTurn.turn_id });
@@ -709,38 +737,24 @@ function printResumeRunContext({ root, state, config }) {
 }
 
 function resolveTargetRole(opts, state, config) {
-  const phase = state.phase;
-  const routing = config.routing?.[phase];
-
-  if (opts.role) {
-    // Validate the override
-    if (!config.roles?.[opts.role]) {
-      console.log(chalk.red(`Unknown role: "${opts.role}"`));
-      console.log(chalk.dim(`Available roles: ${Object.keys(config.roles || {}).join(', ')}`));
-      return null;
+  const resolved = resolveGovernedRole({ override: opts.role || null, state, config });
+  if (resolved.error) {
+    console.log(chalk.red(resolved.error));
+    if (resolved.availableRoles.length) {
+      console.log(chalk.dim(`Available roles: ${resolved.availableRoles.join(', ')}`));
     }
-    if (routing?.allowed_next_roles && !routing.allowed_next_roles.includes(opts.role) && opts.role !== 'human') {
-      console.log(chalk.yellow(`Warning: role "${opts.role}" is not in allowed_next_roles for phase "${phase}".`));
-      console.log(chalk.dim(`Allowed: ${routing.allowed_next_roles.join(', ')}`));
-      // Allow it as an override, but warn
-    }
-    return opts.role;
+    return null;
   }
 
-  // Default: use the phase's entry_role
-  if (routing?.entry_role) {
-    return routing.entry_role;
+  if (!opts.role && state.next_recommended_role && resolved.roleId === state.next_recommended_role) {
+    console.log(chalk.dim(`Using recommended role: ${resolved.roleId} (from previous turn)`));
   }
 
-  // Fallback: first role in config
-  const roles = Object.keys(config.roles || {});
-  if (roles.length > 0) {
-    console.log(chalk.yellow(`No entry_role for phase "${phase}". Defaulting to "${roles[0]}".`));
-    return roles[0];
+  for (const warning of resolved.warnings) {
+    console.log(chalk.yellow(`Warning: ${warning}`));
   }
 
-  console.log(chalk.red('No roles defined in config.'));
-  return null;
+  return resolved.roleId;
 }
 
 function runAfterDispatchHooks(root, hooksConfig, state, turn, config) {

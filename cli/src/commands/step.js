@@ -30,6 +30,7 @@ import {
   assignGovernedTurn,
   acceptGovernedTurn,
   deriveAfterDispatchHookRecoveryAction,
+  reissueTurn,
   rejectGovernedTurn,
   markRunBlocked,
   getActiveTurnCount,
@@ -250,6 +251,30 @@ export async function stepCommand(opts) {
       }
       state = reactivated.state;
       skipAssignment = true;
+
+      const materializationResolution = resolveGovernedRole({ state, config });
+      if (
+        state.charter_materialization_pending
+        && state.phase === 'planning'
+        && materializationResolution.roleId
+        && materializationResolution.roleId !== targetTurn.assigned_role
+        && !opts.turn
+      ) {
+        const reason = `charter materialization pending superseded stale retained ${targetTurn.assigned_role} turn`;
+        const reissued = reissueTurn(root, config, {
+          turnId: targetTurn.turn_id,
+          roleId: materializationResolution.roleId,
+          reason,
+        });
+        if (!reissued.ok) {
+          console.log(chalk.red(`Failed to reissue retained turn for materialization: ${reissued.error}`));
+          process.exit(1);
+        }
+        state = reissued.state;
+        targetTurn = reissued.newTurn;
+        console.log(chalk.yellow(`Reissued retained turn for charter materialization: ${targetTurn.turn_id}`));
+        console.log(`  Role:    ${targetTurn.assigned_role}`);
+      }
 
       // BUG-1 fix: refresh baseline snapshot to capture files dirtied between assignment and dispatch
       refreshTurnBaselineSnapshot(root, targetTurn.turn_id);

@@ -3712,6 +3712,7 @@ export function refreshTurnBaselineSnapshot(root, turnId) {
  * @param {object} config - normalized config
  * @param {object} opts
  * @param {string} [opts.turnId] - specific turn to reissue
+ * @param {string} [opts.roleId] - replacement role; defaults to original turn role
  * @param {string} [opts.reason] - reason for reissue
  * @returns {{ ok: boolean, state?: object, newTurn?: object, baselineDelta?: object, error?: string }}
  */
@@ -3769,7 +3770,8 @@ export function reissueTurn(root, config, opts = {}) {
   const oldTurn = activeTurns[turnId];
   if (!oldTurn) return { ok: false, error: `Turn ${turnId} not found in active turns` };
 
-  const roleId = oldTurn.assigned_role;
+  const oldRoleId = oldTurn.assigned_role;
+  const roleId = opts.roleId || oldRoleId;
   const role = config.roles?.[roleId];
   if (!role) return { ok: false, error: `Role "${roleId}" not found in config` };
 
@@ -3795,7 +3797,7 @@ export function reissueTurn(root, config, opts = {}) {
   appendJsonl(root, HISTORY_PATH, {
     turn_id: oldTurn.turn_id,
     run_id: state.run_id,
-    role: roleId,
+    role: oldRoleId,
     phase: state.phase,
     status: 'reissued',
     summary: `Turn reissued: ${reason}`,
@@ -3811,7 +3813,8 @@ export function reissueTurn(root, config, opts = {}) {
     timestamp: now,
     decision: 'turn_reissued',
     turn_id: oldTurn.turn_id,
-    role: roleId,
+    role: oldRoleId,
+    new_role: roleId,
     phase: state.phase,
     reason,
     old_baseline: {
@@ -3895,6 +3898,8 @@ export function reissueTurn(root, config, opts = {}) {
       new_head: newBaseline.head_ref,
       old_runtime: oldRuntimeId,
       new_runtime: currentRuntimeId,
+      old_role: oldRoleId,
+      new_role: roleId,
     },
   });
 

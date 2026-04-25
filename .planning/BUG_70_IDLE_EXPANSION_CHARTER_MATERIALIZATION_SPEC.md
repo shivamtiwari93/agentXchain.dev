@@ -39,6 +39,8 @@ Outputs:
     intake before any implementation turn.
 - a `charter_materialization_required` run event naming the suppressed
   transition or suppressed human-only intake approval.
+- reissued retained turns when a blocked recovery path is holding a stale
+  non-planning role while `charter_materialization_pending` is active.
 
 Non-output:
 
@@ -70,10 +72,16 @@ Non-output:
    PM-owned charter artifacts. This applies both at acceptance time and at
    dispatch-time role resolution, because older persisted state may already
    contain `next_recommended_role: "dev"` before the recovery release runs.
-8. Under full-auto approval policy, auto-approval may approve a phase transition
+8. Blocked retained-turn recovery paths (`resume` and `step --resume`) must not
+   replay a stale retained implementation turn while materialization is pending.
+   If the retained turn's role differs from materialization role resolution and
+   the operator did not explicitly target a turn with `--turn`, the orchestrator
+   must reissue the retained turn to the materialization role before writing the
+   dispatch bundle.
+9. Under full-auto approval policy, auto-approval may approve a phase transition
    only after the new intake is chartered or explicitly scoped as a
    non-implementation analysis run.
-9. The dispatch bundle for dev must include a concrete implementation charter
+10. The dispatch bundle for dev must include a concrete implementation charter
    derived from approved planning artifacts, not only an idle-expansion proposal.
 
 ## Error Cases
@@ -95,6 +103,9 @@ Non-output:
 - Persisted state has both `charter_materialization_pending` and stale
   `next_recommended_role: "dev"`; dispatch-time role resolution must still
   choose PM for planning materialization.
+- Persisted blocked state has a retained stale dev turn from an earlier release;
+  `resume` and `step --resume` must not dispatch it as dev before materializing
+  the planning charter.
 - Dev returns `files_changed` containing only planning notes for a proposed
   source-code increment.
 
@@ -130,6 +141,14 @@ Non-output:
   `charter_materialization_pending` plus stale `next_recommended_role: "dev"`,
   dispatch-time role resolution ignores the stale recommendation and routes to
   PM.
+- AT-BUG73-003: A retained stale dev turn can be reissued as a PM turn while
+  preserving `charter_materialization_pending`.
+- AT-BUG73-004: `agentxchain step --resume` against blocked state with a
+  retained stale dev turn reissues the turn as PM and writes the PM dispatch
+  assignment before any subprocess dispatch attempt.
+- AT-BUG73-005: `agentxchain resume` against blocked state with a retained
+  stale dev turn reissues the turn as PM and writes the PM dispatch assignment
+  before returning the dispatch summary.
 
 ## Open Questions
 
