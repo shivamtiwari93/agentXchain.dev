@@ -417,6 +417,7 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 ### Continuous-delivery intake
 
 - `intake record`: capture a delivery signal as a repo-native event
+- `watch --event-file <path>`: normalize one GitHub-style external event into the same intake event pipeline; add `--dry-run --json` to inspect the payload without writing
 - `intake triage`: classify and prioritize an event into an actionable intent
 - `intake approve`: authorize work on a triaged intent
 - `intake plan`: materialize planning artifacts for an approved intent

@@ -248,8 +248,11 @@ generateCmd
 
 program
   .command('watch')
-  .description('Watch lock.json and coordinate agent turns (the referee)')
+  .description('Watch lock.json, or ingest an external event into governed intake')
   .option('--daemon', 'Run in background mode')
+  .option('--event-file <path>', 'Normalize one external event JSON file into governed intake')
+  .option('--dry-run', 'With --event-file, print the normalized intake payload without writing')
+  .option('-j, --json', 'With --event-file, output JSON')
   .action(watchCommand);
 
 program

@@ -4,14 +4,22 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
+import { recordEvent } from '../lib/intake.js';
+import { normalizeWatchEvent } from '../lib/watch-events.js';
 import { safeWriteJson } from '../lib/safe-write.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
 import { validateProject } from '../lib/validation.js';
 import { resolveNextAgent, resolveExpectedClaimer } from '../lib/next-owner.js';
+import { requireIntakeWorkspaceOrExit } from './intake-workspace.js';
 
 const PID_FILE = '.agentxchain-watch.pid';
 
 export async function watchCommand(opts) {
+  if (opts.eventFile) {
+    await ingestWatchEvent(opts);
+    return;
+  }
+
   if (opts.daemon && process.env.AGENTXCHAIN_WATCH_DAEMON !== '1') {
     startWatchDaemon();
     return;
@@ -151,6 +159,89 @@ export async function watchCommand(opts) {
 
   process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
+}
+
+async function ingestWatchEvent(opts) {
+  if (opts.daemon) {
+    const message = '--daemon cannot be combined with --event-file';
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: false, error: message }, null, 2));
+    } else {
+      console.log(chalk.red(`  ${message}`));
+    }
+    process.exit(1);
+  }
+
+  const root = requireIntakeWorkspaceOrExit(opts);
+  let raw;
+  let parsed;
+  try {
+    raw = readFileSync(opts.eventFile, 'utf8');
+  } catch (err) {
+    const message = `failed to read event file: ${err.message}`;
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: false, error: message }, null, 2));
+    } else {
+      console.log(chalk.red(`  ${message}`));
+    }
+    process.exit(1);
+  }
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    const message = `event file is not valid JSON: ${err.message}`;
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: false, error: message }, null, 2));
+    } else {
+      console.log(chalk.red(`  ${message}`));
+    }
+    process.exit(1);
+  }
+
+  let payload;
+  try {
+    payload = normalizeWatchEvent(parsed);
+  } catch (err) {
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: false, error: err.message }, null, 2));
+    } else {
+      console.log(chalk.red(`  ${err.message}`));
+    }
+    process.exit(1);
+  }
+
+  if (opts.dryRun) {
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: true, dry_run: true, payload }, null, 2));
+    } else {
+      console.log('');
+      console.log(chalk.green('  Watch event normalized (dry run)'));
+      console.log(JSON.stringify(payload, null, 2));
+      console.log('');
+    }
+    process.exit(0);
+  }
+
+  const result = recordEvent(root, payload);
+  if (opts.json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else if (result.ok) {
+    console.log('');
+    if (result.deduplicated) {
+      console.log(chalk.yellow(`  Watch event already recorded: ${result.event.event_id} (deduplicated)`));
+      if (result.intent) {
+        console.log(chalk.dim(`  Linked intent: ${result.intent.intent_id} (${result.intent.status})`));
+      }
+    } else {
+      console.log(chalk.green(`  Recorded watch event ${result.event.event_id}`));
+      console.log(chalk.green(`  Created intent ${result.intent.intent_id} (detected)`));
+    }
+    console.log('');
+  } else {
+    console.log(chalk.red(`  ${result.error}`));
+  }
+  process.exit(result.exitCode);
 }
 
 function pickNextAgent(root, lock, config) {
