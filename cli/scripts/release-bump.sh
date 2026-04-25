@@ -79,6 +79,7 @@ ALLOWED_RELEASE_PATHS=(
   ".agentxchain-conformance/capabilities.json"
   "website-v2/docs/protocol-implementor-guide.mdx"
   ".planning/LAUNCH_EVIDENCE_REPORT.md"
+  ".planning/HN_LAUNCH_SURFACE_ALIGNMENT_SPEC.md"
   ".planning/SHOW_HN_DRAFT.md"
   ".planning/MARKETING/TWITTER_THREAD.md"
   ".planning/MARKETING/LINKEDIN_POST.md"
@@ -88,6 +89,7 @@ ALLOWED_RELEASE_PATHS=(
   "website-v2/docs/getting-started.mdx"
   "website-v2/docs/quickstart.mdx"
   "website-v2/docs/five-minute-tutorial.mdx"
+  "cli/test/hn-launch-surface-content.test.js"
   "cli/homebrew/agentxchain.rb"
   "cli/homebrew/README.md"
 )
