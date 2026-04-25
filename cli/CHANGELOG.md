@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.12
+
+### Bug Fixes
+- **BUG-69 full-auto gate prompt contract**: dispatch bundles now distinguish human-gated metadata from effective full-auto approval policy. Under `approval_policy.phase_transitions.default: "auto_approve"`, agents are explicitly told not to set `status: "needs_human"` solely to request phase-gate approval.
+- **Run-completion prompt guidance**: final-phase review prompts now state that `run_completion_request: true` triggers orchestrator auto-approval when `approval_policy.run_completion.action` is `auto_approve`.
+- **Dogfood blocker surfaced by v2.155.11**: tusq.dev cycle 01 reached PM idle expansion but stopped at a planning-only human escalation before dev could run. This patch removes the misleading prompt wording that caused that escalation.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 160 tests / 31 suites / 0 failures / 0 skipped
+
 ## 2.155.11
 
 ### Bug Fixes

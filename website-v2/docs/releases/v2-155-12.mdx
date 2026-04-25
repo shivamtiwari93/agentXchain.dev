@@ -1,0 +1,64 @@
+---
+sidebar_position: 0
+title: "v2.155.12 Release Notes"
+---
+
+# AgentXchain v2.155.12
+
+`v2.155.12` is a dogfood unblock patch over `v2.155.11`. The dev role
+code-production fix shipped, but the first tusq.dev verification cycle exposed
+one more full-auto prompt contract gap: prompts still described human-gated
+phase boundaries as requiring human approval even when the project approval
+policy was full-auto.
+
+## Bug Fixes
+
+- **BUG-69 full-auto gate prompt contract**: dispatch bundles now distinguish
+  human-gated metadata from effective full-auto approval policy. Under
+  `approval_policy.phase_transitions.default: "auto_approve"`, agents are
+  explicitly told not to set `status: "needs_human"` solely to request
+  phase-gate approval.
+- **Run-completion prompt guidance**: final-phase review prompts now state that
+  `run_completion_request: true` triggers orchestrator auto-approval when
+  `approval_policy.run_completion.action` is `auto_approve`.
+- **Dogfood blocker surfaced by v2.155.11**: tusq.dev cycle 01 reached PM idle
+  expansion but stopped at a planning-only human escalation before dev could
+  run. This patch removes the misleading prompt wording that caused that
+  escalation.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 160 tests / 31 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.12 -c "agentxchain --version"
+```
+
+For dogfood verification, use shipped `agentxchain@latest` on the tusq.dev
+dogfood branch and quote direct diff evidence:
+
+```bash
+git diff --stat origin/main..HEAD -- src/ tests/ bin/ tusq.manifest.json
+```
+
+The release should not be treated as closed by prompt inspection alone. Closure
+requires the full-auto run to get past PM planning approval without a
+human-only approval escalation, reach a governed dev turn, and land real product
+code in `src/`, `tests/`, `bin/`, or `tusq.manifest.json`.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

@@ -14,6 +14,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Latest Release
 
+- v2.155.12: full-auto gate prompt contract — agents are told not to request humans solely for approval when approval_policy auto-approves phase transitions or run completion
 - v2.155.11: dev role code-production mandate — implementation-phase dev turns must produce real source/test/config/script deliverables; planning-only implementation turns are explicitly invalid
 - v2.155.10: embedded idle-expansion normalization — `maybeAttachIdleExpansionSidecar` now normalizes in-place when result is embedded in turn-result.json; flat `new_intake_intent` fields extracted into nested object shape
 
@@ -141,6 +142,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Release Notes
 
+- [v2.155.12](https://agentxchain.dev/docs/releases/v2-155-12)
 - [v2.155.11](https://agentxchain.dev/docs/releases/v2-155-11)
 - [v2.155.10](https://agentxchain.dev/docs/releases/v2-155-10)
 - [v2.155.9](https://agentxchain.dev/docs/releases/v2-155-9)
