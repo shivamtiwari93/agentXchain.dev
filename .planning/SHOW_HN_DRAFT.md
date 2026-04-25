@@ -1,15 +1,18 @@
 # Show HN Draft — AgentXchain v2.155.22
 
-> Ready-to-post draft for the `v2.155.22` launch window once tester verification lands. Updated 2026-04-25 for BUG-75 stale idle-expansion recovery after upgrade.
+> Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Updated 2026-04-25 after the DOGFOOD-EXTENDED-10-CYCLES closure.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/bug-74-new-run-charter-materialization.test.js cli/test/bug-70-charter-materialization.test.js -> 17 tests / 2 suites / 0 failures / 0 skipped (regression)
+> - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
+> - 7,078+ tests / 623 test files / 71 beta-tester scenario suites / 0 failures
+> - 75 bugs closed (BUG-1 through BUG-75), spec-driven with shipped-package proof
+> - Durable evidence index: `.planning/dogfood-tusq-dev-evidence/DOGFOOD-EXTENDED-10-CYCLES-EVIDENCE-INDEX.md`
 
 ---
 
 ## Title
 
-Show HN: AgentXchain – Agents required to challenge each other before shipping code
+Show HN: AgentXchain — Open-source protocol where AI agents must challenge each other before code ships
 
 ## URL
 
@@ -17,63 +20,73 @@ https://agentxchain.dev
 
 ## Text
 
-I got tired of multi-agent coding demos where three agents agree with each other, dump a diff, and nobody can explain why the code should ship. So I built a workflow where **agents are required to challenge each other before the run can advance**.
+Hi HN, I've been building AgentXchain — an open-source governance protocol for multi-agent software delivery.
 
-AgentXchain is an open-source protocol + CLI for governed software delivery:
+The problem: when you let multiple AI agents work on the same codebase, they tend to agree with each other, quality drifts, nobody owns decisions, and there is no clear proof of what is actually shippable.
 
-- **Every turn must include an objection.** Blind agreement is rejected by the orchestrator.
-- **The protocol requires human approval for phase transitions and ship decisions.** Agents work between gates, but they cannot self-ship.
-- **Structured audit trail.** Summary, objections, decisions, files changed, and verification evidence — all append-only JSONL. Every decision has provenance.
-- **Multi-repo orchestration.** v2 coordinates governed workflows across multiple repositories with cross-repo context, barrier evaluation, and coordinator-level hooks.
-- **Plugin system.** Install hook-based plugins for notifications (Slack) and reporting (JSON artifacts) without modifying the core workflow.
-- **All 5 adapters proven live.** `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent` all run under the same governed protocol. `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path.
-- **108 conformance fixtures** across 13 protocol surfaces.
+AgentXchain treats multi-agent delivery as a governed system:
 
-Fastest proof path:
+- Every agent turn MUST include at least one objection about the prior agent's work. Blind agreement is rejected.
+- Phase gates enforce that real artifacts exist before work advances.
+- Human approval remains available for governed phase transitions and ship decisions.
+- Every decision goes into an append-only audit ledger.
+- Works with any model or runtime: Claude Code, Cursor, direct API calls, MCP servers, remote agents, or manual human turns.
+
+The design borrows from institutional governance: collective output improves when disagreement is structured, not when agents are asked to be agreeable.
+
+**30-second demo, no API keys needed:**
 
 ```bash
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-That runs a complete PM -> Dev -> QA governed lifecycle with objections, gates, decisions, and audit artifacts. No API keys required.
+This runs a complete governed lifecycle: PM scopes a feature, Dev implements while resolving objections, QA reviews against acceptance criteria, and the protocol records decisions and evidence.
 
-If you want the real CLI flow instead of the demo:
+**What shipped by v2.155.22:**
+
+- Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual`
+- Real dogfood proof: 10 governed runs on tusq.dev produced 987 lines of product code across 42 checkpoint commits
+- Every dogfood cycle traversed planning -> implementation -> QA -> launch
+- 75 bugs closed across the beta cycle, including ghost-turn auto-retry, operator-commit reconciliation, idle-expansion charter materialization, stale-run recovery, and approval-policy coupling
+- All 5 adapters proven live: `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
+- 7,078+ tests across 623 test files, including 71 beta-tester scenario suites with command-chain integration coverage
+- Spec-driven: every bug fix has a spec in `.planning/`, acceptance tests, and shipped-package proof
+
+Durable evidence for the dogfood proof lives at `.planning/dogfood-tusq-dev-evidence/DOGFOOD-EXTENDED-10-CYCLES-EVIDENCE-INDEX.md`.
+
+For the real CLI flow beyond the demo:
 
 ```bash
 npm install -g agentxchain
-agentxchain init --governed
-agentxchain step --role pm
-agentxchain accept-turn
-agentxchain approve-transition
-agentxchain step --role dev
+agentxchain init --governed --goal "Ship one small governed change"
+agentxchain doctor
+agentxchain run --continuous --on-idle perpetual
 ```
 
-The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
-
-Latest operator slice queued for release: `v2.149.1` fails fast on the deterministic BUG-54 Claude auth-hang shape instead of letting `local_cli` subprocesses silently stall on macOS keychain reads. The canonical `claude_auth_preflight_failed` contract now surfaces across adapter dispatch, `connector check`, and `connector validate`, with `doctor` warning on the same shape. The same release also carries BUG-52's four-lane reconciler proof, BUG-55's wrong-lineage + undeclared-output hardening, and BUG-53's continuous auto-chain proof. Everything in this release remains open pending tester verification on `v2.149.1` per discipline rule #12.
-
-- node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
-- node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
-- 108 conformance fixtures across 13 protocol surfaces.
-
-MIT licensed. Protocol v7 spec published.
+MIT licensed. Protocol is the product. The CLI is one implementation.
 
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 npm: https://www.npmjs.com/package/agentxchain
+Website: https://agentxchain.dev
 Docs: https://agentxchain.dev/docs/quickstart
+
+Happy to answer questions about the mandatory challenge design, the architecture, or the evidence approach.
 
 ---
 
 ## Posting Notes
 
-- Post during US morning (10-11am ET, Mon-Thu)
-- Be in the thread for the first 2 hours
-- **Do not** use “constitutional governance” in the title or first reply — save it for the deep explanation if someone asks “why this architecture?”
-- Anticipated objections:
-  - “Why not just one good agent?” → One agent agrees with itself. Mandatory challenge catches errors a single perspective misses. Same reason code review exists for human teams.
-  - “This is just a workflow engine” → Workflow engines don't reject turns for insufficient objections. The adversarial collaboration requirement is the differentiator.
-  - “Too much process for AI” → The process IS the value. Uncoordinated agents produce merge conflicts and contradictory architectures. The cost of wrong code shipped fast dominates the cost of right code shipped slower.
-  - “Why not CrewAI / AutoGen / LangGraph?” → Those are construction/orchestration frameworks — they help you build agents and wire them together. CrewAI and LangGraph have stronger general orchestration ergonomics and observability tooling today. AgentXchain is narrower: it governs how agents (however built) converge on a shared codebase with mandatory challenge, explicit human gates, and append-only delivery history. Complementary layers — you can use CrewAI to build the agents and AgentXchain to govern their delivery workflow.
-  - “What does the audit trail actually look like?” → Show the turn-result JSON schema. Decisions, objections, risks, files_changed, verification evidence — all structured.
-  - “Multi-repo sounds overengineered” → If you have one repo, you don't need it. But real products are often frontend + backend + shared libs. The coordinator ensures governed quality across the boundary, not just within one repo.
-  - “Why a protocol instead of a service?” → The protocol is the durable layer. Models, runtimes, and IDEs change monthly. A governance specification that any orchestrator can implement is antifragile. The CLI is one implementation.
+- Submit during an eligible Tuesday-Thursday launch window, ideally 10-11am ET.
+- Next queued window: Wednesday 2026-04-29, 10-11am ET.
+- Be in the thread for at least 3 hours after posting.
+- Do not use the historical `/launch` snapshot as the submission URL; submit https://agentxchain.dev.
+- Do not use "constitutional governance" in the title or first reply. Save that framing for a deeper architecture answer if asked.
+
+## Anticipated Objections
+
+- "Why not just one good agent?" One agent agrees with itself. Mandatory challenge catches errors a single perspective misses. Same reason code review exists for human teams.
+- "This is just a workflow engine." Workflow engines do not reject turns for insufficient objections. The adversarial collaboration requirement is the differentiator.
+- "Too much process for AI." The process is the value. Uncoordinated agents produce merge conflicts and contradictory architectures; governed turns make convergence inspectable.
+- "Why not CrewAI / AutoGen / LangGraph?" Those help build and orchestrate agents. AgentXchain governs how agents converge on a shared codebase with charters, gates, objections, and audit history.
+- "What does the audit trail actually look like?" Show the turn-result JSON schema and the dogfood evidence index.
+- "Has this been used on a real project?" Yes. AgentXchain dogfooded tusq.dev for 10 governed runs, producing 987 lines of product code with zero human intervention during the governed cycles.

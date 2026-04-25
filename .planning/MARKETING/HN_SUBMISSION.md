@@ -71,7 +71,7 @@ Happy to answer questions about the architecture, the mandatory challenge design
 
 1. Submit as "Show HN" with `https://agentxchain.dev`
 2. Post the comment immediately after submission
-3. Best times: Tuesday-Thursday, 10-11am ET
+3. Best times: Tuesday-Thursday, 10-11am ET. Next queued window: Wednesday 2026-04-29, 10-11am ET.
 4. Be available to respond for at least 3 hours after posting
 5. Expected questions to prepare for:
    - "How is this different from CrewAI/LangGraph?" → Those build agents. AgentXchain governs how they converge.
@@ -80,4 +80,4 @@ Happy to answer questions about the architecture, the mandatory challenge design
    - "What models does it work with?" → Any model. Protocol is model-agnostic. Proven with Claude (Opus, Sonnet, Haiku), Codex, and any LLM API.
    - "How does this compare to A2A?" → A2A is agent-to-agent messaging. AgentXchain governs the delivery process — roles, charters, gates, challenges, and audit.
    - "`npx --yes -p agentxchain@latest -c "agentxchain demo"` says `unknown command 'demo'`" → This is usually npm resolving a stale global install first. Use `npx -p agentxchain@latest -c 'agentxchain demo'`.
-   - "Has this been used on a real project?" → Yes. We dogfooded agentxchain on tusq.dev (a real product repo) — 10 governed runs, 987 lines of product code, zero human intervention. Evidence is public in the repo.
+   - "Has this been used on a real project?" → Yes. We dogfooded agentxchain on tusq.dev (a real product repo) — 10 governed runs, 987 lines of product code, zero human intervention. Evidence is public in `.planning/dogfood-tusq-dev-evidence/DOGFOOD-EXTENDED-10-CYCLES-EVIDENCE-INDEX.md`.
