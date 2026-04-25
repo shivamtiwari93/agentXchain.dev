@@ -168,8 +168,12 @@ describe('comparison pages content', () => {
     assertCommonPageContract(pages.codegen, 'Codegen');
     assert.match(pages.codegen, /managed|SaaS|platform/i, 'Codegen page must acknowledge managed platform model');
     assert.match(pages.codegen, /sandbox/i, 'Codegen page must acknowledge sandboxed execution');
-    assert.match(pages.codegen, /repository rules|repo rules|agent permissions/i, 'Codegen page must acknowledge repository governance features');
+    assert.match(pages.codegen, /agent rules|agent permissions|three-tier/i, 'Codegen page must acknowledge agent rules or permissions');
     assert.match(pages.codegen, /governed software delivery|governance protocol/i);
+    assert.match(pages.codegen, /Source baseline/, 'Codegen page must expose the source baseline on-page');
+    assert.match(pages.codegen, /https:\/\/docs\.codegen\.com\/settings\/repo-rules/, 'Codegen page must link to official agent rules docs');
+    assert.match(pages.codegen, /https:\/\/docs\.codegen\.com\/sandboxes\/overview/, 'Codegen page must link to official sandboxes docs');
+    assert.match(pages.codegen, /https:\/\/docs\.codegen\.com\/capabilities\/capabilities/, 'Codegen page must link to official capabilities docs');
   });
 
   it('keeps the OpenHands page honest about open-source agent platform framing', () => {
@@ -194,6 +198,7 @@ describe('comparison pages content', () => {
     assert.match(POSITIONING_MATRIX, /\*\*AG2 \/ AutoGen\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*OpenHands\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*Devin\*\*/);
+    assert.match(POSITIONING_MATRIX, /\*\*Codegen\*\*/);
     assert.match(POSITIONING_MATRIX, /Atoms|Data Interpreter|Researcher/i);
     assert.match(POSITIONING_MATRIX, /managed Devin child sessions/i);
     assert.match(POSITIONING_MATRIX, /Command routing|parallel supersteps|subgraph composition/i);

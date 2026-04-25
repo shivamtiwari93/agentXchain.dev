@@ -1,13 +1,13 @@
 ---
 title: AgentXchain vs Codegen
-description: "Codegen is stronger as an enterprise code-agent deployment platform. AgentXchain is stronger as an open protocol for governed multi-agent software delivery with constitutional human authority."
+description: "Codegen is stronger as an enterprise code-agent deployment platform with sandboxed execution, CI auto-repair, and deep ticket/chat integrations. AgentXchain is stronger as an open protocol for governed multi-agent software delivery with constitutional human authority."
 ---
 
 # AgentXchain vs Codegen
 
 ## The short answer
 
-**Choose Codegen** if you want a managed SaaS platform that deploys code agents to plan, build, and review PRs in sandboxed environments — with repository rules, model routing, and enterprise security built in.
+**Choose Codegen** if you want a managed SaaS platform that deploys code agents to plan, build, and review PRs in sandboxed Docker environments — with tiered agent rules, configurable model selection (Anthropic, OpenAI, Google, Grok), CI checks auto-fixing, and deep integrations with ClickUp, Linear, Jira, Slack, GitHub, Figma, Notion, Sentry, and more.
 
 **Choose AgentXchain** if you need an open protocol for governed software delivery: arbitrary chartered roles, mandatory cross-role challenge, explicit phase gates, append-only decision ledger, and constitutional human authority over what advances or ships.
 
@@ -17,21 +17,26 @@ Codegen is a platform for deploying and managing code agents. AgentXchain is a p
 
 | | Codegen | AgentXchain |
 |---|---|---|
-| **Primary job** | Managed code-agent deployment platform | Governed software delivery protocol |
-| **Agent model** | Platform-managed agents with smart model routing (Claude, Gemini, custom) | Connector-based: any agent runtime under protocol governance |
-| **Governance** | Repository rules, agent permissions, sandboxed environments | Protocol-enforced turns, objections, phase gates, decision ledger |
-| **Delivery model** | Agents assigned to issues/tickets, deliver PRs for review | Structured turns across multiple chartered roles with mandatory challenge |
-| **Human authority** | PR review and merge | Constitutional authority at planning, phase transitions, and completion |
+| **Primary job** | Managed code-agent deployment platform (acquired by ClickUp) | Governed software delivery protocol |
+| **Agent model** | Platform-managed agents triggered via Slack, GitHub, tickets, web dashboard, CLI (`codegen agent create`), or REST API | Connector-based: any agent runtime under protocol governance |
+| **Model configuration** | Organization-level model selection across Anthropic (Claude 4 Sonnet/Opus/Haiku), OpenAI (GPT-4), Google (Gemini Pro), and Grok; custom API keys and base URLs supported; no documented automatic task-type routing | Model-agnostic: manual, local CLI, and API-backed runtimes |
+| **Governance** | Three-tier agent rules (User > Repository > Organization), auto-discovery of `AGENTS.md`/`CLAUDE.md`/`.cursorrules`, three core permissions (PR creation, rules detection, signed commits), team roles (Admin/Manager/Member) | Protocol-enforced turns, objections, phase gates, decision ledger |
+| **Delivery model** | Agents triggered from tickets and chat, deliver PRs in sandboxed environments, auto-fix failing CI checks (up to 3 retries) | Structured turns across multiple chartered roles with mandatory challenge |
+| **Human authority** | PR review and merge; agent behavior settings (propose plan before executing, require explicit `@codegen` mentions) | Constitutional authority at planning, phase transitions, and completion |
+| **Code execution** | Docker-based sandboxed environments with remote VS Code editor, environment variables, secrets management, setup commands, web preview, and filesystem state persistence | Connector-delegated: agents execute in their own runtime environments |
 | **Cross-role challenge** | Not documented as a protocol requirement | Mandatory — roles must challenge each other structurally |
-| **Hosting model** | Managed SaaS with SOC 2 compliance | Open-source self-hosted core + `agentxchain.ai` managed-cloud early access |
-| **Best fit** | Enterprise teams wanting managed agent-driven PRs | Teams needing auditable convergence with protocol-level governance |
+| **Observability** | Analytics dashboard (merge velocity, agent performance, cost data, team productivity), agent trace with tool-level detail | Append-only local ledgers (`history.jsonl`, decision ledger, hook ledgers), local dashboard |
+| **Hosting model** | Managed SaaS with SOC 2 Type II; on-premises Kubernetes deployment available for Enterprise | Open-source self-hosted core + `agentxchain.ai` managed-cloud early access |
+| **Best fit** | Enterprise teams wanting managed agent-driven PRs with deep ticket/chat integrations | Teams needing auditable convergence with protocol-level governance |
 
 ## Choose Codegen when
 
-- You want a managed platform where agents create PRs from issues and tickets with minimal setup.
-- You want smart model routing — Claude for reasoning, Gemini for refactoring, custom models for specialized tasks.
-- You want enterprise features: SOC 2 compliance, sandboxed execution, repository rules, and forward-deployed engineering support.
-- You want deep integrations with GitHub, Linear, Jira, Slack, Sentry, and Postgres out of the box.
+- You want a managed platform where agents create PRs from Slack messages, GitHub issues, or ClickUp/Linear/Jira/Monday.com tickets with minimal setup.
+- You want configurable model selection across Anthropic, OpenAI, Google, and Grok providers with custom API key support.
+- You want enterprise features: SOC 2 Type II, sandboxed Docker execution, on-premises Kubernetes deployment, Trufflehog secret scanning, tiered agent rules, and signed commit enforcement.
+- You want deep integrations with ClickUp, GitHub, Linear, Jira, Monday.com, Slack, Figma, Notion, Sentry, Postgres, CircleCI, and custom MCP servers.
+- You want CI checks auto-fixing: agents monitor PR checks, analyze failures, apply targeted fixes, and retry up to three times before escalating.
+- You want Claude Code cloud logging and MCP server provisioning through a unified platform.
 - Your problem is "deploy and manage code agents at enterprise scale."
 
 ## Choose AgentXchain when
@@ -47,10 +52,10 @@ Codegen is a platform for deploying and managing code agents. AgentXchain is a p
 Codegen is optimized to deploy agents that deliver code. AgentXchain is optimized to govern how multiple roles move a repository toward shippable state.
 
 ```bash
-# Codegen framing: deploy code agents via issues and chat
-# Agent picks up a Linear/Jira issue, plans, builds, and delivers a PR
-codegen deploy --repo my-org/my-repo
-codegen assign --issue PROJ-123
+# Codegen framing: trigger agents via Slack, tickets, or API
+# Agent picks up a ticket, plans, builds, and delivers a PR in a sandbox
+codegen agent create "Fix the auth timeout bug in PROJ-123"
+# Or @codegen in Slack, or assign the ticket to Codegen in Linear/Jira/ClickUp
 ```
 
 ```bash
@@ -64,18 +69,41 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-Codegen can deliver high-quality PRs at scale with enterprise security. What it does not document as a product is an open governance protocol with mandatory cross-role challenge, append-only decision ledgers, constitutional human authority at phase boundaries, and an open-source self-hosted core that can also layer into `agentxchain.ai` managed-cloud early access.
+Codegen can deliver high-quality PRs at scale with enterprise security, deep ticket/chat integrations, and CI auto-repair. What it does not document as a product is an open governance protocol with mandatory cross-role challenge, append-only decision ledgers, constitutional human authority at phase boundaries, and an open-source self-hosted core that can also layer into `agentxchain.ai` managed-cloud early access.
 
 ## Using both together
 
 This is a plausible layering:
 
-- Codegen for the execution surface: deploy code agents that write, refactor, and review code in sandboxed environments
+- Codegen for the execution surface: deploy code agents that write, refactor, and review code in sandboxed Docker environments with CI auto-fix and enterprise integrations
 - AgentXchain for the governance layer: define who may do what, enforce phase transitions, require challenge, and govern what counts as approved delivery
 
 Codegen's agents could operate as connectors within an AgentXchain-governed workflow — powerful executors operating under protocol-level governance.
 
+## Source baseline
+
+Claims about Codegen were checked against official sources on 2026-04-25. If any claim has drifted, check the official sources first:
+
+- [Codegen overview](https://docs.codegen.com/introduction/overview) — platform description, core capabilities
+- [How Codegen agents work](https://docs.codegen.com/capabilities/capabilities) — agent architecture, task lifecycle, sandbox execution, PR delivery
+- [Triggering Codegen](https://docs.codegen.com/capabilities/triggering-codegen) — Slack, GitHub, tickets, web, CLI, and API trigger surfaces
+- [Agent rules](https://docs.codegen.com/settings/repo-rules) — three-tier rule hierarchy (User > Repository > Organization), auto-discovery of AGENTS.md/CLAUDE.md/.cursorrules
+- [Agent permissions](https://docs.codegen.com/settings/agent-permissions) — PR creation, rules detection, signed commits enforcement
+- [Agent behavior](https://docs.codegen.com/settings/agent-behavior) — propose plan, require explicit mentions
+- [LLM configuration](https://docs.codegen.com/settings/model-configuration) — Anthropic/OpenAI/Google/Grok providers, custom API keys, no documented automatic routing
+- [Team and user roles](https://docs.codegen.com/settings/team-roles) — Admin/Manager/Member role hierarchy
+- [Code execution sandboxes](https://docs.codegen.com/sandboxes/overview) — Docker isolation, remote VS Code editor, environment variables, secrets, web preview
+- [Check Suite Auto-fixer](https://docs.codegen.com/capabilities/checks-autofixer) — CI monitoring, failure analysis, up to 3 retries
+- [Claude Code integration](https://docs.codegen.com/capabilities/claude-code) — cloud logging, MCP server provisioning
+- [Analytics](https://docs.codegen.com/capabilities/analytics) — merge velocity, agent performance, cost data, team productivity
+- [Integrations](https://docs.codegen.com/integrations/integrations) — ClickUp, GitHub, Linear, Jira, Monday.com, Slack, Figma, Notion, Sentry, Postgres, CircleCI, MCP servers, web search
+- [On-premises deployment](https://docs.codegen.com/settings/on-prem-deployment) — Kubernetes-native, air-gapped, Enterprise-only
+- [Security](https://codegen.com/security) — SOC 2 Type II, encryption, access controls, audit logging, penetration testing
+- [Codegen API](https://docs.codegen.com/api-reference/overview) — REST API, Python SDK, CLI, agent run management
+- [Trufflehog secret scanning](https://docs.codegen.com/settings/trufflehog-integration) — repository secret scanning integration
+
 ## Verify the claims
 
+- Check the [Codegen docs](https://docs.codegen.com) for current Codegen capabilities.
 - Read the [Quickstart](/docs/quickstart) for the governed operator loop.
 - Read the [Protocol](/docs/protocol) for turns, objections, gates, and constitutional human authority.
