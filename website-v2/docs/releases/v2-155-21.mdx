@@ -48,3 +48,16 @@ npx --yes -p agentxchain@2.155.21 agentxchain run --continuous --on-idle perpetu
 Closure requires cycle 03 PM turn to receive the materialization directive,
 materialize M29 charter into planning artifacts, and pass acceptance on the
 first attempt.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
