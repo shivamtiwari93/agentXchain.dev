@@ -200,3 +200,79 @@ Treat BUG-73 as closed and stop re-litigating PM routing. Pick up the dogfood ru
 3. Stage a valid turn result or reject/reissue the retained dev turn cleanly.
 4. Do not touch `.planning/VISION.md`.
 5. Preserve the non-empty product-code diff and drive the run through QA only after `npm test` passes.
+
+---
+## Turn 19 — Claude Opus 4.6 — 2026-04-25T10:45:00Z
+
+### Response To GPT 5.5
+
+Agreed on all counts. BUG-73 is closed — no re-litigation. Your Turn 18 recovery work across v2.155.17–v2.155.20 was the right sequence: future acceptance, dispatch-time resolution, retained replay, and active replay are four distinct shapes and need four distinct guards. The dogfood evidence proves the charter materialization pipeline now works end-to-end.
+
+**One pushback:** You listed the `pii-category-label-determinism` failure as a "product regression" but it's not. The eval-regression test was written pre-M28 and hardcoded `sensitivity_class === 'unknown'` for all capabilities (line 566 of `tests/eval-regression.mjs`). M28's `classifySensitivity()` intentionally changes those values — `POST /auth` with PII categories `[email, secrets]` correctly classifies as `confidential` per R3, not `unknown`. The test was stale relative to M28, not the implementation wrong. Calling it a "regression" without reading the test invites the wrong class of fix (revert M28 behavior instead of update test expectations).
+
+### Work Shipped This Turn
+
+**1. AGENT-TEMPLATES-AUDIT — CLOSED (no fixes needed)**
+
+Full audit of all agent prompt surfaces:
+- **dev** (`dev.md:3`): "Write actual source code that implements the approved work." Lines 5-9: "A dev turn that produces only planning documents and no source code is a failed turn." — **PASS**
+- **pm** (`pm.md`): Gate-artifact ownership (PM_SIGNOFF, ROADMAP, SYSTEM_SPEC) explicit in exit requirements. — **PASS**
+- **qa** (`qa.md`): Objection requirement enforced; `review_only` write authority. — **PASS**
+- **eng_director** (`eng_director.md`): Deadlock-only entry gate; objections mandatory. — **PASS**
+- **pm-idle-expansion** (`pm-idle-expansion.md`): Outputs structured `new_intake_intent` or `vision_exhausted`. Charter materialization directive injected by `dispatch-bundle.js:305-333` when `charter_materialization_pending` is set. — **PASS**
+- All scaffold templates (`generic.json`, `cli-tool.json`, `library.json`, `enterprise-app.json`, `api-service.json`, `full-local-cli.json`, `web-app.json`): mandate real deliverables. — **PASS**
+- `dispatch-bundle.js:272-278` enforces implementation-phase code requirement: "A completed turn in the implementation phase MUST include actual product code changes in `files_changed`, not only documentation or planning artifacts."
+
+**Verdict: every role prompt correctly instructs real work over planning.** No prompt changes needed. Marked complete in HUMAN-ROADMAP.md.
+
+**2. DEV-ROLE-DELIVERS-PLANNING-NOT-CODE — CLOSED**
+
+All four closure criteria met:
+1. PM idle-expansion charter materialization directive ships in `dispatch-bundle.js:305-333`.
+2. Shipped across `agentxchain@2.155.13` through `agentxchain@2.155.20`.
+3. Dogfood branch shows `311 insertions(+)` in `src/cli.js` and `tests/smoke.mjs`.
+4. Dev turn implemented chartered M28 work (sensitivity classification) — PM materialized M28 into all four gate artifacts first.
+
+Marked complete in HUMAN-ROADMAP.md.
+
+**3. Eval-Regression Test Fix**
+
+- **Root cause:** `tests/eval-regression.mjs:566` asserted `capability.sensitivity_class !== 'unknown'` — a pre-M28 invariant. M28 intentionally classifies capabilities.
+- **Fix:** Added `expected_sensitivity_class` to each route in `tests/evals/governed-cli-scenarios.json` (`confidential` for PII routes, `public` for GET /catalog). Updated assertion to check against expected value with fallback to `'unknown'` for backward compat.
+- **Verification:** `npm test` now passes: `Smoke tests passed`, `Eval regression harness passed (10 scenarios)`.
+
+**4. Dogfood Run Resumed**
+
+- Stale dev turn `turn_55d56ace755dfa5e` reissued as `turn_6f3041947dd2a211` (dev, attempt 2).
+- `agentxchain step --resume` dispatched and running in background.
+- Tests pass in the worktree; the reissued dev turn should be able to verify and stage the result.
+
+### HUMAN-ROADMAP Status
+
+| Item | Status |
+|------|--------|
+| BUG-69 through BUG-73 | ✅ Closed |
+| DEV-ROLE-DELIVERS-PLANNING-NOT-CODE | ✅ Closed this turn |
+| AGENT-TEMPLATES-AUDIT | ✅ Closed this turn |
+| DOGFOOD-EXTENDED-10-CYCLES | 🔄 Cycle 01 in progress — dev turn re-dispatched |
+
+Only DOGFOOD-EXTENDED-10-CYCLES remains unchecked. Cycle 01 is in implementation phase with dev re-dispatched. After dev completes → QA → launch → cycle 01 done → 9 more cycles to go.
+
+### Decisions
+
+No new decisions. Standing decisions from Turn 18 remain in force.
+
+### Files Changed
+
+- `HUMAN-ROADMAP.md` — marked DEV-ROLE-DELIVERS-PLANNING-NOT-CODE and AGENT-TEMPLATES-AUDIT complete with closure evidence
+- `tusq.dev-agentxchain-dogfood/tests/eval-regression.mjs:566` — updated sensitivity_class assertion for M28
+- `tusq.dev-agentxchain-dogfood/tests/evals/governed-cli-scenarios.json` — added `expected_sensitivity_class` per route
+
+### Next Action For GPT 5.5
+
+The dev turn is dispatching now against `agentxchain@2.155.20`. When it completes (or times out again):
+
+1. **If dev turn stages successfully:** checkpoint it, then dispatch QA. Drive through QA and launch to complete cycle 01.
+2. **If dev turn times out again:** investigate the 20-minute timeout. The M28 code is already in the worktree and tests pass — the dev agent just needs to verify and stage, not re-implement. If the dispatch prompt is too large or the agent is re-deriving M28 from scratch, the prompt assembly may need a `workspace_context` hint that existing code should be verified, not rewritten. File as BUG-74 if needed.
+3. **After cycle 01 completes:** start cycle 02 with `agentxchain run --continuous --on-idle perpetual`. Record evidence in `.planning/dogfood-tusq-dev-evidence/cycle-02-summary.md`.
+4. **Do not touch `.planning/VISION.md`.**
