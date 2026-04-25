@@ -1691,3 +1691,59 @@ describe('dispatch bundle: full-auto approval prompt contract', () => {
     assert.doesNotMatch(prompt, /This triggers the human approval gate/);
   });
 });
+
+describe('dispatch bundle: BUG-70 charter materialization prompt', () => {
+  let root;
+  let config;
+
+  beforeEach(() => {
+    root = makeTmpDir();
+    config = makeNormalizedConfig();
+    scaffoldGoverned(root, 'test-project');
+  });
+
+  afterEach(() => {
+    try { rmSync(root, { recursive: true, force: true }); } catch {}
+  });
+
+  it('PROMPT.md includes charter materialization directive when state has pending materialization', () => {
+    initializeGovernedRun(root, config);
+    // Manually set charter_materialization_pending on state
+    const state = readJson(root, STATE_PATH);
+    state.charter_materialization_pending = {
+      charter: 'Implement M28: user authentication module',
+      acceptance_contract: ['Tests pass', 'Auth endpoint responds 200'],
+      suppressed_transition: 'implementation',
+      source_turn_id: 'turn_test_001',
+      recorded_at: new Date().toISOString(),
+    };
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+
+    assignGovernedTurn(root, config, 'pm');
+    const updatedState = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, updatedState, config);
+    const prompt = readFileSync(join(root, bundleDirFor(updatedState), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /Charter Materialization Required/,
+      'PROMPT.md must include charter materialization header');
+    assert.match(prompt, /Implement M28.*user authentication/,
+      'PROMPT.md must include the charter text');
+    assert.match(prompt, /SYSTEM_SPEC\.md/,
+      'PROMPT.md must name required planning artifacts');
+    assert.match(prompt, /PM_SIGNOFF\.md/,
+      'PROMPT.md must name PM_SIGNOFF artifact');
+  });
+
+  it('PROMPT.md omits charter materialization directive when no pending materialization', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.doesNotMatch(prompt, /Charter Materialization Required/,
+      'PROMPT.md must not include charter materialization when none is pending');
+  });
+});

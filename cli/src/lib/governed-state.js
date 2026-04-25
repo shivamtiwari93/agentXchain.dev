@@ -5222,6 +5222,42 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   let gateResult = null;
   let completionResult = null;
   let timeoutResult = null;
+
+  // BUG-70: idle-expansion new_intake_intent is a proposal, not a chartered plan.
+  // Suppress phase_transition_request — the new intake must be materialized into
+  // planning artifacts by a subsequent turn before implementation can proceed.
+  const isIdleExpansionNewIntake = idleExpansionResultSummary?.kind === 'new_intake_intent';
+  if (isIdleExpansionNewIntake && turnResult.phase_transition_request) {
+    const rawIdleResult = turnResult.idle_expansion_result;
+    updatedState.charter_materialization_pending = {
+      charter: rawIdleResult?.new_intake_intent?.charter
+        || idleExpansionResultSummary.new_intent_title
+        || null,
+      acceptance_contract: rawIdleResult?.new_intake_intent?.acceptance_contract
+        || [],
+      suppressed_transition: turnResult.phase_transition_request,
+      source_turn_id: turnResult.turn_id,
+      recorded_at: now,
+    };
+    emitRunEvent(root, 'charter_materialization_required', {
+      run_id: updatedState.run_id,
+      phase: state.phase,
+      status: updatedState.status,
+      turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      payload: {
+        suppressed_transition: turnResult.phase_transition_request,
+        reason: 'New intake from idle expansion must be materialized into planning artifacts before implementation dispatch.',
+        new_intake_charter: updatedState.charter_materialization_pending.charter,
+      },
+    });
+  }
+
+  // BUG-70: clear charter_materialization_pending when a non-idle-expansion turn
+  // in the planning phase is accepted (the PM has had a chance to materialize).
+  if (updatedState.charter_materialization_pending && !isIdleExpansionNewIntake && state.phase === 'planning') {
+    updatedState.charter_materialization_pending = null;
+  }
+
   const hasRemainingTurns = Object.keys(remainingTurns).length > 0;
   if (turnResult.status !== 'needs_human') {
     if (hasRemainingTurns) {
@@ -5231,7 +5267,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
           requested_at: now,
         };
       }
-      if (turnResult.phase_transition_request && !updatedState.queued_phase_transition) {
+      if (turnResult.phase_transition_request && !updatedState.queued_phase_transition && !isIdleExpansionNewIntake) {
         updatedState.queued_phase_transition = {
           from: state.phase,
           to: turnResult.phase_transition_request,
@@ -5342,8 +5378,14 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       }
 
       if (updatedState.status !== 'blocked' && updatedState.status !== 'paused' && updatedState.status !== 'completed') {
-        const phaseSource = turnResult.phase_transition_request
-          ? turnResult
+        // BUG-70: suppress phase transition for idle-expansion new_intake_intent turns.
+        // Strip phase_transition_request from the effective turn so evaluatePhaseExit
+        // sees no transition request and returns { action: 'no_request' }.
+        const effectiveTurnResult = isIdleExpansionNewIntake
+          ? { ...turnResult, phase_transition_request: null }
+          : turnResult;
+        const phaseSource = effectiveTurnResult.phase_transition_request
+          ? effectiveTurnResult
           : findHistoryTurnRequest(nextHistoryEntries, state.queued_phase_transition?.requested_by_turn, 'phase_transition');
 
         // Always evaluate phase exit when the run drains — even without a request,
@@ -5351,7 +5393,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         gateResult = evaluatePhaseExit({
           state: postAcceptanceState,
           config,
-          acceptedTurn: phaseSource || turnResult,
+          acceptedTurn: phaseSource || effectiveTurnResult,
           root,
         });
 

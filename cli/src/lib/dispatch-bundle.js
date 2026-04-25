@@ -302,6 +302,36 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('');
   }
 
+  // BUG-70: Charter materialization directive for PM after idle-expansion new_intake_intent
+  if (state.charter_materialization_pending && phase === 'planning') {
+    const cmp = state.charter_materialization_pending;
+    lines.push('### Charter Materialization Required');
+    lines.push('');
+    lines.push('A previous idle-expansion turn proposed a new intake intent that has NOT been materialized into planning artifacts.');
+    lines.push('The phase transition to implementation was suppressed because the planning artifacts do not yet charter the new work.');
+    lines.push('');
+    lines.push('**Your job this turn is to materialize this charter into concrete planning artifacts:**');
+    lines.push('');
+    if (cmp.charter) {
+      lines.push(`- **Charter:** ${cmp.charter}`);
+    }
+    if (Array.isArray(cmp.acceptance_contract) && cmp.acceptance_contract.length > 0) {
+      lines.push('- **Acceptance Contract:**');
+      for (const req of cmp.acceptance_contract) {
+        lines.push(`  - ${req}`);
+      }
+    }
+    lines.push('');
+    lines.push('You MUST create or update these planning artifacts to reflect the new work:');
+    lines.push('- `.planning/SYSTEM_SPEC.md` — technical specification for the new increment');
+    lines.push('- `.planning/ROADMAP.md` — updated roadmap including the new milestone');
+    lines.push('- `.planning/PM_SIGNOFF.md` — planning sign-off with acceptance criteria');
+    lines.push('');
+    lines.push('Only after these artifacts exist and reference the new charter may you request `phase_transition_request: "implementation"`.');
+    lines.push('Do NOT repeat the idle-expansion proposal. Write the actual planning documents.');
+    lines.push('');
+  }
+
   const workflowResponsibilities = getWorkflowPromptResponsibilities(config, phase, roleId, root);
   if (workflowResponsibilities.length > 0) {
     const isReviewOnlyOwner = role.write_authority === 'review_only';
