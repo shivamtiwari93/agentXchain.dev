@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.155.20
+# Reddit Posts — AgentXchain v2.155.21
 
-> Ready-to-post content for Reddit for the `v2.155.20` release once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
+> Ready-to-post content for Reddit for the `v2.155.21` release once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/role-resolution.test.js cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js cli/test/step-command.test.js -> 59 tests / 18 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/intake-start-context.test.js cli/test/dispatch-bundle.test.js -> 96 tests / 14 suites / 0 failures / 0 skipped (regression)
 
 ---
 

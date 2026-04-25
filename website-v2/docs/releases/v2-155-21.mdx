@@ -1,0 +1,50 @@
+---
+sidebar_position: 0
+title: "v2.155.21 Release Notes"
+---
+
+# AgentXchain v2.155.21
+
+`v2.155.21` is a patch over `v2.155.20` fixing BUG-74: the
+`charter_materialization_pending` flag was not set when a new governed run
+started from an idle-expansion-derived intake intent. This caused the first PM
+turn to skip charter materialization, failing acceptance on all attempts because
+the planning artifacts were never updated.
+
+## Bug Fixes
+
+- **BUG-74 new-run charter materialization**: when `initializeGovernedRun()` is
+  called from `startIntent()` with an intake context whose category is
+  `pm_idle_expansion_derived`, the initial state now carries
+  `charter_materialization_pending` with the intent's charter and acceptance
+  contract. The first PM turn receives the "You MUST create or update these
+  planning artifacts" directive, matching the within-cycle behavior proven by
+  BUG-70 through BUG-73.
+- **Run-initialization event**: a `charter_materialization_required` event with
+  `source: "run_initialization"` is emitted during `initializeGovernedRun()` so
+  event consumers can distinguish new-run materialization from within-cycle
+  materialization.
+
+## Evidence
+
+- node --test --test-timeout=60000 cli/test/bug-74-new-run-charter-materialization.test.js -> 4 tests / 1 suite / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/intake-start-context.test.js cli/test/dispatch-bundle.test.js -> 96 tests / 14 suites / 0 failures / 0 skipped (regression)
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.21 -c "agentxchain --version"
+```
+
+For dogfood verification, resume `DOGFOOD-EXTENDED-10-CYCLES` from cycle 03
+using `agentxchain@2.155.21` on the tusq.dev dogfood branch:
+
+```bash
+npx --yes -p agentxchain@2.155.21 agentxchain run --continuous --on-idle perpetual
+```
+
+Closure requires cycle 03 PM turn to receive the materialization directive,
+materialize M29 charter into planning artifacts, and pass acceptance on the
+first attempt.

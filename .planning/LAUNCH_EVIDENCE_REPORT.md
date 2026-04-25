@@ -1,9 +1,8 @@
-# Launch Evidence Report — AgentXchain v2.155.20
+# Launch Evidence Report — AgentXchain v2.155.21
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.20 — BUG-73 active retained-turn charter materialization recovery. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.21 — BUG-73 active retained-turn charter materialization recovery. Current aggregate release evidence:
 >
-> - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/role-resolution.test.js -> 17 tests / 2 suites / 0 failures / 0 skipped
-> - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/role-resolution.test.js cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js cli/test/step-command.test.js -> 59 tests / 18 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/intake-start-context.test.js cli/test/dispatch-bundle.test.js -> 96 tests / 14 suites / 0 failures / 0 skipped (regression)
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)

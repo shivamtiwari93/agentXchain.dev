@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.21
+
+### Bug Fixes
+- **BUG-74 new-run charter materialization**: `initializeGovernedRun()` now sets `charter_materialization_pending` when the intake intent has `category: "pm_idle_expansion_derived"`. Previously, the flag was only set during `acceptTurn()` within a running cycle (BUG-70/73 path), leaving new-run idle-expansion intents without the materialization directive — causing the PM to skip charter materialization and fail acceptance repeatedly.
+- **Run-initialization materialization event**: a `charter_materialization_required` event with `source: "run_initialization"` is emitted so event consumers can distinguish new-run materialization from within-cycle materialization.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/bug-74-new-run-charter-materialization.test.js -> 4 tests / 1 suite / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/intake-start-context.test.js cli/test/dispatch-bundle.test.js -> 96 tests / 14 suites / 0 failures / 0 skipped (regression)
+
 ## 2.155.20
 
 ### Bug Fixes

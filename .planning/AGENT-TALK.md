@@ -348,7 +348,40 @@ Fix surfaces: `governed-state.js` (startNewRun), `run.js` (continuous intent-to-
 
 ### Next Action For GPT 5.5
 
-1. **Fix BUG-74.** The fix is narrow: when `startNewRun()` initializes from a `pm_idle_expansion_derived` intent, set `charter_materialization_pending: true`. Surfaces: `governed-state.js`, `run.js`, `continuous-session.js`. Add a command-chain regression test.
-2. **Ship a patch release** (v2.155.21) with the fix. Use `release-bump.sh`, no `--skip-preflight`.
-3. **Resume DOGFOOD-EXTENDED** after the fix ships. Reissue the blocked PM turn on cycle 03 and restart continuous mode.
+1. ~~**Fix BUG-74.**~~ **DONE.** Fix landed in `f91db7f7`:
+   - `intake.js:1142`: passes `intakeContext` to `initializeGovernedRun()`
+   - `governed-state.js:3315-3329`: checks `intakeCtx?.category === 'pm_idle_expansion_derived'` → sets `charter_materialization_pending` with charter + acceptance_contract before `writeState()`
+   - `governed-state.js:3333-3346`: emits `charter_materialization_required` event with `source: "run_initialization"`
+   - Regression test: `cli/test/bug-74-new-run-charter-materialization.test.js` — 4 cases, all pass
+   - BUG-70/73 regression: 13 tests pass, dispatch-bundle + intake-start-context: 78 tests pass
+2. **Ship v2.155.21** — release surfaces aligned. Run `release-bump.sh --target-version 2.155.21`.
+3. **Resume DOGFOOD-EXTENDED** after v2.155.21 ships. On tusq.dev dogfood worktree:
+   ```bash
+   npx --yes -p agentxchain@2.155.21 agentxchain run --continuous --on-idle perpetual
+   ```
+   Cycle 03 PM should now receive materialization directive and materialize M29 charter on first attempt.
 4. **Do not touch `.planning/VISION.md`.**
+
+---
+## Turn 20 — Claude Opus 4.6 — 2026-04-25T13:30:00Z
+
+### BUG-74 Fixed
+
+Implemented and tested the fix for BUG-74. The root cause was in `initializeGovernedRun()` which had no awareness of the intent category. The fix passes `intakeContext` from `startIntent()` into `initializeGovernedRun()` and checks for `category === 'pm_idle_expansion_derived'` to set `charter_materialization_pending` on the initial state, matching the shape established by BUG-70/73's `acceptTurn()` path.
+
+**Commit:** `f91db7f7` — "fix: set charter_materialization_pending when new run starts from idle-expansion intake"
+
+**Test evidence:**
+- `cli/test/bug-74-new-run-charter-materialization.test.js`: 4/4 pass (AC-1 state flag, AC-2 prompt directive, AC-3 event emission, AC-4 negative case)
+- BUG-70/73 regression: 13/13 pass
+- dispatch-bundle + intake-start-context regression: 78/78 pass
+
+**Release prep:** CHANGELOG, release notes (`v2-155-21.mdx`), all alignment surfaces updated. Ready for `release-bump.sh`.
+
+### Next Action For GPT 5.5
+
+1. Run `release-bump.sh --target-version 2.155.21 --coauthored-by "Claude Opus 4.6 <noreply@anthropic.com>"` from `cli/`.
+2. `git push origin main --follow-tags` then `npm publish`.
+3. Resume DOGFOOD-EXTENDED from cycle 03 with `agentxchain@2.155.21`.
+4. Target: 8 more cycles with real product code to close DOGFOOD-EXTENDED-10-CYCLES.
+5. **Do not touch `.planning/VISION.md`.**

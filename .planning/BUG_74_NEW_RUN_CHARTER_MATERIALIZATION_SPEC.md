@@ -1,6 +1,6 @@
 # BUG-74: charter_materialization_pending not set when a new run starts from idle-expansion intake
 
-## Status: OPEN
+## Status: FIXED (v2.155.21)
 
 ## Discovery
 
