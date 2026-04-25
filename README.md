@@ -31,6 +31,7 @@ If you want your own governed project after that, install the CLI once, then jum
 - Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi resume`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
 - Adds continuous-delivery intake (`intake record`, `triage`, `approve`, `plan`, `start`, `scan`, `resolve`) for turning delivery signals into governed work
 - Bridges repo-local intake to multi-repo coordinator workstreams via `intake handoff`
+- Runs continuous governed sessions with `agentxchain run --continuous --on-idle perpetual` — auto-chains through idle expansion, charter materialization, implementation, QA, and launch cycles without human steering
 - Adds repo-local lights-out scheduling with `schedule list`, `schedule run-due`, `schedule daemon`, and `schedule status`
 - Adds governed plugin install/list/remove commands for packaging hook integrations without forking core config
 
@@ -329,10 +330,12 @@ Cross-machine continuity stays narrow: `restore` only accepts governed run expor
 Drives a governed run from start to completion. Continuously assigns turns, dispatches to configured runtimes (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`), handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). In non-TTY environments, gates fail closed unless `--auto-approve` is set.
 
 ```bash
-agentxchain run --auto-approve     # CI / lights-out mode
-agentxchain run --dry-run           # print plan without executing
-agentxchain run --role dev          # override initial role
-agentxchain run --max-turns 10      # safety cap
+agentxchain run --auto-approve                       # CI / lights-out mode
+agentxchain run --dry-run                             # print plan without executing
+agentxchain run --role dev                            # override initial role
+agentxchain run --max-turns 10                        # safety cap
+agentxchain run --continuous --on-idle perpetual      # vision-driven multi-run session
+agentxchain run --continuous --max-runs 5             # bounded continuous session
 ```
 
 ### Runtime support today

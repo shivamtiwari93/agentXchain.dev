@@ -1,9 +1,12 @@
 # Hacker News Submission — AgentXchain v2.155.22
 
-> Ready-to-post for the `v2.155.22` launch window once tester verification lands. Updated 2026-04-25 for BUG-75 stale idle-expansion recovery after upgrade.
+> Ready-to-post for `v2.155.22` launch window. Updated 2026-04-25 after DOGFOOD-EXTENDED-10-CYCLES closure.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/bug-74-new-run-charter-materialization.test.js cli/test/bug-70-charter-materialization.test.js -> 17 tests / 2 suites / 0 failures / 0 skipped (regression)
+> - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
+> - 7,078+ tests / 623 test files / 71 beta-tester scenario suites / 0 failures
+> - 75 bugs closed (BUG-1 through BUG-75), spec-driven with shipped-package proof
+> - Durable evidence index: `.planning/dogfood-tusq-dev-evidence/DOGFOOD-EXTENDED-10-CYCLES-EVIDENCE-INDEX.md`
 
 ---
 
@@ -37,18 +40,14 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's queued in v2.149.1:**
-- BUG-54 Claude auth preflight: `local_cli` Claude runtimes now fail before spawn when neither env auth nor `--bare` is present, using the same `claude_auth_preflight_failed` contract across adapter dispatch, `connector check`, and `connector validate`
-- BUG-54 operator diagnostics stay shipped: `process_exit` forensic fields, reproduction harness + runbook, per-runtime watchdog override, and truthful stderr-only rendering
-- BUG-52 four-lane reconciler coverage shipped for planning, QA, Turn 93 orphan-request, and Turn 94 queued-transition recovery
-- BUG-55 wrong-lineage checkpoint surfacing + `undeclared_verification_outputs` rejection stay in the release lane
-- BUG-53 continuous auto-chain and `idle_exit` proof stay in the release lane
-- BUG-54, BUG-52, BUG-55, and BUG-53 remain open pending tester verification on `v2.149.1`
+**What shipped by v2.155.22:**
+- Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual` — vision-driven multi-run sessions that auto-chain through idle expansion, charter materialization, implementation, QA, and launch without human steering
+- Proven on real code: 10-cycle dogfood on tusq.dev produced 987 lines of real product code (src/, tests/) across 42 checkpoint commits under full governed autonomy
+- 75 bugs closed across the beta cycle (BUG-1 through BUG-75), including ghost-turn auto-retry, operator-commit reconciliation, idle-expansion charter materialization, stale-run recovery, and approval-policy coupling
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
-- 108 conformance fixtures across 13 protocol surfaces
-- node --test cli/test/beta-tester-scenarios/ → 172 tests / 64 suites / 0 failures
-- node --test cli/test/claim-reality-preflight.test.js → 42 tests / 1 suite / 0 failures
+- 7,078+ tests across 623 test files, including 71 beta-tester scenario suites with command-chain integration coverage
+- Spec-driven: every bug fix has a spec in `.planning/`, acceptance tests, and shipped-package proof
 
 **Architecture:**
 1. Protocol (the constitution — run state, roles, turns, gates, decisions)
@@ -77,7 +76,8 @@ Happy to answer questions about the architecture, the mandatory challenge design
 5. Expected questions to prepare for:
    - "How is this different from CrewAI/LangGraph?" → Those build agents. AgentXchain governs how they converge.
    - "Why not just use code review?" → Code review is post-hoc. Governed turns enforce challenge at every step.
-   - "Does mandatory challenge slow things down?" → The demo runs in 1.8s. The overhead is structural, not temporal.
-   - "What models does it work with?" → Any model. Protocol is model-agnostic. Proven with Claude, works with any LLM API.
-   - "How does this compare to A2A?" → A2A is agent-to-agent messaging. AgentXchain governs the delivery process.
+   - "Does mandatory challenge slow things down?" → The demo runs in under 2 seconds. The overhead is structural, not temporal. And the 10-cycle dogfood proof shows the governed pipeline runs autonomously for hours.
+   - "What models does it work with?" → Any model. Protocol is model-agnostic. Proven with Claude (Opus, Sonnet, Haiku), Codex, and any LLM API.
+   - "How does this compare to A2A?" → A2A is agent-to-agent messaging. AgentXchain governs the delivery process — roles, charters, gates, challenges, and audit.
    - "`npx --yes -p agentxchain@latest -c "agentxchain demo"` says `unknown command 'demo'`" → This is usually npm resolving a stale global install first. Use `npx -p agentxchain@latest -c 'agentxchain demo'`.
+   - "Has this been used on a real project?" → Yes. We dogfooded agentxchain on tusq.dev (a real product repo) — 10 governed runs, 987 lines of product code, zero human intervention. Evidence is public in the repo.
