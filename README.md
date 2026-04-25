@@ -420,6 +420,8 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 - `watch --event-file <path>`: normalize one GitHub-style external event into the same intake event pipeline; add `--dry-run --json` to inspect the payload without writing
 - `watch --event-dir <path>`: poll a directory for `*.json` event files, process the startup backlog and new arrivals, then archive inputs under `processed/` or `failed/`
 - `watch --daemon --event-dir <path>`: run the event-directory watcher in the background; tune polling with `--poll-seconds <seconds>`
+- `watch --listen <port>`: run a local HTTP webhook listener with `POST /webhook` and `GET /health`; secure GitHub deliveries with `--webhook-secret <secret>` or `AGENTXCHAIN_WEBHOOK_SECRET`
+- `watch --listen <port> --allow-unsigned`: accept unsigned local-development webhooks only
 - `watch --results [--limit <n>]`: list durable watch result records from `.agentxchain/watch-results/`
 - `watch --result <id>`: show one watch result by ID, filename, or ID prefix
 - `intake triage`: classify and prioritize an event into an actionable intent

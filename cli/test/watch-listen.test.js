@@ -128,6 +128,8 @@ describe('agentxchain watch --listen', () => {
       assert.ok(existsSync(resultsDir), 'watch-results dir should exist');
       const files = readdirSync(resultsDir).filter((f) => f.endsWith('.json'));
       assert.equal(files.length, 1, 'should have exactly one result file');
+      const record = JSON.parse(readFileSync(join(resultsDir, files[0]), 'utf8'));
+      assert.equal(record.delivery_id, 'delivery-001');
     } finally {
       server.close();
     }
@@ -281,6 +283,22 @@ describe('agentxchain watch --listen', () => {
       assert.equal(res.body.ok, true);
       assert.equal(typeof res.body.uptime_ms, 'number');
       assert.equal(res.body.events_processed, 0);
+
+      const invalid = await httpRequest(port, 'POST', '/webhook', '{not valid json}', {
+        'X-GitHub-Event': 'pull_request',
+      });
+      assert.equal(invalid.status, 400);
+
+      const afterInvalid = await httpRequest(port, 'GET', '/health', null, {});
+      assert.equal(afterInvalid.body.events_processed, 0, 'rejected webhook deliveries must not increment health counter');
+
+      const valid = await httpRequest(port, 'POST', '/webhook', JSON.stringify(githubPrOpened()), {
+        'X-GitHub-Event': 'pull_request',
+      });
+      assert.equal(valid.status, 200);
+
+      const afterValid = await httpRequest(port, 'GET', '/health', null, {});
+      assert.equal(afterValid.body.events_processed, 1);
     } finally {
       server.close();
     }

@@ -52,8 +52,8 @@ export function startWebhookListener(opts) {
 
       // Webhook endpoint
       if (req.method === 'POST' && req.url === '/webhook') {
-        await handleWebhook(req, res, { root, secret, allowUnsigned, dryRun, startedAt });
-        eventsProcessed++;
+        const outcome = await handleWebhook(req, res, { root, secret, allowUnsigned, dryRun, startedAt });
+        if (outcome?.counted) eventsProcessed++;
         return;
       }
 
@@ -87,7 +87,7 @@ async function handleWebhook(req, res, ctx) {
   const contentType = req.headers['content-type'] || '';
   if (!contentType.includes('application/json')) {
     writeJson(res, 415, { ok: false, error: 'content type must be application/json' });
-    return;
+    return { counted: false };
   }
 
   // Read body with size limit
@@ -97,10 +97,10 @@ async function handleWebhook(req, res, ctx) {
   } catch (err) {
     if (err.message === 'payload too large') {
       writeJson(res, 413, { ok: false, error: 'payload too large' });
-      return;
+      return { counted: false };
     }
     writeJson(res, 400, { ok: false, error: err.message });
-    return;
+    return { counted: false };
   }
 
   // Signature verification
@@ -108,16 +108,16 @@ async function handleWebhook(req, res, ctx) {
     const sigHeader = req.headers['x-hub-signature-256'];
     if (!sigHeader) {
       writeJson(res, 401, { ok: false, error: 'signature verification failed' });
-      return;
+      return { counted: false };
     }
     const expected = 'sha256=' + createHmac('sha256', secret).update(rawBody).digest('hex');
     if (!constantTimeEqual(expected, sigHeader)) {
       writeJson(res, 401, { ok: false, error: 'signature verification failed' });
-      return;
+      return { counted: false };
     }
   } else if (!allowUnsigned) {
     writeJson(res, 403, { ok: false, error: 'webhook secret required' });
-    return;
+    return { counted: false };
   }
 
   // Parse JSON
@@ -126,7 +126,7 @@ async function handleWebhook(req, res, ctx) {
     parsed = JSON.parse(rawBody);
   } catch {
     writeJson(res, 400, { ok: false, error: 'invalid JSON' });
-    return;
+    return { counted: false };
   }
 
   // Construct envelope using X-GitHub-Event header if present
@@ -148,20 +148,20 @@ async function handleWebhook(req, res, ctx) {
     payload = normalizeWatchEvent(envelope);
   } catch (err) {
     writeJson(res, 422, { ok: false, error: err.message });
-    return;
+    return { counted: false };
   }
 
   // Dry-run: return normalized payload without persisting
   if (dryRun) {
     writeJson(res, 200, { ok: true, dry_run: true, payload });
-    return;
+    return { counted: true };
   }
 
   // Record event through the governed intake pipeline
   const result = recordEvent(root, payload);
   if (!result.ok) {
     writeJson(res, 422, { ok: false, error: result.error || 'event recording failed' });
-    return;
+    return { counted: false };
   }
 
   // Route-based auto-triage and auto-approve (same logic as ingestWatchEvent)
@@ -226,7 +226,7 @@ async function handleWebhook(req, res, ctx) {
   if (routed) result.routed = routed;
 
   // Write durable watch result
-  const watchResult = writeWatchResult(root, result, payload);
+  const watchResult = writeWatchResult(root, result, payload, { delivery_id: deliveryId });
 
   // Build response
   const response = {
@@ -252,6 +252,7 @@ async function handleWebhook(req, res, ctx) {
   };
 
   writeJson(res, 200, response);
+  return { counted: true };
 }
 
 function readBody(req, maxBytes) {

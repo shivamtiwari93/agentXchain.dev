@@ -253,7 +253,7 @@ export function resolveWatchRoute(payload, routes) {
  * @param {object} payload - the normalized watch event payload
  * @returns {{ result_id: string, result_path: string }}
  */
-export function writeWatchResult(root, pipelineResult, payload) {
+export function writeWatchResult(root, pipelineResult, payload, metadata = {}) {
   const ts = Date.now();
   const suffix = Math.random().toString(16).slice(2, 10);
   const resultId = `wr_${ts}_${suffix}`;
@@ -271,6 +271,7 @@ export function writeWatchResult(root, pipelineResult, payload) {
     intent_id: pipelineResult.intent?.intent_id || null,
     intent_status: pipelineResult.intent?.status || null,
     deduplicated: pipelineResult.deduplicated === true,
+    delivery_id: metadata.delivery_id || null,
     payload: {
       source: payload.source,
       category: payload.category,

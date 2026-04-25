@@ -448,7 +448,7 @@ The webhook secret can also be provided via:
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/health` | Health check. Returns `{ ok: true, version, uptime_ms, events_processed }`. |
+| `GET` | `/health` | Health check. Returns `{ ok: true, version, uptime_ms, events_processed }`, where `events_processed` counts accepted webhook deliveries only. |
 | `POST` | `/webhook` | Receive a webhook payload. Verifies signature, normalizes, records, routes. Returns the watch result. |
 
 All other methods/paths return `405 Method Not Allowed` or `404 Not Found`.
@@ -465,7 +465,7 @@ All other methods/paths return `405 Method Not Allowed` or `404 Not Found`.
    - Missing header when a secret is configured returns `401`.
 5. **No secret configured and `--allow-unsigned` not set** → `403 Forbidden` with `{ ok: false, error: "webhook secret required" }`. The listener refuses to operate as an unauthenticated intake surface by default.
 6. **GitHub event type** read from `X-GitHub-Event` header. If missing, the payload must self-describe via the envelope format (`{ provider, event, payload }`). If neither is present and the event cannot be inferred, return `422 Unprocessable Entity`.
-7. **Delivery ID** read from `X-GitHub-Delivery` header (informational, logged in the watch result).
+7. **Delivery ID** read from `X-GitHub-Delivery` header (informational, returned in the HTTP response and logged in the watch result).
 
 ### Behavior
 
@@ -478,7 +478,7 @@ All other methods/paths return `405 Method Not Allowed` or `404 Not Found`.
   3. `recordEvent(root, payload)` — record event and create intent.
   4. `resolveWatchRoute()` + triage + approve + auto-start — route (existing logic from `ingestWatchEvent`).
   5. `writeWatchResult()` — persist durable result.
-- Response body is the watch result JSON: `{ ok: true, result_id, event_id, intent_id, intent_status, deduplicated, route }`.
+- Response body is the watch result JSON: `{ ok: true, result_id, event_id, intent_id, intent_status, deduplicated, delivery_id, route }`.
 - Pipeline errors (unsupported event shape, intake record failure) return `422` with `{ ok: false, error }`.
 - Server errors return `500` with `{ ok: false, error: "internal error" }` (no stack traces in response).
 - Graceful shutdown on `SIGINT` / `SIGTERM`: stop accepting connections, close the server, remove PID file.
@@ -507,7 +507,7 @@ All other methods/paths return `405 Method Not Allowed` or `404 Not Found`.
 
 ### Acceptance Tests (Slice 8)
 
-- AT-WATCH-LISTEN-001: `POST /webhook` with valid signed GitHub PR event returns `200` with `{ ok: true, result_id, event_id, intent_id }`. Watch result file is written to disk.
+- AT-WATCH-LISTEN-001: `POST /webhook` with valid signed GitHub PR event returns `200` with `{ ok: true, result_id, event_id, intent_id }`. Watch result file is written to disk and records `delivery_id` when `X-GitHub-Delivery` is present.
 - AT-WATCH-LISTEN-002: `POST /webhook` with invalid HMAC signature returns `401`. No event is recorded.
 - AT-WATCH-LISTEN-003: `POST /webhook` with missing `X-Hub-Signature-256` header when secret is configured returns `401`.
 - AT-WATCH-LISTEN-004: `POST /webhook` with no secret configured and no `--allow-unsigned` returns `403`.
@@ -515,7 +515,7 @@ All other methods/paths return `405 Method Not Allowed` or `404 Not Found`.
 - AT-WATCH-LISTEN-006: `POST /webhook` with oversized body (>1 MB) returns `413`.
 - AT-WATCH-LISTEN-007: `POST /webhook` with malformed JSON returns `400`.
 - AT-WATCH-LISTEN-008: `POST /webhook` with non-JSON content type returns `415`.
-- AT-WATCH-LISTEN-009: `GET /health` returns `{ ok: true, version, uptime_ms, events_processed }`.
+- AT-WATCH-LISTEN-009: `GET /health` returns `{ ok: true, version, uptime_ms, events_processed }`; rejected webhook requests do not increment `events_processed`, accepted deliveries do.
 - AT-WATCH-LISTEN-010: `POST /webhook` with `--dry-run` returns normalized payload but does not write result file or intake files.
 - AT-WATCH-LISTEN-011: Route matching works — routed event with `auto_approve` returns `route.approved: true` in response.
 - AT-WATCH-LISTEN-012: `X-GitHub-Event` header is used to construct the event envelope when the body is a raw GitHub payload.
