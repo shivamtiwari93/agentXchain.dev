@@ -93,6 +93,9 @@ describe('comparison pages content', () => {
     assert.match(pages.langgraph, /Command/i, 'LangGraph page must acknowledge Command-based routing');
     assert.match(pages.langgraph, /subgraph|parallel/i, 'LangGraph page must acknowledge subgraphs or parallel fan-out');
     assert.match(pages.langgraph, /governed convergence|human-gated phase transitions|protocol-backed convergence/i);
+    assert.match(pages.langgraph, /Source baseline/, 'LangGraph page must expose the source baseline on-page');
+    assert.match(pages.langgraph, /https:\/\/docs\.langchain\.com\/oss\/python\/langgraph\/interrupts/, 'LangGraph page must link to official interrupts docs');
+    assert.match(pages.langgraph, /https:\/\/docs\.langchain\.com\/oss\/python\/langgraph\/observability/, 'LangGraph page must link to official observability docs');
   });
 
   it('keeps the OpenAI Agents SDK page aligned with current official strengths', () => {

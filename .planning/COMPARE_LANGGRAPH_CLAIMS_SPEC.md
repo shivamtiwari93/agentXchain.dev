@@ -19,6 +19,7 @@ Freeze the public comparison contract for how AgentXchain describes LangGraph. T
 - Public copy must not say checkpointers let you resume `from any node`. Current docs support durable execution, persisted checkpoints, resume, and time travel; they do not require that broad phrasing.
 - Public copy should use current deployment wording where it names the managed surface directly: `LangSmith Deployment`, not a stale standalone `LangGraph Platform` bullet.
 - Negative governance claims should stay scoped to missing delivery-governance behavior: no built-in delivery-governance layer, no decision ledger, no protocol-native ship gates. Do not imply LangGraph lacks interrupts, observability, or resumability.
+- Public competitor claims must include official source links and a last-checked date (per the AT-LANGGRAPH-CLAIMS-005 requirement established 2026-04-25). Source baseline must cover: overview, graph API, persistence, durable execution, interrupts, subgraphs, observability, and deployment.
 
 ## Error Cases
 
@@ -34,6 +35,7 @@ Freeze the public comparison contract for how AgentXchain describes LangGraph. T
 2. `AT-LANGGRAPH-CLAIMS-002`: `website-v2/docs/compare/vs-langgraph.mdx` must describe LangGraph human authority with checkpoint-backed resume plus state inspection/modification.
 3. `AT-LANGGRAPH-CLAIMS-003`: `node --test cli/test/compare-langgraph-claims.test.js` passes.
 4. `AT-LANGGRAPH-CLAIMS-004`: `cd website-v2 && npm run build` succeeds after the comparison copy changes.
+5. `AT-LANGGRAPH-CLAIMS-005`: `website-v2/docs/compare/vs-langgraph.mdx` must expose official LangGraph source links on-page with a last-checked date. Required links: overview, graph-api, persistence, durable-execution, interrupts, use-subgraphs, observability, and deploy.
 
 ## Open Questions
 

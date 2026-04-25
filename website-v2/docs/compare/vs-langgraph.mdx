@@ -76,7 +76,21 @@ Use LangGraph to orchestrate long-running agent behavior, and use AgentXchain wh
 - LangGraph for runtime state machines
 - AgentXchain for governed repository workflow
 
+## Source baseline
+
+Last checked against LangGraph official docs on 2026-04-25. These are the source claims this comparison depends on:
+
+- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) describes LangGraph as a framework for building stateful, multi-actor applications with durable execution, human-in-the-loop, and streaming support.
+- [Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api) documents StateGraph, conditional edges, `Command`-based routing with state updates, `Send` for map-reduce fan-out, and parallel superstep execution.
+- [Persistence](https://docs.langchain.com/oss/python/langgraph/persistence) documents checkpointer backends (InMemory, SQLite, Postgres, Cosmos DB), the `BaseCheckpointSaver` interface, cross-thread `Store`, and serialization.
+- [Durable execution](https://docs.langchain.com/oss/python/langgraph/durable-execution) documents checkpoint-backed fault tolerance, resume from interruptions, and three durability modes (exit, async, sync).
+- [Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts) documents `interrupt()` for pausing execution, approval workflows, state review/editing, tool call review, multi-turn validation, and `Command(resume=value)` for resuming.
+- [Subgraphs](https://docs.langchain.com/oss/python/langgraph/use-subgraphs) documents subgraph composition, parent-child state communication, and per-invocation/per-thread/stateless checkpointing modes.
+- [Observability](https://docs.langchain.com/oss/python/langgraph/observability) documents LangSmith tracing, selective tracing, custom metadata/tags, and project organization.
+- [Deploy](https://docs.langchain.com/oss/python/langgraph/deploy) documents LangSmith Cloud hosting for stateful long-running agents, control plane (hybrid/self-hosted), and standalone server deployment.
+
 ## Verify the claims
 
-- Read the [Quickstart](/docs/quickstart) for the operator loop.
-- Read the [Protocol](/docs/protocol) for turns, gates, objections, and decision history.
+- Read the LangGraph source links above before relying on this page for competitive positioning.
+- Read the [Quickstart](/docs/quickstart) to see AgentXchain's governed operator loop.
+- Read the [Protocol](/docs/protocol) for AgentXchain's constitutional rules behind turns, objections, and gates.

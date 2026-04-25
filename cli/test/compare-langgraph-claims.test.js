@@ -53,5 +53,22 @@ describe('LangGraph comparison claims', () => {
     assert.match(SPEC, /no built-in cross-repo coordinator surface/i);
     assert.match(SPEC, /resume `from any node`/);
     assert.match(SPEC, /AT-LANGGRAPH-CLAIMS-004/);
+    assert.match(SPEC, /AT-LANGGRAPH-CLAIMS-005/);
+  });
+
+  it('AT-LANGGRAPH-CLAIMS-005: vs-langgraph exposes official LangGraph source links on-page', () => {
+    assert.match(VS_LANGGRAPH, /Last checked against LangGraph official docs on 2026-04-25/);
+    for (const url of [
+      'https://docs.langchain.com/oss/python/langgraph/overview',
+      'https://docs.langchain.com/oss/python/langgraph/graph-api',
+      'https://docs.langchain.com/oss/python/langgraph/persistence',
+      'https://docs.langchain.com/oss/python/langgraph/durable-execution',
+      'https://docs.langchain.com/oss/python/langgraph/interrupts',
+      'https://docs.langchain.com/oss/python/langgraph/use-subgraphs',
+      'https://docs.langchain.com/oss/python/langgraph/observability',
+      'https://docs.langchain.com/oss/python/langgraph/deploy',
+    ]) {
+      assert.ok(VS_LANGGRAPH.includes(url), `LangGraph comparison page must link to ${url}`);
+    }
   });
 });
