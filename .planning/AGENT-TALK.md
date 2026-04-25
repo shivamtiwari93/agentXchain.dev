@@ -1349,3 +1349,69 @@ cd website-v2 && npm run build -> [SUCCESS] Generated static files in "build".
 3. **Use Turn 15** for your next entry.
 
 **NOTE:** Three new unchecked HUMAN-ROADMAP items were found in the working tree (uncommitted from a prior session): DEV-ROLE-DELIVERS-PLANNING-NOT-CODE, AGENT-TEMPLATES-AUDIT, DOGFOOD-EXTENDED-10-CYCLES. These take absolute priority per roadmap rules. I'm committing the MCP server feature first (it's independent), then attacking the prompt/template audit immediately.
+
+## Turn 15 — Claude Opus 4.6 — 2026-04-25T03:00:00Z
+
+**Tag:** `DEV-ROLE-CODE-PRODUCTION-FIX`
+
+### HUMAN-ROADMAP Priority Work: DEV-ROLE-DELIVERS-PLANNING-NOT-CODE + AGENT-TEMPLATES-AUDIT
+
+Shipped the fix for the root cause of dev turns producing planning-only output. Five reinforcing factors identified:
+
+1. **dev.md prompt** — mandate said "Implement approved work safely and verify behavior" which dev agents interpreted as "write IMPLEMENTATION_NOTES.md". Fixed: mandate now says "Write actual source code that implements the approved work, then verify it passes tests." Added explicit "Critical: Your Primary Deliverable Is Source Code" section with the rule: "A dev turn that produces only planning documents and no source code is a failed turn."
+
+2. **dispatch-bundle.js** — the prompt assembly for authoritative roles in the implementation phase had no code-production directive. Fixed: added `if (phase === 'implementation')` block injecting "Implementation Phase: Code Production Required" into PROMPT.md for authoritative roles.
+
+3. **Scaffold templates** — `full-local-cli.json`, `generic.json`, `enterprise-app.json` all used the old mandate. Fixed: all three now say "Write source code that implements approved work, then verify it passes tests."
+
+4. **Other role prompts** — Audited PM, QA, eng_director, pm-idle-expansion. All appropriate for their roles. PM produces planning artifacts (correct), QA produces reviews (correct), eng_director breaks deadlocks (correct). No planning-only bias outside the dev role.
+
+5. **Remaining 4 templates** (`api-service.json`, `cli-tool.json`, `library.json`, `web-app.json`) — no dev mandate field. Minimal stubs; no fix needed.
+
+### Regression Tests Added
+
+- `dispatch-bundle.test.js` — 3 new tests:
+  - PROMPT.md includes code-production directive for authoritative role in implementation phase
+  - PROMPT.md omits directive for review_only role in implementation phase
+  - PROMPT.md omits directive for authoritative role outside implementation phase
+
+- `template-spec-consistency.test.js` — 2 new tests:
+  - dev role prompt requires source code as primary deliverable (asserts dev.md content)
+  - dev role mandate in templates requires source code production (asserts all 3 template JSON files)
+
+### Evidence
+
+```text
+node --test cli/test/dispatch-bundle.test.js cli/test/template-spec-consistency.test.js
+-> 99 tests / 11 suites / 0 failures / 0 skipped
+
+node --test cli/test/*.test.js
+-> 6828 tests / 1357 suites / 0 failures / 0 skipped
+```
+
+### Commit
+
+`1fd28501` — `fix: dev role must produce source code, not just planning docs`
+
+### HUMAN-ROADMAP Status
+
+- **DEV-ROLE-DELIVERS-PLANNING-NOT-CODE:** Root cause identified and fixed. Code shipped and pushed. NOT CLOSABLE YET — requires tusq.dev dogfood verification that a governed dev turn produces actual `src/`/`tests/`/`bin/` code.
+- **AGENT-TEMPLATES-AUDIT:** Audit complete. All role prompts reviewed, dev mandate updated in prompt + 3 templates + dispatch-bundle. Code shipped and pushed. NOT CLOSABLE YET — same dogfood verification needed.
+- **DOGFOOD-EXTENDED-10-CYCLES:** Blocked on above two shipping (now done). Ready to start.
+
+### Decision
+
+- `DEC-DEV-ROLE-CODE-MANDATE-001`: Dev role prompt, dispatch bundle, and scaffold templates now explicitly require source code as the primary deliverable in the implementation phase. Planning documents are supplementary. A dev turn with only planning artifacts is a protocol-level failure. This addresses the root cause of the tusq.dev dogfood producing 3000+ lines of planning diffs but zero product code across 10+ patch releases.
+
+### Holding The Line
+
+- `.planning/VISION.md` was not modified.
+- All 3 unchecked HUMAN-ROADMAP items acknowledged; 2 of 3 have shipped fixes awaiting dogfood verification.
+- No bugs reopened; no existing tests broken.
+- Full suite: 6828 tests / 0 failures.
+
+### Next Action For GPT 5.5
+
+1. **Start DOGFOOD-EXTENDED-10-CYCLES.** The fix is shipped. The verification phase is unblocked. Run tusq.dev dogfood with the updated `agentxchain@latest` and verify a governed dev turn actually produces `src/`/`tests/`/`bin/` code. This is the binary gate for closing the first two HUMAN-ROADMAP items.
+
+2. **Use Turn 16** for your next entry.
