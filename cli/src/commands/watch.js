@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync, existsSync, appendFileSync, unlinkSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, writeFileSync, existsSync, appendFileSync, unlinkSync, mkdirSync, readdirSync, renameSync } from 'fs';
+import { join, dirname, basename, resolve } from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
@@ -20,8 +20,18 @@ export async function watchCommand(opts) {
     return;
   }
 
+  if (opts.daemon && opts.eventDir && process.env.AGENTXCHAIN_WATCH_DAEMON !== '1') {
+    startWatchDaemon(opts);
+    return;
+  }
+
+  if (opts.eventDir) {
+    await watchEventDirectory(opts);
+    return;
+  }
+
   if (opts.daemon && process.env.AGENTXCHAIN_WATCH_DAEMON !== '1') {
-    startWatchDaemon();
+    startWatchDaemon(opts);
     return;
   }
 
@@ -159,6 +169,127 @@ export async function watchCommand(opts) {
 
   process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
+}
+
+async function watchEventDirectory(opts) {
+  const root = requireIntakeWorkspaceOrExit(opts);
+  const eventDir = resolve(process.cwd(), opts.eventDir);
+  const pollMs = parsePollMs(opts.pollSeconds);
+  mkdirSync(eventDir, { recursive: true });
+  writePidFile(root);
+
+  console.log('');
+  console.log(chalk.bold('  AgentXchain Watch Event Directory'));
+  console.log(chalk.dim(`  Event dir: ${eventDir}`));
+  console.log(chalk.dim(`  Poll:      ${pollMs}ms`));
+  console.log(chalk.dim('  Processed files move to processed/; failed files move to failed/.'));
+  console.log('');
+
+  let processing = false;
+  const tick = async () => {
+    if (processing) return;
+    processing = true;
+    try {
+      const results = await processPendingEventFiles(root, eventDir);
+      for (const result of results) {
+        if (result.ok) {
+          log('claimed', `Processed event file ${basename(result.source)} -> ${basename(result.destination)}`);
+        } else {
+          log('warn', `Failed event file ${basename(result.source)} -> ${basename(result.destination)}: ${result.error}`);
+        }
+      }
+    } catch (err) {
+      log('error', err.message);
+    } finally {
+      processing = false;
+    }
+  };
+
+  await tick();
+  const timer = setInterval(tick, pollMs);
+
+  const cleanup = () => {
+    clearInterval(timer);
+    removePidFile(root);
+    console.log('');
+    log('stop', 'Watch event directory stopped.');
+    process.exit(0);
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+}
+
+async function processPendingEventFiles(root, eventDir) {
+  const entries = readdirSync(eventDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => entry.name)
+    .sort();
+
+  const results = [];
+  for (const name of entries) {
+    const source = join(eventDir, name);
+    if (!existsSync(source)) continue;
+
+    const childResult = await runWatchEventFile(root, source);
+    const destinationDir = join(eventDir, childResult.status === 0 ? 'processed' : 'failed');
+    const destination = moveEventFile(source, destinationDir);
+    results.push({
+      ok: childResult.status === 0,
+      source,
+      destination,
+      error: childResult.status === 0 ? null : summarizeChildFailure(childResult),
+    });
+  }
+  return results;
+}
+
+function runWatchEventFile(root, eventFile) {
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  const cliBin = join(currentDir, '../../bin/agentxchain.js');
+  return new Promise((resolvePromise) => {
+    const child = spawn(process.execPath, [cliBin, 'watch', '--event-file', eventFile, '--json'], {
+      cwd: root,
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (data) => { stdout += data.toString(); });
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
+    child.on('close', (status, signal) => {
+      resolvePromise({ status: status ?? 1, signal, stdout, stderr });
+    });
+    child.on('error', (err) => {
+      resolvePromise({ status: 1, signal: null, stdout, stderr: err.message });
+    });
+  });
+}
+
+function moveEventFile(source, destinationDir) {
+  mkdirSync(destinationDir, { recursive: true });
+  const parsed = basename(source);
+  let destination = join(destinationDir, parsed);
+  if (existsSync(destination)) {
+    const suffix = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    destination = join(destinationDir, `${parsed}.${suffix}`);
+  }
+  renameSync(source, destination);
+  return destination;
+}
+
+function summarizeChildFailure(result) {
+  try {
+    const parsed = JSON.parse(result.stdout);
+    if (parsed?.error) return parsed.error;
+  } catch {}
+  return result.stderr.trim() || result.stdout.trim() || `watch --event-file exited with status ${result.status}`;
+}
+
+function parsePollMs(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return 5000;
+  return Math.max(100, Math.round(seconds * 1000));
 }
 
 async function ingestWatchEvent(opts) {
@@ -487,10 +618,15 @@ function log(type, msg) {
   console.log(`  ${chalk.dim(time)} ${tags[type] || chalk.dim(type)}  ${msg}`);
 }
 
-function startWatchDaemon() {
+function startWatchDaemon(opts = {}) {
   const currentDir = dirname(fileURLToPath(import.meta.url));
   const cliBin = join(currentDir, '../../bin/agentxchain.js');
-  const child = spawn(process.execPath, [cliBin, 'watch'], {
+  const args = [cliBin, 'watch'];
+  if (opts.eventDir) {
+    args.push('--event-dir', opts.eventDir);
+    if (opts.pollSeconds) args.push('--poll-seconds', String(opts.pollSeconds));
+  }
+  const child = spawn(process.execPath, args, {
     cwd: process.cwd(),
     detached: true,
     stdio: 'ignore',
@@ -499,8 +635,12 @@ function startWatchDaemon() {
   child.unref();
 
   const result = loadConfig();
-  if (result) {
-    writeFileSync(join(result.root, PID_FILE), String(child.pid));
+  let pidRoot = result?.root || null;
+  if (!pidRoot && opts.eventDir && existsSync(join(process.cwd(), 'agentxchain.json'))) {
+    pidRoot = process.cwd();
+  }
+  if (pidRoot) {
+    writeFileSync(join(pidRoot, PID_FILE), String(child.pid));
   }
 
   console.log('');

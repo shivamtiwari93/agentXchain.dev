@@ -251,6 +251,8 @@ program
   .description('Watch lock.json, or ingest an external event into governed intake')
   .option('--daemon', 'Run in background mode')
   .option('--event-file <path>', 'Normalize one external event JSON file into governed intake')
+  .option('--event-dir <path>', 'Poll a directory for external event JSON files')
+  .option('--poll-seconds <seconds>', 'With --event-dir, polling interval in seconds', '5')
   .option('--dry-run', 'With --event-file, print the normalized intake payload without writing')
   .option('-j, --json', 'With --event-file, output JSON')
   .action(watchCommand);

@@ -327,6 +327,51 @@ When no route matches, `route` is `{ "matched": false }`.
 - AT-WATCH-RESULT-006: auto_start success writes a result file with `route.started: true`, `route.run_id` set, and `route.role` set.
 - AT-WATCH-RESULT-007: multiple events produce unique result IDs.
 
+## Slice 6: Event Directory Daemon
+
+### Purpose
+
+`watch --event-file` is useful for single CI invocations, but it does not support a local automation process that waits for event files dropped by another system. Before adding webhook hosting, AgentXchain needs a small daemon path that can consume JSON event files from a directory and feed each file through the same governed intake pipeline as `watch --event-file`.
+
+### Interface
+
+New CLI options:
+
+- `agentxchain watch --event-dir <path>`
+- `agentxchain watch --event-dir <path> --poll-seconds <seconds>`
+- `agentxchain watch --daemon --event-dir <path>`
+
+`--event-dir` runs a foreground polling loop. `--daemon --event-dir` starts that same loop in the background using the existing watch PID file.
+
+### Behavior
+
+- The daemon uses polling, not platform-specific filesystem notifications.
+- The event directory is created if it does not already exist.
+- On startup, the daemon processes all pending top-level `*.json` files in lexicographic order. This provides catch-up for files dropped while the daemon was stopped.
+- On every poll, new top-level `*.json` files are processed sequentially.
+- Each file is processed by the existing `watch --event-file <file> --json` pipeline so normalization, routing, auto-approval, auto-start, and durable watch result files remain identical to single-file ingestion.
+- Successfully processed files move to `<event-dir>/processed/`.
+- Failed files move to `<event-dir>/failed/`.
+- Subdirectories, including `processed/` and `failed/`, are not scanned.
+- The daemon does not delete event files.
+- Graceful `SIGINT` / `SIGTERM` removes the watch PID file when the signal handler wins the race.
+
+### Error Cases
+
+- Invalid JSON or unsupported event shape moves the source file to `failed/`.
+- A non-zero child `watch --event-file` exit moves the source file to `failed/`.
+- A single failed file does not stop the daemon from processing later files.
+- If a destination filename already exists under `processed/` or `failed/`, the daemon appends a unique suffix instead of overwriting the prior archived event.
+- `--event-file` and `--daemon` remain invalid together. `--event-dir` is the daemon-compatible multi-file event ingestion interface.
+
+### Acceptance Tests (Slice 6)
+
+- AT-WATCH-DIR-001: `watch --event-dir <path>` processes startup backlog `*.json` files, writes durable watch results, and moves files to `processed/`.
+- AT-WATCH-DIR-002: `watch --event-dir <path>` processes a file created after startup on the next poll.
+- AT-WATCH-DIR-003: invalid or unsupported JSON files move to `failed/` without stopping the daemon.
+- AT-WATCH-DIR-004: `watch --daemon --event-dir <path>` starts a background event-directory watcher and writes the existing watch PID file.
+- AT-WATCH-DIR-005: files already under `processed/` and `failed/` are not reprocessed.
+
 ## Open Questions
 
 - Should the later webhook server live in the CLI process (`agentxchain watch --listen`) or as a separate hosted/CI runner?
@@ -336,3 +381,4 @@ When no route matches, `route` is `{ "matched": false }`.
 - ~~Should `preferred_role` be consumed by `resolveIntakeRole()` at dispatch time, or should role resolution remain phase-routing-driven?~~ **Resolved: `preferred_role` is consumed after explicit `--role` and before phase entry role (DEC-WATCH-PREFERRED-ROLE-DISPATCH-001).**
 - ~~Should routed approved intents auto-start governed runs, or require explicit `intake plan` + `intake start`?~~ **Resolved: `auto_start: true` on a route plans and starts in a single invocation (DEC-WATCH-AUTO-START-001).**
 - Should `preferred_role` persist across the full governed run, or only apply to the first dispatched turn? Currently it applies only to the first turn via `resolveIntakeRole()` at `startIntent()` time; subsequent turns fall back to phase routing. This is acceptable for the watch use case (routed role handles the initial event response) but should be documented.
+- ~~Should directory-based watch automation use polling or filesystem notifications, and should it mutate event files?~~ **Resolved: `watch --event-dir` uses portable polling, processes startup backlog plus new top-level `*.json` files, and moves completed inputs into `processed/` or `failed/` without deleting them (DEC-WATCH-EVENT-DIR-001).**
