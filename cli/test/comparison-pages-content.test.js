@@ -144,6 +144,10 @@ describe('comparison pages content', () => {
     assert.match(pages.devin, /parallel/i, 'Devin page must acknowledge parallel Devin instances');
     assert.match(pages.devin, /Knowledge|Playbooks/i, 'Devin page must acknowledge Knowledge/Playbooks');
     assert.match(pages.devin, /governed software delivery|delivery governance protocol/i);
+    assert.match(pages.devin, /Source baseline/, 'Devin page must expose the source baseline on-page');
+    assert.match(pages.devin, /https:\/\/docs\.devin\.ai\/work-with-devin\/advanced-capabilities/, 'Devin page must link to official advanced capabilities docs');
+    assert.match(pages.devin, /https:\/\/docs\.devin\.ai\/api-reference\/overview/, 'Devin page must link to official API overview docs');
+    assert.match(pages.devin, /https:\/\/docs\.devin\.ai\/essential-guidelines\/sdlc-integration/, 'Devin page must link to official SDLC integration docs');
   });
 
   it('keeps the MetaGPT page honest about SOP-driven multi-agent framing', () => {
@@ -182,7 +186,9 @@ describe('comparison pages content', () => {
     assert.match(POSITIONING_MATRIX, /\*\*OpenAI Agents SDK\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*AG2 \/ AutoGen\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*OpenHands\*\*/);
+    assert.match(POSITIONING_MATRIX, /\*\*Devin\*\*/);
     assert.match(POSITIONING_MATRIX, /Atoms|Data Interpreter|Researcher/i);
+    assert.match(POSITIONING_MATRIX, /managed Devin child sessions/i);
     assert.match(POSITIONING_MATRIX, /Command routing|parallel supersteps|subgraph composition/i);
     assert.match(POSITIONING_MATRIX, /multi-provider|provider-agnostic/i);
     assert.match(POSITIONING_MATRIX, /OpenAI Swarm README/);
