@@ -60,10 +60,14 @@ Non-output:
 5. If the idle-expansion PM returned `status: "needs_human"` for new-intake
    scope confirmation under full-auto policy, the human blocker is suppressed
    and converted into `charter_materialization_pending`.
-6. Under full-auto approval policy, auto-approval may approve a phase transition
+6. Pre-acceptance gate semantic coverage must not reject a
+   `new_intake_intent` phase-transition request before the materialization guard
+   can store `charter_materialization_pending`; the missing PM gate files are
+   the expected reason materialization is required.
+7. Under full-auto approval policy, auto-approval may approve a phase transition
    only after the new intake is chartered or explicitly scoped as a
    non-implementation analysis run.
-7. The dispatch bundle for dev must include a concrete implementation charter
+8. The dispatch bundle for dev must include a concrete implementation charter
    derived from approved planning artifacts, not only an idle-expansion proposal.
 
 ## Error Cases
@@ -75,6 +79,10 @@ Non-output:
   analysis/proposal only.
 - PM returns `status: "needs_human"` for a new idle-expansion intake despite
   the repo running full-auto.
+- PM returns `phase_transition_request: "implementation"` for a new
+  idle-expansion intake while PM gate artifacts still describe the previous
+  milestone; this must become materialization rather than a semantic-coverage
+  failed-acceptance turn.
 - Dev returns `files_changed` containing only planning notes for a proposed
   source-code increment.
 
@@ -97,6 +105,11 @@ Non-output:
   active planning-state materialization requirement, leaves `blocked_on` null,
   keeps `next_recommended_role` on PM, and emits
   `charter_materialization_required` with `suppressed_needs_human: true`.
+- AT-BUG72-001: An idle-expansion `new_intake_intent` result with
+  `phase_transition_request: "implementation"` is not failed by pre-acceptance
+  gate semantic coverage solely because the PM-owned gate files were not
+  modified; acceptance stores `charter_materialization_pending` and leaves the
+  run in planning.
 
 ## Open Questions
 

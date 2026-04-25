@@ -4497,11 +4497,14 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     }
   }
 
+  const idleExpansionResultSummary = summarizeIdleExpansionResult(turnResult);
+  const isIdleExpansionNewIntakeProposal = idleExpansionResultSummary?.kind === 'new_intake_intent';
+
   // ── Gate semantic coverage validation (BUG-36) ────────────────────────────
   // When a turn proposes a phase transition, pre-evaluate the gate. If the gate
   // would fail AND the failing files are not in files_changed, reject the turn
   // early — the agent didn't do the work required for the transition.
-  if (turnResult.phase_transition_request) {
+  if (turnResult.phase_transition_request && !isIdleExpansionNewIntakeProposal) {
     const preGateResult = evaluatePhaseExit({
       state,
       config,
@@ -4885,7 +4888,6 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   const acceptedSequence = (state.turn_sequence || 0) + 1;
-  const idleExpansionResultSummary = summarizeIdleExpansionResult(turnResult);
   const historyEntry = {
     turn_id: turnResult.turn_id,
     run_id: turnResult.run_id,

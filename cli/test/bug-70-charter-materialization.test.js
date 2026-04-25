@@ -242,6 +242,67 @@ describe('BUG-70: charter materialization guard', () => {
     assert.doesNotMatch(materializationEvent.payload.reason, /human/i);
   });
 
+  it('AT-BUG72-001: idle-expansion new_intake_intent phase request bypasses pre-materialization gate semantic coverage', () => {
+    const dir = makeTmpDir();
+    const config = makeAutoApproveConfig({
+      gates: {
+        planning_signoff: {
+          requires_files: [
+            '.planning/PM_SIGNOFF.md',
+            '.planning/ROADMAP.md',
+            '.planning/SYSTEM_SPEC.md',
+            '.planning/command-surface.md',
+          ],
+        },
+        implementation_complete: {},
+      },
+    });
+    scaffoldProject(dir, config);
+
+    const initResult = initializeGovernedRun(dir, config);
+    assert.ok(initResult.ok, `init failed: ${initResult.error}`);
+    const assignResult = assignGovernedTurn(dir, config, 'pm');
+    assert.ok(assignResult.ok, `assign failed: ${assignResult.error}`);
+
+    const state = readState(dir);
+    writeFileSync(join(dir, '.planning', 'IDLE_EXPANSION_NOTE.md'), 'Proposed M28 intake.\n');
+    const turnResult = makeTurnResult(state, {
+      phase_transition_request: 'implementation',
+      files_changed: ['.planning/IDLE_EXPANSION_NOTE.md'],
+      artifact: { type: 'workspace', ref: 'git:dirty' },
+      idle_expansion_result: {
+        kind: 'new_intake_intent',
+        expansion_iteration: 1,
+        new_intake_intent: {
+          title: 'M28: Sensitivity Class Inference',
+          charter: 'Materialize M28 sensitivity classification into planning artifacts',
+          acceptance_contract: ['SYSTEM_SPEC covers M28', 'ROADMAP includes M28'],
+          priority: 'p1',
+          template: 'generic',
+        },
+        vision_traceability: [
+          { vision_heading: 'Data and schema understanding', goal: 'classify sensitivity', kind: 'advances' },
+        ],
+      },
+    });
+
+    stageTurnResult(dir, state, turnResult);
+    const acceptResult = acceptGovernedTurn(dir, config);
+    assert.ok(acceptResult.ok, `accept failed: ${acceptResult.error}`);
+
+    const postState = readState(dir);
+    assert.strictEqual(postState.status, 'active');
+    assert.strictEqual(postState.phase, 'planning');
+    assert.strictEqual(postState.blocked_on, null);
+    assert.strictEqual(postState.active_turns && Object.keys(postState.active_turns).length, 0);
+    assert.ok(postState.charter_materialization_pending,
+      'gate semantic coverage must not reject before materialization pending is stored');
+    assert.strictEqual(postState.charter_materialization_pending.suppressed_transition, 'implementation');
+
+    const events = readEvents(dir);
+    assert.ok(events.some(e => e.event_type === 'charter_materialization_required'));
+  });
+
   it('AT-BUG70-002: suppression emits charter_materialization_required event with descriptive message', () => {
     const dir = makeTmpDir();
     const config = makeAutoApproveConfig();
