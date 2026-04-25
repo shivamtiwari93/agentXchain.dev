@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.25
+
+### Features
+- **Dashboard Watch view**: `agentxchain dashboard` now includes a `#watch` top-level view with route status, delivery ID, event/intent/run detail, deduplication state, and error summaries. New `GET /api/watch-results?limit=<n>` endpoint. File watcher monitors `.agentxchain/watch-results/` for live dashboard updates.
+- **Watch Mode docs page**: full operator-facing documentation at `/docs/watch-mode` covering HTTP listener setup, signed and unsigned curl recipes, CLI reference, endpoint contract, event routing, security guidance, and config examples.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/dashboard-watch-results.test.js cli/test/docs-dashboard-content.test.js cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/watch-event-dir-daemon.test.js cli/test/frontdoor-install-surface.test.js -> 115 tests / 19 suites / 0 failures / 0 skipped
+
 ## 2.155.24
 
 ### Features

@@ -1,0 +1,65 @@
+---
+sidebar_position: 0
+title: "v2.155.25 Release Notes"
+---
+
+# AgentXchain v2.155.25
+
+`v2.155.25` surfaces Watch Mode results in the local operator dashboard and
+adds comprehensive Watch Mode documentation.
+
+## Features
+
+- **Dashboard Watch view**: `agentxchain dashboard` now includes a `#watch`
+  top-level view showing recent watch results with route status, delivery ID,
+  event/intent/run detail, deduplication state, and error summaries.
+- **Watch results API**: new `GET /api/watch-results?limit=<n>` endpoint on the
+  dashboard bridge server returns the most recent watch results as JSON.
+- **Dashboard invalidation**: the file watcher monitors
+  `.agentxchain/watch-results/` for new or changed result files and pushes
+  live updates to connected dashboard clients.
+- **Watch Mode docs page**: full operator-facing documentation at
+  `/docs/watch-mode` covering HTTP listener setup, signed and unsigned curl
+  recipes, CLI reference, endpoint contract, event routing configuration,
+  supported event categories, security guidance, and three complete config
+  examples (automated PR review, CI failure repair, manual issue triage).
+
+## Evidence
+
+- node --test --test-timeout=60000 cli/test/dashboard-watch-results.test.js cli/test/docs-dashboard-content.test.js cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/watch-event-dir-daemon.test.js cli/test/frontdoor-install-surface.test.js -> 115 tests / 19 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify the shipped package and dashboard:
+
+```bash
+npx --yes -p agentxchain@2.155.25 -c "agentxchain --version"
+npx --yes -p agentxchain@2.155.25 -c "agentxchain dashboard --help"
+```
+
+For watch-results dashboard verification, create a watch result file and
+confirm it appears in the dashboard:
+
+```bash
+agentxchain watch --event-file /path/to/event.json
+agentxchain dashboard
+# Navigate to #watch view in browser
+agentxchain watch --results --limit 5
+```
+
+The expected proof is a dashboard `#watch` view rendering the most recent watch
+results with route status, delivery ID, and event detail columns. The
+`/api/watch-results` endpoint should return the same data as JSON.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
