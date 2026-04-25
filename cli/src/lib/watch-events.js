@@ -225,6 +225,7 @@ export function resolveWatchRoute(payload, routes) {
       },
       auto_approve: route.auto_approve === true,
       auto_start: route.auto_start === true,
+      overwrite_planning_artifacts: route.overwrite_planning_artifacts === true,
       preferred_role: route.preferred_role || null,
     };
   }

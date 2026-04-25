@@ -202,6 +202,7 @@ Slices 1-3 stop at "approved intent on disk." The operator must still manually r
         },
         "auto_approve": true,
         "auto_start": true,
+        "overwrite_planning_artifacts": false,
         "preferred_role": "dev"
       }
     ]
@@ -213,6 +214,7 @@ Slices 1-3 stop at "approved intent on disk." The operator must still manually r
 
 - `auto_start` requires `auto_approve: true`. If `auto_approve` is false or absent, `auto_start` is ignored and the result notes `auto_start_skipped: "requires auto_approve"`.
 - `auto_start` requires an initialized governed workspace (`.agentxchain/state.json` must exist or be bootstrappable). If the workspace is not initialized, auto-start fails closed with `auto_start_error`.
+- `overwrite_planning_artifacts` defaults to false. Existing planning artifacts are operator-owned by default and must not be overwritten unless the route explicitly sets this field to true.
 
 ### Behavior
 
@@ -221,7 +223,7 @@ When a route matches with `auto_start: true` and `auto_approve: true`:
 1. **Record** → `recordEvent()` creates the detected intent (existing).
 2. **Triage** → `triageIntent()` applies route triage fields (existing).
 3. **Approve** → `approveIntent()` auto-approves (existing).
-4. **Plan** → `planIntent()` scaffolds planning artifacts from the template. If planning artifacts already exist, pass `force: true` to overwrite (watch events are automated — stale planning artifacts from a prior manual run should not block CI-driven automation).
+4. **Plan** → `planIntent()` scaffolds planning artifacts from the template. By default, existing planning artifacts block auto-start and leave the intent approved with `auto_start_error`. If the route sets `overwrite_planning_artifacts: true`, `planIntent()` may overwrite existing template planning artifacts.
 5. **Start** → `startIntent()` initializes the governed run and assigns the first turn.
 
 The result object gains three new fields under `routed`:
@@ -236,6 +238,8 @@ Each failure is non-fatal to the watch command itself (exit 0 with error metadat
 | Condition | Behavior | Intent left at |
 |-----------|----------|----------------|
 | `auto_approve: false` | `auto_start` silently skipped | `triaged` |
+| Existing planning artifacts and no overwrite opt-in | `planIntent()` returns conflict, logged | `approved` |
+| Existing planning artifacts with `overwrite_planning_artifacts: true` | template planning artifacts are overwritten | `planned` then `executing` if start succeeds |
 | `planIntent()` fails (template error) | logged, `planned: false` | `approved` |
 | Active turns exist | `startIntent()` returns error, logged | `planned` |
 | Run is blocked | `startIntent()` returns error, logged | `planned` |
@@ -253,6 +257,8 @@ Each failure is non-fatal to the watch command itself (exit 0 with error metadat
 - AT-WATCH-START-005: route with `auto_start: true` and `preferred_role: "qa"` dispatches QA turn, not the phase entry role.
 - AT-WATCH-START-006: deduplicated events skip auto-start entirely (no plan, no start).
 - AT-WATCH-START-007: `--dry-run` with `auto_start` route does not plan or start.
+- AT-WATCH-START-008: route with `auto_start: true` but no `overwrite_planning_artifacts` preserves existing planning artifacts, reports `routed.planned: false`, leaves the intent approved, and does not start.
+- AT-WATCH-START-009: route with `overwrite_planning_artifacts: true` may overwrite template planning artifacts, then start the governed run.
 
 ## Open Questions
 

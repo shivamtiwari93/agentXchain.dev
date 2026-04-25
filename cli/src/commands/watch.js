@@ -266,7 +266,9 @@ async function ingestWatchEvent(opts) {
 
             // Auto-start: plan + start the governed run
             if (resolved.auto_start) {
-              const planResult = planIntent(root, result.intent.intent_id, { force: true });
+              const planResult = planIntent(root, result.intent.intent_id, {
+                force: resolved.overwrite_planning_artifacts === true,
+              });
               if (planResult.ok) {
                 result.intent = planResult.intent;
                 routed.planned = true;

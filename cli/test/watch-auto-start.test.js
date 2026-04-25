@@ -279,6 +279,66 @@ describe('watch auto_start — Slice 4', () => {
     assert.match(secondParsed.routed.auto_start_error, /active turn|cannot start/i);
   });
 
+  it('AT-WATCH-START-008: auto_start preserves existing planning artifacts by default', () => {
+    const dir = createGovernedProject([
+      {
+        match: { category: 'github_workflow_run_failed' },
+        triage: {
+          priority: 'p0',
+          template: 'api-service',
+          charter: 'Fix API CI: {{workflow_name}}',
+          acceptance_contract: ['API CI passes'],
+        },
+        auto_approve: true,
+        auto_start: true,
+        preferred_role: 'dev',
+      },
+    ]);
+    const existingContent = '# Operator Planning\n\nDo not overwrite this work.\n';
+    writeFileSync(join(dir, '.planning', 'api-contract.md'), existingContent);
+    const eventFile = writeJson(dir, 'ci-failed.json', githubWorkflowFailed());
+
+    const result = runCli(dir, ['watch', '--event-file', eventFile, '--json']);
+    assert.equal(result.status, 0, `stdout: ${result.stdout}\nstderr: ${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+
+    assert.equal(parsed.routed.approved, true);
+    assert.equal(parsed.routed.planned, false);
+    assert.equal(parsed.routed.started, false);
+    assert.match(parsed.routed.auto_start_error, /existing planning artifacts would be overwritten/);
+    assert.equal(parsed.intent.status, 'approved');
+    assert.equal(readFileSync(join(dir, '.planning', 'api-contract.md'), 'utf8'), existingContent);
+  });
+
+  it('AT-WATCH-START-009: auto_start overwrites planning artifacts only when explicitly enabled', () => {
+    const dir = createGovernedProject([
+      {
+        match: { category: 'github_workflow_run_failed' },
+        triage: {
+          priority: 'p0',
+          template: 'api-service',
+          charter: 'Fix API CI: {{workflow_name}}',
+          acceptance_contract: ['API CI passes'],
+        },
+        auto_approve: true,
+        auto_start: true,
+        overwrite_planning_artifacts: true,
+        preferred_role: 'dev',
+      },
+    ]);
+    writeFileSync(join(dir, '.planning', 'api-contract.md'), '# Operator Planning\n\nOld work.\n');
+    const eventFile = writeJson(dir, 'ci-failed.json', githubWorkflowFailed());
+
+    const result = runCli(dir, ['watch', '--event-file', eventFile, '--json']);
+    assert.equal(result.status, 0, `stdout: ${result.stdout}\nstderr: ${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+
+    assert.equal(parsed.routed.planned, true);
+    assert.equal(parsed.routed.started, true);
+    assert.equal(parsed.intent.status, 'executing');
+    assert.match(readFileSync(join(dir, '.planning', 'api-contract.md'), 'utf8'), /# API Contract/);
+  });
+
   it('AT-WATCH-START-005: auto_start with preferred_role dispatches that role', () => {
     const dir = createGovernedProject([
       {
