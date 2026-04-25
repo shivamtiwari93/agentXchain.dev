@@ -1,0 +1,63 @@
+---
+sidebar_position: 0
+title: "v2.155.16 Release Notes"
+---
+
+# AgentXchain v2.155.16
+
+`v2.155.16` is a patch over `v2.155.15` fixing BUG-72 in the DOGFOOD-EXTENDED
+idle-expansion lane. A PM can propose a fresh `new_intake_intent` and request
+implementation while the planning gate files still describe the previous
+milestone. That stale-charter condition is exactly what charter materialization
+is for, so semantic coverage must not reject the turn before the materialization
+guard stores `charter_materialization_pending`.
+
+## Bug Fixes
+
+- **BUG-72 idle-expansion materialization before semantic gate precheck**:
+  idle-expansion PM results that propose a `new_intake_intent` with
+  `phase_transition_request: "implementation"` now bypass the
+  pre-materialization gate semantic coverage check. The missing PM-owned gate
+  files are treated as the reason to store `charter_materialization_pending`,
+  not as a failed-acceptance condition before the materialization guard can run.
+- **DOGFOOD-EXTENDED unblock**: the charter materialization lane now handles all
+  three dogfood-observed shapes: `new_intake_intent` plus transition request,
+  `new_intake_intent` plus `needs_human`, and transition requests that would
+  otherwise be rejected by stale-charter semantic coverage.
+
+## Evidence
+
+- cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 227 tests / 40 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.16 -c "agentxchain --version"
+```
+
+For dogfood verification, use shipped `agentxchain@latest` on the tusq.dev
+dogfood branch and quote direct diff evidence:
+
+```bash
+git diff --stat origin/main..HEAD -- src/ tests/ bin/ tusq.manifest.json
+```
+
+The release should not be treated as closed by prompt inspection alone. Closure
+requires a fresh full-auto idle-expansion PM turn to materialize the charter
+without human escalation or semantic-coverage failed acceptance, then reach
+implementation and land real product code in `src/`, `tests/`, `bin/`, or
+`tusq.manifest.json`.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn` and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

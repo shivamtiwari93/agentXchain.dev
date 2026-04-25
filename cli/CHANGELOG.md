@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.16
+
+### Bug Fixes
+- **BUG-72 idle-expansion materialization before semantic gate precheck**: idle-expansion PM results that propose a `new_intake_intent` with `phase_transition_request: "implementation"` now bypass the pre-materialization gate semantic coverage check. The missing PM-owned gate files are treated as the reason to store `charter_materialization_pending`, not as a failed-acceptance condition before the materialization guard can run.
+- **DOGFOOD-EXTENDED unblock**: the charter materialization lane now handles all three dogfood-observed shapes: `new_intake_intent` plus transition request, `new_intake_intent` plus `needs_human`, and transition requests that would otherwise be rejected by stale-charter semantic coverage.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 227 tests / 40 suites / 0 failures / 0 skipped
+
 ## 2.155.15
 
 ### Bug Fixes
