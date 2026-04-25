@@ -4,8 +4,8 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
-import { recordEvent } from '../lib/intake.js';
-import { normalizeWatchEvent } from '../lib/watch-events.js';
+import { recordEvent, triageIntent, approveIntent } from '../lib/intake.js';
+import { normalizeWatchEvent, resolveWatchRoute } from '../lib/watch-events.js';
 import { safeWriteJson } from '../lib/safe-write.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
 import { validateProject } from '../lib/validation.js';
@@ -224,9 +224,58 @@ async function ingestWatchEvent(opts) {
   }
 
   const result = recordEvent(root, payload);
+  if (!result.ok) {
+    if (opts.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(chalk.red(`  ${result.error}`));
+    }
+    process.exit(result.exitCode);
+  }
+
+  // Route-based auto-triage and auto-approve
+  let routed = null;
+  if (!result.deduplicated && result.intent) {
+    let routes;
+    try {
+      const rawConfig = JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8'));
+      routes = rawConfig?.watch?.routes;
+    } catch {
+      // non-fatal — no routes if config is unreadable
+    }
+    const resolved = resolveWatchRoute(payload, routes);
+    if (resolved) {
+      const triageFields = {
+        ...resolved.triage,
+      };
+      if (resolved.preferred_role) {
+        triageFields.preferred_role = resolved.preferred_role;
+      }
+      const triageResult = triageIntent(root, result.intent.intent_id, triageFields);
+      if (triageResult.ok) {
+        result.intent = triageResult.intent;
+        routed = { triaged: true, approved: false, preferred_role: resolved.preferred_role };
+        if (resolved.auto_approve) {
+          const approveResult = approveIntent(root, result.intent.intent_id, {
+            approver: 'watch_route',
+            reason: `auto-approved by watch route matching ${payload.category}`,
+          });
+          if (approveResult.ok) {
+            result.intent = approveResult.intent;
+            routed.approved = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (routed) {
+    result.routed = routed;
+  }
+
   if (opts.json) {
     console.log(JSON.stringify(result, null, 2));
-  } else if (result.ok) {
+  } else {
     console.log('');
     if (result.deduplicated) {
       console.log(chalk.yellow(`  Watch event already recorded: ${result.event.event_id} (deduplicated)`));
@@ -235,11 +284,12 @@ async function ingestWatchEvent(opts) {
       }
     } else {
       console.log(chalk.green(`  Recorded watch event ${result.event.event_id}`));
-      console.log(chalk.green(`  Created intent ${result.intent.intent_id} (detected)`));
+      console.log(chalk.green(`  Created intent ${result.intent.intent_id} (${result.intent.status})`));
+      if (routed) {
+        console.log(chalk.cyan(`  Route matched: triaged=${routed.triaged}, approved=${routed.approved}${routed.preferred_role ? `, role=${routed.preferred_role}` : ''}`));
+      }
     }
     console.log('');
-  } else {
-    console.log(chalk.red(`  ${result.error}`));
   }
   process.exit(result.exitCode);
 }

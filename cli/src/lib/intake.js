@@ -537,6 +537,9 @@ export function triageIntent(root, intentId, fields) {
   intent.charter = normalizedFields.charter;
   intent.acceptance_contract = normalizedFields.acceptance_contract;
   intent.phase_scope = normalizedFields.phase_scope || null;
+  if (normalizedFields.preferred_role) {
+    intent.preferred_role = normalizedFields.preferred_role;
+  }
   intent.updated_at = now;
   intent.history.push({ from: 'detected', to: 'triaged', at: now, reason: 'triage completed' });
 

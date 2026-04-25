@@ -79,9 +79,75 @@ The first slice recognizes:
 - AT-WATCH-EVENT-005: unsupported event JSON exits non-zero and names the supported event classes.
 - AT-WATCH-EVENT-006: `--daemon --event-file` exits non-zero and does not start a daemon.
 
+## Slice 2: Event Routing Configuration (`watch.routes`)
+
+### Config Shape
+
+The `watch` namespace in `agentxchain.json` defines event-to-triage routing:
+
+```json
+{
+  "watch": {
+    "routes": [
+      {
+        "match": {
+          "category": "github_pull_request_opened",
+          "source": "git_ref_change"
+        },
+        "triage": {
+          "priority": "p1",
+          "template": "generic",
+          "charter": "Review PR #{{number}} — {{title}}",
+          "acceptance_contract": ["PR reviewed under governance"]
+        },
+        "auto_approve": true,
+        "preferred_role": "qa"
+      }
+    ]
+  }
+}
+```
+
+### Match Fields
+
+- `category` — exact string or glob pattern (e.g., `github_pull_request_*`). Required.
+- `source` — optional exact match against the normalized event source (`git_ref_change`, `ci_failure`, `schedule`, `manual`).
+- First matching route wins. Order matters.
+
+### Triage Fields
+
+- `priority` — one of `p0`, `p1`, `p2`, `p3`. Defaults to `p2`.
+- `template` — governed template ID. Defaults to `generic`.
+- `charter` — string with optional `{{field}}` interpolation against the normalized signal. Fields like `number`, `title`, `workflow_name`, `conclusion`, `repository` are available depending on event type.
+- `acceptance_contract` — array of acceptance criteria strings. Defaults to `['Watch event processed under governance']`.
+
+### Auto-Approve and Role Hint
+
+- `auto_approve` — boolean. If true, the intent is approved immediately after triage (approver: `watch_route`). Defaults to false.
+- `preferred_role` — advisory role hint stored on the intent. Not yet consumed by `resolveIntakeRole()` — wiring into dispatch-time role resolution is a later slice.
+
+### Behavior
+
+- Routes are evaluated only for newly recorded events (not deduplicated).
+- When a route matches: `recordEvent()` creates the detected intent, then `triageIntent()` is called with the route's triage fields, and optionally `approveIntent()` if `auto_approve` is true.
+- When no route matches: intent stays in `detected` status, requiring manual triage.
+- Dry-run mode (`--dry-run`) does not evaluate routes (no intent is created).
+
+### Acceptance Tests (Slice 2)
+
+- AT-WATCH-ROUTE-001: PR opened event auto-triages to QA review intent (approved, priority p1, charter interpolated, preferred_role qa).
+- AT-WATCH-ROUTE-002: failed CI workflow auto-triages to dev fix intent (approved, priority p0, preferred_role dev).
+- AT-WATCH-ROUTE-003: no matching route leaves intent as detected.
+- AT-WATCH-ROUTE-004: glob category matching works for all PR actions.
+- AT-WATCH-ROUTE-005: no watch config at all leaves intent as detected.
+- AT-WATCH-ROUTE-006: source filter restricts route matching.
+- AT-WATCH-ROUTE-007: first matching route wins when multiple routes exist.
+- AT-WATCH-ROUTE-008: deduplicated events do not re-triage.
+
 ## Open Questions
 
 - Should the later webhook server live in the CLI process (`agentxchain watch --listen`) or as a separate hosted/CI runner?
-- Should event-to-role routing be configured under `watch.routes` or reuse existing intake triage templates?
+- ~~Should event-to-role routing be configured under `watch.routes` or reuse existing intake triage templates?~~ **Resolved: `watch.routes` in `agentxchain.json` (DEC-WATCH-ROUTES-CONFIG-001).**
 - Should PR comments be emitted by AgentXchain directly or left to GitHub Actions wrappers consuming JSON output?
 - Should GitHub be the only first-class provider for the second slice, or should generic CloudEvents be normalized first?
+- Should `preferred_role` be consumed by `resolveIntakeRole()` at dispatch time, or should role resolution remain phase-routing-driven?

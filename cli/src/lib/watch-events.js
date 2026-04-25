@@ -190,3 +190,52 @@ function normalizeToken(value) {
 function removeNullish(input) {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== null && value !== undefined && value !== ''));
 }
+
+// ---------------------------------------------------------------------------
+// Route resolution
+// ---------------------------------------------------------------------------
+
+export function resolveWatchRoute(payload, routes) {
+  if (!Array.isArray(routes) || routes.length === 0) return null;
+
+  for (const route of routes) {
+    if (!route.match || !route.triage) continue;
+
+    const match = route.match;
+    if (match.source && match.source !== payload.source) continue;
+    if (match.category) {
+      if (match.category.includes('*')) {
+        const escaped = match.category.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+        if (!new RegExp(`^${escaped}$`).test(payload.category)) continue;
+      } else if (match.category !== payload.category) {
+        continue;
+      }
+    }
+
+    const charter = interpolateCharter(route.triage.charter, payload.signal);
+
+    return {
+      triage: {
+        priority: route.triage.priority || 'p2',
+        template: route.triage.template || 'generic',
+        charter,
+        acceptance_contract: Array.isArray(route.triage.acceptance_contract) && route.triage.acceptance_contract.length > 0
+          ? route.triage.acceptance_contract
+          : ['Watch event processed under governance'],
+      },
+      auto_approve: route.auto_approve === true,
+      preferred_role: route.preferred_role || null,
+    };
+  }
+
+  return null;
+}
+
+function interpolateCharter(template, signal) {
+  if (!template || typeof template !== 'string') return template || 'Watch event intake';
+  if (!signal || typeof signal !== 'object') return template;
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const value = signal[key];
+    return value !== undefined && value !== null ? String(value) : `{{${key}}}`;
+  });
+}
