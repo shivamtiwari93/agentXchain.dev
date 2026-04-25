@@ -108,6 +108,7 @@ const sidebars: SidebarsConfig = {
         'authority-model',
         'local-cli-recipes',
         'adapters',
+        'mcp-server',
         'build-your-own-connector',
       ],
     },

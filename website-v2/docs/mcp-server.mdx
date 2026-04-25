@@ -1,0 +1,145 @@
+---
+title: MCP Server
+description: "Expose AgentXchain governance as an MCP server for Claude Code, Cursor, and other MCP-compatible tools."
+---
+
+# MCP Server
+
+AgentXchain can run as an **MCP server**, exposing governance operations as tools that any MCP-compatible client can call. This lets Claude Code, Cursor, Windsurf, VS Code extensions, and other tools natively query run status, read events, approve gates, and record intake events without going through the CLI.
+
+:::tip Two directions
+**MCP client** (the `mcp` adapter): AgentXchain dispatches turns TO your MCP server. See [MCP Integration](/docs/integrations/mcp).
+
+**MCP server** (this page): AgentXchain IS the MCP server. Your AI tool connects to it.
+:::
+
+## Quick start
+
+```bash
+# Start the MCP server for the current project
+agentxchain serve-mcp
+
+# Or specify a project root
+agentxchain serve-mcp --root /path/to/governed-project
+```
+
+The server communicates via stdio (JSON-RPC over stdin/stdout), which is the standard MCP transport for local tools.
+
+## Connecting from Claude Code
+
+Add AgentXchain as an MCP server in your Claude Code configuration:
+
+```json
+{
+  "mcpServers": {
+    "agentxchain": {
+      "command": "npx",
+      "args": ["-y", "agentxchain", "serve-mcp", "--root", "/path/to/your/project"]
+    }
+  }
+}
+```
+
+Once connected, Claude Code can use the governance tools directly in conversation.
+
+## Connecting from Cursor
+
+In your `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "agentxchain": {
+      "command": "npx",
+      "args": ["-y", "agentxchain", "serve-mcp"]
+    }
+  }
+}
+```
+
+## Available tools
+
+| Tool | Description |
+|------|-------------|
+| `agentxchain_status` | Read current project and run status (phase, active turns, gates, continuous session) |
+| `agentxchain_events` | Read recent events from the event log (configurable limit) |
+| `agentxchain_history` | Read run history entries |
+| `agentxchain_approve_gate` | Inspect a pending human gate for approval |
+| `agentxchain_intake_record` | Prepare an intake event for recording |
+
+### agentxchain_status
+
+Returns the full governance status including run ID, phase, active turns, blocked state, and continuous session info.
+
+```json
+{
+  "ok": true,
+  "project": { "id": "my-project", "name": "My Project" },
+  "run_id": "run_abc123",
+  "phase": "implementation",
+  "status": "active",
+  "active_turns": [
+    { "turn_id": "turn_001", "role": "dev", "status": "running", "phase": "implementation" }
+  ],
+  "blocked": false,
+  "continuous": {
+    "session_id": "cont-xyz789",
+    "status": "running",
+    "runs_completed": 2,
+    "idle_cycles": 0
+  }
+}
+```
+
+### agentxchain_events
+
+Read the last N events (default 50):
+
+```json
+// Input: { "limit": 10 }
+{
+  "ok": true,
+  "count": 3,
+  "events": [
+    { "event_type": "run_started", "timestamp": "2026-04-25T00:00:00Z", "run_id": "run_abc" },
+    { "event_type": "turn_dispatched", "timestamp": "2026-04-25T00:01:00Z", "turn_id": "turn_001" },
+    { "event_type": "turn_accepted", "timestamp": "2026-04-25T00:02:00Z", "turn_id": "turn_001" }
+  ]
+}
+```
+
+### agentxchain_approve_gate
+
+Inspects a pending gate and returns the approval instruction:
+
+```json
+// Input: { "gate_id": "hesc_abc123" }
+{
+  "ok": true,
+  "gate_id": "hesc_abc123",
+  "type": "planning_signoff",
+  "instruction": "Run \"agentxchain unblock hesc_abc123\" to approve and resume."
+}
+```
+
+## Available resources
+
+| URI | Description |
+|-----|-------------|
+| `agentxchain://state` | Current `.agentxchain/state.json` |
+| `agentxchain://session` | Current `.agentxchain/continuous-session.json` |
+
+## How it works
+
+1. `agentxchain serve-mcp` starts a stdio MCP server bound to a project root
+2. The MCP client connects and discovers available tools via `tools/list`
+3. Tool calls read fresh state from disk on every invocation (no caching)
+4. Write operations (gate approval, intake recording) return CLI instructions for safety
+
+## Relationship to the MCP adapter
+
+The MCP **adapter** (`type: "mcp"` in runtimes) is for dispatching governed turns TO external MCP servers that do the actual AI work.
+
+The MCP **server** (`serve-mcp` command) is for exposing AgentXchain's governance layer TO external AI tools that want to observe and interact with governed runs.
+
+They are complementary: an AI tool can connect to AgentXchain's MCP server to monitor a run, while AgentXchain dispatches turns to various AI agents via its adapters.

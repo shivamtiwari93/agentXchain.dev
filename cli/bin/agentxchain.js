@@ -130,6 +130,7 @@ import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, sche
 import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/commands/chain.js';
 import { missionAttachChainCommand, missionBindCoordinatorCommand, missionListCommand, missionPlanApproveCommand, missionPlanAutopilotCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
 import { workflowKitDescribeCommand } from '../src/commands/workflow-kit.js';
+import { serveMcpCommand } from '../src/commands/serve-mcp.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -781,6 +782,12 @@ program
   .description('Approve a pending run completion that requires human sign-off')
   .option('--dry-run', 'Show configured gate actions without executing approval')
   .action(approveCompletionCommand);
+
+program
+  .command('serve-mcp')
+  .description('Start an MCP server exposing governance tools (stdio transport)')
+  .option('--root <path>', 'Project root directory (default: cwd)')
+  .action(serveMcpCommand);
 
 program
   .command('dashboard')
