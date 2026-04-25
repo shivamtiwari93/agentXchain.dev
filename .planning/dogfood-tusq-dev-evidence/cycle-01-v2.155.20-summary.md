@@ -67,6 +67,28 @@ All four gate artifacts updated by PM turn_bcbfacc406746553:
 - ✅ `.planning/SYSTEM_SPEC.md` — M28 6-rule decision table spec
 - ✅ `.planning/command-surface.md` — M28 review --sensitivity surface
 
+## Full Phase Progression (Final)
+
+| Phase | Turn | Role | Status | Evidence |
+|-------|------|------|--------|----------|
+| Planning | turn_bcbfacc406746553 | pm | ✅ accepted | M28 charter materialized into PM_SIGNOFF, ROADMAP, SYSTEM_SPEC, command-surface |
+| Implementation | turn_6f3041947dd2a211 | dev | ✅ accepted | 311→488 lines in src/cli.js, tests/smoke.mjs, tests/eval-regression.mjs, governed-cli-scenarios.json |
+| QA | turn_bff61126f4accd83 | qa | ✅ accepted | 3 objections raised + fixed, 13 eval scenarios pass, ship verdict pass |
+| Launch | turn_0a7bf28e0c15e242 | product_marketing | ✅ accepted | MESSAGING.md, LAUNCH_PLAN.md, CONTENT_CALENDAR.md, ANNOUNCEMENT.md updated for M28 |
+
+Run completed at `2026-04-25T10:50:11.312Z`.
+
+## Final Product Code Diff
+
+```
+git diff --stat origin/main..HEAD -- src/ tests/ bin/ tusq.manifest.json
+ src/cli.js                              |  97 +++++++++++--
+ tests/eval-regression.mjs               | 125 ++++++++++++++++-
+ tests/evals/governed-cli-scenarios.json |  57 +++++++-
+ tests/smoke.mjs                         | 237 ++++++++++++++++++++++++++++++--
+ 4 files changed, 488 insertions(+), 28 deletions(-)
+```
+
 ## Closure Status
 
-**NOT YET CLOSABLE.** Cycle 01 is in implementation phase with dev turn re-dispatched. Need: dev staged → QA → launch → cycle complete. Then 9 more cycles required for DOGFOOD-EXTENDED-10-CYCLES closure.
+**CYCLE 01 COMPLETE.** All four gates passed. Run `run_b784b6baf905fc02` finished with product code on the dogfood branch. This satisfies the "moves forward in a real manner" criterion for at least one cycle. 9 more cycles needed for DOGFOOD-EXTENDED-10-CYCLES full closure.
