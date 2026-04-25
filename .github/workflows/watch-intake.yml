@@ -1,0 +1,56 @@
+name: AgentXchain Watch Intake
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  ingest-failed-workflow:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped' && github.event.workflow_run.conclusion != 'cancelled' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+
+      - name: Install CLI dependencies
+        run: npm ci
+        working-directory: cli
+
+      - name: Ingest workflow_run failure into AgentXchain intake
+        run: |
+          mkdir -p .agentxchain
+          node cli/bin/agentxchain.js watch --event-file "$GITHUB_EVENT_PATH" --json > .agentxchain/watch-intake-result.json
+          cat .agentxchain/watch-intake-result.json
+
+      - name: Assert routed CI failure intent
+        run: |
+          node -e '
+            const fs = require("fs");
+            const result = JSON.parse(fs.readFileSync(".agentxchain/watch-intake-result.json", "utf8"));
+            if (!result.ok) throw new Error(result.error || "watch intake failed");
+            if (result.deduplicated) throw new Error("fresh workflow_run event should not deduplicate in CI");
+            if (result.intent?.status !== "approved") throw new Error(`expected approved intent, got ${result.intent?.status}`);
+            if (result.intent?.preferred_role !== "dev") throw new Error(`expected dev preferred_role, got ${result.intent?.preferred_role}`);
+            if (!result.routed?.approved) throw new Error("expected watch route auto-approval");
+          '
+
+      - name: Upload watch intake evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentxchain-watch-intake-${{ github.event.workflow_run.id }}
+          path: |
+            .agentxchain/watch-intake-result.json
+            .agentxchain/intake/events/*.json
+            .agentxchain/intake/intents/*.json

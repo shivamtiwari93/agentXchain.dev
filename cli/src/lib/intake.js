@@ -1151,7 +1151,7 @@ export function startIntent(root, intentId, options = {}) {
   }
 
   // Resolve role
-  const roleId = resolveIntakeRole(options.role, state, config);
+  const roleId = resolveIntakeRole(options.role, intent, state, config);
   if (!roleId.ok) {
     return { ok: false, error: roleId.error, exitCode: 1 };
   }
@@ -1223,7 +1223,7 @@ export function startIntent(root, intentId, options = {}) {
   };
 }
 
-function resolveIntakeRole(roleOverride, state, config) {
+function resolveIntakeRole(roleOverride, intent, state, config) {
   const phase = state.phase;
   const routing = config.routing?.[phase];
 
@@ -1233,6 +1233,17 @@ function resolveIntakeRole(roleOverride, state, config) {
       return { ok: false, error: `unknown role: "${roleOverride}". Available: ${available}` };
     }
     return { ok: true, role: roleOverride };
+  }
+
+  const preferredRole = typeof intent?.preferred_role === 'string'
+    ? intent.preferred_role.trim()
+    : '';
+  if (preferredRole) {
+    if (!config.roles?.[preferredRole]) {
+      const available = Object.keys(config.roles || {}).join(', ');
+      return { ok: false, error: `unknown preferred_role on intent: "${preferredRole}". Available: ${available}` };
+    }
+    return { ok: true, role: preferredRole };
   }
 
   if (routing?.entry_role) {

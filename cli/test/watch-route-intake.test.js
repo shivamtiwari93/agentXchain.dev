@@ -31,6 +31,83 @@ function createProject(watchRoutes = []) {
   return dir;
 }
 
+function createGovernedProject(watchRoutes = []) {
+  const dir = join(tmpdir(), `agentxchain-watch-route-governed-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  mkdirSync(dir, { recursive: true });
+  tempDirs.add(dir);
+
+  const config = {
+    schema_version: '1.0',
+    protocol_mode: 'governed',
+    project: { id: 'watch-route-governed-test', name: 'Watch Route Governed Test' },
+    roles: {
+      pm: {
+        title: 'PM',
+        mandate: 'Plan work',
+        write_authority: 'review_only',
+        runtime: 'manual-pm',
+      },
+      dev: {
+        title: 'Dev',
+        mandate: 'Build work',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+      qa: {
+        title: 'QA',
+        mandate: 'Verify work',
+        write_authority: 'review_only',
+        runtime: 'manual-qa',
+      },
+    },
+    runtimes: {
+      'manual-pm': { type: 'manual' },
+      'local-dev': { type: 'local_cli', command: ['echo', 'dev'], cwd: '.' },
+      'manual-qa': { type: 'manual' },
+    },
+    routing: {
+      planning: {
+        entry_role: 'pm',
+        allowed_next_roles: ['pm', 'dev', 'qa'],
+        max_concurrent_turns: 1,
+      },
+    },
+    watch: { routes: watchRoutes },
+    rules: {
+      challenge_required: true,
+      max_turn_retries: 2,
+      max_deadlock_cycles: 2,
+    },
+  };
+
+  const state = {
+    schema_version: '1.0',
+    run_id: null,
+    project_id: 'watch-route-governed-test',
+    status: 'idle',
+    phase: 'planning',
+    accepted_integration_ref: null,
+    active_turns: {},
+    turn_sequence: 0,
+    last_completed_turn_id: null,
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+    phase_gate_status: {
+      planning_signoff: 'pending',
+    },
+  };
+
+  writeFileSync(join(dir, 'agentxchain.json'), JSON.stringify(config, null, 2));
+  mkdirSync(join(dir, '.agentxchain', 'dispatch', 'turns'), { recursive: true });
+  mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
+  mkdirSync(join(dir, '.planning'), { recursive: true });
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+  writeFileSync(join(dir, '.agentxchain', 'history.jsonl'), '');
+  writeFileSync(join(dir, '.agentxchain', 'decision-ledger.jsonl'), '');
+  return dir;
+}
+
 function writeJson(dir, name, value) {
   const path = join(dir, name);
   writeFileSync(path, JSON.stringify(value, null, 2));
@@ -315,6 +392,43 @@ describe('watch route intake — event-to-role routing', () => {
     const secondParsed = JSON.parse(second.stdout);
     assert.equal(secondParsed.deduplicated, true);
     assert.equal(secondParsed.routed, undefined);
+  });
+
+  it('AT-WATCH-ROUTE-009: preferred_role controls intake start dispatch role', () => {
+    const dir = createGovernedProject([
+      {
+        match: { category: 'github_pull_request_opened' },
+        triage: {
+          priority: 'p1',
+          template: 'generic',
+          charter: 'Review PR #{{number}} — {{title}}',
+          acceptance_contract: ['PR reviewed under governance'],
+        },
+        auto_approve: true,
+        preferred_role: 'qa',
+      },
+    ]);
+    const eventFile = writeJson(dir, 'pr-opened.json', githubPrOpened());
+
+    const watchResult = runCli(dir, ['watch', '--event-file', eventFile, '--json']);
+    assert.equal(watchResult.status, 0, `${watchResult.stdout}\n${watchResult.stderr}`);
+    const watched = JSON.parse(watchResult.stdout);
+    assert.equal(watched.intent.status, 'approved');
+    assert.equal(watched.intent.preferred_role, 'qa');
+
+    const planResult = runCli(dir, ['intake', 'plan', '--intent', watched.intent.intent_id, '--json']);
+    assert.equal(planResult.status, 0, `${planResult.stdout}\n${planResult.stderr}`);
+
+    const startResult = runCli(dir, ['intake', 'start', '--intent', watched.intent.intent_id, '--json']);
+    assert.equal(startResult.status, 0, `${startResult.stdout}\n${startResult.stderr}`);
+    const started = JSON.parse(startResult.stdout);
+
+    assert.equal(started.ok, true);
+    assert.equal(started.role, 'qa');
+    assert.equal(started.intent.status, 'executing');
+
+    const state = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+    assert.equal(state.active_turns[started.turn_id].assigned_role, 'qa');
   });
 });
 

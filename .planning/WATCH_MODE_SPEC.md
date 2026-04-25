@@ -124,7 +124,7 @@ The `watch` namespace in `agentxchain.json` defines event-to-triage routing:
 ### Auto-Approve and Role Hint
 
 - `auto_approve` — boolean. If true, the intent is approved immediately after triage (approver: `watch_route`). Defaults to false.
-- `preferred_role` — advisory role hint stored on the intent. Not yet consumed by `resolveIntakeRole()` — wiring into dispatch-time role resolution is a later slice.
+- `preferred_role` — advisory role hint stored on the intent and consumed by dispatch-time role resolution after an explicit `--role` override and before phase `routing.<phase>.entry_role`.
 
 ### Behavior
 
@@ -132,6 +132,7 @@ The `watch` namespace in `agentxchain.json` defines event-to-triage routing:
 - When a route matches: `recordEvent()` creates the detected intent, then `triageIntent()` is called with the route's triage fields, and optionally `approveIntent()` if `auto_approve` is true.
 - When no route matches: intent stays in `detected` status, requiring manual triage.
 - Dry-run mode (`--dry-run`) does not evaluate routes (no intent is created).
+- When a routed intent is later planned and started, `intent.preferred_role` selects the dispatch role if no explicit `--role` override is supplied. The role must exist in `agentxchain.json`.
 
 ### Acceptance Tests (Slice 2)
 
@@ -143,6 +144,39 @@ The `watch` namespace in `agentxchain.json` defines event-to-triage routing:
 - AT-WATCH-ROUTE-006: source filter restricts route matching.
 - AT-WATCH-ROUTE-007: first matching route wins when multiple routes exist.
 - AT-WATCH-ROUTE-008: deduplicated events do not re-triage.
+- AT-WATCH-ROUTE-009: PR opened route with `preferred_role: "qa"` plans and starts as a QA turn even when the planning phase entry role is PM.
+
+## Slice 3: Repository CI Failure Intake
+
+### Interface
+
+The repo owns a GitHub Actions workflow:
+
+- `.github/workflows/watch-intake.yml`
+- Trigger: `workflow_run` completion for the repo's `CI` workflow.
+- Execution condition: only failed/non-success conclusions are ingested. `success`, `skipped`, and `cancelled` are ignored.
+
+The workflow runs:
+
+```bash
+node cli/bin/agentxchain.js watch --event-file "$GITHUB_EVENT_PATH" --json
+```
+
+and uploads the resulting intake JSON plus generated intake event/intent files as a workflow artifact.
+
+### Behavior
+
+- The CI watcher must be non-mutating with respect to git history. It may write ignored `.agentxchain/intake/` files inside the runner workspace for evidence upload, but it must not commit, push, or comment on PRs.
+- The root `agentxchain.json` includes a `watch.routes` entry for `github_workflow_run_failed` events that auto-triages and auto-approves a p0 generic intent with `preferred_role: "dev"`.
+- The workflow asserts that the event produced an approved routed intent before uploading artifacts.
+- This workflow is intentionally scoped to repo-local proof. Webhook hosting, outbound PR comments, and GitHub issue writes remain later slices.
+
+### Acceptance Tests (Slice 3)
+
+- AT-WATCH-CI-001: `watch-intake.yml` triggers from completed `CI` workflow runs and filters to failed/non-success conclusions.
+- AT-WATCH-CI-002: the workflow invokes the checked-out local CLI with `--event-file "$GITHUB_EVENT_PATH" --json`.
+- AT-WATCH-CI-003: root `agentxchain.json` routes `github_workflow_run_failed` to an auto-approved p0 dev-preferred intent.
+- AT-WATCH-CI-004: the workflow uploads the JSON intake result and generated intake evidence as artifacts without committing or pushing.
 
 ## Open Questions
 
@@ -150,4 +184,4 @@ The `watch` namespace in `agentxchain.json` defines event-to-triage routing:
 - ~~Should event-to-role routing be configured under `watch.routes` or reuse existing intake triage templates?~~ **Resolved: `watch.routes` in `agentxchain.json` (DEC-WATCH-ROUTES-CONFIG-001).**
 - Should PR comments be emitted by AgentXchain directly or left to GitHub Actions wrappers consuming JSON output?
 - Should GitHub be the only first-class provider for the second slice, or should generic CloudEvents be normalized first?
-- Should `preferred_role` be consumed by `resolveIntakeRole()` at dispatch time, or should role resolution remain phase-routing-driven?
+- ~~Should `preferred_role` be consumed by `resolveIntakeRole()` at dispatch time, or should role resolution remain phase-routing-driven?~~ **Resolved: `preferred_role` is consumed after explicit `--role` and before phase entry role (DEC-WATCH-PREFERRED-ROLE-DISPATCH-001).**

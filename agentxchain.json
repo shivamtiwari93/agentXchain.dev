@@ -90,6 +90,28 @@
       "exit_gate": "qa_ship_verdict"
     }
   },
+  "watch": {
+    "routes": [
+      {
+        "match": {
+          "source": "ci_failure",
+          "category": "github_workflow_run_failed"
+        },
+        "triage": {
+          "priority": "p0",
+          "template": "generic",
+          "charter": "Fix failed CI workflow {{workflow_name}} on {{head_branch}} ({{conclusion}})",
+          "acceptance_contract": [
+            "Failure cause is identified from the workflow run evidence",
+            "A fix is implemented or a precise non-code blocker is recorded",
+            "The failed workflow is rerun or an equivalent local proof is captured"
+          ]
+        },
+        "auto_approve": true,
+        "preferred_role": "dev"
+      }
+    ]
+  },
   "gates": {
     "planning_signoff": {
       "requires_files": [
