@@ -254,7 +254,10 @@ program
   .option('--event-dir <path>', 'Poll a directory for external event JSON files')
   .option('--poll-seconds <seconds>', 'With --event-dir, polling interval in seconds', '5')
   .option('--dry-run', 'With --event-file, print the normalized intake payload without writing')
-  .option('-j, --json', 'With --event-file, output JSON')
+  .option('--results', 'List all watch result records')
+  .option('--result <id>', 'Show a single watch result by ID or filename')
+  .option('--limit <n>', 'With --results, limit the number of results shown')
+  .option('-j, --json', 'Output JSON')
   .action(watchCommand);
 
 program

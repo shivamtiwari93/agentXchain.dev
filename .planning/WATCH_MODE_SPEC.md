@@ -372,6 +372,56 @@ New CLI options:
 - AT-WATCH-DIR-004: `watch --daemon --event-dir <path>` starts a background event-directory watcher and writes the existing watch PID file.
 - AT-WATCH-DIR-005: files already under `processed/` and `failed/` are not reprocessed.
 
+---
+
+### Slice 7 — Watch Results Inspection + Child Process Timeout
+
+**Purpose:** Operators and CI workflows need visibility into what the watch daemon processed without manually opening JSON files. Additionally, the daemon's child-process-per-event architecture needs a timeout to prevent hung children from blocking the poll tick indefinitely.
+
+**Interface:**
+
+- `agentxchain watch --results` — list all watch result records (most recent first)
+- `agentxchain watch --results --json` — machine-readable list
+- `agentxchain watch --results --limit <n>` — restrict output count
+- `agentxchain watch --result <id>` — show a single watch result by ID or ID prefix
+- `agentxchain watch --result <id> --json` — machine-readable single result
+
+**Behavior:**
+
+- Results are read from `.agentxchain/watch-results/*.json`.
+- Listing sorts by timestamp descending (most recent first).
+- Single-result lookup supports exact ID match, filename match, and ID prefix search.
+- Human-readable output displays: result ID, status (started/planned/approved/triaged/detected/unrouted/deduplicated), category, repo, timestamp, run ID/role if applicable, and error count.
+- `--json` output wraps results in `{ ok: true, total, results }` for list or `{ ok: true, ...record }` for single.
+- Nonexistent IDs exit 1 with `{ ok: false, error }`.
+- Empty results dir returns `{ ok: true, results: [] }`.
+
+**Child Process Timeout:**
+
+- `runWatchEventFile()` now applies a 30-second timeout (configurable via `DEFAULT_CHILD_TIMEOUT_MS`) to each spawned child.
+- On timeout: child receives SIGTERM, result status is 1 with signal SIGTERM, stderr includes timeout message.
+- The event file moves to `failed/` (existing archival behavior).
+- Prevents a single hung child from blocking the daemon poll tick indefinitely.
+
+**Error Cases:**
+
+- No `agentxchain.json` found → exit 2 (same as `requireIntakeWorkspaceOrExit`).
+- No watch-results directory → empty list for `--results`, error for `--result <id>`.
+- Corrupt JSON in a result file → skipped silently during list, null for single lookup.
+
+### Acceptance Tests (Slice 7)
+
+- AT-WATCH-INSPECT-001: `watch --results --json` lists all watch results, most recent first.
+- AT-WATCH-INSPECT-002: `watch --results --json` with no results returns `{ ok: true, results: [] }`.
+- AT-WATCH-INSPECT-003: `watch --results --limit 2 --json` returns total=5, results.length=2.
+- AT-WATCH-INSPECT-004: `watch --result <id> --json` shows a single result by exact ID.
+- AT-WATCH-INSPECT-005: `watch --result <prefix> --json` finds result by ID prefix.
+- AT-WATCH-INSPECT-006: `watch --result wr_nonexistent --json` exits 1 with `{ ok: false }`.
+- AT-WATCH-INSPECT-007: `watch --result <id> --json` includes errors and route details.
+- AT-WATCH-INSPECT-008: `watch --result <id>` (without `--json`) displays human-readable output.
+
+---
+
 ## Open Questions
 
 - Should the later webhook server live in the CLI process (`agentxchain watch --listen`) or as a separate hosted/CI runner?

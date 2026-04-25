@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, appendFileSync, unlinkSync, mkdirSync, readdirSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, appendFileSync, unlinkSync, mkdirSync, readdirSync, renameSync, statSync } from 'fs';
 import { join, dirname, basename, resolve } from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -15,6 +15,11 @@ import { requireIntakeWorkspaceOrExit } from './intake-workspace.js';
 const PID_FILE = '.agentxchain-watch.pid';
 
 export async function watchCommand(opts) {
+  if (opts.results || opts.result) {
+    listOrShowWatchResults(opts);
+    return;
+  }
+
   if (opts.eventFile) {
     await ingestWatchEvent(opts);
     return;
@@ -244,7 +249,9 @@ async function processPendingEventFiles(root, eventDir) {
   return results;
 }
 
-function runWatchEventFile(root, eventFile) {
+const DEFAULT_CHILD_TIMEOUT_MS = 30_000;
+
+function runWatchEventFile(root, eventFile, timeoutMs = DEFAULT_CHILD_TIMEOUT_MS) {
   const currentDir = dirname(fileURLToPath(import.meta.url));
   const cliBin = join(currentDir, '../../bin/agentxchain.js');
   return new Promise((resolvePromise) => {
@@ -255,13 +262,25 @@ function runWatchEventFile(root, eventFile) {
     });
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    const finish = (status, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolvePromise({ status: status ?? 1, signal, stdout, stderr });
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      try { child.kill('SIGTERM'); } catch {}
+      stderr += `\nchild process timed out after ${timeoutMs}ms`;
+      finish(1, 'SIGTERM');
+    }, timeoutMs);
     child.stdout.on('data', (data) => { stdout += data.toString(); });
     child.stderr.on('data', (data) => { stderr += data.toString(); });
-    child.on('close', (status, signal) => {
-      resolvePromise({ status: status ?? 1, signal, stdout, stderr });
-    });
+    child.on('close', (status, signal) => finish(status, signal));
     child.on('error', (err) => {
-      resolvePromise({ status: 1, signal: null, stdout, stderr: err.message });
+      stderr += err.message;
+      finish(1, null);
     });
   });
 }
@@ -462,6 +481,174 @@ async function ingestWatchEvent(opts) {
     console.log('');
   }
   process.exit(result.exitCode);
+}
+
+// ---------------------------------------------------------------------------
+// Watch results inspection
+// ---------------------------------------------------------------------------
+
+function listOrShowWatchResults(opts) {
+  const root = requireIntakeWorkspaceOrExit(opts);
+  const resultsDir = join(root, '.agentxchain', 'watch-results');
+
+  if (!existsSync(resultsDir)) {
+    if (opts.json) {
+      console.log(JSON.stringify(opts.result ? { ok: false, error: 'no watch results found' } : { ok: true, results: [] }, null, 2));
+    } else {
+      console.log(chalk.dim('  No watch results yet.'));
+    }
+    process.exit(opts.result ? 1 : 0);
+  }
+
+  // Show a single result by ID or filename
+  if (opts.result) {
+    const record = loadWatchResult(resultsDir, opts.result);
+    if (!record) {
+      if (opts.json) {
+        console.log(JSON.stringify({ ok: false, error: `watch result not found: ${opts.result}` }, null, 2));
+      } else {
+        console.log(chalk.red(`  Watch result not found: ${opts.result}`));
+      }
+      process.exit(1);
+    }
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: true, ...record }, null, 2));
+    } else {
+      printWatchResult(record);
+    }
+    process.exit(0);
+  }
+
+  // List all results
+  const entries = readdirSync(resultsDir, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.json'))
+    .map((e) => e.name)
+    .sort();
+
+  const records = [];
+  for (const name of entries) {
+    try {
+      const content = JSON.parse(readFileSync(join(resultsDir, name), 'utf8'));
+      records.push(content);
+    } catch {
+      // skip corrupt files
+    }
+  }
+
+  // Sort by timestamp descending (most recent first)
+  records.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+
+  // Apply --limit if provided
+  const limit = opts.limit ? parseInt(opts.limit, 10) : 0;
+  const display = limit > 0 ? records.slice(0, limit) : records;
+
+  if (opts.json) {
+    console.log(JSON.stringify({ ok: true, total: records.length, results: display }, null, 2));
+    process.exit(0);
+  }
+
+  console.log('');
+  console.log(chalk.bold(`  Watch Results (${records.length} total)`));
+  console.log('');
+
+  if (display.length === 0) {
+    console.log(chalk.dim('  No watch results yet.'));
+    console.log('');
+    process.exit(0);
+  }
+
+  for (const r of display) {
+    const status = formatResultStatus(r);
+    const category = r.payload?.category || 'unknown';
+    const repo = r.payload?.repo || '';
+    const ts = r.timestamp ? new Date(r.timestamp).toLocaleString() : 'unknown';
+    const dedup = r.deduplicated ? chalk.yellow(' [dedup]') : '';
+    const errors = r.errors?.length > 0 ? chalk.red(` (${r.errors.length} error${r.errors.length > 1 ? 's' : ''})`) : '';
+
+    console.log(`  ${chalk.dim(r.result_id)}  ${status}${dedup}${errors}`);
+    console.log(`    ${chalk.cyan(category)} ${repo ? chalk.dim(repo) : ''} ${chalk.dim(ts)}`);
+    if (r.route?.run_id) {
+      console.log(`    ${chalk.dim('run:')} ${r.route.run_id} ${chalk.dim('role:')} ${r.route.role || '?'}`);
+    }
+  }
+
+  if (limit > 0 && records.length > limit) {
+    console.log(chalk.dim(`\n  ... and ${records.length - limit} more. Use --limit 0 to show all.`));
+  }
+
+  console.log('');
+  process.exit(0);
+}
+
+function loadWatchResult(resultsDir, idOrFile) {
+  // Try exact filename first
+  const directPath = join(resultsDir, idOrFile.endsWith('.json') ? idOrFile : `${idOrFile}.json`);
+  if (existsSync(directPath)) {
+    try { return JSON.parse(readFileSync(directPath, 'utf8')); } catch { return null; }
+  }
+
+  // Search by result_id prefix
+  const entries = readdirSync(resultsDir, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.json'));
+  for (const entry of entries) {
+    try {
+      const content = JSON.parse(readFileSync(join(resultsDir, entry.name), 'utf8'));
+      if (content.result_id === idOrFile || content.result_id?.startsWith(idOrFile)) {
+        return content;
+      }
+    } catch {
+      // skip corrupt
+    }
+  }
+  return null;
+}
+
+function formatResultStatus(r) {
+  if (r.deduplicated) return chalk.yellow('deduplicated');
+  if (!r.route?.matched) return chalk.dim('unrouted');
+  if (r.route.started) return chalk.green('started');
+  if (r.route.planned) return chalk.blue('planned');
+  if (r.route.approved) return chalk.cyan('approved');
+  if (r.route.triaged) return chalk.white('triaged');
+  return chalk.dim('detected');
+}
+
+function printWatchResult(r) {
+  console.log('');
+  console.log(chalk.bold('  Watch Result'));
+  console.log(`  ${chalk.dim('ID:')}        ${r.result_id}`);
+  console.log(`  ${chalk.dim('Time:')}      ${r.timestamp ? new Date(r.timestamp).toLocaleString() : 'unknown'}`);
+  console.log(`  ${chalk.dim('Event:')}     ${r.event_id || 'none'}`);
+  console.log(`  ${chalk.dim('Intent:')}    ${r.intent_id || 'none'} (${r.intent_status || '?'})`);
+  console.log(`  ${chalk.dim('Dedup:')}     ${r.deduplicated ? 'yes' : 'no'}`);
+  console.log('');
+  console.log(chalk.bold('  Payload'));
+  console.log(`  ${chalk.dim('Source:')}    ${r.payload?.source || '?'}`);
+  console.log(`  ${chalk.dim('Category:')} ${r.payload?.category || '?'}`);
+  console.log(`  ${chalk.dim('Repo:')}      ${r.payload?.repo || 'none'}`);
+  console.log(`  ${chalk.dim('Ref:')}       ${r.payload?.ref || 'none'}`);
+  console.log('');
+  console.log(chalk.bold('  Route'));
+  if (!r.route?.matched) {
+    console.log(chalk.dim('  No matching route.'));
+  } else {
+    console.log(`  ${chalk.dim('Triaged:')}   ${r.route.triaged ? 'yes' : 'no'}`);
+    console.log(`  ${chalk.dim('Approved:')}  ${r.route.approved ? 'yes' : 'no'}`);
+    console.log(`  ${chalk.dim('Planned:')}   ${r.route.planned ? 'yes' : 'no'}`);
+    console.log(`  ${chalk.dim('Started:')}   ${r.route.started ? 'yes' : 'no'}`);
+    console.log(`  ${chalk.dim('Auto-start:')} ${r.route.auto_start ? 'yes' : 'no'}`);
+    if (r.route.preferred_role) console.log(`  ${chalk.dim('Role hint:')} ${r.route.preferred_role}`);
+    if (r.route.run_id) console.log(`  ${chalk.dim('Run ID:')}    ${r.route.run_id}`);
+    if (r.route.role) console.log(`  ${chalk.dim('Role:')}      ${r.route.role}`);
+  }
+  if (r.errors?.length > 0) {
+    console.log('');
+    console.log(chalk.bold('  Errors'));
+    for (const err of r.errors) {
+      console.log(`  ${chalk.red('•')} ${err}`);
+    }
+  }
+  console.log('');
 }
 
 function pickNextAgent(root, lock, config) {
