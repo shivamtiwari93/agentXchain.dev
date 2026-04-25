@@ -1,9 +1,9 @@
-# Show HN Draft — AgentXchain v2.155.23
+# Show HN Draft — AgentXchain v2.155.24
 
 > Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Updated 2026-04-25 after the DOGFOOD-EXTENDED-10-CYCLES closure.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
 >
 > Aggregate evidence:
 > - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
@@ -46,7 +46,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, Dev implements while resolving objections, QA reviews against acceptance criteria, and the protocol records decisions and evidence.
 
-**What shipped by v2.155.23:**
+**What shipped by v2.155.24:**
 
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual`
 - Parallel turns: up to 4 agents concurrently within a governed run, with dispatch isolation and serialized acceptance

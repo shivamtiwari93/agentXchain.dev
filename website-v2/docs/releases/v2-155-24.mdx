@@ -1,0 +1,66 @@
+---
+sidebar_position: 0
+title: "v2.155.24 Release Notes"
+---
+
+# AgentXchain v2.155.24
+
+`v2.155.24` adds the first HTTP intake surface for watch automation.
+`agentxchain watch --listen <port>` runs a local webhook listener that accepts
+GitHub-style deliveries, verifies HMAC signatures, reuses the governed watch
+normalization and routing pipeline, and writes durable result records.
+
+## Features
+
+- **HTTP webhook intake**: `watch --listen <port>` starts a foreground listener
+  with `POST /webhook` and `GET /health`.
+- **Signed GitHub deliveries**: configure `--webhook-secret <secret>`,
+  `AGENTXCHAIN_WEBHOOK_SECRET`, or `watch.webhook_secret` for
+  `X-Hub-Signature-256` verification.
+- **Local development mode**: `--allow-unsigned` accepts unsigned payloads
+  explicitly for local testing.
+- **Request validation**: non-JSON, malformed JSON, oversized payloads, missing
+  signatures, invalid signatures, and unsupported event classes fail closed.
+- **Result correlation**: `X-GitHub-Delivery` is returned in the response and
+  persisted into `.agentxchain/watch-results/*.json`.
+- **Health signal**: `/health` reports accepted webhook deliveries without
+  counting rejected requests as processed events.
+
+## Evidence
+
+- node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify the shipped package and listener help:
+
+```bash
+npx --yes -p agentxchain@2.155.24 -c "agentxchain --version"
+npx --yes -p agentxchain@2.155.24 -c "agentxchain watch --help"
+```
+
+For webhook intake verification, run a local listener with a configured secret,
+send a signed GitHub pull-request payload to `POST /webhook`, then inspect the
+durable result:
+
+```bash
+AGENTXCHAIN_WEBHOOK_SECRET=dev-secret agentxchain watch --listen 8787
+agentxchain watch --results --limit 5
+```
+
+The expected proof is a `200` webhook response with `result_id`, `event_id`,
+`intent_id`, and `delivery_id`, plus a matching watch result file that records
+the same delivery ID.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.155.23
+# Reddit Posts — AgentXchain v2.155.24
 
-> Ready-to-post content for Reddit for the `v2.155.23` release. Updated 2026-04-25 for the watch automation bundle.
+> Ready-to-post content for Reddit for the `v2.155.24` release. Updated 2026-04-25 for the watch HTTP listener.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
 
 ---
 
@@ -24,7 +24,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.23:
+What shipped in v2.155.24:
 
 - `watch --event-file` and `watch --event-dir` ingest external JSON events as governed work.
 - `watch --daemon --event-dir <path>` keeps polling a drop directory for incoming events.
@@ -34,7 +34,7 @@ What shipped in v2.155.23:
 
 Proof:
 
-- node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -58,13 +58,13 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.23 — watch automation for governed multi-agent coding workflows
+**Title:** AgentXchain v2.155.24 — watch automation for governed multi-agent coding workflows
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.23 adds a practical automation surface:
+v2.155.24 adds a practical automation surface:
 
 - external JSON events can enter through `watch --event-file` or `watch --event-dir`
 - `watch --daemon --event-dir <path>` polls a drop directory
@@ -75,7 +75,7 @@ The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and
 
 Evidence:
 
-- node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -106,7 +106,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.23 adds watcher automation so external events can enter governed intake and become durable result records.
+v2.155.24 adds watcher automation so external events can enter governed intake and become durable result records.
 
 Try the zero-key demo:
 
@@ -115,7 +115,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -135,7 +135,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.23 adds watcher automation for external-event intake, auto-started runs, and result inspection
+- v2.155.24 adds watcher automation for external-event intake, auto-started runs, and result inspection
 
 Try it in 30 seconds:
 
@@ -149,7 +149,7 @@ MIT licensed. https://agentxchain.dev
 
 ## Posting Instructions
 
-1. Confirm `npm view agentxchain@2.155.23 version` before posting.
+1. Confirm `npm view agentxchain@2.155.24 version` before posting.
 2. Post during US morning hours, preferably Tuesday-Thursday 10-11am ET.
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT.
 4. Lead with the demo command because it works without API keys.

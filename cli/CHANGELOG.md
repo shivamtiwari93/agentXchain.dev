@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.24
+
+### Features
+- **Watch HTTP webhook listener**: adds `watch --listen <port>` with `POST /webhook` intake, `GET /health`, GitHub `X-Hub-Signature-256` HMAC verification, local-only `--allow-unsigned`, request size/type validation, route reuse, durable result output, and graceful shutdown.
+- **Webhook observability hardening**: accepted deliveries increment the health counter; rejected auth, malformed JSON, unsupported events, and oversized requests do not. GitHub delivery IDs are persisted into watch result records for audit correlation.
+- **Operator documentation**: README and CLI README now expose the signed HTTP listener surface alongside file and directory intake modes.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
+
 ## 2.155.23
 
 ### Features

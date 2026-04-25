@@ -1,9 +1,9 @@
-# LinkedIn Post — AgentXchain v2.155.23
+# LinkedIn Post — AgentXchain v2.155.24
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.23` release. Updated 2026-04-25 for the watch automation bundle.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.24` release. Updated 2026-04-25 for the watch HTTP listener.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
 
 ---
 
@@ -20,7 +20,7 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.23` turns the watcher from a one-shot intake command into a practical automation surface:
+`v2.155.24` turns the watcher from a one-shot intake command into a practical automation surface:
 
 - `watch --event-file` and `watch --event-dir` ingest external JSON events as governed work.
 - `watch --daemon --event-dir <path>` keeps polling a drop directory instead of requiring a wrapper script.
@@ -28,7 +28,7 @@ What that means in practice:
 - `watch --results` and `watch --result <id>` make result inspection durable and operator-friendly.
 - The command reference now documents the automation path in both root and CLI READMEs.
 
-- node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 76 tests / 13 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:
