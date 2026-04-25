@@ -50,3 +50,16 @@ Closure requires the stale run to auto-recover `charter_materialization_pending`
 on state load, emit `charter_materialization_required` with
 `source: "stale_run_recovery"`, and produce a PM prompt containing "Charter
 Materialization Required" — without looping on `gate_semantic_coverage`.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
