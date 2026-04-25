@@ -186,6 +186,62 @@ describe('BUG-70: charter materialization guard', () => {
     assert.strictEqual(postState.charter_materialization_pending.acceptance_contract.length, 2);
   });
 
+  it('AT-BUG71-001: idle-expansion new_intake_intent needs_human is converted to charter materialization', () => {
+    const dir = makeTmpDir();
+    const config = makeAutoApproveConfig();
+    scaffoldProject(dir, config);
+
+    const initResult = initializeGovernedRun(dir, config);
+    assert.ok(initResult.ok, `init failed: ${initResult.error}`);
+    const assignResult = assignGovernedTurn(dir, config, 'pm');
+    assert.ok(assignResult.ok, `assign failed: ${assignResult.error}`);
+
+    const state = readState(dir);
+    const turnResult = makeTurnResult(state, {
+      status: 'needs_human',
+      needs_human_reason: 'Accepting M28 is a human scope decision.',
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      idle_expansion_result: {
+        kind: 'new_intake_intent',
+        expansion_iteration: 1,
+        new_intake_intent: {
+          title: 'M28: Sensitivity Class Inference',
+          charter: 'Materialize M28 sensitivity classification into planning artifacts',
+          acceptance_contract: ['SYSTEM_SPEC covers M28', 'ROADMAP includes M28'],
+          priority: 'p1',
+          template: 'generic',
+        },
+        vision_traceability: [
+          { vision_heading: 'Data and schema understanding', goal: 'classify sensitivity', kind: 'advances' },
+        ],
+      },
+    });
+
+    stageTurnResult(dir, state, turnResult);
+    const acceptResult = acceptGovernedTurn(dir, config);
+    assert.ok(acceptResult.ok, `accept failed: ${acceptResult.error}`);
+
+    const postState = readState(dir);
+    assert.strictEqual(postState.status, 'active',
+      'idle-expansion intake proposal must not block on a human-only scope decision under full-auto');
+    assert.strictEqual(postState.blocked_on, null,
+      'blocked_on must stay null when needs_human is suppressed for idle-expansion materialization');
+    assert.strictEqual(postState.phase, 'planning',
+      'phase must remain planning until the charter is materialized');
+    assert.strictEqual(postState.next_recommended_role, 'pm',
+      'next recommended role must stay PM so the charter can be materialized');
+    assert.ok(postState.charter_materialization_pending,
+      'charter_materialization_pending must be set from the new intake intent');
+    assert.strictEqual(postState.charter_materialization_pending.suppressed_transition, 'implementation');
+
+    const events = readEvents(dir);
+    const materializationEvent = events.find(e => e.event_type === 'charter_materialization_required');
+    assert.ok(materializationEvent, 'must emit charter_materialization_required');
+    assert.strictEqual(materializationEvent.payload.suppressed_needs_human, true);
+    assert.doesNotMatch(materializationEvent.payload.reason, /human/i);
+  });
+
   it('AT-BUG70-002: suppression emits charter_materialization_required event with descriptive message', () => {
     const dir = makeTmpDir();
     const config = makeAutoApproveConfig();

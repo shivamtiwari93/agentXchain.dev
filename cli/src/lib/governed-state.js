@@ -5023,17 +5023,21 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const remainingReservations = { ...(state.budget_reservations || {}) };
   delete remainingReservations[currentTurn.turn_id];
   const costUsd = turnResult.cost?.usd || 0;
+  const isIdleExpansionNewIntake = idleExpansionResultSummary?.kind === 'new_intake_intent';
+  const suppressIdleExpansionNeedsHuman = isIdleExpansionNewIntake && turnResult.status === 'needs_human';
   let updatedState = {
     ...state,
     turn_sequence: acceptedSequence,
     last_completed_turn_id: currentTurn.turn_id,
     active_turns: remainingTurns,
     budget_reservations: remainingReservations,
-    blocked_on: turnResult.status === 'needs_human' ? `human:${turnResult.needs_human_reason || 'unspecified'}` : null,
+    blocked_on: turnResult.status === 'needs_human' && !suppressIdleExpansionNeedsHuman ? `human:${turnResult.needs_human_reason || 'unspecified'}` : null,
     blocked_reason: null,
     escalation: null,
     accepted_integration_ref: derivedRef,
-    next_recommended_role: deriveNextRecommendedRole(turnResult, state, config),
+    next_recommended_role: suppressIdleExpansionNeedsHuman
+      ? currentTurn.assigned_role
+      : deriveNextRecommendedRole(turnResult, state, config),
     budget_status: {
       ...(state.budget_status || {}),
       spent_usd: (state.budget_status?.spent_usd || 0) + costUsd,
@@ -5153,7 +5157,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     updatedState.escalation = null;
   }
 
-  if (turnResult.status === 'needs_human') {
+  if (turnResult.status === 'needs_human' && !suppressIdleExpansionNeedsHuman) {
     updatedState.status = 'blocked';
     updatedState.blocked_reason = buildBlockedReason({
       category: 'needs_human',
@@ -5223,11 +5227,11 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   let completionResult = null;
   let timeoutResult = null;
 
-  // BUG-70: idle-expansion new_intake_intent is a proposal, not a chartered plan.
-  // Suppress phase_transition_request — the new intake must be materialized into
-  // planning artifacts by a subsequent turn before implementation can proceed.
-  const isIdleExpansionNewIntake = idleExpansionResultSummary?.kind === 'new_intake_intent';
-  if (isIdleExpansionNewIntake && turnResult.phase_transition_request) {
+  // BUG-70/71: idle-expansion new_intake_intent is a proposal, not a chartered plan.
+  // Suppress phase_transition_request and human-only intake approval escalations —
+  // the new intake must be materialized into planning artifacts by a subsequent
+  // planning turn before implementation can proceed.
+  if (isIdleExpansionNewIntake && (turnResult.phase_transition_request || suppressIdleExpansionNeedsHuman)) {
     const rawIdleResult = turnResult.idle_expansion_result;
     updatedState.charter_materialization_pending = {
       charter: rawIdleResult?.new_intake_intent?.charter
@@ -5235,7 +5239,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         || null,
       acceptance_contract: rawIdleResult?.new_intake_intent?.acceptance_contract
         || [],
-      suppressed_transition: turnResult.phase_transition_request,
+      suppressed_transition: turnResult.phase_transition_request || 'implementation',
       source_turn_id: turnResult.turn_id,
       recorded_at: now,
     };
@@ -5245,9 +5249,10 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       status: updatedState.status,
       turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
       payload: {
-        suppressed_transition: turnResult.phase_transition_request,
+        suppressed_transition: turnResult.phase_transition_request || 'implementation',
         reason: 'New intake from idle expansion must be materialized into planning artifacts before implementation dispatch.',
         new_intake_charter: updatedState.charter_materialization_pending.charter,
+        suppressed_needs_human: suppressIdleExpansionNeedsHuman,
       },
     });
   }
@@ -5259,7 +5264,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   const hasRemainingTurns = Object.keys(remainingTurns).length > 0;
-  if (turnResult.status !== 'needs_human') {
+  if (turnResult.status !== 'needs_human' || suppressIdleExpansionNeedsHuman) {
     if (hasRemainingTurns) {
       if (turnResult.run_completion_request && !updatedState.queued_run_completion) {
         updatedState.queued_run_completion = {
