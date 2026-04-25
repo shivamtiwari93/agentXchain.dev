@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.19
+
+### Bug Fixes
+- **BUG-73 retained-turn charter materialization recovery**: blocked `resume` and `step --resume` paths now reissue stale retained dev turns as PM when `charter_materialization_pending` is active, preventing older dogfood recovery state from replaying implementation work before PM materializes the charter.
+- **Reissue audit trail**: `reissueTurn()` can now intentionally change the replacement role and records both old and new roles in the decision ledger and `turn_reissued` event payload.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/role-resolution.test.js -> 17 tests / 2 suites / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/governed-cli.test.js cli/test/step-command.test.js cli/test/operator-recovery.test.js cli/test/restart-cli.test.js cli/test/e2e-escalation-recovery.test.js cli/test/e2e-policy-escalation-recovery.test.js cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js -> 142 tests / 27 suites / 0 failures / 0 skipped
+
 ## 2.155.18
 
 ### Bug Fixes

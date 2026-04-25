@@ -1,9 +1,9 @@
-# Show HN Draft — AgentXchain v2.155.18
+# Show HN Draft — AgentXchain v2.155.19
 
-> Ready-to-post draft for the `v2.155.18` launch window once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
+> Ready-to-post draft for the `v2.155.19` launch window once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 220 tests / 39 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/governed-cli.test.js cli/test/step-command.test.js cli/test/operator-recovery.test.js cli/test/restart-cli.test.js cli/test/e2e-escalation-recovery.test.js cli/test/e2e-policy-escalation-recovery.test.js cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js -> 142 tests / 27 suites / 0 failures / 0 skipped
 
 ---
 

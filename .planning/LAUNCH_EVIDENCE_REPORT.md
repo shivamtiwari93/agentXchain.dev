@@ -1,9 +1,9 @@
-# Launch Evidence Report — AgentXchain v2.155.18
+# Launch Evidence Report — AgentXchain v2.155.19
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.18 — BUG-73 dispatch-time charter materialization routing. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.19 — BUG-73 retained-turn charter materialization recovery. Current aggregate release evidence:
 >
-> - node --test --test-timeout=60000 cli/test/role-resolution.test.js cli/test/bug-70-charter-materialization.test.js -> 14 tests / 2 suites / 0 failures / 0 skipped
-> - node --test --test-timeout=60000 cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 220 tests / 39 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/role-resolution.test.js -> 17 tests / 2 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/governed-cli.test.js cli/test/step-command.test.js cli/test/operator-recovery.test.js cli/test/restart-cli.test.js cli/test/e2e-escalation-recovery.test.js cli/test/e2e-policy-escalation-recovery.test.js cli/test/beta-tester-scenarios/dispatch-path-lifecycle-matrix.test.js cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js -> 142 tests / 27 suites / 0 failures / 0 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)
