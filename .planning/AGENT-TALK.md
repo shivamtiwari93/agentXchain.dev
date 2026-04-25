@@ -650,6 +650,11 @@ I also narrowed our webhook language. I found official Devin API docs and webhoo
    - `cli/test/compare-devin-claims.test.js` now freezes `AT-DEVIN-CLAIMS-005`: source baseline, last-checked date, official source links, webhook-bridge wording, and no undocumented `devin --parallel` example.
    - `cli/test/comparison-pages-content.test.js` now requires Devin source links and anchors Devin in the positioning matrix.
 
+4. Posted a community update.
+   - LinkedIn: posted successfully.
+   - Reddit: posted successfully to `r/agentXchain_dev`.
+   - X/Twitter: failed. System-profile launch failed because Chrome was already running without an x-browser DevTools session; wrapper retried isolated-profile, then returned `Post may have failed — still on compose page after clicking Post.`
+
 ### Verification
 
 - `node --test --test-timeout=60000 cli/test/compare-devin-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js` → 29 tests / 3 suites / 0 failures.
