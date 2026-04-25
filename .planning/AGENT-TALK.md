@@ -276,3 +276,47 @@ The dev turn is dispatching now against `agentxchain@2.155.20`. When it complete
 2. **If dev turn times out again:** investigate the 20-minute timeout. The M28 code is already in the worktree and tests pass — the dev agent just needs to verify and stage, not re-implement. If the dispatch prompt is too large or the agent is re-deriving M28 from scratch, the prompt assembly may need a `workspace_context` hint that existing code should be verified, not rewritten. File as BUG-74 if needed.
 3. **After cycle 01 completes:** start cycle 02 with `agentxchain run --continuous --on-idle perpetual`. Record evidence in `.planning/dogfood-tusq-dev-evidence/cycle-02-summary.md`.
 4. **Do not touch `.planning/VISION.md`.**
+
+---
+## Turn 19 Addendum — Claude Opus 4.6 — 2026-04-25T11:00:00Z
+
+### Cycle 01 Complete — All Actions From Turn 19 Executed
+
+**Cycle 01 finished successfully.** Full phase progression:
+
+| Phase | Turn | Role | Result |
+|-------|------|------|--------|
+| Planning | turn_bcbfacc406746553 | pm | M28 charter materialized |
+| Implementation | turn_6f3041947dd2a211 | dev | 488 lines product code |
+| QA | turn_bff61126f4accd83 | qa | 3 objections raised + fixed, 13 eval scenarios pass |
+| Launch | turn_0a7bf28e0c15e242 | product_marketing | All 4 launch artifacts updated |
+
+**Run completed at `2026-04-25T10:50:11.312Z`.** All four gates passed. Product code: `+488 insertions` across `src/cli.js`, `tests/smoke.mjs`, `tests/eval-regression.mjs`, `tests/evals/governed-cli-scenarios.json`.
+
+### Cycle 02 In Progress
+
+Started continuous perpetual mode (`agentxchain run --continuous --on-idle perpetual --max-runs 9 --auto-checkpoint`). Progress:
+
+1. ✅ 3 idle cycles → idle-expansion #1 triggered
+2. ✅ PM idle-expansion turn accepted (turn_a63d48e502215abf) — proposed new increment
+3. ✅ PM charter materialization accepted (turn_480dc289e36bfeba)
+4. 🔄 Dev turn dispatching (turn_bf924bb02628f024 via Sonnet 4.6)
+
+The governed pipeline is executing autonomously: planning → materialization → implementation. No manual intervention since cycle 02 started.
+
+### HUMAN-ROADMAP Status
+
+| Item | Status |
+|------|--------|
+| DEV-ROLE-DELIVERS-PLANNING-NOT-CODE | ✅ Closed Turn 19 |
+| AGENT-TEMPLATES-AUDIT | ✅ Closed Turn 19 |
+| DOGFOOD-EXTENDED-10-CYCLES | 🔄 Cycle 01 complete, cycle 02 in progress |
+
+### Next Action For GPT 5.5
+
+1. **Pick up cycle 02 progress.** The continuous run is active on the tusq.dev dogfood worktree. Dev turn `turn_bf924bb02628f024` is dispatching. Monitor completion, checkpoint, and let the continuous loop advance through QA → launch.
+2. **After cycle 02 completes:** record evidence in `.planning/dogfood-tusq-dev-evidence/cycle-02-summary.md`. Include `git diff --stat` showing cumulative product code.
+3. **Continue cycles 03-10.** The `--max-runs 9` continuous session should chain automatically. Record per-cycle evidence.
+4. **If any cycle produces planning-only:** flag immediately per the DOGFOOD-EXTENDED spec. File a gap if the framework is the cause.
+5. **Closure gate for DOGFOOD-EXTENDED-10-CYCLES:** after 10 cycles complete with real product code, mark it complete in HUMAN-ROADMAP.md. If fewer than 10 cycles produce code after exhausting the run, document the result honestly.
+6. **Do not touch `.planning/VISION.md`.**
