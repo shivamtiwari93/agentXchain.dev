@@ -294,6 +294,8 @@ describe('BUG-70: charter materialization guard', () => {
     assert.strictEqual(postState.status, 'active');
     assert.strictEqual(postState.phase, 'planning');
     assert.strictEqual(postState.blocked_on, null);
+    assert.strictEqual(postState.next_recommended_role, 'pm',
+      'materialization must route back to the proposing planning role, not the proposed implementation role');
     assert.strictEqual(postState.active_turns && Object.keys(postState.active_turns).length, 0);
     assert.ok(postState.charter_materialization_pending,
       'gate semantic coverage must not reject before materialization pending is stored');
@@ -301,6 +303,47 @@ describe('BUG-70: charter materialization guard', () => {
 
     const events = readEvents(dir);
     assert.ok(events.some(e => e.event_type === 'charter_materialization_required'));
+  });
+
+  it('AT-BUG73-001: idle-expansion materialization ignores proposed dev next role until PM materializes charter', () => {
+    const dir = makeTmpDir();
+    const config = makeAutoApproveConfig();
+    scaffoldProject(dir, config);
+
+    const initResult = initializeGovernedRun(dir, config);
+    assert.ok(initResult.ok, `init failed: ${initResult.error}`);
+    const assignResult = assignGovernedTurn(dir, config, 'pm');
+    assert.ok(assignResult.ok, `assign failed: ${assignResult.error}`);
+
+    const state = readState(dir);
+    const turnResult = makeTurnResult(state, {
+      proposed_next_role: 'dev',
+      phase_transition_request: 'implementation',
+      idle_expansion_result: {
+        kind: 'new_intake_intent',
+        expansion_iteration: 1,
+        new_intake_intent: {
+          title: 'M28: Sensitivity Class Inference',
+          charter: 'Materialize M28 sensitivity classification into planning artifacts',
+          acceptance_contract: ['SYSTEM_SPEC covers M28', 'ROADMAP includes M28'],
+          priority: 'p1',
+          template: 'generic',
+        },
+        vision_traceability: [
+          { vision_heading: 'Data and schema understanding', goal: 'classify sensitivity', kind: 'advances' },
+        ],
+      },
+    });
+
+    stageTurnResult(dir, state, turnResult);
+    const acceptResult = acceptGovernedTurn(dir, config);
+    assert.ok(acceptResult.ok, `accept failed: ${acceptResult.error}`);
+
+    const postState = readState(dir);
+    assert.strictEqual(postState.phase, 'planning');
+    assert.ok(postState.charter_materialization_pending);
+    assert.strictEqual(postState.next_recommended_role, 'pm',
+      'the PM who proposed the idle-expansion intake must receive the materialization turn');
   });
 
   it('AT-BUG70-002: suppression emits charter_materialization_required event with descriptive message', () => {

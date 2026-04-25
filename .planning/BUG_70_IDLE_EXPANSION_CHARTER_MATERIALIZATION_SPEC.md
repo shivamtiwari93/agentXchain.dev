@@ -64,10 +64,14 @@ Non-output:
    `new_intake_intent` phase-transition request before the materialization guard
    can store `charter_materialization_pending`; the missing PM gate files are
    the expected reason materialization is required.
-7. Under full-auto approval policy, auto-approval may approve a phase transition
+7. While `charter_materialization_pending` is active, routing must ignore the
+   idle-expansion turn's proposed implementation role and send the next planning
+   turn back to the proposing planning role so that role materializes the
+   PM-owned charter artifacts.
+8. Under full-auto approval policy, auto-approval may approve a phase transition
    only after the new intake is chartered or explicitly scoped as a
    non-implementation analysis run.
-8. The dispatch bundle for dev must include a concrete implementation charter
+9. The dispatch bundle for dev must include a concrete implementation charter
    derived from approved planning artifacts, not only an idle-expansion proposal.
 
 ## Error Cases
@@ -83,6 +87,9 @@ Non-output:
   idle-expansion intake while PM gate artifacts still describe the previous
   milestone; this must become materialization rather than a semantic-coverage
   failed-acceptance turn.
+- PM proposes `proposed_next_role: "dev"` while materialization is still pending;
+  the orchestrator must not dispatch dev in the planning phase to write PM-owned
+  planning artifacts.
 - Dev returns `files_changed` containing only planning notes for a proposed
   source-code increment.
 
@@ -110,6 +117,10 @@ Non-output:
   gate semantic coverage solely because the PM-owned gate files were not
   modified; acceptance stores `charter_materialization_pending` and leaves the
   run in planning.
+- AT-BUG73-001: If an idle-expansion `new_intake_intent` result also proposes
+  `proposed_next_role: "dev"`, acceptance still sets `next_recommended_role` to
+  the proposing planning role so the materialization turn is routed to PM before
+  implementation.
 
 ## Open Questions
 

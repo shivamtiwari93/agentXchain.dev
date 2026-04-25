@@ -5257,6 +5257,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         suppressed_needs_human: suppressIdleExpansionNeedsHuman,
       },
     });
+    updatedState.next_recommended_role = currentTurn.assigned_role;
   }
 
   // BUG-70: clear charter_materialization_pending when a non-idle-expansion turn
