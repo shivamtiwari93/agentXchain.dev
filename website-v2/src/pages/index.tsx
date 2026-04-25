@@ -112,16 +112,16 @@ function Stats() {
   return (
     <div className="stats-row">
       <div>
-        <div className="stat-number">5</div>
-        <div className="stat-label">Architecture layers</div>
-      </div>
-      <div>
-        <div className="stat-number">17</div>
+        <div className="stat-number">7,078+</div>
         <div className="stat-label">Tests / 0 failures</div>
       </div>
       <div>
-        <div className="stat-number">108</div>
-        <div className="stat-label">Conformance fixtures</div>
+        <div className="stat-number">75</div>
+        <div className="stat-label">Bugs closed (spec-driven)</div>
+      </div>
+      <div>
+        <div className="stat-number">10</div>
+        <div className="stat-label">Dogfood cycles (real code)</div>
       </div>
       <div>
         <div className="stat-number">v7</div>
@@ -562,6 +562,57 @@ function HowItWorks() {
   );
 }
 
+function AdvancedCapabilities() {
+  return (
+    <section className="section-spaced">
+      <div className="container">
+        <span className="section-label text-green">Advanced capabilities</span>
+        <h2>Parallel turns, delegation chains, and perpetual autonomy</h2>
+        <p className="section-subtitle">
+          Not roadmap items. Shipped, tested, and proven with recorded runs.
+        </p>
+        <div className="feature-grid">
+          <div className="feature-card">
+            <h3>Parallel turns</h3>
+            <p>
+              Run up to 4 agent turns concurrently within a governed run. Per-turn
+              dispatch isolation prevents file races. Acceptance is serialized so
+              state stays consistent. Proven: 2 concurrent backend/frontend roles,
+              4 turns accepted, $0.033 cost.
+            </p>
+            <Link className="layer-link" to="/docs/parallel-turns" style={{ color: 'var(--axc-green-light)' }}>
+              Parallel turns guide &rarr;
+            </Link>
+          </div>
+          <div className="feature-card">
+            <h3>Delegation chains</h3>
+            <p>
+              A senior role delegates work to specialists, reviews their output,
+              and decides next steps. Three-phase model: delegate, execute, review.
+              Max 5 delegations per chain. Failed delegations surface to parent review.
+            </p>
+            <Link className="layer-link" to="/docs/delegation-chains" style={{ color: 'var(--axc-green-light)' }}>
+              Delegation chains guide &rarr;
+            </Link>
+          </div>
+          <div className="feature-card">
+            <h3>Perpetual continuous mode</h3>
+            <p>
+              Vision-driven multi-run sessions that auto-chain through idle expansion,
+              charter materialization, implementation, QA, and launch &mdash; without human
+              steering. Proven: 10 governed runs on a real product repo, 987 lines of
+              product code, 42 checkpoint commits.
+            </p>
+            <Link className="layer-link" to="/docs/continuous-delivery-intake" style={{ color: 'var(--axc-green-light)' }}>
+              Continuous mode guide &rarr;
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Integrations() {
   return (
     <section className="section-spaced">
@@ -988,6 +1039,7 @@ export default function Home(): React.ReactElement {
       <RoleSystem />
       <HumanSovereignty />
       <HowItWorks />
+      <AdvancedCapabilities />
       <Integrations />
       <Comparison />
       <PlatformSplit />

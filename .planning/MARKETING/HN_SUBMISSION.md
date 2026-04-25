@@ -42,6 +42,8 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 
 **What shipped by v2.155.22:**
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual` — vision-driven multi-run sessions that auto-chain through idle expansion, charter materialization, implementation, QA, and launch without human steering
+- Parallel turns: run up to 4 agent turns concurrently within a governed run. Per-turn dispatch isolation prevents file races; acceptance is serialized. Proven with recorded runs.
+- Delegation chains: a senior role delegates work to specialists, reviews their output, and decides next steps. Three-phase model: delegate → execute → review. Composes with parallel turns.
 - Proven on real code: 10-cycle dogfood on tusq.dev produced 987 lines of real product code (src/, tests/) across 42 checkpoint commits under full governed autonomy
 - 75 bugs closed across the beta cycle (BUG-1 through BUG-75), including ghost-turn auto-retry, operator-commit reconciliation, idle-expansion charter materialization, stale-run recovery, and approval-policy coupling
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)

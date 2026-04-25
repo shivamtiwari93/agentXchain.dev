@@ -45,6 +45,8 @@ This runs a complete governed lifecycle: PM scopes a feature, Dev implements whi
 **What shipped by v2.155.22:**
 
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual`
+- Parallel turns: up to 4 agents concurrently within a governed run, with dispatch isolation and serialized acceptance
+- Delegation chains: a senior role delegates to specialists, reviews their output, and decides next steps (delegate → execute → review)
 - Real dogfood proof: 10 governed runs on tusq.dev produced 987 lines of product code across 42 checkpoint commits
 - Every dogfood cycle traversed planning -> implementation -> QA -> launch
 - 75 bugs closed across the beta cycle, including ghost-turn auto-retry, operator-commit reconciliation, idle-expansion charter materialization, stale-run recovery, and approval-policy coupling
