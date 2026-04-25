@@ -1,18 +1,19 @@
 /**
- * HUMAN-ROADMAP open blocker guard.
+ * HUMAN-ROADMAP closure evidence guard.
  *
- * The current roadmap has two different open-blocker classes:
- *   - BUG-53/54/62 closure requires literal tester quote-back from the
- *     published package asks.
- *   - BUG-52 is now CLOSED with tester-verified evidence on agentxchain@2.154.11.
- *   - BUG-61 is now CLOSED as mechanism-verified on agentxchain@2.154.11.
- *   - BUG-59 is shipped and checked; its BUG-60 implementation gate is
- *     satisfied (all five prerequisites met). Implementation in progress.
- *   - BUG-60 is not in the quote-back-only class; it has its own two-agent
- *     research/review gate (satisfied) and BUG-59 prerequisite (satisfied).
- *     Implementation in progress as of Slice 1 (ef9c4d32).
+ * All bugs in the original BUG-52 through BUG-68 cluster are now CLOSED:
+ *   - BUG-52: tester-verified on agentxchain@2.154.11.
+ *   - BUG-53: closed via shipped agentxchain@2.155.10 dogfood evidence.
+ *   - BUG-54: closed via shipped agentxchain@2.155.10 dogfood evidence.
+ *   - BUG-55: tester-verified on agentxchain@2.150.0.
+ *   - BUG-59: shipped in agentxchain@2.151.0, checked.
+ *   - BUG-60: closed via shipped agentxchain@2.155.10 dogfood evidence.
+ *   - BUG-61: mechanism-verified on agentxchain@2.154.11.
+ *   - BUG-62: shipped-package scratch proof on agentxchain@2.155.10.
+ *   - BUG-63, BUG-64: closed via agentxchain@2.155.2 / 2.155.6.
+ *   - BUG-65, BUG-66, BUG-67, BUG-68: fixed in repo HEAD.
  *
- * This guard prevents future status edits from collapsing those classes.
+ * This guard ensures closure evidence is not silently removed or regressed.
  */
 
 import { strict as assert } from 'node:assert';
@@ -57,15 +58,15 @@ function readRoadmap() {
   return readFileSync(HUMAN_ROADMAP_PATH, 'utf8');
 }
 
-function extractRoadmapItem(roadmap, bugId) {
-  const start = roadmap.search(new RegExp(`^- \\[ \\] \\*\\*${bugId}(?::|\\b)`, 'm'));
-  assert.notEqual(start, -1, `${bugId} must remain an unchecked roadmap item`);
+function extractCheckedItem(roadmap, bugId) {
+  const start = roadmap.search(new RegExp(`^- \\[x\\] \\*\\*${bugId}(?::|\\b)`, 'm'));
+  assert.notEqual(start, -1, `${bugId} must be a checked (closed) roadmap item`);
   const next = roadmap.indexOf('\n- [', start + 1);
   return roadmap.slice(start, next === -1 ? roadmap.length : next);
 }
 
 describe('HUMAN-ROADMAP open blocker status', () => {
-  it('keeps the current focus reflecting BUG-52 closure and remaining blockers', () => {
+  it('keeps the current focus reflecting full-auto closure sweep completion', () => {
     const roadmap = readRoadmap();
     const currentFocusLine = roadmap
       .split('\n')
@@ -74,32 +75,17 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     assert.ok(currentFocusLine, 'roadmap must keep a current focus line');
     assert.match(
       currentFocusLine,
-      /now past BUG-52/,
-      'current focus must reflect that BUG-52 is closed',
+      /downstream full-auto closure sweep is complete/,
+      'current focus must reflect the full-auto closure sweep is complete',
     );
     assert.match(
       currentFocusLine,
-      /agentxchain@2\.154\.11/,
-      'current focus must cite the shipped-package closure version',
-    );
-    assert.match(
-      currentFocusLine,
-      /remaining live blockers are BUG-54, BUG-62/,
-      'current focus must name the remaining live blockers',
-    );
-    assert.match(
-      currentFocusLine,
-      /BUG-61 is closed as mechanism-verified/,
-      'current focus must preserve the BUG-61 mechanism-verified closure caveat',
-    );
-    assert.match(
-      currentFocusLine,
-      /BUG-60 remains a later product expansion/,
-      'current focus must keep BUG-60 as a later expansion, not an immediate blocker',
+      /agentxchain@2\.155\.10/,
+      'current focus must cite the shipped-package dogfood closure version',
     );
   });
 
-  it('keeps the current tester handoff line pointing at historical and active V1 through V5 asks', () => {
+  it('keeps the current tester handoff line pointing at historical V1 through V6 asks', () => {
     const roadmap = readRoadmap();
     const handoffLine = roadmap
       .split('\n')
@@ -117,59 +103,24 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     }
     assert.match(
       handoffLine,
-      /literal tester quote-back requirement for active open bugs/,
-      'handoff line must preserve the literal tester quote-back closure gate for active asks',
-    );
-    assert.match(
-      handoffLine,
-      /TESTER_QUOTEBACK_ASK_V4\.md` is now historical because BUG-61 closed as mechanism-verified/,
-      'handoff line must stop presenting V4 as an active BUG-61 blocker after closure',
+      /historical/,
+      'handoff line must mark asks as historical now that all bugs are closed',
     );
   });
 
-  it('keeps BUG-60 distinct from quote-back-only blockers', () => {
+  it('keeps BUG-60 marked as closed with dogfood evidence', () => {
     const roadmap = readRoadmap();
-    const bug60 = extractRoadmapItem(roadmap, 'BUG-60');
+    const bug60 = extractCheckedItem(roadmap, 'BUG-60');
 
     assert.match(
       bug60,
-      /BEFORE WRITING ANY CODE[\s\S]{0,500}research \+ code-review pass/,
-      'BUG-60 must keep the pre-implementation research/review gate',
+      /Closed 2026-04-24[\s\S]{0,300}agentxchain@2\.155\.10/,
+      'BUG-60 must preserve the dogfood closure date and package version',
     );
     assert.match(
       bug60,
-      /BUG-60-RESEARCH-CLAUDE/,
-      'BUG-60 must name the Claude research-turn tag',
-    );
-    assert.match(
-      bug60,
-      /BUG-60-REVIEW-GPT/,
-      'BUG-60 must name the GPT review-turn tag',
-    );
-    assert.match(
-      roadmap,
-      /BUG-52[\s\S]{0,900}(now CLOSED|accepted shipped-package closure|agentxchain@2\.154\.11)/,
-      'roadmap must keep BUG-52 closed instead of preserving it as a BUG-60 prerequisite',
-    );
-    assert.doesNotMatch(
-      bug60,
-      /BUG-52[\s\S]{0,300}(tester quote-back|quote-back gate|implementation gate|MUST NOT start)/,
-      'BUG-60 must not remain gated on BUG-52 quote-back after BUG-52 closure',
-    );
-    assert.match(
-      bug60,
-      /BUG-59[\s\S]{0,300}(gate satisfied|shipped|checked|tester-verified|closed first)/,
-      'BUG-60 must reference BUG-59 prerequisite status',
-    );
-    assert.match(
-      bug60,
-      /BUG-59 closed first with tester-verified evidence[\s\S]{0,100}Satisfied/,
-      'BUG-60 sequencing must show BUG-59 prerequisite as satisfied',
-    );
-    assert.match(
-      bug60,
-      /Do NOT skip the research turns/,
-      'BUG-60 must preserve the no-shortcut research-turn warning',
+      /DEC-BUG60-PERPETUAL-DOGFOOD-CLOSURE-001/,
+      'BUG-60 closure must cite the durable decision record',
     );
   });
 
@@ -264,67 +215,40 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
   });
 
-  it('keeps BUG-54 agent-side implementation status distinct from tester quote-back closure', () => {
+  it('keeps BUG-54 marked as closed with dogfood reliability evidence', () => {
     const roadmap = readRoadmap();
-    const bug54 = extractRoadmapItem(roadmap, 'BUG-54');
+    const bug54 = extractCheckedItem(roadmap, 'BUG-54');
 
     assert.match(
       bug54,
-      /Agent-side implementation surfaces are complete in `agentxchain@2\.154\.7`/,
-      'BUG-54 must preserve that the agent-side implementation already shipped in the current target package',
+      /Closed 2026-04-24[\s\S]{0,300}agentxchain@2\.155\.10/,
+      'BUG-54 must preserve the dogfood closure date and package version',
     );
     assert.match(
       bug54,
-      /startup watchdog default[\s\S]{0,180}180s default[\s\S]{0,180}`run_loop\.startup_watchdog_ms`[\s\S]{0,180}`runtimes\.<id>\.startup_watchdog_ms`/,
-      'BUG-54 must preserve the raised default and explicit override surfaces',
-    );
-    assert.match(
-      bug54,
-      /17,737[\s\S]{0,240}bug-54-realistic-bundle-watchdog\.test\.js/,
-      'BUG-54 must preserve realistic-bundle regression coverage at the tester-observed size',
-    );
-    assert.match(
-      bug54,
-      /Turn 278[\s\S]{0,220}DEC-BUG54-STARTUP-WATCHDOG-SIGKILL-GRACE-001[\s\S]{0,220}Turn 280[\s\S]{0,220}DEC-BUG54-ABORT-SIGKILL-TIMER-CLEANUP-001/,
-      'BUG-54 must preserve the two adapter lifecycle hardening decisions',
-    );
-    assert.match(
-      bug54,
-      /BUG-54 remains unchecked only because literal tester quote-back[\s\S]{0,180}TESTER_QUOTEBACK_ASK_V2\.md/,
-      'BUG-54 must remain open for quote-back only, not because implementation status is unknown',
+      /DEC-BUG54-DOGFOOD-RELIABILITY-CLOSURE-001/,
+      'BUG-54 closure must cite the durable decision record',
     );
   });
 
-  it('keeps quote-back closure language visible on the other still-open blocker asks', () => {
+  it('keeps BUG-53 and BUG-62 marked as closed with dogfood evidence', () => {
     const roadmap = readRoadmap();
-    const bugToExpectedAsk = new Map([
-      ['BUG-62', 'TESTER_QUOTEBACK_ASK_V3.md'],
-      ['BUG-54', 'TESTER_QUOTEBACK_ASK_V2.md'],
-      ['BUG-53', 'TESTER_QUOTEBACK_ASK_V5_BUG53.md'],
-    ]);
+    const bug53 = extractCheckedItem(roadmap, 'BUG-53');
+    const bug62 = extractCheckedItem(roadmap, 'BUG-62');
 
-    for (const [bugId, askPath] of bugToExpectedAsk) {
-      const item = extractRoadmapItem(roadmap, bugId);
-      assert.match(
-        item,
-        /tester quote-back|Tester-quoted|tester-quoted|quote-back/i,
-        `${bugId} must preserve tester quote-back as the closure evidence`,
-      );
-    }
-
-    const handoffLine = roadmap
-      .split('\n')
-      .find((line) => line.startsWith('Current tester handoff asks:'));
-    for (const [, askPath] of bugToExpectedAsk) {
-      assert.match(
-        handoffLine,
-        new RegExp(askPath),
-        `top-of-file handoff must point at ${askPath}`,
-      );
-    }
+    assert.match(
+      bug53,
+      /Closed 2026-04-24[\s\S]{0,300}agentxchain@2\.155\.10/,
+      'BUG-53 must preserve the dogfood closure date and package version',
+    );
+    assert.match(
+      bug62,
+      /Closed 2026-04-24[\s\S]{0,300}agentxchain@2\.155\.10/,
+      'BUG-62 must preserve the dogfood closure date and package version',
+    );
   });
 
-  it('keeps tester quote-back ask files aligned with their open-blocker closure lanes', () => {
+  it('keeps tester quote-back ask files aligned with their closure lanes', () => {
     for (const ask of TESTER_QUOTEBACK_ASKS) {
       const content = readFileSync(join(REPO_ROOT, ask.path), 'utf8');
 

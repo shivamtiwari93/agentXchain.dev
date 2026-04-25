@@ -12,6 +12,10 @@ Unlike the [Live Continuous 3-Run Proof](/docs/examples/live-continuous-3run-pro
 
 Date of proof: `2026-04-24`
 
+## What It Is
+
+This is a dated proof that AgentXchain can govern three full autonomous runs on a real production codebase (tusq.dev) using the shipped `agentxchain@2.155.10` CLI with perpetual idle-expansion. The dogfood loop discovered and shipped 7 framework gaps across patch releases v2.155.2 through v2.155.10.
+
 ## What It Proves
 
 | Claim | Evidence |
@@ -38,6 +42,20 @@ agentxchain config --set approval_policy.phase_transitions.default auto_approve
 agentxchain config --set approval_policy.run_completion.action auto_approve
 agentxchain validate
 ```
+
+## Run It
+
+To reproduce a similar dogfood loop on your own project, follow the setup above and run the exact command below.
+
+## Workflow Or Proof Shape
+
+The proof exercises the full governed lifecycle in perpetual mode:
+
+1. **Idle expansion**: PM synthesizes next increment from VISION/ROADMAP/SYSTEM_SPEC
+2. **Intake pipeline**: structured `idle_expansion_result` flows through `record → triage → approve → plan → start`
+3. **Governed run**: agents take structured turns through planning → implementation → QA → launch
+4. **Human gates**: `planning_signoff`, `qa_ship_verdict`, `launch_ready` require manual approval
+5. **Loop**: on completion, perpetual mode dispatches next idle-expansion
 
 ## Exact Command
 
@@ -94,7 +112,7 @@ The dogfood loop's core value: every framework gap becomes a patch release, and 
 | GAP-006 | v2.155.9 | Intent coverage missed top-level structured-result acceptance item |
 | GAP-007 | v2.155.10 | Embedded `idle_expansion_result` bypassed sidecar normalization |
 
-## What This Means
+## Key Takeaways
 
 This proof demonstrates the governed software factory model working on a real codebase:
 

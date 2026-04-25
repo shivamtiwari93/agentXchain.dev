@@ -7,6 +7,7 @@
 - **Flat new_intake_intent extraction**: when the PM puts `title`, `charter`, `acceptance_contract`, `priority`, and `template` at the top level of the idle expansion result instead of nesting them under `new_intake_intent`, the normalizer now extracts them into the expected nested object shape.
 
 ### Evidence
+- cd cli && node --test --test-timeout=120000 -> 7,042 tests / 1,433 suites / 0 failures / 5 skipped
 - cd cli && node --test --test-timeout=60000 test/continuous-run.test.js test/turn-result-validator.test.js test/intent-coverage-status.test.js test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js -> 188 tests / 37 suites / 0 failures / 0 skipped
 
 ## 2.155.9
