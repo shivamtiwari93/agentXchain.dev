@@ -1,0 +1,34 @@
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 10, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Continuing active governed run.
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-sonnet-4-6,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+Turn accepted: turn_5584c661462c5226
+Turn assigned: turn_2f3214f27e400c6c → product_marketing
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-opus-4-7,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+
+[agentxchain] ⚠ HUMAN ESCALATION RAISED: hesc_d7fca8084a8767a8 (npm)
+  Type:    needs_decision
+  Action:  Review the blocker, make the required decision, and confirm the run can continue.
+  Unblock: agentxchain unblock hesc_d7fca8084a8767a8
+
+Turn accepted: turn_2f3214f27e400c6c
+Run blocked
+
+─── Run Summary ───
+  Status:  blocked
+  Turns:   2
+  Gates:   0 approved
+  Errors:  none
+
+  Recovery: needs_human
+  Action:   Resolve the stated issue, then run agentxchain resume
+  Detail:   launch_ready exit gate requires human approval. All four required launch artifacts (.planning/MESSAGING.md, .planning/LAUNCH_PLAN.md, .planning/CONTENT_CALENDAR.md, .planning/ANNOUNCEMENT.md) exist and accurately describe the shipped M27 boundary; npm test exits 0; CLI surface is the expected 13 commands with `redaction` at position 11; all upstream gates (planning_signoff, implementation_complete, qa_ship_verdict) are passed. An agent product_marketing role cannot self-declare gate satisfaction; human approval is required to complete the run.
+  Governance report failed: Invalid string length
+Active run blocked — continuous loop paused. Recovery: Resolve the stated issue, then run agentxchain resume
+Continuous loop paused on blocker. Recovery: Resolve the stated issue, then run agentxchain resume

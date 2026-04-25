@@ -1,0 +1,35 @@
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 10, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Idle cycle 1/3 — no derivable work from vision.
+Idle cycle 2/3 — no derivable work from vision.
+Idle cycle 3/3 — no derivable work from vision.
+Idle-expansion 1/5 dispatched — PM intent intent_1777093794813_d514 queued.
+Found queued intent: intent_1777093794813_d514 (approved)
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-opus-4-7,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+
+[agentxchain] ⚠ HUMAN ESCALATION RAISED: hesc_f4e58818de3ba7f9
+  Type:    needs_decision
+  Action:  Review the blocker, make the required decision, and confirm the run can continue.
+  Unblock: agentxchain unblock hesc_f4e58818de3ba7f9
+
+Turn accepted: turn_68ad10b7442cf010
+Run blocked
+
+─── Run Summary ───
+  Status:  blocked
+  Turns:   1
+  Gates:   0 approved
+  Errors:  none
+
+  Recovery: needs_human
+  Action:   Resolve the stated issue, then run agentxchain resume
+  Detail:   Accepting a new intake intent (M28 — Sensitivity Class Inference from Static Manifest Evidence) and transitioning past the planning_signoff exit gate require human approval. All four PM-owned planning_signoff gate artifacts already exist and describe the shipped M27 boundary; M28 acceptance is the human's scope decision.
+  Governance report failed: Invalid string length
+Run blocked — continuous loop paused. Recovery: Resolve the stated issue, then run agentxchain resume
+Continuous loop paused on blocker. Recovery: Resolve the stated issue, then run agentxchain resume

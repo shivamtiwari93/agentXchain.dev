@@ -1,0 +1,52 @@
+---
+sidebar_position: 0
+title: "v2.155.22 Release Notes"
+---
+
+# AgentXchain v2.155.22
+
+`v2.155.22` is a patch over `v2.155.21` fixing BUG-75: stale idle-expansion
+runs created before BUG-74 (v2.155.21) do not recover after upgrading. These
+runs lack `charter_materialization_pending` in state, so the PM prompt never
+receives the materialization directive, makes zero edits, and the semantic
+coverage gate fails in a loop.
+
+## Bug Fixes
+
+- **BUG-75 stale idle-expansion recovery after upgrade**: `loadProjectState()`
+  now detects active planning runs sourced from `pm_idle_expansion_derived`
+  intake that are missing `charter_materialization_pending`. It traces
+  `provenance.intake_intent_id` back to the intake event, confirms the
+  category, and reconstructs the flag so the PM prompt receives the "You MUST
+  create or update these planning artifacts" directive. Centralized in
+  `loadProjectState` so every lifecycle command (`step`, `resume`,
+  `reissue-turn`) gets the same repair without per-command recovery code.
+- **Recovery event**: a `charter_materialization_required` event with
+  `source: "stale_run_recovery"` and `recovered_missing_flag: true` is emitted
+  so event consumers can distinguish upgrade-time recovery from new-run or
+  within-cycle materialization.
+
+## Evidence
+
+- node --test --test-timeout=60000 cli/test/bug-75-stale-idle-expansion-run-recovery.test.js -> 6 tests / 1 suite / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/bug-74-new-run-charter-materialization.test.js cli/test/bug-70-charter-materialization.test.js -> 17 tests / 2 suites / 0 failures / 0 skipped (regression)
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.22 -c "agentxchain --version"
+```
+
+For dogfood verification, resume `DOGFOOD-EXTENDED-10-CYCLES` cycle 03 using
+`agentxchain@2.155.22` on the tusq.dev dogfood branch:
+
+```bash
+npx --yes -p agentxchain@2.155.22 agentxchain step --resume --verbose
+```
+
+Closure requires the stale run to auto-recover `charter_materialization_pending`
+on state load, emit `charter_materialization_required` with
+`source: "stale_run_recovery"`, and produce a PM prompt containing "Charter
+Materialization Required" — without looping on `gate_semantic_coverage`.

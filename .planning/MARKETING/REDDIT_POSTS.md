@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.155.21
+# Reddit Posts — AgentXchain v2.155.22
 
-> Ready-to-post content for Reddit for the `v2.155.21` release once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
+> Ready-to-post content for Reddit for the `v2.155.22` release once tester verification lands. Updated 2026-04-25 for BUG-75 stale idle-expansion recovery after upgrade.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:

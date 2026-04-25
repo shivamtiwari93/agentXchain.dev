@@ -1,0 +1,14 @@
+Dispatch bundle warning: Workspace has 1 uncommitted file(s) not in the dispatch baseline: agentxchain/SESSION_RECOVERY.md. These will be excluded from files_changed validation. If the subprocess modifies them, add them to files_changed.
+
+  Turn Rejected For Retry
+  ────────────────────────────────────────────
+
+  Turn:         turn_7ce3d09621ecc0bc
+  Role:         pm
+  Failed stage: schema
+  Operator note: Schema validation failed because objections[0].statement and objections[1].statement were empty. Retry must provide non-empty objection statement strings, preserve the structured idle_expansion_result, and under full-auto must not set needs_human solely to ask for intake or phase approval.
+
+  Attempt:      2
+  Dispatch:     .agentxchain/dispatch/turns/turn_7ce3d09621ecc0bc/
+  The turn was rejected for conflict and immediately re-dispatched with conflict context.
+

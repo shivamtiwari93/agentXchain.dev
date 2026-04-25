@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.155.21
+# Launch Evidence Report — AgentXchain v2.155.22
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.21 — BUG-73 active retained-turn charter materialization recovery. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.22 — BUG-75 stale idle-expansion recovery after upgrade. Current aggregate release evidence:
 >
 > - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/intake-start-context.test.js cli/test/dispatch-bundle.test.js -> 96 tests / 14 suites / 0 failures / 0 skipped (regression)
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)

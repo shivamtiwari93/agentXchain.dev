@@ -1,6 +1,6 @@
-# Hacker News Submission — AgentXchain v2.155.21
+# Hacker News Submission — AgentXchain v2.155.22
 
-> Ready-to-post for the `v2.155.21` launch window once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
+> Ready-to-post for the `v2.155.22` launch window once tester verification lands. Updated 2026-04-25 for BUG-75 stale idle-expansion recovery after upgrade.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/intake-start-context.test.js cli/test/dispatch-bundle.test.js -> 96 tests / 14 suites / 0 failures / 0 skipped (regression)

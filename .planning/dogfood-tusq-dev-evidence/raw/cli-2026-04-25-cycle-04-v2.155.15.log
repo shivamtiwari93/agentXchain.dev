@@ -1,0 +1,85 @@
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 10, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Continuing active governed run.
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-sonnet-4-6,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+Turn accepted: turn_56af307abe6071b2
+Turn assigned: turn_a769aa550ba55c00 → qa
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-sonnet-4-6,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+Turn accepted: turn_a769aa550ba55c00
+Turn assigned: turn_cc4f8ab1bdcf7d68 → product_marketing
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-opus-4-7,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+
+─── Run Summary ───
+  Status:  blocked
+  Turns:   2
+  Gates:   0 approved
+  Errors:  1
+    acceptTurn(product_marketing): Turn declared artifact.type: "workspace" but files_changed is empty. Either declare the files modified, or set artifact.type: "review" if no repo mutations were intended.
+  Governance report failed: Invalid string length
+Active run blocked — continuous loop paused.
+Continuous loop paused on blocker. Use "agentxchain unblock <id>" to resume.
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 10, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Continuing active governed run.
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-opus-4-7,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+Turn accepted: turn_cc4f8ab1bdcf7d68
+Run completed
+
+─── Run Summary ───
+  Status:  completed
+  Turns:   1
+  Gates:   0 approved
+  Errors:  none
+  Governance report failed: Invalid string length
+Active run completed (1/10): completed
+Idle cycle 1/3 — no derivable work from vision.
+Idle cycle 2/3 — no derivable work from vision.
+Idle cycle 3/3 — no derivable work from vision.
+Idle-expansion 1/5 dispatched — PM intent intent_1777096907143_8824 queued.
+Found queued intent: intent_1777096907143_8824 (approved)
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-opus-4-7,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+
+─── Run Summary ───
+  Status:  blocked
+  Turns:   0
+  Gates:   0 approved
+  Errors:  1
+    acceptTurn(pm): Validation failed at stage schema: objections[0].statement must be a non-empty string.; objections[1].statement must be a non-empty string.
+  Governance report failed: Invalid string length
+Run blocked — continuous loop paused. Use `agentxchain unblock <id>` to resume.
+Continuous loop paused on blocker. Use "agentxchain unblock <id>" to resume.
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 10, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Continuing active governed run.
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-opus-4-7,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+
+─── Run Summary ───
+  Status:  blocked
+  Turns:   0
+  Gates:   0 approved
+  Errors:  1
+    acceptTurn(pm): Gate "planning_signoff" is failing on .planning/PM_SIGNOFF.md, .planning/ROADMAP.md, .planning/SYSTEM_SPEC.md, .planning/command-surface.md. Your turn did not modify those files. Either edit the file(s) to satisfy the gate, or remove the phase transition request.
+  Governance report failed: Invalid string length
+Active run blocked — continuous loop paused.
+Continuous loop paused on blocker. Use "agentxchain unblock <id>" to resume.

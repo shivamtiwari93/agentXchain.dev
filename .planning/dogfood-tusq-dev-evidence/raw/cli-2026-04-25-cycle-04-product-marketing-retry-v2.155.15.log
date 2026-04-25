@@ -1,0 +1,14 @@
+Dispatch bundle warning: Workspace has 1 uncommitted file(s) not in the dispatch baseline: agentxchain/SESSION_RECOVERY.md. These will be excluded from files_changed validation. If the subprocess modifies them, add them to files_changed.
+
+  Turn Rejected For Retry
+  ────────────────────────────────────────────
+
+  Turn:         turn_cc4f8ab1bdcf7d68
+  Role:         product_marketing
+  Failed stage: human_review
+  Operator note: Acceptance failed because product_marketing declared artifact.type workspace with empty files_changed. Retry must either update launch-owned artifacts and declare them or set artifact.type review when no repo mutations are required; do not request human approval solely for auto-approved run completion.
+
+  Attempt:      2
+  Dispatch:     .agentxchain/dispatch/turns/turn_cc4f8ab1bdcf7d68/
+  The turn was rejected for conflict and immediately re-dispatched with conflict context.
+

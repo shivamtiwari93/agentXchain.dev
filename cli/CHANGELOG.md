@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.22
+
+### Bug Fixes
+- **BUG-75 stale idle-expansion recovery after upgrade**: runs initialized from `pm_idle_expansion_derived` before v2.155.21 (BUG-74) lack `charter_materialization_pending`. On `loadProjectState`, the recovery detector traces `provenance.intake_intent_id` back to the intake event, confirms `pm_idle_expansion_derived` category, and reconstructs the missing flag so the PM prompt receives the materialization directive. Centralized in `loadProjectState` so every lifecycle command gets the same repair.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/bug-75-stale-idle-expansion-run-recovery.test.js -> 6 tests / 1 suite / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/bug-74-new-run-charter-materialization.test.js cli/test/bug-70-charter-materialization.test.js -> 17 tests / 2 suites / 0 failures / 0 skipped (regression)
+
 ## 2.155.21
 
 ### Bug Fixes

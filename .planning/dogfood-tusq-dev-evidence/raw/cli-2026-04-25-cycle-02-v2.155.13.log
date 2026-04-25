@@ -1,0 +1,19 @@
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 10, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Continuing active governed run.
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+
+─── Run Summary ───
+  Status:  blocked
+  Turns:   0
+  Gates:   0 approved
+  Errors:  1
+    assignTurn(qa): Working tree has uncommitted changes in actor-owned files: .planning/IMPLEMENTATION_NOTES.md, .planning/dogfood-tusq-dev-evidence/raw/cli-2026-04-25-cycle-02-v2.155.13.log. Authoritative/proposed turns require a clean baseline in v1. Commit or stash those changes before assigning the next code-writing turn.
+  Governance report failed: Invalid string length
+Active run blocked — continuous loop paused.
+Continuous loop paused on blocker. Use "agentxchain unblock <id>" to resume.

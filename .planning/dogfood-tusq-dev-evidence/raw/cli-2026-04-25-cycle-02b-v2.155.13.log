@@ -1,0 +1,22 @@
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 10, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Operator-commit auto-reconcile accepted 1 commit (7756d190 -> 6b2cc502).
+Continuing active governed run.
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+Turn assigned: turn_5584c661462c5226 → qa
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-sonnet-4-6,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+
+─── Run Summary ───
+  Status:  blocked
+  Turns:   0
+  Gates:   0 approved
+  Errors:  1
+    acceptTurn(qa): Gate "qa_ship_verdict" is failing on .planning/acceptance-matrix.md, .planning/RELEASE_NOTES.md. Your turn did not modify those files. Either edit the file(s) to satisfy the gate, or remove the phase transition request.
+  Governance report failed: Invalid string length
+Active run blocked — continuous loop paused.
+Continuous loop paused on blocker. Use "agentxchain unblock <id>" to resume.

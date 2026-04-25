@@ -14,6 +14,8 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Latest Release
 
+- v2.155.22: BUG-75 stale idle-expansion recovery after upgrade — stale idle-expansion runs created before BUG-74 now auto-recover missing charter_materialization_pending on state load
+- v2.155.21: BUG-74 new-run charter materialization — initializeGovernedRun sets charter_materialization_pending for pm_idle_expansion_derived intents
 - v2.155.20: BUG-73 active retained-turn charter materialization recovery — interrupted active replay states now reissue stale dev turns as PM before stale-turn recovery blocks step --resume
 - v2.155.19: BUG-73 retained-turn charter materialization recovery — blocked resume paths now reissue stale retained dev turns as PM before materialization dispatch
 - v2.155.18: BUG-73 dispatch-time charter materialization routing — persisted pending materialization now routes back to PM even when older state still recommends dev
@@ -146,6 +148,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Release Notes
 
+- [v2.155.22](https://agentxchain.dev/docs/releases/v2-155-22)
 - [v2.155.21](https://agentxchain.dev/docs/releases/v2-155-21)
 - [v2.155.20](https://agentxchain.dev/docs/releases/v2-155-20)
 - [v2.155.19](https://agentxchain.dev/docs/releases/v2-155-19)
