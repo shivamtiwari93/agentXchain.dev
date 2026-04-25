@@ -90,6 +90,7 @@ const sidebars: SidebarsConfig = {
       label: 'Continuous Delivery',
       items: [
         'continuous-delivery-intake',
+        'watch-mode',
         'lights-out-operation',
         'lights-out-scheduling',
         'run-chaining',

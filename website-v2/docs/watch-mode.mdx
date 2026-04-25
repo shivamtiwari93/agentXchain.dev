@@ -1,0 +1,389 @@
+---
+title: Watch Mode
+description: "Event-driven governed intake: ingest GitHub webhooks, CI signals, and scheduled events into the AgentXchain delivery pipeline via HTTP listener, event files, or directory polling."
+---
+
+# Watch Mode
+
+`agentxchain watch` is the event-driven intake surface for governed delivery. It turns external signals — GitHub webhooks, CI failures, scheduled triggers — into governed delivery intents that flow through the standard intake pipeline: record, triage, approve, plan, start.
+
+Watch mode has three intake paths:
+
+| Path | Use case |
+|------|----------|
+| `--listen <port>` | HTTP webhook listener for GitHub or any JSON source |
+| `--event-file <path>` | Single-shot event ingest from a JSON file |
+| `--event-dir <path>` | Poll a directory for event files (CI drop folder) |
+
+All three paths normalize events into the same intake shape and feed through the same governed pipeline.
+
+## Quick Start: GitHub Webhook Listener
+
+### 1. Generate a webhook secret
+
+```bash
+export AGENTXCHAIN_WEBHOOK_SECRET=$(openssl rand -hex 32)
+echo "$AGENTXCHAIN_WEBHOOK_SECRET"
+```
+
+Save this secret — you will configure it in both AgentXchain and GitHub.
+
+### 2. Start the listener
+
+```bash
+agentxchain watch --listen 4800
+```
+
+The listener binds to `127.0.0.1:4800` by default and resolves the webhook secret from (in priority order):
+
+1. `--webhook-secret <secret>` CLI flag
+2. `AGENTXCHAIN_WEBHOOK_SECRET` environment variable
+3. `watch.webhook_secret` in `agentxchain.json`
+
+Output:
+
+```
+  AgentXchain Webhook Listener
+  Listening: http://127.0.0.1:4800
+  Webhook:   POST /webhook
+  Health:    GET  /health
+  Secret:    configured
+
+  Waiting for webhook deliveries... (Ctrl+C to stop)
+```
+
+### 3. Expose to GitHub (development)
+
+For local development, use a tunnel to expose the listener:
+
+```bash
+# Using ngrok
+ngrok http 4800
+
+# Using cloudflared
+cloudflared tunnel --url http://localhost:4800
+```
+
+Copy the public URL (e.g., `https://abc123.ngrok-free.app`).
+
+### 4. Configure the GitHub webhook
+
+In your GitHub repository:
+
+1. Go to **Settings > Webhooks > Add webhook**
+2. **Payload URL**: `https://abc123.ngrok-free.app/webhook`
+3. **Content type**: `application/json`
+4. **Secret**: paste the secret from step 1
+5. **Events**: select the events you want to govern:
+   - Pull requests (`pull_request`)
+   - Issues (`issues`)
+   - Workflow runs (`workflow_run`)
+   - Or "Send me everything" for broad intake
+
+### 5. Verify with curl
+
+Before configuring GitHub, verify the listener works locally:
+
+```bash
+# Health check
+curl http://localhost:4800/health
+# {"ok":true,"version":"2.155.24","uptime_ms":12345,"events_processed":0}
+
+# Send a test PR event (unsigned, for local dev only)
+agentxchain watch --listen 4800 --allow-unsigned
+# then in another terminal:
+curl -X POST http://localhost:4800/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-GitHub-Event: pull_request" \
+  -d '{
+    "action": "opened",
+    "number": 42,
+    "pull_request": {
+      "title": "Add user authentication",
+      "html_url": "https://github.com/myorg/myrepo/pull/42",
+      "head": { "ref": "feature/auth", "sha": "abc1234" },
+      "base": { "ref": "main" }
+    },
+    "repository": { "full_name": "myorg/myrepo" }
+  }'
+```
+
+Expected response:
+
+```json
+{
+  "ok": true,
+  "result_id": "wr_...",
+  "event_id": "evt_...",
+  "intent_id": "intent_...",
+  "intent_status": "detected",
+  "deduplicated": false,
+  "delivery_id": null,
+  "route": { "matched": false }
+}
+```
+
+To test with HMAC signature verification:
+
+```bash
+# Generate a signed request
+SECRET="your-webhook-secret"
+PAYLOAD='{"action":"opened","number":42,"pull_request":{"title":"Test PR","html_url":"https://github.com/myorg/myrepo/pull/42","head":{"ref":"feature/test","sha":"deadbeef"},"base":{"ref":"main"}},"repository":{"full_name":"myorg/myrepo"}}'
+SIGNATURE="sha256=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$SECRET" | cut -d' ' -f2)"
+
+curl -X POST http://localhost:4800/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-GitHub-Event: pull_request" \
+  -H "X-Hub-Signature-256: $SIGNATURE" \
+  -d "$PAYLOAD"
+```
+
+## CLI Reference
+
+```
+agentxchain watch --listen <port> [options]
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--listen <port>` | Start HTTP webhook listener on this port | *(required)* |
+| `--listen-host <host>` | Bind address | `127.0.0.1` |
+| `--webhook-secret <secret>` | HMAC-SHA256 secret for signature verification | env/config |
+| `--allow-unsigned` | Accept unsigned payloads (local dev only) | `false` |
+| `--dry-run` | Normalize events but do not persist | `false` |
+| `--json` | JSON output | `false` |
+
+### Other watch modes
+
+```
+agentxchain watch --event-file <path>     # single-shot event ingest
+agentxchain watch --event-dir <path>       # poll directory for event files
+agentxchain watch --daemon                 # legacy lock-file watcher
+agentxchain watch --results                # inspect watch results
+agentxchain watch --result <id>            # inspect a single result
+```
+
+These modes are mutually exclusive with `--listen`.
+
+## Endpoints
+
+### `POST /webhook`
+
+Accepts a JSON payload representing an external event. Runs the full governed intake pipeline: normalize, record, route, triage, approve, auto-start.
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `Content-Type` | Yes | Must be `application/json` |
+| `X-Hub-Signature-256` | When secret is configured | `sha256=<hex-hmac>` |
+| `X-GitHub-Event` | No | GitHub event type (e.g., `pull_request`, `issues`) |
+| `X-GitHub-Delivery` | No | GitHub delivery ID, persisted in watch results |
+
+**Response codes:**
+
+| Code | Meaning |
+|------|---------|
+| 200 | Event accepted and processed |
+| 400 | Malformed JSON |
+| 401 | Signature verification failed |
+| 403 | Webhook secret required but not configured |
+| 413 | Payload exceeds 1 MB |
+| 415 | Content type is not `application/json` |
+| 422 | Unsupported event shape or recording failure |
+
+### `GET /health`
+
+Returns listener health and accepted delivery count.
+
+```json
+{
+  "ok": true,
+  "version": "2.155.24",
+  "uptime_ms": 45000,
+  "events_processed": 7
+}
+```
+
+`events_processed` counts only accepted webhook deliveries (200 responses). Rejected requests (401, 403, 400, etc.) are not counted.
+
+## Event Routing
+
+When an event arrives, the listener checks `watch.routes` in `agentxchain.json` for matching rules. Routes control auto-triage, auto-approval, and auto-start behavior.
+
+```json
+{
+  "watch": {
+    "webhook_secret": "your-secret-here",
+    "routes": [
+      {
+        "match": {
+          "category": "github_pull_request_opened"
+        },
+        "triage": {
+          "priority": "p1",
+          "template": "generic",
+          "charter": "Review PR #{{number}} - {{title}}"
+        },
+        "preferred_role": "dev",
+        "auto_approve": true,
+        "auto_start": true
+      },
+      {
+        "match": {
+          "category": "github_workflow_run_failed"
+        },
+        "triage": {
+          "priority": "p0",
+          "template": "generic",
+          "charter": "Fix CI failure: {{workflow_name}}"
+        },
+        "preferred_role": "dev",
+        "auto_approve": true,
+        "auto_start": true
+      },
+      {
+        "match": {
+          "category": "github_issue_labeled",
+          "source": "manual"
+        },
+        "triage": {
+          "priority": "p2",
+          "template": "generic",
+          "charter": "Address issue #{{number}} - {{title}}"
+        },
+        "auto_approve": false
+      }
+    ]
+  }
+}
+```
+
+### Route fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `match.category` | string | Event category to match (e.g., `github_pull_request_opened`) |
+| `match.source` | string | Event source to match (e.g., `git_ref_change`, `manual`) |
+| `triage` | object | Fields passed to `intake triage` |
+| `preferred_role` | string | Role to assign for the governed run |
+| `auto_approve` | boolean | Automatically approve the triaged intent |
+| `auto_start` | boolean | Start a governed run immediately (requires `auto_approve`) |
+| `overwrite_planning_artifacts` | boolean | Force-overwrite existing planning artifacts |
+
+### Supported event categories
+
+| GitHub event | Category | Source |
+|-------------|----------|--------|
+| `pull_request` (opened/reopened/synchronize/ready_for_review) | `github_pull_request_<action>` | `git_ref_change` |
+| `issues` (labeled) | `github_issue_labeled` | `manual` |
+| `workflow_run` (failed/timed_out) | `github_workflow_run_failed` | `ci_failure` |
+| `schedule` | `github_schedule` | `schedule` |
+
+## Security
+
+### HMAC-SHA256 Signature Verification
+
+When a webhook secret is configured, the listener verifies every incoming request using the `X-Hub-Signature-256` header. This is the same signing mechanism GitHub uses natively.
+
+- Signature comparison uses constant-time comparison (`crypto.timingSafeEqual`) to prevent timing attacks
+- Requests with missing or invalid signatures receive a `401` with no payload details leaked
+- The body size is capped at 1 MB before any processing
+
+### Production Recommendations
+
+1. **Always configure a webhook secret** in production. Never use `--allow-unsigned` outside local development.
+2. **Bind to localhost** (`127.0.0.1`, the default) and front with a reverse proxy (nginx, Caddy, etc.) that handles TLS termination.
+3. **Store the secret** in an environment variable (`AGENTXCHAIN_WEBHOOK_SECRET`) or in `agentxchain.json` under `watch.webhook_secret` — not on the command line where it appears in process listings.
+4. **Use route-level `auto_approve`** selectively. Auto-approving CI failure repairs (`p0`) is reasonable; auto-approving every issue label may not be.
+
+## Watch Results
+
+Every processed webhook delivery produces a durable watch result under `.agentxchain/watch/results/`. Inspect results with:
+
+```bash
+# List all results
+agentxchain watch --results
+
+# Inspect a specific result
+agentxchain watch --result <result_id>
+
+# JSON output
+agentxchain watch --results --json
+```
+
+Each result includes the normalized event, intake outcome (event ID, intent ID, status), route match details, and the GitHub `X-GitHub-Delivery` header if present.
+
+## Examples
+
+### Fully automated PR review pipeline
+
+```json
+{
+  "watch": {
+    "routes": [
+      {
+        "match": { "category": "github_pull_request_opened" },
+        "triage": {
+          "priority": "p1",
+          "template": "generic",
+          "charter": "Review and implement PR #{{number}}: {{title}}"
+        },
+        "preferred_role": "dev",
+        "auto_approve": true,
+        "auto_start": true
+      }
+    ]
+  },
+  "approval_policy": {
+    "phase_transitions": { "default": "auto_approve" },
+    "run_completion": { "action": "auto_approve" }
+  }
+}
+```
+
+With this configuration plus `agentxchain watch --listen 4800` running, a new PR triggers a fully governed run: intake records the PR event, the route auto-triages and auto-approves it, a governed run starts with the `dev` role, and the full phase sequence (planning, implementation, QA, launch) executes under full-auto approval policy.
+
+### CI failure auto-repair
+
+```json
+{
+  "watch": {
+    "routes": [
+      {
+        "match": { "category": "github_workflow_run_failed" },
+        "triage": {
+          "priority": "p0",
+          "template": "generic",
+          "charter": "Diagnose and fix CI failure in {{workflow_name}}"
+        },
+        "preferred_role": "dev",
+        "auto_approve": true,
+        "auto_start": true
+      }
+    ]
+  }
+}
+```
+
+### Manual triage for labeled issues
+
+```json
+{
+  "watch": {
+    "routes": [
+      {
+        "match": { "category": "github_issue_labeled" },
+        "triage": {
+          "priority": "p2",
+          "template": "generic",
+          "charter": "Address issue #{{number}}: {{title}}"
+        },
+        "auto_approve": false
+      }
+    ]
+  }
+}
+```
+
+Issues are recorded and triaged but require manual `agentxchain intake approve` before a run starts.
