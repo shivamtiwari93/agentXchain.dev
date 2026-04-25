@@ -227,6 +227,46 @@ function createBlockedStaleDevMaterializationFixture() {
   return { dir, staleTurnId };
 }
 
+function createActiveStaleDevMaterializationFixture() {
+  const dir = makeTmpDir();
+  const config = makeLocalCliMaterializationConfig();
+  scaffoldProject(dir, config);
+
+  const initResult = initializeGovernedRun(dir, config);
+  assert.ok(initResult.ok);
+  const assignResult = assignGovernedTurn(dir, config, 'dev');
+  assert.ok(assignResult.ok);
+
+  let state = readState(dir);
+  const staleTurnId = getActiveTurn(state).turn_id;
+  const staleStartedAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  state = {
+    ...state,
+    phase: 'planning',
+    status: 'active',
+    next_recommended_role: 'dev',
+    charter_materialization_pending: {
+      charter: 'Build feature X',
+      suppressed_transition: 'implementation',
+      source_turn_id: 'turn_old_pm',
+    },
+    active_turns: {
+      ...state.active_turns,
+      [staleTurnId]: {
+        ...state.active_turns[staleTurnId],
+        status: 'running',
+        started_at: staleStartedAt,
+        worker_attached_at: staleStartedAt,
+        first_output_at: staleStartedAt,
+        first_output_stream: 'stdout',
+      },
+    },
+  };
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+
+  return { dir, staleTurnId };
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('BUG-70: charter materialization guard', () => {
@@ -542,6 +582,31 @@ describe('BUG-70: charter materialization guard', () => {
     assert.equal(activeTurns.length, 1);
     assert.equal(activeTurns[0].assigned_role, 'pm',
       'resume must write the retained materialization dispatch bundle for PM, not stale dev');
+    assert.notEqual(activeTurns[0].turn_id, staleTurnId);
+    assert.equal(activeTurns[0].reissued_from, staleTurnId);
+
+    const assignmentPath = join(dir, '.agentxchain', 'dispatch', 'turns', activeTurns[0].turn_id, 'ASSIGNMENT.json');
+    const assignment = JSON.parse(readFileSync(assignmentPath, 'utf8'));
+    assert.equal(assignment.role, 'pm');
+  });
+
+  it('AT-BUG73-006: step --resume reissues active stale dev turn as PM before stale-turn recovery exits', () => {
+    const { dir, staleTurnId } = createActiveStaleDevMaterializationFixture();
+
+    const result = runCli(dir, ['step', '--resume']);
+    const combined = result.stdout + result.stderr;
+    assert.notStrictEqual(result.status, 0,
+      'fixture runtime exits non-zero after dispatch; the recovery assertion is pre-dispatch');
+    assert.match(combined, /Reissued active turn for charter materialization/);
+    assert.match(combined, /Role:\s+pm/);
+    assert.doesNotMatch(combined, /stale turn/i,
+      'materialization role correction must run before stale-turn recovery blocks the operator');
+
+    const postState = readState(dir);
+    const activeTurns = Object.values(postState.active_turns || {});
+    assert.equal(activeTurns.length, 1);
+    assert.equal(activeTurns[0].assigned_role, 'pm',
+      'active materialization recovery must dispatch PM, not preserve stale dev');
     assert.notEqual(activeTurns[0].turn_id, staleTurnId);
     assert.equal(activeTurns[0].reissued_from, staleTurnId);
 

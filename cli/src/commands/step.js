@@ -100,6 +100,35 @@ export async function stepCommand(opts) {
     process.exit(1);
   }
 
+  if (opts.resume && !opts.turn) {
+    const activeTurnsBeforeStaleCheck = getActiveTurns(state);
+    const activeTurnListBeforeStaleCheck = Object.values(activeTurnsBeforeStaleCheck);
+    const retainedTurn = activeTurnListBeforeStaleCheck.length === 1 ? activeTurnListBeforeStaleCheck[0] : null;
+    const materializationResolution = resolveGovernedRole({ state, config });
+    if (
+      retainedTurn
+      && state.status === 'active'
+      && state.charter_materialization_pending
+      && state.phase === 'planning'
+      && materializationResolution.roleId
+      && materializationResolution.roleId !== retainedTurn.assigned_role
+    ) {
+      const reason = `charter materialization pending superseded stale active ${retainedTurn.assigned_role} turn`;
+      const reissued = reissueTurn(root, config, {
+        turnId: retainedTurn.turn_id,
+        roleId: materializationResolution.roleId,
+        reason,
+      });
+      if (!reissued.ok) {
+        console.log(chalk.red(`Failed to reissue active turn for materialization: ${reissued.error}`));
+        process.exit(1);
+      }
+      state = reissued.state;
+      console.log(chalk.yellow(`Reissued active turn for charter materialization: ${reissued.newTurn.turn_id}`));
+      console.log(`  Role:    ${reissued.newTurn.assigned_role}`);
+    }
+  }
+
   const staleReconciliation = reconcileStaleTurns(root, state, config);
   state = staleReconciliation.state || state;
   if (staleReconciliation.ghost_turns.length > 0) {

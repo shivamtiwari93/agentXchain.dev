@@ -72,12 +72,13 @@ Non-output:
    PM-owned charter artifacts. This applies both at acceptance time and at
    dispatch-time role resolution, because older persisted state may already
    contain `next_recommended_role: "dev"` before the recovery release runs.
-8. Blocked retained-turn recovery paths (`resume` and `step --resume`) must not
+8. Retained-turn recovery paths (`resume` and `step --resume`) must not
    replay a stale retained implementation turn while materialization is pending.
    If the retained turn's role differs from materialization role resolution and
    the operator did not explicitly target a turn with `--turn`, the orchestrator
    must reissue the retained turn to the materialization role before writing the
-   dispatch bundle.
+   dispatch bundle. This includes both blocked retained turns and active turns
+   left behind after an interrupted recovery replay.
 9. Under full-auto approval policy, auto-approval may approve a phase transition
    only after the new intake is chartered or explicitly scoped as a
    non-implementation analysis run.
@@ -106,6 +107,9 @@ Non-output:
 - Persisted blocked state has a retained stale dev turn from an earlier release;
   `resume` and `step --resume` must not dispatch it as dev before materializing
   the planning charter.
+- Persisted active state has a running stale dev turn from an interrupted
+  recovery replay; `step --resume` must reissue it to PM before stale-turn
+  recovery exits or any dev dispatch continues.
 - Dev returns `files_changed` containing only planning notes for a proposed
   source-code increment.
 
@@ -149,6 +153,9 @@ Non-output:
 - AT-BUG73-005: `agentxchain resume` against blocked state with a retained
   stale dev turn reissues the turn as PM and writes the PM dispatch assignment
   before returning the dispatch summary.
+- AT-BUG73-006: `agentxchain step --resume` against active planning state with
+  a running stale dev turn and pending materialization reissues the turn as PM
+  before stale-turn recovery blocks the operator.
 
 ## Open Questions
 
