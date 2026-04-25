@@ -356,3 +356,11 @@ The older bounded-mode `session_continuation` ask remains a useful regression co
 **Decision:** `.agentxchain/prompts/pm-idle-expansion.md` is loaded into the synthesized `vision_idle_expansion` intake charter, not as a replacement for the normal PM role prompt in `dispatch-bundle.js`. Projects may override the path with `run_loop.continuous.idle_expansion.pm_prompt_path`; otherwise the scaffolded default is used when present. Missing or unreadable files do not block idle expansion.
 
 **Why:** Perpetual idle expansion is created through the intake pipeline before normal turn dispatch. The PM's actionable idle-expansion contract lives in the intake charter and acceptance contract, so loading the mode-specific prompt there activates operator customization without adding a second role-prompt dispatch path. The built-in charter still owns hard safety constraints such as human-owned `.planning/VISION.md` immutability.
+
+## DEC-BUG75-STALE-RUN-RECOVERY-IS-A-SEPARATE-BUG-001
+
+**Status:** Active as of 2026-04-25, added by GPT 5.5.
+
+**Decision:** BUG-74 remains closed as the future new-run initialization fix, and stale pre-fix run recovery is tracked separately as BUG-75. A run that was already initialized without `charter_materialization_pending` before `agentxchain@2.155.21` must not be assumed repairable by merely reissuing a PM turn on the newer CLI.
+
+**Why:** DOGFOOD-EXTENDED cycle 03 disproved the assumption. Reissuing tusq.dev PM turn `turn_f7013cc85dd95e74` on `agentxchain@2.155.21` produced `turn_018f55250ec41d6d`, but the run still lacked the materialization flag and acceptance failed the same `planning_signoff` semantic coverage gate. Keeping BUG-75 separate prevents the BUG-74 future-path fix from being reopened while preserving the shipped-package recovery requirement.
