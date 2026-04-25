@@ -177,8 +177,12 @@ describe('comparison pages content', () => {
     assert.match(pages.openhands, /open.source/i, 'OpenHands page must acknowledge open-source nature');
     assert.match(pages.openhands, /SDK/i, 'OpenHands page must acknowledge SDK');
     assert.match(pages.openhands, /sandbox/i, 'OpenHands page must acknowledge sandboxed execution');
-    assert.match(pages.openhands, /model.agnostic/i, 'OpenHands page must acknowledge model-agnostic execution');
+    assert.match(pages.openhands, /provider.agnostic|model.agnostic/i, 'OpenHands page must acknowledge provider/model-agnostic execution');
     assert.match(pages.openhands, /Cloud.*RBAC|RBAC|Enterprise/i, 'OpenHands page must acknowledge Cloud/Enterprise tiers');
+    assert.match(pages.openhands, /Source baseline/, 'OpenHands page must expose the source baseline on-page');
+    assert.match(pages.openhands, /https:\/\/github\.com\/OpenHands\/software-agent-sdk\//, 'OpenHands page must link to official SDK README');
+    assert.match(pages.openhands, /https:\/\/docs\.openhands\.dev\/sdk\/arch\/agent-server/, 'OpenHands page must link to official Agent Server docs');
+    assert.match(pages.openhands, /https:\/\/docs\.openhands\.dev\/enterprise/, 'OpenHands page must link to official Enterprise docs');
     assert.match(pages.openhands, /governed software delivery|governance protocol/i);
   });
 

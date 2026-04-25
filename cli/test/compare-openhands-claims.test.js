@@ -5,7 +5,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const page = readFileSync(resolve(__dirname, '../../website-v2/docs/compare/vs-openhands.mdx'), 'utf8');
+const root = resolve(__dirname, '..', '..');
+const page = readFileSync(resolve(root, 'website-v2/docs/compare/vs-openhands.mdx'), 'utf8');
+const spec = readFileSync(resolve(root, '.planning/COMPARE_OPENHANDS_CLAIMS_SPEC.md'), 'utf8');
+const matrix = readFileSync(resolve(root, '.planning/COMPETITIVE_POSITIONING_MATRIX.md'), 'utf8');
 
 describe('OpenHands comparison claims truth boundary', () => {
   it('AT-OH-001: acknowledges composable SDK', () => {
@@ -56,5 +59,32 @@ describe('OpenHands comparison claims truth boundary', () => {
 
   it('AT-OH-009: does not contain stale import path', () => {
     assert.doesNotMatch(page, /from openhands import Agent, Sandbox/, 'must not use stale openhands import');
+  });
+
+  it('AT-OH-013: exposes official source links and last-checked date', () => {
+    assert.match(page, /Source baseline/, 'OpenHands page must expose the source baseline on-page');
+    assert.match(page, /Last checked against official OpenHands sources on 2026-04-25/);
+    for (const url of [
+      'https://github.com/OpenHands/OpenHands',
+      'https://github.com/OpenHands/software-agent-sdk/',
+      'https://docs.openhands.dev/sdk',
+      'https://docs.openhands.dev/sdk/arch/sdk',
+      'https://docs.openhands.dev/sdk/arch/agent-server',
+      'https://docs.openhands.dev/sdk/guides/agent-server/overview',
+      'https://docs.openhands.dev/openhands/usage/cli/command-reference',
+      'https://docs.openhands.dev/openhands/usage/cli/cloud',
+      'https://docs.openhands.dev/enterprise',
+      'https://docs.openhands.dev/openhands/usage/architecture/runtime',
+      'https://github.com/OpenHands/benchmarks',
+    ]) {
+      assert.ok(page.includes(url), `OpenHands comparison page must link to ${url}`);
+    }
+    assert.match(spec, /AT-OH-013/);
+    assert.match(matrix, /OpenHands row refreshed again on 2026-04-25/);
+  });
+
+  it('AT-OH-014: does not freeze unsupported exact benchmark score', () => {
+    assert.doesNotMatch(page, /SWE-Bench 77\.6%/, 'must not freeze exact benchmark score without current official source');
+    assert.doesNotMatch(spec, /SWE-Bench`\*\*: 77\.6%/, 'spec must not require stale exact score');
   });
 });

@@ -7,36 +7,36 @@ description: "OpenHands is stronger as an open-source agent platform and SDK. Ag
 
 ## The short answer
 
-**Choose OpenHands** if you want an open-source platform and SDK for building, deploying, and orchestrating AI coding agents in sandboxed environments — with model-agnostic execution, a composable SDK, CLI, Cloud with RBAC, and self-hostable infrastructure including Enterprise Kubernetes deployment.
+**Choose OpenHands** if you want an open-source platform and SDK for building, deploying, and orchestrating AI coding agents in sandboxed environments — with provider-agnostic LLM configuration, a composable SDK, CLI, Cloud with RBAC, and self-hostable infrastructure including Enterprise Kubernetes deployment.
 
 **Choose AgentXchain** if you need governed software delivery: arbitrary chartered roles, mandatory cross-role challenge, explicit phase gates, append-only decision ledger, and constitutional human authority over what advances or ships.
 
-OpenHands is a platform for building and running agents — from a composable SDK and CLI to a managed Cloud with RBAC and Enterprise Kubernetes deployment. AgentXchain is a protocol for governing how agents deliver software. OpenHands gives you the execution surface. AgentXchain gives you the governance layer.
+OpenHands is a platform for building and running agents — from a composable SDK and CLI to a managed Cloud with RBAC and Enterprise Kubernetes deployment. AgentXchain is a protocol for governing how agents deliver software. OpenHands gives you the execution surface. AgentXchain gives you the delivery-governance layer.
 
 ## Comparison
 
 | | OpenHands | AgentXchain |
 |---|---|---|
 | **Primary job** | Open-source agent platform, SDK, CLI, and Cloud | Governed software delivery protocol |
-| **Agent model** | Composable SDK (Agents, Tools, Conversations, Skills); CLI and GUI surfaces | Connector-based: any agent runtime under protocol governance |
-| **Orchestration** | SDK-defined workflows; scale to thousands of parallel runs via Agent Server | Protocol-enforced turns with structured challenge and phase gates |
-| **Governance posture** | Sandboxed runtime, Cloud RBAC and permissions, multi-user collaboration; no built-in delivery-governance protocol | Protocol-enforced turns, objections, phase gates, decision ledger |
-| **Recovery posture** | Sandbox-level persistence and Agent Server job management | Turn recovery plus append-only delivery state |
-| **Multi-repo posture** | Agent Server can run agents across repos; no built-in cross-repo governance coordinator | Coordinator-backed repo missions and barrier tracking |
-| **Hosting** | Self-hostable (Docker/K8s), Cloud (hosted), Enterprise (self-hosted K8s in VPC) | Open-source self-hosted core + `agentxchain.ai` managed-cloud early access |
+| **Agent model** | Composable SDK (Agents, Tools, Conversations, Skills); CLI and local GUI surfaces | Connector-based: any agent runtime under protocol governance |
+| **Orchestration** | SDK-defined workflows; Agent Server supports remote execution, isolated workspaces, horizontal scaling, and Kubernetes deployment | Protocol-enforced turns with structured challenge and phase gates |
+| **Governance posture** | Sandboxed runtime, Cloud RBAC and permissions, multi-user collaboration; no built-in repository-delivery governance protocol | Protocol-enforced turns, objections, phase gates, decision ledger |
+| **Recovery posture** | Conversation persistence, resumable CLI conversations, remote workspace isolation, and Agent Server lifecycle management | Turn recovery plus append-only delivery state |
+| **Multi-repo posture** | Agents can operate in SDK/CLI/Cloud workspaces and enterprise source-control integrations; no built-in cross-repo governance coordinator | Coordinator-backed repo missions and barrier tracking |
+| **Hosting** | Local CLI/GUI, Cloud hosted conversations, and Enterprise self-hosting/private-cloud deployment via Kubernetes | Open-source self-hosted core + `agentxchain.ai` managed-cloud early access |
 | **Human authority** | Interactive CLI/GUI, Cloud RBAC, configurable within agent behavior | Constitutional authority at planning, phase transitions, and completion |
-| **Integrations** | Slack, Jira, Linear (Cloud); Chrome extension; MCP; Skills marketplace | IDE, CLI, API, MCP connectors under protocol governance |
+| **Integrations** | Cloud README names Slack/Jira/Linear; Enterprise docs name SAML/SSO, GitHub Enterprise/GitLab/Bitbucket, Jira, and Slack; CLI supports MCP servers | IDE, CLI, API, MCP connectors under protocol governance |
 | **Cross-role challenge** | Not a built-in concept | Mandatory — roles must challenge each other structurally |
-| **Benchmarks** | SWE-Bench 77.6% | Protocol conformance suite |
+| **Benchmarks** | Official benchmark infrastructure covers SWE-Bench, GAIA, Commit0, and OpenAgentSafety | Protocol conformance suite |
 | **Best fit** | Building and running custom agent workflows at scale | Auditable convergence on shippable software across governed roles |
 
 ## Choose OpenHands when
 
 - You want a composable open-source SDK with built-in Tools, Conversations, and Skills to build agent workflows for vulnerability fixing, code migration, incident triage, or any other task.
-- You want model-agnostic execution — swap models without changing agent logic.
+- You want provider-agnostic LLM configuration — swap models without changing agent logic.
 - You want multiple surfaces: a CLI (like Claude Code or Codex), a local GUI, or a managed Cloud with RBAC and team collaboration.
-- You want to scale from one agent to thousands of parallel runs via the Agent Server in sandboxed environments.
-- You want Enterprise self-hosting in your own VPC via Kubernetes, or air-gapped deployment.
+- You want to scale from local SDK execution to remote Agent Server deployments with Docker, WebSocket streaming, horizontal scaling, and Kubernetes deployment.
+- You want Enterprise self-hosting in your own VPC or private cloud via Kubernetes.
 - Your problem is "build and run custom AI coding agents."
 
 ## Choose AgentXchain when
@@ -75,7 +75,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-OpenHands provides a powerful composable SDK, CLI, GUI, Cloud with RBAC, and Enterprise deployment — a complete agent execution stack with sandboxed runtimes, Skills marketplace, and integrations (Slack, Jira, Linear). What it does not provide is a repository-delivery governance protocol: structured turns with mandatory cross-role challenge, explicit phase gates with constitutional human authority, and an append-only decision ledger that proves how delivery decisions were made.
+OpenHands provides a powerful composable SDK, CLI, GUI, Cloud with RBAC, and Enterprise deployment — a complete agent execution stack with sandboxed workspaces, Skills, MCP configuration, and integrations. What it does not provide is a repository-delivery governance protocol: structured turns with mandatory cross-role challenge, explicit phase gates with constitutional human authority, and an append-only decision ledger that proves how delivery decisions were made.
 
 ## Using both together
 
@@ -84,9 +84,26 @@ This is the natural layering:
 - OpenHands for the agent runtime: build agents with the SDK, run them via CLI or Cloud, sandbox execution, and scale via Agent Server
 - AgentXchain for the governance protocol: define roles, enforce challenge, gate transitions, and govern delivery
 
-OpenHands agents could serve as connectors within an AgentXchain-governed workflow — sandboxed executors with Cloud RBAC operating under constitutional governance. This combines OpenHands' execution stack with AgentXchain's delivery assurance.
+OpenHands agents could serve as connectors within an AgentXchain-governed workflow — sandboxed executors with SDK, CLI, Cloud, or Enterprise deployment options operating under constitutional governance. This combines OpenHands' execution stack with AgentXchain's delivery assurance.
+
+## Source baseline
+
+Last checked against official OpenHands sources on 2026-04-25. These are the source claims this comparison depends on:
+
+- [OpenHands GitHub README](https://github.com/OpenHands/OpenHands) documents the composable SDK, CLI, local GUI, Cloud with Slack/Jira/Linear, multi-user support, RBAC/permissions, collaboration, Enterprise self-hosting in a VPC via Kubernetes, the Chrome extension, and the MIT/source-available boundary.
+- [OpenHands Software Agent SDK README](https://github.com/OpenHands/software-agent-sdk/) documents the Python and REST SDK, local or ephemeral Docker/Kubernetes workspaces, the quick-start import path (`from openhands.sdk import ...`), Agent Server, GitHub workflow examples, and public Skills loading.
+- [Software Agent SDK docs](https://docs.openhands.dev/sdk) document the SDK as Python/REST APIs with pre-defined tools for Bash, file editing, web browsing, MCP, and REST-based Agent Server execution.
+- [SDK package architecture](https://docs.openhands.dev/sdk/arch/sdk) documents `openhands.sdk`, provider-agnostic LLM access, conversation lifecycle, tool system, workspace abstraction, Skills, condensers, MCP, and security.
+- [Agent Server package](https://docs.openhands.dev/sdk/arch/agent-server) documents the HTTP/WebSocket Agent Server, remote execution, multi-user workspace isolation, Docker container orchestration, horizontal scaling, Kubernetes deployment, API-key auth, metrics, and client SDK.
+- [Remote Agent Server overview](https://docs.openhands.dev/sdk/guides/agent-server/overview) documents remote Agent Servers for Kubernetes, VMs, on-prem, cloud, Docker workspaces, API remote workspaces, and event streaming.
+- [CLI command reference](https://docs.openhands.dev/openhands/usage/cli/command-reference) documents CLI task/file modes, resume, headless JSONL, `serve`, `web`, `cloud`, `acp`, MCP server management, model settings, and config files.
+- [OpenHands Cloud CLI docs](https://docs.openhands.dev/openhands/usage/cli/cloud) document Cloud conversations, OAuth login, custom server URLs, persistence/collaboration differences, and enterprise server URL usage.
+- [OpenHands Enterprise docs](https://docs.openhands.dev/enterprise) document self-hosted/private-cloud deployment, BYO LLM, SAML/SSO, GitHub Enterprise/GitLab/Bitbucket, Jira, Slack, containerized sandbox runtime, auditability, and multi-user RBAC.
+- [OpenHands runtime architecture](https://docs.openhands.dev/openhands/usage/architecture/runtime) documents the Docker sandbox runtime and why isolated execution is required for arbitrary code.
+- [OpenHands benchmarks repo](https://github.com/OpenHands/benchmarks) documents the official benchmark harness and active SWE-Bench, GAIA, Commit0, and OpenAgentSafety benchmarks.
 
 ## Verify the claims
 
+- Read the OpenHands source links above before relying on this page for competitive positioning.
 - Read the [Quickstart](/docs/quickstart) for the governed operator loop.
 - Read the [Protocol](/docs/protocol) for turns, objections, gates, and constitutional human authority.
