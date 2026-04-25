@@ -1,10 +1,14 @@
-# Hacker News Submission — AgentXchain v2.155.22
+# Hacker News Submission — AgentXchain v2.155.23
 
-> Ready-to-post for `v2.155.22` launch window. Updated 2026-04-25 after DOGFOOD-EXTENDED-10-CYCLES closure.
+> Ready-to-post for `v2.155.23` launch window. Updated 2026-04-25 after DOGFOOD-EXTENDED-10-CYCLES closure.
+>
+> Aggregate evidence:
+> - node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
 >
 > Aggregate evidence:
 > - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
-> - 7,078+ tests / 623 test files / 71 beta-tester scenario suites / 0 failures
+> - 108 conformance fixtures across 13 protocol surfaces
+> - Historical beta baseline: 7,078+ tests / 623 test files / 71 beta-tester scenario suites / 0 failures
 > - 75 bugs closed (BUG-1 through BUG-75), spec-driven with shipped-package proof
 > - Durable evidence index: `.planning/dogfood-tusq-dev-evidence/DOGFOOD-EXTENDED-10-CYCLES-EVIDENCE-INDEX.md`
 
@@ -40,7 +44,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What shipped by v2.155.22:**
+**What shipped by v2.155.23:**
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual` — vision-driven multi-run sessions that auto-chain through idle expansion, charter materialization, implementation, QA, and launch without human steering
 - Parallel turns: run up to 4 agent turns concurrently within a governed run. Per-turn dispatch isolation prevents file races; acceptance is serialized. Proven with recorded runs.
 - Delegation chains: a senior role delegates work to specialists, reviews their output, and decides next steps. Three-phase model: delegate → execute → review. Composes with parallel turns.
@@ -48,7 +52,8 @@ This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev
 - 75 bugs closed across the beta cycle (BUG-1 through BUG-75), including ghost-turn auto-retry, operator-commit reconciliation, idle-expansion charter materialization, stale-run recovery, and approval-policy coupling
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
-- 7,078+ tests across 623 test files, including 71 beta-tester scenario suites with command-chain integration coverage
+- 108 conformance fixtures across 13 protocol surfaces
+- Historical beta baseline: 7,078+ tests across 623 test files, including 71 beta-tester scenario suites with command-chain integration coverage
 - Spec-driven: every bug fix has a spec in `.planning/`, acceptance tests, and shipped-package proof
 
 **Architecture:**

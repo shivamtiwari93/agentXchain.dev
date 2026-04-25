@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.23
+
+### Features
+- **Watch automation bundle**: releases the governed watch slices for external event intake, route-based triage/approval, auto-start, safe planning-artifact overwrite controls, durable watch result files, event-directory polling, background `--daemon --event-dir`, and `watch --results` / `watch --result` inspection.
+- **Operator documentation**: README and CLI README now expose the watch event-directory and result-inspection commands instead of documenting only the single `--event-file` path.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+
 ## 2.155.22
 
 ### Bug Fixes

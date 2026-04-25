@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +12,8 @@ function read(relativePath) {
 }
 
 const SPEC_PATH = '.planning/HN_LAUNCH_SURFACE_ALIGNMENT_SPEC.md';
+const pkg = JSON.parse(read('cli/package.json'));
+const expectedVersion = pkg.version;
 const HN_SUBMISSION = read('.planning/MARKETING/HN_SUBMISSION.md');
 const SHOW_HN_DRAFT = read('.planning/SHOW_HN_DRAFT.md');
 const SPEC = read(SPEC_PATH);
@@ -21,6 +23,22 @@ const HN_SURFACES = [
 ];
 const DEMO_CMD = 'npx --yes -p agentxchain@latest -c "agentxchain demo"';
 const EVIDENCE_PATH = '.planning/dogfood-tusq-dev-evidence/DOGFOOD-EXTENDED-10-CYCLES-EVIDENCE-INDEX.md';
+
+function countFixtures(dir) {
+  let total = 0;
+  for (const entry of readdirSync(dir)) {
+    const fullPath = join(dir, entry);
+    const stats = statSync(fullPath);
+    if (stats.isDirectory()) {
+      total += countFixtures(fullPath);
+      continue;
+    }
+    if (entry.endsWith('.json')) {
+      total += 1;
+    }
+  }
+  return total;
+}
 
 describe('HN launch surface alignment', () => {
   it('AT-HN-LAUNCH-001: spec exists and records the launch contract', () => {
@@ -34,7 +52,7 @@ describe('HN launch surface alignment', () => {
 
   it('AT-HN-LAUNCH-002: both HN surfaces point to the current version, homepage, and package-bound demo', () => {
     for (const [label, content] of HN_SURFACES) {
-      assert.match(content, /v2\.155\.22/, `${label} must name the current launch version`);
+      assert.match(content, new RegExp(`v${expectedVersion.replaceAll('.', '\\.')}`), `${label} must name the current launch version`);
       assert.match(content, /https:\/\/agentxchain\.dev\b/, `${label} must use the homepage URL`);
       assert.match(content, new RegExp(DEMO_CMD.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} must use the package-bound demo command`);
       assert.doesNotMatch(content, /^npx agentxchain demo$/m, `${label} must not use bare npx demo`);
@@ -42,11 +60,13 @@ describe('HN launch surface alignment', () => {
   });
 
   it('AT-HN-LAUNCH-003: both HN surfaces include durable dogfood proof anchors', () => {
+    const fixtureCount = countFixtures(join(ROOT, '.agentxchain-conformance', 'fixtures'));
     for (const [label, content] of HN_SURFACES) {
       assert.match(content, /10-cycle governed dogfood/i, `${label} must name the 10-cycle dogfood proof`);
       assert.match(content, /987 lines product code/i, `${label} must include the product-code count`);
       assert.match(content, /42 checkpoint commits/i, `${label} must include the checkpoint count`);
       assert.match(content, /all 4 phases per cycle/i, `${label} must include phase traversal proof`);
+      assert.match(content, new RegExp(`\\b${fixtureCount} conformance fixtures\\b`), `${label} must include the current conformance corpus size`);
       assert.match(content, new RegExp(EVIDENCE_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} must reference the durable evidence index`);
     }
   });
@@ -55,7 +75,6 @@ describe('HN launch surface alignment', () => {
     for (const [label, content] of HN_SURFACES) {
       assert.doesNotMatch(content, /v2\.149\.[12]/, `${label} must not describe stale v2.149.x launch copy`);
       assert.doesNotMatch(content, /pending tester verification/i, `${label} must not describe closed proof as pending`);
-      assert.doesNotMatch(content, /108 conformance fixtures/i, `${label} must not retain stale proof counts`);
       assert.doesNotMatch(content, /172 tests/i, `${label} must not retain stale beta test counts`);
     }
   });

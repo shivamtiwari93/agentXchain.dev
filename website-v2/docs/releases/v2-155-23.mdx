@@ -1,0 +1,76 @@
+---
+sidebar_position: 0
+title: "v2.155.23 Release Notes"
+---
+
+# AgentXchain v2.155.23
+
+`v2.155.23` packages the first watch automation bundle. `agentxchain watch`
+now covers external event ingestion, configured routing, optional auto-start,
+durable result output, event-directory polling, daemonized directory polling,
+and operator result inspection.
+
+## Features
+
+- **External event intake**: `watch --event-file <path>` normalizes GitHub-style
+  PR, issue-label, failed-workflow, and schedule events into governed intake.
+- **Route-based automation**: `watch.routes` can triage, approve, plan, and
+  start governed work from matching events, with explicit
+  `overwrite_planning_artifacts` opt-in for template rewrites.
+- **Durable result records**: non-dry-run watch ingestion writes structured
+  `.agentxchain/watch-results/*.json` records with event, intent, route,
+  auto-start, error, and timestamp fields.
+- **Directory polling**: `watch --event-dir <path>` processes startup backlog
+  plus new top-level `*.json` files, moving successful inputs to `processed/`
+  and failures to `failed/`.
+- **Background daemon support**: `watch --daemon --event-dir <path>` runs the
+  same directory watcher in the background and writes the watch PID file.
+- **Inspection commands**: `watch --results [--limit <n>]` lists result records;
+  `watch --result <id>` shows one result by exact ID, filename, or ID prefix.
+
+## Evidence
+
+- node --test --test-timeout=60000 cli/test/watch-results-inspection.test.js cli/test/watch-event-dir-daemon.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/frontdoor-install-surface.test.js -> 62 tests / 12 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Run the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.23 -c "agentxchain --version"
+```
+
+For watch automation verification, run a real package-bound event intake and
+inspect the durable result record:
+
+```bash
+npx --yes -p agentxchain@2.155.23 -c "agentxchain watch --event-file ./event.json --auto-start"
+npx --yes -p agentxchain@2.155.23 -c "agentxchain watch --results --limit 5"
+```
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
+
+## Try It
+
+```bash
+npx --yes -p agentxchain@2.155.23 -c "agentxchain watch --help"
+```
+
+For file-drop automation, write GitHub-style event JSON files into a watched
+directory:
+
+```bash
+agentxchain watch --event-dir .agentxchain/inbox --poll-seconds 5
+agentxchain watch --results --limit 10
+```
