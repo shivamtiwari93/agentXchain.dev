@@ -194,4 +194,32 @@ describe('Template spec — no drift from SDLC planning artifacts', () => {
       );
     }
   });
+
+  it('dev role prompt requires source code as primary deliverable', () => {
+    const devPrompt = readFileSync(join(ROOT, '.agentxchain', 'prompts', 'dev.md'), 'utf8');
+    assert.match(devPrompt, /Primary Deliverable Is Source Code/);
+    assert.match(devPrompt, /Write actual source code/);
+    assert.match(devPrompt, /planning documents.*NOT your primary deliverable/i);
+    assert.match(devPrompt, /produces only planning documents.*failed turn/i);
+  });
+
+  it('dev role mandate in templates requires source code production, not just implementation', () => {
+    const TEMPLATES_WITH_DEV_MANDATE = ['full-local-cli', 'generic', 'enterprise-app'];
+    for (const id of TEMPLATES_WITH_DEV_MANDATE) {
+      const templatePath = join(GOVERNED_TEMPLATES_DIR, `${id}.json`);
+      const template = JSON.parse(readFileSync(templatePath, 'utf8'));
+      const devMandate = template.scaffold_blueprint?.roles?.dev?.mandate;
+      assert.ok(devMandate, `${id}.json must define a dev role mandate`);
+      assert.match(
+        devMandate,
+        /[Ww]rite source code/,
+        `${id}.json dev mandate must require writing source code, not just "implement"`
+      );
+      assert.doesNotMatch(
+        devMandate,
+        /^Implement approved work safely/,
+        `${id}.json dev mandate must not use the old planning-biased wording`
+      );
+    }
+  });
 });

@@ -1572,3 +1572,53 @@ describe('dispatch bundle: template placeholder hygiene', () => {
     assert.match(template.verification.machine_evidence[0].command, /^<[^>]+>$/);
   });
 });
+
+describe('dispatch bundle: dev role code-production directive', () => {
+  let root;
+  let config;
+
+  beforeEach(() => {
+    root = makeTmpDir();
+    config = makeNormalizedConfig();
+    scaffoldGoverned(root, 'test-project');
+  });
+
+  afterEach(() => {
+    try { rmSync(root, { recursive: true, force: true }); } catch {}
+  });
+
+  it('PROMPT.md includes code-production directive for authoritative role in implementation phase', () => {
+    acceptPmPlanningTurnAndEnterPhase(root, config, 'implementation');
+    assignGovernedTurn(root, config, 'dev');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /Implementation Phase: Code Production Required/);
+    assert.match(prompt, /PRIMARY deliverable.*working source code/);
+    assert.match(prompt, /Planning documents.*supplementary/);
+  });
+
+  it('PROMPT.md omits code-production directive for review_only role in implementation phase', () => {
+    acceptPmPlanningTurnAndEnterPhase(root, config, 'implementation');
+    assignGovernedTurn(root, config, 'qa');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.doesNotMatch(prompt, /Implementation Phase: Code Production Required/);
+  });
+
+  it('PROMPT.md omits code-production directive for authoritative role outside implementation phase', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.doesNotMatch(prompt, /Implementation Phase: Code Production Required/);
+  });
+});

@@ -261,6 +261,14 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('- Your artifact type should be `workspace` or `commit`.');
     lines.push('- You must accurately declare all files you changed.');
     lines.push('');
+    if (phase === 'implementation') {
+      lines.push('### Implementation Phase: Code Production Required');
+      lines.push('');
+      lines.push('- Your PRIMARY deliverable in this phase is **working source code** — source files, test files, configurations, or executable scripts that change the project\'s runtime behavior.');
+      lines.push('- Planning documents (`.planning/*.md`, `IMPLEMENTATION_NOTES.md`) are supplementary evidence of what you built, not your primary output.');
+      lines.push('- A completed turn in the implementation phase MUST include actual product code changes in `files_changed`, not only documentation or planning artifacts.');
+      lines.push('');
+    }
   } else if (role.write_authority === 'proposed') {
     lines.push('### Write Authority: proposed');
     lines.push('');

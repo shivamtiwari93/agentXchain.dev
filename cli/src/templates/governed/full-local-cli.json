@@ -24,7 +24,7 @@
       },
       "dev": {
         "title": "Developer",
-        "mandate": "Implement approved work safely and verify behavior.",
+        "mandate": "Write source code that implements approved work, then verify it passes tests.",
         "write_authority": "authoritative",
         "runtime": "local-dev"
       },
