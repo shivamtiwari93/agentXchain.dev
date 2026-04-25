@@ -4,7 +4,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
-import { recordEvent, triageIntent, approveIntent } from '../lib/intake.js';
+import { recordEvent, triageIntent, approveIntent, planIntent, startIntent } from '../lib/intake.js';
 import { normalizeWatchEvent, resolveWatchRoute } from '../lib/watch-events.js';
 import { safeWriteJson } from '../lib/safe-write.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
@@ -263,7 +263,34 @@ async function ingestWatchEvent(opts) {
           if (approveResult.ok) {
             result.intent = approveResult.intent;
             routed.approved = true;
+
+            // Auto-start: plan + start the governed run
+            if (resolved.auto_start) {
+              const planResult = planIntent(root, result.intent.intent_id, { force: true });
+              if (planResult.ok) {
+                result.intent = planResult.intent;
+                routed.planned = true;
+
+                const startResult = startIntent(root, result.intent.intent_id, {});
+                if (startResult.ok) {
+                  result.intent = startResult.intent;
+                  routed.started = true;
+                  routed.run_id = startResult.run_id || null;
+                  routed.role = startResult.role || null;
+                } else {
+                  routed.started = false;
+                  routed.auto_start_error = startResult.error;
+                }
+              } else {
+                routed.planned = false;
+                routed.started = false;
+                routed.auto_start_error = planResult.error;
+              }
+            }
           }
+        } else if (resolved.auto_start) {
+          // auto_start without auto_approve — skip silently
+          routed.auto_start_skipped = 'requires auto_approve';
         }
       }
     }
@@ -286,7 +313,13 @@ async function ingestWatchEvent(opts) {
       console.log(chalk.green(`  Recorded watch event ${result.event.event_id}`));
       console.log(chalk.green(`  Created intent ${result.intent.intent_id} (${result.intent.status})`));
       if (routed) {
-        console.log(chalk.cyan(`  Route matched: triaged=${routed.triaged}, approved=${routed.approved}${routed.preferred_role ? `, role=${routed.preferred_role}` : ''}`));
+        const parts = [`triaged=${routed.triaged}`, `approved=${routed.approved}`];
+        if (routed.preferred_role) parts.push(`role=${routed.preferred_role}`);
+        if (routed.planned) parts.push('planned=true');
+        if (routed.started) parts.push(`started=true`);
+        if (routed.auto_start_error) parts.push(`start_error="${routed.auto_start_error}"`);
+        if (routed.auto_start_skipped) parts.push(`auto_start_skipped`);
+        console.log(chalk.cyan(`  Route matched: ${parts.join(', ')}`));
       }
     }
     console.log('');

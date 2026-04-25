@@ -224,6 +224,7 @@ export function resolveWatchRoute(payload, routes) {
           : ['Watch event processed under governance'],
       },
       auto_approve: route.auto_approve === true,
+      auto_start: route.auto_start === true,
       preferred_role: route.preferred_role || null,
     };
   }

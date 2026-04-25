@@ -178,6 +178,82 @@ and uploads the resulting intake JSON plus generated intake event/intent files a
 - AT-WATCH-CI-003: root `agentxchain.json` routes `github_workflow_run_failed` to an auto-approved p0 dev-preferred intent.
 - AT-WATCH-CI-004: the workflow uploads the JSON intake result and generated intake evidence as artifacts without committing or pushing.
 
+## Slice 4: Auto-Start Governed Runs from Watch Events
+
+### Purpose
+
+Slices 1-3 stop at "approved intent on disk." The operator must still manually run `intake plan` then `intake start` to begin a governed run. For event-driven automation — CI failure auto-repair, PR auto-review — the intent should progress from approved → planned → executing in a single `watch --event-file` invocation when the route opts in.
+
+### Config Shape
+
+`auto_start` is a boolean on a route definition, alongside the existing `auto_approve`:
+
+```json
+{
+  "watch": {
+    "routes": [
+      {
+        "match": { "category": "github_workflow_run_failed" },
+        "triage": {
+          "priority": "p0",
+          "template": "generic",
+          "charter": "Fix failed CI: {{workflow_name}} ({{conclusion}})",
+          "acceptance_contract": ["CI workflow passes after fix"]
+        },
+        "auto_approve": true,
+        "auto_start": true,
+        "preferred_role": "dev"
+      }
+    ]
+  }
+}
+```
+
+### Preconditions
+
+- `auto_start` requires `auto_approve: true`. If `auto_approve` is false or absent, `auto_start` is ignored and the result notes `auto_start_skipped: "requires auto_approve"`.
+- `auto_start` requires an initialized governed workspace (`.agentxchain/state.json` must exist or be bootstrappable). If the workspace is not initialized, auto-start fails closed with `auto_start_error`.
+
+### Behavior
+
+When a route matches with `auto_start: true` and `auto_approve: true`:
+
+1. **Record** → `recordEvent()` creates the detected intent (existing).
+2. **Triage** → `triageIntent()` applies route triage fields (existing).
+3. **Approve** → `approveIntent()` auto-approves (existing).
+4. **Plan** → `planIntent()` scaffolds planning artifacts from the template. If planning artifacts already exist, pass `force: true` to overwrite (watch events are automated — stale planning artifacts from a prior manual run should not block CI-driven automation).
+5. **Start** → `startIntent()` initializes the governed run and assigns the first turn.
+
+The result object gains three new fields under `routed`:
+- `planned: true|false` — whether `planIntent()` succeeded
+- `started: true|false` — whether `startIntent()` succeeded
+- `auto_start_error: string|null` — error message if plan or start failed
+
+### Failure Controls
+
+Each failure is non-fatal to the watch command itself (exit 0 with error metadata in the result). The intent is left at whichever status it reached:
+
+| Condition | Behavior | Intent left at |
+|-----------|----------|----------------|
+| `auto_approve: false` | `auto_start` silently skipped | `triaged` |
+| `planIntent()` fails (template error) | logged, `planned: false` | `approved` |
+| Active turns exist | `startIntent()` returns error, logged | `planned` |
+| Run is blocked | `startIntent()` returns error, logged | `planned` |
+| Run is paused | `startIntent()` returns error, logged | `planned` |
+| Pending phase transition | `startIntent()` returns error, logged | `planned` |
+| Missing state.json (no workspace) | `startIntent()` returns error, logged | `planned` |
+| `startIntent()` succeeds | full auto-start complete | `executing` |
+
+### Acceptance Tests (Slice 4)
+
+- AT-WATCH-START-001: route with `auto_start: true` + `auto_approve: true` plans and starts a governed run in a single `watch --event-file` invocation. Result includes `routed.planned: true, routed.started: true`. Intent status is `executing`.
+- AT-WATCH-START-002: route with `auto_start: true` but `auto_approve: false` skips auto-start. Result includes `routed.auto_start_skipped`. Intent status is `triaged`.
+- AT-WATCH-START-003: route with `auto_start: true` but invalid template fails triage validation — auto_start is never reached, intent stays `detected`. (Template validation is enforced at triage, not at plan.)
+- AT-WATCH-START-004: route with `auto_start: true` but active turns exist reports `routed.started: false, routed.auto_start_error`. Intent status is `planned`.
+- AT-WATCH-START-005: route with `auto_start: true` and `preferred_role: "qa"` dispatches QA turn, not the phase entry role.
+- AT-WATCH-START-006: deduplicated events skip auto-start entirely (no plan, no start).
+- AT-WATCH-START-007: `--dry-run` with `auto_start` route does not plan or start.
+
 ## Open Questions
 
 - Should the later webhook server live in the CLI process (`agentxchain watch --listen`) or as a separate hosted/CI runner?
@@ -185,3 +261,4 @@ and uploads the resulting intake JSON plus generated intake event/intent files a
 - Should PR comments be emitted by AgentXchain directly or left to GitHub Actions wrappers consuming JSON output?
 - Should GitHub be the only first-class provider for the second slice, or should generic CloudEvents be normalized first?
 - ~~Should `preferred_role` be consumed by `resolveIntakeRole()` at dispatch time, or should role resolution remain phase-routing-driven?~~ **Resolved: `preferred_role` is consumed after explicit `--role` and before phase entry role (DEC-WATCH-PREFERRED-ROLE-DISPATCH-001).**
+- ~~Should routed approved intents auto-start governed runs, or require explicit `intake plan` + `intake start`?~~ **Resolved: `auto_start: true` on a route plans and starts in a single invocation (DEC-WATCH-AUTO-START-001).**
