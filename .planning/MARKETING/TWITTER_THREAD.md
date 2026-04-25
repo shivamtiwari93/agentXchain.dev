@@ -3,7 +3,7 @@
 > Ready-to-post thread for the `v2.155.13` release once tester verification lands. Updated 2026-04-25 for BUG-70 unchartered idle-expansion suppression.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 -> 6838 tests / 1360 suites / 6838 pass / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 -> 6,978 tests / 1,419 suites / 0 failures / 8 skipped
 
 ---
 

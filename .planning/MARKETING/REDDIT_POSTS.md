@@ -4,7 +4,7 @@
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 -> 6838 tests / 1360 suites / 6838 pass / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 -> 6,978 tests / 1,419 suites / 0 failures / 8 skipped
 
 ---
 
