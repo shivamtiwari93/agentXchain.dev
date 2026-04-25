@@ -41,6 +41,7 @@ const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_
 const DASHBOARD_CONFLICT_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CONFLICT_VISIBILITY_SPEC.md'), 'utf8');
 const DASHBOARD_CHAIN_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CHAIN_SURFACE_SPEC.md'), 'utf8');
 const DASHBOARD_MISSION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_MISSION_SURFACE_SPEC.md'), 'utf8');
+const DASHBOARD_WATCH_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_WATCH_RESULTS_SURFACE_SPEC.md'), 'utf8');
 const DASHBOARD_DOCS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DOCS_CONTRACT_SPEC.md'), 'utf8');
 const EXPECTED_TOP_LEVEL_VIEWS = [
   { id: 'initiative', label: 'Initiative' },
@@ -57,6 +58,7 @@ const EXPECTED_TOP_LEVEL_VIEWS = [
   { id: 'mission', label: 'Mission' },
   { id: 'chain', label: 'Chain' },
   { id: 'run-history', label: 'Run History' },
+  { id: 'watch', label: 'Watch' },
   { id: 'timeouts', label: 'Timeouts' },
   { id: 'coordinator-timeouts', label: 'Coordinator Timeouts' },
 ];
@@ -111,6 +113,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
     assert.ok(CLI_DOCS.includes('/api/poll'), 'cli docs must document the dashboard poll endpoint');
     assert.ok(CLI_DOCS.includes('/api/notifications'), 'cli docs must document the notifications endpoint');
+    assert.ok(CLI_DOCS.includes('/api/watch-results'), 'cli docs must document the watch-results endpoint');
     assert.ok(CLI_DOCS.includes('replay_mode: true'), 'cli docs must document notifications replay-mode response');
     assert.ok(CLI_DOCS.includes('live-only'), 'cli docs must document notifications as live-only in replay mode');
     assert.ok(CLI_DOCS.includes('/api/missions'), 'cli docs must document the missions endpoint');
@@ -187,11 +190,14 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('Artifacts'), 'cli docs must document workflow-kit artifacts view');
     assert.ok(CLI_DOCS.includes('Mission'), 'cli docs must document mission view');
     assert.ok(CLI_DOCS.includes('Chain'), 'cli docs must document chain view');
+    assert.ok(CLI_DOCS.includes('Watch'), 'cli docs must document watch view');
     assert.ok(CLI_DOCS.includes('Coordinator Timeouts'), 'cli docs must document coordinator timeout view');
     assert.ok(CLI_DOCS.includes('single-repo hierarchy above chains'), 'cli docs must keep mission scoped as single-repo hierarchy');
     assert.ok(CLI_DOCS.includes('separate from coordinator **Initiative**'), 'cli docs must keep mission distinct from coordinator initiative');
     assert.ok(CLI_DOCS.includes('latest chain report'), 'cli docs must describe latest chain visibility');
     assert.ok(CLI_DOCS.includes('inherited-context summary'), 'cli docs must describe inherited context lineage visibility');
+    assert.ok(CLI_DOCS.includes('delivery ID'), 'cli docs must describe Watch delivery ID visibility');
+    assert.ok(CLI_DOCS.includes('.agentxchain/watch-results/*.json'), 'cli docs must describe Watch result storage');
     assert.ok(CLI_DOCS.includes('continuity panel'), 'cli docs must describe the timeline continuity panel');
     assert.ok(CLI_DOCS.includes('/api/coordinator/timeouts'), 'cli docs must document coordinator timeouts endpoint');
     assert.ok(CLI_DOCS.includes('/api/coordinator/hooks/audit'), 'cli docs must document coordinator hooks audit endpoint');
@@ -292,6 +298,13 @@ describe('Dashboard continuity spec', () => {
     assert.match(DASHBOARD_MISSION_SPEC, /GET \/api\/plans/);
     assert.match(DASHBOARD_MISSION_SPEC, /AT-DASH-PLAN-001/);
     assert.match(DASHBOARD_MISSION_SPEC, /Mission/);
+  });
+
+  it('ships a durable spec for dashboard watch-results visibility', () => {
+    assert.match(DASHBOARD_WATCH_SPEC, /Dashboard Watch Results Surface Spec/);
+    assert.match(DASHBOARD_WATCH_SPEC, /AT-DASH-WATCH-001/);
+    assert.match(DASHBOARD_WATCH_SPEC, /GET \/api\/watch-results/);
+    assert.match(DASHBOARD_WATCH_SPEC, /Watch/);
   });
 
   it('ships a durable spec for dashboard daemon lifecycle', () => {

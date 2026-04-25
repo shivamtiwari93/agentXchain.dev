@@ -21,6 +21,7 @@ import { render as renderChain } from './components/chain.js';
 import { render as renderRunHistory } from './components/run-history.js';
 import { render as renderTimeouts } from './components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from './components/coordinator-timeouts.js';
+import { render as renderWatch } from './components/watch.js';
 import {
   buildLiveMeta,
   createLiveEventFromMessage,
@@ -42,6 +43,7 @@ const VIEWS = {
   mission: { fetch: ['missions', 'plans'], render: renderMission },
   chain: { fetch: ['chainReports'], render: renderChain },
   'run-history': { fetch: ['runHistory'], render: renderRunHistory },
+  watch: { fetch: ['watchResults'], render: renderWatch },
   timeouts: { fetch: ['timeouts'], render: renderTimeouts },
   'coordinator-timeouts': { fetch: ['coordinatorTimeouts'], render: renderCoordinatorTimeouts },
 };
@@ -70,6 +72,7 @@ const API_MAP = {
   chainReports: '/api/chain-reports',
   connectors: '/api/connectors',
   runHistory: '/api/run-history',
+  watchResults: '/api/watch-results',
   timeouts: '/api/timeouts',
   coordinatorTimeouts: '/api/coordinator/timeouts',
   gateActions: '/api/gate-actions',

@@ -29,6 +29,7 @@ import { render as renderDelegations } from '../dashboard/components/delegations
 import { render as renderBlockers } from '../dashboard/components/blockers.js';
 import { render as renderChain } from '../dashboard/components/chain.js';
 import { render as renderNotifications } from '../dashboard/components/notifications.js';
+import { render as renderWatch } from '../dashboard/components/watch.js';
 import { render as renderTimeouts } from '../dashboard/components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from '../dashboard/components/coordinator-timeouts.js';
 import {
@@ -422,6 +423,7 @@ describe('App Shell — VIEWS registry', () => {
     'cross-repo': renderCrossRepo,
     blockers: renderBlockers,
     chain: renderChain,
+    watch: renderWatch,
     timeouts: renderTimeouts,
     'coordinator-timeouts': renderCoordinatorTimeouts,
   };
@@ -443,6 +445,7 @@ describe('App Shell — VIEWS registry', () => {
                    name === 'blockers' ? { coordinatorBlockers: null } :
                    name === 'mission' ? { missions: null, plans: null } :
                    name === 'chain' ? { chainReports: null } :
+                   name === 'watch' ? { watchResults: null } :
                    name === 'timeouts' ? { timeouts: null } :
                    name === 'coordinator-timeouts' ? { coordinatorTimeouts: null } :
                    name === 'cross-repo' ? { coordinatorState: null, coordinatorHistory: [] } :
@@ -469,6 +472,7 @@ describe('App Shell — VIEWS registry', () => {
       'mission',
       'chain',
       'run-history',
+      'watch',
       'timeouts',
       'coordinator-timeouts',
     ]);

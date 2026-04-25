@@ -33,6 +33,7 @@ import { readGateActionSnapshot } from './gate-action-reader.js';
 import { readChainReportSnapshot } from './chain-report-reader.js';
 import { readMissionSnapshot } from './mission-reader.js';
 import { readPlanSnapshot } from './plan-reader.js';
+import { readWatchResultsSnapshot } from './watch-results-reader.js';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -501,6 +502,12 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, 
     if (pathname === '/api/gate-actions') {
       const result = readGateActionSnapshot(workspacePath);
       writeJson(res, result.status, result.body);
+      return;
+    }
+
+    if (pathname === '/api/watch-results') {
+      const limit = url.searchParams.get('limit') ?? undefined;
+      writeJson(res, 200, readWatchResultsSnapshot(workspacePath, { limit }));
       return;
     }
 

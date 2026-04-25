@@ -47,6 +47,10 @@ export class FileWatcher extends EventEmitter {
           if (!relativeDir && fileSegment === 'multirepo') {
             this.#watchPath('multirepo');
           }
+          if (!relativeDir && fileSegment === 'watch-results') {
+            this.#watchPath('watch-results');
+            this.emit('invalidate', { resource: '/api/watch-results' });
+          }
           return;
         }
 

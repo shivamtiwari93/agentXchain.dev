@@ -81,6 +81,7 @@ The docs must cover the shipped top-level dashboard views:
 - Mission
 - Chain
 - Run History
+- Watch
 - Timeouts
 - Coordinator Timeouts
 

@@ -66,6 +66,7 @@ export const WATCH_DIRECTORIES = [
   MULTIREPO_DIR,
   'missions',
   'reports',
+  'watch-results',
 ];
 
 /**
@@ -93,6 +94,9 @@ export function resourcesForRelativePath(filePath) {
   }
   if (normalized.startsWith('reports/chain-') && normalized.endsWith('.json')) {
     return ['/api/chain-reports', '/api/missions'];
+  }
+  if (normalized === 'watch-results' || (normalized.startsWith('watch-results/') && normalized.endsWith('.json'))) {
+    return ['/api/watch-results'];
   }
   return FILE_TO_RESOURCE[normalized] ? [FILE_TO_RESOURCE[normalized]] : [];
 }
