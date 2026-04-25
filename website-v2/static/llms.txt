@@ -14,6 +14,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Latest Release
 
+- v2.155.18: BUG-73 dispatch-time charter materialization routing — persisted pending materialization now routes back to PM even when older state still recommends dev
 - v2.155.17: BUG-73 charter materialization routing — pending idle-expansion charter materialization now routes back to PM instead of dispatching dev while the run is still in planning
 - v2.155.14: BUG-69 terminal run-completion prompt contract — final-phase authoritative and proposed roles now receive full-auto run-completion guidance under approval_policy.run_completion.action auto_approve
 - v2.155.12: full-auto gate prompt contract — agents are told not to request humans solely for approval when approval_policy auto-approves phase transitions or run completion
@@ -143,6 +144,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Release Notes
 
+- [v2.155.18](https://agentxchain.dev/docs/releases/v2-155-18)
 - [v2.155.17](https://agentxchain.dev/docs/releases/v2-155-17)
 - [v2.155.16](https://agentxchain.dev/docs/releases/v2-155-16)
 - [v2.155.15](https://agentxchain.dev/docs/releases/v2-155-15)

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.18
+
+### Bug Fixes
+- **BUG-73 dispatch-time charter materialization routing**: role resolution now forces pending charter materialization back to PM even when persisted state still has stale `next_recommended_role: "dev"`. This covers dogfood recovery states created before `2.155.17`, not only future acceptance paths.
+- **Coordinator routing parity**: multi-repo coordinator dispatch applies the same pending-materialization PM routing rule before honoring recommended roles, so stale implementation recommendations cannot leak through coordinator assignment.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/role-resolution.test.js cli/test/bug-70-charter-materialization.test.js -> 14 tests / 2 suites / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 220 tests / 39 suites / 0 failures / 0 skipped
+
 ## 2.155.17
 
 ### Bug Fixes

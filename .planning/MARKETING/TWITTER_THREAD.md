@@ -1,9 +1,9 @@
-# Twitter/X Thread — AgentXchain v2.155.17
+# Twitter/X Thread — AgentXchain v2.155.18
 
-> Ready-to-post thread for the `v2.155.17` release once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
+> Ready-to-post thread for the `v2.155.18` release once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 228 tests / 40 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 220 tests / 39 suites / 0 failures / 0 skipped
 
 ---
 
@@ -15,7 +15,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.17 is next in the release lane. Open source. MIT.
+AgentXchain v2.155.18 is next in the release lane. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
