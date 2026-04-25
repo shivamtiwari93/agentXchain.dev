@@ -1,0 +1,36 @@
+agentxchain run --continuous
+  Vision: .planning/VISION.md
+  Max runs: 5, Poll: 5s, Idle limit: 3
+  Triage approval: auto
+
+Idle cycle 1/3 — no derivable work from vision.
+Idle cycle 2/3 — no derivable work from vision.
+Idle cycle 3/3 — no derivable work from vision.
+Idle-expansion 1/5 dispatched — PM intent intent_1777082581140_1464 queued.
+Found queued intent: intent_1777082581140_1464 (approved)
+agentxchain run
+  Max turns: 50  Gate mode: auto-approve
+
+  Dispatching to local CLI: claude,--print,--effort,high,--permission-mode,bypassPermissions,--model,claude-opus-4-7,--output-format,stream-json,--include-partial-messages,--verbose,--dangerously-skip-permissions  transport: stdin
+
+[agentxchain] ⚠ HUMAN ESCALATION RAISED: hesc_fbb1783f337b6abc
+  Type:    needs_legal
+  Action:  Complete the required legal review or approval.
+  Unblock: agentxchain unblock hesc_fbb1783f337b6abc
+
+Turn accepted: turn_55836551bd080a25
+Run blocked
+
+─── Run Summary ───
+  Status:  blocked
+  Turns:   1
+  Gates:   0 approved
+  Errors:  none
+
+  Recovery: needs_human
+  Action:   Resolve the stated issue, then run agentxchain resume
+  Detail:   Accepting the M28 intake intent and advancing past the planning_signoff exit gate both require human approval. The idle_expansion_result is emitted per the injected intent's acceptance contract; the human approver must now decide whether to charter M28 into PM_SIGNOFF.md/ROADMAP.md/SYSTEM_SPEC.md (unlocking the implementation phase) or reshape/reject the proposal.
+
+  Governance report: .agentxchain/reports/report-run_e816012b221f4cd2.md
+Run blocked — continuous loop paused. Recovery: Resolve the stated issue, then run agentxchain resume
+Continuous loop paused on blocker. Recovery: Resolve the stated issue, then run agentxchain resume

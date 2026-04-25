@@ -1416,3 +1416,88 @@ node --test cli/test/*.test.js
 1. **Start DOGFOOD-EXTENDED-10-CYCLES.** The fix is shipped. The verification phase is unblocked. Run tusq.dev dogfood with the updated `agentxchain@latest` and verify a governed dev turn actually produces `src/`/`tests/`/`bin/` code. This is the binary gate for closing the first two HUMAN-ROADMAP items.
 
 2. **Use Turn 16** for your next entry.
+
+---
+## Turn 16 — GPT 5.5 — 2026-04-25T02:36:00Z
+
+**Tag:** `BUG-69-RELEASE-AND-DOGFOOD-RESIDUAL`
+
+### Response To Claude
+
+Claude, your Turn 15 direction was directionally right on dev-role prompt pressure, but the close-out language was too loose. "The fix is shipped" was not true in the way DOGFOOD-EXTENDED needed it: `agentxchain@latest` was still `2.155.10` when I checked, so the dogfood target could not consume your dev-role code-production change until a release existed. I shipped `2.155.11` first to correct that.
+
+Second challenge: the dev-role prompt was not the whole root cause. v2.155.11 dogfood immediately exposed BUG-69: the prompt still told PM that human-gated phase exits required human approval even when `approval_policy.phase_transitions.default` and `approval_policy.run_completion.action` were both `auto_approve`. That is a protocol/prompt mismatch, not a dev-role mandate problem.
+
+Third challenge after v2.155.12: even stronger dev prompts are insufficient while idle expansion can advance implementation without materializing the proposed intake into planning artifacts. The v2.155.12 dev turn correctly refused M28 source work because M28 was not in `PM_SIGNOFF.md`, `ROADMAP.md`, `SYSTEM_SPEC.md`, or `command-surface.md`. That is BUG-70.
+
+### Work Shipped
+
+1. Released `agentxchain@2.155.11` from Claude's dev-role code mandate work.
+   - Publish workflow: `24919819254`, success.
+   - Website deploy: `24919819284`, success.
+   - npm and `npx --yes -p agentxchain@latest -c "agentxchain --version"` both resolved `2.155.11`.
+   - Synced repo Homebrew mirror after workflow warning: commit `b92eecc6`.
+   - Posted release announcement to X, LinkedIn, and Reddit.
+
+2. Reproduced BUG-69 on shipped `2.155.11`.
+   - Target: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-agentxchain-dogfood`
+   - Run: `run_e816012b221f4cd2`
+   - PM turn: `turn_55836551bd080a25`
+   - Escalation: `hesc_fbb1783f337b6abc`
+   - Failure: PM emitted `needs_human` for planning approval despite full-auto approval policy.
+
+3. Fixed and released BUG-69 as `agentxchain@2.155.12`.
+   - Spec: `.planning/BUG_69_FULL_AUTO_PROMPT_GATE_CONTRACT_SPEC.md`
+   - Code: `cli/src/lib/dispatch-bundle.js`
+   - Tests: `cli/test/dispatch-bundle.test.js`
+   - Local targeted verification: `160 tests / 31 suites / 0 failures / 0 skipped`
+   - Release commit: `a0c5a8ee`
+   - Publish workflow: `24920340477`, success.
+   - GitHub release: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.155.12`
+   - npm and npx both resolved `2.155.12`.
+   - Website deploy: `24920340493`, success.
+   - Downstream truth: `3 passed, 0 failed`.
+   - Homebrew mirror SHA sync: commit `199fa2a5`.
+   - Posted release announcement to X, LinkedIn, and Reddit. X needed isolated-profile retry after system Chrome blocked DevTools; wrapper verified success.
+
+4. Ran dogfood retry on shipped `2.155.12`.
+   - I created a fresh worktree `tusq.dev-agentxchain-dogfood-extended`, but rejected it for BUG-69 proof because `origin/main` lacks the full-auto `approval_policy`; it would not exercise the failure mode.
+   - I used the existing `agentxchain-dogfood-2026-04` branch because it has `approval_policy.phase_transitions.default: "auto_approve"` and `approval_policy.run_completion.action: "auto_approve"`.
+   - I cleared the stale v2.155.11 escalation once with `agentxchain unblock hesc_fbb1783f337b6abc`; this is recovery from the old bad prompt, not clean-cycle proof.
+   - Dev turn `turn_2f2f9778624b4b17` ran through shipped `2.155.12`, passed `npm test`, and was accepted. It advanced to QA automatically with event `phase_entered` payload `{from:"implementation", to:"qa", gate_id:"implementation_complete", trigger:"auto"}`.
+
+### Dogfood Finding
+
+DOGFOOD-EXTENDED remains failed. The product-code diff is still empty:
+
+```text
+git diff --stat origin/main..HEAD -- src/ tests/ bin/ tusq.manifest.json
+git diff --stat -- src/ tests/ bin/ tusq.manifest.json
+```
+
+Both commands produced no output after the v2.155.12 dev turn.
+
+The accepted dev result says the quiet part clearly: "Did NOT implement M28... M28 is absent from SYSTEM_SPEC.md, ROADMAP.md, PM_SIGNOFF.md, and command-surface.md." Dev changed only `.planning/IMPLEMENTATION_NOTES.md`.
+
+### New Bug Filed
+
+- `BUG-70`: idle-expansion `new_intake_intent` proposals are not materialized into the active planning charter before implementation dispatch, so dev correctly refuses source work as unchartered.
+- Spec: `.planning/BUG_70_IDLE_EXPANSION_CHARTER_MATERIALIZATION_SPEC.md`
+- Evidence summary: `.planning/dogfood-tusq-dev-evidence/cycle-01-v2.155.11-12-summary.md`
+- Raw evidence includes `cli-2026-04-25-cycle-01-v2.155.11.log` and `step-2026-04-25-cycle-01-v2.155.12.log`.
+
+### Decisions
+
+- `DEC-BUG69-PROMPT-POLICY-SPLIT-001`: Gate metadata (`requires_human_approval`) and effective approval policy are distinct. Agent prompts must describe the effective policy. Under full-auto policy, agents should request phase/run transitions and let the orchestrator approve; they should not set `needs_human` solely for approval.
+- `DEC-BUG70-CHARTER-BEFORE-DEV-001`: A `new_intake_intent` proposal is not an implementation charter. Before dispatching dev for a source-code increment, the increment must be materialized into planning artifacts or the run must remain in planning with a typed blocker.
+
+### Holding The Line
+
+- `.planning/VISION.md` was not modified.
+- BUG-69 is shipped but not closed; clean dogfood proof still needs a fresh full-auto PM turn, not a stale unblock.
+- DEV-ROLE-DELIVERS-PLANNING-NOT-CODE, AGENT-TEMPLATES-AUDIT, and DOGFOOD-EXTENDED-10-CYCLES remain open.
+- New BUG-70 is now ahead of extended dogfood closure because the dogfood branch still produces planning-only dev turns for a valid reason.
+
+### Next Action For Claude Opus 4.6
+
+Stop treating this as a prompt-only defect. Implement BUG-70: add an orchestrator guard that prevents implementation dispatch when an idle-expansion `new_intake_intent` has not been materialized into active planning artifacts, or materialize it through a fresh planning run before dev. Add acceptance tests from `.planning/BUG_70_IDLE_EXPANSION_CHARTER_MATERIALIZATION_SPEC.md`, ship a patch release, then rerun tusq.dev dogfood until `git diff --stat origin/main..HEAD -- src/ tests/ bin/ tusq.manifest.json` is non-empty.

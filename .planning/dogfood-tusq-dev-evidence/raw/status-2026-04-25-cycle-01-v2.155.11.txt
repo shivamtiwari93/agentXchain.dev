@@ -1,0 +1,237 @@
+
+  AgentXchain Status
+  ────────────────────────────────────────────
+
+  🔄 Continuous Vision-Driven Session
+  Session:     cont-b5072700
+  Vision:      .planning/VISION.md
+  Status:      paused
+  Runs:        0/5
+  Objective:   [idle-expansion #1] Inspect VISION.md, ROADMAP.md, SYSTEM_SPEC.md, and current project state.
+Derive the next concrete increment as a new intake intent with charter + acceptance_contract + priority.
+If ALL vision goals are genuinely exhausted, declare vision_exhausted with per-heading classification.
+
+CONSTRAINTS:
+- Do NOT modify .planning/VISION.md (human-owned, read-only).
+- ROADMAP.md and SYSTEM_SPEC.md may be updated as supporting evidence.
+- Every proposed intent MUST cite at least one VISION.md heading from the snapshot below.
+- Output MUST be a structured idle_expansion_result (new_intake_intent or vision_exhausted).
+
+OUTPUT FORMAT — you MUST do one of these:
+(a) Include "idle_expansion_result" as a top-level key in your turn-result.json, OR
+(b) Save the result as a sibling file named idle-expansion-result.json next to your turn-result.json in the staging directory.
+
+The JSON object MUST have this shape:
+  { "kind": "new_intake_intent", "expansion_iteration": 1,
+    "new_intake_intent": {
+      "title": "...", "priority": "p1|p2|p3", "template": "generic",
+      "charter": "...", "acceptance_contract": ["criterion 1", ...]
+    },
+    "vision_traceability": [
+      { "vision_heading": "heading from snapshot", "goal": "what this advances", "kind": "advances" }
+    ] }
+OR:
+  { "kind": "vision_exhausted", "expansion_iteration": 1,
+    "headings": [{"heading": "...", "status": "complete|deferred|out_of_scope", "reason": "..."}] }
+
+Do NOT just describe the result in text — you must produce the actual JSON object.
+
+VISION headings snapshot:
+  - Vision for tusq.dev
+  - Mission
+  - The fight
+  - The promise
+  - What tusq.dev does
+  - The core insight
+  - The canonical artifact
+  - Why we move fast
+  - Why wide works for us
+  - Coherence is expensive, implementation is cheaper than before
+  - Wide OSS compounds faster than narrow OSS
+  - Breadth turns into retention
+  - The guardrails on width
+  - Design principles
+  - Velocity over surface area
+  - Reviewable over opaque
+  - Explicit side effects
+  - Self-hostable or it does not ship
+  - Plugins are how we scale
+  - Product modules
+  - The full transition we automate
+  - Capability discovery and normalization
+  - Auth and permission mapping
+  - Data and schema understanding
+  - Runtime instrumentation
+  - Safe execution wrappers
+  - Skill and agent composition
+  - AI-facing interface generation
+  - Eval and regression infrastructure
+  - Documentation and adoption surfaces
+  - Migration and rollout tooling
+  - Governance and review workflows
+  - Competitive transition intelligence
+  - Roadmap shape: V1, V2, V3
+  - Must-have in V1
+  - High-leverage in V2
+  - Moat features in V3
+  - Who this is for
+  - Why open source
+  - What we resist
+  - Vision for maturity
+  - Relationship to tusq.cloud
+  - Final statement
+
+Source manifest:
+  - .planning/VISION.md (19 headings, 19041 bytes)
+  - .planning/ROADMAP.md (4 headings, 62174 bytes)
+  - .planning/SYSTEM_SPEC.md (18 headings, 214957 bytes, warning: exceeds_64kb)
+  ────────────────────────────────────────────
+
+  Project:  tusq.dev
+  Goal:     Build tusq.dev as the open-source capability compiler and governed AI-enablement engine for SaaS products.
+  Protocol: governed (v4)
+  Template: cli-tool
+  Phase:    planning
+  Run:      BLOCKED
+  Origin:   intake intent intent_1777082581140_1464 (created by continuous loop) ("[idle-expansion #1] Inspect VISION.md, ROADMAP.md, SYSTEM_SPEC.md, and current project state.
+Derive the next concrete increment as a new intake intent with charter + acceptance_contract + priority.
+If ALL vision goals are genuinely exhausted, declare vision_exhausted with per-heading classification.
+
+CONSTRAINTS:
+- Do NOT modify .planning/VISION.md (human-owned, read-only).
+- ROADMAP.md and SYSTEM_SPEC.md may be updated as supporting evidence.
+- Every proposed intent MUST cite at least one VISION.md heading from the snapshot below.
+- Output MUST be a structured idle_expansion_result (new_intake_intent or vision_exhausted).
+
+OUTPUT FORMAT — you MUST do one of these:
+(a) Include "idle_expansion_result" as a top-level key in your turn-result.json, OR
+(b) Save the result as a sibling file named idle-expansion-result.json next to your turn-result.json in the staging directory.
+
+The JSON object MUST have this shape:
+  { "kind": "new_intake_intent", "expansion_iteration": 1,
+    "new_intake_intent": {
+      "title": "...", "priority": "p1|p2|p3", "template": "generic",
+      "charter": "...", "acceptance_contract": ["criterion 1", ...]
+    },
+    "vision_traceability": [
+      { "vision_heading": "heading from snapshot", "goal": "what this advances", "kind": "advances" }
+    ] }
+OR:
+  { "kind": "vision_exhausted", "expansion_iteration": 1,
+    "headings": [{"heading": "...", "status": "complete|deferred|out_of_scope", "reason": "..."}] }
+
+Do NOT just describe the result in text — you must produce the actual JSON object.
+
+VISION headings snapshot:
+  - Vision for tusq.dev
+  - Mission
+  - The fight
+  - The promise
+  - What tusq.dev does
+  - The core insight
+  - The canonical artifact
+  - Why we move fast
+  - Why wide works for us
+  - Coherence is expensive, implementation is cheaper than before
+  - Wide OSS compounds faster than narrow OSS
+  - Breadth turns into retention
+  - The guardrails on width
+  - Design principles
+  - Velocity over surface area
+  - Reviewable over opaque
+  - Explicit side effects
+  - Self-hostable or it does not ship
+  - Plugins are how we scale
+  - Product modules
+  - The full transition we automate
+  - Capability discovery and normalization
+  - Auth and permission mapping
+  - Data and schema understanding
+  - Runtime instrumentation
+  - Safe execution wrappers
+  - Skill and agent composition
+  - AI-facing interface generation
+  - Eval and regression infrastructure
+  - Documentation and adoption surfaces
+  - Migration and rollout tooling
+  - Governance and review workflows
+  - Competitive transition intelligence
+  - Roadmap shape: V1, V2, V3
+  - Must-have in V1
+  - High-leverage in V2
+  - Moat features in V3
+  - Who this is for
+  - Why open source
+  - What we resist
+  - Vision for maturity
+  - Relationship to tusq.cloud
+  - Final statement
+
+Source manifest:
+  - .planning/VISION.md (19 headings, 19041 bytes)
+  - .planning/ROADMAP.md (4 headings, 62174 bytes)
+  - .planning/SYSTEM_SPEC.md (18 headings, 214957 bytes, warning: exceeds_64kb)")
+  Accepted: git:7756d190bb7e064c5671297d970e8617b58dad51
+
+  Continuity:
+  Session:  session_1480793512df7399
+  Checkpoint: turn_accepted at 2026-04-25T02:05:29.329Z
+  Last turn: turn_55836551bd080a25
+  Last role: pm
+  Drift:    none detected since checkpoint
+  Report:   .agentxchain/SESSION_RECOVERY.md
+
+  Connectors:
+    ● healthy local-dev — local_cli (claude --print --effort high --permission-mode bypassPermissions --model claude-sonnet-4-6 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions)
+      Last success: 2026-04-24T22:22:27.171Z
+    ● healthy local-director — local_cli (/Applications/Codex.app/Contents/Resources/codex exec --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high" --model gpt-5.4)
+      Last success: 2026-04-22T12:20:54.476Z
+    ✗ failing local-pm — local_cli (claude --print --effort high --permission-mode bypassPermissions --model claude-opus-4-7 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions)
+      Last error: Accepting the M28 intake intent and advancing past the planning_signoff exit gate both require human approval. The idle_expansion_result is emitted per the injected intent's acceptance contract; the human approver must now decide whether to charter M28 into PM_SIGNOFF.md/ROADMAP.md/SYSTEM_SPEC.md (unlocking the implementation phase) or reshape/reject the proposal.
+    ● healthy local-product-marketing — local_cli (claude --print --effort high --permission-mode bypassPermissions --model claude-opus-4-7 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions)
+      Last success: 2026-04-24T22:30:06.355Z
+    ● healthy local-qa — local_cli (claude --print --effort high --permission-mode bypassPermissions --model claude-sonnet-4-6 --output-format stream-json --include-partial-messages --verbose --dangerously-skip-permissions)
+      Last success: 2026-04-24T22:23:47.006Z
+
+  Recent events: recent (13 in last 15m)
+  Latest:   run_blocked
+  When:     2026-04-25T02:05:29.284Z
+
+  Turn:     No active turn
+
+  Blocked:  BLOCKED — Accepting the M28 intake intent and advancing past the planning_signoff exit gate both require human approval. The idle_expansion_result is emitted per the injected intent's acceptance contract; the human approver must now decide whether to charter M28 into PM_SIGNOFF.md/ROADMAP.md/SYSTEM_SPEC.md (unlocking the implementation phase) or reshape/reject the proposal.
+
+  Reason:   needs_human
+  Owner:    human
+  Action:   Resolve the stated issue, then run agentxchain resume
+  Turn:     cleared
+  Detail:   Accepting the M28 intake intent and advancing past the planning_signoff exit gate both require human approval. The idle_expansion_result is emitted per the injected intent's acceptance contract; the human approver must now decide whether to charter M28 into PM_SIGNOFF.md/ROADMAP.md/SYSTEM_SPEC.md (unlocking the implementation phase) or reshape/reject the proposal.
+
+  Human task: hesc_fbb1783f337b6abc
+  Type:     needs_legal
+  Unblock:  agentxchain unblock hesc_fbb1783f337b6abc
+  Task:     Complete the required legal review or approval.
+
+  Gates:
+    ○ planning_signoff: pending
+      Files: PM_SIGNOFF.md, ROADMAP.md, SYSTEM_SPEC.md
+      Needs: human approval
+    ○ implementation_complete: pending
+    ○ qa_ship_verdict: pending
+    ○ launch_ready: pending
+
+  Artifacts: (planning)
+    ✓ .planning/command-surface.md [pm]
+    ✓ .planning/PM_SIGNOFF.md [pm]
+    ✓ .planning/ROADMAP.md [pm]
+    ✓ .planning/SYSTEM_SPEC.md [pm]
+
+  Budget:   spent $0.00 / remaining $50.00
+
+  Roles:    5
+    ○ pm — Product Manager [authoritative]
+    ○ dev — Developer [authoritative]
+    ○ qa — QA [authoritative]
+    ○ product_marketing — Staff Product Marketing Manager [authoritative]
+    ○ eng_director — Engineering Director [authoritative]
+
