@@ -103,9 +103,13 @@ describe('comparison pages content', () => {
     assert.match(pages.openai, /handoffs/i);
     assert.match(pages.openai, /tracing/i);
     assert.match(pages.openai, /sessions/i);
-    assert.match(pages.openai, /provider-agnostic|100\+ other LLMs/i);
+    assert.match(pages.openai, /third-party provider adapters|LiteLLM-backed routing/i);
     assert.match(pages.openai, /RunState|interruptions|state\.approve/i);
     assert.match(pages.openai, /governed software delivery|delivery constitution/i);
+    assert.match(pages.openai, /Source baseline/, 'OpenAI Agents SDK page must expose the source baseline on-page');
+    assert.match(pages.openai, /https:\/\/developers\.openai\.com\/api\/docs\/guides\/agents/, 'OpenAI Agents SDK page must link to official Agents SDK guide');
+    assert.match(pages.openai, /https:\/\/openai\.github\.io\/openai-agents-python\/human_in_the_loop\//, 'OpenAI Agents SDK page must link to official HITL docs');
+    assert.match(pages.openai, /https:\/\/openai\.github\.io\/openai-agents-python\/ref\/extensions\/models\/litellm_provider\//, 'OpenAI Agents SDK page must link to official LiteLLM provider docs');
   });
 
   it('keeps the AutoGen page honest about AG2 branding and orchestration patterns', () => {

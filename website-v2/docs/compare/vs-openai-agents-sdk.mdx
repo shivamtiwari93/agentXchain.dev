@@ -7,7 +7,7 @@ description: "The OpenAI Agents SDK is stronger for building agent apps. AgentXc
 
 ## The short answer
 
-**Choose the OpenAI Agents SDK** if you need a broad agent-application framework: handoffs, agents-as-tools, guardrails, built-in tracing with 25+ integrations, sessions with 9+ storage backends, provider-agnostic model support, MCP tool calling, sandbox agents for long-running container tasks, hosted tools (web search, file search, code interpreter, image generation, computer use), realtime voice agents, durable execution integrations (Temporal, Restate, DBOS), and built-in tool-approval interruptions that resume from serializable `RunState`.
+**Choose the OpenAI Agents SDK** if you need a broad agent-application framework: handoffs, agents-as-tools, guardrails, built-in tracing with 25+ integrations, sessions with 9+ storage backends, OpenAI models plus third-party provider adapters, MCP tool calling, sandbox agents for long-running container tasks, hosted tools (web search, file search, code interpreter, image generation, computer use), realtime voice agents, durable execution integrations (Temporal, Restate, DBOS), and built-in tool-approval interruptions that resume from serializable `RunState`.
 
 **Choose AgentXchain** if you need governance for multiple agents shipping software: mandatory challenge, explicit phase gates, append-only decision history, and human authority at ship-critical transitions.
 
@@ -24,7 +24,7 @@ This is not a replacement story. The Agents SDK builds agent systems. AgentXchai
 | **Recovery posture** | Serializable `RunState` resume plus durable execution integrations (Temporal, Restate, DBOS) | Turn recovery plus append-only delivery state |
 | **Multi-repo posture** | No built-in cross-repo coordinator surface | Coordinator-backed repo missions and barrier tracking |
 | **Audit surface** | Built-in tracing with 25+ integrations, sessions, and run state | Append-only decision and objection ledgers |
-| **Model support** | Provider-agnostic SDK with OpenAI plus 100+ other LLMs | Connector-based (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
+| **Model support** | OpenAI models by default, with third-party provider adapters including LiteLLM for broad model routing | Connector-based (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
 | **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
 | **Best fit** | Agent apps and product features | Governed repo workflows |
 
@@ -36,7 +36,7 @@ This is not a replacement story. The Agents SDK builds agent systems. AgentXchai
 - You need built-in tool approvals that pause a run and resume from serializable `RunState`, with durable execution integrations (Temporal, Restate, DBOS).
 - You want MCP tool calling (4 transports: hosted, Streamable HTTP, SSE, stdio) or hosted tools (web search, file search, code interpreter, image generation, computer use).
 - You want sandbox agents for long-running container-based tasks.
-- You want provider-agnostic model routing without inventing your own adapter layer first.
+- You want OpenAI models by default with third-party provider adapters, including LiteLLM-backed routing, instead of inventing your own adapter layer first.
 - You want orchestration that stays inside your application code.
 
 ## Choose AgentXchain when
@@ -73,7 +73,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-The Agents SDK is a broad agent-application framework: handoffs, sessions, tracing with 25+ integrations, provider-agnostic model routing, MCP tool calling, sandbox agents, hosted tools, realtime voice agents, durable execution integrations, and built-in approval/resume flows. What it does not ship by default is a delivery constitution that requires challenge, controls phase advancement, and records accepted work in append-only delivery ledgers.
+The Agents SDK is a broad agent-application framework: handoffs, sessions, tracing with 25+ integrations, OpenAI models plus third-party provider adapters, MCP tool calling, sandbox agents, hosted tools, realtime voice agents, durable execution integrations, and built-in approval/resume flows. What it does not ship by default is a delivery constitution that requires challenge, controls phase advancement, and records accepted work in append-only delivery ledgers.
 
 ## Using both together
 
@@ -82,7 +82,25 @@ Use the OpenAI Agents SDK to build agents or multi-agent app behavior, then use 
 - Agents SDK for app-layer agent construction
 - AgentXchain for delivery governance and auditability
 
+## Source baseline
+
+Last checked against OpenAI official docs on 2026-04-25. These are the source claims this comparison depends on:
+
+- [Agents SDK guide](https://developers.openai.com/api/docs/guides/agents) positions the SDK for code-first agent apps where the application owns orchestration, tool execution, state, and approvals.
+- [Agents SDK intro](https://openai.github.io/openai-agents-python/) documents agents, handoffs / agents-as-tools, guardrails, MCP tool calling, sessions, human-in-the-loop, tracing, realtime agents, and sandbox agents.
+- [Tools](https://openai.github.io/openai-agents-python/tools/) documents hosted OpenAI tools, local/runtime tools, function tools, agents as tools, hosted tool search, MCP, and the experimental Codex tool.
+- [Handoffs](https://openai.github.io/openai-agents-python/handoffs/) documents handoff behavior, input filters, nested handoff history, and recommended handoff prompt instructions.
+- [Sessions](https://openai.github.io/openai-agents-python/sessions/) documents session memory and built-in backends including SQLite, Redis, SQLAlchemy, Dapr, OpenAI Conversations, compaction, advanced SQLite, and encrypted sessions.
+- [Human-in-the-loop](https://openai.github.io/openai-agents-python/human_in_the_loop/) documents tool approvals, interruptions, serializable `RunState`, and pause / approve / resume flows.
+- [Running agents](https://openai.github.io/openai-agents-python/running_agents/) documents the runner loop, streaming, run configuration, state management, recovery, and durable execution integrations with Temporal, Restate, and DBOS.
+- [MCP](https://openai.github.io/openai-agents-python/mcp/) documents hosted MCP tools, local MCP transports, tool filtering, caching, tracing, and approval policies.
+- [Tracing](https://openai.github.io/openai-agents-python/tracing/) documents built-in tracing, OpenAI trace export, custom processors, and external tracing integrations.
+- [Sandbox agents](https://openai.github.io/openai-agents-python/sandbox/guide/) documents workspace-backed sandbox agents, manifests, filesystem and shell capabilities, sandbox session resume, and snapshots.
+- [Realtime agents quickstart](https://openai.github.io/openai-agents-python/realtime/quickstart/) documents server-side realtime agents, `gpt-realtime-1.5`, voice settings, turn detection, tools, tracing, and guardrail settings.
+- [LiteLLM provider](https://openai.github.io/openai-agents-python/ref/extensions/models/litellm_provider/) documents the SDK's LiteLLM provider adapter for routing through LiteLLM-supported providers.
+
 ## Verify the claims
 
-- Read the [Quickstart](/docs/quickstart) for the governed operator loop.
-- Read the [Protocol](/docs/protocol) for turns, gates, objections, and constitutional human authority.
+- Read the OpenAI source links above before relying on this page for competitive positioning.
+- Read the [Quickstart](/docs/quickstart) to see AgentXchain's governed operator loop.
+- Read the [Protocol](/docs/protocol) for AgentXchain's constitutional rules behind turns, objections, and gates.

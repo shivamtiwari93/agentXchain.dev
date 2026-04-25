@@ -52,6 +52,27 @@ describe('OpenAI Agents SDK comparison claims', () => {
     assert.match(matrixRow, /durable execution/i);
   });
 
+  it('AT-OAI-007: vs-openai-agents-sdk exposes official OpenAI source links on-page', () => {
+    assert.match(VS_OPENAI, /Last checked against OpenAI official docs on 2026-04-25/);
+    for (const url of [
+      'https://developers.openai.com/api/docs/guides/agents',
+      'https://openai.github.io/openai-agents-python/',
+      'https://openai.github.io/openai-agents-python/tools/',
+      'https://openai.github.io/openai-agents-python/handoffs/',
+      'https://openai.github.io/openai-agents-python/sessions/',
+      'https://openai.github.io/openai-agents-python/human_in_the_loop/',
+      'https://openai.github.io/openai-agents-python/running_agents/',
+      'https://openai.github.io/openai-agents-python/mcp/',
+      'https://openai.github.io/openai-agents-python/tracing/',
+      'https://openai.github.io/openai-agents-python/sandbox/guide/',
+      'https://openai.github.io/openai-agents-python/realtime/quickstart/',
+      'https://openai.github.io/openai-agents-python/ref/extensions/models/litellm_provider/',
+    ]) {
+      assert.ok(VS_OPENAI.includes(url), `OpenAI Agents SDK comparison page must link to ${url}`);
+    }
+    assert.match(SPEC, /AT-OAI-007/);
+  });
+
   it('AT-OAI-006a: governance posture row exists', () => {
     assert.match(VS_OPENAI, /\| \*\*Governance posture\*\* \|/);
   });
@@ -76,5 +97,6 @@ describe('OpenAI Agents SDK comparison claims', () => {
     assert.match(SPEC, /Realtime voice agents/);
     assert.match(SPEC, /Durable execution/);
     assert.match(SPEC, /DEC-OPENAI-AGENTS-SDK-COMPARE-CLAIMS-001/);
+    assert.match(SPEC, /DEC-OPENAI-AGENTS-SDK-MODEL-BOUNDARY-001/);
   });
 });
