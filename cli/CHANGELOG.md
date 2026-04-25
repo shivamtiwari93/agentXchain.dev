@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.20
+
+### Bug Fixes
+- **BUG-73 active retained-turn charter materialization recovery**: `step --resume` now reissues an active stale dev turn as PM before stale-turn recovery runs when planning charter materialization is pending. This covers interrupted recovery states where a previous bad replay had already reactivated the run before being stopped.
+- **Watchdog ordering hardening**: materialization role correction now executes before stale-turn watchdog recovery for the single active-turn resume path, so the operator is not blocked with generic stale dev guidance when the protocol already knows PM owns the next turn.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/role-resolution.test.js cli/test/beta-tester-scenarios/bug-47-stale-turn-watchdog.test.js cli/test/step-command.test.js -> 59 tests / 18 suites / 0 failures / 0 skipped
+
 ## 2.155.19
 
 ### Bug Fixes
