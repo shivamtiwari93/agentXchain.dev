@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.13
+
+### Bug Fixes
+- **BUG-70 suppress implementation dispatch for unchartered idle-expansion intents**: dispatch bundles no longer forward idle-expansion intents that lack a chartered scope into implementation-phase turns. Unchartered idle-expansion intents are now suppressed at the dispatch boundary so agents do not act on expansion signals that have not passed intake triage.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 -> 6838 tests / 1360 suites / 6838 pass / 0 failures / 0 skipped
+
 ## 2.155.12
 
 ### Bug Fixes
