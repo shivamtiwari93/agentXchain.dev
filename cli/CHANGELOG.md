@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.17
+
+### Bug Fixes
+- **BUG-73 charter materialization routing**: after an idle-expansion `new_intake_intent` stores `charter_materialization_pending`, routing now ignores the proposing turn's `proposed_next_role: "dev"` and sends the next planning turn back to the proposing planning role. This prevents a developer from receiving the PM-owned charter materialization directive while the run is still in planning.
+- **DOGFOOD-EXTENDED unblock**: shipped `2.155.16` proved BUG-72's acceptance-order fix by emitting `charter_materialization_required`, but dogfood then exposed that materialization routing still followed the stale proposed implementation role. This patch keeps the run in planning and routes materialization to PM before implementation can dispatch.
+
+### Evidence
+- cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 228 tests / 40 suites / 0 failures / 0 skipped
+
 ## 2.155.16
 
 ### Bug Fixes

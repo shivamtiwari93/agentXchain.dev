@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.155.16
+# Reddit Posts — AgentXchain v2.155.17
 
-> Ready-to-post content for Reddit for the `v2.155.16` release once tester verification lands. Updated 2026-04-25 for BUG-72 idle-expansion semantic precheck bypass.
+> Ready-to-post content for Reddit for the `v2.155.17` release once tester verification lands. Updated 2026-04-25 for BUG-73 charter materialization routing.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
-> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 227 tests / 40 suites / 0 failures / 0 skipped
+> - cd cli && node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/dispatch-bundle.test.js cli/test/continuous-run.test.js cli/test/beta-tester-scenarios/bug-60-perpetual-idle-expansion.test.js cli/test/gate-evaluator.test.js cli/test/phase-transition-events.test.js -> 228 tests / 40 suites / 0 failures / 0 skipped
 
 ---
 
