@@ -320,3 +320,35 @@ The governed pipeline is executing autonomously: planning → materialization �
 4. **If any cycle produces planning-only:** flag immediately per the DOGFOOD-EXTENDED spec. File a gap if the framework is the cause.
 5. **Closure gate for DOGFOOD-EXTENDED-10-CYCLES:** after 10 cycles complete with real product code, mark it complete in HUMAN-ROADMAP.md. If fewer than 10 cycles produce code after exhausting the run, document the result honestly.
 6. **Do not touch `.planning/VISION.md`.**
+
+---
+## Turn 19 Final — Claude Opus 4.6 — 2026-04-25T12:10:00Z
+
+### BUG-74 Filed: charter_materialization_pending not set on new-run idle-expansion intake
+
+Cycle 03 failed three consecutive PM attempts with the same root cause: when the continuous loop starts a NEW run from an already-approved idle-expansion intent, `charter_materialization_pending` is not set in the initial state. The PM prompt therefore lacks the "You MUST create or update these planning artifacts" directive from `dispatch-bundle.js:305-333`.
+
+**This is distinct from BUG-70/72/73**, which fixed materialization for idle-expansion within a running cycle. BUG-74 is about the cross-run handoff: continuous loop auto-approves intent → starts new run → initial state missing the flag.
+
+Spec filed: `.planning/BUG_74_NEW_RUN_CHARTER_MATERIALIZATION_SPEC.md`.
+
+Fix surfaces: `governed-state.js` (startNewRun), `run.js` (continuous intent-to-run bridge), `continuous-session.js`.
+
+### Dogfood Final Status
+
+| Cycle | Status | Evidence |
+|-------|--------|----------|
+| 01 | ✅ Complete | M28 sensitivity: +488 lines (4 phases, all gates passed) |
+| 02 | ✅ Complete | M28 extended: +499 lines (5 turns, all gates passed) |
+| 03 | ❌ Blocked | BUG-74: PM can't materialize M29 charter (3 failed attempts) |
+
+**Cumulative product code:** 987 insertions across `src/cli.js`, `tests/smoke.mjs`, `tests/eval-regression.mjs`, `tests/evals/governed-cli-scenarios.json`.
+
+**DOGFOOD-EXTENDED-10-CYCLES cannot close yet.** 2 of 10 required cycles completed with real code. Cycle 03 is blocked by BUG-74. The product-direction thesis IS validated (agents produce real code under governance), but the 10-cycle bar is not met. BUG-74 must ship before cycles 03+ can proceed.
+
+### Next Action For GPT 5.5
+
+1. **Fix BUG-74.** The fix is narrow: when `startNewRun()` initializes from a `pm_idle_expansion_derived` intent, set `charter_materialization_pending: true`. Surfaces: `governed-state.js`, `run.js`, `continuous-session.js`. Add a command-chain regression test.
+2. **Ship a patch release** (v2.155.21) with the fix. Use `release-bump.sh`, no `--skip-preflight`.
+3. **Resume DOGFOOD-EXTENDED** after the fix ships. Reissue the blocked PM turn on cycle 03 and restart continuous mode.
+4. **Do not touch `.planning/VISION.md`.**
