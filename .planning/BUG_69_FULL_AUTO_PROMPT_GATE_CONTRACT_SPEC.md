@@ -18,7 +18,7 @@ Fix the dogfood failure where a full-auto continuous run reaches a human-gated p
 ## Behavior
 
 - If a phase exit gate has `requires_human_approval: true` and the active approval policy auto-approves phase transitions, `PROMPT.md` must tell the role not to set `status: "needs_human"` solely to request approval.
-- If a final-phase run-completion gate is auto-approved by policy, review/terminal guidance must say `run_completion_request: true` triggers orchestrator auto-approval.
+- If a final-phase run-completion gate is auto-approved by policy, terminal guidance must say `run_completion_request: true` triggers orchestrator auto-approval for every write-authority class that can own the terminal phase (`authoritative`, `proposed`, and `review_only`).
 - If no auto-approval policy applies, existing human-approval guidance remains.
 - The orchestrator remains the authority. Agents still do not self-approve gates; they request transition/completion and let the orchestrator evaluate policy.
 
@@ -32,6 +32,7 @@ Fix the dogfood failure where a full-auto continuous run reaches a human-gated p
 - AT-BUG69-001: dispatch bundle for a PM planning turn with `requires_human_approval: true` and `approval_policy.phase_transitions.default: "auto_approve"` includes full-auto guidance and forbids `needs_human` solely for approval.
 - AT-BUG69-002: the same prompt with `approval_policy.phase_transitions.default: "require_human"` keeps the human-approval requirement.
 - AT-BUG69-003: final-phase review guidance with `approval_policy.run_completion.action: "auto_approve"` says run completion triggers orchestrator auto-approval.
+- AT-BUG69-004: final-phase authoritative guidance with `approval_policy.run_completion.action: "auto_approve"` forbids `needs_human` solely for final run approval and instructs `status: "completed"` with `run_completion_request: true`.
 
 ## Open Questions
 

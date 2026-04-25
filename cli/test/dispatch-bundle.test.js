@@ -1690,6 +1690,64 @@ describe('dispatch bundle: full-auto approval prompt contract', () => {
     assert.match(prompt, /Do NOT use `status: "needs_human"` solely to request final approval/);
     assert.doesNotMatch(prompt, /This triggers the human approval gate/);
   });
+
+  it('AT-BUG69-004: final-phase authoritative prompt forbids human escalation for auto-approved run completion', () => {
+    config.roles.product_marketing = {
+      title: 'Product Marketing',
+      mandate: 'Prepare launch artifacts.',
+      write_authority: 'authoritative',
+      runtime_class: 'local_cli',
+      runtime_id: 'local-product-marketing',
+    };
+    config.runtimes['local-product-marketing'] = { type: 'local_cli' };
+    config.routing.launch = {
+      entry_role: 'product_marketing',
+      allowed_next_roles: ['product_marketing', 'human'],
+      exit_gate: 'launch_ready',
+    };
+    config.gates.launch_ready = {
+      requires_files: [
+        '.planning/MESSAGING.md',
+        '.planning/LAUNCH_PLAN.md',
+        '.planning/CONTENT_CALENDAR.md',
+        '.planning/ANNOUNCEMENT.md',
+      ],
+      requires_human_approval: true,
+    };
+    config.workflow_kit = {
+      phases: {
+        launch: {
+          artifacts: [
+            { path: '.planning/MESSAGING.md', required: true, owned_by: 'product_marketing' },
+            { path: '.planning/LAUNCH_PLAN.md', required: true, owned_by: 'product_marketing' },
+            { path: '.planning/CONTENT_CALENDAR.md', required: true, owned_by: 'product_marketing' },
+            { path: '.planning/ANNOUNCEMENT.md', required: true, owned_by: 'product_marketing' },
+          ],
+        },
+      },
+    };
+    config.approval_policy = {
+      phase_transitions: { default: 'auto_approve' },
+      run_completion: { action: 'auto_approve' },
+    };
+    initializeGovernedRun(root, config);
+    const rawState = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
+    rawState.phase = 'launch';
+    rawState.status = 'active';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(rawState, null, 2));
+
+    assignGovernedTurn(root, config, 'product_marketing');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /You are in the `launch` phase \(final phase\)/);
+    assert.match(prompt, /approval_policy\.run_completion\.action: "auto_approve"/);
+    assert.match(prompt, /Do NOT set `status: "needs_human"` solely to request final run approval/);
+    assert.match(prompt, /set `status: "completed"` with `run_completion_request: true`/);
+    assert.match(prompt, /orchestrator will evaluate and auto-approve completion/);
+  });
 });
 
 describe('dispatch bundle: BUG-70 charter materialization prompt', () => {

@@ -529,6 +529,12 @@ function renderPrompt(role, roleId, turn, state, config, root) {
       lines.push(`- **You are in the \`${currentPhase}\` phase.** When your work is complete${gateClause}, set \`phase_transition_request: "${nextPhase}"\` to advance to the next phase.`);
     } else if (phaseIdx === phaseNames.length - 1) {
       lines.push(`- **You are in the \`${currentPhase}\` phase (final phase).** When ready to ship, set \`run_completion_request: true\` and \`phase_transition_request: null\`.`);
+      if (runCompletionAutoApprovalApplies(config)) {
+        lines.push('- Run completion is governed by `approval_policy.run_completion.action: "auto_approve"` for this run.');
+        lines.push('- Do NOT set `status: "needs_human"` solely to request final run approval. If the required artifacts are complete and there are no genuine blockers, set `status: "completed"` with `run_completion_request: true`; the orchestrator will evaluate and auto-approve completion.');
+      } else {
+        lines.push('- If final approval is human-gated, set `run_completion_request: true` when ready; the orchestrator will route the approval gate.');
+      }
     }
   }
   // Phase-specific guidance for proposed roles
@@ -542,6 +548,12 @@ function renderPrompt(role, roleId, turn, state, config, root) {
       lines.push(`- **You are in the \`${currentPhase}\` phase (not final phase).** When your work is complete${gateClause}, set \`phase_transition_request: "${nextPhase}"\`.`);
     } else if (phaseIdx >= 0 && phaseIdx === phaseNames.length - 1) {
       lines.push(`- **You are in the \`${currentPhase}\` phase (final phase).** When ready to ship, set \`run_completion_request: true\` and \`phase_transition_request: null\`.`);
+      if (runCompletionAutoApprovalApplies(config)) {
+        lines.push('- Run completion is governed by `approval_policy.run_completion.action: "auto_approve"` for this run.');
+        lines.push('- Do NOT set `status: "needs_human"` solely to request final run approval. If the required artifacts are complete and there are no genuine blockers, set `status: "completed"` with `run_completion_request: true`; the orchestrator will evaluate and auto-approve completion.');
+      } else {
+        lines.push('- If final approval is human-gated, set `run_completion_request: true` when ready; the orchestrator will route the approval gate.');
+      }
       if (runtimeType === 'api_proxy' || runtimeType === 'remote_agent') {
         lines.push('- **Completion turns must be no-op:** set `proposed_changes` to `[]` or omit it, set `files_changed` to `[]`, and set `artifact.type` to `"review"`. Do NOT propose file changes on a completion turn.');
       }
