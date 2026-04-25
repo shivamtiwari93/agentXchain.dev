@@ -3,7 +3,7 @@
 > Ready-to-post LinkedIn company-page copy for the `v2.155.22` release once tester verification lands. Updated 2026-04-25 for BUG-75 stale idle-expansion recovery after upgrade.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/bug-70-charter-materialization.test.js cli/test/intake-start-context.test.js cli/test/dispatch-bundle.test.js -> 96 tests / 14 suites / 0 failures / 0 skipped (regression)
+> - node --test --test-timeout=60000 cli/test/bug-74-new-run-charter-materialization.test.js cli/test/bug-70-charter-materialization.test.js -> 17 tests / 2 suites / 0 failures / 0 skipped (regression)
 
 ---
 
