@@ -31,7 +31,7 @@ describe('AutoGen comparison claims', () => {
     );
     assert.match(
       VS_AUTOGEN,
-      /\| \*\*Human involvement\*\* \| `human_input_mode`, user agents, and A2A\/AG-UI human approval patterns \|/,
+      /\| \*\*Human involvement\*\* \| `human_input_mode` \(ALWAYS\/TERMINATE\/NEVER\), ManualPattern speaker selection, and AG-UI input-required flows \(beta\) \|/,
     );
     assert.match(
       VS_AUTOGEN,
@@ -43,11 +43,11 @@ describe('AutoGen comparison claims', () => {
     );
     assert.match(
       VS_AUTOGEN,
-      /\| \*\*Audit surface\*\* \| Conversation history, safeguard events, and OpenTelemetry tracing \|/,
+      /\| \*\*Audit surface\*\* \| Conversation history, safeguard events, and OpenTelemetry tracing \(beta\) with multi-backend export/,
     );
     assert.match(
       VS_AUTOGEN,
-      /AG2 can include humans and manual control, and it now provides guardrails\/safeguards, remote HITL, and tracing for flexible coordination\./,
+      /AG2 can include humans and manual control, and it now provides per-agent guardrails, system-wide safeguards, HITL patterns, and OpenTelemetry tracing \(beta\) for flexible coordination\./,
     );
   });
 
@@ -57,5 +57,31 @@ describe('AutoGen comparison claims', () => {
     assert.match(SPEC, /no built-in repository-delivery governance layer/i);
     assert.match(SPEC, /resume-from-history behavior/i);
     assert.match(SPEC, /AT-AUTOGEN-CLAIMS-004/);
+    assert.match(SPEC, /AT-AUTOGEN-CLAIMS-005/);
+  });
+
+  it('AT-AUTOGEN-CLAIMS-005: vs-autogen exposes official source links and last-checked date', () => {
+    assert.match(VS_AUTOGEN, /Source baseline/, 'AutoGen page must expose the source baseline on-page');
+    assert.match(VS_AUTOGEN, /Last checked: 2026-04/, 'AutoGen page must include a last-checked date');
+    // Docs home
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\//, 'Must link to AG2 docs home');
+    // Group chat introduction
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/user-guide\/advanced-concepts\/orchestration\/group-chat\/introduction\//, 'Must link to group chat intro');
+    // Patterns
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/user-guide\/advanced-concepts\/orchestration\/group-chat\/patterns/, 'Must link to patterns page');
+    // Handoffs
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/user-guide\/advanced-concepts\/orchestration\/group-chat\/handoffs/, 'Must link to handoffs page');
+    // Guardrails
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/user-guide\/advanced-concepts\/orchestration\/group-chat\/guardrails/, 'Must link to guardrails page');
+    // Safeguards
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/user-guide\/advanced-concepts\/orchestration\/group-chat\/safeguards/, 'Must link to safeguards page');
+    // Human-in-the-loop
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/user-guide\/basic-concepts\/human-in-the-loop/, 'Must link to HITL page');
+    // Swarm deprecation
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/user-guide\/advanced-concepts\/orchestration\/swarm\/deprecation/, 'Must link to swarm deprecation page');
+    // AG-UI (beta)
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/beta\/ag-ui/, 'Must link to AG-UI beta page');
+    // Telemetry (beta)
+    assert.match(VS_AUTOGEN, /https:\/\/docs\.ag2\.ai\/latest\/docs\/beta\/telemetry/, 'Must link to telemetry beta page');
   });
 });

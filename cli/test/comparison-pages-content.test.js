@@ -118,12 +118,16 @@ describe('comparison pages content', () => {
     assert.match(pages.autogen, /\| \*\*Governance posture\*\* \| App-defined safeguards and approval patterns; no built-in repository-delivery governance layer \|/);
     assert.match(pages.autogen, /\| \*\*Recovery posture\*\* \| Resume-from-history and app-managed conversation durability \|/);
     assert.match(pages.autogen, /\| \*\*Multi-repo posture\*\* \| No built-in cross-repo coordinator surface \|/);
-    assert.match(pages.autogen, /AutoPattern|RoundRobinPattern|ManualPattern|human_input_mode/i);
+    assert.match(pages.autogen, /DefaultPattern|AutoPattern|RoundRobinPattern|ManualPattern/i);
     assert.match(pages.autogen, /governed software delivery|auditable code convergence/i);
-    // AG2 has guardrails and A2A/AG-UI — page must acknowledge them
+    // AG2 has guardrails and safeguards — page must acknowledge both as distinct features
     assert.match(pages.autogen, /guardrail/i, 'AG2 page must acknowledge guardrails');
-    assert.match(pages.autogen, /A2A|AG-UI/i, 'AG2 page must acknowledge A2A or AG-UI protocol support');
-    assert.match(pages.autogen, /[Ss]warm/i, 'AG2 page must acknowledge Swarm-style orchestration');
+    assert.match(pages.autogen, /safeguard/i, 'AG2 page must acknowledge safeguards');
+    assert.match(pages.autogen, /AG-UI/i, 'AG2 page must acknowledge AG-UI protocol support');
+    assert.match(pages.autogen, /[Ss]warm/i, 'AG2 page must acknowledge Swarm (deprecated, merged into group chat)');
+    assert.match(pages.autogen, /Source baseline/, 'AG2 page must expose the source baseline on-page');
+    assert.match(pages.autogen, /https:\/\/docs\.ag2\.ai\/latest\/docs\/user-guide\/advanced-concepts\/orchestration\/group-chat\/guardrails/, 'AG2 page must link to official guardrails docs');
+    assert.match(pages.autogen, /https:\/\/docs\.ag2\.ai\/latest\/docs\/beta\/telemetry/, 'AG2 page must link to official telemetry docs');
   });
 
   it('keeps the Warp page honest about AI-native terminal framing', () => {

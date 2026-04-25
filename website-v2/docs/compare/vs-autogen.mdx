@@ -7,7 +7,7 @@ description: "AG2 / AutoGen is stronger for conversational orchestration pattern
 
 ## The short answer
 
-**Choose AG2 / AutoGen** if you need conversation-oriented orchestration patterns, handoffs, guardrails, Swarm-style orchestration, user agents, and flexible speaker-selection strategies across a broad agent system. AG2 also supports A2A and AG-UI protocols for cross-system agent interoperability.
+**Choose AG2 / AutoGen** if you need conversation-oriented orchestration patterns, handoffs, guardrails, safeguards, user agents, and flexible speaker-selection strategies across a broad agent system. AG2 also supports AG-UI (beta) for frontend-backend agent interaction and lists A2A as a priority standard in its beta roadmap.
 
 **Choose AgentXchain** if you need governed software delivery: mandatory challenge, explicit phase gates, append-only decision history, and constitutional human authority over a repository workflow.
 
@@ -18,22 +18,23 @@ AutoGen is also a branding trap if you compare it lazily. The current project is
 | | AG2 / AutoGen | AgentXchain |
 |---|---|---|
 | **Primary job** | Multi-agent conversation and orchestration patterns | Governed software delivery |
-| **Interaction model** | AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern, Swarm-style handoffs, custom routing | Role-based turns and governed phases |
-| **Quality controls** | Guardrails and safeguards on agent outputs; no mandatory cross-role challenge | Mandatory protocol-enforced challenge between roles |
+| **Interaction model** | DefaultPattern, AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern, handoff-based routing (Swarm merged into group chat from v0.9) | Role-based turns and governed phases |
+| **Quality controls** | Per-agent guardrails (input/output, regex and LLM-based) plus system-wide safeguards (policy-driven controls over inter-agent, agent-to-tool, agent-to-LLM, and user-to-agent channels); no mandatory cross-role challenge | Mandatory protocol-enforced challenge between roles |
 | **Governance posture** | App-defined safeguards and approval patterns; no built-in repository-delivery governance layer | Protocol-native role authority, objections, and gate enforcement |
-| **Human involvement** | `human_input_mode`, user agents, and A2A/AG-UI human approval patterns | Phase-transition and run-completion gates |
+| **Human involvement** | `human_input_mode` (ALWAYS/TERMINATE/NEVER), ManualPattern speaker selection, and AG-UI input-required flows (beta) | Phase-transition and run-completion gates |
 | **Recovery posture** | Resume-from-history and app-managed conversation durability | Turn recovery plus append-only delivery state |
-| **Interoperability** | A2A and AG-UI protocol support | Connector-based (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
+| **Interoperability** | AG-UI (beta) for frontend-backend agent interaction; A2A listed as a priority standard in the beta roadmap | Connector-based (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
 | **Multi-repo posture** | No built-in cross-repo coordinator surface | Coordinator-backed repo missions and barrier tracking |
-| **Audit surface** | Conversation history, safeguard events, and OpenTelemetry tracing | Append-only decision and objection ledgers |
+| **Audit surface** | Conversation history, safeguard events, and OpenTelemetry tracing (beta) with multi-backend export (Jaeger, Grafana Tempo, Datadog, Honeycomb, Langfuse) | Append-only decision and objection ledgers |
 | **Best fit** | Flexible agent conversations and workflows | Auditable code convergence |
 
 ## Choose AG2 / AutoGen when
 
 - You need flexible multi-agent conversation patterns out of the box.
 - You want richer built-in speaker-selection strategies than AgentXchain's governed runner surface.
-- You need guardrails on agent outputs or Swarm-style handoff orchestration.
-- You want cross-system agent interoperability via A2A or AG-UI protocols.
+- You need per-agent guardrails and system-wide safeguards on agent communication channels.
+- You want handoff-based orchestration with LLM-based, context-based, or explicit tool-based routing.
+- You want AG-UI for frontend-backend agent interaction or are tracking A2A interoperability.
 - Your problem is broader agent coordination, not governed code delivery.
 
 ## Choose AgentXchain when
@@ -49,6 +50,7 @@ AG2 is stronger at flexible conversation patterns. AgentXchain is stricter about
 
 ```python
 # AG2 / AutoGen-style framing: choose a conversation pattern
+# Five built-in patterns: Default, Auto, RoundRobin, Random, Manual
 team = RoundRobinPattern(
     agents=[pm_agent, dev_agent, qa_agent],
     human_input_mode="NEVER",
@@ -67,7 +69,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-AG2 can include humans and manual control, and it now provides guardrails/safeguards, remote HITL, and tracing for flexible coordination. What it does not provide by default is a repository-delivery constitution that forces disagreement, records objections in append-only ledgers, and blocks shipping until explicit gates are cleared.
+AG2 can include humans and manual control, and it now provides per-agent guardrails, system-wide safeguards, HITL patterns, and OpenTelemetry tracing (beta) for flexible coordination. What it does not provide by default is a repository-delivery constitution that forces disagreement, records objections in append-only ledgers, and blocks shipping until explicit gates are cleared.
 
 ## Using both together
 
@@ -76,7 +78,26 @@ Use AG2 / AutoGen when you need conversation-oriented orchestration patterns, th
 - AG2 / AutoGen for conversation patterns and orchestration
 - AgentXchain for governed delivery and auditability
 
+## Source baseline
+
+Last checked: 2026-04-25. Official AG2 sources used to verify the claims on this page:
+
+- [AG2 docs home](https://docs.ag2.ai/latest/)
+- [Group chat introduction](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/group-chat/introduction/) — orchestration overview and pattern index
+- [Patterns](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/group-chat/patterns) — DefaultPattern, AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern
+- [Handoffs](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/group-chat/handoffs) — LLM-based, context-based, after-work, and explicit tool-based handoffs
+- [Guardrails](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/group-chat/guardrails) — per-agent input/output guardrails (regex and LLM-based)
+- [Safeguards](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/group-chat/safeguards) — system-wide policy-based controls over inter-agent, agent-to-tool, agent-to-LLM, and user-to-agent channels
+- [Human-in-the-loop](https://docs.ag2.ai/latest/docs/user-guide/basic-concepts/human-in-the-loop) — `human_input_mode`, user proxy agents
+- [Swarm deprecation](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/swarm/deprecation) — Swarm merged into group chat from v0.9
+- [AG-UI (beta)](https://docs.ag2.ai/latest/docs/beta/ag-ui) — AGUIStream for frontend-backend agent interaction
+- [Telemetry (beta)](https://docs.ag2.ai/latest/docs/beta/telemetry) — OpenTelemetry spans with multi-backend export (Jaeger, Grafana Tempo, Datadog, Honeycomb, Langfuse)
+
+If any of these links are stale or the AG2 docs have changed, please [let us know](https://github.com/shivamtiwari93/agentXchain.dev/issues).
+
 ## Verify the claims
+
+Check the AG2 sources above first, then verify the AgentXchain side:
 
 - Read the [Quickstart](/docs/quickstart) for the actual governed operator loop.
 - Read the [Protocol](/docs/protocol) for turns, objections, and human-controlled gates.

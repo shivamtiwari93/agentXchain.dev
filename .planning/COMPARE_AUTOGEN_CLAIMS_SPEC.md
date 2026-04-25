@@ -36,6 +36,13 @@ Freeze the public comparison contract for how AgentXchain describes AG2 / AutoGe
 3. `AT-AUTOGEN-CLAIMS-003`: `node --test cli/test/compare-autogen-claims.test.js` passes.
 4. `AT-AUTOGEN-CLAIMS-004`: `cd website-v2 && npm run build` succeeds after the comparison copy changes.
 
+## Sourcing Behavior
+
+- Public competitor claims must include official source links and a last-checked date.
+- The comparison page must expose a `Source baseline` section linking to official AG2 documentation pages.
+- `AT-AUTOGEN-CLAIMS-005`: the AutoGen comparison must expose official source links for docs home, group chat introduction, patterns, handoffs, guardrails, safeguards, human-in-the-loop, swarm deprecation, AG-UI (beta), and telemetry (beta).
+
 ## Open Questions
 
 - If AG2 later ships first-class repository governance or a built-in cross-repo coordinator surface, this comparison should narrow again to the exact remaining boundary instead of holding onto older negative shorthand.
+- Swarm is deprecated in v0.9 and merged into group chat. If AG2 removes the deprecation page or renames the concept, update links accordingly.
