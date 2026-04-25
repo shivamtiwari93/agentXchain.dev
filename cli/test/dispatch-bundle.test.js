@@ -1622,3 +1622,72 @@ describe('dispatch bundle: dev role code-production directive', () => {
     assert.doesNotMatch(prompt, /Implementation Phase: Code Production Required/);
   });
 });
+
+describe('dispatch bundle: full-auto approval prompt contract', () => {
+  let root;
+  let config;
+
+  beforeEach(() => {
+    root = makeTmpDir();
+    config = makeNormalizedConfig();
+    scaffoldGoverned(root, 'test-project');
+  });
+
+  afterEach(() => {
+    try { rmSync(root, { recursive: true, force: true }); } catch {}
+  });
+
+  it('AT-BUG69-001: PROMPT.md tells PM not to request humans solely for auto-approved phase gates', () => {
+    config.approval_policy = {
+      phase_transitions: { default: 'auto_approve' },
+      run_completion: { action: 'auto_approve' },
+    };
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /approval_policy\.phase_transitions\.default` is `auto_approve`/);
+    assert.match(prompt, /Do NOT set `status: "needs_human"` solely to request phase-gate approval/);
+    assert.match(prompt, /the orchestrator will evaluate and auto-approve the gate/);
+  });
+
+  it('AT-BUG69-002: PROMPT.md keeps human-approval language when policy requires humans', () => {
+    config.approval_policy = {
+      phase_transitions: { default: 'require_human' },
+      run_completion: { action: 'require_human' },
+    };
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /- Requires human approval/);
+    assert.doesNotMatch(prompt, /Do NOT set `status: "needs_human"` solely to request phase-gate approval/);
+  });
+
+  it('AT-BUG69-003: final-phase review prompt names run-completion auto-approval', () => {
+    config.approval_policy = {
+      phase_transitions: { default: 'auto_approve' },
+      run_completion: { action: 'auto_approve' },
+    };
+    initializeGovernedRun(root, config);
+    const state0 = readJson(root, STATE_PATH);
+    state0.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state0, null, 2));
+
+    assignGovernedTurn(root, config, 'qa');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /triggers orchestrator run-completion evaluation and auto-approval/);
+    assert.match(prompt, /Do NOT use `status: "needs_human"` solely to request final approval/);
+    assert.doesNotMatch(prompt, /This triggers the human approval gate/);
+  });
+});

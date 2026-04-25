@@ -51,6 +51,14 @@ const RESERVED_PATHS = [
   '.agentxchain/lock.json',
 ];
 
+function phaseTransitionAutoApprovalApplies(config) {
+  return config?.approval_policy?.phase_transitions?.default === 'auto_approve';
+}
+
+function runCompletionAutoApprovalApplies(config) {
+  return config?.approval_policy?.run_completion?.action === 'auto_approve';
+}
+
 /**
  * Write a dispatch bundle for the currently assigned turn.
  *
@@ -334,7 +342,10 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     if (gateConfig.requires_verification_pass) {
       lines.push('- Requires verification pass');
     }
-    if (gateConfig.requires_human_approval) {
+    if (gateConfig.requires_human_approval && phaseTransitionAutoApprovalApplies(config)) {
+      lines.push('- Requires approval, but `approval_policy.phase_transitions.default` is `auto_approve` for this run.');
+      lines.push('- Do NOT set `status: "needs_human"` solely to request phase-gate approval. If the required artifacts are complete, set the appropriate `phase_transition_request`; the orchestrator will evaluate and auto-approve the gate.');
+    } else if (gateConfig.requires_human_approval) {
       lines.push('- Requires human approval');
     }
     lines.push('');
@@ -512,7 +523,12 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     const isTerminal = currentPhase && phaseNames.indexOf(currentPhase) === phaseNames.length - 1;
     if (isTerminal) {
       lines.push(`- **You are in the \`${currentPhase}\` phase (final phase).**`);
-      lines.push('- **If your review verdict is ship-ready (no blocking issues):** set `run_completion_request: true` and `status: "completed"`. This triggers the human approval gate — it does NOT bypass human review.');
+      if (runCompletionAutoApprovalApplies(config)) {
+        lines.push('- **If your review verdict is ship-ready (no blocking issues):** set `run_completion_request: true` and `status: "completed"`. This triggers orchestrator run-completion evaluation and auto-approval under `approval_policy.run_completion.action: "auto_approve"`.');
+        lines.push('- Do NOT use `status: "needs_human"` solely to request final approval when the approval policy is auto-approve. Use `needs_human` only for genuine blockers.');
+      } else {
+        lines.push('- **If your review verdict is ship-ready (no blocking issues):** set `run_completion_request: true` and `status: "completed"`. This triggers the human approval gate — it does NOT bypass human review.');
+      }
       lines.push('- **If you found genuine blocking issues that prevent shipping:** set `status: "needs_human"` and explain the blockers in `needs_human_reason`.');
       lines.push('- Do NOT use `status: "needs_human"` to mean "human should approve the release." That is what `run_completion_request: true` is for.');
       lines.push('- Do NOT set `phase_transition_request` to the exit gate name.');
