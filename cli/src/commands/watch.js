@@ -11,12 +11,18 @@ import { notifyHuman as sendNotification } from '../lib/notify.js';
 import { validateProject } from '../lib/validation.js';
 import { resolveNextAgent, resolveExpectedClaimer } from '../lib/next-owner.js';
 import { requireIntakeWorkspaceOrExit } from './intake-workspace.js';
+import { startWebhookListener } from '../lib/watch-listener.js';
 
 const PID_FILE = '.agentxchain-watch.pid';
 
 export async function watchCommand(opts) {
   if (opts.results || opts.result) {
     listOrShowWatchResults(opts);
+    return;
+  }
+
+  if (opts.listen) {
+    await listenWebhook(opts);
     return;
   }
 
@@ -309,6 +315,99 @@ function parsePollMs(value) {
   const seconds = Number(value);
   if (!Number.isFinite(seconds) || seconds <= 0) return 5000;
   return Math.max(100, Math.round(seconds * 1000));
+}
+
+async function listenWebhook(opts) {
+  // Mutual exclusion checks
+  const incompatible = [
+    opts.eventFile && '--event-file',
+    opts.eventDir && '--event-dir',
+    opts.daemon && '--daemon',
+    (opts.results || opts.result) && '--results/--result',
+  ].filter(Boolean);
+
+  if (incompatible.length > 0) {
+    const message = `--listen cannot be combined with ${incompatible.join(', ')}`;
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: false, error: message }, null, 2));
+    } else {
+      console.log(chalk.red(`  ${message}`));
+    }
+    process.exit(1);
+  }
+
+  const root = requireIntakeWorkspaceOrExit(opts);
+  const port = parseInt(opts.listen, 10);
+  if (!Number.isFinite(port) || port < 1 || port > 65535) {
+    const message = `invalid port: ${opts.listen}`;
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: false, error: message }, null, 2));
+    } else {
+      console.log(chalk.red(`  ${message}`));
+    }
+    process.exit(1);
+  }
+
+  // Resolve webhook secret: CLI flag > env var > config
+  let secret = opts.webhookSecret || null;
+  if (!secret && process.env.AGENTXCHAIN_WEBHOOK_SECRET) {
+    secret = process.env.AGENTXCHAIN_WEBHOOK_SECRET;
+  }
+  if (!secret) {
+    try {
+      const rawConfig = JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8'));
+      secret = rawConfig?.watch?.webhook_secret || null;
+    } catch {}
+  }
+
+  const allowUnsigned = opts.allowUnsigned === true;
+  const host = opts.listenHost || '127.0.0.1';
+
+  try {
+    const server = await startWebhookListener({
+      root,
+      port,
+      host,
+      secret,
+      allowUnsigned,
+      dryRun: opts.dryRun === true,
+      onReady: ({ port: boundPort, host: boundHost }) => {
+        writePidFile(root);
+        console.log('');
+        console.log(chalk.bold('  AgentXchain Webhook Listener'));
+        console.log(chalk.dim(`  Listening: http://${boundHost}:${boundPort}`));
+        console.log(chalk.dim(`  Webhook:   POST /webhook`));
+        console.log(chalk.dim(`  Health:    GET  /health`));
+        console.log(chalk.dim(`  Secret:    ${secret ? 'configured' : allowUnsigned ? 'none (unsigned allowed)' : 'REQUIRED but missing — POST /webhook will return 403'}`));
+        if (opts.dryRun) console.log(chalk.yellow('  Dry-run:   events will NOT be persisted'));
+        console.log('');
+        console.log(chalk.cyan('  Waiting for webhook deliveries... (Ctrl+C to stop)'));
+        console.log('');
+      },
+    });
+
+    const cleanup = () => {
+      server.close();
+      removePidFile(root);
+      console.log('');
+      log('stop', 'Webhook listener stopped.');
+      process.exit(0);
+    };
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+  } catch (err) {
+    if (err.code === 'EADDRINUSE') {
+      const message = `port ${port} is already in use`;
+      if (opts.json) {
+        console.log(JSON.stringify({ ok: false, error: message }, null, 2));
+      } else {
+        console.log(chalk.red(`  ${message}`));
+      }
+    } else {
+      console.log(chalk.red(`  failed to start listener: ${err.message}`));
+    }
+    process.exit(1);
+  }
 }
 
 async function ingestWatchEvent(opts) {

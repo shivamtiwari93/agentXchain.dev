@@ -422,9 +422,111 @@ New CLI options:
 
 ---
 
+## Slice 8: HTTP Webhook Listener (`watch --listen <port>`)
+
+### Purpose
+
+Slices 1-7 require events to arrive as files on disk — either dropped manually, piped from CI, or polled from a directory. The primary real-world adoption scenario for governed event intake is GitHub Actions → webhook → AgentXchain. `watch --listen` closes this gap by running a local HTTP server that receives webhook payloads, verifies GitHub HMAC-SHA256 signatures, and feeds them through the existing `normalizeWatchEvent` → `recordEvent` → route → result pipeline.
+
+This is the path toward the VISION's "dark software factory" responding to real events without file-drop intermediaries.
+
+### Interface
+
+New CLI options:
+
+- `agentxchain watch --listen <port>` — start an HTTP webhook listener on the given port
+- `agentxchain watch --listen <port> --listen-host <host>` — bind to a specific host (default: `127.0.0.1`)
+- `agentxchain watch --listen <port> --webhook-secret <secret>` — HMAC-SHA256 secret for signature verification
+- `agentxchain watch --listen <port> --allow-unsigned` — accept payloads without signature verification (local dev only)
+
+The webhook secret can also be provided via:
+1. `AGENTXCHAIN_WEBHOOK_SECRET` environment variable
+2. `watch.webhook_secret` field in `agentxchain.json`
+3. `--webhook-secret` CLI flag (highest precedence)
+
+### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/health` | Health check. Returns `{ ok: true, version, uptime_ms, events_processed }`. |
+| `POST` | `/webhook` | Receive a webhook payload. Verifies signature, normalizes, records, routes. Returns the watch result. |
+
+All other methods/paths return `405 Method Not Allowed` or `404 Not Found`.
+
+### Request Validation (`POST /webhook`)
+
+1. **Content-Type** must be `application/json`. Otherwise `415 Unsupported Media Type`.
+2. **Body size** capped at 1 MB (`1_048_576` bytes). Larger payloads receive `413 Payload Too Large` and the connection is destroyed.
+3. **JSON parse** — malformed JSON returns `400 Bad Request` with `{ ok: false, error: "invalid JSON" }`.
+4. **Signature verification** (when a webhook secret is configured):
+   - Read `X-Hub-Signature-256` header.
+   - Compute `sha256=<hex HMAC of raw body>` using the configured secret.
+   - Constant-time comparison. Mismatch returns `401 Unauthorized` with `{ ok: false, error: "signature verification failed" }`.
+   - Missing header when a secret is configured returns `401`.
+5. **No secret configured and `--allow-unsigned` not set** → `403 Forbidden` with `{ ok: false, error: "webhook secret required" }`. The listener refuses to operate as an unauthenticated intake surface by default.
+6. **GitHub event type** read from `X-GitHub-Event` header. If missing, the payload must self-describe via the envelope format (`{ provider, event, payload }`). If neither is present and the event cannot be inferred, return `422 Unprocessable Entity`.
+7. **Delivery ID** read from `X-GitHub-Delivery` header (informational, logged in the watch result).
+
+### Behavior
+
+- The listener runs in the foreground by default. `--daemon` + `--listen` is invalid (same pattern as `--daemon` + `--event-file`).
+- On startup, prints bound address and port.
+- Writes the watch PID file (existing pattern).
+- Each valid webhook delivery is processed through the full pipeline:
+  1. Construct envelope: `{ provider: "github", event: <X-GitHub-Event>, ...parsedBody }` (or use body as-is if already enveloped).
+  2. `normalizeWatchEvent(envelope)` — normalize.
+  3. `recordEvent(root, payload)` — record event and create intent.
+  4. `resolveWatchRoute()` + triage + approve + auto-start — route (existing logic from `ingestWatchEvent`).
+  5. `writeWatchResult()` — persist durable result.
+- Response body is the watch result JSON: `{ ok: true, result_id, event_id, intent_id, intent_status, deduplicated, route }`.
+- Pipeline errors (unsupported event shape, intake record failure) return `422` with `{ ok: false, error }`.
+- Server errors return `500` with `{ ok: false, error: "internal error" }` (no stack traces in response).
+- Graceful shutdown on `SIGINT` / `SIGTERM`: stop accepting connections, close the server, remove PID file.
+
+### Mutual Exclusion
+
+| Flag combination | Result |
+|------------------|--------|
+| `--listen` + `--event-file` | Error: incompatible (listen is long-running, event-file is single-shot) |
+| `--listen` + `--event-dir` | Error: incompatible (both are long-running intake surfaces with different transports) |
+| `--listen` + `--daemon` | Error: incompatible (daemon spawns a background child; listen runs foreground) |
+| `--listen` + `--results` / `--result` | Error: incompatible (inspection is read-only, listen is a server) |
+| `--listen` + `--dry-run` | Allowed: server starts but does not persist events or write results. Returns the normalized payload in the response. |
+
+### Error Cases
+
+- Port already in use → exit non-zero with `EADDRINUSE` message.
+- No `agentxchain.json` → exit non-zero (same as other intake commands).
+- Secret configured but `X-Hub-Signature-256` missing → `401`.
+- Secret configured but signature mismatch → `401`.
+- No secret configured and no `--allow-unsigned` → `403` on every POST.
+- Oversized body → `413`, connection destroyed.
+- Non-JSON content type → `415`.
+- Unsupported event shape after normalization → `422`.
+- `recordEvent()` failure → `422` with error detail.
+
+### Acceptance Tests (Slice 8)
+
+- AT-WATCH-LISTEN-001: `POST /webhook` with valid signed GitHub PR event returns `200` with `{ ok: true, result_id, event_id, intent_id }`. Watch result file is written to disk.
+- AT-WATCH-LISTEN-002: `POST /webhook` with invalid HMAC signature returns `401`. No event is recorded.
+- AT-WATCH-LISTEN-003: `POST /webhook` with missing `X-Hub-Signature-256` header when secret is configured returns `401`.
+- AT-WATCH-LISTEN-004: `POST /webhook` with no secret configured and no `--allow-unsigned` returns `403`.
+- AT-WATCH-LISTEN-005: `POST /webhook` with `--allow-unsigned` and no secret accepts unsigned payloads.
+- AT-WATCH-LISTEN-006: `POST /webhook` with oversized body (>1 MB) returns `413`.
+- AT-WATCH-LISTEN-007: `POST /webhook` with malformed JSON returns `400`.
+- AT-WATCH-LISTEN-008: `POST /webhook` with non-JSON content type returns `415`.
+- AT-WATCH-LISTEN-009: `GET /health` returns `{ ok: true, version, uptime_ms, events_processed }`.
+- AT-WATCH-LISTEN-010: `POST /webhook` with `--dry-run` returns normalized payload but does not write result file or intake files.
+- AT-WATCH-LISTEN-011: Route matching works — routed event with `auto_approve` returns `route.approved: true` in response.
+- AT-WATCH-LISTEN-012: `X-GitHub-Event` header is used to construct the event envelope when the body is a raw GitHub payload.
+- AT-WATCH-LISTEN-013: Unsupported event shape returns `422` with error message naming supported event classes.
+- AT-WATCH-LISTEN-014: `--listen` combined with `--event-file` exits non-zero.
+
+---
+
 ## Open Questions
 
-- Should the later webhook server live in the CLI process (`agentxchain watch --listen`) or as a separate hosted/CI runner?
+- ~~Should the later webhook server live in the CLI process (`agentxchain watch --listen`) or as a separate hosted/CI runner?~~ **Resolved: `watch --listen <port>` runs in the CLI process (DEC-WATCH-LISTEN-IN-PROCESS-001). A hosted runner is a future `.ai` concern.**
 - ~~Should event-to-role routing be configured under `watch.routes` or reuse existing intake triage templates?~~ **Resolved: `watch.routes` in `agentxchain.json` (DEC-WATCH-ROUTES-CONFIG-001).**
 - Should PR comments be emitted by AgentXchain directly or left to GitHub Actions wrappers consuming JSON output?
 - Should GitHub be the only first-class provider for the second slice, or should generic CloudEvents be normalized first?
