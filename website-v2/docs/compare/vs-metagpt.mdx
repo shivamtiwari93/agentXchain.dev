@@ -20,22 +20,23 @@ Both products assign agents to software roles. The difference is framework vs pr
 | **Primary job** | Multi-agent framework for SOP-driven software-company flows, specialist agents, and hosted app building | Governed software delivery protocol |
 | **Agent roles** | Software-company defaults plus custom roles and specialist agents like Data Interpreter and Researcher | Arbitrary: any chartered role with any mandate |
 | **Governance posture** | Standard Operating Procedures (SOPs), environment/message abstractions, and app-defined coordination; no built-in delivery-governance protocol | Protocol-enforced turns, objections, phase gates, decision ledger |
-| **Workflow shape** | SOP-driven team rounds, specialist-agent loops, and hosted app-building flows | Structured turns with mandatory challenge at every phase |
-| **Human authority** | Prompt/chat guidance plus flow-specific review, redo, or approval loops | Constitutional authority at planning, phase transitions, and completion |
+| **Workflow shape** | SOP-driven team rounds with publish-subscribe coordination (`_watch`/`cause_by`, Environment as message broker), specialist-agent loops, and hosted app-building flows | Structured turns with mandatory challenge at every phase |
+| **Human authority** | `is_human=True` converts any role to human-controlled with terminal input; process pauses for human response; hosted Atoms adds app-specific approvals | Constitutional authority at planning, phase transitions, and completion |
 | **Cross-role challenge** | Agents follow SOPs; challenge is implicit in sequential review | Mandatory — roles must challenge each other structurally; challenge is a protocol requirement |
 | **Decision trail** | Artifacts, memories, and framework/app-defined state | Append-only decision ledger with objections, evidence, and resolution |
-| **Recovery posture** | Serialization/breakpoint recovery plus flow-specific redo/resume | Governed blocked-state recovery, escalation, resume |
+| **Recovery posture** | Serialization/breakpoint recovery via `team.json` state and `--recover_path`; resumes from exact action index; incremental development via `--project-path` | Governed blocked-state recovery, escalation, resume |
 | **Multi-repo posture** | No built-in cross-repo coordinator surface | Coordinator-backed repo missions and barrier tracking |
 | **Hosted product** | Atoms (formerly MGX / MetaGPT X) for hosted app building and deployment | Open-source self-hosted core + `agentxchain.ai` managed-cloud early access |
 | **Long-horizon execution** | Better for framework-owned generation, research, and app-building flows than repo-delivery governance | Optimized for sustained multi-turn delivery with drift recovery |
-| **Best fit** | Greenfield code generation from requirements | Auditable, governed convergence on shippable software over time |
+| **Best fit** | Code generation from requirements plus incremental development on existing projects via `--project-path` | Auditable, governed convergence on shippable software over time |
 
 ## Choose MetaGPT when
 
-- You want to generate a complete codebase from a single requirement using a structured multi-agent pipeline.
+- You want to generate a codebase from requirements or iterate on an existing project via `--project-path` incremental development.
 - The SOP-driven pipeline and specialized agents like Data Interpreter or Researcher match your workflow better than a repo-delivery protocol.
-- You want a well-researched framework backed by the MetaGPT paper (ICLR 2024) plus follow-on DeepWisdom/FoundationAgents work like AFlow (ICLR 2025 oral).
+- You want a well-researched framework backed by the MetaGPT paper (ICLR 2024) plus follow-on DeepWisdom/FoundationAgents work like AFlow (ICLR 2025 oral, top 1.8%).
 - Your primary goal is framework-owned generation and app-building speed rather than repository governance.
+- You want human-in-the-loop via `is_human=True` role conversion — any role can become human-controlled with terminal input.
 - You want a hosted product like Atoms (formerly MGX / MetaGPT X at `mgx.dev`, now `atoms.dev`) without self-hosting.
 
 ## Choose AgentXchain when
@@ -72,7 +73,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-MetaGPT's pipeline produces artifacts quickly, and it now extends beyond the original software-company framing with custom-role APIs, Team/Environment patterns, Data Interpreter, Researcher, breakpoint recovery, and the hosted Atoms product. What it still does not provide is arbitrary repo-delivery chartering, mandatory cross-role challenge as a protocol requirement, constitutional human authority at phase boundaries, or an append-only delivery decision ledger.
+MetaGPT's pipeline produces artifacts quickly, and it now extends beyond the original software-company framing with custom-role APIs, Team/Environment patterns, publish-subscribe agent communication, Data Interpreter, Researcher, `is_human=True` HITL, `--recover_path` breakpoint recovery, `--project-path` incremental development, and the hosted Atoms product. What it still does not provide is arbitrary repo-delivery chartering, mandatory cross-role challenge as a protocol requirement, constitutional human authority at phase boundaries, or an append-only delivery decision ledger.
 
 ## The honest overlap
 
@@ -82,7 +83,7 @@ The differences are:
 - **Protocol vs framework**: AgentXchain defines a constitutional governance protocol. MetaGPT provides a framework with built-in SOPs.
 - **Arbitrary roles vs framework-defined defaults**: AgentXchain supports any chartered role. MetaGPT ships software-company defaults, specialist agents, and custom role APIs inside the framework.
 - **Delivery governance vs app-owned orchestration**: AgentXchain governs sustained repository delivery with explicit gates. MetaGPT gives you framework primitives and hosted product flows, but the delivery constitution stays outside the framework.
-- **Constitutional authority vs flow-specific oversight**: In AgentXchain, human authority is part of the protocol. In MetaGPT, human involvement happens through app-specific chat, review, or approval loops.
+- **Constitutional authority vs role-level HITL**: In AgentXchain, human authority is part of the protocol at defined phase boundaries. In MetaGPT, `is_human=True` converts any role to human-controlled with terminal input — powerful for role-level oversight but not a constitutional delivery boundary.
 - **Challenge as requirement vs challenge as side-effect**: In AgentXchain, challenge is mandatory and protocol-enforced. In MetaGPT, review happens as part of the SOP sequence.
 
 ## Using both together
@@ -91,7 +92,25 @@ MetaGPT's generation pipeline could operate as an executor within an AgentXchain
 
 This layering would combine MetaGPT's efficient SOP-driven generation with AgentXchain's long-horizon governance and human authority model.
 
+## Source baseline
+
+All MetaGPT claims on this page were checked against official sources on **2026-04-25**. If MetaGPT's product or documentation has changed since then, please verify before relying on this comparison.
+
+Official MetaGPT sources used:
+- [GitHub README](https://github.com/FoundationAgents/MetaGPT) — framework overview, role system, specialist agents, multi-provider support
+- [Documentation home](https://docs.deepwisdom.ai/main/en/) — full docs structure including tutorials, use cases, in-depth guides
+- [Concepts](https://docs.deepwisdom.ai/main/en/guide/tutorials/concepts.html) — core abstractions: Role, Action, Message, Environment, Team, Memory
+- [MultiAgent 101](https://docs.deepwisdom.ai/main/en/guide/tutorials/multi_agent_101.html) — custom roles, Team/Environment, `_watch` mechanism, SOP coordination
+- [Human engagement](https://docs.deepwisdom.ai/main/en/guide/tutorials/human_engagement.html) — `is_human=True` role conversion, terminal-input HITL
+- [Agent communication](https://docs.deepwisdom.ai/main/en/guide/in_depth_guides/agent_communication.html) — publish-subscribe message passing, Environment as broker
+- [Serialization & breakpoint recovery](https://docs.deepwisdom.ai/main/en/guide/in_depth_guides/breakpoint_recovery.html) — `team.json` state, `--recover_path`, action-index resume
+- [Incremental development](https://docs.deepwisdom.ai/main/en/guide/in_depth_guides/incremental_development.html) — `--project-path` for iterating on existing codebases
+- [Data Interpreter](https://docs.deepwisdom.ai/main/en/guide/use_cases/agent/interpreter/solve_mathematical_problems.html) — specialist agent for data analysis, ML, and math
+- [Researcher](https://docs.deepwisdom.ai/main/en/guide/use_cases/agent/researcher.html) — specialist agent for web research and report generation
+- [Atoms hosted product](https://atoms.dev/) — hosted app-building surface (formerly MGX / MetaGPT X)
+
 ## Verify the claims
 
+- Check the MetaGPT sources above before relying on this comparison.
 - Read the [Quickstart](/docs/quickstart) for the governed operator loop.
 - Read the [Protocol](/docs/protocol) for turns, objections, gates, and constitutional human authority.

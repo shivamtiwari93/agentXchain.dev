@@ -44,7 +44,7 @@ describe('MetaGPT comparison claims', () => {
 
   it('AT-METAGPT-CLAIMS-003: keeps research and hosted-product naming current', () => {
     assert.match(VS_METAGPT, /MetaGPT paper \(ICLR 2024\)/);
-    assert.match(VS_METAGPT, /AFlow \(ICLR 2025 oral\)/);
+    assert.match(VS_METAGPT, /AFlow \(ICLR 2025 oral/);
     assert.doesNotMatch(VS_METAGPT, /ICLR 2025 oral paper and the DeepWisdom team/);
     assert.doesNotMatch(VS_METAGPT, /MGX at mgx\.dev/);
   });
@@ -58,5 +58,32 @@ describe('MetaGPT comparison claims', () => {
     assert.match(MATRIX, /\| \*\*MetaGPT\*\* \|/);
     assert.match(MATRIX, /customizable role\/team\/environment patterns|custom roles|Environment/i);
     assert.match(MATRIX, /Atoms/i);
+  });
+
+  it('AT-METAGPT-CLAIMS-005: public page exposes official source links and last-checked date', () => {
+    assert.match(VS_METAGPT, /Source baseline/, 'page must have Source baseline section');
+    assert.match(VS_METAGPT, /2026-04-25/, 'page must have last-checked date');
+    // GitHub README
+    assert.match(VS_METAGPT, /https:\/\/github\.com\/FoundationAgents\/MetaGPT/, 'must link to GitHub README');
+    // Docs home
+    assert.match(VS_METAGPT, /https:\/\/docs\.deepwisdom\.ai\/main\/en\//, 'must link to docs home');
+    // MultiAgent 101
+    assert.match(VS_METAGPT, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/tutorials\/multi_agent_101/, 'must link to MultiAgent 101');
+    // Human engagement
+    assert.match(VS_METAGPT, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/tutorials\/human_engagement/, 'must link to human engagement docs');
+    // Agent communication
+    assert.match(VS_METAGPT, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/in_depth_guides\/agent_communication/, 'must link to agent communication docs');
+    // Breakpoint recovery
+    assert.match(VS_METAGPT, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/in_depth_guides\/breakpoint_recovery/, 'must link to breakpoint recovery docs');
+    // Incremental development
+    assert.match(VS_METAGPT, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/in_depth_guides\/incremental_development/, 'must link to incremental development docs');
+    // Data Interpreter
+    assert.match(VS_METAGPT, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/use_cases\/agent\/interpreter/, 'must link to Data Interpreter docs');
+    // Researcher
+    assert.match(VS_METAGPT, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/use_cases\/agent\/researcher/, 'must link to Researcher docs');
+    // Atoms
+    assert.match(VS_METAGPT, /https:\/\/atoms\.dev\//, 'must link to Atoms hosted product');
+    // Spec must reference the source-link acceptance test
+    assert.match(SPEC, /AT-METAGPT-CLAIMS-005/, 'spec must reference AT-METAGPT-CLAIMS-005');
   });
 });

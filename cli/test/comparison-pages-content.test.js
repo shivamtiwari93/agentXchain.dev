@@ -159,6 +159,9 @@ describe('comparison pages content', () => {
     assert.match(pages.metagpt, /breakpoint recovery|Serialization/i, 'MetaGPT page must acknowledge scoped recovery rather than restart-only phrasing');
     assert.match(pages.metagpt, /governed software delivery|delivery protocol/i);
     assert.match(pages.metagpt, /honest overlap|overlap/i, 'MetaGPT page must honestly acknowledge category overlap');
+    assert.match(pages.metagpt, /Source baseline/, 'MetaGPT page must expose the source baseline on-page');
+    assert.match(pages.metagpt, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/tutorials\/human_engagement/, 'MetaGPT page must link to official human engagement docs');
+    assert.match(pages.metagpt, /https:\/\/docs\.deepwisdom\.ai\/main\/en\/guide\/in_depth_guides\/incremental_development/, 'MetaGPT page must link to official incremental development docs');
   });
 
   it('keeps the Codegen page honest about enterprise agent platform framing', () => {

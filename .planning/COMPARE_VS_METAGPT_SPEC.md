@@ -17,11 +17,16 @@ MetaGPT is the closest philosophical competitor because it also uses structured 
 - Frame MetaGPT as a multi-agent framework with:
   - software-company SOPs
   - custom team and environment abstractions
+  - publish-subscribe agent communication (`_watch`/`cause_by`, Environment as message broker)
   - specialist agents such as Data Interpreter and Researcher
-  - memories plus serialization / breakpoint recovery
+  - `is_human=True` HITL role conversion with terminal input
+  - memories plus serialization / breakpoint recovery (`team.json` state, `--recover_path`, action-index resume)
+  - incremental development via `--project-path` for iterating on existing codebases
   - the hosted Atoms product (formerly MGX / MetaGPT X)
 - Do not collapse MetaGPT into a frozen `PM/Architect/Engineer/QA only` story. The page must acknowledge framework extensibility and current product breadth.
+- Do not reduce MetaGPT to "greenfield-only generation." The `--project-path` incremental development feature enables iterating on existing projects with new requirements and bug fixes.
 - Do not conflate the MetaGPT paper with later DeepWisdom/FoundationAgents research. The comparison may cite MetaGPT (ICLR 2024) and AFlow (ICLR 2025 oral), but it must not falsely imply that `MetaGPT itself is the ICLR 2025 oral paper`.
+- Public comparison page must include a `Source baseline` section with official MetaGPT source links and a last-checked date, following the pattern established for CrewAI, LangGraph, OpenAI Agents SDK, AG2, and Devin comparisons.
 - Frame AgentXchain as a protocol-first governed delivery system. The durable contrast is:
   - arbitrary chartered roles
   - mandatory cross-role challenge
@@ -47,7 +52,8 @@ MetaGPT is the closest philosophical competitor because it also uses structured 
 2. `AT-METAGPT-CLAIMS-002`: the page acknowledges serialization / breakpoint recovery or equivalent scoped recovery wording; it must not say recovery is restart-only.
 3. `AT-METAGPT-CLAIMS-003`: the page distinguishes MetaGPT (ICLR 2024) from AFlow (ICLR 2025 oral) instead of collapsing them into one stale claim.
 4. `AT-METAGPT-CLAIMS-004`: the page keeps the contrast on missing repository-delivery governance, mandatory challenge, explicit phase gates, and append-only delivery decisions.
-5. `AT-METAGPT-CLAIMS-005`: `cd website-v2 && npm run build` succeeds.
+5. `AT-METAGPT-CLAIMS-005`: the public comparison page exposes official MetaGPT source links (GitHub README, docs home, MultiAgent 101, human engagement, agent communication, breakpoint recovery, incremental development, Data Interpreter, Researcher, Atoms) and a last-checked date.
+6. `AT-METAGPT-CLAIMS-006-BUILD`: `cd website-v2 && npm run build` succeeds.
 
 ## Open Questions
 
