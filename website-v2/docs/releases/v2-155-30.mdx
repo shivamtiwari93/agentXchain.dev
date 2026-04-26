@@ -55,3 +55,16 @@ agentxchain accept-turn --turn <turn_id>
 Acceptance should succeed without editing staging JSON, accepted history should
 record `artifact.type: "review"`, and `.agentxchain/events.jsonl` should include
 both `artifact_type_auto_normalized` and `staged_result_auto_normalized`.
+
+For BUG-54 startup-watchdog regression proof, quote the emitted timing fields:
+`startup_latency_ms`, `elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+For BUG-52 and BUG-53 regression proof, quote the recovery events showing
+`phase_entered`, `reconciled_before_dispatch`, and `session_continuation`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
