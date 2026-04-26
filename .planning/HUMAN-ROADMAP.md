@@ -487,6 +487,10 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   3. `staged_result_auto_normalized` event emitted with `proposed_next_role` field and `routing_illegal_for_phase_planning` rationale.
   4. Re-verified on same dogfood session after patch ships.
 
+- [ ] **BUG-83 (UX): Non-progress recovery message references non-existent `--acknowledge-non-progress` flag.** Discovered during DOGFOOD-100-TURNS Run 3 on shipped `agentxchain@2.155.33` at 2026-04-26. The recovery action message says `agentxchain resume --acknowledge-non-progress` but `resume` doesn't accept that flag. Regular `agentxchain resume` works (the `reactivateGovernedRun` function already handles `wasNonProgress` at line 2765). Fix: either add the flag to `resume` command or update the recovery message to say `agentxchain resume`. Low severity — workaround is to just run `agentxchain resume`.
+
+- [ ] **BUG-84: Governance report fails with "Invalid string length".** Discovered during DOGFOOD-100-TURNS Run 3 at 2026-04-26. Report generation hits Node.js string size limit. Appears after multiple consecutive turns with large dispatch bundles. Non-blocking — turns continue to accept, only the report generation fails.
+
 ---
 
 ## Active discipline (MUST follow on every fix going forward)
