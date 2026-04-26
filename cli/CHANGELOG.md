@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.38
+
+### Bug Fixes
+
+- **BUG-87 verification output auto-normalization**: verification outputs are now automatically normalized before acceptance validation, preventing false-positive rejection of valid turn results that include non-standard formatting in machine evidence fields.
+
+### Evidence
+
+- npm test -- --test-timeout=60000 -> 7242 tests / 1466 suites / 0 failures / 5 skipped
+
 ## 2.155.37
 
 ### Bug Fixes

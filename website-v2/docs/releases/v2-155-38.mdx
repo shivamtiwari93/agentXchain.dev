@@ -1,0 +1,35 @@
+---
+sidebar_position: 0
+title: "v2.155.38 Release Notes"
+---
+
+# AgentXchain v2.155.38
+
+`v2.155.38` fixes BUG-87 from DOGFOOD-100: undeclared verification-produced files (e.g., `.tusq/plan.json`, `coverage/`) no longer block acceptance in full-auto mode. The framework auto-normalizes them as ignored verification outputs and cleans them up.
+
+## Bug Fixes
+
+- **BUG-87 verification output auto-normalization.** When a governed turn declares verification commands but omits side-effect files from `verification.produced_files`, the framework now auto-classifies turn-produced dirty files as `disposition: "ignore"`, cleans them up, and proceeds with acceptance. Files that were already dirty at dispatch baseline are NOT auto-classified (they predate the turn). Emits `verification_output_auto_normalized` audit event for traceability.
+- **Prompt hardening.** Dispatch bundle field rules now document `verification.produced_files` with `disposition: "ignore"` and `"artifact"` semantics so agents declare produced files proactively.
+- **BUG-55 test updates.** Existing BUG-55 verification-output tests updated to reflect auto-normalization behavior (acceptance succeeds with audit event instead of hard-rejecting).
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-87-undeclared-verification-output-normalization.test.js cli/test/beta-tester-scenarios/bug-55-verification-output-declaration.test.js cli/test/beta-tester-scenarios/bug-55-combined-tester-shape.test.js -> 8 tests / 3 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7242 tests / 1466 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.38 -c "agentxchain --version"`
+
+For BUG-87: run `agentxchain run --continuous` on a project where verification commands produce undeclared side-effect files (e.g., `.tusq/plan.json`). The turn must accept cleanly without manual `jq` staging-JSON surgery or `accept-turn` operator recovery. The `verification_output_auto_normalized` event must appear in the run events log.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should confirm undeclared
+  verification outputs are auto-normalized and cleaned up, with
+  `verification_output_auto_normalized` event in events.jsonl.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

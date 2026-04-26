@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.155.37
+# Reddit Posts — AgentXchain v2.155.38
 
-> Ready-to-post content for Reddit for the `v2.155.37` release. Updated 2026-04-26 for BUG-86 bounded export report verification.
+> Ready-to-post content for Reddit for the `v2.155.38` release. Updated 2026-04-26 for BUG-86 bounded export report verification.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
@@ -26,7 +26,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.37:
+What shipped in v2.155.38:
 
 - Bounded exports may carry `content_base64: null` only with explicit truncation or skip metadata.
 - Governance reports render those bounded exports instead of failing verification.
@@ -60,13 +60,13 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.37 — bounded governance reports for large continuous sessions
+**Title:** AgentXchain v2.155.38 — bounded governance reports for large continuous sessions
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.37 hardens governance report generation for large continuous sessions:
+v2.155.38 hardens governance report generation for large continuous sessions:
 
 - bounded exports may carry `content_base64: null` only with explicit truncation or skip metadata
 - reports render those bounded exports instead of rejecting them as invalid
@@ -108,7 +108,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.37 hardens bounded governance reports so large continuous-session exports render without weakening full export verification.
+v2.155.38 hardens bounded governance reports so large continuous-session exports render without weakening full export verification.
 
 Try the zero-key demo:
 
@@ -137,7 +137,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.37 hardens bounded governance report verification for large continuous sessions
+- v2.155.38 hardens bounded governance report verification for large continuous sessions
 
 Try it in 30 seconds:
 
