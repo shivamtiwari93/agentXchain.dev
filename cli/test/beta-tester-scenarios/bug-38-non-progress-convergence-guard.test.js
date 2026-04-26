@@ -242,6 +242,16 @@ describe('BUG-38: non-progress convergence guard', () => {
       state.blocked_reason?.category === 'non_progress',
       `BUG-38: blocked_reason category must be non_progress, got: ${state.blocked_reason?.category}`,
     );
+    assert.equal(
+      state.blocked_reason?.recovery?.recovery_action,
+      'agentxchain resume',
+      'BUG-83: non-progress recovery guidance must use a valid resume command',
+    );
+    assert.doesNotMatch(
+      state.blocked_reason?.recovery?.recovery_action || '',
+      /--acknowledge-non-progress/,
+      'BUG-83: resume must not advertise a non-existent --acknowledge-non-progress flag',
+    );
 
     // run_stalled event must be emitted
     const events = readEvents(root);

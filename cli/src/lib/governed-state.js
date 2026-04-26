@@ -6021,7 +6021,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             category: 'non_progress',
             recovery: {
               typed_reason: `Non-progress detected: ${newCount} accepted turns have not reduced gate failure "${gateId}".`,
-              recovery_action: 'agentxchain resume --acknowledge-non-progress',
+              recovery_action: 'agentxchain resume',
               detail: `Gate "${gateId}" has been failing on ${failingFiles.join(', ')} for ${newCount} consecutive turns. The gated file(s) were never modified.`,
             },
             turnId: currentTurn.turn_id,
