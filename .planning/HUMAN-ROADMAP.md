@@ -473,6 +473,20 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   3. `gate_transition_request_auto_stripped` event emitted with gate_id, uncovered_files, and rationale.
   4. Re-verified on same dogfood session after patch ships.
 
+- [ ] **🚨 BUG-82: Dev turn proposes routing-illegal `proposed_next_role` after BUG-81's gate auto-strip keeps session in planning phase; protocol validation hard-errors instead of auto-normalizing.** Discovered during DOGFOOD-100-TURNS Run 3 on shipped `agentxchain@2.155.32` at 2026-04-26. Cascading issue from BUG-81 fix.
+
+  **Reproduction:** Session `cont-e958afb2`, Run 3 (M29). BUG-81's fix auto-stripped PM's phase transition → phase stays in "planning". Dev dispatched in planning phase, proposes `proposed_next_role: "qa"`. Protocol validation at `turn-result-validator.js:880-887` rejects: `proposed_next_role "qa" is not in the allowed_next_roles for phase "planning": [pm, dev, product_marketing, eng_director, human]`.
+
+  **Root cause:** `turn-result-validator.js` Rule 6 (lines 1261-1276) only auto-normalizes routing-illegal `proposed_next_role` for `isReviewOnly` roles. Authoritative roles (dev) were excluded because invalid routing was previously always a real misconfiguration. After BUG-81's gate auto-strip, the framework itself creates the routing mismatch by keeping the session in an earlier phase than the agent expects.
+
+  **Fix:** Added a third `else if` branch to Rule 6 that handles non-review-only roles. When an authoritative role proposes a `proposed_next_role` not in the current phase's `allowed_next_roles`, auto-normalize to `pickAllowedRoleFallback()` (first allowed role that isn't the assigned role). Emit `staged_result_auto_normalized` event with `routing_illegal_for_phase_<phase>` rationale. Template placeholders (`/^<[^>]+>$/`) are excluded from normalization to preserve schema validation.
+
+  **Closure criteria:**
+  1. Dev turn proposing "qa" in planning phase → auto-normalized to routing-legal role, turn accepted.
+  2. Normalization warning emitted in validation output.
+  3. `staged_result_auto_normalized` event emitted with `proposed_next_role` field and `routing_illegal_for_phase_planning` rationale.
+  4. Re-verified on same dogfood session after patch ships.
+
 ---
 
 ## Active discipline (MUST follow on every fix going forward)

@@ -1274,6 +1274,34 @@ export function normalizeTurnResult(tr, config, context = {}) {
       );
       normalized.proposed_next_role = fallback;
     }
+  } else if (
+    // BUG-82: When BUG-81's gate auto-strip keeps the session in an earlier
+    // phase (e.g. planning), authoritative roles dispatched in that phase may
+    // propose a next role valid for the phase they *expected* (e.g. "qa" for
+    // implementation) but illegal for the actual phase.  Auto-normalize to a
+    // routing-legal role instead of hard-erroring.
+    isKnownPhase &&
+    !isReviewOnly &&
+    normalized.status === 'completed' &&
+    typeof normalized.proposed_next_role === 'string' &&
+    normalized.proposed_next_role !== 'human' &&
+    !/^<[^>]+>$/.test(normalized.proposed_next_role) && // skip template placeholders — let schema validation catch them
+    allowedNextRoles.length > 0 &&
+    !allowedNextRoles.includes(normalized.proposed_next_role)
+  ) {
+    const fallback = pickAllowedRoleFallback();
+    if (fallback) {
+      corrections.push(
+        `proposed_next_role: corrected "${normalized.proposed_next_role}" to allowed role "${fallback}" (routing-illegal for phase "${currentPhase}")`
+      );
+      normalizationEvents.push({
+        field: 'proposed_next_role',
+        original_value: normalized.proposed_next_role,
+        normalized_value: fallback,
+        rationale: `routing_illegal_for_phase_${currentPhase}`,
+      });
+      normalized.proposed_next_role = fallback;
+    }
   }
 
   return { normalized, corrections, normalizationEvents };

@@ -1474,4 +1474,69 @@ describe('turn-result-validator', () => {
       );
     });
   });
+
+  // ─── BUG-82: authoritative role routing-illegal proposed_next_role normalization ─
+  describe('BUG-82: authoritative role routing-illegal proposed_next_role normalization', () => {
+    it('auto-normalizes authoritative dev proposing "qa" in planning phase to a routing-legal role (BUG-82-001)', () => {
+      // Scenario: BUG-81 gate auto-strip keeps session in planning phase.
+      // Dev is dispatched in planning, does work, proposes "qa" as next role.
+      // "qa" is not in planning's allowed_next_roles: ['pm', 'human'].
+      const tr = makeValidTurnResult({
+        proposed_next_role: 'qa',
+      });
+      const state = makeState({
+        phase: 'planning',
+        current_turn: {
+          turn_id: 'turn-0004',
+          assigned_role: 'dev',
+          status: 'running',
+          attempt: 1,
+          runtime_id: 'local-dev',
+        },
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, state, makeConfig());
+      assert.equal(res.ok, true, `Expected ok but got errors: ${res.errors.join(', ')}`);
+      // The normalized proposed_next_role should be a planning-legal role (pm, not dev since dev is assigned)
+      assert.equal(res.turnResult.proposed_next_role, 'pm');
+      assert.ok(
+        res.warnings.some(w => w.includes('[normalized]') && w.includes('proposed_next_role') && w.includes('qa') && w.includes('pm')),
+        `Expected normalization warning but got: ${res.warnings.join('; ')}`
+      );
+    });
+
+    it('does not normalize when proposed_next_role is already routing-legal (BUG-82-002)', () => {
+      // Dev in implementation phase proposes "qa" — this is legal, no normalization
+      const tr = makeValidTurnResult({
+        proposed_next_role: 'qa',
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, true);
+      assert.equal(res.turnResult.proposed_next_role, 'qa');
+      const normWarnings = res.warnings.filter(w => w.includes('[normalized]') && w.includes('proposed_next_role'));
+      assert.equal(normWarnings.length, 0, `Unexpected normalization: ${normWarnings.join('; ')}`);
+    });
+
+    it('does not normalize "human" even if not in allowed_next_roles (BUG-82-003)', () => {
+      // "human" is always a valid escape hatch
+      const tr = makeValidTurnResult({
+        proposed_next_role: 'human',
+      });
+      const state = makeState({
+        phase: 'planning',
+        current_turn: {
+          turn_id: 'turn-0004',
+          assigned_role: 'dev',
+          status: 'running',
+          attempt: 1,
+          runtime_id: 'local-dev',
+        },
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, state, makeConfig());
+      assert.equal(res.ok, true);
+      assert.equal(res.turnResult.proposed_next_role, 'human');
+    });
+  });
 });
