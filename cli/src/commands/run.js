@@ -677,14 +677,25 @@ export async function executeGovernedRun(context, opts = {}) {
         if (exportResult.ok) {
           const runId = result.state.run_id || 'unknown';
           const exportPath = join(reportsDir, `export-${runId}.json`);
-          writeFileSync(exportPath, JSON.stringify(exportResult.export, null, 2));
 
-          const reportResult = buildGovernanceReport(exportResult.export, { input: exportPath });
-          const reportPath = join(reportsDir, `report-${runId}.md`);
-          writeFileSync(reportPath, formatGovernanceReportMarkdown(reportResult.report));
+          // Write export JSON — compact format to avoid string-length overflow (BUG-84)
+          try {
+            writeFileSync(exportPath, JSON.stringify(exportResult.export));
+          } catch (exportWriteErr) {
+            log(chalk.dim(`  Governance export write failed: ${exportWriteErr.message}`));
+          }
 
-          log('');
-          log(chalk.dim(`  Governance report: .agentxchain/reports/report-${runId}.md`));
+          // Generate markdown report separately so export-write failure doesn't block it
+          try {
+            const reportResult = buildGovernanceReport(exportResult.export, { input: exportPath });
+            const reportPath = join(reportsDir, `report-${runId}.md`);
+            writeFileSync(reportPath, formatGovernanceReportMarkdown(reportResult.report));
+
+            log('');
+            log(chalk.dim(`  Governance report: .agentxchain/reports/report-${runId}.md`));
+          } catch (reportErr) {
+            log(chalk.dim(`  Governance report failed: ${reportErr.message}`));
+          }
         } else {
           log(chalk.dim(`  Governance report skipped: ${exportResult.error}`));
         }

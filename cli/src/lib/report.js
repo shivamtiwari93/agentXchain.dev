@@ -15,6 +15,15 @@ import { extractGateActionDigest } from './gate-actions.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
+// BUG-84: bounded report sections to prevent Invalid string length on large sessions
+export const MAX_REPORT_SECTION_ITEMS = 500;
+
+export function boundedSlice(arr, max = MAX_REPORT_SECTION_ITEMS) {
+  if (!Array.isArray(arr)) return { items: [], omitted: 0 };
+  if (arr.length <= max) return { items: arr, omitted: 0 };
+  return { items: arr.slice(0, max), omitted: arr.length - max };
+}
+
 const VALID_DELEGATION_OUTCOMES = new Set(['completed', 'failed', 'mixed', 'pending']);
 const VALID_DASHBOARD_SESSION_STATUSES = new Set(['running', 'pid_only', 'stale', 'not_running']);
 
@@ -1401,21 +1410,25 @@ export function formatGovernanceReportText(report) {
     }
 
     if (run.turns && run.turns.length > 0) {
+      const { items: boundedTurns, omitted: turnsOmitted } = boundedSlice(run.turns);
       lines.push('', 'Turn Timeline:');
-      for (let i = 0; i < run.turns.length; i++) {
-        const t = run.turns[i];
+      for (let i = 0; i < boundedTurns.length; i++) {
+        const t = boundedTurns[i];
         const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
         const phase = t.phase_transition ? `${t.phase || '?'} -> ${t.phase_transition}` : (t.phase || '?');
         const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling-attributed)` : '';
         lines.push(`  ${i + 1}. [${t.role}] ${t.summary || '(no summary)'} | phase: ${phase} | files: ${t.files_changed_count}${siblingNote} | cost: ${cost} | ${formatTurnTimelineTime(t)}`);
       }
+      if (turnsOmitted > 0) lines.push(`  (${turnsOmitted} more turns omitted)`);
     }
 
     if (run.decisions && run.decisions.length > 0) {
+      const { items: boundedDecs, omitted: decsOmitted } = boundedSlice(run.decisions);
       lines.push('', 'Decisions:');
-      for (const d of run.decisions) {
+      for (const d of boundedDecs) {
         lines.push(`  - ${d.id} (${d.role || '?'}, ${d.phase || '?'}): ${d.statement}`);
       }
+      if (decsOmitted > 0) lines.push(`  (${decsOmitted} more decisions omitted)`);
     }
 
     if (run.gate_summary && run.gate_summary.length > 0) {
@@ -1426,8 +1439,9 @@ export function formatGovernanceReportText(report) {
     }
 
     if (run.gate_failures && run.gate_failures.length > 0) {
+      const { items: boundedGF, omitted: gfOmitted } = boundedSlice(run.gate_failures);
       lines.push('', 'Gate Failures:');
-      for (const failure of run.gate_failures) {
+      for (const failure of boundedGF) {
         const request = failure.gate_type === 'run_completion'
           ? 'run completion'
           : `${failure.from_phase || failure.phase || '?'} -> ${failure.to_phase || '?'}`;
@@ -1437,11 +1451,13 @@ export function formatGovernanceReportText(report) {
           lines.push(`      reason: ${reason}`);
         }
       }
+      if (gfOmitted > 0) lines.push(`  (${gfOmitted} more gate failures omitted)`);
     }
 
     if (run.gate_actions && run.gate_actions.length > 0) {
+      const { items: boundedGA, omitted: gaOmitted } = boundedSlice(run.gate_actions);
       lines.push('', 'Gate Actions:');
-      for (const action of run.gate_actions) {
+      for (const action of boundedGA) {
         const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
         const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
         const timeoutTag = action.timed_out ? ` | timed_out after ${action.timeout_ms}ms` : '';
@@ -1450,11 +1466,13 @@ export function formatGovernanceReportText(report) {
           lines.push(`      stderr: ${action.stderr_tail}`);
         }
       }
+      if (gaOmitted > 0) lines.push(`  (${gaOmitted} more gate actions omitted)`);
     }
 
     if (run.approval_policy_events && run.approval_policy_events.length > 0) {
+      const { items: boundedAP, omitted: apOmitted } = boundedSlice(run.approval_policy_events);
       lines.push('', 'Approval Policy:');
-      for (const evt of run.approval_policy_events) {
+      for (const evt of boundedAP) {
         const transition = evt.gate_type === 'run_completion'
           ? 'run completion'
           : `${evt.from_phase || '?'} -> ${evt.to_phase || '?'}`;
@@ -1462,19 +1480,23 @@ export function formatGovernanceReportText(report) {
         lines.push(`  - ${evt.action || 'unknown'} | ${evt.gate_type || 'unknown'} | ${transition}${rule} | at: ${evt.timestamp || 'n/a'}`);
         if (evt.reason) lines.push(`      reason: ${evt.reason}`);
       }
+      if (apOmitted > 0) lines.push(`  (${apOmitted} more approval policy events omitted)`);
     }
 
     if (run.governance_events && run.governance_events.length > 0) {
+      const { items: boundedGE, omitted: geOmitted } = boundedSlice(run.governance_events);
       lines.push('', 'Governance Events:');
-      for (const evt of run.governance_events) {
+      for (const evt of boundedGE) {
         lines.push(`  - ${evt.type} | ${evt.role || '?'} | ${evt.phase || '?'} | at: ${evt.timestamp || 'n/a'}`);
         renderGovernanceEventDetailText(lines, evt, '      ');
       }
+      if (geOmitted > 0) lines.push(`  (${geOmitted} more governance events omitted)`);
     }
 
     if (run.timeout_events && run.timeout_events.length > 0) {
+      const { items: boundedTE, omitted: teOmitted } = boundedSlice(run.timeout_events);
       lines.push('', 'Timeout Events:');
-      for (const evt of run.timeout_events) {
+      for (const evt of boundedTE) {
         const label = evt.type === 'timeout_warning' ? 'warning'
           : evt.type === 'timeout_skip' ? 'skip'
           : evt.type === 'timeout_skip_failed' ? 'skip failed'
@@ -1484,6 +1506,7 @@ export function formatGovernanceReportText(report) {
         const exceeded = evt.exceeded_by_minutes != null ? `+${evt.exceeded_by_minutes}m` : '';
         lines.push(`  - ${label} | ${evt.scope || '?'} scope | ${elapsed}/${limit}${exceeded ? ` (${exceeded})` : ''} | action: ${evt.action || 'n/a'} | phase: ${evt.phase || 'n/a'} | at: ${evt.timestamp || 'n/a'}`);
       }
+      if (teOmitted > 0) lines.push(`  (${teOmitted} more timeout events omitted)`);
     }
 
     if (run.intake_links && run.intake_links.length > 0) {
@@ -1630,21 +1653,25 @@ export function formatGovernanceReportText(report) {
   }
 
   if (coordinator_timeline && coordinator_timeline.length > 0) {
+    const { items: boundedCT, omitted: ctOmitted } = boundedSlice(coordinator_timeline);
     lines.push('', 'Coordinator Timeline:');
-    for (let i = 0; i < coordinator_timeline.length; i++) {
-      const ev = coordinator_timeline[i];
+    for (let i = 0; i < boundedCT.length; i++) {
+      const ev = boundedCT[i];
       const ts = ev.timestamp ? ` [${ev.timestamp}]` : '';
       lines.push(`  ${i + 1}. [${ev.type}]${ts} ${ev.summary}`);
     }
+    if (ctOmitted > 0) lines.push(`  (${ctOmitted} more coordinator events omitted)`);
   }
 
   const aggregated_event_timeline = report.subject.aggregated_event_timeline;
   if (aggregated_event_timeline && aggregated_event_timeline.length > 0) {
+    const { items: boundedAET, omitted: aetOmitted } = boundedSlice(aggregated_event_timeline);
     lines.push('', 'Aggregated Child Repo Events:');
-    for (const evt of aggregated_event_timeline) {
+    for (const evt of boundedAET) {
       const ts = evt.timestamp ? ` [${evt.timestamp}]` : '';
       lines.push(`  [${evt.repo_id || '?'}] ${evt.type}${ts}`);
     }
+    if (aetOmitted > 0) lines.push(`  (${aetOmitted} more child repo events omitted)`);
   } else {
     lines.push('', 'Aggregated Child Repo Events:', '  No child repo events.');
   }
@@ -1679,15 +1706,18 @@ export function formatGovernanceReportText(report) {
   }
 
   if (decision_digest && decision_digest.length > 0) {
+    const { items: boundedDD, omitted: ddOmitted } = boundedSlice(decision_digest);
     lines.push('', 'Coordinator Decisions:');
-    for (const d of decision_digest) {
+    for (const d of boundedDD) {
       lines.push(`  - ${d.id} (${d.role || '?'}, ${d.phase || '?'}): ${d.statement}`);
     }
+    if (ddOmitted > 0) lines.push(`  (${ddOmitted} more decisions omitted)`);
   }
 
   if (approval_policy_events && approval_policy_events.length > 0) {
+    const { items: boundedAP, omitted: apOmitted } = boundedSlice(approval_policy_events);
     lines.push('', 'Approval Policy:');
-    for (const evt of approval_policy_events) {
+    for (const evt of boundedAP) {
       const transition = evt.gate_type === 'run_completion'
         ? 'run completion'
         : `${evt.from_phase || '?'} -> ${evt.to_phase || '?'}`;
@@ -1695,19 +1725,23 @@ export function formatGovernanceReportText(report) {
       lines.push(`  - ${evt.action || 'unknown'} | ${evt.gate_type || 'unknown'} | ${transition}${rule} | at: ${evt.timestamp || 'n/a'}`);
       if (evt.reason) lines.push(`      reason: ${evt.reason}`);
     }
+    if (apOmitted > 0) lines.push(`  (${apOmitted} more approval policy events omitted)`);
   }
 
   if (governance_events && governance_events.length > 0) {
+    const { items: boundedGE, omitted: geOmitted } = boundedSlice(governance_events);
     lines.push('', 'Governance Events:');
-    for (const evt of governance_events) {
+    for (const evt of boundedGE) {
       lines.push(`  - ${evt.type} | ${evt.role || '?'} | ${evt.phase || '?'} | at: ${evt.timestamp || 'n/a'}`);
       renderGovernanceEventDetailText(lines, evt, '      ');
     }
+    if (geOmitted > 0) lines.push(`  (${geOmitted} more governance events omitted)`);
   }
 
   if (timeout_events && timeout_events.length > 0) {
+    const { items: boundedTE, omitted: teOmitted } = boundedSlice(timeout_events);
     lines.push('', 'Timeout Events:');
-    for (const evt of timeout_events) {
+    for (const evt of boundedTE) {
       const label = evt.type === 'timeout_warning' ? 'warning'
         : evt.type === 'timeout_skip' ? 'skip'
         : evt.type === 'timeout_skip_failed' ? 'skip failed'
@@ -1717,6 +1751,7 @@ export function formatGovernanceReportText(report) {
       const exceeded = evt.exceeded_by_minutes != null ? `+${evt.exceeded_by_minutes}m` : '';
       lines.push(`  - ${label} | ${evt.scope || '?'} scope | ${elapsed}/${limit}${exceeded ? ` (${exceeded})` : ''} | action: ${evt.action || 'n/a'} | phase: ${evt.phase || 'n/a'} | at: ${evt.timestamp || 'n/a'}`);
     }
+    if (teOmitted > 0) lines.push(`  (${teOmitted} more timeout events omitted)`);
   }
 
   if (recovery_report) {
@@ -1972,22 +2007,26 @@ export function formatGovernanceReportMarkdown(report) {
     }
 
     if (run.turns && run.turns.length > 0) {
+      const { items: boundedTurns, omitted: turnsOmitted } = boundedSlice(run.turns);
       lines.push('', '## Turn Timeline', '', '| # | Role | Phase | Summary | Files | Cost | Time |', '|---|------|-------|---------|-------|------|------|');
-      for (let i = 0; i < run.turns.length; i++) {
-        const t = run.turns[i];
+      for (let i = 0; i < boundedTurns.length; i++) {
+        const t = boundedTurns[i];
         const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
         const phase = t.phase_transition ? `${t.phase || '?'} → ${t.phase_transition}` : (t.phase || '?');
         const summary = (t.summary || '(no summary)').replace(/\|/g, '\\|');
         const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling)` : '';
         lines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count}${siblingNote} | ${cost} | ${formatTurnTimelineTime(t).replace(/\|/g, '\\|')} |`);
       }
+      if (turnsOmitted > 0) lines.push('', `*(${turnsOmitted} more turns omitted)*`);
     }
 
     if (run.decisions && run.decisions.length > 0) {
+      const { items: boundedDecs, omitted: decsOmitted } = boundedSlice(run.decisions);
       lines.push('', '## Decisions', '');
-      for (const d of run.decisions) {
+      for (const d of boundedDecs) {
         lines.push(`- **${d.id}** (${d.role || '?'}, ${d.phase || '?'} phase): ${d.statement}`);
       }
+      if (decsOmitted > 0) lines.push('', `*(${decsOmitted} more decisions omitted)*`);
     }
 
     if (run.gate_summary && run.gate_summary.length > 0) {
@@ -1998,8 +2037,9 @@ export function formatGovernanceReportMarkdown(report) {
     }
 
     if (run.gate_failures && run.gate_failures.length > 0) {
+      const { items: boundedGF, omitted: gfOmitted } = boundedSlice(run.gate_failures);
       lines.push('', '## Gate Failures', '');
-      for (const failure of run.gate_failures) {
+      for (const failure of boundedGF) {
         const request = failure.gate_type === 'run_completion'
           ? 'run completion'
           : `${failure.from_phase || failure.phase || '?'} → ${failure.to_phase || '?'}`;
@@ -2008,24 +2048,28 @@ export function formatGovernanceReportMarkdown(report) {
           lines.push(`  - ${reason}`);
         }
       }
+      if (gfOmitted > 0) lines.push('', `*(${gfOmitted} more gate failures omitted)*`);
     }
 
     if (run.gate_actions && run.gate_actions.length > 0) {
+      const { items: boundedGA, omitted: gaOmitted } = boundedSlice(run.gate_actions);
       lines.push('', '## Gate Actions', '');
-      for (const action of run.gate_actions) {
+      for (const action of boundedGA) {
         const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
         const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
-        const mdTimeout = action.timed_out ? ` ⏱ timed out after ${action.timeout_ms}ms` : '';
+        const mdTimeout = action.timed_out ? ` timed out after ${action.timeout_ms}ms` : '';
         lines.push(`- \`${action.gate_id || 'unknown'}\` (${action.gate_type || 'unknown'}) action ${action.action_index || '?'} — **${action.status}** at \`${action.timestamp || 'n/a'}\`: ${label} (exit \`${exit}\`)${mdTimeout}`);
         if (action.stderr_tail) {
           lines.push(`  - stderr: ${action.stderr_tail}`);
         }
       }
+      if (gaOmitted > 0) lines.push('', `*(${gaOmitted} more gate actions omitted)*`);
     }
 
     if (run.approval_policy_events && run.approval_policy_events.length > 0) {
+      const { items: boundedAP, omitted: apOmitted } = boundedSlice(run.approval_policy_events);
       lines.push('', '## Approval Policy', '');
-      for (const evt of run.approval_policy_events) {
+      for (const evt of boundedAP) {
         const transition = evt.gate_type === 'run_completion'
           ? 'run completion'
           : `${evt.from_phase || '?'} → ${evt.to_phase || '?'}`;
@@ -2033,19 +2077,23 @@ export function formatGovernanceReportMarkdown(report) {
         lines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
         if (evt.reason) lines.push(`  - ${evt.reason}`);
       }
+      if (apOmitted > 0) lines.push('', `*(${apOmitted} more approval policy events omitted)*`);
     }
 
     if (run.governance_events && run.governance_events.length > 0) {
+      const { items: boundedGE, omitted: geOmitted } = boundedSlice(run.governance_events);
       lines.push('', '## Governance Events', '');
-      for (const evt of run.governance_events) {
+      for (const evt of boundedGE) {
         lines.push(`- **${evt.type}** (\`${evt.role || '?'}\`, \`${evt.phase || '?'}\` phase) at \`${evt.timestamp || 'n/a'}\``);
         renderGovernanceEventDetailMarkdown(lines, evt);
       }
+      if (geOmitted > 0) lines.push('', `*(${geOmitted} more governance events omitted)*`);
     }
 
     if (run.timeout_events && run.timeout_events.length > 0) {
+      const { items: boundedTE, omitted: teOmitted } = boundedSlice(run.timeout_events);
       lines.push('', '## Timeout Events', '');
-      for (const evt of run.timeout_events) {
+      for (const evt of boundedTE) {
         const label = evt.type === 'timeout_warning' ? 'Warning'
           : evt.type === 'timeout_skip' ? 'Skip'
           : evt.type === 'timeout_skip_failed' ? 'Skip Failed'
@@ -2055,6 +2103,7 @@ export function formatGovernanceReportMarkdown(report) {
         const exceeded = evt.exceeded_by_minutes != null ? ` (+${evt.exceeded_by_minutes}m)` : '';
         lines.push(`- **${label}** (\`${evt.scope || '?'}\` scope) — ${elapsed}/${limit}${exceeded}, action: \`${evt.action || 'n/a'}\`, phase: \`${evt.phase || 'n/a'}\` at \`${evt.timestamp || 'n/a'}\``);
       }
+      if (teOmitted > 0) lines.push('', `*(${teOmitted} more timeout events omitted)*`);
     }
 
     if (run.intake_links && run.intake_links.length > 0) {
@@ -2684,13 +2733,15 @@ function renderRunHtml(report) {
 
   // Turn Timeline
   if (run.turns && run.turns.length > 0) {
-    const turnRows = run.turns.map((t, i) => {
+    const { items: boundedTurns, omitted: turnsOmitted } = boundedSlice(run.turns);
+    const turnRows = boundedTurns.map((t, i) => {
       const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
       const phase = t.phase_transition ? `${esc(t.phase || '?')} &rarr; ${esc(t.phase_transition)}` : esc(t.phase || '?');
       const sibNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling)` : '';
       return [String(i + 1), esc(t.role), phase, esc(t.summary || '(no summary)'), `${t.files_changed_count}${sibNote}`, cost, esc(formatTurnTimelineTime(t))];
     });
-    sections.push(`<div class="section">${htmlSection('Turn Timeline', htmlTable(['#', 'Role', 'Phase', 'Summary', 'Files', 'Cost', 'Time'], turnRows))}</div>`);
+    const omitNote = turnsOmitted > 0 ? `<p><em>(${turnsOmitted} more turns omitted)</em></p>` : '';
+    sections.push(`<div class="section">${htmlSection('Turn Timeline', htmlTable(['#', 'Role', 'Phase', 'Summary', 'Files', 'Cost', 'Time'], turnRows) + omitNote)}</div>`);
   }
 
   // Decisions
@@ -2707,70 +2758,80 @@ function renderRunHtml(report) {
 
   // Gate Failures
   if (run.gate_failures && run.gate_failures.length > 0) {
-    let gfHtml = '<ul>';
-    for (const failure of run.gate_failures) {
+    const { items: boundedGF, omitted: gfOmitted } = boundedSlice(run.gate_failures);
+    const gfParts = ['<ul>'];
+    for (const failure of boundedGF) {
       const request = failure.gate_type === 'run_completion' ? 'run completion' : `${esc(failure.from_phase || failure.phase || '?')} &rarr; ${esc(failure.to_phase || '?')}`;
-      gfHtml += `<li><code>${esc(failure.gate_id || 'unknown')}</code> (${esc(failure.gate_type || 'unknown')}) at <code>${esc(failure.failed_at || 'n/a')}</code>: ${request}`;
+      gfParts.push(`<li><code>${esc(failure.gate_id || 'unknown')}</code> (${esc(failure.gate_type || 'unknown')}) at <code>${esc(failure.failed_at || 'n/a')}</code>: ${request}`);
       if (failure.reasons?.length) {
-        gfHtml += '<ul>' + failure.reasons.map((r) => `<li>${esc(r)}</li>`).join('') + '</ul>';
+        gfParts.push('<ul>' + failure.reasons.map((r) => `<li>${esc(r)}</li>`).join('') + '</ul>');
       }
-      gfHtml += '</li>';
+      gfParts.push('</li>');
     }
-    gfHtml += '</ul>';
-    sections.push(`<div class="section">${htmlSection('Gate Failures', gfHtml)}</div>`);
+    gfParts.push('</ul>');
+    if (gfOmitted > 0) gfParts.push(`<p><em>(${gfOmitted} more gate failures omitted)</em></p>`);
+    sections.push(`<div class="section">${htmlSection('Gate Failures', gfParts.join(''))}</div>`);
   }
 
   if (run.gate_actions && run.gate_actions.length > 0) {
-    let gaHtml = '<ul>';
-    for (const action of run.gate_actions) {
+    const { items: boundedGA, omitted: gaOmitted } = boundedSlice(run.gate_actions);
+    const gaParts = ['<ul>'];
+    for (const action of boundedGA) {
       const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
       const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
-      const htmlTimeout = action.timed_out ? ` <em>⏱ timed out after ${esc(String(action.timeout_ms))}ms</em>` : '';
-      gaHtml += `<li><code>${esc(action.gate_id || 'unknown')}</code> (${esc(action.gate_type || 'unknown')}) action ${esc(String(action.action_index || '?'))} — <strong>${esc(action.status)}</strong> at <code>${esc(action.timestamp || 'n/a')}</code>: ${esc(label)} (exit <code>${esc(exit)}</code>)${htmlTimeout}`;
+      const htmlTimeout = action.timed_out ? ` <em>timed out after ${esc(String(action.timeout_ms))}ms</em>` : '';
+      gaParts.push(`<li><code>${esc(action.gate_id || 'unknown')}</code> (${esc(action.gate_type || 'unknown')}) action ${esc(String(action.action_index || '?'))} — <strong>${esc(action.status)}</strong> at <code>${esc(action.timestamp || 'n/a')}</code>: ${esc(label)} (exit <code>${esc(exit)}</code>)${htmlTimeout}`);
       if (action.stderr_tail) {
-        gaHtml += `<br><code>${esc(action.stderr_tail)}</code>`;
+        gaParts.push(`<br><code>${esc(action.stderr_tail)}</code>`);
       }
-      gaHtml += '</li>';
+      gaParts.push('</li>');
     }
-    gaHtml += '</ul>';
-    sections.push(`<div class="section">${htmlSection('Gate Actions', gaHtml)}</div>`);
+    gaParts.push('</ul>');
+    if (gaOmitted > 0) gaParts.push(`<p><em>(${gaOmitted} more gate actions omitted)</em></p>`);
+    sections.push(`<div class="section">${htmlSection('Gate Actions', gaParts.join(''))}</div>`);
   }
 
   // Approval Policy
   if (run.approval_policy_events && run.approval_policy_events.length > 0) {
-    let apHtml = '<ul>';
-    for (const evt of run.approval_policy_events) {
+    const { items: boundedAP, omitted: apOmitted } = boundedSlice(run.approval_policy_events);
+    const apParts = ['<ul>'];
+    for (const evt of boundedAP) {
       const transition = evt.gate_type === 'run_completion' ? 'run completion' : `${esc(evt.from_phase || '?')} &rarr; ${esc(evt.to_phase || '?')}`;
-      apHtml += `<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition} at <code>${esc(evt.timestamp || 'n/a')}</code>`;
-      if (evt.reason) apHtml += `<br>${esc(evt.reason)}`;
-      apHtml += '</li>';
+      apParts.push(`<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition} at <code>${esc(evt.timestamp || 'n/a')}</code>`);
+      if (evt.reason) apParts.push(`<br>${esc(evt.reason)}`);
+      apParts.push('</li>');
     }
-    apHtml += '</ul>';
-    sections.push(`<div class="section">${htmlSection('Approval Policy', apHtml)}</div>`);
+    apParts.push('</ul>');
+    if (apOmitted > 0) apParts.push(`<p><em>(${apOmitted} more approval policy events omitted)</em></p>`);
+    sections.push(`<div class="section">${htmlSection('Approval Policy', apParts.join(''))}</div>`);
   }
 
   // Governance Events
   if (run.governance_events && run.governance_events.length > 0) {
-    let geHtml = '<ul>';
-    for (const evt of run.governance_events) {
-      geHtml += `<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`;
+    const { items: boundedGE, omitted: geOmitted } = boundedSlice(run.governance_events);
+    const geParts = ['<ul>'];
+    for (const evt of boundedGE) {
+      geParts.push(`<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`);
     }
-    geHtml += '</ul>';
-    sections.push(`<div class="section">${htmlSection('Governance Events', geHtml)}</div>`);
+    geParts.push('</ul>');
+    if (geOmitted > 0) geParts.push(`<p><em>(${geOmitted} more governance events omitted)</em></p>`);
+    sections.push(`<div class="section">${htmlSection('Governance Events', geParts.join(''))}</div>`);
   }
 
   // Timeout Events
   if (run.timeout_events && run.timeout_events.length > 0) {
-    let teHtml = '<ul>';
-    for (const evt of run.timeout_events) {
+    const { items: boundedTE, omitted: teOmitted } = boundedSlice(run.timeout_events);
+    const teParts = ['<ul>'];
+    for (const evt of boundedTE) {
       const label = evt.type === 'timeout_warning' ? 'Warning' : evt.type === 'timeout_skip' ? 'Skip' : evt.type === 'timeout_skip_failed' ? 'Skip Failed' : 'Escalation';
       const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
       const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
       const exceeded = evt.exceeded_by_minutes != null ? ` (+${evt.exceeded_by_minutes}m)` : '';
-      teHtml += `<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code> scope) \u2014 ${elapsed}/${limit}${exceeded}, action: <code>${esc(evt.action || 'n/a')}</code>, phase: <code>${esc(evt.phase || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`;
+      teParts.push(`<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code> scope) \u2014 ${elapsed}/${limit}${exceeded}, action: <code>${esc(evt.action || 'n/a')}</code>, phase: <code>${esc(evt.phase || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`);
     }
-    teHtml += '</ul>';
-    sections.push(`<div class="section">${htmlSection('Timeout Events', teHtml)}</div>`);
+    teParts.push('</ul>');
+    if (teOmitted > 0) teParts.push(`<p><em>(${teOmitted} more timeout events omitted)</em></p>`);
+    sections.push(`<div class="section">${htmlSection('Timeout Events', teParts.join(''))}</div>`);
   }
 
   // Intake Linkage
@@ -2972,38 +3033,44 @@ function renderCoordinatorHtml(report) {
 
   // Approval Policy
   if (approval_policy_events?.length > 0) {
-    let apHtml = '<ul>';
-    for (const evt of approval_policy_events) {
+    const { items: boundedAP, omitted: apOmitted } = boundedSlice(approval_policy_events);
+    const apParts = ['<ul>'];
+    for (const evt of boundedAP) {
       const transition = evt.gate_type === 'run_completion' ? 'run completion' : `${esc(evt.from_phase || '?')} &rarr; ${esc(evt.to_phase || '?')}`;
-      apHtml += `<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition} at <code>${esc(evt.timestamp || 'n/a')}</code>`;
-      if (evt.reason) apHtml += `<br>${esc(evt.reason)}`;
-      apHtml += '</li>';
+      apParts.push(`<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition} at <code>${esc(evt.timestamp || 'n/a')}</code>`);
+      if (evt.reason) apParts.push(`<br>${esc(evt.reason)}`);
+      apParts.push('</li>');
     }
-    apHtml += '</ul>';
-    sections.push(`<div class="section">${htmlSection('Approval Policy', apHtml)}</div>`);
+    apParts.push('</ul>');
+    if (apOmitted > 0) apParts.push(`<p><em>(${apOmitted} more approval policy events omitted)</em></p>`);
+    sections.push(`<div class="section">${htmlSection('Approval Policy', apParts.join(''))}</div>`);
   }
 
   // Governance Events
   if (governance_events?.length > 0) {
-    let geHtml = '<ul>';
-    for (const evt of governance_events) {
-      geHtml += `<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`;
+    const { items: boundedGE, omitted: geOmitted } = boundedSlice(governance_events);
+    const geParts = ['<ul>'];
+    for (const evt of boundedGE) {
+      geParts.push(`<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`);
     }
-    geHtml += '</ul>';
-    sections.push(`<div class="section">${htmlSection('Governance Events', geHtml)}</div>`);
+    geParts.push('</ul>');
+    if (geOmitted > 0) geParts.push(`<p><em>(${geOmitted} more governance events omitted)</em></p>`);
+    sections.push(`<div class="section">${htmlSection('Governance Events', geParts.join(''))}</div>`);
   }
 
   // Timeout Events
   if (timeout_events?.length > 0) {
-    let teHtml = '<ul>';
-    for (const evt of timeout_events) {
+    const { items: boundedTE, omitted: teOmitted } = boundedSlice(timeout_events);
+    const teParts = ['<ul>'];
+    for (const evt of boundedTE) {
       const label = evt.type === 'timeout_warning' ? 'Warning' : evt.type === 'timeout_skip' ? 'Skip' : 'Escalation';
       const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
       const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
-      teHtml += `<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code>) \u2014 ${elapsed}/${limit}, action: <code>${esc(evt.action || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`;
+      teParts.push(`<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code>) \u2014 ${elapsed}/${limit}, action: <code>${esc(evt.action || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`);
     }
-    teHtml += '</ul>';
-    sections.push(`<div class="section">${htmlSection('Timeout Events', teHtml)}</div>`);
+    teParts.push('</ul>');
+    if (teOmitted > 0) teParts.push(`<p><em>(${teOmitted} more timeout events omitted)</em></p>`);
+    sections.push(`<div class="section">${htmlSection('Timeout Events', teParts.join(''))}</div>`);
   }
 
   // Recovery Report
@@ -3019,10 +3086,10 @@ function renderCoordinatorHtml(report) {
 
   // Repo Details
   if (repos?.length > 0) {
-    let repoHtml = '';
+    const repoParts = [];
     for (const repo of repos) {
       if (!repo.ok) {
-        repoHtml += `<h3>${esc(repo.repo_id)}</h3><p>Failed export: ${esc(repo.error || 'unknown error')}, path <code>${esc(repo.path || 'unknown')}</code></p>`;
+        repoParts.push(`<h3>${esc(repo.repo_id)}</h3><p>Failed export: ${esc(repo.error || 'unknown error')}, path <code>${esc(repo.path || 'unknown')}</code></p>`);
         continue;
       }
       const repoPairs = [
@@ -3032,64 +3099,75 @@ function renderCoordinatorHtml(report) {
         ['Path', `<code>${esc(repo.path || 'unknown')}</code>`],
       ];
       if (repo.blocked_on) repoPairs.push(['Blocked on', `<code>${esc(summarizeBlockedOn(repo.blocked_on))}</code>`]);
-      repoHtml += `<h3>${esc(repo.repo_id)}</h3>${htmlDl(repoPairs)}`;
+      repoParts.push(`<h3>${esc(repo.repo_id)}</h3>${htmlDl(repoPairs)}`);
 
       if (repo.turns?.length > 0) {
-        const turnRows = repo.turns.map((t, i) => {
+        const { items: boundedRepoTurns, omitted: repoTurnsOmitted } = boundedSlice(repo.turns);
+        const turnRows = boundedRepoTurns.map((t, i) => {
           const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
           const phase = t.phase_transition ? `${esc(t.phase || '?')} &rarr; ${esc(t.phase_transition)}` : esc(t.phase || '?');
           return [String(i + 1), esc(t.role), phase, esc(t.summary || '(no summary)'), String(t.files_changed_count), cost, esc(formatTurnTimelineTime(t))];
         });
-        repoHtml += htmlSection('Turn Timeline', htmlTable(['#', 'Role', 'Phase', 'Summary', 'Files', 'Cost', 'Time'], turnRows), 4);
+        const omitNote = repoTurnsOmitted > 0 ? `<p><em>(${repoTurnsOmitted} more turns omitted)</em></p>` : '';
+        repoParts.push(htmlSection('Turn Timeline', htmlTable(['#', 'Role', 'Phase', 'Summary', 'Files', 'Cost', 'Time'], turnRows) + omitNote, 4));
       }
       if (repo.decisions?.length > 0) {
-        repoHtml += htmlSection('Decisions', '<ul>' + repo.decisions.map((d) => `<li><strong>${esc(d.id)}</strong> (${esc(d.role || '?')}, ${esc(d.phase || '?')} phase): ${esc(d.statement)}</li>`).join('') + '</ul>', 4);
+        const { items: bDecs, omitted: decsOm } = boundedSlice(repo.decisions);
+        const omitNote = decsOm > 0 ? `<p><em>(${decsOm} more decisions omitted)</em></p>` : '';
+        repoParts.push(htmlSection('Decisions', '<ul>' + bDecs.map((d) => `<li><strong>${esc(d.id)}</strong> (${esc(d.role || '?')}, ${esc(d.phase || '?')} phase): ${esc(d.statement)}</li>`).join('') + '</ul>' + omitNote, 4));
       }
       if (repo.gate_summary?.length > 0) {
-        repoHtml += htmlSection('Gate Outcomes', '<ul>' + repo.gate_summary.map((g) => `<li><code>${esc(g.gate_id)}</code>: ${badge(g.status)}</li>`).join('') + '</ul>', 4);
+        repoParts.push(htmlSection('Gate Outcomes', '<ul>' + repo.gate_summary.map((g) => `<li><code>${esc(g.gate_id)}</code>: ${badge(g.status)}</li>`).join('') + '</ul>', 4));
       }
       if (repo.gate_failures?.length > 0) {
-        let gateFailureHtml = '<ul>';
-        for (const failure of repo.gate_failures) {
+        const { items: bGF, omitted: gfOm } = boundedSlice(repo.gate_failures);
+        const gfParts = ['<ul>'];
+        for (const failure of bGF) {
           const request = failure.gate_type === 'run_completion'
             ? 'run completion'
             : `${esc(failure.from_phase || '?')} &rarr; ${esc(failure.to_phase || '?')}`;
-          gateFailureHtml += `<li><code>${esc(failure.gate_id || 'unknown')}</code> (<code>${esc(failure.gate_type || 'unknown')}</code>) at <code>${esc(failure.failed_at || 'n/a')}</code> via ${failure.queued_request ? 'queued drain' : 'direct'} request: ${request}`;
+          gfParts.push(`<li><code>${esc(failure.gate_id || 'unknown')}</code> (<code>${esc(failure.gate_type || 'unknown')}</code>) at <code>${esc(failure.failed_at || 'n/a')}</code> via ${failure.queued_request ? 'queued drain' : 'direct'} request: ${request}`);
           if (failure.reasons?.length > 0) {
-            gateFailureHtml += '<ul>' + failure.reasons.map((reason) => `<li>${esc(reason)}</li>`).join('') + '</ul>';
+            gfParts.push('<ul>' + failure.reasons.map((reason) => `<li>${esc(reason)}</li>`).join('') + '</ul>');
           }
-          gateFailureHtml += '</li>';
+          gfParts.push('</li>');
         }
-        gateFailureHtml += '</ul>';
-        repoHtml += htmlSection('Gate Failures', gateFailureHtml, 4);
+        gfParts.push('</ul>');
+        if (gfOm > 0) gfParts.push(`<p><em>(${gfOm} more gate failures omitted)</em></p>`);
+        repoParts.push(htmlSection('Gate Failures', gfParts.join(''), 4));
       }
       if (repo.approval_policy_events?.length > 0) {
-        let approvalHtml = '<ul>';
-        for (const evt of repo.approval_policy_events) {
+        const { items: bAP, omitted: apOm } = boundedSlice(repo.approval_policy_events);
+        const apParts = ['<ul>'];
+        for (const evt of bAP) {
           const transition = evt.gate_type === 'run_completion'
             ? 'run completion'
             : `${esc(evt.from_phase || '?')} &rarr; ${esc(evt.to_phase || '?')}`;
           const rule = evt.matched_rule
             ? ` — rule: <code>${esc(typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule)}</code>`
             : '';
-          approvalHtml += `<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition}${rule} at <code>${esc(evt.timestamp || 'n/a')}</code>`;
-          if (evt.reason) approvalHtml += `<br>${esc(evt.reason)}`;
-          approvalHtml += '</li>';
+          apParts.push(`<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition}${rule} at <code>${esc(evt.timestamp || 'n/a')}</code>`);
+          if (evt.reason) apParts.push(`<br>${esc(evt.reason)}`);
+          apParts.push('</li>');
         }
-        approvalHtml += '</ul>';
-        repoHtml += htmlSection('Approval Policy', approvalHtml, 4);
+        apParts.push('</ul>');
+        if (apOm > 0) apParts.push(`<p><em>(${apOm} more approval policy events omitted)</em></p>`);
+        repoParts.push(htmlSection('Approval Policy', apParts.join(''), 4));
       }
       if (repo.governance_events?.length > 0) {
-        let governanceHtml = '<ul>';
-        for (const evt of repo.governance_events) {
-          governanceHtml += `<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`;
+        const { items: bGE, omitted: geOm } = boundedSlice(repo.governance_events);
+        const geParts = ['<ul>'];
+        for (const evt of bGE) {
+          geParts.push(`<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`);
         }
-        governanceHtml += '</ul>';
-        repoHtml += htmlSection('Governance Events', governanceHtml, 4);
+        geParts.push('</ul>');
+        if (geOm > 0) geParts.push(`<p><em>(${geOm} more governance events omitted)</em></p>`);
+        repoParts.push(htmlSection('Governance Events', geParts.join(''), 4));
       }
       if (repo.timeout_events?.length > 0) {
-        let timeoutHtml = '<ul>';
-        for (const evt of repo.timeout_events) {
+        const { items: bTE, omitted: teOm } = boundedSlice(repo.timeout_events);
+        const teParts = ['<ul>'];
+        for (const evt of bTE) {
           const label = evt.type === 'timeout_warning' ? 'Warning'
             : evt.type === 'timeout_skip' ? 'Skip'
             : evt.type === 'timeout_skip_failed' ? 'Skip Failed'
@@ -3097,10 +3175,11 @@ function renderCoordinatorHtml(report) {
           const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
           const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
           const exceeded = evt.exceeded_by_minutes != null ? ` (+${evt.exceeded_by_minutes}m)` : '';
-          timeoutHtml += `<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code> scope) — ${elapsed}/${limit}${exceeded}, action: <code>${esc(evt.action || 'n/a')}</code>, phase: <code>${esc(evt.phase || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`;
+          teParts.push(`<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code> scope) — ${elapsed}/${limit}${exceeded}, action: <code>${esc(evt.action || 'n/a')}</code>, phase: <code>${esc(evt.phase || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`);
         }
-        timeoutHtml += '</ul>';
-        repoHtml += htmlSection('Timeout Events', timeoutHtml, 4);
+        teParts.push('</ul>');
+        if (teOm > 0) teParts.push(`<p><em>(${teOm} more timeout events omitted)</em></p>`);
+        repoParts.push(htmlSection('Timeout Events', teParts.join(''), 4));
       }
       if (repo.hook_summary) {
         const eventList = Object.entries(repo.hook_summary.events)
@@ -3112,7 +3191,7 @@ function renderCoordinatorHtml(report) {
           ['Blocked', String(repo.hook_summary.blocked)],
           ...(eventList ? [['Events', eventList]] : []),
         ]);
-        repoHtml += htmlSection('Hook Activity', hookHtml, 4);
+        repoParts.push(htmlSection('Hook Activity', hookHtml, 4));
       }
       if (repo.recovery_summary) {
         const recovery = repo.recovery_summary;
@@ -3129,7 +3208,7 @@ function renderCoordinatorHtml(report) {
             `<li><code>${esc(entry.code)}</code> — <code>${esc(entry.command)}</code>: ${esc(entry.reason)}</li>`
           ).join('') + '</ul>', 5);
         }
-        repoHtml += htmlSection('Recovery', recoveryHtml, 4);
+        repoParts.push(htmlSection('Recovery', recoveryHtml, 4));
       }
       if (repo.continuity) {
         const continuityPairs = [
@@ -3142,10 +3221,10 @@ function renderCoordinatorHtml(report) {
         if (repo.continuity.stale_checkpoint) {
           continuityPairs.push(['Warning', `<span class="warn">checkpoint tracks run <code>${esc(repo.continuity.run_id)}</code>, but repo export tracks <code>${esc(repo.run_id)}</code></span>`]);
         }
-        repoHtml += htmlSection('Continuity', htmlDl(continuityPairs), 4);
+        repoParts.push(htmlSection('Continuity', htmlDl(continuityPairs), 4));
       }
     }
-    sections.push(`<div class="section">${htmlSection('Repo Details', repoHtml)}</div>`);
+    sections.push(`<div class="section">${htmlSection('Repo Details', repoParts.join(''))}</div>`);
   }
 
   return wrapHtml('AgentXchain Governance Report — Coordinator', sections.join('\n'));
