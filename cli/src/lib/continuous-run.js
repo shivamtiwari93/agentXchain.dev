@@ -16,6 +16,7 @@ import {
   resolveVisionPath,
   deriveVisionCandidates,
   deriveRoadmapCandidates,
+  detectRoadmapExhaustedVisionOpen,
   captureVisionHeadingsSnapshot,
   computeVisionContentSha,
   buildSourceManifest,
@@ -724,6 +725,60 @@ export function seedFromVision(root, visionPath, options = {}) {
   }
 
   if (result.candidates.length === 0) {
+    // BUG-77: Before declaring idle, check if roadmap is exhausted but VISION
+    // has unplanned scope. If so, seed a PM roadmap-replenishment intent to
+    // derive the next bounded milestone instead of idle-exiting.
+    const exhaustion = detectRoadmapExhaustedVisionOpen(root, visionPath);
+    if (exhaustion.open) {
+      const sectionNames = exhaustion.unplanned_sections.join(', ');
+      const replenishmentEvent = recordEvent(root, {
+        source: 'vision_scan',
+        category: 'roadmap_exhausted_vision_open',
+        signal: {
+          description: `Roadmap exhausted (${exhaustion.total_milestones} milestones checked through ${exhaustion.latest_milestone}). VISION.md has unplanned scope: ${sectionNames}`,
+          unplanned_sections: exhaustion.unplanned_sections,
+          latest_milestone: exhaustion.latest_milestone,
+          derived: true,
+        },
+        evidence: [
+          { type: 'text', value: `All ${exhaustion.total_milestones} roadmap milestones checked. VISION sections not yet planned: ${sectionNames}` },
+        ],
+      });
+
+      if (replenishmentEvent.ok && !replenishmentEvent.deduplicated) {
+        const replenishmentIntentId = replenishmentEvent.intent.intent_id;
+        const triageResult = triageIntent(root, replenishmentIntentId, {
+          priority: 'p1',
+          template: 'generic',
+          charter: `[roadmap-replenishment] Derive next bounded roadmap increment from VISION.md. Unplanned scope: ${sectionNames}. Current roadmap checked through ${exhaustion.latest_milestone}. Read .planning/VISION.md and .planning/ROADMAP.md to select the next testable milestone. Produce concrete unchecked M${exhaustion.total_milestones + 1} items. Do not re-verify previous completed milestones.`,
+          acceptance_contract: [
+            `New unchecked milestone items added to .planning/ROADMAP.md`,
+            `Milestone scope derived from VISION.md sections: ${sectionNames}`,
+            `Milestone is bounded, testable, and does not duplicate existing checked milestones`,
+          ],
+        });
+
+        if (triageResult.ok) {
+          const triageApproval = options.triageApproval || 'auto';
+          if (triageApproval === 'auto') {
+            approveIntent(root, replenishmentIntentId, {
+              approver: 'continuous_loop',
+              reason: 'roadmap-replenishment auto-approval (BUG-77)',
+            });
+          }
+
+          return {
+            ok: true,
+            idle: false,
+            intentId: replenishmentIntentId,
+            section: 'Roadmap replenishment',
+            goal: `Derive next increment from: ${sectionNames}`,
+            source: 'roadmap_replenishment',
+          };
+        }
+      }
+      // If deduplicated or triage failed, fall through to idle
+    }
     return { ok: true, idle: true };
   }
 
@@ -1556,15 +1611,21 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     visionObjective = `${seeded.section}: ${seeded.goal}`;
     seededSource = seeded.source || 'vision_scan';
     session.idle_cycles = 0;
-    log(seeded.source === 'roadmap_open_work'
-      ? `Roadmap-derived: ${visionObjective}`
-      : `Vision-derived: ${visionObjective}`);
+    if (seeded.source === 'roadmap_open_work') {
+      log(`Roadmap-derived: ${visionObjective}`);
+    } else if (seeded.source === 'roadmap_replenishment') {
+      log(`Roadmap-replenishment (roadmap exhausted, vision open): ${visionObjective}`);
+    } else {
+      log(`Vision-derived: ${visionObjective}`);
+    }
   }
 
   // Prepare intent through intake lifecycle
   const provenance = buildContinuousProvenance(targetIntentId, {
     trigger: visionObjective
-      ? (seededSource === 'roadmap_open_work' ? 'roadmap_open_work' : 'vision_scan')
+      ? (seededSource === 'roadmap_open_work' ? 'roadmap_open_work'
+        : seededSource === 'roadmap_replenishment' ? 'roadmap_replenishment'
+        : 'vision_scan')
       : 'intake',
     triggerReason: visionObjective || readIntent(root, targetIntentId)?.charter || null,
   });

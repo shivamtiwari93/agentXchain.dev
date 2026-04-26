@@ -443,6 +443,128 @@ function truncatePreview(content, capBytes) {
 }
 
 /**
+ * Detect whether the roadmap is exhausted but VISION.md still has unplanned scope.
+ *
+ * BUG-77: When all ROADMAP.md milestones are checked and no M<n+1> exists,
+ * but VISION.md has sections with goals that are NOT mapped to any roadmap
+ * milestone, continuous mode should dispatch PM to derive the next bounded
+ * roadmap increment — not declare idle_exit or vision_exhausted.
+ *
+ * @param {string} root - Project root
+ * @param {string} visionPath - Absolute path to VISION.md
+ * @param {string} [roadmapPath] - Project-relative roadmap path
+ * @returns {{ open: boolean, reason: string, unplanned_sections?: string[], mapped_sections?: string[], total_milestones?: number, latest_milestone?: string, evidence_map?: Array<{ milestone: string, status: string }> }}
+ */
+export function detectRoadmapExhaustedVisionOpen(root, visionPath, roadmapPath = '.planning/ROADMAP.md') {
+  const absRoadmap = isAbsolute(roadmapPath) ? roadmapPath : pathResolve(root, roadmapPath);
+  const absVision = isAbsolute(visionPath) ? visionPath : pathResolve(root, visionPath);
+
+  // If no roadmap, cannot be "exhausted"
+  if (!existsSync(absRoadmap)) {
+    return { open: false, reason: 'no_roadmap' };
+  }
+
+  let roadmapContent;
+  try {
+    roadmapContent = readFileSync(absRoadmap, 'utf8');
+  } catch {
+    return { open: false, reason: 'roadmap_unreadable' };
+  }
+
+  // Parse milestone headings and check for unchecked items
+  const milestoneHeadings = [];
+  let currentMilestone = null;
+  let hasUnchecked = false;
+
+  for (const line of roadmapContent.split('\n')) {
+    const hm = line.match(/^#{2,6}\s+(M\d+\b.*)$/i);
+    if (hm) {
+      currentMilestone = hm[1].trim();
+      milestoneHeadings.push(currentMilestone);
+      continue;
+    }
+    if (currentMilestone && /^\s*[-*]\s+\[\s\]/.test(line)) {
+      hasUnchecked = true;
+    }
+  }
+
+  // Not exhausted if unchecked work exists (BUG-76 handles this)
+  if (hasUnchecked) {
+    return { open: false, reason: 'has_unchecked' };
+  }
+  // No milestones at all — not a milestone-based roadmap
+  if (milestoneHeadings.length === 0) {
+    return { open: false, reason: 'no_milestones' };
+  }
+
+  // Roadmap IS exhausted (all milestones checked, none unchecked). Check VISION.
+  if (!existsSync(absVision)) {
+    return {
+      open: false,
+      reason: 'no_vision',
+      evidence_map: milestoneHeadings.map(m => ({ milestone: m, status: 'completed' })),
+    };
+  }
+
+  let visionContent;
+  try {
+    visionContent = readFileSync(absVision, 'utf8');
+  } catch {
+    return { open: false, reason: 'vision_unreadable' };
+  }
+
+  const { sections } = parseVisionDocument(visionContent);
+  const sectionsWithGoals = sections.filter(s => s.goals.length > 0);
+
+  if (sectionsWithGoals.length === 0) {
+    return {
+      open: false,
+      reason: 'vision_no_actionable_scope',
+      evidence_map: milestoneHeadings.map(m => ({ milestone: m, status: 'completed' })),
+    };
+  }
+
+  // Check which VISION sections are NOT mapped to any roadmap milestone heading
+  const unplanned = [];
+  const mapped = [];
+
+  for (const section of sectionsWithGoals) {
+    const sectionWords = extractSignificantWords(section.heading);
+    const isMapped = milestoneHeadings.some(m => {
+      const milestoneWords = extractSignificantWords(m);
+      if (sectionWords.length === 0 || milestoneWords.length === 0) return false;
+      const overlap = sectionWords.filter(w =>
+        milestoneWords.some(mw => mw.includes(w) || w.includes(mw)),
+      ).length;
+      return overlap / sectionWords.length >= 0.4;
+    });
+    if (isMapped) {
+      mapped.push(section.heading);
+    } else {
+      unplanned.push(section.heading);
+    }
+  }
+
+  if (unplanned.length > 0) {
+    return {
+      open: true,
+      reason: 'roadmap_exhausted_vision_open',
+      unplanned_sections: unplanned,
+      mapped_sections: mapped,
+      total_milestones: milestoneHeadings.length,
+      latest_milestone: milestoneHeadings[milestoneHeadings.length - 1],
+    };
+  }
+
+  return {
+    open: false,
+    reason: 'vision_fully_mapped',
+    evidence_map: milestoneHeadings.map(m => ({ milestone: m, status: 'completed' })),
+    mapped_sections: mapped,
+  };
+}
+
+/**
  * Resolve a vision path relative to the project root.
  *
  * @param {string} root - Project root

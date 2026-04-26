@@ -1,6 +1,6 @@
 # BUG-76 / BUG-77 Continuous Planning Baseline Classifier Spec
 
-**Status:** BUG-76 implementation in progress; BUG-77 remains the related roadmap-exhausted branch.
+**Status:** BUG-76 and BUG-77 both implemented and regression-tested.
 
 ## Purpose
 
@@ -12,10 +12,12 @@ BUG-77 is the related roadmap-replenishment shape: `.planning/ROADMAP.md` is exh
 
 ## Interface
 
-- Classifier helper: `deriveRoadmapCandidates(root, roadmapPath?)` in `cli/src/lib/vision-reader.js`
+- Classifier helper (BUG-76): `deriveRoadmapCandidates(root, roadmapPath?)` in `cli/src/lib/vision-reader.js`
+- Classifier helper (BUG-77): `detectRoadmapExhaustedVisionOpen(root, visionPath, roadmapPath?)` in `cli/src/lib/vision-reader.js`
 - Continuous seed path: `seedFromVision(root, visionPath, options?)` in `cli/src/lib/continuous-run.js`
-- Status surface: `agentxchain status --json` `next_actions[]`
+- Status surface: `agentxchain status --json` `next_actions[]` — emits `roadmap_open_work_detected` (BUG-76) or `roadmap_exhausted_vision_open` (BUG-77)
 - BUG-76 command-chain proof: `cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js`
+- BUG-77 command-chain proof: `cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js`
 
 ## Behavior
 
@@ -44,9 +46,11 @@ BUG-77 is the related roadmap-replenishment shape: `.planning/ROADMAP.md` is exh
 - `AT-BUG76-002`: `seedFromVision()` seeds a `[roadmap]` intent before broad `[vision]` intent derivation.
 - `AT-BUG76-003`: `agentxchain status --json` exposes `next_actions[].type = "roadmap_open_work_detected"` when terminal-looking state has unchecked roadmap work.
 - `AT-BUG76-004`: command-chain test spawns `agentxchain run --continuous` against a completed launch-state fixture with unchecked M28 and proves one governed run executes instead of idle-completing with `runs_completed: 0`.
-- `AT-BUG77-001`: when ROADMAP has no unchecked M milestone but VISION has unplanned V2/V3 scope, continuous mode must dispatch PM in roadmap-replenishment mode instead of claiming full completion. **Not yet implemented in this slice.**
+- `AT-BUG77-001`: when ROADMAP has no unchecked M milestone but VISION has unplanned V2/V3 scope, continuous mode must dispatch PM in roadmap-replenishment mode instead of claiming full completion. **Implemented and tested: `cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js`.**
+- `AT-BUG77-002`: `agentxchain status --json` exposes `next_actions[].type = "roadmap_exhausted_vision_open"` when terminal-looking state has exhausted roadmap but open vision scope.
+- `AT-BUG77-003`: `detectRoadmapExhaustedVisionOpen()` in `vision-reader.js` classifies roadmap/vision state and returns `{ open, reason, unplanned_sections, evidence_map }`.
 
-## Open Questions
+## Resolved Open Questions
 
-1. Should BUG-77 use a new `roadmap_replenishment` intake source instead of overloading `vision_scan`?
-2. Should blocked stale milestone gates ever be bypassed automatically for roadmap replenishment, or should the system create a typed blocker with an explicit operator command to start a clean replenishment run?
+1. BUG-77 uses `roadmap_replenishment` as the `source` field on seeded intents and `roadmap_exhausted_vision_open` as the intake event category. This is distinct from both `roadmap_open_work` (BUG-76) and `vision_scan` (broad vision derivation).
+2. Stale milestone gates are NOT automatically bypassed. The replenishment intent goes through the normal intake pipeline. If the governed run becomes blocked on a stale gate, the operator is shown the blocker. A clean replenishment run starts fresh without inheriting stale gate context because `prepareIntentForDispatch` with `allowTerminalRestart: true` creates a new run.

@@ -23,7 +23,7 @@ import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { readPreemptionMarker, validatePreemptionMarker, findPendingApprovedIntents } from '../lib/intake.js';
 import { readContinuousSession } from '../lib/continuous-run.js';
-import { deriveRoadmapCandidates } from '../lib/vision-reader.js';
+import { deriveRoadmapCandidates, detectRoadmapExhaustedVisionOpen, resolveVisionPath } from '../lib/vision-reader.js';
 import { readAllDispatchProgress } from '../lib/dispatch-progress.js';
 import { readCoordinatorWarnings } from '../lib/coordinator-warnings.js';
 import { reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
@@ -712,15 +712,26 @@ function appendRoadmapOpenWorkNextAction(root, state, continuousSession, nextAct
   }
 
   const roadmap = deriveRoadmapCandidates(root);
-  if (!roadmap.ok || roadmap.candidates.length === 0) {
+  if (roadmap.ok && roadmap.candidates.length > 0) {
+    const candidate = roadmap.candidates[0];
+    const command = 'agentxchain run --continuous --vision .planning/VISION.md';
+    const reason = `Unchecked roadmap work remains (${candidate.section} line ${candidate.line}): ${candidate.goal}`;
+    if (!nextActions.some((action) => action.command === command && action.reason === reason)) {
+      nextActions.push({ command, reason, type: 'roadmap_open_work_detected' });
+    }
     return;
   }
 
-  const candidate = roadmap.candidates[0];
-  const command = 'agentxchain run --continuous --vision .planning/VISION.md';
-  const reason = `Unchecked roadmap work remains (${candidate.section} line ${candidate.line}): ${candidate.goal}`;
-  if (!nextActions.some((action) => action.command === command && action.reason === reason)) {
-    nextActions.push({ command, reason, type: 'roadmap_open_work_detected' });
+  // BUG-77: When roadmap has no unchecked work, check if roadmap is exhausted
+  // but VISION still has unplanned scope requiring PM roadmap-replenishment.
+  const visionPath = resolveVisionPath(root, continuousSession?.vision_path || '.planning/VISION.md');
+  const exhaustion = detectRoadmapExhaustedVisionOpen(root, visionPath);
+  if (exhaustion.open) {
+    const command = 'agentxchain run --continuous --vision .planning/VISION.md';
+    const reason = `Roadmap exhausted (${exhaustion.total_milestones} milestones checked through ${exhaustion.latest_milestone}). VISION.md has unplanned scope: ${exhaustion.unplanned_sections.join(', ')}`;
+    if (!nextActions.some((action) => action.type === 'roadmap_exhausted_vision_open')) {
+      nextActions.push({ command, reason, type: 'roadmap_exhausted_vision_open' });
+    }
   }
 }
 
