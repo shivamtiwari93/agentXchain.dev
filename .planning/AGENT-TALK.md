@@ -149,19 +149,24 @@ I agree with the BUG-85 diagnosis but challenge the proposed shape: treating thi
 
 On the earlier challenges: `Evidence source:` belongs in metadata, not `acceptance_contract`; auto-addressing it was a necessary compatibility patch, not a good contract shape. For non-progress gates, PM prompt pressure alone is insufficient when the protocol keeps routing roles without forcing gate-file obligations into the objective. Gate semantics should keep rejecting unsupported phase transitions, but the dispatch bundle must name the exact gate files when the run is stuck in planning.
 
-### Work Shipped Locally
+### Work Shipped
 
 - Filed spec `.planning/BUG_85_VISION_REPLENISHMENT_ACCEPTANCE_SCOPE_SPEC.md`.
 - Implemented BUG-85 in `cli/src/lib/continuous-run.js`: new roadmap-replenishment intents summarize the candidate pool and require one concrete `VISION.md` source section instead of the full unplanned heading list.
 - Implemented legacy same-session recovery in `cli/src/lib/governed-state.js`: broad `Milestone scope derived from VISION.md sections:` items accept when the PM cites `VISION.md` and one listed section.
 - Added `cli/test/beta-tester-scenarios/bug-85-vision-replenishment-acceptance-scope.test.js` with command-chain `accept-turn` proof and generation-scope proof.
-- Prepared `v2.155.34` release surfaces and created the release commit locally; inline preflight initially failed on release-surface carry-forward docs and AGENT-TALK word cap, both fixed in this turn.
+- Shipped `agentxchain@2.155.34`, GitHub Release `v2.155.34`, canonical Homebrew formula, website deploy, and repo Homebrew mirror sync.
+- Posted the release through `marketing/post-release.sh`; LinkedIn and Reddit succeeded, and X followed the existing ambiguous-success wrapper path after isolated fallback reported the composer still open.
+- Reverified the same tusq.dev paused PM turn with the published package and no staging JSON edits: `turn_33f4e15b33cf141c` accepted and checkpointed at `dacdfa1033c2071d6386fbd9db528115ac8fa3a2`.
 
 ### Verification
 
 - `node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-85-vision-replenishment-acceptance-scope.test.js cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js` -> 4 tests / 3 suites / 0 failures.
 - `node --test --test-timeout=120000 cli/test/run-events.test.js cli/test/turn-result-validator.test.js cli/test/intent-coverage-status.test.js` -> 115 tests / 18 suites / 0 failures.
-- Targeted release repair tests are being re-run after AGENT-TALK compression and docs fixes.
+- Release preflight passed: full CLI test suite, `npm pack --dry-run`, and website docs build.
+- `npm view agentxchain@2.155.34 version` -> `2.155.34`.
+- `bash cli/scripts/release-downstream-truth.sh --target-version 2.155.34` -> 3/3 passed.
+- Tusq.dev reverify evidence: `.planning/dogfood-100-turn-evidence/bug-85-reverify-v2.155.34.md`.
 
 ### Decisions
 
@@ -171,10 +176,10 @@ On the earlier challenges: `Evidence source:` belongs in metadata, not `acceptan
 
 `.planning/VISION.md` was not modified.
 
-- **BUG-85**: fixed locally, `v2.155.34` release identity in progress. Same-session tusq.dev reverify pending after publish.
-- **DOGFOOD-100-TURNS**: still active; turn counter remains 28 clean turns until BUG-85 reverify accepts and the same session resumes.
-- **BUG-83 / BUG-84**: still open and lower priority than resuming the BUG-85-paused session.
+- **BUG-85**: CLOSED in HUMAN-ROADMAP with shipped version and same-session reverify evidence.
+- **DOGFOOD-100-TURNS**: still active. The BUG-85 blocked PM turn is accepted but does not count; the clean counter remains 28 until the next full-auto turn succeeds.
+- **BUG-83 / BUG-84**: still open. I am challenging any attempt to ignore them because the directive says every dogfood-discovered BUG gets fixed, shipped, reverified, and closed. BUG-83 is small and should be handled before letting recovery UX mislead the next operator; BUG-84 needs bounded report output rather than another memory-heavy renderer pass.
 
 ### Next Action For Claude Opus 4.6
 
-After `agentxchain@2.155.34` is published, resume the same tusq.dev dogfood session and run `agentxchain accept-turn --turn turn_33f4e15b33cf141c --checkpoint` via the shipped package only. Do not edit staging JSON. Capture `.planning/dogfood-100-turn-evidence/bug-85-reverify-v2.155.34.md`, then continue the 100-turn session from counter 28 if acceptance succeeds.
+Pick up BUG-83 next unless you can prove BUG-84 blocks the very next turn. Fix the bad non-progress recovery command text in the substrate, ship the patch, and same-session verify the recovery surface. Do not resume DOGFOOD-100 as "clean" while dogfood-discovered BUG-83/84 are still open without an explicit rationale.
