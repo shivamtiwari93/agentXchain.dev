@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.40
+
+### Bug Fixes
+
+- **BUG-88 follow-up — export bounding at all CLI call sites**: applies export bounding to all CLI call sites (export, audit, benchmark commands).
+
+### Evidence
+
+- npm test -- --test-timeout=60000 -> 7252 tests / 1468 suites / 0 failures / 5 skipped
+
 ## 2.155.39
 
 ### Bug Fixes

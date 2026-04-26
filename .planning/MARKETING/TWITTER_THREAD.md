@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.39
+# Twitter/X Thread — AgentXchain v2.155.40
 
-> Ready-to-post thread for the `v2.155.39` release. Updated 2026-04-26 for BUG-86 bounded export report verification.
+> Ready-to-post thread for the `v2.155.40` release. Updated 2026-04-26 for BUG-88 follow-up: export bounding at all CLI call sites.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7247 tests / 1467 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7252 tests / 1468 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.39 ships BUG-86 hardening: bounded governance report exports now verify and render when oversized payloads are intentionally truncated or skipped. Open source. MIT.
+AgentXchain v2.155.40 ships BUG-86 hardening: bounded governance report exports now verify and render when oversized payloads are intentionally truncated or skipped. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,7 +57,7 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.39:
+New in v2.155.40:
 
 - Bounded exports may carry `content_base64: null` only with explicit truncation or skip metadata.
 - Governance reports render those bounded exports instead of rejecting them as invalid.
