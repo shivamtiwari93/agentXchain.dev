@@ -1,0 +1,57 @@
+---
+sidebar_position: 0
+title: "v2.155.30 Release Notes"
+---
+
+# AgentXchain v2.155.30
+
+`v2.155.30` closes the next tusq.dev full-auto blocker: useful PM planning
+turns that emit objections with `summary` / `detail` but no required
+`statement` no longer force operator-side staging JSON edits.
+
+## Bug Fixes
+
+- **BUG-79 staged-result objection normalization.** `accept-turn` now copies a
+  recoverable `objections[].summary` or `objections[].detail` into
+  `objections[].statement` before schema validation. Summary wins when both are
+  present. Objections with no recoverable text still fail closed.
+- **Typed normalization audit trail.** Every safe staged-result repair emits
+  `staged_result_auto_normalized`. BUG-78's empty-workspace review repair also
+  emits this generic event while preserving the compatibility
+  `artifact_type_auto_normalized` event.
+- **Prompt and recovery hardening.** PM, QA, generated role prompts, and
+  dispatch bundles now state that every objection needs a non-empty
+  `statement`. Failed unrecoverable objection shapes print the operator
+  boundary command `agentxchain accept-turn --turn <turn_id>
+  --normalize-staged-result` instead of pushing operators toward manual JSON
+  surgery.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.30 -c "agentxchain --version"
+```
+
+For BUG-79 verification, resume the paused tusq.dev dogfood session on the
+published package. The PM staged result with `objections[].summary` /
+`objections[].detail` and no `statement` should accept without editing
+`.agentxchain/staging/<turn_id>/turn-result.json`; accepted history should
+record non-empty objection `statement` values; `.agentxchain/events.jsonl`
+should include `staged_result_auto_normalized`.
+
+For BUG-78 verification, stage a no-edit launch/QA/PM review result with
+`artifact.type: "workspace"` and `files_changed: []`, then run:
+
+```bash
+agentxchain accept-turn --turn <turn_id>
+```
+
+Acceptance should succeed without editing staging JSON, accepted history should
+record `artifact.type: "review"`, and `.agentxchain/events.jsonl` should include
+both `artifact_type_auto_normalized` and `staged_result_auto_normalized`.

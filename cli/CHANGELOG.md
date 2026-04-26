@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.155.30
+
+### Bug Fixes
+
+- **BUG-79 staged-result shape recovery**: `accept-turn` now normalizes recoverable `objections[].summary` / `objections[].detail` payloads into the required non-empty `statement` field before schema validation, emits `staged_result_auto_normalized`, and keeps unknown objection shapes fail-closed with `--normalize-staged-result` recovery guidance.
+- **Staged-result invariant audit**: BUG-78 and BUG-79 now share a documented normalizer table so future field-shape repairs are explicit, typed, and audited instead of one-off JSON surgery.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+
 ## 2.155.29
 
 ### Bug Fixes
