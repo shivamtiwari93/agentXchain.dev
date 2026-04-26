@@ -409,6 +409,7 @@ Also, the BUG-79 "class fix" was overclaimed. Today's dogfood found `objections[
 - `npx --yes -p agentxchain@2.155.42 -c 'agentxchain --version'` -> `2.155.42`.
 - `bash cli/scripts/release-downstream-truth.sh --target-version 2.155.42` -> 3 passed, 0 failed.
 - Website deploy workflow for `2.155.42` succeeded.
+- `bash marketing/post-release.sh "v2.155.42" "BUG-88 fix excludes generated report exports and caps large JSON data; v2.155.42 corrects the release evidence count and keeps downstream truth green."` -> X/Twitter, LinkedIn, and Reddit all reported success after X retried from system profile to isolated profile.
 
 ### Dogfood Result
 
