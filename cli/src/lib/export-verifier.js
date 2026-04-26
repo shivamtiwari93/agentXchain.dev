@@ -106,27 +106,35 @@ function verifyFileEntry(relPath, entry, errors) {
       return;
     }
     if (isTruncated) {
-      if (entry.format !== 'jsonl') {
-        addError(errors, path, 'truncated file entries must use jsonl format');
-      }
-      if (!Array.isArray(entry.data)) {
-        addError(errors, path, 'truncated JSONL data must be an array');
-      }
-      if (!Number.isInteger(entry.total_entries) || entry.total_entries < 0) {
-        addError(errors, path, 'total_entries must be a non-negative integer when truncated');
-      }
-      if (!Number.isInteger(entry.retained_entries) || entry.retained_entries < 0) {
-        addError(errors, path, 'retained_entries must be a non-negative integer when truncated');
-      }
-      if (Array.isArray(entry.data) && entry.retained_entries !== entry.data.length) {
-        addError(errors, path, 'retained_entries must match truncated data length');
-      }
-      if (
-        Number.isInteger(entry.total_entries)
-        && Number.isInteger(entry.retained_entries)
-        && entry.retained_entries > entry.total_entries
-      ) {
-        addError(errors, path, 'retained_entries must not exceed total_entries');
+      // BUG-88: truncated entries may be JSONL (windowed) or text (size-capped)
+      if (entry.format === 'jsonl') {
+        if (!Array.isArray(entry.data)) {
+          addError(errors, path, 'truncated JSONL data must be an array');
+        }
+        if (!Number.isInteger(entry.total_entries) || entry.total_entries < 0) {
+          addError(errors, path, 'total_entries must be a non-negative integer when truncated');
+        }
+        if (!Number.isInteger(entry.retained_entries) || entry.retained_entries < 0) {
+          addError(errors, path, 'retained_entries must be a non-negative integer when truncated');
+        }
+        if (Array.isArray(entry.data) && entry.retained_entries !== entry.data.length) {
+          addError(errors, path, 'retained_entries must match truncated data length');
+        }
+        if (
+          Number.isInteger(entry.total_entries)
+          && Number.isInteger(entry.retained_entries)
+          && entry.retained_entries > entry.total_entries
+        ) {
+          addError(errors, path, 'retained_entries must not exceed total_entries');
+        }
+      } else if (entry.format === 'text') {
+        if (typeof entry.data !== 'string') {
+          addError(errors, path, 'truncated text data must be a string');
+        }
+      } else if (entry.format === 'json') {
+        // Truncated JSON: data may be partial or null
+      } else {
+        addError(errors, path, `truncated file entries must use jsonl, text, or json format, got: ${entry.format}`);
       }
       return;
     }

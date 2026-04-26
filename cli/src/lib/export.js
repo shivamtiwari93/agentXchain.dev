@@ -182,6 +182,10 @@ function parseFile(root, relPath, opts = {}) {
     totalEntries = parsed.totalEntries;
   } else {
     data = buffer.toString('utf8');
+    if (opts.maxTextDataBytes && typeof data === 'string' && data.length > opts.maxTextDataBytes) {
+      data = data.slice(0, opts.maxTextDataBytes);
+      truncated = true;
+    }
   }
 
   const skipBase64 = truncated || (opts.maxBase64Bytes && buffer.byteLength > opts.maxBase64Bytes);
@@ -464,9 +468,42 @@ export function buildRunExport(startDir = process.cwd(), exportOpts = {}) {
   if (exportOpts.maxBase64Bytes) {
     parseOpts.maxBase64Bytes = exportOpts.maxBase64Bytes;
   }
+  if (exportOpts.maxTextDataBytes) {
+    parseOpts.maxTextDataBytes = exportOpts.maxTextDataBytes;
+  }
+
+  // BUG-88: apply maxExportFiles cap with priority ordering.
+  // Core governance files first, then dispatch/staging, then .planning/ last.
+  let boundedPaths = collectedPaths;
+  let exportFilesTruncated = false;
+  if (exportOpts.maxExportFiles && collectedPaths.length > exportOpts.maxExportFiles) {
+    const corePaths = [];
+    const runtimePaths = [];
+    const planningPaths = [];
+    for (const p of collectedPaths) {
+      if (p.startsWith('.planning/')) {
+        planningPaths.push(p);
+      } else if (p.startsWith('.agentxchain/dispatch/') || p.startsWith('.agentxchain/staging/') || p.startsWith('.agentxchain/transactions/')) {
+        runtimePaths.push(p);
+      } else {
+        corePaths.push(p);
+      }
+    }
+    const budget = exportOpts.maxExportFiles;
+    boundedPaths = corePaths.slice(0, budget);
+    const remaining = budget - boundedPaths.length;
+    if (remaining > 0) {
+      boundedPaths.push(...runtimePaths.slice(0, remaining));
+      const remaining2 = remaining - Math.min(runtimePaths.length, remaining);
+      if (remaining2 > 0) {
+        boundedPaths.push(...planningPaths.slice(0, remaining2));
+      }
+    }
+    exportFilesTruncated = true;
+  }
 
   const files = {};
-  for (const relPath of collectedPaths) {
+  for (const relPath of boundedPaths) {
     files[relPath] = parseFile(root, relPath, parseOpts);
   }
 
@@ -511,6 +548,9 @@ export function buildRunExport(startDir = process.cwd(), exportOpts = {}) {
         dashboard_session: buildDashboardSessionSummary(root),
         delegation_summary: buildDelegationSummary(files),
         repo_decisions: buildRepoDecisionsSummary(root, rawConfig),
+        export_files_truncated: exportFilesTruncated || false,
+        total_collected_files: collectedPaths.length,
+        included_files: Object.keys(files).length,
       },
       workspace: buildRunWorkspaceMetadata(root),
       files,

@@ -96,6 +96,9 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | `dashboard_session` | Snapshot of local dashboard-daemon status at export time |
 | `delegation_summary` | Delegation chain summary derived from accepted history — `null` when history is unavailable |
 | `repo_decisions` | Cross-run repo-level decisions — `null` when no repo decisions exist |
+| `export_files_truncated` | `true` when `maxExportFiles` cap was applied and some collected files were omitted from the export |
+| `total_collected_files` | Total number of files found before any `maxExportFiles` cap |
+| `included_files` | Number of files actually included in the export `files` object |
 
 ### `summary.repo_decisions`
 

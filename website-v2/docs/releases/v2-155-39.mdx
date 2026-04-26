@@ -1,0 +1,36 @@
+---
+sidebar_position: 0
+title: "v2.155.39 Release Notes"
+---
+
+# AgentXchain v2.155.39
+
+`v2.155.39` fixes BUG-88 from DOGFOOD-100: the governance export writer was crashing with "Invalid string length" on large accumulated dogfood state. The fix adds `maxExportFiles` (500 cap with priority ordering), `maxTextDataBytes` (128KB text truncation), and fallback-safe serialization in `run.js`. The export verifier now also accepts truncated text entries (not just JSONL).
+
+## Bug Fixes
+
+- **BUG-88 export writer Invalid string length.** `buildRunExport()` now accepts `maxExportFiles` (default 500) with priority file ordering and `maxTextDataBytes` (default 128KB) for text truncation, preventing `RangeError: Invalid string length` on large accumulated dogfood state. Files are priority-ordered so governance-critical artifacts are retained when the cap is reached.
+- **Export verifier truncated text acceptance.** The export verifier now accepts truncated text entries in addition to JSONL, so bounded exports with text-format truncation metadata pass verification instead of being rejected as invalid.
+- **Fallback-safe serialization in run.js.** The run command now retries serialization with tight-bound constraints on `Invalid string length`, preventing unrecoverable crashes during export write.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-88-export-writer-string-overflow.test.js -> 5 tests / 1 suite / 0 failures
+- npm test -- --test-timeout=60000 -> 7247 tests / 1467 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.39 -c "agentxchain --version"`
+
+For BUG-88: run `agentxchain report --input <large-export.json> --format markdown` on an export from a long continuous session (500+ files in accumulated state). The command must succeed without `Invalid string length`. Verify that the export contains truncation metadata for oversized text entries and that the file count does not exceed 500.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

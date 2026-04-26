@@ -673,26 +673,52 @@ export async function executeGovernedRun(context, opts = {}) {
         const reportsDir = join(root, '.agentxchain', 'reports');
         mkdirSync(reportsDir, { recursive: true });
 
-        const exportResult = buildRunExport(root, { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024 });
+        // BUG-88: two-attempt export with fallback to tighter bounds on string-length overflow
+        const defaultExportOpts = { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024, maxExportFiles: 500, maxTextDataBytes: 131072 };
+        const tightExportOpts = { maxJsonlEntries: 500, maxBase64Bytes: 65536, maxExportFiles: 200, maxTextDataBytes: 32768 };
+
+        let exportResult = buildRunExport(root, defaultExportOpts);
         if (exportResult.ok) {
           const runId = result.state.run_id || 'unknown';
           const exportPath = join(reportsDir, `export-${runId}.json`);
+          let exportWriteOk = false;
+          let usedExport = exportResult.export;
 
-          // Write export JSON — compact format to avoid string-length overflow (BUG-84)
+          // Write export JSON — compact format to avoid string-length overflow (BUG-84/88)
           try {
             writeFileSync(exportPath, JSON.stringify(exportResult.export));
+            exportWriteOk = true;
           } catch (exportWriteErr) {
-            log(chalk.dim(`  Governance export write failed: ${exportWriteErr.message}`));
+            // BUG-88: retry with tighter bounds on Invalid string length
+            if (/Invalid string length/i.test(exportWriteErr.message)) {
+              log(chalk.dim(`  Export write exceeded string limit; retrying with tighter bounds...`));
+              const tightResult = buildRunExport(root, tightExportOpts);
+              if (tightResult.ok) {
+                try {
+                  writeFileSync(exportPath, JSON.stringify(tightResult.export));
+                  exportWriteOk = true;
+                  usedExport = tightResult.export;
+                } catch (retryErr) {
+                  log(chalk.dim(`  Governance export write failed (tight bounds): ${retryErr.message}`));
+                }
+              }
+            } else {
+              log(chalk.dim(`  Governance export write failed: ${exportWriteErr.message}`));
+            }
           }
 
-          // Generate markdown report separately so export-write failure doesn't block it
+          // Generate markdown report from whichever export succeeded
           try {
-            const reportResult = buildGovernanceReport(exportResult.export, { input: exportPath });
+            const reportInput = exportWriteOk ? exportPath : '(in-memory)';
+            const reportResult = buildGovernanceReport(usedExport, { input: reportInput });
             const reportPath = join(reportsDir, `report-${runId}.md`);
             writeFileSync(reportPath, formatGovernanceReportMarkdown(reportResult.report));
 
             log('');
             log(chalk.dim(`  Governance report: .agentxchain/reports/report-${runId}.md`));
+            if (!exportWriteOk) {
+              log(chalk.dim(`  Note: report generated from in-memory bounded export (disk write failed).`));
+            }
           } catch (reportErr) {
             log(chalk.dim(`  Governance report failed: ${reportErr.message}`));
           }
