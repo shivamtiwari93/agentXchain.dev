@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.155.42
+
+### Documentation
+
+- **Release evidence correction**: republishes the BUG-88 recursive generated-export fix with the post-publish verified aggregate evidence count. `v2.155.41` shipped the runtime fix, but its release-facing aggregate evidence line overstated the suite count; `v2.155.42` makes the immutable npm package, website, launch evidence, and marketing drafts agree with the verified post-publish run.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-88-export-writer-string-overflow.test.js -> 7 tests / 1 suite / 0 failures
+- node --test --test-timeout=120000 cli/test/export-cli.test.js cli/test/verify-export-cli.test.js cli/test/report-cli.test.js -> 54 tests / 3 suites / 0 failures
+- node --test --test-timeout=120000 cli/test/framework-write-exclusion.test.js cli/test/repo-observer.test.js cli/test/report-continuity.test.js cli/test/run-integration.test.js -> 189 tests / 24 suites / 0 failures
+- bash cli/scripts/verify-post-publish.sh --target-version 2.155.41 -> 7249 tests / 1467 suites / 0 failures / 5 skipped
+
 ## 2.155.41
 
 ### Bug Fixes
