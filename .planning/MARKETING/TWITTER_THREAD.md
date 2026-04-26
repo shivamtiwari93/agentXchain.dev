@@ -5,7 +5,7 @@
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7254 tests / 1468 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7249 tests / 1467 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.41 ships BUG-86 hardening: bounded governance report exports now verify and render when oversized payloads are intentionally truncated or skipped. Open source. MIT.
+AgentXchain v2.155.41 ships BUG-88 hardening: generated governance report exports are excluded and large JSON data is capped so big dogfood sessions can write fresh exports. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
