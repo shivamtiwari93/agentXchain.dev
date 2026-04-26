@@ -1,10 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.35
+# LinkedIn Post — AgentXchain v2.155.36
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.35` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.36` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
+> - npm test -- --test-timeout=60000 -> 7231 tests / 1464 suites / 0 failures / 5 skipped
 
 ---
 
@@ -21,7 +22,7 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.35` hardens continuous vision mode for exhausted ROADMAP plus open VISION scope:
+`v2.155.36` hardens continuous vision mode for exhausted ROADMAP plus open VISION scope:
 
 - ROADMAP exhaustion is checked before broad VISION goal derivation.
 - `[roadmap-replenishment]` intents explicitly prefer PM and planning scope.

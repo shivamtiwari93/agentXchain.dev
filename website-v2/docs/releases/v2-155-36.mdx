@@ -1,0 +1,36 @@
+---
+sidebar_position: 0
+title: "v2.155.36 Release Notes"
+---
+
+# AgentXchain v2.155.36
+
+`v2.155.36` fixes BUG-84 from DOGFOOD-100: governance report generation no longer crashes with `RangeError: Invalid string length` on large continuous sessions with hundreds of turns.
+
+## Bug Fixes
+
+- **BUG-84 governance report Invalid string length.** Large sessions with 500+ turns and many governance events caused report formatters to crash when string operations exceeded Node.js max string size. The fix adds per-section item caps (`MAX_REPORT_SECTION_ITEMS=500`), replaces `+=` string concatenation with array-push patterns in the HTML formatter, removes pretty-print indent from the export JSON, and separates try/catch blocks so export write failures don't prevent report generation.
+- **Regression coverage.** New test file exercises all three formatters (text, markdown, HTML) with 600+ turns and 700+ governance events, asserting truncation notices and completion without RangeError.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 9 tests / 2 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/report-html.test.js cli/test/report-cli.test.js -> 32 tests / 2 suites / 0 failures / 0 skipped
+- npm test -- --test-timeout=60000 -> 7231 tests / 1464 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.36 -c "agentxchain --version"`
+
+For BUG-84: run `agentxchain report --format html` on an export with 500+ turns. The HTML output must complete without `RangeError` and include `(N more turns omitted)` truncation notices in sections that exceed the cap.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

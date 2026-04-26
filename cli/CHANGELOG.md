@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.155.36
+
+### Bug Fixes
+
+- **BUG-84 governance report Invalid string length**: large continuous sessions with 500+ turns crash report formatters with `RangeError: Invalid string length` due to unbounded array iteration and pretty-printed JSON export. Adds `boundedSlice()` with `MAX_REPORT_SECTION_ITEMS=500` cap on all section arrays, replaces `+=` string concat with `push()+join()` in HTML formatter, removes pretty-print indent from export JSON, and separates try/catch for export write vs report generation in `run.js`.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 9 tests / 2 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/report-html.test.js cli/test/report-cli.test.js -> 32 tests / 2 suites / 0 failures / 0 skipped
+- npm test -- --test-timeout=60000 -> 7231 tests / 1464 suites / 0 failures / 5 skipped
+
 ## 2.155.35
 
 ### Bug Fixes
