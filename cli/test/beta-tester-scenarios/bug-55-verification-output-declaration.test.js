@@ -3,13 +3,16 @@
  * verification output declaration.
  *
  * HUMAN-ROADMAP BUG-55 sub-defect B says when a QA turn's verification
- * command produces untracked fixture files, acceptance must EITHER (a)
- * reject with an actionable error naming the undeclared files, OR (b)
- * succeed cleanly if the turn declared them under verification.produced_files.
+ * command produces untracked fixture files, acceptance must handle them.
+ *
+ * Post-BUG-87: undeclared verification outputs that were not dirty at
+ * dispatch baseline are auto-normalized (classified as ignore, cleaned
+ * up) instead of hard-rejecting. The first test case now verifies
+ * auto-normalization succeeds with an audit event. The explicit
+ * declaration path (test 2) is unchanged.
  *
  * This test mirrors the tester's exact command chain: spawn `accept-turn`
- * as a child-process CLI invocation, and assert the real behavior both
- * with and without the declaration.
+ * as a child-process CLI invocation.
  */
 
 import { afterEach, describe, it } from 'node:test';
@@ -168,7 +171,7 @@ afterEach(() => {
 });
 
 describe('BUG-55 sub-defect B — verification output declaration', () => {
-  it('rejects acceptance when verification commands produced undeclared files, with actionable error', () => {
+  it('auto-normalizes undeclared verification outputs (BUG-87 recovery path)', () => {
     const { root, turnId } = seedProject({ producedFiles: null });
 
     const accept = spawnSync(process.execPath, [CLI_PATH, 'accept-turn', '--turn', turnId], {
@@ -176,36 +179,37 @@ describe('BUG-55 sub-defect B — verification output declaration', () => {
       encoding: 'utf8',
       env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
     });
-    assert.notEqual(accept.status, 0, `accept-turn must reject; got stdout:\n${accept.stdout}\nstderr:\n${accept.stderr}`);
-
-    const combined = `${accept.stdout}\n${accept.stderr}`;
-    assert.ok(
-      combined.includes(FIXTURE_PATH),
-      `acceptance output must name the undeclared fixture file; got:\n${combined}`,
-    );
-    assert.ok(
-      combined.includes('verification.produced_files'),
-      `acceptance output must reference verification.produced_files as the remediation; got:\n${combined}`,
-    );
-
-    const events = readEvents(root);
-    const failure = events.find((e) => e.event_type === 'acceptance_failed');
-    assert.ok(failure, `acceptance_failed event must exist in ${RUN_EVENTS_PATH}`);
+    // Post-BUG-87: undeclared verification outputs are auto-normalized
+    // (classified as ignore, cleaned up) instead of causing hard rejection.
     assert.equal(
-      failure.payload?.error_code,
-      'undeclared_verification_outputs',
-      `expected error_code 'undeclared_verification_outputs' for verification-output rejection; got: ${JSON.stringify(failure.payload)}`,
+      accept.status,
+      0,
+      `accept-turn must succeed via auto-normalization; got stdout:\n${accept.stdout}\nstderr:\n${accept.stderr}`,
+    );
+
+    // The undeclared fixture must have been cleaned up by auto-normalization.
+    assert.ok(
+      !existsSync(join(root, FIXTURE_PATH)),
+      'auto-normalized verification output must be cleaned up after acceptance',
+    );
+
+    // Auto-normalization audit event must be emitted.
+    const events = readEvents(root);
+    const normalizeEvent = events.find(
+      (e) => e.event_type === 'verification_output_auto_normalized',
     );
     assert.ok(
-      Array.isArray(failure.payload?.unexpected_dirty_files)
-        && failure.payload.unexpected_dirty_files.includes(FIXTURE_PATH),
-      `acceptance_failed event payload must list the undeclared fixture file in unexpected_dirty_files; got: ${JSON.stringify(failure.payload)}`,
+      normalizeEvent,
+      `verification_output_auto_normalized event must exist; events: ${events.map((e) => e.event_type).join(', ')}`,
+    );
+    assert.ok(
+      Array.isArray(normalizeEvent.payload?.auto_classified_files)
+        && normalizeEvent.payload.auto_classified_files.includes(FIXTURE_PATH),
+      `event payload must list the auto-classified file; got: ${JSON.stringify(normalizeEvent.payload)}`,
     );
 
     const state = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
-    const failedTurn = state.active_turns?.[turnId];
-    assert.ok(failedTurn, 'turn must still be present on state');
-    assert.equal(failedTurn.status, 'failed_acceptance');
+    assert.equal(state.last_completed_turn_id, turnId);
   });
 
   it('accepts cleanly when verification.produced_files declares the ignored fixture', () => {

@@ -4632,7 +4632,7 @@ exec sleep 30
     assert.equal(git(root, ['status', '--short']), '', 'packaged BUG-55A checkpoint must leave a clean tree');
   });
 
-  it('BUG-55 packaged CLI rejects undeclared verification outputs, then accepts once declared', async () => {
+  it('BUG-55/87 packaged CLI auto-normalizes undeclared verification outputs and accepts cleanly', async () => {
     const { packageDir } = getExtractedPackage();
     const cliPath = join(packageDir, 'bin', 'agentxchain.js');
     const governedState = await import(pathToFileURL(join(packageDir, 'src/lib/governed-state.js')).href);
@@ -4672,56 +4672,42 @@ exec sleep 30
 
     const resultPath = join(root, getTurnStagingResultPath(turn.turn_id));
     mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
-    const writeTurnResult = (producedFiles = null) => {
-      writeFileSync(resultPath, JSON.stringify({
-        schema_version: '1.0',
-        run_id: assign.state.run_id,
-        turn_id: turn.turn_id,
-        role: turn.assigned_role,
-        runtime_id: turn.runtime_id,
-        status: 'completed',
-        summary: 'QA ran smoke tests and updated cli.',
-        decisions: [],
-        objections: [],
-        files_changed: ['src/cli.js'],
-        artifacts_created: [],
-        verification: {
-          status: 'pass',
-          commands: ['node tests/smoke.mjs'],
-          evidence_summary: 'smoke tests passed',
-          machine_evidence: [{ command: 'node tests/smoke.mjs', exit_code: 0 }],
-          ...(producedFiles ? { produced_files: producedFiles } : {}),
-        },
-        artifact: { type: 'workspace', ref: null },
-        proposed_next_role: 'launch',
-        phase_transition_request: 'launch',
-        run_completion_request: false,
-        needs_human_reason: null,
-        cost: { usd: 0.01 },
-      }, null, 2));
-    };
+    writeFileSync(resultPath, JSON.stringify({
+      schema_version: '1.0',
+      run_id: assign.state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'QA ran smoke tests and updated cli.',
+      decisions: [],
+      objections: [],
+      files_changed: ['src/cli.js'],
+      artifacts_created: [],
+      verification: {
+        status: 'pass',
+        commands: ['node tests/smoke.mjs'],
+        evidence_summary: 'smoke tests passed',
+        machine_evidence: [{ command: 'node tests/smoke.mjs', exit_code: 0 }],
+      },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'launch',
+      phase_transition_request: 'launch',
+      run_completion_request: false,
+      needs_human_reason: null,
+      cost: { usd: 0.01 },
+    }, null, 2));
 
-    writeTurnResult();
-    const reject = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turn.turn_id], {
-      cwd: root,
-      encoding: 'utf8',
-      timeout: 120000,
-      env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
-    });
-    assert.notEqual(reject.status, 0, `packaged BUG-55B accept-turn must reject undeclared verification outputs:\n${reject.stdout}\n${reject.stderr}`);
-    const combinedReject = `${reject.stdout}\n${reject.stderr}`;
-    assert.match(combinedReject, new RegExp(BUG55_FIXTURE_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.match(combinedReject, /verification\.produced_files/);
-
-    writeTurnResult([{ path: BUG55_FIXTURE_PATH, disposition: 'ignore' }]);
+    // Post-BUG-87: undeclared verification outputs are auto-normalized
+    // and cleaned up instead of causing hard rejection.
     const accept = spawnSync(process.execPath, [cliPath, 'accept-turn', '--turn', turn.turn_id], {
       cwd: root,
       encoding: 'utf8',
       timeout: 120000,
       env: { ...process.env, FORCE_COLOR: '0', NODE_NO_WARNINGS: '1' },
     });
-    assert.equal(accept.status, 0, `packaged BUG-55B accept-turn must succeed once produced_files is declared:\n${accept.stdout}\n${accept.stderr}`);
-    assert.equal(existsSync(join(root, BUG55_FIXTURE_PATH)), false, 'packaged BUG-55B ignore cleanup must remove the fixture output');
+    assert.equal(accept.status, 0, `packaged BUG-55B/87 accept-turn must succeed via auto-normalization:\n${accept.stdout}\n${accept.stderr}`);
+    assert.equal(existsSync(join(root, BUG55_FIXTURE_PATH)), false, 'packaged BUG-55B/87 auto-normalization must clean up the undeclared fixture output');
   });
 
   it('BUG-55 packaged CLI commits declared files and ignores produced fixture outputs in one checkpoint', async () => {

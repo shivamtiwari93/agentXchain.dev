@@ -499,6 +499,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `verification.status`: one of `pass`, `fail`, `skipped`');
   lines.push('- `verification.status: "pass"` is valid only when every `verification.machine_evidence[].exit_code` is `0`');
   lines.push('- Expected-failure checks must be wrapped in a verifier that exits `0` when the failure occurs as expected; do not list raw non-zero negative-case commands on a passing turn');
+  lines.push('- If verification commands produce side-effect files (e.g., `.tusq/plan.json`, `coverage/`, `.cache/`), declare each in `verification.produced_files` with `disposition: "ignore"` (temporary output to clean up) or `disposition: "artifact"` (output to checkpoint as a turn deliverable). Undeclared dirty files with declared verification will be auto-cleaned but declaring them is preferred.');
   lines.push('- `artifact.type`: one of `workspace`, `patch`, `commit`, `review`');
   lines.push('- If you make zero repo file edits, set `artifact.type` to `"review"` and `files_changed` to `[]`.');
   lines.push('- Only set `artifact.type` to `"workspace"` when you actually modified repo files and listed every changed path in `files_changed`.');

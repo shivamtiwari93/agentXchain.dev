@@ -4531,39 +4531,97 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       && verification.machine_evidence.some((e) => e && typeof e === 'object' && typeof e.command === 'string' && e.command.trim().length > 0);
     const verificationWasDeclared = declaredVerificationCommands || declaredMachineEvidence;
 
-    let failureReason = dirtyParity.reason;
-    let failureErrorCode = 'artifact_dirty_tree_mismatch';
-    if (verificationWasDeclared) {
-      failureErrorCode = 'undeclared_verification_outputs';
-      const undeclared = Array.isArray(dirtyParity.unexpected_dirty_files)
-        ? dirtyParity.unexpected_dirty_files
-        : [];
-      const listForMessage = undeclared.slice(0, 5).join(', ')
-        + (undeclared.length > 5 ? '...' : '');
-      failureReason = `Verification was declared (commands or machine_evidence), but these files are dirty and not classified: ${listForMessage}. Classify each under verification.produced_files with disposition "ignore" (the file should be cleaned up after replay) or "artifact" (the file should be checkpointed as part of the turn), OR add it to files_changed if it is a core turn mutation. Acceptance cannot proceed until the declared contract matches the working tree.`;
+    // ── BUG-87: Auto-normalize undeclared verification outputs ──────────
+    // When verification was declared and unexpected dirty files exist,
+    // attempt to clean them up as ignored verification outputs before
+    // hard-erroring. This covers tool-generated side-effect files (e.g.,
+    // .tusq/plan.json, coverage/) that the agent failed to declare in
+    // verification.produced_files. cleanupIgnoredVerificationFiles already
+    // respects the dispatch baseline: only files NOT dirty at dispatch
+    // time are cleaned; pre-existing dirty files are left untouched.
+    if (verificationWasDeclared && Array.isArray(dirtyParity.unexpected_dirty_files) && dirtyParity.unexpected_dirty_files.length > 0) {
+      const autoClassifyAttempt = cleanupIgnoredVerificationFiles({
+        root,
+        baseline,
+        ignoredFiles: dirtyParity.unexpected_dirty_files,
+      });
+      if (autoClassifyAttempt.ok) {
+        // Re-check dirty parity after cleanup
+        const recheckParity = detectDirtyFilesOutsideAllowed(
+          root,
+          writeAuthority,
+          [
+            ...(turnResult.files_changed || []),
+            ...concurrentAllowedDirtyFiles,
+            ...uncheckpointedPriorFiles,
+          ],
+        );
+        if (recheckParity.clean) {
+          const autoClassifiedFiles = dirtyParity.unexpected_dirty_files;
+          // Auto-normalization succeeded — emit audit event and continue
+          emitRunEvent(root, 'verification_output_auto_normalized', {
+            run_id: state.run_id,
+            phase: state.phase,
+            status: state.status,
+            turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+            intent_id: currentTurn.intake_context?.intent_id || null,
+            payload: {
+              auto_classified_files: autoClassifiedFiles,
+              restored_files: autoClassifyAttempt.restored_files || [],
+              disposition: 'ignore',
+              rationale: 'undeclared_verification_output_auto_normalized',
+            },
+          });
+          // Remove auto-classified files from the observation so
+          // compareDeclaredVsObserved does not re-flag them as undeclared.
+          const autoSet = new Set(autoClassifiedFiles);
+          if (Array.isArray(observation.files_changed)) {
+            observation.files_changed = observation.files_changed.filter(
+              (f) => !autoSet.has(f),
+            );
+          }
+          // Fall through to the rest of acceptance (skip the error block)
+          dirtyParity.clean = true;
+        }
+      }
     }
+    // ── End BUG-87 ──────────────────────────────────────────────────────
 
-    transitionToFailedAcceptance(root, state, currentTurn, failureReason, {
-      error_code: failureErrorCode,
-      stage: 'artifact_observation',
-      extra: {
-        unexpected_dirty_files: dirtyParity.unexpected_dirty_files,
-        dirty_files: dirtyParity.dirty_files,
-      },
-    });
-    return {
-      ok: false,
-      error: failureReason,
-      error_code: failureErrorCode,
-      validation: {
-        ...validation,
-        ok: false,
+    if (!dirtyParity.clean) {
+      let failureReason = dirtyParity.reason;
+      let failureErrorCode = 'artifact_dirty_tree_mismatch';
+      if (verificationWasDeclared) {
+        failureErrorCode = 'undeclared_verification_outputs';
+        const undeclared = Array.isArray(dirtyParity.unexpected_dirty_files)
+          ? dirtyParity.unexpected_dirty_files
+          : [];
+        const listForMessage = undeclared.slice(0, 5).join(', ')
+          + (undeclared.length > 5 ? '...' : '');
+        failureReason = `Verification was declared (commands or machine_evidence), but these files are dirty and not classified: ${listForMessage}. Classify each under verification.produced_files with disposition "ignore" (the file should be cleaned up after replay) or "artifact" (the file should be checkpointed as part of the turn), OR add it to files_changed if it is a core turn mutation. Acceptance cannot proceed until the declared contract matches the working tree.`;
+      }
+
+      transitionToFailedAcceptance(root, state, currentTurn, failureReason, {
+        error_code: failureErrorCode,
         stage: 'artifact_observation',
-        error_class: 'artifact_error',
-        errors: [failureReason],
-        warnings: validation.warnings,
-      },
-    };
+        extra: {
+          unexpected_dirty_files: dirtyParity.unexpected_dirty_files,
+          dirty_files: dirtyParity.dirty_files,
+        },
+      });
+      return {
+        ok: false,
+        error: failureReason,
+        error_code: failureErrorCode,
+        validation: {
+          ...validation,
+          ok: false,
+          stage: 'artifact_observation',
+          error_class: 'artifact_error',
+          errors: [failureReason],
+          warnings: validation.warnings,
+        },
+      };
+    }
   }
 
   const diffComparison = compareDeclaredVsObserved(

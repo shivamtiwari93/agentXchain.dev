@@ -220,54 +220,47 @@ afterEach(() => {
 });
 
 describe('BUG-55 combined operator shape — tester paths', () => {
-  it('rejects accept-turn when both sub-A actor mutations AND undeclared sub-B fixtures exist together', () => {
+  it('auto-normalizes undeclared sub-B fixtures and accepts combined sub-A+sub-B shape (BUG-87 recovery)', () => {
     const { root, turnId } = seedProject({ producedFiles: null });
 
     const accept = runCli(root, ['accept-turn', '--turn', turnId]);
-    assert.notEqual(
+    // Post-BUG-87: undeclared verification outputs are auto-normalized
+    // (classified as ignore, cleaned up) so the combined shape accepts.
+    assert.equal(
       accept.status,
       0,
-      `accept-turn must reject combined sub-A+sub-B undeclared shape; got stdout:\n${accept.stdout}\nstderr:\n${accept.stderr}`,
+      `accept-turn must succeed via auto-normalization; got stdout:\n${accept.stdout}\nstderr:\n${accept.stderr}`,
     );
 
-    const combined = `${accept.stdout}\n${accept.stderr}`;
-    assert.ok(
-      combined.includes('verification.produced_files'),
-      `acceptance output must reference verification.produced_files as the remediation; got:\n${combined}`,
-    );
-
-    const events = readEvents(root);
-    const failure = events.find((e) => e.event_type === 'acceptance_failed');
-    assert.ok(failure, `acceptance_failed event must exist in ${RUN_EVENTS_PATH}`);
-    assert.equal(
-      failure.payload?.error_code,
-      'undeclared_verification_outputs',
-      `expected error_code 'undeclared_verification_outputs'; got: ${JSON.stringify(failure.payload)}`,
-    );
-
-    const unexpected = Array.isArray(failure.payload?.unexpected_dirty_files)
-      ? failure.payload.unexpected_dirty_files
-      : [];
+    // BUG-87: all sub-B fixture files must have been cleaned up by auto-normalization.
     for (const fixturePath of FIXTURE_FILES) {
       assert.ok(
-        unexpected.includes(fixturePath),
-        `acceptance_failed payload must list every undeclared fixture path; missing ${fixturePath}; got: ${JSON.stringify(unexpected)}`,
+        !existsSync(join(root, fixturePath)),
+        `auto-normalized fixture must be cleaned up; still present: ${fixturePath}`,
       );
     }
 
-    // Declared sub-A files should NOT be in the unexpected list — they were
-    // declared, so the rejection is purely about the sub-B fixtures.
-    for (const declaredPath of DECLARED_FILES) {
+    // Auto-normalization audit event must be emitted.
+    const events = readEvents(root);
+    const normalizeEvent = events.find(
+      (e) => e.event_type === 'verification_output_auto_normalized',
+    );
+    assert.ok(
+      normalizeEvent,
+      `verification_output_auto_normalized event must exist; events: ${events.map((e) => e.event_type).join(', ')}`,
+    );
+    const autoClassified = Array.isArray(normalizeEvent.payload?.auto_classified_files)
+      ? normalizeEvent.payload.auto_classified_files
+      : [];
+    for (const fixturePath of FIXTURE_FILES) {
       assert.ok(
-        !unexpected.includes(declaredPath),
-        `declared files_changed path must not be flagged as unexpected; ${declaredPath} leaked into: ${JSON.stringify(unexpected)}`,
+        autoClassified.includes(fixturePath),
+        `event must list every auto-classified fixture; missing ${fixturePath}; got: ${JSON.stringify(autoClassified)}`,
       );
     }
 
     const state = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
-    const failedTurn = state.active_turns?.[turnId];
-    assert.ok(failedTurn, 'turn must still be present on state');
-    assert.equal(failedTurn.status, 'failed_acceptance');
+    assert.equal(state.last_completed_turn_id, turnId);
   });
 
   it('accept-turn + checkpoint-turn leaves a clean tree when sub-A files_changed AND sub-B produced_files are both declared', () => {
