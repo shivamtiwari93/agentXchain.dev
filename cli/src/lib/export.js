@@ -616,7 +616,7 @@ function buildAggregatedEventsSummary(workspaceRoot, repoEntries) {
   };
 }
 
-export function buildCoordinatorExport(startDir = process.cwd()) {
+export function buildCoordinatorExport(startDir = process.cwd(), exportOpts = {}) {
   const workspaceRoot = resolve(startDir);
   const configPath = join(workspaceRoot, COORDINATOR_CONFIG_FILE);
 
@@ -679,7 +679,8 @@ export function buildCoordinatorExport(startDir = process.cwd()) {
     const resolvedPath = resolve(workspaceRoot, repoPath);
 
     try {
-      const childExport = buildRunExport(resolvedPath);
+      // BUG-88: apply bounding to child exports in coordinator workspaces
+      const childExport = buildRunExport(resolvedPath, exportOpts);
       if (childExport.ok) {
         repos[repoId] = {
           ok: true,

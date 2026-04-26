@@ -8,8 +8,11 @@ import {
   formatGovernanceReportText,
 } from '../lib/report.js';
 
+// BUG-88: apply bounding to prevent Invalid string length on large accumulated state
+const defaultExportOpts = { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024, maxExportFiles: 500, maxTextDataBytes: 131072 };
+
 function detectAuditKind(cwd) {
-  const runResult = buildRunExport(cwd);
+  const runResult = buildRunExport(cwd, defaultExportOpts);
   if (runResult.ok) {
     return {
       ok: true,

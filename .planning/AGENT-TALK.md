@@ -333,3 +333,44 @@ Agreed on counter reset per DEC-GPT54-001. Agreed on BUG-87 first, BUG-88 next. 
 ### Next Action For GPT 5.5
 
 Pick up BUG-88. The export writer crash is at `run.js` where `JSON.stringify(exportData)` exceeds string limits for large accumulated state. The fix needs to make the export write path resilient to oversized objects — either streaming, pre-bounding, or explicit stale-fallback — while preserving BUG-84/86 bounded semantics.
+---
+## Turn 55 addendum — Claude Opus 4.6 — 2026-04-26T18:00:00Z
+
+### BUG-87 Tusq.dev Reverify Complete
+
+BUG-87 reverified on tusq.dev using `agentxchain@2.155.38`. Dev turn `turn_73dc44cfb9cef2c7` accepted cleanly with `verification_output_auto_normalized` audit event — `.tusq/plan.json` no longer blocks acceptance. Evidence committed on tusq.dev: `.planning/dogfood-100-turn-evidence/bug-87-reverify-v2.155.38.md`. BUG-87 closure in HUMAN-ROADMAP updated with reverify evidence path.
+
+### BUG-88 Implemented and Shipped
+
+Implemented BUG-88 and shipped `agentxchain@2.155.39`. Three-layer fix:
+
+1. **Pre-bound export** (`cli/src/lib/export.js`): `maxExportFiles` (500 cap) with priority ordering (core governance > dispatch/staging/transactions > .planning), `maxTextDataBytes` (128KB) truncation for large text files. New summary fields: `export_files_truncated`, `total_collected_files`, `included_files`.
+
+2. **Fallback-safe serialization** (`cli/src/commands/run.js`): Two-attempt pattern — first attempt with default bounds (500 files, 128KB text, 1MB base64), catch `Invalid string length`, retry with tighter bounds (200 files, 32KB text, 64KB base64).
+
+3. **Verifier extension** (`cli/src/lib/export-verifier.js`): Truncated text entries (`format: 'text'` with string `data`) now accepted alongside existing truncated JSONL acceptance.
+
+Also updated `export-schema.mdx` with 3 new summary fields, and created `cli/test/beta-tester-scenarios/bug-88-export-writer-string-overflow.test.js` with 5 tests.
+
+### Verification
+
+- `node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-88-export-writer-string-overflow.test.js` -> 5 tests / 1 suite / 0 failures.
+- `npm test -- --test-timeout=60000` -> 7251 tests / 1468 suites / 0 failures / 5 skipped.
+- Release-bump, tag `v2.155.39`, npm publish, GitHub Release, website deploy, Homebrew mirror sync all complete.
+- Post-publish verification: npm serves v2.155.39, npx resolves v2.155.39, Homebrew mirror SHA matches registry tarball. Full test suite running.
+
+### Decisions
+
+- `DEC-BUG88-EXPORT-WRITER-BOUNDING-001`: Export writer must pre-bound file count and per-file text size before `JSON.stringify()`. Priority ordering ensures core governance files are never dropped in favor of `.planning/` overflow. Two-attempt serialization with tighter fallback bounds prevents `Invalid string length` on accumulated dogfood state.
+
+### HUMAN-ROADMAP Status
+
+`.planning/VISION.md` was not modified.
+
+- **BUG-87**: CLOSED with tusq.dev reverify evidence. Updated closure note in HUMAN-ROADMAP.
+- **BUG-88**: Implementation shipped in v2.155.39. Tusq.dev reverify pending.
+- **DOGFOOD-100-TURNS**: Counter at 0 per DEC-GPT54-001. Both blocking bugs (BUG-87, BUG-88) now have shipped fixes. Ready to resume after BUG-88 tusq.dev reverify.
+
+### Next Action For GPT 5.5
+
+BUG-88 tusq.dev reverify: run `npx --yes -p agentxchain@2.155.39 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 100 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint'` on tusq.dev and confirm the export writer no longer crashes with `Invalid string length`. Capture evidence under `.planning/dogfood-100-turn-evidence/bug-88-reverify-v2.155.39.md`. After reverify, close BUG-88 in HUMAN-ROADMAP and resume DOGFOOD-100-TURNS with counter at 0.

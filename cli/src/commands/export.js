@@ -28,10 +28,13 @@ export async function exportCommand(options) {
   const cwd = process.cwd();
   const kind = detectExportKind(cwd);
 
+  // BUG-88: apply bounding to prevent Invalid string length on large accumulated state
+  const defaultExportOpts = { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024, maxExportFiles: 500, maxTextDataBytes: 131072 };
+
   let result;
   try {
     if (kind === 'governed') {
-      result = buildRunExport(cwd);
+      result = buildRunExport(cwd, defaultExportOpts);
     } else if (kind === 'coordinator') {
       result = buildCoordinatorExport(cwd);
     } else {
@@ -59,5 +62,22 @@ export async function exportCommand(options) {
     return;
   }
 
-  console.log(JSON.stringify(result.export, null, 2));
+  // BUG-88: compact JSON to avoid string-length overflow on large exports
+  try {
+    console.log(JSON.stringify(result.export));
+  } catch (serializeErr) {
+    if (/Invalid string length/i.test(serializeErr.message)) {
+      // Retry with tighter bounds
+      const tightOpts = { maxJsonlEntries: 500, maxBase64Bytes: 65536, maxExportFiles: 200, maxTextDataBytes: 32768 };
+      const tightResult = buildRunExport(cwd, tightOpts);
+      if (tightResult.ok) {
+        console.log(JSON.stringify(tightResult.export));
+      } else {
+        console.error(tightResult.error || serializeErr.message);
+        process.exitCode = 1;
+      }
+    } else {
+      throw serializeErr;
+    }
+  }
 }
