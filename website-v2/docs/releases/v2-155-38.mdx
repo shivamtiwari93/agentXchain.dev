@@ -28,8 +28,9 @@ Carry-forward tester checks for shipped-package closure proof:
 
 - BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
   `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
-- BUG-55/87 verification-output evidence should confirm undeclared
-  verification outputs are auto-normalized and cleaned up, with
-  `verification_output_auto_normalized` event in events.jsonl.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
 - BUG-52/53 continuous recovery evidence should quote `phase_entered`,
   `reconciled_before_dispatch`, and `session_continuation`.
