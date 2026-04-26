@@ -1,0 +1,36 @@
+---
+sidebar_position: 0
+title: "v2.155.40 Release Notes"
+---
+
+# AgentXchain v2.155.40
+
+`v2.155.40` completes the BUG-88 fix by applying export bounding to all CLI call sites. The `agentxchain export`, `agentxchain audit`, and `agentxchain benchmark` commands previously called `buildRunExport()` without bounding options, causing `Invalid string length` crashes on large accumulated state. All call sites now pass `maxExportFiles` and `maxTextDataBytes` limits, and the standalone export command uses compact JSON with a two-attempt fallback pattern.
+
+## Bug Fixes
+
+- **BUG-88 export bounding for all CLI call sites.** The `export`, `audit`, and `benchmark` commands now pass the same bounding options (`maxExportFiles: 500`, `maxTextDataBytes: 128KB`) as the `run` command's auto-report path. Previously only the auto-report in `run.js` was bounded.
+- **Compact export serialization.** The standalone `export` command now uses compact JSON (no pretty-print indent) with a two-attempt fallback to tighter bounds on `Invalid string length`, matching the pattern already used in `run.js`.
+- **Coordinator child export bounding.** `buildCoordinatorExport()` now passes export options through to child `buildRunExport()` calls.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-88-export-writer-string-overflow.test.js cli/test/export-cli.test.js cli/test/audit-command.test.js cli/test/export-schema-content.test.js -> 46 tests / 8 suites / 0 failures
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js -> 12 tests / 3 suites / 0 failures
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.40 -c "agentxchain --version"`
+
+For BUG-88: run `agentxchain export --format json > export.json` on a project with large accumulated state (many `.planning/` files, long event/history logs). The command must succeed without `Invalid string length`. Then run `agentxchain audit --format markdown` on the same project. Both commands must complete without crashes.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
