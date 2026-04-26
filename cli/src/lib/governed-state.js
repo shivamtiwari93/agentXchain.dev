@@ -4701,29 +4701,50 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
       const gateSemanticMode = config.gate_semantic_coverage_mode || 'strict';
       if (uncoveredFiles.length > 0 && gateSemanticMode === 'strict') {
-        const coverageError = `Gate "${exitGateId}" is failing on ${uncoveredFiles.join(', ')}. Your turn did not modify ${uncoveredFiles.length === 1 ? 'that file' : 'those files'}. Either edit the file(s) to satisfy the gate, or remove the phase transition request.`;
-        transitionToFailedAcceptance(root, state, currentTurn, coverageError, {
-          error_code: 'gate_semantic_coverage',
-          stage: 'gate_semantic_coverage',
-          extra: {
-            gate_id: exitGateId,
-            uncovered_files: uncoveredFiles,
-            declared_files: [...declaredFiles],
-            gate_reasons: preGateResult.reasons,
-          },
-        });
-        return {
-          ok: false,
-          error: coverageError,
-          validation: {
-            ...validation,
-            ok: false,
+        // BUG-81: Auto-strip the phase transition request instead of permanently
+        // blocking.  PM's partial planning work is preserved; the phase stays in
+        // "planning" and the continuous loop re-dispatches PM to complete gate
+        // artifacts.  This follows the same normalization pattern as BUG-78/79.
+        if (turnResult.phase_transition_request) {
+          emitRunEvent(root, 'gate_transition_request_auto_stripped', {
+            run_id: state.run_id,
+            phase: state.phase,
+            status: state.status,
+            turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+            payload: {
+              gate_id: exitGateId,
+              uncovered_files: uncoveredFiles,
+              declared_files: [...declaredFiles],
+              rationale: 'Turn did not modify gate-required files; phase transition stripped to preserve partial planning work',
+            },
+          });
+          delete turnResult.phase_transition_request;
+          // Fall through — continue with acceptance without the phase transition
+        } else {
+          const coverageError = `Gate "${exitGateId}" is failing on ${uncoveredFiles.join(', ')}. Your turn did not modify ${uncoveredFiles.length === 1 ? 'that file' : 'those files'}. Either edit the file(s) to satisfy the gate, or remove the phase transition request.`;
+          transitionToFailedAcceptance(root, state, currentTurn, coverageError, {
+            error_code: 'gate_semantic_coverage',
             stage: 'gate_semantic_coverage',
-            error_class: 'gate_coverage_error',
-            errors: uncoveredFiles.map(f => `Gate "${exitGateId}" is failing on "${f}". Your turn did not modify that file.`),
-            warnings: [],
-          },
-        };
+            extra: {
+              gate_id: exitGateId,
+              uncovered_files: uncoveredFiles,
+              declared_files: [...declaredFiles],
+              gate_reasons: preGateResult.reasons,
+            },
+          });
+          return {
+            ok: false,
+            error: coverageError,
+            validation: {
+              ...validation,
+              ok: false,
+              stage: 'gate_semantic_coverage',
+              error_class: 'gate_coverage_error',
+              errors: uncoveredFiles.map(f => `Gate "${exitGateId}" is failing on "${f}". Your turn did not modify that file.`),
+              warnings: [],
+            },
+          };
+        }
       }
     }
   }

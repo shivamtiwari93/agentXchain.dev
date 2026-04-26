@@ -452,6 +452,27 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   4. Regression test under `cli/test/beta-tester-scenarios/bug-80-roadmap-derived-intent-coverage.test.js`.
   5. Re-verified on same dogfood session `cont-dadd9a11` after patch ships.
 
+- [ ] **🚨 BUG-81: PM turn requests phase transition but gate-required planning artifacts not modified; framework blocks continuous loop instead of auto-stripping the transition request and preserving partial planning work.** Discovered during DOGFOOD-100-TURNS Run 3 on shipped `agentxchain@2.155.31` at 2026-04-26.
+
+  **Reproduction:** Session `cont-e958afb2`, Run 3 (`run_*` for M29), PM turn `turn_df1112d797428a6b`. PM produced planning work for M29 but didn't modify `PM_SIGNOFF.md`, `SYSTEM_SPEC.md`, `command-surface.md`. Gate `planning_signoff` rejected.
+
+  **Observed error:**
+  ```text
+  acceptTurn(pm): Gate "planning_signoff" is failing on .planning/PM_SIGNOFF.md, .planning/SYSTEM_SPEC.md, .planning/command-surface.md. Your turn did not modify those files. Either edit the file(s) to satisfy the gate, or remove the phase transition request.
+  ```
+
+  **Secondary issue:** `Governance report failed: Invalid string length` — report generation hit Node.js string size limit. Separate from gate failure but discovered in same run.
+
+  **Root cause:** `governed-state.js:4703-4727` — when gate semantic coverage fails in strict mode, the framework permanently transitions to `failed_acceptance` and blocks the continuous loop. The error message itself identifies the fix ("remove the phase transition request") but the framework doesn't auto-apply it.
+
+  **Fix:** Auto-strip `phase_transition_request` when gate-required files aren't modified. PM's partial planning work is accepted, the phase stays in "planning", and the continuous loop re-dispatches PM to complete gate artifacts. Emit `gate_transition_request_auto_stripped` event for audit trail.
+
+  **Closure criteria:**
+  1. PM turn that doesn't modify gate-required files but requests a transition → transition auto-stripped, turn accepted, phase stays in planning.
+  2. Continuous loop re-dispatches PM after the stripped turn.
+  3. `gate_transition_request_auto_stripped` event emitted with gate_id, uncovered_files, and rationale.
+  4. Re-verified on same dogfood session after patch ships.
+
 ---
 
 ## Active discipline (MUST follow on every fix going forward)
