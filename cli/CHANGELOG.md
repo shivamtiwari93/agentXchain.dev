@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.33
+
+### Bug Fixes
+
+- **BUG-82 proposed_next_role routing normalization**: When BUG-81's gate auto-strip keeps the session in planning phase, authoritative roles dispatched in that phase may propose a next role valid for the expected phase but illegal for the actual phase (e.g., dev proposes "qa" while still in planning). The normalizer now auto-corrects routing-illegal `proposed_next_role` for all roles, not just `review_only`, emitting `staged_result_auto_normalized` with `routing_illegal_for_phase_<phase>` rationale.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 129 tests / 19 suites / 0 failures / 0 skipped
+
 ## 2.155.32
 
 ### Bug Fixes

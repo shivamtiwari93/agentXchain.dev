@@ -1,11 +1,11 @@
-# Reddit Posts — AgentXchain v2.155.32
+# Reddit Posts — AgentXchain v2.155.33
 
-> Ready-to-post content for Reddit for the `v2.155.32` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
+> Ready-to-post content for Reddit for the `v2.155.33` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
-> - node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 129 tests / 19 suites / 0 failures / 0 skipped
 
 ---
 
@@ -25,7 +25,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.32:
+What shipped in v2.155.33:
 
 - ROADMAP exhaustion is checked before broad VISION goal derivation.
 - `[roadmap-replenishment]` intents explicitly prefer PM and planning scope.
@@ -34,7 +34,7 @@ What shipped in v2.155.32:
 
 Proof:
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 129 tests / 19 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -58,13 +58,13 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.32 — roadmap replenishment hardening for continuous multi-agent delivery
+**Title:** AgentXchain v2.155.33 — roadmap replenishment hardening for continuous multi-agent delivery
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.32 hardens continuous vision mode:
+v2.155.33 hardens continuous vision mode:
 
 - ROADMAP exhaustion is checked before broad VISION goal derivation
 - `[roadmap-replenishment]` intents prefer PM and planning scope
@@ -74,7 +74,7 @@ The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and
 
 Evidence:
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 129 tests / 19 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -105,7 +105,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.32 hardens continuous mode so exhausted-roadmap projects route PM roadmap-replenishment before generic VISION candidates.
+v2.155.33 hardens continuous mode so exhausted-roadmap projects route PM roadmap-replenishment before generic VISION candidates.
 
 Try the zero-key demo:
 
@@ -114,7 +114,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 129 tests / 19 suites / 0 failures / 0 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -134,7 +134,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.32 hardens roadmap replenishment for exhausted-roadmap/open-vision continuous runs
+- v2.155.33 hardens roadmap replenishment for exhausted-roadmap/open-vision continuous runs
 
 Try it in 30 seconds:
 

@@ -20,8 +20,8 @@ The tap currently installs the published npm package using Homebrew's `node` dep
 Current formula target:
 
 - package: `agentxchain`
-- version: `2.155.32`
-- source tarball: `https://registry.npmjs.org/agentxchain/-/agentxchain-2.155.32.tgz`
+- version: `2.155.33`
+- source tarball: `https://registry.npmjs.org/agentxchain/-/agentxchain-2.155.33.tgz`
 
 ## For maintainers: how to update the tap
 

@@ -1,0 +1,36 @@
+---
+sidebar_position: 0
+title: "v2.155.33 Release Notes"
+---
+
+# AgentXchain v2.155.33
+
+`v2.155.33` fixes a cascading issue from BUG-81's gate auto-strip where
+authoritative roles dispatched in an earlier phase propose a next role
+that is routing-illegal for the actual phase.
+
+## Bug Fixes
+
+- **BUG-82 proposed_next_role routing normalization.** When BUG-81's gate
+  auto-strip keeps the session in planning phase, authoritative roles (e.g.,
+  dev) dispatched in that phase may propose a next role valid for the expected
+  phase but illegal for the actual phase (e.g., dev proposes "qa" while still
+  in planning). The normalizer now auto-corrects routing-illegal
+  `proposed_next_role` for all roles, not just `review_only`, emitting
+  `staged_result_auto_normalized` with `routing_illegal_for_phase_<phase>`
+  rationale.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 129 tests / 19 suites / 0 failures / 0 skipped
+- Dogfood session Run 3 dev turn blocked on `proposed_next_role "qa" is not
+  in the allowed_next_roles for phase "planning"` on `agentxchain@2.155.32`.
+  Same session resumes cleanly on `agentxchain@2.155.33`.
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.33 -c "agentxchain --version"`
+
+For BUG-82: resume the paused dogfood session. Dev turn that failed protocol
+validation for routing-illegal proposed_next_role should accept with the
+role auto-normalized to a planning-legal fallback.
