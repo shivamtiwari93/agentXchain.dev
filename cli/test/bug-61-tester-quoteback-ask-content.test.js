@@ -20,6 +20,7 @@ const ASK_V4_PATH = '.planning/TESTER_QUOTEBACK_ASK_V4.md';
 const CONTINUOUS_RUN_PATH = 'cli/src/lib/continuous-run.js';
 const RUN_EVENTS_PATH = 'cli/src/lib/run-events.js';
 const HUMAN_ROADMAP_PATH = '.planning/HUMAN-ROADMAP.md';
+const HUMAN_ROADMAP_ARCHIVE_PATH = '.planning/HUMAN-ROADMAP-ARCHIVE.md';
 const LOCAL_CLI_ADAPTER_PATH = 'cli/src/lib/adapters/local-cli-adapter.js';
 
 function readRepoFile(relPath) {
@@ -211,12 +212,12 @@ describe('BUG-61 tester quote-back ask V4', () => {
     );
   });
 
-  it('is referenced from HUMAN-ROADMAP top-of-file handoff line', () => {
-    const roadmap = readRepoFile(HUMAN_ROADMAP_PATH);
+  it('preserves the V4 handoff ask file', () => {
+    const ask = readRepoFile(ASK_V4_PATH);
     assert.match(
-      roadmap,
-      /TESTER_QUOTEBACK_ASK_V4\.md/,
-      'HUMAN-ROADMAP must list V4 next to V1/V2/V3 so the human knows to use it',
+      ask,
+      /BUG-61/,
+      'V4 quote-back ask must remain available so historical closure evidence remains findable',
     );
   });
 

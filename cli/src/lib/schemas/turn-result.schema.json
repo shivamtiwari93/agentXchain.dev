@@ -130,7 +130,7 @@
     "files_changed": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Paths of files modified during this turn. Must match observed diff for authoritative runtimes."
+      "description": "Paths of files modified during this turn. Workspace artifacts must declare a non-empty list that matches observed diff. Review artifacts must use an empty list."
     },
     "artifacts_created": {
       "type": "array",
@@ -195,7 +195,7 @@
       "properties": {
         "type": {
           "enum": ["workspace", "patch", "commit", "review"],
-          "description": "workspace = direct local changes, patch = unified diff, commit = git commit, review = no code changes"
+          "description": "workspace = direct repo file changes with non-empty files_changed, patch = unified diff, commit = git commit, review = no repo mutations with files_changed: []"
         },
         "ref": {
           "type": ["string", "null"],

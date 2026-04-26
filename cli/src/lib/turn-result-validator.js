@@ -91,6 +91,9 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
       }
     }
   }
+  if (opts.normalizeArtifactType === 'review') {
+    normContext.forceReviewArtifact = true;
+  }
   const { normalized, corrections } = normalizeTurnResult(turnResult, config, normContext);
   turnResult = normalized;
   const sidecarResult = maybeAttachIdleExpansionSidecar(
@@ -155,6 +158,7 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     errors: [],
     warnings: allWarnings,
     turnResult,
+    normalizations: corrections,
   };
 }
 
@@ -1008,6 +1012,28 @@ export function normalizeTurnResult(tr, config, context = {}) {
   const allowedNextRoles = isKnownPhase ? (routing?.[currentPhase]?.allowed_next_roles || []) : [];
   const assignedRole = context.assignedRole || normalized.role || null;
   const isReviewOnly = context.writeAuthority === 'review_only';
+  const filesChangedIsEmpty = Array.isArray(normalized.files_changed) && normalized.files_changed.length === 0;
+  const hasExplicitNoEditLifecycleSignal = normalized.run_completion_request === true
+    || (typeof normalized.phase_transition_request === 'string' && normalized.phase_transition_request.trim().length > 0);
+
+  // ── Rule 0a: empty workspace artifact → no-edit review normalization ──
+  if (
+    normalized.artifact
+    && typeof normalized.artifact === 'object'
+    && !Array.isArray(normalized.artifact)
+    && normalized.artifact.type === 'workspace'
+    && filesChangedIsEmpty
+    && (context.forceReviewArtifact || isReviewOnly || hasExplicitNoEditLifecycleSignal)
+  ) {
+    normalized.artifact = {
+      ...normalized.artifact,
+      type: 'review',
+      ref: typeof normalized.turn_id === 'string' && normalized.turn_id.trim()
+        ? `turn:${normalized.turn_id}`
+        : normalized.artifact.ref ?? null,
+    };
+    corrections.push('artifact.type: auto-normalized empty workspace artifact to review because files_changed is empty and no repo mutation was declared');
+  }
 
   const pickAllowedRoleFallback = () => {
     if (allowedNextRoles.length === 0) return null;

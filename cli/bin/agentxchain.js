@@ -707,6 +707,7 @@ program
   .option('--turn <id>', 'Target a specific active turn when multiple turns exist')
   .option('--checkpoint', 'Checkpoint the accepted turn to git immediately after acceptance')
   .option('--resolution <mode>', 'Conflict resolution mode for conflicted turns (standard, human_merge)', 'standard')
+  .option('--normalize-artifact-type <type>', 'Normalize an empty workspace artifact to a safe artifact type before acceptance (currently: review)')
   .action(acceptTurnCommand);
 
 program

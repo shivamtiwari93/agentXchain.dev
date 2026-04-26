@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.155.29
+
+### Bug Fixes
+
+- **BUG-77 accumulated-state hardening**: continuous mode now checks exhausted ROADMAP plus open VISION scope before broad per-goal VISION derivation. This prevents old generic VISION candidates from bypassing the PM-owned `[roadmap-replenishment]` path in real accumulated projects.
+- **BUG-78 artifact-type recovery hardening**: no-edit PM, QA, and product-marketing review turns with empty `workspace` artifacts now normalize to `review` when the turn carries an explicit no-edit lifecycle signal. `accept-turn` also exposes `--normalize-artifact-type review` as a one-command recovery path.
+
+### Evidence
+
+- `node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js` -> 107 tests / 26 suites / 0 failures / 0 skipped
+- `node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js` -> 8 tests / 1 suite / 0 failures / 0 skipped
+
 ## 2.155.28
 
 ### Bug Fixes

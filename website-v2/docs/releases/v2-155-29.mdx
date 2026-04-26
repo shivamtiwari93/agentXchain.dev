@@ -1,0 +1,77 @@
+---
+sidebar_position: 0
+title: "v2.155.29 Release Notes"
+---
+
+# AgentXchain v2.155.29
+
+`v2.155.29` hardens full-auto recovery across two tester-reported seams:
+roadmap replenishment now wins before generic VISION candidates, and no-edit
+review turns can recover from an empty workspace artifact declaration without
+operator-edited staging JSON.
+
+## Bug Fixes
+
+- **BUG-77 accumulated-state hardening: roadmap replenishment wins before
+  generic VISION candidates.** When `.planning/ROADMAP.md` is exhausted but
+  `.planning/VISION.md` still has unplanned scope, continuous mode now seeds a
+  `[roadmap-replenishment]` intent before broad `[vision]` candidates. This
+  closes the real tusq.dev-style accumulated-state gap where existing generic
+  VISION history could still lead to idle completion instead of PM
+  next-increment derivation.
+- **BUG-78 artifact-type recovery hardening for no-edit reviews.** No-edit
+  launch, QA, and PM review turns that accidentally declare an empty
+  `workspace` artifact now normalize to `review` when the turn carries an
+  explicit no-edit lifecycle signal. The accepted history records the review
+  artifact, the event log records `artifact_type_auto_normalized`, prompts now
+  spell out the zero-edit artifact contract, and `accept-turn` exposes
+  `--normalize-artifact-type review` as an operator recovery flag.
+
+## Evidence
+
+- node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js -> 107 tests / 26 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js -> 8 tests / 1 suite / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.29 -c "agentxchain --version"
+```
+
+For BUG-76 verification, in a project with unchecked `M<n>` milestones in
+`.planning/ROADMAP.md`, confirm that `agentxchain status --json` returns
+`next_actions` containing `roadmap_open_work_detected` and that
+`agentxchain run --continuous` dispatches work for the first unchecked
+milestone instead of idle-exiting with `runs_completed: 0`.
+
+For BUG-77 verification, in a project where `.planning/ROADMAP.md` has all
+milestones checked but `.planning/VISION.md` has unplanned V2/V3 scope,
+confirm that `agentxchain status --json` returns `next_actions` containing
+`roadmap_exhausted_vision_open` and that `agentxchain run --continuous`
+dispatches a PM-owned `[roadmap-replenishment]` intent instead of claiming
+"All vision goals appear addressed."
+
+For BUG-78 verification, stage a no-edit launch/QA/PM review result with
+`artifact.type: "workspace"` and `files_changed: []`, then run:
+
+```bash
+agentxchain accept-turn --turn <turn_id>
+```
+
+Acceptance should succeed without editing staging JSON, accepted history should
+record `artifact.type: "review"`, and `.agentxchain/events.jsonl` should include
+`artifact_type_auto_normalized`.
+
+For BUG-54 startup-watchdog regression proof, quote the emitted timing fields:
+`startup_latency_ms`, `elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn` and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+For BUG-52 and BUG-53 regression proof, quote the recovery events showing
+`phase_entered`, `reconciled_before_dispatch`, and `session_continuation`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

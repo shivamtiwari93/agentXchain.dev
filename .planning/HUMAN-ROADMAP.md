@@ -9,11 +9,11 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: **🚨 NEW DEFECT CLASS REPORTED 2026-04-26 by tusq.dev beta tester operator on shipped `agentxchain@2.155.25`: continuous vision-driven mode reports `status: completed` with `runs_completed: 0` and no next objective even when `.planning/ROADMAP.md` contains explicit unchecked milestones (M28/M29) and `.planning/VISION.md` still has open V2/V3 scope.** Two failure shapes filed: **BUG-76** (current/strongest — unchecked roadmap with idle-completion) and **BUG-77** (older related — roadmap exhausted, vision still open, no PM-derive-next-increment dispatch). The tester's framework: AgentXchain must distinguish three states — (1) current run complete + ROADMAP has unchecked work, (2) ROADMAP exhausted + VISION has unplanned scope, (3) VISION genuinely exhausted. States 1 and 2 currently collapse into `completed`/idle. Full Auto Mode looks terminal even when concrete product work remains. **All prior queue closures (twenty-eight items including BUG-69/70/71/72/73/75, DEV-ROLE-DELIVERS-PLANNING-NOT-CODE, AGENT-TEMPLATES-AUDIT, DOGFOOD-EXTENDED-10-CYCLES, DOGFOOD-TUSQ-DEV, BUG-63/64/65/66/67/68, BUG-52/53/54/55/56/57/59/60/61/62, FULLTEST-58, CICD-SHRINK, RELEASE-v2.149) have been moved to `.planning/HUMAN-ROADMAP-ARCHIVE.md` with full closure detail and decision records preserved.**
+Current focus: **🚨🚨🚨 STOP ALL FEATURE WORK. DOGFOOD-100-TURNS-CLEAN-FULL-AUTO IS THE ONLY PRIORITY. 🚨🚨🚨** Agents must use the shipped `agentxchain` CLI framework ONLY to drive `tusq.dev` development for at least **100 consecutive full-auto turns** without any human intervention OR manual staging-JSON edits OR `jq` recovery surgery OR operator-side workarounds. Every issue discovered during dogfood must be: (1) discovered through dogfood failure, (2) triaged into a BUG entry in this roadmap, (3) fixed in the substrate, (4) shipped as a patch release, (5) **re-verified by resuming the SAME dogfood session and confirming the failure no longer reproduces**, (6) closed. **Success = 100 consecutive full-auto turns on tusq.dev with zero blocked-on-human pauses, zero manual JSON edits, zero `jq` recoveries, zero operator workarounds.** Until that bar is hit, do NOT pick up watch-mode extensions (`watch --listen`), do NOT pick up the conformant-runner examples sample, do NOT pick up new comparison-page work, do NOT pick up connector adoption proofs, do NOT pick up website polish, do NOT pick up release-process improvements unrelated to dogfood-discovered bugs. The discovery output of this directive is whatever BUGs surface — currently **BUG-76, BUG-77, BUG-78, BUG-79** are open (all four are dogfood-discovery products from tusq.dev sessions on `agentxchain@2.155.25/2.155.26`). They are the head of the queue, not parallel work streams. This is the substrate-credibility gate for the whole project. If the framework cannot drive its own beta tester's product through 100 clean turns, none of the other adoption surfaces matter. The tester's framework: AgentXchain must distinguish three states — (1) current run complete + ROADMAP has unchecked work, (2) ROADMAP exhausted + VISION has unplanned scope, (3) VISION genuinely exhausted. States 1 and 2 currently collapse into `completed`/idle. Full Auto Mode looks terminal even when concrete product work remains. **All prior queue closures (twenty-eight items including BUG-69/70/71/72/73/75, DEV-ROLE-DELIVERS-PLANNING-NOT-CODE, AGENT-TEMPLATES-AUDIT, DOGFOOD-EXTENDED-10-CYCLES, DOGFOOD-TUSQ-DEV, BUG-63/64/65/66/67/68, BUG-52/53/54/55/56/57/59/60/61/62, FULLTEST-58, CICD-SHRINK, RELEASE-v2.149) have been moved to `.planning/HUMAN-ROADMAP-ARCHIVE.md` with full closure detail and decision records preserved.**
 
-## Tester message — 2026-04-26 verbatim
+## Tester messages — 2026-04-26 verbatim
 
-The tester's message that triggered BUG-76 + BUG-77:
+The tester's first message that triggered BUG-76 + BUG-77:
 
 > We have two related tusq.dev dogfood issues around continuous vision-driven execution and PM roadmap replenishment.
 >
@@ -23,7 +23,82 @@ The tester's message that triggered BUG-76 + BUG-77:
 >
 > **My assessment from tusq.dev dogfooding:** AgentXchain needs to distinguish three states: (1) Current governed run complete, but ROADMAP.md has unchecked work. (2) ROADMAP.md exhausted, but VISION.md still has unplanned scope. (3) VISION.md genuinely exhausted. Right now, case 1 and case 2 can collapse into an idle/completed state. That makes Full Auto Mode look terminal even when product work remains. The expected behavior is to dispatch or queue PM/dev with a concrete objective, or emit a clear blocker explaining why the next roadmap item cannot start.
 
+The tester's second message (later same day) that triggered BUG-78:
+
+> We hit another Full Auto Mode blocker on agentxchain@2.155.26 during tusq.dev dogfooding.
+>
+> The product_marketing role performed a valid no-edit launch readiness review, but its staged result declared artifact.type="workspace" with files_changed=[].
+>
+> AgentXchain correctly rejected the inconsistency, but this paused the continuous run and required manual JSON surgery. Changing artifact.type to "review" allowed the turn to accept and the run completed cleanly.
+>
+> Detailed issue with exact terminal output, staged JSON, no-diff proof, recovery command, and proposed fixes is here: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.planning/AGENTXCHAIN_ISSUE_NO_EDIT_REVIEW_ARTIFACT_TYPE.md`
+
+The tester's third message (same day, on the next dogfood run after BUG-78 manual recovery) that triggered BUG-79:
+
+> We hit another Full Auto Mode blocker on agentxchain@2.155.26 during tusq.dev dogfooding.
+>
+> A PM turn completed useful planning work for the vision-derived objective "The Promise: a self-hostable runtime and MCP server," but the staged result emitted objections using `summary` and `detail` fields without the required `statement` field.
+>
+> AgentXchain blocked acceptance with: `Validation failed at stage schema: objections[0].statement must be a non-empty string.; objections[1].statement must be a non-empty string.`
+>
+> This appears to be a result-shape/prompt/schema-normalization issue, not a product-work failure. The issue file includes exact terminal output, status evidence, staged JSON, changed planning files, manual recovery command, and proposed fixes: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.planning/AGENTXCHAIN_ISSUE_PM_OBJECTION_SCHEMA_SUMMARY_DETAIL.md`
+
 ## Priority Queue
+
+- [ ] **🚨🚨🚨 DOGFOOD-100-TURNS-CLEAN-FULL-AUTO: agents use the shipped `agentxchain` CLI framework ONLY to drive `tusq.dev` development for at least 100 consecutive full-auto turns with zero human intervention, zero manual staging-JSON edits, zero `jq` recovery, zero operator workarounds.** This is the substrate-credibility gate. Until 100 clean turns land on a single tusq.dev dogfood session, **all other work streams are paused** — no watch-mode extensions, no conformant-runner examples, no new comparison pages, no connector adoption, no website polish, no docs work unrelated to dogfood-discovered defects. **The output of this directive is bug-discovery + substrate hardening, not feature shipping.**
+
+  **Target repo:** `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev` (NOT `tusq.dev-agentxchain-dogfood` worktree — use the real `main` branch where the tester runs their own dogfood). Cut a fresh dogfood branch `agentxchain-dogfood-100-turn-2026-04` from `origin/main` if a fresh branch is needed; do NOT commit to tusq.dev `main` directly.
+
+  **Mode:** shipped `agentxchain` CLI via `npx --yes -p agentxchain@latest -c 'agentxchain run --continuous --vision .planning/VISION.md ...'`. No local checkouts of the agentxchain repo. No hand-driving via direct `node cli/bin/agentxchain.js` invocations. The CLI invocation must mirror exactly what an external operator would type.
+
+  **Definition of "turn":** one role dispatch (one `Turn assigned: ... → <role>` line in CLI output, terminating in either `Turn accepted` OR a typed acceptance failure). PM, dev, QA, product_marketing, and PM-idle-expansion turns all count. Reissued turns count as new turns. Skipped turns (e.g. role-resolution rejections without dispatch) do NOT count.
+
+  **Definition of "clean":** all four conditions must hold for a turn to count toward the 100:
+  1. **No human escalation surfaced** — `state.blocked_on` did not transition to a `needs_human` / `needs_decision` blocker requiring `agentxchain unblock` from the operator.
+  2. **No manual staging JSON edit** — operator never touched `.agentxchain/staging/<turn>/turn-result.json` with `jq`, `vim`, or any editor. (BUG-78 + BUG-79 class.)
+  3. **No `agentxchain accept-turn --turn ...` invocation by the operator** — every accepted turn must be accepted by the framework's own continuous loop, not by the operator running `accept-turn` to recover.
+  4. **No silent restart/rerun** — if the operator hits Ctrl-C and reruns `agentxchain run --continuous` with the same session, the rerun does NOT count toward the 100; only turns that flowed without operator interruption count.
+
+  **Definition of "full-auto":** the continuous run was invoked with `--triage-approval auto` (or equivalent full-auto config in `agentxchain.json`'s `approval_policy`) AND the session ran without the operator ever switching to manual approval mode mid-session.
+
+  **Discovery loop (mandatory):** every BUG discovered during dogfood follows this exact six-step flow before the turn counter resumes:
+  1. **Discovery** — dogfood pause/blocker captured. Operator (the human) confirms it's a real defect and not a misconfiguration.
+  2. **Triage** — agent files a new BUG-NN entry in this roadmap with: tester evidence file path, reproduction state, observed acceptance error, why-this-is-a-framework-bug analysis, three-layer fix (prompt/validator/schema or equivalent), closure criteria, regression test path. Mirror the depth of BUG-76 through BUG-79 entries — do not skimp.
+  3. **Fix** — substrate-side fix shipped. Spec-first if architectural (per Rule #12 + Rule #13). Layered fix per BUG-79 if it's another instance of the staged-result-shape class.
+  4. **Patch release** — bumped, npm published, homebrew tap synced, downstream-truth verification green, social posts per WAYS-OF-WORKING §8 (or skip-marketing-on-substrate-only-fixes if Rule #5 applies).
+  5. **Re-verify on the SAME dogfood session** — resume the paused tusq.dev session on the new shipped package, confirm the same failure no longer reproduces, capture evidence under `.planning/dogfood-100-turn-evidence/bug-NN-reverify-vX.Y.Z.md`. **The turn counter resumes from the failure-causing turn, NOT from zero — but the failure-causing turn does NOT count toward the 100 (it was a blocked turn).**
+  6. **Close** — mark the BUG entry checked, append closure note with shipped version + dogfood re-verify evidence path.
+
+  **Sequence rule:** the 100-turn counter is a CONSECUTIVE counter, not a cumulative counter across sessions. If a BUG is discovered at turn 47, the fix-and-reverify cycle resumes the SAME session and the next clean turn is turn 48 (the 47th-turn failure does NOT count, but the 46 prior clean turns are NOT lost). If the operator must restart the session for any reason — including agent-driven restart from a hung run — the counter resets to zero. **The 100 must be a single unbroken session run.**
+
+  **Evidence capture:** under `.planning/dogfood-100-turn-evidence/`:
+  - `session-summary.md` — running log: dates, session ID, turn count progress, BUGs discovered, current shipped agentxchain version, live link to the tusq.dev branch HEAD
+  - `cycle-NN-summary.md` — one per dogfood-discovery cycle (turn N where a BUG surfaced → BUG-NN filed → fix shipped → reverify on resumed session → next clean turn)
+  - `turn-counter.jsonl` — append-only log: one line per countable turn with `{ turn_id, role, timestamp, agentxchain_version, session_id, counter_value }`. The counter MUST advance monotonically and reset to zero on session-restart.
+  - `final-100-evidence.md` — produced ONLY when the counter hits 100. Contains: session ID, agentxchain version range across the 100 turns (will likely span multiple patch versions due to mid-session BUG fixes), turn-counter.jsonl summary, all BUGs discovered/closed during the 100, and tusq.dev product progress (new milestones materialized, roadmap items implemented, gates passed).
+
+  **Currently open BUG-76, BUG-77, BUG-78, BUG-79 are part of this directive's discovery output, not separate work streams.** They're at the head of the queue because the dogfood is currently paused on them. Closing each follows the six-step discovery loop above. The 100-turn counter cannot start until the current dogfood session can resume past these four blockers.
+
+  **Stop conditions (declare DOGFOOD-100-TURNS-CLEAN-FULL-AUTO closed):**
+  - **SUCCESS:** 100 consecutive clean full-auto turns on a single tusq.dev dogfood session. Append `final-100-evidence.md`. Close this entry. Resume normal feature work (watch-mode, conformant-runner examples, connector adoption, etc.) ONLY after this evidence file exists.
+  - **PAUSE (operator-only):** operator explicitly tells agents to pause this directive. Document in this entry's completion note. Until that happens, agents do NOT pivot to other work.
+  - **NEVER auto-pivot:** agents do NOT, on their own initiative, declare "we've made enough progress" and pivot. This is a 100-turn gate, not a "best effort" gate. If 100 is not yet hit, the directive is still active.
+
+  **Anti-patterns to refuse (these are NOT allowed during this directive):**
+  - "Let me ship this watch-mode improvement while waiting for the dogfood to resume." NO — wait time during BUG triage is for filling out the audit (BUG-79 Layer 1) or pre-emptive substrate hardening, not unrelated feature work.
+  - "BUG-NN is small, let me ship a prompt-only fix and skip the audit." NO — the audit is part of the directive's substrate-credibility goal. Cutting corners on the audit means the next instance of the class will surface, will pause the dogfood, and the 100-turn counter will reset.
+  - "Let me run multiple dogfood sessions in parallel to hit 100 faster." NO — the 100 must be a single unbroken session. Parallel sessions don't aggregate.
+  - "Let me lower the bar from 100 to 50 because we're making good progress." NO — the operator set the bar at 100. Only the operator can lower it.
+  - "The dogfood found a bug in tusq.dev (the product), not agentxchain (the framework). I'll fix it in the framework." NO — if the bug is in tusq.dev, the agents file it as tusq.dev product work and let the next dogfood turn pick it up via the same governed flow. Cross-repo product fixes from the agentxchain side violate the dogfood discipline.
+
+  **Closure criteria (binary):**
+  1. `.planning/dogfood-100-turn-evidence/final-100-evidence.md` exists.
+  2. `turn-counter.jsonl` shows monotonic progression to ≥100 within a single session ID.
+  3. All BUGs discovered during the run are closed in this roadmap with shipped-version closure notes.
+  4. Tusq.dev branch shows real product progress (new completed milestones, real `src/`/`tests/` diffs from agent-driven turns) attributable to the 100-turn run, not just framework-state churn.
+  5. No operator-side recovery commands (`accept-turn`, `unblock`, `reissue-turn`, `reconcile-state`, `step --resume`) were invoked during the 100. (Those commands existing in the CLI is fine; they just shouldn't be needed by an operator during a clean run.)
+
+  **Why this directive matters (do NOT skim this):** the framework's whole product thesis is "governed multi-agent software delivery for long-horizon AI-driven product work." If the framework cannot run its own beta tester's product through 100 clean turns, no marketing surface (comparison pages, HN launch, conformant-runner docs) compensates for that. This is the substrate-credibility gate. The watch-mode extensions, the connector adoption proofs, the conformant-runner sample, the website polish — none of them are wrong work, but ALL of them are second-priority until this gate clears. The four open BUGs (76/77/78/79) are the current head of the dogfood-discovery queue. When they close, the dogfood resumes. When the dogfood discovers more BUGs, they go to the head of this queue. **There is no other priority. There is only the dogfood and the BUGs the dogfood reveals.**
 
 - [ ] **🚨 BUG-76: continuous vision mode exits idle/completed even when `.planning/ROADMAP.md` contains unchecked milestones (M28/M29) and `agentxchain status --json` shows no objective, no pending intents, no next actions.** Reproduced by tusq.dev beta tester on shipped `agentxchain@2.155.25` at 2026-04-26T00:51:50Z. **This is the strongest/current failure shape — supersedes the older "VISION too broad" framing.**
 
@@ -149,6 +224,189 @@ The tester's message that triggered BUG-76 + BUG-77:
   8. Tester quote-back required against published `agentxchain@2.155.26+` package on real `tusq.dev` workspace before closure.
 
   **Likely shared fix vehicle:** BUG-76 and BUG-77 are the same architectural defect class with two distinct triggers. The continuous-mode planning baseline classifier (BUG-76 fix item 1) extended with the VISION-scan branch (BUG-77 fix block) likely closes both. Coordinate fixes — do not ship them in isolation.
+
+- [ ] **🚨 BUG-78: valid no-edit review turn (e.g. `product_marketing` launch readiness) emits `artifact.type: "workspace"` with `files_changed: []`, AgentXchain correctly rejects the internal inconsistency, but the continuous loop pauses and requires manual JSON surgery on `.agentxchain/staging/<turn>/turn-result.json` to recover.** Reproduced by tusq.dev beta tester on shipped `agentxchain@2.155.26` at 2026-04-26T03:03:06Z. **The validation works; the recovery path is the defect.** A no-edit review is legitimate work and should not require operator-edited staging JSON to advance.
+
+  **Tester's full evidence file (read this first):** `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.planning/AGENTXCHAIN_ISSUE_NO_EDIT_REVIEW_ARTIFACT_TYPE.md`
+
+  **Reproduction environment:**
+  - Project: `tusq.dev`
+  - Workspace: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+  - Branch: `main`
+  - Shipped package: `agentxchain@2.155.26`
+  - Runtime: `local_cli`
+  - Role: `product_marketing`, model: `claude-opus-4-7`
+  - Vision-derived objective: *"The Promise: embeddable chat, widget, command-palette, and voice surfaces"*
+  - Run progressed cleanly through `pm → dev → qa → product_marketing`; PM/dev/QA all accepted; only product_marketing acceptance failed.
+
+  **Observed staged result (from `.agentxchain/staging/turn_c2915fef93e3ab0b/turn-result.json`):**
+  ```json
+  {
+    "artifact": {"type": "workspace", "ref": "git:dirty"},
+    "files_changed": []
+  }
+  ```
+
+  **Observed acceptance error:**
+  ```text
+  acceptTurn(product_marketing): Turn declared artifact.type: "workspace" but files_changed is empty.
+  Either declare the files modified, or set artifact.type: "review" if no repo mutations were intended.
+  ```
+
+  **Workspace evidence — no product marketing files actually changed:** `git diff -- .planning/MESSAGING.md .planning/LAUNCH_PLAN.md .planning/CONTENT_CALENDAR.md .planning/ANNOUNCEMENT.md` returned empty. The role's own turn summary stated *"made zero edits, requested run completion under auto_approve."* The validation rejection is correct — the role lied about its artifact type.
+
+  **Manual recovery the operator was forced to perform:**
+  ```sh
+  jq '.artifact.type = "review" | .artifact.ref = "turn:turn_c2915fef93e3ab0b"' \
+    .agentxchain/staging/turn_c2915fef93e3ab0b/turn-result.json > /tmp/turn-result.json \
+    && mv /tmp/turn-result.json .agentxchain/staging/turn_c2915fef93e3ab0b/turn-result.json
+  npx --yes -p agentxchain@2.155.26 -c 'agentxchain accept-turn --turn turn_c2915fef93e3ab0b --checkpoint'
+  ```
+  After this manual edit + accept-turn, the run completed cleanly, all 4 gates passed, `run_completed` event emitted at `2026-04-26T03:19:05Z`. The fix is correct; the path to applying it should not be `jq` surgery on runtime staging JSON.
+
+  **Why this is a Full Auto Mode bug (medium-high severity):**
+  1. The framework correctly protects artifact consistency — that part works.
+  2. But the recovery path requires manual mutation of runtime staging JSON, which a) defeats Full Auto Mode, b) requires the operator to know the staging path layout, c) requires `jq` familiarity, d) is undocumented in the error message.
+  3. The error message names the right correction (`set artifact.type: "review"`) but does not surface a CLI command that applies it.
+  4. This same defect class likely affects every role that can legitimately do no-edit reviews — `product_marketing` (launch readiness), `qa` (re-verification), `pm` (chartering review when planning artifacts are already current). Tester explicitly calls this out.
+
+  **Required fix — three-layer hardening (pick the right combination, do not ship just one):**
+
+  **Layer 1 — Prompt-level (cheapest, highest leverage):** Add an explicit instruction to every role prompt that can perform no-edit work (start with `product_marketing`, `qa`, `pm`):
+  ```text
+  If you make zero file edits, you MUST set artifact.type to "review" and files_changed to [].
+  Only set artifact.type to "workspace" when you actually modified repo files and list every changed file in files_changed.
+  A no-edit launch readiness review is valid; represent it as a review artifact, not a workspace artifact.
+  ```
+  Surfaces: `.agentxchain/prompts/product_marketing.md`, `qa.md`, `pm.md`, plus `cli/src/templates/governed/*.json` role mandate text, plus `cli/src/lib/dispatch-bundle.js` if the artifact-type contract is injected at dispatch time. **Do this even if Layer 2 ships** — defense in depth.
+
+  **Layer 2 — Validator/retry (substrate-side recovery):** When a staged result has `artifact.type === "workspace"` and `files_changed.length === 0`, AgentXchain should NOT immediately block the continuous run. Instead, in priority order:
+  1. **Auto-normalize**: if `git diff` against the accepted-integration ref confirms no non-runtime product files changed, normalize the staged result to `artifact.type: "review"` and emit `artifact_type_auto_normalized` event with the original declaration preserved for audit. This is the cheapest recovery and matches what the operator manually did.
+  2. **Retry with correction prompt**: if auto-normalize is too liberal, retry the same turn ID with a typed correction prompt that explicitly tells the role to re-emit with `review` type. Bounded retry budget (1 attempt).
+  3. **Better blocked-state guidance**: if the substrate refuses to auto-fix, the blocker payload must include the exact CLI recovery command that uses the current command surface — not generic prose. Concretely: `agentxchain accept-turn --turn <turn_id> --checkpoint --normalize-artifact-type=review` (new flag) so the operator never has to touch staging JSON directly.
+
+  **Layer 3 — Schema/contract (durability):** Make artifact-type semantics explicit in the staged result schema and in `.planning/SYSTEM_SPEC.md` / docs:
+  - `workspace`: role intentionally changed repo files; `files_changed` MUST be non-empty AND match `git diff` against the accepted-integration ref.
+  - `review`: role made zero repo mutations but performed valid governance/review/routing work; `files_changed` MUST be `[]`.
+  - `external` (reserved for future): role produced an artifact outside the repo.
+  Emit a typed schema-violation event class (`artifact_type_files_changed_mismatch`) so the substrate can hook auto-normalize / retry on the precise error class instead of inferring from prose.
+
+  **Closure criteria (binary):**
+  1. A no-edit `product_marketing` launch readiness review with `artifact.type: "review"` and `files_changed: []` accepts cleanly without any operator intervention.
+  2. A staged result with `artifact.type: "workspace"` + `files_changed: []` either auto-normalizes to `review` (Layer 2 path 1), retries with a correction prompt (Layer 2 path 2), OR fails with a CLI recovery command — but NEVER requires `jq` mutation of staging JSON.
+  3. The same no-edit invariant is regression-tested for `product_marketing`, `qa`, AND `pm` (Rule #12 child-process tests under `cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js`). Three role assertions minimum.
+  4. Per Rule #13: positive-case test (no-edit review with correct `review` type → must accept cleanly) AND negative-case test (`workspace` type + empty files_changed → must auto-normalize OR fail with CLI recovery, never require staging JSON edit).
+  5. Patch release ships with all three layers (or a documented decision recording why a layer was deferred).
+  6. Tester quote-back required against the published patch on real `tusq.dev` workspace — re-run the same `pm → dev → qa → product_marketing` flow and confirm the launch readiness review accepts without manual recovery.
+
+  **Cross-cutting discipline:**
+  - This is structurally similar to the BUG-72 acceptance-order class: validation correctly rejects bad output, but the recovery path doesn't match Full Auto Mode's "the system fixes itself or surfaces a one-command CLI recovery." Re-audit other validator rejection paths in `cli/src/lib/governed-state.js` / `acceptTurn()` for the same pattern: does the rejection produce a hand-editable manual recovery, or a typed CLI-recoverable blocker?
+  - Layer 1 (prompt) and Layer 3 (schema) are the durable fixes; Layer 2 (auto-normalize/retry) is the substrate-side safety net. Ship all three. Do not let agents declare BUG-78 closed by shipping prompt-only fixes — Full Auto Mode demands the safety net.
+  - Per Rule #5 ("don't broadcast limitations publicly"): release notes should describe the fix as artifact-type recovery hardening, not as "we used to require manual JSON surgery."
+
+- [ ] **🚨 BUG-79: PM turn emits `objections[]` entries with `summary` and `detail` fields but missing the required `statement` field; AgentXchain correctly rejects with `Validation failed at stage schema: objections[0].statement must be a non-empty string.`, but the continuous loop pauses and requires manual `jq` mutation of `.agentxchain/staging/<turn>/turn-result.json` to recover.** Reproduced by tusq.dev beta tester on shipped `agentxchain@2.155.26`. Same bug class as BUG-78 — validation works, recovery path is the defect. **🚨 BUG-78 + BUG-79 together prove this is a meta-class, not two point defects. Fix it as a class.**
+
+  **Tester's full evidence file (read this first):** `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.planning/AGENTXCHAIN_ISSUE_PM_OBJECTION_SCHEMA_SUMMARY_DETAIL.md`
+
+  **Reproduction environment:**
+  - Project: `tusq.dev`
+  - Workspace: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+  - Branch: `main`
+  - Shipped package: `agentxchain@2.155.26`
+  - Runtime: `local_cli`, role: `pm`, model: `claude-opus-4-7`
+  - Run: `run_42732dba3268a739`, Turn: `turn_1e0689ffd021d2d5`, Session: `cont-dadd9a11`
+  - Vision-derived objective: *"The Promise: a self-hostable runtime and MCP server"*
+  - Run was the NEXT continuous run after the BUG-78 manual recovery completed — back-to-back staging-schema failures in the same dogfood session.
+
+  **Observed staged objections (from `.agentxchain/staging/turn_1e0689ffd021d2d5/turn-result.json`):**
+  ```json
+  "objections": [
+    {
+      "id": "OBJ-001",
+      "severity": "medium",
+      "summary": "Form decision (A/B/C) for the static-MCP-descriptor command is unresolved",
+      "detail": "PM has explicitly NOT pre-committed to form (A) new noun `mcp`, form (B) `serve --export` flag, or form (C) subcommand under a future `plan` hub..."
+    },
+    {
+      "id": "OBJ-002",
+      "severity": "low",
+      "summary": "Two unbound vision-derived charters now coexist in the candidate backlog",
+      "detail": ".planning/ROADMAP_NEXT_CANDIDATES.md now contains two operator-decision-pending vision-derived charter sketches..."
+    }
+  ]
+  ```
+  The objection content is substantively useful — both objections are well-reasoned and capture real planning state. Only the field shape is wrong: missing `statement`.
+
+  **Observed acceptance error:**
+  ```text
+  acceptTurn(pm): Validation failed at stage schema: objections[0].statement must be a non-empty string.; objections[1].statement must be a non-empty string.
+  ```
+
+  **PM did real work in this turn (this is NOT a no-op):** `git diff --stat` confirmed `.planning/PM_SIGNOFF.md` (+36), `.planning/ROADMAP.md` (+10), `.planning/SYSTEM_SPEC.md` (+2), `.planning/command-surface.md` (+12) — 4 files / 60 insertions. PM also materialized a candidate charter for "Static MCP Server Descriptor Export" in `.planning/ROADMAP_NEXT_CANDIDATES.md`. This is the expected PM-idle-expansion materialization shape from the BUG-72/73/75 lineage. The product work is correct; only the objection schema is broken.
+
+  **Manual recovery the operator was forced to perform:**
+  ```sh
+  jq '.objections |= map(
+    if ((.statement // "") == "") then
+      . + {statement: (.summary // .detail // "Objection recorded without statement")}
+    else
+      .
+    end
+  )' .agentxchain/staging/turn_1e0689ffd021d2d5/turn-result.json > /tmp/turn-result.json \
+    && mv /tmp/turn-result.json .agentxchain/staging/turn_1e0689ffd021d2d5/turn-result.json
+  npx --yes -p agentxchain@2.155.26 -c 'agentxchain accept-turn --turn turn_1e0689ffd021d2d5 --checkpoint'
+  ```
+  The recovery is mechanical: `statement = summary || detail` with a fallback. This is exactly the kind of normalization the substrate could do automatically.
+
+  **🚨 Why this MUST be fixed as a class with BUG-78, not in isolation:**
+
+  Both bugs share the same architectural shape:
+  | Dimension | BUG-78 | BUG-79 |
+  |-----------|--------|--------|
+  | Validation correctness | ✅ Correctly rejects bad output | ✅ Correctly rejects bad output |
+  | Role | `product_marketing` | `pm` |
+  | Field violation | `artifact.type` ↔ `files_changed` | `objections[].statement` |
+  | Recovery shape | `jq` mutation of staging JSON | `jq` mutation of staging JSON |
+  | Manual fix | `artifact.type = "review"` | `statement = summary` |
+  | Continuous-mode impact | Pauses indefinitely | Pauses indefinitely |
+  | Tester effort | Read source, find staging path, write `jq`, run accept-turn | Read source, find staging path, write `jq`, run accept-turn |
+
+  **Two instances of the same class within the same dogfood session is enough signal.** Shipping point fixes for `artifact.type` and `objections.statement` separately means the THIRD instance is already in the codebase waiting to surface. The architectural fix is a generalized staged-result normalization + retry + CLI-recovery layer that covers ANY field-shape rejection class.
+
+  **Required fix — generalized class fix, not point fixes:**
+
+  **Layer 1 — Audit and prompt-harden ALL role prompts for staged-result schema invariants.** Read `cli/src/lib/governed-state.js` `acceptTurn()` and every staging schema validator. For each enforced invariant, add explicit instruction text to the corresponding role prompt(s). Surfaces: `.agentxchain/prompts/*.md`, `cli/src/templates/governed/*.json`, `cli/src/lib/dispatch-bundle.js` injection. Concrete additions for BUG-79: every objection MUST include non-empty `statement`; do not use `summary` as a substitute. Concrete additions for BUG-78: see BUG-78 entry above. **Per the audit, ANY validator-enforced field invariant that isn't also stated in role prompts is a latent BUG-78/79 class member — fix them all at once.**
+
+  **Layer 2 — Generalized staged-result normalization layer in `acceptTurn()`.** Before final schema validation, run a normalization pass that handles the known recoverable mismatches:
+  1. `objections[].summary` or `objections[].detail` present + missing `statement` → set `statement` = `summary || detail`
+  2. `artifact.type === "workspace"` + empty `files_changed` + clean `git diff` → normalize to `artifact.type: "review"`
+  3. Future field-shape mismatches: add to the normalizer table
+  Each normalization emits a typed event (`staged_result_auto_normalized` with `field`, `original_value`, `normalized_value`, `rationale`) so audit trail is preserved. **The normalizer is a deny-list of known-safe fixes, not a schema-permissive validator.** Any unknown mismatch still fails fast.
+
+  **Layer 3 — Bounded retry with correction prompt.** If normalization is too aggressive for a given mismatch class, fall back to ONE retry of the same turn ID with a typed correction prompt:
+  ```text
+  Your previous result failed schema validation: <exact_violations>.
+  Re-emit the same content with: <exact_field_repair_instruction>.
+  ```
+  Bounded 1 retry per turn. If still invalid, fail to Layer 4.
+
+  **Layer 4 — CLI-recoverable blocked state.** When auto-normalize and retry both fail, the blocker payload MUST include the exact CLI command that resolves it. Concretely, NEW flag: `agentxchain accept-turn --turn <turn_id> --checkpoint --normalize-staged-result` that runs the substrate's normalization layer on the staged result before acceptance. Operator never touches `jq` or staging JSON paths.
+
+  **Closure criteria (binary):**
+  1. PM (and QA, product_marketing) turns that emit `objections[]` with `summary`/`detail` but missing `statement` accept cleanly via Layer 2 auto-normalization. Audit trail event `staged_result_auto_normalized` is emitted.
+  2. **BUG-78's `artifact.type` mismatch is ALSO covered by the same normalization layer** — single architectural fix, not two parallel fixes.
+  3. The full validator-invariant audit (Layer 1) is committed to the repo as `.planning/STAGED_RESULT_INVARIANT_AUDIT.md` with a full table of enforced invariants × role prompts that mention them.
+  4. Regression tests under `cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js` (Rule #12 child-process tests) cover at minimum: (a) PM emits `summary`-only objection → normalized to `statement`, accepted; (b) PM emits `detail`-only objection → normalized; (c) PM emits both `summary` and `detail` → normalized using `summary` (preferred); (d) PM emits valid `statement` directly → no normalization, accepted; (e) PM emits objection with neither `statement` nor `summary` nor `detail` → fail-fast with CLI recovery command. Same coverage required for QA and product_marketing roles since the spec applies to all three.
+  5. Per Rule #13: positive-case tests (correctly-shaped objection accepts cleanly) AND negative-case tests (no recoverable field present → fail-fast with typed recovery command).
+  6. Patch release ships covering BUG-78 + BUG-79 together (single architectural fix, not two patches).
+  7. Tester quote-back required against the published patch on real `tusq.dev` workspace — re-run the same vision-derived dogfood and confirm both no-edit reviews and PM objection emissions accept without manual recovery.
+
+  **Cross-cutting discipline:**
+  - **Closest-guard / meta-bug-class explicit naming:** BUG-78 + BUG-79 together establish the `staged_result_field_shape_mismatch_requires_manual_recovery` defect class. Future bugs in this class should NOT get new BUG-numbers — they should attach as new normalization-table entries to the BUG-79 fix vehicle. The class is closed when the audit (Layer 1 closure criterion 3) confirms every enforced staged-result invariant is either (a) prompt-stated, (b) in the normalization table, OR (c) explicitly justified as fail-fast-only with CLI recovery in the audit document.
+  - **Rule-12-as-class-fix:** BUG-78 and BUG-79 BOTH have the same operator command-chain shape (read source → find staging path → write jq → accept-turn). The Rule #12 child-process test for BUG-79 should be written to mirror the operator's exact recovery sequence, AND should be parameterized over both the BUG-78 case and the BUG-79 case to prove the Layer 4 CLI recovery covers both classes with one flag.
+  - **Stop-polishing-floor preempt:** do NOT let agents declare BUG-79 closed by adding `statement` field to the PM prompt and shipping. The whole point of filing this as a meta-class is to prevent the THIRD instance. Layer 2 (normalization layer) is the load-bearing fix; Layers 1, 3, 4 are defense-in-depth. All four are required for closure.
+  - **Per Rule #5 ("don't broadcast limitations publicly"):** release notes should describe the fix as staged-result acceptance hardening, not as "we used to require manual JSON surgery for two different field shapes."
+  - **Sequencing relative to BUG-76/77 fixes:** BUG-76/77 are already implemented locally and shipping in v2.155.27. BUG-78 + BUG-79 should ship as v2.155.28 (or .29 if .28 is needed for an unrelated BUG-76/77 hotfix). Do NOT bundle BUG-78/79 into the BUG-76/77 release — they're orthogonal architectural changes and bundling them creates shared-blame on regression.
 
 ---
 

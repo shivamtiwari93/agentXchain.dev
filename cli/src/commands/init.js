@@ -544,6 +544,8 @@ You are the **${role.title}** on this project.
 1. Read the previous turn and challenge it explicitly.
 2. Do your work according to your mandate.
 3. Write your structured turn result to the turn-scoped staging path printed by the orchestrator (\`.agentxchain/staging/<turn_id>/turn-result.json\`).
+4. If you make zero repo file edits, set \`artifact.type: "review"\` and \`files_changed: []\`.
+5. Only set \`artifact.type: "workspace"\` when you actually modified repo files and listed every changed path in \`files_changed\`.
 
 ## File Access
 

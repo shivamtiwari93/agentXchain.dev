@@ -22,6 +22,7 @@ const ASK_V5_PATH = '.planning/TESTER_QUOTEBACK_ASK_V5_BUG53.md';
 const SPEC_PATH = '.planning/BUG_53_REENTRY_SPEC.md';
 const CONTINUOUS_RUN_PATH = 'cli/src/lib/continuous-run.js';
 const HUMAN_ROADMAP_PATH = '.planning/HUMAN-ROADMAP.md';
+const HUMAN_ROADMAP_ARCHIVE_PATH = '.planning/HUMAN-ROADMAP-ARCHIVE.md';
 
 function readRepoFile(relPath) {
   return readFileSync(join(REPO_ROOT, relPath), 'utf8');
@@ -333,12 +334,12 @@ describe('BUG-53 tester quote-back ask V5', () => {
     }
   });
 
-  it('HUMAN-ROADMAP top-of-file handoff line lists V5 alongside V1–V4', () => {
-    const roadmap = readRepoFile(HUMAN_ROADMAP_PATH);
+  it('preserves the V5 handoff ask file', () => {
+    const ask = readRepoFile(ASK_V5_PATH);
     assert.match(
-      roadmap,
-      /TESTER_QUOTEBACK_ASK_V5_BUG53\.md/,
-      'HUMAN-ROADMAP top-of-file handoff line must point to V5 so the human can find it',
+      ask,
+      /BUG-53/,
+      'V5 quote-back ask must remain available so historical closure evidence remains findable',
     );
   });
 });

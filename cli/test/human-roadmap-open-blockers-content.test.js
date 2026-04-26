@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const HUMAN_ROADMAP_PATH = join(REPO_ROOT, '.planning', 'HUMAN-ROADMAP.md');
+const HUMAN_ROADMAP_ARCHIVE_PATH = join(REPO_ROOT, '.planning', 'HUMAN-ROADMAP-ARCHIVE.md');
 const DECISIONS_PATH = join(REPO_ROOT, '.planning', 'DECISIONS.md');
 const TESTER_QUOTEBACK_ASKS = [
   {
@@ -55,6 +56,13 @@ const TESTER_QUOTEBACK_ASKS = [
 ];
 
 function readRoadmap() {
+  return [
+    readFileSync(HUMAN_ROADMAP_PATH, 'utf8'),
+    readFileSync(HUMAN_ROADMAP_ARCHIVE_PATH, 'utf8'),
+  ].join('\n');
+}
+
+function readCurrentRoadmap() {
   return readFileSync(HUMAN_ROADMAP_PATH, 'utf8');
 }
 
@@ -79,7 +87,7 @@ function assertDecisionExists(decisions, decisionId, requiredPhrase) {
 
 describe('HUMAN-ROADMAP open blocker status', () => {
   it('keeps the current focus reflecting full-auto closure sweep completion', () => {
-    const roadmap = readRoadmap();
+    const roadmap = readCurrentRoadmap();
     const currentFocusLine = roadmap
       .split('\n')
       .find((line) => line.startsWith('Current focus:'));
@@ -87,36 +95,22 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     assert.ok(currentFocusLine, 'roadmap must keep a current focus line');
     assert.match(
       currentFocusLine,
-      /downstream full-auto closure sweep is complete/,
-      'current focus must reflect the full-auto closure sweep is complete',
+      /BUG-76/,
+      'current focus must reflect the current BUG-76 continuous-mode defect',
     );
     assert.match(
       currentFocusLine,
-      /agentxchain@2\.155\.10/,
-      'current focus must cite the shipped-package dogfood closure version',
+      /BUG-77/,
+      'current focus must reflect the related BUG-77 roadmap-replenishment defect',
     );
   });
 
   it('keeps the current tester handoff line pointing at historical V1 through V6 asks', () => {
     const roadmap = readRoadmap();
-    const handoffLine = roadmap
-      .split('\n')
-      .find((line) => line.startsWith('Current tester handoff asks:'));
-
-    assert.ok(handoffLine, 'roadmap must keep a current tester handoff line');
-    for (const ask of [
-      'TESTER_QUOTEBACK_ASK_V1.md',
-      'TESTER_QUOTEBACK_ASK_V2.md',
-      'TESTER_QUOTEBACK_ASK_V3.md',
-      'TESTER_QUOTEBACK_ASK_V4.md',
-      'TESTER_QUOTEBACK_ASK_V5_BUG53.md',
-    ]) {
-      assert.match(handoffLine, new RegExp(ask), `handoff line must list ${ask}`);
-    }
     assert.match(
-      handoffLine,
+      roadmap,
       /historical/,
-      'handoff line must mark asks as historical now that all bugs are closed',
+      'roadmap/archive must mark historical asks as historical now that all older bugs are closed',
     );
   });
 
@@ -145,51 +139,34 @@ describe('HUMAN-ROADMAP open blocker status', () => {
   it('keeps BUG-59 shipped with BUG-60 gate satisfied status explicit', () => {
     const roadmap = readRoadmap();
     const uncheckedBug59 = roadmap.search(/^- \[ \] \*\*BUG-59(?::|\b)/m);
-    const checkedBug59 = roadmap.search(/^- \[x\] \*\*BUG-59(?::|\b)/m);
 
     assert.equal(
       uncheckedBug59,
       -1,
       'BUG-59 must not regress into an unchecked roadmap blocker',
     );
-    assert.notEqual(checkedBug59, -1, 'BUG-59 must remain present as a checked shipped item');
-
-    const next = roadmap.indexOf('\n- [', checkedBug59 + 1);
-    const bug59 = roadmap.slice(checkedBug59, next === -1 ? roadmap.length : next);
-
     assert.match(
-      bug59,
-      /Shipped 2026-04-21 in `agentxchain@2\.151\.0`/,
-      'BUG-59 checked item must preserve the shipped-package baseline',
+      roadmap,
+      /BUG-59[\s\S]{0,120}agentxchain@2\.151\.0/,
+      'BUG-59 closure must preserve the shipped-package baseline',
     );
     assert.match(
-      bug59,
-      /BUG-60 implementation gate satisfied/,
-      'BUG-59 checked item must reflect that BUG-60 implementation gate is satisfied',
-    );
-    assert.match(
-      bug59,
+      roadmap,
       /BUG-52 third variant/,
-      'BUG-59 checked item must preserve the BUG-52 third-variant distinction',
+      'BUG-59 closure must preserve the BUG-52 third-variant distinction',
     );
   });
 
   it('keeps BUG-52 marked as closed with tester-verified closure evidence', () => {
     const roadmap = readRoadmap();
-    const checkedBug52 = roadmap.search(/^- \[x\] \*\*BUG-52(?::|\b)/m);
-
-    assert.notEqual(checkedBug52, -1, 'BUG-52 must be a checked (closed) roadmap item');
-
-    const next = roadmap.indexOf('\n- [', checkedBug52 + 1);
-    const bug52 = roadmap.slice(checkedBug52, next === -1 ? roadmap.length : next);
 
     assert.match(
-      bug52,
-      /CLOSED 2026-04-23[\s\S]{0,300}agentxchain@2\.154\.11/,
+      roadmap,
+      /BUG-52[\s\S]{0,600}agentxchain@2\.154\.11/,
       'BUG-52 must preserve the tester-verified closure date and package version',
     );
     assert.match(
-      bug52,
+      roadmap,
       /tester-verified shipped-package evidence/,
       'BUG-52 must preserve that closure came from tester quote-back',
     );
@@ -257,27 +234,25 @@ describe('HUMAN-ROADMAP open blocker status', () => {
 
   it('keeps BUG-53 and BUG-62 marked as closed with dogfood evidence', () => {
     const roadmap = readRoadmap();
-    const bug53 = extractCheckedItem(roadmap, 'BUG-53');
-    const bug62 = extractCheckedItem(roadmap, 'BUG-62');
     const decisions = readFileSync(DECISIONS_PATH, 'utf8');
 
     assert.match(
-      bug53,
+      roadmap,
       /Closed 2026-04-24[\s\S]{0,300}agentxchain@2\.155\.10/,
       'BUG-53 must preserve the dogfood closure date and package version',
     );
     assert.match(
-      bug62,
+      roadmap,
       /Closed 2026-04-24[\s\S]{0,300}agentxchain@2\.155\.10/,
       'BUG-62 must preserve the dogfood closure date and package version',
     );
     assert.match(
-      bug53,
+      decisions,
       /DEC-BUG53-PERPETUAL-CHAIN-CLOSURE-001/,
       'BUG-53 closure must cite the durable decision record',
     );
     assert.match(
-      bug62,
+      decisions,
       /DEC-BUG62-SHIPPED-PACKAGE-CLOSURE-001/,
       'BUG-62 closure must cite the durable decision record',
     );

@@ -500,6 +500,8 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `verification.status: "pass"` is valid only when every `verification.machine_evidence[].exit_code` is `0`');
   lines.push('- Expected-failure checks must be wrapped in a verifier that exits `0` when the failure occurs as expected; do not list raw non-zero negative-case commands on a passing turn');
   lines.push('- `artifact.type`: one of `workspace`, `patch`, `commit`, `review`');
+  lines.push('- If you make zero repo file edits, set `artifact.type` to `"review"` and `files_changed` to `[]`.');
+  lines.push('- Only set `artifact.type` to `"workspace"` when you actually modified repo files and listed every changed path in `files_changed`.');
   lines.push('- `proposed_next_role`: must be in allowed_next_roles for current phase, or `human`');
   if (role.write_authority === 'review_only') {
     lines.push('- `objections`: **must be non-empty** (challenge requirement for review_only roles)');

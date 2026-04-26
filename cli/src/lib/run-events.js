@@ -49,6 +49,7 @@ export const VALID_RUN_EVENTS = [
   'state_reconciled_operator_commits',
   'operator_commit_reconcile_refused',
   'charter_materialization_required',
+  'artifact_type_auto_normalized',
 ];
 
 /**

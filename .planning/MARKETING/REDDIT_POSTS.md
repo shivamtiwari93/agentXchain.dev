@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.155.28
+# Reddit Posts — AgentXchain v2.155.29
 
-> Ready-to-post content for Reddit for the `v2.155.28` release. Updated 2026-04-25 for the watch HTTP listener.
+> Ready-to-post content for Reddit for the `v2.155.29` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
@@ -25,17 +25,16 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.28:
+What shipped in v2.155.29:
 
-- `watch --event-file` and `watch --event-dir` ingest external JSON events as governed work.
-- `watch --daemon --event-dir <path>` keeps polling a drop directory for incoming events.
-- `watch --auto-start` can start governed runs from accepted intake.
-- `watch --results` and `watch --result <id>` make result inspection durable and operator-friendly.
-- Root and CLI command references now document the watcher automation surface.
+- ROADMAP exhaustion is checked before broad VISION goal derivation.
+- `[roadmap-replenishment]` intents explicitly prefer PM and planning scope.
+- `agentxchain status --json` distinguishes `roadmap_open_work_detected` from `roadmap_exhausted_vision_open`.
+- Tester command-chain regressions cover both unchecked-roadmap and exhausted-roadmap cases.
 
 Proof:
 
-- node --test --test-timeout=60000 cli/test/dashboard-watch-results.test.js cli/test/docs-dashboard-content.test.js cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/watch-event-dir-daemon.test.js cli/test/frontdoor-install-surface.test.js -> 115 tests / 19 suites / 0 failures / 0 skipped
+- node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js -> 107 tests / 26 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -59,24 +58,23 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.28 — watch automation for governed multi-agent coding workflows
+**Title:** AgentXchain v2.155.29 — roadmap replenishment hardening for continuous multi-agent delivery
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.28 adds a practical automation surface:
+v2.155.29 hardens continuous vision mode:
 
-- external JSON events can enter through `watch --event-file` or `watch --event-dir`
-- `watch --daemon --event-dir <path>` polls a drop directory
-- `watch --auto-start` starts governed runs from accepted intake
-- `watch --results` and `watch --result <id>` expose durable result records
+- ROADMAP exhaustion is checked before broad VISION goal derivation
+- `[roadmap-replenishment]` intents prefer PM and planning scope
+- status exposes typed next actions for open roadmap work and exhausted roadmap/open vision
 
 The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and remote_agent adapters are all proven live. The non-manual adapters have real-model proof; manual remains the governed human path.
 
 Evidence:
 
-- node --test --test-timeout=60000 cli/test/dashboard-watch-results.test.js cli/test/docs-dashboard-content.test.js cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/watch-event-dir-daemon.test.js cli/test/frontdoor-install-surface.test.js -> 115 tests / 19 suites / 0 failures / 0 skipped
+- node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js -> 107 tests / 26 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -107,7 +105,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.28 adds watcher automation so external events can enter governed intake and become durable result records.
+v2.155.29 hardens continuous mode so exhausted-roadmap projects route PM roadmap-replenishment before generic VISION candidates.
 
 Try the zero-key demo:
 
@@ -116,7 +114,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- node --test --test-timeout=60000 cli/test/dashboard-watch-results.test.js cli/test/docs-dashboard-content.test.js cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/watch-event-dir-daemon.test.js cli/test/frontdoor-install-surface.test.js -> 115 tests / 19 suites / 0 failures / 0 skipped
+- node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js -> 107 tests / 26 suites / 0 failures / 0 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -136,7 +134,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.28 adds watcher automation for external-event intake, auto-started runs, and result inspection
+- v2.155.29 hardens roadmap replenishment for exhausted-roadmap/open-vision continuous runs
 
 Try it in 30 seconds:
 

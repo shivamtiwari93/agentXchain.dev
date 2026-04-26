@@ -22,6 +22,7 @@ export async function acceptTurnCommand(opts = {}) {
   const result = acceptGovernedTurn(root, config, {
     turnId: opts.turn,
     resolutionMode: opts.resolution || 'standard',
+    normalizeArtifactType: opts.normalizeArtifactType || null,
   });
   if (!result.ok) {
     if (result.error_code === 'policy_escalation' || result.error_code === 'policy_violation') {

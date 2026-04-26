@@ -4182,6 +4182,13 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       error_code: 'protocol_error',
     };
   }
+  if (opts.normalizeArtifactType && opts.normalizeArtifactType !== 'review') {
+    return {
+      ok: false,
+      error: `Unknown artifact normalization target "${opts.normalizeArtifactType}". Only "review" is supported.`,
+      error_code: 'protocol_error',
+    };
+  }
 
   if (resolutionMode === 'human_merge') {
     if (!currentTurn.conflict_state) {
@@ -4262,7 +4269,10 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     }
   }
 
-  const validation = validateStagedTurnResult(root, validationState, config, { stagingPath: resolvedStagingPath });
+  const validation = validateStagedTurnResult(root, validationState, config, {
+    stagingPath: resolvedStagingPath,
+    normalizeArtifactType: opts.normalizeArtifactType,
+  });
   if (hooksConfig.after_validation && hooksConfig.after_validation.length > 0) {
     const afterValidationPayload = {
       turn_id: currentTurn.turn_id,
@@ -4316,6 +4326,24 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       error: failError,
       validation,
     };
+  }
+  const artifactTypeWasAutoNormalized = Array.isArray(validation.normalizations)
+    && validation.normalizations.some((entry) => typeof entry === 'string'
+      && entry.includes('artifact.type: auto-normalized empty workspace artifact to review'));
+  if (artifactTypeWasAutoNormalized) {
+    emitRunEvent(root, 'artifact_type_auto_normalized', {
+      run_id: state.run_id,
+      phase: state.phase,
+      status: state.status,
+      turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      intent_id: currentTurn.intake_context?.intent_id || null,
+      payload: {
+        original_artifact_type: 'workspace',
+        normalized_artifact_type: 'review',
+        reason: 'empty_files_changed_no_repo_mutation_declared',
+        staging_path: resolvedStagingPath,
+      },
+    });
   }
 
   const rawTurnResult = validation.turnResult;
@@ -4696,7 +4724,8 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     && (turnResult.files_changed || []).length === 0
     && (observation.files_changed || []).length === 0) {
     const emptyWsError = 'Turn declared artifact.type: "workspace" but files_changed is empty. '
-      + 'Either declare the files modified, or set artifact.type: "review" if no repo mutations were intended.';
+      + 'Either declare the files modified, or set artifact.type: "review" if no repo mutations were intended. '
+      + `Recovery: agentxchain accept-turn --turn ${currentTurn.turn_id} --normalize-artifact-type=review`;
     transitionToFailedAcceptance(root, state, currentTurn, emptyWsError, {
       error_code: 'empty_workspace_artifact',
       stage: 'artifact_validation',
