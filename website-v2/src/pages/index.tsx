@@ -50,7 +50,7 @@ function Hero() {
           alt="AgentXchain"
           className="hero-logo"
         />
-        <div className="hero-badge">Open source &middot; MIT &middot; v2.155.34</div>
+        <div className="hero-badge">Open source &middot; MIT &middot; v2.155.35</div>
         <h1>
           The <span className="text-green">governance protocol</span> for{' '}
           <span className="text-blue">lights-out software factories</span>
@@ -112,7 +112,7 @@ function Stats() {
   return (
     <div className="stats-row">
       <div>
-        <div className="stat-number">115</div>
+        <div className="stat-number">31</div>
         <div className="stat-label">Tests / 0 failures</div>
       </div>
       <div>

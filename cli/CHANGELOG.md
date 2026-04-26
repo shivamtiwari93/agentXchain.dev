@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.155.35
+
+### Bug Fixes
+
+- **BUG-83 non-progress recovery guidance**: non-progress blockers now tell operators to run the valid `agentxchain resume` command instead of the nonexistent `resume --acknowledge-non-progress` flag. The existing non-progress regression suite now asserts the recovery action stays on the real command surface.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-38-non-progress-convergence-guard.test.js -> 3 tests / 1 suite / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
+
 ## 2.155.34
 
 ### Bug Fixes

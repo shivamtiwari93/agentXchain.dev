@@ -1,0 +1,35 @@
+---
+sidebar_position: 0
+title: "v2.155.35 Release Notes"
+---
+
+# AgentXchain v2.155.35
+
+`v2.155.35` fixes BUG-83 from DOGFOOD-100: the non-progress recovery message now names a real CLI command instead of advertising a `resume` flag that does not exist.
+
+## Bug Fixes
+
+- **BUG-83 non-progress recovery guidance.** When a governed run stalls after repeated accepted turns that do not reduce the same gate failure, AgentXchain still blocks with a typed `non_progress` reason, but the recovery action now says `agentxchain resume`.
+- **Regression coverage.** The existing non-progress convergence guard suite now asserts the recovery action is exactly `agentxchain resume` and does not contain `--acknowledge-non-progress`.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-38-non-progress-convergence-guard.test.js -> 3 tests / 1 suite / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.35 -c "agentxchain --version"`
+
+For BUG-83: force or inspect a non-progress blocker and confirm `blocked_reason.recovery.recovery_action` is `agentxchain resume`. It must not include `--acknowledge-non-progress`.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
