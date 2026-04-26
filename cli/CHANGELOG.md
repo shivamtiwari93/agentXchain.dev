@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.32
+
+### Bug Fixes
+
+- **BUG-81 gate transition auto-strip**: When PM requests a phase transition but doesn't modify gate-required files (e.g., `PM_SIGNOFF.md`, `SYSTEM_SPEC.md`), the framework now auto-strips the phase transition request, accepts PM's partial work, and lets the continuous loop re-dispatch PM to complete gate artifacts. Emits `gate_transition_request_auto_stripped` event for audit trail.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+
 ## 2.155.31
 
 ### Bug Fixes

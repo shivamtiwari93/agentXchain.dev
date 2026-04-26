@@ -1,4 +1,4 @@
-# Launch Evidence Report — AgentXchain v2.155.31
+# Launch Evidence Report — AgentXchain v2.155.32
 
 > Single-source evidence artifact for launch-facing claims. Updated 2026-04-25 for v2.155.30 — BUG-77 roadmap-replenishment ordering hardening. Current aggregate release evidence:
 >
