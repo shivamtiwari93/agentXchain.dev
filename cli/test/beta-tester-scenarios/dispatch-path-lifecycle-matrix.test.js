@@ -387,11 +387,11 @@ describe('dispatch path lifecycle matrix coverage', () => {
 
     execSync('git add src/index.js && git commit -m "fixture change"', { cwd: root, stdio: 'ignore' });
 
+    // BUG-81: gate semantic coverage failure with phase_transition_request now
+    // auto-strips the transition instead of rejecting.  Turn is accepted with
+    // the phase staying in "implementation" (no transition to qa).
     const accepted = runCli(root, ['accept-turn']);
-    assert.equal(accepted.status, 1, accepted.combined);
-    assert.match(accepted.stdout, /Validation failed at stage gate_semantic_coverage/);
-    assert.match(accepted.stdout, /implementation_complete/);
-    assert.match(accepted.stdout, /\.planning\/IMPLEMENTATION_NOTES\.md/);
-    assert.match(accepted.stdout, /Fix staged result and rerun agentxchain accept-turn/);
+    assert.equal(accepted.status, 0, accepted.combined);
+    assert.match(accepted.stdout, /Turn Accepted|Status:\s+completed/i);
   });
 });
