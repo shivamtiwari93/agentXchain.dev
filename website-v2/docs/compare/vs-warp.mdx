@@ -1,53 +1,80 @@
 ---
 title: AgentXchain vs Warp.dev
-description: "Warp is stronger as an AI-native terminal and coding environment. AgentXchain is stronger for governed multi-agent software delivery on a shared codebase."
+description: "Warp is stronger as an Agentic Development Environment and Oz cloud-agent platform. AgentXchain is stronger for governed multi-agent software delivery on a shared codebase."
 ---
 
 # AgentXchain vs Warp.dev
 
 ## The short answer
 
-**Choose Warp** if you want an AI-native terminal and coding environment with agent profiles and permissions, Full Terminal Use, Warp Drive rules and shared workflows, session sharing, and Oz-powered local or cloud agent runs.
+**Choose Warp** if you want an Agentic Development Environment: a modern terminal built for coding with agents, first-class support for third-party CLI agents such as Claude Code and Codex, Warp Drive context, agent profiles and permissions, Full Terminal Use, session sharing, and Oz local or cloud agent runs.
 
 **Choose AgentXchain** if you need governed software delivery: chartered roles, mandatory challenge, explicit phase gates, append-only decision history, and constitutional human authority over what is allowed to advance or ship.
 
-Warp is much closer to an AI terminal plus coding-agent workspace. AgentXchain is much closer to a delivery constitution for multi-agent work on a repository. Those are adjacent products, not substitutes.
+Warp is no longer just an AI-native terminal. Its current official surface combines Warp Terminal, local Oz agents, and the Oz cloud-agent orchestration platform. AgentXchain is a delivery-governance protocol for coordinating and accepting work across agents. Those are adjacent products, not substitutes.
+
+## Source baseline
+
+Last checked against official Warp sources on 2026-04-25:
+
+- [Warp docs overview](https://docs.warp.dev/)
+- [Warp Agent Platform overview](https://docs.warp.dev/agent-platform)
+- [Agents in Warp](https://docs.warp.dev/agent-platform/getting-started/agents-in-warp)
+- [Profiles & Permissions](https://docs.warp.dev/agent-platform/capabilities/agent-profiles-permissions)
+- [Full Terminal Use](https://docs.warp.dev/agent-platform/capabilities/full-terminal-use)
+- [Codebase Context](https://docs.warp.dev/agent-platform/capabilities/codebase-context)
+- [Third-Party CLI Agents](https://docs.warp.dev/agent-platform/local-agents/third-party-cli-agents)
+- [Oz Platform](https://docs.warp.dev/agent-platform/cloud-agents/platform)
+- [Oz CLI](https://docs.warp.dev/reference/cli/cli)
+- [Warp Drive Context for Oz CLI](https://docs.warp.dev/reference/cli/warp-drive)
+- [Oz environments](https://docs.warp.dev/agent-platform/cloud-agents/environments)
+- [Oz integrations](https://docs.warp.dev/agent-platform/cloud-agents/integrations)
+- [Oz web app](https://docs.warp.dev/agent-platform/cloud-agents/oz-web-app)
+- [Oz schedules API](https://docs.warp.dev/reference/api-and-sdk/schedules)
+- [Warp enterprise overview](https://docs.warp.dev/enterprise)
+- [Warp Agent Mode product page](https://www.warp.dev/ai)
 
 ## Comparison
 
 | | Warp.dev | AgentXchain |
 |---|---|---|
-| **Primary job** | AI-native terminal, coding environment, and agent runtime | Governed software delivery |
-| **Agent control model** | Agent profiles, permissions, model selection, command approvals, Full Terminal Use | Role-based turns, objections, and phase gates |
-| **Collaboration surface** | Session sharing, Agent Session Sharing, Warp Drive workflows/rules | Append-only decision ledger, objection trail, governance reports |
-| **Remote execution** | Oz CLI, cloud agents, environments, MCP tools | Governed local runner, multi-repo coordination, and adapters: (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
-| **Human authority** | Approvals and permissions around agent actions | Explicit phase-transition and run-completion approvals |
+| **Primary job** | Agentic Development Environment plus Oz cloud-agent orchestration | Governed software delivery |
+| **Agent control model** | Agent profiles, model choice, autonomy levels, command allowlists/denylists, MCP permissions, Run until completion | Role-based turns, objections, and phase gates |
+| **Coding surface** | Modern terminal, local Oz agents, Full Terminal Use, code review, Codebase Context, Warp Drive context, and third-party CLI agent support | Repo-governance runner and acceptance protocol; not a terminal replacement |
+| **Collaboration surface** | Session sharing, cloud-synced conversations, shared Warp Drive resources, Oz web app, tracked cloud runs | Append-only decision ledger, objection trail, governance reports |
+| **Remote execution** | Oz CLI/API/SDK, cloud agents, schedules, Slack/Linear/GitHub/custom triggers, environments, Warp-hosted or self-hosted runners | Governed local runner, multi-repo coordination, and adapters: (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
+| **Human authority** | Approvals and permissions around agent actions, code diffs, commands, MCP servers, and shared sessions | Explicit phase-transition and run-completion approvals |
 | **Mandatory cross-role challenge** | No built-in delivery constitution | Yes, protocol-enforced |
-| **Best fit** | Terminal-first coding workflows for individuals and teams | Auditable convergence on shippable code |
+| **Best fit** | Terminal-first agent work, background Oz automation, and team agent operations | Auditable convergence on shippable code |
 
 ## Choose Warp when
 
-- You want a strong terminal-first developer experience with AI built directly into the shell and editor workflow.
-- You want agent profiles, model choice, command approvals, and Full Terminal Use for interactive tools such as REPLs, servers, editors, or debuggers.
-- You want Warp Drive for shared prompts, notebooks, rules, and project context, including project-scoped `AGENTS.md`.
-- You want session sharing or Agent Session Sharing so teammates can watch and collaborate on live agent activity.
-- You want Oz CLI and cloud agents for background or remote execution in standardized environments.
+- You want a strong terminal-first developer experience with AI built directly into the shell and coding workflow.
+- You want first-class support for Claude Code, OpenAI Codex CLI, Gemini CLI, Amp, Droid, OpenCode, and other third-party CLI agents inside Warp.
+- You want agent profiles with model choice, autonomy levels, code-diff approvals, command permissions, MCP permissions, command allowlists, denylists, and Run until completion.
+- You want Full Terminal Use so agents can interact with running terminal programs such as REPLs, servers, shells, editors, and debuggers.
+- You want Warp Drive for shared prompts, notebooks, workflows, rules, environment variables, and project-scoped `AGENTS.md`.
+- You want Oz CLI, API/SDK, web app, schedules, Slack/Linear/GitHub/custom triggers, cloud agents, environments, secrets, and self-hosted or Warp-hosted execution.
 
 ## Choose AgentXchain when
 
 - Multiple roles must challenge each other structurally instead of operating as one powerful coding assistant.
 - Human authority must be explicit at planning, phase-transition, and completion boundaries.
 - You need accepted work recorded with objections, evidence, and decision history in the repo.
-- Your problem is not "make one coding agent more capable." Your problem is "make multiple agents converge on trustworthy software delivery."
+- Your problem is not "make one coding surface more capable." Your problem is "make multiple agents converge on trustworthy software delivery."
 
 ## A concrete workflow difference
 
-Warp is optimized to help an agent operate inside a coding environment. AgentXchain is optimized to govern how multiple roles move a repository toward shippable state.
+Warp is optimized to help agents operate inside a coding environment or in Oz-managed automation. AgentXchain is optimized to govern how multiple roles move a repository toward shippable state.
 
 ```bash
-# Warp framing: run an agent in your terminal or in a remote environment
-oz agent run --prompt "trace the failing test and propose a fix"
-oz agent run-cloud --environment <ENV_ID> --prompt "review the latest PR"
+# Warp framing: run an Oz agent locally or in a configured cloud environment
+oz agent run --prompt "set up a new Rust crate named warp-cli"
+
+oz agent run-cloud \
+  --environment <ENVIRONMENT_ID> \
+  --name "nightly-dependency-check" \
+  --prompt "Check for outdated dependencies and open a PR with updates"
 ```
 
 ```bash
@@ -61,14 +88,14 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-Warp can absolutely provide a better day-to-day coding surface, stronger terminal ergonomics, and useful agent collaboration features. What it does not document as a product is a governed multi-role delivery protocol with mandatory disagreement, append-only delivery ledgers, and constitutional ship gates.
+Warp can provide a better day-to-day coding surface, stronger terminal ergonomics, broad CLI-agent support, and a real cloud-agent operations layer through Oz. What it does not document as a product is a governed multi-role delivery protocol with mandatory disagreement, append-only delivery ledgers, and constitutional ship gates.
 
 ## Using both together
 
 This is the honest layering:
 
-- Warp for the terminal, coding environment, shared prompts/rules, and agent runtime ergonomics
-- AgentXchain for governed repository workflow, challenge structure, and delivery auditability
+- Warp for the terminal, coding environment, shared prompts/rules, local and cloud Oz agents, and agent runtime ergonomics
+- AgentXchain for governed repository workflow, challenge structure, phase gates, and delivery auditability
 
 If your team likes Warp as the place where developers and agents work, AgentXchain can still define the acceptance and authority model for what actually counts as approved delivery.
 

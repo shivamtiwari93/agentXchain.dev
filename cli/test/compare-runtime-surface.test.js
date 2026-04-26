@@ -61,7 +61,7 @@ describe('compare page runtime surface', () => {
   it('AT-COMPARE-RUNTIME-005: vs-warp names the shipped adapters in the remote-execution contrast', () => {
     assert.match(
       VS_WARP,
-      /\| \*\*Remote execution\*\* \| Oz CLI, cloud agents, environments, MCP tools \| Governed local runner, multi-repo coordination, and adapters: \(`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`\) \|/,
+      /\| \*\*Remote execution\*\* \| Oz CLI\/API\/SDK, cloud agents, schedules, Slack\/Linear\/GitHub\/custom triggers, environments, Warp-hosted or self-hosted runners \| Governed local runner, multi-repo coordination, and adapters: \(`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`\) \|/,
     );
     assert.doesNotMatch(
       VS_WARP,

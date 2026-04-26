@@ -7,11 +7,11 @@ Freeze the public comparison-surface contract for how AgentXchain's runtime surf
 ## Interface
 
 - Files:
-  - `website-v2/src/pages/compare/vs-autogen.mdx`
-  - `website-v2/src/pages/compare/vs-openai-agents-sdk.mdx`
+  - `website-v2/docs/compare/vs-autogen.mdx`
+  - `website-v2/docs/compare/vs-openai-agents-sdk.mdx`
   - `website-v2/docs/compare-autogen.mdx`
   - `website-v2/docs/compare-crewai.mdx`
-  - `website-v2/src/pages/compare/vs-warp.mdx`
+  - `website-v2/docs/compare/vs-warp.mdx`
 - Guard:
   - `cli/test/compare-runtime-surface.test.js`
 

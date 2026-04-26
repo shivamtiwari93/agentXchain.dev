@@ -4,10 +4,12 @@ Add an honest public comparison page for `AgentXchain vs Warp.dev` that explains
 
 ## Interface
 
-- New page: `website-v2/src/pages/compare/vs-warp.mdx`
+- Page: `website-v2/docs/compare/vs-warp.mdx`
 - Navigation updates:
   - `website-v2/docusaurus.config.ts`
   - `website-v2/src/pages/index.tsx`
+
+Source-backed claim boundary now lives in `.planning/COMPARE_WARP_CLAIMS_SPEC.md`.
 
 ## Behavior
 
@@ -36,7 +38,7 @@ Add an honest public comparison page for `AgentXchain vs Warp.dev` that explains
 
 ## Acceptance Tests
 
-- `website-v2/src/pages/compare/vs-warp.mdx` exists and matches the established comparison-page pattern
+- `website-v2/docs/compare/vs-warp.mdx` exists and matches the established comparison-page pattern
 - Compare navigation includes `vs Warp.dev`
 - Homepage comparison CTA includes `vs Warp.dev`
 - `cd website-v2 && npm run build` succeeds with the new page

@@ -132,9 +132,16 @@ describe('comparison pages content', () => {
 
   it('keeps the Warp page honest about AI-native terminal framing', () => {
     assertCommonPageContract(pages.warp, 'Warp');
+    assert.match(pages.warp, /Agentic Development Environment/i, 'Warp page must acknowledge current ADE framing');
     assert.match(pages.warp, /AI-native terminal/i);
     assert.match(pages.warp, /Warp Drive/i, 'Warp page must mention Warp Drive');
-    assert.match(pages.warp, /Oz/i, 'Warp page must mention Oz CLI');
+    assert.match(pages.warp, /Oz/i, 'Warp page must mention Oz');
+    assert.match(pages.warp, /third-party CLI agents/i, 'Warp page must mention third-party CLI agent support');
+    assert.match(pages.warp, /Full Terminal Use/i, 'Warp page must mention Full Terminal Use');
+    assert.match(pages.warp, /Source baseline/, 'Warp page must expose the source baseline on-page');
+    assert.match(pages.warp, /https:\/\/docs\.warp\.dev\/agent-platform\/capabilities\/agent-profiles-permissions/, 'Warp page must link to official profiles and permissions docs');
+    assert.match(pages.warp, /https:\/\/docs\.warp\.dev\/reference\/cli\/cli/, 'Warp page must link to official Oz CLI docs');
+    assert.match(pages.warp, /https:\/\/docs\.warp\.dev\/agent-platform\/cloud-agents\/platform/, 'Warp page must link to official Oz Platform docs');
     assert.match(pages.warp, /governed software delivery|delivery constitution/i);
   });
 
@@ -199,8 +206,10 @@ describe('comparison pages content', () => {
     assert.match(POSITIONING_MATRIX, /\*\*OpenHands\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*Devin\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*Codegen\*\*/);
+    assert.match(POSITIONING_MATRIX, /\*\*Warp\*\*/);
     assert.match(POSITIONING_MATRIX, /Atoms|Data Interpreter|Researcher/i);
     assert.match(POSITIONING_MATRIX, /managed Devin child sessions/i);
+    assert.match(POSITIONING_MATRIX, /Agentic Development Environment/i);
     assert.match(POSITIONING_MATRIX, /Command routing|parallel supersteps|subgraph composition/i);
     assert.match(POSITIONING_MATRIX, /multi-provider|provider-agnostic/i);
     assert.match(POSITIONING_MATRIX, /OpenAI Swarm README/);
