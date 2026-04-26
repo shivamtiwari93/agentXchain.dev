@@ -89,6 +89,7 @@ ALLOWED_RELEASE_PATHS=(
   "website-v2/docs/getting-started.mdx"
   "website-v2/docs/quickstart.mdx"
   "website-v2/docs/five-minute-tutorial.mdx"
+  "website-v2/docs/releases/v2-147-0.mdx"
   "cli/test/hn-launch-surface-content.test.js"
   "cli/homebrew/agentxchain.rb"
   "cli/homebrew/README.md"
