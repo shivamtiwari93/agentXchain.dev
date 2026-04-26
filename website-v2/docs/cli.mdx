@@ -955,6 +955,8 @@ agentxchain accept-turn [options]
 | `--turn <id>` | (current active) | Target a specific active turn when multiple turns exist |
 | `--resolution <mode>` | `standard` | Conflict resolution mode for conflicted turns: `standard` or `human_merge` |
 | `--checkpoint` | `false` | Automatically checkpoint (git commit) the accepted turn's artifacts after successful acceptance |
+| `--normalize-artifact-type <type>` | (none) | Normalize an empty workspace artifact to a safe artifact type before acceptance. Currently supports `review` |
+| `--normalize-staged-result` | `false` | Run known-safe staged-result field normalization before acceptance |
 
 Accepts the most recent staged turn result. The result is committed to `.agentxchain/history.jsonl` and the decision ledger is updated. If the turn included a `phase_transition_request`, the run enters a `blocked:gate` state pending `approve-transition`.
 

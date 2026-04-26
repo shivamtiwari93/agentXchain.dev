@@ -33,3 +33,14 @@ Verify: `npx --yes -p agentxchain@2.155.34 -c "agentxchain --version"`
 For BUG-85: resume the paused tusq.dev dogfood session. The PM turn that
 bound M30 from `VISION.md` The Promise should accept without editing staged
 JSON or rerunning the turn.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
