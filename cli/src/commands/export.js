@@ -29,7 +29,7 @@ export async function exportCommand(options) {
   const kind = detectExportKind(cwd);
 
   // BUG-88: apply bounding to prevent Invalid string length on large accumulated state
-  const defaultExportOpts = { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024, maxExportFiles: 500, maxTextDataBytes: 131072 };
+  const defaultExportOpts = { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024, maxExportFiles: 500, maxTextDataBytes: 131072, maxJsonDataBytes: 262144 };
 
   let result;
   try {
@@ -68,7 +68,7 @@ export async function exportCommand(options) {
   } catch (serializeErr) {
     if (/Invalid string length/i.test(serializeErr.message)) {
       // Retry with tighter bounds
-      const tightOpts = { maxJsonlEntries: 500, maxBase64Bytes: 65536, maxExportFiles: 200, maxTextDataBytes: 32768 };
+      const tightOpts = { maxJsonlEntries: 500, maxBase64Bytes: 65536, maxExportFiles: 200, maxTextDataBytes: 32768, maxJsonDataBytes: 65536 };
       const tightResult = buildRunExport(cwd, tightOpts);
       if (tightResult.ok) {
         console.log(JSON.stringify(tightResult.export));

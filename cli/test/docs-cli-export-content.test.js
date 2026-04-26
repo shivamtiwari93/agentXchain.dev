@@ -133,8 +133,8 @@ describe('Export library contract', () => {
     assert.match(EXPORT_LIB, /agentxchain_coordinator_export/);
   });
 
-  it('coordinator export calls buildRunExport for each child repo', () => {
-    assert.match(EXPORT_LIB, /buildRunExport\(resolvedPath\)/);
+  it('coordinator export calls buildRunExport for each child repo with inherited bounds', () => {
+    assert.match(EXPORT_LIB, /buildRunExport\(resolvedPath,\s*exportOpts\)/);
   });
 });
 

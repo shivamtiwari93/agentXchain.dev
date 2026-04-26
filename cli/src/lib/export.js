@@ -34,6 +34,12 @@ const RUN_EXPORT_ONLY_ROOTS = [
   '.planning',
 ];
 
+const GENERATED_GOVERNANCE_REPORT_PATTERNS = Object.freeze([
+  /^\.agentxchain\/reports\/report-[^/]+\.md$/,
+  /^\.agentxchain\/reports\/export-[^/]+\.json$/,
+  /^\.agentxchain\/reports\/chain-[^/]+\.json$/,
+]);
+
 export const RUN_EXPORT_INCLUDED_ROOTS = [
   'agentxchain.json',
   ...RUN_CONTINUITY_STATE_FILES,
@@ -50,6 +56,10 @@ export const RUN_RESTORE_ROOTS = [
 
 function pathWithinRoots(relPath, roots) {
   return roots.some((root) => relPath === root || relPath.startsWith(`${root}/`));
+}
+
+export function isGeneratedGovernanceReportPath(relPath) {
+  return GENERATED_GOVERNANCE_REPORT_PATTERNS.some((pattern) => pattern.test(relPath));
 }
 
 export function isRunRestorePath(relPath) {
@@ -165,11 +175,16 @@ function parseFile(root, relPath, opts = {}) {
 
   if (relPath.endsWith('.json')) {
     const raw = buffer.toString('utf8');
-    try {
-      data = JSON.parse(raw);
-      format = 'json';
-    } catch (error) {
-      throw new Error(`${relPath}: invalid JSON: ${error.message}`);
+    format = 'json';
+    if (opts.maxJsonDataBytes && buffer.byteLength > opts.maxJsonDataBytes) {
+      data = null;
+      truncated = true;
+    } else {
+      try {
+        data = JSON.parse(raw);
+      } catch (error) {
+        throw new Error(`${relPath}: invalid JSON: ${error.message}`);
+      }
     }
   } else if (relPath.endsWith('.jsonl')) {
     const maxEntries = opts.maxJsonlEntries;
@@ -199,8 +214,14 @@ function parseFile(root, relPath, opts = {}) {
 
   if (truncated) {
     result.truncated = true;
-    result.total_entries = totalEntries;
-    result.retained_entries = data.length;
+    if (format === 'jsonl') {
+      result.total_entries = totalEntries;
+      result.retained_entries = data.length;
+    } else if (format === 'text') {
+      result.retained_bytes = Buffer.byteLength(data, 'utf8');
+    } else if (format === 'json') {
+      result.retained_bytes = 0;
+    }
   }
   if (skipBase64 && !truncated) {
     result.content_base64_skipped = true;
@@ -459,6 +480,7 @@ export function buildRunExport(startDir = process.cwd(), exportOpts = {}) {
   const state = loadProjectState(root, config);
 
   const collectedPaths = [...new Set(RUN_EXPORT_INCLUDED_ROOTS.flatMap((relPath) => collectPaths(root, relPath)))]
+    .filter((relPath) => !isGeneratedGovernanceReportPath(relPath))
     .sort((a, b) => a.localeCompare(b, 'en'));
 
   const parseOpts = {};
@@ -470,6 +492,9 @@ export function buildRunExport(startDir = process.cwd(), exportOpts = {}) {
   }
   if (exportOpts.maxTextDataBytes) {
     parseOpts.maxTextDataBytes = exportOpts.maxTextDataBytes;
+  }
+  if (exportOpts.maxJsonDataBytes) {
+    parseOpts.maxJsonDataBytes = exportOpts.maxJsonDataBytes;
   }
 
   // BUG-88: apply maxExportFiles cap with priority ordering.

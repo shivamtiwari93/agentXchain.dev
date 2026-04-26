@@ -674,8 +674,8 @@ export async function executeGovernedRun(context, opts = {}) {
         mkdirSync(reportsDir, { recursive: true });
 
         // BUG-88: two-attempt export with fallback to tighter bounds on string-length overflow
-        const defaultExportOpts = { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024, maxExportFiles: 500, maxTextDataBytes: 131072 };
-        const tightExportOpts = { maxJsonlEntries: 500, maxBase64Bytes: 65536, maxExportFiles: 200, maxTextDataBytes: 32768 };
+        const defaultExportOpts = { maxJsonlEntries: 1000, maxBase64Bytes: 1024 * 1024, maxExportFiles: 500, maxTextDataBytes: 131072, maxJsonDataBytes: 262144 };
+        const tightExportOpts = { maxJsonlEntries: 500, maxBase64Bytes: 65536, maxExportFiles: 200, maxTextDataBytes: 32768, maxJsonDataBytes: 65536 };
 
         let exportResult = buildRunExport(root, defaultExportOpts);
         if (exportResult.ok) {

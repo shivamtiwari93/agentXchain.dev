@@ -10,7 +10,8 @@ import { verifyExportArtifact } from '../../src/lib/export-verifier.js';
 // BUG-88: Export writer crashes with "Invalid string length" on large accumulated state.
 // Root cause: JSON.stringify on unbounded export object exceeds Node.js string limit
 // for projects with many .planning/ files, large text content, and accumulated turns.
-// Fix: maxExportFiles + maxTextDataBytes bounding in buildRunExport(), fallback serialization in run.js.
+// Fix: generated report exports are excluded, maxExportFiles/maxTextDataBytes/maxJsonDataBytes
+// bound buildRunExport(), and run.js falls back to tighter serialization bounds.
 
 function writeJson(filePath, value) {
   mkdirSync(join(filePath, '..'), { recursive: true });
@@ -202,6 +203,92 @@ describe('BUG-88: export writer bounding for large accumulated state', () => {
       // Verify the export artifact passes the BUG-86 verifier
       const verifyResult = verifyExportArtifact(result.export);
       assert.strictEqual(verifyResult.ok, true, `verifier should pass: ${JSON.stringify(verifyResult.errors)}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('excludes generated governance reports to prevent recursive export growth', () => {
+    const root = createLargeGovernedProject(5, 1);
+    try {
+      mkdirSync(join(root, '.agentxchain', 'reports'), { recursive: true });
+      writeJson(join(root, '.agentxchain', 'reports', 'export-run_previous.json'), {
+        export_kind: 'agentxchain_run_export',
+        files: {
+          '.planning/huge.md': {
+            data: 'X'.repeat(2 * 1024 * 1024),
+            content_base64: 'WA==',
+          },
+        },
+      });
+      writeFileSync(join(root, '.agentxchain', 'reports', 'report-run_previous.md'), '# Prior report\n');
+      writeJson(join(root, '.agentxchain', 'reports', 'chain-previous.json'), {
+        chain_id: 'chain_previous',
+        large: 'Y'.repeat(2 * 1024 * 1024),
+      });
+      writeFileSync(join(root, '.agentxchain', 'reports', 'RECOVERY_REPORT.md'), '# Keep custom report\n');
+
+      const result = buildRunExport(root, {
+        maxJsonlEntries: 100,
+        maxBase64Bytes: 65536,
+        maxExportFiles: 500,
+        maxTextDataBytes: 4096,
+        maxJsonDataBytes: 4096,
+      });
+
+      assert.ok(result.ok, 'export should succeed');
+      assert.ok(
+        !('.agentxchain/reports/export-run_previous.json' in result.export.files),
+        'generated export artifacts must not be recursively exported',
+      );
+      assert.ok(
+        !('.agentxchain/reports/report-run_previous.md' in result.export.files),
+        'generated report artifacts must not be recursively exported',
+      );
+      assert.ok(
+        !('.agentxchain/reports/chain-previous.json' in result.export.files),
+        'generated chain report artifacts must not be recursively exported',
+      );
+      assert.ok(
+        '.agentxchain/reports/RECOVERY_REPORT.md' in result.export.files,
+        'custom report evidence should remain exportable',
+      );
+
+      const json = JSON.stringify(result.export);
+      assert.ok(json.length < 2 * 1024 * 1024, `recursive report export should stay small, got ${json.length}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('maxJsonDataBytes truncates large non-generated JSON file data', () => {
+    const root = createLargeGovernedProject(1, 1);
+    try {
+      writeJson(join(root, '.planning', 'large-data.json'), {
+        payload: 'Z'.repeat(256 * 1024),
+      });
+
+      const result = buildRunExport(root, {
+        maxJsonlEntries: 100,
+        maxBase64Bytes: 65536,
+        maxExportFiles: 500,
+        maxTextDataBytes: 4096,
+        maxJsonDataBytes: 1024,
+      });
+
+      assert.ok(result.ok, 'export should succeed');
+      const entry = result.export.files['.planning/large-data.json'];
+      assert.ok(entry, 'large JSON file should be included');
+      assert.strictEqual(entry.format, 'json');
+      assert.strictEqual(entry.truncated, true);
+      assert.strictEqual(entry.data, null);
+      assert.strictEqual(entry.content_base64, null);
+      assert.strictEqual(entry.retained_bytes, 0);
+      assert.strictEqual(
+        verifyExportArtifact(result.export).ok,
+        true,
+        'bounded export with truncated JSON data should verify',
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

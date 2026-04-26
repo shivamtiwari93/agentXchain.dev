@@ -11,8 +11,9 @@ Fix the governance export writer crash (`Invalid string length`) that occurs whe
 1. `.planning/` can contain 788+ markdown/JSON files.
 2. Each file is represented twice: as `content_base64` (base64-encoded) and `data` (parsed text/JSON).
 3. `.agentxchain/dispatch/` and `.agentxchain/staging/` grow linearly with turn count.
-4. No aggregate size limit exists on the export object.
-5. Combined, these can exceed Node.js's `String.MAX_LENGTH` (~512MB) during serialization.
+4. Generated governance reports under `.agentxchain/reports/export-*.json` recursively include prior exports. On the tusq.dev dogfood corpus, individual prior export entries reached hundreds of MB after parsing.
+5. No aggregate size limit exists on the export object.
+6. Combined, these can exceed Node.js's `String.MAX_LENGTH` (~512MB) during serialization.
 
 BUG-84 bounded the report *formatter* arrays (sections capped at 500 items). BUG-86 made the verifier accept bounded exports. Neither bounds the export *writer* itself.
 
@@ -20,10 +21,19 @@ BUG-84 bounded the report *formatter* arrays (sections capped at 500 items). BUG
 
 ### Layer 1: Pre-bound the export object
 
-Add two new options to `buildRunExport()`:
+Generated governance reports are derived artifacts, not continuity inputs. `buildRunExport()` must exclude:
+
+- `.agentxchain/reports/report-*.md`
+- `.agentxchain/reports/export-*.json`
+- `.agentxchain/reports/chain-*.json`
+
+Custom report evidence such as `.agentxchain/reports/RECOVERY_REPORT.md` remains exportable.
+
+Add three new options to `buildRunExport()`:
 
 - `maxExportFiles` (default 500): Cap total files collected. Core governance files (state, events, history, decision-ledger, hook-audit, config) are collected first. Dispatch, staging, and transaction files are next. `.planning/` files are collected last and are the first to be trimmed.
 - `maxTextDataBytes` (default 131072 / 128KB): Text files (`.md`, `.txt`) with content exceeding this threshold get `data` truncated to the first `maxTextDataBytes` characters with `truncated: true` marker.
+- `maxJsonDataBytes` (default 262144 / 256KB): Large JSON files outside the explicit top-level export `state` and `config` projections get `data: null`, `truncated: true`, `retained_bytes: 0`, and `content_base64: null` rather than embedding a large parsed object.
 
 In `parseFile()`, when `opts.maxTextDataBytes` is set and the text data string exceeds it, truncate:
 ```javascript
@@ -37,7 +47,7 @@ if (data.length > opts.maxTextDataBytes) {
 
 Wrap `JSON.stringify()` in a two-attempt pattern:
 1. First attempt: normal serialization with default bounds.
-2. On `Invalid string length` catch: re-run `buildRunExport()` with tighter bounds (`maxExportFiles: 200`, `maxTextDataBytes: 32768`, `maxBase64Bytes: 65536`) and retry serialization.
+2. On `Invalid string length` catch: re-run `buildRunExport()` with tighter bounds (`maxExportFiles: 200`, `maxTextDataBytes: 32768`, `maxJsonDataBytes: 65536`, `maxBase64Bytes: 65536`) and retry serialization.
 3. If the tight-bound attempt also fails, log the failure and continue to report generation from the in-memory export (skip disk write).
 
 ### Layer 3: Stale-export-fallback surfacing
@@ -62,9 +72,11 @@ When no fresh export is available at all and report falls back to a previous on-
 
 1. Export with 600+ files: completes without `Invalid string length`, export file written to disk.
 2. Export with large text files (> 128KB each): text data truncated, `truncated: true` set.
-3. Stale-fallback never silent: when fresh export write fails, report includes `export_source` or `stale_export_fallback` metadata.
-4. BUG-84 regression: report formatters still cap at 500 items.
-5. BUG-86 regression: verifier accepts bounded exports with `content_base64: null`.
+3. Export excludes generated `.agentxchain/reports/report-*`, `export-*`, and `chain-*` artifacts so exports cannot recursively include previous exports.
+4. Export with large JSON files truncates `data` to `null` and still passes export verification.
+5. Stale-fallback never silent: when fresh export write fails, report includes `export_source` or `stale_export_fallback` metadata.
+6. BUG-84 regression: report formatters still cap at 500 items.
+7. BUG-86 regression: verifier accepts bounded exports with `content_base64: null`.
 
 ## Error Cases
 
