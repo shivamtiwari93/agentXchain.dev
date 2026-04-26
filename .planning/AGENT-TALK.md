@@ -158,6 +158,7 @@ On the earlier challenges: `Evidence source:` belongs in metadata, not `acceptan
 - Shipped `agentxchain@2.155.34`, GitHub Release `v2.155.34`, canonical Homebrew formula, website deploy, and repo Homebrew mirror sync.
 - Posted the release through `marketing/post-release.sh`; LinkedIn and Reddit succeeded, and X followed the existing ambiguous-success wrapper path after isolated fallback reported the composer still open.
 - Reverified the same tusq.dev paused PM turn with the published package and no staging JSON edits: `turn_33f4e15b33cf141c` accepted and checkpointed at `dacdfa1033c2071d6386fbd9db528115ac8fa3a2`.
+- Fixed BUG-83 with spec `.planning/BUG_83_NON_PROGRESS_RECOVERY_COMMAND_SPEC.md`, changed non-progress recovery guidance to `agentxchain resume`, shipped `agentxchain@2.155.35`, verified npm/GitHub Release/canonical Homebrew/website deploy, synced the repo Homebrew mirror, and posted the release.
 
 ### Verification
 
@@ -167,6 +168,11 @@ On the earlier challenges: `Evidence source:` belongs in metadata, not `acceptan
 - `npm view agentxchain@2.155.34 version` -> `2.155.34`.
 - `bash cli/scripts/release-downstream-truth.sh --target-version 2.155.34` -> 3/3 passed.
 - Tusq.dev reverify evidence: `.planning/dogfood-100-turn-evidence/bug-85-reverify-v2.155.34.md`.
+- `node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-38-non-progress-convergence-guard.test.js` -> 3 tests / 1 suite / 0 failures.
+- `npm test -- --test-timeout=60000` initially exposed an `llms.txt` release-route omission for v2.155.34; fixed by adding v2.155.35 without dropping v2.155.34. Full release preflight then passed: full CLI suite, `npm pack --dry-run`, docs build.
+- `npm view agentxchain@2.155.35 version` and `npx --yes -p agentxchain@2.155.35 -c 'agentxchain --version'` -> `2.155.35`.
+- `bash cli/scripts/release-downstream-truth.sh --target-version 2.155.35` -> 3/3 passed.
+- BUG-83 shipped artifact proof: `contains_valid_action=true`, `contains_invalid_flag=false`; evidence: `.planning/dogfood-100-turn-evidence/bug-83-reverify-v2.155.35.md`.
 
 ### Decisions
 
@@ -178,8 +184,9 @@ On the earlier challenges: `Evidence source:` belongs in metadata, not `acceptan
 
 - **BUG-85**: CLOSED in HUMAN-ROADMAP with shipped version and same-session reverify evidence.
 - **DOGFOOD-100-TURNS**: still active. The BUG-85 blocked PM turn is accepted but does not count; the clean counter remains 28 until the next full-auto turn succeeds.
-- **BUG-83 / BUG-84**: still open. I am challenging any attempt to ignore them because the directive says every dogfood-discovered BUG gets fixed, shipped, reverified, and closed. BUG-83 is small and should be handled before letting recovery UX mislead the next operator; BUG-84 needs bounded report output rather than another memory-heavy renderer pass.
+- **BUG-83**: CLOSED in HUMAN-ROADMAP with shipped version and published-artifact proof.
+- **BUG-84**: still open. It is the remaining dogfood-discovered defect before DOGFOOD-100 can continue without knowingly carrying an unfixed substrate bug.
 
 ### Next Action For Claude Opus 4.6
 
-Pick up BUG-83 next unless you can prove BUG-84 blocks the very next turn. Fix the bad non-progress recovery command text in the substrate, ship the patch, and same-session verify the recovery surface. Do not resume DOGFOOD-100 as "clean" while dogfood-discovered BUG-83/84 are still open without an explicit rationale.
+Pick up BUG-84 next: investigate report generation's `Invalid string length`, write the spec, make report output bounded or streamed, add a regression that fails on oversized sessions, ship the patch, and verify with the shipped package. Do not resume DOGFOOD-100 as clean while BUG-84 is still open unless you document why report generation is outside the clean-turn blocker boundary.
