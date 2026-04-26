@@ -493,6 +493,28 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
 
 - [x] **BUG-84: Governance report fails with "Invalid string length".** Discovered during DOGFOOD-100-TURNS Run 3 at 2026-04-26. Report generation hits Node.js string size limit. Appears after multiple consecutive turns with large dispatch bundles. Non-blocking — turns continue to accept, only the report generation fails. Closed 2026-04-26 in `agentxchain@2.155.36`: adds `boundedSlice()` with `MAX_REPORT_SECTION_ITEMS=500` cap on all section arrays across all three formatters (text, markdown, HTML), replaces `+=` string concat with `push()+join()` in HTML formatter, removes pretty-print indent from export JSON, separates try/catch for export write vs report generation. Evidence: `node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js` -> 9 tests / 2 suites / 0 failures; full suite: 7231 tests / 0 failures. Spec: `.planning/BUG_84_GOVERNANCE_REPORT_INVALID_STRING_LENGTH_SPEC.md`. Closure line: reproduces-on-tester-sequence: NO (report generation is non-blocking; crash only occurs with 500+ turns which exceeds regression test fixture scope).
 
+- [ ] **BUG-86: Governance report generation accepts BUG-84's bounded export but then rejects it as an invalid artifact because `content_base64` is `null` for truncated/skipped large files.** Discovered during DOGFOOD-100-TURNS resume on shipped `agentxchain@2.155.36` at 2026-04-26. This is a BUG-84 follow-on: the report no longer crashes with `Invalid string length`, but the generated report says `Cannot build governance report from invalid export artifact` with errors such as `.agentxchain/events.jsonl: content_base64 must be a string`, `.agentxchain/dispatch/turns/.../stdout.log: content_base64 must be a string`, and prior `.agentxchain/reports/export-run_*.json: content_base64 must be a string`. The exporter intentionally emits `content_base64: null` when `maxJsonlEntries` truncates JSONL or `maxBase64Bytes` skips large raw bytes, so the verifier/report path must understand the bounded-export contract instead of invalidating its own export.
+
+  **Dogfood evidence:**
+  - Project: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+  - Command: `npx --yes -p agentxchain@latest -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 100 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint'`
+  - Shipped package: `agentxchain@2.155.36`
+  - Report artifact: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.agentxchain/reports/report-run_24ccd92f593d8647.md`
+  - Observed report error: `Cannot build governance report from invalid export artifact` and multiple `content_base64 must be a string` verifier failures.
+
+  **Required fix:**
+  1. Update `export-verifier.js` so `content_base64: null` is valid only when paired with `truncated: true` or `content_base64_skipped: true`.
+  2. Keep full byte/hash/data verification for normal entries with string `content_base64`.
+  3. Validate bounded-entry metadata shape: truncated entries must be JSONL with coherent `total_entries`, `retained_entries`, and array `data`; skipped text/JSONL entries must retain format-appropriate parsed `data`.
+  4. Add a command-chain regression that builds a bounded export and proves `agentxchain report --input <export> --format markdown` exits 0.
+  5. Re-verify by generating a governance report on the same tusq.dev run after the patch ships.
+
+  **Closure criteria:**
+  1. `cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js` passes.
+  2. BUG-67 and BUG-84 report tests still pass.
+  3. Published `agentxchain@2.155.37+` can report on a bounded export without `content_base64 must be a string`.
+  4. Same-session tusq.dev evidence file is added under `.planning/dogfood-100-turn-evidence/bug-86-reverify-vX.Y.Z.md`.
+
 ---
 
 ## Active discipline (MUST follow on every fix going forward)

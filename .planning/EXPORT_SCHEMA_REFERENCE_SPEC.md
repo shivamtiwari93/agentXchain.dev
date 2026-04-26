@@ -112,6 +112,8 @@ Every included file entry must be documented with:
 
 The docs must explain that `verify export` re-derives `bytes` and `sha256` from `content_base64`, then validates `data` against decoded JSON, JSONL, or text content.
 
+Bounded report exports are the only exception: `content_base64` may be `null` when paired with `truncated: true` or `content_base64_skipped: true`. Those entries are valid for report verification but not for byte-for-byte restore/replay.
+
 ## Error Cases
 
 1. The docs blur export schema with protocol v7 conformance

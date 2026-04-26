@@ -98,6 +98,49 @@ function verifyFileEntry(relPath, entry, errors) {
     addError(errors, path, 'sha256 must be a 64-character lowercase hex digest');
   }
 
+  if (entry.content_base64 === null) {
+    const isTruncated = entry.truncated === true;
+    const isSkipped = entry.content_base64_skipped === true;
+    if (!isTruncated && !isSkipped) {
+      addError(errors, path, 'content_base64 may be null only when truncated or content_base64_skipped is true');
+      return;
+    }
+    if (isTruncated) {
+      if (entry.format !== 'jsonl') {
+        addError(errors, path, 'truncated file entries must use jsonl format');
+      }
+      if (!Array.isArray(entry.data)) {
+        addError(errors, path, 'truncated JSONL data must be an array');
+      }
+      if (!Number.isInteger(entry.total_entries) || entry.total_entries < 0) {
+        addError(errors, path, 'total_entries must be a non-negative integer when truncated');
+      }
+      if (!Number.isInteger(entry.retained_entries) || entry.retained_entries < 0) {
+        addError(errors, path, 'retained_entries must be a non-negative integer when truncated');
+      }
+      if (Array.isArray(entry.data) && entry.retained_entries !== entry.data.length) {
+        addError(errors, path, 'retained_entries must match truncated data length');
+      }
+      if (
+        Number.isInteger(entry.total_entries)
+        && Number.isInteger(entry.retained_entries)
+        && entry.retained_entries > entry.total_entries
+      ) {
+        addError(errors, path, 'retained_entries must not exceed total_entries');
+      }
+      return;
+    }
+    if (entry.format === 'jsonl' && !Array.isArray(entry.data)) {
+      addError(errors, path, 'skipped JSONL data must be an array');
+      return;
+    }
+    if (entry.format === 'text' && typeof entry.data !== 'string') {
+      addError(errors, path, 'skipped text data must be a string');
+      return;
+    }
+    return;
+  }
+
   if (typeof entry.content_base64 !== 'string') {
     addError(errors, path, 'content_base64 must be a string');
     return;

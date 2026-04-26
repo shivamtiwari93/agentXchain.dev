@@ -89,7 +89,7 @@ Each included file entry contains:
 - `content_base64`
 - `data`
 
-`content_base64` stores the original file bytes so the artifact can re-derive its own digests. Without that, `sha256` is just commentary.
+`content_base64` normally stores the original file bytes so the artifact can re-derive its own digests. Bounded report exports may set `content_base64: null` only with an explicit `truncated: true` or `content_base64_skipped: true` marker; those bounded entries remain reportable but are not byte-for-byte restorable.
 
 ### Included paths
 
@@ -125,7 +125,8 @@ Do not include:
 - Directory traversal order is stable
 - JSON output is pretty-printed
 - Missing optional paths are silently skipped
-- Original file bytes are preserved in `content_base64` for every entry
+- Original file bytes are preserved in `content_base64` for every full entry
+- Bounded report exports may omit raw bytes for truncated JSONL or oversized files while preserving parsed `data` and skip metadata
 
 ### Output behavior
 

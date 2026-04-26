@@ -42,7 +42,7 @@ agentxchain report [--input <path>|-] [--format text|json|markdown|html]
 - Produces the **raw portable artifact** from the current governed project or coordinator workspace.
 - Writes JSON only in the current shipped slice.
 - Prints to stdout by default or persists the artifact with `--output`.
-- Preserves raw file bytes via `content_base64` so `verify export` can recompute integrity from the artifact itself.
+- Preserves raw file bytes via `content_base64` so `verify export` can recompute integrity from full entries; bounded report exports may omit raw bytes only with explicit truncation/skip metadata.
 - Is the source artifact for handoff, offline review, and restore paths.
 - Must not be documented as a derived governance summary surface.
 

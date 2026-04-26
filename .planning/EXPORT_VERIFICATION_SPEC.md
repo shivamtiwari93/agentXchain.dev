@@ -43,13 +43,14 @@ agentxchain verify export [--input <path>|-] [--format text|json]
 
 For every exported file entry:
 
-1. Decode `content_base64`
+1. Decode `content_base64` when it is a string
 2. Recompute `bytes`
 3. Recompute `sha256`
 4. Verify that decoded content matches `data`
    - `json` -> `JSON.parse(raw)` deep-equals `data`
    - `jsonl` -> parsed line array deep-equals `data`
    - `text` -> raw UTF-8 string equals `data`
+5. If `content_base64` is `null`, accept it only for bounded report exports that carry `truncated: true` or `content_base64_skipped: true` with coherent parsed `data` metadata. Such exports are valid for report verification but remain unsuitable for restore/replay byte recovery.
 
 ### Run export verification
 
