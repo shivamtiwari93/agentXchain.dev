@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.155.27
+
+### Bug Fixes
+
+- **BUG-76**: continuous mode now consumes unchecked roadmap milestones instead of idle-exiting with `runs_completed: 0`
+- **BUG-77**: continuous mode now dispatches roadmap-replenishment when roadmap is exhausted but VISION.md has unplanned scope
+
+### New Status Vocabulary
+
+- `roadmap_open_work_detected`, `roadmap_exhausted_vision_open`, `roadmap_replenishment`
+
+### Evidence
+
+- 230 tests / 80 suites / 0 failures / 5 skipped
+
 ## 2.155.26
 
 ### Features

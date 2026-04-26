@@ -1,0 +1,71 @@
+---
+sidebar_position: 0
+title: "v2.155.27 Release Notes"
+---
+
+# AgentXchain v2.155.27
+
+`v2.155.27` fixes the two continuous-mode defects (BUG-76 and BUG-77) that
+caused `agentxchain run --continuous` to report terminal completion while
+concrete product work remained in the project's planning artifacts.
+
+## Bug Fixes
+
+- **BUG-76: continuous mode now consumes unchecked roadmap milestones.**
+  When `.planning/ROADMAP.md` contains unchecked `M<n>` milestone items,
+  continuous mode derives the first unchecked milestone as a governed intent
+  instead of idle-exiting with `runs_completed: 0`. The seeded intent uses
+  `[roadmap]` charter prefix and `roadmap_open_work_detected` event category.
+  `agentxchain status --json` now surfaces `next_actions[].type = "roadmap_open_work_detected"`
+  when terminal-looking state has unchecked roadmap work.
+
+- **BUG-77: continuous mode now dispatches roadmap-replenishment when roadmap
+  is exhausted but VISION.md has unplanned scope.** When all ROADMAP.md
+  milestones are checked but VISION.md has sections not mapped to any
+  milestone (e.g. V2/V3 scope), continuous mode seeds a
+  `[roadmap-replenishment]` intent to derive the next bounded milestone
+  instead of declaring "All vision goals appear addressed."
+  `agentxchain status --json` now surfaces `next_actions[].type = "roadmap_exhausted_vision_open"`
+  when the roadmap is exhausted but vision has open scope.
+
+## New Status Vocabulary
+
+- `roadmap_open_work_detected` — unchecked roadmap milestones exist
+- `roadmap_exhausted_vision_open` — all milestones checked but VISION has unplanned scope
+- `roadmap_replenishment` — intake trigger for PM next-increment derivation
+
+## Evidence
+
+- node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js -> 1/1 pass
+- node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js -> 1/1 pass
+- node --test --test-timeout=180000 cli/test/vision-reader.test.js -> 29/29 pass
+- node --test --test-timeout=180000 cli/test/continuous-run.test.js -> 73/73 pass
+- node --test --test-timeout=180000 cli/test/beta-tester-scenarios/ -> 229 tests / 224 pass / 0 fail / 5 skipped
+- 230 tests / 80 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.27 -c "agentxchain --version"
+```
+
+For BUG-76 verification, in a project with unchecked `M<n>` milestones in
+`.planning/ROADMAP.md`, confirm that `agentxchain status --json` returns
+`next_actions` containing `roadmap_open_work_detected` and that
+`agentxchain run --continuous` dispatches work for the first unchecked milestone
+instead of idle-exiting with `runs_completed: 0`.
+
+For BUG-77 verification, in a project where `.planning/ROADMAP.md` has all
+milestones checked but `.planning/VISION.md` has unplanned V2/V3 scope,
+confirm that `agentxchain status --json` returns `next_actions` containing
+`roadmap_exhausted_vision_open` and that `agentxchain run --continuous`
+dispatches a `[roadmap-replenishment]` intent instead of claiming
+"All vision goals appear addressed."
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
