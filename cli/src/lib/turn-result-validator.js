@@ -94,7 +94,7 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
   if (opts.normalizeArtifactType === 'review') {
     normContext.forceReviewArtifact = true;
   }
-  const { normalized, corrections } = normalizeTurnResult(turnResult, config, normContext);
+  const { normalized, corrections, normalizationEvents } = normalizeTurnResult(turnResult, config, normContext);
   turnResult = normalized;
   const sidecarResult = maybeAttachIdleExpansionSidecar(
     root,
@@ -159,6 +159,7 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     warnings: allWarnings,
     turnResult,
     normalizations: corrections,
+    normalization_events: normalizationEvents,
   };
 }
 
@@ -995,8 +996,9 @@ function validateProtocol(tr, state, config) {
  */
 export function normalizeTurnResult(tr, config, context = {}) {
   const corrections = [];
+  const normalizationEvents = [];
   if (tr === null || typeof tr !== 'object' || Array.isArray(tr)) {
-    return { normalized: tr, corrections };
+    return { normalized: tr, corrections, normalizationEvents };
   }
 
   const normalized = { ...tr };
@@ -1023,7 +1025,7 @@ export function normalizeTurnResult(tr, config, context = {}) {
     && !Array.isArray(normalized.artifact)
     && normalized.artifact.type === 'workspace'
     && filesChangedIsEmpty
-    && (context.forceReviewArtifact || isReviewOnly || hasExplicitNoEditLifecycleSignal)
+    && (context.forceReviewArtifact || hasExplicitNoEditLifecycleSignal)
   ) {
     normalized.artifact = {
       ...normalized.artifact,
@@ -1033,6 +1035,42 @@ export function normalizeTurnResult(tr, config, context = {}) {
         : normalized.artifact.ref ?? null,
     };
     corrections.push('artifact.type: auto-normalized empty workspace artifact to review because files_changed is empty and no repo mutation was declared');
+    normalizationEvents.push({
+      field: 'artifact.type',
+      original_value: 'workspace',
+      normalized_value: 'review',
+      rationale: 'empty_files_changed_no_repo_mutation_declared',
+    });
+  }
+
+  if (Array.isArray(normalized.objections)) {
+    normalized.objections = normalized.objections.map((objection, index) => {
+      if (objection === null || typeof objection !== 'object' || Array.isArray(objection)) {
+        return objection;
+      }
+      const statement = typeof objection.statement === 'string' ? objection.statement.trim() : '';
+      if (statement) {
+        return objection;
+      }
+      const summary = typeof objection.summary === 'string' ? objection.summary.trim() : '';
+      const detail = typeof objection.detail === 'string' ? objection.detail.trim() : '';
+      const sourceField = summary ? 'summary' : detail ? 'detail' : null;
+      const sourceValue = summary || detail;
+      if (!sourceField) {
+        return objection;
+      }
+      corrections.push(`objections[${index}].statement: copied from ${sourceField}`);
+      normalizationEvents.push({
+        field: `objections[${index}].statement`,
+        original_value: objection.statement ?? null,
+        normalized_value: sourceValue,
+        rationale: `copied_from_${sourceField}`,
+      });
+      return {
+        ...objection,
+        statement: sourceValue,
+      };
+    });
   }
 
   const pickAllowedRoleFallback = () => {
@@ -1238,7 +1276,7 @@ export function normalizeTurnResult(tr, config, context = {}) {
     }
   }
 
-  return { normalized, corrections };
+  return { normalized, corrections, normalizationEvents };
 }
 
 function normalizeIdleExpansionMutualExclusionSentinel(result) {

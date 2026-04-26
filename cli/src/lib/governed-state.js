@@ -4315,7 +4315,10 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   if (!validation.ok) {
-    const failError = `Validation failed at stage ${validation.stage}: ${validation.errors.join('; ')}`;
+    const recoveryHint = validation.errors.some((error) => /objections\[\d+\]\.statement/.test(error))
+      ? ` Recovery: agentxchain accept-turn --turn ${currentTurn.turn_id} --normalize-staged-result`
+      : '';
+    const failError = `Validation failed at stage ${validation.stage}: ${validation.errors.join('; ')}${recoveryHint}`;
     transitionToFailedAcceptance(root, state, currentTurn, failError, {
       error_code: 'validation_failed',
       stage: validation.stage,
@@ -4341,6 +4344,22 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         original_artifact_type: 'workspace',
         normalized_artifact_type: 'review',
         reason: 'empty_files_changed_no_repo_mutation_declared',
+        staging_path: resolvedStagingPath,
+      },
+    });
+  }
+  for (const event of Array.isArray(validation.normalization_events) ? validation.normalization_events : []) {
+    emitRunEvent(root, 'staged_result_auto_normalized', {
+      run_id: state.run_id,
+      phase: state.phase,
+      status: state.status,
+      turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      intent_id: currentTurn.intake_context?.intent_id || null,
+      payload: {
+        field: event.field,
+        original_value: event.original_value,
+        normalized_value: event.normalized_value,
+        rationale: event.rationale,
         staging_path: resolvedStagingPath,
       },
     });

@@ -206,6 +206,10 @@ describe('BUG-78: no-edit review artifact type recovery', () => {
         eventTypes.includes('artifact_type_auto_normalized'),
         `expected artifact_type_auto_normalized event, got ${eventTypes.join(', ')}`,
       );
+      assert.ok(
+        eventTypes.includes('staged_result_auto_normalized'),
+        `expected staged_result_auto_normalized event, got ${eventTypes.join(', ')}`,
+      );
     });
   }
 

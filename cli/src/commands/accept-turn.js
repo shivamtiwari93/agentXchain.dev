@@ -23,6 +23,7 @@ export async function acceptTurnCommand(opts = {}) {
     turnId: opts.turn,
     resolutionMode: opts.resolution || 'standard',
     normalizeArtifactType: opts.normalizeArtifactType || null,
+    normalizeStagedResult: Boolean(opts.normalizeStagedResult),
   });
   if (!result.ok) {
     if (result.error_code === 'policy_escalation' || result.error_code === 'policy_violation') {
@@ -137,6 +138,10 @@ export async function acceptTurnCommand(opts = {}) {
     console.log(`  ${chalk.dim('Reason:')}   ${errorClass}`);
     console.log(`  ${chalk.dim('Owner:')}    human`);
     console.log(`  ${chalk.dim('Action:')}   Fix staged result and rerun agentxchain accept-turn, or reject with agentxchain reject-turn --reason "..."`);
+    if (result.validation?.errors?.some((err) => /objections\[\d+\]\.statement/.test(err))) {
+      const retainedTurnId = opts.turn || result.state?.current_turn?.turn_id || '(turn_id)';
+      console.log(`  ${chalk.dim('Recovery:')} agentxchain accept-turn --turn ${retainedTurnId} --normalize-staged-result`);
+    }
     console.log(`  ${chalk.dim('Turn:')}     retained`);
     if (result.validation?.errors?.length) {
       for (const err of result.validation.errors) {

@@ -134,8 +134,8 @@ describe('run-events', () => {
   });
 
   // Additional: VALID_RUN_EVENTS is complete
-  it('VALID_RUN_EVENTS contains all 37 event types', () => {
-    assert.equal(VALID_RUN_EVENTS.length, 37);
+  it('VALID_RUN_EVENTS contains all 39 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 39);
     assert.ok(VALID_RUN_EVENTS.includes('auto_retried_ghost'),
       'auto_retried_ghost must be registered (BUG-61 continuous ghost auto-recovery)');
     assert.ok(VALID_RUN_EVENTS.includes('ghost_retry_exhausted'),
@@ -175,6 +175,8 @@ describe('run-events', () => {
     assert.ok(VALID_RUN_EVENTS.includes('turn_checkpointed'));
     assert.ok(VALID_RUN_EVENTS.includes('coordinator_retry'));
     assert.ok(VALID_RUN_EVENTS.includes('coordinator_retry_projection_warning'));
+    assert.ok(VALID_RUN_EVENTS.includes('artifact_type_auto_normalized'));
+    assert.ok(VALID_RUN_EVENTS.includes('staged_result_auto_normalized'));
   });
 
   // Additional: creates .agentxchain directory if missing

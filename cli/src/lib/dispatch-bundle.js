@@ -502,6 +502,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `artifact.type`: one of `workspace`, `patch`, `commit`, `review`');
   lines.push('- If you make zero repo file edits, set `artifact.type` to `"review"` and `files_changed` to `[]`.');
   lines.push('- Only set `artifact.type` to `"workspace"` when you actually modified repo files and listed every changed path in `files_changed`.');
+  lines.push('- Every `objections[]` item must include a non-empty `statement`; do not use `summary` or `detail` as a substitute.');
   lines.push('- `proposed_next_role`: must be in allowed_next_roles for current phase, or `human`');
   if (role.write_authority === 'review_only') {
     lines.push('- `objections`: **must be non-empty** (challenge requirement for review_only roles)');

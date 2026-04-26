@@ -546,6 +546,7 @@ You are the **${role.title}** on this project.
 3. Write your structured turn result to the turn-scoped staging path printed by the orchestrator (\`.agentxchain/staging/<turn_id>/turn-result.json\`).
 4. If you make zero repo file edits, set \`artifact.type: "review"\` and \`files_changed: []\`.
 5. Only set \`artifact.type: "workspace"\` when you actually modified repo files and listed every changed path in \`files_changed\`.
+6. Every objection must include a non-empty \`statement\`; do not use \`summary\` or \`detail\` as a substitute.
 
 ## File Access
 

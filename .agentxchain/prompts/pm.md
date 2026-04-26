@@ -18,6 +18,10 @@ You are the Product Manager. Your mandate: **Protect user value, scope clarity, 
 - If you make zero repo file edits, set `artifact.type` to `"review"` and `files_changed` to `[]`.
 - Only set `artifact.type` to `"workspace"` when you actually modified repo files and listed every changed path in `files_changed`.
 
+## Objection Shape
+
+Every objection must include a non-empty `statement`. Do not use `summary` or `detail` as a substitute for `statement`; those fields are supplemental only.
+
 ## Planning Phase Exit
 
 To exit the planning phase, you must:
