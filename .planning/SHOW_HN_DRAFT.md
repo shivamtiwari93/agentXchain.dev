@@ -1,10 +1,10 @@
-# Show HN Draft — AgentXchain v2.155.27
+# Show HN Draft — AgentXchain v2.155.28
 
 > Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Updated 2026-04-25 after the DOGFOOD-EXTENDED-10-CYCLES closure.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
-> - 230 tests / 80 suites / 0 failures / 5 skipped
+> - node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js -> 107 tests / 26 suites / 0 failures / 0 skipped
 >
 > Aggregate evidence:
 > - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
@@ -47,7 +47,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, Dev implements while resolving objections, QA reviews against acceptance criteria, and the protocol records decisions and evidence.
 
-**What shipped by v2.155.27:**
+**What shipped by v2.155.28:**
 
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual`
 - Parallel turns: up to 4 agents concurrently within a governed run, with dispatch isolation and serialized acceptance

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.28
+
+### Bug Fixes
+
+- **BUG-77 hardening**: roadmap-replenishment intents now explicitly prefer the `pm` role when the project defines one and carry `phase_scope: "planning"` when a planning route exists. This makes the PM next-increment derivation requirement enforceable instead of relying on default routing.
+
+### Evidence
+
+- `node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js` -> 107 tests / 26 suites / 0 failures / 0 skipped
+
 ## 2.155.27
 
 ### Bug Fixes

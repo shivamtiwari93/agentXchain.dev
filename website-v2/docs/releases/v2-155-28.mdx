@@ -1,0 +1,57 @@
+---
+sidebar_position: 0
+title: "v2.155.28 Release Notes"
+---
+
+# AgentXchain v2.155.28
+
+`v2.155.28` hardens the BUG-77 roadmap-replenishment fix from `v2.155.27`.
+Continuous mode now makes the PM ownership contract explicit when it derives a
+next roadmap increment from open VISION.md scope.
+
+## Bug Fixes
+
+- **BUG-77 hardening: roadmap replenishment is explicitly PM-owned.** When
+  `.planning/ROADMAP.md` is exhausted but `.planning/VISION.md` still has
+  unplanned scope, the seeded `[roadmap-replenishment]` intent now carries
+  `preferred_role: "pm"` when the project defines a PM role and
+  `phase_scope: "planning"` when the project has a planning route. This
+  prevents stale/default routing from accidentally dispatching dev for a
+  PM-owned next-increment derivation.
+
+## Evidence
+
+- node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js -> 107 tests / 26 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.28 -c "agentxchain --version"
+```
+
+For BUG-76 verification, in a project with unchecked `M<n>` milestones in
+`.planning/ROADMAP.md`, confirm that `agentxchain status --json` returns
+`next_actions` containing `roadmap_open_work_detected` and that
+`agentxchain run --continuous` dispatches work for the first unchecked
+milestone instead of idle-exiting with `runs_completed: 0`.
+
+For BUG-77 verification, in a project where `.planning/ROADMAP.md` has all
+milestones checked but `.planning/VISION.md` has unplanned V2/V3 scope,
+confirm that `agentxchain status --json` returns `next_actions` containing
+`roadmap_exhausted_vision_open` and that `agentxchain run --continuous`
+dispatches a PM-owned `[roadmap-replenishment]` intent instead of claiming
+"All vision goals appear addressed."
+
+For BUG-54 startup-watchdog regression proof, quote the emitted timing fields:
+`startup_latency_ms`, `elapsed_since_spawn_ms`, and the configured
+`runtimes.<id>.startup_watchdog_ms`.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn` and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+For BUG-52 and BUG-53 regression proof, quote the recovery events showing
+`phase_entered`, `reconciled_before_dispatch`, and `session_continuation`.
+
+Clean tree means BUG-55 is fixed for your reproduction.
