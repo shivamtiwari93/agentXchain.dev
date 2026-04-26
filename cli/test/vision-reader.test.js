@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import {
   parseVisionDocument,
   deriveVisionCandidates,
+  deriveRoadmapCandidates,
   isGoalAddressed,
   loadCompletedIntentSignals,
   resolveVisionPath,
@@ -45,6 +46,26 @@ function writeCompletedIntent(dir, charter) {
   };
   writeFileSync(join(intentsDir, `${id}.json`), JSON.stringify(intent, null, 2));
   return id;
+}
+
+function writeIntent(dir, { intentId, status, charter }) {
+  const intentsDir = join(dir, '.agentxchain', 'intake', 'intents');
+  mkdirSync(intentsDir, { recursive: true });
+  const intent = {
+    schema_version: '1.0',
+    intent_id: intentId,
+    event_id: `evt_${Date.now()}_0001`,
+    status,
+    priority: 'p2',
+    template: 'generic',
+    charter,
+    acceptance_contract: [charter],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    history: [],
+  };
+  writeFileSync(join(intentsDir, `${intentId}.json`), JSON.stringify(intent, null, 2));
+  return intentId;
 }
 
 describe('Vision Reader', () => {
@@ -154,6 +175,50 @@ describe('Vision Reader', () => {
       const result = deriveVisionCandidates(tmpDir, visionPath);
       assert.ok(!result.ok);
       assert.ok(result.error.includes('no extractable sections'));
+    });
+  });
+
+  describe('deriveRoadmapCandidates', () => {
+    it('BUG-76: derives first unchecked milestone item from ROADMAP before vision idle', () => {
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M27: Complete Thing
+- [x] Already done
+
+### M28: Static Sensitivity Class Inference from Manifest Evidence (~0.5 day)
+- [ ] Add classifySensitivity(capability) pure deterministic function
+- [ ] Capabilities with zero static evidence MUST receive unknown
+
+### M29: Static Auth Requirements Inference from Manifest Evidence (~0.5 day)
+- [ ] Add classifyAuthRequirements(capability)
+`);
+
+      const result = deriveRoadmapCandidates(tmpDir);
+      assert.equal(result.ok, true);
+      assert.equal(result.candidates.length, 3);
+      assert.equal(result.candidates[0].source, 'roadmap_open_work');
+      assert.match(result.candidates[0].section, /^M28:/);
+      assert.equal(result.candidates[0].goal, 'Add classifySensitivity(capability) pure deterministic function');
+      assert.equal(result.candidates[0].line, 7);
+    });
+
+    it('BUG-76: skips unchecked roadmap items that already have active intent coverage', () => {
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M28: Static Sensitivity Class Inference
+- [ ] Add classifySensitivity capability deterministic function
+`);
+      writeIntent(tmpDir, {
+        intentId: 'intent_existing_m28',
+        status: 'approved',
+        charter: 'M28 Static Sensitivity Class Inference add classifySensitivity capability deterministic function',
+      });
+
+      const result = deriveRoadmapCandidates(tmpDir);
+      assert.equal(result.ok, true);
+      assert.equal(result.candidates.length, 0);
     });
   });
 

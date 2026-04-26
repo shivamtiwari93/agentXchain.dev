@@ -1,0 +1,381 @@
+---
+title: Build a Conformant Runner
+description: "Implement the minimum AgentXchain protocol surface and prove it with the conformance fixtures."
+---
+
+# Build a Conformant Runner
+
+This tutorial is for implementors building a non-reference AgentXchain runner.
+
+If you want to orchestrate agents by importing the shipped library boundary, use [Build Your Own Runner](./build-your-own-runner). That path imports `agentxchain/runner-interface` and keeps protocol enforcement inside the published package.
+
+If you want an independent runner, hosted service, compatibility layer, or alternate language implementation, use this page. You own the protocol behavior and prove it with [Protocol Implementor Guide](./protocol-implementor-guide).
+
+## What "conformant" means
+
+A conformant runner does not need to clone the reference CLI. It does need to preserve the protocol invariants operators rely on:
+
+- governed state changes are explicit and legal
+- every turn is assigned before it can be accepted
+- staged turn results are validated before history changes
+- acceptance writes history and decision evidence append-only
+- phase transitions and run completion wait behind gates
+- blocked runs recover through explicit resolution
+- event order tells the truth about what happened
+- conformance fixtures can evaluate those behaviors through `stdio-fixture-v1` or `http-fixture-v1`
+
+The smallest useful implementation targets Tier 1 of the fixture corpus first: `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`, and `event_lifecycle`.
+
+## Step 1: Model the governed state
+
+Start with the state shape before adding dispatch or agents. The protocol is not a task queue with status labels; it is a constrained state machine.
+
+```js
+const state = {
+  status: 'active', // idle | active | paused | blocked | completed
+  phase: 'planning',
+  run_id: 'run_001',
+  active_turns: {},
+  pending_phase_transition: null,
+  pending_run_completion: null,
+  blocked_on: null,
+  history: [],
+  decision_ledger: [],
+};
+```
+
+For Tier 1, enforce the hard edges immediately:
+
+- `completed` rejects new turn assignment and gate approval
+- `run_id` is immutable after initialization
+- `idle` can initialize to `active`, but cannot jump to `paused`
+- `paused` resumes only through a gate approval path
+- `blocked` resumes only through explicit blocker resolution
+
+These rules map to the `state_machine` conformance surface.
+
+## Step 2: Assign turns only from legal active state
+
+Assignment creates authority for exactly one role to act. Do not accept work from a role just because it produced files.
+
+```js
+import crypto from 'node:crypto';
+
+function assignTurn(state, roleId) {
+  if (state.status !== 'active') {
+    return {
+      ok: false,
+      error_type: 'invalid_state_transition',
+      message: `cannot assign from ${state.status}`,
+    };
+  }
+
+  const turnId = `turn_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
+  const turn = {
+    turn_id: turnId,
+    run_id: state.run_id,
+    role_id: roleId,
+    phase: state.phase,
+    status: 'assigned',
+    assigned_at: new Date().toISOString(),
+  };
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      active_turns: {
+        ...state.active_turns,
+        [turnId]: turn,
+      },
+    },
+    turn,
+  };
+}
+```
+
+If your runner supports concurrent turns, the same rule still holds: every accepted result must match a currently active `run_id` and `turn_id`.
+
+## Step 3: Validate staged turn results before mutation
+
+Treat a turn result as untrusted input until it passes validation.
+
+```js
+function validateTurnResult(state, result) {
+  const activeTurn = state.active_turns[result.turn_id];
+
+  if (!activeTurn) {
+    return { ok: false, error_type: 'turn_not_active' };
+  }
+
+  if (result.run_id !== state.run_id || result.run_id !== activeTurn.run_id) {
+    return { ok: false, error_type: 'run_mismatch' };
+  }
+
+  if (!result.summary || !result.status) {
+    return { ok: false, error_type: 'schema_validation' };
+  }
+
+  if (result.phase_transition_request && result.run_completion_request) {
+    return { ok: false, error_type: 'conflicting_completion_requests' };
+  }
+
+  for (const changedPath of result.files_changed || []) {
+    if (changedPath.startsWith('.agentxchain/')) {
+      return { ok: false, error_type: 'reserved_path' };
+    }
+  }
+
+  if (result.status === 'needs_human' && !result.human_reason) {
+    return { ok: false, error_type: 'missing_human_reason' };
+  }
+
+  return { ok: true, activeTurn };
+}
+```
+
+This maps to `turn_result_validation`. The important part is ordering: validation happens before history, decision, gate, or event mutation.
+
+## Step 4: Accept by appending history and evidence
+
+Acceptance is the atomic point where proposed work becomes governed truth.
+
+```js
+function acceptTurn(state, result) {
+  const validation = validateTurnResult(state, result);
+  if (!validation.ok) return validation;
+
+  const historyEntry = {
+    turn_id: result.turn_id,
+    run_id: result.run_id,
+    role_id: validation.activeTurn.role_id,
+    phase: state.phase,
+    status: result.status,
+    summary: result.summary,
+    accepted_at: new Date().toISOString(),
+  };
+
+  const nextActiveTurns = { ...state.active_turns };
+  delete nextActiveTurns[result.turn_id];
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      active_turns: nextActiveTurns,
+      history: [...state.history, historyEntry],
+      decision_ledger: [
+        ...state.decision_ledger,
+        ...(result.decisions || []).map((decision) => ({
+          ...decision,
+          run_id: state.run_id,
+          turn_id: result.turn_id,
+          accepted_at: historyEntry.accepted_at,
+        })),
+      ],
+    },
+  };
+}
+```
+
+Do not overwrite history entries to "fix" a result. Append the correction as a later governed event or decision. This is where `history` and `decision_ledger` prove the audit trail is not fiction.
+
+## Step 5: Pause behind gates instead of trusting agent requests
+
+Agents can request phase transitions and run completion. They cannot approve them by assertion.
+
+```js
+function applyRequestedGate(state, result) {
+  if (result.phase_transition_request) {
+    return {
+      ...state,
+      status: 'paused',
+      pending_phase_transition: {
+        from_phase: state.phase,
+        to_phase: result.phase_transition_request,
+        requested_by_turn_id: result.turn_id,
+      },
+    };
+  }
+
+  if (result.run_completion_request) {
+    return {
+      ...state,
+      status: 'paused',
+      pending_run_completion: {
+        phase: state.phase,
+        requested_by_turn_id: result.turn_id,
+      },
+    };
+  }
+
+  return state;
+}
+```
+
+Approval is a separate operation:
+
+```js
+function approvePhaseGate(state) {
+  if (state.status !== 'paused' || !state.pending_phase_transition) {
+    return { ok: false, error_type: 'no_pending_phase_transition' };
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      status: 'active',
+      phase: state.pending_phase_transition.to_phase,
+      pending_phase_transition: null,
+    },
+  };
+}
+```
+
+Your gate evaluator can be simple at first, but it must be real. For AgentXchain's reference workflow, `gate_semantics` includes semantic checks such as `.planning/PM_SIGNOFF.md` containing approval truth before planning exits and `.planning/ship-verdict.md` containing an affirmative verdict before completion.
+
+## Step 6: Recover blocked runs explicitly
+
+`needs_human` is not a crash. A blocked run is a recoverable protocol state with a reason and resolution path.
+
+```js
+function blockRun(state, reason, turnId) {
+  return {
+    ...state,
+    status: 'blocked',
+    blocked_on: {
+      reason,
+      turn_id: turnId,
+      blocked_at: new Date().toISOString(),
+    },
+  };
+}
+
+function resolveBlocker(state, resolution) {
+  if (state.status !== 'blocked' || !state.blocked_on) {
+    return { ok: false, error_type: 'not_blocked' };
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      status: 'active',
+      blocked_on: null,
+      recovery: {
+        resolved_at: new Date().toISOString(),
+        resolution,
+      },
+    },
+  };
+}
+```
+
+The false shortcut is to treat blocker resolution as "try the same operation again." The protocol needs an explicit recovery event so operators can see why the run resumed.
+
+## Step 7: Emit ordered events
+
+Dashboards, recovery tools, and auditors cannot infer truth from final state alone.
+
+```js
+function appendEvent(events, event) {
+  const previous = events.at(-1);
+  if (previous && previous.timestamp > event.timestamp) {
+    return { ok: false, error_type: 'timestamp_regression' };
+  }
+
+  return {
+    ok: true,
+    events: [...events, event],
+  };
+}
+```
+
+At minimum, emit ordered events for run start, turn dispatch, turn acceptance, gate request, gate approval, blocker raised, blocker resolved, and run completion. This maps to `event_lifecycle`.
+
+## Step 8: Add the conformance adapter
+
+After the local primitives exist, expose them to the fixture corpus.
+
+```js
+#!/usr/bin/env node
+
+import { stdin, stdout, stderr, exit } from 'node:process';
+
+let raw = '';
+stdin.setEncoding('utf8');
+stdin.on('data', (chunk) => {
+  raw += chunk;
+});
+
+stdin.on('end', async () => {
+  try {
+    const fixture = JSON.parse(raw);
+    const result = await executeFixture(fixture);
+    stdout.write(`${JSON.stringify(result)}\n`);
+    exit(result.status === 'pass' ? 0 : result.status === 'fail' ? 1 : result.status === 'not_implemented' ? 3 : 2);
+  } catch (error) {
+    stderr.write(`${error.message}\n`);
+    stdout.write(`${JSON.stringify({ status: 'error', message: error.message, actual: null })}\n`);
+    exit(2);
+  }
+});
+```
+
+The adapter result statuses are intentionally distinct:
+
+| Status | Use it when |
+| --- | --- |
+| `pass` | Your implementation evaluated the fixture and matched `expected` |
+| `fail` | Your implementation evaluated the fixture and produced the wrong behavior |
+| `error` | The adapter or implementation could not evaluate the fixture correctly |
+| `not_implemented` | The fixture operation or surface is intentionally unsupported |
+
+Do not return `pass` for unimplemented operations. That is not partial conformance; it is a false report.
+
+## Step 9: Run tiers in order
+
+Start narrow:
+
+```bash
+agentxchain conformance check --tier 1 --target .
+```
+
+Then isolate a surface while developing:
+
+```bash
+agentxchain conformance check --tier 1 --surface state_machine --target .
+agentxchain conformance check --tier 1 --surface turn_result_validation --target .
+agentxchain conformance check --tier 1 --surface gate_semantics --target .
+```
+
+Graduate only when the prior layer is boring:
+
+| Tier | Graduate when |
+| --- | --- |
+| Tier 1 | state, turns, gates, history, decisions, config, and events behave correctly |
+| Tier 2 | dispatch manifests and hook audit semantics are implemented, not ignored |
+| Tier 3 | multi-repo coordinator barriers, write isolation, and shared gates are real |
+
+Tier 2 and Tier 3 should not be used to hide weak Tier 1 behavior.
+
+## False-conformance traps
+
+These mistakes make a runner look functional while breaking governance:
+
+- accepting a result whose `turn_id` is no longer active
+- advancing a phase because an agent requested it, without a gate approval
+- mutating history or decision entries in place
+- treating `needs_human` as a generic adapter error
+- emitting final-state JSON without ordered lifecycle events
+- ignoring `setup` keys in a fixture and still returning `pass`
+- collapsing `fail`, `error`, and `not_implemented` into one result
+
+The conformance corpus exists to force those differences into the open.
+
+## Where to go next
+
+- Use [Protocol Reference](./protocol-reference) for the normative boundary.
+- Use [Protocol Implementor Guide](./protocol-implementor-guide) for fixture anatomy, capabilities, and surface details.
+- Use [Remote Protocol Verification](./remote-verification) if your implementation is hosted and should be verified over HTTP.

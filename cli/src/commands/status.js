@@ -23,6 +23,7 @@ import { findCurrentHumanEscalation } from '../lib/human-escalations.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { readPreemptionMarker, validatePreemptionMarker, findPendingApprovedIntents } from '../lib/intake.js';
 import { readContinuousSession } from '../lib/continuous-run.js';
+import { deriveRoadmapCandidates } from '../lib/vision-reader.js';
 import { readAllDispatchProgress } from '../lib/dispatch-progress.js';
 import { readCoordinatorWarnings } from '../lib/coordinator-warnings.js';
 import { reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
@@ -155,6 +156,7 @@ function renderGovernedStatus(context, opts) {
   const preemptionMarker = validatePreemptionMarker(root);
   const pendingIntents = findPendingApprovedIntents(root, { run_id: stateRunId || null });
   const continuousSession = readContinuousSession(root);
+  appendRoadmapOpenWorkNextAction(root, state, continuousSession, nextActions);
   const gateActionAttempt = state?.pending_phase_transition
     ? summarizeLatestGateActionAttempt(root, 'phase_transition', state.pending_phase_transition.gate)
     : state?.pending_run_completion
@@ -696,6 +698,30 @@ function renderGovernedStatus(context, opts) {
     console.log(`    ${marker} ${label} — ${role.title} [${role.write_authority}]`);
   }
   console.log('');
+}
+
+function appendRoadmapOpenWorkNextAction(root, state, continuousSession, nextActions) {
+  const status = state?.status || null;
+  const activeTurns = getActiveTurnCount(state);
+  const hasPendingGate = Boolean(state?.pending_phase_transition || state?.pending_run_completion);
+  const sessionTerminal = ['completed', 'idle_exit', 'vision_exhausted', 'vision_expansion_exhausted'].includes(continuousSession?.status);
+  const runTerminal = status === 'completed' || status === 'idle' || status === null;
+
+  if (activeTurns > 0 || hasPendingGate || (!runTerminal && !sessionTerminal)) {
+    return;
+  }
+
+  const roadmap = deriveRoadmapCandidates(root);
+  if (!roadmap.ok || roadmap.candidates.length === 0) {
+    return;
+  }
+
+  const candidate = roadmap.candidates[0];
+  const command = 'agentxchain run --continuous --vision .planning/VISION.md';
+  const reason = `Unchecked roadmap work remains (${candidate.section} line ${candidate.line}): ${candidate.goal}`;
+  if (!nextActions.some((action) => action.command === command && action.reason === reason)) {
+    nextActions.push({ command, reason, type: 'roadmap_open_work_detected' });
+  }
 }
 
 function renderConnectorHealthStatus(connectorHealth) {

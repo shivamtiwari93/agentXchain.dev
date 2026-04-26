@@ -81,6 +81,7 @@ const sidebars: SidebarsConfig = {
         'protocol-reference',
         'runner-interface',
         'build-your-own-runner',
+        'build-conformant-runner',
         'protocol-implementor-guide',
         'remote-verification',
       ],

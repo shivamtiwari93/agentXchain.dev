@@ -873,6 +873,32 @@ describe('Continuous Run', () => {
   });
 
   describe('seedFromVision', () => {
+    it('BUG-76: seeds unchecked roadmap work before falling back to vision derivation', () => {
+      writeVision(tmpDir, `## Vision Scope
+
+- broad future scope
+`);
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M28: Static Sensitivity Class Inference from Manifest Evidence (~0.5 day)
+- [ ] Add classifySensitivity(capability) pure deterministic function
+`);
+
+      const visionPath = join(tmpDir, '.planning', 'VISION.md');
+      const result = seedFromVision(tmpDir, visionPath);
+      assert.ok(result.ok);
+      assert.ok(!result.idle);
+      assert.equal(result.source, 'roadmap_open_work');
+      assert.match(result.section, /^M28:/);
+      assert.equal(result.goal, 'Add classifySensitivity(capability) pure deterministic function');
+
+      const intent = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'intake', 'intents', `${result.intentId}.json`), 'utf8'));
+      assert.match(intent.charter, /^\[roadmap\] M28:/);
+      assert.equal(intent.status, 'approved');
+      assert.ok(intent.acceptance_contract.some((line) => line.includes('Unchecked roadmap item completed')));
+    });
+
     it('AT-VCONT-005: seeds an intent with vision provenance metadata', () => {
       writeVision(tmpDir, `## Protocol
 

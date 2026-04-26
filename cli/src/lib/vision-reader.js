@@ -217,6 +217,68 @@ export function deriveVisionCandidates(root, visionPath) {
   return { ok: true, candidates };
 }
 
+/**
+ * Derive concrete candidates from unchecked roadmap milestones.
+ *
+ * This is intentionally narrower than VISION.md derivation: a roadmap item is
+ * already PM-shaped product scope, so continuous mode must treat it as work
+ * before falling back to broad vision inference.
+ *
+ * @param {string} root - Project root
+ * @param {string} [roadmapPath] - Project-relative roadmap path
+ * @returns {{ ok: boolean, candidates: Array<{ section: string, goal: string, priority: string, source: string, roadmap_path: string, line: number }>, error?: string }}
+ */
+export function deriveRoadmapCandidates(root, roadmapPath = '.planning/ROADMAP.md') {
+  const absPath = isAbsolute(roadmapPath) ? roadmapPath : pathResolve(root, roadmapPath);
+  if (!existsSync(absPath)) {
+    return { ok: true, candidates: [] };
+  }
+
+  let content;
+  try {
+    content = readFileSync(absPath, 'utf8');
+  } catch (err) {
+    return { ok: false, candidates: [], error: `Cannot read ROADMAP.md: ${err.message}` };
+  }
+
+  const activeSignals = loadActiveIntentSignals(root);
+  const completedSignals = loadCompletedIntentSignals(root);
+  const allSignals = [...activeSignals, ...completedSignals];
+
+  const candidates = [];
+  let currentMilestone = null;
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const headingMatch = line.match(/^#{2,6}\s+(M\d+\b.*)$/i);
+    if (headingMatch) {
+      currentMilestone = headingMatch[1].trim();
+      continue;
+    }
+
+    const uncheckedMatch = line.match(/^\s*[-*]\s+\[\s\]\s+(.+?)\s*$/);
+    if (!uncheckedMatch || !currentMilestone) continue;
+
+    const goal = uncheckedMatch[1].trim();
+    const combinedGoal = `${currentMilestone}: ${goal}`;
+    if (isGoalAddressed(combinedGoal, allSignals) || isGoalAddressed(goal, allSignals)) {
+      continue;
+    }
+
+    candidates.push({
+      section: currentMilestone,
+      goal,
+      priority: 'p1',
+      source: 'roadmap_open_work',
+      roadmap_path: roadmapPath,
+      line: i + 1,
+    });
+  }
+
+  return { ok: true, candidates };
+}
+
 // ---------------------------------------------------------------------------
 // Vision snapshot capture (BUG-60 Slice 3)
 // ---------------------------------------------------------------------------

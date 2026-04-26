@@ -15,6 +15,7 @@ import { randomUUID } from 'node:crypto';
 import {
   resolveVisionPath,
   deriveVisionCandidates,
+  deriveRoadmapCandidates,
   captureVisionHeadingsSnapshot,
   computeVisionContentSha,
   buildSourceManifest,
@@ -644,6 +645,79 @@ function reconcileContinuousStartupState(context, session, contOpts, log) {
  * @returns {{ ok: boolean, intentId?: string, section?: string, goal?: string, error?: string, idle?: boolean }}
  */
 export function seedFromVision(root, visionPath, options = {}) {
+  const roadmapResult = deriveRoadmapCandidates(root);
+  if (!roadmapResult.ok) {
+    return { ok: false, error: roadmapResult.error };
+  }
+
+  if (roadmapResult.candidates.length > 0) {
+    const candidate = roadmapResult.candidates[0];
+    const eventResult = recordEvent(root, {
+      source: 'vision_scan',
+      category: 'roadmap_open_work_detected',
+      signal: {
+        description: `${candidate.section}: ${candidate.goal}`,
+        roadmap_milestone: candidate.section,
+        roadmap_path: candidate.roadmap_path,
+        roadmap_line: candidate.line,
+        derived: true,
+      },
+      evidence: [
+        { type: 'file', value: `${candidate.roadmap_path}:${candidate.line}` },
+        { type: 'text', value: `Unchecked roadmap work: ${candidate.section} — ${candidate.goal}` },
+      ],
+    });
+
+    if (!eventResult.ok) {
+      if (eventResult.deduplicated) {
+        return { ok: true, idle: true };
+      }
+      return { ok: false, error: `intake record failed: ${eventResult.error}` };
+    }
+
+    if (eventResult.deduplicated) {
+      return { ok: true, idle: true };
+    }
+
+    const intentId = eventResult.intent.intent_id;
+    const triageResult = triageIntent(root, intentId, {
+      priority: candidate.priority,
+      template: 'generic',
+      charter: `[roadmap] ${candidate.section}: ${candidate.goal}`,
+      acceptance_contract: [
+        `Roadmap milestone addressed: ${candidate.section}`,
+        `Unchecked roadmap item completed: ${candidate.goal}`,
+        `Evidence source: ${candidate.roadmap_path}:${candidate.line}`,
+      ],
+    });
+
+    if (!triageResult.ok) {
+      return { ok: false, error: `triage failed: ${triageResult.error}` };
+    }
+
+    const triageApproval = options.triageApproval || 'auto';
+    if (triageApproval === 'auto') {
+      const approveResult = approveIntent(root, intentId, {
+        approver: 'continuous_loop',
+        reason: 'roadmap-open-work auto-approval',
+      });
+      if (!approveResult.ok) {
+        return { ok: false, error: `approve failed: ${approveResult.error}` };
+      }
+    }
+
+    return {
+      ok: true,
+      idle: false,
+      intentId,
+      section: candidate.section,
+      goal: candidate.goal,
+      source: candidate.source,
+      roadmap_path: candidate.roadmap_path,
+      roadmap_line: candidate.line,
+    };
+  }
+
   const result = deriveVisionCandidates(root, visionPath);
   if (!result.ok) {
     return { ok: false, error: result.error };
@@ -714,6 +788,7 @@ export function seedFromVision(root, visionPath, options = {}) {
     intentId,
     section: candidate.section,
     goal: candidate.goal,
+    source: 'vision_scan',
   };
 }
 
@@ -1443,6 +1518,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     : findNextDispatchableIntent(root, { run_id: session.current_run_id });
   let targetIntentId = null;
   let visionObjective = null;
+  let seededSource = null;
 
   if (queued.ok) {
     targetIntentId = queued.intentId;
@@ -1478,13 +1554,18 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
 
     targetIntentId = seeded.intentId;
     visionObjective = `${seeded.section}: ${seeded.goal}`;
+    seededSource = seeded.source || 'vision_scan';
     session.idle_cycles = 0;
-    log(`Vision-derived: ${visionObjective}`);
+    log(seeded.source === 'roadmap_open_work'
+      ? `Roadmap-derived: ${visionObjective}`
+      : `Vision-derived: ${visionObjective}`);
   }
 
   // Prepare intent through intake lifecycle
   const provenance = buildContinuousProvenance(targetIntentId, {
-    trigger: visionObjective ? 'vision_scan' : 'intake',
+    trigger: visionObjective
+      ? (seededSource === 'roadmap_open_work' ? 'roadmap_open_work' : 'vision_scan')
+      : 'intake',
     triggerReason: visionObjective || readIntent(root, targetIntentId)?.charter || null,
   });
   const preparedIntent = prepareIntentForDispatch(root, targetIntentId, {
@@ -1519,7 +1600,9 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
         next_objective: nextObjective,
         next_intent_id: targetIntentId,
         runs_completed: session.runs_completed || 0,
-        trigger: visionObjective ? 'vision_scan' : 'intake',
+        trigger: visionObjective
+          ? (seededSource === 'roadmap_open_work' ? 'roadmap_open_work' : 'vision_scan')
+          : 'intake',
       },
     });
   }

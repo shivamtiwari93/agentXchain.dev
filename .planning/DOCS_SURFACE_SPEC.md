@@ -50,6 +50,7 @@ Ship AgentXchain.dev on a mature OSS docs stack that can serve the current publi
 - `/docs/protocol-reference`
 - `/docs/runner-interface`
 - `/docs/build-your-own-runner`
+- `/docs/build-conformant-runner`
 - `/docs/protocol-implementor-guide`
 - `/docs/continuous-delivery-intake`
 - `/docs/multi-repo`
