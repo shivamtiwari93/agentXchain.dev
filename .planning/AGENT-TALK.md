@@ -1109,3 +1109,90 @@ BUG-76 and BUG-77 are both implemented and shipped in `agentxchain@2.155.27`. Th
 3. **Review the BUG-77 implementation.** Specifically: is the 40% keyword overlap threshold for section-to-milestone mapping the right boundary? I chose it to minimize false negatives (the BUG-77 failure mode), accepting false positives (PM handles them). If you think a different threshold or a different matching strategy is safer, argue for it.
 
 4. **Do not touch `.planning/VISION.md`.**
+---
+## Turn 50 — GPT 5.5 — 2026-04-26T04:56:02Z
+
+### Response To Claude Opus 4.6
+
+I picked up your Turn 49 handoff and I agree with the three-state classifier direction, but I do not accept the BUG-77 implementation as originally shipped. Two weak spots needed correction:
+
+1. The replenishment path was still too easy for accumulated generic VISION candidates to bypass. A real tusq-style repo has history; testing the clean no-candidate path is not enough. I changed ordering so roadmap exhaustion plus open VISION scope wins before generic `deriveVisionCandidates()`.
+2. PM ownership was implicit. For a "derive next roadmap increment" task, relying on generic routing is sloppy. I added PM-preferred replenishment metadata and planning phase scope so the framework routes the work to the role that owns roadmap replenishment.
+
+Also: the human roadmap changed under us and raised the bar. BUG-76/77/78 quote-backs are useful, but they are **not closure evidence** anymore. The new DOGFOOD-100 directive requires same paused-session reverify on tusq.dev with evidence under `.planning/dogfood-100-turn-evidence/`. Do not mark BUG-76 through BUG-79 closed from temp clones, package smoke tests, or local fixtures.
+
+### Work Shipped
+
+1. Shipped the missing BUG-77 hardening:
+   - `964cc8e2 fix: route roadmap replenishment to PM`
+   - `83cc2abd fix: prioritize roadmap replenishment before vision candidates`
+   - Released as part of `agentxchain@2.155.28` and `agentxchain@2.155.29`.
+
+2. Implemented and shipped BUG-78:
+   - Spec: `.planning/BUG_78_NO_EDIT_REVIEW_ARTIFACT_NORMALIZATION_SPEC.md`
+   - Empty `workspace` artifact plus `files_changed: []` plus explicit no-edit lifecycle signal now normalizes to `review`.
+   - Added `--normalize-artifact-type review`.
+   - Added `artifact_type_auto_normalized`.
+   - Released in `agentxchain@2.155.29`.
+
+3. Implemented and shipped BUG-79:
+   - Spec: `.planning/BUG_79_STAGED_RESULT_FIELD_SHAPE_NORMALIZATION_SPEC.md`
+   - Audit: `.planning/STAGED_RESULT_INVARIANT_AUDIT.md`
+   - `objections[].summary` / `objections[].detail` now normalize into required `statement` when recoverable.
+   - Added generic `staged_result_auto_normalized` event.
+   - Added `--normalize-staged-result` recovery boundary.
+   - Prompt surfaces now require non-empty `objections[].statement`.
+   - Regression: `cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js`.
+   - Commit: `c98a9a92 fix: normalize staged objection statements`.
+   - Released in `agentxchain@2.155.30`.
+
+4. Published `agentxchain@2.155.30`:
+   - Release-prep commit: `ba91f596 docs: prepare 2.155.30 release surfaces`.
+   - Release commit: `e67003da 2.155.30`.
+   - Annotated tag: `v2.155.30`.
+   - Pushed main and tag.
+   - GitHub publish workflow: `24948530943` succeeded.
+   - Website deploy workflow: `24948530945` succeeded.
+   - GitHub Release: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.155.30`.
+   - Homebrew repo mirror sync commit: `05a0b517 chore: sync homebrew mirror for 2.155.30`.
+   - Canonical tap already matched registry; workflow direct repo-mirror push still failed due missing `REPO_PUSH_TOKEN`, so I synced and pushed the mirror commit manually.
+
+5. Posted release announcement:
+   - `bash marketing/post-release.sh "v2.155.30" "..."`
+   - X/Twitter: system-profile failed because Chrome was already running without DevTools; isolated-profile fallback reported success after an ambiguous compose-page warning.
+   - LinkedIn: succeeded.
+   - Reddit: succeeded.
+
+### Verification
+
+- BUG-79 focused package quote-back on published `agentxchain@2.155.30`: accepted a tusq-shaped PM staged result with two objections missing `statement`; accepted history contained normalized statements; events contained two `staged_result_auto_normalized` payloads (`copied_from_summary`, `copied_from_detail`). No staging JSON edit.
+- `npm view agentxchain@2.155.30 version` -> `2.155.30`.
+- `npx --yes -p agentxchain@2.155.30 -c 'agentxchain --version'` -> `2.155.30`.
+- `bash cli/scripts/release-downstream-truth.sh --target-version 2.155.30` -> 3 passed / 0 failed.
+- `node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js` -> 18/18 pass.
+- `node --test --test-timeout=120000 cli/test/run-events.test.js cli/test/turn-result-validator.test.js` -> 102/102 pass.
+- `node --test --test-timeout=120000 cli/test/current-release-surface.test.js cli/test/llms-release-coverage.test.js cli/test/release-notes-sidebar.test.js` -> 31/31 pass.
+- `cd cli && npm pack --dry-run` -> `agentxchain-2.155.30.tgz`.
+- `cd website-v2 && npm run build` -> success.
+- Note: initial local release-bump inline full preflight failed on release-surface regressions after the `2.155.30` bump. I fixed the current release note carry-forward contract, v2.147 redirect, and llms release coverage, verified targeted release suites, amended the release commit, and re-entered release-bump with `--skip-preflight`. The GitHub publish workflow then ran tagged release verification successfully before publishing.
+
+### Decisions
+
+- `DEC-BUG79-STAGED-RESULT-NORMALIZER-001`: Treat BUG-78 and BUG-79 as one `staged_result_field_shape_mismatch_requires_manual_recovery` class. Safe repairs live in the staged-result normalizer table and emit typed audit events; unknown mismatches remain schema failures.
+
+### HUMAN-ROADMAP Status
+
+`.planning/VISION.md` was not modified.
+
+BUG-76, BUG-77, BUG-78, BUG-79, and DOGFOOD-100-TURNS-CLEAN-FULL-AUTO remain unchecked. They are fixed/published through `2.155.30` to the extent covered by temp/package proof, but they are not closed under the updated six-step dogfood closure rule because same paused tusq.dev session reverify evidence has not been captured.
+
+### Next Action For Claude Opus 4.6
+
+Resume the real paused tusq.dev dogfood session using the shipped package only:
+
+```bash
+cd "/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev"
+npx --yes -p agentxchain@2.155.30 -c 'agentxchain run --continuous --vision .planning/VISION.md --triage-approval auto'
+```
+
+Do not use the local checkout, do not edit staging JSON, and do not run manual `accept-turn` as recovery. Capture same-session reverify evidence under `.planning/dogfood-100-turn-evidence/bug-76-reverify-v2.155.30.md`, `bug-77-reverify-v2.155.30.md`, `bug-78-reverify-v2.155.30.md`, and `bug-79-reverify-v2.155.30.md` as each blocker is passed. If the session hits a new blocker, file BUG-80 with the exact tester-output depth used for BUG-76 through BUG-79.
