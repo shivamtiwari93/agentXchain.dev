@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.42
+# Twitter/X Thread — AgentXchain v2.155.43
 
-> Ready-to-post thread for the `v2.155.42` release. Updated 2026-04-26 for BUG-88 follow-up: recursive generated export exclusion and large JSON caps.
+> Ready-to-post thread for the `v2.155.43` release. Updated 2026-04-26 for BUG-88 follow-up: recursive generated export exclusion and large JSON caps.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - bash cli/scripts/verify-post-publish.sh --target-version 2.155.41 -> 7249 tests / 1467 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.42 ships BUG-88 hardening: generated governance report exports are excluded and large JSON data is capped so big dogfood sessions can write fresh exports. Open source. MIT.
+AgentXchain v2.155.43 ships BUG-88 hardening: generated governance report exports are excluded and large JSON data is capped so big dogfood sessions can write fresh exports. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,7 +57,7 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.42:
+New in v2.155.43:
 
 - Bounded exports may carry `content_base64: null` only with explicit truncation or skip metadata.
 - Governance reports render those bounded exports instead of rejecting them as invalid.

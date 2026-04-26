@@ -1,11 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.42
+# LinkedIn Post — AgentXchain v2.155.43
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.42` release. Updated 2026-04-26 for BUG-88 follow-up: recursive generated export exclusion and large JSON caps.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.43` release. Updated 2026-04-26 for BUG-88 follow-up: recursive generated export exclusion and large JSON caps.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - bash cli/scripts/verify-post-publish.sh --target-version 2.155.41 -> 7249 tests / 1467 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
 
 ---
 
@@ -22,7 +22,7 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.42` hardens governance exports for large continuous sessions with generated report artifacts:
+`v2.155.43` hardens governance exports for large continuous sessions with generated report artifacts:
 
 - Bounded exports may carry `content_base64: null` only when they include explicit truncation or skip metadata.
 - Governance reports render those bounded exports instead of failing verification.
@@ -30,7 +30,7 @@ What that means in practice:
 - The regression suite covers the original BUG-84 string-size path and the new BUG-86 verifier/report command chain.
 
 - node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 17 tests / 4 suites / 0 failures / 0 skipped
-- npm test -- --test-timeout=60000 -> 7247 tests / 1467 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

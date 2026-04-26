@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.43
+
+- **BUG-89: objection ID normalization.** Extended the staged-result normalization table to handle invalid objection `id` fields that don't match `OBJ-NNN`. Invalid/missing IDs are deterministically rewritten to `OBJ-001`, `OBJ-002`, ... before schema validation.
+- Prompt hardening: `OBJ-NNN` field rule now explicitly warns against extra suffixes.
+- Updated staged-result invariant audit with `objections[].id` coverage.
+
+- npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
+
 ## 2.155.42
 
 ### Documentation
