@@ -489,6 +489,8 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
 
 - [ ] **BUG-83 (UX): Non-progress recovery message references non-existent `--acknowledge-non-progress` flag.** Discovered during DOGFOOD-100-TURNS Run 3 on shipped `agentxchain@2.155.33` at 2026-04-26. The recovery action message says `agentxchain resume --acknowledge-non-progress` but `resume` doesn't accept that flag. Regular `agentxchain resume` works (the `reactivateGovernedRun` function already handles `wasNonProgress` at line 2765). Fix: either add the flag to `resume` command or update the recovery message to say `agentxchain resume`. Low severity — workaround is to just run `agentxchain resume`.
 
+- [ ] **🚨 BUG-85: VISION-derived roadmap replenishment creates a single acceptance item containing ALL VISION section headings; PM turns cannot satisfy `intent_coverage` for this overly broad item.** Discovered during DOGFOOD-100-TURNS Run 4 on shipped `agentxchain@2.155.33` at 2026-04-26. After roadmap exhaustion, `continuous-run.js` VISION replenishment generates `acceptance_contract` with a single item listing all 30+ VISION headings. PM planning turn addresses a subset but `evaluateIntentCoverage()` requires 50% keyword overlap on this massive string. Fix needed in `continuous-run.js` — VISION-derived acceptance items should be scoped to one section or a small group, not the entire VISION. Similar pattern to BUG-80.
+
 - [ ] **BUG-84: Governance report fails with "Invalid string length".** Discovered during DOGFOOD-100-TURNS Run 3 at 2026-04-26. Report generation hits Node.js string size limit. Appears after multiple consecutive turns with large dispatch bundles. Non-blocking — turns continue to accept, only the report generation fails.
 
 ---
