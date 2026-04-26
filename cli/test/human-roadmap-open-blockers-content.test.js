@@ -95,13 +95,13 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     assert.ok(currentFocusLine, 'roadmap must keep a current focus line');
     assert.match(
       currentFocusLine,
-      /BUG-89/,
-      'current focus must reflect the current BUG-89 objection-id normalization defect',
+      /BUG-77/,
+      'current focus must reflect the open BUG-77 roadmap-replenishment defect awaiting reverify',
     );
     assert.match(
       currentFocusLine,
-      /BUG-77/,
-      'current focus must reflect the related BUG-77 roadmap-replenishment defect',
+      /BUG-78/,
+      'current focus must reflect the open BUG-78 no-edit review defect awaiting reverify',
     );
   });
 
