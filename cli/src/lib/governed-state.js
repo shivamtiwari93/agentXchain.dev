@@ -6995,6 +6995,12 @@ function evaluateIntentCoverage(turnResult, intakeContext, { state = null, confi
       continue;
     }
 
+    const roadmapReplenishmentCoverage = evaluateRoadmapReplenishmentConditionalCoverage(item, turnResult, intakeContext);
+    if (roadmapReplenishmentCoverage === true) {
+      addressed.push(item);
+      continue;
+    }
+
     // Check 1: Structural — intent_response field with explicit status
     const structuralEntry = responseMap.get(normalizedItem);
     if (structuralEntry && ['addressed', 'deferred', 'rejected'].includes(structuralEntry.status)) {
@@ -7138,6 +7144,59 @@ function evaluateRoadmapDerivedConditionalCoverage(item, turnResult, intakeConte
   }
 
   return null;
+}
+
+// ── Roadmap-replenishment conditional coverage (BUG-85) ───────────────────
+//
+// BUG-77's replenishment path originally generated one acceptance item
+// containing every unplanned VISION heading. A valid PM turn only binds one
+// next milestone, so requiring semantic coverage of the whole backlog is
+// overbroad. Accept both the new scoped item and the legacy broad item when
+// the result cites VISION.md and at least one concrete listed section.
+
+function evaluateRoadmapReplenishmentConditionalCoverage(item, turnResult, intakeContext) {
+  const charter = intakeContext?.charter || '';
+  if (!charter.startsWith('[roadmap-replenishment]')) {
+    return null;
+  }
+
+  const normalizedItem = typeof item === 'string' ? item.toLowerCase().trim() : '';
+  const isScopedTraceabilityItem =
+    normalizedItem.startsWith('milestone cites at least one concrete vision.md source section')
+    || normalizedItem.startsWith('milestone scope derived from vision.md sections:');
+  if (!isScopedTraceabilityItem) {
+    return null;
+  }
+
+  const corpus = [
+    turnResult.summary || '',
+    ...(turnResult.decisions || []).map(d => `${d.statement || ''} ${d.rationale || ''}`),
+    ...(turnResult.objections || []).map(o => o.statement || ''),
+    ...(turnResult.files_changed || []),
+    ...(turnResult.artifacts_created || []),
+    ...(Array.isArray(turnResult.intent_response)
+      ? turnResult.intent_response.map(r => `${r.item || ''} ${r.detail || ''}`)
+      : []),
+  ].join('\n').toLowerCase();
+
+  if (!corpus.includes('vision.md')) {
+    return false;
+  }
+
+  if (normalizedItem.startsWith('milestone cites at least one concrete vision.md source section')) {
+    return true;
+  }
+
+  const sectionList = String(item).split(':').slice(1).join(':');
+  const sectionNames = sectionList
+    .split(',')
+    .map((section) => section.trim().toLowerCase())
+    .filter((section) => section.length >= 4);
+  if (sectionNames.length === 0) {
+    return true;
+  }
+
+  return sectionNames.some((section) => corpus.includes(section));
 }
 
 export {

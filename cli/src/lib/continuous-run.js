@@ -63,6 +63,19 @@ function getRoadmapReplenishmentTriageHints(root) {
   };
 }
 
+function formatVisionSectionScope(sections, { limit = 5 } = {}) {
+  const names = Array.isArray(sections)
+    ? sections.map((section) => String(section || '').trim()).filter(Boolean)
+    : [];
+  if (names.length === 0) {
+    return 'remaining VISION.md scope';
+  }
+  if (names.length <= limit) {
+    return names.join(', ');
+  }
+  return `${names.slice(0, limit).join(', ')} (+${names.length - limit} more)`;
+}
+
 // ---------------------------------------------------------------------------
 // Session state
 // ---------------------------------------------------------------------------
@@ -734,7 +747,8 @@ export function seedFromVision(root, visionPath, options = {}) {
   // generic vision candidates can bypass PM roadmap replenishment.
   const exhaustion = detectRoadmapExhaustedVisionOpen(root, visionPath);
   if (exhaustion.open) {
-    const sectionNames = exhaustion.unplanned_sections.join(', ');
+    const sectionNames = formatVisionSectionScope(exhaustion.unplanned_sections);
+    const fullSectionNames = exhaustion.unplanned_sections.join(', ');
     const replenishmentEvent = recordEvent(root, {
       source: 'vision_scan',
       category: 'roadmap_exhausted_vision_open',
@@ -745,7 +759,7 @@ export function seedFromVision(root, visionPath, options = {}) {
         derived: true,
       },
       evidence: [
-        { type: 'text', value: `All ${exhaustion.total_milestones} roadmap milestones checked. VISION sections not yet planned: ${sectionNames}` },
+        { type: 'text', value: `All ${exhaustion.total_milestones} roadmap milestones checked. VISION sections not yet planned: ${fullSectionNames}` },
       ],
     });
 
@@ -767,10 +781,10 @@ export function seedFromVision(root, visionPath, options = {}) {
       template: 'generic',
       ...(replenishmentHints.preferred_role ? { preferred_role: replenishmentHints.preferred_role } : {}),
       ...(replenishmentHints.phase_scope ? { phase_scope: replenishmentHints.phase_scope } : {}),
-      charter: `[roadmap-replenishment] Derive next bounded roadmap increment from VISION.md. Unplanned scope: ${sectionNames}. Current roadmap checked through ${exhaustion.latest_milestone}. Read .planning/VISION.md and .planning/ROADMAP.md to select the next testable milestone. Produce concrete unchecked M${exhaustion.total_milestones + 1} items. Do not re-verify previous completed milestones.`,
+      charter: `[roadmap-replenishment] Derive next bounded roadmap increment from VISION.md. Candidate pool: ${sectionNames}. Current roadmap checked through ${exhaustion.latest_milestone}. Read .planning/VISION.md and .planning/ROADMAP.md to select one next testable milestone. Produce concrete unchecked M${exhaustion.total_milestones + 1} items. Do not re-verify previous completed milestones.`,
       acceptance_contract: [
         `New unchecked milestone items added to .planning/ROADMAP.md`,
-        `Milestone scope derived from VISION.md sections: ${sectionNames}`,
+        `Milestone cites at least one concrete VISION.md source section from the unplanned backlog`,
         `Milestone is bounded, testable, and does not duplicate existing checked milestones`,
       ],
     });
@@ -795,7 +809,7 @@ export function seedFromVision(root, visionPath, options = {}) {
       idle: false,
       intentId: replenishmentIntentId,
       section: 'Roadmap replenishment',
-      goal: `Derive next increment from: ${sectionNames}`,
+      goal: `Derive next increment from unplanned VISION scope: ${sectionNames}`,
       source: 'roadmap_replenishment',
     };
   }
