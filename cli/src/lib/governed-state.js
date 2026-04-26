@@ -4701,11 +4701,12 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
       const gateSemanticMode = config.gate_semantic_coverage_mode || 'strict';
       if (uncoveredFiles.length > 0 && gateSemanticMode === 'strict') {
-        // BUG-81: Auto-strip the phase transition request instead of permanently
-        // blocking.  PM's partial planning work is preserved; the phase stays in
-        // "planning" and the continuous loop re-dispatches PM to complete gate
-        // artifacts.  This follows the same normalization pattern as BUG-78/79.
-        if (turnResult.phase_transition_request) {
+        // BUG-81: In planning phase only, auto-strip the phase transition request
+        // instead of permanently blocking.  PM's partial planning work is preserved;
+        // the phase stays in "planning" and the continuous loop re-dispatches PM to
+        // complete gate artifacts.  In implementation+ phases, gate failures still
+        // reject — dev/qa claiming readiness without updating gate files is a real error.
+        if (turnResult.phase_transition_request && state.phase === 'planning') {
           emitRunEvent(root, 'gate_transition_request_auto_stripped', {
             run_id: state.run_id,
             phase: state.phase,
