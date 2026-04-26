@@ -494,7 +494,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `summary`: concise description of what you did this turn');
   lines.push('- `decisions[].id`: pattern `DEC-NNN` (increment from previous turn)');
   lines.push('- `decisions[].category`: one of `implementation`, `architecture`, `scope`, `process`, `quality`, `release`');
-  lines.push('- `objections[].id`: pattern `OBJ-NNN`');
+  lines.push('- `objections[].id`: pattern `OBJ-NNN` where NNN is digits only (e.g. `OBJ-001`, `OBJ-002`). Do NOT append extra suffixes like `-M31` or use non-numeric characters after `OBJ-`.');
   lines.push('- `objections[].severity`: one of `low`, `medium`, `high`, `blocking`');
   lines.push('- `verification.status`: one of `pass`, `fail`, `skipped`');
   lines.push('- `verification.status: "pass"` is valid only when every `verification.machine_evidence[].exit_code` is `0`');

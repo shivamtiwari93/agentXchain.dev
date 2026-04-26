@@ -9,6 +9,7 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 | Invariant | Enforced In | Prompt Coverage | Normalizer Coverage | Fail-Fast / Recovery |
 | --- | --- | --- | --- | --- |
 | Required top-level fields exist (`schema_version`, `run_id`, `turn_id`, `role`, `runtime_id`, `status`, `summary`, `decisions`, `objections`, `files_changed`, `verification`, `artifact`, `proposed_next_role`) | `turn-result-validator.js` schema stage | Dispatch bundle field rules list required fields; generated role prompts tell roles to write structured turn result | None; missing required objects fail closed | Schema failure; no invented top-level data |
+| `objections[].id` matches `OBJ-NNN` (digits only) | `turn-result-validator.js` schema stage | Dispatch bundle field rule says `OBJ-NNN` with explicit "no extra suffixes" guidance | Invalid/missing IDs rewritten to `OBJ-001`, `OBJ-002`, ... by array index | Never fail-fast; always normalizable |
 | `objections[].statement` is non-empty | `turn-result-validator.js` schema stage | Dispatch bundle objection template and field rule require `statement`; PM/QA prompts explicitly reject `summary` as a substitute | `summary` -> `statement`; `detail` -> `statement`; summary wins when both exist | If no recoverable text exists, fail with `--normalize-staged-result` recovery boundary |
 | Review-only roles include at least one objection | `turn-result-validator.js` protocol stage | Dispatch bundle and QA/director prompts state challenge requirement | None | Protocol failure |
 | `workspace` artifact means repo mutation and non-empty `files_changed` unless an explicit no-edit lifecycle signal exists | `governed-state.js` artifact validation + observed diff checks | Dispatch bundle, generated prompts, PM/QA prompts state zero-edit work must use `review` and `workspace` only when files changed | Empty workspace + no-edit lifecycle signal -> `review`; emits `artifact_type_auto_normalized` and `staged_result_auto_normalized` | Ambiguous empty workspace with no lifecycle signal still fails; dirty worktree still fails observed-diff checks |
@@ -25,6 +26,7 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 | --- | --- | --- |
 | BUG-78 empty workspace no-edit review | `artifact.type = "review"`, `artifact.ref = "turn:<turn_id>"` | `artifact_type_auto_normalized`, `staged_result_auto_normalized` |
 | BUG-79 objection summary/detail shape | `objections[i].statement = summary || detail` | `staged_result_auto_normalized` |
+| BUG-89 invalid objection ID | `objections[i].id` rewritten to `OBJ-{i+1}` (zero-padded 3 digits) | `staged_result_auto_normalized` |
 
 ## Fail-Fast-Only Cases
 
@@ -38,3 +40,4 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 
 - `cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js`
 - `cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js`
+- `cli/test/beta-tester-scenarios/bug-89-objection-id-normalization.test.js`

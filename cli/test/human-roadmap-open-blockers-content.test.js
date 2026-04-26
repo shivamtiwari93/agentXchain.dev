@@ -95,8 +95,8 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     assert.ok(currentFocusLine, 'roadmap must keep a current focus line');
     assert.match(
       currentFocusLine,
-      /BUG-76/,
-      'current focus must reflect the current BUG-76 continuous-mode defect',
+      /BUG-89/,
+      'current focus must reflect the current BUG-89 objection-id normalization defect',
     );
     assert.match(
       currentFocusLine,

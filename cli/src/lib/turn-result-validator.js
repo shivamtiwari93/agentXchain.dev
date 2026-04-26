@@ -1048,26 +1048,45 @@ export function normalizeTurnResult(tr, config, context = {}) {
       if (objection === null || typeof objection !== 'object' || Array.isArray(objection)) {
         return objection;
       }
-      const statement = typeof objection.statement === 'string' ? objection.statement.trim() : '';
-      if (statement) {
-        return objection;
+
+      let patched = objection;
+
+      // ── BUG-89: normalize invalid objection IDs to OBJ-NNN ──────────
+      const validIdPattern = /^OBJ-\d+$/;
+      const currentId = typeof patched.id === 'string' ? patched.id : '';
+      if (!validIdPattern.test(currentId)) {
+        const normalizedId = `OBJ-${String(index + 1).padStart(3, '0')}`;
+        corrections.push(`objections[${index}].id: rewritten "${currentId || '(missing)'}" → ${normalizedId}`);
+        normalizationEvents.push({
+          field: `objections[${index}].id`,
+          original_value: patched.id ?? null,
+          normalized_value: normalizedId,
+          rationale: 'invalid_objection_id_rewritten',
+        });
+        patched = { ...patched, id: normalizedId };
       }
-      const summary = typeof objection.summary === 'string' ? objection.summary.trim() : '';
-      const detail = typeof objection.detail === 'string' ? objection.detail.trim() : '';
+
+      // ── BUG-79: normalize missing statement from summary/detail ─────
+      const statement = typeof patched.statement === 'string' ? patched.statement.trim() : '';
+      if (statement) {
+        return patched;
+      }
+      const summary = typeof patched.summary === 'string' ? patched.summary.trim() : '';
+      const detail = typeof patched.detail === 'string' ? patched.detail.trim() : '';
       const sourceField = summary ? 'summary' : detail ? 'detail' : null;
       const sourceValue = summary || detail;
       if (!sourceField) {
-        return objection;
+        return patched;
       }
       corrections.push(`objections[${index}].statement: copied from ${sourceField}`);
       normalizationEvents.push({
         field: `objections[${index}].statement`,
-        original_value: objection.statement ?? null,
+        original_value: patched.statement ?? null,
         normalized_value: sourceValue,
         rationale: `copied_from_${sourceField}`,
       });
       return {
-        ...objection,
+        ...patched,
         statement: sourceValue,
       };
     });

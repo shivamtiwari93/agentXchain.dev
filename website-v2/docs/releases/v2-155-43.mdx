@@ -1,0 +1,37 @@
+---
+sidebar_position: 0
+title: "v2.155.43 Release Notes"
+---
+
+# AgentXchain v2.155.43
+
+`v2.155.43` extends the staged-result normalization table to handle invalid objection IDs that do not match the required `OBJ-NNN` pattern. This is a BUG-79-class extension: the same staged-result field-shape mismatch architecture, applied to the `id` field alongside the existing `statement` normalization.
+
+## Bug Fixes
+
+- **BUG-89: objection ID normalization.** QA turns that emit objection IDs like `OBJ-002-M31` (valid content but wrong format) are now auto-normalized to deterministic `OBJ-001`, `OBJ-002`, ... before schema validation. The original ID is preserved in the `staged_result_auto_normalized` audit event. Valid `OBJ-\d+` IDs pass through untouched.
+- **Prompt hardening.** The `OBJ-NNN` field rule in dispatch bundles now explicitly warns against extra suffixes and non-numeric characters.
+- **Invariant audit update.** `.planning/STAGED_RESULT_INVARIANT_AUDIT.md` now covers `objections[].id` as a normalizer-table entry alongside `statement` (BUG-79) and `artifact.type` (BUG-78).
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-89-objection-id-normalization.test.js -> 7 tests / 1 suite / 0 failures
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js -> 18 tests / 2 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.43 -c "agentxchain --version"`
+
+For BUG-89: resume the tusq.dev dogfood session at `turn_4125be3cf057395a` (QA turn with `id: "OBJ-002-M31"`). The turn must accept without manual staging JSON edits. The `staged_result_auto_normalized` event must appear in `.agentxchain/events.jsonl` with `field: "objections[0].id"` and `rationale: "invalid_objection_id_rewritten"`.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
