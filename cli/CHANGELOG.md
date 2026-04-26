@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.155.41
+
+### Bug Fixes
+
+- **BUG-88 recursive generated-export overflow**: excludes generated governance report artifacts (`report-*`, `export-*`, and `chain-*`) from run exports so previous export JSON files cannot recursively balloon the next export.
+- **Large JSON export bounding**: adds `maxJsonDataBytes` across `run`, `export`, `audit`, and `benchmark` export paths. Oversized JSON files now retain byte/hash integrity while representing parsed `data` as `null` with explicit truncation metadata.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-88-export-writer-string-overflow.test.js -> 7 tests / 1 suite / 0 failures
+- node --test --test-timeout=120000 cli/test/export-cli.test.js cli/test/verify-export-cli.test.js cli/test/report-cli.test.js -> 54 tests / 3 suites / 0 failures
+- node --test --test-timeout=120000 cli/test/framework-write-exclusion.test.js cli/test/repo-observer.test.js cli/test/report-continuity.test.js cli/test/run-integration.test.js -> 189 tests / 24 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7254 tests / 1468 suites / 0 failures / 5 skipped
+
 ## 2.155.40
 
 ### Bug Fixes

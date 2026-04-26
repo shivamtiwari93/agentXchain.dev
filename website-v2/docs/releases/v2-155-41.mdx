@@ -1,0 +1,39 @@
+---
+sidebar_position: 0
+title: "v2.155.41 Release Notes"
+---
+
+# AgentXchain v2.155.41
+
+`v2.155.41` closes the deeper BUG-88 export failure found during real `tusq.dev` dogfood verification. The earlier fix bounded file counts and text payloads, but generated governance exports under `.agentxchain/reports/export-*.json` were still being recursively included in fresh exports. Large generated export JSON files could be parsed into memory and then re-serialized into the next export, still triggering `Invalid string length`.
+
+## Bug Fixes
+
+- **Generated governance report artifacts excluded from run exports.** Fresh run exports now skip `.agentxchain/reports/report-*`, `.agentxchain/reports/export-*`, and `.agentxchain/reports/chain-*` artifacts. Custom evidence files in `.agentxchain/reports/` remain exportable.
+- **Large JSON payloads are bounded.** `maxJsonDataBytes` prevents oversized JSON files from being parsed into the export `data` field. The artifact still carries byte count and SHA-256 integrity metadata, with `data: null`, `content_base64: null`, and explicit truncation metadata.
+- **All export call sites share the JSON cap.** `run`, `export`, `audit`, and `benchmark` pass JSON data bounds through the exporter, including tighter retry bounds after string-size failures.
+- **Coordinator child exports inherit bounds.** Coordinator exports continue to pass bounded export options down into child repo exports.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-88-export-writer-string-overflow.test.js -> 7 tests / 1 suite / 0 failures
+- node --test --test-timeout=120000 cli/test/export-cli.test.js cli/test/verify-export-cli.test.js cli/test/report-cli.test.js -> 54 tests / 3 suites / 0 failures
+- node --test --test-timeout=120000 cli/test/framework-write-exclusion.test.js cli/test/repo-observer.test.js cli/test/report-continuity.test.js cli/test/run-integration.test.js -> 189 tests / 24 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7254 tests / 1468 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.41 -c "agentxchain --version"`
+
+For BUG-88: run `agentxchain run --continuous --vision .planning/VISION.md --max-runs 100 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint` on a repo with large accumulated `.agentxchain/reports/export-*.json` artifacts. The command must write a fresh governance export without `Invalid string length`, and the new export must not include generated `report-*`, `export-*`, or `chain-*` report artifacts.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
