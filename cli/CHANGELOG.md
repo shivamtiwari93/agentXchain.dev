@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.26
+
+### Features
+- **Source-verified comparison pages**: all nine competitor comparison pages (CrewAI, LangGraph, OpenAI Agents SDK, AG2/AutoGen, Devin, MetaGPT, OpenHands, Codegen, Warp) now include a public "Source baseline" section with official documentation links, last-checked dates, and frozen regression tests. Factual corrections across five pages: fabricated Codegen CLI examples replaced, unsupported "smart model routing" claim removed, MetaGPT incremental development noted, AG2 guardrails/safeguards split, OpenHands benchmark scope corrected, Warp repositioned as Agentic Development Environment / Oz.
+
+### Evidence
+- node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
+
 ## 2.155.25
 
 ### Features

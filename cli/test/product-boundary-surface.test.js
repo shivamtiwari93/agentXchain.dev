@@ -47,10 +47,10 @@ describe('product boundary surface', () => {
   it('AT-PBS-005: Codegen comparison keeps AgentXchain hosting truthful', () => {
     assert.match(
       CODEGEN_PAGE,
-      /\| \*\*Hosting model\*\* \| Managed SaaS with SOC 2 compliance \| Open-source self-hosted core \+ `agentxchain\.ai` managed-cloud early access \|/,
+      /\| \*\*Hosting model\*\* \| Managed SaaS with SOC 2 Type II; on-premises Kubernetes deployment available for Enterprise \| Open-source self-hosted core \+ `agentxchain\.ai` managed-cloud early access \|/,
     );
     assert.match(CODEGEN_PAGE, /optional managed-cloud early-access path/i);
-    assert.doesNotMatch(CODEGEN_PAGE, /\| \*\*Hosting model\*\* \| Managed SaaS with SOC 2 compliance \| Self-hosted, local-first, open source \|/);
+    assert.doesNotMatch(CODEGEN_PAGE, /\| \*\*Hosting model\*\* \|.*\| Self-hosted, local-first, open source \|/);
   });
 
   it('AT-PBS-006: MetaGPT comparison keeps AgentXchain hosted-product boundary truthful', () => {

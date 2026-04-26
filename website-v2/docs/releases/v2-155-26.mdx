@@ -1,0 +1,80 @@
+---
+sidebar_position: 0
+title: "v2.155.26 Release Notes"
+---
+
+# AgentXchain v2.155.26
+
+`v2.155.26` source-backs all nine competitor comparison pages with official
+documentation links, last-checked dates, and frozen regression tests.
+
+## Features
+
+- **Source-verified comparison pages**: every comparison page now includes a
+  public "Source baseline" section with official documentation links and a
+  last-checked date. Readers can verify both competitor and AgentXchain claims
+  against the cited sources. Pages covered: CrewAI, LangGraph, OpenAI Agents
+  SDK, AG2/AutoGen, Devin, MetaGPT, OpenHands, Codegen, and Warp.
+- **Factual corrections across five pages**: corrected fabricated CLI examples
+  on Codegen (`codegen deploy`, `codegen assign` replaced with documented
+  `codegen agent create`), removed unsupported "smart model routing" claim for
+  Codegen, corrected MetaGPT "greenfield-only" framing (has `--project-path`
+  incremental dev), split AG2 guardrails/safeguards into distinct features,
+  noted Swarm deprecation in AG2, replaced unsupported exact SWE-Bench 77.6%
+  score for OpenHands with official benchmark-harness scope, and updated Warp
+  from "AI-native terminal" to current Agentic Development Environment / Oz
+  positioning.
+- **Regression-guarded source links**: each comparison page has a dedicated
+  `AT-*-CLAIMS-005` (or equivalent) test that freezes official source links so
+  stale URLs are caught by CI before they reach the public site.
+- **Competitive positioning matrix refresh**: `.planning/COMPETITIVE_POSITIONING_MATRIX.md`
+  updated with source links, verification notes, and "What Competitors Do
+  Better" entries for all nine competitors.
+
+## Evidence
+
+- node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
+
+## Decisions
+
+- `DEC-WATCH-DELIVERY-DEDUP-DEFER-001`: HTTP-level `X-GitHub-Delivery` dedup
+  deferred; intake-level signal-hash dedup is sufficient until real operator
+  evidence says otherwise.
+- `DEC-OPENAI-AGENTS-SDK-MODEL-BOUNDARY-001`: use "configurable model selection"
+  with adapter boundary, not naked "100+ LLMs" claims.
+- `DEC-CODEGEN-COMPARE-MODEL-ROUTING-001`: use "configurable model selection,"
+  not "smart model routing," for Codegen.
+- `DEC-CODEGEN-COMPARE-CLI-EXAMPLES-001`: only documented CLI commands in
+  Codegen comparison examples.
+- `DEC-OPENHANDS-COMPARE-BENCHMARK-SCORE-001`: do not freeze unsupported exact
+  SWE-Bench percentages; use official benchmark-harness scope.
+- `DEC-DEVIN-COMPARE-WEBHOOK-BOUNDARY-001`: use API / webhook-bridge wording
+  for Devin unless official docs expose native webhooks.
+- `DEC-WARP-COMPARE-ADE-OZ-BOUNDARY-001`: lead with the Warp/Oz split, not
+  just "AI-native terminal."
+
+## Tester Re-Run Contract
+
+Verify the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.26 -c "agentxchain --version"
+npx --yes -p agentxchain@2.155.26 -c "agentxchain dashboard --help"
+```
+
+For comparison page verification, confirm each page at `/docs/compare/vs-*`
+includes a "Source baseline" section with official documentation links and a
+last-checked date.
+
+For downstream closure proof, quote any `startup_latency_ms`,
+`elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms` evidence
+relevant to adapter-path reliability while confirming the downstream flow still
+uses the real runtime path. If a standing phase gate advances before dispatch,
+quote `phase_entered` with `reconciled_before_dispatch`; if continuous mode
+chains into another run, quote the `session_continuation` event.
+
+For BUG-55 regression proof, continue using `accept-turn` followed by `checkpoint-turn`
+and quote `verification.produced_files`,
+`undeclared_verification_outputs`, and `git status --short`.
+
+Clean tree means BUG-55 is fixed for your reproduction.

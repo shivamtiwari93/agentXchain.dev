@@ -1,9 +1,9 @@
-# LinkedIn Post — AgentXchain v2.155.25
+# LinkedIn Post — AgentXchain v2.155.26
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.25` release. Updated 2026-04-25 for the watch HTTP listener.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.26` release. Updated 2026-04-25 for the watch HTTP listener.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/dashboard-watch-results.test.js cli/test/docs-dashboard-content.test.js cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/watch-event-dir-daemon.test.js cli/test/frontdoor-install-surface.test.js -> 115 tests / 19 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 
 ---
 
@@ -20,7 +20,7 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.25` turns the watcher from a one-shot intake command into a practical automation surface:
+`v2.155.26` turns the watcher from a one-shot intake command into a practical automation surface:
 
 - `watch --event-file` and `watch --event-dir` ingest external JSON events as governed work.
 - `watch --daemon --event-dir <path>` keeps polling a drop directory instead of requiring a wrapper script.

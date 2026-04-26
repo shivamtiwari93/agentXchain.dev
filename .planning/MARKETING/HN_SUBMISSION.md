@@ -1,9 +1,9 @@
-# Hacker News Submission — AgentXchain v2.155.25
+# Hacker News Submission — AgentXchain v2.155.26
 
-> Ready-to-post for `v2.155.25` launch window. Updated 2026-04-25 after DOGFOOD-EXTENDED-10-CYCLES closure.
+> Ready-to-post for `v2.155.26` launch window. Updated 2026-04-25 after DOGFOOD-EXTENDED-10-CYCLES closure.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/dashboard-watch-results.test.js cli/test/docs-dashboard-content.test.js cli/test/watch-listen.test.js cli/test/watch-results-inspection.test.js cli/test/watch-result-output.test.js cli/test/watch-auto-start.test.js cli/test/watch-route-intake.test.js cli/test/watch-event-intake.test.js cli/test/watch-command.test.js cli/test/watch-event-dir-daemon.test.js cli/test/frontdoor-install-surface.test.js -> 115 tests / 19 suites / 0 failures / 0 skipped
+> - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 >
 > Aggregate evidence:
 > - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
@@ -44,7 +44,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What shipped by v2.155.25:**
+**What shipped by v2.155.26:**
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual` — vision-driven multi-run sessions that auto-chain through idle expansion, charter materialization, implementation, QA, and launch without human steering
 - Parallel turns: run up to 4 agent turns concurrently within a governed run. Per-turn dispatch isolation prevents file races; acceptance is serialized. Proven with recorded runs.
 - Delegation chains: a senior role delegates work to specialists, reviews their output, and decides next steps. Three-phase model: delegate → execute → review. Composes with parallel turns.
