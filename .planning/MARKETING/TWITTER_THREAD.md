@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.36
+# Twitter/X Thread — AgentXchain v2.155.37
 
-> Ready-to-post thread for the `v2.155.36` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
+> Ready-to-post thread for the `v2.155.37` release. Updated 2026-04-26 for BUG-86 bounded export report verification.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7231 tests / 1464 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7234 tests / 1465 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.36 ships BUG-77 hardening: exhausted-roadmap projects route PM roadmap-replenishment before generic VISION candidates. Open source. MIT.
+AgentXchain v2.155.37 ships BUG-86 hardening: bounded governance report exports now verify and render when oversized payloads are intentionally truncated or skipped. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,12 +57,12 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.36:
+New in v2.155.37:
 
-- ROADMAP exhaustion is checked before broad VISION goal derivation.
-- `[roadmap-replenishment]` intents explicitly prefer PM and planning scope.
-- Status distinguishes `roadmap_open_work_detected` from `roadmap_exhausted_vision_open`.
-- Targeted proof: node --test --test-timeout=180000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js cli/test/vision-reader.test.js cli/test/continuous-run.test.js cli/test/status-operator-actions.test.js -> 107 tests / 26 suites / 0 failures / 0 skipped.
+- Bounded exports may carry `content_base64: null` only with explicit truncation or skip metadata.
+- Governance reports render those bounded exports instead of rejecting them as invalid.
+- Bare null payloads still fail closed.
+- Targeted proof: node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 17 tests / 4 suites / 0 failures / 0 skipped.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

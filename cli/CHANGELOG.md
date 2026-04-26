@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.155.37
+
+### Bug Fixes
+
+- **BUG-86 bounded export report verification**: governance reports now accept bounded run exports where oversized file payloads are deliberately represented with `content_base64: null` plus explicit truncation or skip metadata. The verifier still rejects bare null payloads, keeps full-entry hash checks strict, and validates bounded JSONL/text metadata before report rendering.
+- **Release rerun redirect surface**: `release-bump.sh` now allows the legacy v2.147 rerun-contract redirect file as a release surface so current-release preflight can update the latest shipped package pointer without requiring a manual bypass.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 17 tests / 4 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js cli/test/report-cli.test.js cli/test/report-html.test.js cli/test/verify-export-cli.test.js cli/test/export-cli.test.js cli/test/export-schema-content.test.js -> 102 tests / 13 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/release-identity-hardening.test.js cli/test/current-release-surface.test.js -> 73 tests / 13 suites / 0 failures / 0 skipped
+- npm test -- --test-timeout=60000 -> 7234 tests / 1465 suites / 0 failures / 5 skipped
+
 ## 2.155.36
 
 ### Bug Fixes

@@ -1,0 +1,38 @@
+---
+sidebar_position: 0
+title: "v2.155.37 Release Notes"
+---
+
+# AgentXchain v2.155.37
+
+`v2.155.37` fixes BUG-86 from DOGFOOD-100: bounded governance report exports with truncated or skipped file payloads now verify and render instead of failing on `content_base64: null`.
+
+## Bug Fixes
+
+- **BUG-86 bounded export report verification.** `buildRunExport()` can intentionally omit oversized payload bytes by writing `content_base64: null` with `truncated: true` or `content_base64_skipped: true`. The export verifier now accepts only those explicitly bounded entries, validates their metadata and replacement data shape, and keeps full byte/hash checks strict for normal entries.
+- **Regression coverage.** The new scenario test builds a bounded large-session export, proves `verify export` semantics and `report` rendering both pass, and verifies a bare null payload still fails closed.
+- **Release rerun redirect surface.** `release-bump.sh` now permits the legacy v2.147 tester-rerun redirect doc as a current release surface, matching the existing current-release test contract.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 17 tests / 4 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js cli/test/report-cli.test.js cli/test/report-html.test.js cli/test/verify-export-cli.test.js cli/test/export-cli.test.js cli/test/export-schema-content.test.js -> 102 tests / 13 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/release-identity-hardening.test.js cli/test/current-release-surface.test.js -> 73 tests / 13 suites / 0 failures / 0 skipped
+- npm test -- --test-timeout=60000 -> 7234 tests / 1465 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.37 -c "agentxchain --version"`
+
+For BUG-86: run `agentxchain report --input <bounded-export.json> --format markdown` on an export containing file entries with `content_base64: null` plus `truncated: true` or `content_base64_skipped: true`. The report must render successfully and must not print `content_base64 must be a string`. A file entry with `content_base64: null` and no explicit bounded marker must still fail verification.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
