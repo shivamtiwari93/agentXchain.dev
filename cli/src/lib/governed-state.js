@@ -6967,6 +6967,12 @@ function evaluateIntentCoverage(turnResult, intakeContext, { state = null, confi
       continue;
     }
 
+    const roadmapCoverage = evaluateRoadmapDerivedConditionalCoverage(item, turnResult, intakeContext, state);
+    if (roadmapCoverage === true) {
+      addressed.push(item);
+      continue;
+    }
+
     // Check 1: Structural — intent_response field with explicit status
     const structuralEntry = responseMap.get(normalizedItem);
     if (structuralEntry && ['addressed', 'deferred', 'rejected'].includes(structuralEntry.status)) {
@@ -7045,6 +7051,68 @@ function evaluateIdleExpansionConditionalCoverage(item, turnResult, intakeContex
         && Array.isArray(exhausted.classification)
         && exhausted.classification.length > 0,
     );
+  }
+
+  return null;
+}
+
+// ── Roadmap-derived intent conditional coverage (BUG-80) ────────────────────
+//
+// Roadmap-derived intents (charter starts with "[roadmap]") include literal
+// implementation text as acceptance items.  PM turns in planning phase produce
+// charter/scoping artifacts, not implementation code, so the generic 50%
+// keyword-overlap check fails.  This function provides phase-aware evaluation:
+//  - "Evidence source:" items are metadata provenance → always addressed
+//  - "Unchecked roadmap item completed:" in planning phase → milestone-mention check
+//  - In implementation+ phases → falls through to normal semantic matching
+
+function evaluateRoadmapDerivedConditionalCoverage(item, turnResult, intakeContext, state) {
+  const charter = intakeContext?.charter || '';
+  if (!charter.startsWith('[roadmap]')) {
+    return null;
+  }
+
+  const normalizedItem = typeof item === 'string' ? item.toLowerCase().trim() : '';
+
+  // "Evidence source:" items are provenance metadata, not deliverables.
+  // No turn of any role can "address" a file path reference.
+  if (normalizedItem.startsWith('evidence source:')) {
+    return true;
+  }
+
+  // "Unchecked roadmap item completed:" contains literal implementation text.
+  // In planning phase, PM scopes the milestone — check for milestone mention
+  // rather than requiring implementation-keyword overlap.
+  // In implementation/qa/launch phases, fall through to normal semantic matching
+  // so dev turns are still evaluated against actual implementation keywords.
+  if (normalizedItem.startsWith('unchecked roadmap item completed:')) {
+    const currentPhase = state?.phase || '';
+    if (currentPhase !== 'planning') {
+      return null;
+    }
+
+    // Extract milestone section identifier from charter: "[roadmap] M28: ..."
+    const sectionMatch = charter.match(/\[roadmap\]\s*(M\d+)/i);
+    if (!sectionMatch) {
+      return null;
+    }
+
+    const milestoneId = sectionMatch[1].toLowerCase();
+
+    // Build a searchable corpus from the turn result
+    const corpus = [
+      turnResult.summary || '',
+      ...(turnResult.decisions || []).map(d => `${d.statement || ''} ${d.rationale || ''}`),
+      ...(turnResult.objections || []).map(o => o.statement || ''),
+      ...(turnResult.files_changed || []),
+      ...(turnResult.artifacts_created || []),
+      ...(Array.isArray(turnResult.intent_response)
+        ? turnResult.intent_response.map(r => `${r.item || ''} ${r.detail || ''}`)
+        : []),
+    ].join('\n').toLowerCase();
+
+    // If the turn mentions the milestone section ID, the item is addressed
+    return corpus.includes(milestoneId);
   }
 
   return null;

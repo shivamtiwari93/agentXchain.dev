@@ -408,6 +408,50 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   - **Per Rule #5 ("don't broadcast limitations publicly"):** release notes should describe the fix as staged-result acceptance hardening, not as "we used to require manual JSON surgery for two different field shapes."
   - **Sequencing relative to BUG-76/77 fixes:** BUG-76/77 are already implemented locally and shipping in v2.155.27. BUG-78 + BUG-79 should ship as v2.155.28 (or .29 if .28 is needed for an unrelated BUG-76/77 hotfix). Do NOT bundle BUG-78/79 into the BUG-76/77 release — they're orthogonal architectural changes and bundling them creates shared-blame on regression.
 
+- [ ] **🚨 BUG-80: roadmap-derived acceptance contracts contain literal implementation text that PM planning turns cannot satisfy; "Evidence source:" metadata item is never addressable by any turn; intent coverage checker rejects valid PM planning work with `intent_coverage_incomplete`.** Discovered during DOGFOOD-100-TURNS Run 2 on shipped `agentxchain@2.155.30` at 2026-04-26. Session `cont-dadd9a11` paused on this blocker.
+
+  **Reproduction environment:**
+  - Project: `tusq.dev`
+  - Workspace: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+  - Shipped package: `agentxchain@2.155.30`
+  - Session: `cont-dadd9a11`, Run: `run_d69cb0392607d170`
+  - Roadmap-derived milestone: M28 (Static Sensitivity Class Inference from Manifest Evidence)
+
+  **Observed acceptance error:**
+  ```text
+  acceptTurn(pm): Intent coverage incomplete: 2 acceptance item(s) not addressed:
+  Unchecked roadmap item completed: Add `classifySensitivity(capability)` pure deterministic function in `src/cli.js` implementing the frozen six-rule first-match-wins decision table: R1 preserve→restricted, R2 admin/destructive verb or admin-namespaced route→restricted, R3 pii_categories non-empty→confidential, R4 write verb + financial-context route/param→confidential, R5 auth_required or narrow write→internal, R6 default→public;
+  Evidence source: .planning/ROADMAP.md:299
+  ```
+
+  **Root cause — two distinct defects in the acceptance contract pipeline:**
+
+  1. **`continuous-run.js:697-701`** — `acceptance_contract` includes `Unchecked roadmap item completed: ${candidate.goal}` where `candidate.goal` is the FULL literal implementation text from `ROADMAP.md` checklist items. PM in planning phase produces charter/scoping artifacts, not implementation code. The semantic keyword overlap (≥50% at `governed-state.js:6978-6986`) between PM's planning output and implementation-specific text like "classifySensitivity(capability) pure deterministic function" is below threshold.
+
+  2. **`continuous-run.js:700`** — `Evidence source: ${candidate.roadmap_path}:${candidate.line}` is metadata provenance, not a deliverable. No turn of ANY role can "address" this item via structural `intent_response` or semantic corpus matching. It always fails coverage.
+
+  **Why existing evaluation hooks don't cover this:**
+  - `evaluateAcceptanceItemLifecycle()` — checks phase-exit and gate-state satisfaction. No gate references in roadmap-derived items, so returns `null`.
+  - `evaluateIdleExpansionConditionalCoverage()` — only fires for `source === 'vision_idle_expansion'`. Roadmap-derived intents have different source.
+  - Semantic fallback (50% keyword overlap) — fails for implementation-specific vocabulary against PM planning output.
+
+  **Required fix — `evaluateRoadmapDerivedConditionalCoverage()` function (follows existing idle-expansion pattern):**
+
+  Add to `governed-state.js` a new conditional coverage function that:
+  1. Detects roadmap-derived intents via `intakeContext.charter` starting with `[roadmap]`
+  2. Auto-addresses `Evidence source:` items (metadata provenance, not deliverables)
+  3. For `Unchecked roadmap item completed:` items in planning phase, checks milestone section mention (e.g., "M28" appears in turn result corpus) instead of requiring full keyword overlap with implementation text
+  4. In implementation/qa/launch phases, falls through to normal semantic matching so dev turns are still evaluated against actual implementation keywords
+
+  Hook into `evaluateIntentCoverage()` at `governed-state.js:6964`, after the idle-expansion check.
+
+  **Closure criteria (binary):**
+  1. PM turn in planning phase on a roadmap-derived intent (M28) that mentions the milestone in its summary/decisions accepts cleanly. No `intent_coverage_incomplete` error.
+  2. "Evidence source:" metadata items never cause intent coverage failures.
+  3. Dev turns in implementation phase are still evaluated against full implementation keywords (no regression on strictness).
+  4. Regression test under `cli/test/beta-tester-scenarios/bug-80-roadmap-derived-intent-coverage.test.js`.
+  5. Re-verified on same dogfood session `cont-dadd9a11` after patch ships.
+
 ---
 
 ## Active discipline (MUST follow on every fix going forward)
