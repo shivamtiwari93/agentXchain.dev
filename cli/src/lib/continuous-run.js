@@ -31,7 +31,7 @@ import {
   resolveIntent,
   buildVisionIdleExpansionSignal,
 } from './intake.js';
-import { loadProjectState } from './config.js';
+import { loadProjectContext, loadProjectState } from './config.js';
 import { safeWriteJson } from './safe-write.js';
 import { emitRunEvent } from './run-events.js';
 import { reissueTurn } from './governed-state.js';
@@ -53,6 +53,15 @@ import {
 } from './intent-startup-migration.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
+
+function getRoadmapReplenishmentTriageHints(root) {
+  const context = loadProjectContext(root);
+  const config = context?.config || null;
+  return {
+    preferred_role: config?.roles?.pm ? 'pm' : null,
+    phase_scope: config?.routing?.planning ? 'planning' : null,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Session state
@@ -747,9 +756,12 @@ export function seedFromVision(root, visionPath, options = {}) {
 
       if (replenishmentEvent.ok && !replenishmentEvent.deduplicated) {
         const replenishmentIntentId = replenishmentEvent.intent.intent_id;
+        const replenishmentHints = getRoadmapReplenishmentTriageHints(root);
         const triageResult = triageIntent(root, replenishmentIntentId, {
           priority: 'p1',
           template: 'generic',
+          ...(replenishmentHints.preferred_role ? { preferred_role: replenishmentHints.preferred_role } : {}),
+          ...(replenishmentHints.phase_scope ? { phase_scope: replenishmentHints.phase_scope } : {}),
           charter: `[roadmap-replenishment] Derive next bounded roadmap increment from VISION.md. Unplanned scope: ${sectionNames}. Current roadmap checked through ${exhaustion.latest_milestone}. Read .planning/VISION.md and .planning/ROADMAP.md to select the next testable milestone. Produce concrete unchecked M${exhaustion.total_milestones + 1} items. Do not re-verify previous completed milestones.`,
           acceptance_contract: [
             `New unchecked milestone items added to .planning/ROADMAP.md`,
