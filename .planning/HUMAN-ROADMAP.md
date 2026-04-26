@@ -493,7 +493,9 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
 
 - [x] **BUG-84: Governance report fails with "Invalid string length".** Discovered during DOGFOOD-100-TURNS Run 3 at 2026-04-26. Report generation hits Node.js string size limit. Appears after multiple consecutive turns with large dispatch bundles. Non-blocking — turns continue to accept, only the report generation fails. Closed 2026-04-26 in `agentxchain@2.155.36`: adds `boundedSlice()` with `MAX_REPORT_SECTION_ITEMS=500` cap on all section arrays across all three formatters (text, markdown, HTML), replaces `+=` string concat with `push()+join()` in HTML formatter, removes pretty-print indent from export JSON, separates try/catch for export write vs report generation. Evidence: `node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js` -> 9 tests / 2 suites / 0 failures; full suite: 7231 tests / 0 failures. Spec: `.planning/BUG_84_GOVERNANCE_REPORT_INVALID_STRING_LENGTH_SPEC.md`. Closure line: reproduces-on-tester-sequence: NO (report generation is non-blocking; crash only occurs with 500+ turns which exceeds regression test fixture scope).
 
-- [ ] **BUG-86: Governance report generation accepts BUG-84's bounded export but then rejects it as an invalid artifact because `content_base64` is `null` for truncated/skipped large files.** Discovered during DOGFOOD-100-TURNS resume on shipped `agentxchain@2.155.36` at 2026-04-26. This is a BUG-84 follow-on: the report no longer crashes with `Invalid string length`, but the generated report says `Cannot build governance report from invalid export artifact` with errors such as `.agentxchain/events.jsonl: content_base64 must be a string`, `.agentxchain/dispatch/turns/.../stdout.log: content_base64 must be a string`, and prior `.agentxchain/reports/export-run_*.json: content_base64 must be a string`. The exporter intentionally emits `content_base64: null` when `maxJsonlEntries` truncates JSONL or `maxBase64Bytes` skips large raw bytes, so the verifier/report path must understand the bounded-export contract instead of invalidating its own export.
+- [x] **BUG-86: Governance report generation accepts BUG-84's bounded export but then rejects it as an invalid artifact because `content_base64` is `null` for truncated/skipped large files.** Discovered during DOGFOOD-100-TURNS resume on shipped `agentxchain@2.155.36` at 2026-04-26. Closed 2026-04-26 in `agentxchain@2.155.37`: export verification now accepts `content_base64: null` only when paired with explicit bounded-export metadata (`truncated: true` or `content_base64_skipped: true`), validates bounded metadata shape, preserves strict byte/hash verification for full entries, and the shipped package renders the same tusq.dev bounded export with `Verification: pass`. Same-session tusq.dev reverify evidence: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.planning/dogfood-100-turn-evidence/bug-86-reverify-v2.155.37.md`. Closure line: reproduces-on-tester-sequence: NO.
+
+  **Original failure:** This was a BUG-84 follow-on: the report no longer crashed with `Invalid string length`, but the generated report said `Cannot build governance report from invalid export artifact` with errors such as `.agentxchain/events.jsonl: content_base64 must be a string`, `.agentxchain/dispatch/turns/.../stdout.log: content_base64 must be a string`, and prior `.agentxchain/reports/export-run_*.json: content_base64 must be a string`. The exporter intentionally emits `content_base64: null` when `maxJsonlEntries` truncates JSONL or `maxBase64Bytes` skips large raw bytes, so the verifier/report path had to understand the bounded-export contract instead of invalidating its own export.
 
   **Dogfood evidence:**
   - Project: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
@@ -514,6 +516,54 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   2. BUG-67 and BUG-84 report tests still pass.
   3. Published `agentxchain@2.155.37+` can report on a bounded export without `content_base64 must be a string`.
   4. Same-session tusq.dev evidence file is added under `.planning/dogfood-100-turn-evidence/bug-86-reverify-vX.Y.Z.md`.
+
+- [ ] **BUG-87: Authoritative dev acceptance blocks on unclassified deterministic CLI output `.tusq/plan.json` produced by verification, even though the turn declared verification commands and product files correctly otherwise.** Discovered during DOGFOOD-100 resume on shipped `agentxchain@2.155.37` at 2026-04-26 after BUG-86 reverify. Continuous run accepted four post-restart turns, then blocked on dev turn `turn_73dc44cfb9cef2c7` in run `run_24ccd92f593d8647` with: `Verification was declared (commands or machine_evidence), but these files are dirty and not classified: .tusq/plan.json. Classify each under verification.produced_files ... OR add it to files_changed`. The staged turn result declares `files_changed` for `src/cli.js`, `tests/smoke.mjs`, `tests/evals/governed-cli-scenarios.json`, `tests/eval-regression.mjs`, and `.planning/IMPLEMENTATION_NOTES.md`; it declares `npm test`, `node bin/tusq.js help`, `node bin/tusq.js surface plan --help`, and `git diff HEAD --stat -- package.json package-lock.json` as machine evidence, but it does not declare `.tusq/plan.json` as a verification-produced ignored output.
+
+  **Dogfood evidence:**
+  - Project: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+  - Branch used during reverify/resume: `agentxchain-dogfood-100-turn-2026-04`
+  - Command: `npx --yes -p agentxchain@latest -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 100 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint'`
+  - Shipped package: `agentxchain@2.155.37`
+  - Failed turn: `turn_73dc44cfb9cef2c7` (`dev`, phase `implementation`)
+  - Dirty unclassified path: `.tusq/plan.json`
+  - Staged result: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev/.agentxchain/staging/turn_73dc44cfb9cef2c7/turn-result.json`
+
+  **Why this is a framework bug:** the framework requires classification of verification-produced files, but the prompt/context contract does not make that requirement salient enough for agents that run CLI commands writing deterministic tool output under hidden/tool-owned directories. This is the BUG-55 family recurring under a new generated-output path. The framework should prevent full-auto deadlock by either (a) stronger prompt guidance that names dirty unclassified outputs and shows the exact `verification.produced_files` ignore shape, (b) normalizing known ignored verification-output paths when the declared command surface makes the output deterministic and not a core deliverable, or (c) adding a retry/reissue path that gives the same role the concrete classification error without operator `accept-turn` surgery.
+
+  **Required fix:**
+  1. Add a tester-sequence regression using a governed dev turn that writes `.tusq/plan.json` during verification, omits it from `files_changed`, and initially fails with the exact unclassified-output error.
+  2. Harden the framework contract so the next full-auto retry can self-correct without manual staged JSON edits or operator `accept-turn`.
+  3. Keep false-positive protection: undeclared product/source outputs must still fail; only declared verification-produced ignored artifacts may be excluded.
+  4. Re-verify on tusq.dev by resuming the same blocked turn sequence on the shipped patch and proving `.tusq/plan.json` no longer blocks acceptance.
+
+  **Closure criteria:**
+  1. New BUG-87 beta-tester scenario passes.
+  2. BUG-55 verification-output regression still passes.
+  3. Published package accepts or auto-recovers the tusq.dev turn without manual JSON edits.
+  4. Same-session tusq.dev evidence exists under `.planning/dogfood-100-turn-evidence/bug-87-reverify-vX.Y.Z.md`.
+
+- [ ] **BUG-88: Auto-report export still hits `Invalid string length` on large dogfood state after BUG-84/BUG-86, leaving the report renderer to use a stale bounded export.** Discovered during the same DOGFOOD-100 resume on shipped `agentxchain@2.155.37` at 2026-04-26. The run summary printed `Governance export write failed: Invalid string length` while also writing `.agentxchain/reports/report-run_24ccd92f593d8647.md`. The report file shows `Verification: pass`, but its input export timestamp predates the latest accepted turns (`export-run_24ccd92f593d8647.json` timestamp `2026-04-26 07:54:30`, report timestamp `2026-04-26 09:06:01`). That means BUG-86 fixed verifier acceptance of bounded exports, but the exporter can still fail before producing a fresh bounded export for very large accumulated dogfood state.
+
+  **Dogfood evidence:**
+  - Project: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+  - Command: same `agentxchain run --continuous ... --auto-checkpoint` invocation as BUG-87
+  - Shipped package: `agentxchain@2.155.37`
+  - Run summary error: `Governance export write failed: Invalid string length`
+  - Stale export/report pair: `.agentxchain/reports/export-run_24ccd92f593d8647.json` older than `.agentxchain/reports/report-run_24ccd92f593d8647.md`
+
+  **Why this is a framework bug:** automatic governance reporting must either produce a fresh bounded export or fail with a clearly bounded, non-stale report status. Reusing an older export after a fresh export write failure can make the report look valid while omitting the latest turns and blocker.
+
+  **Required fix:**
+  1. Add a regression that constructs accumulated state large enough to force the export writer through the same size pressure path and proves fresh export write completion.
+  2. Ensure report generation never silently reports from a stale export after a fresh export write failure; if fallback is intentional, surface `stale_export_fallback` explicitly with timestamps.
+  3. Preserve BUG-84 bounded array/string safeguards and BUG-86 bounded verifier semantics.
+  4. Re-verify on tusq.dev by producing a fresh report/export pair after the patch ships.
+
+  **Closure criteria:**
+  1. New BUG-88 large-auto-report regression passes.
+  2. BUG-84 and BUG-86 regression suites still pass.
+  3. Published package no longer prints `Governance export write failed: Invalid string length` for the tusq.dev large run, or it emits an explicit stale-fallback report status.
+  4. Same-session tusq.dev evidence exists under `.planning/dogfood-100-turn-evidence/bug-88-reverify-vX.Y.Z.md`.
 
 ---
 
