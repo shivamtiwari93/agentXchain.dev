@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.155.39
+
+### Bug Fixes
+
+- **BUG-88 export writer Invalid string length**: governance export writer was crashing with `RangeError: Invalid string length` on large accumulated dogfood state. Adds `maxExportFiles` (500 cap with priority ordering), `maxTextDataBytes` (128KB text truncation), and fallback-safe serialization in `run.js`. The export verifier now also accepts truncated text entries (not just JSONL).
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-88-export-writer-string-overflow.test.js -> 5 tests / 1 suite / 0 failures
+- npm test -- --test-timeout=60000 -> 7247 tests / 1467 suites / 0 failures / 5 skipped
+
 ## 2.155.38
 
 ### Bug Fixes
