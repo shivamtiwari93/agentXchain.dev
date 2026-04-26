@@ -1,0 +1,35 @@
+---
+sidebar_position: 0
+title: "v2.155.34 Release Notes"
+---
+
+# AgentXchain v2.155.34
+
+`v2.155.34` fixes BUG-85 in the DOGFOOD-100 run: roadmap replenishment
+now scopes acceptance to one bounded VISION-backed milestone instead of
+requiring a PM turn to semantically cover the full remaining VISION backlog.
+
+## Bug Fixes
+
+- **BUG-85 VISION replenishment acceptance scoping.** When `.planning/ROADMAP.md`
+  is exhausted but `VISION.md` has unplanned scope, AgentXchain now generates
+  a scoped acceptance item: the new milestone must cite at least one concrete
+  `VISION.md` source section. It no longer emits one giant acceptance item
+  containing every unplanned heading.
+- **Legacy same-session recovery.** Existing paused runs with the old broad
+  `Milestone scope derived from VISION.md sections: ...` item now accept when
+  the PM cites `VISION.md` and one listed section, preserving useful planning
+  work already produced during the dogfood session.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-85-vision-replenishment-acceptance-scope.test.js cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js -> 4 tests / 3 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/run-events.test.js cli/test/turn-result-validator.test.js cli/test/intent-coverage-status.test.js -> 115 tests / 18 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.34 -c "agentxchain --version"`
+
+For BUG-85: resume the paused tusq.dev dogfood session. The PM turn that
+bound M30 from `VISION.md` The Promise should accept without editing staged
+JSON or rerunning the turn.

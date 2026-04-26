@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.155.34
+
+### Bug Fixes
+
+- **BUG-85 VISION replenishment acceptance scoping**: roadmap-replenishment intents now ask PM to bind one bounded VISION-backed milestone instead of satisfying a single acceptance item containing the whole unplanned VISION backlog. Legacy broad `Milestone scope derived from VISION.md sections: ...` items now accept when the PM cites `VISION.md` and at least one concrete listed section.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-85-vision-replenishment-acceptance-scope.test.js cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js cli/test/beta-tester-scenarios/bug-76-roadmap-open-work-continuous.test.js -> 4 tests / 3 suites / 0 failures / 0 skipped
+- node --test --test-timeout=120000 cli/test/run-events.test.js cli/test/turn-result-validator.test.js cli/test/intent-coverage-status.test.js -> 115 tests / 18 suites / 0 failures / 0 skipped
+
 ## 2.155.33
 
 ### Bug Fixes
