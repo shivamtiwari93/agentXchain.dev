@@ -35,8 +35,8 @@ afterEach(() => {
 /**
  * Create a fixture mirroring the tester's BUG-77 state:
  * - ROADMAP fully checked through M1 (no unchecked items)
- * - VISION with V1 scope (matches M1) AND V2 scope (unplanned)
- * - Existing completed intents that keyword-match V1 goals
+ * - VISION with V1 scope (matches M1) AND V2/V3 scope (unplanned)
+ * - Existing completed intents that keyword-match V1 goals only
  * - State: completed, all gates passed
  * - PM is the only executable role, so the test proves replenishment dispatch
  *   is PM-owned instead of accidentally passing through dev fallback routing.
@@ -191,25 +191,9 @@ function createExhaustedRoadmapProject() {
     created_at: new Date().toISOString(),
   }, null, 2));
 
-  // Add completed intents that keyword-match V2/V3 goals
-  // "payload observation capture production APIs failure latency analysis"
-  const intentId2 = `intent_${Date.now()}_v2`;
-  writeFileSync(join(dir, '.agentxchain', 'intake', 'intents', `${intentId2}.json`), JSON.stringify({
-    intent_id: intentId2,
-    status: 'completed',
-    charter: 'payload observation capture production APIs failure latency analysis service boundaries hot-path identification traffic patterns',
-    signal: { description: 'runtime instrumentation scope' },
-    created_at: new Date().toISOString(),
-  }, null, 2));
-
-  const intentId3 = `intent_${Date.now()}_v3`;
-  writeFileSync(join(dir, '.agentxchain', 'intake', 'intents', `${intentId3}.json`), JSON.stringify({
-    intent_id: intentId3,
-    status: 'completed',
-    charter: 'runtime learning loop automated improvement proposals competitive transition intelligence dashboard',
-    signal: { description: 'advanced intelligence scope' },
-    created_at: new Date().toISOString(),
-  }, null, 2));
+  // Leave V2/V3 goals unmatched. This catches the accumulated-state failure
+  // where generic VISION candidates exist but exhausted-roadmap handling must
+  // still route PM to derive the next bounded ROADMAP increment first.
 
   execSync('git init', { cwd: dir, stdio: 'ignore' });
   execSync('git config user.email "bug77@test.local"', { cwd: dir, stdio: 'ignore' });

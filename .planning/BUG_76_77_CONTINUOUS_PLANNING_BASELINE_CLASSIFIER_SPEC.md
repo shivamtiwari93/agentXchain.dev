@@ -30,7 +30,8 @@ BUG-77 is the related roadmap-replenishment shape: `.planning/ROADMAP.md` is exh
 3. `seedFromVision()` records that candidate through the normal intake pipeline with event category `roadmap_open_work_detected`.
 4. The resulting intent charter starts with `[roadmap]` and includes acceptance criteria tied to the roadmap line.
 5. `agentxchain status --json` appends a typed `next_actions[]` entry when the governed run/session looks terminal but unchecked roadmap work remains.
-6. Existing VISION.md derivation still runs after roadmap-open-work candidates are exhausted.
+6. If no unchecked roadmap work remains, continuous mode checks for exhausted ROADMAP plus open VISION scope before broad per-goal VISION derivation. This prevents stale or generic vision candidates from bypassing the PM-owned roadmap-replenishment path.
+7. Existing VISION.md derivation runs only after roadmap-open-work and roadmap-replenishment classifiers both find no work.
 
 ## Error Cases
 
@@ -46,11 +47,11 @@ BUG-77 is the related roadmap-replenishment shape: `.planning/ROADMAP.md` is exh
 - `AT-BUG76-002`: `seedFromVision()` seeds a `[roadmap]` intent before broad `[vision]` intent derivation.
 - `AT-BUG76-003`: `agentxchain status --json` exposes `next_actions[].type = "roadmap_open_work_detected"` when terminal-looking state has unchecked roadmap work.
 - `AT-BUG76-004`: command-chain test spawns `agentxchain run --continuous` against a completed launch-state fixture with unchecked M28 and proves one governed run executes instead of idle-completing with `runs_completed: 0`.
-- `AT-BUG77-001`: when ROADMAP has no unchecked M milestone but VISION has unplanned V2/V3 scope, continuous mode must dispatch PM in roadmap-replenishment mode instead of claiming full completion. The seeded intent must carry `preferred_role: "pm"` when a PM role exists and `phase_scope: "planning"` when the project has a planning route, so this behavior is explicit rather than an accident of default routing. **Implemented and tested: `cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js`.**
+- `AT-BUG77-001`: when ROADMAP has no unchecked M milestone but VISION has unplanned V2/V3 scope, continuous mode must dispatch PM in roadmap-replenishment mode before generic VISION candidates and instead of claiming full completion. The seeded intent must carry `preferred_role: "pm"` when a PM role exists and `phase_scope: "planning"` when the project has a planning route, so this behavior is explicit rather than an accident of default routing. **Implemented and tested: `cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js`.**
 - `AT-BUG77-002`: `agentxchain status --json` exposes `next_actions[].type = "roadmap_exhausted_vision_open"` when terminal-looking state has exhausted roadmap but open vision scope.
 - `AT-BUG77-003`: `detectRoadmapExhaustedVisionOpen()` in `vision-reader.js` classifies roadmap/vision state and returns `{ open, reason, unplanned_sections, evidence_map }`.
 
 ## Resolved Open Questions
 
-1. BUG-77 uses `roadmap_replenishment` as the `source` field on seeded intents and `roadmap_exhausted_vision_open` as the intake event category. This is distinct from both `roadmap_open_work` (BUG-76) and `vision_scan` (broad vision derivation).
+1. BUG-77 returns `source: "roadmap_replenishment"` from `seedFromVision()` and records intake events with category `roadmap_exhausted_vision_open`. This is distinct from both `roadmap_open_work_detected` (BUG-76) and broad `[vision]` intent derivation.
 2. Stale milestone gates are NOT automatically bypassed. The replenishment intent goes through the normal intake pipeline. If the governed run becomes blocked on a stale gate, the operator is shown the blocker. A clean replenishment run starts fresh without inheriting stale gate context because `prepareIntentForDispatch` with `allowTerminalRestart: true` creates a new run.

@@ -728,69 +728,84 @@ export function seedFromVision(root, visionPath, options = {}) {
     };
   }
 
+  // BUG-77: Once the roadmap has no unchecked work, check whether it is
+  // exhausted while VISION still has unplanned sections before considering
+  // broad per-goal vision candidates. Otherwise accumulated projects with old
+  // generic vision candidates can bypass PM roadmap replenishment.
+  const exhaustion = detectRoadmapExhaustedVisionOpen(root, visionPath);
+  if (exhaustion.open) {
+    const sectionNames = exhaustion.unplanned_sections.join(', ');
+    const replenishmentEvent = recordEvent(root, {
+      source: 'vision_scan',
+      category: 'roadmap_exhausted_vision_open',
+      signal: {
+        description: `Roadmap exhausted (${exhaustion.total_milestones} milestones checked through ${exhaustion.latest_milestone}). VISION.md has unplanned scope: ${sectionNames}`,
+        unplanned_sections: exhaustion.unplanned_sections,
+        latest_milestone: exhaustion.latest_milestone,
+        derived: true,
+      },
+      evidence: [
+        { type: 'text', value: `All ${exhaustion.total_milestones} roadmap milestones checked. VISION sections not yet planned: ${sectionNames}` },
+      ],
+    });
+
+    if (!replenishmentEvent.ok) {
+      if (replenishmentEvent.deduplicated) {
+        return { ok: true, idle: true };
+      }
+      return { ok: false, error: `intake record failed: ${replenishmentEvent.error}` };
+    }
+
+    if (replenishmentEvent.deduplicated) {
+      return { ok: true, idle: true };
+    }
+
+    const replenishmentIntentId = replenishmentEvent.intent.intent_id;
+    const replenishmentHints = getRoadmapReplenishmentTriageHints(root);
+    const triageResult = triageIntent(root, replenishmentIntentId, {
+      priority: 'p1',
+      template: 'generic',
+      ...(replenishmentHints.preferred_role ? { preferred_role: replenishmentHints.preferred_role } : {}),
+      ...(replenishmentHints.phase_scope ? { phase_scope: replenishmentHints.phase_scope } : {}),
+      charter: `[roadmap-replenishment] Derive next bounded roadmap increment from VISION.md. Unplanned scope: ${sectionNames}. Current roadmap checked through ${exhaustion.latest_milestone}. Read .planning/VISION.md and .planning/ROADMAP.md to select the next testable milestone. Produce concrete unchecked M${exhaustion.total_milestones + 1} items. Do not re-verify previous completed milestones.`,
+      acceptance_contract: [
+        `New unchecked milestone items added to .planning/ROADMAP.md`,
+        `Milestone scope derived from VISION.md sections: ${sectionNames}`,
+        `Milestone is bounded, testable, and does not duplicate existing checked milestones`,
+      ],
+    });
+
+    if (!triageResult.ok) {
+      return { ok: false, error: `triage failed: ${triageResult.error}` };
+    }
+
+    const triageApproval = options.triageApproval || 'auto';
+    if (triageApproval === 'auto') {
+      const approveResult = approveIntent(root, replenishmentIntentId, {
+        approver: 'continuous_loop',
+        reason: 'roadmap-replenishment auto-approval (BUG-77)',
+      });
+      if (!approveResult.ok) {
+        return { ok: false, error: `approve failed: ${approveResult.error}` };
+      }
+    }
+
+    return {
+      ok: true,
+      idle: false,
+      intentId: replenishmentIntentId,
+      section: 'Roadmap replenishment',
+      goal: `Derive next increment from: ${sectionNames}`,
+      source: 'roadmap_replenishment',
+    };
+  }
+
   const result = deriveVisionCandidates(root, visionPath);
   if (!result.ok) {
     return { ok: false, error: result.error };
   }
 
   if (result.candidates.length === 0) {
-    // BUG-77: Before declaring idle, check if roadmap is exhausted but VISION
-    // has unplanned scope. If so, seed a PM roadmap-replenishment intent to
-    // derive the next bounded milestone instead of idle-exiting.
-    const exhaustion = detectRoadmapExhaustedVisionOpen(root, visionPath);
-    if (exhaustion.open) {
-      const sectionNames = exhaustion.unplanned_sections.join(', ');
-      const replenishmentEvent = recordEvent(root, {
-        source: 'vision_scan',
-        category: 'roadmap_exhausted_vision_open',
-        signal: {
-          description: `Roadmap exhausted (${exhaustion.total_milestones} milestones checked through ${exhaustion.latest_milestone}). VISION.md has unplanned scope: ${sectionNames}`,
-          unplanned_sections: exhaustion.unplanned_sections,
-          latest_milestone: exhaustion.latest_milestone,
-          derived: true,
-        },
-        evidence: [
-          { type: 'text', value: `All ${exhaustion.total_milestones} roadmap milestones checked. VISION sections not yet planned: ${sectionNames}` },
-        ],
-      });
-
-      if (replenishmentEvent.ok && !replenishmentEvent.deduplicated) {
-        const replenishmentIntentId = replenishmentEvent.intent.intent_id;
-        const replenishmentHints = getRoadmapReplenishmentTriageHints(root);
-        const triageResult = triageIntent(root, replenishmentIntentId, {
-          priority: 'p1',
-          template: 'generic',
-          ...(replenishmentHints.preferred_role ? { preferred_role: replenishmentHints.preferred_role } : {}),
-          ...(replenishmentHints.phase_scope ? { phase_scope: replenishmentHints.phase_scope } : {}),
-          charter: `[roadmap-replenishment] Derive next bounded roadmap increment from VISION.md. Unplanned scope: ${sectionNames}. Current roadmap checked through ${exhaustion.latest_milestone}. Read .planning/VISION.md and .planning/ROADMAP.md to select the next testable milestone. Produce concrete unchecked M${exhaustion.total_milestones + 1} items. Do not re-verify previous completed milestones.`,
-          acceptance_contract: [
-            `New unchecked milestone items added to .planning/ROADMAP.md`,
-            `Milestone scope derived from VISION.md sections: ${sectionNames}`,
-            `Milestone is bounded, testable, and does not duplicate existing checked milestones`,
-          ],
-        });
-
-        if (triageResult.ok) {
-          const triageApproval = options.triageApproval || 'auto';
-          if (triageApproval === 'auto') {
-            approveIntent(root, replenishmentIntentId, {
-              approver: 'continuous_loop',
-              reason: 'roadmap-replenishment auto-approval (BUG-77)',
-            });
-          }
-
-          return {
-            ok: true,
-            idle: false,
-            intentId: replenishmentIntentId,
-            section: 'Roadmap replenishment',
-            goal: `Derive next increment from: ${sectionNames}`,
-            source: 'roadmap_replenishment',
-          };
-        }
-      }
-      // If deduplicated or triage failed, fall through to idle
-    }
     return { ok: true, idle: true };
   }
 
