@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.155.30
+# Reddit Posts — AgentXchain v2.155.31
 
-> Ready-to-post content for Reddit for the `v2.155.30` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
+> Ready-to-post content for Reddit for the `v2.155.31` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
@@ -25,7 +25,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.30:
+What shipped in v2.155.31:
 
 - ROADMAP exhaustion is checked before broad VISION goal derivation.
 - `[roadmap-replenishment]` intents explicitly prefer PM and planning scope.
@@ -58,13 +58,13 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.30 — roadmap replenishment hardening for continuous multi-agent delivery
+**Title:** AgentXchain v2.155.31 — roadmap replenishment hardening for continuous multi-agent delivery
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.30 hardens continuous vision mode:
+v2.155.31 hardens continuous vision mode:
 
 - ROADMAP exhaustion is checked before broad VISION goal derivation
 - `[roadmap-replenishment]` intents prefer PM and planning scope
@@ -105,7 +105,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.30 hardens continuous mode so exhausted-roadmap projects route PM roadmap-replenishment before generic VISION candidates.
+v2.155.31 hardens continuous mode so exhausted-roadmap projects route PM roadmap-replenishment before generic VISION candidates.
 
 Try the zero-key demo:
 
@@ -134,7 +134,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.30 hardens roadmap replenishment for exhausted-roadmap/open-vision continuous runs
+- v2.155.31 hardens roadmap replenishment for exhausted-roadmap/open-vision continuous runs
 
 Try it in 30 seconds:
 

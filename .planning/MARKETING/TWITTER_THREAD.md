@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.155.30
+# Twitter/X Thread — AgentXchain v2.155.31
 
-> Ready-to-post thread for the `v2.155.30` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
+> Ready-to-post thread for the `v2.155.31` release. Updated 2026-04-25 for the BUG-77 roadmap-replenishment ordering.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
@@ -16,7 +16,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.30 ships BUG-77 hardening: exhausted-roadmap projects route PM roadmap-replenishment before generic VISION candidates. Open source. MIT.
+AgentXchain v2.155.31 ships BUG-77 hardening: exhausted-roadmap projects route PM roadmap-replenishment before generic VISION candidates. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -56,7 +56,7 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.30:
+New in v2.155.31:
 
 - ROADMAP exhaustion is checked before broad VISION goal derivation.
 - `[roadmap-replenishment]` intents explicitly prefer PM and planning scope.

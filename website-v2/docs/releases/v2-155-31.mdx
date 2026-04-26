@@ -1,0 +1,44 @@
+---
+sidebar_position: 0
+title: "v2.155.31 Release Notes"
+---
+
+# AgentXchain v2.155.31
+
+`v2.155.31` fixes roadmap-derived intent coverage evaluation so that PM
+planning turns on milestones like M28 are not rejected for failing to match
+literal implementation text in the acceptance contract.
+
+## Bug Fixes
+
+- **BUG-80 roadmap-derived intent coverage.** Roadmap-derived acceptance
+  contracts included literal checklist text (e.g., "Add
+  `classifySensitivity(capability)` pure deterministic function...") as
+  acceptance items. PM turns in planning phase produce charter and scoping
+  artifacts, not implementation code, so the generic 50% keyword-overlap
+  check always failed. A new `evaluateRoadmapDerivedConditionalCoverage()`
+  function now handles roadmap-derived intents: `Evidence source:` metadata
+  items are auto-addressed as provenance; `Unchecked roadmap item completed:`
+  items in planning phase check for milestone section mention (e.g., "M28")
+  rather than implementation-keyword overlap. Dev turns in implementation
+  phase still use full semantic matching.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+- Dogfood session `cont-dadd9a11` Run 2 blocked on `intent_coverage_incomplete`
+  with 2 unaddressed items on `agentxchain@2.155.30`. Same session resumes
+  cleanly on `agentxchain@2.155.31`.
+
+## Tester Re-Run Contract
+
+Verify the shipped package:
+
+```bash
+npx --yes -p agentxchain@2.155.31 -c "agentxchain --version"
+```
+
+For BUG-80 verification, resume the paused tusq.dev dogfood session on the
+published package. The PM turn on a roadmap-derived M28 intent should accept
+without `intent_coverage_incomplete` errors. The turn result should show the
+milestone scoped in the summary/decisions.

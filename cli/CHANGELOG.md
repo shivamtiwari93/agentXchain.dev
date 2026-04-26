@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.155.31
+
+### Bug Fixes
+
+- **BUG-80 roadmap-derived intent coverage hardening**: PM turns in planning phase on roadmap-derived intents are now evaluated against milestone-level coverage instead of literal implementation text. `Evidence source:` metadata items are auto-addressed as provenance, not deliverables. Dev turns in implementation phase retain full semantic keyword evaluation.
+
+### Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js cli/test/run-events.test.js cli/test/turn-result-validator.test.js -> 120 tests / 16 suites / 0 failures / 0 skipped
+- Dogfood session `cont-dadd9a11` Run 2 PM turn on M28 roadmap-derived intent: previously failed with `intent_coverage_incomplete` on 2/3 acceptance items; fix resolves by recognizing milestone mention in planning output and auto-addressing metadata provenance items.
+
 ## 2.155.30
 
 ### Bug Fixes
