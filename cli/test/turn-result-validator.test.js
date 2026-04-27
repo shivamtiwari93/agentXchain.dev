@@ -826,6 +826,41 @@ describe('turn-result-validator', () => {
       assert.equal(res.ok, true);
     });
 
+    it('normalizes skip-forward phase_transition_request to the immediate next phase', () => {
+      writeStagedResult(makeValidTurnResult({
+        phase_transition_request: 'launch',
+        proposed_next_role: 'launch',
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig({
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'human'], exit_gate: 'planning_signoff' },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'implementation_complete' },
+          qa: { entry_role: 'qa', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'qa_ship_verdict' },
+          launch: { entry_role: 'human', allowed_next_roles: ['human'], exit_gate: 'launch_ready' },
+        },
+        gates: {
+          planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md'], requires_human_approval: true },
+          implementation_complete: { requires_verification_pass: true },
+          qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md'], requires_human_approval: true },
+          launch_ready: { requires_files: ['.planning/ANNOUNCEMENT.md'], requires_human_approval: true },
+        },
+      }));
+
+      assert.equal(res.ok, true);
+      assert.equal(res.turnResult.phase_transition_request, 'qa');
+      assert.equal(res.turnResult.proposed_next_role, 'qa');
+      assert.ok(res.normalization_events.some(e => e.field === 'phase_transition_request' && e.rationale === 'skip_forward_phase_corrected_to_next_phase'));
+      assert.ok(res.normalization_events.some(e => e.field === 'proposed_next_role' && e.rationale === 'aligned_to_corrected_phase_entry_role'));
+    });
+
+    it('keeps backward authoritative phase_transition_request fail-closed', () => {
+      writeStagedResult(makeValidTurnResult({ phase_transition_request: 'planning' }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'protocol');
+      assert.ok(res.errors.some(e => e.includes('phase_transition_request "planning" is invalid from phase "implementation"')));
+    });
+
     it('AT-CP-008: rejects phase_transition_request in the final phase', () => {
       const tr = makeValidTurnResult({
         role: 'qa',

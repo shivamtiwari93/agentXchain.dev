@@ -10,6 +10,7 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 | --- | --- | --- | --- | --- |
 | Required top-level fields exist (`schema_version`, `run_id`, `turn_id`, `role`, `runtime_id`, `status`, `summary`, `decisions`, `objections`, `files_changed`, `verification`, `artifact`, `proposed_next_role`) | `turn-result-validator.js` schema stage | Dispatch bundle field rules list required fields; generated role prompts tell roles to write structured turn result | BUG-95 covers safe top-level inference; BUG-97 covers `run_id` only when active `turn_id` matches | Schema failure; no invented top-level data |
 | Top-level `run_id` matches current state | `turn-result-validator.js` assignment stage | Dispatch bundle says `run_id` must match current assignment and must not be copied from stale reports/history/staging | Stale/missing `run_id` -> current `state.run_id` only when staged `turn_id` matches active turn and active-turn run identity is coherent | `turn_id` missing/mismatch or inconsistent state/active-turn run identity remains fail-closed |
+| `phase_transition_request` targets the immediate next phase | `turn-result-validator.js` protocol stage and gate evaluator | Dispatch bundle states current phase, exit gate, immediate next phase, and forbids skipping ahead | BUG-98 corrects authoritative completed non-terminal skip-forward requests to the immediate next phase; aligns stale `proposed_next_role` to next-phase entry role when routing-safe | Unknown, backward, same-phase, review-only skip-forward, or final-phase transition requests remain fail-closed unless covered by older gate-name normalization |
 | `objections[].id` matches `OBJ-NNN` (digits only) | `turn-result-validator.js` schema stage | Dispatch bundle field rule says `OBJ-NNN` with explicit "no extra suffixes" guidance | Invalid/missing IDs rewritten to `OBJ-001`, `OBJ-002`, ... by array index | Never fail-fast; always normalizable |
 | `objections[].statement` is non-empty | `turn-result-validator.js` schema stage | Dispatch bundle objection template and field rule require `statement`; PM/QA prompts explicitly reject `summary` as a substitute | `summary` -> `statement`; `detail` -> `statement`; summary wins when both exist | If no recoverable text exists, fail with `--normalize-staged-result` recovery boundary |
 | `decisions[].rationale` is non-empty | `turn-result-validator.js` schema stage | Dispatch bundle field rule requires `rationale` and explains it cannot be omitted | `reason` / `why` / `description` / `decision` / `statement` -> `rationale` | If no recoverable text exists, schema failure remains correct |
@@ -38,12 +39,14 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 | BUG-95 missing proposed_next_role | Defaulted to first allowed role for current phase (excluding self) | `staged_result_auto_normalized` |
 | BUG-96 missing decision rationale | `decisions[i].rationale` copied from `reason`, `why`, `description`, `decision`, or `statement` | `staged_result_auto_normalized` |
 | BUG-97 stale retained-turn run_id | `run_id` rewritten from `state.run_id` when staged `turn_id` matches active turn and active-turn run identity is coherent | `staged_result_auto_normalized` |
+| BUG-98 skip-forward phase request | `phase_transition_request` rewritten from a later valid phase to the immediate next phase for authoritative completed non-terminal turns; stale proposed role aligned to next entry role when safe | `staged_result_auto_normalized` |
 
 ## Fail-Fast-Only Cases
 
 - Missing required top-level fields with no safe source material AND no dispatch context to infer from (BUG-95 covers `runtime_id`, `summary`, `artifact`, `proposed_next_role`, `files_changed` via `files_modified` rename).
 - Missing or mismatched `turn_id` when `run_id` is stale; BUG-97 requires active turn ownership proof before normalizing `run_id`.
 - State/current-turn run identity disagreement; BUG-97 fails closed instead of choosing between conflicting authoritative records.
+- Unknown, backward, same-phase, and final-phase `phase_transition_request` values outside the existing gate-name correction boundary; BUG-98 only repairs skip-forward requests to a known later phase.
 - Objections without `statement`, `summary`, or `detail`.
 - Dirty worktree mismatches after artifact normalization (except baseline-unchanged files per BUG-91).
 - Review artifacts that declare product file edits.
@@ -60,3 +63,4 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 - `cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js`
 - `cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js`
 - `cli/test/beta-tester-scenarios/bug-97-run-id-assignment-normalization.test.js`
+- `cli/test/beta-tester-scenarios/bug-98-skip-forward-phase-normalization.test.js`

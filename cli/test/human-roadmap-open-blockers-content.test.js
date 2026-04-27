@@ -105,13 +105,13 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       currentFocusLine,
-      /BUG-91/,
-      'current focus must reflect the open BUG-91 baseline-dirty acceptance blocker',
+      /BUG-98/,
+      'current focus must reflect the active BUG-98 skip-forward phase-transition blocker',
     );
     assert.match(
       currentFocusLine,
-      /BUG-94/,
-      'current focus must reflect the active BUG-94 missing required-array recovery blocker',
+      /BUG-95, BUG-96, and BUG-97 are closed/,
+      'current focus must preserve the latest shipped-package dogfood closures',
     );
   });
 

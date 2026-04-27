@@ -523,6 +523,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   if (phaseNames.length > 0) {
     lines.push(`- \`phase_transition_request\`: set to a **phase name** when gate requirements are met, or \`null\`. Valid phases: ${phaseNames.map((p) => `\`"${p}"\``).join(', ')}`);
     lines.push('- **Do NOT use exit gate names** (e.g., `planning_signoff`, `implementation_complete`, `qa_ship_verdict`) as `phase_transition_request` values — those are gate identifiers, not phase names');
+    lines.push('- **Do NOT skip ahead to later phases**. Use only the immediate next phase named below for the current phase.');
   } else {
     lines.push('- `phase_transition_request`: set to next phase name when gate requirements are met, or `null`');
   }

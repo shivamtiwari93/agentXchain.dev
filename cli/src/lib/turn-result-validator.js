@@ -1390,6 +1390,9 @@ export function normalizeTurnResult(tr, config, context = {}) {
     if (allowedNextRoles.length === 0) return null;
     return allowedNextRoles.find((role) => role !== assignedRole) || allowedNextRoles[0] || null;
   };
+  const nextPhaseEntryRole = nextPhase && routing?.[nextPhase]?.entry_role
+    ? routing[nextPhase].entry_role
+    : null;
 
   // ── Rule 0: infer missing status only when intent is unambiguous ──────
   if (!('status' in normalized)) {
@@ -1537,6 +1540,54 @@ export function normalizeTurnResult(tr, config, context = {}) {
   }
 
   // ── Rule 5: correct invalid or non-forward lifecycle requests ─────────
+  if (
+    isKnownPhase &&
+    !isTerminalPhase &&
+    !isReviewOnly &&
+    normalized.status === 'completed' &&
+    typeof normalized.phase_transition_request === 'string' &&
+    !normalized.run_completion_request
+  ) {
+    const requested = normalized.phase_transition_request;
+    const requestedIndex = phaseNames.indexOf(requested);
+    const skipsImmediateNextPhase = requestedIndex > currentPhaseIndex + 1;
+
+    if (skipsImmediateNextPhase && nextPhase) {
+      normalized.phase_transition_request = nextPhase;
+      corrections.push(
+        `phase_transition_request: corrected skip-forward "${requested}" to immediate next phase "${nextPhase}"`
+      );
+      normalizationEvents.push({
+        field: 'phase_transition_request',
+        original_value: requested,
+        normalized_value: nextPhase,
+        rationale: 'skip_forward_phase_corrected_to_next_phase',
+      });
+
+      const proposedRoleIsStalePhase = normalized.proposed_next_role === requested;
+      const proposedRoleIsRoutingIllegal = typeof normalized.proposed_next_role === 'string'
+        && normalized.proposed_next_role !== 'human'
+        && allowedNextRoles.length > 0
+        && !allowedNextRoles.includes(normalized.proposed_next_role);
+      if (
+        nextPhaseEntryRole &&
+        allowedNextRoles.includes(nextPhaseEntryRole) &&
+        (proposedRoleIsStalePhase || proposedRoleIsRoutingIllegal)
+      ) {
+        corrections.push(
+          `proposed_next_role: corrected "${normalized.proposed_next_role}" to entry role "${nextPhaseEntryRole}" for corrected phase "${nextPhase}"`
+        );
+        normalizationEvents.push({
+          field: 'proposed_next_role',
+          original_value: normalized.proposed_next_role,
+          normalized_value: nextPhaseEntryRole,
+          rationale: 'aligned_to_corrected_phase_entry_role',
+        });
+        normalized.proposed_next_role = nextPhaseEntryRole;
+      }
+    }
+  }
+
   if (
     isKnownPhase &&
     isReviewOnly &&
