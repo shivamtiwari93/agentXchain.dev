@@ -905,6 +905,20 @@ describe('captureBaseline — dirty workspace snapshot', () => {
       'proposal artifacts must remain in dirty_snapshot so later observation can filter unchanged baseline dirt');
   });
 
+  it('treats DOGFOOD-100 evidence as baseline-exempt but still snapshots it', () => {
+    const root = makeTmpGitRepo();
+    mkdirSync(join(root, '.planning', 'dogfood-100-turn-evidence'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'dogfood-100-turn-evidence', 'bug-90-reverify-v2.155.44.md'), 'evidence\n');
+
+    const baseline = captureBaseline(root);
+
+    assert.equal(baseline.clean, true, 'dogfood evidence should not make actor baseline dirty');
+    assert.ok(
+      '.planning/dogfood-100-turn-evidence/bug-90-reverify-v2.155.44.md' in (baseline.dirty_snapshot || {}),
+      'dogfood evidence must remain in dirty_snapshot so unchanged evidence can be filtered',
+    );
+  });
+
   it('records empty dirty snapshot for clean workspace', () => {
     const baseline = captureBaseline(dir);
     assert.equal(baseline.clean, true);

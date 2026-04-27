@@ -82,6 +82,8 @@ function makeConfig() {
 }
 
 const EVIDENCE_FILE = '.planning/dogfood-100-turn-evidence/turn-counter.jsonl';
+const UNTRACKED_EVIDENCE_FILE = '.planning/dogfood-100-turn-evidence/bug-90-reverify-v2.155.44.md';
+const NON_EXEMPT_BASELINE_FILE = '.planning/operator-note.md';
 
 /**
  * Seed a project where a non-product evidence file becomes dirty AFTER
@@ -101,7 +103,7 @@ function seedBaselineDirtyUnchanged() {
   writeFileSync(join(root, '.gitignore'), '.agentxchain/\nTALK.md\n');
   writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 1;\n');
   // Commit the evidence file initially so modifying it makes it dirty (tracked)
-  writeFileSync(join(root, EVIDENCE_FILE), '{"counter_value":0}\n');
+  writeFileSync(join(root, NON_EXEMPT_BASELINE_FILE), 'operator note v0\n');
 
   git(root, ['init']);
   git(root, ['config', 'user.email', 'bug91@test.local']);
@@ -162,6 +164,67 @@ function seedBaselineDirtyUnchanged() {
   return { root, turnId: turn.turn_id, config };
 }
 
+function seedUntrackedDogfoodEvidenceDuringRecovery() {
+  const root = makeTmpDir();
+  const config = makeConfig();
+
+  mkdirSync(join(root, '.agentxchain'), { recursive: true });
+  mkdirSync(join(root, '.planning', 'dogfood-100-turn-evidence'), { recursive: true });
+  mkdirSync(join(root, 'src'), { recursive: true });
+
+  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+  writeFileSync(join(root, '.gitignore'), '.agentxchain/\nTALK.md\n');
+  writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 1;\n');
+
+  git(root, ['init']);
+  git(root, ['config', 'user.email', 'bug91@test.local']);
+  git(root, ['config', 'user.name', 'BUG-91 Test']);
+  git(root, ['add', '.']);
+  git(root, ['commit', '-m', 'initial']);
+
+  const initResult = initializeGovernedRun(root, config);
+  assert.ok(initResult.ok, initResult.error);
+
+  const assign = assignGovernedTurn(root, config, 'dev');
+  assert.ok(assign.ok, assign.error);
+  const turn = Object.values(assign.state.active_turns)[0];
+
+  // Dogfood bug-fix evidence may be created while the same failed turn is
+  // retained across patch releases. It is proof metadata, not turn work.
+  writeFileSync(join(root, UNTRACKED_EVIDENCE_FILE), '# BUG-90 reverify\n');
+
+  writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 2;\n');
+
+  mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
+  writeFileSync(join(root, getTurnStagingResultPath(turn.turn_id)), JSON.stringify({
+    schema_version: '1.0',
+    run_id: assign.state.run_id,
+    turn_id: turn.turn_id,
+    role: turn.assigned_role,
+    runtime_id: turn.runtime_id,
+    status: 'completed',
+    summary: 'Dev implemented feature.',
+    decisions: [],
+    objections: [],
+    files_changed: ['src/cli.js'],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: ['node -e "console.log(1)"'],
+      evidence_summary: 'Test passed.',
+      machine_evidence: [{ command: 'node -e "console.log(1)"', exit_code: 0 }],
+    },
+    artifact: { type: 'workspace', ref: null },
+    proposed_next_role: 'dev',
+    phase_transition_request: null,
+    run_completion_request: false,
+    needs_human_reason: null,
+    cost: { usd: 0.01 },
+  }, null, 2));
+
+  return { root, turnId: turn.turn_id };
+}
+
 /**
  * Seed a project where a file is dirty at baseline but CHANGES during the turn
  * without being declared. This should still fail acceptance.
@@ -192,17 +255,17 @@ function seedBaselineDirtyChanged() {
   assert.ok(assign.ok, assign.error);
   const turn = Object.values(assign.state.active_turns)[0];
 
-  // Make the evidence file dirty and refresh baseline
-  writeFileSync(join(root, EVIDENCE_FILE), '{"counter_value":0}\n{"counter_value":1}\n');
+  // Make a non-exempt planning file dirty and refresh baseline.
+  writeFileSync(join(root, NON_EXEMPT_BASELINE_FILE), 'operator note v1\n');
   const refresh = refreshTurnBaselineSnapshot(root, turn.turn_id);
   assert.ok(refresh.ok, refresh.error);
 
   // Simulate dev work
   writeFileSync(join(root, 'src', 'cli.js'), 'export const version = 2;\n');
 
-  // NOW CHANGE the evidence file AGAIN during the turn (unauthorized mutation)
+  // NOW CHANGE the non-exempt file AGAIN during the turn (unauthorized mutation)
   // The SHA will differ from what was captured in the refreshed baseline
-  writeFileSync(join(root, EVIDENCE_FILE), '{"counter_value":0}\n{"counter_value":1}\n{"counter_value":2}\n');
+  writeFileSync(join(root, NON_EXEMPT_BASELINE_FILE), 'operator note v2\n');
 
   mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });
   writeFileSync(join(root, getTurnStagingResultPath(turn.turn_id)), JSON.stringify({
@@ -282,12 +345,13 @@ describe('BUG-91: baseline-dirty unchanged files do not block acceptance', () =>
       timeout: 30_000,
     });
 
-    // Should fail because the evidence file changed since baseline (different SHA)
+    // Should fail because the non-exempt baseline-dirty file changed since
+    // baseline (different SHA)
     // The file is still dirty and not declared, so it should be flagged
     const combined = (result.stderr || '') + (result.stdout || '');
     // Accept either: non-zero exit code, or the file mentioned in output
     const failed = result.status !== 0;
-    const mentionsFile = combined.includes('turn-counter.jsonl');
+    const mentionsFile = combined.includes('operator-note.md');
     assert.ok(
       failed || mentionsFile,
       `Expected acceptance to fail or mention the modified evidence file. Exit: ${result.status}. Output: ${combined.slice(0, 500)}`,
@@ -307,6 +371,21 @@ describe('BUG-91: baseline-dirty unchanged files do not block acceptance', () =>
     assert.ok(
       !result.includes('turn-counter.jsonl'),
       'CLI accept-turn should not mention turn-counter.jsonl',
+    );
+  });
+
+  it('command-chain: accepts with untracked DOGFOOD-100 evidence present during recovery', () => {
+    const { root, turnId } = seedUntrackedDogfoodEvidenceDuringRecovery();
+
+    const result = execFileSync(process.execPath, [CLI_PATH, 'accept-turn', '--turn', turnId, '--checkpoint'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+
+    assert.ok(
+      !result.includes('bug-90-reverify-v2.155.44.md'),
+      'CLI accept-turn should not blame dogfood recovery evidence',
     );
   });
 });

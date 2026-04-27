@@ -69,6 +69,10 @@ export const BASELINE_EXEMPT_PATH_PREFIXES = Object.freeze([
   '.agentxchain/proposed/',
 ]);
 
+export const DOGFOOD_EVIDENCE_PATH_PREFIXES = Object.freeze([
+  '.planning/dogfood-100-turn-evidence/',
+]);
+
 const GENERATED_REPORT_PATH_PATTERNS = Object.freeze([
   /^\.agentxchain\/reports\/report-[^/]+\.md$/,
   /^\.agentxchain\/reports\/export-[^/]+\.json$/,
@@ -122,7 +126,8 @@ export function classifyRepoPath(filePath) {
     || pathMatchesAnyRoot(filePath, RUN_CONTINUITY_DIRECTORY_ROOTS);
   const baselineExempt = operational
     || continuityState
-    || pathMatchesAnyPrefix(filePath, BASELINE_EXEMPT_PATH_PREFIXES);
+    || pathMatchesAnyPrefix(filePath, BASELINE_EXEMPT_PATH_PREFIXES)
+    || pathMatchesAnyPrefix(filePath, DOGFOOD_EVIDENCE_PATH_PREFIXES);
 
   return {
     operational,
@@ -146,6 +151,10 @@ export function isBaselineExemptPath(filePath) {
 
 export function isRunContinuityPath(filePath) {
   return classifyRepoPath(filePath).continuityState;
+}
+
+export function isDogfoodEvidencePath(filePath) {
+  return pathMatchesAnyPrefix(filePath, DOGFOOD_EVIDENCE_PATH_PREFIXES);
 }
 
 export function normalizeCheckpointableFiles(filesChanged) {
@@ -249,8 +258,10 @@ export function observeChanges(root, baseline) {
 
   changedFiles = filterBaselineDirtyFiles(root, changedFiles, baseline);
 
-  // Filter out orchestrator-owned operational paths (Session #19 freeze)
-  const actorFiles = changedFiles.filter(f => !isOperationalPath(f));
+  // Filter out orchestrator-owned operational paths (Session #19 freeze) and
+  // DOGFOOD-100 proof evidence, which is operator-proof metadata for this
+  // repository's formal dogfood run rather than turn-authored product work.
+  const actorFiles = changedFiles.filter(f => !isOperationalPath(f) && !isDogfoodEvidencePath(f));
 
   return {
     files_changed: actorFiles.sort(),
