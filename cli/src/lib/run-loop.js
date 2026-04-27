@@ -36,7 +36,7 @@ import {
 } from './runner-interface.js';
 
 import { runAdmissionControl } from './admission-control.js';
-import { appendFileSync, mkdirSync, writeFileSync } from 'fs';
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { evaluateApprovalSlaReminders } from './notification-runner.js';
 import { validatePreemptionMarker } from './intake.js';
@@ -160,6 +160,26 @@ export async function runLoop(root, config, callbacks, options = {}) {
         result.preempted_by = marker.intent_id;
         return result;
       }
+    }
+
+    const failedAcceptanceResult = await reattemptFailedAcceptanceTurn(root, config, state, callbacks, emit, errors);
+    if (failedAcceptanceResult) {
+      if (failedAcceptanceResult.terminal) {
+        return makeResult(
+          failedAcceptanceResult.ok,
+          failedAcceptanceResult.stop_reason,
+          loadState(root, config),
+          turnsExecuted,
+          turnHistory,
+          gatesApproved,
+          errors,
+        );
+      }
+      if (failedAcceptanceResult.accepted) {
+        turnsExecuted++;
+      }
+      turnHistory.push(...failedAcceptanceResult.history);
+      continue;
     }
 
     // ── Determine concurrency mode ────────────────────────────────────────
@@ -488,6 +508,43 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
 
 function isDispatchableActiveTurn(turn) {
   return ['assigned', 'dispatched', 'starting', 'running', 'retrying'].includes(turn?.status);
+}
+
+async function reattemptFailedAcceptanceTurn(root, config, state, callbacks, emit, errors) {
+  const turn = Object.values(getActiveTurns(state)).find(t => t?.status === 'failed_acceptance');
+  if (!turn) return null;
+
+  const roleId = turn.assigned_role;
+  const stagingPath = getTurnStagingResultPath(turn.turn_id);
+  if (!existsSync(join(root, stagingPath))) {
+    errors.push(`failed_acceptance(${roleId}): missing staged result at ${stagingPath}`);
+    return { terminal: true, ok: false, stop_reason: 'blocked', history: [] };
+  }
+
+  const acceptResult = acceptTurn(root, config, { turnId: turn.turn_id });
+  if (!acceptResult.ok) {
+    errors.push(`acceptTurn(${roleId}): ${acceptResult.error}`);
+    return {
+      terminal: true,
+      ok: false,
+      stop_reason: acceptResult.error_code === 'conflict' ? 'conflict_loop' : 'blocked',
+      history: [{ role: roleId, turn_id: turn.turn_id, accepted: false, accept_error: acceptResult.error }],
+    };
+  }
+
+  const history = [{ role: roleId, turn_id: turn.turn_id, accepted: true }];
+  if (callbacks.afterAccept) {
+    const afterAcceptResult = await callbacks.afterAccept({ turn, acceptResult });
+    if (afterAcceptResult?.ok === false) {
+      errors.push(`afterAccept(${roleId}): ${afterAcceptResult.error}`);
+      if (afterAcceptResult.state) {
+        emit({ type: 'blocked', state: afterAcceptResult.state, reason: 'after_accept_failed' });
+      }
+      return { terminal: true, ok: false, stop_reason: 'blocked', history };
+    }
+  }
+  emit({ type: 'turn_accepted', turn, role: roleId, state: acceptResult.state });
+  return { terminal: false, accepted: true, history };
 }
 
 /**
