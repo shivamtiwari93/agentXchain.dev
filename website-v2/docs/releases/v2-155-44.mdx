@@ -1,0 +1,36 @@
+---
+sidebar_position: 0
+title: "v2.155.44 Release Notes"
+---
+
+# AgentXchain v2.155.44
+
+`v2.155.44` extends the staged-result normalizer for 7 new field-shape classes encountered during dogfood turn 39. This is a BUG-90 fix release: Claude Sonnet 4.6 produced 7 simultaneous schema deviations in a single dev turn, and the normalizer now handles all of them automatically.
+
+## Bug Fixes
+
+- **BUG-90: extend staged-result normalizer for 7 new field-shape classes.** Dogfood turn 39 was blocked by 7 simultaneous schema deviations from a Claude Sonnet 4.6 dev turn. The normalizer now auto-corrects all 7 before schema validation.
+- **6 new normalizer rules.** Status synonyms, object `files_changed`, decision `id`/`statement`/`category`, `verification.status`, and `artifact.type` are now covered by the normalizer table.
+- **Prompt hardening.** All 7 field constraints are now explicitly enforced in `dispatch-bundle.js` so future model outputs are less likely to deviate.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-90-staged-result-normalizer-extension.test.js -> 8 tests / 1 suite / 0 failures
+- npm test -- --test-timeout=60000 -> 7264 tests / 1469 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.44 -c "agentxchain --version"`
+
+For BUG-90: resume the tusq.dev dogfood session at the turn that previously produced 7 simultaneous field-shape deviations. The turn must accept without manual staging JSON edits. The `staged_result_auto_normalized` events must appear in `.agentxchain/events.jsonl` for all 7 normalized fields.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

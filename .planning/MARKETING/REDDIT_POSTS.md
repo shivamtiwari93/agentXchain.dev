@@ -1,12 +1,12 @@
-# Reddit Posts — AgentXchain v2.155.43
+# Reddit Posts — AgentXchain v2.155.44
 
-> Ready-to-post content for Reddit for the `v2.155.43` release. Updated 2026-04-26 for BUG-88 follow-up: recursive generated export exclusion and large JSON caps.
+> Ready-to-post content for Reddit for the `v2.155.44` release. Updated 2026-04-26 for BUG-90 fix: staged-result normalizer extension for 7 new field-shape classes.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7264 tests / 1469 suites / 0 failures / 5 skipped
 
 ---
 
@@ -26,7 +26,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.43:
+What shipped in v2.155.44:
 
 - Bounded exports may carry `content_base64: null` only with explicit truncation or skip metadata.
 - Governance reports render those bounded exports instead of failing verification.
@@ -36,7 +36,7 @@ What shipped in v2.155.43:
 Proof:
 
 - node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 17 tests / 4 suites / 0 failures / 0 skipped
-- npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7264 tests / 1469 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -60,13 +60,13 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.43 — bounded governance exports for generated-report-heavy sessions
+**Title:** AgentXchain v2.155.44 — staged-result normalizer extended for 7 new field-shape classes
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.43 hardens governance report generation for large continuous sessions:
+v2.155.44 extends the staged-result normalizer for 7 new field-shape classes encountered during dogfood turn 39:
 
 - bounded exports may carry `content_base64: null` only with explicit truncation or skip metadata
 - reports render those bounded exports instead of rejecting them as invalid
@@ -77,7 +77,7 @@ The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and
 Evidence:
 
 - node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 17 tests / 4 suites / 0 failures / 0 skipped
-- npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7264 tests / 1469 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -108,7 +108,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.43 excludes generated report exports and caps large JSON data so large continuous-session governance exports can be written without weakening byte-hash verification.
+v2.155.44 extends the staged-result normalizer for 7 new field-shape classes so dogfood turns with simultaneous schema deviations auto-normalize without manual JSON edits.
 
 Try the zero-key demo:
 
@@ -117,7 +117,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- npm test -- --test-timeout=60000 -> 7256 tests / 1468 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7264 tests / 1469 suites / 0 failures / 5 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -137,7 +137,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.43 hardens bounded governance report verification for large continuous sessions
+- v2.155.44 extends the staged-result normalizer for 7 new field-shape classes
 
 Try it in 30 seconds:
 

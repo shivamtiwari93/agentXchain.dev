@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.44
+
+- **BUG-90: extend staged-result normalizer for 7 new field-shape classes.** Dogfood turn 39 blocked by 7 simultaneous schema deviations from Claude Sonnet 4.6 dev turn.
+- 6 new normalizer rules: status synonyms, object files_changed, decision id/statement/category, verification.status, artifact.type.
+- Prompt hardening for all 7 field constraints in dispatch-bundle.js.
+- 8 new command-chain integration tests (1114 total).
+
+- npm test -- --test-timeout=60000 -> 7264 tests / 1469 suites / 0 failures / 5 skipped
+
 ## 2.155.43
 
 - **BUG-89: objection ID normalization.** Extended the staged-result normalization table to handle invalid objection `id` fields that don't match `OBJ-NNN`. Invalid/missing IDs are deterministically rewritten to `OBJ-001`, `OBJ-002`, ... before schema validation.
