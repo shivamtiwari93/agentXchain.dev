@@ -2,8 +2,8 @@
   "fixture_id": "TR-008",
   "tier": 1,
   "surface": "turn_result_validation",
-  "description": "Invalid decision ID format rejected at schema stage",
-  "type": "reject",
+  "description": "Invalid decision ID format is normalized before schema validation",
+  "type": "validate",
   "setup": {
     "state": {
       "status": "active",
@@ -61,9 +61,9 @@
     }
   },
   "expected": {
-    "result": "error",
-    "failed_stage": "schema",
-    "error_type": "invalid_decision_id_format",
-    "error_detail": "Decision ID must match DEC-NNN pattern"
+    "result": "success",
+    "stages_passed": ["schema", "assignment", "artifact", "verification", "protocol"],
+    "errors": [],
+    "warnings_allowed": true
   }
 }
