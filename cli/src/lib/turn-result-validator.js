@@ -78,6 +78,9 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
   const normContext = {};
   if (state) {
     normContext.phase = state.phase;
+    if (state.run_id) {
+      normContext.runId = state.run_id;
+    }
     // Prefer active_turns (the persisted schema field); fall back to the
     // current_turn compatibility alias for callers that pass a state shape
     // built outside loadProjectState() (e.g. raw fixtures). Both surfaces are
@@ -85,6 +88,12 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     if (activeTurn) {
       const roleKey = activeTurn.assigned_role || activeTurn.role;
       normContext.assignedRole = roleKey;
+      if (activeTurn.turn_id) {
+        normContext.turnId = activeTurn.turn_id;
+      }
+      if (activeTurn.run_id) {
+        normContext.activeTurnRunId = activeTurn.run_id;
+      }
       if (activeTurn.runtime_id) {
         normContext.runtimeId = activeTurn.runtime_id;
       }
@@ -1005,6 +1014,29 @@ export function normalizeTurnResult(tr, config, context = {}) {
   }
 
   const normalized = { ...tr };
+
+  // ── BUG-97: recover stale run_id for retained active turns ────────────
+  // run_id is state-owned identity. A staged result may safely inherit it
+  // only when the staged turn_id proves it belongs to the active retained
+  // turn and the active-turn/state run identity is coherent.
+  const stagedTurnMatchesActive = Boolean(
+    context.runId
+    && context.turnId
+    && typeof normalized.turn_id === 'string'
+    && normalized.turn_id === context.turnId
+  );
+  const activeTurnRunIdCoherent = !context.activeTurnRunId || context.activeTurnRunId === context.runId;
+  const stagedRunId = typeof normalized.run_id === 'string' ? normalized.run_id.trim() : '';
+  if (stagedTurnMatchesActive && activeTurnRunIdCoherent && stagedRunId !== context.runId) {
+    corrections.push(`run_id: rewritten from "${stagedRunId || '(missing)'}" to active state run_id "${context.runId}"`);
+    normalizationEvents.push({
+      field: 'run_id',
+      original_value: normalized.run_id ?? null,
+      normalized_value: context.runId,
+      rationale: 'run_id_rewritten_from_active_turn_context',
+    });
+    normalized.run_id = context.runId;
+  }
 
   // ── BUG-95: rename synonym fields before variable computation ────────
   // files_modified is an unambiguous synonym for files_changed.

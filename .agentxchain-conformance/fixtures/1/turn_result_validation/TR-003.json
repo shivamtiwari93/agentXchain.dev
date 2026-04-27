@@ -2,8 +2,8 @@
   "fixture_id": "TR-003",
   "tier": 1,
   "surface": "turn_result_validation",
-  "description": "Wrong run_id (assignment mismatch) rejected at assignment stage",
-  "type": "reject",
+  "description": "Wrong run_id is normalized from active assignment context when turn_id matches",
+  "type": "accept",
   "setup": {
     "state": {
       "status": "active",
@@ -54,8 +54,13 @@
     }
   },
   "expected": {
-    "result": "error",
-    "failed_stage": "assignment",
-    "error_type": "run_id_mismatch"
+    "result": "success",
+    "stages_passed": [
+      "schema",
+      "assignment",
+      "artifact",
+      "verification",
+      "protocol"
+    ]
   }
 }

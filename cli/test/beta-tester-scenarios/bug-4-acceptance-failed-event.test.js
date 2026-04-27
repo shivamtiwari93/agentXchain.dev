@@ -77,12 +77,14 @@ describe('BUG-4 beta-tester scenario: acceptance_failed event emission', () => {
     const state = readState(root);
     writeDispatchBundle(root, state, config, { turnId });
 
-    // Stage an INVALID turn result (wrong run_id) to trigger acceptance failure
+    // Stage an INVALID turn result. Wrong run_id alone is normalized for a
+    // retained active turn, so use a role assignment mismatch for this BUG-4
+    // acceptance_failed event regression.
     writeFileSync(join(root, '.agentxchain', 'staging', 'turn-result.json'), JSON.stringify({
       schema_version: '1.0',
-      run_id: 'WRONG-RUN-ID',
+      run_id: state.run_id,
       turn_id: turnId,
-      role: 'dev',
+      role: 'qa',
       runtime_id: 'local-dev',
       status: 'completed',
       summary: 'Invalid result.',

@@ -485,12 +485,40 @@ describe('turn-result-validator', () => {
   // ─── Stage B: Assignment Validation ────────────────────────────────────
 
   describe('Stage B: assignment validation', () => {
-    it('rejects run_id mismatch', () => {
+    it('normalizes stale run_id when turn_id matches the active turn', () => {
       writeStagedResult(makeValidTurnResult({ run_id: 'run_WRONG' }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, true);
+      assert.equal(res.turnResult.run_id, 'run_01H');
+      assert.ok(res.normalizations.some(e => e.includes('run_id: rewritten')));
+      assert.ok(res.normalization_events.some(e => e.field === 'run_id' && e.rationale === 'run_id_rewritten_from_active_turn_context'));
+    });
+
+    it('rejects run_id mismatch when turn_id does not identify the active turn', () => {
+      writeStagedResult(makeValidTurnResult({ run_id: 'run_WRONG', turn_id: 'turn-9999' }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, false);
       assert.equal(res.stage, 'assignment');
       assert.equal(res.error_class, 'assignment_error');
+      assert.ok(res.errors.some(e => e.includes('run_id mismatch')));
+      assert.ok(res.errors.some(e => e.includes('turn_id mismatch')));
+    });
+
+    it('does not normalize run_id when active turn run identity disagrees with state', () => {
+      const state = makeState({
+        current_turn: {
+          turn_id: 'turn-0004',
+          assigned_role: 'dev',
+          status: 'running',
+          attempt: 1,
+          runtime_id: 'local-dev',
+          run_id: 'run_OTHER',
+        },
+      });
+      writeStagedResult(makeValidTurnResult({ run_id: 'run_WRONG' }));
+      const res = validateStagedTurnResult(TMP_ROOT, state, makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'assignment');
       assert.ok(res.errors.some(e => e.includes('run_id mismatch')));
     });
 

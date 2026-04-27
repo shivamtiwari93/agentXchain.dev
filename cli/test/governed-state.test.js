@@ -1039,6 +1039,7 @@ describe('acceptGovernedTurn', () => {
     const assignResult = assignGovernedTurn(dir, config, 'qa');
     const turnResult = makeTurnResult(assignResult.state);
     turnResult.run_id = 'run_wrong';
+    turnResult.turn_id = 'turn_wrong_assignment';
     writeFileSync(join(dir, STAGING_PATH), JSON.stringify(turnResult, null, 2));
 
     const result = acceptGovernedTurn(dir, config);

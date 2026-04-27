@@ -489,7 +489,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('### Field Rules');
   lines.push('');
   lines.push('- `schema_version`: always `"1.0"`');
-  lines.push('- `run_id`, `turn_id`, `role`, `runtime_id`: must match the values above exactly');
+  lines.push('- `run_id`, `turn_id`, `role`, `runtime_id`: must match the current assignment values above exactly. Do NOT copy `run_id` from old reports, history entries, previous dispatch bundles, or retained staging JSON.');
   lines.push('- `status`: one of `completed`, `blocked`, `needs_human`, `failed`. Do NOT use `complete`, `success`, `done`, or any other synonym — use the exact enum value `completed`.');
   lines.push('- `decisions`: REQUIRED array. Use `[]` when no new decisions were made; do not omit the field.');
   lines.push('- `objections`: REQUIRED array. Use `[]` when no objections are raised; review_only roles must include at least one objection.');

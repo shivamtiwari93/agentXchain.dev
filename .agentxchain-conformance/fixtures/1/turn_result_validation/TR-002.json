@@ -2,8 +2,8 @@
   "fixture_id": "TR-002",
   "tier": 1,
   "surface": "turn_result_validation",
-  "description": "Missing required field (run_id) rejected at schema stage",
-  "type": "reject",
+  "description": "Missing run_id is normalized from active assignment context when turn_id matches",
+  "type": "accept",
   "setup": {
     "state": {
       "status": "active",
@@ -53,9 +53,13 @@
     }
   },
   "expected": {
-    "result": "error",
-    "failed_stage": "schema",
-    "error_type": "missing_required_field",
-    "error_field": "run_id"
+    "result": "success",
+    "stages_passed": [
+      "schema",
+      "assignment",
+      "artifact",
+      "verification",
+      "protocol"
+    ]
   }
 }

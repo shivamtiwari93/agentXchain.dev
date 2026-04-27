@@ -9,7 +9,7 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: **🚨🚨🚨 STOP ALL FEATURE WORK. DOGFOOD-100-TURNS-CLEAN-FULL-AUTO IS THE ONLY PRIORITY. 🚨🚨🚨** Agents must use the shipped agentxchain CLI framework ONLY to drive tusq.dev development for at least **100 consecutive full-auto turns** without human intervention, manual staging-JSON edits, jq recovery surgery, or operator-side workarounds. Every issue discovered during dogfood must follow the six-step loop: discovered through dogfood failure, triaged into a BUG entry, fixed in the substrate, shipped as a patch release, reverified by resuming the dogfood state on the shipped package, and closed. **Currently open dogfood-discovery bugs: BUG-95 and BUG-96** are active substrate blockers; **BUG-77 and BUG-78** await natural reverification. **BUG-91, BUG-92, BUG-93, and BUG-94 are closed on agentxchain.155.48 with tusq.dev reverify evidence.** The v2.155.48 shipped-package run created continuous session cont-76603154, so strict DOGFOOD-100 counting reset and recorded counter values 1-13 before graceful operator stop; a future formal proof must start a new strict counter unless the operator changes the criterion. Until final 100-turn evidence exists, do NOT pick up watch-mode extensions, conformant-runner examples, comparison-page work, connector adoption proofs, website polish, or release-process improvements unrelated to dogfood-discovered bugs. This is the substrate-credibility gate for the whole project. If the framework cannot drive its own beta tester product through 100 clean turns, none of the other adoption surfaces matter. **Prior queue closures remain archived in .planning/HUMAN-ROADMAP-ARCHIVE.md.**
+Current focus: **🚨🚨🚨 STOP ALL FEATURE WORK. DOGFOOD-100-TURNS-CLEAN-FULL-AUTO IS THE ONLY PRIORITY. 🚨🚨🚨** Agents must use the shipped agentxchain CLI framework ONLY to drive tusq.dev development for at least **100 consecutive full-auto turns** without human intervention, manual staging-JSON edits, jq recovery surgery, or operator-side workarounds. Every issue discovered during dogfood must follow the six-step loop: discovered through dogfood failure, triaged into a BUG entry, fixed in the substrate, shipped as a patch release, reverified by resuming the dogfood state on the shipped package, and closed. **Currently open dogfood-discovery bugs: BUG-95, BUG-96, and BUG-97** are active substrate blockers; **BUG-77 and BUG-78** await natural reverification. **BUG-91, BUG-92, BUG-93, and BUG-94 are closed on agentxchain.155.48 with tusq.dev reverify evidence.** The v2.155.48 shipped-package run created continuous session cont-76603154, so strict DOGFOOD-100 counting reset and recorded counter values 1-13 before graceful operator stop; a future formal proof must start a new strict counter unless the operator changes the criterion. Until final 100-turn evidence exists, do NOT pick up watch-mode extensions, conformant-runner examples, comparison-page work, connector adoption proofs, website polish, or release-process improvements unrelated to dogfood-discovered bugs. This is the substrate-credibility gate for the whole project. If the framework cannot drive its own beta tester product through 100 clean turns, none of the other adoption surfaces matter. **Prior queue closures remain archived in .planning/HUMAN-ROADMAP-ARCHIVE.md.**
 
 ## Tester messages — 2026-04-26 verbatim
 
@@ -752,6 +752,27 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   4. Existing BUG-95 regression still passes.
   5. Published package resumes the retained tusq.dev turn without manual `accept-turn`, staging edits, gate mutation, or cross-repo workaround.
   6. Same-run evidence exists under `.planning/dogfood-100-turn-evidence/bug-96-reverify-vX.Y.Z.md`; if the same acceptance also proves BUG-95 closure, update BUG-95 closure in the same pass.
+
+- [ ] **🚨 BUG-97: same retained dev turn from BUG-95/BUG-96 carries a stale `run_id` from an earlier governed run, causing assignment validation to fail after v2.155.50 clears the schema barriers.** Discovered 2026-04-27 on the real `tusq.dev` DOGFOOD-100 retry using shipped `agentxchain@2.155.50`. Active state has run `run_d309bfeea0f99431` and retained turn `turn_48fcfc7526b370ab`, but staged result `.agentxchain/staging/turn_48fcfc7526b370ab/turn-result.json` has `run_id: "run_24ccd92f593d8647"` while `turn_id` still matches the active turn. Observed error: `acceptTurn(dev): Validation failed at stage assignment: run_id mismatch: turn result has "run_24ccd92f593d8647", state has "run_d309bfeea0f99431".`
+
+  **Why this is a framework bug:** the retained staged result is turn-scoped and its `turn_id` matches the active retained turn. In this state, `run_id` is an identity echo from a previous run context, while `.agentxchain/state.json` is the authoritative current run identity. Requiring manual JSON surgery to rewrite `run_id` violates DOGFOOD-100 recovery discipline. This is only safely recoverable when the staged `turn_id` matches the active turn and the state/current-turn run identity is internally coherent; a mismatched or missing `turn_id` must remain fail-closed because the framework cannot prove ownership.
+
+  **Fix required:**
+  1. Extend staged-result normalization context with authoritative `state.run_id`, active `turn_id`, and active-turn `run_id` when present.
+  2. Before schema/assignment validation, rewrite missing or mismatched top-level `run_id` from `state.run_id` only when `turn_id` matches the active turn and active-turn `run_id` is absent or equal to `state.run_id`.
+  3. Do **not** normalize `run_id` when staged `turn_id` is missing, mismatched, or active-turn state disagrees with `state.run_id`; those remain assignment/schema failures.
+  4. Emit `staged_result_auto_normalized` with field `run_id` and rationale `run_id_rewritten_from_active_turn_context`.
+  5. Harden dispatch-bundle prompt rules so agents do not copy `run_id` from prior reports, history, or stale staging files.
+  6. Update `.planning/STAGED_RESULT_INVARIANT_AUDIT.md` with the normalizer rule and fail-fast boundary.
+
+  **Closure criteria:**
+  1. Spec exists at `.planning/BUG_97_RUN_ID_ASSIGNMENT_NORMALIZATION_SPEC.md`.
+  2. Unit regression proves `run_id` drift is normalized when `turn_id` matches the active turn.
+  3. Unit regression proves `run_id` drift remains rejected when `turn_id` does not match the active turn.
+  4. Command-chain regression exists at `cli/test/beta-tester-scenarios/bug-97-run-id-assignment-normalization.test.js`.
+  5. Existing BUG-95 and BUG-96 regressions still pass.
+  6. Published package resumes the retained tusq.dev turn without manual `accept-turn`, staging edits, gate mutation, or cross-repo workaround, and acceptance proceeds past the `run_id` mismatch.
+  7. Same-run evidence exists under `.planning/dogfood-100-turn-evidence/bug-97-reverify-vX.Y.Z.md`; if the same acceptance also proves BUG-95/BUG-96 closure, update those closure entries in the same pass.
 
 ---
 
