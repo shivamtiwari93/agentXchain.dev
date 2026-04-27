@@ -1,0 +1,44 @@
+---
+sidebar_position: 0
+title: "v2.155.52 Release Notes"
+---
+
+# AgentXchain v2.155.52
+
+`v2.155.52` fixes BUG-98: retained QA turns in `implementation` that request a later valid phase such as `launch` now normalize to the configured immediate next phase `qa`. This closes the next DOGFOOD-100 recovery blocker discovered while resuming tusq.dev on the shipped package.
+
+## Bug Fixes
+
+- **BUG-98: normalize skip-forward phase requests.** Completed non-terminal authoritative turns that request a later valid phase now rewrite `phase_transition_request` to the immediate next phase.
+- **Routing-safe role alignment.** When a stale `proposed_next_role` equals the skipped phase or is routing-illegal, AgentXchain aligns it to the corrected phase entry role only when that role is allowed from the current phase.
+- **Fail-closed boundary.** Unknown, backward, same-phase, final-phase, and review-only skip-forward requests still fail protocol validation unless covered by the older gate-name correction path.
+- **Prompt hardening.** Dispatch prompts now explicitly tell agents not to skip ahead to later phases.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7292 tests / 1476 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.52 -c "agentxchain --version"`
+
+For BUG-98: resume the retained tusq.dev QA failed-acceptance turn on the shipped package. The acceptance pipeline must auto-normalize `phase_transition_request: "launch"` to `qa`, align stale `proposed_next_role` only when routing-safe, then continue through protocol validation without operator-side `accept-turn`, `unblock`, or staging JSON edits.
+
+For BUG-97 carry-forward: retained active-turn `run_id` drift must still auto-normalize only when the staged `turn_id` proves active-turn ownership.
+
+For BUG-96 carry-forward: decision entries that include existing decision text but omit `rationale` must still auto-normalize before schema validation.
+
+For BUG-95 carry-forward: staged results that use `files_modified` instead of `files_changed` and omit `runtime_id`, `summary`, `artifact`, and `proposed_next_role` must still auto-normalize before schema validation.
+
+For review-only carry-forward: a `review_only` role with missing or empty `objections` must still fail protocol challenge enforcement.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

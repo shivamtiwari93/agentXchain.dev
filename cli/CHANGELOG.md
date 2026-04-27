@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.52
+
+- **BUG-98: normalize skip-forward phase-transition requests to the immediate next phase.** Retained QA turns in `implementation` that complete useful work but request a later valid phase such as `launch` now auto-normalize `phase_transition_request` to the configured immediate next phase `qa`.
+- When the stale `proposed_next_role` equals the skipped phase or is routing-illegal, AgentXchain aligns it to the corrected phase entry role only when that role is allowed from the current phase.
+- The normalizer remains fail-closed for unknown, backward, same-phase, final-phase, and review-only skip-forward requests so custom review gates are not silently bypassed.
+- Dispatch prompts now explicitly warn agents not to skip ahead to later phases.
+
+- npm test -- --test-timeout=60000 -> 7292 tests / 1476 suites / 0 failures / 5 skipped
+
 ## 2.155.51
 
 - **BUG-97: normalize retained-turn `run_id` drift from active assignment context.** Failed-acceptance reacceptance now rewrites a stale or missing top-level `run_id` from the current state only when the staged `turn_id` matches the active retained turn.
