@@ -1018,6 +1018,138 @@ export function normalizeTurnResult(tr, config, context = {}) {
   const hasExplicitNoEditLifecycleSignal = normalized.run_completion_request === true
     || (typeof normalized.phase_transition_request === 'string' && normalized.phase_transition_request.trim().length > 0);
 
+  // ── BUG-90: normalize status synonyms ────────────────────────────────
+  const STATUS_SYNONYMS = { complete: 'completed', success: 'completed', done: 'completed', error: 'failed', failure: 'failed' };
+  if (typeof normalized.status === 'string' && !VALID_STATUSES.includes(normalized.status)) {
+    const mapped = STATUS_SYNONYMS[normalized.status.toLowerCase()];
+    if (mapped) {
+      corrections.push(`status: rewritten "${normalized.status}" → "${mapped}"`);
+      normalizationEvents.push({
+        field: 'status',
+        original_value: normalized.status,
+        normalized_value: mapped,
+        rationale: 'status_synonym_rewritten',
+      });
+      normalized.status = mapped;
+    }
+  }
+
+  // ── BUG-90: normalize files_changed objects to path strings ──────────
+  if (Array.isArray(normalized.files_changed)) {
+    let filesCoerced = false;
+    normalized.files_changed = normalized.files_changed.map((item, i) => {
+      if (typeof item === 'string') return item;
+      if (item !== null && typeof item === 'object' && typeof item.path === 'string') {
+        filesCoerced = true;
+        return item.path;
+      }
+      return item; // let validator catch
+    });
+    if (filesCoerced) {
+      corrections.push('files_changed: coerced object entries to path strings');
+      normalizationEvents.push({
+        field: 'files_changed',
+        original_value: '(object entries)',
+        normalized_value: '(path strings)',
+        rationale: 'files_changed_object_to_string',
+      });
+    }
+  }
+
+  // ── BUG-90: normalize decisions ─────────────────────────────────────
+  if (Array.isArray(normalized.decisions)) {
+    normalized.decisions = normalized.decisions.map((dec, index) => {
+      if (dec === null || typeof dec !== 'object' || Array.isArray(dec)) return dec;
+      let patched = dec;
+
+      // Normalize id: "D1" / "D2" / arbitrary → "DEC-001" / "DEC-002"
+      const validDecIdPattern = /^DEC-\d+$/;
+      const currentDecId = typeof patched.id === 'string' ? patched.id : '';
+      if (!validDecIdPattern.test(currentDecId)) {
+        const normalizedDecId = `DEC-${String(index + 1).padStart(3, '0')}`;
+        corrections.push(`decisions[${index}].id: rewritten "${currentDecId || '(missing)'}" → ${normalizedDecId}`);
+        normalizationEvents.push({
+          field: `decisions[${index}].id`,
+          original_value: patched.id ?? null,
+          normalized_value: normalizedDecId,
+          rationale: 'invalid_decision_id_rewritten',
+        });
+        patched = { ...patched, id: normalizedDecId };
+      }
+
+      // Normalize missing statement from decision/description field
+      const stmt = typeof patched.statement === 'string' ? patched.statement.trim() : '';
+      if (!stmt) {
+        const alt = typeof patched.decision === 'string' ? patched.decision.trim()
+          : typeof patched.description === 'string' ? patched.description.trim() : '';
+        if (alt) {
+          const srcField = typeof patched.decision === 'string' && patched.decision.trim() ? 'decision' : 'description';
+          corrections.push(`decisions[${index}].statement: copied from ${srcField}`);
+          normalizationEvents.push({
+            field: `decisions[${index}].statement`,
+            original_value: patched.statement ?? null,
+            normalized_value: alt,
+            rationale: `copied_from_${srcField}`,
+          });
+          patched = { ...patched, statement: alt };
+        }
+      }
+
+      // Default missing category to 'implementation'
+      if (!patched.category || !VALID_CATEGORIES.includes(patched.category)) {
+        const defaultCat = 'implementation';
+        corrections.push(`decisions[${index}].category: defaulted to "${defaultCat}"`);
+        normalizationEvents.push({
+          field: `decisions[${index}].category`,
+          original_value: patched.category ?? null,
+          normalized_value: defaultCat,
+          rationale: 'missing_category_defaulted',
+        });
+        patched = { ...patched, category: defaultCat };
+      }
+
+      return patched;
+    });
+  }
+
+  // ── BUG-90: normalize missing verification.status ───────────────────
+  if (
+    normalized.verification
+    && typeof normalized.verification === 'object'
+    && !Array.isArray(normalized.verification)
+    && !('status' in normalized.verification)
+  ) {
+    const exitCode = normalized.verification.exit_code;
+    const inferredStatus = exitCode === 0 ? 'pass' : typeof exitCode === 'number' ? 'fail' : 'skipped';
+    corrections.push(`verification.status: inferred "${inferredStatus}" from exit_code=${exitCode}`);
+    normalizationEvents.push({
+      field: 'verification.status',
+      original_value: null,
+      normalized_value: inferredStatus,
+      rationale: 'verification_status_inferred_from_exit_code',
+    });
+    normalized.verification = { ...normalized.verification, status: inferredStatus };
+  }
+
+  // ── BUG-90: normalize missing artifact.type ─────────────────────────
+  if (
+    normalized.artifact
+    && typeof normalized.artifact === 'object'
+    && !Array.isArray(normalized.artifact)
+    && !('type' in normalized.artifact)
+  ) {
+    const hasFiles = Array.isArray(normalized.files_changed) && normalized.files_changed.length > 0;
+    const inferredType = hasFiles ? 'workspace' : 'review';
+    corrections.push(`artifact.type: inferred "${inferredType}" from files_changed`);
+    normalizationEvents.push({
+      field: 'artifact.type',
+      original_value: null,
+      normalized_value: inferredType,
+      rationale: 'artifact_type_inferred_from_files_changed',
+    });
+    normalized.artifact = { ...normalized.artifact, type: inferredType };
+  }
+
   // ── Rule 0a: empty workspace artifact → no-edit review normalization ──
   if (
     normalized.artifact

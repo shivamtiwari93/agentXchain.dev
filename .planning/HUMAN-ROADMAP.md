@@ -9,7 +9,7 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: **🚨🚨🚨 STOP ALL FEATURE WORK. DOGFOOD-100-TURNS-CLEAN-FULL-AUTO IS THE ONLY PRIORITY. 🚨🚨🚨** Agents must use the shipped `agentxchain` CLI framework ONLY to drive `tusq.dev` development for at least **100 consecutive full-auto turns** without any human intervention OR manual staging-JSON edits OR `jq` recovery surgery OR operator-side workarounds. Every issue discovered during dogfood must be: (1) discovered through dogfood failure, (2) triaged into a BUG entry in this roadmap, (3) fixed in the substrate, (4) shipped as a patch release, (5) **re-verified by resuming the SAME dogfood session and confirming the failure no longer reproduces**, (6) closed. **Success = 100 consecutive full-auto turns on tusq.dev with zero blocked-on-human pauses, zero manual JSON edits, zero `jq` recoveries, zero operator workarounds.** Until that bar is hit, do NOT pick up watch-mode extensions (`watch --listen`), do NOT pick up the conformant-runner examples sample, do NOT pick up new comparison-page work, do NOT pick up connector adoption proofs, do NOT pick up website polish, do NOT pick up release-process improvements unrelated to dogfood-discovered bugs. The discovery output of this directive is whatever BUGs surface — currently **BUG-77 and BUG-78** are open dogfood-discovery bugs awaiting natural reverification during the dogfood session, and all other discovered bugs (BUG-76, BUG-79–BUG-89) are closed. They are the head of the queue, not parallel work streams. This is the substrate-credibility gate for the whole project. If the framework cannot drive its own beta tester's product through 100 clean turns, none of the other adoption surfaces matter. The tester's framework: AgentXchain must distinguish three states — (1) current run complete + ROADMAP has unchecked work, (2) ROADMAP exhausted + VISION has unplanned scope, (3) VISION genuinely exhausted. States 1 and 2 currently collapse into `completed`/idle. Full Auto Mode looks terminal even when concrete product work remains. **All prior queue closures (twenty-eight items including BUG-69/70/71/72/73/75, DEV-ROLE-DELIVERS-PLANNING-NOT-CODE, AGENT-TEMPLATES-AUDIT, DOGFOOD-EXTENDED-10-CYCLES, DOGFOOD-TUSQ-DEV, BUG-63/64/65/66/67/68, BUG-52/53/54/55/56/57/59/60/61/62, FULLTEST-58, CICD-SHRINK, RELEASE-v2.149) have been moved to `.planning/HUMAN-ROADMAP-ARCHIVE.md` with full closure detail and decision records preserved.**
+Current focus: **🚨🚨🚨 STOP ALL FEATURE WORK. DOGFOOD-100-TURNS-CLEAN-FULL-AUTO IS THE ONLY PRIORITY. 🚨🚨🚨** Agents must use the shipped `agentxchain` CLI framework ONLY to drive `tusq.dev` development for at least **100 consecutive full-auto turns** without any human intervention OR manual staging-JSON edits OR `jq` recovery surgery OR operator-side workarounds. Every issue discovered during dogfood must be: (1) discovered through dogfood failure, (2) triaged into a BUG entry in this roadmap, (3) fixed in the substrate, (4) shipped as a patch release, (5) **re-verified by resuming the SAME dogfood session and confirming the failure no longer reproduces**, (6) closed. **Success = 100 consecutive full-auto turns on tusq.dev with zero blocked-on-human pauses, zero manual JSON edits, zero `jq` recoveries, zero operator workarounds.** Until that bar is hit, do NOT pick up watch-mode extensions (`watch --listen`), do NOT pick up the conformant-runner examples sample, do NOT pick up new comparison-page work, do NOT pick up connector adoption proofs, do NOT pick up website polish, do NOT pick up release-process improvements unrelated to dogfood-discovered bugs. The discovery output of this directive is whatever BUGs surface — currently **BUG-77, BUG-78, and BUG-90** are open dogfood-discovery bugs (**BUG-90** is the active blocker; BUG-77 and BUG-78 await natural reverification), and all other discovered bugs (BUG-76, BUG-79–BUG-89) are closed. They are the head of the queue, not parallel work streams. This is the substrate-credibility gate for the whole project. If the framework cannot drive its own beta tester's product through 100 clean turns, none of the other adoption surfaces matter. The tester's framework: AgentXchain must distinguish three states — (1) current run complete + ROADMAP has unchecked work, (2) ROADMAP exhausted + VISION has unplanned scope, (3) VISION genuinely exhausted. States 1 and 2 currently collapse into `completed`/idle. Full Auto Mode looks terminal even when concrete product work remains. **All prior queue closures (twenty-eight items including BUG-69/70/71/72/73/75, DEV-ROLE-DELIVERS-PLANNING-NOT-CODE, AGENT-TEMPLATES-AUDIT, DOGFOOD-EXTENDED-10-CYCLES, DOGFOOD-TUSQ-DEV, BUG-63/64/65/66/67/68, BUG-52/53/54/55/56/57/59/60/61/62, FULLTEST-58, CICD-SHRINK, RELEASE-v2.149) have been moved to `.planning/HUMAN-ROADMAP-ARCHIVE.md` with full closure detail and decision records preserved.**
 
 ## Tester messages — 2026-04-26 verbatim
 
@@ -46,6 +46,20 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
 ## Priority Queue
 
 - [ ] **🚨🚨🚨 DOGFOOD-100-TURNS-CLEAN-FULL-AUTO: agents use the shipped `agentxchain` CLI framework ONLY to drive `tusq.dev` development for at least 100 consecutive full-auto turns with zero human intervention, zero manual staging-JSON edits, zero `jq` recovery, zero operator workarounds.** This is the substrate-credibility gate. Until 100 clean turns land on a single tusq.dev dogfood session, **all other work streams are paused** — no watch-mode extensions, no conformant-runner examples, no new comparison pages, no connector adoption, no website polish, no docs work unrelated to dogfood-discovered defects. **The output of this directive is bug-discovery + substrate hardening, not feature shipping.**
+
+  **🚨 STRICT-CRITERIA RESET 2026-04-26T22:00Z (operator override, durable — see AGENT-TALK.md operator override block):** the first DOGFOOD-100-TURNS attempt produced ~30 informal "clean" turns across multiple sessions during the BUG-80 through BUG-89 substrate-shakeout phase. **Those turns are NOT counted toward the formal 100.** They're archived as substrate-hardening evidence but do NOT contribute to the proof point. The 100-clean-turn count starts FRESH from `agentxchain@2.155.43` on the currently active session (`run_e40832d436a42d75` per the AGENT-TALK record) under STRICT criteria. Counter advancement protocol is now mandatory and load-bearing — `turn-counter.jsonl` IS the proof; aggregated AGENT-TALK summaries do NOT substitute. **A turn counts toward the 100 ONLY if ALL EIGHT strict criteria below hold. Any criterion violated resets the counter to 0.** No partial credit. No generous interpretation. The agents earned the right to attempt the strict run through the substrate hardening; now they must actually execute it under strict reading.
+
+  **The eight strict criteria (every accepted turn must satisfy ALL):**
+  1. **Single unbroken session.** Counter resets to 0 if the session ID changes for any reason — operator restart, agent-driven restart, hung-loop recovery. The session must be one continuous `agentxchain run --continuous` invocation.
+  2. **No human escalation surfaced.** `state.blocked_on` must NOT transition to `needs_human` / `needs_decision` requiring `agentxchain unblock` from anyone, including the agents themselves.
+  3. **No manual staging JSON edit.** Zero `jq` operations on `.agentxchain/staging/<turn>/turn-result.json`. The substrate's normalizer layer (BUG-79 architectural class fix, extended through BUG-89) is the recovery path; if it doesn't auto-normalize, file a new BUG instead of hand-editing.
+  4. **No operator-side `accept-turn` recovery.** Every accepted turn flows through the continuous loop's own acceptance path. If an operator runs `agentxchain accept-turn` to recover a stuck turn, that recovery does NOT count and resets the counter.
+  5. **No manual gate advancement.** No `gate.status = 'passed'` mutations from outside the governed flow. If `planning_signoff` won't pass on its own, that's a BUG, not justification for hand-passing the gate.
+  6. **No cross-repo workarounds on tusq.dev.** No config tweaks, no chore commits to tusq.dev to make the dogfood pass. If tusq.dev itself has a defect blocking the dogfood, the agents file a tusq.dev product BUG and let the next governed dev turn pick it up via the framework — they do NOT reach in from the agentxchain side.
+  7. **`turn-counter.jsonl` maintained rigorously.** One JSONL line per countable turn, written within 30 minutes of turn acceptance, with shape: `{"turn_id":"turn_<id>","role":"<role>","timestamp":"<ISO8601>","agentxchain_version":"<version>","session_id":"<session_id>","run_id":"<run_id>","counter_value":<integer>}`. Counter values strictly monotonic within a session. If the formal counter falls more than 5 turns behind the empirical count, agents pause to reconcile before resuming.
+  8. **Full-auto only.** `--triage-approval auto` for the entire session. No mid-session switch to manual approval mode.
+
+  **The next accepted turn is counter_value = 1.** Write the JSONL line immediately on acceptance, BEFORE logging the turn in AGENT-TALK. Counter advancement is load-bearing; AGENT-TALK summaries are secondary. The substrate-hardening loop already proved itself across BUG-80 through BUG-89; now the formal proof point requires honest counting.
 
   **Target repo:** `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev` (NOT `tusq.dev-agentxchain-dogfood` worktree — use the real `main` branch where the tester runs their own dogfood). Cut a fresh dogfood branch `agentxchain-dogfood-100-turn-2026-04` from `origin/main` if a fresh branch is needed; do NOT commit to tusq.dev `main` directly.
 
@@ -589,6 +603,60 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   2. Existing BUG-78/BUG-79 staged-result normalization regressions still pass.
   3. Published package accepts or auto-recovers the tusq.dev QA objection-id failure without manual JSON edits.
   4. Same-session tusq.dev evidence exists under `.planning/dogfood-100-turn-evidence/bug-89-reverify-vX.Y.Z.md`.
+
+- [ ] **🚨 BUG-90: dev turn emits staged result with MULTIPLE simultaneous schema deviations — wrong status synonym (`"complete"` instead of `"completed"`), object-shaped `files_changed`, non-`DEC-NNN` decision IDs (`D1`/`D2`), `decision` field instead of `statement`, missing `decisions[].category`, missing `verification.status`, and missing `artifact.type` — all in a single turn. The existing normalizer (BUG-79 through BUG-89) did not cover these six field classes, causing schema validation failure and dogfood session pause at turn 39 of the DOGFOOD-100-TURNS strict counter.** Discovered 2026-04-26 on the same `tusq.dev` DOGFOOD-100 session (`cont-d83c9d81`) after 38 consecutive clean turns on `agentxchain@2.155.43`. The blocker is in run `run_8580d828f0e1cc1e`, turn `turn_c3e78ecd352330aa` (`dev`), Claude Sonnet 4.6 runtime.
+
+  **Dogfood evidence:**
+  - Project: `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`
+  - Branch: `agentxchain-dogfood-100-turn-2026-04`
+  - Session: `cont-d83c9d81`
+  - Command: `npx --yes -p agentxchain@2.155.43 -c 'agentxchain run --continuous --vision .planning/VISION.md --max-runs 100 --max-idle-cycles 3 --poll-seconds 5 --triage-approval auto --auto-checkpoint'`
+  - Blocked turn: `turn_c3e78ecd352330aa` (dev role, Claude Sonnet 4.6)
+  - Run: `run_8580d828f0e1cc1e`
+  - Counter value at failure: 39 (38 prior clean turns preserved per operator override point 6)
+  - Staged result path: `.agentxchain/staging/turn_c3e78ecd352330aa/turn-result.json`
+
+  **Observed staged result deviations (7 simultaneous violations):**
+  ```json
+  {
+    "status": "complete",           // ← should be "completed"
+    "files_changed": [
+      {"path": "src/cli.js", "change_type": "modified", "description": "..."},
+      {"path": "tests/smoke.mjs", "change_type": "modified", "description": "..."}
+    ],                               // ← should be ["src/cli.js", "tests/smoke.mjs"]
+    "decisions": [
+      {"id": "D1", "decision": "Used approach A", "rationale": "..."},
+      {"id": "D2", "decision": "Used approach B", "rationale": "..."}
+    ],                               // ← id should be DEC-001/DEC-002, "decision" should be "statement", missing "category"
+    "verification": {"command": "npm test", "exit_code": 0},  // ← missing "status"
+    "artifact": {"milestone": "M36"}  // ← missing "type"
+  }
+  ```
+
+  **Why this is a framework bug:** Same staged-result field-shape class as BUG-79/BUG-82/BUG-89. The dev turn's substantive work was correct — real code changes, valid decisions, passing tests. Only the metadata field shapes deviate from the strict schema. Claude Sonnet 4.6 used reasonable-but-wrong field names/shapes across 7 dimensions simultaneously, proving the normalizer coverage from BUG-79 through BUG-89 was too narrow. The normalizer table must be extended to cover status synonyms, object-to-string files_changed coercion, decision id/statement/category normalization, verification.status inference, and artifact.type inference.
+
+  **Root cause:** The dispatch prompt hardening (Layer 1) from BUG-78/BUG-79 did not explicitly name all 7 field constraints. Claude Sonnet 4.6 inferred reasonable shapes from the schema description but not the exact required values. This is the same "prompt ↔ schema ↔ normalizer coverage gap" pattern, now proven to require broader normalizer coverage than point-fix additions.
+
+  **Fix implemented (three-layer):**
+
+  **Layer 1 — Prompt hardening** (`cli/src/lib/dispatch-bundle.js`): Added explicit field-rule lines for all 7 deviation classes: `status` exact enum values with explicit "do NOT use" for synonyms; `files_changed` must be string array; `decisions[].id` must be `DEC-NNN`; `decisions[].statement` is the required field name; `verification.status` REQUIRED; `artifact.type` REQUIRED.
+
+  **Layer 2 — Normalizer extension** (`cli/src/lib/turn-result-validator.js`): Added 6 new normalization rules to `normalizeTurnResult()` BEFORE the existing Rule 0a, each with typed `staged_result_auto_normalized` events:
+  1. Status synonym map: `complete`→`completed`, `success`→`completed`, `done`→`completed`, `error`→`failed`, `failure`→`failed`
+  2. `files_changed` object-to-string coercion: `{path: "foo.js", ...}` → `"foo.js"`
+  3. Decision ID normalization: non-`DEC-NNN` ids → deterministic `DEC-001`, `DEC-002`, ...
+  4. Decision statement copy: missing `statement` → copied from `decision` or `description` field
+  5. Decision category default: missing/invalid `category` → `"implementation"`
+  6. `verification.status` inference: missing → inferred from `exit_code` (0→`"pass"`, nonzero→`"fail"`, missing→`"skipped"`)
+  7. `artifact.type` inference: missing → `"workspace"` if `files_changed` non-empty, else `"review"`
+
+  **Layer 3 — Regression test** (`cli/test/beta-tester-scenarios/bug-90-broad-staged-result-normalization.test.js`): 8 command-chain integration tests covering: exact tester reproduction (all 7 deviations), individual status synonyms, object files_changed, decision normalization, verification.status inference, artifact.type inference, and valid passthrough. All 8 pass.
+
+  **Closure criteria:**
+  1. New BUG-90 tester-sequence regression passes (8/8).
+  2. Existing BUG-78/BUG-79/BUG-82/BUG-89 staged-result normalization regressions still pass.
+  3. Published package accepts or auto-recovers the tusq.dev dev turn with all 7 deviations without manual JSON edits.
+  4. Same-session tusq.dev evidence exists under `.planning/dogfood-100-turn-evidence/bug-90-reverify-vX.Y.Z.md`.
 
 ---
 

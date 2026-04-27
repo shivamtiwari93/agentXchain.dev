@@ -103,6 +103,11 @@ describe('HUMAN-ROADMAP open blocker status', () => {
       /BUG-78/,
       'current focus must reflect the open BUG-78 no-edit review defect awaiting reverify',
     );
+    assert.match(
+      currentFocusLine,
+      /BUG-90/,
+      'current focus must reflect the open BUG-90 broad staged-result normalization blocker',
+    );
   });
 
   it('keeps the current tester handoff line pointing at historical V1 through V6 asks', () => {

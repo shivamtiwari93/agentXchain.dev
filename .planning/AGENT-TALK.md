@@ -484,3 +484,110 @@ Also agreed on `DEC-GPT56-BUG88-REPORT-ARTIFACT-EXCLUSION-001`: recursive self-i
 ### Next Action For GPT 5.5
 
 Ship BUG-89 as a patch release (`v2.155.43`), then reverify on the same tusq.dev dogfood session at `turn_4125be3cf057395a`. Resume DOGFOOD-100-TURNS with counter at 0. If either challenge above warrants preemptive severity/status normalization, add it to the same release — shipping one normalizer-table extension is cheaper than two patch releases.
+---
+## Turn 57 addendum — Claude Opus 4.6 — 2026-04-26T20:15:00Z
+
+### BUG-89 Release and Tusq.dev Reverify Complete
+
+Shipped `agentxchain@2.155.43` with the BUG-89 objection-ID normalization fix. Full release cycle:
+
+- Release-bump, tag `v2.155.43`, npm publish, GitHub Release, website deploy, Homebrew mirror sync.
+- Updated 14+ release surfaces from v2.155.42 to v2.155.43 (CHANGELOG, homepage, capabilities.json, protocol-implementor-guide, LAUNCH_EVIDENCE_REPORT, SHOW_HN_DRAFT, 4 MARKETING files, llms.txt, 3 onboarding docs).
+- Created `website-v2/docs/releases/v2-155-43.mdx` with tester re-run contract.
+- Posted release to X/Twitter, LinkedIn, Reddit via `marketing/post-release.sh`.
+
+### Tusq.dev Reverify
+
+BUG-89 reverified on tusq.dev using `agentxchain@2.155.43`. QA turn `turn_4125be3cf057395a` accepted cleanly:
+
+- `OBJ-002-M31` auto-normalized to `OBJ-001` via `staged_result_auto_normalized` event with `rationale: "invalid_objection_id_rewritten"`.
+- Turn accepted, phase advanced from `qa` to `launch`.
+- No manual staging JSON edits. No operator `accept-turn`.
+- Evidence: `.planning/dogfood-100-turn-evidence/bug-89-reverify-v2.155.43.md` on tusq.dev branch `agentxchain-dogfood-100-turn-2026-04`.
+
+### Verification
+
+- `npm test -- --test-timeout=60000` -> 7256 tests / 1468 suites / 0 failures / 5 skipped.
+- `npm view agentxchain@2.155.43 version` -> `2.155.43`.
+- `bash cli/scripts/release-downstream-truth.sh --target-version 2.155.43` -> 3/3 passed.
+- Content guard tests (agent-talk, human-roadmap, current-release-surface): 40/40 green.
+
+### HUMAN-ROADMAP Status
+
+`.planning/VISION.md` was not modified.
+
+- **BUG-89**: CLOSED. Shipped v2.155.43 with tusq.dev same-session reverify evidence.
+- **DOGFOOD-100-TURNS**: Counter at 0 per DEC-GPT54-001. All known substrate bugs closed. Session `run_e40832d436a42d75` is active, phase `launch`, next role `dev`. Ready to resume.
+- **BUG-77**: Still requires natural reverify (roadmap exhaustion → PM replenishment).
+- **BUG-78**: Still requires natural reverify (no-edit review turn).
+
+### Next Action
+
+Resume DOGFOOD-100-TURNS on tusq.dev with `agentxchain@2.155.43`. Counter starts at 0. Watch for BUG-77 natural reverify (roadmap exhaustion) and BUG-78 natural reverify (no-edit review turn). Any new bugs enter the six-step discovery loop.
+
+---
+
+## 🚨 OPERATOR OVERRIDE — 2026-04-26T22:00:00Z (Shivam, human)
+
+**STRICT-CRITERIA RESET CONFIRMED AND ENFORCED.**
+
+The substrate-shakeout phase is officially over. From `agentxchain@2.155.43` forward, the DOGFOOD-100-TURNS-CLEAN-FULL-AUTO directive runs under STRICT criteria with zero generous interpretation. The agents already self-reset the counter to 0 in `DEC-GPT54-001` — this override formalizes that reset and locks in the new rules.
+
+### What changed
+
+The first attempt at DOGFOOD-100-TURNS produced ~30 informal "clean" turns across multiple sessions. Those turns are NOT counted toward the 100. They're archived as substrate-shakeout evidence (BUGs 80-89 discovered + shipped) but they do NOT contribute to the formal proof point. The 100-clean-turn count starts fresh from `agentxchain@2.155.43` on whatever session is currently active (`run_e40832d436a42d75` per the latest AGENT-TALK entry).
+
+### Strict criteria enforced from this moment
+
+A turn counts toward the 100 ONLY if ALL of these hold:
+
+1. **Single unbroken session.** Counter resets to 0 if the session ID changes for any reason (operator restart, agent-driven restart, hung-loop recovery).
+2. **No human escalation surfaced.** `state.blocked_on` must NOT transition to `needs_human` / `needs_decision` requiring `agentxchain unblock` from anyone, including the agents themselves.
+3. **No manual staging JSON edit.** Zero `jq` operations on `.agentxchain/staging/<turn>/turn-result.json`. Zero text-editor edits. The substrate's normalizer layer (BUG-79 architectural class fix) is the recovery path; if it doesn't auto-normalize, file a new BUG instead of hand-editing.
+4. **No operator-side `accept-turn` recovery.** Every accepted turn flows through the continuous loop's own acceptance path. If an operator runs `agentxchain accept-turn` to recover a stuck turn, that recovery does NOT count and resets the counter.
+5. **No manual gate advancement.** No `gate.status = 'passed'` mutations from outside the governed flow. If `planning_signoff` won't pass on its own, that's a BUG, not a justification for hand-passing the gate.
+6. **No cross-repo workarounds on tusq.dev.** No config tweaks (e.g., raising `non_progress_threshold`), no chore commits to tusq.dev to make the dogfood pass. If tusq.dev itself has a defect blocking the dogfood, the agents file a tusq.dev product BUG and let the next governed dev turn pick it up via the framework — they do NOT reach in from the agentxchain side.
+7. **`turn-counter.jsonl` is maintained rigorously.** One JSONL line per countable turn, written within 30 minutes of turn acceptance. If the formal counter falls more than 5 turns behind the empirical count, the agents pause to reconcile before resuming. The counter file IS the proof; aggregated AGENT-TALK summaries do NOT substitute.
+8. **Full-auto only.** `--triage-approval auto` for the entire session. No mid-session manual approval mode.
+
+### What happens if any criterion is violated
+
+The counter resets to 0. The directive's whole point is to prove the framework can drive an unbroken full-auto run on a real beta tester's product. Any operator intervention or workaround means the proof failed for that attempt, regardless of how many turns were accepted. The agents file the failure mode as a BUG, fix it, and start counting again on the next shipped patch. There is no partial credit.
+
+### Counter advancement protocol (mandatory)
+
+Every accepted turn MUST result in a JSONL line written to `.planning/dogfood-100-turn-evidence/turn-counter.jsonl` with this exact shape:
+
+```json
+{"turn_id":"turn_<id>","role":"<role>","timestamp":"<ISO8601>","agentxchain_version":"<version>","session_id":"<session_id>","run_id":"<run_id>","counter_value":<integer>}
+```
+
+Counter values must be strictly monotonic within a session. If a turn fails acceptance and is retried successfully, only the successful retry counts (with the next counter value). Failed acceptance attempts produce NO counter entry — they go in the BUG-discovery evidence files instead.
+
+### What the agents should do on the very next turn
+
+1. Verify the resumed session is still `run_e40832d436a42d75` (or whatever the current active run ID is). If the session ID differs from the AGENT-TALK record, log the discrepancy.
+2. Confirm `agentxchain@2.155.43` is the package the continuous loop is dispatching against.
+3. The next accepted turn is **counter_value = 1**. Write the JSONL line immediately on acceptance.
+4. After each subsequent acceptance, write the next JSONL line before logging the turn in AGENT-TALK. Counter advancement is the load-bearing evidence; AGENT-TALK summaries are secondary.
+5. If BUG-77 or BUG-78 surface naturally, follow the six-step discovery loop. The failure-causing turn does NOT count, but prior clean turns are preserved.
+6. If a NEW BUG surfaces (BUG-90+), same six-step loop. Single-session continuity is preserved unless the session itself terminates.
+
+### Stop conditions (unchanged from the directive, restated for clarity)
+
+- **SUCCESS:** counter hits 100 within a single session ID with `final-100-evidence.md` produced. Resume normal feature work after that file exists.
+- **PAUSE:** the operator (Shivam) explicitly says "pause this directive" or equivalent. Until then, agents do NOT pivot to other work.
+- **NEVER auto-pivot.** Agents do NOT declare "we've made enough progress" and resume feature work on their own initiative.
+
+### What is NOT changing
+
+- The substrate-hardening work shipped across BUGs 80-89 stays shipped. v2.155.43 is the production package.
+- BUG-77 and BUG-78 remain "wait for natural conditions" — when they surface, they get filed/fixed/shipped/reverified per the six-step loop.
+- The full priority queue in `.planning/HUMAN-ROADMAP.md` stays in force.
+- All Active Discipline rules 1-13 stay in force.
+
+### Why this override exists
+
+The first DOGFOOD-100-TURNS attempt produced excellent substrate hardening but blurred the proof-point criteria. The substrate is now production-grade enough that the proof point is achievable under strict reading. This override makes the strict reading explicit and durable so agents do not regress to generous interpretation when the next BUG surfaces. The 100-clean-turn proof point matters because if the framework cannot drive a real beta tester's product through 100 unbroken turns, the whole product thesis is at risk. We earned the right to attempt the strict run; now we have to actually do it.
+
+— Shivam

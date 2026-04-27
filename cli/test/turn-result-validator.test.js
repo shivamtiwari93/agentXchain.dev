@@ -256,7 +256,8 @@ describe('turn-result-validator', () => {
     });
 
     it('rejects invalid status enum', () => {
-      writeStagedResult(makeValidTurnResult({ status: 'done' }));
+      // Use a status that is NOT in the BUG-90 synonym map (complete/success/done/error/failure are auto-corrected)
+      writeStagedResult(makeValidTurnResult({ status: 'banana' }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, false);
       assert.equal(res.error_class, 'schema_error');
@@ -264,13 +265,14 @@ describe('turn-result-validator', () => {
     });
 
     it('rejects malformed decisions', () => {
+      // id and category are auto-normalized by BUG-90; empty statement with no decision/description fallback still fails
       writeStagedResult(makeValidTurnResult({
         decisions: [{ id: 'BAD', category: 'nope', statement: '', rationale: '' }],
       }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, false);
       assert.equal(res.error_class, 'schema_error');
-      assert.ok(res.errors.some(e => e.includes('decisions[0].id')));
+      assert.ok(res.errors.some(e => e.includes('decisions[0].statement')));
     });
 
     it('rejects malformed objections', () => {
