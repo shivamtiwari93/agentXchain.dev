@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.51
+
+- **BUG-97: normalize retained-turn `run_id` drift from active assignment context.** Failed-acceptance reacceptance now rewrites a stale or missing top-level `run_id` from the current state only when the staged `turn_id` matches the active retained turn.
+- The normalizer remains fail-closed when `turn_id` is missing or mismatched, or when active-turn run identity disagrees with `state.run_id`.
+- Dispatch prompts now explicitly warn agents not to copy `run_id` from old reports, history entries, previous dispatch bundles, or retained staging JSON.
+- Conformance fixtures TR-002/TR-003 now encode the safe active-turn normalization behavior; negative regressions use real ownership mismatches.
+
+- npm test -- --test-timeout=60000 -> 7288 tests / 1475 suites / 0 failures / 5 skipped
+
 ## 2.155.50
 
 - **BUG-96: normalize missing decision rationale from existing decision text.** Failed-acceptance reacceptance now copies missing `decisions[].rationale` from an existing decision `reason`, `why`, `description`, `decision`, or `statement` field before schema validation.

@@ -1,12 +1,12 @@
-# Reddit Posts — AgentXchain v2.155.50
+# Reddit Posts — AgentXchain v2.155.51
 
-> Ready-to-post content for Reddit for the `v2.155.50` release. Updated 2026-04-27 for BUG-96 fix: normalize missing decision rationale from existing decision text.
+> Ready-to-post content for Reddit for the `v2.155.51` release. Updated 2026-04-27 for BUG-97 fix: normalize retained-turn `run_id` drift when `turn_id` matches the active turn.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7288 tests / 1475 suites / 0 failures / 5 skipped
 
 ---
 
@@ -26,7 +26,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.50:
+What shipped in v2.155.51:
 
 - Missing `decisions[].rationale` is normalized from existing decision text before schema validation.
 - The normalizer can copy from `reason`, `why`, `description`, `decision`, or `statement`.
@@ -35,8 +35,8 @@ What shipped in v2.155.50:
 
 Proof:
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js -> 11 tests / 2 suites / 0 failures
-- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/turn-result-validator.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-97-run-id-assignment-normalization.test.js -> 108 tests / 17 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7288 tests / 1475 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -60,25 +60,25 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.50 — normalizes missing decision rationale in staged results
+**Title:** AgentXchain v2.155.51 — normalizes retained-turn run_id drift in staged results
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.50 fixes a full-auto recovery gap found during dogfooding:
+v2.155.51 fixes a full-auto recovery gap found during dogfooding:
 
-- missing `decisions[].rationale` is copied from existing decision text
-- `reason`, `why`, `description`, `decision`, and `statement` are accepted as source text
-- textless decision entries still fail closed
-- BUG-95 missing required-field normalization carries forward
+- stale or missing `run_id` is copied from active state only when staged `turn_id` matches
+- mismatched `turn_id` still fails closed instead of guessing ownership
+- inconsistent active-turn/state run identity still fails closed
+- BUG-95 and BUG-96 staged-result normalization carry forward
 
 The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and remote_agent adapters are all proven live. The non-manual adapters have real-model proof; manual remains the governed human path.
 
 Evidence:
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js -> 11 tests / 2 suites / 0 failures
-- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/turn-result-validator.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-97-run-id-assignment-normalization.test.js -> 108 tests / 17 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7288 tests / 1475 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -109,7 +109,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.50 fixes missing decision-rationale schema drift so retained staged turns can be reaccepted without operator-side `accept-turn` recovery.
+v2.155.51 fixes retained-turn `run_id` drift so staged turns can be reaccepted without operator-side `accept-turn` recovery when `turn_id` proves active-turn ownership.
 
 Try the zero-key demo:
 
@@ -118,7 +118,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7288 tests / 1475 suites / 0 failures / 5 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -138,7 +138,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.50 fixes missing decision-rationale schema drift without operator-side recovery
+- v2.155.51 fixes retained-turn `run_id` drift without operator-side recovery when `turn_id` proves active-turn ownership
 
 Try it in 30 seconds:
 
@@ -152,7 +152,7 @@ MIT licensed. https://agentxchain.dev
 
 ## Posting Instructions
 
-1. Confirm `npm view agentxchain@2.155.50 version` before posting.
+1. Confirm `npm view agentxchain@2.155.51 version` before posting.
 2. Post during US morning hours, preferably Tuesday-Thursday 10-11am ET.
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT.
 4. Lead with the demo command because it works without API keys.

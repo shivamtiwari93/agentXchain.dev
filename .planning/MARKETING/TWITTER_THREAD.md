@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.50
+# Twitter/X Thread — AgentXchain v2.155.51
 
-> Ready-to-post thread for the `v2.155.50` release. Updated 2026-04-27 for BUG-96 fix: normalize missing decision rationale from existing decision text.
+> Ready-to-post thread for the `v2.155.51` release. Updated 2026-04-27 for BUG-97 fix: normalize retained-turn `run_id` drift when `turn_id` matches the active turn.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7288 tests / 1475 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.50 ships BUG-96 fix: missing decision rationale is auto-normalized from existing decision text before schema validation. Open source. MIT.
+AgentXchain v2.155.51 ships BUG-97 fix: retained active-turn `run_id` drift is normalized from current state before assignment validation. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,12 +57,12 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.50:
+New in v2.155.51:
 
-- Missing `decisions[].rationale` can be copied from `reason`, `why`, `description`, `decision`, or `statement`.
-- Textless decisions still fail closed. No generic rationale is invented.
-- BUG-95 missing required-field normalization carries forward.
-- Targeted proof: node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js -> 11 tests / 2 suites / 0 failures.
+- Stale or missing `run_id` is rewritten from active state only when staged `turn_id` matches the active turn.
+- Mismatched `turn_id` and inconsistent active-turn/state run identity still fail closed.
+- BUG-95 and BUG-96 staged-result normalization carry forward.
+- Targeted proof: node --test --test-timeout=120000 cli/test/turn-result-validator.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-97-run-id-assignment-normalization.test.js -> 108 tests / 17 suites / 0 failures.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

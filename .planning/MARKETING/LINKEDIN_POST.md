@@ -1,11 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.50
+# LinkedIn Post — AgentXchain v2.155.51
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.50` release. Updated 2026-04-27 for BUG-96 fix: normalize missing decision rationale from existing decision text.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.51` release. Updated 2026-04-27 for BUG-97 fix: normalize retained-turn `run_id` drift when `turn_id` matches the active turn.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7288 tests / 1475 suites / 0 failures / 5 skipped
 
 ---
 
@@ -22,15 +22,15 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.50` fixes missing decision rationale (BUG-96):
+`v2.155.51` fixes retained-turn run identity drift (BUG-97):
 
-- `decisions[].rationale` is copied from existing decision text when agents emit `reason`, `why`, `description`, `decision`, or `statement`.
-- Textless decision entries remain validation failures; the framework does not invent rationale.
-- The same reacceptance path preserves BUG-95 missing required-field normalization without operator-side recovery.
+- Stale or missing `run_id` is copied from authoritative state only when staged `turn_id` matches the active retained turn.
+- Mismatched `turn_id` and internally inconsistent active-turn/state run identity still fail closed.
+- The same reacceptance path preserves BUG-95 and BUG-96 staged-result normalization without operator-side recovery.
 - This keeps the full-auto path inside the framework instead of requiring operator-side `accept-turn` recovery.
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js -> 11 tests / 2 suites / 0 failures
-- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/turn-result-validator.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-97-run-id-assignment-normalization.test.js -> 108 tests / 17 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7288 tests / 1475 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:
