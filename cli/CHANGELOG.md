@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.45
+
+- **BUG-91: baseline-dirty unchanged files no longer block turn acceptance.** Dogfood session paused because `.planning/dogfood-100-turn-evidence/turn-counter.jsonl` was dirty at dispatch baseline and still dirty (unchanged) at acceptance time. The acceptance parity check now excludes files whose SHA marker matches the baseline dirty_snapshot — inherited workspace state is not the turn's responsibility.
+- New `getBaselineUnchangedFiles()` exported from `repo-observer.js` with SHA-comparison logic.
+- Emits `baseline_dirty_unchanged_excluded` audit event for traceability.
+- Files modified during the turn (different SHA from baseline) are still correctly rejected.
+- 3 new command-chain integration tests.
+
+- npm test -- --test-timeout=60000 -> 7270 tests / 1470 suites / 0 failures / 5 skipped
+
 ## 2.155.44
 
 - **BUG-90: extend staged-result normalizer for 7 new field-shape classes.** Dogfood turn 39 blocked by 7 simultaneous schema deviations from Claude Sonnet 4.6 dev turn.

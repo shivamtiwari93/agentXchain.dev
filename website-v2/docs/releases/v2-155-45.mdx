@@ -1,0 +1,37 @@
+---
+sidebar_position: 0
+title: "v2.155.45 Release Notes"
+---
+
+# AgentXchain v2.155.45
+
+`v2.155.45` fixes BUG-91: files that were dirty at dispatch baseline and unchanged during a turn no longer block acceptance. This unblocks the DOGFOOD-100-TURNS session paused by a false-positive dirty-parity failure on dogfood evidence files.
+
+## Bug Fixes
+
+- **BUG-91: baseline-dirty unchanged files no longer block turn acceptance.** The acceptance parity check now excludes files whose SHA marker matches the baseline `dirty_snapshot`. These files are inherited workspace state, not turn-attributed mutations. Files that changed during the turn (different SHA from baseline) are still correctly rejected.
+- **New `getBaselineUnchangedFiles()` helper.** Exported from `repo-observer.js`, computes baseline-dirty files whose SHA hasn't changed. Used in the acceptance allowed-set to prevent false-positive rejections.
+- **`baseline_dirty_unchanged_excluded` audit event.** Emitted when files are excluded from dirty parity, preserving traceability for governance reports.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js -> 3 tests / 1 suite / 0 failures
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-55-verification-output-declaration.test.js cli/test/beta-tester-scenarios/bug-87-undeclared-verification-output-normalization.test.js -> 8 tests / 2 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7270 tests / 1470 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.45 -c "agentxchain --version"`
+
+For BUG-91: resume the tusq.dev dogfood session where `turn_c3e78ecd352330aa` (dev) previously failed with "these files are dirty and not classified: .planning/dogfood-100-turn-evidence/turn-counter.jsonl." The turn must accept without manual staging JSON edits. The `baseline_dirty_unchanged_excluded` event must appear in `.agentxchain/events.jsonl`.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

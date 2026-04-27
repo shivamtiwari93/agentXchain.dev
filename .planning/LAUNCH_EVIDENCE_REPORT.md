@@ -1,4 +1,4 @@
-# Launch Evidence Report — AgentXchain v2.155.44
+# Launch Evidence Report — AgentXchain v2.155.45
 
 > Single-source evidence artifact for launch-facing claims. Updated 2026-04-26 for v2.155.42 — BUG-88 follow-up: recursive generated export exclusion and large JSON caps. Current aggregate release evidence:
 >

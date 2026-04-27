@@ -1,6 +1,6 @@
-# LinkedIn Post — AgentXchain v2.155.44
+# LinkedIn Post — AgentXchain v2.155.45
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.44` release. Updated 2026-04-26 for BUG-90 fix: staged-result normalizer extension for 7 new field-shape classes.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.45` release. Updated 2026-04-26 for BUG-90 fix: staged-result normalizer extension for 7 new field-shape classes.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
@@ -22,7 +22,7 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.44` extends the staged-result normalizer for 7 new field-shape classes encountered during dogfood turn 39:
+`v2.155.45` extends the staged-result normalizer for 7 new field-shape classes encountered during dogfood turn 39:
 
 - Bounded exports may carry `content_base64: null` only when they include explicit truncation or skip metadata.
 - Governance reports render those bounded exports instead of failing verification.
