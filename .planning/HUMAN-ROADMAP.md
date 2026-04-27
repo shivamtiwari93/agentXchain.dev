@@ -713,6 +713,27 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   5. Published package resumes tusq.dev same session without manual `accept-turn`, staging edits, gate mutation, or cross-repo workaround.
   6. Same-run evidence exists under `.planning/dogfood-100-turn-evidence/bug-94-reverify-v2.155.48.md`. The retained governed run resumed and accepted, but the continuous session ID changed from `cont-a2567aec` to `cont-76603154`; per strict criterion #1, the formal counter reset and `cont-76603154` recorded counter values 1-13 before graceful operator stop.
 
+- [ ] **🚨 BUG-95: dev turn emits staged result with synonym field names and missing required top-level fields — `files_modified` instead of `files_changed`, missing `runtime_id`, missing `summary`, missing `artifact` object, and missing `proposed_next_role` — causing schema validation to fail on an otherwise valid turn.** Discovered 2026-04-27 on the real `tusq.dev` DOGFOOD-100 session (`cont-1d0be522`, turn `turn_48fcfc7526b370ab`, dev role) after `agentxchain@2.155.48` closed BUG-94 and advanced the strict same-session counter to 7. Observed error: `acceptTurn(dev): Validation failed at stage schema: Missing required field: files_changed; Missing required field: runtime_id; Missing required field: summary; Missing required field: artifact; Missing required field: proposed_next_role`.
+
+  **Why this is a framework bug:** the staged result was produced by the governed runtime and contained useful work, verification evidence, lifecycle request, and changed files. The only issues are cosmetic field-name mismatches (`files_modified` vs `files_changed`) and missing fields that are inferrable from dispatch context (`runtime_id` from `activeTurn.runtime_id`, `summary` from `milestone_title`/`milestone`, `artifact` from `files_changed` presence, `proposed_next_role` from routing config). Requiring manual JSON surgery to rename/add these fields violates the DOGFOOD-100 normalizer discipline established by BUG-79/90/94.
+
+  **Fix required:**
+  1. Rename `files_modified` → `files_changed` before variable computation in `normalizeTurnResult()`.
+  2. Default missing `runtime_id` from `context.runtimeId` (passed from `activeTurn.runtime_id`).
+  3. Synthesize missing `summary` from `milestone_title`, `milestone`, or fallback.
+  4. Infer missing `artifact` object (`workspace` if `files_changed` non-empty, else `review`).
+  5. Default missing `proposed_next_role` to first allowed role for current phase (excluding self).
+  6. Harden dispatch-bundle field rules to emphasize `files_changed` (not `files_modified`), `summary` REQUIRED, `runtime_id` REQUIRED, `proposed_next_role` REQUIRED.
+  7. Update conformance fixture TR-002 from missing `summary` (now normalizable) to missing `run_id` (genuinely non-normalizable).
+
+  **Closure criteria:**
+  1. Command-chain regression test at `cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js` passes (8 tests).
+  2. Conformance self-validation passes (all tiers, all fixtures including updated TR-002).
+  3. AT-CCV-005 connector-validate test still passes after normalizer extension.
+  4. Full test suite green (7281 tests, 0 failures).
+  5. Published package resumes tusq.dev same session without manual `accept-turn`, staging edits, gate mutation, or cross-repo workaround.
+  6. Same-session evidence exists under `.planning/dogfood-100-turn-evidence/bug-95-reverify-vX.Y.Z.md`.
+
 ---
 
 ## Active discipline (MUST follow on every fix going forward)

@@ -292,7 +292,7 @@ writeFileSync(stagingPath, JSON.stringify({
   turn_id: assignment.turn_id,
   role: assignment.role,
   runtime_id: assignment.runtime_id,
-  status: 'completed',
+  status: 'invalid_not_a_valid_status',
   decisions: [],
   objections: [],
   files_changed: [],

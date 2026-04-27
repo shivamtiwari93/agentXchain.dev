@@ -29,10 +29,15 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 | BUG-89 invalid objection ID | `objections[i].id` rewritten to `OBJ-{i+1}` (zero-padded 3 digits) | `staged_result_auto_normalized` |
 | BUG-90 broad staged-result normalization (7 classes) | status synonyms, object files_changed, decision id/statement/category, verification.status, artifact.type | `staged_result_auto_normalized` |
 | BUG-91 baseline-dirty unchanged files | Files in `baseline.dirty_snapshot` with matching SHA excluded from dirty parity check | `baseline_dirty_unchanged_excluded` |
+| BUG-95 files_modified → files_changed | `files_modified` array renamed to `files_changed` when `files_changed` absent | `staged_result_auto_normalized` |
+| BUG-95 missing runtime_id | Defaulted from dispatch context `activeTurn.runtime_id` | `staged_result_auto_normalized` |
+| BUG-95 missing summary | Synthesized from `milestone_title`, `milestone`, or fallback | `staged_result_auto_normalized` |
+| BUG-95 missing artifact object | Inferred `{ type: workspace/review }` from `files_changed` | `staged_result_auto_normalized` |
+| BUG-95 missing proposed_next_role | Defaulted to first allowed role for current phase (excluding self) | `staged_result_auto_normalized` |
 
 ## Fail-Fast-Only Cases
 
-- Missing required top-level fields with no safe source material.
+- Missing required top-level fields with no safe source material AND no dispatch context to infer from (BUG-95 covers `runtime_id`, `summary`, `artifact`, `proposed_next_role`, `files_changed` via `files_modified` rename).
 - Objections without `statement`, `summary`, or `detail`.
 - Dirty worktree mismatches after artifact normalization (except baseline-unchanged files per BUG-91).
 - Review artifacts that declare product file edits.
@@ -46,3 +51,4 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 - `cli/test/beta-tester-scenarios/bug-89-objection-id-normalization.test.js`
 - `cli/test/beta-tester-scenarios/bug-90-broad-staged-result-normalization.test.js`
 - `cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js`
+- `cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js`

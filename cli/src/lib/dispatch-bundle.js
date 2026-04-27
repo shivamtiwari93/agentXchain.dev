@@ -491,10 +491,12 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `schema_version`: always `"1.0"`');
   lines.push('- `run_id`, `turn_id`, `role`, `runtime_id`: must match the values above exactly');
   lines.push('- `status`: one of `completed`, `blocked`, `needs_human`, `failed`. Do NOT use `complete`, `success`, `done`, or any other synonym — use the exact enum value `completed`.');
-  lines.push('- `summary`: concise description of what you did this turn');
   lines.push('- `decisions`: REQUIRED array. Use `[]` when no new decisions were made; do not omit the field.');
   lines.push('- `objections`: REQUIRED array. Use `[]` when no objections are raised; review_only roles must include at least one objection.');
-  lines.push('- `files_changed`: array of **strings** (file paths only). Do NOT use objects like `{path, change_type}` — just the path string (e.g. `["src/cli.js", "tests/smoke.mjs"]`).');
+  lines.push('- `summary`: **REQUIRED** non-empty string. Do NOT omit this field.');
+  lines.push('- `runtime_id`: **REQUIRED**. Must match the runtime_id provided above exactly.');
+  lines.push('- `files_changed`: **REQUIRED** array of **strings** (file paths only). Do NOT use `files_modified` — the field name is `files_changed`. Do NOT use objects like `{path, change_type}` — just the path string (e.g. `["src/cli.js", "tests/smoke.mjs"]`).');
+  lines.push('- `proposed_next_role`: **REQUIRED**. Must be in allowed_next_roles for the current phase, or `"human"`.');
   lines.push('- `decisions[].id`: pattern `DEC-NNN` where NNN is digits only (e.g. `DEC-001`, `DEC-002`). Do NOT use `D1`, `D2`, or freeform IDs.');
   lines.push('- `decisions[].statement`: non-empty string describing the decision. Do NOT use `decision` or `description` as the field name — the field is `statement`.');
   lines.push('- `decisions[].category`: one of `implementation`, `architecture`, `scope`, `process`, `quality`, `release`');
@@ -508,7 +510,6 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- If you make zero repo file edits, set `artifact.type` to `"review"` and `files_changed` to `[]`.');
   lines.push('- Only set `artifact.type` to `"workspace"` when you actually modified repo files and listed every changed path in `files_changed`.');
   lines.push('- Every `objections[]` item must include a non-empty `statement`; do not use `summary` or `detail` as a substitute.');
-  lines.push('- `proposed_next_role`: must be in allowed_next_roles for current phase, or `human`');
   if (role.write_authority === 'review_only') {
     lines.push('- `objections`: **must be non-empty** (challenge requirement for review_only roles)');
   }

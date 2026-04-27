@@ -85,6 +85,9 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     if (activeTurn) {
       const roleKey = activeTurn.assigned_role || activeTurn.role;
       normContext.assignedRole = roleKey;
+      if (activeTurn.runtime_id) {
+        normContext.runtimeId = activeTurn.runtime_id;
+      }
       const roleConfig = config?.roles?.[roleKey];
       if (roleConfig) {
         normContext.writeAuthority = roleConfig.write_authority;
@@ -1002,6 +1005,21 @@ export function normalizeTurnResult(tr, config, context = {}) {
   }
 
   const normalized = { ...tr };
+
+  // ── BUG-95: rename synonym fields before variable computation ────────
+  // files_modified is an unambiguous synonym for files_changed.
+  if (!('files_changed' in normalized) && Array.isArray(normalized.files_modified)) {
+    corrections.push('files_changed: renamed from synonym files_modified');
+    normalizationEvents.push({
+      field: 'files_changed',
+      original_value: null,
+      normalized_value: '(renamed from files_modified)',
+      rationale: 'files_modified_renamed_to_files_changed',
+    });
+    normalized.files_changed = normalized.files_modified;
+    delete normalized.files_modified;
+  }
+
   const routing = config?.routing;
   const phaseNames = routing ? Object.keys(routing) : [];
   const currentPhase = context.phase;
@@ -1040,6 +1058,68 @@ export function normalizeTurnResult(tr, config, context = {}) {
       rationale: 'missing_objections_array_defaulted',
     });
     normalized.objections = [];
+  }
+
+  // ── BUG-95: default missing runtime_id from dispatch context ─────────
+  if (!normalized.runtime_id && context.runtimeId) {
+    corrections.push(`runtime_id: defaulted from dispatch context "${context.runtimeId}"`);
+    normalizationEvents.push({
+      field: 'runtime_id',
+      original_value: null,
+      normalized_value: context.runtimeId,
+      rationale: 'missing_runtime_id_defaulted_from_context',
+    });
+    normalized.runtime_id = context.runtimeId;
+  }
+
+  // ── BUG-95: synthesize missing summary from available fields ─────────
+  if (!normalized.summary || (typeof normalized.summary === 'string' && !normalized.summary.trim())) {
+    const alt = (typeof normalized.milestone_title === 'string' && normalized.milestone_title.trim())
+      ? normalized.milestone_title.trim()
+      : (typeof normalized.milestone === 'string' && normalized.milestone.trim())
+        ? `${normalized.role || 'agent'} turn for ${normalized.milestone.trim()}`
+        : `${normalized.role || 'agent'} turn completed`;
+    const src = (typeof normalized.milestone_title === 'string' && normalized.milestone_title.trim()) ? 'milestone_title'
+      : (typeof normalized.milestone === 'string' && normalized.milestone.trim()) ? 'milestone' : 'fallback';
+    corrections.push(`summary: synthesized from ${src}`);
+    normalizationEvents.push({
+      field: 'summary',
+      original_value: normalized.summary ?? null,
+      normalized_value: alt,
+      rationale: `missing_summary_synthesized_from_${src}`,
+    });
+    normalized.summary = alt;
+  }
+
+  // ── BUG-95: default missing artifact object ────────────────────────────
+  if (!normalized.artifact || typeof normalized.artifact !== 'object' || Array.isArray(normalized.artifact)) {
+    const hasFiles = Array.isArray(normalized.files_changed) && normalized.files_changed.length > 0;
+    const inferredArtifact = { type: hasFiles ? 'workspace' : 'review' };
+    corrections.push(`artifact: inferred ${JSON.stringify(inferredArtifact)} from files_changed`);
+    normalizationEvents.push({
+      field: 'artifact',
+      original_value: normalized.artifact ?? null,
+      normalized_value: inferredArtifact,
+      rationale: 'missing_artifact_inferred_from_files_changed',
+    });
+    normalized.artifact = inferredArtifact;
+  }
+
+  // ── BUG-95: default missing proposed_next_role ─────────────────────────
+  if (!normalized.proposed_next_role) {
+    let inferredRole = null;
+    if (allowedNextRoles.length > 0) {
+      inferredRole = allowedNextRoles.find(r => r !== assignedRole) || allowedNextRoles[0];
+    }
+    if (!inferredRole) inferredRole = 'pm';
+    corrections.push(`proposed_next_role: defaulted to "${inferredRole}"`);
+    normalizationEvents.push({
+      field: 'proposed_next_role',
+      original_value: null,
+      normalized_value: inferredRole,
+      rationale: 'missing_proposed_next_role_defaulted',
+    });
+    normalized.proposed_next_role = inferredRole;
   }
 
   // ── BUG-90: normalize status synonyms ────────────────────────────────

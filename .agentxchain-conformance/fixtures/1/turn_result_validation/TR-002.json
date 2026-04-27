@@ -2,7 +2,7 @@
   "fixture_id": "TR-002",
   "tier": 1,
   "surface": "turn_result_validation",
-  "description": "Missing required field (summary) rejected at schema stage",
+  "description": "Missing required field (run_id) rejected at schema stage",
   "type": "reject",
   "setup": {
     "state": {
@@ -38,11 +38,11 @@
     "args": {
       "turn_result": {
         "schema_version": "1.0",
-        "run_id": "run_001",
         "turn_id": "turn_abc",
         "role": "dev",
         "runtime_id": "local-dev",
         "status": "completed",
+        "summary": "Completed dev work",
         "decisions": [],
         "objections": [],
         "files_changed": [],
@@ -56,6 +56,6 @@
     "result": "error",
     "failed_stage": "schema",
     "error_type": "missing_required_field",
-    "error_field": "summary"
+    "error_field": "run_id"
   }
 }
