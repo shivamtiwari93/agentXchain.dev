@@ -1,0 +1,45 @@
+---
+sidebar_position: 0
+title: "v2.155.53 Release Notes"
+---
+
+# AgentXchain v2.155.53
+
+`v2.155.53` fixes BUG-99: pre-acceptance `gate_semantic_coverage` now evaluates workflow-kit ownership with accepted turn history. A retained QA turn can verify a dev-owned implementation artifact without rewriting it when an accepted implementation-phase dev turn already produced that artifact.
+
+## Bug Fixes
+
+- **BUG-99: use accepted history for gate ownership.** The pre-acceptance phase-transition guard now passes accepted `.agentxchain/history.jsonl` entries into `evaluatePhaseExit()`, matching the gate evaluator's ownership model.
+- **Fail-closed missing ownership.** If no accepted owner turn exists for a required artifact, the transition still fails unless the current turn modifies the uncovered gate file.
+- **Regression coverage.** New command-chain coverage proves both the accepted-history success path and the no-history rejection path, alongside existing BUG-36/37 and BUG-98 regressions.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7294 tests / 1477 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.53 -c "agentxchain --version"`
+
+For BUG-99: resume the retained tusq.dev QA failed-acceptance turn on the shipped package. The acceptance pipeline must evaluate `.planning/IMPLEMENTATION_NOTES.md` ownership using the already accepted implementation-phase dev turn, continue past `gate_semantic_coverage`, and not require operator-side `accept-turn`, `unblock`, gate mutation, or staging JSON edits.
+
+For BUG-98 carry-forward: retained QA skip-forward requests from `implementation` to `launch` must still normalize to immediate next phase `qa`, with stale `proposed_next_role` aligned only when routing-safe.
+
+For BUG-97 carry-forward: retained active-turn `run_id` drift must still auto-normalize only when the staged `turn_id` proves active-turn ownership.
+
+For BUG-96 carry-forward: decision entries that include existing decision text but omit `rationale` must still auto-normalize before schema validation.
+
+For BUG-95 carry-forward: staged results that use `files_modified` instead of `files_changed` and omit `runtime_id`, `summary`, `artifact`, and `proposed_next_role` must still auto-normalize before schema validation.
+
+For review-only carry-forward: a `review_only` role with missing or empty `objections` must still fail protocol challenge enforcement.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

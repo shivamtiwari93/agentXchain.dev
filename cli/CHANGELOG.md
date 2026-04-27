@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.53
+
+- **BUG-99: include accepted history in pre-acceptance gate semantic coverage.** Workflow-kit ownership gates now evaluate previously accepted turns during the pre-acceptance transition guard, so a QA verification turn is not forced to modify a dev-owned implementation artifact that an accepted dev turn already produced.
+- The ownership check remains fail-closed when no accepted owner history exists; the current turn still must modify uncovered gate files before requesting a transition.
+- This preserves BUG-36/37 gate semantic coverage behavior and BUG-98 skip-forward phase normalization while removing the false DOGFOOD-100 blocker exposed by v2.155.52.
+
+- npm test -- --test-timeout=60000 -> 7294 tests / 1477 suites / 0 failures / 5 skipped
+
 ## 2.155.52
 
 - **BUG-98: normalize skip-forward phase-transition requests to the immediate next phase.** Retained QA turns in `implementation` that complete useful work but request a later valid phase such as `launch` now auto-normalize `phase_transition_request` to the configured immediate next phase `qa`.
