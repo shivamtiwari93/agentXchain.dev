@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.50
+
+- **BUG-96: normalize missing decision rationale from existing decision text.** Failed-acceptance reacceptance now copies missing `decisions[].rationale` from an existing decision `reason`, `why`, `description`, `decision`, or `statement` field before schema validation.
+- The normalizer remains fail-closed when no decision text exists; it does not invent generic rationale content.
+- Dispatch prompts now explicitly require `decisions[].rationale` as a non-empty string so future staged results learn the canonical shape.
+
+- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+
 ## 2.155.49
 
 - **BUG-95: normalize missing required fields and synonym field names.** Dev turn staged results using `files_modified` (instead of `files_changed`) and omitting `runtime_id`, `summary`, `artifact`, and `proposed_next_role` now auto-normalize before schema validation. Conformance fixture TR-002 updated from missing `summary` to missing `run_id`.

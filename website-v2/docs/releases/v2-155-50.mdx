@@ -1,0 +1,40 @@
+---
+sidebar_position: 0
+title: "v2.155.50 Release Notes"
+---
+
+# AgentXchain v2.155.50
+
+`v2.155.50` fixes BUG-96: failed-acceptance reacceptance now normalizes missing `decisions[].rationale` fields from existing decision text before schema validation. This is the next DOGFOOD-100 staged-result-shape defect discovered while resuming the tusq.dev full-auto session on the shipped package.
+
+## Bug Fixes
+
+- **BUG-96: normalize missing decision rationale.** When a staged result provides decision text under `reason`, `why`, `description`, `decision`, or `statement` but omits `rationale`, AgentXchain copies that existing text into the required `rationale` field before schema validation.
+- **Fail-closed boundary.** Empty or textless decision entries still fail validation; the normalizer does not fabricate generic rationale content.
+- **Prompt hardening.** Dispatch prompts now explicitly require `decisions[].rationale` as a non-empty string.
+- **Regression coverage.** New beta-tester scenario coverage proves BUG-96 alongside the BUG-95 missing-required-field normalization path.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.50 -c "agentxchain --version"`
+
+For BUG-96: resume the retained tusq.dev failed-acceptance turn on the shipped package. The acceptance pipeline must auto-normalize decision entries that include existing decision text but omit `rationale`, then continue through schema validation without operator-side `accept-turn`, `unblock`, or staging JSON edits.
+
+For BUG-95 carry-forward: staged results that use `files_modified` instead of `files_changed` and omit `runtime_id`, `summary`, `artifact`, and `proposed_next_role` must still auto-normalize before schema validation.
+
+For review-only carry-forward: a `review_only` role with missing or empty `objections` must still fail protocol challenge enforcement.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

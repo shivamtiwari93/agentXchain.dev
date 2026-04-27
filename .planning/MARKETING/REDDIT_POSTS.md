@@ -1,12 +1,12 @@
-# Reddit Posts — AgentXchain v2.155.49
+# Reddit Posts — AgentXchain v2.155.50
 
-> Ready-to-post content for Reddit for the `v2.155.49` release. Updated 2026-04-27 for BUG-95 fix: normalize missing required fields and synonym field names.
+> Ready-to-post content for Reddit for the `v2.155.50` release. Updated 2026-04-27 for BUG-96 fix: normalize missing decision rationale from existing decision text.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7273 tests / 1472 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
 
 ---
 
@@ -26,17 +26,17 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.49:
+What shipped in v2.155.50:
 
-- Continuous resume reattempts `acceptTurn()` for active `failed_acceptance` turns with valid staged results.
-- Arbitrary planning files remain actor-owned and fail closed if changed outside a retained turn.
-- Auto-checkpoint remains attached to the normal framework acceptance path.
-- Regression coverage proves both successful reacceptance and the missing-staging negative path.
+- Missing `decisions[].rationale` is normalized from existing decision text before schema validation.
+- The normalizer can copy from `reason`, `why`, `description`, `decision`, or `statement`.
+- Textless decision entries still fail closed; no generic rationale is invented.
+- BUG-95 missing required-field normalization carries forward on the same retained-turn acceptance path.
 
 Proof:
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js cli/test/repo-observer.test.js cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 100 tests / 20 suites / 0 failures
-- npm test -- --test-timeout=60000 -> 7273 tests / 1472 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js -> 11 tests / 2 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -60,24 +60,25 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.49 — full-auto resume reaccepts failed-acceptance staged turns
+**Title:** AgentXchain v2.155.50 — normalizes missing decision rationale in staged results
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.49 fixes a full-auto recovery gap found during dogfooding:
+v2.155.50 fixes a full-auto recovery gap found during dogfooding:
 
-- DOGFOOD-100 proof evidence files are exempt from retained-turn dirty parity
-- arbitrary planning files still fail closed when changed outside the retained turn
-- the retained-turn recovery path now carries BUG-91, BUG-92, and BUG-93 together
+- missing `decisions[].rationale` is copied from existing decision text
+- `reason`, `why`, `description`, `decision`, and `statement` are accepted as source text
+- textless decision entries still fail closed
+- BUG-95 missing required-field normalization carries forward
 
 The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and remote_agent adapters are all proven live. The non-manual adapters have real-model proof; manual remains the governed human path.
 
 Evidence:
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js cli/test/repo-observer.test.js cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 100 tests / 20 suites / 0 failures
-- npm test -- --test-timeout=60000 -> 7273 tests / 1472 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js -> 11 tests / 2 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -108,7 +109,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.49 fixes full-auto resume so failed-acceptance staged turns can be reaccepted without operator-side `accept-turn` recovery.
+v2.155.50 fixes missing decision-rationale schema drift so retained staged turns can be reaccepted without operator-side `accept-turn` recovery.
 
 Try the zero-key demo:
 
@@ -117,7 +118,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- npm test -- --test-timeout=60000 -> 7273 tests / 1472 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7284 tests / 1474 suites / 0 failures / 5 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -137,7 +138,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.49 fixes failed-acceptance resume without operator-side recovery
+- v2.155.50 fixes missing decision-rationale schema drift without operator-side recovery
 
 Try it in 30 seconds:
 
@@ -151,7 +152,7 @@ MIT licensed. https://agentxchain.dev
 
 ## Posting Instructions
 
-1. Confirm `npm view agentxchain@2.155.25 version` before posting.
+1. Confirm `npm view agentxchain@2.155.50 version` before posting.
 2. Post during US morning hours, preferably Tuesday-Thursday 10-11am ET.
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT.
 4. Lead with the demo command because it works without API keys.
