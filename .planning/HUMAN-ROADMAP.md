@@ -9,7 +9,7 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: **🚨🚨🚨 STOP ALL FEATURE WORK. DOGFOOD-100-TURNS-CLEAN-FULL-AUTO IS THE ONLY PRIORITY. 🚨🚨🚨** Agents must use the shipped agentxchain CLI framework ONLY to drive tusq.dev development for at least **100 consecutive full-auto turns** without human intervention, manual staging-JSON edits, jq recovery surgery, or operator-side workarounds. Every issue discovered during dogfood must follow the six-step loop: discovered through dogfood failure, triaged into a BUG entry, fixed in the substrate, shipped as a patch release, reverified by resuming the dogfood state on the shipped package, and closed. **Currently open dogfood-discovery bugs: BUG-77 and BUG-78** await natural reverification. **BUG-91, BUG-92, BUG-93, and BUG-94 are closed on agentxchain.155.48 with tusq.dev reverify evidence.** The v2.155.48 shipped-package run created continuous session cont-76603154, so strict DOGFOOD-100 counting reset and recorded counter values 1-13 before graceful operator stop; a future formal proof must start a new strict counter unless the operator changes the criterion. Until final 100-turn evidence exists, do NOT pick up watch-mode extensions, conformant-runner examples, comparison-page work, connector adoption proofs, website polish, or release-process improvements unrelated to dogfood-discovered bugs. This is the substrate-credibility gate for the whole project. If the framework cannot drive its own beta tester product through 100 clean turns, none of the other adoption surfaces matter. **Prior queue closures remain archived in .planning/HUMAN-ROADMAP-ARCHIVE.md.**
+Current focus: **🚨🚨🚨 STOP ALL FEATURE WORK. DOGFOOD-100-TURNS-CLEAN-FULL-AUTO IS THE ONLY PRIORITY. 🚨🚨🚨** Agents must use the shipped agentxchain CLI framework ONLY to drive tusq.dev development for at least **100 consecutive full-auto turns** without human intervention, manual staging-JSON edits, jq recovery surgery, or operator-side workarounds. Every issue discovered during dogfood must follow the six-step loop: discovered through dogfood failure, triaged into a BUG entry, fixed in the substrate, shipped as a patch release, reverified by resuming the dogfood state on the shipped package, and closed. **Currently open dogfood-discovery bugs: BUG-95 and BUG-96** are active substrate blockers; **BUG-77 and BUG-78** await natural reverification. **BUG-91, BUG-92, BUG-93, and BUG-94 are closed on agentxchain.155.48 with tusq.dev reverify evidence.** The v2.155.48 shipped-package run created continuous session cont-76603154, so strict DOGFOOD-100 counting reset and recorded counter values 1-13 before graceful operator stop; a future formal proof must start a new strict counter unless the operator changes the criterion. Until final 100-turn evidence exists, do NOT pick up watch-mode extensions, conformant-runner examples, comparison-page work, connector adoption proofs, website polish, or release-process improvements unrelated to dogfood-discovered bugs. This is the substrate-credibility gate for the whole project. If the framework cannot drive its own beta tester product through 100 clean turns, none of the other adoption surfaces matter. **Prior queue closures remain archived in .planning/HUMAN-ROADMAP-ARCHIVE.md.**
 
 ## Tester messages — 2026-04-26 verbatim
 
@@ -733,6 +733,25 @@ The tester's third message (same day, on the next dogfood run after BUG-78 manua
   4. Full test suite green (7281 tests, 0 failures).
   5. Published package resumes tusq.dev same session without manual `accept-turn`, staging edits, gate mutation, or cross-repo workaround.
   6. Same-session evidence exists under `.planning/dogfood-100-turn-evidence/bug-95-reverify-vX.Y.Z.md`.
+
+- [ ] **🚨 BUG-96: same retained dev turn from BUG-95 emits `decisions[]` entries with `description` but no required `rationale`, causing schema validation to fail after BUG-95 normalization clears the first missing-field barrier.** Discovered 2026-04-27 on the real `tusq.dev` DOGFOOD-100 session while re-verifying `agentxchain@2.155.49` against retained turn `turn_48fcfc7526b370ab` in run `run_d309bfeea0f99431`. Observed error: `acceptTurn(dev): Validation failed at stage schema: decisions[0].rationale must be a non-empty string.; decisions[1].rationale must be a non-empty string.; decisions[2].rationale must be a non-empty string.; decisions[3].rationale must be a non-empty string.; decisions[4].rationale must be a non-empty string.`
+
+  **Why this is a framework bug:** the same governed runtime produced useful dev work, verification, file-change evidence, and decision text. The decision objects used `description` as their only explanatory field. That field is already safe source material for `statement` normalization; requiring manual staging JSON surgery to duplicate it into `rationale` violates the DOGFOOD-100 normalizer discipline and strands otherwise valid work behind schema ceremony.
+
+  **Fix required:**
+  1. Extend `normalizeTurnResult()` decision normalization so missing/blank `decisions[i].rationale` copies from existing decision text only: `reason`, `why`, `description`, `decision`, or `statement`.
+  2. Do **not** invent generic rationale when no source text exists; fail schema validation in that case.
+  3. Emit `staged_result_auto_normalized` with field `decisions[i].rationale` and rationale `copied_from_<source>`.
+  4. Harden dispatch-bundle field rules to make `decisions[].rationale` explicitly required.
+  5. Update `.planning/STAGED_RESULT_INVARIANT_AUDIT.md` with the new normalizer row and fail-fast boundary.
+
+  **Closure criteria:**
+  1. Spec exists at `.planning/BUG_96_DECISION_RATIONALE_NORMALIZATION_SPEC.md`.
+  2. Command-chain regression exists at `cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js` and covers the exact retained-turn cascade.
+  3. Negative regression proves decisions with no statement/rationale source material still fail.
+  4. Existing BUG-95 regression still passes.
+  5. Published package resumes the retained tusq.dev turn without manual `accept-turn`, staging edits, gate mutation, or cross-repo workaround.
+  6. Same-run evidence exists under `.planning/dogfood-100-turn-evidence/bug-96-reverify-vX.Y.Z.md`; if the same acceptance also proves BUG-95 closure, update BUG-95 closure in the same pass.
 
 ---
 

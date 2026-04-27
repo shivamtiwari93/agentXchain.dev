@@ -1248,14 +1248,14 @@ echo '{"verdict":"allow"}'`);
         turn_id: 'turn_01H',
         role: 'dev',
         runtime_id: 'local-dev',
-        status: 'completed',
-        summary: 'Invalid staged result with empty rationale.',
+        status: 'invalid_status',
+        summary: 'Invalid staged result with bad status.',
         decisions: [
           {
             id: 'DEC-001',
             category: 'implementation',
-            statement: 'Valid statement but empty rationale.',
-            rationale: '',
+            statement: 'Valid decision statement.',
+            rationale: 'Valid rationale.',
           },
         ],
         objections: [],
@@ -1284,7 +1284,7 @@ echo '{"verdict":"allow"}'`);
 
       const combined = result.stdout + result.stderr;
       assert.match(combined, /Validation failed:/);
-      assert.match(combined, /decisions\[0\]\.rationale must be a non-empty string\./);
+      assert.match(combined, /status must be one of:/);
       assert.match(combined, /agentxchain accept-turn/);
       assert.match(combined, /agentxchain reject-turn/);
 

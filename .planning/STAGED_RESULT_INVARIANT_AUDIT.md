@@ -11,6 +11,7 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 | Required top-level fields exist (`schema_version`, `run_id`, `turn_id`, `role`, `runtime_id`, `status`, `summary`, `decisions`, `objections`, `files_changed`, `verification`, `artifact`, `proposed_next_role`) | `turn-result-validator.js` schema stage | Dispatch bundle field rules list required fields; generated role prompts tell roles to write structured turn result | None; missing required objects fail closed | Schema failure; no invented top-level data |
 | `objections[].id` matches `OBJ-NNN` (digits only) | `turn-result-validator.js` schema stage | Dispatch bundle field rule says `OBJ-NNN` with explicit "no extra suffixes" guidance | Invalid/missing IDs rewritten to `OBJ-001`, `OBJ-002`, ... by array index | Never fail-fast; always normalizable |
 | `objections[].statement` is non-empty | `turn-result-validator.js` schema stage | Dispatch bundle objection template and field rule require `statement`; PM/QA prompts explicitly reject `summary` as a substitute | `summary` -> `statement`; `detail` -> `statement`; summary wins when both exist | If no recoverable text exists, fail with `--normalize-staged-result` recovery boundary |
+| `decisions[].rationale` is non-empty | `turn-result-validator.js` schema stage | Dispatch bundle field rule requires `rationale` and explains it cannot be omitted | `reason` / `why` / `description` / `decision` / `statement` -> `rationale` | If no recoverable text exists, schema failure remains correct |
 | Review-only roles include at least one objection | `turn-result-validator.js` protocol stage | Dispatch bundle and QA/director prompts state challenge requirement | None | Protocol failure |
 | `workspace` artifact means repo mutation and non-empty `files_changed` unless an explicit no-edit lifecycle signal exists | `governed-state.js` artifact validation + observed diff checks | Dispatch bundle, generated prompts, PM/QA prompts state zero-edit work must use `review` and `workspace` only when files changed | Empty workspace + no-edit lifecycle signal -> `review`; emits `artifact_type_auto_normalized` and `staged_result_auto_normalized` | Ambiguous empty workspace with no lifecycle signal still fails; dirty worktree still fails observed-diff checks |
 | `review` artifact with product file changes is invalid for authoritative roles | `turn-result-validator.js` artifact stage | Dispatch bundle says `review` is for zero repo edits | None | Artifact failure |
@@ -34,6 +35,7 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 | BUG-95 missing summary | Synthesized from `milestone_title`, `milestone`, or fallback | `staged_result_auto_normalized` |
 | BUG-95 missing artifact object | Inferred `{ type: workspace/review }` from `files_changed` | `staged_result_auto_normalized` |
 | BUG-95 missing proposed_next_role | Defaulted to first allowed role for current phase (excluding self) | `staged_result_auto_normalized` |
+| BUG-96 missing decision rationale | `decisions[i].rationale` copied from `reason`, `why`, `description`, `decision`, or `statement` | `staged_result_auto_normalized` |
 
 ## Fail-Fast-Only Cases
 
@@ -52,3 +54,4 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 - `cli/test/beta-tester-scenarios/bug-90-broad-staged-result-normalization.test.js`
 - `cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js`
 - `cli/test/beta-tester-scenarios/bug-95-missing-required-fields-normalization.test.js`
+- `cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js`

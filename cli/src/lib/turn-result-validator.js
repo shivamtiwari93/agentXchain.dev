@@ -1199,6 +1199,32 @@ export function normalizeTurnResult(tr, config, context = {}) {
         }
       }
 
+      // Normalize missing rationale from existing decision text. Do not invent
+      // rationale when the decision object has no meaningful source material.
+      const rationale = typeof patched.rationale === 'string' ? patched.rationale.trim() : '';
+      if (!rationale) {
+        const rationaleSources = [
+          ['reason', patched.reason],
+          ['why', patched.why],
+          ['description', patched.description],
+          ['decision', patched.decision],
+          ['statement', patched.statement],
+        ];
+        const source = rationaleSources.find(([, value]) => typeof value === 'string' && value.trim());
+        if (source) {
+          const [srcField, srcValue] = source;
+          const alt = srcValue.trim();
+          corrections.push(`decisions[${index}].rationale: copied from ${srcField}`);
+          normalizationEvents.push({
+            field: `decisions[${index}].rationale`,
+            original_value: patched.rationale ?? null,
+            normalized_value: alt,
+            rationale: `copied_from_${srcField}`,
+          });
+          patched = { ...patched, rationale: alt };
+        }
+      }
+
       // Default missing category to 'implementation'
       if (!patched.category || !VALID_CATEGORIES.includes(patched.category)) {
         const defaultCat = 'implementation';
