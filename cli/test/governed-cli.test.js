@@ -1249,13 +1249,13 @@ echo '{"verdict":"allow"}'`);
         role: 'dev',
         runtime_id: 'local-dev',
         status: 'completed',
-        summary: 'Invalid staged result with no decisions.',
+        summary: 'Invalid staged result with empty rationale.',
         decisions: [
           {
-            id: 'DEC-BAD-001',
+            id: 'DEC-001',
             category: 'implementation',
-            statement: 'Return an invalid decision identifier on purpose.',
-            rationale: 'Force validator failure for exit-code coverage.',
+            statement: 'Valid statement but empty rationale.',
+            rationale: '',
           },
         ],
         objections: [],
@@ -1284,7 +1284,7 @@ echo '{"verdict":"allow"}'`);
 
       const combined = result.stdout + result.stderr;
       assert.match(combined, /Validation failed:/);
-      assert.match(combined, /decisions\[0\]\.id must match pattern DEC-NNN\./);
+      assert.match(combined, /decisions\[0\]\.rationale must be a non-empty string\./);
       assert.match(combined, /agentxchain accept-turn/);
       assert.match(combined, /agentxchain reject-turn/);
 

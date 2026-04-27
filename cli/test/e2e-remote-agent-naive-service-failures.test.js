@@ -289,22 +289,14 @@ afterEach(() => {
 });
 
 describe('remote_agent naive service failures', () => {
-  it('rejects proposed remote turns that use non-DEC-NNN decision IDs', async () => {
+  it('normalizes proposed remote turns that use non-DEC-NNN decision IDs (BUG-90)', async () => {
     const mock = await startMockRemoteAgentServer({ devDecisionId: 'DEC-BRIDGE-20260409' });
     const root = makeProject(mock.url);
 
+    // BUG-90: non-DEC-NNN decision IDs are now auto-normalized to DEC-001, DEC-002, etc.
     const devStep = await runCliAsync(root, ['step', '--role', 'dev']);
-    assert.equal(devStep.status, 1, `invalid dev turn must exit non-zero, got ${devStep.status}`);
-    assert.match(devStep.stdout, /Validation failed:/);
-    assert.match(devStep.stdout, /decisions\[0\]\.id must match pattern DEC-NNN\./);
-
-    const state = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
-    const activeTurns = Object.values(state.active_turns || {});
-    assert.equal(activeTurns.length, 1, 'failing remote dev response should retain the active turn');
-    assert.equal(activeTurns[0].assigned_role, 'dev');
-    assert.equal(state.last_completed_turn_id || null, null, 'invalid remote result must not complete the turn');
-    assert.equal(countEntries(join(root, '.agentxchain', 'proposed')), 0, 'invalid remote result must not materialize a proposal');
-    assert.equal(mock.requestLog.length, 1, 'only the failing dev turn should have been dispatched');
+    assert.equal(devStep.status, 0, `dev step must succeed after normalization, got ${devStep.status}.\nstdout: ${devStep.stdout?.slice(-800)}\nstderr: ${devStep.stderr?.slice(-800)}`);
+    assert.equal(mock.requestLog.length, 1, 'only one dev dispatch should have been sent');
   });
 
   it('rejects review_only remote turns that omit objections', async () => {
