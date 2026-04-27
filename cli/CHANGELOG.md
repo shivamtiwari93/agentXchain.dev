@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.155.48
+
+- **BUG-94: missing top-level `decisions` and `objections` arrays are normalized before schema validation.** Same-session dogfood recovery after BUG-93 reached the retained dev turn but blocked because the otherwise useful staged result omitted two required empty arrays.
+- Missing top-level `decisions` now defaults to `[]` and missing top-level `objections` now defaults to `[]`, with explicit `staged_result_auto_normalized` audit events for both fields.
+- Non-array values remain fail-closed, and `review_only` turns still must raise at least one objection even when missing `objections` is normalized to `[]`.
+- Dispatch prompt field rules now explicitly require both arrays and tell agents to use `[]` when there are no decisions or objections.
+- 1 new command-chain regression covers retained `failed_acceptance` reacceptance with both arrays omitted; the review-only negative path proves challenge enforcement is preserved.
+
+- npm test -- --test-timeout=60000 -> 7273 tests / 1472 suites / 0 failures / 5 skipped
+
 ## 2.155.47
 
 - **BUG-93: DOGFOOD-100 proof evidence is exempt from retained-turn dirty parity.** Same-session recovery after BUG-92 correctly reattempted the existing failed-acceptance turn, but then blocked on `.planning/dogfood-100-turn-evidence/bug-90-reverify-v2.155.44.md` even though that file is operator proof metadata created during the patch-release recovery loop.

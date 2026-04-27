@@ -1,0 +1,47 @@
+---
+sidebar_position: 0
+title: "v2.155.48 Release Notes"
+---
+
+# AgentXchain v2.155.48
+
+`v2.155.48` fixes BUG-94: retained staged results that omit top-level `decisions` and `objections` arrays are normalized before schema validation, while review-only challenge enforcement remains strict.
+
+## Bug Fixes
+
+- **BUG-94: missing empty arrays.** Same-session DOGFOOD-100 recovery reached retained dev turn `turn_60ca77d51809c98f`, but blocked because the staged result omitted two required top-level arrays even though the rest of the payload was usable.
+- **Safe normalization.** Missing top-level `decisions` and `objections` now default to `[]` before schema validation and emit `staged_result_auto_normalized` audit events.
+- **Fail-closed protocol boundary.** Non-array values still fail schema validation, and `review_only` turns with no objections still fail the Stage E challenge requirement.
+- **Prompt hardening.** Dispatch bundles now state that both arrays are required and must be `[]` when no entries exist.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/human-roadmap-open-blockers-content.test.js cli/test/beta-tester-scenarios/bug-94-missing-decisions-objections-normalization.test.js cli/test/beta-tester-scenarios/bug-90-broad-staged-result-normalization.test.js cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 21 tests / 4 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7273 tests / 1472 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.48 -c "agentxchain --version"`
+
+For BUG-94: resume the tusq.dev dogfood session where `turn_60ca77d51809c98f` is the retained failed-acceptance dev turn. The continuous command must reattempt acceptance through the run loop and must not fail schema validation on missing required field `decisions` or missing required field `objections`.
+
+The recovery must not use manual `accept-turn`, staging JSON edits, or gate mutation.
+
+For review-only carry-forward: a `review_only` role with missing or empty `objections` must still fail protocol challenge enforcement.
+
+For BUG-93 carry-forward: DOGFOOD proof evidence under `.planning/dogfood-100-turn-evidence/` must not trigger retained-turn dirty parity failure.
+
+For BUG-92 carry-forward: the same run must not print `Turn already assigned`.
+
+For BUG-91 carry-forward: unchanged baseline-dirty files such as `.planning/dogfood-100-turn-evidence/turn-counter.jsonl` must remain excluded by hash marker rather than attributed to the retained turn.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
