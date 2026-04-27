@@ -4758,7 +4758,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   // early — the agent didn't do the work required for the transition.
   if (turnResult.phase_transition_request && !isIdleExpansionNewIntakeProposal) {
     const preGateResult = evaluatePhaseExit({
-      state,
+      state: { ...state, history: historyEntries },
       config,
       acceptedTurn: turnResult,
       root,
