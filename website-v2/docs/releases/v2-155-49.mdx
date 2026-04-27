@@ -1,0 +1,40 @@
+---
+sidebar_position: 0
+title: "v2.155.49 Release Notes"
+---
+
+# AgentXchain v2.155.49
+
+`v2.155.49` fixes BUG-95: dev turn staged results using synonym field names (`files_modified` instead of `files_changed`) and omitting required fields (`runtime_id`, `summary`, `artifact`, `proposed_next_role`) are auto-normalized before schema validation. Conformance fixture TR-002 updated from missing `summary` to missing `run_id`.
+
+## Bug Fixes
+
+- **BUG-95: normalize missing required fields and synonym field names.** Dev turn staged results that use `files_modified` (instead of `files_changed`) and omit `runtime_id`, `summary`, `artifact`, and `proposed_next_role` now auto-normalize before schema validation.
+- **Synonym normalization.** `files_modified` is renamed to `files_changed` during normalization with a `staged_result_auto_normalized` audit event.
+- **Missing-field defaults.** Omitted `runtime_id`, `summary`, `artifact`, and `proposed_next_role` are populated with safe defaults before validation.
+- **Conformance update.** Fixture TR-002 updated from missing `summary` to missing `run_id` to reflect the new normalization coverage.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7273 tests / 1472 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.49 -c "agentxchain --version"`
+
+For BUG-95: stage a dev turn result that uses `files_modified` instead of `files_changed` and omits `runtime_id`, `summary`, `artifact`, and `proposed_next_role`. The acceptance pipeline must auto-normalize the synonym and missing fields before schema validation succeeds.
+
+For BUG-94 carry-forward: missing top-level `decisions` and `objections` arrays must still normalize to `[]` before schema validation.
+
+For review-only carry-forward: a `review_only` role with missing or empty `objections` must still fail protocol challenge enforcement.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

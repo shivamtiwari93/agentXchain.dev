@@ -1,6 +1,6 @@
-# LinkedIn Post — AgentXchain v2.155.48
+# LinkedIn Post — AgentXchain v2.155.49
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.48` release. Updated 2026-04-27 for BUG-93 fix: DOGFOOD proof evidence no longer blocks retained-turn reacceptance.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.49` release. Updated 2026-04-27 for BUG-95 fix: normalize missing required fields and synonym field names.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
@@ -22,7 +22,7 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.48` fixes the dogfood proof-evidence recovery path after BUG-92:
+`v2.155.49` fixes missing required fields and synonym field names (BUG-95):
 
 - DOGFOOD-100 proof files under `.planning/dogfood-100-turn-evidence/` are baseline-exempt proof metadata, not retained-turn work.
 - Arbitrary `.planning/` files remain actor-owned and still fail dirty parity when changed outside the retained turn.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.155.49
+
+- **BUG-95: normalize missing required fields and synonym field names.** Dev turn staged results using `files_modified` (instead of `files_changed`) and omitting `runtime_id`, `summary`, `artifact`, and `proposed_next_role` now auto-normalize before schema validation. Conformance fixture TR-002 updated from missing `summary` to missing `run_id`.
+
+- npm test -- --test-timeout=60000 -> 7273 tests / 1472 suites / 0 failures / 5 skipped
+
 ## 2.155.48
 
 - **BUG-94: missing top-level `decisions` and `objections` arrays are normalized before schema validation.** Same-session dogfood recovery after BUG-93 reached the retained dev turn but blocked because the otherwise useful staged result omitted two required empty arrays.

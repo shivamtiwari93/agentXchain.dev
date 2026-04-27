@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.155.48
+# Twitter/X Thread — AgentXchain v2.155.49
 
-> Ready-to-post thread for the `v2.155.48` release. Updated 2026-04-27 for BUG-93 fix: DOGFOOD proof evidence no longer blocks retained-turn reacceptance.
+> Ready-to-post thread for the `v2.155.49` release. Updated 2026-04-27 for BUG-95 fix: normalize missing required fields and synonym field names.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.48 ships BUG-92 fix: continuous DOGFOOD proof evidence no longer blocks retained-turn reacceptance. Open source. MIT.
+AgentXchain v2.155.49 ships BUG-95 fix: missing required fields and synonym field names are auto-normalized before schema validation. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,7 +57,7 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.48:
+New in v2.155.49:
 
 - DOGFOOD proof files are baseline-exempt while still snapshot-visible for unchanged-marker comparison.
 - Arbitrary planning files remain actor-owned and fail closed if changed outside a retained turn.

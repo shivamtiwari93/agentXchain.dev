@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.155.48
+# Reddit Posts — AgentXchain v2.155.49
 
-> Ready-to-post content for Reddit for the `v2.155.48` release. Updated 2026-04-27 for BUG-93 fix: DOGFOOD proof evidence no longer blocks retained-turn reacceptance.
+> Ready-to-post content for Reddit for the `v2.155.49` release. Updated 2026-04-27 for BUG-95 fix: normalize missing required fields and synonym field names.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
@@ -26,7 +26,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.48:
+What shipped in v2.155.49:
 
 - Continuous resume reattempts `acceptTurn()` for active `failed_acceptance` turns with valid staged results.
 - Arbitrary planning files remain actor-owned and fail closed if changed outside a retained turn.
@@ -60,13 +60,13 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.48 — full-auto resume reaccepts failed-acceptance staged turns
+**Title:** AgentXchain v2.155.49 — full-auto resume reaccepts failed-acceptance staged turns
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.48 fixes a full-auto recovery gap found during dogfooding:
+v2.155.49 fixes a full-auto recovery gap found during dogfooding:
 
 - DOGFOOD-100 proof evidence files are exempt from retained-turn dirty parity
 - arbitrary planning files still fail closed when changed outside the retained turn
@@ -108,7 +108,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.48 fixes full-auto resume so failed-acceptance staged turns can be reaccepted without operator-side `accept-turn` recovery.
+v2.155.49 fixes full-auto resume so failed-acceptance staged turns can be reaccepted without operator-side `accept-turn` recovery.
 
 Try the zero-key demo:
 
@@ -137,7 +137,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.48 fixes failed-acceptance resume without operator-side recovery
+- v2.155.49 fixes failed-acceptance resume without operator-side recovery
 
 Try it in 30 seconds:
 

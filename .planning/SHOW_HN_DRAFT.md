@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.155.48
+# Show HN Draft — AgentXchain v2.155.49
 
-> Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Updated 2026-04-27 for BUG-93 fix: DOGFOOD proof evidence no longer blocks retained-turn reacceptance.
+> Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Updated 2026-04-27 for BUG-95 fix: normalize missing required fields and synonym field names.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
@@ -48,7 +48,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, Dev implements while resolving objections, QA reviews against acceptance criteria, and the protocol records decisions and evidence.
 
-**What shipped by v2.155.48:**
+**What shipped by v2.155.49:**
 
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual`
 - Parallel turns: up to 4 agents concurrently within a governed run, with dispatch isolation and serialized acceptance
