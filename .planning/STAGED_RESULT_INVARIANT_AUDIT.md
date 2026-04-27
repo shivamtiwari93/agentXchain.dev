@@ -27,17 +27,22 @@ This audit maps validator-enforced staged-result invariants to prompt coverage, 
 | BUG-78 empty workspace no-edit review | `artifact.type = "review"`, `artifact.ref = "turn:<turn_id>"` | `artifact_type_auto_normalized`, `staged_result_auto_normalized` |
 | BUG-79 objection summary/detail shape | `objections[i].statement = summary || detail` | `staged_result_auto_normalized` |
 | BUG-89 invalid objection ID | `objections[i].id` rewritten to `OBJ-{i+1}` (zero-padded 3 digits) | `staged_result_auto_normalized` |
+| BUG-90 broad staged-result normalization (7 classes) | status synonyms, object files_changed, decision id/statement/category, verification.status, artifact.type | `staged_result_auto_normalized` |
+| BUG-91 baseline-dirty unchanged files | Files in `baseline.dirty_snapshot` with matching SHA excluded from dirty parity check | `baseline_dirty_unchanged_excluded` |
 
 ## Fail-Fast-Only Cases
 
 - Missing required top-level fields with no safe source material.
 - Objections without `statement`, `summary`, or `detail`.
-- Dirty worktree mismatches after artifact normalization.
+- Dirty worktree mismatches after artifact normalization (except baseline-unchanged files per BUG-91).
 - Review artifacts that declare product file edits.
 - Review-only product-file claims.
+- Baseline-dirty files whose SHA CHANGED during the turn (modified without declaring).
 
 ## Acceptance Evidence
 
 - `cli/test/beta-tester-scenarios/bug-78-no-edit-review-artifact-type.test.js`
 - `cli/test/beta-tester-scenarios/bug-79-objection-statement-normalization.test.js`
 - `cli/test/beta-tester-scenarios/bug-89-objection-id-normalization.test.js`
+- `cli/test/beta-tester-scenarios/bug-90-broad-staged-result-normalization.test.js`
+- `cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js`

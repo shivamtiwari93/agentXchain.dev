@@ -103,10 +103,10 @@ describe('HUMAN-ROADMAP open blocker status', () => {
       /BUG-78/,
       'current focus must reflect the open BUG-78 no-edit review defect awaiting reverify',
     );
-    assert.doesNotMatch(
+    assert.match(
       currentFocusLine,
-      /BUG-90/,
-      'BUG-90 is closed and must not appear in the open-bug list on the focus line',
+      /BUG-91/,
+      'current focus must reflect the open BUG-91 baseline-dirty acceptance blocker',
     );
   });
 

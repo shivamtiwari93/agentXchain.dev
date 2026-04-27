@@ -38,6 +38,7 @@ import {
   deriveAcceptedRef,
   checkCleanBaseline,
   detectDirtyFilesOutsideAllowed,
+  getBaselineUnchangedFiles,
   isOperationalPath,
   isBaselineExemptPath,
   normalizeCheckpointableFiles,
@@ -4504,6 +4505,22 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     }
   }
 
+  // BUG-91: Files that were dirty at dispatch baseline and have NOT been
+  // modified during the turn (same SHA marker) should not block acceptance.
+  // These are inherited workspace state — the turn did not create them.
+  // Example: dogfood evidence files (.planning/dogfood-100-turn-evidence/)
+  // that remain dirty across turns but are not turn-attributed mutations.
+  const baselineUnchangedDirtyFiles = getBaselineUnchangedFiles(root, baseline);
+  if (baselineUnchangedDirtyFiles.length > 0) {
+    emitRunEvent(root, 'baseline_dirty_unchanged_excluded', {
+      run_id: state.run_id,
+      turn_id: currentTurn.turn_id,
+      phase: state.phase,
+      excluded_files: baselineUnchangedDirtyFiles,
+      rationale: 'Files were dirty at dispatch baseline with matching SHA markers at acceptance time — inherited workspace state, not turn-attributed mutations.',
+    });
+  }
+
   const dirtyParity = detectDirtyFilesOutsideAllowed(
     root,
     writeAuthority,
@@ -4511,6 +4528,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       ...(turnResult.files_changed || []),
       ...concurrentAllowedDirtyFiles,
       ...uncheckpointedPriorFiles,
+      ...baselineUnchangedDirtyFiles,
     ],
   );
   if (!dirtyParity.clean) {

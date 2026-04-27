@@ -835,6 +835,26 @@ export function captureDirtyWorkspaceSnapshot(root) {
   return snapshot;
 }
 
+/**
+ * Return file paths that were dirty at dispatch baseline and have NOT changed
+ * since (same SHA marker). These files are inherited workspace state — the
+ * turn did not create or modify them — and should not block acceptance.
+ * BUG-91: prevents false-positive dirty-parity failures on pre-existing dirt.
+ */
+export function getBaselineUnchangedFiles(root, baseline) {
+  const snapshot = baseline?.dirty_snapshot;
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return [];
+  }
+  const unchanged = [];
+  for (const [filePath, baselineSha] of Object.entries(snapshot)) {
+    if (baselineSha === getWorkspaceFileMarker(root, filePath)) {
+      unchanged.push(filePath);
+    }
+  }
+  return unchanged;
+}
+
 function filterBaselineDirtyFiles(root, changedFiles, baseline) {
   const snapshot = baseline?.dirty_snapshot;
   if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
