@@ -1,11 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.45
+# LinkedIn Post — AgentXchain v2.155.46
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.45` release. Updated 2026-04-26 for BUG-90 fix: staged-result normalizer extension for 7 new field-shape classes.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.46` release. Updated 2026-04-27 for BUG-92 fix: continuous resume reaccepts failed-acceptance staged turns before assigning new work.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7270 tests / 1470 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
 
 ---
 
@@ -22,15 +22,15 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.45` extends the staged-result normalizer for 7 new field-shape classes encountered during dogfood turn 39:
+`v2.155.46` fixes the dogfood recovery path after BUG-91:
 
-- Bounded exports may carry `content_base64: null` only when they include explicit truncation or skip metadata.
-- Governance reports render those bounded exports instead of failing verification.
-- Bare null payloads still fail closed, so full export integrity checks stay strict.
-- The regression suite covers the original BUG-84 string-size path and the new BUG-86 verifier/report command chain.
+- Continuous resume now reattempts `acceptTurn()` for an active `failed_acceptance` turn with a valid staged result before assigning new work.
+- Missing staged results fail closed with a typed `missing staged result` blocker instead of duplicate assignment.
+- The existing auto-checkpoint callback still runs after successful reacceptance.
+- This keeps the full-auto path inside the framework instead of requiring operator-side `accept-turn` recovery.
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-86-bounded-export-report-verifier.test.js cli/test/bug-67-report-string-length.test.js cli/test/beta-tester-scenarios/bug-84-report-string-overflow.test.js -> 17 tests / 4 suites / 0 failures / 0 skipped
-- npm test -- --test-timeout=60000 -> 7270 tests / 1470 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 2 tests / 1 suite / 0 failures
+- npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

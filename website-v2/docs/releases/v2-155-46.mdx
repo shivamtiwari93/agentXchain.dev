@@ -1,0 +1,40 @@
+---
+sidebar_position: 0
+title: "v2.155.46 Release Notes"
+---
+
+# AgentXchain v2.155.46
+
+`v2.155.46` fixes BUG-92: continuous resume now reaccepts an existing `failed_acceptance` turn with a valid staged result before trying to assign fresh work. This unblocks the DOGFOOD-100-TURNS recovery path that appeared immediately after the BUG-91 patch release.
+
+## Bug Fixes
+
+- **BUG-92: failed-acceptance resume reacceptance.** When a governed run has an active turn in `failed_acceptance` and its turn-scoped staged result still exists, the run loop calls the normal `acceptTurn()` path for that turn instead of calling `assignTurn()` again.
+- **Typed missing-staging blocker.** If the active `failed_acceptance` turn has no staged result, `agentxchain run` now blocks with a clear `missing staged result` recovery error rather than hiding the real issue behind duplicate assignment.
+- **Auto-checkpoint continuity.** Successful reacceptance still runs the existing `afterAccept` callback, so `--auto-checkpoint` behavior remains attached to the framework path instead of requiring operator recovery.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 2 tests / 1 suite / 0 failures
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js -> 3 tests / 1 suite / 0 failures
+- node --test --test-timeout=120000 cli/test/run-integration.test.js cli/test/continuous-run.test.js -> 81 tests / 14 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.46 -c "agentxchain --version"`
+
+For BUG-92: resume the tusq.dev dogfood session where `turn_c3e78ecd352330aa` (dev) is active with `status: "failed_acceptance"` and a valid `.agentxchain/staging/turn_c3e78ecd352330aa/turn-result.json`. The continuous command must reattempt acceptance through the run loop and must not print `Turn already assigned`.
+
+For BUG-91 carry-forward: after BUG-92 reacceptance, the original dirty-parity failure on `.planning/dogfood-100-turn-evidence/turn-counter.jsonl` must not reproduce. The reaccepted turn should emit the BUG-91 baseline-dirty unchanged exclusion evidence when that inherited dirty file is still unchanged from dispatch baseline.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

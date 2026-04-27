@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.46
+
+- **BUG-92: failed-acceptance resume reaccepts the existing staged turn before assigning new work.** Continuous resume after BUG-91 shipped was blocked by `assignTurn(dev): Turn already assigned` because the run loop tried to assign into a run that still had an active `failed_acceptance` turn with a valid staged result.
+- The run loop now detects active `failed_acceptance` turns with turn-scoped staged results, retries `acceptTurn()` through the normal framework path, emits `turn_accepted`, and runs the existing auto-checkpoint callback on success.
+- Missing staged-result recovery is fail-closed and typed: the run blocks with `missing staged result` instead of duplicate assignment.
+- 2 new command-chain regression tests cover successful reacceptance and the missing-staging negative path; BUG-91 baseline-dirty unchanged regressions remain green.
+
+- npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
+
 ## 2.155.45
 
 - **BUG-91: baseline-dirty unchanged files no longer block turn acceptance.** Dogfood session paused because `.planning/dogfood-100-turn-evidence/turn-counter.jsonl` was dirty at dispatch baseline and still dirty (unchanged) at acceptance time. The acceptance parity check now excludes files whose SHA marker matches the baseline dirty_snapshot — inherited workspace state is not the turn's responsibility.
