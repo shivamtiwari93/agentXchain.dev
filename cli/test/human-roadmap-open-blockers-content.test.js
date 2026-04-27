@@ -108,6 +108,11 @@ describe('HUMAN-ROADMAP open blocker status', () => {
       /BUG-91/,
       'current focus must reflect the open BUG-91 baseline-dirty acceptance blocker',
     );
+    assert.match(
+      currentFocusLine,
+      /BUG-94/,
+      'current focus must reflect the active BUG-94 missing required-array recovery blocker',
+    );
   });
 
   it('keeps the current tester handoff line pointing at historical V1 through V6 asks', () => {

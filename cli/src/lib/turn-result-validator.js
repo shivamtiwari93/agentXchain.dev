@@ -1018,6 +1018,30 @@ export function normalizeTurnResult(tr, config, context = {}) {
   const hasExplicitNoEditLifecycleSignal = normalized.run_completion_request === true
     || (typeof normalized.phase_transition_request === 'string' && normalized.phase_transition_request.trim().length > 0);
 
+  // ── BUG-94: default missing top-level required arrays ────────────────
+  // Empty decisions/objections are schema-valid. Review-only challenge
+  // requirements remain enforced later by protocol validation.
+  if (!('decisions' in normalized)) {
+    corrections.push('decisions: defaulted missing required array to []');
+    normalizationEvents.push({
+      field: 'decisions',
+      original_value: null,
+      normalized_value: [],
+      rationale: 'missing_decisions_array_defaulted',
+    });
+    normalized.decisions = [];
+  }
+  if (!('objections' in normalized)) {
+    corrections.push('objections: defaulted missing required array to []');
+    normalizationEvents.push({
+      field: 'objections',
+      original_value: null,
+      normalized_value: [],
+      rationale: 'missing_objections_array_defaulted',
+    });
+    normalized.objections = [];
+  }
+
   // ── BUG-90: normalize status synonyms ────────────────────────────────
   const STATUS_SYNONYMS = { complete: 'completed', success: 'completed', done: 'completed', error: 'failed', failure: 'failed' };
   if (typeof normalized.status === 'string' && !VALID_STATUSES.includes(normalized.status)) {

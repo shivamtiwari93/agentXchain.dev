@@ -492,6 +492,8 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `run_id`, `turn_id`, `role`, `runtime_id`: must match the values above exactly');
   lines.push('- `status`: one of `completed`, `blocked`, `needs_human`, `failed`. Do NOT use `complete`, `success`, `done`, or any other synonym — use the exact enum value `completed`.');
   lines.push('- `summary`: concise description of what you did this turn');
+  lines.push('- `decisions`: REQUIRED array. Use `[]` when no new decisions were made; do not omit the field.');
+  lines.push('- `objections`: REQUIRED array. Use `[]` when no objections are raised; review_only roles must include at least one objection.');
   lines.push('- `files_changed`: array of **strings** (file paths only). Do NOT use objects like `{path, change_type}` — just the path string (e.g. `["src/cli.js", "tests/smoke.mjs"]`).');
   lines.push('- `decisions[].id`: pattern `DEC-NNN` where NNN is digits only (e.g. `DEC-001`, `DEC-002`). Do NOT use `D1`, `D2`, or freeform IDs.');
   lines.push('- `decisions[].statement`: non-empty string describing the decision. Do NOT use `decision` or `description` as the field name — the field is `statement`.');
