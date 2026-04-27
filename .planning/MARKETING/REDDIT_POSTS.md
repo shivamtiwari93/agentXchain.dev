@@ -1,12 +1,12 @@
-# Reddit Posts — AgentXchain v2.155.46
+# Reddit Posts — AgentXchain v2.155.47
 
-> Ready-to-post content for Reddit for the `v2.155.46` release. Updated 2026-04-27 for BUG-92 fix: continuous resume reaccepts failed-acceptance staged turns before assigning new work.
+> Ready-to-post content for Reddit for the `v2.155.47` release. Updated 2026-04-27 for BUG-93 fix: DOGFOOD proof evidence no longer blocks retained-turn reacceptance.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7271 tests / 1471 suites / 0 failures / 5 skipped
 
 ---
 
@@ -26,17 +26,17 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.46:
+What shipped in v2.155.47:
 
 - Continuous resume reattempts `acceptTurn()` for active `failed_acceptance` turns with valid staged results.
-- Missing staged results fail closed with a typed `missing staged result` blocker.
+- Arbitrary planning files remain actor-owned and fail closed if changed outside a retained turn.
 - Auto-checkpoint remains attached to the normal framework acceptance path.
 - Regression coverage proves both successful reacceptance and the missing-staging negative path.
 
 Proof:
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 2 tests / 1 suite / 0 failures
-- npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js cli/test/repo-observer.test.js cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 100 tests / 20 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7271 tests / 1471 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -60,24 +60,24 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.46 — full-auto resume reaccepts failed-acceptance staged turns
+**Title:** AgentXchain v2.155.47 — full-auto resume reaccepts failed-acceptance staged turns
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.46 fixes a full-auto recovery gap found during dogfooding:
+v2.155.47 fixes a full-auto recovery gap found during dogfooding:
 
-- active `failed_acceptance` turns with valid staged results are reaccepted before new assignment
-- missing staged results fail closed with typed recovery output
-- duplicate `Turn already assigned` resume failures are covered by command-chain regression tests
+- DOGFOOD-100 proof evidence files are exempt from retained-turn dirty parity
+- arbitrary planning files still fail closed when changed outside the retained turn
+- the retained-turn recovery path now carries BUG-91, BUG-92, and BUG-93 together
 
 The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and remote_agent adapters are all proven live. The non-manual adapters have real-model proof; manual remains the governed human path.
 
 Evidence:
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 2 tests / 1 suite / 0 failures
-- npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js cli/test/repo-observer.test.js cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 100 tests / 20 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7271 tests / 1471 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -108,7 +108,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.46 fixes full-auto resume so failed-acceptance staged turns can be reaccepted without operator-side `accept-turn` recovery.
+v2.155.47 fixes full-auto resume so failed-acceptance staged turns can be reaccepted without operator-side `accept-turn` recovery.
 
 Try the zero-key demo:
 
@@ -117,7 +117,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7271 tests / 1471 suites / 0 failures / 5 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -137,7 +137,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.46 fixes failed-acceptance resume without operator-side recovery
+- v2.155.47 fixes failed-acceptance resume without operator-side recovery
 
 Try it in 30 seconds:
 

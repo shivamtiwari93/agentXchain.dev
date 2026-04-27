@@ -1,11 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.46
+# LinkedIn Post — AgentXchain v2.155.47
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.46` release. Updated 2026-04-27 for BUG-92 fix: continuous resume reaccepts failed-acceptance staged turns before assigning new work.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.47` release. Updated 2026-04-27 for BUG-93 fix: DOGFOOD proof evidence no longer blocks retained-turn reacceptance.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7271 tests / 1471 suites / 0 failures / 5 skipped
 
 ---
 
@@ -22,15 +22,15 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.46` fixes the dogfood recovery path after BUG-91:
+`v2.155.47` fixes the dogfood proof-evidence recovery path after BUG-92:
 
-- Continuous resume now reattempts `acceptTurn()` for an active `failed_acceptance` turn with a valid staged result before assigning new work.
-- Missing staged results fail closed with a typed `missing staged result` blocker instead of duplicate assignment.
-- The existing auto-checkpoint callback still runs after successful reacceptance.
+- DOGFOOD-100 proof files under `.planning/dogfood-100-turn-evidence/` are baseline-exempt proof metadata, not retained-turn work.
+- Arbitrary `.planning/` files remain actor-owned and still fail dirty parity when changed outside the retained turn.
+- The same reacceptance path preserves BUG-91 and BUG-92 behavior without operator-side recovery.
 - This keeps the full-auto path inside the framework instead of requiring operator-side `accept-turn` recovery.
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 2 tests / 1 suite / 0 failures
-- npm test -- --test-timeout=60000 -> 7269 tests / 1471 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js cli/test/repo-observer.test.js cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 100 tests / 20 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7271 tests / 1471 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

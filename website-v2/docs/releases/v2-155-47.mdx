@@ -1,0 +1,40 @@
+---
+sidebar_position: 0
+title: "v2.155.47 Release Notes"
+---
+
+# AgentXchain v2.155.47
+
+`v2.155.47` fixes BUG-93: DOGFOOD-100 proof evidence under `.planning/dogfood-100-turn-evidence/` no longer blocks retained-turn reacceptance during same-session patch recovery.
+
+## Bug Fixes
+
+- **BUG-93: DOGFOOD evidence baseline exemption.** Recovery evidence files are now treated as narrow framework proof metadata, not turn-authored planning work by the retained active turn.
+- **Observation filtering.** DOGFOOD evidence paths stay visible to the dirty snapshot so unchanged-marker comparison remains truthful, but they are filtered out of turn observation and acceptance parity.
+- **Fail-closed boundary preserved.** Arbitrary `.planning/` files remain actor-owned and still fail acceptance if they change outside the retained turn.
+
+## Evidence
+
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-91-baseline-dirty-unchanged-acceptance.test.js cli/test/repo-observer.test.js cli/test/beta-tester-scenarios/bug-92-failed-acceptance-run-resume.test.js -> 100 tests / 20 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7271 tests / 1471 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.47 -c "agentxchain --version"`
+
+For BUG-93: resume the tusq.dev dogfood session where `turn_c3e78ecd352330aa` is still the retained failed-acceptance dev turn and `.planning/dogfood-100-turn-evidence/bug-90-reverify-v2.155.44.md` exists as recovery evidence. The continuous command must reattempt acceptance through the run loop and must not fail dirty parity on that DOGFOOD evidence path.
+
+For BUG-92 carry-forward: the same run must not print `Turn already assigned`.
+
+For BUG-91 carry-forward: unchanged baseline-dirty files such as `.planning/dogfood-100-turn-evidence/turn-counter.jsonl` must remain excluded by hash marker rather than attributed to the retained turn.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

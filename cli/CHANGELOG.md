@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.47
+
+- **BUG-93: DOGFOOD-100 proof evidence is exempt from retained-turn dirty parity.** Same-session recovery after BUG-92 correctly reattempted the existing failed-acceptance turn, but then blocked on `.planning/dogfood-100-turn-evidence/bug-90-reverify-v2.155.44.md` even though that file is operator proof metadata created during the patch-release recovery loop.
+- `.planning/dogfood-100-turn-evidence/` is now a narrow baseline-exempt DOGFOOD proof path: it is captured in dirty snapshots for unchanged-marker comparison but filtered out of turn-authored observation and acceptance parity.
+- Arbitrary `.planning/` files remain actor-owned and still fail dirty parity when changed outside the retained turn.
+- 2 new regressions cover the repo observer classification and shipped command-chain acceptance with untracked DOGFOOD evidence.
+
+- npm test -- --test-timeout=60000 -> 7271 tests / 1471 suites / 0 failures / 5 skipped
+
 ## 2.155.46
 
 - **BUG-92: failed-acceptance resume reaccepts the existing staged turn before assigning new work.** Continuous resume after BUG-91 shipped was blocked by `assignTurn(dev): Turn already assigned` because the run loop tried to assign into a run that still had an active `failed_acceptance` turn with a valid staged result.
