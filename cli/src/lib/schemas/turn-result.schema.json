@@ -168,7 +168,11 @@
                 "type": "string",
                 "pattern": "\\S"
               },
-              "exit_code": { "type": "integer" }
+              "exit_code": { "type": "integer" },
+              "expected_exit_code": {
+                "type": "integer",
+                "description": "Optional expected exit code for deliberate negative-case verification commands."
+              }
             }
           }
         },

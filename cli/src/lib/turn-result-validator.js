@@ -815,15 +815,31 @@ function validateVerification(tr) {
       if (typeof entry.exit_code !== 'number' || !Number.isInteger(entry.exit_code)) {
         errors.push(`verification.machine_evidence[${i}].exit_code must be an integer.`);
       }
+      if ('expected_exit_code' in entry && (typeof entry.expected_exit_code !== 'number' || !Number.isInteger(entry.expected_exit_code))) {
+        errors.push(`verification.machine_evidence[${i}].expected_exit_code must be an integer when provided.`);
+      }
     }
 
-    // If status is pass but any command has non-zero exit code, that's suspicious
+    // If status is pass but any command has non-zero exit code, that is only
+    // valid for explicitly declared expected negative checks.
     if (v.status === 'pass') {
-      const failedCommands = v.machine_evidence.filter(e => typeof e.exit_code === 'number' && e.exit_code !== 0);
+      const failedCommands = v.machine_evidence.filter((entry) => (
+        typeof entry?.exit_code === 'number'
+        && entry.exit_code !== 0
+        && !isExpectedNonZeroMachineEvidence(entry, v.evidence_summary)
+      ));
       if (failedCommands.length > 0) {
         errors.push(
-          `verification.status is "pass" but ${failedCommands.length} command(s) have non-zero exit codes. Wrap expected-failure checks in a verifier that exits 0 only when the failure occurs as expected, or do not report "pass".`
+          `verification.status is "pass" but ${failedCommands.length} command(s) have non-zero exit codes that are not explicitly declared as expected failures. Set verification.machine_evidence[].expected_exit_code to the expected non-zero code, wrap expected-failure checks in a verifier that exits 0 only when the failure occurs as expected, or do not report "pass".`
         );
+      }
+      const expectedNonZeroCommands = v.machine_evidence.filter((entry) => (
+        typeof entry?.exit_code === 'number'
+        && entry.exit_code !== 0
+        && isExpectedNonZeroMachineEvidence(entry, v.evidence_summary)
+      ));
+      if (expectedNonZeroCommands.length > 0) {
+        warnings.push(`verification.status is "pass" with ${expectedNonZeroCommands.length} expected non-zero command(s).`);
       }
     }
   }
@@ -863,6 +879,57 @@ function validateVerification(tr) {
   }
 
   return { errors, warnings };
+}
+
+function isExpectedNonZeroMachineEvidence(entry, evidenceSummary) {
+  if (!entry || typeof entry !== 'object') {
+    return false;
+  }
+  if (!Number.isInteger(entry.exit_code) || entry.exit_code === 0) {
+    return false;
+  }
+  if (Number.isInteger(entry.expected_exit_code)) {
+    return entry.expected_exit_code === entry.exit_code;
+  }
+  return evidenceSummaryDeclaresExpectedExit(evidenceSummary, entry.command, entry.exit_code);
+}
+
+function evidenceSummaryDeclaresExpectedExit(evidenceSummary, command, exitCode) {
+  if (typeof evidenceSummary !== 'string' || typeof command !== 'string') {
+    return false;
+  }
+  const summary = normalizeEvidenceText(evidenceSummary);
+  const snippets = expectedExitCommandSnippets(command).map(normalizeEvidenceText).filter(Boolean);
+  for (const snippet of snippets) {
+    const index = summary.indexOf(snippet);
+    if (index === -1) {
+      continue;
+    }
+    const window = summary.slice(index, index + snippet.length + 160);
+    if (mentionsExitCode(window, exitCode)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function expectedExitCommandSnippets(command) {
+  const normalized = normalizeEvidenceText(command);
+  const snippets = [normalized];
+  const firstTypeMatch = normalized.match(/(--first-type)\s+([^&|;`\n\r ]+)/i);
+  if (firstTypeMatch) {
+    snippets.push(`${firstTypeMatch[1]} ${firstTypeMatch[2]}`);
+  }
+  return [...new Set(snippets)];
+}
+
+function mentionsExitCode(text, exitCode) {
+  const code = String(exitCode).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b(?:exit(?:s|ed)?(?:\\s+(?:code|with\\s+code))?|returns?|returned)\\s*${code}\\b`, 'i').test(text);
+}
+
+function normalizeEvidenceText(value) {
+  return String(value).replace(/\s+/g, ' ').trim();
 }
 
 // ── Stage E: Protocol Compliance ─────────────────────────────────────────────

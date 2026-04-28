@@ -657,7 +657,7 @@ describe('turn-result-validator', () => {
       assert.equal(res.stage, 'verification');
       assert.equal(res.error_class, 'verification_error');
       assert.ok(res.errors.some(e => e.includes('non-zero exit')));
-      assert.ok(res.errors.some(e => e.includes('Wrap expected-failure checks')));
+      assert.ok(res.errors.some(e => e.includes('not explicitly declared as expected failures')));
     });
 
     it('rejects blank verification command declarations', () => {
