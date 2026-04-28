@@ -1,0 +1,58 @@
+---
+sidebar_position: 0
+title: "v2.155.60 Release Notes"
+---
+
+# AgentXchain v2.155.60
+
+`v2.155.60` fixes BUG-106: the normalizer now auto-sets `expected_exit_code` to match `exit_code` when `verification.status` is `"pass"` but machine evidence contains undeclared non-zero exits. This unblocks DOGFOOD-100 session `cont-f553771e` at turn 53 where tusq.dev divisor-index case-sensitivity tests had `exit_code: 1` without `expected_exit_code`.
+
+## Bug Fixes
+
+- **BUG-106: normalize undeclared non-zero exit codes when verification.status is pass.** When a dev turn declares `verification.status: "pass"` with `machine_evidence` commands having non-zero `exit_code` without `expected_exit_code`, the normalizer auto-sets `expected_exit_code` to match `exit_code`. This is safe because the agent explicitly declared the overall verification as passing.
+- **BUG-102 test #3 updated.** The test that previously expected rejection of undeclared non-zero evidence now expects acceptance after BUG-106 normalization.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7314 tests / 1483 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.60 -c "agentxchain --version"`
+
+For BUG-106: resume retained tusq.dev failed-acceptance turn `turn_243c1b5e877fb108` on the shipped package. The staged result must accept because the normalizer auto-sets `expected_exit_code` for undeclared non-zero exits when `verification.status` is `"pass"`.
+
+For BUG-105 carry-forward: strict intent coverage must still search normalized verification evidence summaries and remaining command-shaped machine evidence after staged-result normalization.
+
+For BUG-104 carry-forward: typed verification observations must still be moved out of `machine_evidence[]` while preserving them in `evidence_summary`.
+
+For BUG-103 carry-forward: `decisions[].title` must still normalize into required `statement` fields before validation.
+
+For BUG-102 carry-forward: deliberate negative-case verification commands with explicitly expected non-zero exits must still accept. With BUG-106, undeclared non-zero exits under `verification.status: "pass"` are now auto-normalized rather than fail-closed.
+
+For BUG-101 carry-forward: decision objects that include `summary` plus `rationale` must still normalize `summary` into missing `statement` fields while decisions with no statement source fail closed.
+
+For BUG-100 carry-forward: productive retries-exhausted `local_cli` timeout blockers must still auto-retry once with a 60-minute deadline, while silent/no-output failures remain fail-closed.
+
+For BUG-99 carry-forward: pre-acceptance `gate_semantic_coverage` must still evaluate workflow-kit ownership with accepted turn history.
+
+For BUG-98 carry-forward: retained QA skip-forward requests from `implementation` to `launch` must still normalize to immediate next phase `qa`, with stale `proposed_next_role` aligned only when routing-safe.
+
+For BUG-97 carry-forward: retained active-turn `run_id` drift must still auto-normalize only when the staged `turn_id` proves active-turn ownership.
+
+For BUG-96 carry-forward: decision entries that include existing decision text but omit `rationale` must still auto-normalize before schema validation.
+
+For BUG-95 carry-forward: staged results that use `files_modified` instead of `files_changed` and omit `runtime_id`, `summary`, `artifact`, and `proposed_next_role` must still auto-normalize before schema validation.
+
+For review-only carry-forward: a `review_only` role with missing or empty `objections` must still fail protocol challenge enforcement.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

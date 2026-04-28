@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.60
+
+- **BUG-106: normalize undeclared non-zero exit codes when verification.status is pass.** When a dev turn declares `verification.status: "pass"` but `machine_evidence` contains commands with non-zero `exit_code` without `expected_exit_code`, the normalizer auto-sets `expected_exit_code` to match `exit_code`. This is safe because the agent explicitly declared the overall verification as passing — the non-zero exits are intentional negative-case tests.
+- Discovered during DOGFOOD-100 session `cont-f553771e` at turn 53 where tusq.dev divisor index case-sensitivity tests had `exit_code: 1` without `expected_exit_code`.
+- BUG-102 test #3 updated to reflect the new BUG-106 normalization behavior.
+
+- npm test -- --test-timeout=60000 -> 7314 tests / 1483 suites / 0 failures / 5 skipped
+
 ## 2.155.59
 
 - **BUG-105: preserve structured verification evidence for strict intent coverage.** Strict intent coverage now searches normalized verification evidence summaries and remaining command-shaped machine evidence after staged-result normalization, so valid acceptance-contract proof stays visible after BUG-104 moves typed observations out of `machine_evidence[]`.
