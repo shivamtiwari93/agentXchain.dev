@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.54
+
+- **BUG-100: auto-retry productive timeout blockers in full-auto continuous mode.** Continuous startup now detects retries-exhausted `local_cli` turns that produced output, were deadline-killed, and wrote no staged result, then reissues one framework-owned retry with a 60-minute deadline instead of requiring operator `unblock`.
+- The retry is deliberately narrow: silent/no-output retries-exhausted subprocess failures remain fail-closed, and each run gets only one productive-timeout auto-retry before the session pauses with typed `productive_timeout_retry_exhausted` evidence.
+- New audit events `auto_retried_productive_timeout` and `productive_timeout_retry_exhausted` make the recovery visible in the run log and keep BUG-61 ghost retry behavior unchanged.
+
+- npm test -- --test-timeout=60000 -> 7298 tests / 1477 suites / 0 failures / 5 skipped
+
 ## 2.155.53
 
 - **BUG-99: include accepted history in pre-acceptance gate semantic coverage.** Workflow-kit ownership gates now evaluate previously accepted turns during the pre-acceptance transition guard, so a QA verification turn is not forced to modify a dev-owned implementation artifact that an accepted dev turn already produced.

@@ -1,0 +1,47 @@
+---
+sidebar_position: 0
+title: "v2.155.54 Release Notes"
+---
+
+# AgentXchain v2.155.54
+
+`v2.155.54` fixes BUG-100: full-auto continuous mode now recovers from a productive `local_cli` turn that was killed by the hard deadline after producing output but before writing a staged result. Instead of requiring operator-side `unblock`, AgentXchain reissues one framework-owned retry for the same run with a 60-minute deadline.
+
+## Bug Fixes
+
+- **BUG-100: auto-retry productive timeout blockers.** Continuous startup detects retries-exhausted dispatch failures with stdout evidence, `code 143` or timeout diagnostics, and no `.agentxchain/staging/<turn>/turn-result.json`, then reissues the turn once.
+- **Fail-closed retry budget.** Silent/no-output timeout failures remain blocked, and a run gets only one productive-timeout auto-retry before emitting `productive_timeout_retry_exhausted`.
+- **Auditability.** New run events `auto_retried_productive_timeout` and `productive_timeout_retry_exhausted` make the recovery visible without changing BUG-61 ghost-blocker retry semantics.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7298 tests / 1477 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.54 -c "agentxchain --version"`
+
+For BUG-100: resume the blocked tusq.dev continuous session on the shipped package. The session must detect the retries-exhausted dev timeout blocker, emit `auto_retried_productive_timeout`, clear the human escalation blocker, and assign a replacement dev turn without operator-side `unblock`, `reissue-turn`, staging JSON edits, or gate mutation. If the replacement turn also exhausts the productive-timeout retry budget, the session must remain fail-closed with `productive_timeout_retry_exhausted` evidence instead of entering an infinite retry loop.
+
+For BUG-99 carry-forward: pre-acceptance `gate_semantic_coverage` must still evaluate workflow-kit ownership with accepted turn history.
+
+For BUG-98 carry-forward: retained QA skip-forward requests from `implementation` to `launch` must still normalize to immediate next phase `qa`, with stale `proposed_next_role` aligned only when routing-safe.
+
+For BUG-97 carry-forward: retained active-turn `run_id` drift must still auto-normalize only when the staged `turn_id` proves active-turn ownership.
+
+For BUG-96 carry-forward: decision entries that include existing decision text but omit `rationale` must still auto-normalize before schema validation.
+
+For BUG-95 carry-forward: staged results that use `files_modified` instead of `files_changed` and omit `runtime_id`, `summary`, `artifact`, and `proposed_next_role` must still auto-normalize before schema validation.
+
+For review-only carry-forward: a `review_only` role with missing or empty `objections` must still fail protocol challenge enforcement.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
