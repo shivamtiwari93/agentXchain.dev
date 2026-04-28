@@ -1,28 +1,29 @@
 ---
-sidebar_position: 1
-title: "v2.155.56 Release Notes"
+sidebar_position: 0
+title: "v2.155.57 Release Notes"
 ---
 
-# AgentXchain v2.155.56
+# AgentXchain v2.155.57
 
-`v2.155.56` fixes BUG-102: passing verification may include deliberate negative-case commands with non-zero exits only when those exits are explicitly declared as expected. This recovers the tusq.dev full-auto QA turn that proved CLI rejection paths with exit-1 checks.
+`v2.155.57` fixes BUG-103: roadmap-replenishment PM turns that emit decision text as `decisions[].title` now normalize that text into the required `statement` field before schema validation. This recovers the tusq.dev full-auto PM turn that derived the next roadmap milestone from remaining VISION scope.
 
 ## Bug Fixes
 
-- **BUG-102: expected non-zero verification evidence.** `verification.machine_evidence[].expected_exit_code` can now declare the expected exit code for a negative-case command.
-- **Evidence-summary compatibility.** Existing staged results can also pass when `evidence_summary` explicitly names the command or recognized snippet and says it exits with the observed non-zero code.
-- **Fail-closed accidental failures.** Non-zero machine evidence without a matching expected declaration still blocks `verification.status: "pass"`.
-- **Prompt hardening.** Dispatch instructions still prefer wrapping negative checks in zero-exit verifiers, while documenting the explicit raw non-zero evidence contract.
+- **BUG-103: decision title statement normalization.** Missing or blank `decisions[].statement` now copies from non-empty `title` after existing `decision`, `description`, and `summary` sources.
+- **Fail-closed missing content.** Decisions with no statement source material still fail schema validation; AgentXchain does not synthesize decision text from `rationale` alone.
+- **Prompt hardening.** Dispatch instructions now explicitly forbid `title` as the decision statement field name.
 
 ## Evidence
 
-- npm test -- --test-timeout=60000 -> 7303 tests / 1479 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7305 tests / 1480 suites / 0 failures / 5 skipped
 
 ## Tester Re-Run Contract
 
-Verify: `npx --yes -p agentxchain@2.155.56 -c "agentxchain --version"`
+Verify: `npx --yes -p agentxchain@2.155.57 -c "agentxchain --version"`
 
-For BUG-102: resume retained tusq.dev failed-acceptance turn `turn_cbc4204c2b1db778` on the shipped package. The staged result must accept without manual staging JSON edits because `evidence_summary` explicitly declares `--first-type STRING exits 1` and `--first-type boolean exits 1`; acceptance must continue through the normal full-auto path without operator-side `accept-turn`, `unblock`, gate mutation, or cross-repo workaround.
+For BUG-103: resume retained tusq.dev failed-acceptance turn `turn_644dcda246f21bc1` on the shipped package. The staged result must accept without manual staging JSON edits because each decision has a non-empty `title` plus `rationale`; acceptance must continue through the normal full-auto path without operator-side `accept-turn`, `unblock`, gate mutation, or cross-repo workaround.
+
+For BUG-102 carry-forward: deliberate negative-case verification commands with explicitly expected non-zero exits must still accept, while undeclared non-zero machine evidence under `verification.status: "pass"` remains fail-closed.
 
 For BUG-101 carry-forward: decision objects that include `summary` plus `rationale` must still normalize `summary` into missing `statement` fields while decisions with no statement source fail closed.
 

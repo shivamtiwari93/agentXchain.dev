@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.56
+# Twitter/X Thread — AgentXchain v2.155.57
 
-> Ready-to-post thread for the `v2.155.56` release. Updated 2026-04-28 for BUG-102 fix: explicit expected non-zero verification evidence is accepted while undeclared failures remain fail-closed.
+> Ready-to-post thread for the `v2.155.57` release. Updated 2026-04-28 for BUG-103 fix: decision titles are normalized into required statements while missing decision text remains fail-closed.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7303 tests / 1479 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7305 tests / 1480 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.56 ships BUG-102 fix: deliberate negative CLI checks can declare expected non-zero exits without turning a passing QA turn into manual recovery. Open source. MIT.
+AgentXchain v2.155.57 ships BUG-103 fix: PM turns that put decision text in title now normalize into statement without manual recovery. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,7 +57,7 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.56:
+New in v2.155.57:
 
 - `verification.machine_evidence[].expected_exit_code` can declare deliberate negative checks.
 - Evidence summaries can also recover existing staged results when they explicitly name the command/snippet and exit code.

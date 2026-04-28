@@ -1,11 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.56
+# LinkedIn Post — AgentXchain v2.155.57
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.56` release. Updated 2026-04-28 for BUG-102 fix: explicit expected non-zero verification evidence is accepted while undeclared failures remain fail-closed.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.57` release. Updated 2026-04-28 for BUG-103 fix: decision titles are normalized into required statements while missing decision text remains fail-closed.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7303 tests / 1479 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7305 tests / 1480 suites / 0 failures / 5 skipped
 
 ---
 
@@ -22,7 +22,7 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.56` fixes expected non-zero verification evidence in full-auto continuous mode (BUG-102):
+`v2.155.57` fixes decision title normalization in full-auto continuous mode (BUG-103):
 
 - `verification.machine_evidence[].expected_exit_code` can declare deliberate negative checks.
 - Evidence summaries can also recover existing staged results when they explicitly name the command/snippet and exit code.
@@ -30,7 +30,7 @@ What that means in practice:
 - This keeps the full-auto path inside the framework instead of requiring operator-side staging edits.
 
 - node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-102-expected-nonzero-verification.test.js cli/test/turn-result-validator.test.js -> 100 tests / 15 suites / 0 failures
-- npm test -- --test-timeout=60000 -> 7303 tests / 1479 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7305 tests / 1480 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.57
+
+- **BUG-103: normalize decision `title` fields into required statements.** Staged results that put decision text in `decisions[].title` while also providing valid `rationale` now normalize to `decisions[].statement` before schema validation.
+- The normalization remains fail-closed when a decision has no `statement`, `decision`, `description`, `summary`, or `title` source text, so AgentXchain does not invent missing decision content from rationale alone.
+- Dispatch prompts now explicitly forbid `title` as a decision statement field name, and the BUG-103 command-chain regression covers the exact tusq.dev roadmap-replenishment PM failure shape.
+
+- npm test -- --test-timeout=60000 -> 7305 tests / 1480 suites / 0 failures / 5 skipped
+
 ## 2.155.56
 
 - **BUG-102: allow explicitly expected non-zero verification evidence.** Passing turns may now include deliberate negative-case `verification.machine_evidence` only when the command declares a matching `expected_exit_code` or the evidence summary explicitly names the command/snippet and exit code.
