@@ -1364,6 +1364,63 @@ export function normalizeTurnResult(tr, config, context = {}) {
     normalized.verification = { ...normalized.verification, status: inferredStatus };
   }
 
+  // ── BUG-104: typed marker evidence belongs in evidence_summary ───────
+  // machine_evidence is reserved for executable command records. Some model
+  // turns emit useful structured observations in that array (for example
+  // file_marker_grep objects) without command/exit_code fields. Preserve that
+  // information as summary evidence instead of fabricating shell commands.
+  if (
+    normalized.verification
+    && typeof normalized.verification === 'object'
+    && !Array.isArray(normalized.verification)
+    && Array.isArray(normalized.verification.machine_evidence)
+  ) {
+    const keptMachineEvidence = [];
+    const structuredEvidenceSummaries = [];
+    normalized.verification.machine_evidence.forEach((entry, index) => {
+      if (
+        entry
+        && typeof entry === 'object'
+        && !Array.isArray(entry)
+        && typeof entry.command === 'string'
+        && entry.command.trim()
+        && Number.isInteger(entry.exit_code)
+      ) {
+        keptMachineEvidence.push(entry);
+        return;
+      }
+
+      const summary = summarizeStructuredMachineEvidence(entry);
+      if (!summary) {
+        keptMachineEvidence.push(entry);
+        return;
+      }
+
+      structuredEvidenceSummaries.push(summary);
+      corrections.push(`verification.machine_evidence[${index}]: moved structured ${summary.type} evidence into evidence_summary`);
+      normalizationEvents.push({
+        field: `verification.machine_evidence[${index}]`,
+        original_value: entry,
+        normalized_value: summary.text,
+        rationale: 'structured_machine_evidence_moved_to_evidence_summary',
+      });
+    });
+
+    if (structuredEvidenceSummaries.length > 0) {
+      const existingSummary = typeof normalized.verification.evidence_summary === 'string'
+        ? normalized.verification.evidence_summary.trim()
+        : '';
+      const appendedSummary = structuredEvidenceSummaries.map((summary) => summary.text).join('; ');
+      normalized.verification = {
+        ...normalized.verification,
+        machine_evidence: keptMachineEvidence,
+        evidence_summary: existingSummary
+          ? `${existingSummary}\nStructured evidence: ${appendedSummary}`
+          : `Structured evidence: ${appendedSummary}`,
+      };
+    }
+  }
+
   // ── BUG-90: normalize missing artifact.type ─────────────────────────
   if (
     normalized.artifact
@@ -1740,6 +1797,42 @@ export function normalizeTurnResult(tr, config, context = {}) {
   }
 
   return { normalized, corrections, normalizationEvents };
+}
+
+function summarizeStructuredMachineEvidence(entry) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return null;
+  }
+  if (typeof entry.type !== 'string' || entry.type.trim().length === 0) {
+    return null;
+  }
+
+  const type = entry.type.trim();
+  const parts = [`type=${type}`];
+  for (const key of ['path', 'marker', 'section', 'result']) {
+    if (typeof entry[key] === 'string' && entry[key].trim()) {
+      parts.push(`${key}=${truncateEvidenceValue(entry[key].trim())}`);
+    }
+  }
+  if (Array.isArray(entry.contract) && entry.contract.length > 0) {
+    parts.push(`contract=${truncateEvidenceValue(entry.contract.join(' | '))}`);
+  }
+  if (
+    entry.buckets_observed
+    && typeof entry.buckets_observed === 'object'
+    && !Array.isArray(entry.buckets_observed)
+  ) {
+    parts.push(`buckets_observed=${truncateEvidenceValue(JSON.stringify(entry.buckets_observed))}`);
+  }
+
+  return {
+    type,
+    text: `[${parts.join(', ')}]`,
+  };
+}
+
+function truncateEvidenceValue(value, max = 220) {
+  return value.length > max ? `${value.slice(0, max - 3)}...` : value;
 }
 
 function normalizeIdleExpansionMutualExclusionSentinel(result) {
