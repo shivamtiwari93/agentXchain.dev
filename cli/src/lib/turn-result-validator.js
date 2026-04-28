@@ -1213,13 +1213,15 @@ export function normalizeTurnResult(tr, config, context = {}) {
         patched = { ...patched, id: normalizedDecId };
       }
 
-      // Normalize missing statement from decision/description field
+      // Normalize missing statement from unambiguous decision text fields.
       const stmt = typeof patched.statement === 'string' ? patched.statement.trim() : '';
       if (!stmt) {
         const alt = typeof patched.decision === 'string' ? patched.decision.trim()
-          : typeof patched.description === 'string' ? patched.description.trim() : '';
+          : typeof patched.description === 'string' ? patched.description.trim()
+            : typeof patched.summary === 'string' ? patched.summary.trim() : '';
         if (alt) {
-          const srcField = typeof patched.decision === 'string' && patched.decision.trim() ? 'decision' : 'description';
+          const srcField = typeof patched.decision === 'string' && patched.decision.trim() ? 'decision'
+            : typeof patched.description === 'string' && patched.description.trim() ? 'description' : 'summary';
           corrections.push(`decisions[${index}].statement: copied from ${srcField}`);
           normalizationEvents.push({
             field: `decisions[${index}].statement`,

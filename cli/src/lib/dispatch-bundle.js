@@ -498,7 +498,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `files_changed`: **REQUIRED** array of **strings** (file paths only). Do NOT use `files_modified` — the field name is `files_changed`. Do NOT use objects like `{path, change_type}` — just the path string (e.g. `["src/cli.js", "tests/smoke.mjs"]`).');
   lines.push('- `proposed_next_role`: **REQUIRED**. Must be in allowed_next_roles for the current phase, or `"human"`.');
   lines.push('- `decisions[].id`: pattern `DEC-NNN` where NNN is digits only (e.g. `DEC-001`, `DEC-002`). Do NOT use `D1`, `D2`, or freeform IDs.');
-  lines.push('- `decisions[].statement`: non-empty string describing the decision. Do NOT use `decision` or `description` as the field name — the field is `statement`.');
+  lines.push('- `decisions[].statement`: non-empty string describing the decision. Do NOT use `decision`, `description`, or `summary` as the field name — the field is `statement`.');
   lines.push('- `decisions[].rationale`: REQUIRED non-empty string explaining why the decision was made. Do NOT omit this field.');
   lines.push('- `decisions[].category`: one of `implementation`, `architecture`, `scope`, `process`, `quality`, `release`');
   lines.push('- `objections[].id`: pattern `OBJ-NNN` where NNN is digits only (e.g. `OBJ-001`, `OBJ-002`). Do NOT append extra suffixes like `-M31` or use non-numeric characters after `OBJ-`.');
