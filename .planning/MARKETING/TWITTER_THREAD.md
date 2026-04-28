@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.58
+# Twitter/X Thread — AgentXchain v2.155.59
 
-> Ready-to-post thread for the `v2.155.58` release. Updated 2026-04-28 for BUG-104 fix: structured verification observations move into evidence summaries while machine evidence remains strict command proof.
+> Ready-to-post thread for the `v2.155.59` release. Updated 2026-04-28 for BUG-105 fix: strict intent coverage now reads normalized evidence summaries and punctuation-normalized acceptance text.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7308 tests / 1481 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7310 tests / 1482 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.58 ships BUG-104 fix: typed verification observations now move into evidence summaries without weakening command proof. Open source. MIT.
+AgentXchain v2.155.59 ships BUG-105 fix: strict intent coverage now sees normalized verification evidence summaries, so full-auto recovery can keep moving without staging edits. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,12 +57,12 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.58:
+New in v2.155.59:
 
-- Typed marker/file/bucket/contract observations are moved from `verification.machine_evidence[]` into `evidence_summary`.
-- `machine_evidence[]` remains strict for executable command records with `command` and integer `exit_code`.
-- Malformed untyped evidence still fails closed; no fake commands are synthesized.
-- Targeted proof: node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-104-structured-machine-evidence-normalization.test.js cli/test/beta-tester-scenarios/bug-103-decision-title-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-102-expected-nonzero-verification.test.js -> 8 tests / 3 suites / 0 failures.
+- Strict intent coverage searches `verification.evidence_summary` after staged-result normalization.
+- Acceptance matching now tokenizes word characters, so punctuation does not hide explicit bounded/testable/non-duplicate proof.
+- Missing acceptance proof still fails closed.
+- Targeted proof: node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-105-intent-coverage-structured-evidence.test.js cli/test/beta-tester-scenarios/bug-104-structured-machine-evidence-normalization.test.js cli/test/beta-tester-scenarios/bug-103-decision-title-statement-normalization.test.js -> 7 tests / 3 suites / 0 failures.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

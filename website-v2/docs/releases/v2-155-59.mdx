@@ -1,28 +1,30 @@
 ---
-sidebar_position: 1
-title: "v2.155.58 Release Notes"
+sidebar_position: 0
+title: "v2.155.59 Release Notes"
 ---
 
-# AgentXchain v2.155.58
+# AgentXchain v2.155.59
 
-`v2.155.58` fixes BUG-104: roadmap-replenishment PM turns that emit typed structured verification observations inside `verification.machine_evidence[]` now preserve those observations by moving them into `verification.evidence_summary` before schema validation. This is the second blocker exposed by the same retained tusq.dev PM turn after BUG-103.
+`v2.155.59` fixes BUG-105: strict intent coverage now searches normalized verification evidence summaries and remaining command-shaped machine evidence after staged-result normalization. This preserves the acceptance-contract proof from the retained tusq.dev roadmap-replenishment PM turn after BUG-104 correctly moves typed observations out of `verification.machine_evidence[]`.
 
 ## Bug Fixes
 
-- **BUG-104: structured machine evidence normalization.** Recoverable typed evidence objects with non-empty `type` and no executable command record are removed from `machine_evidence[]` and summarized in `evidence_summary`.
-- **Command evidence remains strict.** Valid executable command records with non-empty `command` and integer `exit_code` are preserved unchanged.
-- **Fail-closed malformed entries.** Untyped malformed objects still fail schema validation; AgentXchain does not synthesize fake commands or exit codes.
-- **Prompt hardening.** Dispatch instructions now say typed marker/file-grep/bucket/contract observations belong in `evidence_summary`, while `machine_evidence[]` is only for executable command records.
+- **BUG-105: structured evidence remains visible to intent coverage.** Intent coverage now evaluates `verification.evidence_summary`, textual decision proof, objections, file/artifact names, intent-response details, and still-valid command-shaped machine evidence.
+- **Punctuation-normalized acceptance matching.** Acceptance items are tokenized as word characters instead of raw whitespace, so text like `bounded, testable, and non-duplicate` is recognized as coverage for `bounded`, `testable`, and `duplicate`.
+- **Fail-closed missing proof.** The negative regression keeps failing when the bounded/testable/non-duplicate acceptance proof is absent, so the fix does not turn strict intent coverage into a blanket pass.
+- **Dogfood regression coverage.** The command-chain regression models the exact tusq.dev retained PM blocker after BUG-103 decision-title normalization and BUG-104 evidence-summary normalization.
 
 ## Evidence
 
-- npm test -- --test-timeout=60000 -> 7308 tests / 1481 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7310 tests / 1482 suites / 0 failures / 5 skipped
 
 ## Tester Re-Run Contract
 
-Verify: `npx --yes -p agentxchain@2.155.58 -c "agentxchain --version"`
+Verify: `npx --yes -p agentxchain@2.155.59 -c "agentxchain --version"`
 
-For BUG-104: resume retained tusq.dev failed-acceptance turn `turn_644dcda246f21bc1` on the shipped package. The staged result must accept without manual staging JSON edits because its typed structured verification observations are moved to `evidence_summary` while command-shaped machine evidence remains strict.
+For BUG-105: resume retained tusq.dev failed-acceptance turn `turn_644dcda246f21bc1` on the shipped package. The staged result must accept strict intent coverage without manual staging JSON edits because typed `acceptance_contract_check` evidence moved to `evidence_summary` remains visible to intent coverage and punctuation-normalized matching recognizes bounded/testable/non-duplicate evidence.
+
+For BUG-104 carry-forward: the same retained PM turn must continue to move typed verification observations out of `machine_evidence[]` while preserving them in `evidence_summary`.
 
 For BUG-103 carry-forward: the same retained PM turn must continue to normalize `decisions[].title` into required `statement` fields before validation.
 

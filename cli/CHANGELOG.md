@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.59
+
+- **BUG-105: preserve structured verification evidence for strict intent coverage.** Strict intent coverage now searches normalized verification evidence summaries and remaining command-shaped machine evidence after staged-result normalization, so valid acceptance-contract proof stays visible after BUG-104 moves typed observations out of `machine_evidence[]`.
+- Acceptance-item matching now tokenizes word characters instead of raw whitespace, so punctuation like `bounded,` and `testable,` does not hide explicit roadmap-replenishment coverage.
+- The BUG-105 command-chain regression covers the exact tusq.dev roadmap-replenishment blocker after BUG-103 and BUG-104 normalization.
+
+- npm test -- --test-timeout=60000 -> 7310 tests / 1482 suites / 0 failures / 5 skipped
+
 ## 2.155.58
 
 - **BUG-104: normalize structured verification observations out of machine evidence.** Staged results that put typed marker/file/bucket/contract observations in `verification.machine_evidence[]` now preserve those details in `verification.evidence_summary` before validation.
