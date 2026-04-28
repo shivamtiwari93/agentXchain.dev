@@ -1285,10 +1285,12 @@ export function normalizeTurnResult(tr, config, context = {}) {
       if (!stmt) {
         const alt = typeof patched.decision === 'string' ? patched.decision.trim()
           : typeof patched.description === 'string' ? patched.description.trim()
-            : typeof patched.summary === 'string' ? patched.summary.trim() : '';
+            : typeof patched.summary === 'string' ? patched.summary.trim()
+              : typeof patched.title === 'string' ? patched.title.trim() : '';
         if (alt) {
           const srcField = typeof patched.decision === 'string' && patched.decision.trim() ? 'decision'
-            : typeof patched.description === 'string' && patched.description.trim() ? 'description' : 'summary';
+            : typeof patched.description === 'string' && patched.description.trim() ? 'description'
+              : typeof patched.summary === 'string' && patched.summary.trim() ? 'summary' : 'title';
           corrections.push(`decisions[${index}].statement: copied from ${srcField}`);
           normalizationEvents.push({
             field: `decisions[${index}].statement`,
