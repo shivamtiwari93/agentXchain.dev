@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.58
+
+- **BUG-104: normalize structured verification observations out of machine evidence.** Staged results that put typed marker/file/bucket/contract observations in `verification.machine_evidence[]` now preserve those details in `verification.evidence_summary` before validation.
+- `verification.machine_evidence[]` remains strict for executable command records with non-empty `command` and integer `exit_code`; valid command evidence is preserved unchanged and malformed untyped entries still fail closed.
+- Dispatch prompts now tell agents to put typed observations in `evidence_summary`, and the BUG-104 command-chain regression covers the exact tusq.dev roadmap-replenishment PM failure shape.
+
+- npm test -- --test-timeout=60000 -> 7308 tests / 1481 suites / 0 failures / 5 skipped
+
 ## 2.155.57
 
 - **BUG-103: normalize decision `title` fields into required statements.** Staged results that put decision text in `decisions[].title` while also providing valid `rationale` now normalize to `decisions[].statement` before schema validation.

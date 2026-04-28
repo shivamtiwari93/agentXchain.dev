@@ -1,27 +1,30 @@
 ---
-sidebar_position: 1
-title: "v2.155.57 Release Notes"
+sidebar_position: 0
+title: "v2.155.58 Release Notes"
 ---
 
-# AgentXchain v2.155.57
+# AgentXchain v2.155.58
 
-`v2.155.57` fixes BUG-103: roadmap-replenishment PM turns that emit decision text as `decisions[].title` now normalize that text into the required `statement` field before schema validation. This recovers the tusq.dev full-auto PM turn that derived the next roadmap milestone from remaining VISION scope.
+`v2.155.58` fixes BUG-104: roadmap-replenishment PM turns that emit typed structured verification observations inside `verification.machine_evidence[]` now preserve those observations by moving them into `verification.evidence_summary` before schema validation. This is the second blocker exposed by the same retained tusq.dev PM turn after BUG-103.
 
 ## Bug Fixes
 
-- **BUG-103: decision title statement normalization.** Missing or blank `decisions[].statement` now copies from non-empty `title` after existing `decision`, `description`, and `summary` sources.
-- **Fail-closed missing content.** Decisions with no statement source material still fail schema validation; AgentXchain does not synthesize decision text from `rationale` alone.
-- **Prompt hardening.** Dispatch instructions now explicitly forbid `title` as the decision statement field name.
+- **BUG-104: structured machine evidence normalization.** Recoverable typed evidence objects with non-empty `type` and no executable command record are removed from `machine_evidence[]` and summarized in `evidence_summary`.
+- **Command evidence remains strict.** Valid executable command records with non-empty `command` and integer `exit_code` are preserved unchanged.
+- **Fail-closed malformed entries.** Untyped malformed objects still fail schema validation; AgentXchain does not synthesize fake commands or exit codes.
+- **Prompt hardening.** Dispatch instructions now say typed marker/file-grep/bucket/contract observations belong in `evidence_summary`, while `machine_evidence[]` is only for executable command records.
 
 ## Evidence
 
-- npm test -- --test-timeout=60000 -> 7305 tests / 1480 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7308 tests / 1481 suites / 0 failures / 5 skipped
 
 ## Tester Re-Run Contract
 
-Verify: `npx --yes -p agentxchain@2.155.57 -c "agentxchain --version"`
+Verify: `npx --yes -p agentxchain@2.155.58 -c "agentxchain --version"`
 
-For BUG-103: resume retained tusq.dev failed-acceptance turn `turn_644dcda246f21bc1` on the shipped package. The staged result must accept without manual staging JSON edits because each decision has a non-empty `title` plus `rationale`; acceptance must continue through the normal full-auto path without operator-side `accept-turn`, `unblock`, gate mutation, or cross-repo workaround.
+For BUG-104: resume retained tusq.dev failed-acceptance turn `turn_644dcda246f21bc1` on the shipped package. The staged result must accept without manual staging JSON edits because its typed structured verification observations are moved to `evidence_summary` while command-shaped machine evidence remains strict.
+
+For BUG-103 carry-forward: the same retained PM turn must continue to normalize `decisions[].title` into required `statement` fields before validation.
 
 For BUG-102 carry-forward: deliberate negative-case verification commands with explicitly expected non-zero exits must still accept, while undeclared non-zero machine evidence under `verification.status: "pass"` remains fail-closed.
 
