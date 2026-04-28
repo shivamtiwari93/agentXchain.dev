@@ -7039,14 +7039,7 @@ function evaluateIntentCoverage(turnResult, intakeContext, { state = null, confi
   }
 
   // Build a searchable corpus from the turn result for semantic fallback
-  const corpus = [
-    turnResult.summary || '',
-    ...(turnResult.decisions || []).map(d => `${d.statement || ''} ${d.rationale || ''}`),
-    ...(turnResult.objections || []).map(o => o.statement || ''),
-    ...(turnResult.files_changed || []),
-    ...(turnResult.artifacts_created || []),
-    ...(Array.isArray(turnResult.intent_response) ? turnResult.intent_response.map(r => `${r.item || ''} ${r.detail || ''}`) : []),
-  ].join('\n').toLowerCase();
+  const corpus = buildIntentCoverageCorpus(turnResult);
 
   for (const item of acceptanceItems) {
     const normalizedItem = item.toLowerCase().trim();
@@ -7085,7 +7078,7 @@ function evaluateIntentCoverage(turnResult, intakeContext, { state = null, confi
     }
 
     // Check 2: Semantic fallback — significant keyword overlap
-    const words = normalizedItem.split(/\s+/).filter(w => w.length > 3);
+    const words = tokenizeIntentCoverageText(normalizedItem).filter(w => w.length > 3);
     if (words.length === 0) {
       addressed.push(item);
       continue;
@@ -7204,16 +7197,7 @@ function evaluateRoadmapDerivedConditionalCoverage(item, turnResult, intakeConte
     const milestoneId = sectionMatch[1].toLowerCase();
 
     // Build a searchable corpus from the turn result
-    const corpus = [
-      turnResult.summary || '',
-      ...(turnResult.decisions || []).map(d => `${d.statement || ''} ${d.rationale || ''}`),
-      ...(turnResult.objections || []).map(o => o.statement || ''),
-      ...(turnResult.files_changed || []),
-      ...(turnResult.artifacts_created || []),
-      ...(Array.isArray(turnResult.intent_response)
-        ? turnResult.intent_response.map(r => `${r.item || ''} ${r.detail || ''}`)
-        : []),
-    ].join('\n').toLowerCase();
+    const corpus = buildIntentCoverageCorpus(turnResult);
 
     // If the turn mentions the milestone section ID, the item is addressed
     return corpus.includes(milestoneId);
@@ -7244,16 +7228,7 @@ function evaluateRoadmapReplenishmentConditionalCoverage(item, turnResult, intak
     return null;
   }
 
-  const corpus = [
-    turnResult.summary || '',
-    ...(turnResult.decisions || []).map(d => `${d.statement || ''} ${d.rationale || ''}`),
-    ...(turnResult.objections || []).map(o => o.statement || ''),
-    ...(turnResult.files_changed || []),
-    ...(turnResult.artifacts_created || []),
-    ...(Array.isArray(turnResult.intent_response)
-      ? turnResult.intent_response.map(r => `${r.item || ''} ${r.detail || ''}`)
-      : []),
-  ].join('\n').toLowerCase();
+  const corpus = buildIntentCoverageCorpus(turnResult);
 
   if (!corpus.includes('vision.md')) {
     return false;
@@ -7273,6 +7248,40 @@ function evaluateRoadmapReplenishmentConditionalCoverage(item, turnResult, intak
   }
 
   return sectionNames.some((section) => corpus.includes(section));
+}
+
+function buildIntentCoverageCorpus(turnResult) {
+  const verification = turnResult?.verification && typeof turnResult.verification === 'object'
+    ? turnResult.verification
+    : {};
+  const machineEvidenceText = Array.isArray(verification.machine_evidence)
+    ? verification.machine_evidence.map((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return '';
+      return Object.values(entry).map((value) => {
+        if (typeof value === 'string') return value;
+        if (Array.isArray(value)) return value.join(' ');
+        if (value && typeof value === 'object') return JSON.stringify(value);
+        return '';
+      }).join(' ');
+    })
+    : [];
+
+  return [
+    turnResult.summary || '',
+    ...(turnResult.decisions || []).map(d => `${d.statement || ''} ${d.rationale || ''}`),
+    ...(turnResult.objections || []).map(o => o.statement || ''),
+    ...(turnResult.files_changed || []),
+    ...(turnResult.artifacts_created || []),
+    verification.evidence_summary || '',
+    ...machineEvidenceText,
+    ...(Array.isArray(turnResult.intent_response) ? turnResult.intent_response.map(r => `${r.item || ''} ${r.detail || ''}`) : []),
+  ].join('\n').toLowerCase();
+}
+
+function tokenizeIntentCoverageText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .match(/[a-z0-9]+/g) || [];
 }
 
 export {
