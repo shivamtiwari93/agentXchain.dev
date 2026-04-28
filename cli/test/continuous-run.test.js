@@ -132,6 +132,74 @@ function writeGhostBlockedState(dir, overrides = {}) {
   return { state, turnId };
 }
 
+function writeProductiveTimeoutBlockedState(dir, overrides = {}) {
+  const turnId = overrides.turnId || 'turn_timeout_001';
+  const firstOutputAt = overrides.firstOutputAt === undefined
+    ? '2026-04-28T00:00:10.000Z'
+    : overrides.firstOutputAt;
+  const turn = {
+    turn_id: turnId,
+    run_id: overrides.runId || 'run_timeout_001',
+    assigned_role: 'dev',
+    status: 'failed',
+    attempt: 2,
+    assigned_at: '2026-04-28T00:00:00.000Z',
+    started_at: '2026-04-28T00:00:00.000Z',
+    deadline_at: '2026-04-28T00:20:00.000Z',
+    assigned_sequence: 1,
+    runtime_id: 'manual-dev',
+    baseline: { kind: 'no_git', head_ref: null, clean: true, captured_at: '2026-04-28T00:00:00.000Z' },
+    last_rejection: {
+      turn_id: turnId,
+      attempt: 2,
+      rejected_at: '2026-04-28T00:20:00.000Z',
+      reason: overrides.reason || `Subprocess exited (code 143) without writing a staged turn result to .agentxchain/staging/${turnId}/turn-result.json.`,
+      validation_errors: [
+        overrides.reason || `Subprocess exited (code 143) without writing a staged turn result to .agentxchain/staging/${turnId}/turn-result.json.`,
+      ],
+      failed_stage: 'dispatch',
+    },
+  };
+  if (firstOutputAt) {
+    turn.first_output_at = firstOutputAt;
+    turn.first_output_stream = 'stdout';
+  }
+  const state = {
+    schema_version: '1.0',
+    run_id: overrides.runId || 'run_timeout_001',
+    project_id: 'ct-001',
+    status: 'blocked',
+    phase: 'implementation',
+    accepted_integration_ref: null,
+    active_turns: { [turnId]: turn },
+    turn_sequence: 1,
+    last_completed_turn_id: null,
+    blocked_on: 'escalation:retries-exhausted:dev',
+    blocked_reason: {
+      category: 'retries_exhausted',
+      blocked_at: '2026-04-28T00:20:00.000Z',
+      turn_id: turnId,
+      recovery: {
+        typed_reason: 'retries_exhausted',
+        owner: 'human',
+        recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+        turn_retained: true,
+        detail: 'escalation:retries-exhausted:dev',
+      },
+    },
+    escalation: {
+      from_role: 'dev',
+      from_turn_id: turnId,
+      reason: 'Turn rejected 2 times. Retries exhausted.',
+      validation_errors: turn.last_rejection.validation_errors,
+      escalated_at: '2026-04-28T00:20:00.000Z',
+    },
+    phase_gate_status: {},
+  };
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+  return { state, turnId };
+}
+
 function readEvents(dir) {
   const path = join(dir, '.agentxchain', 'events.jsonl');
   if (!existsSync(path)) return [];
@@ -566,6 +634,86 @@ describe('Continuous Run', () => {
   });
 
   describe('BUG-61 ghost auto-retry integration', () => {
+    it('BUG-100 auto-reissues productive deadline-killed retries-exhausted turns in continuous mode', async () => {
+      const { turnId } = writeProductiveTimeoutBlockedState(tmpDir);
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const session = {
+        session_id: 'cont-timeout',
+        status: 'paused',
+        current_run_id: 'run_timeout_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        cooldownSeconds: 0,
+      };
+
+      const step = await advanceContinuousRunOnce(
+        context,
+        session,
+        contOpts,
+        async () => assert.fail('productive timeout auto-retry should not execute a governed run in the same step'),
+        () => {},
+      );
+
+      assert.equal(step.status, 'running');
+      assert.equal(step.action, 'auto_retried_productive_timeout');
+      assert.equal(step.old_turn_id, turnId);
+      assert.equal(step.attempt, 1);
+
+      const savedSession = readContinuousSession(tmpDir);
+      assert.equal(savedSession.status, 'running');
+      assert.equal(savedSession.productive_timeout_retry.attempts, 1);
+      assert.equal(savedSession.productive_timeout_retry.last_old_turn_id, turnId);
+      assert.equal(savedSession.productive_timeout_retry.last_new_turn_id, step.new_turn_id);
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'active');
+      assert.equal(state.blocked_on, null);
+      assert.equal(state.blocked_reason, null);
+      assert.equal(state.active_turns[turnId], undefined);
+      const newTurn = state.active_turns[step.new_turn_id];
+      assert.equal(newTurn.status, 'assigned');
+      assert.equal(newTurn.reissued_from, turnId);
+      assert.equal(newTurn.timeout_recovery_context.reason, 'productive_timeout');
+      assert.equal(newTurn.timeout_recovery_context.extended_deadline_minutes, 60);
+      assert.ok(new Date(newTurn.deadline_at).getTime() > Date.now() + 50 * 60 * 1000);
+
+      const events = readEvents(tmpDir);
+      const retryEvents = events.filter((entry) => entry.event_type === 'auto_retried_productive_timeout');
+      assert.equal(retryEvents.length, 1);
+      assert.equal(retryEvents[0].payload.old_turn_id, turnId);
+      assert.equal(retryEvents[0].payload.new_turn_id, step.new_turn_id);
+      assert.equal(retryEvents[0].payload.extended_deadline_minutes, 60);
+    });
+
+    it('BUG-100 leaves silent retries-exhausted subprocess failures blocked', async () => {
+      const { turnId } = writeProductiveTimeoutBlockedState(tmpDir, { firstOutputAt: null });
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const session = {
+        session_id: 'cont-timeout',
+        status: 'paused',
+        current_run_id: 'run_timeout_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        cooldownSeconds: 0,
+      };
+
+      const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+        assert.fail('silent blocked timeout should not execute governed run');
+      }, () => {});
+
+      assert.equal(step.status, 'blocked');
+      assert.equal(step.action, 'still_blocked');
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'blocked');
+      assert.ok(state.active_turns[turnId]);
+      const events = readEvents(tmpDir);
+      assert.equal(events.some((entry) => entry.event_type === 'auto_retried_productive_timeout'), false);
+    });
+
     it('auto-reissues a paused ghost-blocked run and clears only the ghost blocker', async () => {
       const { turnId } = writeGhostBlockedState(tmpDir);
       const context = { root: tmpDir, config: readTestConfig(tmpDir) };

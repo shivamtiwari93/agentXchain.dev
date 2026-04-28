@@ -43,7 +43,7 @@ import {
   classifyGhostRetryDecision,
   extractLatestStderrDiagnostic,
 } from './ghost-retry.js';
-import { getDispatchLogPath } from './turn-paths.js';
+import { getDispatchLogPath, getTurnStagingResultPath } from './turn-paths.js';
 import { reconcileOperatorHead } from './operator-commit-reconcile.js';
 import { getContinuityStatus } from './continuity-status.js';
 import {
@@ -53,6 +53,8 @@ import {
 } from './intent-startup-migration.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
+const PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN = 1;
+const PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES = 60;
 
 function getRoadmapReplenishmentTriageHints(root) {
   const context = loadProjectContext(root);
@@ -308,6 +310,184 @@ function readLatestDispatchDiagnostic(root, turnId) {
   } catch {
     return { stderr_excerpt: null, exit_code: null, exit_signal: null };
   }
+}
+
+function readProductiveTimeoutRetryState(session) {
+  const state = session?.productive_timeout_retry;
+  if (!state || typeof state !== 'object') {
+    return {
+      run_id: null,
+      attempts: 0,
+      max_retries_per_run: PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN,
+      last_old_turn_id: null,
+      last_new_turn_id: null,
+      last_retried_at: null,
+      exhausted: false,
+    };
+  }
+  return {
+    run_id: state.run_id ?? null,
+    attempts: Number.isInteger(state.attempts) && state.attempts >= 0 ? state.attempts : 0,
+    max_retries_per_run: Number.isInteger(state.max_retries_per_run)
+      ? state.max_retries_per_run
+      : PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN,
+    last_old_turn_id: state.last_old_turn_id ?? null,
+    last_new_turn_id: state.last_new_turn_id ?? null,
+    last_retried_at: state.last_retried_at ?? null,
+    exhausted: Boolean(state.exhausted),
+  };
+}
+
+function resetProductiveTimeoutRetryForRun(session, runId) {
+  const current = readProductiveTimeoutRetryState(session);
+  if (current.run_id === runId) return current;
+  return {
+    run_id: runId ?? null,
+    attempts: 0,
+    max_retries_per_run: PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN,
+    last_old_turn_id: null,
+    last_new_turn_id: null,
+    last_retried_at: null,
+    exhausted: false,
+  };
+}
+
+function findPrimaryProductiveTimeoutTurn(root, state) {
+  if (!state || typeof state !== 'object') return null;
+  if (state.blocked_reason?.category !== 'retries_exhausted') return null;
+  const turnId = state.blocked_reason?.turn_id || state.escalation?.from_turn_id || null;
+  const activeTurns = state.active_turns || {};
+  const candidateIds = turnId && activeTurns[turnId] ? [turnId] : Object.keys(activeTurns);
+  for (const candidateId of candidateIds) {
+    const turn = activeTurns[candidateId];
+    if (!turn || turn.status !== 'failed') continue;
+    if (turn.last_rejection?.failed_stage !== 'dispatch') continue;
+    const reason = [
+      turn.last_rejection?.reason,
+      ...(Array.isArray(turn.last_rejection?.validation_errors) ? turn.last_rejection.validation_errors : []),
+    ].join('\n');
+    const looksDeadlineKilled = /code 143|dispatch timed out|timed out/i.test(reason);
+    if (!looksDeadlineKilled) continue;
+    if (!turn.first_output_at) continue;
+    const stagingPath = join(root, getTurnStagingResultPath(candidateId));
+    if (existsSync(stagingPath)) continue;
+    return { turn_id: candidateId, turn };
+  }
+  return null;
+}
+
+async function maybeAutoRetryProductiveTimeoutBlocker(context, session, contOpts, blockedState, log = console.log) {
+  const { root, config } = context;
+  const candidate = findPrimaryProductiveTimeoutTurn(root, blockedState);
+  if (!candidate) return null;
+
+  const runId = session.current_run_id || blockedState?.run_id || null;
+  const retryState = resetProductiveTimeoutRetryForRun(session, runId);
+  const maxRetries = PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN;
+  if (retryState.attempts >= maxRetries) {
+    Object.assign(session, {
+      productive_timeout_retry: {
+        ...retryState,
+        max_retries_per_run: maxRetries,
+        exhausted: true,
+      },
+      status: 'paused',
+    });
+    writeContinuousSession(root, session);
+    emitRunEvent(root, 'productive_timeout_retry_exhausted', {
+      run_id: runId,
+      phase: blockedState?.phase || null,
+      status: 'blocked',
+      turn: { turn_id: candidate.turn_id, role_id: candidate.turn.assigned_role || null },
+      intent_id: candidate.turn.intake_context?.intent_id || null,
+      payload: {
+        turn_id: candidate.turn_id,
+        attempts: retryState.attempts,
+        max_retries_per_run: maxRetries,
+      },
+    });
+    return null;
+  }
+
+  const reissued = reissueTurn(root, config, {
+    turnId: candidate.turn_id,
+    reason: 'auto_retry_productive_timeout',
+  });
+  if (!reissued.ok) {
+    log(`Productive-timeout auto-retry skipped: ${reissued.error}`);
+    return null;
+  }
+
+  const nowIso = new Date().toISOString();
+  let nextState = clearGhostBlockerAfterReissue(root, reissued.state);
+  const deadlineAt = new Date(Date.now() + PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES * 60 * 1000).toISOString();
+  const activeTurns = { ...(nextState.active_turns || {}) };
+  if (activeTurns[reissued.newTurn.turn_id]) {
+    activeTurns[reissued.newTurn.turn_id] = {
+      ...activeTurns[reissued.newTurn.turn_id],
+      deadline_at: deadlineAt,
+      timeout_recovery_context: {
+        reissued_from: candidate.turn_id,
+        reason: 'productive_timeout',
+        previous_attempts: candidate.turn.attempt || null,
+        previous_deadline_at: candidate.turn.deadline_at || null,
+        extended_deadline_minutes: PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES,
+      },
+    };
+    nextState = { ...nextState, active_turns: activeTurns };
+    writeGovernedState(root, nextState);
+  }
+
+  const attempt = retryState.attempts + 1;
+  Object.assign(session, {
+    productive_timeout_retry: {
+      run_id: runId,
+      attempts: attempt,
+      max_retries_per_run: maxRetries,
+      last_old_turn_id: candidate.turn_id,
+      last_new_turn_id: reissued.newTurn.turn_id,
+      last_retried_at: nowIso,
+      exhausted: false,
+    },
+    status: 'running',
+    current_run_id: runId,
+  });
+  writeContinuousSession(root, session);
+
+  emitRunEvent(root, 'auto_retried_productive_timeout', {
+    run_id: runId,
+    phase: nextState.phase || blockedState?.phase || null,
+    status: 'active',
+    turn: { turn_id: reissued.newTurn.turn_id, role_id: reissued.newTurn.assigned_role },
+    intent_id: candidate.turn.intake_context?.intent_id || null,
+    payload: {
+      old_turn_id: candidate.turn_id,
+      new_turn_id: reissued.newTurn.turn_id,
+      attempt,
+      max_retries_per_run: maxRetries,
+      extended_deadline_minutes: PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES,
+    },
+  });
+
+  log(`Productive-timeout auto-retried (${attempt}/${maxRetries}): ${candidate.turn_id} -> ${reissued.newTurn.turn_id}`);
+  if ((contOpts.cooldownSeconds ?? 0) > 0) {
+    await new Promise((resolve) => setTimeout(resolve, contOpts.cooldownSeconds * 1000));
+  }
+  return {
+    ok: true,
+    status: 'running',
+    action: 'auto_retried_productive_timeout',
+    run_id: runId,
+    old_turn_id: candidate.turn_id,
+    new_turn_id: reissued.newTurn.turn_id,
+    attempt,
+    max_retries_per_run: maxRetries,
+  };
+}
+
+async function maybeAutoRetryContinuousBlocker(context, session, contOpts, blockedState, log = console.log) {
+  return await maybeAutoRetryProductiveTimeoutBlocker(context, session, contOpts, blockedState, log)
+    || await maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log);
 }
 
 async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log = console.log) {
@@ -1396,7 +1576,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
 
   const startupGovernedState = loadProjectState(root, context.config);
   if (startupGovernedState?.status === 'blocked') {
-    const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, startupGovernedState, log);
+    const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, startupGovernedState, log);
     if (retried) return retried;
     session.status = 'paused';
     writeContinuousSession(root, session);
@@ -1457,7 +1637,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   if (session.status === 'paused') {
     const governedState = loadProjectState(root, context.config);
     if (governedState?.status === 'blocked') {
-      const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, governedState, log);
+      const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, governedState, log);
       if (retried) return retried;
       // Still blocked — stay paused, do not attempt new work
       writeContinuousSession(root, session);
@@ -1496,7 +1676,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
 
     if (isBlockedContinuousExecution(execution)) {
       const blockedState = execution?.result?.state || loadProjectState(root, context.config);
-      const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log);
+      const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, blockedState, log);
       if (retried) return retried;
       const blockedRecoveryAction = getBlockedRecoveryAction(blockedState);
       session.status = 'paused';
@@ -1564,7 +1744,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
 
     if (isBlockedContinuousExecution(execution)) {
       const blockedState = execution?.result?.state || loadProjectState(root, context.config);
-      const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log);
+      const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, blockedState, log);
       if (retried) return retried;
       const blockedRecoveryAction = getBlockedRecoveryAction(blockedState);
       session.status = 'paused';
@@ -1756,7 +1936,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
 
   if (isBlockedContinuousExecution(execution)) {
     const blockedState = execution?.result?.state || loadProjectState(root, context.config);
-    const retried = await maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log);
+    const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, blockedState, log);
     if (retried) return retried;
     const blockedRecoveryAction = getBlockedRecoveryAction(blockedState);
     const resolved = resolveIntent(root, targetIntentId);
