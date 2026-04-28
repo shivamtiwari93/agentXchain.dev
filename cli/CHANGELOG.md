@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.56
+
+- **BUG-102: allow explicitly expected non-zero verification evidence.** Passing turns may now include deliberate negative-case `verification.machine_evidence` only when the command declares a matching `expected_exit_code` or the evidence summary explicitly names the command/snippet and exit code.
+- Undeclared non-zero machine evidence under `verification.status: "pass"` remains fail-closed, so accidental verifier failures still block acceptance.
+- Dispatch prompts now tell agents to prefer zero-exit negative verifiers, and to use `expected_exit_code` plus evidence-summary explanation only when raw non-zero negative checks are recorded.
+
+- npm test -- --test-timeout=60000 -> 7303 tests / 1479 suites / 0 failures / 5 skipped
+
 ## 2.155.55
 
 - **BUG-101: normalize decision `summary` fields into required statements.** Staged results that put decision text in `decisions[].summary` while also providing valid `rationale` now normalize to `decisions[].statement` before schema validation.

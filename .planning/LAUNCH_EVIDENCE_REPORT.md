@@ -1,10 +1,10 @@
-# Launch Evidence Report — AgentXchain v2.155.55
+# Launch Evidence Report — AgentXchain v2.155.56
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-28 for v2.155.55 — BUG-101 normalizes decision summary fields into required statements. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-28 for v2.155.56 — BUG-102 allows explicitly expected non-zero verification evidence while keeping undeclared failures fail-closed. Current aggregate release evidence:
 >
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7300 tests / 1478 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7303 tests / 1479 suites / 0 failures / 5 skipped
 > - node --test cli/test/claude-local-auth-smoke-probe.test.js → 6 pass / 0 fail (Rule #13 positive + negative + auth-fail + spawn-error classifications)
 > - node --test cli/test/beta-tester-scenarios/bug-56-claude-auth-preflight-probe-command-chain.test.js → 2 pass / 0 fail (Rule #12 command-chain proof, working + hanging shim)
 > - printf 'Say exactly READY and nothing else.\n' | claude --print --permission-mode bypassPermissions --model opus --dangerously-skip-permissions → `READY` (Claude Max + no env auth, disproves v2.149.1 shape-check)
