@@ -1,0 +1,49 @@
+---
+sidebar_position: 0
+title: "v2.155.55 Release Notes"
+---
+
+# AgentXchain v2.155.55
+
+`v2.155.55` fixes BUG-101: decision objects that use `summary` plus `rationale` now normalize `summary` into the required `statement` field before schema validation. This recovers an otherwise useful tusq.dev full-auto dev turn without manual staging JSON edits.
+
+## Bug Fixes
+
+- **BUG-101: copy decision summary into statement.** Missing `decisions[].statement` now copies from non-empty `summary` after the existing `decision` and `description` sources.
+- **Fail-closed missing text.** A decision with no `statement`, `decision`, `description`, or `summary` still fails schema validation.
+- **Prompt hardening.** Dispatch field rules now explicitly tell agents not to use `summary` as the decision field name.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7300 tests / 1478 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.55 -c "agentxchain --version"`
+
+For BUG-101: resume retained tusq.dev failed-acceptance turn `turn_cc1f4a9f48f528e8` on the shipped package. The staged result must normalize all seven `decisions[].summary` values into `decisions[].statement`, accept without manual staging JSON edits, and continue through the normal full-auto path without operator-side `accept-turn`, `unblock`, gate mutation, or cross-repo workaround.
+
+For BUG-100 carry-forward: productive retries-exhausted `local_cli` timeout blockers must still auto-retry once with a 60-minute deadline, while silent/no-output failures remain fail-closed.
+
+For BUG-99 carry-forward: pre-acceptance `gate_semantic_coverage` must still evaluate workflow-kit ownership with accepted turn history.
+
+For BUG-98 carry-forward: retained QA skip-forward requests from `implementation` to `launch` must still normalize to immediate next phase `qa`, with stale `proposed_next_role` aligned only when routing-safe.
+
+For BUG-97 carry-forward: retained active-turn `run_id` drift must still auto-normalize only when the staged `turn_id` proves active-turn ownership.
+
+For BUG-96 carry-forward: decision entries that include existing decision text but omit `rationale` must still auto-normalize before schema validation.
+
+For BUG-95 carry-forward: staged results that use `files_modified` instead of `files_changed` and omit `runtime_id`, `summary`, `artifact`, and `proposed_next_role` must still auto-normalize before schema validation.
+
+For review-only carry-forward: a `review_only` role with missing or empty `objections` must still fail protocol challenge enforcement.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

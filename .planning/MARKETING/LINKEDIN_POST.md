@@ -1,11 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.54
+# LinkedIn Post — AgentXchain v2.155.55
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.54` release. Updated 2026-04-28 for BUG-100 fix: one bounded auto-retry for productive full-auto timeout blockers.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.55` release. Updated 2026-04-28 for BUG-101 fix: decision summary fields normalize into required statements.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7298 tests / 1477 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7300 tests / 1478 suites / 0 failures / 5 skipped
 
 ---
 
@@ -22,15 +22,15 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.54` fixes productive timeout recovery in full-auto continuous mode (BUG-100):
+`v2.155.55` fixes decision statement normalization in full-auto continuous mode (BUG-101):
 
-- Continuous startup now detects retries-exhausted `local_cli` turns that produced output but were deadline-killed before writing a staged result.
-- The framework reissues one retry with a 60-minute deadline instead of requiring operator-side `unblock`.
-- Silent/no-output timeout failures still fail closed.
-- A second productive timeout emits typed `productive_timeout_retry_exhausted` evidence instead of looping.
+- Missing `decisions[].statement` now copies from non-empty `summary` after the existing `decision` and `description` sources.
+- The normalizer remains fail-closed when a decision has no statement source.
+- Dispatch prompts now explicitly forbid `summary` as a decision field name.
+- This keeps the full-auto path inside the framework instead of requiring operator-side staging edits.
 
-- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-100-productive-timeout-auto-retry.test.js cli/test/continuous-run.test.js cli/test/run-events.test.js -> 89 tests / 14 suites / 0 failures
-- npm test -- --test-timeout=60000 -> 7298 tests / 1477 suites / 0 failures / 5 skipped
+- node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-101-decision-summary-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/turn-result-validator.test.js -> 102 tests / 16 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7300 tests / 1478 suites / 0 failures / 5 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

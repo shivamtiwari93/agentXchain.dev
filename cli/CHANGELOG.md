@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.55
+
+- **BUG-101: normalize decision `summary` fields into required statements.** Staged results that put decision text in `decisions[].summary` while also providing valid `rationale` now normalize to `decisions[].statement` before schema validation.
+- The normalization remains fail-closed when a decision has no `statement`, `decision`, `description`, or `summary` source text, so AgentXchain does not invent missing decision content.
+- Dispatch prompts now explicitly forbid `summary` as a decision field name, and the BUG-101 command-chain regression covers the exact seven-decision tusq.dev failure shape.
+
+- npm test -- --test-timeout=60000 -> 7300 tests / 1478 suites / 0 failures / 5 skipped
+
 ## 2.155.54
 
 - **BUG-100: auto-retry productive timeout blockers in full-auto continuous mode.** Continuous startup now detects retries-exhausted `local_cli` turns that produced output, were deadline-killed, and wrote no staged result, then reissues one framework-owned retry with a 60-minute deadline instead of requiring operator `unblock`.

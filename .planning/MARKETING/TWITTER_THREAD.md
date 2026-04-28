@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.54
+# Twitter/X Thread — AgentXchain v2.155.55
 
-> Ready-to-post thread for the `v2.155.54` release. Updated 2026-04-28 for BUG-100 fix: one bounded auto-retry for productive full-auto timeout blockers.
+> Ready-to-post thread for the `v2.155.55` release. Updated 2026-04-28 for BUG-101 fix: decision summary fields normalize into required statements.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7298 tests / 1477 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7300 tests / 1478 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.54 ships BUG-100 fix: productive full-auto timeout blockers get one framework-owned retry with a 60-minute deadline. Open source. MIT.
+AgentXchain v2.155.55 ships BUG-101 fix: decision summary fields now normalize into required statement fields before schema validation. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,12 +57,12 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.54:
+New in v2.155.55:
 
-- Continuous startup detects retries-exhausted `local_cli` turns that produced output but no staged result after a deadline kill.
-- The framework reissues one retry with a 60-minute deadline instead of requiring operator-side `unblock`.
-- Silent/no-output failures remain blocked, and a second productive timeout emits typed exhaustion evidence instead of looping.
-- Targeted proof: node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-100-productive-timeout-auto-retry.test.js cli/test/continuous-run.test.js cli/test/run-events.test.js -> 89 tests / 14 suites / 0 failures.
+- Missing `decisions[].statement` now copies from non-empty `summary` after existing `decision` and `description` sources.
+- A decision with no statement source still fails closed; AgentXchain does not invent decision content.
+- Dispatch prompts now explicitly forbid using `summary` as the decision field name.
+- Targeted proof: node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-101-decision-summary-statement-normalization.test.js cli/test/beta-tester-scenarios/bug-96-decision-rationale-normalization.test.js cli/test/turn-result-validator.test.js -> 102 tests / 16 suites / 0 failures.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**
