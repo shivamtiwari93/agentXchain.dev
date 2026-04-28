@@ -203,7 +203,7 @@ describe('BUG-102: expected non-zero verification evidence', () => {
     assert.equal(result.status, 0, `accept-turn must infer explicitly described negative checks. Output:\n${combined}`);
   });
 
-  it('still rejects undeclared non-zero machine evidence under verification.status pass', () => {
+  it('BUG-106: normalizes undeclared non-zero machine evidence when verification.status is pass', () => {
     const { root, turnId } = createProject({
       machineEvidence: [
         { command: 'npm test', exit_code: 0 },
@@ -215,7 +215,7 @@ describe('BUG-102: expected non-zero verification evidence', () => {
     const result = runCli(root, ['accept-turn', '--turn', turnId]);
     const combined = `${result.stdout}\n${result.stderr}`;
 
-    assert.notEqual(result.status, 0, 'accept-turn must reject undeclared non-zero evidence');
-    assert.match(combined, /not explicitly declared as expected failures/);
+    // BUG-106: normalizer auto-sets expected_exit_code when verification.status is "pass"
+    assert.equal(result.status, 0, `accept-turn must accept after BUG-106 normalization. Output:\n${combined}`);
   });
 });

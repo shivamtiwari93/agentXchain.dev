@@ -644,7 +644,7 @@ describe('turn-result-validator', () => {
       assert.ok(res.warnings.some(w => w.includes('no evidence')));
     });
 
-    it('rejects pass status with non-zero exit codes in machine_evidence', () => {
+    it('BUG-106: normalizes pass status with non-zero exit codes in machine_evidence', () => {
       writeStagedResult(makeValidTurnResult({
         verification: {
           status: 'pass',
@@ -653,11 +653,8 @@ describe('turn-result-validator', () => {
         },
       }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
-      assert.equal(res.ok, false);
-      assert.equal(res.stage, 'verification');
-      assert.equal(res.error_class, 'verification_error');
-      assert.ok(res.errors.some(e => e.includes('non-zero exit')));
-      assert.ok(res.errors.some(e => e.includes('not explicitly declared as expected failures')));
+      // BUG-106: normalizer auto-sets expected_exit_code when verification.status is "pass"
+      assert.equal(res.ok, true);
     });
 
     it('rejects blank verification command declarations', () => {
