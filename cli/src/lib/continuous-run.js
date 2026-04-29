@@ -2204,10 +2204,6 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
     while (!stopping) {
       const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
 
-      if (recoverPausedActiveContinuousSession(context, session, log, `post_step_${step.action || step.status || 'unknown'}`)) {
-        continue;
-      }
-
       // Terminal states
       if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped' || step.status === 'vision_exhausted' || step.status === 'vision_expansion_exhausted' || step.status === 'session_budget') {
         const terminalMessage = describeContinuousTerminalStep(step, contOpts);
@@ -2215,6 +2211,10 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
           log(terminalMessage);
         }
         return { exitCode: step.ok ? 0 : 1, session };
+      }
+
+      if (recoverPausedActiveContinuousSession(context, session, log, `post_step_${step.action || step.status || 'unknown'}`)) {
+        continue;
       }
 
       // Non-terminal: sleep before next step

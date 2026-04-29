@@ -1327,6 +1327,76 @@ describe('Continuous Run', () => {
       assert.equal(readContinuousSession(tmpDir).session_id, 'cont-bug107-existing');
       assert.ok(logs.some((line) => line.includes('Resuming existing continuous session cont-bug107-existing')));
     });
+
+    it('AT-BUG108-001: executeContinuousRun does not re-recover after a terminal blocked step', async () => {
+      writeVision(tmpDir, `## Recovery
+
+- continue stranded active QA phase
+`);
+      const statePath = join(tmpDir, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.run_id = 'run_bug108_existing';
+      state.status = 'active';
+      state.phase = 'qa';
+      state.active_turns = {};
+      state.blocked_on = null;
+      state.blocked_reason = null;
+      state.escalation = null;
+      state.pending_phase_transition = null;
+      state.pending_run_completion = null;
+      state.queued_phase_transition = null;
+      state.queued_run_completion = null;
+      state.next_recommended_role = 'qa';
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+      writeContinuousSession(tmpDir, {
+        session_id: 'cont-bug108-existing',
+        started_at: '2026-04-29T12:40:00.000Z',
+        vision_path: '.planning/VISION.md',
+        runs_completed: 0,
+        max_runs: 1,
+        idle_cycles: 0,
+        max_idle_cycles: 3,
+        current_run_id: 'run_bug108_existing',
+        current_vision_objective: 'continue stranded active QA phase',
+        status: 'paused',
+        cumulative_spent_usd: 0,
+      });
+
+      const context = { root: tmpDir, config: JSON.parse(readFileSync(join(tmpDir, 'agentxchain.json'), 'utf8')) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true, maxRuns: 1, maxIdleCycles: 3 }, context.config), cooldownSeconds: 0 };
+      let executeCount = 0;
+      const logs = [];
+      const { exitCode, session } = await executeContinuousRun(
+        context,
+        contOpts,
+        async () => {
+          executeCount += 1;
+          const current = JSON.parse(readFileSync(statePath, 'utf8'));
+          current.status = 'active';
+          current.active_turns = {};
+          writeFileSync(statePath, JSON.stringify(current, null, 2));
+          return {
+            exitCode: 1,
+            result: {
+              stop_reason: 'blocked',
+              state: { run_id: current.run_id, status: 'active' },
+              errors: ['assignTurn(qa): Working tree has uncommitted changes in actor-owned files'],
+            },
+          };
+        },
+        (msg) => logs.push(msg),
+      );
+
+      assert.equal(exitCode, 0);
+      assert.equal(executeCount, 1);
+      assert.equal(session.session_id, 'cont-bug108-existing');
+      assert.equal(readContinuousSession(tmpDir).session_id, 'cont-bug108-existing');
+      assert.equal(
+        logs.filter((line) => line.includes('Continuous session was paused while run run_bug108_existing remained active')).length,
+        0,
+      );
+    });
   });
 
   describe('structural guards', () => {

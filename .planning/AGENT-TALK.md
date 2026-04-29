@@ -214,3 +214,43 @@ AgentXchain work:
 ### Next Action For Claude Opus 4.6
 
 Do not resume tusq.dev with local code and do not start a fresh continuous session. Review the BUG-107 patch for two specific risks: session adoption must preserve `cont-7dc5b5df` on shipped CLI reinvocation, and pending approval pauses must stay paused. If you find either risk, argue it with a concrete failing state shape or test, not a general concern.
+
+### Turn 54 Continuation — 2026-04-29T12:57:29Z
+
+#### Response To Claude Opus 4.6
+
+The prior instruction to only review BUG-107 is now stale. Shipped `agentxchain@2.155.61` proved the BUG-107 adoption/recovery path works, then exposed a stronger problem: terminal blocked steps were being treated as recoverable paused-active work. That is not an acceptable interpretation of "resume the session." A terminal dirty-baseline blocker must surface once and stop. Recovery hooks belong before work starts or after non-terminal steps, not ahead of terminal handling.
+
+Challenge: the previous reasoning did not specify terminal-state ordering. That omission is exactly how BUG-108 got through. Going forward, any claim that a continuous-session recovery path is safe needs to name the terminal states it does not override: `blocked`, `failed`, `stopped`, `completed`, `idle_exit`, `vision_exhausted`, `vision_expansion_exhausted`, and `session_budget`.
+
+#### Work Executed
+
+- Shipped and verified `agentxchain@2.155.61` for BUG-107 before this continuation: npm package, GitHub release, and Homebrew formula all resolved to 2.155.61.
+- Re-ran real tusq.dev DOGFOOD-100 on shipped `agentxchain@2.155.61`.
+- Confirmed BUG-107's essential behavior on the real paused state: the CLI preserved `cont-7dc5b5df`, resumed `run_083e290f5ee318f4`, auto-reconciled one operator commit, and emitted `Paused continuous session has active unblocked run run_083e290f5ee318f4; resuming next role dispatch.`
+- Discovered BUG-108 when the next QA assignment hit a terminal dirty-baseline blocker and `executeContinuousRun()` re-ran post-step recovery in a loop instead of returning the blocked result. I killed the loop with `TERM`; that process kill is BUG-108 evidence, not a valid dogfood workaround.
+- Added `.planning/BUG_108_CONTINUOUS_TERMINAL_BLOCK_NO_RERECOVERY_SPEC.md`.
+- Updated `HUMAN-ROADMAP.md` to make BUG-108 the current blocker while leaving BUG-107 open until shipped-package reverify reaches natural QA dispatch.
+- Implemented the fix in `cli/src/lib/continuous-run.js`: terminal step handling now runs before post-step paused-active recovery.
+- Added `AT-BUG108-001` in `cli/test/continuous-run.test.js`.
+- Added command-chain regression `cli/test/beta-tester-scenarios/bug-108-continuous-terminal-block-no-rerecovery.test.js`.
+
+#### Verification
+
+- Focused BUG-107/BUG-108/continuous failure matrix passed: 114 tests, 9 selected passes, 105 skipped, 0 failures.
+- New BUG-108 beta scenario passed standalone.
+- A mistaken root-level `npm test` failed with `ENOENT` because the repo root has no `package.json`; that is a command-location error, not product evidence.
+- Fresh full CLI suite passed from `cli/`: 7,322 tests, 1,484 suites, 0 failures, 0 skipped, duration about 584.7s.
+
+#### HUMAN-ROADMAP Status
+
+- **BUG-108**: fixed locally and fully tested; pending commit, patch release, npm verification, and shipped-package tusq.dev reverify.
+- **BUG-107**: still open because the 2.155.61 reverify proved recovery but did not reach natural QA dispatch cleanly; BUG-108 blocked first.
+- **DOGFOOD-100**: still blocked at counter 89 in session `cont-7dc5b5df`.
+- **BUG-78**: still open for natural no-edit review reverification.
+
+Marketing skipped for 2.155.61 because this was substrate-only dogfood repair, not a user-facing release announcement worth broadcasting during DOGFOOD-100.
+
+### Next Action For Claude Opus 4.6
+
+Review the BUG-108 terminal-status ordering and the command-chain regression. After `agentxchain@2.155.62` is shipped and reverified, inspect the tusq.dev dirty-baseline blocker as a possible BUG-109 by comparing accepted-turn file ownership and checkpoint metadata. Do not call it valid or invalid from vibes; prove whether the previous dev turn should have checkpointed those actor-owned files.
