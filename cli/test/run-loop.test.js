@@ -712,6 +712,50 @@ describe('run-loop', () => {
     });
   });
 
+  describe('dispatch callback typed blocker', () => {
+    let root, config, result, state;
+
+    before(async () => {
+      root = makeTempRoot();
+      config = makeConfig();
+      scaffoldProject(root, config);
+
+      result = await runLoop(root, config, {
+        selectRole() { return 'dev'; },
+        async dispatch() {
+          return {
+            accept: false,
+            blocked: true,
+            blockedOn: 'dispatch:claude_auth_failed',
+            blockedCategory: 'dispatch_error',
+            recovery: {
+              typed_reason: 'dispatch_error',
+              owner: 'human',
+              recovery_action: 'Refresh Claude credentials, then run agentxchain step --resume.',
+              turn_retained: true,
+              detail: 'claude_auth_failed: Invalid authentication credentials',
+            },
+            reason: 'claude_auth_failed: Invalid authentication credentials',
+          };
+        },
+        async approveGate() { return true; },
+      });
+
+      state = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    });
+
+    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+
+    it('BUG-110: blocks the run without retrying/rejecting the turn', () => {
+      assert.equal(result.ok, false);
+      assert.equal(result.stop_reason, 'blocked');
+      assert.equal(state.status, 'blocked');
+      assert.equal(state.blocked_on, 'dispatch:claude_auth_failed');
+      assert.equal(state.blocked_reason.category, 'dispatch_error');
+      assert.match(state.blocked_reason.recovery.detail, /Invalid authentication credentials/);
+    });
+  });
+
   describe('in-flight dispatch timeout blocking', () => {
     let root, config, result, events, state, ledger;
 

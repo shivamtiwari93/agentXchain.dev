@@ -461,6 +461,9 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
       emit({ type: 'turn_accepted', turn, role: roleId, state: acceptResult.state });
     } else {
       if (dispatchResult?.blocked === true) {
+        if (dispatchResult.blockedAlreadyPersisted !== true) {
+          persistDispatchBlocker(root, config, turn, dispatchResult, errors);
+        }
         history.push({ role: roleId, turn_id: turn.turn_id, accepted: false, blocked: true });
         const blockedState = loadState(root, config);
         emit({ type: 'blocked', state: blockedState });
@@ -653,6 +656,9 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
   }
 
   if (dispatchResult?.blocked === true) {
+    if (dispatchResult.blockedAlreadyPersisted !== true) {
+      persistDispatchBlocker(root, config, turn, dispatchResult, errors);
+    }
     history.push({ role: roleId, turn_id: turn.turn_id, accepted: false, blocked: true });
     const blockedState = loadState(root, config);
     emit({ type: 'blocked', state: blockedState });
@@ -845,5 +851,27 @@ function persistDispatchTimeout(root, config, turn, timeoutResult, errors) {
   }
 
   errors.push(`dispatch timed out for ${turn.assigned_role} after ${timeoutResult.limit_minutes}m`);
+  return blocked;
+}
+
+function persistDispatchBlocker(root, config, turn, dispatchResult, errors) {
+  const recovery = dispatchResult.recovery || {
+    typed_reason: 'dispatch_error',
+    owner: 'human',
+    recovery_action: 'Resolve the dispatch issue, then run agentxchain step --resume',
+    turn_retained: true,
+    detail: dispatchResult.reason || 'adapter dispatch failed',
+  };
+  const blocked = markRunBlocked(root, {
+    blockedOn: dispatchResult.blockedOn || 'dispatch:subprocess_failed',
+    category: dispatchResult.blockedCategory || 'dispatch_error',
+    recovery,
+    turnId: turn.turn_id,
+    notificationConfig: config,
+  });
+  if (!blocked.ok) {
+    errors.push(`markRunBlocked(dispatch): ${blocked.error}`);
+    return { state: loadState(root, config) };
+  }
   return blocked;
 }

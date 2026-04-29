@@ -54,7 +54,6 @@ import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
 import { failTurnStartup } from '../lib/stale-turn-watchdog.js';
 import { hasMinimumTurnResultShape } from '../lib/turn-result-shape.js';
 import { isKnownTurnRunningProofStream } from '../lib/dispatch-streams.js';
-import { markRunBlocked } from '../lib/governed-state.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
@@ -498,7 +497,12 @@ export async function executeGovernedRun(context, opts = {}) {
             : 0,
           recommendation: `Turn ${turn.turn_id} failed to start within the startup watchdog window. Run \`agentxchain reissue-turn --turn ${turn.turn_id} --reason ghost\` to recover.`,
         });
-        return { accept: false, blocked: true, reason: adapterResult.error || 'turn startup failed' };
+        return {
+          accept: false,
+          blocked: true,
+          blockedAlreadyPersisted: true,
+          reason: adapterResult.error || 'turn startup failed',
+        };
       }
 
       // Adapter failure
@@ -508,9 +512,11 @@ export async function executeGovernedRun(context, opts = {}) {
           const detail = classified
             ? `${classified.error_class}: ${classified.recovery}`
             : (adapterResult.error || 'adapter dispatch failed');
-          const blocked = markRunBlocked(projectRoot, {
+          return {
+            accept: false,
+            blocked: true,
             blockedOn: `dispatch:${classified?.error_class || 'subprocess_failed'}`,
-            category: 'dispatch_error',
+            blockedCategory: 'dispatch_error',
             recovery: {
               typed_reason: 'dispatch_error',
               owner: 'human',
@@ -518,14 +524,8 @@ export async function executeGovernedRun(context, opts = {}) {
               turn_retained: true,
               detail,
             },
-            turnId: turn.turn_id,
-            hooksConfig,
-            notificationConfig: cfg,
-          });
-          if (!blocked.ok) {
-            return { accept: false, reason: `markRunBlocked(dispatch): ${blocked.error}` };
-          }
-          return { accept: false, blocked: true, reason: detail };
+            reason: detail,
+          };
         }
         if (shouldSuggestManualQaFallback({
           roleId,

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.65
+
+- **BUG-110: classify Claude local CLI auth failures as typed dispatch blockers.** When a Claude subprocess emits a 401/authentication failure and writes no staged result, AgentXchain now returns `claude_auth_failed` and blocks the run as dispatch infrastructure instead of rejecting/retrying the QA turn into `retries-exhausted`.
+- `agentxchain run` now persists adapter-declared `blocked: true` failures through `markRunBlocked()` with retained-turn recovery guidance, preserving resume semantics after credentials are fixed.
+- Added a local CLI adapter regression with a Claude stream-json auth-failure shim to prove stdout auth errors are not treated as ordinary turn output failures.
+
+- npm test -- --test-timeout=60000 -> 7326 tests / 1484 suites / 0 failures / 0 skipped
+
 ## 2.155.64
 
 - **BUG-109: continuous auto-checkpoint completes supplemental recovery.** Full Auto Mode now parses checkpoint-required assignment failures, runs the framework-owned supplemental checkpoint path when `--auto-checkpoint` is enabled, emits `continuous_auto_checkpoint_recovered`, and retries the same active run instead of stopping for operator-side `checkpoint-turn`.
