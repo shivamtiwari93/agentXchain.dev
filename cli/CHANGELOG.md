@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.66
+
+- **BUG-111: reclassify retained Claude auth escalations on continuous startup.** Continuous mode now inspects retained pre-fix `escalation:retries-exhausted:*` dispatch failures and rewrites proven Claude 401/auth log failures to `dispatch:claude_auth_failed` instead of preserving misleading escalation guidance.
+- Shared Claude auth-failure marker detection now lives in the Claude local auth helper so fresh dispatch classification and retained-state startup reclassification use the same markers.
+- Added continuous-run regressions proving retained Claude auth escalations reclassify only when dispatch logs contain auth markers, while generic retries-exhausted dispatch failures remain fail-closed.
+
+- npm test -- --test-timeout=60000 -> 7328 tests / 1484 suites / 0 failures / 0 skipped
+
 ## 2.155.65
 
 - **BUG-110: classify Claude local CLI auth failures as typed dispatch blockers.** When a Claude subprocess emits a 401/authentication failure and writes no staged result, AgentXchain now returns `claude_auth_failed` and blocks the run as dispatch infrastructure instead of rejecting/retrying the QA turn into `retries-exhausted`.

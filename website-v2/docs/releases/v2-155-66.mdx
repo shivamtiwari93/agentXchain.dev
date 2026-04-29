@@ -1,28 +1,36 @@
 ---
-sidebar_position: 5
-title: "v2.155.61 Release Notes"
+sidebar_position: 0
+title: "v2.155.66 Release Notes"
 ---
 
-# AgentXchain v2.155.61
+# AgentXchain v2.155.66
 
-`v2.155.61` fixes BUG-107: Full Auto Mode now recovers the stranded shape where a continuous session is marked `paused` even though the governed run is still `active`, unblocked, and dispatchable. This was discovered in the real tusq.dev DOGFOOD-100 run after `agentxchain@2.155.60` accepted dev turn `turn_fc4027d5c8789062`, advanced to QA, then exited with session `cont-7dc5b5df` paused at strict counter 89.
+`v2.155.66` closes the retained-state half of BUG-110 as BUG-111. The shipped `v2.155.65` package correctly classified new Claude local CLI auth failures, but the live Tusq DOGFOOD-100 session was already blocked by a pre-fix `escalation:retries-exhausted:qa`. Continuous startup now upgrades that retained state to the same typed dispatch blocker when the dispatch log proves Claude auth failure.
 
 ## Bug Fixes
 
-- **BUG-107: recover paused active continuous sessions.** `advanceContinuousRunOnce()` now detects a paused continuous session whose governed run is still active, unblocked, and ready for a next role, sets the session back to `running`, emits `continuous_paused_active_run_recovered`, and continues the same governed run.
-- **Preserve CLI-owned continuous session identity.** `agentxchain run --continuous` now adopts an existing paused or running CLI-owned continuous session with the same vision path instead of replacing it on reinvocation. This keeps DOGFOOD-100 same-session evidence intact.
-- **Keep legitimate pauses fail-closed.** Pending approvals, queued approvals, blockers, run-ID drift, missing next-role resolution, and failed retained active turns such as `failed_acceptance` remain non-recoverable by this path.
-- **Tighten auth negative-test fixtures.** Connector check, connector validate, and governed doctor auth-hang tests now explicitly blank inherited Claude auth environment variables so shell-level credentials cannot mask the intended negative case.
+- **BUG-111: retained Claude auth escalation reclassification.** `agentxchain run --continuous` now inspects retained retries-exhausted dispatch escalations and reclassifies proven Claude 401/authentication failures to `dispatch:claude_auth_failed`.
+- **Shared auth markers.** Fresh dispatch classification and retained-state startup reclassification now use the same Claude auth failure marker helper.
+- **Fail-closed guard.** Generic retries-exhausted dispatch failures, non-Claude runtimes, missing logs, and retained staged results are not reclassified.
 
 ## Evidence
 
-- npm test -- --test-timeout=60000 -> 7320 tests / 1483 suites / 0 failures / 0 skipped
+- node --test --test-timeout=60000 cli/test/continuous-run.test.js cli/test/local-cli-adapter.test.js cli/test/run-loop.test.js -> 156 tests / 32 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7328 tests / 1484 suites / 0 failures / 0 skipped
 
 ## Tester Re-Run Contract
 
-Verify: `npx --yes -p agentxchain@2.155.61 -c "agentxchain --version"`
+Verify: `npx --yes -p agentxchain@2.155.66 -c "agentxchain --version"`
 
-For BUG-107: resume tusq.dev from continuous session `cont-7dc5b5df` and governed run `run_083e290f5ee318f4` using the shipped package. The CLI must preserve the existing session ID, emit `continuous_session_resumed`, emit `continuous_paused_active_run_recovered`, and dispatch the natural QA turn from the stranded QA phase without manual staging JSON edits, `accept-turn`, `unblock`, or gate mutation.
+For BUG-111: resume tusq.dev from continuous session `cont-7dc5b5df` and governed run `run_083e290f5ee318f4` using the shipped package. If the retained QA turn `turn_f3e829f2485a7cee` still has the Claude 401/auth dispatch log and no staged result, startup must reclassify the retained blocker to `dispatch:claude_auth_failed` with recovery guidance naming `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`. It must not preserve `escalation:retries-exhausted:qa` as the operator-facing recovery.
+
+For BUG-110 carry-forward: fresh Claude local CLI auth failures must still block once as dispatch infrastructure instead of consuming turn retries.
+
+For BUG-109 carry-forward: the supplemental checkpoint recovery must still run automatically under `--auto-checkpoint` and reach natural QA dispatch without operator-side `checkpoint-turn`.
+
+For BUG-108 carry-forward: terminal blocked steps must surface once and must not re-enter paused-active recovery loops.
+
+For BUG-107 carry-forward: paused active continuous sessions must still preserve the existing session ID and recover only when the governed run is active, unblocked, and dispatchable.
 
 For BUG-106 carry-forward: undeclared non-zero `verification.machine_evidence[]` exit codes under `verification.status: "pass"` must still auto-normalize to matching `expected_exit_code` values.
 
