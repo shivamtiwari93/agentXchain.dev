@@ -30,7 +30,11 @@ import {
 } from '../turn-paths.js';
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 import { hasMeaningfulStagedResult } from '../staged-result-proof.js';
-import { getClaudeSubprocessAuthIssue, isClaudeLocalCliRuntime } from '../claude-local-auth.js';
+import {
+  getClaudeSubprocessAuthIssue,
+  hasClaudeAuthenticationFailureText,
+  isClaudeLocalCliRuntime,
+} from '../claude-local-auth.js';
 
 const DIAGNOSTIC_ENV_KEYS = [
   'PATH',
@@ -43,7 +47,6 @@ const DIAGNOSTIC_ENV_KEYS = [
 const DIAGNOSTIC_STDERR_EXCERPT_LIMIT = 800;
 const DEFAULT_STARTUP_WATCHDOG_MS = 180_000;
 const DEFAULT_STARTUP_WATCHDOG_SIGKILL_GRACE_MS = 10_000;
-const CLAUDE_AUTH_FAILURE_RE = /authentication_failed|authentication_error|invalid authentication credentials|unauthorized|API Error:\s*401/i;
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -659,7 +662,7 @@ function appendDiagnostic(logs, label, payload) {
 
 function hasClaudeAuthFailureOutput(logs) {
   if (!Array.isArray(logs)) return false;
-  return logs.some((line) => typeof line === 'string' && CLAUDE_AUTH_FAILURE_RE.test(line));
+  return logs.some((line) => hasClaudeAuthenticationFailureText(line));
 }
 
 function pickDiagnosticEnv(env) {

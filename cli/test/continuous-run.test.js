@@ -200,6 +200,77 @@ function writeProductiveTimeoutBlockedState(dir, overrides = {}) {
   return { state, turnId };
 }
 
+function writeClaudeAuthEscalationState(dir, overrides = {}) {
+  const turnId = overrides.turnId || 'turn_claude_auth_001';
+  const runtimeId = overrides.runtimeId || 'local-qa';
+  const turn = {
+    turn_id: turnId,
+    run_id: 'run_claude_auth_001',
+    assigned_role: 'qa',
+    status: 'failed',
+    attempt: 2,
+    assigned_at: '2026-04-29T15:46:30.000Z',
+    started_at: '2026-04-29T15:46:31.000Z',
+    deadline_at: '2026-04-29T16:06:31.000Z',
+    assigned_sequence: 5,
+    runtime_id: runtimeId,
+    baseline: { kind: 'no_git', head_ref: null, clean: true, captured_at: '2026-04-29T15:46:30.000Z' },
+    last_rejection: {
+      turn_id: turnId,
+      attempt: 2,
+      rejected_at: '2026-04-29T15:46:32.000Z',
+      reason: `Subprocess exited (code 1) without writing a staged turn result to .agentxchain/staging/${turnId}/turn-result.json.`,
+      validation_errors: [
+        `Subprocess exited (code 1) without writing a staged turn result to .agentxchain/staging/${turnId}/turn-result.json.`,
+      ],
+      failed_stage: 'dispatch',
+    },
+    first_output_at: '2026-04-29T15:46:32.000Z',
+    first_output_stream: 'stdout',
+  };
+  const state = {
+    schema_version: '1.0',
+    run_id: 'run_claude_auth_001',
+    project_id: 'ct-001',
+    status: 'blocked',
+    phase: 'qa',
+    accepted_integration_ref: null,
+    active_turns: { [turnId]: turn },
+    turn_sequence: 5,
+    last_completed_turn_id: 'turn_dev_001',
+    blocked_on: 'escalation:retries-exhausted:qa',
+    blocked_reason: {
+      category: 'retries_exhausted',
+      blocked_at: '2026-04-29T15:46:32.000Z',
+      turn_id: turnId,
+      recovery: {
+        typed_reason: 'retries_exhausted',
+        owner: 'human',
+        recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+        turn_retained: true,
+        detail: 'escalation:retries-exhausted:qa',
+      },
+    },
+    escalation: {
+      from_role: 'qa',
+      from_turn_id: turnId,
+      reason: 'Turn rejected 2 times. Retries exhausted.',
+      validation_errors: turn.last_rejection.validation_errors,
+      escalated_at: '2026-04-29T15:46:32.000Z',
+    },
+    phase_gate_status: {},
+  };
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+  const dispatchDir = join(dir, '.agentxchain', 'dispatch', 'turns', turnId);
+  mkdirSync(dispatchDir, { recursive: true });
+  writeFileSync(join(dispatchDir, 'stdout.log'), overrides.logText ?? [
+    '[adapter:diag] spawn_prepare {"command":"claude"}\n',
+    '{"type":"assistant","message":{"content":[{"type":"text","text":"Failed to authenticate. API Error: 401 {\\"type\\":\\"error\\",\\"error\\":{\\"type\\":\\"authentication_error\\",\\"message\\":\\"Invalid authentication credentials\\"}}"}]},"error":"authentication_failed"}\n',
+    '[adapter:diag] process_exit {"exit_code":1,"staged_result_ready":false}\n',
+  ].join(''), 'utf8');
+  return { state, turnId };
+}
+
 function readEvents(dir) {
   const path = join(dir, '.agentxchain', 'events.jsonl');
   if (!existsSync(path)) return [];
@@ -712,6 +783,83 @@ describe('Continuous Run', () => {
       assert.ok(state.active_turns[turnId]);
       const events = readEvents(tmpDir);
       assert.equal(events.some((entry) => entry.event_type === 'auto_retried_productive_timeout'), false);
+    });
+
+    it('BUG-111 reclassifies retained Claude auth retries-exhausted escalation as typed dispatch blocker', async () => {
+      const { turnId } = writeClaudeAuthEscalationState(tmpDir);
+      const config = readTestConfig(tmpDir);
+      config.runtimes['local-qa'] = { type: 'local_cli', command: 'claude --print' };
+      const context = { root: tmpDir, config };
+      const session = {
+        session_id: 'cont-claude-auth',
+        status: 'paused',
+        current_run_id: 'run_claude_auth_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        cooldownSeconds: 0,
+      };
+
+      const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+        assert.fail('retained auth escalation should not execute governed run');
+      }, () => {});
+
+      assert.equal(step.status, 'blocked');
+      assert.equal(step.action, 'still_blocked');
+      assert.equal(step.blocked_category, 'dispatch_error');
+      assert.match(step.recovery_action, /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN/);
+      assert.match(step.recovery_action, /step --resume/);
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'blocked');
+      assert.equal(state.blocked_on, 'dispatch:claude_auth_failed');
+      assert.equal(state.blocked_reason.category, 'dispatch_error');
+      assert.equal(state.blocked_reason.turn_id, turnId);
+      assert.equal(state.blocked_reason.reclassified_from.blocked_on, 'escalation:retries-exhausted:qa');
+      assert.equal(state.blocked_reason.recovery.turn_retained, true);
+      assert.match(state.blocked_reason.recovery.detail, /claude_auth_failed/);
+      assert.equal(state.escalation, null);
+
+      const events = readEvents(tmpDir);
+      const reclassified = events.filter((entry) => entry.event_type === 'retained_claude_auth_escalation_reclassified');
+      assert.equal(reclassified.length, 1);
+      assert.equal(reclassified[0].payload.turn_id, turnId);
+      assert.equal(reclassified[0].payload.previous_blocked_on, 'escalation:retries-exhausted:qa');
+      assert.equal(reclassified[0].payload.blocked_on, 'dispatch:claude_auth_failed');
+    });
+
+    it('BUG-111 preserves retained retries-exhausted escalation when Claude auth markers are absent', async () => {
+      writeClaudeAuthEscalationState(tmpDir, {
+        logText: '[adapter:diag] process_exit {"exit_code":1,"staged_result_ready":false}\nregular subprocess failure\n',
+      });
+      const config = readTestConfig(tmpDir);
+      config.runtimes['local-qa'] = { type: 'local_cli', command: 'claude --print' };
+      const context = { root: tmpDir, config };
+      const session = {
+        session_id: 'cont-claude-auth',
+        status: 'paused',
+        current_run_id: 'run_claude_auth_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        cooldownSeconds: 0,
+      };
+
+      const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+        assert.fail('retained generic escalation should not execute governed run');
+      }, () => {});
+
+      assert.equal(step.status, 'blocked');
+      assert.equal(step.action, 'still_blocked');
+      assert.equal(step.blocked_category, 'retries_exhausted');
+      assert.equal(step.recovery_action, 'Resolve the escalation, then run agentxchain step --resume');
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.blocked_on, 'escalation:retries-exhausted:qa');
+      assert.equal(state.blocked_reason.category, 'retries_exhausted');
+      assert.equal(readEvents(tmpDir).some((entry) => entry.event_type === 'retained_claude_auth_escalation_reclassified'), false);
     });
 
     it('auto-reissues a paused ghost-blocked run and clears only the ghost blocker', async () => {

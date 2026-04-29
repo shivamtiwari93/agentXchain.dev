@@ -53,6 +53,10 @@ import {
   formatPhantomIntentSupersessionNotice,
 } from './intent-startup-migration.js';
 import { checkpointAcceptedTurn } from './turn-checkpoint.js';
+import {
+  hasClaudeAuthenticationFailureText,
+  isClaudeLocalCliRuntime,
+} from './claude-local-auth.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
 const PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN = 1;
@@ -307,6 +311,87 @@ function getBlockedRecoveryAction(state) {
 
 function getBlockedCategory(state) {
   return state?.blocked_reason?.category || null;
+}
+
+const CLAUDE_AUTH_RECOVERY_ACTION =
+  'Refresh Claude credentials before resuming: export a valid ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN, then run agentxchain step --resume.';
+
+function findRetainedClaudeAuthEscalation(root, state, config) {
+  if (!state || state.status !== 'blocked') return null;
+  if (state.blocked_reason?.category !== 'retries_exhausted') return null;
+  if (typeof state.blocked_on !== 'string' || !state.blocked_on.startsWith('escalation:retries-exhausted:')) {
+    return null;
+  }
+  const turnId = state.blocked_reason?.turn_id || state.escalation?.from_turn_id || null;
+  const activeTurns = state.active_turns || {};
+  const candidateIds = turnId && activeTurns[turnId] ? [turnId] : Object.keys(activeTurns);
+  for (const candidateId of candidateIds) {
+    const turn = activeTurns[candidateId];
+    if (!turn || turn.status !== 'failed') continue;
+    if (turn.last_rejection?.failed_stage !== 'dispatch') continue;
+    const runtime = config?.runtimes?.[turn.runtime_id];
+    if (!isClaudeLocalCliRuntime(runtime)) continue;
+    const stagingPath = join(root, getTurnStagingResultPath(candidateId));
+    if (existsSync(stagingPath)) continue;
+    const logPath = join(root, getDispatchLogPath(candidateId));
+    if (!existsSync(logPath)) continue;
+    let logText = '';
+    try {
+      logText = readFileSync(logPath, 'utf8');
+    } catch {
+      continue;
+    }
+    if (!hasClaudeAuthenticationFailureText(logText)) continue;
+    return { turn_id: candidateId, turn, previous_blocked_on: state.blocked_on };
+  }
+  return null;
+}
+
+function maybeReclassifyRetainedClaudeAuthEscalation(context, session, state, log = console.log) {
+  const { root, config } = context;
+  const candidate = findRetainedClaudeAuthEscalation(root, state, config);
+  if (!candidate) return null;
+
+  const blockedAt = new Date().toISOString();
+  const nextState = {
+    ...state,
+    status: 'blocked',
+    blocked_on: 'dispatch:claude_auth_failed',
+    blocked_reason: {
+      category: 'dispatch_error',
+      blocked_at: blockedAt,
+      turn_id: candidate.turn_id,
+      reclassified_from: {
+        blocked_on: state.blocked_on || null,
+        category: state.blocked_reason?.category || null,
+      },
+      recovery: {
+        typed_reason: 'dispatch_error',
+        owner: 'human',
+        recovery_action: CLAUDE_AUTH_RECOVERY_ACTION,
+        turn_retained: true,
+        detail: `claude_auth_failed: ${CLAUDE_AUTH_RECOVERY_ACTION}`,
+      },
+    },
+    escalation: null,
+  };
+
+  writeGovernedState(root, nextState);
+  emitRunEvent(root, 'retained_claude_auth_escalation_reclassified', {
+    run_id: nextState.run_id || session.current_run_id || null,
+    phase: nextState.phase || null,
+    status: 'blocked',
+    turn: { turn_id: candidate.turn_id, role_id: candidate.turn.assigned_role || null },
+    payload: {
+      turn_id: candidate.turn_id,
+      previous_blocked_on: candidate.previous_blocked_on,
+      blocked_on: nextState.blocked_on,
+      runtime_id: candidate.turn.runtime_id || null,
+      recovery_action: CLAUDE_AUTH_RECOVERY_ACTION,
+    },
+  });
+  log(`Reclassified retained Claude auth escalation for ${candidate.turn_id} as dispatch:claude_auth_failed.`);
+  return nextState;
 }
 
 const RECOVERABLE_ACTIVE_TURN_STATUSES = new Set(['assigned', 'dispatched', 'starting', 'running']);
@@ -1714,7 +1799,9 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
 
   const startupGovernedState = loadProjectState(root, context.config);
   if (startupGovernedState?.status === 'blocked') {
-    const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, startupGovernedState, log);
+    const reclassifiedState = maybeReclassifyRetainedClaudeAuthEscalation(context, session, startupGovernedState, log);
+    const effectiveBlockedState = reclassifiedState || startupGovernedState;
+    const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, effectiveBlockedState, log);
     if (retried) return retried;
     session.status = 'paused';
     writeContinuousSession(root, session);
@@ -1722,9 +1809,9 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
       ok: true,
       status: 'blocked',
       action: 'still_blocked',
-      run_id: session.current_run_id || startupGovernedState.run_id || null,
-      recovery_action: getBlockedRecoveryAction(startupGovernedState),
-      blocked_category: getBlockedCategory(startupGovernedState),
+      run_id: session.current_run_id || effectiveBlockedState.run_id || null,
+      recovery_action: getBlockedRecoveryAction(effectiveBlockedState),
+      blocked_category: getBlockedCategory(effectiveBlockedState),
     };
   }
 

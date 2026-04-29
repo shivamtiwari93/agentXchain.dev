@@ -48,6 +48,7 @@ export const VALID_RUN_EVENTS = [
   'ghost_retry_exhausted',
   'auto_retried_productive_timeout',
   'productive_timeout_retry_exhausted',
+  'retained_claude_auth_escalation_reclassified',
   'state_reconciled_operator_commits',
   'operator_commit_reconcile_refused',
   'charter_materialization_required',

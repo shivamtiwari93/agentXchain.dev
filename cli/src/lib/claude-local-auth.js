@@ -10,6 +10,7 @@ const CLAUDE_ENV_AUTH_KEYS = [
 
 const DEFAULT_SMOKE_PROBE_TIMEOUT_MS = 10_000;
 const DEFAULT_SMOKE_PROBE_STDIN = 'ok';
+const CLAUDE_AUTH_FAILURE_RE = /authentication_failed|authentication_error|invalid authentication credentials|unauthorized|API Error:\s*401/i;
 
 function normalizeCommandTokens(runtime) {
   if (Array.isArray(runtime?.command)) {
@@ -30,6 +31,10 @@ export function isClaudeLocalCliRuntime(runtime) {
   }
   const head = tokens[0].toLowerCase();
   return head === 'claude' || head.endsWith('/claude');
+}
+
+export function hasClaudeAuthenticationFailureText(text) {
+  return typeof text === 'string' && CLAUDE_AUTH_FAILURE_RE.test(text);
 }
 
 export function hasClaudeBareFlag(runtime) {
