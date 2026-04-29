@@ -547,8 +547,8 @@ describe('claim-reality preflight', () => {
     const packedTurnCheckpoint = readFileSync(join(packageDir, 'src/lib/turn-checkpoint.js'), 'utf8');
     assert.match(packedTurnCheckpoint, /function recoverLegacyCheckpointFiles/,
       'packed turn-checkpoint.js must ship the legacy recovery helper');
-    assert.match(packedTurnCheckpoint, /files_changed_recovery_source:\s*'legacy_dirty_worktree'/,
-      'packed turn-checkpoint.js must persist recovery metadata for repaired history');
+    assert.match(packedTurnCheckpoint, /source = 'legacy_dirty_worktree'/,
+      'packed turn-checkpoint.js must preserve legacy recovery metadata for repaired history');
     assert.match(packedTurnCheckpoint, /legacy-empty files_changed history/,
       'packed turn-checkpoint.js must ship the legacy pending-checkpoint guidance');
   });

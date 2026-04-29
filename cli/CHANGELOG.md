@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.63
+
+- **BUG-109: recover supplemental checkpoint dirt.** `detectPendingCheckpoint()` now recognizes when the latest accepted checkpointed turn still owns dirty actor files named in its observed diff summary, and routes the next assignment to `checkpoint-turn` instead of a generic commit/stash blocker.
+- `checkpointAcceptedTurn()` can create a supplemental checkpoint for those recoverable files, merge them into `files_changed` and `observed_artifact.files_changed`, and advance the accepted integration ref.
+- Recovery stays fail-closed for active turns, non-workspace artifacts, and dirty actor files not named in the accepted turn's observed diff summary.
+
+- npm test -- --test-timeout=60000 -> 7323 tests / 1484 suites / 0 failures / 0 skipped
+
 ## 2.155.62
 
 - **BUG-108: stop post-step re-recovery after terminal continuous blockers.** Full Auto Mode now handles terminal step statuses before the paused-active recovery hook, so a real dirty-baseline assignment blocker surfaces once and stays paused instead of being reclassified as recoverable active work.
