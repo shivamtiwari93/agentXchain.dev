@@ -1,27 +1,29 @@
 ---
-sidebar_position: 2
-title: "v2.155.62 Release Notes"
+sidebar_position: 0
+title: "v2.155.64 Release Notes"
 ---
 
-# AgentXchain v2.155.62
+# AgentXchain v2.155.64
 
-`v2.155.62` fixes BUG-108: after BUG-107 recovery, Full Auto Mode now honors terminal blocked results before running post-step paused-active recovery. A real dirty-baseline assignment blocker is surfaced once and left paused instead of being retried in a tight recovery loop.
+`v2.155.64` completes BUG-109 by making continuous full-auto mode run the supplemental checkpoint recovery itself when `--auto-checkpoint` is enabled. The previous patch identified the stranded accepted-turn dirt and routed operators to `checkpoint-turn`; this patch removes that operator step from the DOGFOOD-100 path.
 
 ## Bug Fixes
 
-- **BUG-108: terminal blockers stay terminal.** `executeContinuousRun()` now processes `completed`, `idle_exit`, `failed`, `blocked`, `stopped`, `vision_exhausted`, `vision_expansion_exhausted`, and `session_budget` before invoking the post-step paused-active recovery hook.
-- **Preserve BUG-107 startup recovery.** CLI-owned continuous startup still adopts an existing paused or running session with the same vision path, and genuine paused-active runs still recover before work begins.
-- **Add command-chain proof.** A new beta-tester scenario runs `agentxchain run --continuous` against a paused active session with a dirty actor-owned file and proves the CLI exits without timeout or post-step recovery looping.
+- **BUG-109: continuous auto-checkpoint recovery.** `agentxchain run --continuous --auto-checkpoint` now parses checkpoint-required assignment failures, runs `checkpointAcceptedTurn()` for the referenced accepted turn, and retries the same active run.
+- **Visible recovery event.** Successful recovery emits `continuous_auto_checkpoint_recovered` with the session ID, checkpoint SHA, and recovered file metadata.
+- **Fail-closed guard.** Continuous mode does not claim recovery when checkpointing returns `already_checkpointed` or `skipped`; unrecoverable dirty work remains visible as a blocker.
 
 ## Evidence
 
-- npm test -- --test-timeout=60000 -> 7322 tests / 1484 suites / 0 failures / 0 skipped
+- npm test -- --test-timeout=60000 -> 7324 tests / 1484 suites / 0 failures / 0 skipped
 
 ## Tester Re-Run Contract
 
-Verify: `npx --yes -p agentxchain@2.155.62 -c "agentxchain --version"`
+Verify: `npx --yes -p agentxchain@2.155.64 -c "agentxchain --version"`
 
-For BUG-108: resume tusq.dev from continuous session `cont-7dc5b5df` and governed run `run_083e290f5ee318f4` using the shipped package. The CLI must preserve the existing session ID, recover the paused active run, reach the dirty-baseline blocker once, and exit without tight looping, process kill, manual staging JSON edits, `accept-turn`, `unblock`, or gate mutation.
+For BUG-109: resume tusq.dev from continuous session `cont-7dc5b5df` and governed run `run_083e290f5ee318f4` using the shipped package. The CLI must detect the dirty actor-owned files still owned by accepted dev turn `turn_fc4027d5c8789062`, create the supplemental checkpoint automatically under `--auto-checkpoint`, and then reach natural QA dispatch without manual staging JSON edits, operator-side `checkpoint-turn`, or `accept-turn` recovery.
+
+For BUG-108 carry-forward: terminal blocked steps must surface once and must not re-enter paused-active recovery loops.
 
 For BUG-107 carry-forward: paused active continuous sessions must still preserve the existing session ID and recover only when the governed run is active, unblocked, and dispatchable.
 

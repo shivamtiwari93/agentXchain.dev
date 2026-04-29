@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.64
+
+- **BUG-109: continuous auto-checkpoint completes supplemental recovery.** Full Auto Mode now parses checkpoint-required assignment failures, runs the framework-owned supplemental checkpoint path when `--auto-checkpoint` is enabled, emits `continuous_auto_checkpoint_recovered`, and retries the same active run instead of stopping for operator-side `checkpoint-turn`.
+- Continuous auto-checkpoint remains fail-closed when `checkpointAcceptedTurn()` returns `already_checkpointed` or `skipped`, so unrecoverable dirty work stays visible rather than being mislabeled as recovered.
+- Added a continuous-run regression proving a paused active QA run recovers supplemental accepted-turn dirt, creates the checkpoint commit, and retries dispatch without replacing the continuous session.
+
+- npm test -- --test-timeout=60000 -> 7324 tests / 1484 suites / 0 failures / 0 skipped
+
 ## 2.155.63
 
 - **BUG-109: recover supplemental checkpoint dirt.** `detectPendingCheckpoint()` now recognizes when the latest accepted checkpointed turn still owns dirty actor files named in its observed diff summary, and routes the next assignment to `checkpoint-turn` instead of a generic commit/stash blocker.

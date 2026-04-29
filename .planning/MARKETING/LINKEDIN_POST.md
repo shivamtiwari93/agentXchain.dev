@@ -1,11 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.63
+# LinkedIn Post — AgentXchain v2.155.64
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.63` release. Updated 2026-04-29 for BUG-109 fix: supplemental checkpoint recovery for stranded accepted-turn dirt.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.64` release. Updated 2026-04-29 for BUG-109 fix: continuous auto-checkpoint recovery for supplemental accepted-turn dirt.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7323 tests / 1484 suites / 0 failures / 0 skipped
+> - npm test -- --test-timeout=60000 -> 7324 tests / 1484 suites / 0 failures / 0 skipped
 
 ---
 
@@ -22,14 +22,14 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.63` fixes paused-but-active continuous-session recovery in full-auto continuous mode (BUG-107):
+`v2.155.64` fixes paused-but-active continuous-session recovery in full-auto continuous mode (BUG-107):
 
 - A paused continuous session now resumes when the governed run is still active, unblocked, and dispatchable.
 - Next assignment now points at checkpoint-turn instead of generic commit/stash guidance.
 - Reinvoking `agentxchain run --continuous` preserves the existing CLI-owned session ID instead of replacing proof continuity.
 - This keeps the full-auto path inside the framework instead of requiring operator-side session surgery.
 
-- npm test -- --test-timeout=60000 -> 7323 tests / 1484 suites / 0 failures / 0 skipped
+- npm test -- --test-timeout=60000 -> 7324 tests / 1484 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:
