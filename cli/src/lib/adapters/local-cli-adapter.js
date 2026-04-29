@@ -30,7 +30,7 @@ import {
 } from '../turn-paths.js';
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 import { hasMeaningfulStagedResult } from '../staged-result-proof.js';
-import { getClaudeSubprocessAuthIssue } from '../claude-local-auth.js';
+import { getClaudeSubprocessAuthIssue, isClaudeLocalCliRuntime } from '../claude-local-auth.js';
 
 const DIAGNOSTIC_ENV_KEYS = [
   'PATH',
@@ -43,6 +43,7 @@ const DIAGNOSTIC_ENV_KEYS = [
 const DIAGNOSTIC_STDERR_EXCERPT_LIMIT = 800;
 const DEFAULT_STARTUP_WATCHDOG_MS = 180_000;
 const DEFAULT_STARTUP_WATCHDOG_SIGKILL_GRACE_MS = 10_000;
+const CLAUDE_AUTH_FAILURE_RE = /authentication_failed|authentication_error|invalid authentication credentials|unauthorized|API Error:\s*401/i;
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -427,6 +428,22 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
       if (hasResult) {
         settle({ ok: true, exitCode, timedOut: false, aborted: false, logs, firstOutputAt });
+      } else if (isClaudeLocalCliRuntime(runtime) && hasClaudeAuthFailureOutput(logs)) {
+        const recovery = 'Refresh Claude credentials before resuming: export a valid ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN, then run agentxchain step --resume.';
+        settle({
+          ok: false,
+          blocked: true,
+          exitCode,
+          timedOut: false,
+          aborted: false,
+          firstOutputAt,
+          classified: {
+            error_class: 'claude_auth_failed',
+            recovery,
+          },
+          error: `Claude local_cli authentication failed. ${recovery}`,
+          logs,
+        });
       } else if (startupTimedOut) {
         settle({
           ok: false,
@@ -638,6 +655,11 @@ function resolveTargetTurn(state, turnId) {
 
 function appendDiagnostic(logs, label, payload) {
   logs.push(`[adapter:diag] ${label} ${JSON.stringify(payload)}\n`);
+}
+
+function hasClaudeAuthFailureOutput(logs) {
+  if (!Array.isArray(logs)) return false;
+  return logs.some((line) => typeof line === 'string' && CLAUDE_AUTH_FAILURE_RE.test(line));
 }
 
 function pickDiagnosticEnv(env) {

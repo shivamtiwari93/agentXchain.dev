@@ -54,6 +54,7 @@ import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
 import { failTurnStartup } from '../lib/stale-turn-watchdog.js';
 import { hasMinimumTurnResultShape } from '../lib/turn-result-shape.js';
 import { isKnownTurnRunningProofStream } from '../lib/dispatch-streams.js';
+import { markRunBlocked } from '../lib/governed-state.js';
 
 export async function runCommand(opts) {
   const context = loadProjectContext();
@@ -502,6 +503,30 @@ export async function executeGovernedRun(context, opts = {}) {
 
       // Adapter failure
       if (!adapterResult.ok) {
+        if (adapterResult.blocked === true) {
+          const classified = adapterResult.classified || null;
+          const detail = classified
+            ? `${classified.error_class}: ${classified.recovery}`
+            : (adapterResult.error || 'adapter dispatch failed');
+          const blocked = markRunBlocked(projectRoot, {
+            blockedOn: `dispatch:${classified?.error_class || 'subprocess_failed'}`,
+            category: 'dispatch_error',
+            recovery: {
+              typed_reason: 'dispatch_error',
+              owner: 'human',
+              recovery_action: classified?.recovery || 'Resolve the dispatch issue, then run agentxchain step --resume',
+              turn_retained: true,
+              detail,
+            },
+            turnId: turn.turn_id,
+            hooksConfig,
+            notificationConfig: cfg,
+          });
+          if (!blocked.ok) {
+            return { accept: false, reason: `markRunBlocked(dispatch): ${blocked.error}` };
+          }
+          return { accept: false, blocked: true, reason: detail };
+        }
         if (shouldSuggestManualQaFallback({
           roleId,
           runtimeId,

@@ -248,6 +248,51 @@ exec sleep 30
       }
     });
 
+    it('classifies Claude stdout auth failures as typed dispatch blockers instead of retryable turn failures', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const shim = writeClaudeShim(root, `#!/bin/sh
+cat > /dev/null
+printf '%s\\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"Failed to authenticate. API Error: 401 {\\"type\\":\\"error\\",\\"error\\":{\\"type\\":\\"authentication_error\\",\\"message\\":\\"Invalid authentication credentials\\"}}"}]},"error":"authentication_failed"}'
+exit 1
+`);
+      const config = makeConfig({
+        command: [shim, '--print', '--output-format', 'stream-json'],
+        prompt_transport: 'stdin',
+      });
+      setupDispatchBundle(root, state, config);
+
+      const originalEnv = {
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+        CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
+        CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+        CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
+        CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+      };
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.CLAUDE_API_KEY;
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = 'expired-oauth-token';
+      delete process.env.CLAUDE_CODE_USE_VERTEX;
+      delete process.env.CLAUDE_CODE_USE_BEDROCK;
+
+      try {
+        const result = await dispatchLocalCli(root, state, config);
+        assert.equal(result.ok, false);
+        assert.equal(result.blocked, true);
+        assert.equal(result.classified?.error_class, 'claude_auth_failed');
+        assert.match(result.error, /Claude local_cli authentication failed/);
+        assert.match(result.classified.recovery, /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN/);
+      } finally {
+        for (const [key, value] of Object.entries(originalEnv)) {
+          if (value === undefined) {
+            delete process.env[key];
+          } else {
+            process.env[key] = value;
+          }
+        }
+      }
+    });
+
     it('succeeds when subprocess writes staged result', async () => {
       const root = createAndTrack();
       const state = makeState();
