@@ -96,7 +96,69 @@ function recoverLegacyCheckpointFiles(root, entry, opts = {}) {
   return getActorDirtyFiles(root, opts.dirtyFiles);
 }
 
-function persistRecoveredFilesChanged(root, turnId, recoveredFiles) {
+function extractObservedDiffSummaryPaths(entry) {
+  const summary = entry?.observed_artifact?.diff_summary;
+  if (typeof summary !== 'string' || summary.trim().length === 0) {
+    return [];
+  }
+
+  const paths = [];
+  for (const line of summary.split('\n')) {
+    const tableMatch = line.match(/^\s*(.+?)\s+\|\s+/);
+    if (tableMatch?.[1]) {
+      paths.push(tableMatch[1].trim());
+      continue;
+    }
+
+    const untrackedMatch = line.match(/^\s*-\s+(.+)$/);
+    if (untrackedMatch?.[1]) {
+      paths.push(untrackedMatch[1].trim());
+    }
+  }
+
+  return normalizeFilesChanged(paths);
+}
+
+function recoverSupplementalCheckpointFiles(root, entry, opts = {}) {
+  if (!supportsLegacyFilesChangedRecovery(entry) || !entry?.checkpoint_sha) {
+    return [];
+  }
+
+  const state = readState(root);
+  if (state && Object.keys(state.active_turns || {}).length > 0) {
+    return [];
+  }
+
+  const acceptedHistory = queryAcceptedTurnHistory(root);
+  if (acceptedHistory[0]?.turn_id !== entry?.turn_id) {
+    return [];
+  }
+
+  const actorDirtyFiles = getActorDirtyFiles(root, opts.dirtyFiles);
+  if (actorDirtyFiles.length === 0) {
+    return [];
+  }
+
+  const observedSummaryFiles = new Set(extractObservedDiffSummaryPaths(entry));
+  if (observedSummaryFiles.size === 0) {
+    return [];
+  }
+
+  const declared = new Set(normalizeFilesChanged(entry.files_changed));
+  const recoverable = actorDirtyFiles.filter((filePath) => (
+    !declared.has(filePath) && observedSummaryFiles.has(filePath)
+  ));
+  if (recoverable.length === 0) {
+    return [];
+  }
+
+  const unrecoverable = actorDirtyFiles.filter((filePath) => (
+    !declared.has(filePath) && !observedSummaryFiles.has(filePath)
+  ));
+  return unrecoverable.length === 0 ? recoverable : [];
+}
+
+function persistRecoveredFilesChanged(root, turnId, recoveredFiles, source = 'legacy_dirty_worktree') {
   const normalizedRecoveredFiles = normalizeFilesChanged(recoveredFiles);
   if (normalizedRecoveredFiles.length === 0) return;
 
@@ -110,15 +172,21 @@ function persistRecoveredFilesChanged(root, turnId, recoveredFiles) {
       ? historyEntry.observed_artifact
       : null;
 
+    const existingFiles = normalizeFilesChanged(historyEntry.files_changed);
+    const mergedFiles = normalizeFilesChanged([...existingFiles, ...normalizedRecoveredFiles]);
+
     return {
       ...historyEntry,
-      files_changed: normalizedRecoveredFiles,
+      files_changed: mergedFiles,
       files_changed_recovered_at: recoveredAt,
-      files_changed_recovery_source: 'legacy_dirty_worktree',
+      files_changed_recovery_source: source,
       observed_artifact: observedArtifact
         ? {
             ...observedArtifact,
-            files_changed: normalizedRecoveredFiles,
+            files_changed: normalizeFilesChanged([
+              ...(Array.isArray(observedArtifact.files_changed) ? observedArtifact.files_changed : []),
+              ...normalizedRecoveredFiles,
+            ]),
           }
         : observedArtifact,
     };
@@ -234,7 +302,17 @@ export function detectPendingCheckpoint(root, dirtyFiles = []) {
   if (!resolved.ok || !resolved.entry) return { required: false };
 
   const entry = resolved.entry;
-  if (entry.checkpoint_sha) return { required: false };
+  if (entry.checkpoint_sha) {
+    const supplementalFiles = recoverSupplementalCheckpointFiles(root, entry, { dirtyFiles: actorDirtyFiles });
+    if (supplementalFiles.length === 0) return { required: false };
+    return {
+      required: true,
+      turn_id: entry.turn_id,
+      recovered_files_changed: supplementalFiles,
+      supplemental: true,
+      message: `Accepted turn ${entry.turn_id} is checkpointed but still owns ${supplementalFiles.length} dirty actor file(s) from its observed diff summary. Run agentxchain checkpoint-turn --turn ${entry.turn_id} to create a supplemental checkpoint before assigning the next code-writing turn.`,
+    };
+  }
 
   const turnFiles = normalizeFilesChanged(entry.files_changed);
   const recoveredFiles = turnFiles.length === 0
@@ -267,7 +345,10 @@ export function checkpointAcceptedTurn(root, opts = {}) {
   }
 
   const entry = resolved.entry;
-  if (entry.checkpoint_sha) {
+  const supplementalFilesChanged = entry.checkpoint_sha
+    ? recoverSupplementalCheckpointFiles(root, entry)
+    : [];
+  if (entry.checkpoint_sha && supplementalFilesChanged.length === 0) {
     return {
       ok: true,
       already_checkpointed: true,
@@ -281,10 +362,13 @@ export function checkpointAcceptedTurn(root, opts = {}) {
     ? recoverLegacyCheckpointFiles(root, entry)
     : [];
   const filesChanged = declaredFilesChanged.length > 0
-    ? declaredFilesChanged
+    ? normalizeFilesChanged([...declaredFilesChanged, ...supplementalFilesChanged])
     : recoveredFilesChanged;
   if (recoveredFilesChanged.length > 0) {
     persistRecoveredFilesChanged(root, entry.turn_id, recoveredFilesChanged);
+  }
+  if (supplementalFilesChanged.length > 0) {
+    persistRecoveredFilesChanged(root, entry.turn_id, supplementalFilesChanged, 'supplemental_dirty_worktree');
   }
 
   if (filesChanged.length === 0) {

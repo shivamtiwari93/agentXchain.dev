@@ -403,6 +403,53 @@ describe('turn checkpointing', () => {
     assert.match(assignNext.error, new RegExp(`checkpoint-turn --turn ${turnId}`));
   });
 
+  it('BUG-109: checkpointed turn can recover supplemental dirty files from observed diff summary', () => {
+    const config = initGovernedGitRepo(root);
+    writeFileSync(join(root, 'src', 'orphan.js'), 'export const orphan = 1;\n');
+    execSync('git add src/orphan.js && git commit -m "add orphan"', { cwd: root, stdio: 'ignore' });
+
+    const turnId = stageAcceptedDevTurn(root, config);
+    const checkpoint = checkpointAcceptedTurn(root, { turnId });
+    assert.ok(checkpoint.ok, checkpoint.error);
+    assert.ok(checkpoint.checkpoint_sha);
+
+    writeFileSync(join(root, 'src', 'orphan.js'), 'export const orphan = 2;\n');
+    const historyPath = join(root, '.agentxchain', 'history.jsonl');
+    const history = readJsonl(root, '.agentxchain/history.jsonl').map((entry) => (
+      entry.turn_id === turnId
+        ? {
+            ...entry,
+            observed_artifact: {
+              ...(entry.observed_artifact || {}),
+              diff_summary: ' src/app.js    | 1 +\n src/orphan.js | 1 +\n',
+            },
+          }
+        : entry
+    ));
+    writeFileSync(historyPath, `${history.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+
+    const pending = detectPendingCheckpoint(root, ['src/orphan.js']);
+    assert.equal(pending.required, true);
+    assert.equal(pending.supplemental, true);
+    assert.deepEqual(pending.recovered_files_changed, ['src/orphan.js']);
+    assert.match(pending.message, new RegExp(`checkpoint-turn --turn ${turnId}`));
+
+    const assignNext = assignGovernedTurn(root, config, 'qa');
+    assert.equal(assignNext.ok, false);
+    assert.match(assignNext.error, /supplemental checkpoint/);
+    assert.match(assignNext.error, new RegExp(`checkpoint-turn --turn ${turnId}`));
+
+    const supplemental = checkpointAcceptedTurn(root, { turnId });
+    assert.ok(supplemental.ok, supplemental.error);
+    assert.notEqual(supplemental.checkpoint_sha, checkpoint.checkpoint_sha);
+
+    const updatedEntry = readJsonl(root, '.agentxchain/history.jsonl').find((entry) => entry.turn_id === turnId);
+    assert.ok(updatedEntry.files_changed.includes('src/app.js'));
+    assert.ok(updatedEntry.files_changed.includes('src/orphan.js'));
+    assert.equal(updatedEntry.files_changed_recovery_source, 'supplemental_dirty_worktree');
+    assert.equal(execSync('git status --short src/orphan.js', { cwd: root, encoding: 'utf8' }).trim(), '');
+  });
+
   it('checkpointAcceptedTurn ignores operational files leaked into history files_changed', () => {
     const config = initGovernedGitRepo(root);
     const turnId = stageAcceptedDevTurn(root, config);
