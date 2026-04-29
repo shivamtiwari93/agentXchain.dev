@@ -279,13 +279,15 @@ exec sleep 30
     writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
     const result = runCli(root, ['doctor', '--json'], {
-      PATH: `${claudeBinDir}:${process.env.PATH || ''}`,
-      AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500',
-      ANTHROPIC_API_KEY: '',
-      CLAUDE_API_KEY: '',
-      CLAUDE_CODE_OAUTH_TOKEN: '',
-      CLAUDE_CODE_USE_VERTEX: '',
-      CLAUDE_CODE_USE_BEDROCK: '',
+      env: {
+        PATH: `${claudeBinDir}:${process.env.PATH || ''}`,
+        AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500',
+        ANTHROPIC_API_KEY: '',
+        CLAUDE_API_KEY: '',
+        CLAUDE_CODE_OAUTH_TOKEN: '',
+        CLAUDE_CODE_USE_VERTEX: '',
+        CLAUDE_CODE_USE_BEDROCK: '',
+      },
     });
 
     assert.equal(result.status, 0, result.stderr);

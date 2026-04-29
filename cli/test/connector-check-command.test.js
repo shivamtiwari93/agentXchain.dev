@@ -205,11 +205,11 @@ exit 0
     });
 
     const env = { ...process.env };
-    delete env.ANTHROPIC_API_KEY;
-    delete env.CLAUDE_API_KEY;
-    delete env.CLAUDE_CODE_OAUTH_TOKEN;
-    delete env.CLAUDE_CODE_USE_VERTEX;
-    delete env.CLAUDE_CODE_USE_BEDROCK;
+    env.ANTHROPIC_API_KEY = '';
+    env.CLAUDE_API_KEY = '';
+    env.CLAUDE_CODE_OAUTH_TOKEN = '';
+    env.CLAUDE_CODE_USE_VERTEX = '';
+    env.CLAUDE_CODE_USE_BEDROCK = '';
 
     const result = runCli(root, ['connector', 'check', 'local-dev', '--json'], env);
     assert.equal(result.status, 0, result.stdout);
@@ -240,12 +240,14 @@ exec sleep 30
 `);
     });
 
-    const env = { ...process.env, AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500' };
-    delete env.ANTHROPIC_API_KEY;
-    delete env.CLAUDE_API_KEY;
-    delete env.CLAUDE_CODE_OAUTH_TOKEN;
-    delete env.CLAUDE_CODE_USE_VERTEX;
-    delete env.CLAUDE_CODE_USE_BEDROCK;
+    const env = {
+      AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500',
+      ANTHROPIC_API_KEY: '',
+      CLAUDE_API_KEY: '',
+      CLAUDE_CODE_OAUTH_TOKEN: '',
+      CLAUDE_CODE_USE_VERTEX: '',
+      CLAUDE_CODE_USE_BEDROCK: '',
+    };
 
     const result = runCli(root, ['connector', 'check', 'local-dev', '--json'], env);
     assert.equal(result.status, 1, result.stdout);
@@ -275,12 +277,13 @@ exec sleep 30
       config.roles.dev.write_authority = 'authoritative';
     });
 
-    const env = { ...process.env };
-    delete env.ANTHROPIC_API_KEY;
-    delete env.CLAUDE_API_KEY;
-    delete env.CLAUDE_CODE_OAUTH_TOKEN;
-    delete env.CLAUDE_CODE_USE_VERTEX;
-    delete env.CLAUDE_CODE_USE_BEDROCK;
+    const env = {
+      ANTHROPIC_API_KEY: '',
+      CLAUDE_API_KEY: '',
+      CLAUDE_CODE_OAUTH_TOKEN: '',
+      CLAUDE_CODE_USE_VERTEX: '',
+      CLAUDE_CODE_USE_BEDROCK: '',
+    };
 
     const result = runCli(root, ['connector', 'check', 'local-dev', '--json'], env);
     assert.equal(result.status, 0, result.stdout);

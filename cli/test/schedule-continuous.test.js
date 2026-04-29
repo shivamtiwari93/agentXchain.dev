@@ -19,6 +19,7 @@ import {
   readContinuousSession,
   writeContinuousSession,
   findNextQueuedIntent,
+  isPausedContinuousSessionRecoverableActiveRun,
 } from '../src/lib/continuous-run.js';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -586,6 +587,188 @@ describe('advanceContinuousRunOnce — schedule-compatible primitive', () => {
     assert.equal(session.runs_completed, 1, 'resumed run completion must increment count');
     assert.ok(Math.abs(session.cumulative_spent_usd - 0.15) < 1e-9, `expected 0.15 spent, got ${session.cumulative_spent_usd}`);
     assert.ok(logs.some((m) => m.includes('Blocked run resolved')), 'should log resume message');
+  });
+
+  it('AT-CONT-FAIL-007: paused session with active unblocked run and next role is recoverable', () => {
+    const root = makeTmpDir();
+    const config = writeConfig(root, {
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan.', write_authority: 'authoritative', runtime: 'manual-pm' },
+        dev: { title: 'Developer', mandate: 'Implement.', write_authority: 'authoritative', runtime: 'manual-dev' },
+        qa: { title: 'QA', mandate: 'Verify.', write_authority: 'review', runtime: 'manual-qa' },
+      },
+      runtimes: {
+        'manual-pm': { type: 'manual' },
+        'manual-dev': { type: 'manual' },
+        'manual-qa': { type: 'manual' },
+      },
+      routing: {
+        planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev'], exit_gate: 'planning_signoff' },
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa'], exit_gate: 'implementation_complete' },
+        qa: { entry_role: 'qa', allowed_next_roles: ['qa', 'dev'], exit_gate: 'qa_ship_verdict' },
+      },
+    });
+    const session = {
+      session_id: 'cont-active-paused-001',
+      current_run_id: 'run_active_001',
+      status: 'paused',
+    };
+    const state = {
+      run_id: 'run_active_001',
+      status: 'active',
+      phase: 'qa',
+      active_turns: {},
+      blocked_on: null,
+      blocked_reason: null,
+      escalation: null,
+      pending_phase_transition: null,
+      pending_run_completion: null,
+      queued_phase_transition: null,
+      queued_run_completion: null,
+      next_recommended_role: 'qa',
+    };
+
+    assert.equal(isPausedContinuousSessionRecoverableActiveRun(session, state, config), true);
+  });
+
+  it('AT-CONT-FAIL-008: paused session with pending approval is not auto-recoverable', () => {
+    const root = makeTmpDir();
+    const config = writeConfig(root);
+    const session = {
+      session_id: 'cont-active-paused-approval-001',
+      current_run_id: 'run_active_approval_001',
+      status: 'paused',
+    };
+    const state = {
+      run_id: 'run_active_approval_001',
+      status: 'active',
+      phase: 'planning',
+      active_turns: {},
+      blocked_on: null,
+      blocked_reason: null,
+      escalation: null,
+      pending_phase_transition: {
+        from: 'planning',
+        to: 'implementation',
+        gate: 'planning_signoff',
+        requested_by_turn: 'turn_pm_001',
+      },
+      pending_run_completion: null,
+      queued_phase_transition: null,
+      queued_run_completion: null,
+      next_recommended_role: 'pm',
+    };
+
+    assert.equal(isPausedContinuousSessionRecoverableActiveRun(session, state, config), false);
+  });
+
+  it('AT-CONT-FAIL-009: paused session with pending approval remains paused instead of dispatching', async () => {
+    const root = makeTmpDir();
+    const config = writeConfig(root);
+    writeVision(root, '# Vision\n\n## Goals\n\n- Keep approval pauses explicit\n');
+    writeState(root, {
+      run_id: 'run_pending_approval_001',
+      status: 'active',
+      phase: 'planning',
+      active_turns: {},
+      pending_phase_transition: {
+        from: 'planning',
+        to: 'implementation',
+        gate: 'planning_signoff',
+        requested_by_turn: 'turn_pm_001',
+      },
+      next_recommended_role: 'pm',
+    });
+
+    const session = {
+      session_id: 'cont-pending-approval-001',
+      started_at: new Date().toISOString(),
+      vision_path: '.planning/VISION.md',
+      runs_completed: 0,
+      max_runs: 5,
+      idle_cycles: 0,
+      max_idle_cycles: 3,
+      current_run_id: 'run_pending_approval_001',
+      current_vision_objective: 'Keep approval pauses explicit',
+      status: 'paused',
+    };
+    writeContinuousSession(root, session);
+
+    const step = await advanceContinuousRunOnce(
+      { root, config },
+      session,
+      { visionPath: '.planning/VISION.md', maxRuns: 5, maxIdleCycles: 3, triageApproval: 'auto' },
+      async () => assert.fail('pending approval pause must not execute the governed run'),
+      () => {},
+    );
+
+    assert.equal(step.status, 'blocked');
+    assert.equal(step.action, 'paused_active_run_waiting');
+    assert.equal(readContinuousSession(root).status, 'paused');
+  });
+
+  it('AT-CONT-FAIL-010: paused active run with retained active turn is recoverable after unblock', () => {
+    const root = makeTmpDir();
+    const config = writeConfig(root);
+    const session = {
+      session_id: 'cont-retained-turn-001',
+      current_run_id: 'run_retained_turn_001',
+      status: 'paused',
+    };
+    const state = {
+      run_id: 'run_retained_turn_001',
+      status: 'active',
+      phase: 'planning',
+      active_turns: {
+        turn_pm_001: {
+          turn_id: 'turn_pm_001',
+          assigned_role: 'pm',
+          status: 'running',
+        },
+      },
+      blocked_on: null,
+      blocked_reason: null,
+      escalation: null,
+      pending_phase_transition: null,
+      pending_run_completion: null,
+      queued_phase_transition: null,
+      queued_run_completion: null,
+      next_recommended_role: 'pm',
+    };
+
+    assert.equal(isPausedContinuousSessionRecoverableActiveRun(session, state, config), true);
+  });
+
+  it('AT-CONT-FAIL-011: paused active run with failed active turn is not auto-recoverable', () => {
+    const root = makeTmpDir();
+    const config = writeConfig(root);
+    const session = {
+      session_id: 'cont-failed-turn-001',
+      current_run_id: 'run_failed_turn_001',
+      status: 'paused',
+    };
+    const state = {
+      run_id: 'run_failed_turn_001',
+      status: 'active',
+      phase: 'planning',
+      active_turns: {
+        turn_pm_001: {
+          turn_id: 'turn_pm_001',
+          assigned_role: 'pm',
+          status: 'failed_acceptance',
+        },
+      },
+      blocked_on: null,
+      blocked_reason: null,
+      escalation: null,
+      pending_phase_transition: null,
+      pending_run_completion: null,
+      queued_phase_transition: null,
+      queued_run_completion: null,
+      next_recommended_role: 'pm',
+    };
+
+    assert.equal(isPausedContinuousSessionRecoverableActiveRun(session, state, config), false);
   });
 
   it('AT-CONT-FAIL-001: non-blocked governed failures fail the session without resolving the intent', async () => {

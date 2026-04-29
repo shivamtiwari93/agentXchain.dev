@@ -1262,6 +1262,71 @@ describe('Continuous Run', () => {
       assert.equal(sessionDuringRun.status, 'running');
       assert.ok(sessionDuringRun.session_id.startsWith('cont-'));
     });
+
+    it('AT-BUG107-001: executeContinuousRun resumes an existing paused active session without replacing its session id', async () => {
+      writeVision(tmpDir, `## Recovery
+
+- continue stranded active QA phase
+`);
+      const statePath = join(tmpDir, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.run_id = 'run_bug107_existing';
+      state.status = 'active';
+      state.phase = 'implementation';
+      state.active_turns = {};
+      state.blocked_on = null;
+      state.blocked_reason = null;
+      state.escalation = null;
+      state.pending_phase_transition = null;
+      state.pending_run_completion = null;
+      state.queued_phase_transition = null;
+      state.queued_run_completion = null;
+      state.next_recommended_role = 'dev';
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+      writeContinuousSession(tmpDir, {
+        session_id: 'cont-bug107-existing',
+        started_at: '2026-04-29T11:02:12.407Z',
+        vision_path: '.planning/VISION.md',
+        runs_completed: 0,
+        max_runs: 1,
+        idle_cycles: 0,
+        max_idle_cycles: 3,
+        current_run_id: 'run_bug107_existing',
+        current_vision_objective: 'continue stranded active QA phase',
+        status: 'paused',
+        cumulative_spent_usd: 0,
+      });
+
+      const context = { root: tmpDir, config: JSON.parse(readFileSync(join(tmpDir, 'agentxchain.json'), 'utf8')) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true, maxRuns: 1, maxIdleCycles: 3 }, context.config), cooldownSeconds: 0 };
+      let executeCount = 0;
+      const logs = [];
+      const { exitCode, session } = await executeContinuousRun(
+        context,
+        contOpts,
+        async () => {
+          executeCount += 1;
+          const current = JSON.parse(readFileSync(statePath, 'utf8'));
+          current.status = 'completed';
+          current.completed_at = new Date().toISOString();
+          current.last_completed_turn_id = null;
+          current.active_turns = {};
+          writeFileSync(statePath, JSON.stringify(current, null, 2));
+          return {
+            exitCode: 0,
+            result: { stop_reason: 'completed', state: { run_id: current.run_id, status: 'completed' } },
+          };
+        },
+        (msg) => logs.push(msg),
+      );
+
+      assert.equal(exitCode, 0);
+      assert.equal(executeCount, 1);
+      assert.equal(session.session_id, 'cont-bug107-existing');
+      assert.equal(readContinuousSession(tmpDir).session_id, 'cont-bug107-existing');
+      assert.ok(logs.some((line) => line.includes('Resuming existing continuous session cont-bug107-existing')));
+    });
   });
 
   describe('structural guards', () => {

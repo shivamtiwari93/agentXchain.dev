@@ -46,6 +46,7 @@ import {
 import { getDispatchLogPath, getTurnStagingResultPath } from './turn-paths.js';
 import { reconcileOperatorHead } from './operator-commit-reconcile.js';
 import { getContinuityStatus } from './continuity-status.js';
+import { resolveGovernedRole } from './role-resolution.js';
 import {
   archiveStaleIntentsForRun,
   formatLegacyIntentMigrationNotice,
@@ -129,6 +130,36 @@ function createSession(visionPath, maxRuns, maxIdleCycles, perSessionMaxUsd, cur
     expansion_iteration: snapshotOpts.expansionIteration ?? 0,
     // Track which vision SHA values have already emitted a stale warning
     _vision_stale_warned_shas: [],
+  };
+}
+
+function canResumeExistingContinuousSession(session, contOpts) {
+  if (!session || typeof session !== 'object') return false;
+  if (!['paused', 'running'].includes(session.status)) return false;
+  if (session.owner_type === 'schedule') return false;
+  if (session.vision_path && session.vision_path !== contOpts.visionPath) return false;
+  if (contOpts.continueFrom && session.current_run_id && session.current_run_id !== contOpts.continueFrom) return false;
+  return true;
+}
+
+function resumeExistingContinuousSession(session, contOpts, initialRunId, snapshotOpts = {}) {
+  return {
+    ...session,
+    vision_path: session.vision_path || contOpts.visionPath,
+    max_runs: contOpts.maxRuns,
+    max_idle_cycles: contOpts.maxIdleCycles,
+    current_run_id: session.current_run_id || initialRunId || null,
+    status: session.status === 'paused' ? 'paused' : 'running',
+    per_session_max_usd: session.per_session_max_usd ?? contOpts.perSessionMaxUsd ?? null,
+    cumulative_spent_usd: session.cumulative_spent_usd || 0,
+    budget_exhausted: Boolean(session.budget_exhausted),
+    startup_reconciled_run_id: session.startup_reconciled_run_id || null,
+    vision_headings_snapshot: session.vision_headings_snapshot || snapshotOpts.visionHeadingsSnapshot || null,
+    vision_sha_at_snapshot: session.vision_sha_at_snapshot || snapshotOpts.visionShaAtSnapshot || null,
+    expansion_iteration: session.expansion_iteration ?? snapshotOpts.expansionIteration ?? 0,
+    _vision_stale_warned_shas: Array.isArray(session._vision_stale_warned_shas)
+      ? session._vision_stale_warned_shas
+      : [],
   };
 }
 
@@ -275,6 +306,59 @@ function getBlockedRecoveryAction(state) {
 
 function getBlockedCategory(state) {
   return state?.blocked_reason?.category || null;
+}
+
+const RECOVERABLE_ACTIVE_TURN_STATUSES = new Set(['assigned', 'dispatched', 'starting', 'running']);
+
+function hasOnlyRecoverableActiveTurns(activeTurns = {}) {
+  const turns = Object.values(activeTurns || {});
+  if (turns.length === 0) return false;
+  return turns.every((turn) => RECOVERABLE_ACTIVE_TURN_STATUSES.has(turn?.status || 'assigned'));
+}
+
+export function isPausedContinuousSessionRecoverableActiveRun(session, state, config) {
+  if (!session || session.status !== 'paused') return false;
+  if (!state || state.status !== 'active') return false;
+  if (session.current_run_id && state.run_id && session.current_run_id !== state.run_id) return false;
+  if (state.blocked_on || state.blocked_reason || state.escalation) return false;
+  if (state.pending_phase_transition || state.pending_run_completion) return false;
+  if (state.queued_phase_transition || state.queued_run_completion) return false;
+  if (Object.keys(state.active_turns || {}).length > 0) {
+    return hasOnlyRecoverableActiveTurns(state.active_turns);
+  }
+
+  const resolved = resolveGovernedRole({ state, config });
+  return Boolean(resolved?.roleId && !resolved.error);
+}
+
+function isPausedActiveRunWaitingOnGovernance(session, state) {
+  if (!session || session.status !== 'paused') return false;
+  if (!state || state.status !== 'active') return false;
+  if (session.current_run_id && state.run_id && session.current_run_id !== state.run_id) return false;
+  return true;
+}
+
+function recoverPausedActiveContinuousSession(context, session, log = console.log, reason = 'paused_active_run') {
+  const latestSession = readContinuousSession(context.root) || session;
+  const state = loadProjectState(context.root, context.config);
+  if (!isPausedContinuousSessionRecoverableActiveRun(latestSession, state, context.config)) {
+    return false;
+  }
+
+  Object.assign(session, latestSession, { status: 'running' });
+  writeContinuousSession(context.root, session);
+  emitRunEvent(context.root, 'continuous_paused_active_run_recovered', {
+    run_id: state.run_id || session.current_run_id || null,
+    phase: state.phase || null,
+    status: state.status || 'active',
+    payload: {
+      session_id: session.session_id,
+      reason,
+      next_recommended_role: state.next_recommended_role || null,
+    },
+  });
+  log(`Continuous session was paused while run ${state.run_id || session.current_run_id || '(unknown)'} remained active; resuming next role dispatch.`);
+  return true;
 }
 
 function writeGovernedState(root, state) {
@@ -1650,6 +1734,31 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
         blocked_category: getBlockedCategory(governedState),
       };
     }
+    if (isPausedContinuousSessionRecoverableActiveRun(session, governedState, context.config)) {
+      session.status = 'running';
+      writeContinuousSession(root, session);
+      emitRunEvent(root, 'continuous_paused_active_run_recovered', {
+        run_id: governedState.run_id || session.current_run_id || null,
+        phase: governedState.phase || null,
+        status: governedState.status || 'active',
+        payload: {
+          session_id: session.session_id,
+          reason: 'advance_once_paused_active_run',
+          next_recommended_role: governedState.next_recommended_role || null,
+        },
+      });
+      log(`Paused continuous session has active unblocked run ${governedState.run_id || session.current_run_id || '(unknown)'}; resuming next role dispatch.`);
+    } else if (isPausedActiveRunWaitingOnGovernance(session, governedState)) {
+      writeContinuousSession(root, session);
+      return {
+        ok: true,
+        status: 'blocked',
+        action: 'paused_active_run_waiting',
+        run_id: session.current_run_id || governedState.run_id || null,
+        recovery_action: 'Review pending approvals, active turns, or role-resolution errors before resuming this paused continuous session.',
+        blocked_category: 'paused_active_run_waiting',
+      };
+    }
     // Unblocked — resume by continuing the existing governed run directly.
     // Skip the intake pipeline: the run is already in progress, and startIntent
     // would reject because the governed state is active.
@@ -2057,15 +2166,31 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
     // VISION.md unreadable — will fail at first advanceContinuousRunOnce anyway
   }
 
-  const session = createSession(
-    contOpts.visionPath,
-    contOpts.maxRuns,
-    contOpts.maxIdleCycles,
-    contOpts.perSessionMaxUsd,
-    initialRunId,
-    { visionHeadingsSnapshot, visionShaAtSnapshot },
-  );
+  const existingSession = readContinuousSession(root);
+  const snapshotOpts = { visionHeadingsSnapshot, visionShaAtSnapshot };
+  const session = canResumeExistingContinuousSession(existingSession, contOpts)
+    ? resumeExistingContinuousSession(existingSession, contOpts, initialRunId, snapshotOpts)
+    : createSession(
+      contOpts.visionPath,
+      contOpts.maxRuns,
+      contOpts.maxIdleCycles,
+      contOpts.perSessionMaxUsd,
+      initialRunId,
+      snapshotOpts,
+    );
   writeContinuousSession(root, session);
+  if (existingSession && session.session_id === existingSession.session_id) {
+    emitRunEvent(root, 'continuous_session_resumed', {
+      run_id: session.current_run_id || null,
+      phase: startupState?.phase || null,
+      status: session.status,
+      payload: {
+        session_id: session.session_id,
+        prior_status: existingSession.status || null,
+      },
+    });
+    log(`Resuming existing continuous session ${session.session_id}.`);
+  }
 
   // SIGINT handler
   let stopping = false;
@@ -2078,6 +2203,10 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
   try {
     while (!stopping) {
       const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
+
+      if (recoverPausedActiveContinuousSession(context, session, log, `post_step_${step.action || step.status || 'unknown'}`)) {
+        continue;
+      }
 
       // Terminal states
       if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped' || step.status === 'vision_exhausted' || step.status === 'vision_expansion_exhausted' || step.status === 'session_budget') {

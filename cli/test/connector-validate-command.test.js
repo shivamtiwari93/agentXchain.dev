@@ -370,7 +370,7 @@ exit 0
       'CLAUDE_CODE_USE_VERTEX',
       'CLAUDE_CODE_USE_BEDROCK',
     ]) {
-      delete env[key];
+      env[key] = '';
     }
 
     const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json'], env);
@@ -402,19 +402,14 @@ exec sleep 30
     });
 
     const env = {
-      ...process.env,
       AGENTXCHAIN_CLAUDE_AUTH_PROBE_TIMEOUT_MS: '500',
       PATH: `${dirname(shim)}:${process.env.PATH || ''}`,
+      ANTHROPIC_API_KEY: '',
+      CLAUDE_API_KEY: '',
+      CLAUDE_CODE_OAUTH_TOKEN: '',
+      CLAUDE_CODE_USE_VERTEX: '',
+      CLAUDE_CODE_USE_BEDROCK: '',
     };
-    for (const key of [
-      'ANTHROPIC_API_KEY',
-      'CLAUDE_API_KEY',
-      'CLAUDE_CODE_OAUTH_TOKEN',
-      'CLAUDE_CODE_USE_VERTEX',
-      'CLAUDE_CODE_USE_BEDROCK',
-    ]) {
-      delete env[key];
-    }
 
     const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json'], env);
     assert.equal(result.status, 1, result.stdout);
@@ -451,16 +446,13 @@ exec sleep 30
       config.roles.dev.write_authority = 'authoritative';
     });
 
-    const env = { ...process.env };
-    for (const key of [
-      'ANTHROPIC_API_KEY',
-      'CLAUDE_API_KEY',
-      'CLAUDE_CODE_OAUTH_TOKEN',
-      'CLAUDE_CODE_USE_VERTEX',
-      'CLAUDE_CODE_USE_BEDROCK',
-    ]) {
-      delete env[key];
-    }
+    const env = {
+      ANTHROPIC_API_KEY: '',
+      CLAUDE_API_KEY: '',
+      CLAUDE_CODE_OAUTH_TOKEN: '',
+      CLAUDE_CODE_USE_VERTEX: '',
+      CLAUDE_CODE_USE_BEDROCK: '',
+    };
 
     const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json'], env);
     const output = JSON.parse(result.stdout);
