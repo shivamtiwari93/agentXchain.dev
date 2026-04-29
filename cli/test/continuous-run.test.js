@@ -1140,7 +1140,7 @@ describe('Continuous Run', () => {
         context, contOpts, mockExecutor, (msg) => logs.push(msg),
       );
 
-      assert.equal(exitCode, 0);
+      assert.equal(exitCode, 0, logs.join('\n'));
       assert.equal(session.runs_completed, 2);
       assert.equal(session.status, 'completed');
       assert.equal(runCount, 2);
@@ -1186,7 +1186,7 @@ describe('Continuous Run', () => {
         context, contOpts, mockExecutor, (msg) => logs.push(msg),
       );
 
-      assert.equal(exitCode, 0);
+      assert.equal(exitCode, 0, logs.join('\n'));
       assert.equal(session.runs_completed, 0);
       assert.equal(session.idle_cycles, 2);
       assert.ok(logs.some(l => l.includes('All vision goals appear addressed')));
@@ -1396,6 +1396,115 @@ describe('Continuous Run', () => {
         logs.filter((line) => line.includes('Continuous session was paused while run run_bug108_existing remained active')).length,
         0,
       );
+    });
+
+    it('BUG-109: auto-checkpoint recovers supplemental accepted-turn dirt before QA dispatch retry', async () => {
+      writeVision(tmpDir, `## Recovery
+
+- continue stranded active QA phase
+`);
+      const { baseline, git } = initContinuousGitProject(tmpDir);
+      git(['add', '.planning/VISION.md']);
+      git(['commit', '-q', '-m', 'add vision']);
+      mkdirSync(join(tmpDir, 'src'), { recursive: true });
+      writeFileSync(join(tmpDir, 'src', 'declared.js'), 'export const declared = 1;\n');
+      writeFileSync(join(tmpDir, 'src', 'supplemental.js'), 'export const supplemental = 1;\n');
+      git(['add', 'src/declared.js', 'src/supplemental.js']);
+      git(['commit', '-q', '-m', 'seed accepted files']);
+      const checkpointSha = git(['rev-parse', 'HEAD']);
+
+      const statePath = join(tmpDir, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.run_id = 'run_bug109_existing';
+      state.status = 'active';
+      state.phase = 'qa';
+      state.active_turns = {};
+      state.blocked_on = null;
+      state.blocked_reason = null;
+      state.escalation = null;
+      state.pending_phase_transition = null;
+      state.pending_run_completion = null;
+      state.queued_phase_transition = null;
+      state.queued_run_completion = null;
+      state.next_recommended_role = 'qa';
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+      writeFileSync(join(tmpDir, '.agentxchain', 'history.jsonl'), `${JSON.stringify({
+        turn_id: 'turn_bug109_dev',
+        run_id: 'run_bug109_existing',
+        role: 'dev',
+        status: 'accepted',
+        artifact: { type: 'workspace', ref: null },
+        files_changed: ['src/declared.js'],
+        observed_artifact: {
+          baseline_ref: baseline,
+          files_changed: ['src/declared.js'],
+          diff_summary: ' src/declared.js     | 1 +\n src/supplemental.js | 1 +\n',
+        },
+        checkpoint_sha: checkpointSha,
+        checkpointed_at: '2026-04-29T15:30:00.000Z',
+        accepted_at: '2026-04-29T15:30:00.000Z',
+      })}\n`);
+
+      writeFileSync(join(tmpDir, 'src', 'supplemental.js'), 'export const supplemental = 2;\n');
+
+      writeContinuousSession(tmpDir, {
+        session_id: 'cont-bug109-existing',
+        started_at: '2026-04-29T15:30:00.000Z',
+        vision_path: '.planning/VISION.md',
+        runs_completed: 0,
+        max_runs: 1,
+        idle_cycles: 0,
+        max_idle_cycles: 3,
+        current_run_id: 'run_bug109_existing',
+        current_vision_objective: 'continue stranded active QA phase',
+        status: 'paused',
+        cumulative_spent_usd: 0,
+      });
+
+      const context = { root: tmpDir, config: JSON.parse(readFileSync(join(tmpDir, 'agentxchain.json'), 'utf8')) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true, maxRuns: 1, maxIdleCycles: 3 }, context.config), cooldownSeconds: 0 };
+      let executeCount = 0;
+      const logs = [];
+      const { exitCode } = await executeContinuousRun(
+        context,
+        contOpts,
+        async () => {
+          executeCount += 1;
+          const current = JSON.parse(readFileSync(statePath, 'utf8'));
+          if (executeCount === 1) {
+            return {
+              exitCode: 1,
+              result: {
+                stop_reason: 'blocked',
+                state: { run_id: current.run_id, status: 'active', phase: current.phase },
+                errors: [
+                  'assignTurn(qa): Accepted turn turn_bug109_dev is checkpointed but still owns 1 dirty actor file(s) from its observed diff summary. Run agentxchain checkpoint-turn --turn turn_bug109_dev to create a supplemental checkpoint before assigning the next code-writing turn.',
+                ],
+              },
+            };
+          }
+          current.status = 'completed';
+          current.completed_at = new Date().toISOString();
+          current.active_turns = {};
+          writeFileSync(statePath, JSON.stringify(current, null, 2));
+          return {
+            exitCode: 0,
+            result: { stop_reason: 'completed', state: { run_id: current.run_id, status: 'completed', phase: current.phase } },
+          };
+        },
+        (msg) => logs.push(msg),
+      );
+
+      assert.equal(exitCode, 0, logs.join('\n'));
+      assert.equal(executeCount, 2, 'continuous loop should retry the active run after auto-checkpoint');
+      assert.ok(logs.some((line) => line.includes('Auto-checkpoint recovered accepted turn turn_bug109_dev')));
+      assert.equal(git(['status', '--short', 'src/supplemental.js']), '');
+      const headSubject = git(['log', '-1', '--pretty=%s']);
+      assert.match(headSubject, /^checkpoint: turn_bug109_dev/);
+      const history = readFileSync(join(tmpDir, '.agentxchain', 'history.jsonl'), 'utf8');
+      assert.ok(history.includes('"src/supplemental.js"'));
+      assert.ok(readEvents(tmpDir).some((entry) => entry.event_type === 'continuous_auto_checkpoint_recovered'));
     });
   });
 

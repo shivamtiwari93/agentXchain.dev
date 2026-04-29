@@ -52,6 +52,7 @@ import {
   formatLegacyIntentMigrationNotice,
   formatPhantomIntentSupersessionNotice,
 } from './intent-startup-migration.js';
+import { checkpointAcceptedTurn } from './turn-checkpoint.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
 const PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN = 1;
@@ -572,6 +573,59 @@ async function maybeAutoRetryProductiveTimeoutBlocker(context, session, contOpts
 async function maybeAutoRetryContinuousBlocker(context, session, contOpts, blockedState, log = console.log) {
   return await maybeAutoRetryProductiveTimeoutBlocker(context, session, contOpts, blockedState, log)
     || await maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log);
+}
+
+function extractCheckpointTurnIdFromExecution(execution) {
+  const errors = Array.isArray(execution?.result?.errors) ? execution.result.errors : [];
+  for (const error of errors) {
+    const text = String(error || '');
+    const match = text.match(/\bcheckpoint-turn\s+--turn\s+(turn_[A-Za-z0-9_-]+)/);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function maybeAutoCheckpointBlockedExecution(context, session, contOpts, execution, log = console.log) {
+  if (!contOpts.autoCheckpoint) return null;
+  const turnId = extractCheckpointTurnIdFromExecution(execution);
+  if (!turnId) return null;
+
+  const checkpoint = checkpointAcceptedTurn(context.root, { turnId });
+  if (!checkpoint.ok) {
+    log(`Auto-checkpoint skipped for ${turnId}: ${checkpoint.error || 'checkpoint failed'}`);
+    return null;
+  }
+  if (checkpoint.already_checkpointed || checkpoint.skipped) {
+    log(`Auto-checkpoint skipped for ${turnId}: ${checkpoint.reason || 'no checkpoint changes were created'}`);
+    return null;
+  }
+
+  session.status = 'running';
+  session.current_run_id = session.current_run_id || execution?.result?.state?.run_id || null;
+  writeContinuousSession(context.root, session);
+
+  emitRunEvent(context.root, 'continuous_auto_checkpoint_recovered', {
+    run_id: session.current_run_id || execution?.result?.state?.run_id || null,
+    phase: execution?.result?.state?.phase || null,
+    status: 'active',
+    turn: { turn_id: turnId, role_id: null },
+    payload: {
+      session_id: session.session_id,
+      checkpoint_sha: checkpoint.checkpoint_sha || null,
+      already_checkpointed: Boolean(checkpoint.already_checkpointed),
+      recovered_files_changed: checkpoint.recovered_files_changed || checkpoint.files_changed || null,
+    },
+  });
+
+  log(`Auto-checkpoint recovered accepted turn ${turnId}; continuing active run.`);
+  return {
+    ok: true,
+    status: 'running',
+    action: 'auto_checkpoint_recovered',
+    run_id: session.current_run_id,
+    turn_id: turnId,
+    checkpoint_sha: checkpoint.checkpoint_sha || null,
+  };
 }
 
 async function maybeAutoRetryGhostBlocker(context, session, contOpts, blockedState, log = console.log) {
@@ -1784,6 +1838,8 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     const resumeStopReason = execution.result?.stop_reason;
 
     if (isBlockedContinuousExecution(execution)) {
+      const checkpointed = maybeAutoCheckpointBlockedExecution(context, session, contOpts, execution, log);
+      if (checkpointed) return checkpointed;
       const blockedState = execution?.result?.state || loadProjectState(root, context.config);
       const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, blockedState, log);
       if (retried) return retried;
@@ -1852,6 +1908,8 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     const resumeStopReason = execution.result?.stop_reason;
 
     if (isBlockedContinuousExecution(execution)) {
+      const checkpointed = maybeAutoCheckpointBlockedExecution(context, session, contOpts, execution, log);
+      if (checkpointed) return checkpointed;
       const blockedState = execution?.result?.state || loadProjectState(root, context.config);
       const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, blockedState, log);
       if (retried) return retried;
@@ -2044,6 +2102,8 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   }
 
   if (isBlockedContinuousExecution(execution)) {
+    const checkpointed = maybeAutoCheckpointBlockedExecution(context, session, contOpts, execution, log);
+    if (checkpointed) return checkpointed;
     const blockedState = execution?.result?.state || loadProjectState(root, context.config);
     const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, blockedState, log);
     if (retried) return retried;
