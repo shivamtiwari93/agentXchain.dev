@@ -86,7 +86,7 @@ function assertDecisionExists(decisions, decisionId, requiredPhrase) {
 }
 
 describe('HUMAN-ROADMAP open blocker status', () => {
-  it('keeps the current focus reflecting full-auto closure sweep completion', () => {
+  it('keeps the current focus reflecting the active DOGFOOD-100 blocker', () => {
     const roadmap = readCurrentRoadmap();
     const currentFocusLine = roadmap
       .split('\n')
@@ -95,8 +95,8 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     assert.ok(currentFocusLine, 'roadmap must keep a current focus line');
     assert.match(
       currentFocusLine,
-      /BUG-77/,
-      'current focus must reflect the open BUG-77 roadmap-replenishment defect awaiting reverify',
+      /DOGFOOD-100/,
+      'current focus must preserve DOGFOOD-100 as the only active priority',
     );
     assert.match(
       currentFocusLine,
@@ -105,12 +105,17 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       currentFocusLine,
-      /BUG-98/,
-      'current focus must reflect the active BUG-98 skip-forward phase-transition blocker',
+      /BUG-112 is open/,
+      'current focus must reflect the active BUG-112 provider-timeout blocker',
     );
     assert.match(
       currentFocusLine,
-      /BUG-95, BUG-96, and BUG-97 are closed/,
+      /counter value 97/,
+      'current focus must preserve the latest strict counter value before BUG-112',
+    );
+    assert.match(
+      currentFocusLine,
+      /BUG-95 through BUG-111 are closed/,
       'current focus must preserve the latest shipped-package dogfood closures',
     );
   });

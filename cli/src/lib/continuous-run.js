@@ -61,6 +61,7 @@ import {
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
 const PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN = 1;
 const PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES = 60;
+const PROVIDER_REQUEST_TIMEOUT_RE = /request timed out|timed out waiting for (?:provider|api)|provider request timed out/i;
 
 function getRoadmapReplenishmentTriageHints(root) {
   const context = loadProjectContext(root);
@@ -537,7 +538,16 @@ function findPrimaryProductiveTimeoutTurn(root, state) {
       ...(Array.isArray(turn.last_rejection?.validation_errors) ? turn.last_rejection.validation_errors : []),
     ].join('\n');
     const looksDeadlineKilled = /code 143|dispatch timed out|timed out/i.test(reason);
-    if (!looksDeadlineKilled) continue;
+    let looksProviderTimedOut = false;
+    const logPath = join(root, getDispatchLogPath(candidateId));
+    if (!looksDeadlineKilled && existsSync(logPath)) {
+      try {
+        looksProviderTimedOut = PROVIDER_REQUEST_TIMEOUT_RE.test(readFileSync(logPath, 'utf8'));
+      } catch {
+        looksProviderTimedOut = false;
+      }
+    }
+    if (!looksDeadlineKilled && !looksProviderTimedOut) continue;
     if (!turn.first_output_at) continue;
     const stagingPath = join(root, getTurnStagingResultPath(candidateId));
     if (existsSync(stagingPath)) continue;

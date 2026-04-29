@@ -834,6 +834,7 @@ describe('Continuous Run', () => {
         logText: '[adapter:diag] process_exit {"exit_code":1,"staged_result_ready":false}\nregular subprocess failure\n',
       });
       const config = readTestConfig(tmpDir);
+      config.roles.qa = { title: 'QA', mandate: 'Verify.', write_authority: 'authoritative', runtime: 'local-qa' };
       config.runtimes['local-qa'] = { type: 'local_cli', command: 'claude --print' };
       const context = { root: tmpDir, config };
       const session = {
@@ -860,6 +861,99 @@ describe('Continuous Run', () => {
       assert.equal(state.blocked_on, 'escalation:retries-exhausted:qa');
       assert.equal(state.blocked_reason.category, 'retries_exhausted');
       assert.equal(readEvents(tmpDir).some((entry) => entry.event_type === 'retained_claude_auth_escalation_reclassified'), false);
+    });
+
+    it('BUG-112 auto-reissues retained Claude provider request timeouts instead of human escalation', async () => {
+      const { turnId } = writeClaudeAuthEscalationState(tmpDir, {
+        turnId: 'turn_claude_timeout_001',
+        logText: [
+          '[adapter:diag] spawn_prepare {"command":"claude"}\n',
+          '{"type":"system","subtype":"api_retry","attempt":10,"max_retries":10,"error":"unknown"}\n',
+          '{"type":"assistant","message":{"content":[{"type":"text","text":"Request timed out"}]},"error":"unknown"}\n',
+          '{"type":"result","is_error":true,"result":"Request timed out"}\n',
+          '[adapter:diag] process_exit {"exit_code":1,"staged_result_ready":false}\n',
+        ].join(''),
+      });
+      const config = readTestConfig(tmpDir);
+      config.roles.qa = { title: 'QA', mandate: 'Verify.', write_authority: 'authoritative', runtime: 'local-qa' };
+      config.runtimes['local-qa'] = { type: 'local_cli', command: 'claude --print' };
+      const context = { root: tmpDir, config };
+      const session = {
+        session_id: 'cont-claude-timeout',
+        status: 'paused',
+        current_run_id: 'run_claude_auth_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        cooldownSeconds: 0,
+      };
+
+      const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+        assert.fail('retained provider timeout should be auto-reissued before executing a governed run');
+      }, () => {});
+
+      assert.equal(step.status, 'running');
+      assert.equal(step.action, 'auto_retried_productive_timeout');
+      assert.equal(step.old_turn_id, turnId);
+      assert.notEqual(step.new_turn_id, turnId);
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'active');
+      assert.equal(state.blocked_on, null);
+      assert.equal(state.blocked_reason, null);
+      assert.equal(state.escalation, null);
+      assert.equal(state.active_turns[turnId], undefined);
+      const newTurn = state.active_turns[step.new_turn_id];
+      assert.equal(newTurn.status, 'assigned');
+      assert.equal(newTurn.reissued_from, turnId);
+      assert.equal(newTurn.timeout_recovery_context.reason, 'productive_timeout');
+
+      const events = readEvents(tmpDir);
+      assert.equal(events.some((entry) => entry.event_type === 'retained_claude_auth_escalation_reclassified'), false);
+      const retryEvents = events.filter((entry) => entry.event_type === 'auto_retried_productive_timeout');
+      assert.equal(retryEvents.length, 1);
+      assert.equal(retryEvents[0].payload.old_turn_id, turnId);
+      assert.equal(retryEvents[0].payload.new_turn_id, step.new_turn_id);
+    });
+
+    it('BUG-112 does not treat Claude api_retry events alone as a provider timeout', async () => {
+      const { turnId } = writeClaudeAuthEscalationState(tmpDir, {
+        turnId: 'turn_claude_retry_unknown_001',
+        logText: [
+          '[adapter:diag] spawn_prepare {"command":"claude"}\n',
+          '{"type":"system","subtype":"api_retry","attempt":10,"max_retries":10,"error":"unknown"}\n',
+          '{"type":"assistant","message":{"content":[{"type":"text","text":"Unexpected provider failure"}]},"error":"unknown"}\n',
+          '[adapter:diag] process_exit {"exit_code":1,"staged_result_ready":false}\n',
+        ].join(''),
+      });
+      const config = readTestConfig(tmpDir);
+      config.runtimes['local-qa'] = { type: 'local_cli', command: 'claude --print' };
+      const context = { root: tmpDir, config };
+      const session = {
+        session_id: 'cont-claude-retry-unknown',
+        status: 'paused',
+        current_run_id: 'run_claude_auth_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        cooldownSeconds: 0,
+      };
+
+      const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+        assert.fail('unknown provider retry should stay blocked');
+      }, () => {});
+
+      assert.equal(step.status, 'blocked');
+      assert.equal(step.action, 'still_blocked');
+      assert.equal(step.blocked_category, 'retries_exhausted');
+
+      const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.blocked_on, 'escalation:retries-exhausted:qa');
+      assert.ok(state.active_turns[turnId]);
+      const events = readEvents(tmpDir);
+      assert.equal(events.some((entry) => entry.event_type === 'auto_retried_productive_timeout'), false);
     });
 
     it('auto-reissues a paused ghost-blocked run and clears only the ghost blocker', async () => {
