@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.62
+
+- **BUG-108: stop post-step re-recovery after terminal continuous blockers.** Full Auto Mode now handles terminal step statuses before the paused-active recovery hook, so a real dirty-baseline assignment blocker surfaces once and stays paused instead of being reclassified as recoverable active work.
+- The BUG-107 startup/adopt path still preserves existing CLI-owned continuous session identity and recovers genuinely paused active runs before work begins.
+- Added a command-chain beta scenario proving `agentxchain run --continuous` resumes a paused active session, reaches a dirty actor-owned baseline blocker, exits without timeout, and emits no post-step re-recovery loop log.
+
+- npm test -- --test-timeout=60000 -> 7322 tests / 1484 suites / 0 failures / 0 skipped
+
 ## 2.155.61
 
 - **BUG-107: recover paused active continuous sessions.** Full Auto Mode now detects a continuous session marked `paused` while the governed run is still `active`, unblocked, and dispatchable, normalizes the session back to `running`, emits `continuous_paused_active_run_recovered`, and continues the existing run instead of requiring operator reinvocation.

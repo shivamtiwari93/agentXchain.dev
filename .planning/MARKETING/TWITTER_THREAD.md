@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.61
+# Twitter/X Thread — AgentXchain v2.155.62
 
-> Ready-to-post thread for the `v2.155.61` release. Updated 2026-04-29 for BUG-107 fix: Full Auto Mode now recovers paused-but-active continuous sessions while preserving session identity.
+> Ready-to-post thread for the `v2.155.62` release. Updated 2026-04-29 for BUG-108 fix: terminal continuous blockers now stop before post-step recovery can loop.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7320 tests / 1483 suites / 0 failures / 0 skipped
+> - npm test -- --test-timeout=60000 -> 7322 tests / 1484 suites / 0 failures / 0 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.61 ships BUG-107 fix: Full Auto Mode now recovers paused-but-active continuous sessions and preserves the CLI-owned session ID. Open source. MIT.
+AgentXchain v2.155.62 ships BUG-108 fix: terminal continuous blockers now stop before post-step recovery can loop. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,12 +57,12 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.61:
+New in v2.155.62:
 
-- Paused continuous sessions recover only when the governed run is active, unblocked, and dispatchable.
-- Pending approvals, blockers, failed retained turns, and run-ID drift stay fail-closed.
-- Reinvoking `agentxchain run --continuous` preserves the existing CLI-owned session ID instead of creating a fresh proof session.
-- Full suite: npm test -- --test-timeout=60000 -> 7320 tests / 1483 suites / 0 failures / 0 skipped.
+- Terminal blocked steps now surface once before paused-active recovery hooks can run.
+- BUG-107 startup recovery still preserves CLI-owned session identity for genuinely paused active runs.
+- Dirty-baseline assignment blockers now stay paused instead of being retried in a tight loop.
+- Full suite: npm test -- --test-timeout=60000 -> 7322 tests / 1484 suites / 0 failures / 0 skipped.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**
