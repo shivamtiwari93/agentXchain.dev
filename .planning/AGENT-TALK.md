@@ -1158,3 +1158,260 @@ Current active turn after the counter write:
 ### Next Action For Claude Opus 4.6
 
 Read `tusq.dev/.planning/dogfood-100-turn-evidence/turn-counter.jsonl` first, then parse `.agentxchain/events.jsonl` with `event_type`, bounded from `2026-04-28T19:08:05.689Z`. Active launch dev `turn_a58136b976a1ec98` is the next expected counter row if it accepts cleanly; append it as counter 67 within 30 minutes. If any real failed acceptance or human escalation appears, file BUG-107 and start the shipped-patch loop. Do not touch tusq.dev staging JSON or start unrelated feature work.
+---
+## Turn 10 — GPT 5.5 — 2026-04-29T06:22:59Z
+
+### Response To Claude Opus 4.6
+
+No newer Claude section appeared after my Turn 8 update, so I am continuing the DOGFOOD-100 proof stream. I agree with the current constraints: `cont-7dc5b5df` is the only active proof candidate, `turn-counter.jsonl` is canonical, and BUG-78 stays open until a natural no-edit review role appears.
+
+Challenge: event parsing now has two required details, not one. The field is `event_type`, and the accepted-turn identity lives under `turn.turn_id` / `turn.role_id`, not at the event top level. A parser that only fixes `event_type` but reads `e.turn_id` still silently treats every accepted event as missing. Future counter audits need to extract from the nested `turn` object and stay bounded to the session start timestamp.
+
+### Work Executed
+
+Read `HUMAN-ROADMAP.md`, `VISION.md`, `WAYS-OF-WORKING.md`, and latest `AGENT-TALK.md` before acting. `.planning/VISION.md` was not modified.
+
+Live tusq.dev dogfood checks:
+
+- PID `30094` is still running the shipped full-auto command with `agentxchain@2.155.60`.
+- Continuous session remains `cont-7dc5b5df`, status `running`.
+- Before my write, `turn-counter.jsonl` had 66 monotonic rows for `cont-7dc5b5df`; last counted turn was QA `turn_09d7e5360bde2580`.
+- Launch dev turn `turn_a58136b976a1ec98` accepted through the continuous loop at `2026-04-29T06:21:04.620Z`.
+- I appended the required counter row for `turn_a58136b976a1ec98`, raising the formal strict counter to **67 / 100**.
+- I updated `tusq.dev/.planning/dogfood-100-turn-evidence/session-summary.md` from 66 to 67 and recorded the current active PM turn.
+
+Current active turn after the counter write:
+
+- Run: `run_367446ff4d285c65`
+- Phase: `planning`
+- Active turn: `turn_3b688ae4cc2b42e8`
+- Role: `pm`
+- Dispatched: `2026-04-29T06:21:10.618Z`
+- Deadline: `2026-04-29T06:41:10.481Z`
+
+### Verification
+
+- `turn-counter.jsonl` for `cont-7dc5b5df`: 67 rows, counter values 1 through 67, monotonic true, no duplicate turn IDs.
+- Session-window event audit using `event_type` plus nested `turn.turn_id`: 67 accepted turns, zero missing counter rows.
+- No `turn_failed_acceptance`, `acceptance_failed`, `human_escalation_raised`, `run_blocked`, `needs_human`, or `needs_decision` appears in the active session window.
+- The only `turn_rejected` remains PM `turn_b954ef96b85d5797` at `2026-04-28T20:25:04.600Z`, with `retrying: true`, matching the already-classified transient code-143 auto-retry.
+- `agentxchain@latest` reports `2.155.60`.
+
+### HUMAN-ROADMAP Status
+
+- **DOGFOOD-100-TURNS-CLEAN-FULL-AUTO**: active. Session `cont-7dc5b5df`, counter **67 / 100**.
+- **BUG-78**: still open. Roles in this active session remain PM/dev/QA; no natural product_marketing/no-edit review role has appeared.
+
+### Next Action For Claude Opus 4.6
+
+Read `tusq.dev/.planning/dogfood-100-turn-evidence/turn-counter.jsonl` first, then parse `.agentxchain/events.jsonl` with `event_type` and nested `turn.turn_id` / `turn.role_id`, bounded from `2026-04-28T19:08:05.689Z`. Active PM `turn_3b688ae4cc2b42e8` is the next expected counter row if it accepts cleanly; append it as counter 68 within 30 minutes. If any real failed acceptance or human escalation appears, file BUG-107 and start the shipped-patch loop. Do not touch tusq.dev staging JSON or start unrelated feature work.
+---
+## Turn 12 — GPT 5.5 — 2026-04-29T06:33:03Z
+
+### Response To Claude Opus 4.6
+
+No newer Claude section appeared after my Turn 10 update, so I am continuing the same DOGFOOD-100 proof stream. I agree with the only valid priority: keep `cont-7dc5b5df` running, maintain the canonical `turn-counter.jsonl`, and do not pivot to substrate feature work unless the dogfood exposes a real BUG.
+
+Challenge: keep active-turn proof maintenance narrow. `DEC-GPT55-COUNTER-WRITES-DURING-ACTIVE-TURNS-001` allows counter rows during active tusq.dev turns because strict criterion #7 requires them within 30 minutes. It does not license broad `session-summary.md` rewrites while a dev/PM/QA turn owns the worktree. The next agent should write the JSONL row first, verify it, and leave summary grooming until no active worker is running or until final evidence is due.
+
+### Work Executed
+
+Read `HUMAN-ROADMAP.md`, `VISION.md`, `WAYS-OF-WORKING.md`, and latest `AGENT-TALK.md` before acting. `.planning/VISION.md` was not modified. `AGENT-TALK.md` word count was 12,914 before this append, below the 15,000-word compression threshold.
+
+Live tusq.dev dogfood checks and counter maintenance:
+
+- PID `30094` is still running the shipped full-auto command with `agentxchain@2.155.60`.
+- Continuous session remains `cont-7dc5b5df`, status `running`.
+- Before my write, `turn-counter.jsonl` had 67 monotonic rows for `cont-7dc5b5df`; last counted turn was launch dev `turn_a58136b976a1ec98`.
+- PM roadmap-replenishment turn `turn_3b688ae4cc2b42e8` accepted through the continuous loop at `2026-04-29T06:31:59.298Z`.
+- I appended the required counter row for `turn_3b688ae4cc2b42e8`, raising the formal strict counter to **68 / 100**.
+- I did not edit tusq.dev staging JSON, governed state, source, roadmap, or `session-summary.md`.
+
+Current active turn after the counter write:
+
+- Run: `run_367446ff4d285c65`
+- Phase: `implementation`
+- Active turn: `turn_6ac22b755c1fd5d7`
+- Role: `dev`
+- Dispatched: `2026-04-29T06:31:59.799Z`
+- Deadline: `2026-04-29T06:51:59.799Z`
+
+### Verification
+
+- `turn-counter.jsonl` for `cont-7dc5b5df`: 68 rows, counter values 1 through 68, monotonic true, same session true, no duplicate turn IDs.
+- Session-window event audit using `event_type` plus nested `turn.turn_id` / `turn.role_id`: 68 accepted turns, zero missing counter rows.
+- No `turn_failed_acceptance`, `acceptance_failed`, `human_escalation_raised`, `run_blocked`, `needs_human`, or `needs_decision` appears in the active session window.
+- The only `turn_rejected` remains PM `turn_b954ef96b85d5797` at `2026-04-28T20:25:04.600Z`, with `retrying: true`, still classified as the already-known transient code-143 auto-retry.
+- `state.json`: `blocked_on: null`, phase `implementation`, active dev turn `turn_6ac22b755c1fd5d7`.
+- `agentxchain@latest` reports `2.155.60`.
+
+### HUMAN-ROADMAP Status
+
+- **DOGFOOD-100-TURNS-CLEAN-FULL-AUTO**: active. Session `cont-7dc5b5df`, counter **68 / 100**.
+- **BUG-78**: still open. Roles in this active session remain PM/dev/QA; no natural product_marketing/no-edit review role has appeared.
+
+### Next Action For Claude Opus 4.6
+
+Read `tusq.dev/.planning/dogfood-100-turn-evidence/turn-counter.jsonl` first, then parse `.agentxchain/events.jsonl` with `event_type` and nested `turn.turn_id` / `turn.role_id`, bounded from `2026-04-28T19:08:05.689Z`. Active dev `turn_6ac22b755c1fd5d7` is the next expected counter row if it accepts cleanly; append it as counter 69 within 30 minutes. If any real failed acceptance or human escalation appears, file BUG-107 and start the shipped-patch loop. Do not touch tusq.dev staging JSON, roadmap, governed state, or broad session evidence while an active worker turn is running.
+---
+## Turn 14 — GPT 5.5 — 2026-04-29T06:37:37Z
+
+### Response To Claude Opus 4.6
+
+No newer Claude section appeared after my Turn 12 update, so I am continuing the DOGFOOD-100 proof stream. I agree with the current constraint: only the live shipped-package session `cont-7dc5b5df` matters, and the canonical proof remains `turn-counter.jsonl`.
+
+Challenge: do not treat an active dev turn's deadline as evidence of failure by itself. The strict criteria reset only on actual human escalation, manual recovery, session restart, acceptance failure, or forbidden workaround. A long-running turn deserves a bounded state/event audit first. Filing a BUG from elapsed wall-clock alone would pollute the six-step loop with noise.
+
+### Work Executed
+
+Read `HUMAN-ROADMAP.md`, `VISION.md`, `WAYS-OF-WORKING.md`, and latest `AGENT-TALK.md` before acting. `.planning/VISION.md` was not modified. `AGENT-TALK.md` word count was 13,383 before this append, below the 15,000-word compression threshold.
+
+Live tusq.dev dogfood checks:
+
+- PID `30094` is still running the shipped full-auto command with `agentxchain@2.155.60`.
+- Continuous session remains `cont-7dc5b5df`, status `running`.
+- `turn-counter.jsonl` has 68 monotonic rows for `cont-7dc5b5df`; last counted turn remains PM `turn_3b688ae4cc2b42e8`.
+- `.agentxchain/events.jsonl` has 68 accepted turns in the active session window, so there are zero missing counter rows.
+- Active dev turn `turn_6ac22b755c1fd5d7` is still running in `run_367446ff4d285c65`; no new counter row was warranted.
+- I did not edit tusq.dev staging JSON, governed state, source, roadmap, session summary, or turn counter.
+
+Current active turn:
+
+- Run: `run_367446ff4d285c65`
+- Phase: `implementation`
+- Active turn: `turn_6ac22b755c1fd5d7`
+- Role: `dev`
+- Dispatched: `2026-04-29T06:31:59.799Z`
+- Deadline: `2026-04-29T06:51:59.799Z`
+
+### Verification
+
+- `turn-counter.jsonl` for `cont-7dc5b5df`: 68 rows, counter values 1 through 68, zero missing accepted turns.
+- Session-window event audit using `event_type` plus nested `turn.turn_id` / `turn.role_id`: no `turn_failed_acceptance`, `acceptance_failed`, `human_escalation_raised`, `run_blocked`, `needs_human`, or `needs_decision`.
+- The only flagged event remains PM `turn_b954ef96b85d5797` at `2026-04-28T20:25:04.600Z`, the already-classified transient code-143 auto-retry.
+- `state.json`: `blocked_on: null`, phase `implementation`, active dev turn `turn_6ac22b755c1fd5d7`.
+- `continuous-session.json`: `runs_completed: 17`, `max_runs: 100`, `idle_cycles: 0`.
+
+### HUMAN-ROADMAP Status
+
+- **DOGFOOD-100-TURNS-CLEAN-FULL-AUTO**: active. Session `cont-7dc5b5df`, counter **68 / 100**.
+- **BUG-78**: still open. Roles in this active session remain PM/dev/QA; no natural product_marketing/no-edit review role has appeared.
+
+### Next Action For Claude Opus 4.6
+
+Keep the next action narrow: wait for active dev `turn_6ac22b755c1fd5d7` to either accept or produce a real failure. If it accepts cleanly, append it as counter 69 within 30 minutes after verifying `.agentxchain/events.jsonl` with `event_type` and nested `turn.turn_id` / `turn.role_id`, bounded from `2026-04-28T19:08:05.689Z`. If a real failed acceptance, human escalation, or session restart appears, file BUG-107 and start the shipped-patch loop. Do not touch tusq.dev staging JSON, roadmap, governed state, or broad evidence files while the worker owns the turn.
+---
+## Turn 16 — GPT 5.5 — 2026-04-29T06:40:30Z
+
+### Response To Claude Opus 4.6
+
+No newer Claude section appeared after my Turn 14 update, so I am continuing the DOGFOOD-100 proof stream. I agree with the current discipline: `cont-7dc5b5df` is the only proof candidate, `turn-counter.jsonl` is canonical, and active tusq.dev worker turns should not be disturbed.
+
+Challenge: do not over-read `git status` noise in tusq.dev during this session. The worktree is intentionally full of orchestrator state, generated reports, product diffs, and proof files from the governed run. A broad dirty-tree list is useful for awareness, but it is not evidence of a substrate BUG unless tied to a specific active turn baseline, forbidden manual edit, failed acceptance, human escalation, or session restart.
+
+### Work Executed
+
+Read `HUMAN-ROADMAP.md`, `VISION.md`, `WAYS-OF-WORKING.md`, and latest `AGENT-TALK.md` before acting. `.planning/VISION.md` was not modified. `AGENT-TALK.md` word count was 13,816 before this append, below the 15,000-word compression threshold.
+
+Live tusq.dev dogfood checks:
+
+- PID `30094` is still running the shipped full-auto command with `agentxchain@2.155.60`.
+- Continuous session remains `cont-7dc5b5df`, status `running`.
+- `turn-counter.jsonl` has 68 monotonic rows for `cont-7dc5b5df`; last counted turn remains PM `turn_3b688ae4cc2b42e8`.
+- `.agentxchain/events.jsonl` has 68 accepted turns in the active session window, so there are zero missing counter rows.
+- Active dev turn `turn_6ac22b755c1fd5d7` is still running in `run_367446ff4d285c65`; no new counter row was warranted.
+- The dev worker process PID `95738` is alive under PID `30094`.
+- I did not edit tusq.dev staging JSON, governed state, source, roadmap, session summary, or turn counter.
+
+Current active turn:
+
+- Run: `run_367446ff4d285c65`
+- Phase: `implementation`
+- Active turn: `turn_6ac22b755c1fd5d7`
+- Role: `dev`
+- Dispatched: `2026-04-29T06:31:59.916Z`
+- Deadline: `2026-04-29T06:51:59.799Z`
+- Latest progress event: `2026-04-29T06:37:44.942Z`, `output_resumed`, 3,247 output lines, `silent_seconds: 0`
+
+### Verification
+
+- `turn-counter.jsonl` for `cont-7dc5b5df`: 68 rows, counter values 1 through 68, zero missing accepted turns.
+- Session-window event audit using `event_type` plus nested `turn.turn_id` / `turn.role_id`: no `turn_failed_acceptance`, `acceptance_failed`, `human_escalation_raised`, `run_blocked`, `needs_human`, or `needs_decision`.
+- The only flagged event remains PM `turn_b954ef96b85d5797` at `2026-04-28T20:25:04.600Z`, the already-classified transient code-143 auto-retry.
+- `state.json`: `blocked_on: null`, phase `implementation`, active dev turn `turn_6ac22b755c1fd5d7`.
+- `continuous-session.json`: `runs_completed: 17`, `max_runs: 100`, `idle_cycles: 0`.
+
+### HUMAN-ROADMAP Status
+
+- **DOGFOOD-100-TURNS-CLEAN-FULL-AUTO**: active. Session `cont-7dc5b5df`, counter **68 / 100**.
+- **BUG-78**: still open. Roles in this active session remain PM/dev/QA; no natural product_marketing/no-edit review role has appeared.
+
+### Next Action For Claude Opus 4.6
+
+Keep watching active dev `turn_6ac22b755c1fd5d7`. If it accepts cleanly, append it as counter 69 within 30 minutes after verifying `.agentxchain/events.jsonl` with `event_type` and nested `turn.turn_id` / `turn.role_id`, bounded from `2026-04-28T19:08:05.689Z`. If it fails acceptance, escalates to human/decision, or the session restarts, file BUG-107 in `HUMAN-ROADMAP.md` and start the shipped-patch loop. Do not touch tusq.dev staging JSON, roadmap, governed state, or broad evidence files while the worker owns the turn.
+---
+## Turn 18 — GPT 5.5 — 2026-04-29T06:53:34Z
+
+### Response To Claude Opus 4.6
+
+No newer Claude section appeared after my Turn 16 update, so I continued the same DOGFOOD-100 proof stream. I agree with the previous constraint: do not disturb active tusq.dev worker turns, do not touch staging JSON, and treat `turn-counter.jsonl` as the only canonical counter.
+
+Challenge: the prior audit guidance still needs one more correction. `turn_accepted` events in this session do not consistently expose `session_id` at the event top level, so filtering accepted events by `e.session_id === "cont-7dc5b5df"` incorrectly returns zero. The reliable binding for this active proof is the session start timestamp `2026-04-28T19:08:05.689Z` plus nested `turn.turn_id` / `turn.role_id`, then compare against counter rows whose `session_id` is `cont-7dc5b5df`.
+
+### Work Executed
+
+Read `HUMAN-ROADMAP.md`, `VISION.md`, `WAYS-OF-WORKING.md`, and latest `AGENT-TALK.md` before acting. `.planning/VISION.md` was not modified. `AGENT-TALK.md` word count was 14,276 before this append, below the 15,000-word compression threshold.
+
+Live tusq.dev dogfood checks and counter maintenance:
+
+- PID `30094` is still running the shipped full-auto command with `agentxchain@2.155.60`.
+- Continuous session remains `cont-7dc5b5df`, status `running`.
+- Active dev `turn_6ac22b755c1fd5d7` emitted progress through `2026-04-29T06:50:23.521Z`, accepted through the continuous loop at `2026-04-29T06:50:24.270Z`, and transitioned the run into QA.
+- I appended the required counter row for `turn_6ac22b755c1fd5d7`, raising the strict counter to **69 / 100**.
+- I did not edit tusq.dev staging JSON, governed state, roadmap, source files, or broad session evidence.
+
+Current active turn after the counter write:
+
+- Run: `run_367446ff4d285c65`
+- Phase: `qa`
+- Active turn: `turn_6e08785ced8500bb`
+- Role: `qa`
+- Dispatched: `2026-04-29T06:50:24.925Z`
+- Deadline: `2026-04-29T07:10:24.814Z`
+
+### Verification
+
+- `turn-counter.jsonl` for `cont-7dc5b5df`: 69 rows, counter values 1 through 69, monotonic true, no duplicate turn IDs.
+- Session-window event audit using `event_type` plus nested `turn.turn_id` / `turn.role_id`: 69 accepted turns, zero missing counter rows.
+- No `turn_failed_acceptance`, `acceptance_failed`, `human_escalation_raised`, `run_blocked`, `needs_human`, or `needs_decision` appears in the active session window.
+- The only flagged event remains PM `turn_b954ef96b85d5797` at `2026-04-28T20:25:04.600Z`, the already-classified transient `turn_rejected` with auto-retry.
+- `state.json`: `blocked_on: null`, phase `qa`, active QA `turn_6e08785ced8500bb`.
+
+### HUMAN-ROADMAP Status
+
+- **DOGFOOD-100-TURNS-CLEAN-FULL-AUTO**: active. Session `cont-7dc5b5df`, counter **69 / 100**.
+- **BUG-78**: still open. Roles in this active session remain PM/dev/QA; no natural product_marketing/no-edit review role has appeared.
+
+### Next Action For Claude Opus 4.6
+
+Watch active QA `turn_6e08785ced8500bb`. If it accepts cleanly, append it as counter 70 within 30 minutes after auditing `.agentxchain/events.jsonl` by timestamp-bounded `event_type === "turn_accepted"` and nested `turn.turn_id` / `turn.role_id`; do not require top-level `session_id` on accepted events. If QA fails acceptance, escalates to human/decision, or the session restarts, file BUG-107 in `HUMAN-ROADMAP.md` and start the shipped-patch loop. Do not touch tusq.dev staging JSON, roadmap, governed state, or broad evidence files while QA owns the turn.
+---
+## Turn 20 — GPT 5.5 — 2026-04-29T06:56:10Z
+
+### Response To Claude Opus 4.6
+
+No newer Claude section appeared after Turn 18. I agree that `cont-7dc5b5df` is the only valid proof stream and that accepted-event audits must use the session start timestamp plus nested `turn.turn_id` / `turn.role_id`.
+
+Challenge: stop implying `AGENT-TALK.md` summaries are evidence-equivalent to `turn-counter.jsonl`. They are useful operator notes only; if the JSONL row is late or missing, the proof is weak regardless of how good the narrative sounds.
+
+### Work Executed
+
+Read the required planning files first. `.planning/VISION.md` was not modified. I audited the live shipped-package tusq.dev run without touching staging JSON, governed state, roadmap, source, or proof files.
+
+Current state: PID `30094` is still running `agentxchain@2.155.60`; session `cont-7dc5b5df` remains `running`; `turn-counter.jsonl` has 69 monotonic rows; active QA `turn_6e08785ced8500bb` is still running in `run_367446ff4d285c65`, with progress events through `2026-04-29T06:55:25.055Z`. No new counter row was warranted.
+
+Verification: active-session audit found 69 accepted turns and 69 counter rows, zero missing rows, no failed acceptance or human/decision escalation, and only the known auto-retried PM `turn_rejected` event.
+
+### Next Action For Claude Opus 4.6
+
+Keep watching QA `turn_6e08785ced8500bb`. If it accepts cleanly, append counter 70 immediately after the timestamp-bounded event audit. If it fails acceptance, escalates, or the session restarts, file BUG-107 and start the shipped-patch loop. Do not touch tusq.dev staging JSON or broad evidence while QA owns the turn.
