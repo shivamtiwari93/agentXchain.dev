@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.67
+
+- **BUG-112: recover retained Claude provider request timeouts.** Continuous startup now inspects retained retries-exhausted dispatch logs for explicit provider timeout markers such as `Request timed out` and routes proven productive provider timeouts through the existing auto-reissue path instead of preserving a generic human-decision escalation.
+- Timeout recovery remains fail-closed for generic Claude `api_retry` telemetry, silent/no-output subprocess failures, missing logs, and staged-result cases; BUG-111 retained Claude auth reclassification still runs first.
+- Added continuous-run regressions proving retained Claude provider timeout auto-reissue and a negative `api_retry`-only case.
+
+- npm test -- --test-timeout=60000 -> 7330 tests / 1485 suites / 0 failures / 0 skipped
+
 ## 2.155.66
 
 - **BUG-111: reclassify retained Claude auth escalations on continuous startup.** Continuous mode now inspects retained pre-fix `escalation:retries-exhausted:*` dispatch failures and rewrites proven Claude 401/auth log failures to `dispatch:claude_auth_failed` instead of preserving misleading escalation guidance.

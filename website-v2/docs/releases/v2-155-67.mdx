@@ -1,0 +1,49 @@
+---
+sidebar_position: 0
+title: "v2.155.67 Release Notes"
+---
+
+# AgentXchain v2.155.67
+
+`v2.155.67` closes BUG-112, found during the strict Tusq DOGFOOD-100 run after the session reached counter 97. A Claude QA turn exhausted provider API retries, returned `Request timed out`, and left no staged result, but the retained state surfaced as generic `escalation:retries-exhausted:qa`. Continuous startup now treats that evidence as a recoverable provider timeout and reissues the turn through the existing productive-timeout path.
+
+## Bug Fixes
+
+- **BUG-112: retained Claude provider timeout recovery.** `agentxchain run --continuous` now inspects retained retries-exhausted dispatch logs for explicit provider timeout markers such as `Request timed out`.
+- **No broad retry masking.** Generic Claude `api_retry` events alone are not enough to trigger auto-reissue; the terminal log must contain explicit timeout evidence, the turn must have first output, and no staged result may exist.
+- **Auth precedence preserved.** Retained Claude auth failures still reclassify to `dispatch:claude_auth_failed` before timeout recovery is considered.
+
+## Evidence
+
+- node --test cli/test/continuous-run.test.js -> 82 tests / 15 suites / 0 failures
+- node --test --test-name-pattern='BUG-100|BUG-111|BUG-112' cli/test/continuous-run.test.js -> 6 tests / 3 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7330 tests / 1485 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.67 -c "agentxchain --version"`
+
+For BUG-112: resume tusq.dev from continuous session `cont-7dc5b5df`, run `run_73ffb608f7c8a510`, and QA turn `turn_aa9664d36f8cac23` using the shipped package. If the retained dispatch log contains `Request timed out`, the turn has first output, and no staged result exists, startup must emit `auto_retried_productive_timeout`, clear `escalation:retries-exhausted:qa`, and continue the same session without `agentxchain unblock`, manual staging edits, or operator-side `accept-turn`.
+
+If the reissued QA turn accepts, append counter value 98 to Tusq `turn-counter.jsonl` within the DOGFOOD-100 window.
+
+For BUG-111 carry-forward: retained Claude 401/authentication failures must still reclassify to `dispatch:claude_auth_failed` before timeout recovery.
+
+For BUG-110 carry-forward: fresh Claude local CLI auth failures must still block once as dispatch infrastructure instead of consuming turn retries.
+
+For BUG-109 carry-forward: supplemental auto-checkpoint recovery must still run automatically under `--auto-checkpoint`.
+
+For BUG-108 carry-forward: terminal blocked steps must surface once and must not re-enter paused-active recovery loops.
+
+For BUG-107 carry-forward: paused active continuous sessions must still preserve the existing session ID and recover only when the governed run is active, unblocked, and dispatchable.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
