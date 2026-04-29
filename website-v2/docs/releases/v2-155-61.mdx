@@ -1,26 +1,30 @@
 ---
-sidebar_position: 1
-title: "v2.155.60 Release Notes"
+sidebar_position: 0
+title: "v2.155.61 Release Notes"
 ---
 
-# AgentXchain v2.155.60
+# AgentXchain v2.155.61
 
-`v2.155.60` fixes BUG-106: the normalizer now auto-sets `expected_exit_code` to match `exit_code` when `verification.status` is `"pass"` but machine evidence contains undeclared non-zero exits. This unblocks DOGFOOD-100 session `cont-f553771e` at turn 53 where tusq.dev divisor-index case-sensitivity tests had `exit_code: 1` without `expected_exit_code`.
+`v2.155.61` fixes BUG-107: Full Auto Mode now recovers the stranded shape where a continuous session is marked `paused` even though the governed run is still `active`, unblocked, and dispatchable. This was discovered in the real tusq.dev DOGFOOD-100 run after `agentxchain@2.155.60` accepted dev turn `turn_fc4027d5c8789062`, advanced to QA, then exited with session `cont-7dc5b5df` paused at strict counter 89.
 
 ## Bug Fixes
 
-- **BUG-106: normalize undeclared non-zero exit codes when verification.status is pass.** When a dev turn declares `verification.status: "pass"` with `machine_evidence` commands having non-zero `exit_code` without `expected_exit_code`, the normalizer auto-sets `expected_exit_code` to match `exit_code`. This is safe because the agent explicitly declared the overall verification as passing.
-- **BUG-102 test #3 updated.** The test that previously expected rejection of undeclared non-zero evidence now expects acceptance after BUG-106 normalization.
+- **BUG-107: recover paused active continuous sessions.** `advanceContinuousRunOnce()` now detects a paused continuous session whose governed run is still active, unblocked, and ready for a next role, sets the session back to `running`, emits `continuous_paused_active_run_recovered`, and continues the same governed run.
+- **Preserve CLI-owned continuous session identity.** `agentxchain run --continuous` now adopts an existing paused or running CLI-owned continuous session with the same vision path instead of replacing it on reinvocation. This keeps DOGFOOD-100 same-session evidence intact.
+- **Keep legitimate pauses fail-closed.** Pending approvals, queued approvals, blockers, run-ID drift, missing next-role resolution, and failed retained active turns such as `failed_acceptance` remain non-recoverable by this path.
+- **Tighten auth negative-test fixtures.** Connector check, connector validate, and governed doctor auth-hang tests now explicitly blank inherited Claude auth environment variables so shell-level credentials cannot mask the intended negative case.
 
 ## Evidence
 
-- npm test -- --test-timeout=60000 -> 7314 tests / 1483 suites / 0 failures / 5 skipped
+- npm test -- --test-timeout=60000 -> 7320 tests / 1483 suites / 0 failures / 0 skipped
 
 ## Tester Re-Run Contract
 
-Verify: `npx --yes -p agentxchain@2.155.60 -c "agentxchain --version"`
+Verify: `npx --yes -p agentxchain@2.155.61 -c "agentxchain --version"`
 
-For BUG-106: resume retained tusq.dev failed-acceptance turn `turn_243c1b5e877fb108` on the shipped package. The staged result must accept because the normalizer auto-sets `expected_exit_code` for undeclared non-zero exits when `verification.status` is `"pass"`.
+For BUG-107: resume tusq.dev from continuous session `cont-7dc5b5df` and governed run `run_083e290f5ee318f4` using the shipped package. The CLI must preserve the existing session ID, emit `continuous_session_resumed`, emit `continuous_paused_active_run_recovered`, and dispatch the natural QA turn from the stranded QA phase without manual staging JSON edits, `accept-turn`, `unblock`, or gate mutation.
+
+For BUG-106 carry-forward: undeclared non-zero `verification.machine_evidence[]` exit codes under `verification.status: "pass"` must still auto-normalize to matching `expected_exit_code` values.
 
 For BUG-105 carry-forward: strict intent coverage must still search normalized verification evidence summaries and remaining command-shaped machine evidence after staged-result normalization.
 
@@ -28,7 +32,7 @@ For BUG-104 carry-forward: typed verification observations must still be moved o
 
 For BUG-103 carry-forward: `decisions[].title` must still normalize into required `statement` fields before validation.
 
-For BUG-102 carry-forward: deliberate negative-case verification commands with explicitly expected non-zero exits must still accept. With BUG-106, undeclared non-zero exits under `verification.status: "pass"` are now auto-normalized rather than fail-closed.
+For BUG-102 carry-forward: deliberate negative-case verification commands with explicitly expected non-zero exits must still accept.
 
 For BUG-101 carry-forward: decision objects that include `summary` plus `rationale` must still normalize `summary` into missing `statement` fields while decisions with no statement source fail closed.
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.61
+
+- **BUG-107: recover paused active continuous sessions.** Full Auto Mode now detects a continuous session marked `paused` while the governed run is still `active`, unblocked, and dispatchable, normalizes the session back to `running`, emits `continuous_paused_active_run_recovered`, and continues the existing run instead of requiring operator reinvocation.
+- CLI-owned continuous startup now adopts an existing paused or running CLI-owned session with the same vision path instead of replacing the session ID. This preserves DOGFOOD-100 proof continuity for `cont-7dc5b5df` after the v2.155.60 stranded QA-phase pause.
+- Legitimate pauses stay fail-closed: pending phase/completion approvals, queued approvals, blockers, run-ID drift, missing next roles, and failed retained active turns such as `failed_acceptance` do not auto-recover.
+- Connector auth/doctor fixtures now explicitly blank inherited Claude auth environment variables in negative smoke-probe tests, and the stale v2.147 tester rerun contract now points at v2.155.61.
+
+- npm test -- --test-timeout=60000 -> 7320 tests / 1483 suites / 0 failures / 0 skipped
+
 ## 2.155.60
 
 - **BUG-106: normalize undeclared non-zero exit codes when verification.status is pass.** When a dev turn declares `verification.status: "pass"` but `machine_evidence` contains commands with non-zero `exit_code` without `expected_exit_code`, the normalizer auto-sets `expected_exit_code` to match `exit_code`. This is safe because the agent explicitly declared the overall verification as passing — the non-zero exits are intentional negative-case tests.
