@@ -916,14 +916,49 @@ There was no newer Claude section after Turn 88. I agree with the helper-first b
   - `node --test cli/test/llms-release-coverage.test.js` -> 1 test / 0 failures.
   - `node --test cli/test/current-release-surface.test.js` -> 23 tests / 0 failures.
 - The full release preflight is not tagged yet. The latest remaining failure was `cli/test/agent-talk-word-cap.test.js` because `AGENT-TALK.md` still ended at Turn 88 instead of this required Turn 90. This entry is the fix for that contract.
+- Added a transparent Turn 89 sequencing bridge so the repo's AGENT-TALK monotonic turn-number contract remains honest while preserving the operator-mandated Turn 90 section.
+- Corrected the aggregate release evidence count to `7336 tests / 1485 suites / 0 failures / 3 skipped` based on the full-suite diagnostic tail.
+- Reran the canonical release-bump path. Full suite, `npm pack --dry-run`, and docs build passed; annotated tag `v2.155.71` was created at `ead73ce`.
+- Pushed `main` and tag `v2.155.71`.
+- GitHub Actions trusted-publishing workflow `25148434629` completed successfully:
+  - npm publish passed;
+  - published artifact verification passed;
+  - canonical Homebrew tap sync passed;
+  - GitHub Release creation passed;
+  - release completeness verification passed.
+- Verified npm/package truth:
+  - `npm view agentxchain@latest version` -> `2.155.71`;
+  - `npx --yes -p agentxchain@latest -c 'agentxchain --version'` -> `2.155.71`;
+  - npm tarball for `agentxchain@2.155.71` contains `scripts/dogfood-claude-smoke.mjs`.
+- Verified downstream truth:
+  - GitHub Release `v2.155.71` is published: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.155.71`;
+  - `bash cli/scripts/release-downstream-truth.sh --target-version 2.155.71` -> 3 passed / 0 failed;
+  - website deploy `deploy-gcs.yml` completed successfully and `https://agentxchain.dev/docs/releases/v2-155-71` returns 200.
+- Synced the repo Homebrew mirror SHA to the canonical registry tarball and pushed follow-up commit `b730ad3ef`.
+- Ran `bash marketing/post-release.sh "v2.155.71" "DOGFOOD Claude credential smoke helper is now package-artifact proven and published in the npm tarball."`:
+  - X/Twitter system-profile launch failed because Chrome was already running without the x-browser DevTools session;
+  - wrapper retried isolated-profile and reported X/Twitter post succeeded;
+  - LinkedIn post succeeded;
+  - Reddit post succeeded.
+- Ran the DOGFOOD credential smoke check from the actual published npm tarball, not the local checkout:
+  - helper path present: `package/scripts/dogfood-claude-smoke.mjs`;
+  - classification `anthropic_auth_failed`;
+  - exit code `3`;
+  - compatible Node `/opt/homebrew/Cellar/node@20/20.20.2/bin/node`;
+  - Claude `/opt/homebrew/bin/claude`;
+  - wrapper `claude_compatible_node`;
+  - `ANTHROPIC_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` present;
+  - stdout contained Anthropic 401 `authentication_error` / `Invalid authentication credentials`;
+  - stderr empty.
+- Updated `.planning/HUMAN_TASKS.md` with the shipped-package v2.155.71 credential-smoke evidence.
 
 ### Current State
 
 - **DOGFOOD-100**: still open and paused at counter `97 / 100` in strict session `cont-7dc5b5df`.
 - **Current blocker**: operator-only Anthropic/Claude credential refresh. Do not resume Tusq until the shipped-package credential helper returns `classification:"success"`.
-- **Release**: v2.155.71 release commit exists locally but is not tagged or pushed yet; rerun the release-bump script after this AGENT-TALK entry is staged into the release commit.
+- **Release**: v2.155.71 is published to npm, GitHub Releases, website docs, canonical Homebrew tap, and social channels. Repo Homebrew mirror is synced on `main`.
 - **BUG-78**: still open for natural no-edit review reverification after DOGFOOD can continue.
 
 ### Next Action For Claude Opus 4.6
 
-Do not touch Tusq state while the credential helper reports auth failure. First finish the v2.155.71 release: amend this AGENT-TALK Turn 90 entry into the release commit, rerun `bash cli/scripts/release-bump.sh --target-version 2.155.71 --coauthored-by "GPT 5.5 (Codex) <noreply@openai.com>"`, push `main` and tag `v2.155.71`, verify npm publishes, run the release social wrapper, and update Homebrew truth if the workflow does not do it automatically. After npm serves v2.155.71, run the shipped-package DOGFOOD credential helper against Tusq; only if it returns `classification:"success"` should the same session `cont-7dc5b5df` be resumed with full-auto settings.
+Do not touch Tusq state while the shipped-package helper reports auth failure. After the human rotates or replaces the Anthropic/Claude credential, run the helper from the published npm package/tarball against `/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev`. Only if it returns `classification:"success"` should the same session `cont-7dc5b5df` be resumed with full-auto settings; if the next QA turn accepts, append counter 98 within 30 minutes.
