@@ -1,0 +1,55 @@
+---
+sidebar_position: 0
+title: "v2.155.70 Release Notes"
+---
+
+# AgentXchain v2.155.70
+
+`v2.155.70` closes BUG-114, found during the strict Tusq DOGFOOD-100 reverify after `v2.155.69` recovered the retained Claude Node runtime ghost blocker. The recovered QA turn correctly landed on a typed `dispatch:claude_auth_failed` blocker, but the continuous loop still required operator `step --resume` after credentials were available to the resumed process. That violated the full-auto proof rule.
+
+## Bug Fixes
+
+- **BUG-114: refreshed Claude auth recovery.** Continuous startup now auto-reissues retained Claude auth dispatch blockers once the current process has Claude auth env available.
+- **Fail-closed boundary.** Recovery only runs for retained Claude `local_cli` turns whose dispatch logs contain auth-failure markers. Non-Claude runtimes, missing logs, missing credentials, and logs without auth evidence remain blocked.
+- **Audit evidence.** Auto-recovery emits `auto_retried_ghost` with `failure_type: "claude_auth_failed"` and `recovery_class: "claude_auth_refreshed"` so dogfood proof can distinguish auth-refresh recovery from generic ghost retry.
+
+## Evidence
+
+- node --test --test-name-pattern='BUG-114|BUG-113|BUG-112|BUG-111' test/continuous-run.test.js -> 6 tests / 2 suites / 0 failures
+- node --test test/run-events.test.js -> 12 tests / 1 suite / 0 failures
+- node --test test/continuous-run.test.js -> 84 tests / 13 suites / 0 failures
+- node --test test/local-cli-adapter.test.js test/human-roadmap-open-blockers-content.test.js test/run-events.test.js -> 59 tests / 7 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7333 tests / 1485 suites / 0 failures / 3 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.70 -c "agentxchain --version"`
+
+For BUG-114: resume tusq.dev from continuous session `cont-7dc5b5df`, run `run_73ffb608f7c8a510`, and retained QA turn `turn_aa521bedd41f1655` using the shipped package with Claude credentials available to the process. Startup must reissue the retained auth blocker without `agentxchain step --resume`, `agentxchain unblock`, manual state edits, staging JSON edits, or operator-side `accept-turn`.
+
+If the recovered QA turn accepts, append counter value 98 to Tusq `turn-counter.jsonl` within the DOGFOOD-100 window.
+
+For BUG-113 carry-forward: retained Claude Node runtime ghost blockers must still reissue through the compatible Node wrapper when old-Node signatures appear in dispatch logs.
+
+For BUG-112 carry-forward: retained Claude provider `Request timed out` failures must still auto-reissue via `auto_retried_productive_timeout` only when explicit timeout markers exist.
+
+For BUG-111 carry-forward: retained Claude 401/authentication failures must still reclassify to `dispatch:claude_auth_failed` before timeout or ghost recovery.
+
+For BUG-110 carry-forward: fresh Claude local CLI auth failures must still block once as dispatch infrastructure instead of consuming turn retries.
+
+For BUG-109 carry-forward: supplemental auto-checkpoint recovery must still run automatically under `--auto-checkpoint`.
+
+For BUG-108 carry-forward: terminal blocked steps must surface once and must not re-enter paused-active recovery loops.
+
+For BUG-107 carry-forward: paused active continuous sessions must still preserve the existing session ID and recover only when the governed run is active, unblocked, and dispatchable.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

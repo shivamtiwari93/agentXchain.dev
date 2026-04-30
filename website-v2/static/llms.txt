@@ -148,6 +148,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Release Notes
 
+- [v2.155.70](https://agentxchain.dev/docs/releases/v2-155-70)
 - [v2.155.69](https://agentxchain.dev/docs/releases/v2-155-69)
 - [v2.155.68](https://agentxchain.dev/docs/releases/v2-155-68)
 - [v2.155.67](https://agentxchain.dev/docs/releases/v2-155-67)

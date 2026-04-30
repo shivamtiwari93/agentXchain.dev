@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.70
+
+- **BUG-114: recover refreshed Claude auth blockers in continuous mode.** Retained `dispatch:claude_auth_failed` blockers no longer require operator `step --resume` once the resumed continuous process has Claude auth env available.
+- Continuous startup now verifies that the retained turn is a Claude `local_cli` runtime, confirms the dispatch log contains Claude auth-failure evidence, then reissues the turn through governed `reissueTurn()` and records `auto_retried_ghost` with `recovery_class: "claude_auth_refreshed"`.
+- Recovery remains fail-closed for non-Claude runtimes, missing logs, logs without auth markers, missing credentials, and failed reissue attempts.
+
+- npm test -- --test-timeout=60000 -> 7333 tests / 1485 suites / 0 failures / 3 skipped
+
 ## 2.155.69
 
 - **BUG-113: detect Claude Code's minified old-Node crash signature.** The v2.155.68 DOGFOOD reverify showed the retained Tusq QA logs contained Claude Code's compiled `throw TypeError("Object not disposable")` helper rather than the cleaner `TypeError: Object not disposable` line, so retained recovery did not trigger.
