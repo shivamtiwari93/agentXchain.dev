@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.155.70
+# Twitter/X Thread — AgentXchain v2.155.71
 
-> Ready-to-post thread for the `v2.155.70` release. Updated 2026-04-30 for BUG-114 fix: refreshed Claude auth blocker recovery.
+> Ready-to-post thread for the `v2.155.71` release. Updated 2026-04-30 for BUG-114 fix: refreshed Claude auth blocker recovery.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7333 tests / 1485 suites / 0 failures / 3 skipped
+> - npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.155.70 ships BUG-114 fix: full-auto recovery for refreshed Claude auth blockers. Open source. MIT.
+AgentXchain v2.155.71 ships BUG-114 fix: full-auto recovery for refreshed Claude auth blockers. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,12 +57,12 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.155.70:
+New in v2.155.71:
 
 - Retained Claude auth blockers auto-reissue after credentials are available.
 - Recovery verifies Claude local_cli runtime plus auth-failure dispatch logs.
 - Missing credentials and non-Claude blockers stay fail-closed.
-- Full suite: npm test -- --test-timeout=60000 -> 7333 tests / 1485 suites / 0 failures / 3 skipped.
+- Full suite: npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

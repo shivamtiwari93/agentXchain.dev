@@ -58,6 +58,7 @@ The helper exits `0` only for `success`. Auth failure and runtime failure are di
 - A fake Claude executable that writes Anthropic 401 text to stdout and exits 1 classifies `anthropic_auth_failed`.
 - A fake Claude executable that writes `Object not disposable` classifies `node_runtime_incompatible`.
 - Loading an env file reports auth-key presence without leaking the secret value in stdout or stderr.
+- `npm pack --dry-run --json` includes `scripts/dogfood-claude-smoke.mjs`, so DOGFOOD credential checks can be run from shipped package artifacts instead of relying on an unpublished checkout-only script.
 
 ## Open Questions
 

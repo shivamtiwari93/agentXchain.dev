@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.71
+
+- **DOGFOOD-100 credential smoke helper is now release-proven.** The state-free Claude credential diagnostic added for the paused Tusq DOGFOOD session is covered by a package-artifact regression so the helper cannot silently remain checkout-only.
+- `dogfood-claude-smoke` tests now assert `npm pack --dry-run --json` includes `scripts/dogfood-claude-smoke.mjs`, preserving shipped-package recovery discipline for DOGFOOD-100 credential rechecks.
+- The helper spec now makes shipped artifact availability an explicit acceptance test, closing the gap where local diagnostics could diverge from npm package truth.
+
+- npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+
 ## 2.155.70
 
 - **BUG-114: recover refreshed Claude auth blockers in continuous mode.** Retained `dispatch:claude_auth_failed` blockers no longer require operator `step --resume` once the resumed continuous process has Claude auth env available.

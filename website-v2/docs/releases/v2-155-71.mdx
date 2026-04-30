@@ -1,0 +1,28 @@
+---
+sidebar_position: 0
+title: "v2.155.71 Release Notes"
+---
+
+# AgentXchain v2.155.71
+
+`v2.155.71` hardens the paused DOGFOOD-100 credential-check path. The previous local helper was useful, but the release discipline was incomplete: local `npm pack` included the diagnostic while npm `agentxchain@latest` did not. DOGFOOD recovery evidence must follow shipped-package truth, so this patch makes the helper package inclusion executable and publishes it.
+
+## Bug Fixes
+
+- **DOGFOOD credential smoke helper packaging.** `scripts/dogfood-claude-smoke.mjs` is now guarded by a regression that inspects `npm pack --dry-run --json`.
+- **Shipped-package discipline.** The helper spec now explicitly requires npm package inclusion so future DOGFOOD credential rechecks do not depend on a local checkout-only script.
+- **Credential blocker boundary preserved.** This release does not resume or repair Tusq state. The DOGFOOD-100 session remains paused until the helper reports `classification:"success"` with refreshed Claude credentials.
+
+## Evidence
+
+- node --test cli/test/dogfood-claude-smoke-script.test.js -> 6 tests / 0 failures
+- node --test cli/test/claude-local-auth-smoke-probe.test.js -> 6 tests / 0 failures
+- npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.71 -c "agentxchain --version"`
+
+Before touching the paused Tusq session, run the shipped-package credential diagnostic from the installed package artifact rather than the AgentXchain checkout. It must return `classification:"success"` before any `cont-7dc5b5df` resume attempt.
+
+If the helper still returns `classification:"anthropic_auth_failed"`, do not run `agentxchain run --continuous`, `step --resume`, `unblock`, `reissue-turn`, `accept-turn`, state repair, or staging JSON edits. The operator-only credential blocker remains active.

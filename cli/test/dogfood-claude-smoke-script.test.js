@@ -153,3 +153,20 @@ test('dogfood-claude-smoke --help documents the DOGFOOD use flags', () => {
   assert.match(output, /--node/);
   assert.match(output, /--json/);
 });
+
+test('dogfood-claude-smoke is included in the npm package artifact', () => {
+  const result = spawnSync('npm', ['pack', '--dry-run', '--json'], {
+    cwd: resolve(REPO_ROOT, 'cli'),
+    encoding: 'utf8',
+    timeout: 20_000,
+  });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const payload = JSON.parse(result.stdout);
+  const files = payload[0].files.map((file) => file.path);
+
+  assert.ok(
+    files.includes('scripts/dogfood-claude-smoke.mjs'),
+    'DOGFOOD credential smoke helper must ship in the npm package',
+  );
+});
