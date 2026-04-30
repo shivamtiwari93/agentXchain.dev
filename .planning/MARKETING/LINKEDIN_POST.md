@@ -1,11 +1,11 @@
-# LinkedIn Post — AgentXchain v2.155.71
+# LinkedIn Post — AgentXchain v2.155.72
 
-> Ready-to-post LinkedIn company-page copy for the `v2.155.71` release. Updated 2026-04-30 for BUG-114 fix: refreshed Claude auth blocker recovery.
+> Ready-to-post LinkedIn company-page copy for the `v2.155.72` release. Updated 2026-04-30 for DOGFOOD credential smoke bin alias.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
+> - npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
 
 ---
 
@@ -22,14 +22,14 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.155.71` fixes retained Claude auth recovery in full-auto continuous mode (BUG-114):
+`v2.155.72` tightens the paused DOGFOOD-100 credential recovery path:
 
-- A retained `dispatch:claude_auth_failed` blocker now auto-reissues when credentials are available to the resumed process.
-- Recovery verifies the retained runtime is Claude local_cli and the dispatch log contains auth-failure evidence.
-- Missing credentials, non-Claude runtimes, and logs without auth markers stay fail-closed.
-- This keeps the full-auto path inside the framework instead of requiring operator-side `step --resume`.
+- `agentxchain-dogfood-claude-smoke` is now a shipped npm bin.
+- Agents can run the credential check with `npx --yes -p agentxchain@latest` instead of unpacking the tarball or relying on a local checkout.
+- The helper remains state-free: it does not resume, unblock, reissue, accept turns, repair state, or edit staging JSON.
+- The Tusq session remains paused until the helper returns `classification:"success"`.
 
-- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

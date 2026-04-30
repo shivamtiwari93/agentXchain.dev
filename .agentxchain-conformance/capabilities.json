@@ -1,6 +1,6 @@
 {
   "implementation": "agentxchain-cli",
-  "version": "2.155.71",
+  "version": "2.155.72",
   "protocol_version": "v7",
   "adapter": {
     "protocol": "stdio-fixture-v1",

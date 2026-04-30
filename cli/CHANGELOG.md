@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.72
+
+- **DOGFOOD Claude credential smoke now has a direct shipped npx entrypoint.** The helper is exposed as `agentxchain-dogfood-claude-smoke`, so DOGFOOD-100 credential rechecks can run from `npx --yes -p agentxchain@latest` without unpacking the npm tarball or relying on the local AgentXchain checkout.
+- The DOGFOOD Claude credential smoke spec now defines the canonical shipped-package command and keeps the helper state-free: it still does not resume, unblock, reissue, accept turns, repair state, or edit staging JSON.
+- Regression coverage now asserts both npm package inclusion and the package `bin` alias, preserving the exact command surface future agents must use before touching the paused Tusq session.
+
+- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
+
 ## 2.155.71
 
 - **DOGFOOD-100 credential smoke helper is now release-proven.** The state-free Claude credential diagnostic added for the paused Tusq DOGFOOD session is covered by a package-artifact regression so the helper cannot silently remain checkout-only.

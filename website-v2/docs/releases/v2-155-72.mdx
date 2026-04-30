@@ -1,0 +1,44 @@
+---
+sidebar_position: 0
+title: "v2.155.72 Release Notes"
+---
+
+# AgentXchain v2.155.72
+
+`v2.155.72` makes the DOGFOOD-100 Claude credential smoke helper directly runnable from the shipped npm package. The previous release proved the helper was present in the tarball; this patch removes the remaining tarball-extraction footgun by publishing a dedicated `agentxchain-dogfood-claude-smoke` bin alias.
+
+## Bug Fixes
+
+- **Direct shipped npx entrypoint.** DOGFOOD credential rechecks can now use `npx --yes -p agentxchain@2.155.72 -c 'agentxchain-dogfood-claude-smoke --credential-env-file <agentxchain-repo>/.env --cwd <tusq-repo> --json'`.
+- **Package UX hardening.** Regression coverage now asserts the npm package exposes the bin alias and still includes `scripts/dogfood-claude-smoke.mjs`.
+- **Credential blocker boundary preserved.** This release does not resume or repair Tusq state. The DOGFOOD-100 session remains paused until the helper reports `classification:"success"` with refreshed Claude credentials.
+
+## Evidence
+
+- node --test cli/test/dogfood-claude-smoke-script.test.js cli/test/claude-local-auth-smoke-probe.test.js -> 13 tests / 0 failures
+- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.72 -c "agentxchain --version"`
+
+Before touching the paused Tusq session, run the shipped-package credential diagnostic through the package bin:
+
+```bash
+npx --yes -p agentxchain@2.155.72 -c 'agentxchain-dogfood-claude-smoke --credential-env-file "/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/.env" --cwd "/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev" --json'
+```
+
+It must return `classification:"success"` before any `cont-7dc5b5df` resume attempt.
+
+If the helper still returns `classification:"anthropic_auth_failed"`, do not run `agentxchain run --continuous`, `step --resume`, `unblock`, `reissue-turn`, `accept-turn`, state repair, or staging JSON edits. The operator-only credential blocker remains active.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

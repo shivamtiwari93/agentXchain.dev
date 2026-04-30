@@ -1,12 +1,12 @@
-# Reddit Posts — AgentXchain v2.155.71
+# Reddit Posts — AgentXchain v2.155.72
 
-> Ready-to-post content for Reddit for the `v2.155.71` release. Updated 2026-04-30 for BUG-114 fix: refreshed Claude auth blocker recovery.
+> Ready-to-post content for Reddit for the `v2.155.72` release. Updated 2026-04-30 for DOGFOOD credential smoke bin alias.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
+> - npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
 
 ---
 
@@ -26,7 +26,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.71:
+What shipped in v2.155.72:
 
 - Retained Claude auth blockers auto-reissue after credentials are available.
 - Recovery verifies Claude local_cli runtime plus auth-failure dispatch logs.
@@ -35,7 +35,7 @@ What shipped in v2.155.71:
 
 Proof:
 
-- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -59,24 +59,24 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.71 — recovers refreshed Claude auth blockers
+**Title:** AgentXchain v2.155.72 — DOGFOOD credential smoke npx entrypoint
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.71 fixes a full-auto recovery gap found during dogfooding:
+v2.155.72 tightens a DOGFOOD-100 recovery check found during dogfooding:
 
-- retained Claude auth blockers auto-reissue after credentials are available
-- recovery checks Claude local_cli runtime plus auth-failure dispatch logs
-- missing credentials and non-Claude blockers stay fail-closed
-- full-auto dogfood can continue without operator-side `step --resume`
+- `agentxchain-dogfood-claude-smoke` is now a shipped npm bin
+- agents can run it through `npx --yes -p agentxchain@latest`
+- no tarball extraction or local checkout helper path is required
+- the helper remains state-free and does not touch Tusq state
 
 The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and remote_agent adapters are all proven live. The non-manual adapters have real-model proof; manual remains the governed human path.
 
 Evidence:
 
-- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -107,7 +107,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.71 recovers refreshed Claude auth blockers while missing credentials and non-Claude blockers remain fail-closed.
+v2.155.72 adds a direct DOGFOOD credential smoke npx entrypoint while the paused Tusq session remains fail-closed until credentials verify successfully.
 
 Try the zero-key demo:
 
@@ -116,7 +116,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -136,7 +136,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.71 accepts PM roadmap-replenishment staged results without operator-side staging edits
+- v2.155.72 accepts PM roadmap-replenishment staged results without operator-side staging edits
 
 Try it in 30 seconds:
 
@@ -150,7 +150,7 @@ MIT licensed. https://agentxchain.dev
 
 ## Posting Instructions
 
-1. Confirm `npm view agentxchain@2.155.71 version` before posting.
+1. Confirm `npm view agentxchain@2.155.72 version` before posting.
 2. Post during US morning hours, preferably Tuesday-Thursday 10-11am ET.
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT.
 4. Lead with the demo command because it works without API keys.
