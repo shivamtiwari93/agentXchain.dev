@@ -258,6 +258,13 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
   return { root, cliDir, fakeBinDir };
 }
 
+function addDogfoodBinAlias(cliDir) {
+  const packagePath = join(cliDir, 'package.json');
+  const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
+  pkg.bin['agentxchain-dogfood-claude-smoke'] = './scripts/dogfood-claude-smoke.mjs';
+  writeFileSync(packagePath, JSON.stringify(pkg, null, 2));
+}
+
 function runPostflight(cliDir, fakeBinDir, args = [], envOverrides = {}) {
   return spawnSync('bash', ['scripts/release-postflight.sh', ...args], {
     cwd: cliDir,
@@ -388,6 +395,24 @@ describe('release-postflight.sh', () => {
     assert.equal(result.status, 0);
     const npxArgs = readFileSync(join(fixture.fakeBinDir, 'npx-args.txt'), 'utf8').trim();
     assert.equal(npxArgs, '--yes -p agentxchain@2.0.1 -c agentxchain --version');
+  });
+
+  it('uses the primary package bin when package.json exposes additional helper bins', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+    addDogfoodBinAlias(fixture.cliDir);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+    );
+
+    assert.equal(result.status, 0);
+    const npxArgs = readFileSync(join(fixture.fakeBinDir, 'npx-args.txt'), 'utf8').trim();
+    const installedArgs = readFileSync(join(fixture.fakeBinDir, 'installed-bin-args.txt'), 'utf8');
+    assert.equal(npxArgs, '--yes -p agentxchain@2.0.1 -c agentxchain --version');
+    assert.match(installedArgs, /--version/);
   });
 
   it('fails when the published CLI reports the wrong version', () => {

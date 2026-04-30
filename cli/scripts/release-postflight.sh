@@ -78,7 +78,7 @@ FAIL=0
 TARBALL_URL=""
 REGISTRY_CHECKSUM=""
 PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name)")"
-PACKAGE_BIN_NAME="$(node -e "const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8')); if (typeof pkg.bin === 'string') { console.log(pkg.name); process.exit(0); } const names = Object.keys(pkg.bin || {}); if (names.length !== 1) { console.error('package.json bin must declare exactly one entry'); process.exit(1); } console.log(names[0]);")"
+PACKAGE_BIN_NAME="$(node -e "const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8')); if (typeof pkg.bin === 'string') { console.log(pkg.name); process.exit(0); } const bins = pkg.bin || {}; if (bins[pkg.name]) { console.log(pkg.name); process.exit(0); } const names = Object.keys(bins); if (names.length === 1) { console.log(names[0]); process.exit(0); } console.error('package.json bin must declare the primary package bin'); process.exit(1);")"
 RUNNER_INTERFACE_VERSION_EXPECTED="$(node --input-type=module -e "import('./src/lib/runner-interface.js').then((mod) => { console.log(mod.RUNNER_INTERFACE_VERSION); }).catch((error) => { console.error(error.message); process.exit(1); });")"
 ADAPTER_INTERFACE_VERSION_EXPECTED="$(node --input-type=module -e "import('./src/lib/adapter-interface.js').then((mod) => { console.log(mod.ADAPTER_INTERFACE_VERSION); }).catch((error) => { console.error(error.message); process.exit(1); });")"
 
