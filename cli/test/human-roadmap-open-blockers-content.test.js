@@ -105,8 +105,13 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       currentFocusLine,
-      /BUG-113 is open/,
-      'current focus must reflect the active BUG-113 Claude Node runtime blocker',
+      /BUG-113 is closed/,
+      'current focus must preserve the BUG-113 Claude Node runtime closure',
+    );
+    assert.match(
+      currentFocusLine,
+      /BUG-114 is open/,
+      'current focus must reflect the active BUG-114 Claude auth refresh blocker',
     );
     assert.match(
       currentFocusLine,
@@ -115,7 +120,7 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       currentFocusLine,
-      /BUG-95 through BUG-112 are closed/,
+      /BUG-95 through BUG-113 are closed/,
       'current focus must preserve the latest shipped-package dogfood closures',
     );
   });

@@ -54,6 +54,7 @@ import {
 } from './intent-startup-migration.js';
 import { checkpointAcceptedTurn } from './turn-checkpoint.js';
 import {
+  hasClaudeEnvAuth,
   hasClaudeAuthenticationFailureText,
   hasClaudeNodeIncompatibilityText,
   isClaudeLocalCliRuntime,
@@ -495,6 +496,78 @@ function reclassifyRetainedClaudeNodeIncompatGhost(context, session, state, cand
   writeGovernedState(root, nextState);
   log(`Reclassified retained Claude Node runtime blocker for ${candidate.turn_id} as dispatch:claude_node_incompatible.`);
   return nextState;
+}
+
+function findRetainedClaudeAuthDispatchBlocker(root, state, config) {
+  if (!state || state.status !== 'blocked') return null;
+  if (state.blocked_on !== 'dispatch:claude_auth_failed') return null;
+  if (state.blocked_reason?.category !== 'dispatch_error') return null;
+  const activeTurns = state.active_turns || {};
+  const turnId = state.blocked_reason?.turn_id || null;
+  const candidateIds = turnId && activeTurns[turnId] ? [turnId] : Object.keys(activeTurns);
+  for (const candidateId of candidateIds) {
+    const turn = activeTurns[candidateId];
+    if (!turn) continue;
+    const runtime = config?.runtimes?.[turn.runtime_id];
+    if (!isClaudeLocalCliRuntime(runtime)) continue;
+    const logPath = join(root, getDispatchLogPath(candidateId));
+    if (!existsSync(logPath)) continue;
+    let logText = '';
+    try {
+      logText = readFileSync(logPath, 'utf8');
+    } catch {
+      continue;
+    }
+    if (!hasClaudeAuthenticationFailureText(logText)) continue;
+    return { turn_id: candidateId, turn, previous_blocked_on: state.blocked_on || null };
+  }
+  return null;
+}
+
+function maybeAutoRetryRetainedClaudeAuthDispatch(context, session, state, log = console.log) {
+  const { root, config } = context;
+  if (!hasClaudeEnvAuth(process.env)) return null;
+  const candidate = findRetainedClaudeAuthDispatchBlocker(root, state, config);
+  if (!candidate) return null;
+
+  const reissued = reissueTurn(root, config, {
+    turnId: candidate.turn_id,
+    reason: 'auto_retry_claude_auth_refreshed',
+  });
+  if (!reissued.ok) {
+    log(`Claude auth auto-retry skipped: ${reissued.error}`);
+    return null;
+  }
+
+  const runId = session.current_run_id || state.run_id || reissued.state?.run_id || null;
+  const nextState = clearGhostBlockerAfterReissue(root, reissued.state);
+  Object.assign(session, {
+    status: 'running',
+    current_run_id: runId,
+  });
+  writeContinuousSession(root, session);
+  emitRunEvent(root, 'auto_retried_ghost', {
+    run_id: runId,
+    phase: nextState.phase || state.phase || null,
+    status: 'active',
+    turn: { turn_id: reissued.newTurn.turn_id, role_id: reissued.newTurn.assigned_role || null },
+    payload: {
+      old_turn_id: candidate.turn_id,
+      new_turn_id: reissued.newTurn.turn_id,
+      failure_type: 'claude_auth_failed',
+      recovery_class: 'claude_auth_refreshed',
+      runtime_id: candidate.turn.runtime_id || null,
+    },
+  });
+  log(`Claude auth refreshed; auto-retried ${candidate.turn_id} -> ${reissued.newTurn.turn_id}.`);
+  return {
+    ok: true,
+    status: 'running',
+    action: 'auto_retried_claude_auth_refreshed',
+    run_id: runId,
+    old_turn_id: candidate.turn_id,
+    new_turn_id: reissued.newTurn.turn_id,
+  };
 }
 
 const RECOVERABLE_ACTIVE_TURN_STATUSES = new Set(['assigned', 'dispatched', 'starting', 'running']);
@@ -1913,6 +1986,8 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   if (startupGovernedState?.status === 'blocked') {
     const reclassifiedState = maybeReclassifyRetainedClaudeAuthEscalation(context, session, startupGovernedState, log);
     let effectiveBlockedState = reclassifiedState || startupGovernedState;
+    const authRetry = maybeAutoRetryRetainedClaudeAuthDispatch(context, session, effectiveBlockedState, log);
+    if (authRetry?.status === 'running') return authRetry;
     const nodeCandidate = findRetainedClaudeNodeIncompatGhost(root, effectiveBlockedState, context.config);
     if (nodeCandidate) {
       const nodeRecovery = reclassifyRetainedClaudeNodeIncompatGhost(

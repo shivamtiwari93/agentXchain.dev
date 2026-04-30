@@ -863,6 +863,72 @@ describe('Continuous Run', () => {
       assert.equal(readEvents(tmpDir).some((entry) => entry.event_type === 'retained_claude_auth_escalation_reclassified'), false);
     });
 
+    it('BUG-114 auto-reissues retained Claude auth dispatch blockers after credentials are available', async () => {
+      const { turnId } = writeClaudeAuthEscalationState(tmpDir, {
+        turnId: 'turn_claude_auth_refreshed_001',
+      });
+      const statePath = join(tmpDir, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.blocked_on = 'dispatch:claude_auth_failed';
+      state.blocked_reason = {
+        category: 'dispatch_error',
+        blocked_at: '2026-04-30T02:17:19.842Z',
+        turn_id: turnId,
+        recovery: {
+          typed_reason: 'dispatch_error',
+          owner: 'human',
+          recovery_action: 'Refresh Claude credentials before resuming.',
+          turn_retained: true,
+          detail: 'claude_auth_failed: Refresh Claude credentials before resuming.',
+        },
+      };
+      state.escalation = null;
+      state.active_turns[turnId].status = 'running';
+      delete state.active_turns[turnId].last_rejection;
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+      const config = readTestConfig(tmpDir);
+      config.roles.qa = { title: 'QA', mandate: 'Verify.', write_authority: 'authoritative', runtime: 'local-qa' };
+      config.runtimes['local-qa'] = { type: 'local_cli', command: 'claude --print' };
+      const context = { root: tmpDir, config };
+      const session = {
+        session_id: 'cont-claude-auth-refreshed',
+        status: 'paused',
+        current_run_id: 'run_claude_auth_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        autoRetryOnGhost: { enabled: true, maxRetriesPerRun: 3, cooldownSeconds: 0 },
+      };
+      const oldApiKey = process.env.ANTHROPIC_API_KEY;
+      process.env.ANTHROPIC_API_KEY = 'test-auth-now-present';
+      try {
+        const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+          assert.fail('retained refreshed Claude auth blocker should reissue before executing a governed run');
+        }, () => {});
+
+        assert.equal(step.status, 'running');
+        assert.equal(step.action, 'auto_retried_claude_auth_refreshed');
+        assert.equal(step.old_turn_id, turnId);
+        assert.notEqual(step.new_turn_id, turnId);
+
+        const savedState = JSON.parse(readFileSync(statePath, 'utf8'));
+        assert.equal(savedState.status, 'active');
+        assert.equal(savedState.blocked_on, null);
+        assert.equal(savedState.active_turns[turnId], undefined);
+        assert.equal(savedState.active_turns[step.new_turn_id].reissued_from, turnId);
+
+        const events = readEvents(tmpDir);
+        const autoEvents = events.filter((entry) => entry.event_type === 'auto_retried_ghost');
+        assert.equal(autoEvents.length, 1);
+        assert.equal(autoEvents[0].payload.recovery_class, 'claude_auth_refreshed');
+      } finally {
+        if (oldApiKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+        else process.env.ANTHROPIC_API_KEY = oldApiKey;
+      }
+    });
+
     it('BUG-112 auto-reissues retained Claude provider request timeouts instead of human escalation', async () => {
       const { turnId } = writeClaudeAuthEscalationState(tmpDir, {
         turnId: 'turn_claude_timeout_001',
