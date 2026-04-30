@@ -21,7 +21,7 @@ TARGET_VERSION=""
 
 FORMULA_PATH="${CLI_DIR}/homebrew/agentxchain.rb"
 PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json','utf8')).name)")"
-PACKAGE_BIN_NAME="$(node -e "const pkg = JSON.parse(require('fs').readFileSync('package.json','utf8')); if (typeof pkg.bin === 'string') { console.log(pkg.name); process.exit(0); } const names = Object.keys(pkg.bin || {}); if (names.length !== 1) { console.error('package.json bin must declare exactly one entry'); process.exit(1); } console.log(names[0]);")"
+PACKAGE_BIN_NAME="$(node -e "const pkg = JSON.parse(require('fs').readFileSync('package.json','utf8')); if (typeof pkg.bin === 'string') { console.log(pkg.name); process.exit(0); } const bins = pkg.bin || {}; if (bins[pkg.name]) { console.log(pkg.name); process.exit(0); } const names = Object.keys(bins); if (names.length === 1) { console.log(names[0]); process.exit(0); } console.error('package.json bin must declare the primary package bin'); process.exit(1);")"
 
 formula_url() {
   local formula_path="$1"

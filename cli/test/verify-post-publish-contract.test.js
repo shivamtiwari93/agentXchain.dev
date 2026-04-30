@@ -140,6 +140,7 @@ end
       'fi',
       'count=$((count + 1))',
       'printf "%s" "${count}" > "${counter_file}"',
+      'printf "%s\\n" "$*" > "${FAKE_COUNTER_DIR:?}/npx-args.txt"',
       'if [[ "${FAKE_NPX_FAIL:-0}" == "1" ]]; then',
       '  echo "npx smoke failed" >&2',
       '  exit 1',
@@ -164,6 +165,13 @@ end
   );
 
   return { root, cliDir, fakeBinDir };
+}
+
+function addDogfoodBinAlias(cliDir) {
+  const packagePath = join(cliDir, 'package.json');
+  const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
+  pkg.bin['agentxchain-dogfood-claude-smoke'] = './scripts/dogfood-claude-smoke.mjs';
+  writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + '\n');
 }
 
 function runVerify(cliDir, fakeBinDir, envOverrides = {}) {
@@ -323,5 +331,31 @@ describe('verify-post-publish Homebrew phase contract', () => {
     assert.equal(counterValue(fixture.fakeBinDir, 'sync-count.txt'), '1');
     assert.equal(counterValue(fixture.fakeBinDir, 'npx-count.txt'), '1');
     assert.equal(counterValue(fixture.fakeBinDir, 'npm-test-count.txt'), null);
+  });
+
+  it('uses the primary package bin when package.json exposes additional helper bins', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+    addDogfoodBinAlias(fixture.cliDir);
+
+    const tarballUrl = 'https://registry.npmjs.org/agentxchain/-/agentxchain-2.128.0.tgz';
+    const tarballContent = 'registry-tarball-v2.128.0';
+    const tarballSha = createHash('sha256').update(tarballContent).digest('hex');
+
+    const result = runVerify(fixture.cliDir, fixture.fakeBinDir, {
+      FAKE_REGISTRY_VERSION: '2.128.0',
+      FAKE_DIST_TARBALL: tarballUrl,
+      FAKE_TARBALL_CONTENT: tarballContent,
+      FAKE_NPX_VERSION: '2.128.0',
+      FAKE_SYNC_VERSION: '2.128.0',
+      FAKE_SYNC_FORMULA_URL: tarballUrl,
+      FAKE_SYNC_FORMULA_SHA: tarballSha,
+    });
+
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.equal(
+      readFileSync(join(fixture.fakeBinDir, 'npx-args.txt'), 'utf8').trim(),
+      '--yes -p agentxchain@2.128.0 -c agentxchain --version',
+    );
   });
 });
