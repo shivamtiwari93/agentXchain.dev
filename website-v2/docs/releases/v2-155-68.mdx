@@ -1,0 +1,51 @@
+---
+sidebar_position: 0
+title: "v2.155.68 Release Notes"
+---
+
+# AgentXchain v2.155.68
+
+`v2.155.68` closes BUG-113, found immediately after `v2.155.67` recovered the retained Claude provider timeout in the strict Tusq DOGFOOD-100 session. The reissued QA turn launched Claude Code through an older Node binary, failed with `TypeError: Object not disposable`, and was misclassified as repeated `stdout_attach_failed` ghost startup. AgentXchain now recognizes that signature as Claude runtime incompatibility and can recover retained state when a compatible Node binary is available.
+
+## Bug Fixes
+
+- **BUG-113: Claude Node runtime recovery.** Fresh Claude local CLI dispatches that emit the old-Node `Object not disposable` failure are classified as `claude_node_incompatible`, not generic ghost startup.
+- **Compatible Node wrapper.** When the configured command is `claude`, the local CLI adapter resolves a compatible Node binary and invokes the Claude CLI entrypoint through it, avoiding stale `/usr/bin/env node` PATH selection.
+- **Retained DOGFOOD recovery.** Continuous startup inspects retained `stdout_attach_failed` ghost logs for the Claude Node incompatibility marker and auto-reissues the retained turn when compatible Node is available, even if stale ghost retry state had already exhausted.
+
+## Evidence
+
+- node --test test/local-cli-adapter.test.js -> 38 tests / 5 suites / 0 failures
+- node --test test/continuous-run.test.js -> 83 tests / 13 suites / 0 failures
+- npm test -- --test-timeout=60000 -> 7332 tests / 1485 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.68 -c "agentxchain --version"`
+
+For BUG-113: resume tusq.dev from continuous session `cont-7dc5b5df`, run `run_73ffb608f7c8a510`, and retained QA turn `turn_07b1ca892daef9dc` using the shipped package. If the retained dispatch log contains `TypeError: Object not disposable` under old Node and a compatible Node binary is available, startup must reissue the retained turn without `agentxchain reissue-turn`, manual state edits, or operator-side `accept-turn`.
+
+If the recovered QA turn accepts, append counter value 98 to Tusq `turn-counter.jsonl` within the DOGFOOD-100 window.
+
+For BUG-112 carry-forward: retained Claude provider `Request timed out` failures must still auto-reissue via `auto_retried_productive_timeout` only when explicit timeout markers exist.
+
+For BUG-111 carry-forward: retained Claude 401/authentication failures must still reclassify to `dispatch:claude_auth_failed` before timeout or ghost recovery.
+
+For BUG-110 carry-forward: fresh Claude local CLI auth failures must still block once as dispatch infrastructure instead of consuming turn retries.
+
+For BUG-109 carry-forward: supplemental auto-checkpoint recovery must still run automatically under `--auto-checkpoint`.
+
+For BUG-108 carry-forward: terminal blocked steps must surface once and must not re-enter paused-active recovery loops.
+
+For BUG-107 carry-forward: paused active continuous sessions must still preserve the existing session ID and recover only when the governed run is active, unblocked, and dispatchable.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

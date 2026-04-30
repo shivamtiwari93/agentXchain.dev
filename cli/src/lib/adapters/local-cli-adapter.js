@@ -716,11 +716,24 @@ function resolveClaudeSpawnSpec(runtime, command, args, env) {
   if (!claudeEntry) {
     return { command, args, wrapper: null };
   }
+  if (!isNodeEntrypoint(claudeEntry)) {
+    return { command, args, wrapper: null };
+  }
   return {
     command: nodeBinary,
     args: [claudeEntry, ...args],
     wrapper: 'claude_compatible_node',
   };
+}
+
+function isNodeEntrypoint(filePath) {
+  try {
+    const head = readFileSync(filePath, 'utf8').slice(0, 256);
+    const firstLine = head.split(/\r?\n/, 1)[0] || '';
+    return /^#!.*(?:^|[\/\s])(?:env\s+)?node(?:\s|$)/.test(firstLine);
+  } catch {
+    return false;
+  }
 }
 
 function pickDiagnosticEnv(env) {

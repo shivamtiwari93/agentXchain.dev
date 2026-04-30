@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.68
+
+- **BUG-113: recover Claude Node runtime ghost blockers.** Claude Code startup failures with `TypeError: Object not disposable` under old Node are now classified as `claude_node_incompatible` instead of generic `stdout_attach_failed` ghost turns.
+- When launching command-name `claude`, the local CLI adapter now resolves a compatible Node binary and invokes the Claude CLI entrypoint through it, avoiding stale `/usr/bin/env node` PATH selection when Node 20 is installed.
+- Continuous startup can auto-reissue retained Claude Node-incompatible ghost blockers, clearing stale ghost retry exhaustion when a compatible Node binary is available.
+
+- npm test -- --test-timeout=60000 -> 7332 tests / 1485 suites / 0 failures / 0 skipped
+
 ## 2.155.67
 
 - **BUG-112: recover retained Claude provider request timeouts.** Continuous startup now inspects retained retries-exhausted dispatch logs for explicit provider timeout markers such as `Request timed out` and routes proven productive provider timeouts through the existing auto-reissue path instead of preserving a generic human-decision escalation.
