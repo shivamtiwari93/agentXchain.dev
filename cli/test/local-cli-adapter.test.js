@@ -298,8 +298,8 @@ exit 1
       const state = makeState();
       const shim = writeClaudeShim(root, `#!/bin/sh
 cat > /dev/null
-printf '%s\\n' 'TypeError: Object not disposable' >&2
-printf '%s\\n' 'Node.js v18.13.0' >&2
+printf '%s\\n' 'file:///usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js:8' >&2
+printf '%s\\n' 'var VY=(q,K,_)=>{if(K!=null){if(typeof K!=="object"&&typeof K!=="function")throw TypeError("Object expected to be assigned to "using" declaration");var Y;if(_)Y=K[Symbol.asyncDispose];if(Y===void 0)Y=K[Symbol.dispose];if(typeof Y!=="function")throw TypeError("Object not disposable");q.push([_,Y,K])}};' >&2
 exit 1
 `);
       const config = makeConfig({

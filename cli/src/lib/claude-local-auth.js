@@ -12,7 +12,8 @@ const CLAUDE_ENV_AUTH_KEYS = [
 const DEFAULT_SMOKE_PROBE_TIMEOUT_MS = 10_000;
 const DEFAULT_SMOKE_PROBE_STDIN = 'ok';
 const CLAUDE_AUTH_FAILURE_RE = /authentication_failed|authentication_error|invalid authentication credentials|unauthorized|API Error:\s*401/i;
-const CLAUDE_NODE_INCOMPATIBILITY_RE = /TypeError:\s*Object not disposable|Object not disposable[\s\S]{0,2000}Node\.js v(?:1[0-9]|20\.[0-4]\.)/i;
+const CLAUDE_NODE_INCOMPATIBILITY_RE =
+  /TypeError:\s*Object not disposable|TypeError\(["']Object not disposable["']\)|Object not disposable[\s\S]{0,2000}Node\.js v(?:1[0-9]|20\.[0-4]\.)/i;
 const CLAUDE_COMPATIBLE_NODE_MIN = { major: 20, minor: 5, patch: 0 };
 
 function normalizeCommandTokens(runtime) {

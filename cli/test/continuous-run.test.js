@@ -1018,8 +1018,8 @@ describe('Continuous Run', () => {
       mkdirSync(logDir, { recursive: true });
       writeFileSync(join(logDir, 'stdout.log'), [
         '[adapter:diag] spawn_prepare {"command":"claude"}\n',
-        '[stderr] TypeError: Object not disposable\n',
-        '[stderr] Node.js v18.13.0\n',
+        '[stderr] file:///usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js:8\n',
+        '[stderr] var VY=(q,K,_)=>{if(K!=null){var Y;if(_)Y=K[Symbol.asyncDispose];if(Y===void 0)Y=K[Symbol.dispose];if(typeof Y!=="function")throw TypeError("Object not disposable");q.push([_,Y,K])}};\n',
         '[adapter:diag] process_exit {"exit_code":1,"staged_result_ready":false,"startup_failure_type":"no_subprocess_output"}\n',
       ].join(''));
       const config = readTestConfig(tmpDir);

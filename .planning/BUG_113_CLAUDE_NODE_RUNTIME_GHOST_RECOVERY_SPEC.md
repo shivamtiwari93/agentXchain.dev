@@ -11,7 +11,7 @@ This is not a product QA failure and not a normal ghost turn. It is a local Clau
 - Fresh dispatch input:
   - runtime is Claude local CLI.
   - subprocess exits without a staged result.
-  - stderr/log text contains `TypeError: Object not disposable` or equivalent Claude Node incompatibility evidence.
+  - stderr/log text contains `TypeError: Object not disposable`, Claude Code's compiled `throw TypeError("Object not disposable")` helper, or equivalent Claude Node incompatibility evidence.
 - Fresh dispatch output:
   - adapter returns `blocked: true`.
   - `classified.error_class === "claude_node_incompatible"`.
@@ -50,7 +50,7 @@ When launching `claude` by command name and a compatible Node binary is availabl
 ## Acceptance Tests
 
 - `cli/test/local-cli-adapter.test.js` proves fresh Claude Node incompatibility stderr returns `classified.error_class === "claude_node_incompatible"` and does not set `startupFailure`.
-- `cli/test/continuous-run.test.js` proves retained Claude Node-incompatible ghost blockers auto-reissue when `AGENTXCHAIN_CLAUDE_NODE` points at an available Node binary, even if `session.ghost_retry.exhausted === true`.
+- `cli/test/continuous-run.test.js` proves retained Claude Node-incompatible ghost blockers auto-reissue when `AGENTXCHAIN_CLAUDE_NODE` points at an available Node binary, even if `session.ghost_retry.exhausted === true`, using the actual Claude Code minified `throw TypeError("Object not disposable")` signature observed in Tusq.
 - Existing BUG-112 retained provider-timeout tests still pass.
 - Existing generic ghost retry tests still pass.
 
