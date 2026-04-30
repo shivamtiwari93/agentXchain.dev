@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
 const SCRIPT = resolve(REPO_ROOT, 'cli', 'scripts', 'dogfood-claude-smoke.mjs');
+const CLI_PACKAGE_JSON = resolve(REPO_ROOT, 'cli', 'package.json');
 
 function writeExecutable(path, content) {
   writeFileSync(path, content);
@@ -168,5 +169,15 @@ test('dogfood-claude-smoke is included in the npm package artifact', () => {
   assert.ok(
     files.includes('scripts/dogfood-claude-smoke.mjs'),
     'DOGFOOD credential smoke helper must ship in the npm package',
+  );
+});
+
+test('dogfood-claude-smoke exposes a shipped npx bin alias', () => {
+  const pkg = JSON.parse(readFileSync(CLI_PACKAGE_JSON, 'utf8'));
+
+  assert.equal(
+    pkg.bin['agentxchain-dogfood-claude-smoke'],
+    './scripts/dogfood-claude-smoke.mjs',
+    'DOGFOOD credential smoke helper must be runnable from npx without tarball extraction',
   );
 });

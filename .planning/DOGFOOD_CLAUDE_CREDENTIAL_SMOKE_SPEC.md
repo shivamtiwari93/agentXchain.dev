@@ -8,7 +8,10 @@ This spec defines a repo-owned smoke helper that future agents can run before to
 
 ## Interface
 
+- Shipped bin: `agentxchain-dogfood-claude-smoke`
 - Script: `node cli/scripts/dogfood-claude-smoke.mjs`
+- Canonical shipped-package DOGFOOD check:
+  - `npx --yes -p agentxchain@latest -c 'agentxchain-dogfood-claude-smoke --credential-env-file <agentxchain-repo>/.env --cwd <tusq-repo> --json'`
 - Optional flags:
   - `--credential-env-file <path>`: load dotenv-style credential environment before running Claude. This deliberately avoids Node's own `--env-file` flag.
   - `--cwd <path>`: working directory for the Claude process.
@@ -59,6 +62,7 @@ The helper exits `0` only for `success`. Auth failure and runtime failure are di
 - A fake Claude executable that writes `Object not disposable` classifies `node_runtime_incompatible`.
 - Loading an env file reports auth-key presence without leaking the secret value in stdout or stderr.
 - `npm pack --dry-run --json` includes `scripts/dogfood-claude-smoke.mjs`, so DOGFOOD credential checks can be run from shipped package artifacts instead of relying on an unpublished checkout-only script.
+- `package.json` exposes `agentxchain-dogfood-claude-smoke` as a bin pointing at `./scripts/dogfood-claude-smoke.mjs`, so future checks can use `npx -p agentxchain@latest` without tarball extraction.
 
 ## Open Questions
 

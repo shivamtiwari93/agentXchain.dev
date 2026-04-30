@@ -4,7 +4,8 @@
   "description": "CLI for AgentXchain — governed multi-agent software delivery",
   "type": "module",
   "bin": {
-    "agentxchain": "./bin/agentxchain.js"
+    "agentxchain": "./bin/agentxchain.js",
+    "agentxchain-dogfood-claude-smoke": "./scripts/dogfood-claude-smoke.mjs"
   },
   "exports": {
     ".": "./bin/agentxchain.js",
