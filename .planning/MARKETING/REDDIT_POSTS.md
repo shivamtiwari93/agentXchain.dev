@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.155.68
+# Reddit Posts — AgentXchain v2.155.69
 
-> Ready-to-post content for Reddit for the `v2.155.68` release. Updated 2026-04-29 for BUG-109 fix: continuous auto-checkpoint recovery for supplemental accepted-turn dirt.
+> Ready-to-post content for Reddit for the `v2.155.69` release. Updated 2026-04-29 for BUG-109 fix: continuous auto-checkpoint recovery for supplemental accepted-turn dirt.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
@@ -26,7 +26,7 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.68:
+What shipped in v2.155.69:
 
 - Supplemental checkpoint recovery captures accepted-turn dirty files named in observed diff summaries.
 - Next assignment now points at checkpoint-turn instead of generic commit/stash guidance.
@@ -59,13 +59,13 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.68 — recovers paused active continuous sessions
+**Title:** AgentXchain v2.155.69 — recovers paused active continuous sessions
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.68 fixes a full-auto recovery gap found during dogfooding:
+v2.155.69 fixes a full-auto recovery gap found during dogfooding:
 
 - paused continuous sessions recover only when the governed run is active, unblocked, and dispatchable
 - pending approvals, blockers, failed retained turns, and run-ID drift stay fail-closed
@@ -107,7 +107,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.68 recovers paused active continuous sessions while pending approvals, blockers, failed retained turns, and run-ID drift remain fail-closed.
+v2.155.69 recovers paused active continuous sessions while pending approvals, blockers, failed retained turns, and run-ID drift remain fail-closed.
 
 Try the zero-key demo:
 
@@ -136,7 +136,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.68 accepts PM roadmap-replenishment staged results without operator-side staging edits
+- v2.155.69 accepts PM roadmap-replenishment staged results without operator-side staging edits
 
 Try it in 30 seconds:
 
@@ -150,7 +150,7 @@ MIT licensed. https://agentxchain.dev
 
 ## Posting Instructions
 
-1. Confirm `npm view agentxchain@2.155.68 version` before posting.
+1. Confirm `npm view agentxchain@2.155.69 version` before posting.
 2. Post during US morning hours, preferably Tuesday-Thursday 10-11am ET.
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT.
 4. Lead with the demo command because it works without API keys.

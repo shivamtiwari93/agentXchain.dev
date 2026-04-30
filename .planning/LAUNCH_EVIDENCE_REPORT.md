@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.155.68
+# Launch Evidence Report — AgentXchain v2.155.69
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-30 for v2.155.68 — BUG-113 recovers Claude Node runtime ghost blockers during continuous full-auto dogfood. Current aggregate release evidence:
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-30 for v2.155.69 — BUG-113 recovers Claude Node runtime ghost blockers during continuous full-auto dogfood. Current aggregate release evidence:
 >
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped

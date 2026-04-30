@@ -1,29 +1,31 @@
 ---
-sidebar_position: 1
-title: "v2.155.68 Release Notes"
+sidebar_position: 0
+title: "v2.155.69 Release Notes"
 ---
 
-# AgentXchain v2.155.68
+# AgentXchain v2.155.69
 
-`v2.155.68` closes BUG-113, found immediately after `v2.155.67` recovered the retained Claude provider timeout in the strict Tusq DOGFOOD-100 session. The reissued QA turn launched Claude Code through an older Node binary, failed with `TypeError: Object not disposable`, and was misclassified as repeated `stdout_attach_failed` ghost startup. AgentXchain now recognizes that signature as Claude runtime incompatibility and can recover retained state when a compatible Node binary is available.
+`v2.155.69` tightens BUG-113 after the shipped `v2.155.68` reverify on Tusq proved the detector was still too narrow. Real Claude Code old-Node failures can log the compiled helper `throw TypeError("Object not disposable")` without the cleaner `TypeError: Object not disposable` trailer, so the retained ghost blocker stayed exhausted instead of recovering.
 
 ## Bug Fixes
 
-- **BUG-113: Claude Node runtime recovery.** Fresh Claude local CLI dispatches that emit the old-Node `Object not disposable` failure are classified as `claude_node_incompatible`, not generic ghost startup.
-- **Compatible Node wrapper.** When the configured command is `claude`, the local CLI adapter resolves a compatible Node binary and invokes the Claude CLI entrypoint through it, avoiding stale `/usr/bin/env node` PATH selection.
-- **Retained DOGFOOD recovery.** Continuous startup inspects retained `stdout_attach_failed` ghost logs for the Claude Node incompatibility marker and auto-reissues the retained turn when compatible Node is available, even if stale ghost retry state had already exhausted.
+- **BUG-113: real Claude Code signature detection.** Claude Node incompatibility detection now recognizes both the runtime error form and Claude Code's compiled helper form.
+- **Retained DOGFOOD recovery.** The existing retained-turn recovery path can now match the actual Tusq `stdout.log` evidence and reissue the QA turn through the compatible Node wrapper.
+- **Regression fidelity.** BUG-113 adapter and continuous-run tests now use the minified Claude Code log shape observed in Tusq instead of only a sanitized stderr line.
 
 ## Evidence
 
+- node --test --test-name-pattern='BUG-113|Claude stdout auth' test/local-cli-adapter.test.js -> 2 tests / 2 suites / 0 failures
+- node --test --test-name-pattern='BUG-113|BUG-112|auto-reissues a paused ghost-blocked run' test/continuous-run.test.js -> 4 tests / 2 suites / 0 failures
 - node --test test/local-cli-adapter.test.js -> 38 tests / 5 suites / 0 failures
 - node --test test/continuous-run.test.js -> 83 tests / 13 suites / 0 failures
 - npm test -- --test-timeout=60000 -> 7332 tests / 1485 suites / 0 failures / 0 skipped
 
 ## Tester Re-Run Contract
 
-Verify: `npx --yes -p agentxchain@2.155.68 -c "agentxchain --version"`
+Verify: `npx --yes -p agentxchain@2.155.69 -c "agentxchain --version"`
 
-For BUG-113: resume tusq.dev from continuous session `cont-7dc5b5df`, run `run_73ffb608f7c8a510`, and retained QA turn `turn_07b1ca892daef9dc` using the shipped package. If the retained dispatch log contains `TypeError: Object not disposable` under old Node and a compatible Node binary is available, startup must reissue the retained turn without `agentxchain reissue-turn`, manual state edits, or operator-side `accept-turn`.
+For BUG-113: resume tusq.dev from continuous session `cont-7dc5b5df`, run `run_73ffb608f7c8a510`, and retained QA turn `turn_07b1ca892daef9dc` using the shipped package. The retained dispatch log contains the compiled Claude Code helper `throw TypeError("Object not disposable")`; startup must reissue the retained turn without `agentxchain reissue-turn`, manual state edits, or operator-side `accept-turn`.
 
 If the recovered QA turn accepts, append counter value 98 to Tusq `turn-counter.jsonl` within the DOGFOOD-100 window.
 

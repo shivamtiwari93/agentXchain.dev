@@ -1,4 +1,4 @@
-# Show HN Draft — AgentXchain v2.155.68
+# Show HN Draft — AgentXchain v2.155.69
 
 > Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Updated 2026-04-29 for BUG-109 fix: continuous auto-checkpoint recovery for supplemental accepted-turn dirt.
 >
@@ -48,7 +48,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, Dev implements while resolving objections, QA reviews against acceptance criteria, and the protocol records decisions and evidence.
 
-**What shipped by v2.155.68:**
+**What shipped by v2.155.69:**
 
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual`
 - Parallel turns: up to 4 agents concurrently within a governed run, with dispatch isolation and serialized acceptance

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.155.69
+
+- **BUG-113: detect Claude Code's minified old-Node crash signature.** The v2.155.68 DOGFOOD reverify showed the retained Tusq QA logs contained Claude Code's compiled `throw TypeError("Object not disposable")` helper rather than the cleaner `TypeError: Object not disposable` line, so retained recovery did not trigger.
+- Claude Node incompatibility detection now recognizes both the runtime error form and the compiled helper form, preserving the v2.155.68 compatible-Node wrapper and retained-turn recovery path.
+- Regression tests now use the actual minified Claude Code log shape observed in Tusq instead of an over-sanitized synthetic stderr line.
+
+- npm test -- --test-timeout=60000 -> 7332 tests / 1485 suites / 0 failures / 0 skipped
+
 ## 2.155.68
 
 - **BUG-113: recover Claude Node runtime ghost blockers.** Claude Code startup failures with `TypeError: Object not disposable` under old Node are now classified as `claude_node_incompatible` instead of generic `stdout_attach_failed` ghost turns.
