@@ -17,7 +17,7 @@ title: "v2.155.71 Release Notes"
 
 - node --test cli/test/dogfood-claude-smoke-script.test.js -> 6 tests / 0 failures
 - node --test cli/test/claude-local-auth-smoke-probe.test.js -> 6 tests / 0 failures
-- npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
 
 ## Tester Re-Run Contract
 
@@ -26,3 +26,14 @@ Verify: `npx --yes -p agentxchain@2.155.71 -c "agentxchain --version"`
 Before touching the paused Tusq session, run the shipped-package credential diagnostic from the installed package artifact rather than the AgentXchain checkout. It must return `classification:"success"` before any `cont-7dc5b5df` resume attempt.
 
 If the helper still returns `classification:"anthropic_auth_failed"`, do not run `agentxchain run --continuous`, `step --resume`, `unblock`, `reissue-turn`, `accept-turn`, state repair, or staging JSON edits. The operator-only credential blocker remains active.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

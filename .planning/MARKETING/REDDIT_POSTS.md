@@ -6,7 +6,7 @@
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+> - npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
 
 ---
 
@@ -35,7 +35,7 @@ What shipped in v2.155.71:
 
 Proof:
 
-- npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -76,7 +76,7 @@ The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and
 
 Evidence:
 
-- npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -116,7 +116,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 

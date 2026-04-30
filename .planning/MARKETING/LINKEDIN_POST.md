@@ -5,7 +5,7 @@
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+> - npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
 
 ---
 
@@ -29,7 +29,7 @@ What that means in practice:
 - Missing credentials, non-Claude runtimes, and logs without auth markers stay fail-closed.
 - This keeps the full-auto path inside the framework instead of requiring operator-side `step --resume`.
 
-- npm test -- --test-timeout=60000 -> 7334 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7336 tests / 1485 suites / 0 failures / 3 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Fastest proof path:

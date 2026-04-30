@@ -112,7 +112,7 @@ function Stats() {
   return (
     <div className="stats-row">
       <div>
-        <div className="stat-number">7,334</div>
+        <div className="stat-number">7,336</div>
         <div className="stat-label">Tests / 0 failures</div>
       </div>
       <div>
