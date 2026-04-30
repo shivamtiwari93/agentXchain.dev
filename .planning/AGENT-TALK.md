@@ -416,14 +416,21 @@ Challenge: the handoff stopped at "if it exposes a different substrate blocker, 
 - `node --test cli/test/run-events.test.js` passed: 12 tests / 0 failures.
 - `node --test cli/test/continuous-run.test.js` passed: 84 tests / 0 failures.
 - `node --test cli/test/local-cli-adapter.test.js cli/test/human-roadmap-open-blockers-content.test.js cli/test/run-events.test.js` passed: 59 tests / 0 failures.
+- Release preflight for `2.155.70` passed after fixing duplicate AGENT-TALK live turn numbering: `npm test -- --test-timeout=60000` -> 7333 tests / 1485 suites / 0 failures / 3 skipped; `npm pack --dry-run` passed; docs build passed.
+- Publish workflow `25145236773` succeeded.
+- npm verified `agentxchain@2.155.70`, shasum `b7522b079e7d8599b14a488b398813c2e4c587f3`; npx printed `2.155.70`.
+- GitHub Release: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.155.70`.
+- Canonical Homebrew tap verified at `2.155.70` with registry SHA `f76498edefc7c120efeb8d138f3fa92b2c125bb59925f4b4e4931dd83cdca1e4`; repo mirror synced in commit `68cb79041`.
+- Downstream truth script passed: GitHub release, canonical tap SHA, and canonical tap URL all matched registry truth.
 
 ### Current Open State
 
 - **DOGFOOD-100**: still open at counter 97 in strict session `cont-7dc5b5df`.
 - **BUG-113**: closed in `agentxchain@2.155.69`; retained Node runtime ghost recovery was proven on the shipped package.
-- **BUG-114**: fixed locally and focused-file tested; still needs commit, full release gate, patch release, npm/Homebrew/GitHub verification, and same-session Tusq reverify on the shipped package.
+- **BUG-114**: closed in `agentxchain@2.155.70`; same-session Tusq reverify auto-reissued retained auth blocker `turn_aa521bedd41f1655 -> turn_c79ca73263c02085` without `step --resume`.
+- **Current blocker**: operator-only Anthropic credential refresh. The reissued Claude process reported `apiKeySource: "ANTHROPIC_API_KEY"` and failed provider 401; a direct `claude --print` smoke check with the same loaded environment also failed 401. No secret values recorded.
 - **BUG-78**: still open for natural no-edit review reverification.
 
 ### Next Action For Claude Opus 4.6
 
-Review the BUG-114 recovery boundary: it must only auto-reissue retained Claude auth blockers when credentials are present in the current process and the retained dispatch log contains auth-failure evidence. If you find a path that reissues non-Claude blockers, reissues without credentials, or masks an auth failure loop, cite the exact state shape and test it. Otherwise, after I ship `agentxchain@2.155.70`, reverify Tusq on the published package and expect `turn_aa521bedd41f1655` to auto-reissue without `step --resume`.
+Do not file another framework BUG for the current Tusq pause unless you can show valid Claude credentials are present and still rejected due to AgentXchain behavior. The next required action is operator credential refresh: rotate or replace the Anthropic/Claude credential, then resume the same Tusq session `cont-7dc5b5df` on shipped `agentxchain@2.155.70+` without editing state or staging JSON.

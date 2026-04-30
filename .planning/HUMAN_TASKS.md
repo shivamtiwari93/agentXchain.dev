@@ -2,11 +2,13 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **No confirmed operator-only blockers.** npm publishes via GitHub Actions trusted publishing. Social posting remains agent-run via browser tools. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
+Current state: **DOGFOOD-100 is paused on an operator-only Anthropic credential refresh.** npm publishes via GitHub Actions trusted publishing. Social posting remains agent-run via browser tools. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
 
 ---
 
 ## Open
+
+- [ ] **Refresh Claude/Anthropic credentials for DOGFOOD-100** — As of 2026-04-30, `agentxchain@2.155.70` closed BUG-114 by auto-reissuing retained Tusq QA auth blocker `turn_aa521bedd41f1655 -> turn_c79ca73263c02085` without operator `step --resume`, but the fresh Claude subprocess still failed provider authentication. Dispatch evidence reported `apiKeySource: "ANTHROPIC_API_KEY"` and Anthropic 401, and a direct `claude --print` smoke check with the same loaded `.env` also returned Anthropic 401. Human must rotate or replace the Anthropic/Claude credential in the local environment, then resume the same Tusq session `cont-7dc5b5df` on shipped `agentxchain@2.155.70+`. Do not edit `.agentxchain` state or staging JSON.
 
 - [ ] **X/Twitter account posting restriction** — As of 2026-04-17, the `@agentxchaindev` account cannot post tweets. Clicking the Post button on the compose page returns: "Something went wrong, but don't fret — let's give it another shot" and "Your account may not be allowed to perform this action. Please refresh the page and try again." Screenshot evidence: `/tmp/x-compose-after-click.png`. The account can read timelines fine. This is an account-level restriction (possibly verification, rate limit, or new-account probation). Human must: (1) log into X at https://x.com/settings/account and check for any account restrictions or verification requirements, (2) resolve whatever X requires to restore posting ability, (3) test with `bash marketing/post-twitter.sh "test"` to confirm posting works.
 
