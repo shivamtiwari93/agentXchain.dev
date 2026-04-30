@@ -334,6 +334,7 @@ Challenge: treating all Claude `api_retry` telemetry as recoverable would be too
 
 - `DEC-GPT68-BUG112-EXPLICIT-TIMEOUT-MARKER-001`: retained Claude provider failures auto-reissue only when dispatch logs contain explicit timeout text such as `Request timed out`; generic `api_retry` events alone are insufficient.
 - `DEC-GPT68-DOGFOOD-STATE-BEATS-STALE-HANDOFF-001`: when AGENT-TALK is stale, live Tusq `.agentxchain` state and `turn-counter.jsonl` are the source of truth, but the mismatch must be recorded in the collaboration log.
+- `DEC-GPT68-BUG113-CLAUDE-NODE-RUNTIME-RECOVERY-001`: Claude Code `TypeError: Object not disposable` under old Node is a typed local runtime compatibility failure, not a generic ghost. Fresh dispatch must classify it as `claude_node_incompatible`; retained DOGFOOD ghost state may be auto-reissued when a compatible Node binary is available.
 
 ### Work Executed
 
@@ -344,6 +345,15 @@ Challenge: treating all Claude `api_retry` telemetry as recoverable would be too
 - Updated the roadmap-content guard to match the current BUG-112 blocker instead of stale BUG-77 assertions.
 - Created Tusq discovery evidence at `.planning/dogfood-100-turn-evidence/bug-112-discovery-v2.155.66.md`.
 - Folded stale duplicate live AGENT-TALK headings into the compressed history so the next live section can resume at the human-required Turn 68.
+- Shipped `agentxchain@2.155.67`; npm, npx, GitHub Release, and canonical Homebrew tap all verified.
+- Reverified BUG-112 on Tusq with the published package: `turn_aa9664d36f8cac23 -> turn_70950f4d4473cfc3` auto-reissued via `auto_retried_productive_timeout` without `unblock`.
+- Filed BUG-113 after the reissued QA turn exposed Claude Code Node runtime incompatibility (`TypeError: Object not disposable`, `Node.js v18.13.0`) that was misclassified as repeated `stdout_attach_failed` ghost retry exhaustion.
+- Added `.planning/BUG_113_CLAUDE_NODE_RUNTIME_GHOST_RECOVERY_SPEC.md`.
+- Implemented BUG-113 local fix: Claude Node incompatibility output is typed as `claude_node_incompatible`; command-name `claude` dispatches through a compatible Node binary when available; retained Claude Node-incompatible ghost blockers auto-reissue even after stale ghost exhaustion when compatible Node is resolvable.
+- Added BUG-113 coverage in `cli/test/local-cli-adapter.test.js` and `cli/test/continuous-run.test.js`.
+- Added Tusq evidence files:
+  - `.planning/dogfood-100-turn-evidence/bug-112-reverify-v2.155.67.md`
+  - `.planning/dogfood-100-turn-evidence/bug-113-discovery-v2.155.67.md`
 
 ### Verification
 
@@ -351,13 +361,17 @@ Challenge: treating all Claude `api_retry` telemetry as recoverable would be too
 - `node --test --test-name-pattern='BUG-100|BUG-111|BUG-112' cli/test/continuous-run.test.js` passed.
 - `node --test cli/test/human-roadmap-open-blockers-content.test.js` passed.
 - Fresh full release gate passed from `cli/`: `npm test` completed with 36 Vitest files / 1119 tests passed and node tests 7330 tests / 1485 suites / 0 failures.
+- `node --test test/local-cli-adapter.test.js` passed after BUG-113.
+- `node --test test/continuous-run.test.js` passed after BUG-113.
+- `node --test test/run-events.test.js test/human-roadmap-open-blockers-content.test.js` passed after BUG-113.
 
 ### Current Open State
 
 - **DOGFOOD-100**: still open at counter 97 in strict session `cont-7dc5b5df`.
-- **BUG-112**: fixed locally and fully tested; pending patch release, npm verification, and shipped-package Tusq reverify.
+- **BUG-112**: closed in `agentxchain@2.155.67`; shipped-package reverify auto-reissued the retained provider timeout.
+- **BUG-113**: fixed locally and focused-file tested; pending full release gate, patch release, npm verification, and shipped-package Tusq reverify.
 - **BUG-78**: still open for natural no-edit review reverification.
 
 ### Next Action For Claude Opus 4.6
 
-After I ship `agentxchain@2.155.67`, re-run Tusq with the published package only and inspect the new QA turn. If it accepts, append counter 98 within 30 minutes; if it times out again after the BUG-112 retry budget, file the next provider-stability BUG with dispatch-log evidence instead of editing state.
+After I ship `agentxchain@2.155.68`, re-run Tusq with the published package only and confirm retained `turn_07b1ca892daef9dc` auto-recovers without `agentxchain reissue-turn`. If the recovered QA accepts, append counter 98 within 30 minutes; if it exposes a different substrate blocker, file the next BUG with same-session dispatch-log evidence and do not edit state.

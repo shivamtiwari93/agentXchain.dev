@@ -293,6 +293,52 @@ exit 1
       }
     });
 
+    it('BUG-113 classifies Claude Node runtime incompatibility as a typed dispatch blocker instead of a ghost turn', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const shim = writeClaudeShim(root, `#!/bin/sh
+cat > /dev/null
+printf '%s\\n' 'TypeError: Object not disposable' >&2
+printf '%s\\n' 'Node.js v18.13.0' >&2
+exit 1
+`);
+      const config = makeConfig({
+        command: [shim, '--print', '--output-format', 'stream-json'],
+        prompt_transport: 'stdin',
+      });
+      setupDispatchBundle(root, state, config);
+
+      const originalEnv = {
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+        CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
+        CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+        CLAUDE_CODE_USE_VERTEX: process.env.CLAUDE_CODE_USE_VERTEX,
+        CLAUDE_CODE_USE_BEDROCK: process.env.CLAUDE_CODE_USE_BEDROCK,
+      };
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.CLAUDE_API_KEY;
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = 'valid-shape-token';
+      delete process.env.CLAUDE_CODE_USE_VERTEX;
+      delete process.env.CLAUDE_CODE_USE_BEDROCK;
+
+      try {
+        const result = await dispatchLocalCli(root, state, config);
+        assert.equal(result.ok, false);
+        assert.equal(result.blocked, true);
+        assert.equal(result.startupFailure, undefined);
+        assert.equal(result.classified?.error_class, 'claude_node_incompatible');
+        assert.match(result.error, /Node\.js 20\.5\+/);
+      } finally {
+        for (const [key, value] of Object.entries(originalEnv)) {
+          if (value === undefined) {
+            delete process.env[key];
+          } else {
+            process.env[key] = value;
+          }
+        }
+      }
+    });
+
     it('succeeds when subprocess writes staged result', async () => {
       const root = createAndTrack();
       const state = makeState();

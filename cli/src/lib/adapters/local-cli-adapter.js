@@ -19,7 +19,7 @@
 
 import { spawn } from 'child_process';
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { delimiter, join } from 'path';
 import {
   getDispatchContextPath,
   getDispatchLogPath,
@@ -33,7 +33,9 @@ import { hasMeaningfulStagedResult } from '../staged-result-proof.js';
 import {
   getClaudeSubprocessAuthIssue,
   hasClaudeAuthenticationFailureText,
+  hasClaudeNodeIncompatibilityText,
   isClaudeLocalCliRuntime,
+  resolveClaudeCompatibleNodeBinary,
 } from '../claude-local-auth.js';
 
 const DIAGNOSTIC_ENV_KEYS = [
@@ -135,6 +137,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
   const spawnEnv = { ...process.env, AGENTXCHAIN_TURN_ID: turn.turn_id };
   const stdinBytes = transport === 'stdin' ? Buffer.byteLength(fullPrompt, 'utf8') : 0;
   const diagnosticArgs = redactPromptArgs(args, fullPrompt, transport);
+  const spawnSpec = resolveClaudeSpawnSpec(runtime, command, args, spawnEnv);
   const claudeAuthIssue = await getClaudeSubprocessAuthIssue(runtime, spawnEnv);
 
   if (claudeAuthIssue) {
@@ -163,14 +166,17 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       appendDiagnostic(logs, 'spawn_prepare', {
         runtime_id: runtimeId,
         turn_id: turn.turn_id,
-        command,
-        args: diagnosticArgs,
+        command: spawnSpec.command,
+        args: spawnSpec.args === args ? diagnosticArgs : redactPromptArgs(spawnSpec.args, fullPrompt, transport),
+        configured_command: spawnSpec.command === command ? undefined : command,
+        configured_args: spawnSpec.command === command ? undefined : diagnosticArgs,
+        spawn_wrapper: spawnSpec.wrapper,
         cwd: runtimeCwd,
         prompt_transport: transport,
         stdin_bytes: stdinBytes,
         env: pickDiagnosticEnv(spawnEnv),
       });
-      child = spawn(command, args, {
+      child = spawn(spawnSpec.command, spawnSpec.args, {
         cwd: runtimeCwd,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: spawnEnv,
@@ -447,6 +453,22 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
           error: `Claude local_cli authentication failed. ${recovery}`,
           logs,
         });
+      } else if (isClaudeLocalCliRuntime(runtime) && hasClaudeNodeRuntimeIncompatibilityOutput(logs)) {
+        const recovery = 'Run AgentXchain with Node.js 20.5+ available to the Claude local_cli runtime, then resume continuous mode.';
+        settle({
+          ok: false,
+          blocked: true,
+          exitCode,
+          timedOut: false,
+          aborted: false,
+          firstOutputAt,
+          classified: {
+            error_class: 'claude_node_incompatible',
+            recovery,
+          },
+          error: `Claude local_cli runtime is using an incompatible Node.js version. ${recovery}`,
+          logs,
+        });
       } else if (startupTimedOut) {
         settle({
           ok: false,
@@ -663,6 +685,42 @@ function appendDiagnostic(logs, label, payload) {
 function hasClaudeAuthFailureOutput(logs) {
   if (!Array.isArray(logs)) return false;
   return logs.some((line) => hasClaudeAuthenticationFailureText(line));
+}
+
+function hasClaudeNodeRuntimeIncompatibilityOutput(logs) {
+  if (!Array.isArray(logs)) return false;
+  return hasClaudeNodeIncompatibilityText(logs.join('\n'));
+}
+
+function resolveCommandPath(command, pathValue) {
+  if (!command || command.includes('/')) {
+    return existsSync(command) ? command : null;
+  }
+  const parts = String(pathValue || '').split(delimiter).filter(Boolean);
+  for (const dir of parts) {
+    const candidate = join(dir, command);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+function resolveClaudeSpawnSpec(runtime, command, args, env) {
+  if (command !== 'claude' || !isClaudeLocalCliRuntime(runtime)) {
+    return { command, args, wrapper: null };
+  }
+  const nodeBinary = resolveClaudeCompatibleNodeBinary(env);
+  if (!nodeBinary) {
+    return { command, args, wrapper: null };
+  }
+  const claudeEntry = resolveCommandPath(command, env?.PATH);
+  if (!claudeEntry) {
+    return { command, args, wrapper: null };
+  }
+  return {
+    command: nodeBinary,
+    args: [claudeEntry, ...args],
+    wrapper: 'claude_compatible_node',
+  };
 }
 
 function pickDiagnosticEnv(env) {

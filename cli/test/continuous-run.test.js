@@ -98,12 +98,12 @@ function writeGhostBlockedState(dir, overrides = {}) {
     active_turns: {
       [turnId]: {
         turn_id: turnId,
-        assigned_role: 'dev',
+        assigned_role: overrides.roleId || 'dev',
         status: 'failed_start',
         attempt: 1,
         assigned_at: '2026-04-22T00:00:00.000Z',
         assigned_sequence: 1,
-        runtime_id: 'manual-dev',
+        runtime_id: overrides.runtimeId || 'manual-dev',
         baseline: { kind: 'no_git', head_ref: null, clean: true, captured_at: '2026-04-22T00:00:00.000Z' },
         failed_start_reason: overrides.failureType || 'stdout_attach_failed',
         failed_start_threshold_ms: 400,
@@ -1004,6 +1004,76 @@ describe('Continuous Run', () => {
       assert.equal(autoEvents[0].payload.new_turn_id, step.new_turn_id);
       assert.equal(autoEvents[0].payload.attempt, 1);
       assert.equal(autoEvents[0].payload.failure_type, 'stdout_attach_failed');
+    });
+
+    it('BUG-113 auto-reissues retained Claude Node-incompatible ghost blockers when a compatible node is configured', async () => {
+      const { turnId } = writeGhostBlockedState(tmpDir, {
+        turnId: 'turn_claude_node_001',
+        runId: 'run_claude_node_001',
+        roleId: 'qa',
+        runtimeId: 'local-qa',
+        failureType: 'stdout_attach_failed',
+      });
+      const logDir = join(tmpDir, '.agentxchain', 'dispatch', 'turns', turnId);
+      mkdirSync(logDir, { recursive: true });
+      writeFileSync(join(logDir, 'stdout.log'), [
+        '[adapter:diag] spawn_prepare {"command":"claude"}\n',
+        '[stderr] TypeError: Object not disposable\n',
+        '[stderr] Node.js v18.13.0\n',
+        '[adapter:diag] process_exit {"exit_code":1,"staged_result_ready":false,"startup_failure_type":"no_subprocess_output"}\n',
+      ].join(''));
+      const config = readTestConfig(tmpDir);
+      config.roles.qa = { title: 'QA', mandate: 'Verify.', write_authority: 'authoritative', runtime: 'local-qa' };
+      config.runtimes['local-qa'] = { type: 'local_cli', command: 'claude --print' };
+      const context = { root: tmpDir, config };
+      const session = {
+        session_id: 'cont-claude-node',
+        status: 'paused',
+        current_run_id: 'run_claude_node_001',
+        runs_completed: 0,
+        ghost_retry: {
+          run_id: 'run_claude_node_001',
+          attempts: 3,
+          max_retries_per_run: 3,
+          last_old_turn_id: turnId,
+          last_failure_type: 'stdout_attach_failed',
+          exhausted: true,
+        },
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        autoRetryOnGhost: { enabled: true, maxRetriesPerRun: 3, cooldownSeconds: 0 },
+      };
+      const oldNode = process.env.AGENTXCHAIN_CLAUDE_NODE;
+      process.env.AGENTXCHAIN_CLAUDE_NODE = process.execPath;
+      try {
+        const step = await advanceContinuousRunOnce(context, session, contOpts, async () => {
+          assert.fail('retained Claude Node runtime recovery should reissue before executing a governed run');
+        }, () => {});
+
+        assert.equal(step.status, 'running');
+        assert.equal(step.action, 'auto_retried_claude_node_runtime');
+        assert.equal(step.old_turn_id, turnId);
+        assert.notEqual(step.new_turn_id, turnId);
+
+        const savedSession = readContinuousSession(tmpDir);
+        assert.equal(savedSession.status, 'running');
+        assert.equal(savedSession.ghost_retry, undefined);
+
+        const state = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'state.json'), 'utf8'));
+        assert.equal(state.status, 'active');
+        assert.equal(state.blocked_on, null);
+        assert.equal(state.active_turns[turnId], undefined);
+        assert.equal(state.active_turns[step.new_turn_id].reissued_from, turnId);
+
+        const events = readEvents(tmpDir);
+        const autoEvents = events.filter((entry) => entry.event_type === 'auto_retried_ghost');
+        assert.equal(autoEvents.length, 1);
+        assert.equal(autoEvents[0].payload.recovery_class, 'claude_node_runtime_recovered');
+      } finally {
+        if (oldNode === undefined) delete process.env.AGENTXCHAIN_CLAUDE_NODE;
+        else process.env.AGENTXCHAIN_CLAUDE_NODE = oldNode;
+      }
     });
 
     it('pauses and mirrors exhaustion detail when the ghost retry budget is spent', async () => {

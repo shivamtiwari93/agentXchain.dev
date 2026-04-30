@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { accessSync, constants } from 'node:fs';
 
 const CLAUDE_ENV_AUTH_KEYS = [
   'ANTHROPIC_API_KEY',
@@ -11,6 +12,8 @@ const CLAUDE_ENV_AUTH_KEYS = [
 const DEFAULT_SMOKE_PROBE_TIMEOUT_MS = 10_000;
 const DEFAULT_SMOKE_PROBE_STDIN = 'ok';
 const CLAUDE_AUTH_FAILURE_RE = /authentication_failed|authentication_error|invalid authentication credentials|unauthorized|API Error:\s*401/i;
+const CLAUDE_NODE_INCOMPATIBILITY_RE = /TypeError:\s*Object not disposable|Object not disposable[\s\S]{0,2000}Node\.js v(?:1[0-9]|20\.[0-4]\.)/i;
+const CLAUDE_COMPATIBLE_NODE_MIN = { major: 20, minor: 5, patch: 0 };
 
 function normalizeCommandTokens(runtime) {
   if (Array.isArray(runtime?.command)) {
@@ -37,8 +40,75 @@ export function hasClaudeAuthenticationFailureText(text) {
   return typeof text === 'string' && CLAUDE_AUTH_FAILURE_RE.test(text);
 }
 
+export function hasClaudeNodeIncompatibilityText(text) {
+  return typeof text === 'string' && CLAUDE_NODE_INCOMPATIBILITY_RE.test(text);
+}
+
 export function hasClaudeBareFlag(runtime) {
   return normalizeCommandTokens(runtime).includes('--bare');
+}
+
+function parseNodeVersion(raw) {
+  const match = String(raw || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  return {
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2], 10),
+    patch: Number.parseInt(match[3], 10),
+  };
+}
+
+export function isClaudeCompatibleNodeVersion(raw) {
+  const version = parseNodeVersion(raw);
+  if (!version) return false;
+  if (version.major !== CLAUDE_COMPATIBLE_NODE_MIN.major) {
+    return version.major > CLAUDE_COMPATIBLE_NODE_MIN.major;
+  }
+  if (version.minor !== CLAUDE_COMPATIBLE_NODE_MIN.minor) {
+    return version.minor > CLAUDE_COMPATIBLE_NODE_MIN.minor;
+  }
+  return version.patch >= CLAUDE_COMPATIBLE_NODE_MIN.patch;
+}
+
+function isExecutable(filePath) {
+  if (!filePath) return false;
+  try {
+    accessSync(filePath, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function candidateNodeVersion(filePath) {
+  if (!isExecutable(filePath)) return null;
+  const result = spawnSync(filePath, ['--version'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: 2000,
+  });
+  if (result.status !== 0) return null;
+  return String(result.stdout || '').trim();
+}
+
+export function resolveClaudeCompatibleNodeBinary(env = process.env) {
+  if (env?.AGENTXCHAIN_CLAUDE_NODE && isExecutable(env.AGENTXCHAIN_CLAUDE_NODE)) {
+    return env.AGENTXCHAIN_CLAUDE_NODE;
+  }
+
+  const candidates = [
+    process.execPath,
+    '/opt/homebrew/opt/node@20/bin/node',
+    '/opt/homebrew/bin/node',
+    '/usr/local/bin/node',
+  ];
+  for (const candidate of candidates) {
+    const version = candidateNodeVersion(candidate);
+    if (isClaudeCompatibleNodeVersion(version)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 export function getClaudeEnvAuthPresence(env = process.env) {

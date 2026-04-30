@@ -105,17 +105,17 @@ describe('HUMAN-ROADMAP open blocker status', () => {
     );
     assert.match(
       currentFocusLine,
-      /BUG-112 is open/,
-      'current focus must reflect the active BUG-112 provider-timeout blocker',
+      /BUG-113 is open/,
+      'current focus must reflect the active BUG-113 Claude Node runtime blocker',
     );
     assert.match(
       currentFocusLine,
       /counter value 97/,
-      'current focus must preserve the latest strict counter value before BUG-112',
+      'current focus must preserve the latest strict counter value before BUG-113',
     );
     assert.match(
       currentFocusLine,
-      /BUG-95 through BUG-111 are closed/,
+      /BUG-95 through BUG-112 are closed/,
       'current focus must preserve the latest shipped-package dogfood closures',
     );
   });

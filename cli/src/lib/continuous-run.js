@@ -55,7 +55,9 @@ import {
 import { checkpointAcceptedTurn } from './turn-checkpoint.js';
 import {
   hasClaudeAuthenticationFailureText,
+  hasClaudeNodeIncompatibilityText,
   isClaudeLocalCliRuntime,
+  resolveClaudeCompatibleNodeBinary,
 } from './claude-local-auth.js';
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
@@ -316,6 +318,8 @@ function getBlockedCategory(state) {
 
 const CLAUDE_AUTH_RECOVERY_ACTION =
   'Refresh Claude credentials before resuming: export a valid ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN, then run agentxchain step --resume.';
+const CLAUDE_NODE_RECOVERY_ACTION =
+  'Run AgentXchain with Node.js 20.5+ available to the Claude local_cli runtime, then resume continuous mode.';
 
 function findRetainedClaudeAuthEscalation(root, state, config) {
   if (!state || state.status !== 'blocked') return null;
@@ -392,6 +396,104 @@ function maybeReclassifyRetainedClaudeAuthEscalation(context, session, state, lo
     },
   });
   log(`Reclassified retained Claude auth escalation for ${candidate.turn_id} as dispatch:claude_auth_failed.`);
+  return nextState;
+}
+
+function findRetainedClaudeNodeIncompatGhost(root, state, config) {
+  if (!state || state.status !== 'blocked') return null;
+  if (state.blocked_reason?.category !== 'ghost_turn') return null;
+  const activeTurns = state.active_turns || {};
+  const turnId = state.blocked_reason?.turn_id || null;
+  const candidateIds = turnId && activeTurns[turnId] ? [turnId] : Object.keys(activeTurns);
+  for (const candidateId of candidateIds) {
+    const turn = activeTurns[candidateId];
+    if (!turn || turn.status !== 'failed_start') continue;
+    if (turn.failed_start_reason !== 'stdout_attach_failed') continue;
+    const runtime = config?.runtimes?.[turn.runtime_id];
+    if (!isClaudeLocalCliRuntime(runtime)) continue;
+    const logPath = join(root, getDispatchLogPath(candidateId));
+    if (!existsSync(logPath)) continue;
+    let logText = '';
+    try {
+      logText = readFileSync(logPath, 'utf8');
+    } catch {
+      continue;
+    }
+    if (!hasClaudeNodeIncompatibilityText(logText)) continue;
+    return { turn_id: candidateId, turn, previous_blocked_on: state.blocked_on || null };
+  }
+  return null;
+}
+
+function reclassifyRetainedClaudeNodeIncompatGhost(context, session, state, candidate, nodeBinary, log = console.log) {
+  const { root } = context;
+  if (nodeBinary) {
+    const reissued = reissueTurn(root, context.config, {
+      turnId: candidate.turn_id,
+      reason: 'auto_retry_claude_node_runtime',
+    });
+    if (!reissued.ok) {
+      log(`Claude Node runtime auto-retry skipped: ${reissued.error}`);
+      return null;
+    }
+    const runId = session.current_run_id || state.run_id || reissued.state?.run_id || null;
+    const nextState = clearGhostBlockerAfterReissue(root, reissued.state);
+    delete session.ghost_retry;
+    Object.assign(session, {
+      status: 'running',
+      current_run_id: runId,
+    });
+    writeContinuousSession(root, session);
+    emitRunEvent(root, 'auto_retried_ghost', {
+      run_id: runId,
+      phase: nextState.phase || state.phase || null,
+      status: 'active',
+      turn: { turn_id: reissued.newTurn.turn_id, role_id: reissued.newTurn.assigned_role || null },
+      payload: {
+        old_turn_id: candidate.turn_id,
+        new_turn_id: reissued.newTurn.turn_id,
+        failure_type: 'stdout_attach_failed',
+        recovery_class: 'claude_node_runtime_recovered',
+        runtime_id: candidate.turn.runtime_id || null,
+        node_binary: nodeBinary,
+      },
+    });
+    log(`Claude Node runtime recovered; auto-retried ${candidate.turn_id} -> ${reissued.newTurn.turn_id}.`);
+    return {
+      ok: true,
+      status: 'running',
+      action: 'auto_retried_claude_node_runtime',
+      run_id: runId,
+      old_turn_id: candidate.turn_id,
+      new_turn_id: reissued.newTurn.turn_id,
+    };
+  }
+
+  const blockedAt = new Date().toISOString();
+  const nextState = {
+    ...state,
+    status: 'blocked',
+    blocked_on: 'dispatch:claude_node_incompatible',
+    blocked_reason: {
+      category: 'dispatch_error',
+      blocked_at: blockedAt,
+      turn_id: candidate.turn_id,
+      reclassified_from: {
+        blocked_on: state.blocked_on || null,
+        category: state.blocked_reason?.category || null,
+      },
+      recovery: {
+        typed_reason: 'dispatch_error',
+        owner: 'human',
+        recovery_action: CLAUDE_NODE_RECOVERY_ACTION,
+        turn_retained: true,
+        detail: `claude_node_incompatible: ${CLAUDE_NODE_RECOVERY_ACTION}`,
+      },
+    },
+    escalation: null,
+  };
+  writeGovernedState(root, nextState);
+  log(`Reclassified retained Claude Node runtime blocker for ${candidate.turn_id} as dispatch:claude_node_incompatible.`);
   return nextState;
 }
 
@@ -1810,7 +1912,20 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
   const startupGovernedState = loadProjectState(root, context.config);
   if (startupGovernedState?.status === 'blocked') {
     const reclassifiedState = maybeReclassifyRetainedClaudeAuthEscalation(context, session, startupGovernedState, log);
-    const effectiveBlockedState = reclassifiedState || startupGovernedState;
+    let effectiveBlockedState = reclassifiedState || startupGovernedState;
+    const nodeCandidate = findRetainedClaudeNodeIncompatGhost(root, effectiveBlockedState, context.config);
+    if (nodeCandidate) {
+      const nodeRecovery = reclassifyRetainedClaudeNodeIncompatGhost(
+        context,
+        session,
+        effectiveBlockedState,
+        nodeCandidate,
+        resolveClaudeCompatibleNodeBinary(process.env),
+        log,
+      );
+      if (nodeRecovery?.status === 'running') return nodeRecovery;
+      if (nodeRecovery) effectiveBlockedState = nodeRecovery;
+    }
     const retried = await maybeAutoRetryContinuousBlocker(context, session, contOpts, effectiveBlockedState, log);
     if (retried) return retried;
     session.status = 'paused';
