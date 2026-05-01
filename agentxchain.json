@@ -8,55 +8,66 @@
   },
   "roles": {
     "pm": {
-      "title": "Product Manager",
-      "mandate": "Protect user value, scope clarity, and acceptance criteria.",
-      "write_authority": "review_only",
-      "runtime": "manual-pm"
+      "title": "Staff Product Manager",
+      "mandate": "Protect user value, scope clarity, and acceptance criteria. Derive bounded roadmap increments from VISION.md. Enforce GSD planning discipline.",
+      "write_authority": "authoritative",
+      "runtime": "local-opus-4.7"
     },
     "dev": {
-      "title": "Developer",
-      "mandate": "Implement approved work safely and verify behavior.",
+      "title": "Staff Fullstack Developer",
+      "mandate": "Implement approved work safely, write tests, verify behavior, and ship releases. Write actual source code — planning docs alone are not a deliverable.",
       "write_authority": "authoritative",
-      "runtime": "local-dev"
+      "runtime": "local-gpt-5.5"
     },
     "qa": {
-      "title": "QA",
-      "mandate": "Challenge correctness, acceptance coverage, and ship readiness.",
-      "write_authority": "review_only",
-      "runtime": "api-qa"
+      "title": "Staff QA Engineer",
+      "mandate": "Challenge correctness, acceptance coverage, and ship readiness. Every claim must be backed by evidence. No rubber stamps.",
+      "write_authority": "authoritative",
+      "runtime": "local-opus-4.6"
     },
     "eng_director": {
       "title": "Engineering Director",
-      "mandate": "Resolve tactical deadlocks and enforce technical coherence.",
-      "write_authority": "review_only",
-      "runtime": "manual-director"
+      "mandate": "Resolve tactical deadlocks, enforce technical coherence, and make binding architectural decisions.",
+      "write_authority": "authoritative",
+      "runtime": "local-gpt-5.5"
     }
   },
   "runtimes": {
-    "manual-pm": {
-      "type": "manual"
-    },
-    "local-dev": {
+    "local-opus-4.7": {
       "type": "local_cli",
       "command": [
         "claude",
         "--print",
-        "--dangerously-skip-permissions"
+        "--dangerously-skip-permissions",
+        "--model", "claude-opus-4-7",
+        "--effort", "high"
       ],
       "cwd": ".",
       "prompt_transport": "stdin"
     },
-    "api-qa": {
-      "type": "api_proxy",
-      "provider": "anthropic",
-      "model": "claude-sonnet-4-6",
-      "auth_env": "ANTHROPIC_API_KEY"
+    "local-gpt-5.5": {
+      "type": "local_cli",
+      "command": [
+        "/Applications/Codex.app/Contents/Resources/codex",
+        "exec",
+        "-m", "gpt-5.5",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "-c", "model_reasoning_effort=\"high\""
+      ],
+      "cwd": ".",
+      "prompt_transport": "stdin"
     },
-    "manual-qa": {
-      "type": "manual"
-    },
-    "manual-director": {
-      "type": "manual"
+    "local-opus-4.6": {
+      "type": "local_cli",
+      "command": [
+        "claude",
+        "--print",
+        "--dangerously-skip-permissions",
+        "--model", "claude-opus-4-6",
+        "--effort", "high"
+      ],
+      "cwd": ".",
+      "prompt_transport": "stdin"
     }
   },
   "routing": {
@@ -64,6 +75,7 @@
       "entry_role": "pm",
       "allowed_next_roles": [
         "pm",
+        "dev",
         "eng_director",
         "human"
       ],
@@ -119,7 +131,7 @@
         ".planning/ROADMAP.md",
         ".planning/SYSTEM_SPEC.md"
       ],
-      "requires_human_approval": true,
+      "requires_human_approval": false,
       "credentialed": false
     },
     "implementation_complete": {
@@ -135,18 +147,27 @@
         ".planning/ship-verdict.md",
         ".planning/RELEASE_NOTES.md"
       ],
-      "requires_human_approval": true,
+      "requires_human_approval": false,
       "requires_verification_pass": true,
       "credentialed": false
     }
   },
   "approval_policy": {
     "phase_transitions": {
-      "default": "require_human",
+      "default": "auto_approve",
       "rules": [
         {
           "from_phase": "planning",
           "to_phase": "implementation",
+          "action": "auto_approve",
+          "when": {
+            "gate_passed": true,
+            "credentialed_gate": false
+          }
+        },
+        {
+          "from_phase": "implementation",
+          "to_phase": "qa",
           "action": "auto_approve",
           "when": {
             "gate_passed": true,
@@ -165,8 +186,8 @@
     }
   },
   "budget": {
-    "per_turn_max_usd": 2,
-    "per_run_max_usd": 50,
+    "per_turn_max_usd": 5,
+    "per_run_max_usd": 100,
     "on_exceed": "pause_and_escalate"
   },
   "retention": {
