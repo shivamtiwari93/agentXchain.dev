@@ -1,14 +1,14 @@
-# System Spec — agentXchain.dev Self-Governance Cycle
+# System Spec — agentXchain.dev M1 Ghost Turn Elimination
 
-**Run:** `run_8485b8044fbc7e77`
-**Baseline:** `git:6cf44000db1e678926498a41a514b7e91d8b7652`
+**Run:** `run_984f0f8c07a30a5c`
+**Baseline:** `git:da4cd47ac3e5ff7f5e86715f9ae99b7a17149e5d`
 **Package version:** `agentxchain@2.155.72`
 
 ## Purpose
 
-Validate the agentxchain governance protocol by completing a clean planning→implementation→QA cycle on the agentxchain.dev repository itself. This run exercises the same protocol that drives the DOGFOOD-100 initiative on tusq.dev, providing additional substrate-credibility evidence that the framework governs its own development.
+Diagnose and document the root cause of ghost turns when dispatching to `local_cli` runtimes with `stream-json` output, then harden the adapter and watchdog layers to prevent recurrence. This addresses ROADMAP M1: Self-Governance Hardening — Ghost Turn Elimination.
 
-**Scope constraint:** HUMAN-ROADMAP mandates DOGFOOD-100 as the sole priority (paused at 97/100 on credential blocker). This self-governance run IS dogfood-adjacent work — it proves the protocol handles its own repo. No feature additions, no unrelated improvements.
+**Scope:** Ghost turn root cause diagnosis (completed by PM), followed by implementation of startup heartbeat, configurable turn timeout, and regression test coverage (dev phase).
 
 ## Interface
 
@@ -57,6 +57,29 @@ Roles defined dynamically in `agentxchain.json`. Current roster: `pm`, `dev`, `q
 - After `max_turn_retries` (2) exhausted, escalate to human via `HUMAN_TASKS.md`
 - Proven through DOGFOOD BUG-112/113/114 on tusq.dev
 
+### Ghost Turn Root Cause (M1 Diagnosis)
+
+**Diagnosed in `run_984f0f8c07a30a5c`.** Three ghost turns occurred across `run_5fb440e67c8d1cae` and `run_2768a5d6ca1ca89a`:
+
+| Turn | Run | Duration | Pattern |
+|------|-----|----------|---------|
+| `turn_1da85f162e414be8` | `run_5fb440e67c8d1cae` | 180.6s | Startup watchdog timeout (no stdout within 180s) |
+| `turn_1669b781a7401218` | `run_2768a5d6ca1ca89a` | 2.1s | Immediate CLI rejection |
+| `turn_cd361d6f48043439` | `run_2768a5d6ca1ca89a` | 2.2s | Immediate CLI rejection |
+
+**Root cause:** The runtime command in `agentxchain.json` used `--print --output-format stream-json` without the `--verbose` flag. Claude Code CLI validates this flag combination at startup and rejects it immediately with `Error: When using --print, --output-format=stream-json requires --verbose` written to **stderr only** (exit code 1).
+
+**Why this manifests as a ghost (not a crash):**
+1. The error goes to stderr, which the orchestrator correctly classifies as `diagnostic_only` (per DEC-BUG54: stderr is NOT startup proof)
+2. `first_output_at` is only set by stdout output — never set in this case
+3. No turn-result.json is staged because the agent process never starts
+4. The stale-turn-watchdog fires when the startup proof deadline expires without `first_output_at`
+5. For the 2-second ghosts: the process had already exited, but the watchdog still classifies it as a ghost because no startup proof was observed
+
+**Fix applied:** Commit `6cf44000d` added `--verbose` to both `local-opus-4.7` and `local-opus-4.6` runtime command arrays. Subsequent run `run_8485b8044fbc7e77` completed all 3 phases (PM→Dev→QA) with zero ghost turns.
+
+**Architectural finding:** The orchestrator's ghost detection, output classification, and recovery logic are all correct. The failure was purely a configuration-level issue. However, the adapter layer has no explicit validation of CLI flag compatibility before spawning — it passes the command array verbatim to `spawn()`. This is an improvement opportunity (see M1 remaining items).
+
 ### Challenge Requirement
 - `rules.challenge_required: true` — every role must explicitly challenge the previous turn's work
 - No rubber-stamping; substantive review of prior decisions
@@ -93,3 +116,5 @@ Roles defined dynamically in `agentxchain.json`. Current roster: `pm`, `dev`, `q
 2. **Minimum viable recovery model for ghost turns?** → Reissue with attempt counter (max 2), escalate to human after exhaustion. Already shipped at v2.155.72, proven through DOGFOOD BUG-112/113/114. No open question. (DEC-PM-002)
 
 3. **Dynamic vs static role registration?** → Dynamic. Roles defined in `agentxchain.json`, validated at dispatch time. VISION.md: "roles must be open-ended and charter-driven" and "the framework must support arbitrary agent roles and arbitrary charters." Already the implementation. (DEC-PM-003)
+
+4. **What causes ghost turns on local_cli runtimes with stream-json output?** → Missing `--verbose` flag in runtime command config. Claude Code CLI requires `--verbose` when `--print --output-format stream-json` is used. Without it, immediate exit (code 1) with error to stderr only → orchestrator never sees startup proof → ghost classification. Fixed in commit `6cf44000d`. (DEC-PM-004, run `run_984f0f8c07a30a5c`)

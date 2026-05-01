@@ -11,10 +11,14 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 ---
 
 ### M1: Self-Governance Hardening — Ghost Turn Elimination
-- [ ] Diagnose root cause of ghost turns when dispatching to local_cli runtimes with stream-json output
+- [x] Diagnose root cause of ghost turns when dispatching to local_cli runtimes with stream-json output
+  - **Root cause:** Missing `--verbose` flag in runtime command config. Claude Code CLI rejects `--print --output-format stream-json` without `--verbose`, exiting immediately (code 1) with error to stderr only. Orchestrator correctly ignores stderr as startup proof (DEC-BUG54), so `first_output_at` is never set → watchdog classifies as ghost.
+  - **Evidence:** 3 ghost turns across runs `run_5fb440e67c8d1cae` and `run_2768a5d6ca1ca89a` (2 at ~2s = immediate CLI rejection, 1 at ~180s = startup watchdog timeout). Fix applied in commit `6cf44000d`. Subsequent run `run_8485b8044fbc7e77` completed all 3 phases with zero ghosts.
+  - **Secondary finding:** The orchestrator's ghost detection, output tracking, and recovery logic are all sound. The failure was purely a configuration issue in `agentxchain.json` runtime command arrays.
 - [ ] Add startup heartbeat protocol: adapter emits periodic keepalive during tool-use silence
 - [ ] Add configurable turn timeout (distinct from startup watchdog) for long-running turns
 - [ ] Regression tests for ghost detection, auto-retry, and escalation paths
+  - Should include: (a) missing `--verbose` flag regression, (b) stderr-only output → ghost classification, (c) fast-exit subprocess → immediate ghost detection, (d) auto-retry with attempt counter, (e) max-retry escalation to human
 - [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs
 
 ### M2: Vision Derivation — Continuous Roadmap Replenishment
