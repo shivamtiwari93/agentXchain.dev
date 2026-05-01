@@ -2,23 +2,33 @@
 
 ## User Impact
 
-**Stricter workspace artifact validation.** Turn results declaring `artifact.type: "workspace"` with empty `files_changed` are now rejected unless the turn declares `verification.produced_files` entries with `disposition: "artifact"`. This prevents no-edit turns from falsely claiming workspace mutations, improving checkpoint integrity.
+**Pre-spawn command compatibility guard.** The local CLI adapter now blocks Claude commands using `--print` with `--output-format stream-json` that are missing `--verbose` before subprocess spawn. This prevents the known ghost-turn failure mode where Claude emits no parseable output, producing a `local_cli_command_incompatible` typed dispatch blocker with a clear recovery message instead of a silent startup failure.
 
-**Normalization preserves produced-file artifacts.** The workspace→review normalization no longer fires when checkpointable produced files exist, ensuring verification-generated artifacts are properly promoted into the checkpoint.
+**Startup heartbeat diagnostics.** Spawned local CLI subprocesses that are silent before first output now emit periodic `[adapter:diag] startup_heartbeat` diagnostics. Heartbeats are informational keepalives only — they do not count as startup proof and do not affect ghost-turn classification.
+
+**Schema-backed watchdog configuration.** `startup_watchdog_ms` and `startup_heartbeat_ms` are now validated config knobs at both `run_loop.*` (global) and `runtimes.<id>.*` (per-runtime) levels, with runtime > global > default precedence. Invalid values are rejected at config validation time rather than silently falling back to defaults.
+
+**Adapter timeout threading.** The `timeouts.per_turn_minutes` deadline is now reflected at the adapter dispatch boundary as well as the outer run-loop abort signal, ensuring consistent timeout enforcement.
 
 ## Verification Summary
 
-- 99 turn-result-validator unit tests: PASS
-- 32 beta-tester scenario tests (BUG-46, BUG-52): PASS
-- 79 adjacent validator-exercising tests: PASS
+- 42 local-cli-adapter tests: PASS (including 7 new ghost-hardening regression tests)
+- 7 config schema tests: PASS
+- 39 run-loop tests: PASS
+- 31 timeout-evaluator tests: PASS
+- 99 turn-result-validator tests: PASS
 - 4 emission guard tests: PASS
-- **Total: 214 tests, 0 failures in scope**
+- **Total: 222 in-scope tests, 0 failures**
 
 ## Upgrade Notes
 
-No breaking changes for conformant turn results. Turn results that previously declared `artifact.type: "workspace"` with empty `files_changed` and no `verification.produced_files` will now fail validation. The fix is to either:
-1. Use `artifact.type: "review"` for no-edit turns, or
-2. Declare `verification.produced_files` with `disposition: "artifact"` for verification-generated outputs.
+No breaking changes for conformant configurations. Runtimes using `claude --print --output-format stream-json` must include `--verbose` in the command array; the adapter will now reject these at dispatch time instead of producing a ghost turn.
+
+New optional config knobs:
+- `run_loop.startup_watchdog_ms` (default: 180000)
+- `run_loop.startup_heartbeat_ms` (default: 30000)
+- `runtimes.<id>.startup_watchdog_ms` (per-runtime override)
+- `runtimes.<id>.startup_heartbeat_ms` (per-runtime override)
 
 ## Known Issues
 
