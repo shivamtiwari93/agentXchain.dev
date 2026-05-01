@@ -1,51 +1,75 @@
-# Roadmap — agentXchain.dev Self-Governance Cycle
+# Roadmap — agentXchain.dev
 
-**Run:** `run_8485b8044fbc7e77`
-**Date:** 2026-05-01
+## Current Version
 
-## Run Scope
+`agentxchain@2.155.72` — 72 CLI commands, protocol v7, 3 runtime types (local_cli, api_proxy, manual), generic + sdlc templates, workflow kit, plugin system, intake system, dashboard, multi-repo coordination, continuous vision-driven mode.
 
-**Objective:** Complete a clean planning→implementation→QA self-governance cycle on agentxchain.dev, validating protocol gate progression and artifact contracts.
+## Milestone Queue
 
-**Constraint:** HUMAN-ROADMAP mandates DOGFOOD-100 as the sole priority (paused at 97/100 on credential blocker). This self-governance run is dogfood-adjacent substrate validation — no feature additions, no code changes.
+Milestones are derived from `.planning/VISION.md` and ordered by impact on the core product thesis: **governed long-horizon AI software delivery.**
+
+---
+
+### M1: Self-Governance Hardening — Ghost Turn Elimination
+- [ ] Diagnose root cause of ghost turns when dispatching to local_cli runtimes with stream-json output
+- [ ] Add startup heartbeat protocol: adapter emits periodic keepalive during tool-use silence
+- [ ] Add configurable turn timeout (distinct from startup watchdog) for long-running turns
+- [ ] Regression tests for ghost detection, auto-retry, and escalation paths
+- [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs
+
+### M2: Vision Derivation — Continuous Roadmap Replenishment
+- [ ] Fix idle-expansion heuristic to distinguish "current roadmap exhausted" from "vision fully addressed"
+- [ ] When ROADMAP.md milestones are all checked and VISION.md has uncovered scope, dispatch PM to derive next increment
+- [ ] Emit clear status: "Roadmap exhausted, vision still open, deriving next increment"
+- [ ] Regression tests for the three-state model: run complete, roadmap exhausted, vision exhausted
+- [ ] Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope
+
+### M3: Multi-Model Turn Handoff Quality
+- [ ] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
+- [ ] Validate that stream-json and --json output formats are correctly parsed by the adapter
+- [ ] Add model identity metadata to turn checkpoints (which model produced this turn)
+- [ ] Test cross-model challenge quality: does QA (Opus 4.6) effectively challenge Dev (GPT 5.5)?
+- [ ] Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles
+
+### M4: Recovery & Resilience Hardening
+- [ ] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash
+- [ ] Add structured recovery classification to governance reports
+- [ ] Improve checkpoint-restore: verify a killed mid-turn process can cleanly resume
+- [ ] Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)
+- [ ] Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`
+
+### M5: Protocol V8 — Parallel Turn Support
+- [ ] Implement parallel turn dispatch within a single phase (multiple devs working concurrently)
+- [ ] Add conflict detection when parallel turns modify overlapping files
+- [ ] Add merge strategy for parallel turn results
+- [ ] Update governance reports to show parallel execution timelines
+- [ ] Acceptance: 2 dev turns dispatched in parallel, both accepted, conflicts detected and resolved
+
+### M6: Dashboard Live Observer
+- [ ] Real-time dashboard showing active turns, phase progression, and budget consumption
+- [ ] WebSocket or SSE event stream from the run loop
+- [ ] Turn timeline visualization with model attribution
+- [ ] Gate status indicators with file-level detail
+- [ ] Acceptance: dashboard reflects live state within 5s of turn events during a governed run
+
+### M7: Connector Ecosystem Expansion
+- [ ] Add Cursor IDE connector (local_cli adapter variant)
+- [ ] Add Windsurf connector
+- [ ] Add OpenCode connector
+- [ ] Validate each connector with a single governed turn end-to-end
+- [ ] Acceptance: `agentxchain doctor` passes for each new connector type
+
+### M8: agentxchain.ai Managed Surface — MVP
+- [ ] Design control plane API for remote run management
+- [ ] Implement hosted runner that executes protocol against cloud agent APIs
+- [ ] Organization dashboard with multi-project visibility
+- [ ] Persistent run history and governance audit trail
+- [ ] Acceptance: a governed run completes via the hosted runner with dashboard visibility
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope the run, complete spec, resolve open questions, sign off | **Complete** — PM_SIGNOFF approved, SYSTEM_SPEC and ROADMAP refreshed for `run_8485b8044fbc7e77` |
-| Implementation | Dev verifies planning artifacts are actionable; produces IMPLEMENTATION_NOTES.md confirming protocol behavior matches spec | Pending |
-| QA | Challenge correctness of planning artifacts and implementation notes against VISION.md and shipped behavior (v2.155.72). Produce acceptance-matrix, ship-verdict, release notes | Pending |
-
-## Build Order (Implementation Phase)
-
-When the dev role enters implementation, the recommended verification sequence is:
-
-1. **Verify protocol state machine** — confirm `.agentxchain/state.json` schema and phase transitions match SYSTEM_SPEC
-2. **Verify turn validation** — confirm turn-result.json schema enforcement matches artifact contract
-3. **Verify gate evaluation** — confirm gate file checks match gate configuration in `agentxchain.json`
-4. **Verify decision ledger / history** — confirm append-only JSONL integrity
-5. **Verify ghost recovery** — confirm `auto_retry_ghost` behavior matches spec (reissue + attempt counter + escalation). Evidence: 4 ghost reissues in `history.jsonl`
-6. **Produce IMPLEMENTATION_NOTES.md** — document verification findings and any divergences
-
-This sequence follows dependency order: state machine underpins turn validation, which underpins gate evaluation, which underpins the rest.
-
-**Scope clarification for dev:** This is a validation run. The dev mandate's "write actual source code" clause does not apply — `IMPLEMENTATION_NOTES.md` documenting verification findings is the expected deliverable per the run scope and gate configuration. Do NOT implement new features or refactor existing code.
-
-## Deliverables
-
-| Artifact | Owner | Phase | Status |
-|----------|-------|-------|--------|
-| `.planning/PM_SIGNOFF.md` | PM | Planning | Done |
-| `.planning/SYSTEM_SPEC.md` | PM | Planning | Done |
-| `.planning/ROADMAP.md` | PM | Planning | Done |
-| `.planning/IMPLEMENTATION_NOTES.md` | Dev | Implementation | Pending |
-| `.planning/acceptance-matrix.md` | QA | QA | Pending |
-| `.planning/ship-verdict.md` | QA | QA | Pending |
-| `.planning/RELEASE_NOTES.md` | QA | QA | Pending |
-
-## Dependencies & Blockers
-
-- **DOGFOOD-100 credential blocker** (operator-side): Anthropic 401 on tusq.dev at counter 97/100. Does NOT block this self-governance run on agentxchain.dev.
-- **Ghost turn pattern**: 4 PM ghosts across 2 prior runs. Mitigated in this run by scoping PM work to artifact refresh rather than generation from scratch.
-- This run has **no external blockers**. All gate files can be produced by the assigned roles.
+| Planning | Protect user value, scope clarity, and acceptance criteria. | In progress |
+| Implementation | Implement approved work safely and verify behavior. | Pending |
+| QA | Challenge correctness, acceptance coverage, and ship readiness. | Pending |
