@@ -2,6 +2,11 @@
 
 Approved: YES
 
+**Run:** `run_8485b8044fbc7e77`
+**Phase:** planning
+**Turn:** `turn_20a24981c1641edd`
+**Date:** 2026-05-01
+
 ## Discovery Checklist
 - [x] Target user defined
 - [x] Core pain point defined
@@ -16,7 +21,7 @@ AgentXchain operators running governed multi-agent delivery on their own reposit
 
 ### Core Pain Point
 
-The governance protocol must prove it can complete a clean planning→implementation→QA cycle without human intervention or manual recovery. The previous PM turn (turn_326901cbe857c00a) identified valid gaps but escalated to human instead of resolving them — creating unnecessary dependency.
+The governance protocol must prove it can complete a clean planning→implementation→QA cycle without human intervention or manual recovery. Prior runs have failed to complete even a single PM turn — four consecutive ghost turns across `run_5fb440e67c8d1cae` and `run_2768a5d6ca1ca89a` demonstrate that the PM role is the weakest link in the chain.
 
 ### Core Workflow
 
@@ -27,18 +32,19 @@ The governance protocol must prove it can complete a clean planning→implementa
 
 ### MVP Scope
 
-- Complete SYSTEM_SPEC with protocol governance spec (state machine, turn contracts, gates, recovery, artifact normalization)
-- Resolve the three open questions from previous PM review (standalone spec, ghost recovery, role registration)
-- Add build-order to ROADMAP for dev phase
-- Validate self-governance cycle as substrate-credibility evidence
+- Complete and refresh planning artifacts for `run_8485b8044fbc7e77`
+- Validate SYSTEM_SPEC against shipped behavior at `agentxchain@2.155.72`
+- Resolve dev mandate tension explicitly
+- Provide actionable build order in ROADMAP for implementation phase
+- Gate all three planning files for clean phase transition
 
 ### Out of Scope
 
-- New feature development (DOGFOOD-100 lockout)
+- New feature development (DOGFOOD-100 lockout, paused at 97/100)
 - Watch-mode extensions, connectors, website polish
-- tusq.dev work (blocked on credential issue, separate repo)
-- CLI implementation changes
-- Release or version bump
+- tusq.dev work (blocked on credential blocker, separate repo)
+- CLI implementation changes or patch releases
+- Code changes of any kind — this is a validation run
 
 ### Success Metric
 
@@ -46,21 +52,24 @@ Clean phase progression through planning→implementation→QA on agentxchain.de
 
 ## Challenge to Previous Work
 
-**Run context:** This is run `run_5fb440e67c8d1cae`. The first PM turn (`turn_1da85f162e414be8`) ghosted — it timed out before producing a result. The orchestrator correctly applied `auto_retry_ghost` recovery and reissued as attempt 2. There is no substantive prior turn output to challenge within this run.
+**Ghost turn epidemic (OBJ-PM-001):** The history.jsonl shows four `auto_retry_ghost` reissues across two prior runs (`run_5fb440e67c8d1cae` turn 1, `run_2768a5d6ca1ca89a` turns 1-2) without a single completed PM turn. The SYSTEM_SPEC describes ghost recovery as "proven through DOGFOOD BUG-112/113/114" — but those are QA/dev turn ghosts on tusq.dev. The PM-specific ghost pattern on agentxchain.dev suggests either (a) the PM prompt is too large for the 20-minute deadline, (b) the PM runtime is hitting provider-side timeouts, or (c) the planning-phase workload is structurally incompatible with the current timeout budget. **Resolution for this run:** The existing planning artifacts are substantively complete from prior runs. This turn focuses on refreshing and signing off rather than generating from scratch, which should fit within the deadline. If this turn also ghosts, the eng_director should investigate the PM runtime's timeout characteristics before retrying.
 
-**Cross-run lineage:** The planning artifacts (PM_SIGNOFF, ROADMAP, SYSTEM_SPEC) were produced during a prior run (`run_38fc60dcc846a839`) and carry forward. Reviewing their validity for this run:
+**Stale run references (OBJ-PM-002):** The prior PM_SIGNOFF referenced `run_5fb440e67c8d1cae` and its challenge section discussed cross-run lineage from `run_38fc60dcc846a839`. These stale references are now replaced with current run `run_8485b8044fbc7e77` context. The planning artifacts' substance (spec, roadmap, scope) carries forward because the project state hasn't changed — DOGFOOD-100 is still paused at 97/100, the codebase is at `v2.155.72`, and no new features have landed.
 
-1. **PM_SIGNOFF scope** — Still valid. DOGFOOD-100 remains paused at 97/100 on an operator-only Anthropic credential blocker (confirmed at `agentxchain@2.155.72`). This self-governance run is legitimate substrate validation work while DOGFOOD-100 is blocked.
+**Dev mandate tension (OBJ-PM-003):** `agentxchain.json` defines the dev mandate as "Write actual source code — planning docs alone are not a deliverable." The ROADMAP scopes dev to produce `IMPLEMENTATION_NOTES.md` documenting verification findings. **Resolution:** This is a validation run, not an implementation run. The dev role's task is to verify protocol behavior against the spec and document findings. `IMPLEMENTATION_NOTES.md` is the implementation-phase gate artifact per `agentxchain.json` gates configuration. The dev mandate's "write actual source code" clause applies to runs with code-change scope. For validation runs, the governed artifact IS the deliverable. This is explicitly noted in the ROADMAP so dev doesn't misinterpret its scope.
 
-2. **SYSTEM_SPEC resolved questions (DEC-PM-001/002/003)** — Still valid. Standalone spec, ghost recovery model, and dynamic role registration all match shipped behavior at v2.155.72 and align with VISION.md.
+**SYSTEM_SPEC acceptance tests (OBJ-PM-004):** Only the planning gate test is checked. The remaining four tests (turn validation, phase transition, ghost recovery, end-to-end) are unchecked and are the acceptance criteria for implementation and QA phases. This is correct — they should be verified during those phases, not pre-checked by PM.
 
-3. **ROADMAP build order** — Still valid. Dependency-ordered verification sequence for the dev phase is correct.
+## Notes for Dev
 
-**New challenge — OBJ-PM-004 (Dev mandate tension):** The ROADMAP scopes dev work as "validates planning artifacts are actionable; produces IMPLEMENTATION_NOTES.md confirming protocol behavior matches spec." However, `agentxchain.json` defines the dev mandate as "Write actual source code — planning docs alone are not a deliverable." Resolution: this run's scope constraint (HUMAN-ROADMAP: no feature additions) takes precedence. IMPLEMENTATION_NOTES.md documenting verification findings IS a valid deliverable when the run scope is validation, not implementation. Dev should interpret "write actual source code" as applying to implementation-phase runs with code-change scope, not to validation runs. This is a scope-level override, not a mandate violation.
+- Your task is **verification, not implementation**. Read the SYSTEM_SPEC, then verify that the orchestrator's actual behavior at `v2.155.72` matches each section (state machine, turn contracts, gates, recovery, artifact normalization).
+- Produce `.planning/IMPLEMENTATION_NOTES.md` documenting what matches, what diverges, and any gaps.
+- Use `agentxchain.json`, `.agentxchain/state.json` (read-only), and `history.jsonl` as evidence sources.
+- Do NOT modify reserved state files.
 
-## Notes for team
+## Notes for QA
 
-- Dev should verify protocol behavior against SYSTEM_SPEC, not implement new code. This is a validation run. IMPLEMENTATION_NOTES.md documenting verification findings is the expected deliverable — this satisfies the dev mandate within this run's scope constraint.
-- QA should challenge whether the planning artifacts accurately reflect shipped behavior at v2.155.72.
-- This run is dogfood-adjacent: proving the protocol governs its own development IS substrate validation.
-- Ghost recovery context: the first PM turn ghosted and was auto-reissued per SYSTEM_SPEC ghost recovery model. This is itself evidence that the protocol's recovery mechanism works as specified.
+- Challenge whether dev's verification findings are complete and accurate.
+- Cross-reference IMPLEMENTATION_NOTES.md against VISION.md, SYSTEM_SPEC.md, and the actual codebase.
+- The acceptance matrix should cover each SYSTEM_SPEC section as a separate acceptance criterion.
+- The ship verdict gates on: all spec sections verified, no critical divergences unresolved, audit trail complete.

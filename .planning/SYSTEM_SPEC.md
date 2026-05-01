@@ -1,10 +1,14 @@
 # System Spec — agentXchain.dev Self-Governance Cycle
 
+**Run:** `run_8485b8044fbc7e77`
+**Baseline:** `git:6cf44000db1e678926498a41a514b7e91d8b7652`
+**Package version:** `agentxchain@2.155.72`
+
 ## Purpose
 
 Validate the agentxchain governance protocol by completing a clean planning→implementation→QA cycle on the agentxchain.dev repository itself. This run exercises the same protocol that drives the DOGFOOD-100 initiative on tusq.dev, providing additional substrate-credibility evidence that the framework governs its own development.
 
-**Scope constraint:** HUMAN-ROADMAP mandates DOGFOOD-100 as the sole priority. This self-governance run IS dogfood-adjacent work — it proves the protocol handles its own repo. No feature additions, no unrelated improvements.
+**Scope constraint:** HUMAN-ROADMAP mandates DOGFOOD-100 as the sole priority (paused at 97/100 on credential blocker). This self-governance run IS dogfood-adjacent work — it proves the protocol handles its own repo. No feature additions, no unrelated improvements.
 
 ## Interface
 
@@ -77,10 +81,10 @@ Roles defined dynamically in `agentxchain.json`. Current roster: `pm`, `dev`, `q
 ## Acceptance Tests
 
 - [x] Planning gate: PM_SIGNOFF.md exists with `Approved: YES`, ROADMAP.md and SYSTEM_SPEC.md complete
-- [ ] Turn validation: orchestrator accepts well-formed turn-result.json and rejects malformed ones
-- [ ] Phase transition: planning→implementation advances when all gate files present
-- [ ] Ghost recovery: timed-out turn is reissued without human intervention
-- [ ] End-to-end: complete planning→implementation→QA cycle produces inspectable audit trail in `.agentxchain/history.jsonl`
+- [ ] Turn validation: orchestrator accepts well-formed turn-result.json and rejects malformed ones *(dev phase)*
+- [ ] Phase transition: planning→implementation advances when all gate files present *(dev phase — observe whether this transition fires)*
+- [ ] Ghost recovery: timed-out turn is reissued without human intervention *(already evidenced: 4 ghost reissues in history.jsonl for this project)*
+- [ ] End-to-end: complete planning→implementation→QA cycle produces inspectable audit trail in `.agentxchain/history.jsonl` *(QA phase)*
 
 ## Resolved Questions
 
