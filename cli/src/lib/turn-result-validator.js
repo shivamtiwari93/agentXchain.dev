@@ -699,6 +699,11 @@ function validateArtifact(tr, config) {
         `Artifact type "workspace" requires authoritative write authority, but role "${tr.role}" has "${writeAuthority}".`
       );
     }
+    if ((tr.files_changed || []).length === 0 && !hasCheckpointableProducedFiles(tr)) {
+      errors.push(
+        'artifact.type: "workspace" but files_changed is empty. Use artifact type "review" for no-edit turns, or declare checkpointable verification.produced_files entries with disposition "artifact".'
+      );
+    }
   }
 
   // Check for reserved path modifications
@@ -722,7 +727,9 @@ function validateArtifact(tr, config) {
     }
   }
 
-  // Warn if files_changed is empty for authoritative + completed turns
+  // Warn if files_changed is empty for authoritative + completed turns that
+  // did not claim a workspace artifact. This keeps no-edit authoritative
+  // lifecycle turns visible without accepting a false workspace claim.
   if (writeAuthority === 'authoritative' && tr.status === 'completed' && (tr.files_changed || []).length === 0) {
     warnings.push('Authoritative role completed with no files_changed — is this intentional?');
   }
@@ -770,6 +777,17 @@ function validateArtifact(tr, config) {
  */
 function isAllowedReviewPath(filePath) {
   return filePath.startsWith('.planning/') || filePath.startsWith('.agentxchain/reviews/');
+}
+
+function hasCheckpointableProducedFiles(tr) {
+  return Array.isArray(tr.verification?.produced_files)
+    && tr.verification.produced_files.some((entry) => (
+      entry
+      && typeof entry === 'object'
+      && typeof entry.path === 'string'
+      && entry.path.trim()
+      && (entry.disposition == null || entry.disposition === 'artifact')
+    ));
 }
 
 // ── Stage D: Verification Validation ─────────────────────────────────────────
@@ -1488,7 +1506,12 @@ export function normalizeTurnResult(tr, config, context = {}) {
     && !Array.isArray(normalized.artifact)
     && normalized.artifact.type === 'workspace'
     && filesChangedIsEmpty
-    && (context.forceReviewArtifact || hasExplicitNoEditLifecycleSignal)
+    && !hasCheckpointableProducedFiles(normalized)
+    && (
+      context.forceReviewArtifact
+      || hasExplicitNoEditLifecycleSignal
+      || (normalized.status === 'needs_human' && normalized.proposed_next_role === 'human')
+    )
   ) {
     normalized.artifact = {
       ...normalized.artifact,

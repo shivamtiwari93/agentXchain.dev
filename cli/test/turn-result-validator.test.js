@@ -624,8 +624,35 @@ describe('turn-result-validator', () => {
       assert.ok(res.errors.some(e => e.includes('reserved path')));
     });
 
-    it('warns when authoritative role completes with no files_changed', () => {
+    it('rejects authoritative workspace artifact with no files_changed', () => {
       writeStagedResult(makeValidTurnResult({ files_changed: [] }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'artifact');
+      assert.equal(res.error_class, 'artifact_error');
+      assert.ok(res.errors.some(e => e.includes('artifact.type: "workspace" but files_changed is empty')));
+    });
+
+    it('allows workspace artifact with checkpointable verification-produced files', () => {
+      writeStagedResult(makeValidTurnResult({
+        files_changed: [],
+        verification: {
+          status: 'pass',
+          commands: ['npm test'],
+          evidence_summary: 'Verification produced a checkpointable fixture.',
+          machine_evidence: [{ command: 'npm test', exit_code: 0 }],
+          produced_files: [{ path: '.planning/generated-fixture.md', disposition: 'artifact' }],
+        },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, true);
+    });
+
+    it('warns when authoritative no-edit review turn completes with no files_changed', () => {
+      writeStagedResult(makeValidTurnResult({
+        files_changed: [],
+        artifact: { type: 'review', ref: null },
+      }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, true);
       assert.ok(res.warnings.some(w => w.includes('no files_changed')));
