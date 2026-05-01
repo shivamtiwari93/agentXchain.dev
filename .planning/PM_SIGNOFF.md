@@ -1,10 +1,10 @@
-# PM Signoff — M1: Ghost Turn Elimination
+# PM Signoff — M1: Ghost Turn Elimination (Roadmap Reconciliation)
 
 Approved: YES
 
-**Run:** `run_984f0f8c07a30a5c`
+**Run:** `run_936b36c729c01f54`
 **Phase:** planning
-**Turn:** `turn_60a246b6d712406a`
+**Turn:** `turn_a235a009bfe9fc9d`
 **Date:** 2026-05-01
 
 ## Discovery Checklist
@@ -17,82 +17,64 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running governed multi-agent delivery via local_cli runtimes (Claude Code, GPT CLI). The immediate target: the agentxchain.dev project itself, where ghost turns have disrupted self-governance runs.
+Same as prior run: agentXchain operators running governed multi-agent delivery via local_cli runtimes.
 
 ### Core Pain Point
 
-Ghost turns silently consume budget and retry slots without producing any work. The root cause was undiagnosed — prior PM work (DEC-003, run `run_8485b8044fbc7e77`) incorrectly hypothesized prompt size or provider timeouts. The actual cause is a CLI flag misconfiguration that causes immediate subprocess rejection, invisible to the orchestrator because the error goes to stderr only.
+The prior run (`run_984f0f8c07a30a5c`) implemented all M1 hardening items (startup heartbeat, pre-spawn guard, regression tests) and QA approved them, but failed to update ROADMAP.md to check off completed items. The vision scanner detected the unchecked item as open work and triggered this unnecessary run. The pain point is a **process gap**, not a missing implementation.
 
 ### Core Workflow
 
-1. PM diagnoses ghost turn root cause and documents findings in SYSTEM_SPEC (this turn — done)
-2. Dev implements hardening: startup heartbeat, configurable turn timeout, regression tests for ghost detection/retry/escalation
-3. QA validates regression coverage and confirms zero ghost turns in acceptance run
+1. PM verifies the implementation exists and tests pass (this turn)
+2. PM checks off completed ROADMAP items with evidence references
+3. Dev verifies the full M1 regression suite still passes
+4. QA confirms roadmap accuracy against code reality
 
 ### MVP Scope (this run)
 
-- **PM (this turn):** Diagnose root cause of ghost turns, document findings in SYSTEM_SPEC, check off ROADMAP item, scope dev work
-- **Dev:** Implement remaining M1 items — startup heartbeat protocol, configurable turn timeout, regression test suite for ghost scenarios
-- **QA:** Validate regression tests pass, verify the fix prevents ghost turns, acceptance matrix against M1 criteria
+- **PM (this turn):** Verify implementation, check off ROADMAP items, document evidence
+- **Dev:** Run the full M1 regression test suite, confirm all hardening code is intact, verify no regressions since prior run
+- **QA:** Cross-check ROADMAP checkoffs against actual implementation, confirm the remaining acceptance criterion (10 consecutive zero-ghost runs) is correctly left open
 
 ### Out of Scope
 
-- M2–M8 roadmap items
-- DOGFOOD-100 (paused at 97/100 on credential blocker)
-- tusq.dev work (separate repo)
-- Dashboard, connector, or website work
-- Refactoring orchestrator ghost detection logic (it is already correct)
+- New M1 implementation work (already done in prior run)
+- M2-M8 roadmap items
+- The 10-run acceptance criterion (tracked as open in ROADMAP.md, requires dogfood runs over time)
+- DOGFOOD-100 (paused on credential blocker)
+- Any code changes unless regressions are found
 
 ### Success Metric
 
-All M1 checklist items addressed: root cause diagnosed (done), heartbeat protocol implemented, configurable timeout added, regression tests passing, zero ghost turns in subsequent governed runs.
+ROADMAP.md M1 items accurately reflect implemented state. All 3 completed items checked with evidence. The remaining acceptance item correctly left open.
 
 ## Challenge to Previous Work
 
-### OBJ-PM-001: Prior ghost turn diagnosis was wrong
+### OBJ-PM-001: Prior QA turn shipped without roadmap synchronization
 
-The previous PM turn (DEC-003, `run_8485b8044fbc7e77`) stated: *"4 consecutive PM ghost turns indicate the PM runtime may be hitting provider-side timeouts. Reducing PM workload to artifact refresh rather than generation from scratch keeps the turn within the 20-minute deadline budget."*
+The QA turn in `run_984f0f8c07a30a5c` (DEC-001/002/003) approved the M1 implementation and declared ship-ready, but did not verify or update ROADMAP.md to check off the completed items. This is a process gap: the QA checklist should include roadmap synchronization as a release gate. Without it, the vision scanner re-triggers runs for work that is already complete — wasting budget and cluttering history.
 
-This was incorrect on all three hypothesized causes:
-- **(a) PM prompt too large** — False. The 2-second ghost turns never reached prompt evaluation. The CLI rejected the command at flag validation.
-- **(b) Provider-side timeouts** — False. No network request was made. The process exited before any API call.
-- **(c) Planning workload incompatible with timeout** — False. The workload was irrelevant; the subprocess never started.
+**Recommendation:** Future QA turns should include a "roadmap accuracy" check: all items addressed by the run should be checked off before ship approval.
 
-**Actual root cause:** Missing `--verbose` flag in `agentxchain.json` runtime command arrays. Claude Code CLI requires `--verbose` when `--print --output-format stream-json` is used. Without it: immediate exit (code 1), error to stderr, no stdout → no startup proof → ghost classification.
+### OBJ-PM-002: Configurable turn timeout was not a new implementation
 
-The mitigation (reducing PM workload) happened to "fix" the problem only because the underlying config was separately fixed in commit `6cf44000d` before the successful run. The workload reduction was coincidental, not causal.
-
-### OBJ-PM-002: Stale run references
-
-All planning artifacts previously referenced `run_8485b8044fbc7e77`. Updated to `run_984f0f8c07a30a5c`.
-
-### OBJ-PM-003: Dev scope was too narrow
-
-The prior run scoped dev to "verification-only" with no code changes allowed. Dev correctly challenged this (DEC-002, dev turn) and produced actual source code changes (turn-result-validator hardening). For this run, dev is explicitly scoped to write implementation code: heartbeat protocol, configurable timeout, and regression tests. This is not a validation run.
+The ROADMAP item "Add configurable turn timeout (distinct from startup watchdog)" implied new work, but `timeouts.per_turn_minutes` already existed as the configurable turn-level timeout. Dev correctly identified this and threaded dispatch timeout inputs rather than creating a redundant mechanism. Checking this off with a clarifying note.
 
 ## Notes for Dev
 
-Your charter for this run is **implementation, not verification**:
+Your charter for this run is **verification, not implementation**:
 
-1. **Startup heartbeat protocol** — Modify the local_cli adapter to emit periodic keepalive events during tool-use silence. This gives the watchdog positive evidence that the agent process is alive even when no stdout is flowing.
-   - Key files: `cli/src/lib/local-cli-adapter.js` (dispatch/output tracking), `cli/src/lib/dispatch-progress.js` (output classification)
+1. Run the full adapter test suite: `node --test --test-timeout=60000 cli/test/local-cli-adapter.test.js`
+2. Run the ghost-retry and continuous-run tests: `node --test --test-timeout=60000 cli/test/ghost-retry.test.js cli/test/continuous-run.test.js`
+3. Run the schema validation tests: `node --test --test-timeout=60000 cli/test/agentxchain-config-schema.test.js`
+4. Confirm all tests pass with zero failures
+5. If any test fails, investigate and fix — but new regressions are unlikely given QA approval in the prior run
 
-2. **Configurable turn timeout** — Add a `turn_timeout_ms` config option (distinct from the startup watchdog's `startup_proof_deadline_ms`). The startup watchdog catches fast failures; the turn timeout catches hung processes that passed startup but stopped producing.
-   - Key files: `cli/src/lib/stale-turn-watchdog.js` (ghost detection), `agentxchain.json` (config schema)
-
-3. **Regression tests** — Cover the ghost turn failure modes:
-   - (a) CLI flag rejection (stderr-only, fast exit) → ghost classification
-   - (b) Startup proof timeout (no stdout within deadline) → ghost classification
-   - (c) Auto-retry with attempt counter increment
-   - (d) Max-retry exhaustion → human escalation
-   - (e) Heartbeat keeps process alive during tool-use silence
-   - Key files: `cli/test/` directory, follow existing test patterns
-
-4. **Do NOT modify** reserved state files (`.agentxchain/state.json`, `history.jsonl`, `decision-ledger.jsonl`, `lock.json`).
+**Do NOT** write new code unless a regression is found. This is a reconciliation run.
 
 ## Notes for QA
 
-- Verify all regression tests pass and cover the 5 scenarios listed above
-- Cross-reference dev's implementation against the root cause analysis in SYSTEM_SPEC.md
-- Confirm the heartbeat protocol doesn't generate false-positive startup proof for genuinely dead processes
-- Acceptance: M1 regression suite green, no ghost turns during this run's execution
+- Cross-check each ROADMAP checkoff against the actual implementation files cited
+- Verify the test references in the ROADMAP are accurate (file:line)
+- Confirm the "Acceptance: zero ghost turns across 10 consecutive runs" item is correctly left unchecked
+- Budget: this run should be lightweight — no new implementation, just verification and reconciliation
