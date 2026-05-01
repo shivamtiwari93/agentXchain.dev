@@ -49,6 +49,7 @@ const DIAGNOSTIC_ENV_KEYS = [
 const DIAGNOSTIC_STDERR_EXCERPT_LIMIT = 800;
 const DEFAULT_STARTUP_WATCHDOG_MS = 180_000;
 const DEFAULT_STARTUP_WATCHDOG_SIGKILL_GRACE_MS = 10_000;
+const DEFAULT_STARTUP_HEARTBEAT_MS = 30_000;
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -97,6 +98,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
   }
   const startupWatchdogMs = startupWatchdogOverrideMs ?? resolveStartupWatchdogMs(config, runtime);
   const startupWatchdogKillGraceMs = resolveStartupWatchdogKillGraceMs(options.startupWatchdogKillGraceMs);
+  const startupHeartbeatMs = resolveStartupHeartbeatMs(config, runtime, options.startupHeartbeatMs);
 
   // Read the dispatch bundle prompt
   const promptPath = join(root, getDispatchPromptPath(turn.turn_id));
@@ -116,8 +118,28 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     return { ok: false, error: `Cannot resolve CLI command for runtime "${runtimeId}". Expected "command" field in runtime config.` };
   }
 
-  // Compute timeout from deadline or default (20 minutes)
-  const timeoutMs = turn.deadline_at
+  const compatibility = validateLocalCliCommandCompatibility({ command, args, runtimeId });
+  if (!compatibility.ok) {
+    const logs = [];
+    appendDiagnostic(logs, 'command_compatibility_failed', compatibility.diagnostic);
+    return {
+      ok: false,
+      blocked: true,
+      classified: {
+        error_class: compatibility.error_class,
+        recovery: compatibility.recovery,
+      },
+      error: compatibility.error,
+      logs,
+    };
+  }
+
+  // Compute timeout from explicit dispatch deadline, turn deadline, or default (20 minutes).
+  const timeoutMs = options.dispatchTimeoutMs != null
+    ? options.dispatchTimeoutMs
+    : options.dispatchDeadlineAt
+      ? Math.max(0, new Date(options.dispatchDeadlineAt).getTime() - Date.now())
+      : turn.deadline_at
     ? Math.max(0, new Date(turn.deadline_at).getTime() - Date.now())
     : 1200000;
 
@@ -201,6 +223,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     let firstOutputLatencyMs = null;
     let startupWatchdog = null;
     let startupSigkillHandle = null;
+    let startupHeartbeat = null;
     let startupTimedOut = false;
     let startupFailureType = null;
     let stdoutBytes = 0;
@@ -221,6 +244,43 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       if (startupSigkillHandle) {
         clearTimeout(startupSigkillHandle);
         startupSigkillHandle = null;
+      }
+    };
+
+    const clearStartupHeartbeat = () => {
+      if (startupHeartbeat) {
+        clearInterval(startupHeartbeat);
+        startupHeartbeat = null;
+      }
+    };
+
+    const armStartupHeartbeat = () => {
+      if (startupHeartbeat || !(startupHeartbeatMs > 0 && Number.isFinite(startupHeartbeatMs))) {
+        return;
+      }
+      startupHeartbeat = setInterval(() => {
+        if (firstOutputAt || settled) {
+          clearStartupHeartbeat();
+          return;
+        }
+        const payload = {
+          startup_heartbeat_ms: startupHeartbeatMs,
+          startup_watchdog_ms: startupWatchdogMs,
+          pid: child.pid ?? null,
+          spawn_confirmed_at: spawnConfirmedAt,
+          elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
+          stdout_bytes: stdoutBytes,
+          stderr_bytes: stderrBytes,
+        };
+        appendDiagnostic(logs, 'startup_heartbeat', payload);
+        if (options.onStartupHeartbeat) {
+          try {
+            options.onStartupHeartbeat(payload);
+          } catch {}
+        }
+      }, startupHeartbeatMs);
+      if (typeof startupHeartbeat.unref === 'function') {
+        startupHeartbeat.unref();
       }
     };
 
@@ -269,6 +329,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       firstOutputStream = stream;
       firstOutputLatencyMs = spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs);
       clearStartupWatchdog();
+      clearStartupHeartbeat();
       appendDiagnostic(logs, 'first_output', {
         at: firstOutputAt,
         stream,
@@ -296,6 +357,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         } catch {}
       }
       armStartupWatchdog();
+      armStartupHeartbeat();
     });
 
     // Collect stdout/stderr
@@ -369,6 +431,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     const onAbort = () => {
       logs.push('[adapter] Abort signal received. Sending SIGTERM.');
       clearStartupWatchdog();
+      clearStartupHeartbeat();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
       clearTimeout(abortSigkillHandle);
@@ -389,6 +452,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     // Process exit
     child.on('close', (exitCode, killSignal) => {
       clearStartupWatchdog();
+      clearStartupHeartbeat();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
       clearTimeout(abortSigkillHandle);
@@ -524,6 +588,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
 
     child.on('error', (err) => {
       clearStartupWatchdog();
+      clearStartupHeartbeat();
       clearTimeout(timeoutHandle);
       clearTimeout(sigkillHandle);
       clearTimeout(abortSigkillHandle);
@@ -653,11 +718,57 @@ function resolveStartupWatchdogMs(config, runtime) {
   return DEFAULT_STARTUP_WATCHDOG_MS;
 }
 
+function resolveStartupHeartbeatMs(config, runtime, override) {
+  if (Number.isInteger(override) && override > 0) {
+    return override;
+  }
+  if (runtime?.type === 'local_cli' && Number.isInteger(runtime?.startup_heartbeat_ms) && runtime.startup_heartbeat_ms > 0) {
+    return runtime.startup_heartbeat_ms;
+  }
+  if (Number.isInteger(config?.run_loop?.startup_heartbeat_ms) && config.run_loop.startup_heartbeat_ms > 0) {
+    return config.run_loop.startup_heartbeat_ms;
+  }
+  return DEFAULT_STARTUP_HEARTBEAT_MS;
+}
+
 function resolveStartupWatchdogKillGraceMs(value) {
   if (Number.isInteger(value) && value >= 0) {
     return value;
   }
   return DEFAULT_STARTUP_WATCHDOG_SIGKILL_GRACE_MS;
+}
+
+function validateLocalCliCommandCompatibility({ command, args = [], runtimeId = null }) {
+  const tokens = [command, ...args].filter((token) => typeof token === 'string');
+  const binaryName = command ? command.split('/').filter(Boolean).pop() || command : '';
+  const outputFormatIndex = tokens.findIndex((token) => token === '--output-format');
+  const outputFormatValue = outputFormatIndex >= 0 ? tokens[outputFormatIndex + 1] : null;
+  const usesStreamJson = tokens.includes('--output-format=stream-json')
+    || outputFormatValue === 'stream-json';
+  const usesPrint = tokens.includes('--print') || tokens.includes('-p');
+  const hasVerbose = tokens.includes('--verbose');
+
+  if (binaryName === 'claude' && usesPrint && usesStreamJson && !hasVerbose) {
+    const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Claude local_cli runtime';
+    const recovery = `${runtimeLabel} uses "claude --print --output-format stream-json" without "--verbose". Add "--verbose" to the command array before dispatching again.`;
+    return {
+      ok: false,
+      error_class: 'local_cli_command_incompatible',
+      recovery,
+      error: recovery,
+      diagnostic: {
+        runtime_id: runtimeId,
+        binary: binaryName,
+        rule: 'claude_print_stream_json_requires_verbose',
+        has_print: usesPrint,
+        has_stream_json: usesStreamJson,
+        has_verbose: hasVerbose,
+        recovery,
+      },
+    };
+  }
+
+  return { ok: true };
 }
 
 /**
@@ -777,3 +888,5 @@ function appendDiagnosticExcerpt(existing, chunk, limit) {
 export { resolveCommand };
 export { resolvePromptTransport };
 export { resolveStartupWatchdogMs };
+export { resolveStartupHeartbeatMs };
+export { validateLocalCliCommandCompatibility };

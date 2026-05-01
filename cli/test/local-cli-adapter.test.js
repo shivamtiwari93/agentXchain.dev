@@ -8,9 +8,11 @@ import { pathToFileURL } from 'node:url';
 
 import {
   dispatchLocalCli,
+  resolveStartupHeartbeatMs,
   resolveStartupWatchdogMs,
   saveDispatchLogs,
   resolvePromptTransport,
+  validateLocalCliCommandCompatibility,
 } from '../src/lib/adapters/local-cli-adapter.js';
 import { writeDispatchBundle } from '../src/lib/dispatch-bundle.js';
 import {
@@ -197,6 +199,32 @@ describe('local-cli-adapter', () => {
       assert.match(result.error, /Cannot resolve CLI command/);
     });
 
+    it('blocks Claude stream-json --print commands that are missing --verbose before spawning', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const shim = writeClaudeShim(root, `#!/bin/sh
+echo "should not spawn"
+exit 0
+`);
+      const config = makeConfig({
+        command: [shim, '--print', '--output-format', 'stream-json', '--dangerously-skip-permissions'],
+        prompt_transport: 'stdin',
+      });
+      setupDispatchBundle(root, state, config);
+
+      const result = await dispatchLocalCli(root, state, config);
+
+      assert.equal(result.ok, false);
+      assert.equal(result.blocked, true);
+      assert.equal(result.startupFailure, undefined);
+      assert.equal(result.classified?.error_class, 'local_cli_command_incompatible');
+      assert.match(result.error, /--verbose/);
+      const log = result.logs.join('');
+      assert.match(log, /\[adapter:diag\] command_compatibility_failed /);
+      assert.doesNotMatch(log, /\[adapter:diag\] spawn_prepare /);
+      assert.doesNotMatch(log, /should not spawn/);
+    });
+
     it('fails fast before governed spawn only when the Claude smoke probe observes a hang', async () => {
       const root = createAndTrack();
       const state = makeState();
@@ -257,7 +285,7 @@ printf '%s\\n' '{"type":"assistant","message":{"content":[{"type":"text","text":
 exit 1
 `);
       const config = makeConfig({
-        command: [shim, '--print', '--output-format', 'stream-json'],
+        command: [shim, '--print', '--output-format', 'stream-json', '--verbose'],
         prompt_transport: 'stdin',
       });
       setupDispatchBundle(root, state, config);
@@ -303,7 +331,7 @@ printf '%s\\n' 'var VY=(q,K,_)=>{if(K!=null){if(typeof K!=="object"&&typeof K!==
 exit 1
 `);
       const config = makeConfig({
-        command: [shim, '--print', '--output-format', 'stream-json'],
+        command: [shim, '--print', '--output-format', 'stream-json', '--verbose'],
         prompt_transport: 'stdin',
       });
       setupDispatchBundle(root, state, config);
@@ -900,6 +928,42 @@ exit 1
       assert.equal(exitDiagnostic.first_output_stream, null);
     });
 
+    it('emits startup heartbeat diagnostics during pre-output subprocess silence without marking startup proof', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const scriptPath = join(root, '_silent_then_exit.js');
+      writeFileSync(scriptPath, 'setTimeout(() => process.exit(0), 180);');
+
+      const config = makeConfig({
+        command: ['node', scriptPath],
+      });
+      config.run_loop = {
+        startup_watchdog_ms: 1000,
+        startup_heartbeat_ms: 40,
+      };
+      setupDispatchBundle(root, state, config);
+
+      const heartbeats = [];
+      const firstOutput = [];
+      const result = await dispatchLocalCli(root, state, config, {
+        onStartupHeartbeat: (payload) => heartbeats.push(payload),
+        onFirstOutput: (details) => firstOutput.push(details),
+      });
+
+      assert.equal(result.ok, false);
+      assert.equal(result.startupFailure, true);
+      assert.equal(result.startupFailureType, 'no_subprocess_output');
+      assert.ok(heartbeats.length >= 1, 'expected at least one startup heartbeat before silent process exit');
+      assert.equal(firstOutput.length, 0, 'heartbeat must not count as first-output proof');
+      const heartbeatPayloads = parseDiagPayloads(result.logs, 'startup_heartbeat');
+      assert.ok(heartbeatPayloads.length >= 1, 'startup heartbeat diagnostics must be written to adapter logs');
+      assert.equal(heartbeatPayloads[0].startup_heartbeat_ms, 40);
+      assert.equal(heartbeatPayloads[0].startup_watchdog_ms, 1000);
+      const [exitDiagnostic] = parseDiagPayloads(result.logs, 'process_exit');
+      assert.equal(exitDiagnostic.first_output_stream, null);
+      assert.equal(exitDiagnostic.watchdog_fired, false);
+    });
+
     it('prefers local_cli runtime startup_watchdog_ms over a tighter global run_loop watchdog', async () => {
       const root = createAndTrack();
       const state = makeState();
@@ -930,6 +994,16 @@ exit 1
     it('uses a 180s default startup watchdog for realistic slow Claude prompt processing', () => {
       const config = makeConfig();
       assert.equal(resolveStartupWatchdogMs(config, config.runtimes['local-dev']), 180_000);
+    });
+
+    it('resolves startup heartbeat interval with runtime over global over default precedence', () => {
+      const config = makeConfig({ startup_heartbeat_ms: 12_000 });
+      config.run_loop = { startup_heartbeat_ms: 20_000 };
+      assert.equal(resolveStartupHeartbeatMs(config, config.runtimes['local-dev']), 12_000);
+      delete config.runtimes['local-dev'].startup_heartbeat_ms;
+      assert.equal(resolveStartupHeartbeatMs(config, config.runtimes['local-dev']), 20_000);
+      delete config.run_loop.startup_heartbeat_ms;
+      assert.equal(resolveStartupHeartbeatMs(config, config.runtimes['local-dev']), 30_000);
     });
   });
 
@@ -978,6 +1052,26 @@ exit 1
     it('ignores invalid prompt_transport and falls back to inference', () => {
       assert.equal(resolvePromptTransport({ command: ['claude', '{prompt}'], prompt_transport: 'magic' }), 'argv');
       assert.equal(resolvePromptTransport({ command: ['claude'], prompt_transport: 'magic' }), 'dispatch_bundle_only');
+    });
+  });
+
+  describe('validateLocalCliCommandCompatibility', () => {
+    it('requires --verbose for Claude --print stream-json command shapes', () => {
+      const invalid = validateLocalCliCommandCompatibility({
+        command: 'claude',
+        args: ['--print', '--output-format=stream-json'],
+        runtimeId: 'local-claude',
+      });
+      assert.equal(invalid.ok, false);
+      assert.equal(invalid.error_class, 'local_cli_command_incompatible');
+      assert.match(invalid.error, /--verbose/);
+
+      const valid = validateLocalCliCommandCompatibility({
+        command: 'claude',
+        args: ['--print', '--output-format', 'stream-json', '--verbose'],
+        runtimeId: 'local-claude',
+      });
+      assert.equal(valid.ok, true);
     });
   });
 

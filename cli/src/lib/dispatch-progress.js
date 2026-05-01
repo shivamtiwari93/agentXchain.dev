@@ -199,6 +199,15 @@ export function createDispatchProgressTracker(root, turn, options = {}) {
       writeProgress();
     },
 
+    /** Record adapter keepalive without treating it as governed startup proof. */
+    heartbeat(summary = 'Adapter keepalive') {
+      state.activity_type = 'heartbeat';
+      state.activity_summary = summary;
+      state.last_activity_at = new Date().toISOString();
+      dirty = true;
+      maybeWrite();
+    },
+
     /** Update PID after spawn (local_cli). */
     setPid(newPid) {
       state.pid = newPid;

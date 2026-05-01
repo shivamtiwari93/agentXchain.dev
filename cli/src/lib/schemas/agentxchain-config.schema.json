@@ -100,6 +100,11 @@
           "minimum": 1,
           "description": "Milliseconds to wait after dispatch for worker attach/first-output proof before retaining the turn as failed_start. Default 180000."
         },
+        "startup_heartbeat_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Milliseconds between local_cli adapter startup keepalive diagnostics while a spawned subprocess is silent before first-output proof. Default 30000."
+        },
         "stale_turn_threshold_ms": {
           "type": "integer",
           "minimum": 1,
@@ -408,6 +413,11 @@
           "type": "integer",
           "minimum": 1,
           "description": "Optional local_cli-specific override for the startup watchdog. When set, this runtime uses the declared threshold before falling back to run_loop.startup_watchdog_ms."
+        },
+        "startup_heartbeat_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional local_cli-specific startup keepalive diagnostic interval. When set, this runtime uses the declared interval before falling back to run_loop.startup_heartbeat_ms."
         },
         "prompt_transport": {
           "enum": ["argv", "stdin", "dispatch_bundle_only"]

@@ -444,6 +444,7 @@ export function validateV4Config(data, projectRoot) {
       }
       if (rt.type === 'local_cli') {
         validateRuntimePositiveInteger(`Runtime "${id}": startup_watchdog_ms`, rt.startup_watchdog_ms, errors);
+        validateRuntimePositiveInteger(`Runtime "${id}": startup_heartbeat_ms`, rt.startup_heartbeat_ms, errors);
       }
       // Validate prompt_transport for local_cli runtimes
       if (rt.type === 'local_cli' && rt.prompt_transport) {
@@ -639,6 +640,7 @@ export function validateRunLoopConfig(runLoop) {
     return errors;
   }
   validateRunLoopPositiveInteger('run_loop.startup_watchdog_ms', runLoop.startup_watchdog_ms, errors);
+  validateRunLoopPositiveInteger('run_loop.startup_heartbeat_ms', runLoop.startup_heartbeat_ms, errors);
   validateRunLoopPositiveInteger('run_loop.stale_turn_threshold_ms', runLoop.stale_turn_threshold_ms, errors);
   if (runLoop.continuous !== undefined && runLoop.continuous !== null) {
     validateRunLoopContinuousConfig('run_loop.continuous', runLoop.continuous, errors);

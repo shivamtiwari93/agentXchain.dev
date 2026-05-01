@@ -362,6 +362,9 @@ export async function executeGovernedRun(context, opts = {}) {
         turnId: turn.turn_id,
         onSpawnAttached: ({ pid, at }) => ensureStartingState(pid, at),
         onFirstOutput: ({ at, stream }) => ensureRunningState(stream, at),
+        onStartupHeartbeat: ({ elapsed_since_spawn_ms }) => {
+          tracker.heartbeat(`Adapter keepalive (${Math.round((elapsed_since_spawn_ms || 0) / 1000)}s since spawn)`);
+        },
       };
 
       const recordOutputActivity = (stream, text) => {
