@@ -39,7 +39,7 @@
         "claude",
         "--print",
         "--dangerously-skip-permissions",
-        "--model", "claude-opus-4-7",
+        "--model", "opus",
         "--effort", "high"
       ],
       "cwd": ".",
