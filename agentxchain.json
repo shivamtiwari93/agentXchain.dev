@@ -38,39 +38,39 @@
       "command": [
         "claude",
         "--print",
+        "--output-format", "stream-json",
         "--dangerously-skip-permissions",
         "--model", "opus",
         "--effort", "high"
       ],
       "cwd": ".",
-      "prompt_transport": "stdin",
-      "startup_watchdog_ms": 600000
+      "prompt_transport": "stdin"
     },
     "local-gpt-5.5": {
       "type": "local_cli",
       "command": [
         "/Applications/Codex.app/Contents/Resources/codex",
         "exec",
+        "--json",
         "-m", "gpt-5.5",
         "--dangerously-bypass-approvals-and-sandbox",
         "-c", "model_reasoning_effort=\"high\""
       ],
       "cwd": ".",
-      "prompt_transport": "stdin",
-      "startup_watchdog_ms": 600000
+      "prompt_transport": "stdin"
     },
     "local-opus-4.6": {
       "type": "local_cli",
       "command": [
         "claude",
         "--print",
+        "--output-format", "stream-json",
         "--dangerously-skip-permissions",
         "--model", "claude-opus-4-6",
         "--effort", "high"
       ],
       "cwd": ".",
-      "prompt_transport": "stdin",
-      "startup_watchdog_ms": 600000
+      "prompt_transport": "stdin"
     }
   },
   "routing": {
