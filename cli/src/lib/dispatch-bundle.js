@@ -797,6 +797,9 @@ function renderContext(state, config, root, turn, role) {
       lines.push('');
       lines.push(`- **Turn:** ${lastTurn.turn_id}`);
       lines.push(`- **Role:** ${lastTurn.role}`);
+      if (lastTurn.runtime_id) {
+        lines.push(`- **Runtime:** ${lastTurn.runtime_id}`);
+      }
       lines.push(`- **Summary:** ${lastTurn.summary}`);
       if (lastTurn.decisions?.length) {
         lines.push('- **Decisions:**');
@@ -1412,12 +1415,13 @@ function renderDecisionHistory(root, warnings = []) {
   const lines = [];
   lines.push('## Decision History');
   lines.push('');
-  lines.push('| ID | Phase | Role | Statement |');
-  lines.push('|----|-------|------|-----------|');
+  lines.push('| ID | Phase | Role | Runtime | Statement |');
+  lines.push('|----|-------|------|---------|-----------|');
   for (const d of displayed) {
     // Escape pipes in statement to avoid breaking the table
     const stmt = (d.statement || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
-    lines.push(`| ${d.id} | ${d.phase || ''} | ${d.role || ''} | ${stmt} |`);
+    const runtimeId = (d.runtime_id || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    lines.push(`| ${d.id} | ${d.phase || ''} | ${d.role || ''} | ${runtimeId} | ${stmt} |`);
   }
   if (totalCount > DECISION_HISTORY_MAX_ENTRIES) {
     lines.push('');

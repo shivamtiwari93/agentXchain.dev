@@ -867,6 +867,7 @@ describe('acceptGovernedTurn', () => {
     const ledger = readJsonl(dir, LEDGER_PATH);
     assert.equal(ledger.length, 1);
     assert.equal(ledger[0].id, 'DEC-001');
+    assert.equal(ledger[0].runtime_id, 'api-qa');
 
     // TALK.md updated
     const talk = readFileSync(join(dir, 'TALK.md'), 'utf8');
@@ -1441,10 +1442,13 @@ describe('acceptGovernedTurn', () => {
     const devAssign = assignGovernedTurn(dir, config, 'dev');
     assert.ok(devAssign.ok, devAssign.error);
     const devTurn = devAssign.turn;
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'dev-implementation.js'), 'export const implemented = true;\n');
     writeFileSync(join(dir, '.planning', 'shared-conflict.md'), '# shared from dev\n');
     mkdirSync(join(dir, '.agentxchain', 'staging', devTurn.turn_id), { recursive: true });
     const devResult = makeTurnResult(devAssign.state, devTurn);
-    devResult.files_changed = ['.planning/shared-conflict.md'];
+    devResult.files_changed = ['src/dev-implementation.js', '.planning/shared-conflict.md'];
+    devResult.artifact = { type: 'workspace', ref: 'git:dirty' };
     writeFileSync(join(dir, getTurnStagingResultPath(devTurn.turn_id)), JSON.stringify(devResult, null, 2));
     execSync('git add -A && git commit -m \"dev shared turn\"', { cwd: dir, stdio: 'ignore' });
     const devAccept = acceptGovernedTurn(dir, config, { turnId: devTurn.turn_id });

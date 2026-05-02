@@ -493,8 +493,39 @@ describe('resume workflow: full dispatch cycle', () => {
 
     const context = readFileSync(join(root, bundleDirFor(devState), 'CONTEXT.md'), 'utf8');
     assert.match(context, /Last Accepted Turn/);
+    assert.match(context, /- \*\*Runtime:\*\* manual-pm/);
     assert.match(context, /Updated planning artifacts and requested implementation/);
     assert.match(context, /DEC-001/);
+  });
+
+  it('CONTEXT.md includes runtime identity in decision history', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'dev');
+    const state = readJson(root, STATE_PATH);
+    writeFileSync(join(root, '.agentxchain', 'decision-ledger.jsonl'), [
+      JSON.stringify({
+        id: 'DEC-001',
+        turn_id: 'turn-old',
+        role: 'pm',
+        phase: 'planning',
+        statement: 'Old decisions without runtime still render.',
+      }),
+      JSON.stringify({
+        id: 'DEC-002',
+        turn_id: 'turn-new',
+        role: 'dev',
+        phase: 'implementation',
+        runtime_id: 'local-dev',
+        statement: 'Runtime identity is preserved in handoff context.',
+      }),
+    ].join('\n') + '\n');
+
+    writeDispatchBundle(root, state, config);
+
+    const context = readFileSync(join(root, bundleDirFor(state), 'CONTEXT.md'), 'utf8');
+    assert.match(context, /\| ID \| Phase \| Role \| Runtime \| Statement \|/);
+    assert.match(context, /\| DEC-001 \| planning \| pm \|  \| Old decisions without runtime still render\. \|/);
+    assert.match(context, /\| DEC-002 \| implementation \| dev \| local-dev \| Runtime identity is preserved in handoff context\. \|/);
   });
 
   it('returns a warning when history.jsonl cannot be parsed for context rendering', () => {
@@ -890,6 +921,9 @@ describe('dispatch bundle: QA evidence visibility', () => {
 
   it('AT-QEV-004: no files changed section when files_changed is empty', () => {
     acceptPmTurnAndTransition();
+    const implState = readJson(root, STATE_PATH);
+    implState.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(implState, null, 2));
     acceptDevTurn({ files_changed: [], artifact: { type: 'review', ref: null } });
 
     const state = readJson(root, STATE_PATH);

@@ -36,7 +36,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [ ] Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 1/5 consecutive runs as of 2026-05-02 -->
 
 ### M3: Multi-Model Turn Handoff Quality
-- [ ] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
+- [x] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
 - [ ] Validate that stream-json and --json output formats are correctly parsed by the adapter
 - [ ] Add model identity metadata to turn checkpoints (which model produced this turn)
 - [ ] Test cross-model challenge quality: does QA (Opus 4.6) effectively challenge Dev (GPT 5.5)?
@@ -82,5 +82,5 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 | Phase | Goal | Status |
 |-------|------|--------|
 | Planning | Diagnose M3 context handoff gaps: missing `runtime_id` in CONTEXT.md "Last Accepted Turn" and decision history, missing `runtime_id` in decision ledger entries | Active (`run_fb3583590a1a4799`) |
-| Implementation | Add `runtime_id` to decision ledger entries, render in CONTEXT.md last turn and decision history, regression tests | Pending |
+| Implementation | Add `runtime_id` to decision ledger entries, render in CONTEXT.md last turn and decision history, regression tests | Complete |
 | QA | Verify cross-model handoff context completeness, run full test suite | Pending |

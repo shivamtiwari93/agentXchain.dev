@@ -1,5 +1,25 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 M3 Runtime Identity Handoff Context
+
+### Challenge
+
+The previous PM turn correctly identified the user-facing context gap, but I do not accept the root-cause framing as three equivalent missing renderings. Accepted history already persisted `runtime_id`; the concrete defects were one missing ledger field and two missing `CONTEXT.md` render surfaces. That distinction matters because the fix should preserve historical compatibility instead of inventing a backfill.
+
+### Changes
+
+- Added `runtime_id` to accepted decision-ledger entries produced by `acceptGovernedTurn()`.
+- Rendered the previous accepted turn runtime in the `## Last Accepted Turn` section of generated `CONTEXT.md` when history contains it.
+- Added a `Runtime` column to the `## Decision History` table, leaving pre-M3 ledger rows blank when no runtime was recorded.
+- Added regression coverage for ledger persistence, last-turn runtime rendering, and mixed old/new decision-history rendering.
+- Updated stale test fixtures that conflicted with the implementation-phase product-code guard without weakening that guard.
+
+### Verification
+
+- `node --check cli/src/lib/governed-state.js && node --check cli/src/lib/dispatch-bundle.js`
+- `node --test --test-timeout=60000 cli/test/governed-state.test.js`
+- `node --test --test-timeout=60000 cli/test/dispatch-bundle.test.js`
+
 ## 2026-05-02 M2 Acceptance Tracking Defense-in-Depth
 
 ### Challenge

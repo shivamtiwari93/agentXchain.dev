@@ -5238,6 +5238,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         turn_id: turnResult.turn_id,
         role: turnResult.role,
         phase: state.phase,
+        runtime_id: turnResult.runtime_id,
         category: decision.category,
         statement: decision.statement,
         rationale: decision.rationale,
