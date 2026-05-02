@@ -3672,7 +3672,7 @@ export function assignGovernedTurn(root, config, roleId, options = {}) {
   const baseline = captureBaseline(root);
 
   const now = new Date().toISOString();
-  const timeoutMinutes = 20;
+  const timeoutMinutes = config?.timeouts?.per_turn_minutes || 120;
   const nextSequence = (state.turn_sequence || 0) + 1;
 
   // Record which turns are concurrent siblings (for conflict detection context)
@@ -3954,7 +3954,7 @@ export function reissueTurn(root, config, opts = {}) {
 
   // Create the new turn
   const newTurnId = `turn_${randomBytes(8).toString('hex')}`;
-  const timeoutMinutes = 20;
+  const timeoutMinutes = config?.timeouts?.per_turn_minutes || 120;
   const nextSequence = (state.turn_sequence || 0) + 1;
 
   const newTurn = {
@@ -6489,7 +6489,7 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
     const retryStartedAt = new Date().toISOString();
     retryTurn.baseline = captureBaseline(root);
     retryTurn.started_at = retryStartedAt;
-    retryTurn.deadline_at = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+    retryTurn.deadline_at = new Date(Date.now() + (config?.timeouts?.per_turn_minutes || 120) * 60 * 1000).toISOString();
 
     if (isConflictReject) {
       retryTurn.assigned_sequence = Math.max(
