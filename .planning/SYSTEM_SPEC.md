@@ -196,6 +196,35 @@ When state 2 fires, `seedFromVision()`:
 - Integration: `continuous-run.test.js` — `seedFromVision` mixed tracked + untracked state (new)
 - Integration: `seedFromVision()` three-state regression tests (existing)
 
+### Multi-Model Turn Handoff Context Preservation (M3 — run `run_fb3583590a1a4799`)
+
+**Problem:** When a governed turn completes and the next role is dispatched to a different model (e.g., PM on Opus 4.7 → Dev on GPT 5.5 → QA on Opus 4.6), the CONTEXT.md handoff document omits which model produced the prior turn's work. The receiving model sees decisions, summaries, and objections but cannot distinguish Claude-authored work from GPT-authored work.
+
+**Three gaps identified:**
+
+| Gap | Location | Data available? | Rendered? |
+|-----|----------|----------------|-----------|
+| Last Accepted Turn missing `runtime_id` | `dispatch-bundle.js:798-813` | YES (history entry at `governed-state.js:5171`) | NO |
+| Decision history table missing Runtime column | `dispatch-bundle.js:1415-1420` | NO (ledger lacks `runtime_id`) | NO |
+| Decision ledger entries missing `runtime_id` | `governed-state.js:5236-5248` | YES (available as `turnResult.runtime_id` at write time) | N/A |
+
+**Impact on cross-model handoff quality:**
+- QA (Opus 4.6) challenging Dev (GPT 5.5) cannot distinguish model-specific patterns
+- PM (Opus 4.7) reviewing GPT-authored decisions cannot contextualize model-specific reasoning
+- The decision history table (50+ entries) provides no model attribution
+
+**Fix:**
+1. Persist `runtime_id` in decision ledger entries at `governed-state.js:5236`
+2. Render `runtime_id` in "Last Accepted Turn" section at `dispatch-bundle.js:799`
+3. Add `Runtime` column to decision history table at `dispatch-bundle.js:1415`
+
+**Backward compatibility:** Pre-M3 ledger entries lack `runtime_id`. Rendering code uses `d.runtime_id || ''` to show empty cells for historical decisions. No backfill needed.
+
+**Test coverage:**
+- Unit: `renderContext()` includes `runtime_id` in Last Accepted Turn when present
+- Unit: `renderDecisionHistory()` includes Runtime column with mixed populated/empty entries
+- Integration: cross-runtime handoff scenario with GPT 5.5 → Opus 4.6 handoff
+
 ## Resolved Questions
 
 1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)

@@ -81,6 +81,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Diagnose M2 #5 re-trigger, scope tracking annotation defense-in-depth + mixed-state test | Complete (`run_bd3c68e0331fa956`) |
-| Implementation | Goal text sanitization in deriveRoadmapCandidates, mixed-state seedFromVision test, update tracking 0/5→1/5 | Complete (`run_bd3c68e0331fa956`) |
-| QA | Verify all tests pass, confirm defense-in-depth fixes and tracking update | Pending |
+| Planning | Diagnose M3 context handoff gaps: missing `runtime_id` in CONTEXT.md "Last Accepted Turn" and decision history, missing `runtime_id` in decision ledger entries | Active (`run_fb3583590a1a4799`) |
+| Implementation | Add `runtime_id` to decision ledger entries, render in CONTEXT.md last turn and decision history, regression tests | Pending |
+| QA | Verify cross-model handoff context completeness, run full test suite | Pending |
