@@ -268,6 +268,37 @@ When state 2 fires, `seedFromVision()`:
 - Regression: Claude `stream-json` auth failure → `claude_auth_failed` (unchanged)
 - Regression: Claude `stream-json` normal turn → `ok: true` (unchanged)
 
+### Checkpoint Model Identity Metadata (M3 — run `run_37fb509c4b6ed593`)
+
+**Problem:** The checkpoint flow in `turn-checkpoint.js` records `runtime_id` in the git commit body (`Runtime: local-opus-4.6` at line 211) but omits it from three programmatic metadata surfaces that downstream code reads.
+
+**Three gaps identified:**
+
+| Surface | Location | runtime_id available? | runtime_id persisted? |
+|---------|----------|----------------------|----------------------|
+| Checkpoint commit body | turn-checkpoint.js:211 | YES | YES (already present) |
+| `state.json last_completed_turn` | turn-checkpoint.js:469-476 | YES (from history entry) | NO |
+| `turn_checkpointed` event | turn-checkpoint.js:479-486 | YES (from history entry) | NO |
+| Checkpoint commit subject | turn-checkpoint.js:205 | YES (from history entry) | NO |
+
+**Impact on multi-model audit and tooling:**
+- Consumers reading `state.json` to learn about the last checkpoint (session-checkpoint.js:95, operator-commit-reconcile.js:71) get turn/role/phase but not which model produced the work
+- Event consumers processing events.jsonl `turn_checkpointed` entries cannot determine model identity without cross-referencing history.jsonl
+- `git log --oneline` shows only role/phase in checkpoint subjects — model identity requires `git show` to read the body
+
+**Fix:**
+1. Add `runtime_id: entry.runtime_id || null` to `last_completed_turn` object at turn-checkpoint.js:469
+2. Add `runtime_id: entry.runtime_id || null` to `turn` object in `turn_checkpointed` event at turn-checkpoint.js:483
+3. Add `runtime=${entry.runtime_id || '(unknown)'}` to checkpoint commit subject at turn-checkpoint.js:205
+
+**Backward compatibility:** History entries from pre-runtime_id era have `runtime_id: undefined`. The `|| null` / `|| '(unknown)'` fallbacks produce clean output for legacy entries. No backfill needed.
+
+**Test coverage:**
+- Unit: `state.json last_completed_turn.runtime_id` populated after checkpoint
+- Unit: `turn_checkpointed` event includes `runtime_id` in `turn` object
+- Unit: Checkpoint commit subject includes `runtime=<id>`
+- Unit: Legacy entries without `runtime_id` produce `null`/`(unknown)` fallbacks
+
 ## Resolved Questions
 
 1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)
