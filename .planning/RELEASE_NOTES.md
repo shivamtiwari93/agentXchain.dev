@@ -2,23 +2,20 @@
 
 ## User Impact
 
-The vision scanner's `deriveRoadmapCandidates()` function now recognizes `<!-- tracking: ... -->` inline annotations on unchecked ROADMAP.md items. Annotated items are skipped during candidate derivation, preventing the continuous loop from re-triggering work on longitudinal acceptance criteria that cannot be completed in a single governed cycle (e.g., "zero ghost turns across 10 consecutive runs").
+The idle-expansion exhaustion heuristic in `detectRoadmapExhaustedVisionOpen()` now correctly skips tracking-annotated unchecked ROADMAP items when deciding whether actionable unchecked work remains. Previously, this function counted `<!-- tracking: ... -->` annotated items as unchecked work, while `deriveRoadmapCandidates()` already skipped them — causing an inconsistency where the exhaustion detector would report `has_unchecked` even though the candidate derivation function found no actionable items.
 
-This eliminates the re-trigger loop where the vision scanner repeatedly queued already-in-progress longitudinal work, causing wasted PM/Dev/QA cycles on items that require multi-run observation.
-
-Non-annotated unchecked items — including items with other HTML comments like `<!-- owner: dev -->` — remain fully actionable. The annotation is case-insensitive and requires a complete `<!-- tracking: ... -->` form (colon required, closing `-->` required).
+This fix ensures both functions agree: when a ROADMAP milestone has only tracking-annotated unchecked items (e.g., longitudinal acceptance criteria like "zero ghost turns across 10 consecutive runs"), the milestone is treated as exhausted by both the candidate derivation and the exhaustion heuristic. If VISION.md has unplanned scope beyond those milestones, the system can now correctly trigger PM to derive the next roadmap increment.
 
 ## Verification Summary
 
-- 267 tests pass across 5 test suites (31 vision-reader + 100 validator + 17 staged-result + 42 adapter + 77 schema/timeout/run-loop), 0 failures
-- 2 new regression tests added: tracking annotation skip + normal HTML comment preservation
-- 8 regex edge cases independently verified (valid annotations, empty annotations, case-insensitive, no-space, missing colon, different annotation type, bare word, unclosed annotation)
-- Live workspace scan: 35 candidates emitted, M1 acceptance item correctly filtered, M2+ items correctly emitted
+- 270 tests pass across 5 test suites (34 vision-reader + 100 validator + 17 staged-result + 42 adapter + 77 schema/timeout/run-loop), 0 failures
+- 3 new regression tests added: tracked-only roadmap exhaustion, actionable unchecked items, fully mapped vision scope
+- Live workspace scan: 33 candidates with 0 from M1 (tracking-filtered); exhaustion detector returns `has_unchecked` because M2-M8 have actionable work
 - All 8 acceptance criteria verified (see acceptance-matrix.md)
 
 ## Upgrade Notes
 
-No breaking changes. Existing ROADMAP.md files without `<!-- tracking: ... -->` annotations behave identically to before. To use the new feature, add an inline `<!-- tracking: description -->` annotation to any unchecked roadmap item that should be excluded from vision scanner candidate derivation.
+No breaking changes. This is a bug fix that corrects an internal inconsistency. No user-facing API or configuration changes.
 
 ## Known Issues
 

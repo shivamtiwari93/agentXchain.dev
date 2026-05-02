@@ -4,36 +4,37 @@
 
 ## QA Summary
 
-**Run:** run_cc4217fafd6611bc
-**Scope:** ROADMAP tracking annotation support in vision scanner
+**Run:** run_e9d2aeed559c018e
+**Scope:** Idle-expansion exhaustion heuristic fix — `detectRoadmapExhaustedVisionOpen()` consistency with tracking annotations
 
 ### Challenge of Dev Turn
 
-The dev's implementation is correct and appropriately scoped. I challenged the following:
+The dev's implementation is correct, minimal, and adequately tested. Specific challenges:
 
-1. **Regex correctness:** Independently verified the `ROADMAP_TRACKING_ANNOTATION_PATTERN` regex against 8 edge cases (valid annotations, empty annotations, case variations, missing colon, unclosed annotations, non-tracking comments, bare word). All 8 passed correctly.
+1. **Fix correctness:** The dev added a single guard clause at `vision-reader.js:490` that checks `ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line)` inside the unchecked-item scanner of `detectRoadmapExhaustedVisionOpen()`. This mirrors the identical guard already present at line 264 in `deriveRoadmapCandidates()`. Both functions now use the same module-level regex constant, eliminating the inconsistency that caused the idle-expansion heuristic bug.
 
-2. **Dev's tightening of PM spec:** The PM specified a `<!-- tracking:` substring check. The dev implemented a complete annotation pattern requiring both the colon separator and closing `-->` tag. I verify this is the right decision — it prevents false positives from partial or malformed annotations while still matching all reasonable annotation forms.
+2. **Test adequacy:** The dev added 3 regression tests covering the three-state model: (a) tracked-only roadmap with unplanned vision scope triggers `roadmap_exhausted_vision_open`, (b) actionable unchecked items correctly return `has_unchecked`, (c) fully mapped vision scope returns `vision_fully_mapped`. These tests directly exercise `detectRoadmapExhaustedVisionOpen()` rather than relying on indirect coverage — correct since the function has its own independent roadmap scan.
 
-3. **Live workspace behavior:** Ran `deriveRoadmapCandidates()` against the real workspace ROADMAP.md. The M1 acceptance item with `<!-- tracking: 3/10 zero-ghost runs ... -->` is correctly filtered. All M2–M8 unchecked items are correctly emitted (35 total candidates, 5 from M2 alone).
+3. **Live workspace consistency:** Both `deriveRoadmapCandidates()` and `detectRoadmapExhaustedVisionOpen()` agree: M1 acceptance item is filtered (0 M1 candidates), and M2-M8 have actionable unchecked work (33 candidates total, `has_unchecked` reason).
 
-4. **Reserved file integrity:** The reserved .agentxchain state files in the dev's commit are orchestrator-managed checkpointing, not manual dev edits. The dev correctly declared only the 3 product files it changed.
+4. **Diff minimality:** `git diff HEAD~1` confirms exactly 1 line added to vision-reader.js and 68 lines of test additions. No extraneous changes.
+
+5. **Reserved file integrity:** Dev declared 4 files changed (vision-reader.js, vision-reader.test.js, IMPLEMENTATION_NOTES.md, ROADMAP.md). No reserved `.agentxchain/` files were manually modified.
 
 ### Independent Verification
 
 | Test Suite | Count | Result |
 |------------|-------|--------|
-| vision-reader.test.js | 31 | PASS |
+| vision-reader.test.js | 34 | PASS |
 | turn-result-validator.test.js | 100 | PASS |
 | staged-result-proof + turn-result-shape | 17 | PASS |
 | local-cli-adapter.test.js | 42 | PASS |
 | config-schema + timeout + run-loop | 77 | PASS |
-| **Total** | **267** | **0 failures** |
+| **Total** | **270** | **0 failures** |
 
 Additional:
-- `node --check cli/src/lib/vision-reader.js` — syntax OK
-- Regex edge case verification: 8/8 pass
-- Live workspace scan: 35 candidates, M1 correctly filtered
+- Live workspace scan: 33 candidates, M1 correctly filtered, exhaustion detector returns `has_unchecked`
+- `git diff HEAD~1` confirms minimal diff: 1 source line + 68 test lines
 
 ## Open Blockers
 
