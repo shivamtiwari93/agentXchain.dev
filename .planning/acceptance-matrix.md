@@ -1,56 +1,45 @@
 # Acceptance Matrix — agentXchain.dev
 
-**Run:** run_5276bd12be02449a
-**Turn:** turn_b50e6c4ea35c242d (QA)
-**Scope:** M4 Structured Recovery Classification — new classification module, emit-time enrichment, governance report rendering (text/markdown/HTML)
+**Run:** run_da40a332eed44f56
+**Turn:** turn_c168cebde30fb319 (QA)
+**Scope:** M4 Checkpoint-Restore Crash Resume — PID liveness guard in `step --resume`, stale dispatch-progress cleanup, regression coverage
 
 ## Section A: SYSTEM_SPEC Acceptance Tests
 
 | Req # | Requirement (from SYSTEM_SPEC.md §Acceptance Tests) | Evidence | Status |
 |-------|------------------------------------------------------|----------|--------|
-| AC-001 | `classifyRecoveryEvent()` correctly classifies all 8 recovery event types by domain/severity/outcome/mechanism | `recovery-classification.test.js` "classifies each supported recovery event type" — exercises all 8 event types against SYSTEM_SPEC §1.2 mappings. QA verified source at `recovery-classification.js:4-61` matches spec table exactly. | PASS |
-| AC-002 | `buildRecoveryClassificationReport()` produces correct per-domain aggregation and health score from a mixed event set | `recovery-classification.test.js` "aggregates mixed recovery events and derives health scores" + "returns healthy for zero or non-exhausted recovery events and critical for systemic exhaustion". QA verified `buildRecoveryClassificationReport` at lines 109-158 matches spec §2.1 health score derivation rules. | PASS |
-| AC-003 | `formatGovernanceReportText()` output includes "Recovery Classification:" section with per-domain breakdown when recovery events exist | `recovery-classification.test.js` "adds recovery classification to run subject and text, markdown, and html reports". QA verified text rendering at `report.js:1558-1576` — includes Health, Events, By Domain, and Timeline sections. | PASS |
-| AC-004 | Recovery event payloads include `recovery_classification` field | Dev centralized at `run-events.js:77-80` (DEC-001) instead of 8 individual call sites in `continuous-run.js`. `run-events.test.js` "adds recovery_classification to recognized recovery event payloads" confirms payloads contain the field. QA verified the code — `classifyRecoveryEvent()` is called at emit-time and result is merged into payload when not already present. Architecturally superior to spec's 8-callsite approach. | PASS |
-| AC-005 | `npm run test` passes with no regressions | Full suite: 664 test files, 7382 tests, 0 failures. QA independently ran full `npm test` to completion. | PASS |
+| AC-001 | `step --resume` with dead `worker_pid` on active running turn proceeds to re-dispatch (crash recovery verified) | `step-crash-resume.test.js` "re-dispatches an active running turn with a dead worker pid and removes stale dispatch-progress" — sets PID 99999999 (dead), writes dispatch-progress, calls `stepCommand({resume:true})`, asserts `dispatchLocalCli` called once, turn transitions to `dispatched`, `worker_pid` cleared. QA verified source at `step.js:1045-1058` — `guardResumeWorkerLiveness()` detects dead PID via `isWorkerAlive()`, calls `cleanupStaleDispatchProgress()`, then returns to allow re-dispatch. | PASS |
+| AC-002 | `step --resume` with alive `worker_pid` on active running turn rejects with clear error (duplicate dispatch prevented) | `step-crash-resume.test.js` "rejects active running turn resume when the previous worker pid is still alive" — sets PID to `process.pid` (guaranteed alive), calls `stepCommand({resume:true})`, captures exit. Asserts: exit code 1, output matches `/Worker process \(PID \d+\) is still alive/`, `dispatchLocalCli` not called, turn remains `running`, dispatch-progress file preserved. QA verified `step.js:1050-1054` — alive PID branch prints error and calls `process.exit(1)`. | PASS |
+| AC-003 | `step --resume` with no `worker_pid` on active running turn proceeds normally (backwards compatible) | `step-crash-resume.test.js` "keeps no-pid active running turn resume backwards compatible" — sets up running turn with `worker_pid: null` (via `setRunningTurn(root, turnId, null)`), calls resume. Asserts: `dispatchLocalCli` called once, turn accepted and removed from `active_turns`. QA verified `step.js:1046-1047` — `worker_pid == null` guard returns early, no liveness check. | PASS |
+| AC-004 | Stale `dispatch-progress-{turnId}.json` is deleted during crash recovery before re-dispatch | `step-crash-resume.test.js` test 1: writes `dispatch-progress-{turnId}.json` before resume, asserts `existsSync(progressPath) === false` after resume. Also test 4 (blocked path): same pattern. QA verified `step.js:1075-1086` — `cleanupStaleDispatchProgress()` calls `unlinkSync()` in try/catch, guarded by `existsSync()`. | PASS |
+| AC-005 | `npm run test` passes with no regressions | Full suite: 665 test files, 7386 tests, 0 failures. Independently run by QA to completion (duration 2069s). | PASS |
 
 ## Section B: Code Correctness Verification
 
 | Check | Detail | Status |
 |-------|--------|--------|
-| 8 event-to-classification mappings match SYSTEM_SPEC §1.2 | QA compared `EVENT_CLASSIFICATIONS` object (recovery-classification.js:4-61) against SYSTEM_SPEC table line by line. All 8 rows match: domain, default severity, outcome, mechanism. | PASS |
-| Severity escalation rules match SYSTEM_SPEC §1.3 | `escalateSeverity()` at lines 69-77: (1) ghost exhaustion with `same_signature_repeat` → `critical`, (2) budget with `remaining_usd <= 0` → `high`. Both match spec. | PASS |
-| Health score derivation matches SYSTEM_SPEC §2.1 | Lines 146-149: `critical` when any severity is critical OR exhausted > recovered; `degraded` when any exhausted or manual; `healthy` otherwise. Matches spec exactly. | PASS |
-| Report output null-guarded for no recovery events | `extractRecoveryClassification` at line 707-709 returns null when `total_recovery_events === 0`. All three renderers guard with `if (run.recovery_classification)`. | PASS |
-| Emit-time enrichment is idempotent | `run-events.js:78` checks `!payload.recovery_classification` before adding — will not overwrite existing classification if somehow already present. | PASS |
-| Module exports are pure functions | `recovery-classification.js` has no I/O, no side effects, no imports except built-in data structures. Confirmed pure. | PASS |
-| Markdown pipe escaping | `report.js:2190` escapes `|` chars in timeline summaries for markdown table safety. | PASS |
-| HTML escaping | `report.js:2940-2955` uses `esc()` for all user-derived content in HTML tables. | PASS |
-| Timeline sort correctness | `recovery-classification.js:136-143`: sorts by timestamp (NaN → +Infinity for stable ordering), breaks ties by event_id. | PASS |
-| Bounded output | Text, markdown, and HTML renderers use `boundedSlice()` for timeline — prevents unbounded output in large event sets. | PASS |
+| PID guard placement — active path | `guardResumeWorkerLiveness(root, targetTurn)` called at step.js:196, after target turn resolution, before `skipAssignment = true`. Correct per SYSTEM_SPEC §2.1. | PASS |
+| PID guard placement — blocked path | `guardResumeWorkerLiveness(root, targetTurn)` called at step.js:277, **before** `reactivateGovernedRun()` at line 279. Deviation from SYSTEM_SPEC §2.1 which says "after reactivation." Dev's ordering is **superior**: if worker is alive, run stays blocked (no state mutation). DEC-001 documents this reasoning. | PASS |
+| `isWorkerAlive()` defensive validation | step.js:1062-1063 validates PID is a positive integer before `process.kill(pid, 0)`. Prevents `NaN`, negative, or string PIDs from throwing unexpected errors. Not in spec but defensively correct. | PASS |
+| `cleanupStaleDispatchProgress()` error handling | step.js:1081-1084 wraps `unlinkSync` in try/catch. Best-effort cleanup prevents filesystem race conditions from aborting the resume path. | PASS |
+| `guardResumeWorkerLiveness()` is a single reusable function | Both active (line 196) and blocked (line 277) paths call the same function. Eliminates risk of logic drift between the two paths. | PASS |
+| No new exports | All helpers (`guardResumeWorkerLiveness`, `isWorkerAlive`, `cleanupStaleDispatchProgress`) are module-private in step.js. Per SYSTEM_SPEC §Interface: "No New Exports." | PASS |
+| Vitest contract file count updated | `vitest-contract.test.js:56` asserts `TEST_FILES.length === 665`, accounting for the new `step-crash-resume.test.js`. | PASS |
+| ROADMAP.md item checked off | ROADMAP.md:62 — M4 "Improve checkpoint-restore" marked `[x]` with `run_da40a332eed44f56` evidence. | PASS |
 
 ## Section C: Regression Suites (QA-Verified)
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| recovery-classification.test.js | 7 | PASS |
-| run-events.test.js | 13 | PASS |
-| report-cli.test.js | 15 | PASS |
-| report-html.test.js | 12 | PASS |
-| governance-report-content.test.js | 17 | PASS |
-| continuous-run.test.js | 76 | PASS |
-| budget-warn-mode.test.js | 8 | PASS |
-| e2e-budget-warn-mode.test.js | 16 | PASS |
-| product-examples-contract.test.js | 22 | PASS |
+| step-crash-resume.test.js | 4 | PASS |
 | vitest-contract.test.js | 11 | PASS |
-| claim-reality-preflight.test.js | 38 | PASS |
 | agent-talk-word-cap.test.js | 8 | PASS |
-| **Full suite total** | **7382** | **0 failures** |
+| **Full suite total (665 files)** | **7386** | **0 failures** |
 
 ## Section D: Dev Challenge
 
-**Architecture deviation (DEC-001):** Dev centralized recovery classification at `emitRunEvent()` in `run-events.js` rather than modifying 8 call sites in `continuous-run.js` as charted. **QA agrees this is a superior design:** single insertion point eliminates the risk of missing a call site, applies classification to all future recovery events automatically, and keeps `continuous-run.js` unchanged (smaller diff, lower regression risk).
+**Blocked-path guard ordering (DEC-001):** Dev placed `guardResumeWorkerLiveness()` **before** `reactivateGovernedRun()` at step.js:277, contradicting SYSTEM_SPEC §2.1 which says "after reactivation, before baseline refresh." QA independently reviewed both orderings and confirms dev's choice is correct: rejecting a resume when the worker is alive should not mutate the run from `blocked` to `active` as a side effect. The IMPLEMENTATION_NOTES.md documents this reasoning explicitly. **Accepted.**
 
-**Test location deviation:** SYSTEM_SPEC §Dev Charter item 6 says add report test in `report.test.js`. Dev placed it in `recovery-classification.test.js` under "governance report recovery classification" describe block. Functionally equivalent — the test exercises the full pipeline including `report.js` rendering. QA accepts this.
+**Test implementation pattern (DEC-002):** Dev tests the PID guard by mocking `dispatchLocalCli` and calling `stepCommand({resume:true})` directly, rather than exporting the private `guardResumeWorkerLiveness`. This follows the established test pattern for step.js and avoids coupling tests to internal helper structure. QA verified all 4 test cases exercise the guard through the real resume flow. **Accepted.**
 
-**Verification blocker fixes:** Dev fixed 3 pre-existing test infrastructure issues (product-examples Node 25 discovery, Vitest file count, BUG-46 timeout). These are non-functional changes to test scaffolding, not to production code. QA independently verified these suites pass.
+**Vitest contract update (DEC-003):** File count moved from 664 to 665, reflecting the new `step-crash-resume.test.js`. QA verified the count matches the actual filesystem: 665 `.test.js` files under `cli/test/`. **Accepted.**

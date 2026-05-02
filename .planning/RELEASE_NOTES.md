@@ -2,29 +2,21 @@
 
 ## User Impact
 
-This release adds **structured recovery classification** to governance reports. Operators monitoring governed runs now get categorized visibility into recovery events across four domains (ghost, budget, credential, crash) with per-domain statistics, severity tracking, and a health score.
+This release hardens the `agentxchain step --resume` crash-recovery path with **PID liveness detection** and **stale dispatch-progress cleanup**, preventing duplicate worker dispatch and stale progress data after a killed mid-turn process.
 
-- **Recovery Classification in governance reports:** Text, markdown, and HTML governance reports now include a "Recovery Classification" section showing:
-  - Overall health score (`healthy`, `degraded`, `critical`)
-  - Total recovery event count with outcome breakdown (recovered, exhausted, manual, pending)
-  - Per-domain breakdown table (Ghost, Budget, Credential, Crash)
-  - Chronological recovery event timeline with domain, severity, outcome, mechanism, and summary
+- **PID liveness guard on resume:** When `step --resume` encounters an active or blocked turn with a recorded `worker_pid`, it now checks whether that process is still alive via `process.kill(pid, 0)`. If alive, the resume is rejected with a clear error ("Worker process (PID N) is still alive") and exit code 1, preventing duplicate dispatch of two workers on the same turn. If dead, the resume proceeds normally with crash-recovery logging.
 
-- **Automatic event classification at emit-time:** All 8 recovery event types (`auto_retried_ghost`, `ghost_retry_exhausted`, `auto_retried_productive_timeout`, `productive_timeout_retry_exhausted`, `budget_exceeded_warn`, `retained_claude_auth_escalation_reclassified`, `continuous_paused_active_run_recovered`, `session_failed_recovered_active_run`) are automatically classified when emitted to `events.jsonl`, embedding domain/severity/outcome/mechanism metadata directly in event payloads.
+- **Stale dispatch-progress cleanup:** When crash recovery is detected (dead worker PID), the stale `dispatch-progress-{turnId}.json` file from the killed process is automatically deleted before re-dispatch. This ensures the new worker starts with a clean progress tracker, preventing stale `last_activity_at` and `output_lines` data from misleading the watchdog system.
 
-- **Severity escalation:** Ghost retry exhaustion with same-signature repeats escalates to `critical` severity. Budget warnings with zero remaining USD escalate to `high`. This surfaces systemic recovery failures prominently.
+- **Backwards compatible:** Turns without a recorded `worker_pid` (pre-existing state or manual adapter turns) are unaffected — resume proceeds as before with no liveness check.
 
-- **Health score:** Provides at-a-glance assessment — `critical` when any event is critical-severity or more events exhausted than recovered, `degraded` when any exhausted/manual outcomes exist, `healthy` otherwise.
-
-- **Coexists with existing recovery summary:** The new classification section appears alongside the existing `recovery_summary` snapshot — no breaking changes to existing report consumers.
+- **Blocked-turn crash recovery:** The PID guard also covers the blocked-turn resume path. If a run was blocked with a retained turn from a crashed worker, `step --resume` now detects the dead PID, cleans dispatch-progress, reactivates the run, and re-dispatches the turn in one operation.
 
 ## Verification Summary
 
-- Full suite: 664 test files, 7382 tests, 0 failures — independently run to completion by QA
-- All 8 recovery event type classifications verified against SYSTEM_SPEC §1.2 mapping table
-- Severity escalation rules verified against SYSTEM_SPEC §1.3
-- Health score derivation verified against SYSTEM_SPEC §2.1
-- Text, markdown, and HTML rendering independently reviewed for correctness, escaping, and bounded output
-- AGENT-TALK guard tests pass 8/8
+- Full suite: 665 test files, 7386 tests, 0 failures — independently run to completion by QA
+- Targeted crash-resume tests: 4/4 pass (active crash recovery, alive-PID rejection, no-PID backwards compat, blocked-turn crash recovery)
+- Vitest contract + crash-resume combined: 15/15 pass
+- AGENT-TALK guard tests: 8/8 pass
 - No whitespace issues (`git diff --check` clean)
-- ROADMAP.md M4 item "Add structured recovery classification" checked off with run evidence
+- ROADMAP.md M4 item "Improve checkpoint-restore" checked off with run evidence
