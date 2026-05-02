@@ -57,7 +57,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Acceptance: session.json consistent with state.json after auto-retry; continuous loop does not exit when governed run is active
 
 ### M4: Recovery & Resilience Hardening
-- [ ] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash
+- [x] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash <!-- run_24a851cc6e95d841: SYSTEM_SPEC.md documents 17 gaps across 4 domains (ghost, budget, credential, crash) -->
 - [ ] Add structured recovery classification to governance reports
 - [ ] Improve checkpoint-restore: verify a killed mid-turn process can cleanly resume
 - [ ] Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)
@@ -95,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Root-cause session status inconsistency (Bug A: checkpoint gap + Bug B: premature terminal), charter dev with 3 code changes + 3 tests | Active (`run_aeb78d7979d66c0a`) |
-| Implementation | Implement `writeSessionCheckpoint` in `clearGhostBlockerAfterReissue`, `isGovernedRunStillActiveForSession` helper, main loop recovery guard, + 3 tests | Pending |
-| QA | Verify session checkpoint consistency, loop recovery behavior, no regressions | Pending |
+| Planning | M4 recovery path audit: document all recovery entry points, state transitions, checkpoint coverage, and gaps across ghost/budget/credential/crash domains | Active (`run_24a851cc6e95d841`) |
+| Implementation | Dev verifies audit accuracy: confirm P1/P2 gaps at cited line numbers, produce evidence document | Pending |
+| QA | Validate audit completeness, evidence accuracy, no regressions | Pending |
