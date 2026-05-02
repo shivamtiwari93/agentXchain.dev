@@ -1,10 +1,10 @@
-# PM Signoff — M3: Multi-Model Turn Handoff Quality (Item #1: Context Preservation)
+# PM Signoff — M3: Multi-Model Turn Handoff Quality (Item #2: Output Format Parsing Validation)
 
 Approved: YES
 
-**Run:** `run_fb3583590a1a4799`
+**Run:** `run_3a396386e18575b6`
 **Phase:** planning
-**Turn:** `turn_089b8301e9c618c1`
+**Turn:** `turn_90518aab38b346cf`
 **Date:** 2026-05-01
 
 ## Discovery Checklist
@@ -17,192 +17,196 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running multi-model governed runs where different roles bind to different runtimes (e.g., PM on Claude Opus 4.7, Dev on GPT 5.5, QA on Claude Opus 4.6).
+AgentXchain operators running multi-model governed runs where runtimes produce different output formats: Claude Code emits `--output-format stream-json` (newline-delimited JSON events on stdout), while OpenAI Codex CLI emits `--json` (a single structured JSON blob on stdout).
 
 ### Core Pain Point
 
-When a turn completes and the next role is dispatched to a **different model**, the CONTEXT.md handoff document omits which model produced the prior turn's work. Three specific gaps:
+The local CLI adapter's output handling is **asymmetrically developed**: Claude runtimes get three layers of output-aware behavior (flag compatibility validation, auth failure classification, Node incompatibility classification), while Codex runtimes get zero output-aware behavior. This creates two concrete problems:
 
-1. **"Last Accepted Turn" section lacks `runtime_id`**: The receiving model sees the prior turn's `role`, `summary`, `decisions`, and `objections` but has **no indication which model/runtime produced them**. When QA (Opus 4.6) receives context from Dev (GPT 5.5), it cannot distinguish GPT-authored work from Claude-authored work.
+1. **Codex failure misclassification**: When a Codex `--json` turn fails (auth error, command rejection, sandbox escape), the adapter reports a generic "subprocess exited without writing a staged turn result" error. The orchestrator cannot distinguish a recoverable Codex auth failure from a non-recoverable configuration error. This forces unnecessary human escalation for what should be automated recovery.
 
-   - **Evidence:** `dispatch-bundle.js:798-813` renders `turn_id`, `role`, `summary`, decisions, objections — no `runtime_id`. The data IS available in the history entry (`governed-state.js:5171` stores `runtime_id: turnResult.runtime_id`), but `renderContext()` never reads or renders it.
+2. **No output format validation for non-Claude runtimes**: `validateLocalCliCommandCompatibility()` at `local-cli-adapter.js:741` only checks the Claude-specific `--print --output-format stream-json --verbose` combination. No analogous validation exists for Codex `exec --json` commands. A misconfigured Codex runtime (e.g., `codex exec` without `--json`, or `codex --json` without `exec`) will fail at runtime rather than being caught at dispatch pre-flight.
 
-2. **Decision history table lacks model attribution**: The cumulative decision history rendered at `dispatch-bundle.js:1415-1420` shows `| ID | Phase | Role | Statement |` — no Runtime column. When a receiving model reads 50+ decisions, it cannot tell which decisions were made by Claude vs GPT. This degrades cross-model challenge quality because the challenger cannot contextualize decisions by their authoring model's known strengths/weaknesses.
+**Evidence of the gap:**
 
-   - **Evidence:** `dispatch-bundle.js:1415` renders `| ID | Phase | Role | Statement |`. The decision ledger entries at `governed-state.js:5236-5248` store `id`, `turn_id`, `role`, `phase`, `category`, `statement`, `rationale` — but **no `runtime_id`**. The data is available at write time (`turnResult.runtime_id`) but not persisted.
-
-3. **Decision ledger does not persist `runtime_id`**: Even if we added a Runtime column to the CONTEXT.md table, the underlying data doesn't exist in the ledger. The fix requires both persistence (write `runtime_id` to ledger entries) and rendering (display it in CONTEXT.md).
+| Capability | Claude (`stream-json`) | Codex (`--json`) |
+|-----------|----------------------|-----------------|
+| Flag compatibility validation | YES (`validateLocalCliCommandCompatibility`) | NO |
+| Auth failure classification | YES (`hasClaudeAuthFailureOutput`) | NO |
+| Runtime incompatibility detection | YES (`hasClaudeNodeRuntimeIncompatibilityOutput`) | NO |
+| Output collected for audit | YES | YES |
+| Structured event parsing | NO (raw text) | NO (raw text) |
+| Startup proof from stdout | YES (`recordFirstOutput`) | YES (`recordFirstOutput`) |
 
 ### Core Workflow
 
-1. PM diagnoses context handoff gaps, scopes dev charter (this turn)
-2. Dev adds `runtime_id` to decision ledger entries, renders it in CONTEXT.md "Last Accepted Turn" and decision history table, adds regression tests
-3. QA verifies handoff context is complete across cross-model scenarios
+1. PM diagnoses the output format handling asymmetry and scopes dev charter (this turn)
+2. Dev adds Codex output classification, Codex flag validation, and stream-json/--json test coverage
+3. QA verifies both output formats produce correct adapter behavior end-to-end
 
 ### MVP Scope (this run)
 
-- **PM (this turn):** Root-cause the context handoff gaps, scope implementation for dev
-- **Dev:** Three code changes + regression tests:
-  1. Persist `runtime_id` in decision ledger entries (`governed-state.js:5236`)
-  2. Render `runtime_id` in "Last Accepted Turn" section (`dispatch-bundle.js:799`)
-  3. Add `Runtime` column to decision history table (`dispatch-bundle.js:1415-1420`)
-  4. Regression tests for cross-runtime context rendering
-- **QA:** Verify handoff context completeness, run full test suite
+- **PM (this turn):** Root-cause the output format handling gaps, scope implementation for dev
+- **Dev:** Four code changes + regression tests:
+  1. Add `isCodexLocalCliRuntime()` detector in `claude-local-auth.js` (or a new `codex-local-auth.js`) — pattern: binary is `codex` or ends with `/codex`
+  2. Add `hasCodexAuthFailureOutput()` classifier — match Codex auth error patterns in stdout/stderr (e.g., `"unauthorized"`, `"invalid API key"`, `"authentication failed"`, OpenAI 401 patterns)
+  3. Add Codex auth failure classification branch in `dispatchLocalCli()` close handler (parallel to the existing Claude branches at lines 504-535) — return `{ blocked: true, classified: { error_class: 'codex_auth_failed', recovery: '...' } }`
+  4. Add Codex `exec --json` flag validation in `validateLocalCliCommandCompatibility()` — warn if `codex` binary is used without `exec` subcommand, or if `exec` is used without `--json` when `prompt_transport: 'stdin'` is set
+  5. Regression tests covering:
+     - (a) Codex `--json` stdout auth failure → typed `codex_auth_failed` blocker
+     - (b) Codex missing `exec` subcommand → `local_cli_command_incompatible` pre-flight block
+     - (c) Claude `stream-json` auth failure → existing `claude_auth_failed` (regression guard)
+     - (d) Claude `stream-json` normal output → `ok: true` with staged result (regression guard)
+     - (e) Codex `--json` normal output → `ok: true` with staged result (new)
 
 ### Out of Scope
 
-- M3 item #2 (validate stream-json and --json output format parsing) — separate run
-- M3 item #3 (model identity metadata in turn checkpoints) — `runtime_id` already exists in history entries; this run closes the rendering gap, not the storage gap
-- M3 item #4 (test cross-model challenge quality) — requires longitudinal assessment across governed runs
-- M3 item #5 (acceptance criterion: 3 consecutive PM->Dev->QA cycles) — longitudinal
-- Changes to AGENT-TALK.md format or TALK.md rendering
-- Changes to the turn-result.json schema (it already includes `runtime_id`)
-- AGENT-TALK guard failures (3/8, pre-existing across 8+ consecutive QA runs)
+- M3 item #3 (model identity metadata in turn checkpoints) — separate run
+- M3 item #4 (test cross-model challenge quality) — longitudinal assessment
+- M3 item #5 (acceptance criterion: 3 consecutive cycles) — longitudinal
+- **Parsing stream-json events for cost extraction** — this is M4 scope ("Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)")
+- **Parsing stream-json events for structured turn results** — the file-based staging contract is the authoritative turn result channel; stdout parsing is diagnostic-only
+- Changes to the adapter interface contract (adapter-interface.js)
+- Changes to manual-adapter.js or api-proxy-adapter.js
+- Codex smoke probe (analogous to `runClaudeSmokeProbe`) — future hardening, not needed for output format validation
 
 ### Success Metric
 
-1. Decision ledger entries include `runtime_id` field — `governed-state.js:5236` adds `runtime_id: turnResult.runtime_id` to each decision entry
-2. CONTEXT.md "Last Accepted Turn" section includes `- **Runtime:** {runtime_id}` line — `dispatch-bundle.js` adds render after line 799
-3. Decision history table includes `Runtime` column — `dispatch-bundle.js:1415` becomes `| ID | Phase | Role | Runtime | Statement |`
-4. Regression test: `renderContext()` with a history entry from `local-gpt-5.5` renders the runtime_id in both the last turn section and decision history
-5. Regression test: `renderDecisionHistory()` renders Runtime column from ledger entries with `runtime_id`
-6. All existing tests continue to pass
+1. `isCodexLocalCliRuntime()` correctly identifies Codex runtimes — `connector-probe.js` already has this logic at line 354 but it's not exported for adapter use
+2. Codex auth failure output is classified as `codex_auth_failed` typed blocker — matching the `claude_auth_failed` pattern
+3. `validateLocalCliCommandCompatibility()` catches misconfigured Codex commands at pre-flight
+4. Test A: Codex `--json` auth failure → `result.blocked === true && result.classified.error_class === 'codex_auth_failed'`
+5. Test B: Codex missing `exec` → `result.ok === false && result.classified.error_class === 'local_cli_command_incompatible'`
+6. Test C: Codex `--json` normal turn → `result.ok === true` (staged result written)
+7. Test D: Claude `stream-json` auth failure → still `claude_auth_failed` (no regression)
+8. All existing tests continue to pass
 
 ## Challenge to Previous Work
 
-### OBJ-PM-001: M3 was triggered as a fresh milestone despite M1/M2 infrastructure providing partial handoff support (severity: low)
+### OBJ-PM-001: Prior M3 run (runtime_id) was correctly scoped but left the output format gap unaddressed (severity: low)
 
-The prior M2 runs (8 consecutive cycles) built substantial infrastructure for the vision scanner, tracking annotations, and three-state detection. However, none of these runs addressed the fundamental handoff quality gap: **CONTEXT.md does not tell the receiving model which model produced the prior turn's work**. This means 8 runs of PM->Dev->QA cycles have been executing without cross-model attribution in the handoff context.
+The prior run (`run_fb3583590a1a4799`) added `runtime_id` to decision ledger entries and CONTEXT.md rendering. This was correct work — model attribution in handoff context is necessary for cross-model challenge quality. However, the shipped changes address context *metadata* (which model produced a turn), not context *fidelity* (whether the adapter correctly handles each model's output format). A QA role on Opus 4.6 now knows a Dev turn was produced by GPT 5.5 via `local-gpt-5.5`, but if that GPT 5.5 turn had failed with a Codex auth error, the QA role would have seen only a generic failure message — no typed error class, no specific recovery instruction.
 
-This isn't a failure of prior work — M1/M2 were correctly scoped to ghost-turn elimination and vision derivation. But it does mean the multi-model handoff has been operating with an information deficit since the first cross-model run.
+The two M3 items are complementary: item #1 (runtime_id) tells you *who* produced the turn; item #2 (output format parsing) ensures the adapter *correctly handles* each model's output.
 
-### OBJ-PM-002: The decision ledger schema gap compounds over time (severity: medium)
+### OBJ-PM-002: Codex runtime has been operating without error classification since initial deployment (severity: medium)
 
-Every accepted turn since the first governed run has written decisions to the ledger **without `runtime_id`**. The current ledger contains 63+ decisions with no model attribution. After dev adds `runtime_id` to new entries, the historical entries will still lack it. This is acceptable for now (the rendering code should handle `d.runtime_id || ''` gracefully), but it means the decision history table will show blank Runtime cells for all pre-M3 decisions.
+The `local-gpt-5.5` runtime was added to `agentxchain.json` and bound to the `dev` and `eng_director` roles. Yet the adapter's error classification code at `local-cli-adapter.js:504-535` only fires for `isClaudeLocalCliRuntime(runtime)`. Every Codex failure since deployment has been reported as a generic "subprocess exited (code N) without writing a staged turn result" — no typed error class, no specific recovery action, no `blocked: true` flag. This means Codex failures are treated as retryable (ghost reissue) rather than blocked (human escalation), wasting retry budget on configuration problems.
 
-This is a conscious trade-off: backfilling historical ledger entries would require parsing history.jsonl to correlate turn_ids with runtime_ids and rewriting the ledger — complex, risky, and low-value since the historical decisions are already understood.
+This is not a regression from the prior run — it's a pre-existing gap that the M3 milestone was designed to address.
 
 ## Notes for Dev
 
-Your charter is **model identity attribution in CONTEXT.md handoffs**: persist `runtime_id` in the decision ledger, and render it in two CONTEXT.md sections.
+Your charter is **output format validation and Codex error classification in the local CLI adapter**.
 
-### 1. Persist `runtime_id` in decision ledger entries
+### 1. Add Codex runtime detection
 
-In `cli/src/lib/governed-state.js`, at the decision ledger entry construction (approximately line 5236):
-
+The pattern already exists in `connector-probe.js:354`:
 ```javascript
-// Current:
-ledgerEntries.push({
-  id: decision.id,
-  turn_id: turnResult.turn_id,
-  role: turnResult.role,
-  phase: state.phase,
-  category: decision.category,
-  statement: decision.statement,
-  rationale: decision.rationale,
-  objections_against: [],
-  status: 'accepted',
-  overridden_by: null,
-  created_at: now,
-});
-
-// Updated — add runtime_id:
-ledgerEntries.push({
-  id: decision.id,
-  turn_id: turnResult.turn_id,
-  role: turnResult.role,
-  runtime_id: turnResult.runtime_id,
-  phase: state.phase,
-  category: decision.category,
-  statement: decision.statement,
-  rationale: decision.rationale,
-  objections_against: [],
-  status: 'accepted',
-  overridden_by: null,
-  created_at: now,
-});
+const isCodex = binaryName === 'codex' || binaryName.endsWith('/codex');
 ```
 
-### 2. Render `runtime_id` in "Last Accepted Turn"
+Create a parallel detector for adapter use. Either:
+- Add `isCodexLocalCliRuntime(runtime)` to `claude-local-auth.js` (rename file to `local-cli-auth.js` if you prefer), or
+- Create a new `codex-local-auth.js` with the same structure
 
-In `cli/src/lib/dispatch-bundle.js`, `renderContext()` at approximately line 799, after the Role line:
+The detector should normalize command tokens and check the binary name, same as `isClaudeLocalCliRuntime()`.
 
+### 2. Add Codex auth failure classifier
+
+Create `hasCodexAuthFailureOutput(logs)` that matches common Codex/OpenAI auth error patterns:
 ```javascript
-// Current:
-lines.push(`- **Role:** ${lastTurn.role}`);
-lines.push(`- **Summary:** ${lastTurn.summary}`);
-
-// Updated:
-lines.push(`- **Role:** ${lastTurn.role}`);
-if (lastTurn.runtime_id) {
-  lines.push(`- **Runtime:** ${lastTurn.runtime_id}`);
-}
-lines.push(`- **Summary:** ${lastTurn.summary}`);
+const CODEX_AUTH_FAILURE_RE = /unauthorized|invalid api key|invalid_api_key|authentication failed|openai.*401|api_key.*invalid/i;
 ```
 
-### 3. Add `Runtime` column to decision history table
+Test against `logs.some(line => CODEX_AUTH_FAILURE_RE.test(line))`, same pattern as `hasClaudeAuthFailureOutput()`.
 
-In `cli/src/lib/dispatch-bundle.js`, `renderDecisionHistory()` at approximately line 1415:
+### 3. Add Codex error branch in dispatchLocalCli close handler
+
+In `local-cli-adapter.js`, after the Claude auth check at line ~504, add a parallel Codex branch:
 
 ```javascript
-// Current:
-lines.push('| ID | Phase | Role | Statement |');
-lines.push('|----|-------|------|-----------|');
-for (const d of displayed) {
-  const stmt = (d.statement || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
-  lines.push(`| ${d.id} | ${d.phase || ''} | ${d.role || ''} | ${stmt} |`);
-}
-
-// Updated:
-lines.push('| ID | Phase | Role | Runtime | Statement |');
-lines.push('|----|-------|------|---------|-----------|');
-for (const d of displayed) {
-  const stmt = (d.statement || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
-  lines.push(`| ${d.id} | ${d.phase || ''} | ${d.role || ''} | ${d.runtime_id || ''} | ${stmt} |`);
+} else if (isCodexLocalCliRuntime(runtime) && hasCodexAuthFailureOutput(logs)) {
+  const recovery = 'Refresh OpenAI credentials before resuming: export a valid OPENAI_API_KEY, then run agentxchain step --resume.';
+  settle({
+    ok: false,
+    blocked: true,
+    exitCode,
+    timedOut: false,
+    aborted: false,
+    firstOutputAt,
+    classified: {
+      error_class: 'codex_auth_failed',
+      recovery,
+    },
+    error: `Codex local_cli authentication failed. ${recovery}`,
+    logs,
+  });
 }
 ```
 
-### 4. Regression tests
+### 4. Add Codex flag validation in validateLocalCliCommandCompatibility
 
-Add tests in the appropriate test files (likely `dispatch-bundle.test.js` or a new `context-handoff.test.js`):
+Extend the function at `local-cli-adapter.js:741` to also validate Codex commands:
 
-**Test A: renderContext includes runtime_id in Last Accepted Turn**
-- Fixture: state with `last_completed_turn_id`, history entry with `runtime_id: 'local-gpt-5.5'`
-- Assert: rendered CONTEXT.md contains `- **Runtime:** local-gpt-5.5`
-
-**Test B: renderDecisionHistory includes Runtime column**
-- Fixture: decision ledger with entries containing `runtime_id: 'local-gpt-5.5'` and entries without `runtime_id` (pre-M3 legacy)
-- Assert: table header includes `| Runtime |`
-- Assert: entries with runtime_id show it; entries without show empty
-
-**Test C: Cross-runtime handoff scenario**
-- Fixture: history entry from `local-gpt-5.5` (Dev), decision ledger with mixed runtime_ids
-- Assert: both sections render correctly when the receiving runtime is `local-opus-4.6`
-
-### 5. Check off M3 item #1
-
-In `.planning/ROADMAP.md` line 39, change:
+```javascript
+if ((binaryName === 'codex' || binaryName.endsWith('/codex')) && !tokens.includes('exec')) {
+  const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Codex local_cli runtime';
+  const recovery = `${runtimeLabel} uses "codex" without the "exec" subcommand. Governed local runs require "codex exec" for non-interactive execution.`;
+  return {
+    ok: false,
+    error_class: 'local_cli_command_incompatible',
+    recovery,
+    error: recovery,
+    diagnostic: { runtime_id: runtimeId, binary: binaryName, rule: 'codex_requires_exec', recovery },
+  };
+}
 ```
-- [ ] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
+
+### 5. Regression tests
+
+Add tests in `local-cli-adapter.test.js`:
+
+**Test A: Codex --json auth failure → typed blocker**
+- Fixture: shim script that outputs `{"error": "unauthorized", "message": "Invalid API key"}` to stdout and exits 1
+- Config: `command: [shim, 'exec', '--json']` with binary name aliased to `codex`
+- Assert: `result.blocked === true`, `result.classified.error_class === 'codex_auth_failed'`
+
+**Test B: Codex missing exec → pre-flight block**
+- Config: `command: ['codex', '--json', '{prompt}']` (no `exec`)
+- Assert: `result.ok === false`, blocked before spawn
+
+**Test C: Codex --json normal turn → staged result success**
+- Fixture: shim script that writes a valid `turn-result.json` to staging dir and emits JSON to stdout
+- Assert: `result.ok === true`
+
+**Test D: Claude stream-json auth failure → still claude_auth_failed (regression guard)**
+- Ensure existing test at line ~279 continues to pass
+
+### 6. Check off M3 item #2
+
+In `.planning/ROADMAP.md` line 40, change:
+```
+- [ ] Validate that stream-json and --json output formats are correctly parsed by the adapter
 ```
 to:
 ```
-- [x] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
+- [x] Validate that stream-json and --json output formats are correctly parsed by the adapter
 ```
 
 ## Notes for QA
 
-- Verify `runtime_id` appears in CONTEXT.md "Last Accepted Turn" when the history entry has one
-- Verify the decision history table has a Runtime column
-- Verify legacy ledger entries (without `runtime_id`) render gracefully with an empty Runtime cell
-- Verify the `runtime_id` persisted in new ledger entries matches `turnResult.runtime_id`
+- Verify Codex auth failures produce `codex_auth_failed` typed blocker, not generic failure
+- Verify Codex missing `exec` is caught at pre-flight validation, not at runtime
+- Verify existing Claude error classification is unaffected (no regression)
+- Verify the `isCodexLocalCliRuntime()` detector correctly identifies Codex binaries
 - Run the full test suite — confirm no regressions
-- Check that existing CONTEXT.md snapshot tests (if any) are updated to reflect the new fields
+- Check that `validateLocalCliCommandCompatibility()` tests cover both Claude and Codex validation rules
 
 ## Acceptance Contract Response
 
-1. **Roadmap milestone addressed: M3: Multi-Model Turn Handoff Quality** — YES. This run addresses the first M3 item: ensuring cross-model handoffs preserve full context by adding model identity attribution to CONTEXT.md.
+1. **Roadmap milestone addressed: M3: Multi-Model Turn Handoff Quality** — YES. This run addresses the second M3 item: validating that both `stream-json` (Claude) and `--json` (Codex) output formats are correctly handled by the adapter, and closing the Codex error classification gap.
 
-2. **Unchecked roadmap item completed: Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md** — YES (after dev implements). Three gaps identified and scoped: (a) decision ledger missing `runtime_id`, (b) "Last Accepted Turn" missing runtime, (c) decision history table missing Runtime column. Dev charter is bounded to these three code changes + regression tests.
+2. **Unchecked roadmap item completed: Validate that stream-json and --json output formats are correctly parsed by the adapter** — YES (after dev implements). The gap is asymmetric error classification: Claude gets three layers of output-aware behavior while Codex gets none. Dev charter adds Codex auth classification, Codex flag validation, and comprehensive test coverage for both formats.
 
-3. **Evidence source: .planning/ROADMAP.md:39** — Line 39 will be checked off by dev after implementation. Evidence: `runtime_id` rendered in CONTEXT.md "Last Accepted Turn" section and decision history table.
+3. **Evidence source: .planning/ROADMAP.md:40** — Line 40 will be checked off by dev after implementation. Evidence: Codex auth failures classified as `codex_auth_failed` typed blockers, Codex command validation catches missing `exec`, regression tests prove both output formats work through the adapter.

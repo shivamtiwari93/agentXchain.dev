@@ -81,6 +81,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Diagnose M3 context handoff gaps: missing `runtime_id` in CONTEXT.md "Last Accepted Turn" and decision history, missing `runtime_id` in decision ledger entries | Active (`run_fb3583590a1a4799`) |
-| Implementation | Add `runtime_id` to decision ledger entries, render in CONTEXT.md last turn and decision history, regression tests | Complete |
-| QA | Verify cross-model handoff context completeness, run full test suite | Pending |
+| Planning | Diagnose output format handling asymmetry: Claude `stream-json` has 3 error classifiers, Codex `--json` has zero — scope Codex auth classification + flag validation | Active (`run_3a396386e18575b6`) |
+| Implementation | Add Codex runtime detector, auth failure classifier, error branch in close handler, flag validation in pre-flight, regression tests | Pending |
+| QA | Verify both output formats produce correct adapter behavior, run full test suite | Pending |

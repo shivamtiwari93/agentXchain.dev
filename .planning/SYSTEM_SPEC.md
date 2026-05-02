@@ -225,6 +225,49 @@ When state 2 fires, `seedFromVision()`:
 - Unit: `renderDecisionHistory()` includes Runtime column with mixed populated/empty entries
 - Integration: cross-runtime handoff scenario with GPT 5.5 → Opus 4.6 handoff
 
+### Output Format Parsing Validation (M3 — run `run_3a396386e18575b6`)
+
+**Problem:** The local CLI adapter's output handling is asymmetrically developed across runtime types. Claude runtimes (`--output-format stream-json`) receive three layers of output-aware behavior, while Codex runtimes (`--json`) receive none. This creates misclassification of Codex failures and silent configuration errors.
+
+**Two production runtime output formats in use:**
+
+| Runtime | Binary | Output flag | Format | Error classification |
+|---------|--------|------------|--------|---------------------|
+| `local-opus-4.7` | `claude` | `--output-format stream-json` | NDJSON event stream | YES (3 classifiers) |
+| `local-opus-4.6` | `claude` | `--output-format stream-json` | NDJSON event stream | YES (3 classifiers) |
+| `local-gpt-5.5` | `codex` | `--json` | Single JSON blob | NO (zero classifiers) |
+
+**Existing Claude-specific output handling (reference):**
+1. `validateLocalCliCommandCompatibility()` at `local-cli-adapter.js:741` — blocks dispatch when `--print --output-format stream-json` is used without `--verbose`
+2. `hasClaudeAuthFailureOutput()` at `local-cli-adapter.js:796` — matches `authentication_failed|authentication_error|invalid authentication credentials|unauthorized|API Error:\s*401` against stdout/stderr logs
+3. `hasClaudeNodeRuntimeIncompatibilityOutput()` at `local-cli-adapter.js:801` — matches Node.js version incompatibility patterns against stderr
+
+**Missing Codex output handling (gap):**
+1. No `isCodexLocalCliRuntime()` detector in adapter scope — `connector-probe.js:354` has the logic but it's not exported for adapter use
+2. No `hasCodexAuthFailureOutput()` classifier — Codex/OpenAI auth errors go undetected
+3. No Codex error branch in `dispatchLocalCli()` close handler — Codex failures always fall through to the generic "subprocess exited without writing a staged turn result" path
+4. No Codex command validation in `validateLocalCliCommandCompatibility()` — missing `exec` subcommand is not caught at pre-flight
+
+**Impact on multi-model handoff quality:**
+- Codex auth failures are reported as generic retryable failures, wasting 2 retry attempts before human escalation
+- Codex command misconfiguration is only caught at runtime (subprocess exit), not at dispatch pre-flight
+- The orchestrator's `classified.error_class` field is always empty for Codex failures, preventing automated recovery routing
+
+**Fix:**
+1. Add `isCodexLocalCliRuntime()` detector — pattern: binary is `codex` or ends with `/codex`
+2. Add `hasCodexAuthFailureOutput()` classifier — match OpenAI auth error patterns
+3. Add Codex error branch in `dispatchLocalCli()` close handler at `local-cli-adapter.js:504` — return `{ blocked: true, classified: { error_class: 'codex_auth_failed' } }`
+4. Extend `validateLocalCliCommandCompatibility()` — catch `codex` without `exec` subcommand
+
+**Design constraint:** The adapter's turn result contract remains file-based (staged `turn-result.json`). Output parsing is diagnostic-only — it classifies errors and collects audit logs, but never extracts turn results from stdout. Cost event parsing from stream-json is deferred to M4.
+
+**Test coverage:**
+- Unit: Codex `--json` auth failure → `codex_auth_failed` typed blocker
+- Unit: Codex missing `exec` → `local_cli_command_incompatible` pre-flight block
+- Unit: Codex `--json` normal turn → `ok: true` with staged result
+- Regression: Claude `stream-json` auth failure → `claude_auth_failed` (unchanged)
+- Regression: Claude `stream-json` normal turn → `ok: true` (unchanged)
+
 ## Resolved Questions
 
 1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)
