@@ -81,6 +81,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Verify M2 #2 dispatch mechanism, scope status message + three-state tests | Complete (`run_b51cc53d95925d53`) |
-| Implementation | Update status message, add seedFromVision three-state integration tests, check off M2 #2–#4 | Complete (`run_b51cc53d95925d53`) |
-| QA | Verify all tests pass, confirm M2 items correctly reflect implementation state | Complete (`run_b51cc53d95925d53`) |
+| Planning | Diagnose M2 #5 re-trigger, scope tracking annotation defense-in-depth + mixed-state test | Active (`run_bd3c68e0331fa956`) |
+| Implementation | Goal text sanitization in deriveRoadmapCandidates, mixed-state seedFromVision test, update tracking 0/5→1/5 | Pending |
+| QA | Verify all tests pass, confirm defense-in-depth fixes and tracking update | Pending |

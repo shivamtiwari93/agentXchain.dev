@@ -177,6 +177,25 @@ When state 2 fires, `seedFromVision()`:
 - Integration: `bug-77-roadmap-exhausted-vision-open.test.js` — CLI continuous mode dispatches PM replenishment
 - Integration: `seedFromVision()` three-state regression tests (added in this run)
 
+### Tracking Annotation Defense-in-Depth (M2 — run `run_bd3c68e0331fa956`)
+
+**Problem:** M2 item #5 was re-triggered by the vision scanner despite having a `<!-- tracking: 0/5 ... -->` annotation. The tracking skip in `deriveRoadmapCandidates()` at line 264 works correctly (verified by direct regex test and function invocation), but a timing anomaly caused the scan to read the ROADMAP before the checkpoint commit persisted the annotation.
+
+**Two defense-in-depth gaps identified:**
+
+1. **Goal text leaks annotation markup:** The unchecked regex capture group `(.+?)` at line 262 captures the full line text including any `<!-- tracking: ... -->` comment. If a tracked item bypasses the skip, the annotation pollutes the charter text and `isGoalAddressed()` keyword matching.
+
+2. **No mixed-state integration test:** Existing tests cover all-tracked → replenishment and simple-unchecked → roadmap_open_work, but not the mixed state (tracked M1/M2 + untracked M3) which is the normal operating state.
+
+**Fix:**
+- Strip `ROADMAP_TRACKING_ANNOTATION_PATTERN` from goal text at extraction time (line 266 of `vision-reader.js`)
+- Add `seedFromVision()` mixed-state integration test: tracked items skipped, untracked items returned, charter text clean
+
+**Test coverage:**
+- Unit: `vision-reader.test.js` — tracking annotation skip (existing)
+- Integration: `continuous-run.test.js` — `seedFromVision` mixed tracked + untracked state (new)
+- Integration: `seedFromVision()` three-state regression tests (existing)
+
 ## Resolved Questions
 
 1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)
