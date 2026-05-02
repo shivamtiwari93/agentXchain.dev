@@ -1,5 +1,22 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 Roadmap Tracking Annotation Implementation
+
+### Challenge
+
+The previous PM turn correctly identified the vision scanner re-trigger loop, but I do not accept the implementation detail as broadly stated. A scanner guard that only checks for `<!-- tracking:` as a substring is too loose for a roadmap parser because normal comments and prose can coexist on checklist items. The implementation therefore recognizes complete inline tracking annotations in the form `<!-- tracking: ... -->` and leaves other unchecked roadmap comments actionable.
+
+### Changes
+
+- Added `<!-- tracking: ... -->` annotation detection in `deriveRoadmapCandidates()` so longitudinal unchecked ROADMAP items are skipped by continuous vision scanning while remaining visibly unchecked for humans.
+- Preserved existing behavior for unchecked roadmap items without a complete tracking annotation.
+- Added regression coverage for the M1 longitudinal acceptance item and for normal HTML comments that should not be skipped.
+
+### Verification
+
+- `node --check cli/src/lib/vision-reader.js`
+- `node --test --test-timeout=60000 cli/test/vision-reader.test.js`
+
 ## 2026-05-01 Implementation Phase Gate Hardening
 
 ### Challenge

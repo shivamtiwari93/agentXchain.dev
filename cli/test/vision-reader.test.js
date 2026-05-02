@@ -220,6 +220,40 @@ describe('Vision Reader', () => {
       assert.equal(result.ok, true);
       assert.equal(result.candidates.length, 0);
     });
+
+    it('M1 tracking: skips unchecked roadmap items with tracking annotations', () => {
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M1: Self-Governance Hardening
+- [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 zero-ghost runs (8485b804, 984f0f8c, 936b36c7) as of 2026-05-02 -->
+
+### M2: Vision Derivation
+- [ ] Fix idle-expansion heuristic
+`);
+
+      const result = deriveRoadmapCandidates(tmpDir);
+      assert.equal(result.ok, true);
+      assert.equal(result.candidates.length, 1);
+      assert.match(result.candidates[0].section, /^M2:/);
+      assert.equal(result.candidates[0].goal, 'Fix idle-expansion heuristic');
+    });
+
+    it('M1 tracking: keeps normal HTML comments actionable', () => {
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M2: Vision Derivation
+- [ ] Preserve this open item <!-- owner: dev -->
+- [ ] Preserve tracking word without annotation
+`);
+
+      const result = deriveRoadmapCandidates(tmpDir);
+      assert.equal(result.ok, true);
+      assert.equal(result.candidates.length, 2);
+      assert.equal(result.candidates[0].goal, 'Preserve this open item <!-- owner: dev -->');
+      assert.equal(result.candidates[1].goal, 'Preserve tracking word without annotation');
+    });
   });
 
   describe('resolveVisionPath', () => {

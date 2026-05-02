@@ -15,6 +15,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve as pathResolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 
+const ROADMAP_TRACKING_ANNOTATION_PATTERN = /<!--\s*tracking\s*:[\s\S]*?-->/i;
+
 // ---------------------------------------------------------------------------
 // Parsing
 // ---------------------------------------------------------------------------
@@ -259,6 +261,7 @@ export function deriveRoadmapCandidates(root, roadmapPath = '.planning/ROADMAP.m
 
     const uncheckedMatch = line.match(/^\s*[-*]\s+\[\s\]\s+(.+?)\s*$/);
     if (!uncheckedMatch || !currentMilestone) continue;
+    if (ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line)) continue;
 
     const goal = uncheckedMatch[1].trim();
     const combinedGoal = `${currentMilestone}: ${goal}`;
