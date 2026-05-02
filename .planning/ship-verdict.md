@@ -4,29 +4,28 @@
 
 ## QA Summary
 
-**Run:** run_aeb78d7979d66c0a
-**Turn:** turn_252750ed9241b7a4 (QA)
-**Scope:** Fix session status inconsistency after ghost auto-retry (BUG-115)
+**Run:** run_eae4ef9d3ad5e2e3
+**Turn:** turn_23a78920dde1fbed (QA)
+**Scope:** BUG-115 roadmap housekeeping — verify already-shipped fix + check-offs + dev regression tightening
 
-### Acceptance Contract — All 3 Items PASS
+### Acceptance Contract — All 4 Items PASS
 
 | # | Criterion | Verdict | Evidence |
 |---|-----------|---------|----------|
-| 1 | Session.json checkpoint consistency after `clearGhostBlockerAfterReissue()` | PASS | `writeSessionCheckpoint(root, nextState, 'blocker_cleared')` added at line 640. BUG-115 test verifies `run_status: 'active'`, `blocked: false`, `checkpoint_reason: 'blocker_cleared'`. |
-| 2 | Loop resilience — transient failure with active governed run does not terminate | PASS | Main-loop guard at line 2576 checks `isGovernedRunStillActiveForSession()`, recovers session to `'running'`, emits audit event, continues. BUG-115 test proves 2 executor calls (recovery + completion). |
-| 3 | No regressions | PASS | 441 tests across 9 suites verified independently by QA, 0 failures. Pre-existing timeout in claim-reality-preflight.test.js not caused by this turn (file untouched by dev). |
+| 1 | BUG-115 implementation markers present at expected lines | PASS | `writeSessionCheckpoint` at line 640, `isGovernedRunStillActiveForSession` at line 644, `session_failed_recovered_active_run` at line 2579. |
+| 2 | ROADMAP.md BUG-FIX items 54-57 all checked off | PASS | All 4 lines confirmed `- [x]` via independent `sed` verification. |
+| 3 | Dev's regression tightening correct and passing | PASS | `checkpoint.phase` and `checkpoint.last_turn_id` assertions trace through `writeSessionCheckpoint` derivation chain. BUG-115 slice: 3/3 pass. |
+| 4 | No regressions | PASS | 441 tests across 9 suites, 0 failures. |
 
 ### Challenge of Dev Turn
 
-**Dev's implementation matches the PM charter exactly:** 1 import + 1 checkpoint call + 1 helper function + 1 loop guard + 3 regression tests. No scope creep — `reissueTurn()`, `canResumeExistingContinuousSession()`, and `reconcileContinuousStartupState()` are untouched.
+**Dev's implementation-phase work is appropriate for a housekeeping run.** The PM correctly identified this as a no-code-change run (BUG-115 fix already shipped). Dev challenged this by verifying against the current repository and tightened the BUG-115 checkpoint regression with two additional assertions (`phase` and `last_turn_id`). This is the correct approach: rather than a pure no-op, dev added meaningful verification that the checkpoint preserves phase context and tracks the reissued turn ID.
 
-**OBJ-001 (low) accepted:** Dev tested `clearGhostBlockerAfterReissue` through the exported `advanceContinuousRunOnce` path rather than exporting the private function. The test at line 1075 triggers the full ghost auto-retry flow and reads session.json directly. This is the correct test design — it proves the production retry path rather than testing an isolated helper.
+**Dev's OBJ-001 (medium) is noted but does not block:** Dev observed the PM's no-code charter was too narrow for implementation-phase protocol. Dev constrained the correction to existing BUG-115 regression assertions rather than adding unrelated runtime behavior. This is the correct scoping.
 
-**Risk assessment:** The unbounded recovery loop has no explicit retry counter, but is bounded by: (1) governed run timeout/exhaustion, (2) budget cap, (3) SIGINT handler. PM's risk assessment acknowledged this as medium risk with adequate mitigation.
+**No objections from QA.** The dev's two new assertions are structurally correct — `phase: 'implementation'` flows from `writeGhostBlockedState` through `clearGhostBlockerAfterReissue` to `writeSessionCheckpoint`, and `last_turn_id` is the reissued turn ID derived from `getActiveTurnIds`.
 
 ### Independent Verification (This Turn)
-
-All dev-claimed test results re-verified independently:
 
 | Suite | Tests | Result |
 |-------|-------|--------|
@@ -44,7 +43,7 @@ All dev-claimed test results re-verified independently:
 
 ### AGENT-TALK Guard Status
 
-All 8/8 tests pass. The 3/8 pre-existing failures reported in prior QA turns (across 14 consecutive runs) have been resolved.
+All 8/8 tests pass. Consistent with prior QA turn.
 
 ## Open Blockers
 
@@ -52,4 +51,4 @@ None.
 
 ## Ship Decision
 
-All 3 acceptance criteria pass. Code is minimal, correctly placed, and fail-safe. 441 tests verified with 0 failures. **SHIP.**
+All 4 acceptance criteria pass. Dev's regression tightening is correct and minimal. 441 tests verified with 0 failures. **SHIP.**

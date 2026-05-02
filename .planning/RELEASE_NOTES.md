@@ -2,17 +2,19 @@
 
 ## User Impact
 
-Operators running `agentxchain run --continuous` will no longer experience two ghost auto-retry recovery bugs:
+This is a housekeeping-only release with no runtime behavior changes. The BUG-115 ghost auto-retry session consistency fix shipped in the previous run (`run_aeb78d7979d66c0a`) and remains verified:
 
-- **Session status consistency (Bug A):** After ghost auto-retry clears a blocker, `session.json` now correctly reflects `run_status: 'active'` instead of retaining the stale `run_status: 'blocked'` from the pre-clear checkpoint. This prevents downstream tools and restart logic from misreading the session as blocked.
-- **Loop resilience (Bug B):** When a transient `executeGovernedRun()` failure occurs but the governed run is still active with matching run ID, the continuous loop now recovers and retries instead of exiting terminally. An audit event (`session_failed_recovered_active_run`) is emitted for observability.
+- **Session checkpoint consistency (Bug A):** `clearGhostBlockerAfterReissue()` writes `writeSessionCheckpoint(root, nextState, 'blocker_cleared')` so `session.json` correctly reflects `run_status: 'active'` after ghost blocker clearing.
+- **Loop resilience (Bug B):** `isGovernedRunStillActiveForSession()` guard prevents premature loop exit when the governed run is still active.
+- **ROADMAP.md BUG-FIX items 54-57** are all checked off with run evidence annotations.
 
-Both fixes apply to all 4 ghost auto-retry recovery paths: Claude Node runtime recovery, Claude auth refresh, productive timeout retry, and ghost turn auto-retry.
+The only code change in this run is a test tightening: the BUG-115 checkpoint regression now additionally asserts that the recovered session checkpoint carries the correct `phase` and `last_turn_id` after ghost blocker clearing.
 
 ## Verification Summary
 
 - 441 tests across 9 suites independently verified by QA, 0 failures
-- BUG-115 ghost checkpoint test: session.json has `run_status: 'active'`, `blocked: false`, `checkpoint_reason: 'blocker_cleared'` after clear
-- BUG-115 loop recovery test: transient failure with active governed run → session recovered, loop continues, completes on second execution
-- BUG-115 negative test: inactive governed run failure → loop exits terminally (existing behavior preserved)
+- BUG-115 implementation markers confirmed at continuous-run.js lines 640, 644, 2579
+- ROADMAP.md BUG-FIX items 54-57 independently confirmed as checked off
+- Dev's `phase` and `last_turn_id` assertions trace correctly through the `writeSessionCheckpoint` derivation chain
 - All AGENT-TALK guard tests pass (8/8)
+- No whitespace issues in changed files (`git diff --check` clean)
