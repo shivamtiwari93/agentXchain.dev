@@ -15,7 +15,7 @@
   "pending_run_completion": null,
   "blocked": false,
   "baseline_ref": {
-    "git_head": "76275e6d78cfb3f2b78a3acd356e4bbe60590f6a",
+    "git_head": "f0900564b",
     "git_branch": "main",
     "workspace_dirty": true
   },

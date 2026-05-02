@@ -4,7 +4,7 @@
   "project_id": "agentxchain-dev",
   "status": "completed",
   "phase": "qa",
-  "accepted_integration_ref": "git:76275e6d78cfb3f2b78a3acd356e4bbe60590f6a",
+  "accepted_integration_ref": "git:f0900564b",
   "active_turns": {},
   "turn_sequence": 7,
   "last_completed_turn_id": "turn_252750ed9241b7a4",
