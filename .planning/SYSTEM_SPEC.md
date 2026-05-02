@@ -248,7 +248,7 @@ BLOCKED: dispatch:claude_auth_failed
 | G-CRASH-3 | Subprocess output lost if orchestrator crashes before `saveDispatchLogs` | medium | Dispatch logs captured in memory, written after adapter returns; orchestrator crash loses diagnostic context |
 | G-CRASH-4 | Journal replay assumes history/ledger appends are idempotent | low | If journal deletion fails after replay, entries duplicated on next replay |
 | G-CRASH-5 | No automatic re-dispatch after subprocess crash | medium | Operator must manually run `agentxchain step --resume`; continuous mode does not auto-resume crashed single runs |
-| G-CRASH-6 | `advanceContinuousRunOnce()` not wrapped in top-level try-catch | medium | Unhandled promise rejection crashes entire continuous loop |
+| G-CRASH-6 | `advanceContinuousRunOnce()` has no handled top-level failure path (try/finally exists but no catch) | medium | Unexpected errors propagate after SIGINT handler removed, crashing entire continuous loop |
 
 ---
 
@@ -317,5 +317,5 @@ Dev verifies audit accuracy by confirming each identified gap exists in the code
 ## Acceptance Tests
 
 - [x] All 4 recovery domains audited with entry points, state transitions, and gaps documented
-- [ ] Dev confirms each P1/P2 gap exists at cited line numbers
+- [x] Dev confirms each P1/P2 gap exists at cited line numbers <!-- turn_1937bcae8396a288: all 11 P1/P2 gaps verified with grep evidence in .planning/recovery-audit-evidence.md -->
 - [ ] `npm run test` passes with no regressions (verification-only run, no code changes expected)

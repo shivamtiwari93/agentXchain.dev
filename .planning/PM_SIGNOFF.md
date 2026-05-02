@@ -92,9 +92,10 @@ Specific verifications:
 
 ## Notes for QA
 
-- Verify dev's evidence document covers all P1/P2 gaps (9 gaps total)
-- Verify `npm run test` passes (no code changes, no regressions expected)
+- Verify dev's evidence document covers all P1/P2 gaps (11 gaps total: 3 P1 + 8 P2)
+- **Dev skipped test verification** — QA must run `npm run test` and confirm no regressions
 - Verify ROADMAP.md:60 is checked off
+- Verify G-CRASH-6 wording correction: dev correctly noted `runContinuous()` has `try/finally` (lines 2572-2627) with no `catch`, not "no try block" — this is a refinement, not a contradiction
 - This is a documentation/audit run — no code changes to verify
 
 ## Acceptance Contract
