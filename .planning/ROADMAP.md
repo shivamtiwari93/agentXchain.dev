@@ -97,4 +97,4 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 |-------|------|--------|
 | Planning | M4 structured recovery classification: design taxonomy (domain/severity/outcome/mechanism), chart dev scope for new `recovery-classification.js` module + report integration | Complete (`run_5276bd12be02449a`) |
 | Implementation | Dev implements classification module, integrates into governance report formats, enhances recovery event payloads, writes tests | Complete (`run_5276bd12be02449a`) |
-| QA | Validate classification correctness, report output, test coverage, no regressions | Pending |
+| QA | Validate classification correctness, report output, test coverage, no regressions | Complete (`run_5276bd12be02449a`) |

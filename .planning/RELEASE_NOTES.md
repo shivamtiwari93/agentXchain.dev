@@ -2,19 +2,29 @@
 
 ## User Impact
 
-This is a housekeeping-only release with no runtime behavior changes. The BUG-115 ghost auto-retry session consistency fix shipped in the previous run (`run_aeb78d7979d66c0a`) and remains verified:
+This release adds **structured recovery classification** to governance reports. Operators monitoring governed runs now get categorized visibility into recovery events across four domains (ghost, budget, credential, crash) with per-domain statistics, severity tracking, and a health score.
 
-- **Session checkpoint consistency (Bug A):** `clearGhostBlockerAfterReissue()` writes `writeSessionCheckpoint(root, nextState, 'blocker_cleared')` so `session.json` correctly reflects `run_status: 'active'` after ghost blocker clearing.
-- **Loop resilience (Bug B):** `isGovernedRunStillActiveForSession()` guard prevents premature loop exit when the governed run is still active.
-- **ROADMAP.md BUG-FIX items 54-57** are all checked off with run evidence annotations.
+- **Recovery Classification in governance reports:** Text, markdown, and HTML governance reports now include a "Recovery Classification" section showing:
+  - Overall health score (`healthy`, `degraded`, `critical`)
+  - Total recovery event count with outcome breakdown (recovered, exhausted, manual, pending)
+  - Per-domain breakdown table (Ghost, Budget, Credential, Crash)
+  - Chronological recovery event timeline with domain, severity, outcome, mechanism, and summary
 
-The only code change in this run is a test tightening: the BUG-115 checkpoint regression now additionally asserts that the recovered session checkpoint carries the correct `phase` and `last_turn_id` after ghost blocker clearing.
+- **Automatic event classification at emit-time:** All 8 recovery event types (`auto_retried_ghost`, `ghost_retry_exhausted`, `auto_retried_productive_timeout`, `productive_timeout_retry_exhausted`, `budget_exceeded_warn`, `retained_claude_auth_escalation_reclassified`, `continuous_paused_active_run_recovered`, `session_failed_recovered_active_run`) are automatically classified when emitted to `events.jsonl`, embedding domain/severity/outcome/mechanism metadata directly in event payloads.
+
+- **Severity escalation:** Ghost retry exhaustion with same-signature repeats escalates to `critical` severity. Budget warnings with zero remaining USD escalate to `high`. This surfaces systemic recovery failures prominently.
+
+- **Health score:** Provides at-a-glance assessment — `critical` when any event is critical-severity or more events exhausted than recovered, `degraded` when any exhausted/manual outcomes exist, `healthy` otherwise.
+
+- **Coexists with existing recovery summary:** The new classification section appears alongside the existing `recovery_summary` snapshot — no breaking changes to existing report consumers.
 
 ## Verification Summary
 
-- 441 tests across 9 suites independently verified by QA, 0 failures
-- BUG-115 implementation markers confirmed at continuous-run.js lines 640, 644, 2579
-- ROADMAP.md BUG-FIX items 54-57 independently confirmed as checked off
-- Dev's `phase` and `last_turn_id` assertions trace correctly through the `writeSessionCheckpoint` derivation chain
-- All AGENT-TALK guard tests pass (8/8)
-- No whitespace issues in changed files (`git diff --check` clean)
+- Full suite: 664 test files, 7382 tests, 0 failures — independently run to completion by QA
+- All 8 recovery event type classifications verified against SYSTEM_SPEC §1.2 mapping table
+- Severity escalation rules verified against SYSTEM_SPEC §1.3
+- Health score derivation verified against SYSTEM_SPEC §2.1
+- Text, markdown, and HTML rendering independently reviewed for correctness, escaping, and bounded output
+- AGENT-TALK guard tests pass 8/8
+- No whitespace issues (`git diff --check` clean)
+- ROADMAP.md M4 item "Add structured recovery classification" checked off with run evidence
