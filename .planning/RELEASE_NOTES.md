@@ -1,18 +1,20 @@
-# Release Notes — agentXchain.dev
+# Release Notes
 
-## Implementation-Phase Completion Guard
+## User Impact
 
-**Authoritative implementation turns now require product code changes.** The turn-result validator now rejects completed authoritative turns in the implementation phase that have no product code paths in `files_changed`. Previously, this was a non-blocking warning; it is now a hard validation error.
+Authoritative implementation turns now require at least one product code change in `files_changed` to complete successfully. Implementation turns that list only planning artifacts (`.planning/*`), review artifacts (`.agentxchain/reviews/*`), or staging outputs (`.agentxchain/staging/*`) — or that list no files at all — are rejected with a hard validation error. This closes the loophole where an implementation turn could satisfy the `implementation_complete` gate without delivering actual source changes.
 
-This prevents implementation turns from completing with only planning artifacts (`.planning/*`), review artifacts (`.agentxchain/reviews/*`), or staging outputs (`.agentxchain/staging/*`) — ensuring the `implementation_complete` gate is backed by actual source changes.
+Non-implementation phases (planning, qa) are unaffected. Blocked or failed implementation turns are also unaffected.
 
 ## Verification Summary
 
-- 100 turn-result-validator tests: PASS (including 2 new regression tests)
-- 17 staged-result-proof tests: PASS
-- 42 local-cli-adapter tests: PASS
-- 77 config-schema + timeout-evaluator + run-loop tests: PASS
-- **Total: 236 in-scope tests, 0 failures**
+- 100 turn-result-validator tests pass (including 2 new implementation-completion regression tests)
+- 17 staged-result-proof + turn-result-shape tests pass
+- 42 local-cli-adapter tests pass
+- 77 config-schema + timeout-evaluator + run-loop tests pass
+- **Total: 236 tests, 0 failures**
+- All 8 acceptance criteria verified (see acceptance-matrix.md)
+- No reserved path modifications confirmed via git diff
 
 ## Upgrade Notes
 
