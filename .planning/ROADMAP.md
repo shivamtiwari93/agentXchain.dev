@@ -38,7 +38,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 ### M3: Multi-Model Turn Handoff Quality
 - [x] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
 - [x] Validate that stream-json and --json output formats are correctly parsed by the adapter
-- [ ] Add model identity metadata to turn checkpoints (which model produced this turn)
+- [x] Add model identity metadata to turn checkpoints (which model produced this turn)
 - [ ] Test cross-model challenge quality: does QA (Opus 4.6) effectively challenge Dev (GPT 5.5)?
 - [ ] Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles
 

@@ -30,6 +30,11 @@ function readJsonl(root, relPath) {
   return raw.split('\n').filter(Boolean).map((line) => JSON.parse(line));
 }
 
+function writeJsonl(root, relPath, entries) {
+  const content = entries.map((entry) => JSON.stringify(entry)).join('\n');
+  writeFileSync(join(root, relPath), content ? `${content}\n` : '');
+}
+
 async function invokeAcceptTurn(root, opts) {
   const previousCwd = process.cwd();
   const previousLog = console.log;
@@ -161,6 +166,7 @@ describe('turn checkpointing', () => {
 
     const state = readJson(root, STATE_PATH);
     assert.equal(state.last_completed_turn.turn_id, turnId);
+    assert.equal(state.last_completed_turn.runtime_id, 'local-dev');
     assert.equal(state.last_completed_turn.checkpoint_sha, checkpoint.checkpoint_sha);
 
     const history = readJsonl(root, '.agentxchain/history.jsonl');
@@ -168,19 +174,52 @@ describe('turn checkpointing', () => {
     assert.equal(acceptedEntry.checkpoint_sha, checkpoint.checkpoint_sha);
 
     const events = readJsonl(root, '.agentxchain/events.jsonl');
-    assert.ok(events.some((entry) => entry.event_type === 'turn_checkpointed' && entry.turn?.turn_id === turnId));
+    assert.ok(events.some((entry) => (
+      entry.event_type === 'turn_checkpointed'
+      && entry.turn?.turn_id === turnId
+      && entry.turn?.runtime_id === 'local-dev'
+    )));
 
     const committedFiles = execSync('git show --name-only --pretty=format:%s HEAD', {
       cwd: root,
       encoding: 'utf8',
     });
-    assert.match(committedFiles, new RegExp(`^checkpoint: ${turnId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(committedFiles, new RegExp(`^checkpoint: ${turnId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\(role=dev, phase=implementation, runtime=local-dev\\)`));
     assert.match(committedFiles, /src\/app\.js/);
     assert.doesNotMatch(committedFiles, /notes\.txt/);
 
     const status = execSync('git status --short', { cwd: root, encoding: 'utf8' });
     assert.match(status, /\?\? notes\.txt/);
     assert.doesNotMatch(status, /src\/app\.js/);
+  });
+
+  it('checkpointAcceptedTurn preserves legacy history without runtime_id as unknown runtime metadata', () => {
+    const config = initGovernedGitRepo(root);
+    const turnId = stageAcceptedDevTurn(root, config);
+    const historyPath = '.agentxchain/history.jsonl';
+    const history = readJsonl(root, historyPath).map((entry) => {
+      if (entry.turn_id !== turnId) return entry;
+      const { runtime_id: _runtimeId, ...legacyEntry } = entry;
+      return legacyEntry;
+    });
+    writeJsonl(root, historyPath, history);
+
+    const checkpoint = checkpointAcceptedTurn(root, { turnId });
+    assert.ok(checkpoint.ok, checkpoint.error);
+
+    const state = readJson(root, STATE_PATH);
+    assert.equal(state.last_completed_turn.turn_id, turnId);
+    assert.equal(state.last_completed_turn.runtime_id, null);
+
+    const events = readJsonl(root, '.agentxchain/events.jsonl');
+    const checkpointEvent = events.find((entry) => (
+      entry.event_type === 'turn_checkpointed' && entry.turn?.turn_id === turnId
+    ));
+    assert.ok(checkpointEvent, 'turn_checkpointed event should be emitted');
+    assert.equal(checkpointEvent.turn.runtime_id, null);
+
+    const headSubject = execSync('git log -1 --pretty=%s', { cwd: root, encoding: 'utf8' }).trim();
+    assert.match(headSubject, new RegExp(`^checkpoint: ${turnId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\(role=dev, phase=implementation, runtime=\\(unknown\\)\\)$`));
   });
 
   it('checkpointAcceptedTurn fails loudly when declared files_changed paths are genuinely absent from git', () => {

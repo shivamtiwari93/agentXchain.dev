@@ -201,14 +201,21 @@ function extractGitError(err) {
   return stderr || stdout || err?.message || 'git command failed';
 }
 
+function normalizeRuntimeId(entry) {
+  return typeof entry?.runtime_id === 'string' && entry.runtime_id.trim()
+    ? entry.runtime_id.trim()
+    : null;
+}
+
 function buildCheckpointCommit(entry) {
-  const subject = `checkpoint: ${entry.turn_id} (role=${entry.role}, phase=${entry.phase})`;
+  const runtimeId = normalizeRuntimeId(entry) || '(unknown)';
+  const subject = `checkpoint: ${entry.turn_id} (role=${entry.role}, phase=${entry.phase}, runtime=${runtimeId})`;
   const bodyLines = [
     `Summary: ${entry.summary || '(none)'}`,
     `Turn-ID: ${entry.turn_id}`,
     `Role: ${entry.role || '(unknown)'}`,
     `Phase: ${entry.phase || '(unknown)'}`,
-    `Runtime: ${entry.runtime_id || '(unknown)'}`,
+    `Runtime: ${runtimeId}`,
   ];
   if (entry.intent_id) bodyLines.push(`Intent-ID: ${entry.intent_id}`);
   if (entry.accepted_at) bodyLines.push(`Accepted-At: ${entry.accepted_at}`);
@@ -450,6 +457,7 @@ export function checkpointAcceptedTurn(root, opts = {}) {
 
   const checkpointSha = git(root, ['rev-parse', 'HEAD']);
   const checkpointedAt = new Date().toISOString();
+  const runtimeId = normalizeRuntimeId(entry);
 
   const historyEntries = readHistoryEntries(root).map((historyEntry) => (
     historyEntry.turn_id === entry.turn_id
@@ -470,6 +478,7 @@ export function checkpointAcceptedTurn(root, opts = {}) {
         turn_id: entry.turn_id,
         role: entry.role || null,
         phase: entry.phase || null,
+        runtime_id: runtimeId,
         checkpoint_sha: checkpointSha,
         checkpointed_at: checkpointedAt,
         intent_id: entry.intent_id || null,
@@ -480,7 +489,7 @@ export function checkpointAcceptedTurn(root, opts = {}) {
       run_id: state.run_id || null,
       phase: state.phase || null,
       status: state.status || null,
-      turn: { turn_id: entry.turn_id, role_id: entry.role || null },
+      turn: { turn_id: entry.turn_id, role_id: entry.role || null, runtime_id: runtimeId },
       intent_id: entry.intent_id || null,
       payload: { checkpoint_sha: checkpointSha, checkpointed_at: checkpointedAt },
     });

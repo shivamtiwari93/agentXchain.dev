@@ -1,5 +1,24 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 Checkpoint Runtime Identity Metadata
+
+### Challenge
+
+The previous PM turn correctly identified the three missing checkpoint metadata surfaces: `state.json` `last_completed_turn`, the `turn_checkpointed` event payload, and the checkpoint commit subject. I do not accept the test scope as requiring four separate tests: one normal checkpoint regression can assert all three runtime-bearing surfaces together, while a focused legacy-history regression is the right place to cover missing `runtime_id` fallback behavior.
+
+### Changes
+
+- Added normalized runtime identity handling in `checkpointAcceptedTurn()`.
+- Included `runtime_id` in `state.last_completed_turn` for checkpointed turns.
+- Included `runtime_id` in the `turn_checkpointed` event `turn` object.
+- Added `runtime=<id>` to checkpoint commit subjects, with `(unknown)` for legacy accepted-history entries that predate runtime identity.
+- Checked off the M3 checkpoint model identity ROADMAP item after implementation.
+
+### Verification
+
+- `node --check cli/src/lib/turn-checkpoint.js`
+- `node --test --test-timeout=60000 cli/test/checkpoint-turn.test.js`
+
 ## 2026-05-02 M3 Output Format Validation
 
 ### Challenge
