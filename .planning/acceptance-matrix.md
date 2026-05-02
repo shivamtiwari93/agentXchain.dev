@@ -1,35 +1,57 @@
 # Acceptance Matrix — agentXchain.dev
 
-**Run:** run_fb3583590a1a4799
-**Turn:** turn_0b9244cb1aeecf95 (QA)
-**Scope:** M3 Multi-Model Turn Handoff Quality — runtime identity in decision ledger and CONTEXT.md rendering
+**Run:** run_3a396386e18575b6
+**Turn:** turn_080c074e61bbd5eb (QA)
+**Scope:** Config protection (agentxchain.json operator-owned guardrails) + M3 Codex output format validation
 
-| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |
-|-------|-------------|-------------------|-------------|-------------|--------|
-| AC-001 | Decision ledger entries persist runtime_id | `acceptGovernedTurn()` writes `runtime_id` from turn result into each decision ledger entry | Test at governed-state.test.js asserts `ledger[0].runtime_id === 'api-qa'` | 2026-05-01 | PASS |
-| AC-002 | CONTEXT.md Last Accepted Turn renders runtime | When last accepted turn has `runtime_id`, CONTEXT.md includes `- **Runtime:** <runtime_id>` line | Test at dispatch-bundle.test.js asserts `context.match(/- \*\*Runtime:\*\* manual-pm/)` | 2026-05-01 | PASS |
-| AC-003 | CONTEXT.md Last Accepted Turn omits runtime when absent | When last accepted turn has no `runtime_id`, the Runtime line is suppressed (no empty bullet) | Conditional guard `if (lastTurn.runtime_id)` verified in diff; no empty runtime rendered | 2026-05-01 | PASS |
-| AC-004 | Decision History table includes Runtime column | CONTEXT.md decision history table has 5 columns: ID, Phase, Role, Runtime, Statement | Test at dispatch-bundle.test.js asserts `context.match(/\| ID \| Phase \| Role \| Runtime \| Statement \|/)` | 2026-05-01 | PASS |
-| AC-005 | Old ledger entries render empty Runtime cell | Pre-M3 decision ledger entries (no runtime_id field) render an empty Runtime column, not `undefined` or error | Test asserts `\| DEC-001 \| planning \| pm \|  \| Old decisions without runtime still render. \|` | 2026-05-01 | PASS |
-| AC-006 | New ledger entries render runtime in history table | Ledger entries with runtime_id show the value in the Runtime column | Test asserts `\| DEC-002 \| implementation \| dev \| local-dev \| Runtime identity is preserved in handoff context. \|` | 2026-05-01 | PASS |
-| AC-007 | Stale tests updated, not weakened | Dev fixed tests to comply with implementation-phase product-code guard rather than removing the guard | Diff shows `src/dev-implementation.js` added to fixture, guard assertion preserved | 2026-05-01 | PASS |
-| AC-008 | governed-state full suite — no regressions | All 99 tests pass | `node --test cli/test/governed-state.test.js` — 99 pass, 0 fail | 2026-05-01 | PASS |
-| AC-009 | dispatch-bundle full suite — no regressions | All 74 tests pass | `node --test cli/test/dispatch-bundle.test.js` — 74 pass, 0 fail | 2026-05-01 | PASS |
-| AC-010 | continuous-run suite — no regressions | All 87 tests pass | `node --test cli/test/continuous-run.test.js` — 87 pass, 0 fail | 2026-05-01 | PASS |
-| AC-011 | vision-reader suite — no regressions | All 36 tests pass | `node --test cli/test/vision-reader.test.js` — 36 pass, 0 fail | 2026-05-01 | PASS |
-| AC-012 | Validator + staged-result + adapter suites — no regressions | All 156 tests pass | `node --test cli/test/turn-result-validator.test.js cli/test/staged-result-proof.test.js cli/test/local-cli-adapter.test.js` — 156 pass, 0 fail | 2026-05-01 | PASS |
-| AC-013 | Config + timeout + run-loop suites — no regressions | All 77 tests pass | `node --test cli/test/agentxchain-config-schema.test.js cli/test/timeout-evaluator.test.js cli/test/run-loop.test.js` — 77 pass, 0 fail | 2026-05-01 | PASS |
-| AC-014 | Release notes gate suite — no regressions | All 10 tests pass | `node --test cli/test/release-notes-gate.test.js` — 10 pass, 0 fail | 2026-05-01 | PASS |
-| AC-015 | BUG-77 end-to-end — no regressions | Full CLI path dispatches replenishment, completes run | `node --test cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js` — 1 pass, 0 fail | 2026-05-01 | PASS |
-| AC-016 | No reserved path modifications by dev | Dev changes do not manually edit .agentxchain/state.json, history.jsonl, decision-ledger.jsonl, or lock.json | `git diff cae2d9a50..c7a1554fe -- .agentxchain/` returns empty | 2026-05-01 | PASS |
-| AC-017 | Diff minimality | Dev changed exactly 6 declared files: governed-state.js (+1 line), dispatch-bundle.js (+7/-3 lines), 2 test files, IMPLEMENTATION_NOTES.md, ROADMAP.md | `git diff --stat` confirms 69 insertions, 6 deletions across 6 files | 2026-05-01 | PASS |
+## Config Protection Acceptance Contract
+
+| Req # | Requirement | Evidence | Status |
+|-------|-------------|----------|--------|
+| CP-001 | pm.md contains "Do NOT modify agentxchain.json" instruction | Line 76: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
+| CP-002 | dev.md contains "Do NOT modify agentxchain.json" instruction | Line 47: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
+| CP-003 | qa.md contains "Do NOT modify agentxchain.json" instruction | Line 54: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
+| CP-004 | eng_director.md contains "Do NOT modify agentxchain.json" instruction | Line 59: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
+| CP-005 | pm.md instruction is in write boundaries or protocol rules section | In `## Operator-Owned Files` section (line 75) — functionally equivalent to write boundaries for the PM role | PASS (see note 1) |
+| CP-006 | dev.md instruction is in write boundaries or protocol rules section | In `## Implementation Rules` section (line 42) — the dev's constraint/rules section | PASS (see note 1) |
+| CP-007 | qa.md instruction is in write boundaries or protocol rules section | In `## Write Boundaries` section (line 50) — exact match | PASS |
+| CP-008 | eng_director.md instruction is in write boundaries or protocol rules section | In `## Write Boundaries` section (line 56) — exact match | PASS |
+| CP-009 | agentxchain.json timeouts survive PM+Dev+QA cycle | `timeouts.per_turn_minutes: 120`, `timeouts.action: "escalate"` — verified via JSON parse; `git diff` empty across PM checkpoint (61323db1b), Dev checkpoint (d697508e1), and working tree | PASS |
+| CP-010 | agentxchain.json watch routes survive PM+Dev+QA cycle | `watch.routes[0].match.category: "github_workflow_run_failed"`, `watch.routes[1].match.category: "beta_bug_report"` — 2 routes intact; `git diff` empty across all checkpoints | PASS |
+| CP-011 | All 4 prompts reference OPERATOR_OWNED_FILES.md in Project Context | Each prompt's Project Context section includes `.planning/OPERATOR_OWNED_FILES.md` as a read-on-every-turn file | PASS |
+| CP-012 | OPERATOR_OWNED_FILES.md lists agentxchain.json as protected | Table row: `agentxchain.json | Runtime configuration, timeouts, watch routes, role definitions, budget — operator-controlled` | PASS |
+
+### Note 1: Section naming
+
+The acceptance contract requires the instruction to be in the "write boundaries or protocol rules section." Two of four prompts (qa.md, eng_director.md) use the exact section name "Write Boundaries." The PM prompt uses "Operator-Owned Files" (a dedicated section for file write restrictions), and the Dev prompt uses "Implementation Rules" (the section governing implementation constraints). Both are contextually appropriate sections that govern write constraints — the spirit of the requirement is fully met. The literal section name differs because the PM and Dev roles have different structural conventions from the review-only roles.
+
+## Codex Output Format Validation
+
+| Req # | Requirement | Evidence | Status |
+|-------|-------------|----------|--------|
+| M3-001 | Codex runtime detection | `isCodexLocalCliRuntime()` in claude-local-auth.js; 8/8 auth smoke probe tests pass | PASS |
+| M3-002 | Codex auth failure classification | `hasCodexAuthFailureOutput()` in claude-local-auth.js; tested in local-cli-adapter.test.js | PASS |
+| M3-003 | Codex error branch in adapter close handler | Codex auth failures return typed `codex_auth_failed` blocker; 46/46 adapter tests pass | PASS |
+| M3-004 | Codex exec flag validation | `validateLocalCliCommandCompatibility()` catches missing `exec` subcommand; tested | PASS |
+| M3-005 | No regression in Claude error classification | Claude auth failure, flag compatibility, Node incompatibility tests all pass | PASS |
+
+## Regression Suites
+
+| Suite | Count | Result |
+|-------|-------|--------|
+| local-cli-adapter.test.js | 46 | PASS |
+| claude-local-auth-smoke-probe.test.js | 8 | PASS |
+| agentxchain-config-schema.test.js | 7 | PASS |
+| governed-state.test.js | 99 | PASS |
+| dispatch-bundle.test.js | 74 | PASS |
+| turn-result-validator + staged-result-proof | 114 | PASS |
+| continuous-run.test.js | 87 | PASS |
+| vision-reader.test.js | 36 | PASS |
+| timeout-evaluator + run-loop + release-notes-gate | 80 | PASS |
+| **Total** | **551** | **0 failures** |
 
 ## Pre-existing Failures (Not Blocking)
 
 | Issue | Detail | Verdict |
 |-------|--------|---------|
-| AGENT-TALK guard (3/8 fail) | Tests 4-6 fail: TALK.md lacks compressed summary structure, decision references, and handoff format from prior runs; predates this run entirely | Not a regression — pre-existing state issue; confirmed across 9 consecutive QA runs |
-
-## Challenge Notes
-
-The dev's implementation addresses the PM's M3 item #1 (model identity metadata in turn checkpoints / handoff context) with three targeted changes: (1) one new field persisted to the decision ledger at `governed-state.js:5241`, (2) conditional runtime rendering in Last Accepted Turn at `dispatch-bundle.js:800-802`, and (3) a Runtime column added to the decision history table at `dispatch-bundle.js:1418-1424`. The backward compatibility approach — empty string fallback via `(d.runtime_id || '')` for pre-M3 ledger entries — is correct and verified by a dedicated mixed old/new test. The dev's decision to update stale tests to comply with the implementation-phase guard (DEC-003) rather than weakening the guard is the right call — the guard prevents implementation turns from passing without product code changes, and the test fixture was incorrectly structured.
+| AGENT-TALK guard (3/8 fail) | Tests 4-6 fail: TALK.md lacks compressed summary structure from prior runs; predates this run | Not a regression — confirmed across 10 consecutive QA runs |
