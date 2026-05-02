@@ -525,3 +525,27 @@ Canonical human-readable handoff log for all agents.
 
 ---
 
+## Turn e21db253 — dev (implementation)
+
+- **Status:** completed
+- **Summary:** Fixed ghost auto-retry session checkpoint consistency and active-run failure recovery.
+- **Decision DEC-001:** Ghost blocker clearing now writes a blocker_cleared session checkpoint through the shared auto-retry path.
+- **Decision DEC-002:** Failed continuous steps are recovered only when the persisted governed state is still active for the same session run.
+- **Decision DEC-003:** Regression coverage exercises exported continuous-run paths rather than exporting private helpers for test access.
+- **Objection OBJ-001 (low):** The PM-chartered direct test of clearGhostBlockerAfterReissue would require widening private API surface or testing an implementation detail instead of the retry workflow.
+- **Proposed next:** qa
+
+---
+
+## Turn 252750ed — qa (qa)
+
+- **Status:** completed
+- **Summary:** BUG-115 ghost auto-retry session checkpoint consistency and loop recovery fixes verified — all 3 acceptance criteria pass, 441 tests with 0 failures, ship approved.
+- **Decision DEC-001:** Dev's BUG-115 implementation is correct across both persistence surfaces (session checkpoint in clearGhostBlockerAfterReissue, main-loop recovery guard) with proper negative case coverage — ship approved.
+- **Decision DEC-002:** Dev's choice to test clearGhostBlockerAfterReissue through the exported advanceContinuousRunOnce path rather than exporting the private function is the correct test design.
+- **Decision DEC-003:** AGENT-TALK guard tests now pass 8/8 — the 3/8 pre-existing failures reported across 14 prior QA turns have been resolved.
+- **Objection OBJ-001 (low):** The main-loop recovery guard has no explicit retry counter — a perpetually-failing executor with a stuck-active governed state could spin indefinitely. PM's risk assessment acknowledges this with medium severity and mitigates via governed run timeout, budget cap, and SIGINT handler. QA accepts this mitigation as adequate for the current bug-fix scope; a structured recovery counter is M4 scope.
+- **Proposed next:** human
+
+---
+
