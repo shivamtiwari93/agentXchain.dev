@@ -42,6 +42,14 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Test cross-model challenge quality: does QA (Opus 4.6) effectively challenge Dev (GPT 5.5)?
 - [x] Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles
 
+### MV: Test Infrastructure — Vitest Migration
+- [ ] Write codemod script to migrate 663 `node:test` imports → `vitest` (with `before`→`beforeAll`, `after`→`afterAll` renames)
+- [ ] Execute codemod: all 663 test files in `cli/test/` use native vitest imports
+- [ ] Update vitest config: glob pattern `test/**/*.test.js`, remove shim alias, 60s timeout
+- [ ] Update package.json scripts: consolidate to single `test` + new `test:watch`
+- [ ] Delete `vitest-node-test-shim.js` and `vitest-slice-manifest.js`
+- [ ] Acceptance: `npm run test` passes all 663 files under vitest, `test:watch` provides TDD workflow, zero `node:test` imports remain
+
 ### M4: Recovery & Resilience Hardening
 - [ ] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash
 - [ ] Add structured recovery classification to governance reports
@@ -81,6 +89,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Diagnose output format handling asymmetry: Claude `stream-json` has 3 error classifiers, Codex `--json` has zero — scope Codex auth classification + flag validation | Active (`run_3a396386e18575b6`) |
-| Implementation | Add Codex runtime detector, auth failure classifier, error branch in close handler, flag validation in pre-flight, regression tests | Pending |
-| QA | Verify both output formats produce correct adapter behavior, run full test suite | Pending |
+| Planning | Scope Vitest migration: 663 `node:test` files → native vitest imports, eliminate dual-runner, enable watch mode for TDD | Active (`run_4a6f8ae7668a237a`) |
+| Implementation | Execute codemod, update vitest config + package.json, delete shim/manifest, verify all tests pass | Pending |
+| QA | Verify zero `node:test` imports remain, full suite passes under vitest, watch mode works, E2E runs correctly | Pending |

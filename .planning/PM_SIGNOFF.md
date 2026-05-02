@@ -1,10 +1,10 @@
-# PM Signoff — M3: Multi-Model Turn Handoff Quality (Item #5: All 4 Roles Valid Turn Results)
+# PM Signoff — Vitest Migration: 663 node:test Files → Native Vitest Imports
 
 Approved: YES
 
-**Run:** `run_d758c25c8d0ba32d`
+**Run:** `run_4a6f8ae7668a237a`
 **Phase:** planning
-**Turn:** `turn_24f816c53ca9dcd3`
+**Turn:** `turn_bce5c1866bf6170d`
 **Date:** 2026-05-02
 
 ## Discovery Checklist
@@ -17,143 +17,215 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators who need confidence that **all configured roles** — not just the PM/Dev/QA normal flow — can produce valid turn results through the governed state machine, so the protocol is not silently untested for escalation paths.
+AgentXchain developers who need fast TDD feedback loops. Currently `npm run test` invokes a dual-runner (vitest then native `node --test`), doubling wall-clock time. Only 36 of 663 test files are in the vitest slice manifest, and the native runner lacks watch mode.
 
 ### Core Pain Point
 
-M3 item #5 acceptance criterion requires "all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles." PM, Dev, and QA have been validated across 13+ consecutive governed production cycles. But `eng_director` has **never been dispatched** in any governed production cycle (0/39 history entries) because it is an escalation-only role triggered by deadlocks — and no deadlock has occurred.
+The test suite runs under **two separate test runners** in sequence:
 
-The acceptance criterion as written is **structurally unreachable** in normal operation because eng_director is not part of the PM→Dev→QA→completion cycle. The system is working correctly (no deadlocks = no eng_director need), but this means the criterion can never be satisfied by simply running more cycles.
+1. `test:vitest` — runs only 36 files listed in `vitest-slice-manifest.js` via vitest
+2. `test:node` — runs all 663 files under native `node --test` (60s timeout, 4-way concurrency)
 
-### Root Cause Analysis
+This dual-runner architecture exists because vitest adoption was incremental — files keep `node:test` imports and a shim (`vitest-node-test-shim.js`) aliases `node:test` → vitest at build time. The result:
 
-**Why eng_director has never been dispatched:**
-1. `eng_director` is routed via `proposed_next_role` — a role must explicitly propose it (governed-state.js:7000-7018)
-2. `eng_director` is in `allowed_next_roles` for all three phases (agentxchain.json routing config)
-3. No role has ever proposed `eng_director` because no deadlock has occurred across 13 governed cycles
-4. There is no automated deadlock detector that dispatches eng_director — `max_deadlock_cycles: 2` exists in config but no code auto-routes to eng_director on deadlock; escalation pauses for human input
-5. The escalation proof script (`examples/live-governed-proof/run-escalation-recovery-proof.mjs`) validates eng_director turn acceptance end-to-end but uses `manual` runtime with crafted results — not connected to M3 acceptance evidence
+- **No watch mode** for TDD — `node --test` doesn't support `--watch`
+- **Slow feedback** — every test run pays the cost of two separate runners
+- **Confusing config** — developers must understand the shim, the slice manifest, and why some files are in vitest but most aren't
+- **36/663 coverage gap** — only 5.4% of files actually run under vitest; the rest bypass the vitest runner entirely
 
-**The structural problem:** The acceptance criterion conflates normal-flow validation (PM/Dev/QA cycles) with escalation-flow validation (eng_director). These are orthogonal concerns requiring different validation strategies.
+### Current Test Architecture
 
-### Resolution Strategy
+| Component | Purpose | Status |
+|-----------|---------|--------|
+| `cli/vitest.config.js` | Vitest config with `node:test` → shim alias | In use |
+| `cli/test-support/vitest-node-test-shim.js` | Re-exports vitest APIs as `node:test` shape | In use (will be removed) |
+| `cli/test-support/vitest-slice-manifest.js` | Explicit list of 36 files for vitest | In use (will be removed) |
+| `test:vitest` script | Runs 36 files via vitest | In use (will run ALL files) |
+| `test:node` script | Runs all files via native `node --test` | In use (will be removed) |
 
-Instead of artificially triggering a deadlock in production, validate eng_director through the same acceptance pipeline integration test pattern used for PM/Dev/QA cross-model validation:
+### API Usage Analysis (663 files)
 
-1. **Existing evidence (PM/Dev/QA):** 13+ consecutive PM→Dev→QA→completion cycles with valid turn results, runtime_id attribution, decision ledger persistence, and CONTEXT.md rendering — all validated by QA across 13 QA turns
-2. **New evidence (eng_director):** Integration test that dispatches eng_director through the governed-state acceptance pipeline and validates: schema compliance, runtime_id persistence in decision ledger, CONTEXT.md rendering, objection preservation — proving the 4th role produces the same quality of governed output as the other 3
+| Pattern | Count | Migration Impact |
+|---------|-------|-----------------|
+| `import { describe, it, ... } from 'node:test'` | 663 files | Mechanical: swap module specifier |
+| `import assert from 'node:assert/strict'` | 432 files | No change needed — works under vitest |
+| `import { strict as assert } from 'node:assert'` | 231 files | No change needed — works under vitest |
+| `before` / `after` hooks (from `node:test`) | 56 files | Rename to `beforeAll` / `afterAll` |
+| `test()` function (instead of `it()`) | 3 files | Swap module specifier only |
+| `t.skip()` TestContext | 1 file | Replace with vitest `ctx.skip()` |
+| `mock` from `node:test` | 0 files | No migration needed |
+| `test.skip` / `it.skip` / `describe.skip` | 0 files | No migration needed |
+| `assert.throws` / `assert.doesNotThrow` | 9 files | No change — `node:assert` works under vitest |
+| E2E tests with subprocess spawning | 71 files | Need extended timeout (60s) |
+| Beta-tester-scenario tests | 98 files | Standard migration — all self-contained |
 
-This is the correct validation strategy because:
-- The governed-state acceptance pipeline (`acceptGovernedTurn`) is role-agnostic — it validates schema, persists decisions, writes history regardless of role
-- Testing eng_director through this pipeline proves it works exactly like PM/Dev/QA
-- The escalation proof script already validates the end-to-end escalation flow separately
-- Forcing a production deadlock to test eng_director would be artificial and counterproductive
+**Bottom line:** This is a **low-complexity, high-volume mechanical migration**. Zero files use `node:test`'s mock API, skip/only modifiers, or custom reporters. The only non-trivial patterns are 56 `before`/`after` → `beforeAll`/`afterAll` renames and 1 `t.skip()` → `ctx.skip()` change.
 
 ### Core Workflow
 
-1. PM (this turn) — diagnose the structural gap, scope dev charter
-2. Dev — implement eng_director acceptance pipeline test + check off M3 #5
-3. QA — verify the test covers the acceptance criterion, validate evidence
+1. PM (this turn) — scope the migration, charter dev
+2. Dev — write codemod script, execute migration, update vitest config and package.json
+3. QA — verify all 663 tests pass under vitest, verify watch mode, verify E2E harness
 
 ### MVP Scope (this run)
 
-**PM (this turn):** Root cause analysis of the eng_director gap, dev charter scoping
+**PM (this turn):** Migration analysis, dev charter, risk identification.
 
-**Dev:** Two deliverables:
+**Dev:** Five deliverables:
 
-#### 1. eng_director acceptance pipeline integration test
+#### 1. Migration codemod script
 
-Add a test to `cli/test/dispatch-bundle-decision-history.test.js` (the existing cross-model test file):
+Write `cli/scripts/migrate-to-vitest.mjs` — a one-shot script that:
 
-**Setup:** Extend `makeConfig()` for this test to include:
+**a) Rewrites imports in all 663 test files:**
+- Parse the `import { ... } from 'node:test'` line
+- Replace module specifier `'node:test'` → `'vitest'`
+- In the import specifier list: rename `before` → `beforeAll`, `after` → `afterAll`
+- Leave `describe`, `it`, `test`, `beforeEach`, `afterEach` unchanged (same names in vitest)
+- Leave all `node:assert` / `node:assert/strict` imports unchanged
+
+**b) Renames function calls in files that imported `before`/`after` (56 files):**
+- Rename standalone `before(` calls → `beforeAll(` in the file body
+- Rename standalone `after(` calls → `afterAll(` in the file body
+- Must be careful not to rename `before`/`after` in strings, comments, or unrelated identifiers (use word-boundary matching)
+
+**c) Handles the 1 TestContext file:**
+- `cli/test/beta-tester-scenarios/bug-54-real-claude-reliability.test.js` (line 154): `t.skip(reason)` → vitest equivalent
+- Vitest supports `ctx.skip()` in test callbacks: `it('name', (ctx) => { ctx.skip(); })`
+- The `t` parameter name should be preserved or renamed to match vitest convention
+
+**d) Runs and reports:**
+- Print summary: N files migrated, N `before`→`beforeAll` renames, N `after`→`afterAll` renames, N TestContext fixes
+- Exit 0 on success, exit 1 on any file I/O error
+
+**Implementation note:** The codemod must be idempotent — running it twice should produce the same output. This allows re-running after manual fixes.
+
+#### 2. Vitest config update
+
+Update `cli/vitest.config.js`:
+
+**Before:**
 ```js
-eng_director: {
-  title: 'Engineering Director',
-  mandate: 'Resolve deadlocks.',
-  write_authority: 'review_only',
-  runtime_class: 'manual',
-  runtime_id: 'local-gpt-5.5-director'
-}
+import { VITEST_FILE_PARALLELISM, VITEST_INCLUDED_FILES } from './test-support/vitest-slice-manifest.js';
+// ...
+include: VITEST_INCLUDED_FILES,
+fileParallelism: VITEST_FILE_PARALLELISM,
+testTimeout: 10000,
 ```
-Add `'eng_director'` to `routing.implementation.allowed_next_roles`.
 
-**Test: "eng_director turn accepted through governed pipeline with runtime attribution"**
-
-Sequence:
-1. Init run, set phase to `implementation`
-2. Assign dev turn, stage dev result with `proposed_next_role: 'eng_director'` (simulating escalation proposal)
-3. Accept dev turn
-4. Assign eng_director turn (the routing code at governed-state.js:7012 will honor `proposed_next_role: 'eng_director'` since it's in `allowed_next_roles`)
-5. Stage eng_director result with:
-   - `runtime_id: 'local-gpt-5.5-director'` (distinct from dev's `local-gpt-5.5`)
-   - `decisions: [{ id: 'DEC-DIR-001', category: 'architecture', statement: 'Deadlock resolved: ...', rationale: '...' }]`
-   - `objections: [{ id: 'OBJ-001', severity: 'low', statement: 'Process gap led to escalation', status: 'raised' }]`
-6. Accept eng_director turn
-
-Assertions:
-- `acceptGovernedTurn()` returns `ok: true` (eng_director turn accepted)
-- Decision ledger entry for DEC-DIR-001 has `runtime_id: 'local-gpt-5.5-director'`
-- History entry for eng_director has `runtime_id: 'local-gpt-5.5-director'` and preserved objections
-- CONTEXT.md (via `writeDispatchBundle`) renders eng_director runtime in Last Accepted Turn and Decision History table
-
-#### 2. Check off M3 item #5
-
-In `.planning/ROADMAP.md` line 43, change:
+**After:**
+```js
+// Remove slice manifest import entirely
+// Remove node:test alias (no longer needed — files import vitest directly)
+// ...
+include: ['test/**/*.test.js'],
+fileParallelism: false,  // keep serial until temp-dir isolation is validated
+testTimeout: 60_000,     // match prior node --test timeout for E2E/subprocess tests
 ```
-- [ ] Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles <!-- tracking: 3/4 roles validated across 3+ governed cycles as of 2026-05-02; eng_director not yet dispatched in a normal governed cycle -->
-```
-to:
-```
-- [x] Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles
-```
+
+Remove the `resolve.alias` block — the shim is no longer needed since files import `vitest` directly.
+
+#### 3. Package.json script update
+
+**Changes to `cli/package.json` scripts:**
+
+| Script | Before | After |
+|--------|--------|-------|
+| `test` | `npm run test:vitest && npm run test:node` | `vitest run --reporter=verbose` |
+| `test:vitest` | `vitest run --reporter=verbose` | Remove (merged into `test`) |
+| `test:node` | `node --test --test-timeout=60000 ...` | Remove (no longer needed) |
+| `test:watch` | (does not exist) | `vitest --reporter=verbose` (new) |
+| `test:beta` | `node --test test/beta-tester-scenarios/*.test.js` | Keep as-is for standalone beta runs |
+
+#### 4. Cleanup
+
+- Delete `cli/test-support/vitest-node-test-shim.js` — no longer needed
+- Delete `cli/test-support/vitest-slice-manifest.js` — no longer needed
+- Verify `cli/test/vitest-contract.test.js` — this file tests the shim contract; it should be updated or removed
+
+#### 5. Verification
+
+Run `npm run test` (which now invokes vitest) and verify:
+- All 663 test files are discovered by vitest
+- All tests pass
+- `npm run test:watch` enters watch mode and responds to file changes
+- E2E tests complete within the 60s timeout
+- No remaining `from 'node:test'` imports in any test file
 
 ### Out of Scope
 
-- Automated deadlock detection that auto-routes to eng_director — this is an M4/M5 concern
-- Live eng_director dispatch via LLM — the acceptance criterion is about valid turn results, not live model behavior
-- Changes to eng_director prompt or mandate — prompt at `.agentxchain/prompts/eng_director.md` is adequate
-- Backfilling historical entries — no eng_director production entries exist to backfill
-- Changes to escalation proof script — already validates the end-to-end escalation flow
-- Using a separate runtime_id like `local-gpt-5.5` for eng_director in production — the current config correctly shares runtime with dev since both are GPT 5.5; the test uses a distinct runtime_id only to validate cross-runtime attribution works
+- **Migrating `node:assert` → vitest `expect`** — Assertion library migration is a separate, much larger effort. `node:assert` works perfectly under vitest. Mixing the two migrations would increase risk for zero functional benefit.
+- **Enabling file parallelism** — Keep `fileParallelism: false` for now. Parallel execution requires validating that all tests use unique temp directories and don't have implicit ordering. This is a follow-up optimization.
+- **Adding vitest-specific features** — No snapshot testing, no coverage configuration, no custom reporters beyond verbose. Keep the migration minimal.
+- **Migrating example project tests** — The 5 vitest files in `examples/Baby Tracker/` and the 4 node:test files in other example projects are out of scope. This migration covers `cli/test/` only.
+- **Changes to test logic or assertions** — The codemod changes imports only. No test behavior changes.
+- **Vitest UI or browser mode** — Not needed for CLI testing.
 
 ### Success Metric
 
-1. Integration test passes — eng_director turn accepted through governed pipeline with runtime_id in ledger, history, and CONTEXT.md
-2. M3 item #5 checked off in ROADMAP.md
-3. Full test suite passes with no regressions
+1. Zero files import `from 'node:test'` in `cli/test/` (grep confirms 0 matches)
+2. `npm run test` (vitest) passes — all 663 files, all tests green
+3. `npm run test:watch` enters vitest watch mode
+4. E2E tests (73 files) run under vitest with subprocess spawning working correctly
+5. `vitest-node-test-shim.js` and `vitest-slice-manifest.js` are deleted
+
+### Risk Assessment
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| `before`/`after` rename catches unrelated identifiers | Medium | Word-boundary regex (`\bbefore\(` not matching `beforeEach(`) with negative lookahead for `Each` |
+| E2E subprocess tests timeout under vitest | Medium | Increase `testTimeout` to 60s (matching prior `node --test` config) |
+| `fileParallelism: false` masks ordering bugs | Low | Accept serial for now; parallelism is a follow-up |
+| Codemod misses edge-case import syntax | Low | Verify with grep post-migration: `grep -r "from 'node:test'" cli/test/` must return 0 |
+| `vitest-contract.test.js` breaks after shim removal | Low | File tests the shim itself; update or remove as part of cleanup |
+| `test:beta` script still uses `node --test` | Low | Acceptable — beta tests also run under vitest via `npm run test`; standalone `test:beta` is a convenience alias |
 
 ## Challenge to Previous Work
 
-### OBJ-PM-001: Prior PM turns punted eng_director validation as "not part of normal flow" without scoping a resolution (severity: medium)
+### OBJ-PM-001: The incremental slice-manifest approach created permanent architectural debt (severity: medium)
 
-The prior PM turn (run_4b236357e5bdba02, DEC-003) correctly identified that "eng_director has not been dispatched in any normal governed cycle" and added a tracking annotation. But it **did not scope how to close the gap** — it explicitly deferred to a future run and scoped only M3 #4 (cross-model challenge quality). The M3 acceptance criterion remained permanently tracked, not resolved. This run fixes that by recognizing the acceptance pipeline is role-agnostic and can validate eng_director through integration testing rather than waiting for a production deadlock that may never occur.
+The prior vitest adoption strategy (runs `run_cc4217fafd6611bc` through `run_d758c25c8d0ba32d`) treated vitest migration as a gradual, file-by-file process — adding files to `vitest-slice-manifest.js` one slice at a time. After 6+ governed runs, only 36/663 files (5.4%) were in the vitest manifest. At this rate, full migration would take 100+ runs.
 
-### OBJ-PM-002: The acceptance criterion "all 4 roles ... across 3 consecutive PM→Dev→QA→completion cycles" is structurally misleading (severity: low)
+The slice-by-slice approach was **correct as an initial de-risking strategy** (proving the shim works, validating vitest compatibility), but it was never elevated to a full migration plan. The dual-runner architecture became normalized rather than treated as a transition state.
 
-The criterion reads as if eng_director should appear in PM→Dev→QA→completion cycles, but eng_director is an escalation role that interrupts the normal cycle. The wording should be "all 4 roles produce valid turn results (3 normal-flow roles validated across 3+ consecutive cycles, escalation role validated via acceptance pipeline test)." Since this is the final M3 item and the criterion is being checked off, no rewording is needed — the evidence record in this PM_SIGNOFF.md documents the actual validation methodology.
+This run corrects the approach: instead of continuing to add files to the manifest one slice at a time, we write a codemod that migrates all 663 files in a single pass, then delete the shim and manifest entirely.
+
+### OBJ-PM-002: The dual-runner architecture doubles CI time for no incremental safety (severity: low)
+
+Running tests under both vitest (via shim) and native `node --test` was a safety net during the transition. But once the shim was proven correct (36 files, zero discrepancies across 6 runs), continuing to run both runners provides no additional confidence. The `test:node` runner is pure overhead.
 
 ## Notes for Dev
 
-Your charter is **eng_director acceptance pipeline integration test + ROADMAP update**.
+**Your charter is: codemod script + vitest config update + package.json update + cleanup + verification.**
 
-The test belongs in `cli/test/dispatch-bundle-decision-history.test.js` because:
-1. That file already has the cross-model challenge test (line 297) with the exact helper infrastructure needed
-2. Adding eng_director validates the 4th role through the same pipeline used for the other 3
-3. The test pattern is identical: assign turn, stage result, accept, assert ledger + history + CONTEXT.md
+The migration is mechanical — 663 files, same transformation pattern. The codemod is the critical deliverable. Key implementation details:
 
-Key implementation detail: You need a **test-local config** that includes eng_director in both `roles` and `routing.implementation.allowed_next_roles`. Use the existing `makeConfig()` as a base and extend it within the test, or create a helper. Do NOT modify the shared `makeConfig()` since other tests depend on the 3-role config.
+1. **Import regex pattern:** Match `import\s*\{([^}]+)\}\s*from\s*'node:test'` — capture the specifier list, swap `before` → `beforeAll` and `after` → `afterAll` within it, replace module with `'vitest'`
+
+2. **Body rename for `before`/`after`:** Only needed in the 56 files that import them. Use `\bbefore\s*\(` → `beforeAll(` and `\bafter\s*\(` → `afterAll(` with negative lookahead for `Each` and `All` to avoid double-renaming. Be careful with `after(` appearing in strings — the 56 files are structured test files where `after(` at statement level is always the hook.
+
+3. **TestContext (`t.skip`):** Only 1 file: `bug-54-real-claude-reliability.test.js:154`. The pattern is `it('name', async (t) => { ... t.skip(reason); ... })`. In vitest, the equivalent is `it('name', async ({ skip }) => { ... skip(); ... })` or keeping `t` and calling `t.skip()` if vitest's test context supports it (vitest 1.x+ does via `TaskContext`).
+
+4. **vitest-contract.test.js** likely tests the shim → vitest mapping. Read it. If it asserts that `node:test` imports resolve to vitest, it's obsolete after migration and should be removed. If it tests something else, update it.
+
+5. **Do NOT change assertions.** Leave all `assert.strictEqual`, `assert.deepStrictEqual`, `assert.ok`, `assert.throws` calls exactly as they are. `node:assert` is a Node.js built-in that works under vitest without any shim.
 
 ## Notes for QA
 
-- **Verify the test exercises the governed-state acceptance pipeline** — not just schema validation. The test must go through `acceptGovernedTurn()`, not a mock acceptor.
-- **Cross-reference runtime_id attribution:** eng_director's `runtime_id: 'local-gpt-5.5-director'` must appear in decision ledger, history, and CONTEXT.md — same surfaces validated for PM/Dev/QA in the cross-model challenge test.
-- **Run the full test suite:** Confirm no regressions from the new test.
-- **Validate M3 completeness:** With #5 checked off, all 5 M3 items should be `[x]`. Verify ROADMAP.md shows complete M3.
+- **Primary verification:** `grep -r "from 'node:test'" cli/test/` must return 0 results
+- **Full suite pass:** `npm run test` must pass all 663 files with 0 failures
+- **Watch mode:** `npm run test:watch` must enter interactive watch mode (verify it starts, then Ctrl-C)
+- **E2E subset:** Verify at least 5 E2E tests (subprocess-heavy) complete under vitest
+- **Cleanup verification:** `vitest-node-test-shim.js` and `vitest-slice-manifest.js` must not exist
+- **No assertion changes:** Diff should show ONLY import line changes, `before`→`beforeAll` renames, and `after`→`afterAll` renames — no assertion logic changes
+- **Regression risk:** The `before`/`after` → `beforeAll`/`afterAll` rename is the highest-risk transformation. Verify 5-10 of the 56 affected files to confirm the rename is correct.
 
 ## Acceptance Contract Response
 
-1. **Roadmap milestone addressed: M3: Multi-Model Turn Handoff Quality** — YES. This run addresses the final M3 item (#5): validating all 4 roles produce valid turn results.
+1. **All 565 test files use vitest imports instead of node:test** — YES (after dev implements). The codemod will migrate all 663 files (565 main + 98 beta-tester-scenarios). Post-migration, `grep -r "from 'node:test'" cli/test/` returns 0.
 
-2. **Unchecked roadmap item completed: Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles** — YES (after dev implements). Evidence: PM/Dev/QA validated across 13+ consecutive governed production cycles with zero post-ship regressions. eng_director validated through governed-state acceptance pipeline integration test proving the same pipeline works for all 4 roles. The escalation proof script (`run-escalation-recovery-proof.mjs`) provides additional end-to-end evidence.
+2. **npm run test:vitest passes with all tests** — YES (after dev implements). The `test` script will invoke `vitest run` covering all 663 files. The prior `test:vitest` script is merged into `test`.
 
-3. **Evidence source: .planning/ROADMAP.md:43** — Line 43 tracking annotation will be removed and item checked off by dev after implementation.
+3. **Vitest watch mode works for TDD development** — YES (after dev implements). New `test:watch` script runs `vitest` in watch mode. Vitest watch mode is a core vitest feature that works out of the box.
+
+4. **E2E tests run under vitest harness** — YES (after dev implements). All 73 E2E test files will be included in the vitest glob pattern (`test/**/*.test.js`). Extended `testTimeout: 60_000` accommodates subprocess-heavy E2E tests.

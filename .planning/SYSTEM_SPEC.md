@@ -1,371 +1,144 @@
-# System Spec — agentXchain.dev M1 Ghost Turn Elimination
+# System Spec — Vitest Migration: 663 node:test Files → Native Vitest Imports
 
-**Run:** `run_984f0f8c07a30a5c`
-**Baseline:** `git:da4cd47ac3e5ff7f5e86715f9ae99b7a17149e5d`
+**Run:** `run_4a6f8ae7668a237a`
+**Baseline:** git:main (post-M3 completion)
 **Package version:** `agentxchain@2.155.72`
 
 ## Purpose
 
-Diagnose and document the root cause of ghost turns when dispatching to `local_cli` runtimes with `stream-json` output, then harden the adapter and watchdog layers to prevent recurrence. This addresses ROADMAP M1: Self-Governance Hardening — Ghost Turn Elimination.
+Migrate all 663 test files in `cli/test/` from `node:test` imports to native vitest imports, eliminating the dual-runner architecture (vitest shim + native `node --test`) in favor of a single vitest runner with watch mode support for TDD.
 
-**Scope:** Ghost turn root cause diagnosis (completed by PM), followed by implementation of startup heartbeat, configurable turn timeout, and regression test coverage (dev phase).
+**Scope:** Mechanical import migration via codemod, vitest config expansion from 36-file manifest to full glob, package.json script consolidation, and shim/manifest cleanup.
 
 ## Interface
 
-### State Machine
+### Test Runner Architecture (Before)
 
-- **Phases:** `planning` → `implementation` → `qa`
-- **Transitions:** gated by `planning_signoff`, `implementation_complete`, `qa_ship_verdict`
-- **State file:** `.agentxchain/state.json` (orchestrator-owned, agents must not modify)
+```
+npm run test
+  ├── test:vitest  → vitest run (36 files via slice manifest, node:test aliased to shim)
+  └── test:node    → node --test (663 files natively, 60s timeout, 4-way concurrency)
+```
 
-### Turn Contract
+- Files import `from 'node:test'`
+- `vitest.config.js` aliases `node:test` → `vitest-node-test-shim.js`
+- Shim re-exports vitest APIs with `node:test` names (`before` → `beforeAll`, etc.)
+- Only 36/663 files in `vitest-slice-manifest.js`
 
-Each role produces a `turn-result.json` in `.agentxchain/staging/<turn_id>/` with schema version `1.0`. Required fields: `run_id`, `turn_id`, `role`, `runtime_id`, `status`, `summary`, `decisions[]`, `objections[]`, `files_changed[]`, `verification`, `artifact`, `proposed_next_role`.
+### Test Runner Architecture (After)
 
-### Turn Artifact Contract
+```
+npm run test       → vitest run --reporter=verbose (663 files, native vitest imports)
+npm run test:watch → vitest --reporter=verbose (watch mode for TDD)
+npm run test:beta  → node --test test/beta-tester-scenarios/*.test.js (standalone convenience)
+```
 
-- `artifact.type: "workspace"` — role modified repo files. `files_changed` must be non-empty and match observed diff.
-- `artifact.type: "review"` — role performed governance/QA/PM work without repo mutations. `files_changed` must be `[]`.
-- `artifact.type: "patch"` — role returned structured proposed changes rather than direct writes.
-- `artifact.type: "commit"` — role produced or referenced a git commit artifact.
-- Empty `workspace` artifacts are recoverable only when the turn is unambiguously a no-edit review; accepted record is normalized to `review` and an `artifact_type_auto_normalized` event is emitted.
+- Files import `from 'vitest'`
+- No shim, no alias, no manifest
+- `vitest.config.js` uses glob: `test/**/*.test.js`
+- `testTimeout: 60_000` (matches prior `node --test` timeout)
+- `fileParallelism: false` (preserved from current config)
 
-### Gate Files
+### Import Transformation Contract
 
-| Gate | Required Files |
-|------|---------------|
-| `planning_signoff` | `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, `.planning/SYSTEM_SPEC.md` |
-| `implementation_complete` | `.planning/IMPLEMENTATION_NOTES.md` + verification pass |
-| `qa_ship_verdict` | `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, `.planning/RELEASE_NOTES.md` + verification pass |
+| Pattern | Before | After | Files |
+|---------|--------|-------|-------|
+| Test runner | `from 'node:test'` | `from 'vitest'` | 663 |
+| `before` hook | `import { before } from 'node:test'` | `import { beforeAll } from 'vitest'` | 56 |
+| `after` hook | `import { after } from 'node:test'` | `import { afterAll } from 'vitest'` | 56 |
+| `before()` call | `before(() => { ... })` | `beforeAll(() => { ... })` | 56 |
+| `after()` call | `after(() => { ... })` | `afterAll(() => { ... })` | 56 |
+| `t.skip()` | `t.skip(reason)` | vitest TestContext `skip()` | 1 |
+| Assertions | `from 'node:assert/strict'` | unchanged | 432 |
+| Assertions | `from 'node:assert'` | unchanged | 231 |
 
-### Role Configuration
+### Files Created
 
-Roles defined dynamically in `agentxchain.json`. Current roster: `pm`, `dev`, `qa`, `eng_director`. Each role has `title`, `mandate`, and `runtime` binding. Framework supports arbitrary roles with arbitrary charters per VISION.md.
+| File | Purpose | Lifecycle |
+|------|---------|-----------|
+| `cli/scripts/migrate-to-vitest.mjs` | One-shot codemod script | Kept for reference; idempotent |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `cli/test/**/*.test.js` (663 files) | Import rewrite: `node:test` → `vitest`, `before`→`beforeAll`, `after`→`afterAll` |
+| `cli/vitest.config.js` | Remove alias + manifest, use glob include, increase timeout |
+| `cli/package.json` | Consolidate scripts: `test`, `test:watch`; remove `test:vitest`, `test:node` |
+
+### Files Deleted
+
+| File | Reason |
+|------|--------|
+| `cli/test-support/vitest-node-test-shim.js` | No longer needed — files import vitest directly |
+| `cli/test-support/vitest-slice-manifest.js` | No longer needed — vitest uses glob pattern |
+
+### Files Potentially Modified or Deleted
+
+| File | Condition |
+|------|-----------|
+| `cli/test/vitest-contract.test.js` | If it tests the shim contract, remove. If it tests vitest behavior, update. |
 
 ## Behavior
 
-### Phase Progression
-1. Orchestrator dispatches `entry_role` for current phase
-2. Role executes, produces turn-result.json
-3. Orchestrator validates schema, accepts or rejects
-4. If accepted: check gate requirements. If gate satisfied → advance phase. If not → route to `proposed_next_role`
-5. If rejected: reissue with incremented attempt counter (max 2 retries)
+### Codemod Execution
 
-### Ghost Turn Recovery
-- If a dispatched turn times out (no result within deadline), orchestrator marks it as `auto_retry_ghost`
-- Turn is reissued with new `turn_id`, attempt counter incremented
-- After `max_turn_retries` (2) exhausted, escalate to human via `HUMAN_TASKS.md`
-- Proven through DOGFOOD BUG-112/113/114 on tusq.dev
+1. Script discovers all `*.test.js` files under `cli/test/` recursively
+2. For each file:
+   a. Read file content
+   b. Match `import { ... } from 'node:test'` line
+   c. In the import specifier list: rename `before` → `beforeAll`, `after` → `afterAll`
+   d. Replace module specifier `'node:test'` → `'vitest'`
+   e. If `before` or `after` was imported: rename `before(` → `beforeAll(` and `after(` → `afterAll(` in file body (word-boundary match, negative lookahead for `Each`/`All`)
+   f. Write file back
+3. Handle `t.skip()` in `bug-54-real-claude-reliability.test.js`
+4. Print summary and exit 0
 
-### Ghost Turn Root Cause (M1 Diagnosis)
+### Codemod Safety Invariants
 
-**Diagnosed in `run_984f0f8c07a30a5c`.** Three ghost turns occurred across `run_5fb440e67c8d1cae` and `run_2768a5d6ca1ca89a`:
+- **Idempotent:** Running twice produces same output (already-migrated files are no-ops)
+- **Assertion-preserving:** Zero changes to `node:assert` imports or assertion calls
+- **Comment-preserving:** No changes to comments or strings (regex targets import/call sites only)
+- **Scope-limited:** Only touches files matching `cli/test/**/*.test.js`
 
-| Turn | Run | Duration | Pattern |
-|------|-----|----------|---------|
-| `turn_1da85f162e414be8` | `run_5fb440e67c8d1cae` | 180.6s | Startup watchdog timeout (no stdout within 180s) |
-| `turn_1669b781a7401218` | `run_2768a5d6ca1ca89a` | 2.1s | Immediate CLI rejection |
-| `turn_cd361d6f48043439` | `run_2768a5d6ca1ca89a` | 2.2s | Immediate CLI rejection |
+### Vitest Configuration
 
-**Root cause:** The runtime command in `agentxchain.json` used `--print --output-format stream-json` without the `--verbose` flag. Claude Code CLI validates this flag combination at startup and rejects it immediately with `Error: When using --print, --output-format=stream-json requires --verbose` written to **stderr only** (exit code 1).
+```js
+// cli/vitest.config.js (after migration)
+import { defineConfig } from 'vitest/config';
 
-**Why this manifests as a ghost (not a crash):**
-1. The error goes to stderr, which the orchestrator correctly classifies as `diagnostic_only` (per DEC-BUG54: stderr is NOT startup proof)
-2. `first_output_at` is only set by stdout output — never set in this case
-3. No turn-result.json is staged because the agent process never starts
-4. The stale-turn-watchdog fires when the startup proof deadline expires without `first_output_at`
-5. For the 2-second ghosts: the process had already exited, but the watchdog still classifies it as a ghost because no startup proof was observed
+export default defineConfig({
+  test: {
+    include: ['test/**/*.test.js'],
+    fileParallelism: false,
+    testTimeout: 60_000,
+  },
+});
+```
 
-**Fix applied:** Commit `6cf44000d` added `--verbose` to both `local-opus-4.7` and `local-opus-4.6` runtime command arrays. Subsequent run `run_8485b8044fbc7e77` completed all 3 phases (PM→Dev→QA) with zero ghost turns.
+### Watch Mode
 
-**Architectural finding:** The orchestrator's ghost detection, output classification, and recovery logic are all correct. The failure was purely a configuration-level issue. However, the adapter layer has no explicit validation of CLI flag compatibility before spawning — it passes the command array verbatim to `spawn()`. This is an improvement opportunity (see M1 remaining items).
-
-### Challenge Requirement
-- `rules.challenge_required: true` — every role must explicitly challenge the previous turn's work
-- No rubber-stamping; substantive review of prior decisions
-
-### Artifact Normalization
-- Staged results with shape mismatches (e.g., `workspace` with empty `files_changed`) are auto-normalized when unambiguous
-- Non-normalizable mismatches are rejected with typed validation errors
-- Proven through DOGFOOD BUG-78/79/80-89
+- `vitest` (no `run` flag) enters watch mode by default
+- Watches `cli/test/**/*.test.js` for changes
+- Re-runs affected tests on file save
+- Supports filter by test name (`vitest --reporter=verbose -t "pattern"`)
 
 ## Error Cases
 
 | Failure Mode | Response |
 |-------------|----------|
-| Turn timeout (ghost) | Reissue with attempt counter; escalate after max retries |
-| Schema validation failure | Reject turn, log error, reissue |
-| Credential failure (provider 401) | Classify as `dispatch:claude_auth_failed`, pause session, escalate to human |
-| Gate files missing | Block phase transition, route to owning role |
-| Budget exceeded | Pause and escalate per `budget.on_exceed` |
-| Session break (operator restart) | Counter resets to 0 under DOGFOOD strict criteria |
-| Deadlock (role ping-pong) | `max_deadlock_cycles: 2`, then escalate to `eng_director` or human |
+| Codemod regex misses an import variant | Post-migration grep catches it: `grep -r "from 'node:test'" cli/test/` |
+| `before`/`after` rename catches string literal | Manual review of the 56 affected files (risk: low — these are structured test files) |
+| E2E test exceeds 60s timeout | Increase `testTimeout` or use `test.timeout()` per-test |
+| `vitest-contract.test.js` fails after shim removal | Update or remove the test |
+| `test:beta` script uses `node --test` but files now import vitest | `node --test` ignores import specifiers at declaration time — tests still run natively if `vitest` is resolvable. Alternatively, `test:beta` can be updated to `vitest run test/beta-tester-scenarios/` |
 
 ## Acceptance Tests
 
-- [x] Planning gate: PM_SIGNOFF.md exists with `Approved: YES`, ROADMAP.md and SYSTEM_SPEC.md complete
-- [ ] Turn validation: orchestrator accepts well-formed turn-result.json and rejects malformed ones *(dev phase)*
-- [ ] Phase transition: planning→implementation advances when all gate files present *(dev phase — observe whether this transition fires)*
-- [ ] Ghost recovery: timed-out turn is reissued without human intervention *(already evidenced: 4 ghost reissues in history.jsonl for this project)*
-- [ ] End-to-end: complete planning→implementation→QA cycle produces inspectable audit trail in `.agentxchain/history.jsonl` *(QA phase)*
-
-### Roadmap Tracking Annotations (M1 — run `run_cc4217fafd6611bc`)
-
-**Problem:** `deriveRoadmapCandidates()` in `vision-reader.js` treats every unchecked `[ ]` item under a milestone heading as actionable open work. Longitudinal criteria (e.g., "zero ghost turns across N consecutive runs") cannot be completed in a single run, causing an infinite re-trigger loop where the scanner spawns a new run each time a prior run completes without checking off the item.
-
-**Solution:** Inline `<!-- tracking: ... -->` HTML comment annotations on ROADMAP items. When `deriveRoadmapCandidates()` encounters an unchecked item whose line contains `<!-- tracking:`, it skips the item — treating it as actively tracked but not actionable for a new run.
-
-**Annotation format:**
-```
-- [ ] Goal description <!-- tracking: <progress description> -->
-```
-
-**Semantics:**
-- The item remains visually unchecked (`[ ]`) for human review
-- The annotation documents current progress (e.g., `3/10 zero-ghost runs`)
-- The scanner skips the item, preventing re-triggering
-- When the criterion is met, the annotation is removed and the item is checked off (`[x]`)
-- Annotations must include evidence references (run IDs, dates) so they can be verified
-
-**Implementation:** Single guard clause in `deriveRoadmapCandidates()` after the unchecked regex match, checking for `<!-- tracking:` in the line text.
-
-### Idle-Expansion Three-State Model (M2 — run `run_e9d2aeed559c018e`)
-
-**Problem:** `detectRoadmapExhaustedVisionOpen()` and `deriveRoadmapCandidates()` disagree on what counts as "unchecked." `deriveRoadmapCandidates()` skips `<!-- tracking: -->` annotated items (added in `run_cc4217fafd6611bc`), but `detectRoadmapExhaustedVisionOpen()` counts them as unchecked, short-circuiting exhaustion detection with `{ open: false, reason: 'has_unchecked' }`.
-
-**Three-state model:**
-
-| State | `deriveRoadmapCandidates` | `detectRoadmapExhaustedVisionOpen` | Correct action |
-|-------|--------------------------|-----------------------------------|----------------|
-| Roadmap has actionable work | returns candidates | not called (candidates > 0) | Dispatch roadmap work |
-| Roadmap functionally exhausted, vision open | returns 0 candidates (tracked items skipped) | should return `{ open: true }` | Dispatch PM roadmap replenishment |
-| Vision fully addressed | returns 0 candidates | returns `{ open: false, reason: 'vision_fully_mapped' }` | idle_exit or vision_exhausted |
-
-**Fix:** Add `ROADMAP_TRACKING_ANNOTATION_PATTERN` guard to the `hasUnchecked` check in `detectRoadmapExhaustedVisionOpen()`. Tracked items should not count as unchecked for exhaustion purposes.
-
-**Annotation format reference:**
-```
-- [ ] Goal description <!-- tracking: <progress description> -->
-```
-
-**Semantics:** Tracked items are functionally equivalent to checked items for exhaustion detection — they represent in-progress longitudinal criteria that cannot be completed in a single cycle.
-
-### Vision-Driven Roadmap Replenishment Dispatch (M2 — run `run_b51cc53d95925d53`)
-
-**Context:** When `seedFromVision()` finds zero actionable roadmap candidates (all checked or tracked) but VISION.md has unplanned scope, the system must dispatch PM to derive the next bounded roadmap increment — not idle-stop or fall through to generic vision candidates.
-
-**Implementation (BUG-77, already shipped):**
-
-`seedFromVision()` in `continuous-run.js` enforces a strict priority:
-
-1. **Roadmap unchecked work** (`deriveRoadmapCandidates`) — dispatch the roadmap item directly
-2. **Roadmap exhausted + vision open** (`detectRoadmapExhaustedVisionOpen`) — create PM replenishment intent
-3. **Broad VISION goals** (`deriveVisionCandidates`) — fallback to generic candidates
-
-When state 2 fires, `seedFromVision()`:
-- Records intake event with `category: 'roadmap_exhausted_vision_open'`
-- Creates intent with `preferred_role: 'pm'`, `phase_scope: 'planning'`, `priority: 'p1'`
-- Charter directs PM to read VISION.md + ROADMAP.md, select one next testable milestone from unplanned sections, and produce concrete unchecked items
-- Auto-approves in continuous mode (`triageApproval: 'auto'`)
-- Returns `{ idle: false, source: 'roadmap_replenishment' }`
-- Main loop emits status: "Roadmap exhausted, vision still open, deriving next increment"
-
-**Dependencies:** Requires `detectRoadmapExhaustedVisionOpen()` to correctly skip tracking-annotated items (fixed in `run_e9d2aeed559c018e`).
-
-**Test coverage:**
-- Unit: `vision-reader.test.js` — `detectRoadmapExhaustedVisionOpen` three-state with tracked items
-- Integration: `bug-77-roadmap-exhausted-vision-open.test.js` — CLI continuous mode dispatches PM replenishment
-- Integration: `seedFromVision()` three-state regression tests (added in this run)
-
-### Tracking Annotation Defense-in-Depth (M2 — run `run_bd3c68e0331fa956`)
-
-**Problem:** M2 item #5 was re-triggered by the vision scanner despite having a `<!-- tracking: 0/5 ... -->` annotation. The tracking skip in `deriveRoadmapCandidates()` at line 264 works correctly (verified by direct regex test and function invocation), but a timing anomaly caused the scan to read the ROADMAP before the checkpoint commit persisted the annotation.
-
-**Two defense-in-depth gaps identified:**
-
-1. **Goal text leaks annotation markup:** The unchecked regex capture group `(.+?)` at line 262 captures the full line text including any `<!-- tracking: ... -->` comment. If a tracked item bypasses the skip, the annotation pollutes the charter text and `isGoalAddressed()` keyword matching.
-
-2. **No mixed-state integration test:** Existing tests cover all-tracked → replenishment and simple-unchecked → roadmap_open_work, but not the mixed state (tracked M1/M2 + untracked M3) which is the normal operating state.
-
-**Fix:**
-- Strip `ROADMAP_TRACKING_ANNOTATION_PATTERN` from goal text at extraction time (line 266 of `vision-reader.js`)
-- Add `seedFromVision()` mixed-state integration test: tracked items skipped, untracked items returned, charter text clean
-
-**Test coverage:**
-- Unit: `vision-reader.test.js` — tracking annotation skip (existing)
-- Integration: `continuous-run.test.js` — `seedFromVision` mixed tracked + untracked state (new)
-- Integration: `seedFromVision()` three-state regression tests (existing)
-
-### Multi-Model Turn Handoff Context Preservation (M3 — run `run_fb3583590a1a4799`)
-
-**Problem:** When a governed turn completes and the next role is dispatched to a different model (e.g., PM on Opus 4.7 → Dev on GPT 5.5 → QA on Opus 4.6), the CONTEXT.md handoff document omits which model produced the prior turn's work. The receiving model sees decisions, summaries, and objections but cannot distinguish Claude-authored work from GPT-authored work.
-
-**Three gaps identified:**
-
-| Gap | Location | Data available? | Rendered? |
-|-----|----------|----------------|-----------|
-| Last Accepted Turn missing `runtime_id` | `dispatch-bundle.js:798-813` | YES (history entry at `governed-state.js:5171`) | NO |
-| Decision history table missing Runtime column | `dispatch-bundle.js:1415-1420` | NO (ledger lacks `runtime_id`) | NO |
-| Decision ledger entries missing `runtime_id` | `governed-state.js:5236-5248` | YES (available as `turnResult.runtime_id` at write time) | N/A |
-
-**Impact on cross-model handoff quality:**
-- QA (Opus 4.6) challenging Dev (GPT 5.5) cannot distinguish model-specific patterns
-- PM (Opus 4.7) reviewing GPT-authored decisions cannot contextualize model-specific reasoning
-- The decision history table (50+ entries) provides no model attribution
-
-**Fix:**
-1. Persist `runtime_id` in decision ledger entries at `governed-state.js:5236`
-2. Render `runtime_id` in "Last Accepted Turn" section at `dispatch-bundle.js:799`
-3. Add `Runtime` column to decision history table at `dispatch-bundle.js:1415`
-
-**Backward compatibility:** Pre-M3 ledger entries lack `runtime_id`. Rendering code uses `d.runtime_id || ''` to show empty cells for historical decisions. No backfill needed.
-
-**Test coverage:**
-- Unit: `renderContext()` includes `runtime_id` in Last Accepted Turn when present
-- Unit: `renderDecisionHistory()` includes Runtime column with mixed populated/empty entries
-- Integration: cross-runtime handoff scenario with GPT 5.5 → Opus 4.6 handoff
-
-### Output Format Parsing Validation (M3 — run `run_3a396386e18575b6`)
-
-**Problem:** The local CLI adapter's output handling is asymmetrically developed across runtime types. Claude runtimes (`--output-format stream-json`) receive three layers of output-aware behavior, while Codex runtimes (`--json`) receive none. This creates misclassification of Codex failures and silent configuration errors.
-
-**Two production runtime output formats in use:**
-
-| Runtime | Binary | Output flag | Format | Error classification |
-|---------|--------|------------|--------|---------------------|
-| `local-opus-4.7` | `claude` | `--output-format stream-json` | NDJSON event stream | YES (3 classifiers) |
-| `local-opus-4.6` | `claude` | `--output-format stream-json` | NDJSON event stream | YES (3 classifiers) |
-| `local-gpt-5.5` | `codex` | `--json` | Single JSON blob | NO (zero classifiers) |
-
-**Existing Claude-specific output handling (reference):**
-1. `validateLocalCliCommandCompatibility()` at `local-cli-adapter.js:741` — blocks dispatch when `--print --output-format stream-json` is used without `--verbose`
-2. `hasClaudeAuthFailureOutput()` at `local-cli-adapter.js:796` — matches `authentication_failed|authentication_error|invalid authentication credentials|unauthorized|API Error:\s*401` against stdout/stderr logs
-3. `hasClaudeNodeRuntimeIncompatibilityOutput()` at `local-cli-adapter.js:801` — matches Node.js version incompatibility patterns against stderr
-
-**Missing Codex output handling (gap):**
-1. No `isCodexLocalCliRuntime()` detector in adapter scope — `connector-probe.js:354` has the logic but it's not exported for adapter use
-2. No `hasCodexAuthFailureOutput()` classifier — Codex/OpenAI auth errors go undetected
-3. No Codex error branch in `dispatchLocalCli()` close handler — Codex failures always fall through to the generic "subprocess exited without writing a staged turn result" path
-4. No Codex command validation in `validateLocalCliCommandCompatibility()` — missing `exec` subcommand is not caught at pre-flight
-
-**Impact on multi-model handoff quality:**
-- Codex auth failures are reported as generic retryable failures, wasting 2 retry attempts before human escalation
-- Codex command misconfiguration is only caught at runtime (subprocess exit), not at dispatch pre-flight
-- The orchestrator's `classified.error_class` field is always empty for Codex failures, preventing automated recovery routing
-
-**Fix:**
-1. Add `isCodexLocalCliRuntime()` detector — pattern: binary is `codex` or ends with `/codex`
-2. Add `hasCodexAuthFailureOutput()` classifier — match OpenAI auth error patterns
-3. Add Codex error branch in `dispatchLocalCli()` close handler at `local-cli-adapter.js:504` — return `{ blocked: true, classified: { error_class: 'codex_auth_failed' } }`
-4. Extend `validateLocalCliCommandCompatibility()` — catch `codex` without `exec` subcommand
-
-**Design constraint:** The adapter's turn result contract remains file-based (staged `turn-result.json`). Output parsing is diagnostic-only — it classifies errors and collects audit logs, but never extracts turn results from stdout. Cost event parsing from stream-json is deferred to M4.
-
-**Test coverage:**
-- Unit: Codex `--json` auth failure → `codex_auth_failed` typed blocker
-- Unit: Codex missing `exec` → `local_cli_command_incompatible` pre-flight block
-- Unit: Codex `--json` normal turn → `ok: true` with staged result
-- Regression: Claude `stream-json` auth failure → `claude_auth_failed` (unchanged)
-- Regression: Claude `stream-json` normal turn → `ok: true` (unchanged)
-
-### Checkpoint Model Identity Metadata (M3 — run `run_37fb509c4b6ed593`)
-
-**Problem:** The checkpoint flow in `turn-checkpoint.js` records `runtime_id` in the git commit body (`Runtime: local-opus-4.6` at line 211) but omits it from three programmatic metadata surfaces that downstream code reads.
-
-**Three gaps identified:**
-
-| Surface | Location | runtime_id available? | runtime_id persisted? |
-|---------|----------|----------------------|----------------------|
-| Checkpoint commit body | turn-checkpoint.js:211 | YES | YES (already present) |
-| `state.json last_completed_turn` | turn-checkpoint.js:469-476 | YES (from history entry) | NO |
-| `turn_checkpointed` event | turn-checkpoint.js:479-486 | YES (from history entry) | NO |
-| Checkpoint commit subject | turn-checkpoint.js:205 | YES (from history entry) | NO |
-
-**Impact on multi-model audit and tooling:**
-- Consumers reading `state.json` to learn about the last checkpoint (session-checkpoint.js:95, operator-commit-reconcile.js:71) get turn/role/phase but not which model produced the work
-- Event consumers processing events.jsonl `turn_checkpointed` entries cannot determine model identity without cross-referencing history.jsonl
-- `git log --oneline` shows only role/phase in checkpoint subjects — model identity requires `git show` to read the body
-
-**Fix:**
-1. Add `runtime_id: entry.runtime_id || null` to `last_completed_turn` object at turn-checkpoint.js:469
-2. Add `runtime_id: entry.runtime_id || null` to `turn` object in `turn_checkpointed` event at turn-checkpoint.js:483
-3. Add `runtime=${entry.runtime_id || '(unknown)'}` to checkpoint commit subject at turn-checkpoint.js:205
-
-**Backward compatibility:** History entries from pre-runtime_id era have `runtime_id: undefined`. The `|| null` / `|| '(unknown)'` fallbacks produce clean output for legacy entries. No backfill needed.
-
-**Test coverage:**
-- Unit: `state.json last_completed_turn.runtime_id` populated after checkpoint
-- Unit: `turn_checkpointed` event includes `runtime_id` in `turn` object
-- Unit: Checkpoint commit subject includes `runtime=<id>`
-- Unit: Legacy entries without `runtime_id` produce `null`/`(unknown)` fallbacks
-
-### Cross-Model Challenge Quality Assessment (M3 — run `run_4b236357e5bdba02`)
-
-**Question:** Does QA (Opus 4.6) effectively challenge Dev (GPT 5.5)?
-
-**Answer:** YES. Empirically validated across 10 completed PM→Dev→QA→completion cycles with 92+ decisions.
-
-**Runtime configuration:**
-- PM: `local-opus-4.7` (Claude Opus 4.7)
-- Dev: `local-gpt-5.5` (GPT 5.5)
-- QA: `local-opus-4.6` (Claude Opus 4.6)
-- Eng Director: `local-gpt-5.5` (GPT 5.5)
-
-Every QA→Dev and Dev→PM handoff is inherently cross-model.
-
-**Challenge quality metrics (10 cycles, 30+ turns):**
-
-| Metric | QA (Opus 4.6) → Dev (GPT 5.5) | Dev (GPT 5.5) → PM (Opus 4.7) |
-|--------|-------------------------------|-------------------------------|
-| Challenge rate | 100% (protocol enforced) | 100% (protocol enforced) |
-| Objections raised | 7 substantive | 7 substantive |
-| Medium+ severity | 0 (all low) | 4 (57% medium) |
-| Overrides validated by QA | N/A | 4/4 (100%) |
-| Post-ship regressions | 0 | 0 |
-
-**Cross-model complementarity demonstrated:**
-- GPT 5.5 (Dev) catches PM scope overreach that Opus 4.7 (PM) misses
-- Opus 4.6 (QA) catches testing methodology gaps that GPT 5.5 (Dev) misses
-- QA self-corrects across turns (gate format violations, incomplete test suite coverage)
-
-**Governance invariants enabling cross-model challenge quality:**
-1. `challenge_required: true` — review_only roles must raise objections (turn-result-validator.js:977)
-2. `runtime_id` in decision ledger — cross-model attribution per decision (governed-state.js:5236)
-3. `runtime_id` in CONTEXT.md — receiving model sees which model produced prior work (dispatch-bundle.js:799, 1415)
-4. `runtime_id` in checkpoint metadata — state.json, events, commit subject (turn-checkpoint.js)
-
-**Test coverage:**
-- Integration: Cross-model challenge pair produces auditable decision ledger with runtime attribution
-- Integration: CONTEXT.md handoff renders runtime attribution for cross-model challenge context
-- Integration: QA objections preserved in accepted history for cross-model audit
-
-### eng_director Acceptance Pipeline Validation (M3 — run `run_d758c25c8d0ba32d`)
-
-**Problem:** The M3 acceptance criterion requires "all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles." PM, Dev, and QA are validated across 13+ consecutive governed production cycles. `eng_director` has never been dispatched (0/39 history entries) because it is an escalation-only role — dispatched only when a role proposes `proposed_next_role: 'eng_director'` during a deadlock, which has never occurred.
-
-**Root cause:** eng_director dispatch requires explicit role proposal via `proposed_next_role` (governed-state.js:7000-7018). No automated deadlock detector routes to eng_director. The `max_deadlock_cycles: 2` config controls retry escalation to human, not auto-dispatch to eng_director. The system working correctly (no deadlocks) means eng_director is never needed — a structural gap in the acceptance criterion.
-
-**Validation strategy:** The governed-state acceptance pipeline (`acceptGovernedTurn`) is role-agnostic. It validates schema, persists decisions to the ledger with `runtime_id`, writes history entries, and feeds CONTEXT.md rendering regardless of which role produced the turn. Proving eng_director works through this pipeline validates the same invariants as the PM/Dev/QA production evidence.
-
-**Evidence model:**
-
-| Role | Validation Source | Evidence |
-|------|------------------|----------|
-| PM (Opus 4.7) | 13+ production cycles | 13 history entries, runtime_id in ledger + CONTEXT.md |
-| Dev (GPT 5.5) | 13+ production cycles | 13 history entries, runtime_id in ledger + CONTEXT.md |
-| QA (Opus 4.6) | 13+ production cycles | 14 history entries (1 reissue), runtime_id in ledger + CONTEXT.md |
-| eng_director (GPT 5.5) | Integration test + escalation proof | `acceptGovernedTurn()` returns ok, runtime_id in ledger + history + CONTEXT.md |
-
-**Test coverage:**
-- Integration: eng_director turn accepted through governed pipeline with runtime attribution in ledger, history, and CONTEXT.md
-- End-to-end: escalation proof script (`run-escalation-recovery-proof.mjs`) validates retry exhaustion → operator recovery → eng_director intervention
-
-## Resolved Questions
-
-1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)
-
-2. **Minimum viable recovery model for ghost turns?** → Reissue with attempt counter (max 2), escalate to human after exhaustion. Already shipped at v2.155.72, proven through DOGFOOD BUG-112/113/114. No open question. (DEC-PM-002)
-
-3. **Dynamic vs static role registration?** → Dynamic. Roles defined in `agentxchain.json`, validated at dispatch time. VISION.md: "roles must be open-ended and charter-driven" and "the framework must support arbitrary agent roles and arbitrary charters." Already the implementation. (DEC-PM-003)
-
-4. **What causes ghost turns on local_cli runtimes with stream-json output?** → Missing `--verbose` flag in runtime command config. Claude Code CLI requires `--verbose` when `--print --output-format stream-json` is used. Without it, immediate exit (code 1) with error to stderr only → orchestrator never sees startup proof → ghost classification. Fixed in commit `6cf44000d`. (DEC-PM-004, run `run_984f0f8c07a30a5c`)
+- [ ] `grep -r "from 'node:test'" cli/test/` returns 0 results
+- [ ] `npm run test` passes all 663 files (vitest run)
+- [ ] `npm run test:watch` enters watch mode
+- [ ] E2E tests (73 files) complete under vitest with subprocess spawning
+- [ ] `vitest-node-test-shim.js` does not exist
+- [ ] `vitest-slice-manifest.js` does not exist
+- [ ] Diff shows only import changes + `before`/`after` renames (no assertion logic changes)
