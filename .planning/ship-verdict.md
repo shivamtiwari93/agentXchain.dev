@@ -4,39 +4,41 @@
 
 ## QA Summary
 
-**Run:** run_b51cc53d95925d53
-**Scope:** M2 Roadmap Replenishment — seedFromVision three-state handling, exact status messaging, ROADMAP tracking updates
+**Run:** run_bd3c68e0331fa956
+**Turn:** turn_d13b150208855cc1 (QA)
+**Scope:** M2 Roadmap Replenishment — defense-in-depth annotation sanitization, mixed-state seedFromVision coverage, M2 acceptance counter 1/5
 
 ### Challenge of Dev Turn
 
-The dev's implementation is correct, minimal, and adequately tested. Specific challenges:
+The dev's implementation (turn_16c19131f45748f2) is correct, minimal, and adequately tested. Specific challenges:
 
-1. **vision_fully_mapped fallthrough fix (DEC-001):** The dev identified a gap the PM missed — `seedFromVision()` ignored terminal results from `detectRoadmapExhaustedVisionOpen()` when `open` was false, falling through to generic `deriveVisionCandidates()`. The 9-line guard clause at continuous-run.js:1405-1412 intercepts `vision_fully_mapped` and `vision_no_actionable_scope` and returns an idle terminal state. This prevents seeding new work from already-mapped vision goals. Verified correct by code inspection and passing test.
+1. **Annotation sanitizer defense-in-depth (DEC-001):** `stripRoadmapTrackingAnnotations()` at vision-reader.js:20-23 is correctly applied at goal extraction (line 271) as a second layer behind the tracking annotation skip (line 269). I challenged whether the sanitizer is necessary given the skip already works — it is justified as defense-in-depth against the timing anomaly the PM identified (checkpoint persisting after vision scan reads ROADMAP.md). The regex correctly strips `<!-- tracking: ... -->` while preserving unrelated HTML comments like `<!-- owner: dev -->`. Verified by two dedicated unit tests.
 
-2. **Status message update (M2 #3):** The old message "Roadmap-replenishment (roadmap exhausted, vision open)" was replaced with the spec-required "Roadmap exhausted, vision still open, deriving next increment". BUG-77 test tightened from loose regex to exact match. Verified by running the command-chain test.
+2. **Mixed-state integration test (DEC-002):** The new test at continuous-run.test.js exercises seedFromVision with tracked M1/M2 acceptance items plus untracked M3 work. It verifies: (a) tracked items are skipped, (b) M3 is seeded, (c) no `tracking:` metadata leaks into intent charter or acceptance contract. This is the correct integration-level placement — prior tests only validated the three-state model at detector and seedFromVision boundaries individually, not the combined tracked+untracked scenario.
 
-3. **Three-state integration tests (M2 #4, DEC-002):** The dev correctly placed these at the `seedFromVision()` integration boundary, not just the detector unit level. This is the right approach because `seedFromVision()` has its own routing logic that consumes detector results. Two new tests cover: (a) tracked-only roadmap + open vision → replenishment, (b) fully mapped vision → idle. Combined with the existing roadmap-open-work test, all three states have integration coverage.
+3. **M2 longitudinal counter (DEC-003):** The advancement from 0/5 to 1/5 is correctly scoped — this run found derivable VISION work (M3-M8 sections remain unplanned) and did not idle-stop, which satisfies the M2 #5 criterion "continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope". The item remains unchecked at `[ ]` with an updated tracking annotation — correct, since 1 < 5.
 
-4. **ROADMAP updates (DEC-003):** M2 items #2-#4 correctly checked off. Item #5 (longitudinal 5-run acceptance) correctly given tracking annotation rather than being falsely completed. This matches the pattern established for M1's 10-run acceptance item.
+4. **Diff minimality:** 80 insertions / 4 deletions across 5 files. Source change is 8 lines in vision-reader.js (sanitizer function + application). The rest is tests and documentation.
 
-5. **Diff minimality:** 93 insertions / 10 deletions across 5 files. No extraneous refactoring. Source change is 13 lines (9-line guard + 4-line status message update). The rest is tests and documentation.
-
-6. **Reserved file integrity:** Dev did not modify any `.agentxchain/` orchestrator-owned files. Confirmed via `git diff`.
+5. **Reserved file integrity:** Dev did not modify any `.agentxchain/` orchestrator-owned files. Confirmed via `git diff 11d682768~1..11d682768 -- .agentxchain/`.
 
 ### Independent Verification
 
 | Test Suite | Count | Result |
 |------------|-------|--------|
-| continuous-run.test.js | 86 | PASS |
-| vision-reader.test.js | 34 | PASS |
+| continuous-run.test.js | 87 | PASS |
+| vision-reader.test.js | 36 | PASS |
 | bug-77-roadmap-exhausted-vision-open.test.js | 1 | PASS |
 | turn-result-validator.test.js + staged-result-proof.test.js + local-cli-adapter.test.js | 156 | PASS |
 | agentxchain-config-schema.test.js + timeout-evaluator.test.js + run-loop.test.js | 77 | PASS |
-| **Total** | **354** | **0 failures** |
+| coordinator-state + gates + schema + decision-ledger + run-completion | 79 | PASS |
+| timeout-governed-state + report-timeout-events + report-gate-failure + report-approval-policy | 12 | PASS |
+| release-notes-gate.test.js | 10 | PASS |
+| **Total** | **458** | **0 failures** |
 
 ### Pre-existing Non-blocking
 
-AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 7 consecutive QA runs. TALK.md state issue from prior runs, not a regression.
+AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 8 consecutive QA runs. TALK.md state issue from prior runs, not a regression.
 
 ## Open Blockers
 

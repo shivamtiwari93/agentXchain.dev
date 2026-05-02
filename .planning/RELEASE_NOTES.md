@@ -2,32 +2,33 @@
 
 ## User Impact
 
-The `seedFromVision()` continuous-mode entry point now correctly handles all three terminal states from the roadmap exhaustion detector:
+Defense-in-depth hardening for the M2 roadmap replenishment pipeline:
 
-1. **Roadmap has open work** — seeds an intent from the next unchecked roadmap item (existing behavior, unchanged).
-2. **Roadmap functionally exhausted, vision still open** — dispatches PM for roadmap replenishment with the exact status message "Roadmap exhausted, vision still open, deriving next increment" (BUG-77 path, now with correct log message per M2 #3 spec).
-3. **Vision fully mapped / no actionable scope** — returns idle instead of falling through to generic VISION derivation (new guard). Previously, `vision_fully_mapped` and `vision_no_actionable_scope` results from the exhaustion detector were ignored, causing `seedFromVision()` to attempt broad per-goal vision candidate derivation against already-mapped goals.
+1. **Annotation sanitizer** — `stripRoadmapTrackingAnnotations()` now strips `<!-- tracking: ... -->` metadata from roadmap goal text at extraction time in `deriveRoadmapCandidates()`. This prevents tracking metadata from leaking into seeded intent charters or acceptance contracts, even under the timing anomaly where a vision scan reads ROADMAP.md before a prior run's checkpoint persists.
 
-M2 ROADMAP items #2 (PM dispatch), #3 (status message), and #4 (three-state tests) are now complete. Item #5 (longitudinal 5-run acceptance) has a tracking annotation and will be completed across future runs.
+2. **Mixed-state integration coverage** — New `seedFromVision()` test validates the combined scenario of tracked M1/M2 acceptance items plus untracked M3 work, confirming that tracked items are skipped and M3 is correctly seeded with no metadata leakage.
+
+3. **M2 acceptance counter** — Longitudinal item #5 advanced from 0/5 to 1/5 consecutive runs. This run found derivable VISION scope (M3-M8) and did not idle-stop, qualifying as a successful run toward the 5-run acceptance threshold.
 
 ## Verification Summary
 
-- 354 tests pass across 7 test suites, 0 failures:
-  - continuous-run.test.js: 86 pass (includes 2 new seedFromVision three-state tests)
-  - vision-reader.test.js: 34 pass
-  - bug-77-roadmap-exhausted-vision-open.test.js: 1 pass (tightened to exact status message assertion)
-  - turn-result-validator.test.js: 100 pass
-  - staged-result-proof.test.js + local-cli-adapter.test.js: 56 pass
-  - agentxchain-config-schema.test.js + timeout-evaluator.test.js + run-loop.test.js: 77 pass
-- All 13 acceptance criteria verified (see acceptance-matrix.md)
-- BUG-77 command-chain end-to-end test passes with exact status message validation
+- 458 tests pass across 10 test suites independently verified, 0 failures:
+  - continuous-run.test.js: 87 pass (1 new mixed-state integration test)
+  - vision-reader.test.js: 36 pass (2 new annotation sanitizer tests)
+  - bug-77-roadmap-exhausted-vision-open.test.js: 1 pass
+  - turn-result-validator + staged-result-proof + local-cli-adapter: 156 pass
+  - agentxchain-config-schema + timeout-evaluator + run-loop: 77 pass
+  - coordinator-state + gates + schema + decision-ledger + run-completion: 79 pass
+  - timeout-governed-state + report suites: 12 pass
+  - release-notes-gate: 10 pass
+- All 15 acceptance criteria verified (see acceptance-matrix.md)
 - No reserved `.agentxchain/` file modifications by dev
 
 ## Upgrade Notes
 
-No breaking changes. The new `vision_exhausted` idle return from `seedFromVision()` includes `source` and `reason` fields not present in the previous idle returns. Callers that check `seeded.idle === true` are unaffected; callers that inspect `seeded.source` will now see `'vision_exhausted'` with `reason: 'vision_fully_mapped'` or `reason: 'vision_no_actionable_scope'`.
+No breaking changes. The `stripRoadmapTrackingAnnotations()` function is a new named export from `vision-reader.js`. Callers that import specific functions are unaffected; callers using wildcard imports will see the new export.
 
 ## Known Issues
 
-- AGENT-TALK collaboration log guard tests (3/8 fail) are a pre-existing state issue unrelated to this change. TALK.md lacks compressed summary structure from prior runs. Confirmed across 7 consecutive QA runs.
-- M2 item #5 (5+ consecutive runs without idle-stopping) is longitudinal and tracked at 0/5 runs.
+- AGENT-TALK collaboration log guard tests (3/8 fail) are a pre-existing state issue unrelated to this change. TALK.md lacks compressed summary structure from prior runs. Confirmed across 8 consecutive QA runs.
+- M2 item #5 (5+ consecutive runs without idle-stopping) is longitudinal and tracked at 1/5 runs.
