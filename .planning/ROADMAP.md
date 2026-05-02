@@ -95,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | M4 structured recovery classification: design taxonomy (domain/severity/outcome/mechanism), chart dev scope for new `recovery-classification.js` module + report integration | Complete (`run_5276bd12be02449a`) |
-| Implementation | Dev implements classification module, integrates into governance report formats, enhances recovery event payloads, writes tests | Complete (`run_5276bd12be02449a`) |
-| QA | Validate classification correctness, report output, test coverage, no regressions | Complete (`run_5276bd12be02449a`) |
+| Planning | M4 checkpoint-restore verification: audit crash-resume path, design PID liveness guard, chart dev scope for step.js hardening + crash-resume tests | In Progress (`run_da40a332eed44f56`) |
+| Implementation | Dev adds PID liveness guard to step.js resume paths, writes crash-resume test suite | Pending |
+| QA | Validate PID guard behavior, test coverage, no regressions | Pending |

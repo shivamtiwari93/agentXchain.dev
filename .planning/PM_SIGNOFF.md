@@ -1,10 +1,10 @@
-# PM Signoff — M4: Structured Recovery Classification in Governance Reports
+# PM Signoff — M4: Checkpoint-Restore Verification for Killed Mid-Turn Processes
 
 Approved: YES
 
-**Run:** `run_5276bd12be02449a`
+**Run:** `run_da40a332eed44f56`
 **Phase:** planning
-**Turn:** `turn_ced5f60086d919bc`
+**Turn:** `turn_2e7be194079f7f54`
 **Date:** 2026-05-02
 
 ## Discovery Checklist
@@ -17,100 +17,100 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators monitoring governed and continuous runs who need visibility into which recovery domains are firing, whether auto-recovery succeeds, and when manual intervention is required.
+AgentXchain operators running governed or continuous sessions where the orchestrator process (`agentxchain step`) may be killed mid-turn — by OOM, `kill -9`, terminal close, or machine restart — and who need to resume cleanly via `step --resume`.
 
 ### Core Pain Point
 
-Recovery events (ghost retries, budget exhaustion, credential failures, crash recovery) are emitted to `events.jsonl` but governance reports show only a single blocked-state snapshot via `recovery_summary`. Operators cannot see the full recovery history, cannot distinguish transient retries from systemic failures, and have no per-domain aggregation to guide M4 hardening prioritization.
+When `agentxchain step` is killed while a worker subprocess is active, `step --resume` re-dispatches the turn without checking whether the old worker is still alive. This creates two risks: (1) duplicate workers writing to the same staging path if the "killed" process is actually still running, and (2) stale `dispatch-progress` files misleading the new worker's monitoring. The existing path works mechanically but lacks crash detection, safety guards, and test coverage.
 
 ### Root Cause
 
-Recovery events were added incrementally across M1, BUG-FIX, and various improvements without a classification taxonomy. Each event type has its own payload structure with no common schema. The report layer (`report.js`) only reads `blocked_reason.recovery` from the current state — it never reads the event timeline for recovery history.
+The `step --resume` path (step.js:161-217, 226-319) was designed for normal resume (blocked/paused runs) and adapted for active-turn re-dispatch. It skips assignment and writes a new dispatch bundle, but never checks whether the previous worker subprocess (`worker_pid` on the turn) is still alive. The `isProcessRunning(pid)` utility exists in governed-state.js (line 1190) but is only used for the acceptance lock, not for dispatch safety.
 
 ### Core Workflow
 
-1. PM (this turn) — Designs classification taxonomy, charters dev with file-level scope
-2. Dev — Implements `recovery-classification.js` module, integrates into `report.js`, enhances event payloads in `continuous-run.js`, writes tests
-3. QA — Validates classification correctness, report output, and test coverage
+1. PM (this turn) — Audits the crash-resume path, identifies gaps, charters dev with bounded scope
+2. Dev — Adds PID liveness guard to step.js resume paths, writes crash-resume tests
+3. QA — Verifies PID guard behavior, test coverage, no regressions
 
 ### MVP Scope (this run)
 
 **PM deliverables (this turn):**
-1. SYSTEM_SPEC.md: Full feature spec with taxonomy, event mapping, interface contracts
-2. Dev charter: implementation scope with 5 files (2 new, 3 modified)
-3. Clear boundary: new classification coexists alongside existing `recovery_summary`
+1. SYSTEM_SPEC.md: Gap analysis, PID liveness guard design, dev charter with file-level scope
+2. Bounded scope: 1 modified file + 1 new test file
 
 **Dev deliverables:**
-1. `cli/src/lib/recovery-classification.js` — `classifyRecoveryEvent()` + `buildRecoveryClassificationReport()`
-2. `cli/src/lib/report.js` — `extractRecoveryClassification()` + text/markdown format sections
-3. `cli/src/lib/continuous-run.js` — `recovery_classification` field in 8 event payloads
-4. `cli/test/recovery-classification.test.js` — unit tests for classification + aggregation
-5. `cli/test/report.test.js` — test for report output section
+1. `cli/src/commands/step.js` — PID liveness guard in both resume paths (active + blocked), dispatch-progress cleanup for dead workers
+2. `cli/test/step-crash-resume.test.js` — 4 test cases: crash recovery, duplicate rejection, no-PID fallback, blocked-turn crash recovery
 
 ### Out of Scope
 
-- New event types in `run-events.js` (reuses existing 8 recovery events)
-- Changing existing `recovery_summary` behavior
-- Emitting events for gaps not yet covered (G-BUDGET-3 budget recovery success — separate M4 item)
-- Dashboard integration (M6)
-- HTML report format (optional stretch for dev)
+- New event types in `run-events.js` (no `turn_crash_detected` — reuse existing types if needed)
+- Modifying `reconcileStaleTurns()` or ghost/stale watchdog thresholds
+- Attempt counter increment on crash re-dispatch (schema consideration for follow-up)
+- Continuous-run loop crash handling (already covered by adapter subprocess tracking)
 - Cold-start resume of failed sessions
-- Fixing any of the 17 audited gaps (separate M4 items)
+- Bumping dispatch-progress to track crash count (follow-up)
+- The ROADMAP.md:64 acceptance item ("simulated crash during dev turn recovers cleanly via `step --resume`") — that covers the full M4 milestone acceptance, not just this single item
 
 ### Success Metric
 
-1. `classifyRecoveryEvent()` correctly classifies all 8 recovery event types
-2. `buildRecoveryClassificationReport()` produces per-domain aggregation with health score
-3. Governance report text output includes "Recovery Classification:" section
-4. All tests pass (`npm run test`)
-5. ROADMAP.md:61 checked off
+1. `step --resume` rejects re-dispatch when worker PID is alive (prevents duplicate dispatch)
+2. `step --resume` detects dead worker PID and logs crash recovery before re-dispatching
+3. Stale `dispatch-progress-{turnId}.json` is cleaned up during crash recovery
+4. All 4 test cases pass in `step-crash-resume.test.js`
+5. `npm run test` full suite passes with no regressions
+6. ROADMAP.md:62 checked off
 
 ### Risk Assessment
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Classification mapping doesn't cover future event types | Low | Function returns `null` for unrecognized events; adding new types is additive |
-| Report section adds noise when no recovery events exist | Low | Section omitted entirely when `total_recovery_events === 0` |
-| Payload enhancement breaks existing event consumers | Low | `recovery_classification` is a new additive field; no existing fields changed |
-| Health score thresholds are wrong for operators | Low | Score is informational only; thresholds can be tuned in follow-up |
+| PID 999999 could theoretically be alive during test | Negligible | Use a PID higher than typical system range; CI environments have low PID counts |
+| `process.kill(pid, 0)` may behave differently cross-platform | Low | Node.js docs guarantee signal-0 semantics on all supported platforms (macOS, Linux, Windows) |
+| Rejecting alive-PID resume could block legitimate recovery | Low | Error message is clear: "kill it first, then retry." Operator retains full control. |
+| Dispatch-progress deletion could race with another process reading it | Low | `step --resume` is single-invocation; no concurrent readers expected during resume |
 
 ## Challenge to Previous Work
 
-### OBJ-PM-001: Previous 3 turns reused stale audit artifacts (severity: high)
+### OBJ-PM-001: Previous planning artifacts describe a different feature (severity: high)
 
-The prior turns in this run (`non_progress_count: 3`) attempted to fast-track through planning by reusing artifacts from the completed audit run (`run_24a851cc6e95d841`). The PM_SIGNOFF.md and SYSTEM_SPEC.md described audit scope (verification-only, no code changes) while the actual intent requires implementing a new feature (classification module, report integration, event enhancement). The gate failure on `## Interface` was a symptom — the real problem was that planning was never done for this intent.
+The PM_SIGNOFF.md and SYSTEM_SPEC.md from run `run_5276bd12be02449a` describe "Structured Recovery Classification in Governance Reports" — a completed feature (ROADMAP.md:61 is checked `[x]`). This run's intent targets ROADMAP.md:62: "Improve checkpoint-restore: verify a killed mid-turn process can cleanly resume." The planning artifacts have been rewritten from scratch for the correct charter.
 
-This turn rewrites all three planning artifacts from scratch for the actual charter: "Add structured recovery classification to governance reports."
+### OBJ-PM-002: The crash-resume path has no test coverage (severity: medium)
 
-### OBJ-PM-002: Recovery events lack common classification schema (severity: medium)
-
-The 8 recovery event types use inconsistent payload structures. Ghost events include `failure_type`, `attempt`, `diagnostic_bundle`; budget events include `spent_usd`, `remaining_usd`; credential events include `previous_blocked_on`. No common field identifies the recovery domain or outcome. This feature introduces that common layer without changing existing fields.
+Despite `step --resume` being the documented recovery command for crashed turns, there are zero tests that simulate a killed process and verify clean resume. The `step-command.test.js` tests normal turn lifecycle; `continuity-checkpoint-contract.test.js` tests checkpoint read/write; `stale-turn-watchdog.test.js` tests ghost/stale detection. None test the "active turn + dead PID + step --resume" path.
 
 ## Notes for Dev
 
-**Your charter is implementation:**
+**Your charter is 1 code change + 1 test file:**
 
-Create `cli/src/lib/recovery-classification.js` with two exported functions per SYSTEM_SPEC.md Section 2.1. Integrate into `report.js` per Section 2.2. Add `recovery_classification` to 8 event payloads in `continuous-run.js` per Section 2.3.
+Modify `cli/src/commands/step.js` to add a PID liveness guard in both resume paths per SYSTEM_SPEC.md Section 2.1. The guard fires after target turn resolution but before dispatch bundle write.
 
-The 8 event-to-classification mappings are specified in SYSTEM_SPEC.md Section 1.2. The severity escalation rules (Section 1.3) require reading payload fields — e.g., `exhaustion_reason === 'same_signature_repeat'` escalates ghost exhaustion severity to `critical`.
+There are two resume paths in step.js that need the guard:
+1. **Active-turn resume** (line ~195): `state.status === 'active' && opts.resume` — add guard between `skipAssignment = true` and the dispatch bundle write at line ~440
+2. **Blocked-turn resume** (line ~276): `state.status === 'blocked' && activeCount > 0 && opts.resume` — add guard after `reactivateGovernedRun()` but before `refreshTurnBaselineSnapshot()`
 
-**Key implementation detail:** `classifyRecoveryEvent()` must be a pure function (no I/O). Import it into `continuous-run.js` to embed classification at emit-time, and into `report.js` to re-derive classification from historical events (for reports on runs that predate the payload enhancement).
+Import `getDispatchProgressRelativePath` from `dispatch-progress.js` and `unlinkSync` from `node:fs`.
 
 **Test expectations:**
-- `recovery-classification.test.js`: test each of the 8 event types, test non-recovery event returns null, test aggregation, test all 3 health scores, test severity escalation
-- `report.test.js`: test that text output includes "Recovery Classification:" header and per-domain lines
+- `step-crash-resume.test.js`: 4 test cases per SYSTEM_SPEC.md Dev Charter
+- Use state fixtures (not subprocess spawning) — construct `state.json` with active turn + worker_pid
+- PID 999999 for dead worker, `process.pid` for alive worker
+- Verify state transitions, file cleanup, and error exits
 
 ## Notes for QA
 
-- Verify dev's classification logic matches SYSTEM_SPEC.md Section 1.2 mapping exactly
-- Verify severity escalation rules from Section 1.3
-- Verify health score derivation: healthy (all recovered/pending), degraded (any exhausted/manual), critical (severity critical OR exhausted > recovered)
-- Verify report output omits section when no recovery events exist
+- Verify the PID guard fires in BOTH resume paths (active + blocked)
+- Verify crash detection message is logged when dead PID detected
+- Verify dispatch-progress cleanup occurs before re-dispatch
+- Verify alive-PID rejection exits with code 1 and clear message
+- Verify no-PID case (worker_pid undefined) proceeds without error (backwards compatible)
 - Run `npm run test` — all tests including new ones must pass
-- Verify no existing tests broken by the new `recovery_classification` payload field
+- Verify no existing tests broken by the step.js changes
 
 ## Acceptance Contract
 
 1. **Roadmap milestone addressed:** M4: Recovery & Resilience Hardening
-2. **Unchecked roadmap item completed:** Add structured recovery classification to governance reports — checked `[x]` at ROADMAP.md:61
-3. **Evidence source:** .planning/SYSTEM_SPEC.md (full feature spec), `cli/src/lib/recovery-classification.js` (implementation), `cli/test/recovery-classification.test.js` (test evidence)
+2. **Unchecked roadmap item completed:** Improve checkpoint-restore: verify a killed mid-turn process can cleanly resume — checked `[x]` at ROADMAP.md:62
+3. **Evidence source:** .planning/SYSTEM_SPEC.md (gap analysis + design), `cli/test/step-crash-resume.test.js` (verification evidence)
