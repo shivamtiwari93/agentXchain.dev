@@ -47,6 +47,7 @@ import { getDispatchLogPath, getTurnStagingResultPath } from './turn-paths.js';
 import { reconcileOperatorHead } from './operator-commit-reconcile.js';
 import { getContinuityStatus } from './continuity-status.js';
 import { resolveGovernedRole } from './role-resolution.js';
+import { writeSessionCheckpoint } from './session-checkpoint.js';
 import {
   archiveStaleIntentsForRun,
   formatLegacyIntentMigrationNotice,
@@ -636,7 +637,19 @@ function clearGhostBlockerAfterReissue(root, state) {
     escalation: null,
   };
   writeGovernedState(root, nextState);
+  writeSessionCheckpoint(root, nextState, 'blocker_cleared');
   return nextState;
+}
+
+function isGovernedRunStillActiveForSession(root, config, session) {
+  try {
+    const state = loadProjectState(root, config);
+    if (!state || state.status !== 'active') return false;
+    if (session.current_run_id && state.run_id && session.current_run_id !== state.run_id) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -2559,6 +2572,23 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
   try {
     while (!stopping) {
       const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
+
+      if (step.status === 'failed' && isGovernedRunStillActiveForSession(root, context.config, session)) {
+        session.status = 'running';
+        writeContinuousSession(root, session);
+        emitRunEvent(root, 'session_failed_recovered_active_run', {
+          run_id: session.current_run_id || null,
+          phase: null,
+          status: 'active',
+          payload: {
+            session_id: session.session_id,
+            failed_action: step.action || null,
+            failed_reason: step.stop_reason || null,
+          },
+        });
+        log('Session failure recovered - governed run still active, continuing.');
+        continue;
+      }
 
       // Terminal states
       if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped' || step.status === 'vision_exhausted' || step.status === 'vision_expansion_exhausted' || step.status === 'session_budget') {

@@ -1,5 +1,24 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 Ghost Auto-Retry Session Status Consistency
+
+### Challenge
+
+The PM turn correctly identified the two production inconsistencies, but I do not accept testing `clearGhostBlockerAfterReissue()` as a private direct call. That would either require exporting an internal helper just for tests or leave the actual retry path under-covered. I exercised the checkpoint fix through the exported continuous-run advancement path that performs ghost auto-retry and reissue.
+
+### Changes
+
+- Added a `writeSessionCheckpoint(..., 'blocker_cleared')` call after ghost blocker clearing so `.agentxchain/session.json` is updated from stale `blocked` to `active`.
+- Added a guarded `isGovernedRunStillActiveForSession()` state check for failed continuous steps.
+- Added main-loop recovery before terminal handling: when a step reports `failed` but the governed run is still `active` for the same run, the continuous session is restored to `running`, an audit event is emitted, and the loop continues.
+- Added regression coverage for active session checkpoint consistency after ghost retry, failed-step recovery with an active governed run, and no recovery when the governed run is inactive.
+
+### Verification
+
+- `node --check cli/src/lib/continuous-run.js`
+- `cd cli && npm test -- --run test/continuous-run.test.js -t "BUG-115"`
+- `cd cli && npm test -- --run test/continuous-run.test.js`
+
 ## 2026-05-02 MV Vitest Full-Suite Migration
 
 ### Challenge

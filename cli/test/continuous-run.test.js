@@ -1072,6 +1072,51 @@ describe('Continuous Run', () => {
       assert.equal(autoEvents[0].payload.failure_type, 'stdout_attach_failed');
     });
 
+    it('BUG-115 writes an active session checkpoint after clearing a ghost blocker', async () => {
+      const { turnId } = writeGhostBlockedState(tmpDir);
+      writeFileSync(join(tmpDir, '.agentxchain', 'session.json'), JSON.stringify({
+        session_id: 'session-ghost-retry-existing',
+        run_id: 'run_ghost_001',
+        started_at: '2026-05-02T00:00:00.000Z',
+        last_checkpoint_at: '2026-05-02T00:00:01.000Z',
+        checkpoint_reason: 'turn_reissued',
+        run_status: 'blocked',
+        phase: 'implementation',
+        last_turn_id: turnId,
+        active_turn_ids: [turnId],
+        blocked: true,
+      }, null, 2));
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const session = {
+        session_id: 'cont-ghost-checkpoint',
+        status: 'paused',
+        current_run_id: 'run_ghost_001',
+        runs_completed: 0,
+      };
+      const contOpts = {
+        ...resolveContinuousOptions({ continuous: true }, context.config),
+        autoRetryOnGhost: { enabled: true, maxRetriesPerRun: 3, cooldownSeconds: 0 },
+      };
+
+      const step = await advanceContinuousRunOnce(
+        context,
+        session,
+        contOpts,
+        async () => assert.fail('ghost auto-retry should not execute governed run in the same step'),
+        () => {},
+      );
+
+      assert.equal(step.status, 'running');
+      assert.equal(step.action, 'auto_retried_ghost');
+      const checkpoint = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'session.json'), 'utf8'));
+      assert.equal(checkpoint.session_id, 'session-ghost-retry-existing');
+      assert.equal(checkpoint.run_id, 'run_ghost_001');
+      assert.equal(checkpoint.run_status, 'active');
+      assert.equal(checkpoint.blocked, false);
+      assert.equal(checkpoint.checkpoint_reason, 'blocker_cleared');
+      assert.deepEqual(checkpoint.active_turn_ids, [step.new_turn_id]);
+    });
+
     it('BUG-113 auto-reissues retained Claude Node-incompatible ghost blockers when a compatible node is configured', async () => {
       const { turnId } = writeGhostBlockedState(tmpDir, {
         turnId: 'turn_claude_node_001',
@@ -1861,6 +1906,158 @@ describe('Continuous Run', () => {
         logs.filter((line) => line.includes('Continuous session was paused while run run_bug108_existing remained active')).length,
         0,
       );
+    });
+
+    it('BUG-115 recovers a failed step when the governed run is still active', async () => {
+      writeVision(tmpDir, `## Recovery
+
+- continue active run after transient executor failure
+`);
+      const statePath = join(tmpDir, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.run_id = 'run_bug115_active';
+      state.status = 'active';
+      state.phase = 'implementation';
+      state.active_turns = {};
+      state.blocked_on = null;
+      state.blocked_reason = null;
+      state.escalation = null;
+      state.next_recommended_role = 'dev';
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+      writeContinuousSession(tmpDir, {
+        session_id: 'cont-bug115-active',
+        started_at: '2026-05-02T00:00:00.000Z',
+        vision_path: '.planning/VISION.md',
+        runs_completed: 0,
+        max_runs: 1,
+        idle_cycles: 0,
+        max_idle_cycles: 3,
+        current_run_id: 'run_bug115_active',
+        current_vision_objective: 'continue active run after transient executor failure',
+        status: 'paused',
+        cumulative_spent_usd: 0,
+      });
+
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true, maxRuns: 1, maxIdleCycles: 3 }, context.config), cooldownSeconds: 0 };
+      let executeCount = 0;
+      const logs = [];
+      const { exitCode, session } = await executeContinuousRun(
+        context,
+        contOpts,
+        async () => {
+          executeCount += 1;
+          const current = JSON.parse(readFileSync(statePath, 'utf8'));
+          if (executeCount === 1) {
+            current.status = 'active';
+            current.blocked_on = null;
+            current.blocked_reason = null;
+            current.escalation = null;
+            current.pending_phase_transition = null;
+            current.pending_run_completion = null;
+            current.queued_phase_transition = null;
+            current.queued_run_completion = null;
+            current.next_recommended_role = 'dev';
+            writeFileSync(statePath, JSON.stringify(current, null, 2));
+            return {
+              exitCode: 1,
+              result: {
+                stop_reason: 'transient_executor_failure',
+                state: { run_id: current.run_id, status: 'active', phase: current.phase },
+              },
+            };
+          }
+          current.status = 'completed';
+          current.completed_at = new Date().toISOString();
+          current.active_turns = {};
+          writeFileSync(statePath, JSON.stringify(current, null, 2));
+          return {
+            exitCode: 0,
+            result: {
+              stop_reason: 'completed',
+              state: { run_id: current.run_id, status: 'completed', phase: current.phase },
+            },
+          };
+        },
+        (msg) => logs.push(msg),
+      );
+
+      assert.equal(exitCode, 0, logs.join('\n'));
+      assert.equal(executeCount, 2);
+      assert.equal(session.session_id, 'cont-bug115-active');
+      assert.equal(readContinuousSession(tmpDir).status, 'completed');
+      assert.ok(logs.some((line) => line.includes('Session failure recovered - governed run still active')));
+      const recoveryEvents = readEvents(tmpDir).filter((entry) => entry.event_type === 'session_failed_recovered_active_run');
+      assert.equal(recoveryEvents.length, 1);
+      assert.equal(recoveryEvents[0].run_id, 'run_bug115_active');
+      assert.equal(recoveryEvents[0].payload.session_id, 'cont-bug115-active');
+      assert.equal(recoveryEvents[0].payload.failed_action, 'run_failed');
+      assert.equal(recoveryEvents[0].payload.failed_reason, 'transient_executor_failure');
+    });
+
+    it('BUG-115 keeps a failed step terminal when the governed run is inactive', async () => {
+      writeVision(tmpDir, `## Recovery
+
+- do not recover inactive run failures
+`);
+      const statePath = join(tmpDir, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.run_id = 'run_bug115_inactive';
+      state.status = 'active';
+      state.phase = 'implementation';
+      state.active_turns = {};
+      state.blocked_on = null;
+      state.blocked_reason = null;
+      state.escalation = null;
+      state.next_recommended_role = 'dev';
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+      writeContinuousSession(tmpDir, {
+        session_id: 'cont-bug115-inactive',
+        started_at: '2026-05-02T00:00:00.000Z',
+        vision_path: '.planning/VISION.md',
+        runs_completed: 0,
+        max_runs: 1,
+        idle_cycles: 0,
+        max_idle_cycles: 3,
+        current_run_id: 'run_bug115_inactive',
+        current_vision_objective: 'do not recover inactive run failures',
+        status: 'paused',
+        cumulative_spent_usd: 0,
+      });
+
+      const context = { root: tmpDir, config: readTestConfig(tmpDir) };
+      const contOpts = { ...resolveContinuousOptions({ continuous: true, maxRuns: 1, maxIdleCycles: 3 }, context.config), cooldownSeconds: 0 };
+      let executeCount = 0;
+      const logs = [];
+      const { exitCode, session } = await executeContinuousRun(
+        context,
+        contOpts,
+        async () => {
+          executeCount += 1;
+          const current = JSON.parse(readFileSync(statePath, 'utf8'));
+          current.status = 'completed';
+          current.completed_at = new Date().toISOString();
+          current.active_turns = {};
+          writeFileSync(statePath, JSON.stringify(current, null, 2));
+          return {
+            exitCode: 1,
+            result: {
+              stop_reason: 'terminal_executor_failure',
+              state: { run_id: current.run_id, status: 'completed', phase: current.phase },
+            },
+          };
+        },
+        (msg) => logs.push(msg),
+      );
+
+      assert.equal(exitCode, 1);
+      assert.equal(executeCount, 1);
+      assert.equal(session.session_id, 'cont-bug115-inactive');
+      assert.equal(readContinuousSession(tmpDir).status, 'failed');
+      assert.ok(logs.some((line) => line.includes('Continuous loop failed: terminal_executor_failure')));
+      assert.equal(readEvents(tmpDir).some((entry) => entry.event_type === 'session_failed_recovered_active_run'), false);
     });
 
     it('BUG-109: auto-checkpoint recovers supplemental accepted-turn dirt before QA dispatch retry', async () => {
