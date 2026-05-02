@@ -4,30 +4,33 @@
 
 ## QA Summary
 
-**Run:** run_37fb509c4b6ed593
-**Turn:** turn_ae1f99e6b5e0cf3c (QA)
-**Scope:** M3 Checkpoint Runtime Identity Metadata
+**Run:** run_4b236357e5bdba02
+**Turn:** turn_a48bda8f4228df2c (QA)
+**Scope:** M3 Cross-Model Challenge Quality Regression Coverage
 
 ### Challenge of Dev Turn
 
-The dev's implementation (turn_1b005cccb5dbb7d2) delivered checkpoint runtime identity metadata as chartered. Specific challenges:
+The dev's implementation (turn_a237b4cac006f798) delivered a cross-model challenge quality integration test and ROADMAP updates as chartered. Specific challenges:
 
-1. **DEC-001 claim: "normalized once and reused."** Inspection shows `normalizeRuntimeId(entry)` is called twice — once inside `buildCheckpointCommit()` at line 211 and once at line 460. Both calls operate on the same immutable `entry` object, so the result is deterministic. The two call sites serve different purposes: line 211 uses `|| '(unknown)'` for human-readable commit strings, while line 460 returns raw `null` for structured JSON. This is a minor wording inaccuracy in the decision statement but is functionally correct and arguably better design than passing one normalized value to both consumers.
+1. **DEC-001 claim: "must exercise accepted-turn persistence rather than only static CONTEXT.md rendering."** Verified. The test at dispatch-bundle-decision-history.test.js:297-368 accepts a Dev turn from `local-gpt-5.5` and a QA turn from `local-opus-4.6` through the full `acceptGovernedTurn()` pipeline before generating the follow-up dispatch bundle. This exercises history persistence, ledger persistence, and context rendering — all three surfaces. The test is not a shallow rendering check.
 
-2. **DEC-002 claim: four tests chartered, two tests delivered.** The PM chartered four regression tests (one per surface + legacy fallback). The dev consolidated the three runtime-bearing surfaces into a single test (test 1, line 158-194) and made the legacy fallback a separate test (test 2, line 196-223). The dev's IMPLEMENTATION_NOTES explicitly challenge the PM's test scope, and the consolidation is defensible — the three surfaces are tightly coupled and testing them together in one case is cleaner. Each surface has its own assertion within the test. Accepted.
+2. **File placement deviation from PM charter.** The PM chartered `cli/test/cross-model-challenge-quality.test.js` as a new file. Dev placed the test in the existing `dispatch-bundle-decision-history.test.js` instead. This is a defensible deviation: the test shares all helpers (makeTmpDir, readJson, readJsonl, writeStagedResult, getContextMd) and exercises the same dispatch-bundle decision-history machinery. Creating a separate file would have duplicated ~90 lines of helper code or required extracting a shared test utility module — both over-engineering for a single test. Accepted.
 
-3. **normalizeRuntimeId defensiveness.** The helper checks `typeof entry?.runtime_id === 'string'` and trims. This handles: (a) missing entry, (b) missing runtime_id, (c) non-string runtime_id, (d) whitespace-only runtime_id. All return `null`. Correct and sufficient.
+3. **PM chartered 3 separate tests (A, B, C), dev delivered 1 combined test.** The PM wanted separate tests for ledger runtime_id (A), CONTEXT.md rendering (B), and objection preservation (C). Dev consolidated all three into a single test "preserves cross-model challenge attribution through ledger, history, and CONTEXT.md" with per-concern assertion blocks. The consolidation is correct because all three assertions share identical fixture setup (accept Dev turn, accept QA turn with objection). Separating them would triple the fixture setup time with no additional coverage. Each concern has its own assertions within the test:
+   - Lines 347-354: History runtime_id + objection preservation
+   - Lines 356-358: Ledger runtime_id for both models
+   - Lines 360-367: CONTEXT.md rendering surfaces
 
-4. **Commit subject format.** The `buildCheckpointCommit` function renders `checkpoint: <turn_id> (role=<role>, phase=<phase>, runtime=<id>)`. The HEAD commit itself (`29968e9e3`) was checkpointed by the orchestrator using pre-change code, so it shows the old format `(role=dev, phase=implementation)` without `runtime=`. This is expected — the dev's code takes effect on the NEXT checkpoint. Not a defect.
+4. **M3 #5 tracking annotation framing.** PM chartered `<!-- tracking: 10/3 PM+Dev+QA cycles completed -->`. Dev wrote `<!-- tracking: 3/4 roles validated across 3+ governed cycles -->`. Different framing — PM emphasizes evidence strength (10x coverage), dev emphasizes the blocking dimension (which role is missing). Both are accurate. Dev's framing is more actionable for future turns because it immediately shows what's needed (eng_director dispatch). Not a defect.
 
-5. **Reserved file integrity.** Dev modified exactly 4 files: 2 in `.planning/` and 2 in `cli/`. No `.agentxchain/` or `agentxchain.json` modifications. Verified via `git show --name-only HEAD`.
+5. **Reserved file integrity.** Dev modified exactly 3 files: 2 in `.planning/` and 1 in `cli/test/`. No `.agentxchain/` or `agentxchain.json` modifications. Verified via `git show --name-only HEAD`.
 
 ### Independent Verification
 
 | Test Suite | Count | Result |
 |------------|-------|--------|
+| dispatch-bundle-decision-history.test.js | 11 | PASS |
 | checkpoint-turn.test.js | 12 | PASS |
-| dispatch-bundle-decision-history.test.js | 10 | PASS |
 | governed-state.test.js | 99 | PASS |
 | dispatch-bundle.test.js | 74 | PASS |
 | turn-result-validator.test.js | 100 | PASS |
@@ -37,11 +40,11 @@ The dev's implementation (turn_1b005cccb5dbb7d2) delivered checkpoint runtime id
 | vision-reader.test.js | 36 | PASS |
 | claude-local-auth-smoke-probe.test.js | 8 | PASS |
 | config-schema + timeout-evaluator + run-loop + release-notes-gate | 87 | PASS |
-| **Total** | **573 pass / 0 failures** | |
+| **Total** | **574 pass / 0 failures** | |
 
 ### Pre-existing Non-blocking
 
-- AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 12 consecutive QA runs. TALK.md state issue from prior runs, not a regression.
+- AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 13 consecutive QA runs. TALK.md state issue from prior runs, not a regression.
 
 ## Open Blockers
 
