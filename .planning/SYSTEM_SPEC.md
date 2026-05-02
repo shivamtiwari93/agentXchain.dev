@@ -314,6 +314,15 @@ Dev verifies audit accuracy by confirming each identified gap exists in the code
 - New tests (follow-up implementation runs)
 - Cold-start resume of failed sessions (deferred)
 
+## Interface
+
+This is an audit-only milestone — no new public interfaces are introduced. The recovery paths documented above expose the following internal orchestrator interfaces that downstream M4 items will harden:
+
+- **Ghost recovery**: `reissueTurn()`, `clearGhostBlockerAfterReissue()`, `maybeAutoRetryGhostBlocker()` in `continuous-run.js`
+- **Budget exhaustion**: Session budget enforcement in `continuous-run.js`, budget reconciliation in `governed-state.js`
+- **Credential failure**: `maybeAutoRetryRetainedClaudeAuthDispatch()`, `hasClaudeEnvAuth()` in `continuous-run.js`
+- **Process crash**: `runContinuous()` try/finally, adapter crash detection in `local-cli-adapter.js`, dispatch log persistence
+
 ## Acceptance Tests
 
 - [x] All 4 recovery domains audited with entry points, state transitions, and gaps documented
