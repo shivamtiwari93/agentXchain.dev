@@ -5,7 +5,7 @@
 ## QA Summary
 
 **Run:** run_4a6f8ae7668a237a
-**Turn:** turn_873ad25ebeab40c9 (QA)
+**Turn:** turn_f41ca0d821d9c8cd (QA)
 **Scope:** [Beta Bug] Continuous mode idles after run completion despite roadmap_open_work_detected
 
 ### Acceptance Contract — All 3 Items PASS
@@ -16,22 +16,29 @@
 | 2 | Idle limit only triggers when there is genuinely no remaining work | PASS | Idle increment is gated behind `seeded.idle === true` which requires both roadmap and vision exhaustion. 87 continuous-run tests + BUG-76/77 command-chain tests confirm. |
 | 3 | Status correctly reports pending work and next action | PASS | `appendRoadmapOpenWorkNextAction()` in status.js pushes typed `roadmap_open_work_detected` action with milestone details and suggested command. BUG-76 test verifies JSON output. |
 
-### Challenge of Prior Work
+### Challenge of Prior QA Turn
 
-This intent was injected at QA phase — no PM planning or Dev implementation turns occurred in this run for this specific bug. However, the fix already exists in the codebase (BUG-76 fix: `seedFromVision()` roadmap-first derivation, BUG-77: roadmap exhaustion fallback). QA independently verified:
+**Objection (medium): RELEASE_NOTES.md missing required `## User Impact` section.**
 
-1. **Code correctness**: Read and traced the complete code path from `advanceContinuousRunOnce()` through `seedFromVision()` through `deriveRoadmapCandidates()`. The fix is structurally sound — roadmap check happens before vision scan, idle_cycles reset when work is found.
+The prior QA turn (turn_873ad25ebeab40c9) wrote RELEASE_NOTES.md with descriptive section headings (`## Bug Fix: ...`, `## Verification Summary`) but omitted the required `## User Impact` heading. The gate validator in `workflow-gate-semantics.js:259-263` checks for exact `## User Impact` and `## Verification Summary` H2 headings. The missing heading caused `qa_ship_verdict` gate failure:
 
-2. **Test coverage**: Ran 303 tests across 6 suites including both BUG-76 and BUG-77 command-chain integration tests. All pass with 0 failures.
+> `.planning/RELEASE_NOTES.md must define ## User Impact before ship approval can be requested.`
 
-3. **Edge case coverage**: Deduplication path (lines 1283-1291) correctly returns idle when the same roadmap milestone is re-encountered, preventing infinite re-intake. Roadmap exhaustion with open vision scope (BUG-77) dispatches replenishment instead of idling.
+**Fix:** Rewrote RELEASE_NOTES.md with both required section headings and non-placeholder content. The `## User Impact` section now describes the operator-facing behavioral changes (auto-derivation of roadmap objectives, idle-only-on-genuine-exhaustion, status reporting improvements).
 
-### Verification Summary
+### Independent Verification (This Turn)
 
-- 303 tests across 6 QA-verified suites, 0 failures
-- BUG-76 command-chain test: CLI `run --continuous` derives M28 from unchecked roadmap, executes governed run, completes with runs_completed=1
-- BUG-77 command-chain test: CLI `run --continuous` dispatches roadmap-replenishment when roadmap exhausted but VISION has unplanned scope
-- `status --json` surfaces `roadmap_open_work_detected` next action with milestone details
+All prior-turn test claims re-verified independently:
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| bug-76-roadmap-open-work-continuous.test.js | 1 | PASS |
+| bug-77-roadmap-exhausted-vision-open.test.js | 1 | PASS |
+| continuous-run.test.js | 87 | PASS |
+| governed-state.test.js | 99 | PASS |
+| turn-result-validator.test.js + release-preflight.test.js | 115 | PASS |
+| gate-evaluator.test.js | 52 | PASS |
+| **Total** | **355** | **0 failures** |
 
 ## Open Blockers
 
@@ -39,4 +46,4 @@ None.
 
 ## Ship Decision
 
-All 3 acceptance criteria pass. The continuous mode correctly auto-starts new runs from unchecked roadmap work, only idles when genuinely no work remains, and status correctly reports pending work. **SHIP.**
+All 3 acceptance criteria pass. Gate-blocking `## User Impact` section added to RELEASE_NOTES.md. 355 tests verified with 0 failures. **SHIP.**

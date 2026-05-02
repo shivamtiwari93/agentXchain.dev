@@ -1,7 +1,7 @@
 # Acceptance Matrix — agentXchain.dev
 
 **Run:** run_4a6f8ae7668a237a
-**Turn:** turn_873ad25ebeab40c9 (QA)
+**Turn:** turn_f41ca0d821d9c8cd (QA)
 **Scope:** [Beta Bug] Continuous mode idles after run completion despite roadmap_open_work_detected
 
 ## Section A: Acceptance Contract — Continuous Mode Idle Bug
@@ -31,4 +31,13 @@
 | governed-state.test.js | 99 | PASS |
 | turn-result-validator.test.js | 100 | PASS |
 | release-preflight.test.js | 15 | PASS |
-| **QA-verified total** | **303** | **0 failures** |
+| gate-evaluator.test.js | 52 | PASS |
+| **QA-verified total** | **355** | **0 failures** |
+
+## Section D: Gate Compliance Fix
+
+| Check | Detail | Status |
+|-------|--------|--------|
+| RELEASE_NOTES.md contains `## User Impact` heading | Prior turn omitted this required heading — gate validator (`workflow-gate-semantics.js:259`) requires exact `## User Impact` H2 with non-placeholder content | FIXED |
+| RELEASE_NOTES.md contains `## Verification Summary` heading | Present in prior turn and preserved | PASS |
+| Gate validator passes both section checks | `evaluateReleaseNotes()` checks `hasReleaseNotesSectionContent()` for both sections — both now present with real content | PASS |

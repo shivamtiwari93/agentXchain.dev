@@ -1,31 +1,33 @@
 # Release Notes
 
-## Bug Fix: Continuous Mode Idle After Run Completion (BUG-76)
+## User Impact
 
-### Problem
+Operators using `agentxchain run --continuous` will no longer experience premature idle-exit when unchecked roadmap milestones exist. Previously, the continuous loop would report `runs_completed=0` and idle even with open roadmap work (e.g., M28/M29). Now the CLI:
 
-When running `agentxchain run --continuous --vision .planning/VISION.md --max-runs 1 --max-idle-cycles 1`, the CLI would report completed with `runs_completed=0` and no objective even when `ROADMAP.md` contained unchecked milestone work (e.g., M28/M29). The continuous loop was checking vision candidates first and returning idle without consulting the roadmap.
+- **Auto-derives roadmap objectives** before checking vision candidates, so unchecked milestones are picked up immediately
+- **Only idles when genuinely no work remains** — both roadmap and vision must be exhausted before idle_cycles increments
+- **Reports pending work in `status --json`** via `roadmap_open_work_detected` and `roadmap_exhausted_vision_open` next_actions entries
 
-### Fix
+Additionally, when all roadmap milestones are checked but VISION.md has unplanned scope (BUG-77), the system dispatches a `roadmap_replenishment` intent to PM instead of idling, keeping continuous mode productive.
 
-`seedFromVision()` now calls `deriveRoadmapCandidates()` first (before vision candidate derivation). When unchecked roadmap milestones are found:
+## Bug Fix Details
 
-1. A `roadmap_open_work_detected` intake event is recorded through the normal pipeline
-2. The intent is auto-triaged and auto-approved with charter `[roadmap] Mxx: <goal>`
-3. `idle_cycles` is reset to 0, preventing premature idle-exit
-4. The governed run executes against the roadmap objective
+### BUG-76: Continuous Mode Idle After Run Completion
 
-### Related Fix: Roadmap Exhaustion (BUG-77)
+**Problem:** `seedFromVision()` checked vision candidates first and returned idle without consulting the roadmap, causing `--continuous` runs to exit with zero completed runs.
 
-When all roadmap milestones are checked but VISION.md has unplanned scope, the system now dispatches a `roadmap_replenishment` intent to PM instead of idling. This ensures continuous mode keeps deriving bounded increments from the vision.
+**Fix:** `seedFromVision()` now calls `deriveRoadmapCandidates()` first (line 1259). When unchecked milestones are found, a `roadmap_open_work_detected` intake event is recorded, the intent is auto-triaged and auto-approved, `idle_cycles` resets to 0, and the governed run executes against the roadmap objective.
 
-### Status Reporting
+### BUG-77: Roadmap Exhaustion With Open Vision Scope
 
-`agentxchain status --json` now surfaces `roadmap_open_work_detected` and `roadmap_exhausted_vision_open` as `next_actions` entries, telling operators exactly what pending work exists and the command to resume it.
+**Problem:** When all roadmap milestones were checked but VISION.md still had unplanned scope, the system would idle instead of deriving new work.
+
+**Fix:** `detectRoadmapExhaustedVisionOpen()` (lines 1332-1412) now dispatches a `roadmap_replenishment` intent to PM when this condition is detected.
 
 ## Verification Summary
 
 - 303 tests across 6 suites independently verified by QA, 0 failures
 - BUG-76 command-chain integration test: continuous loop derives M28 from unchecked roadmap
 - BUG-77 command-chain integration test: continuous loop dispatches roadmap-replenishment
-- Status JSON output verified for both action types
+- Status JSON output verified for both next_action types
+- Gate evaluator, turn-result-validator, and release-preflight suites all pass
