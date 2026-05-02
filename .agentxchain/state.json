@@ -4,9 +4,30 @@
   "project_id": "agentxchain-dev",
   "status": "active",
   "phase": "planning",
-  "accepted_integration_ref": "git:04e29ef6fdb5388f21452a531cf4d67e46d2b49d",
-  "active_turns": {},
-  "turn_sequence": 2,
+  "accepted_integration_ref": "git:087935e760fbb9e53bf0b0cf0662c27d2526c380",
+  "active_turns": {
+    "turn_94636d0b0372db8f": {
+      "turn_id": "turn_94636d0b0372db8f",
+      "assigned_role": "dev",
+      "status": "dispatched",
+      "attempt": 2,
+      "assigned_at": "2026-05-02T11:28:39.022Z",
+      "deadline_at": "2026-05-02T13:28:39.235Z",
+      "runtime_id": "local-gpt-5.5",
+      "baseline": {
+        "kind": "git_worktree",
+        "head_ref": "087935e760fbb9e53bf0b0cf0662c27d2526c380",
+        "clean": true,
+        "captured_at": "2026-05-02T11:28:39.023Z",
+        "dirty_snapshot": {}
+      },
+      "assigned_sequence": 4,
+      "concurrent_with": [],
+      "reissued_from": "turn_e65acfd0e83e8a14",
+      "dispatched_at": "2026-05-02T11:28:39.302Z"
+    }
+  },
+  "turn_sequence": 4,
   "last_completed_turn_id": "turn_e968e2c7d9173a67",
   "escalation": null,
   "pending_phase_transition": null,
@@ -19,7 +40,14 @@
     "implementation_complete": "passed",
     "qa_ship_verdict": "passed"
   },
-  "budget_reservations": {},
+  "budget_reservations": {
+    "turn_94636d0b0372db8f": {
+      "reserved_usd": 5,
+      "role_id": "dev",
+      "created_at": "2026-05-02T11:28:39.022Z",
+      "reissued_from": "turn_e65acfd0e83e8a14"
+    }
+  },
   "budget_status": {
     "spent_usd": 0,
     "remaining_usd": 100
