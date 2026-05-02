@@ -4,41 +4,44 @@
 
 ## QA Summary
 
-**Run:** run_bd3c68e0331fa956
-**Turn:** turn_d13b150208855cc1 (QA)
-**Scope:** M2 Roadmap Replenishment — defense-in-depth annotation sanitization, mixed-state seedFromVision coverage, M2 acceptance counter 1/5
+**Run:** run_fb3583590a1a4799
+**Turn:** turn_0b9244cb1aeecf95 (QA)
+**Scope:** M3 Multi-Model Turn Handoff Quality — runtime identity in decision ledger and CONTEXT.md rendering
 
 ### Challenge of Dev Turn
 
-The dev's implementation (turn_16c19131f45748f2) is correct, minimal, and adequately tested. Specific challenges:
+The dev's implementation (turn_fb772bbdc54db45d) is correct, minimal, and adequately tested. Specific challenges:
 
-1. **Annotation sanitizer defense-in-depth (DEC-001):** `stripRoadmapTrackingAnnotations()` at vision-reader.js:20-23 is correctly applied at goal extraction (line 271) as a second layer behind the tracking annotation skip (line 269). I challenged whether the sanitizer is necessary given the skip already works — it is justified as defense-in-depth against the timing anomaly the PM identified (checkpoint persisting after vision scan reads ROADMAP.md). The regex correctly strips `<!-- tracking: ... -->` while preserving unrelated HTML comments like `<!-- owner: dev -->`. Verified by two dedicated unit tests.
+1. **Decision ledger runtime_id persistence (DEC-001):** Single-line addition at `governed-state.js:5241` persists `turnResult.runtime_id` into each decision ledger entry during `acceptGovernedTurn()`. I challenged whether this should use a fallback for turn results without runtime_id — it correctly relies on JS property access returning `undefined`, which JSON.stringify omits. Pre-M3 turn results without runtime_id will produce ledger entries without the field, which the renderer handles via `(d.runtime_id || '')`. Clean.
 
-2. **Mixed-state integration test (DEC-002):** The new test at continuous-run.test.js exercises seedFromVision with tracked M1/M2 acceptance items plus untracked M3 work. It verifies: (a) tracked items are skipped, (b) M3 is seeded, (c) no `tracking:` metadata leaks into intent charter or acceptance contract. This is the correct integration-level placement — prior tests only validated the three-state model at detector and seedFromVision boundaries individually, not the combined tracked+untracked scenario.
+2. **Last Accepted Turn runtime rendering (DEC-002):** Conditional block at `dispatch-bundle.js:800-802` only renders the `- **Runtime:**` line when `lastTurn.runtime_id` is truthy. I challenged whether this should always render (empty or "unknown") — the conditional approach is correct because it avoids visual noise in contexts where runtime identity is not yet available (pre-M3 history entries), and downstream agents see the absence as informational rather than alarming.
 
-3. **M2 longitudinal counter (DEC-003):** The advancement from 0/5 to 1/5 is correctly scoped — this run found derivable VISION work (M3-M8 sections remain unplanned) and did not idle-stop, which satisfies the M2 #5 criterion "continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope". The item remains unchecked at `[ ]` with an updated tracking annotation — correct, since 1 < 5.
+3. **Decision History table expansion (DEC-002 cont.):** The table grows from 4 to 5 columns. I challenged backward compatibility for old ledger entries — the `(d.runtime_id || '').replace(...)` fallback correctly renders an empty cell rather than `undefined`. The dedicated test creates both an old entry (no runtime_id) and a new entry (with runtime_id), verifying mixed rendering.
 
-4. **Diff minimality:** 80 insertions / 4 deletions across 5 files. Source change is 8 lines in vision-reader.js (sanitizer function + application). The rest is tests and documentation.
+4. **Stale test fixture repair (DEC-003):** Two test fixtures were updated to include product-code files (`src/dev-implementation.js`) so they pass the implementation-phase guard. I challenged whether this was the right fix vs. relaxing the guard — the dev correctly chose to fix the tests rather than weaken the guard, maintaining the invariant that implementation turns must produce product code changes.
 
-5. **Reserved file integrity:** Dev did not modify any `.agentxchain/` orchestrator-owned files. Confirmed via `git diff 11d682768~1..11d682768 -- .agentxchain/`.
+5. **Reserved file integrity:** Dev did not modify any `.agentxchain/` orchestrator-owned files. Confirmed via `git diff cae2d9a50..c7a1554fe -- .agentxchain/`.
+
+6. **Diff minimality:** 69 insertions / 6 deletions across 6 files. Source changes are 1 line in governed-state.js and 7 net lines in dispatch-bundle.js. The remainder is tests and documentation.
 
 ### Independent Verification
 
 | Test Suite | Count | Result |
 |------------|-------|--------|
+| governed-state.test.js | 99 | PASS |
+| dispatch-bundle.test.js | 74 | PASS |
 | continuous-run.test.js | 87 | PASS |
 | vision-reader.test.js | 36 | PASS |
-| bug-77-roadmap-exhausted-vision-open.test.js | 1 | PASS |
-| turn-result-validator.test.js + staged-result-proof.test.js + local-cli-adapter.test.js | 156 | PASS |
-| agentxchain-config-schema.test.js + timeout-evaluator.test.js + run-loop.test.js | 77 | PASS |
-| coordinator-state + gates + schema + decision-ledger + run-completion | 79 | PASS |
-| timeout-governed-state + report-timeout-events + report-gate-failure + report-approval-policy | 12 | PASS |
+| turn-result-validator + staged-result-proof + local-cli-adapter | 156 | PASS |
+| agentxchain-config-schema + timeout-evaluator + run-loop | 77 | PASS |
 | release-notes-gate.test.js | 10 | PASS |
-| **Total** | **458** | **0 failures** |
+| bug-77-roadmap-exhausted-vision-open.test.js | 1 | PASS |
+| agent-talk-word-cap.test.js | 5/8 | 3 PRE-EXISTING FAILURES |
+| **Total** | **545 pass / 3 pre-existing fail** | |
 
 ### Pre-existing Non-blocking
 
-AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 8 consecutive QA runs. TALK.md state issue from prior runs, not a regression.
+AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 9 consecutive QA runs. TALK.md state issue from prior runs, not a regression.
 
 ## Open Blockers
 
