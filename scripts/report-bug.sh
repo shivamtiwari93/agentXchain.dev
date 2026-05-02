@@ -94,13 +94,13 @@ ENDJSON
 
 # ── Build evidence JSON ──────────────────────────────────────────
 if [[ -n "$EVIDENCE_TEXT" ]]; then
-  EVIDENCE_ARG="--evidence $(printf '%s' "{\"type\":\"text\",\"value\":$(printf '%s' "$EVIDENCE_TEXT" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))")}")"
+  EVIDENCE_JSON="$(printf '%s' "{\"type\":\"text\",\"value\":$(printf '%s' "$EVIDENCE_TEXT" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))")}")"
 elif [[ -n "$EVIDENCE_URL" ]]; then
-  EVIDENCE_ARG="--evidence {\"type\":\"url\",\"value\":\"$EVIDENCE_URL\"}"
+  EVIDENCE_JSON="$(printf '%s' "$EVIDENCE_URL" | python3 -c 'import json,sys; print(json.dumps({"type":"url","value":sys.stdin.read()}))')"
 elif [[ -n "$EVIDENCE_FILE" ]]; then
-  EVIDENCE_ARG="--evidence {\"type\":\"file\",\"value\":\"$EVIDENCE_FILE\"}"
+  EVIDENCE_JSON="$(printf '%s' "$EVIDENCE_FILE" | python3 -c 'import json,sys; print(json.dumps({"type":"file","value":sys.stdin.read()}))')"
 else
-  EVIDENCE_ARG="--evidence {\"type\":\"text\",\"value\":\"No additional evidence provided\"}"
+  EVIDENCE_JSON='{"type":"text","value":"No additional evidence provided"}'
 fi
 
 # ── Record the intake ──────────────────────────────────────────��─
@@ -111,11 +111,8 @@ echo "  Description: $DESCRIPTION"
 echo ""
 
 cd "$AGENTXCHAIN_ROOT"
-eval npx --yes -p agentxchain@latest -c "'agentxchain intake record \
-  --source manual \
-  --category beta_bug_report \
-  --signal $(printf '%q' "$SIGNAL") \
-  $EVIDENCE_ARG'"
+SIGNAL="$SIGNAL" EVIDENCE_JSON="$EVIDENCE_JSON" \
+  npx --yes -p agentxchain@latest -c 'agentxchain intake record --source manual --category beta_bug_report --signal "$SIGNAL" --evidence "$EVIDENCE_JSON"'
 
 echo ""
 echo "Bug report filed. The agentXchain governance loop will auto-triage"
