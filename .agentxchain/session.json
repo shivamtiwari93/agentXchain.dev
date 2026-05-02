@@ -1,31 +1,26 @@
 {
-  "session_id": "session_a28a7bc0d6c384a9",
-  "run_id": "run_aeb78d7979d66c0a",
+  "session_id": "session_3c71533243a3fa79",
+  "run_id": "run_eae4ef9d3ad5e2e3",
   "started_at": "2026-05-01T02:23:56.715Z",
-  "last_checkpoint_at": "2026-05-02T11:00:15.614Z",
-  "checkpoint_reason": "operator_commit_reconciled",
-  "run_status": "completed",
-  "phase": "qa",
-  "last_phase": "qa",
-  "last_turn_id": "turn_252750ed9241b7a4",
-  "last_completed_turn_id": "turn_252750ed9241b7a4",
+  "last_checkpoint_at": "2026-05-02T11:10:26.666Z",
+  "checkpoint_reason": "turn_accepted",
+  "run_status": "active",
+  "phase": "planning",
+  "last_phase": "planning",
+  "last_turn_id": "turn_e968e2c7d9173a67",
+  "last_completed_turn_id": "turn_e968e2c7d9173a67",
   "active_turn_ids": [],
-  "last_role": "qa",
+  "last_role": "pm",
   "pending_gate": null,
   "pending_run_completion": null,
   "blocked": false,
   "baseline_ref": {
-    "git_head": "c78d85e8ba162fd968d772f148153c8039880f45",
+    "git_head": "428b53815c0d04626a34291e03bbf676fa919a06",
     "git_branch": "main",
     "workspace_dirty": true
   },
   "agent_context": {
     "adapter": null,
     "dispatch_dir": null
-  },
-  "operator_commit_reconciliation": {
-    "previous_baseline": "42fb9326e75fa6db156b4875f045edefd78f9b8b",
-    "accepted_head": "76275e6d78cfb3f2b78a3acd356e4bbe60590f6a",
-    "commit_count": 1
   }
 }

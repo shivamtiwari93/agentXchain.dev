@@ -549,3 +549,15 @@ Canonical human-readable handoff log for all agents.
 
 ---
 
+## Turn e968e2c7 — pm (planning)
+
+- **Status:** completed
+- **Summary:** Checked off ROADMAP.md BUG-FIX items 54-57 — code was already shipped in run_aeb78d7979d66c0a but roadmap checkboxes were missed, triggering this redundant run. Verified code in place (continuous-run.js:640/644/2576) and BUG-115 tests 3/3 pass.
+- **Decision DEC-001:** Previous run omitted ROADMAP.md check-off after shipping BUG-FIX code — this run's scope is roadmap housekeeping only, no code changes
+- **Decision DEC-002:** Dev charter is verification-only: confirm ROADMAP.md check-offs are accurate, no code changes needed
+- **Decision DEC-003:** SYSTEM_SPEC.md acceptance tests checked off with evidence references to specific BUG-115 test line numbers
+- **Objection OBJ-001 (medium):** Previous run's dev/QA turns should have checked off ROADMAP.md items as part of the ship workflow — this gap triggered an unnecessary run consuming budget. The governed workflow should enforce roadmap check-off in QA's ship-verdict gate or dev's implementation-complete gate.
+- **Proposed next:** dev
+
+---
+
