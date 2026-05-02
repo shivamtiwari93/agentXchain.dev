@@ -633,7 +633,7 @@ describe('turn-result-validator', () => {
       assert.ok(res.errors.some(e => e.includes('artifact.type: "workspace" but files_changed is empty')));
     });
 
-    it('allows workspace artifact with checkpointable verification-produced files', () => {
+    it('allows non-implementation workspace artifact with checkpointable verification-produced files', () => {
       writeStagedResult(makeValidTurnResult({
         files_changed: [],
         verification: {
@@ -644,18 +644,34 @@ describe('turn-result-validator', () => {
           produced_files: [{ path: '.planning/generated-fixture.md', disposition: 'artifact' }],
         },
       }));
-      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      const res = validateStagedTurnResult(TMP_ROOT, makeState({
+        phase: 'qa',
+      }), makeConfig());
       assert.equal(res.ok, true);
     });
 
-    it('warns when authoritative no-edit review turn completes with no files_changed', () => {
+    it('rejects completed implementation turns with no product code changes', () => {
       writeStagedResult(makeValidTurnResult({
         files_changed: [],
         artifact: { type: 'review', ref: null },
       }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
-      assert.equal(res.ok, true);
-      assert.ok(res.warnings.some(w => w.includes('no files_changed')));
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'artifact');
+      assert.equal(res.error_class, 'artifact_error');
+      assert.ok(res.errors.some(w => w.includes('without product code changes')));
+    });
+
+    it('rejects completed implementation turns with only planning artifacts changed', () => {
+      writeStagedResult(makeValidTurnResult({
+        files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+        artifact: { type: 'workspace', ref: 'git:dirty' },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'artifact');
+      assert.equal(res.error_class, 'artifact_error');
+      assert.ok(res.errors.some(w => w.includes('planning artifacts alone are not sufficient')));
     });
   });
 

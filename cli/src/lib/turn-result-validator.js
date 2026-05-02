@@ -138,7 +138,7 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
   }
 
   // ── Stage C: Artifact Validation ───────────────────────────────────────
-  const artifactResult = validateArtifact(turnResult, config);
+  const artifactResult = validateArtifact(turnResult, config, state);
   if (artifactResult.errors.length > 0) {
     return result('artifact', 'artifact_error', artifactResult.errors, artifactResult.warnings);
   }
@@ -670,7 +670,7 @@ function validateAssignment(tr, state) {
 
 // ── Stage C: Artifact Validation ─────────────────────────────────────────────
 
-function validateArtifact(tr, config) {
+function validateArtifact(tr, config, state = null) {
   const errors = [];
   const warnings = [];
 
@@ -727,11 +727,17 @@ function validateArtifact(tr, config) {
     }
   }
 
-  // Warn if files_changed is empty for authoritative + completed turns that
-  // did not claim a workspace artifact. This keeps no-edit authoritative
-  // lifecycle turns visible without accepting a false workspace claim.
-  if (writeAuthority === 'authoritative' && tr.status === 'completed' && (tr.files_changed || []).length === 0) {
-    warnings.push('Authoritative role completed with no files_changed — is this intentional?');
+  // Implementation-phase completion must be backed by actual product code
+  // changes. Planning/review artifacts are supplementary and should not satisfy
+  // the implementation_complete gate by themselves.
+  if (writeAuthority === 'authoritative' && state?.phase === 'implementation' && tr.status === 'completed') {
+    const productFiles = (tr.files_changed || []).filter(f => isProductChangePath(f));
+    if (productFiles.length === 0) {
+      errors.push(
+        `Role "${tr.role}" completed an implementation turn without product code changes in files_changed. ` +
+        'Implementation-phase completion requires at least one non-planning, non-review repo path; planning artifacts alone are not sufficient.'
+      );
+    }
   }
 
   // Validate proposed_changes for proposed runtimes that cannot write repo files directly.
@@ -777,6 +783,13 @@ function validateArtifact(tr, config) {
  */
 function isAllowedReviewPath(filePath) {
   return filePath.startsWith('.planning/') || filePath.startsWith('.agentxchain/reviews/');
+}
+
+function isProductChangePath(filePath) {
+  return typeof filePath === 'string'
+    && filePath.trim().length > 0
+    && !isAllowedReviewPath(filePath)
+    && !filePath.startsWith('.agentxchain/staging/');
 }
 
 function hasCheckpointableProducedFiles(tr) {

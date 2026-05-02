@@ -1,5 +1,25 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-01 Implementation Phase Gate Hardening
+
+### Challenge
+
+The previous dev turn concluded that no source implementation was needed. I do not accept that conclusion for this implementation phase: the dispatch contract explicitly says a completed implementation turn must include actual product code changes in `files_changed`, not only documentation or planning artifacts. Leaving the validator at warning-only behavior would allow the same verification-only implementation turn pattern to pass again.
+
+### Changes
+
+- Changed staged turn-result artifact validation so completed authoritative turns in the `implementation` phase fail unless `files_changed` contains at least one product repo path.
+- Kept planning and review artifacts as valid supplementary outputs, but they no longer satisfy implementation completion by themselves.
+- Preserved checkpointable verification-produced file behavior outside the implementation phase.
+- Added regression coverage for no-edit implementation completions and implementation completions that only list `.planning/` artifacts.
+
+### Verification
+
+- `node --check cli/src/lib/turn-result-validator.js` passed.
+- `node --test --test-timeout=60000 cli/test/turn-result-validator.test.js` passed.
+
+## Prior M1 Ghost Turn Hardening
+
 ## Challenge
 
 The prior PM turn correctly identified the missing `--verbose` flag as the concrete root cause for the observed Claude `stream-json` ghost turns. I do not accept the broader conclusion that the adapter layer only needed additive watchdog hardening while leaving CLI compatibility unchecked. A known deterministic command-shape failure should be rejected before spawn, otherwise the system still depends on operator memory and post-failure watchdog recovery.
