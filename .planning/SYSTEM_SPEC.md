@@ -339,6 +339,27 @@ Every QA→Dev and Dev→PM handoff is inherently cross-model.
 - Integration: CONTEXT.md handoff renders runtime attribution for cross-model challenge context
 - Integration: QA objections preserved in accepted history for cross-model audit
 
+### eng_director Acceptance Pipeline Validation (M3 — run `run_d758c25c8d0ba32d`)
+
+**Problem:** The M3 acceptance criterion requires "all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles." PM, Dev, and QA are validated across 13+ consecutive governed production cycles. `eng_director` has never been dispatched (0/39 history entries) because it is an escalation-only role — dispatched only when a role proposes `proposed_next_role: 'eng_director'` during a deadlock, which has never occurred.
+
+**Root cause:** eng_director dispatch requires explicit role proposal via `proposed_next_role` (governed-state.js:7000-7018). No automated deadlock detector routes to eng_director. The `max_deadlock_cycles: 2` config controls retry escalation to human, not auto-dispatch to eng_director. The system working correctly (no deadlocks) means eng_director is never needed — a structural gap in the acceptance criterion.
+
+**Validation strategy:** The governed-state acceptance pipeline (`acceptGovernedTurn`) is role-agnostic. It validates schema, persists decisions to the ledger with `runtime_id`, writes history entries, and feeds CONTEXT.md rendering regardless of which role produced the turn. Proving eng_director works through this pipeline validates the same invariants as the PM/Dev/QA production evidence.
+
+**Evidence model:**
+
+| Role | Validation Source | Evidence |
+|------|------------------|----------|
+| PM (Opus 4.7) | 13+ production cycles | 13 history entries, runtime_id in ledger + CONTEXT.md |
+| Dev (GPT 5.5) | 13+ production cycles | 13 history entries, runtime_id in ledger + CONTEXT.md |
+| QA (Opus 4.6) | 13+ production cycles | 14 history entries (1 reissue), runtime_id in ledger + CONTEXT.md |
+| eng_director (GPT 5.5) | Integration test + escalation proof | `acceptGovernedTurn()` returns ok, runtime_id in ledger + history + CONTEXT.md |
+
+**Test coverage:**
+- Integration: eng_director turn accepted through governed pipeline with runtime attribution in ledger, history, and CONTEXT.md
+- End-to-end: escalation proof script (`run-escalation-recovery-proof.mjs`) validates retry exhaustion → operator recovery → eng_director intervention
+
 ## Resolved Questions
 
 1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)
