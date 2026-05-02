@@ -512,3 +512,16 @@ Canonical human-readable handoff log for all agents.
 
 ---
 
+## Turn 090b3ad5 — pm (planning)
+
+- **Status:** completed
+- **Summary:** Root-caused two session status inconsistencies after ghost auto-retry: (A) clearGhostBlockerAfterReissue missing session checkpoint, (B) continuous loop premature terminal — chartered dev with 3 code changes + 3 tests, tightened scope from previous attempt's 4+5
+- **Decision DEC-001:** Bug A root cause is clearGhostBlockerAfterReissue() at continuous-run.js:630 writing state.json without a corresponding session checkpoint — fix is 1 import + 1 writeSessionCheckpoint call covering all 4 recovery paths
+- **Decision DEC-002:** Cold-start resume of 'failed' sessions (previous attempt's Changes 3a/3b/4) is deferred — the main loop recovery guard handles normal operation; cold-start edge case is follow-up
+- **Decision DEC-003:** Dev scoped to 3 code changes + 3 regression tests — down from previous attempt's 4 changes + 5 tests — by combining both bugs in a tighter charter
+- **Objection OBJ-001 (medium):** Previous PM turn (turn_d1836f66c561daa1) missed the session.json checkpoint gap in clearGhostBlockerAfterReissue() — it diagnosed continuous-session.json premature terminal (Bug B) but not the session.json stale checkpoint (Bug A), which is actively manifesting in this run's own state
+- **Objection OBJ-002 (low):** Previous PM turn overscoped to 4 code changes + 5 tests including cold-start resume behavioral changes that modify canResumeExistingContinuousSession() and reconcileContinuousStartupState() — these are defense-in-depth for a narrow edge case and should be follow-up
+- **Proposed next:** dev
+
+---
+

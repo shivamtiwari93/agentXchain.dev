@@ -2,24 +2,22 @@
   "session_id": "session_a28a7bc0d6c384a9",
   "run_id": "run_aeb78d7979d66c0a",
   "started_at": "2026-05-01T02:23:56.715Z",
-  "last_checkpoint_at": "2026-05-02T09:30:10.523Z",
-  "checkpoint_reason": "turn_reissued",
-  "run_status": "blocked",
-  "phase": "planning",
-  "last_phase": "planning",
+  "last_checkpoint_at": "2026-05-02T09:44:50.892Z",
+  "checkpoint_reason": "turn_accepted",
+  "run_status": "active",
+  "phase": "implementation",
+  "last_phase": "implementation",
   "last_turn_id": "turn_090b3ad5a98819d2",
-  "last_completed_turn_id": "turn_f41ca0d821d9c8cd",
-  "active_turn_ids": [
-    "turn_090b3ad5a98819d2"
-  ],
+  "last_completed_turn_id": "turn_090b3ad5a98819d2",
+  "active_turn_ids": [],
   "last_role": "pm",
   "pending_gate": null,
   "pending_run_completion": null,
-  "blocked": true,
+  "blocked": false,
   "baseline_ref": {
-    "git_head": "0e541304012a4234e04076df066e52703ce491a4",
+    "git_head": "da0db2b3bb1e295c205bd7ca9ce94e5183d2af14",
     "git_branch": "main",
-    "workspace_dirty": false
+    "workspace_dirty": true
   },
   "agent_context": {
     "adapter": null,

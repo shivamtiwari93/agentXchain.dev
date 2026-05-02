@@ -50,6 +50,12 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Delete `vitest-node-test-shim.js` and `vitest-slice-manifest.js`
 - [x] Acceptance: `npm run test` passes all 663 files under vitest, `test:watch` provides TDD workflow, zero `node:test` imports remain
 
+### BUG-FIX: Session Status Inconsistency After Ghost Auto-Retry
+- [ ] Fix `clearGhostBlockerAfterReissue()` to write session checkpoint after clearing blocked state (Bug A: session.json stale) <!-- run_aeb78d7979d66c0a -->
+- [ ] Add `isGovernedRunStillActiveForSession()` helper + main loop recovery guard (Bug B: premature session terminal) <!-- run_aeb78d7979d66c0a -->
+- [ ] 3 regression tests: checkpoint consistency, loop recovery, loop no-recovery <!-- run_aeb78d7979d66c0a -->
+- [ ] Acceptance: session.json consistent with state.json after auto-retry; continuous loop does not exit when governed run is active
+
 ### M4: Recovery & Resilience Hardening
 - [ ] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash
 - [ ] Add structured recovery classification to governance reports
@@ -89,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope Vitest migration: 663 `node:test` files → native vitest imports, eliminate dual-runner, enable watch mode for TDD | Active (`run_4a6f8ae7668a237a`) |
-| Implementation | Execute codemod, update vitest config + package.json, delete shim/manifest, verify all tests pass | Complete |
-| QA | Verify zero `node:test` imports remain, full suite passes under vitest, watch mode works, E2E runs correctly | Pending |
+| Planning | Root-cause session status inconsistency (Bug A: checkpoint gap + Bug B: premature terminal), charter dev with 3 code changes + 3 tests | Active (`run_aeb78d7979d66c0a`) |
+| Implementation | Implement `writeSessionCheckpoint` in `clearGhostBlockerAfterReissue`, `isGovernedRunStillActiveForSession` helper, main loop recovery guard, + 3 tests | Pending |
+| QA | Verify session checkpoint consistency, loop recovery behavior, no regressions | Pending |

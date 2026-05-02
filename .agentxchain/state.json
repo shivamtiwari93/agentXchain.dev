@@ -2,46 +2,12 @@
   "schema_version": "1.1",
   "run_id": "run_aeb78d7979d66c0a",
   "project_id": "agentxchain-dev",
-  "status": "blocked",
-  "phase": "planning",
-  "accepted_integration_ref": null,
-  "active_turns": {
-    "turn_090b3ad5a98819d2": {
-      "turn_id": "turn_090b3ad5a98819d2",
-      "assigned_role": "pm",
-      "status": "dispatched",
-      "attempt": 2,
-      "assigned_at": "2026-05-02T09:30:10.313Z",
-      "deadline_at": "2026-05-02T11:30:10.507Z",
-      "runtime_id": "local-opus-4.7",
-      "baseline": {
-        "kind": "git_worktree",
-        "head_ref": "0e541304012a4234e04076df066e52703ce491a4",
-        "clean": true,
-        "captured_at": "2026-05-02T09:30:10.314Z",
-        "dirty_snapshot": {}
-      },
-      "assigned_sequence": 2,
-      "concurrent_with": [],
-      "reissued_from": "turn_d1836f66c561daa1",
-      "dispatched_at": "2026-05-02T09:30:10.572Z"
-    }
-  },
-  "turn_sequence": 2,
-  "last_completed_turn_id": null,
-  "blocked_on": "turn:failed_start:turn_d1836f66c561daa1",
-  "blocked_reason": {
-    "category": "ghost_turn",
-    "blocked_at": "2026-05-02T09:29:59.042Z",
-    "turn_id": "turn_d1836f66c561daa1",
-    "recovery": {
-      "typed_reason": "ghost_turn",
-      "owner": "human",
-      "recovery_action": "Turn turn_d1836f66c561daa1 has been dispatched for 312s with no subprocess output. The subprocess likely never started. Run `agentxchain reissue-turn --turn turn_d1836f66c561daa1 --reason ghost` to recover.",
-      "turn_retained": true,
-      "detail": "Turn turn_d1836f66c561daa1 has been dispatched for 312s with no subprocess output. The subprocess likely never started. Run `agentxchain reissue-turn --turn turn_d1836f66c561daa1 --reason ghost` to recover."
-    }
-  },
+  "status": "active",
+  "phase": "implementation",
+  "accepted_integration_ref": "git:da0db2b3bb1e295c205bd7ca9ce94e5183d2af14",
+  "active_turns": {},
+  "turn_sequence": 3,
+  "last_completed_turn_id": "turn_090b3ad5a98819d2",
   "escalation": null,
   "pending_phase_transition": null,
   "pending_run_completion": null,
@@ -49,24 +15,17 @@
   "queued_run_completion": null,
   "last_gate_failure": null,
   "phase_gate_status": {
-    "planning_signoff": "pending",
+    "planning_signoff": "passed",
     "implementation_complete": "pending",
     "qa_ship_verdict": "pending"
   },
-  "budget_reservations": {
-    "turn_090b3ad5a98819d2": {
-      "reserved_usd": 5,
-      "role_id": "pm",
-      "created_at": "2026-05-02T09:30:10.313Z",
-      "reissued_from": "turn_d1836f66c561daa1"
-    }
-  },
+  "budget_reservations": {},
   "budget_status": {
     "spent_usd": 0,
     "remaining_usd": 100
   },
   "created_at": "2026-05-02T09:24:46.299Z",
-  "phase_entered_at": "2026-05-02T09:24:46.299Z",
+  "phase_entered_at": "2026-05-02T09:44:50.311Z",
   "provenance": {
     "trigger": "intake",
     "parent_run_id": null,
@@ -76,5 +35,11 @@
   },
   "inherited_context": null,
   "repo_decisions": null,
-  "delegation_queue": []
+  "delegation_queue": [],
+  "blocked_on": null,
+  "blocked_reason": null,
+  "next_recommended_role": "dev",
+  "pending_delegation_review": null,
+  "non_progress_signature": null,
+  "non_progress_count": 0
 }

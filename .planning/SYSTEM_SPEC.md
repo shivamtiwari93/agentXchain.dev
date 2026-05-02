@@ -1,144 +1,215 @@
-# System Spec — Vitest Migration: 663 node:test Files → Native Vitest Imports
+# System Spec — Fix Session Status Inconsistency After Ghost Auto-Retry
 
-**Run:** `run_4a6f8ae7668a237a`
-**Baseline:** git:main (post-M3 completion)
+**Run:** `run_aeb78d7979d66c0a`
+**Baseline:** git:da0db2b3bb1e295c205bd7ca9ce94e5183d2af14
 **Package version:** `agentxchain@2.155.72`
 
 ## Purpose
 
-Migrate all 663 test files in `cli/test/` from `node:test` imports to native vitest imports, eliminating the dual-runner architecture (vitest shim + native `node --test`) in favor of a single vitest runner with watch mode support for TDD.
+Fix two related session status inconsistencies that occur after ghost auto-retry recovery:
 
-**Scope:** Mechanical import migration via codemod, vitest config expansion from 36-file manifest to full glob, package.json script consolidation, and shim/manifest cleanup.
+**Bug A:** `clearGhostBlockerAfterReissue()` writes `status: 'active'` to `state.json` but does not write a corresponding session checkpoint, leaving `session.json` stale with `run_status: 'blocked'`.
+
+**Bug B:** The continuous run loop unconditionally marks `session.status = 'failed'` on `executeGovernedRun()` failure without checking whether the governed run is still active, causing premature loop exit.
+
+**Scope:** 3 code changes in `cli/src/lib/continuous-run.js` + 3 regression tests. No new files. No protocol changes. No config changes.
 
 ## Interface
 
-### Test Runner Architecture (Before)
+### State Files (Before Fix — Bug A)
+
+After ghost auto-retry, the three state files are inconsistent:
+
+| File | Field | Value | Correct? |
+|------|-------|-------|----------|
+| `.agentxchain/state.json` | `status` | `'active'` | YES |
+| `.agentxchain/session.json` | `run_status` | `'blocked'` | NO (stale) |
+| `.agentxchain/session.json` | `blocked` | `true` | NO (stale) |
+| `.agentxchain/session.json` | `checkpoint_reason` | `'turn_reissued'` | stale |
+| `.agentxchain/continuous-session.json` | `status` | `'running'` | YES |
+
+### State Files (After Fix — Bug A)
+
+| File | Field | Value | Correct? |
+|------|-------|-------|----------|
+| `.agentxchain/state.json` | `status` | `'active'` | YES |
+| `.agentxchain/session.json` | `run_status` | `'active'` | YES |
+| `.agentxchain/session.json` | `blocked` | `false` | YES |
+| `.agentxchain/session.json` | `checkpoint_reason` | `'blocker_cleared'` | YES |
+| `.agentxchain/continuous-session.json` | `status` | `'running'` | YES |
+
+### Continuous Session Status (Before Fix — Bug B)
 
 ```
-npm run test
-  ├── test:vitest  → vitest run (36 files via slice manifest, node:test aliased to shim)
-  └── test:node    → node --test (663 files natively, 60s timeout, 4-way concurrency)
+ghost retry → session 'running' → executeGovernedRun fails
+    → session 'failed' (TERMINAL) → loop exits → orphaned active run
 ```
 
-- Files import `from 'node:test'`
-- `vitest.config.js` aliases `node:test` → `vitest-node-test-shim.js`
-- Shim re-exports vitest APIs with `node:test` names (`before` → `beforeAll`, etc.)
-- Only 36/663 files in `vitest-slice-manifest.js`
-
-### Test Runner Architecture (After)
+### Continuous Session Status (After Fix — Bug B)
 
 ```
-npm run test       → vitest run --reporter=verbose (663 files, native vitest imports)
-npm run test:watch → vitest --reporter=verbose (watch mode for TDD)
-npm run test:beta  → node --test test/beta-tester-scenarios/*.test.js (standalone convenience)
+ghost retry → session 'running' → executeGovernedRun fails
+    → session 'failed' → governed state 'active'?
+        YES → session 'running' (recovered), loop continues
+        NO  → session 'failed' (TERMINAL), loop exits
 ```
 
-- Files import `from 'vitest'`
-- No shim, no alias, no manifest
-- `vitest.config.js` uses glob: `test/**/*.test.js`
-- `testTimeout: 60_000` (matches prior `node --test` timeout)
-- `fileParallelism: false` (preserved from current config)
-
-### Import Transformation Contract
-
-| Pattern | Before | After | Files |
-|---------|--------|-------|-------|
-| Test runner | `from 'node:test'` | `from 'vitest'` | 663 |
-| `before` hook | `import { before } from 'node:test'` | `import { beforeAll } from 'vitest'` | 56 |
-| `after` hook | `import { after } from 'node:test'` | `import { afterAll } from 'vitest'` | 56 |
-| `before()` call | `before(() => { ... })` | `beforeAll(() => { ... })` | 56 |
-| `after()` call | `after(() => { ... })` | `afterAll(() => { ... })` | 56 |
-| `t.skip()` | `t.skip(reason)` | vitest TestContext `skip()` | 1 |
-| Assertions | `from 'node:assert/strict'` | unchanged | 432 |
-| Assertions | `from 'node:assert'` | unchanged | 231 |
-
-### Files Created
-
-| File | Purpose | Lifecycle |
-|------|---------|-----------|
-| `cli/scripts/migrate-to-vitest.mjs` | One-shot codemod script | Kept for reference; idempotent |
-
-### Files Modified
+## Files Modified
 
 | File | Change |
 |------|--------|
-| `cli/test/**/*.test.js` (663 files) | Import rewrite: `node:test` → `vitest`, `before`→`beforeAll`, `after`→`afterAll` |
-| `cli/vitest.config.js` | Remove alias + manifest, use glob include, increase timeout |
-| `cli/package.json` | Consolidate scripts: `test`, `test:watch`; remove `test:vitest`, `test:node` |
+| `cli/src/lib/continuous-run.js` | 3 code changes: import + checkpoint call + helper + loop guard |
 
-### Files Deleted
+## Change 1: Session checkpoint in `clearGhostBlockerAfterReissue()` [Bug A]
 
-| File | Reason |
-|------|--------|
-| `cli/test-support/vitest-node-test-shim.js` | No longer needed — files import vitest directly |
-| `cli/test-support/vitest-slice-manifest.js` | No longer needed — vitest uses glob pattern |
+**Location:** `cli/src/lib/continuous-run.js`
 
-### Files Potentially Modified or Deleted
+**Import (top of file):**
+```javascript
+import { writeSessionCheckpoint } from './session-checkpoint.js';
+```
 
-| File | Condition |
-|------|-----------|
-| `cli/test/vitest-contract.test.js` | If it tests the shim contract, remove. If it tests vitest behavior, update. |
+**Function change (line 630-639):**
+
+Before:
+```javascript
+function clearGhostBlockerAfterReissue(root, state) {
+  const nextState = {
+    ...state,
+    status: 'active',
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+  };
+  writeGovernedState(root, nextState);
+  return nextState;
+}
+```
+
+After:
+```javascript
+function clearGhostBlockerAfterReissue(root, state) {
+  const nextState = {
+    ...state,
+    status: 'active',
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+  };
+  writeGovernedState(root, nextState);
+  writeSessionCheckpoint(root, nextState, 'blocker_cleared');
+  return nextState;
+}
+```
+
+**Contract:**
+- Non-fatal: `writeSessionCheckpoint()` catches errors internally (try/catch in session-checkpoint.js:83-156)
+- Idempotent: session.json is always overwritten, not appended
+- Session_id preserved: `writeSessionCheckpoint()` reads existing session.json and preserves `session_id` when `run_id` matches
+- No import cycle: `session-checkpoint.js` → `(fs, path, crypto, child_process)` — no dependency on `continuous-run.js`
+
+**Covers all 4 callers:**
+
+| # | Caller | Line |
+|---|--------|------|
+| 1 | `reclassifyRetainedClaudeNodeIncompatGhost()` | 441 |
+| 2 | `maybeAutoRetryRetainedClaudeAuthDispatch()` | 543 |
+| 3 | `maybeAutoRetryProductiveTimeoutBlocker()` | 777 |
+| 4 | `maybeAutoRetryGhostBlocker()` | 925 |
+
+## Change 2: `isGovernedRunStillActiveForSession()` helper [Bug B prerequisite]
+
+**Location:** After `clearGhostBlockerAfterReissue()` (~line 640)
+
+```javascript
+function isGovernedRunStillActiveForSession(root, config, session) {
+  try {
+    const state = loadProjectState(root, config);
+    if (!state || state.status !== 'active') return false;
+    if (session.current_run_id && state.run_id
+        && session.current_run_id !== state.run_id) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+```
+
+**Contract:**
+- Pure read — no side effects, no state writes
+- Returns `true` only when governed state is `'active'` AND `run_id` matches (or either is absent)
+- Returns `false` on any error (fail-safe: don't prevent legitimate failures from being terminal)
+
+## Change 3: Main loop recovery guard [Bug B fix]
+
+**Location:** `executeContinuousRun()` main loop, BEFORE the terminal state check at line 2564
+
+```javascript
+// Recovery: if step failed but governed run is still active, recover session
+if (step.status === 'failed'
+    && isGovernedRunStillActiveForSession(root, context.config, session)) {
+  session.status = 'running';
+  writeContinuousSession(root, session);
+  emitRunEvent(root, 'session_failed_recovered_active_run', {
+    run_id: session.current_run_id || null,
+    phase: null,
+    status: 'active',
+    payload: {
+      session_id: session.session_id,
+      failed_action: step.action || null,
+      failed_reason: step.stop_reason || null,
+    },
+  });
+  log('Session failure recovered — governed run still active, continuing.');
+  continue;
+}
+```
+
+**Contract:**
+- Fires only when `step.status === 'failed'` AND governed state is `'active'` with matching run_id
+- Emits `session_failed_recovered_active_run` audit event
+- Uses `continue` to skip terminal check and proceed to next loop iteration
+- Does NOT fire for genuine failures where governed state is terminal
 
 ## Behavior
 
-### Codemod Execution
+### Bug A — Checkpoint Flow (After Fix)
 
-1. Script discovers all `*.test.js` files under `cli/test/` recursively
-2. For each file:
-   a. Read file content
-   b. Match `import { ... } from 'node:test'` line
-   c. In the import specifier list: rename `before` → `beforeAll`, `after` → `afterAll`
-   d. Replace module specifier `'node:test'` → `'vitest'`
-   e. If `before` or `after` was imported: rename `before(` → `beforeAll(` and `after(` → `afterAll(` in file body (word-boundary match, negative lookahead for `Each`/`All`)
-   f. Write file back
-3. Handle `t.skip()` in `bug-54-real-claude-reliability.test.js`
-4. Print summary and exit 0
+1. Ghost detected → `raiseBlockedState()` writes state.json (`status: 'blocked'`) + session.json (`run_status: 'blocked'`)
+2. `reissueTurn()` creates new turn → writes state.json (still blocked) + session.json (`run_status: 'blocked'`, `checkpoint_reason: 'turn_reissued'`)
+3. `clearGhostBlockerAfterReissue()` → writes state.json (`status: 'active'`) + **session.json** (`run_status: 'active'`, `checkpoint_reason: 'blocker_cleared'`) ← **NEW**
+4. Caller updates continuous-session.json (`status: 'running'`)
+5. All three state files are consistent.
 
-### Codemod Safety Invariants
+### Bug B — Loop Recovery (After Fix)
 
-- **Idempotent:** Running twice produces same output (already-migrated files are no-ops)
-- **Assertion-preserving:** Zero changes to `node:assert` imports or assertion calls
-- **Comment-preserving:** No changes to comments or strings (regex targets import/call sites only)
-- **Scope-limited:** Only touches files matching `cli/test/**/*.test.js`
+1. Ghost auto-retry → governed `'active'`, session `'running'`
+2. `advanceContinuousRunOnce()` → `executeGovernedRun()` fails → returns `{ status: 'failed' }`
+3. **Recovery guard fires** → `isGovernedRunStillActiveForSession()` returns `true`
+4. Session recovered to `'running'`, event emitted, `continue`
+5. Next iteration picks up active governed run
 
-### Vitest Configuration
+### Genuine Failure (no active run)
 
-```js
-// cli/vitest.config.js (after migration)
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
-  test: {
-    include: ['test/**/*.test.js'],
-    fileParallelism: false,
-    testTimeout: 60_000,
-  },
-});
-```
-
-### Watch Mode
-
-- `vitest` (no `run` flag) enters watch mode by default
-- Watches `cli/test/**/*.test.js` for changes
-- Re-runs affected tests on file save
-- Supports filter by test name (`vitest --reporter=verbose -t "pattern"`)
+1. `executeGovernedRun()` fails → `{ status: 'failed' }`
+2. `isGovernedRunStillActiveForSession()` returns `false` (state is completed/blocked/absent)
+3. Guard does NOT fire → terminal check exits loop (existing behavior unchanged)
 
 ## Error Cases
 
 | Failure Mode | Response |
 |-------------|----------|
-| Codemod regex misses an import variant | Post-migration grep catches it: `grep -r "from 'node:test'" cli/test/` |
-| `before`/`after` rename catches string literal | Manual review of the 56 affected files (risk: low — these are structured test files) |
-| E2E test exceeds 60s timeout | Increase `testTimeout` or use `test.timeout()` per-test |
-| `vitest-contract.test.js` fails after shim removal | Update or remove the test |
-| `test:beta` script uses `node --test` but files now import vitest | `node --test` ignores import specifiers at declaration time — tests still run natively if `vitest` is resolvable. Alternatively, `test:beta` can be updated to `vitest run test/beta-tester-scenarios/` |
+| `writeSessionCheckpoint()` throws in `clearGhostBlockerAfterReissue` | Caught internally, warning logged. Recovery continues unaffected. |
+| `loadProjectState` throws during recovery check | `isGovernedRunStillActiveForSession()` catches, returns `false` → session stays `'failed'`, loop exits (fail-safe) |
+| Governed state has different `run_id` | Helper returns `false` → no recovery |
+| Recovery loop: governed run keeps failing | Run eventually times out / exhausts retries → state leaves `'active'` → guard stops firing |
+| Process crash between failure write and loop guard | Session persists as `'failed'`. Next restart discards the session and starts fresh. (Cold-start recovery for this edge case is out of scope — tracked as follow-up.) |
 
 ## Acceptance Tests
 
-- [ ] `grep -r "from 'node:test'" cli/test/` returns 0 results
-- [ ] `npm run test` passes all 663 files (vitest run)
-- [ ] `npm run test:watch` enters watch mode
-- [ ] E2E tests (73 files) complete under vitest with subprocess spawning
-- [ ] `vitest-node-test-shim.js` does not exist
-- [ ] `vitest-slice-manifest.js` does not exist
-- [ ] Diff shows only import changes + `before`/`after` renames (no assertion logic changes)
+- [ ] After `clearGhostBlockerAfterReissue()`, session.json has `run_status: 'active'` and `blocked: false` [Bug A]
+- [ ] After `clearGhostBlockerAfterReissue()`, session.json has `checkpoint_reason: 'blocker_cleared'` [Bug A]
+- [ ] After `clearGhostBlockerAfterReissue()`, session_id is preserved [Bug A]
+- [ ] Main loop recovery: `step.status === 'failed'` + governed `status: 'active'` → session recovered, loop continues [Bug B]
+- [ ] Main loop no-recovery: `step.status === 'failed'` + governed `status: 'completed'` → loop exits [Bug B negative]
+- [ ] `npm run test` passes with no regressions
