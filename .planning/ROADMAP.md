@@ -59,7 +59,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 ### M4: Recovery & Resilience Hardening
 - [x] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash <!-- run_24a851cc6e95d841: SYSTEM_SPEC.md documents 17 gaps across 4 domains (ghost, budget, credential, crash) -->
 - [x] Add structured recovery classification to governance reports <!-- run_5276bd12be02449a: recovery-classification module, emit-time payload enrichment, and report rendering across text/markdown/html -->
-- [ ] Improve checkpoint-restore: verify a killed mid-turn process can cleanly resume
+- [x] Improve checkpoint-restore: verify a killed mid-turn process can cleanly resume <!-- run_da40a332eed44f56: step --resume PID liveness guard + stale dispatch-progress cleanup + step-crash-resume regression coverage -->
 - [ ] Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)
 - [ ] Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`
 
@@ -95,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | M4 checkpoint-restore verification: audit crash-resume path, design PID liveness guard, chart dev scope for step.js hardening + crash-resume tests | In Progress (`run_da40a332eed44f56`) |
-| Implementation | Dev adds PID liveness guard to step.js resume paths, writes crash-resume test suite | Pending |
+| Planning | M4 checkpoint-restore verification: audit crash-resume path, design PID liveness guard, chart dev scope for step.js hardening + crash-resume tests | Completed (`run_da40a332eed44f56`) |
+| Implementation | Dev adds PID liveness guard to step.js resume paths, writes crash-resume test suite | Completed (`run_da40a332eed44f56`) |
 | QA | Validate PID guard behavior, test coverage, no regressions | Pending |

@@ -1,4 +1,26 @@
-# Implementation Notes — agentXchain.dev M4 Recovery Classification
+# Implementation Notes — agentXchain.dev
+
+## 2026-05-02 M4 Checkpoint-Restore Crash Resume
+
+### Challenge
+
+The PM plan identified the right runtime gap, but I challenged two details before implementing it. First, the acceptance checklist in SYSTEM_SPEC.md was pre-checked before any code or tests existed, so I treated it as a charter rather than evidence. Second, the blocked-turn guard should run before `reactivateGovernedRun()`; otherwise an alive worker rejection would still mutate the run from `blocked` to `active` before exiting.
+
+### Changes
+
+- Added a `step --resume` worker PID liveness guard in the active retained-turn path.
+- Added the same guard for blocked retained turns before run reactivation.
+- Added stale `dispatch-progress-{turnId}.json` cleanup when a dead worker PID indicates crash recovery.
+- Added regression coverage for active crash recovery, alive-PID duplicate dispatch rejection, no-PID backwards compatibility, and blocked-turn crash recovery.
+- Checked off the M4 roadmap item for checkpoint-restore crash resume.
+
+### Verification
+
+- `cd cli && npm run test -- test/step-crash-resume.test.js`
+- `cd cli && npm run test -- test/vitest-contract.test.js test/step-crash-resume.test.js`
+- `cd cli && npm run test` (665 files / 7,386 tests)
+
+# Historical Notes — M4 Recovery Classification
 
 ## 2026-05-02 M4 Structured Recovery Classification
 

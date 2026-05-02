@@ -22,7 +22,7 @@
  */
 
 import chalk from 'chalk';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import {
@@ -76,6 +76,7 @@ import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
 import { consumeNextApprovedIntent } from '../lib/intake.js';
 import { failTurnStartup, reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
 import { isKnownTurnRunningProofStream } from '../lib/dispatch-streams.js';
+import { getDispatchProgressRelativePath } from '../lib/dispatch-progress.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -192,6 +193,7 @@ export async function stepCommand(opts) {
         process.exit(1);
       }
 
+      guardResumeWorkerLiveness(root, targetTurn);
       skipAssignment = true;
       console.log(chalk.yellow(`Resuming active turn: ${targetTurn.turn_id}`));
     } else if (activeCount >= maxConcurrent) {
@@ -272,6 +274,7 @@ export async function stepCommand(opts) {
         process.exit(1);
       }
 
+      guardResumeWorkerLiveness(root, targetTurn);
       console.log(chalk.yellow(`Re-dispatching blocked turn: ${targetTurn.turn_id}`));
       const reactivated = reactivateGovernedRun(root, state, { via: 'step --resume', notificationConfig: config });
       if (!reactivated.ok) {
@@ -1036,6 +1039,49 @@ export async function stepCommand(opts) {
       console.log(chalk.dim('  - Auto-reject on failure: agentxchain step --auto-reject'));
       process.exit(1);
     }
+  }
+}
+
+function guardResumeWorkerLiveness(root, turn) {
+  if (!turn || turn.worker_pid == null) {
+    return;
+  }
+
+  if (isWorkerAlive(turn.worker_pid)) {
+    console.log(chalk.red(`Worker process (PID ${turn.worker_pid}) is still alive.`));
+    console.log(chalk.dim('The previous dispatch appears to still be running.'));
+    console.log(chalk.dim('Wait for it to complete, or kill it first, then retry.'));
+    process.exit(1);
+  }
+
+  console.log(chalk.yellow(`Detected crashed worker (PID ${turn.worker_pid}). Re-dispatching turn ${turn.turn_id}...`));
+  cleanupStaleDispatchProgress(root, turn.turn_id);
+}
+
+function isWorkerAlive(pid) {
+  const numericPid = Number(pid);
+  if (!Number.isInteger(numericPid) || numericPid <= 0) {
+    return false;
+  }
+
+  try {
+    process.kill(numericPid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cleanupStaleDispatchProgress(root, turnId) {
+  const progressPath = join(root, getDispatchProgressRelativePath(turnId));
+  if (!existsSync(progressPath)) {
+    return;
+  }
+
+  try {
+    unlinkSync(progressPath);
+  } catch {
+    // Best-effort cleanup: resume can still proceed and rewrite fresh progress.
   }
 }
 
