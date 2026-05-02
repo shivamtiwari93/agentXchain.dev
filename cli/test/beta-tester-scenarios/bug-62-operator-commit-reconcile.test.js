@@ -1,4 +1,4 @@
-import { describe, it, after } from 'node:test';
+import { describe, it, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ const CLI_BIN = join(__dirname, '..', '..', 'bin', 'agentxchain.js');
 
 const dirs = [];
 
-after(() => {
+afterAll(() => {
   for (const dir of dirs) {
     rmSync(dir, { recursive: true, force: true });
   }

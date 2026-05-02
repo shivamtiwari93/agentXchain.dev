@@ -15,7 +15,7 @@
  * DEC-DASH-IMPL-008, DEC-DASH-IMPL-009
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { render as renderTimeline } from '../dashboard/components/timeline.js';

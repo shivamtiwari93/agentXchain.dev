@@ -9,7 +9,7 @@
  * Spec: .planning/BUG_66_REISSUED_TURN_OVERLAP_SPEC.md
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

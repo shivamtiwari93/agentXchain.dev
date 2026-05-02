@@ -16,7 +16,7 @@
  *   8. Second turn's observed artifact does not include proposal-applied files
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync,

@@ -11,7 +11,7 @@
  *   4. Verify the turn state shows `failed_acceptance` (not `running`)
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdirSync,

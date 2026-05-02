@@ -11,7 +11,7 @@
  * executes a roadmap-backed objective before falling back to vision idle.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -48,9 +48,13 @@ function createRoadmapProject() {
     "const session = JSON.parse(readFileSync(join(root, '.agentxchain/continuous-session.json'), 'utf8'));",
     "const objective = String(session.current_vision_objective || 'missing-objective');",
     "const relPath = '.planning/bug76-roadmap-objective.md';",
+    "const productRelPath = 'src/bug76-roadmap-objective.js';",
     "const absPath = join(root, relPath);",
+    "const productAbsPath = join(root, productRelPath);",
     "mkdirSync(dirname(absPath), { recursive: true });",
+    "mkdirSync(dirname(productAbsPath), { recursive: true });",
     "writeFileSync(absPath, `# BUG-76 Roadmap Objective\\n\\n${objective}\\n`);",
+    "writeFileSync(productAbsPath, `export const bug76RoadmapObjective = ${JSON.stringify(objective)};\\n`);",
     'const result = {',
     "  schema_version: '1.0',",
     '  run_id: runId,',
@@ -61,8 +65,8 @@ function createRoadmapProject() {
     "  summary: `Completed ${objective}`,",
     "  decisions: [{ id: 'DEC-001', category: 'implementation', statement: `Completed ${objective}`, rationale: 'BUG-76 command-chain proof.' }],",
     '  objections: [],',
-    '  files_changed: [relPath],',
-    '  artifacts_created: [relPath],',
+    '  files_changed: [relPath, productRelPath],',
+    '  artifacts_created: [relPath, productRelPath],',
     "  verification: { status: 'pass', commands: ['echo ok'], evidence_summary: 'ok', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] },",
     "  artifact: { type: 'workspace', ref: null },",
     "  proposed_next_role: 'human',",

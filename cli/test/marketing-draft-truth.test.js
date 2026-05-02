@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import {
   extractTopReleaseSection as _extractTopReleaseSection,
   extractAggregateEvidenceLine,

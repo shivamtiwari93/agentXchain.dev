@@ -1,4 +1,4 @@
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -131,7 +131,7 @@ function runPublish(cliDir, fakeBinDir, stateDir, args = [], envOverrides = {}) 
 
 const fixtures = [];
 
-after(() => {
+afterAll(() => {
   for (const fixture of fixtures) {
     rmSync(fixture.root, { recursive: true, force: true });
   }

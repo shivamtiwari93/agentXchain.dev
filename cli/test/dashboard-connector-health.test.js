@@ -1,4 +1,4 @@
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -111,7 +111,7 @@ function createFixture() {
   return { root, agentxchainDir, dashboardDir };
 }
 
-after(async () => {
+afterAll(async () => {
   for (const bridge of bridges) {
     await bridge.stop();
   }

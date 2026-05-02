@@ -7,7 +7,7 @@
  * See: .planning/RELEASE_GATE_E2E_SPEC.md
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync } from 'fs';
 import { join, dirname } from 'path';
@@ -212,7 +212,7 @@ describe('E2E release gate — subprocess proof', () => {
     let root;
     let config;
 
-    before(() => {
+    beforeAll(() => {
       root = join(tmpdir(), `axc-release-e2e-${randomBytes(6).toString('hex')}`);
       cpSync(EXAMPLE_DIR, root, { recursive: true });
       execSync('git init', { cwd: root, stdio: 'ignore' });
@@ -221,7 +221,7 @@ describe('E2E release gate — subprocess proof', () => {
       config = makeConfig();
     });
 
-    after(() => {
+    afterAll(() => {
       try { rmSync(root, { recursive: true, force: true }); } catch {}
     });
 

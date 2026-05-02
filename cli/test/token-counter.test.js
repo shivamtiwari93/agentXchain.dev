@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { countTokens, SUPPORTED_TOKEN_COUNTER_PROVIDERS } from '../src/lib/token-counter.js';

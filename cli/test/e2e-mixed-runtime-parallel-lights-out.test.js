@@ -10,7 +10,7 @@
  * Spec: .planning/MIXED_RUNTIME_PARALLEL_LIGHTS_OUT_SPEC.md
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync,

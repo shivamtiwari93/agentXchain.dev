@@ -8,7 +8,7 @@
  * See: COORDINATOR_EVENT_AGGREGATION_SPEC.md
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync, appendFileSync } from 'fs';
 import { join } from 'path';
@@ -316,7 +316,7 @@ function scaffoldCoordinatorWorkspace(root, repoIds) {
 describe('coordinator event aggregation — unit', () => {
   let root;
 
-  before(() => {
+  beforeAll(() => {
     root = tmpDir();
     scaffoldCoordinatorWorkspace(root, ['api', 'web']);
 
@@ -335,7 +335,7 @@ describe('coordinator event aggregation — unit', () => {
     ]);
   });
 
-  after(() => {
+  afterAll(() => {
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -424,7 +424,7 @@ describe('coordinator event aggregation — unit', () => {
 describe('coordinator event aggregation — /api/coordinator/events', () => {
   let root, bridge, port;
 
-  before(async () => {
+  beforeAll(async () => {
     root = tmpDir();
     scaffoldCoordinatorWorkspace(root, ['api', 'web']);
 
@@ -451,7 +451,7 @@ describe('coordinator event aggregation — /api/coordinator/events', () => {
     port = result.port;
   });
 
-  after(async () => {
+  afterAll(async () => {
     if (bridge) await bridge.stop();
     rmSync(root, { recursive: true, force: true });
   });
@@ -574,7 +574,7 @@ describe('coordinator event aggregation — /api/coordinator/events', () => {
 describe('coordinator event aggregation — WebSocket', () => {
   let root, bridge, port, client;
 
-  before(async () => {
+  beforeAll(async () => {
     root = tmpDir();
     scaffoldCoordinatorWorkspace(root, ['api', 'web']);
 
@@ -600,7 +600,7 @@ describe('coordinator event aggregation — WebSocket', () => {
     client = await connectWebSocketClient(port);
   });
 
-  after(async () => {
+  afterAll(async () => {
     client?.close();
     if (bridge) await bridge.stop();
     rmSync(root, { recursive: true, force: true });

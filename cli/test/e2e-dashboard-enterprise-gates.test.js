@@ -1,4 +1,4 @@
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawnSync } from 'node:child_process';
@@ -132,6 +132,11 @@ function fillImplementationArtifact(dir) {
   writeFileSync(
     join(dir, '.planning', 'IMPLEMENTATION_NOTES.md'),
     '# Implementation Notes\n\n## Changes\n\nImplemented the approved slice under the architecture contract.\n\n## Verification\n\nRun `echo implementation-ok` to confirm the implementation turn recorded machine evidence.\n',
+  );
+  mkdirSync(join(dir, 'src'), { recursive: true });
+  writeFileSync(
+    join(dir, 'src', 'enterprise-implementation.js'),
+    'export const enterpriseImplementationProof = true;\n',
   );
 }
 
@@ -276,8 +281,9 @@ function driveToCompletionGate(dir) {
     role: 'dev',
     runtime_id: 'local-dev',
     summary: 'Implementation complete. Ready for security review.',
-    files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
-    artifacts_created: ['.planning/IMPLEMENTATION_NOTES.md'],
+    files_changed: ['.planning/IMPLEMENTATION_NOTES.md', 'src/enterprise-implementation.js'],
+    artifacts_created: ['.planning/IMPLEMENTATION_NOTES.md', 'src/enterprise-implementation.js'],
+    artifact: { type: 'workspace', ref: null },
     proposed_next_role: 'security_reviewer',
     phase_transition_request: 'security_review',
     verification: {

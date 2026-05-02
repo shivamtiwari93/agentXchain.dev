@@ -5,7 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
     "smoke": "node test/smoke.js"
   },
   "keywords": ["standup", "b2b", "agentxchain", "governed"],

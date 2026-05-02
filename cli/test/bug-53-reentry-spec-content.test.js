@@ -12,7 +12,7 @@
  * Written Turn 233 (Claude Opus 4.7) per GPT 5.4's Turn 232 next action.
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

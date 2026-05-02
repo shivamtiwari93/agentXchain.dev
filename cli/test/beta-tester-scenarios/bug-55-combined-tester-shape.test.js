@@ -21,7 +21,7 @@
  * Spec: .planning/BUG_55_COMBINED_OPERATOR_SHAPE_SPEC.md
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';

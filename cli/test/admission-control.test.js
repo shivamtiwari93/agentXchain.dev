@@ -16,7 +16,7 @@
  *   AT-ADM-012  mcp tool_defined review_only does not false-fail ADM-001
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { runAdmissionControl } from '../src/lib/admission-control.js';
 

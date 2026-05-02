@@ -1,4 +1,4 @@
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -197,7 +197,7 @@ function counterValue(fakeBinDir, filename) {
 
 const fixtures = [];
 
-after(() => {
+afterAll(() => {
   for (const fixture of fixtures) {
     rmSync(fixture.root, { recursive: true, force: true });
   }

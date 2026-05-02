@@ -1,4 +1,4 @@
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';

@@ -11,7 +11,7 @@
  * rebased retry acceptance.
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdirSync,
@@ -186,7 +186,7 @@ describe('E2E parallel CLI (Path A)', () => {
   let firstTurn;
   let secondTurn;
 
-  before(() => {
+  beforeAll(() => {
     // Set up governed repo with git
     root = join(
       tmpdir(),
@@ -256,7 +256,7 @@ describe('E2E parallel CLI (Path A)', () => {
     assert.ok(b2.ok, `writeDispatchBundle(second) failed: ${b2.error}`);
   });
 
-  after(() => {
+  afterAll(() => {
     try {
       rmSync(root, { recursive: true, force: true });
     } catch {}

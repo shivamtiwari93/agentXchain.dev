@@ -9,7 +9,7 @@
  * See: .planning/COORDINATOR_RECOVERY_REAL_AGENT_SPEC.md
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

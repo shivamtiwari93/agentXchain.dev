@@ -6,7 +6,7 @@
  * blocker snapshots without reimplementing gate logic client-side.
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { render } from '../dashboard/components/blockers.js';

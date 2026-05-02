@@ -6,7 +6,7 @@
  * See: .planning/E2E_QUICKSTART_COLD_START_SPEC.md
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';

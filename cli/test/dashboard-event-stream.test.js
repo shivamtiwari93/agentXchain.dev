@@ -7,7 +7,7 @@
  * See: EVENT_STREAM_SPEC.md
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, appendFileSync, rmSync } from 'fs';
 import { join } from 'path';
@@ -317,7 +317,7 @@ function sleep(ms) {
 describe('dashboard event stream — /api/events', () => {
   let root, bridge, port;
 
-  before(async () => {
+  beforeAll(async () => {
     root = tmpDir();
     writeGovernedRepo(root);
 
@@ -344,7 +344,7 @@ describe('dashboard event stream — /api/events', () => {
     port = result.port;
   });
 
-  after(async () => {
+  afterAll(async () => {
     if (bridge) await bridge.stop();
     rmSync(root, { recursive: true, force: true });
   });
@@ -440,7 +440,7 @@ describe('dashboard event stream — state-reader resource mapping', () => {
 describe('dashboard event stream — WebSocket push', () => {
   let root, bridge, port;
 
-  before(async () => {
+  beforeAll(async () => {
     root = tmpDir();
     writeGovernedRepo(root);
 
@@ -457,7 +457,7 @@ describe('dashboard event stream — WebSocket push', () => {
     port = result.port;
   });
 
-  after(async () => {
+  afterAll(async () => {
     if (bridge) await bridge.stop();
     rmSync(root, { recursive: true, force: true });
   });
@@ -526,7 +526,7 @@ describe('dashboard event stream — WebSocket push', () => {
 describe('dashboard event stream — coordinator WebSocket push', () => {
   let root, bridge, port;
 
-  before(async () => {
+  beforeAll(async () => {
     root = tmpDir();
     writeCoordinatorWorkspace(root);
 
@@ -543,7 +543,7 @@ describe('dashboard event stream — coordinator WebSocket push', () => {
     port = result.port;
   });
 
-  after(async () => {
+  afterAll(async () => {
     if (bridge) await bridge.stop();
     rmSync(root, { recursive: true, force: true });
   });

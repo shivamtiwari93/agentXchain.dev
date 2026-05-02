@@ -5,7 +5,7 @@
  * coverage must evaluate ownership with accepted history, not raw state alone.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -86,6 +86,7 @@ function createProject({ includeDevHistory = true } = {}) {
 
   mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
   mkdirSync(join(root, '.planning'), { recursive: true });
+  mkdirSync(join(root, 'src'), { recursive: true });
   writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
   writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), [
     '# Implementation Notes',
@@ -110,6 +111,7 @@ function createProject({ includeDevHistory = true } = {}) {
 
   writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# Acceptance\n\n- QA verified implementation.\n');
   writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\nVerdict: SHIP\n\nQA reverified implementation.\n');
+  writeFileSync(join(root, 'src', 'qa-implementation-proof.js'), 'export const qaImplementationProof = true;\n');
 
   const turnResult = {
     schema_version: '1.0',
@@ -128,7 +130,11 @@ function createProject({ includeDevHistory = true } = {}) {
       },
     ],
     objections: [],
-    files_changed: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+    files_changed: [
+      '.planning/acceptance-matrix.md',
+      '.planning/ship-verdict.md',
+      'src/qa-implementation-proof.js',
+    ],
     verification: {
       status: 'pass',
       commands: ['node -e "process.exit(0)"'],

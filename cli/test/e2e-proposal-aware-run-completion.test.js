@@ -14,7 +14,7 @@
  *   6. Decision ledger has proposal-apply entry before completion
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync,

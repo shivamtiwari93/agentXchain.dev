@@ -15,7 +15,7 @@
  * 4. After supersession, continuous startup does not pick up the phantom
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';

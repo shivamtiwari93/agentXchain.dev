@@ -1,4 +1,4 @@
-import { describe, it, before, after, beforeEach } from 'node:test';
+import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -151,7 +151,7 @@ describe('parallel run-loop', () => {
     root = join(tmpdir(), `axc-par-loop-${randomBytes(6).toString('hex')}`);
   });
 
-  after(() => {
+  afterAll(() => {
     // Cleanup is per-test via rmSync in each test
   });
 

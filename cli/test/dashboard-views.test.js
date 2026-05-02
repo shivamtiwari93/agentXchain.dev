@@ -7,7 +7,7 @@
  * See: DASHBOARD_DOCS_CONTRACT_SPEC.md, DASHBOARD_IMPLEMENTATION_PLAN.md
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

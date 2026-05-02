@@ -55,19 +55,15 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 ## Testing
 
-The CLI currently uses two runners on purpose: a 36-file Vitest coexistence slice for fast feedback and `node --test` for the full suite.
+The CLI test suite runs under Vitest. Test files import Vitest directly, and `npm test` is the single CI contract.
 
 ```bash
-npm run test:vitest
-npm run test:node
 npm test
+npm run test:watch
 ```
 
-- `npm run test:vitest`: the current 36-file Vitest slice
-- `npm run test:node`: full integration, subprocess, and E2E suite
-- `npm test`: both runners in sequence; this is the CI requirement today
-
-Duplicate execution remains intentional for the current 36-file slice until a later slice explicitly changes the redundancy model. For watch mode, run `npx vitest`.
+- `npm test`: full Vitest suite, including integration, subprocess, E2E, and beta scenario coverage
+- `npm run test:watch`: Vitest watch mode for local TDD
 
 ## Quick Start
 

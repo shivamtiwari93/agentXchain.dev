@@ -32,6 +32,8 @@
  */
 
 import { createServer } from 'node:http';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
@@ -44,11 +46,21 @@ const PORT = portArg !== -1 ? Number(process.argv[portArg + 1]) : Number(process
 function buildTurnResult(args) {
   const {
     run_id, turn_id, role, phase, runtime_id,
-    prompt, context, assignment_path,
+    project_root, prompt, context, assignment_path,
   } = args;
 
   const promptLines = prompt.split('\n').length;
   const contextLines = context.split('\n').length;
+  const writesWorkspace = role === 'dev' && phase === 'implementation';
+  const filesChanged = writesWorkspace ? ['src/mcp-http-echo-agent-output.js'] : [];
+  if (writesWorkspace) {
+    const outputPath = join(project_root, filesChanged[0]);
+    mkdirSync(dirname(outputPath), { recursive: true });
+    writeFileSync(
+      outputPath,
+      `export const mcpHttpEchoAgentTurn = ${JSON.stringify(turn_id)};\n`,
+    );
+  }
 
   return {
     schema_version: '1.0',
@@ -62,8 +74,12 @@ function buildTurnResult(args) {
       {
         id: 'DEC-001',
         category: 'implementation',
-        statement: `Acknowledge ${role} assignment for the ${phase} phase without modifying product files.`,
-        rationale: 'The remote echo server is a transport reference, not a real worker.',
+        statement: writesWorkspace
+          ? `Acknowledge ${role} assignment for the ${phase} phase and write a minimal workspace artifact.`
+          : `Acknowledge ${role} assignment for the ${phase} phase without modifying product files.`,
+        rationale: writesWorkspace
+          ? 'Implementation-phase dev turns must declare a product file, even for the reference remote echo transport.'
+          : 'The remote echo server is a transport reference, not a real worker.',
       },
     ],
     objections: [
@@ -74,7 +90,7 @@ function buildTurnResult(args) {
         status: 'raised',
       },
     ],
-    files_changed: [],
+    files_changed: filesChanged,
     artifacts_created: [],
     verification: {
       status: 'skipped',
@@ -82,7 +98,9 @@ function buildTurnResult(args) {
       evidence_summary: 'Remote echo agent intentionally skips verification. Replace with real test execution.',
       machine_evidence: [],
     },
-    artifact: { type: 'review', ref: assignment_path },
+    artifact: writesWorkspace
+      ? { type: 'workspace', ref: 'git:dirty' }
+      : { type: 'review', ref: assignment_path },
     proposed_next_role: 'human',
     phase_transition_request: null,
     run_completion_request: null,

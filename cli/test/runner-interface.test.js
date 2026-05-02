@@ -8,7 +8,7 @@
  * This is the proof that the protocol is runner-independent.
  */
 
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
@@ -143,6 +143,14 @@ function makeTurnResult(runId, turn) {
 
 function stageTurnResult(root, runId, turn) {
   const result = makeTurnResult(runId, turn);
+  if (turn.assigned_role === 'dev') {
+    const proofPath = 'src/runner-dev-proof.js';
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, proofPath), 'export const runnerDevProof = true;\n');
+    result.files_changed = [proofPath];
+    result.artifacts_created = [proofPath];
+    result.artifact = { type: 'workspace', ref: null };
+  }
   const relPath = getTurnStagingResultPath(turn.turn_id);
   const absPath = join(root, relPath);
   mkdirSync(join(root, '.agentxchain/staging', turn.turn_id), { recursive: true });

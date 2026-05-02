@@ -27,7 +27,7 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CLAUDE_ENV_AUTH_KEYS } from '../src/lib/claude-local-auth.js';
 

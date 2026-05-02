@@ -11,7 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import {
   existsSync,
   mkdtempSync,
@@ -86,6 +86,17 @@ if (phase === 'qa') {
   ensureFile('.planning/acceptance-matrix.md', '# Acceptance Matrix\\nAll criteria met.\\n');
 }
 
+const filesChanged =
+  phase === 'planning'
+    ? ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md']
+    : phase === 'design'
+      ? ['.planning/DESIGN_REVIEW.md']
+      : phase === 'implementation'
+        ? ['src/output.js']
+        : phase === 'qa'
+          ? ['.planning/acceptance-matrix.md']
+          : [];
+
 // 4-phase transition model
 let phaseTransitionRequest = null;
 let runCompletionRequest = null;
@@ -105,10 +116,10 @@ const turnResult = {
   summary: 'Mock ' + role + ' completed ' + phase + ' (four-phase).',
   decisions: [{ id: 'DEC-001', category: 'implementation', statement: role + ' done in ' + phase + '.', rationale: 'E2E mock.' }],
   objections: [],
-  files_changed: [],
+  files_changed: filesChanged,
   artifacts_created: [],
   verification: { status: 'pass', commands: ['echo ok'], evidence_summary: 'pass', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] },
-  artifact: { type: 'review', ref: null },
+  artifact: { type: phase === 'implementation' ? 'workspace' : 'review', ref: null },
   proposed_next_role: 'human',
   phase_transition_request: phaseTransitionRequest,
   run_completion_request: runCompletionRequest,

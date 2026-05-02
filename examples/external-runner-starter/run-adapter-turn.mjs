@@ -124,7 +124,7 @@ function writeMockAgent(scriptPath, turnId, runId) {
       },
     ],
     objections: [],
-    files_changed: [],
+    files_changed: ['src/adapter-starter-proof.js'],
     artifacts_created: [],
     verification: {
       status: 'pass',
@@ -132,7 +132,7 @@ function writeMockAgent(scriptPath, turnId, runId) {
       evidence_summary: 'Adapter-backed starter dispatched and accepted a governed turn.',
       machine_evidence: [{ command: 'node run-adapter-turn.mjs --json', exit_code: 0 }],
     },
-    artifact: { type: 'review', ref: 'git:dirty' },
+    artifact: { type: 'workspace', ref: null },
     proposed_next_role: 'qa',
     phase_transition_request: null,
     run_completion_request: null,
@@ -146,6 +146,8 @@ function writeMockAgent(scriptPath, turnId, runId) {
     [
       `const fs = require('fs');`,
       `const path = require('path');`,
+      `fs.mkdirSync(path.join(process.cwd(), 'src'), { recursive: true });`,
+      `fs.writeFileSync(path.join(process.cwd(), 'src', 'adapter-starter-proof.js'), 'export const adapterStarterProof = true;\\n');`,
       `const stagingDir = path.join(process.cwd(), ${JSON.stringify(stagingRelative)});`,
       `fs.mkdirSync(stagingDir, { recursive: true });`,
       `fs.writeFileSync(`,

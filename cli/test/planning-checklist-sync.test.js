@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');

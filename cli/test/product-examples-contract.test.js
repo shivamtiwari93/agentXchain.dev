@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -122,12 +122,12 @@ describe('product examples contract', () => {
   });
 
   it('proves the habit-board test suite passes', () => {
-    const result = runNode(['--test', 'test/'], HABIT_BOARD_DIR);
+    const result = runNode(['--test', '--test-concurrency=1', 'test/*.test.js'], HABIT_BOARD_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
   it('proves the async-standup-bot test suite passes', () => {
-    const result = runNode(['--test', 'test/'], ASYNC_STANDUP_BOT_DIR);
+    const result = runNode(['--test', '--test-concurrency=1', 'test/*.test.js'], ASYNC_STANDUP_BOT_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
@@ -223,7 +223,7 @@ describe('product examples contract', () => {
   });
 
   it('proves the trail-meals-mobile test suite passes', () => {
-    const result = runNode(['--test', 'test/'], TRAIL_MEALS_DIR);
+    const result = runNode(['--test', '--test-concurrency=1', 'test/*.test.js'], TRAIL_MEALS_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
@@ -274,7 +274,7 @@ describe('product examples contract', () => {
   });
 
   it('proves the schema-guard test suite passes', () => {
-    const result = runNode(['--test', 'test/'], SCHEMA_GUARD_DIR);
+    const result = runNode(['--test', '--test-concurrency=1', 'test/*.test.js'], SCHEMA_GUARD_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 

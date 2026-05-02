@@ -27,7 +27,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { readFileSync, existsSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
 
 const server = new McpServer({
   name: 'agentxchain-echo-agent',
@@ -61,7 +62,7 @@ server.tool(
   async (args) => {
     const {
       run_id, turn_id, role, phase, runtime_id,
-      assignment_path, prompt, context,
+      project_root, assignment_path, prompt, context,
     } = args;
 
     // Read the assignment for additional metadata (optional — the prompt
@@ -77,6 +78,16 @@ server.tool(
 
     const promptLines = prompt.split('\n').length;
     const contextLines = context.split('\n').length;
+    const writesWorkspace = role === 'dev' && phase === 'implementation';
+    const filesChanged = writesWorkspace ? ['src/mcp-echo-agent-output.js'] : [];
+    if (writesWorkspace) {
+      const outputPath = join(project_root, filesChanged[0]);
+      mkdirSync(dirname(outputPath), { recursive: true });
+      writeFileSync(
+        outputPath,
+        `export const mcpEchoAgentTurn = ${JSON.stringify(turn_id)};\n`,
+      );
+    }
 
     // Build the turn result. This is the minimum viable governed turn result.
     // A real agent would do actual work here — read files, write code, run
@@ -93,8 +104,12 @@ server.tool(
         {
           id: 'DEC-001',
           category: 'implementation',
-          statement: `Acknowledge ${role} assignment for the ${phase} phase without modifying product files.`,
-          rationale: 'The echo server is a transport reference, not a real worker.',
+          statement: writesWorkspace
+            ? `Acknowledge ${role} assignment for the ${phase} phase and write a minimal workspace artifact.`
+            : `Acknowledge ${role} assignment for the ${phase} phase without modifying product files.`,
+          rationale: writesWorkspace
+            ? 'Implementation-phase dev turns must declare a product file, even for the reference echo transport.'
+            : 'The echo server is a transport reference, not a real worker.',
         },
       ],
       objections: [
@@ -105,7 +120,7 @@ server.tool(
           status: 'raised',
         },
       ],
-      files_changed: [],
+      files_changed: filesChanged,
       artifacts_created: [],
       verification: {
         status: 'skipped',
@@ -113,7 +128,9 @@ server.tool(
         evidence_summary: 'Echo agent intentionally skips verification. Replace with real test execution.',
         machine_evidence: [],
       },
-      artifact: assignment?.artifact || { type: 'review', ref: assignment_path },
+      artifact: writesWorkspace
+        ? { type: 'workspace', ref: 'git:dirty' }
+        : assignment?.artifact || { type: 'review', ref: assignment_path },
       proposed_next_role: 'human',
       phase_transition_request: null,
       run_completion_request: null,

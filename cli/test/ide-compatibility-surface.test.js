@@ -1,4 +1,4 @@
-import { before, describe, it } from 'node:test';
+import { beforeAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -55,7 +55,7 @@ describe('IDE compatibility public boundary', () => {
 describe('VS Code extension project-mode detection', () => {
   let utilModule;
 
-  before(async () => {
+  beforeAll(async () => {
     utilModule = await importCompiledVsCodeExtensionModule('util.js');
   });
 

@@ -5,7 +5,7 @@
  * intent by correcting the request to the immediate next phase.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -45,6 +45,7 @@ function createProject(turnResultOverrides = {}) {
     '.planning/acceptance-matrix.md',
     '.planning/ship-verdict.md',
     '.planning/RELEASE_NOTES.md',
+    'src/qa-implementation-proof.js',
   ];
 
   const config = {
@@ -101,6 +102,7 @@ function createProject(turnResultOverrides = {}) {
 
   mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
   mkdirSync(join(root, '.planning'), { recursive: true });
+  mkdirSync(join(root, 'src'), { recursive: true });
   writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
   for (const f of changedFiles) {
     writeFileSync(join(root, f), `${f}\n`);

@@ -10,7 +10,7 @@
  * Decision: DEC-RVP-E2E-001
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync, readFileSync, rmSync, writeFileSync,

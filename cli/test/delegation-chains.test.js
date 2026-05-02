@@ -1,7 +1,7 @@
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import { execSync } from 'child_process';
@@ -77,6 +77,7 @@ function makeConfig() {
 
 function makeTurnResult(state, overrides = {}) {
   const turn = getActiveTurn(state);
+  const defaultFilesChanged = turn.assigned_role === 'dev' ? ['src/delegation-work.js'] : [];
   return {
     schema_version: '1.0',
     run_id: state.run_id,
@@ -87,10 +88,10 @@ function makeTurnResult(state, overrides = {}) {
     summary: 'Completed the work.',
     decisions: [],
     objections: [],
-    files_changed: [],
+    files_changed: defaultFilesChanged,
     artifacts_created: [],
     verification: { status: 'pass', commands: ['echo ok'], evidence_summary: 'ok', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] },
-    artifact: { type: 'review', ref: null },
+    artifact: { type: turn.assigned_role === 'dev' ? 'workspace' : 'review', ref: null },
     proposed_next_role: 'dev',
     phase_transition_request: null,
     needs_human_reason: null,
@@ -101,6 +102,13 @@ function makeTurnResult(state, overrides = {}) {
 
 function stageTurnResult(root, state, turnResult) {
   const turn = getActiveTurn(state);
+  for (const relPath of turnResult.files_changed || []) {
+    if (!relPath.startsWith('.planning/') && !relPath.startsWith('.agentxchain/')) {
+      const absPath = join(root, relPath);
+      mkdirSync(dirname(absPath), { recursive: true });
+      writeFileSync(absPath, `// fixture change for ${turn.turn_id}\n`);
+    }
+  }
   const stagingPath = getTurnStagingResultPath(turn.turn_id);
   const absPath = join(root, stagingPath);
   mkdirSync(join(root, '.agentxchain', 'staging', turn.turn_id), { recursive: true });

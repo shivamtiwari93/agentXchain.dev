@@ -8,7 +8,7 @@
  * See: .planning/COORDINATOR_RETRY_REAL_AGENT_SPEC.md
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

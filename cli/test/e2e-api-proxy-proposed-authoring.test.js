@@ -7,7 +7,7 @@
  *   - the next review_only dispatch bundle includes the proposal in CONTEXT.md
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync,

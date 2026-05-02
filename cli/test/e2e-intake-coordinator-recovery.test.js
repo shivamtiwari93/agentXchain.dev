@@ -9,7 +9,7 @@
  * See: .planning/COORDINATOR_BLOCKED_RECOVERY_SPEC.md
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';

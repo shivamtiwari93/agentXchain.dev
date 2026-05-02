@@ -1,4 +1,4 @@
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,7 +17,7 @@ const SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNNER_PACKAGE_CONTRACT_
 
 const tempRoots = [];
 
-after(() => {
+afterAll(() => {
   for (const dir of tempRoots) {
     rmSync(dir, { recursive: true, force: true });
   }

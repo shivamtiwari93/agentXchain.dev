@@ -14,7 +14,7 @@
  * The test must fail on current HEAD before the fix.
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdirSync,

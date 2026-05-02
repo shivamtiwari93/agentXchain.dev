@@ -4,7 +4,7 @@
  * slower stale-turn watchdog.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -132,14 +132,14 @@ const result = {
   summary: 'BUG-51 lifecycle fixture completed cleanly.',
   decisions: [],
   objections: [],
-  files_changed: [],
+  files_changed: ['src/bug51-fixture.js'],
   artifacts_created: [],
   verification: {
     status: 'pass',
     commands: ['node -e "process.exit(0)"'],
     evidence_summary: 'Fixture wrote a governed staged result.',
   },
-  artifact: { type: 'review', ref: 'no_repo_changes' },
+  artifact: { type: 'workspace', ref: null },
   proposed_next_role: 'dev',
   phase_transition_request: null,
   needs_human_reason: null,
@@ -153,6 +153,9 @@ if (${emitOutput ? 'true' : 'false'}) {
 }
 
 setTimeout(() => {
+  const productPath = path.join(root, 'src', 'bug51-fixture.js');
+  fs.mkdirSync(path.dirname(productPath), { recursive: true });
+  fs.writeFileSync(productPath, 'export const bug51Fixture = true;\\n');
   const stagingDir = path.join(root, '.agentxchain', 'staging', turn.turn_id);
   fs.mkdirSync(stagingDir, { recursive: true });
   fs.writeFileSync(

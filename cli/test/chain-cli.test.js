@@ -2,7 +2,7 @@
  * Tests for `agentxchain chain` CLI commands: latest, list, show.
  */
 
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';

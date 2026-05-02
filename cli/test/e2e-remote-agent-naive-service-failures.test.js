@@ -8,7 +8,7 @@
  *   - review_only roles must raise at least one objection
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

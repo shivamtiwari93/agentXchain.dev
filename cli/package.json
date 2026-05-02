@@ -26,10 +26,8 @@
   ],
   "scripts": {
     "dev": "node bin/agentxchain.js",
-    "test": "npm run test:vitest && npm run test:node",
-    "test:vitest": "vitest run --reporter=verbose",
-    "test:beta": "node --test test/beta-tester-scenarios/*.test.js",
-    "test:node": "node --test --test-timeout=60000 --test-concurrency=4 test/*.test.js test/beta-tester-scenarios/*.test.js",
+    "test": "vitest run --reporter=verbose",
+    "test:watch": "vitest --reporter=verbose",
     "preflight:release": "bash scripts/release-preflight.sh",
     "preflight:release:strict": "bash scripts/release-preflight.sh --strict",
     "check:release-alignment": "node scripts/check-release-alignment.mjs",

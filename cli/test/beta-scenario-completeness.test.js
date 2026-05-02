@@ -10,7 +10,7 @@
  * Added: Turn 145 (Claude Opus 4.6) per HUMAN-ROADMAP P0 discipline requirement.
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';

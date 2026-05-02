@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
@@ -747,15 +747,15 @@ describe('Continuous Run', () => {
       assert.equal(newTurn.status, 'assigned');
       assert.equal(newTurn.reissued_from, turnId);
       assert.equal(newTurn.timeout_recovery_context.reason, 'productive_timeout');
-      assert.equal(newTurn.timeout_recovery_context.extended_deadline_minutes, 60);
-      assert.ok(new Date(newTurn.deadline_at).getTime() > Date.now() + 50 * 60 * 1000);
+      assert.equal(newTurn.timeout_recovery_context.extended_deadline_minutes, 120);
+      assert.ok(new Date(newTurn.deadline_at).getTime() > Date.now() + 110 * 60 * 1000);
 
       const events = readEvents(tmpDir);
       const retryEvents = events.filter((entry) => entry.event_type === 'auto_retried_productive_timeout');
       assert.equal(retryEvents.length, 1);
       assert.equal(retryEvents[0].payload.old_turn_id, turnId);
       assert.equal(retryEvents[0].payload.new_turn_id, step.new_turn_id);
-      assert.equal(retryEvents[0].payload.extended_deadline_minutes, 60);
+      assert.equal(retryEvents[0].payload.extended_deadline_minutes, 120);
     });
 
     it('BUG-100 leaves silent retries-exhausted subprocess failures blocked', async () => {

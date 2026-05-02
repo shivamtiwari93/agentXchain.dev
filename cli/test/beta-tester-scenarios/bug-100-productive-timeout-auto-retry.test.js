@@ -4,7 +4,7 @@
  * hard deadline before staging a result.
  */
 
-import { afterEach, it } from 'node:test';
+import { afterEach, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -53,6 +53,9 @@ function createBlockedProject({ firstOutput = true } = {}) {
     "const runtimeId = entry.runtime_id || 'local-dev';",
     "mkdirSync(join(root, '.planning'), { recursive: true });",
     "writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), `# Implementation\\n\\nRecovered ${turnId}\\n`);",
+    "const productPath = join(root, 'src', 'bug100-timeout-retry.js');",
+    'mkdirSync(dirname(productPath), { recursive: true });',
+    "writeFileSync(productPath, 'export const bug100TimeoutRetry = true;\\n');",
     'const result = {',
     "  schema_version: '1.0',",
     '  run_id: runId,',
@@ -63,7 +66,7 @@ function createBlockedProject({ firstOutput = true } = {}) {
     "  summary: 'Recovered productive timeout retry.',",
     "  decisions: [{ id: 'DEC-001', category: 'implementation', statement: 'Recovered productive timeout retry.', rationale: 'BUG-100 command-chain proof.' }],",
     "  objections: [],",
-    "  files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],",
+    "  files_changed: ['.planning/IMPLEMENTATION_NOTES.md', 'src/bug100-timeout-retry.js'],",
     "  artifacts_created: [],",
     "  verification: { status: 'pass', commands: ['node agent.js'], evidence_summary: 'staged result written', machine_evidence: [{ command: 'node agent.js', exit_code: 0 }] },",
     "  artifact: { type: 'workspace', ref: null },",

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { afterEach, before, describe, it } from 'node:test';
+import { afterEach, beforeAll, describe, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -435,7 +435,7 @@ describe('watch route intake — event-to-role routing', () => {
 describe('watch route — unit: resolveWatchRoute', () => {
   // Import the function directly for unit tests
   let resolveWatchRoute;
-  before(async () => {
+  beforeAll(async () => {
     const mod = await import('../src/lib/watch-events.js');
     resolveWatchRoute = mod.resolveWatchRoute;
   });

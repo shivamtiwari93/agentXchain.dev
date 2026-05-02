@@ -6,7 +6,7 @@
  * flags are used.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync,

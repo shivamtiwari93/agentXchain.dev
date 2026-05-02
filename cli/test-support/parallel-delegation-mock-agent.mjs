@@ -6,9 +6,8 @@
  * Deterministic agent for the parallel delegation proof. Uses AGENTXCHAIN_TURN_ID
  * to identify its specific turn when multiple agents run concurrently.
  *
- * This agent does NOT write workspace files — parallel delegation proof validates
- * the delegation lifecycle (queue, concurrent dispatch, review aggregation), not
- * workspace artifact observation.
+ * Dev child turns write a tiny product file because implementation-phase
+ * authoritative turns must declare real product code changes.
  *
  * Behavior:
  *   - Director (no delegation context): emits 2 delegations (del-001 → dev, del-002 → qa)
@@ -57,6 +56,13 @@ function writeTurnResult(turnResult) {
 }
 
 function baseResult(summary, overrides = {}) {
+  const isDevImplementation = roleId === 'dev' && index.phase === 'implementation';
+  const filesChanged = isDevImplementation ? ['src/parallel-delegation-dev.js'] : [];
+  if (isDevImplementation) {
+    const productPath = join(root, filesChanged[0]);
+    mkdirSync(dirname(productPath), { recursive: true });
+    writeFileSync(productPath, 'export const parallelDelegationDev = true;\n');
+  }
   return {
     schema_version: '1.0',
     run_id: runId,
@@ -74,7 +80,7 @@ function baseResult(summary, overrides = {}) {
       },
     ],
     objections: [],
-    files_changed: [],
+    files_changed: filesChanged,
     artifacts_created: [],
     verification: {
       status: 'pass',
@@ -82,7 +88,7 @@ function baseResult(summary, overrides = {}) {
       evidence_summary: 'parallel-delegation-proof',
       machine_evidence: [{ command: 'echo parallel-delegation-proof', exit_code: 0 }],
     },
-    artifact: { type: 'review', ref: null },
+    artifact: { type: isDevImplementation ? 'workspace' : 'review', ref: null },
     proposed_next_role: 'human',
     phase_transition_request: null,
     run_completion_request: null,

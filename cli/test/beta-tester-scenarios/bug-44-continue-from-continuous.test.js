@@ -1,4 +1,4 @@
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -79,6 +79,13 @@ function createProject() {
 }
 
 function stageTurnResult(root, turnId, payload) {
+  if (payload.role === 'dev' && !payload.files_changed?.some((p) => !p.startsWith('.planning/'))) {
+    const relPath = 'src/bug44-implementation-proof.js';
+    const absPath = join(root, relPath);
+    mkdirSync(dirname(absPath), { recursive: true });
+    writeFileSync(absPath, 'export const bug44ImplementationProof = true;\n');
+    payload.files_changed = [...(payload.files_changed || []), relPath];
+  }
   const resultPath = join(root, getTurnStagingResultPath(turnId));
   mkdirSync(dirname(resultPath), { recursive: true });
   writeFileSync(resultPath, JSON.stringify(payload, null, 2));

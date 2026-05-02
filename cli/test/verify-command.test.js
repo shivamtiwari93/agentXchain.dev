@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { parseCommandArgs } from '../src/lib/verify-command.js';
 
 describe('parseCommandArgs', () => {

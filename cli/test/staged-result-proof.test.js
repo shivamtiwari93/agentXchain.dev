@@ -11,7 +11,7 @@
  *      every placeholder shape — no divergent "proof" surfaces.
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -47,11 +47,11 @@ const REAL_TURN_RESULT = {
 describe('staged-result proof helper (BUG-51 placeholder rule)', () => {
   let root;
 
-  before(() => {
+  beforeAll(() => {
     root = mkdtempSync(join(tmpdir(), 'staged-result-proof-'));
   });
 
-  after(() => {
+  afterAll(() => {
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -86,11 +86,11 @@ describe('staged-result proof helper (BUG-51 placeholder rule)', () => {
 describe('watchdog + adapter proof agreement', () => {
   let root;
 
-  before(() => {
+  beforeAll(() => {
     root = mkdtempSync(join(tmpdir(), 'staged-result-agreement-'));
   });
 
-  after(() => {
+  afterAll(() => {
     rmSync(root, { recursive: true, force: true });
   });
 

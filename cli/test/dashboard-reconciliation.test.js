@@ -9,7 +9,7 @@
  * Acceptance IDs: AT-DASH-RECONCILE-001 through AT-DASH-RECONCILE-003
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';

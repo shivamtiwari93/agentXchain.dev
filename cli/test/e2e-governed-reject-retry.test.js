@@ -7,7 +7,7 @@
  * See: .planning/E2E_REJECT_RETRY_SPEC.md
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -123,7 +123,7 @@ describe('E2E governed reject/retry lifecycle', () => {
   let config;
   let rejectedFilesBefore;
 
-  before(() => {
+  beforeAll(() => {
     root = join(tmpdir(), `axc-e2e-retry-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
 
@@ -135,7 +135,7 @@ describe('E2E governed reject/retry lifecycle', () => {
     rejectedFilesBefore = [];
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 

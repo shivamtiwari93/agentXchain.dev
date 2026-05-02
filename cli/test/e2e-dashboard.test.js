@@ -5,7 +5,7 @@
  * .agentxchain/ fixture data for the v2 dashboard baseline.
  */
 
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -457,7 +457,7 @@ describe('Dashboard E2E acceptance', () => {
   let bridge;
   let port;
 
-  before(async () => {
+  beforeAll(async () => {
     root = tmpRoot();
     agentxchainDir = join(root, '.agentxchain');
     mkdirSync(agentxchainDir, { recursive: true });
@@ -472,7 +472,7 @@ describe('Dashboard E2E acceptance', () => {
     ({ port } = await bridge.start());
   });
 
-  after(async () => {
+  afterAll(async () => {
     await bridge.stop();
     rmSync(root, { recursive: true, force: true });
   });

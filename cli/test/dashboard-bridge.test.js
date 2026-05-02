@@ -8,7 +8,7 @@
  * See: DASHBOARD_GATE_ACTIONS_SPEC.md, AT-DASH-ACT-001 through AT-DASH-ACT-007.
  */
 
-import { describe, it, before, after, afterEach } from 'node:test';
+import { describe, it, beforeAll, afterAll, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, chmodSync } from 'fs';
 import { join } from 'path';
@@ -547,7 +547,7 @@ describe('Dashboard Bridge Server', () => {
   let bridge;
   let port;
 
-  before(async () => {
+  beforeAll(async () => {
     fixture = createTestFixture();
     bridge = createBridgeServer({
       agentxchainDir: fixture.axcDir,
@@ -558,7 +558,7 @@ describe('Dashboard Bridge Server', () => {
     port = result.port;
   });
 
-  after(async () => {
+  afterAll(async () => {
     await bridge.stop();
     rmSync(fixture.root, { recursive: true, force: true });
   });
@@ -1890,7 +1890,7 @@ HOOKEOF
     let emptyPort;
     let emptyFixture;
 
-    before(async () => {
+    beforeAll(async () => {
       const root = tmpDir();
       const axcDir = join(root, '.agentxchain');
       const dashDir = join(root, 'dashboard');
@@ -1908,7 +1908,7 @@ HOOKEOF
       emptyPort = result.port;
     });
 
-    after(async () => {
+    afterAll(async () => {
       await emptyBridge.stop();
       rmSync(emptyFixture.root, { recursive: true, force: true });
     });
@@ -1943,13 +1943,13 @@ describe('Dashboard State Reader', () => {
   let axcDir;
   let root;
 
-  before(() => {
+  beforeAll(() => {
     root = tmpDir();
     axcDir = join(root, '.agentxchain');
     mkdirSync(axcDir, { recursive: true });
   });
 
-  after(() => {
+  afterAll(() => {
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -2058,7 +2058,7 @@ describe('Dashboard File Watcher', () => {
   let root;
   let axcDir;
 
-  before(() => {
+  beforeAll(() => {
     root = tmpDir();
     axcDir = join(root, '.agentxchain');
     mkdirSync(axcDir, { recursive: true });
@@ -2066,7 +2066,7 @@ describe('Dashboard File Watcher', () => {
     writeFileSync(join(axcDir, 'state.json'), '{}');
   });
 
-  after(() => {
+  afterAll(() => {
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -2158,7 +2158,7 @@ describe('WebSocket invalidation', () => {
   let bridge;
   let port;
 
-  before(async () => {
+  beforeAll(async () => {
     fixture = createTestFixture();
     bridge = createBridgeServer({
       agentxchainDir: fixture.axcDir,
@@ -2169,7 +2169,7 @@ describe('WebSocket invalidation', () => {
     port = result.port;
   });
 
-  after(async () => {
+  afterAll(async () => {
     await bridge.stop();
     rmSync(fixture.root, { recursive: true, force: true });
   });
@@ -2461,7 +2461,7 @@ describe('Coordinator Timeout Bridge E2E', () => {
     return { root, axcDir, multiDir, dashDir, reposDir };
   }
 
-  before(async () => {
+  beforeAll(async () => {
     writeTimeoutFixture();
     bridge = createBridgeServer({
       agentxchainDir: axcDir,
@@ -2472,7 +2472,7 @@ describe('Coordinator Timeout Bridge E2E', () => {
     port = result.port;
   });
 
-  after(async () => {
+  afterAll(async () => {
     await bridge.stop();
     rmSync(root, { recursive: true, force: true });
   });
@@ -2639,7 +2639,7 @@ describe('Notification Bridge HTTP', () => {
     let port;
     let root;
 
-    before(async () => {
+    beforeAll(async () => {
       root = tmpDir();
       const axcDir = join(root, '.agentxchain');
       const dashDir = join(root, 'dashboard');
@@ -2652,7 +2652,7 @@ describe('Notification Bridge HTTP', () => {
       port = result.port;
     });
 
-    after(async () => {
+    afterAll(async () => {
       await bridge.stop();
       rmSync(root, { recursive: true, force: true });
     });
@@ -2673,7 +2673,7 @@ describe('Notification Bridge HTTP', () => {
     let root;
     let axcDir;
 
-    before(async () => {
+    beforeAll(async () => {
       root = tmpDir();
       axcDir = join(root, '.agentxchain');
       const dashDir = join(root, 'dashboard');
@@ -2737,7 +2737,7 @@ describe('Notification Bridge HTTP', () => {
       port = result.port;
     });
 
-    after(async () => {
+    afterAll(async () => {
       await bridge.stop();
       rmSync(root, { recursive: true, force: true });
     });
@@ -2842,7 +2842,7 @@ describe('Notification Bridge HTTP', () => {
     let port;
     let root;
 
-    before(async () => {
+    beforeAll(async () => {
       root = tmpDir();
       const axcDir = join(root, '.agentxchain');
       const dashDir = join(root, 'dashboard');
@@ -2877,7 +2877,7 @@ describe('Notification Bridge HTTP', () => {
       port = result.port;
     });
 
-    after(async () => {
+    afterAll(async () => {
       await bridge.stop();
       rmSync(root, { recursive: true, force: true });
     });
@@ -2905,7 +2905,7 @@ describe('GET /api/connectors HTTP bridge', () => {
     let port;
     let root;
 
-    before(async () => {
+    beforeAll(async () => {
       root = tmpDir();
       // No agentxchain.json — bare directory
       mkdirSync(join(root, '.agentxchain'), { recursive: true });
@@ -2918,7 +2918,7 @@ describe('GET /api/connectors HTTP bridge', () => {
       port = result.port;
     });
 
-    after(async () => {
+    afterAll(async () => {
       await bridge.stop();
       rmSync(root, { recursive: true, force: true });
     });
@@ -2937,7 +2937,7 @@ describe('GET /api/connectors HTTP bridge', () => {
     let port;
     let root;
 
-    before(async () => {
+    beforeAll(async () => {
       root = tmpDir();
       const axcDir = join(root, '.agentxchain');
       const dashDir = join(root, 'dashboard');
@@ -2961,7 +2961,7 @@ describe('GET /api/connectors HTTP bridge', () => {
       port = result.port;
     });
 
-    after(async () => {
+    afterAll(async () => {
       await bridge.stop();
       rmSync(root, { recursive: true, force: true });
     });
@@ -2981,7 +2981,7 @@ describe('GET /api/connectors HTTP bridge', () => {
     let root;
     let axcDir;
 
-    before(async () => {
+    beforeAll(async () => {
       root = tmpDir();
       axcDir = join(root, '.agentxchain');
       const dashDir = join(root, 'dashboard');
@@ -3043,7 +3043,7 @@ describe('GET /api/connectors HTTP bridge', () => {
       port = result.port;
     });
 
-    after(async () => {
+    afterAll(async () => {
       await bridge.stop();
       rmSync(root, { recursive: true, force: true });
     });
@@ -3122,7 +3122,7 @@ describe('GET /api/connectors HTTP bridge', () => {
     let port;
     let root;
 
-    before(async () => {
+    beforeAll(async () => {
       root = tmpDir();
       const axcDir = join(root, '.agentxchain');
       const dashDir = join(root, 'dashboard');
@@ -3192,7 +3192,7 @@ describe('GET /api/connectors HTTP bridge', () => {
       port = result.port;
     });
 
-    after(async () => {
+    afterAll(async () => {
       await bridge.stop();
       rmSync(root, { recursive: true, force: true });
     });
@@ -3298,7 +3298,7 @@ describe('GET /api/timeouts HTTP bridge', () => {
     let port;
     let root;
 
-    after(async () => {
+    afterAll(async () => {
       if (bridge) await bridge.stop();
       if (root) rmSync(root, { recursive: true, force: true });
     });

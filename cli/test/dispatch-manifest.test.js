@@ -7,7 +7,7 @@
  *   - Acceptance tests: AT-V21-001 through AT-V21-003, AT-V21-MANIFEST-001 through 003
  */
 
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';

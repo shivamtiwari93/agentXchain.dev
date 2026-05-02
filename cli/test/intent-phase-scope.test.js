@@ -1,4 +1,4 @@
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -70,6 +70,13 @@ function readState(root) {
 }
 
 function stageTurnResult(root, turnId, payload) {
+  if (payload.role === 'dev' && !payload.files_changed?.some((p) => !p.startsWith('.planning/'))) {
+    const relPath = 'src/intent-phase-implementation-proof.js';
+    const absPath = join(root, relPath);
+    mkdirSync(join(absPath, '..'), { recursive: true });
+    writeFileSync(absPath, 'export const intentPhaseImplementationProof = true;\n');
+    payload.files_changed = [...(payload.files_changed || []), relPath];
+  }
   const resultPath = join(root, getTurnStagingResultPath(turnId));
   mkdirSync(join(root, '.agentxchain', 'staging', turnId), { recursive: true });
   writeFileSync(resultPath, JSON.stringify(payload, null, 2));

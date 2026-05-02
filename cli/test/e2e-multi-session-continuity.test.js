@@ -22,7 +22,7 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { describe, it, after } from 'node:test';
+import { describe, it, afterAll } from 'vitest';
 import {
   existsSync,
   mkdirSync,
@@ -202,7 +202,7 @@ function createCompletionProject() {
 describe('E2E multi-session governed continuity', () => {
   const dirs = [];
 
-  after(() => {
+  afterAll(() => {
     for (const dir of dirs) {
       try { rmSync(dir, { recursive: true, force: true }); } catch {}
     }

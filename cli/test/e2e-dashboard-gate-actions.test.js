@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
@@ -17,7 +17,7 @@ const CLI_BIN = join(REPO_ROOT, 'cli', 'bin', 'agentxchain.js');
 const DASHBOARD_DIR = fileURLToPath(new URL('../dashboard', import.meta.url));
 const tempDirs = [];
 
-after(async () => {
+afterAll(async () => {
   for (const dir of tempDirs) {
     rmSync(dir, { recursive: true, force: true });
   }

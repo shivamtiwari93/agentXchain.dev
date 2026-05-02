@@ -6,7 +6,7 @@
  * AT-WKDASH-001 through AT-WKDASH-011 from WORKFLOW_KIT_DASHBOARD_SPEC.md.
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';

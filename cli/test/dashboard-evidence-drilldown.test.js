@@ -5,7 +5,7 @@
  * AT-V21-008: decision and hook-audit views honor phase/verdict/date filters
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { render as renderTimeline } from '../dashboard/components/timeline.js';

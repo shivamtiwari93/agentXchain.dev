@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { evaluateTokenBudget, SYSTEM_PROMPT, SEPARATOR } from '../src/lib/token-budget.js';
 import { countTokens } from '../src/lib/token-counter.js';

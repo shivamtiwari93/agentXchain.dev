@@ -11,7 +11,7 @@
  * Spec: .planning/BUG_70_IDLE_EXPANSION_CHARTER_MATERIALIZATION_SPEC.md
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';

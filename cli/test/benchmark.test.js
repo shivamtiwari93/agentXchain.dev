@@ -1,4 +1,4 @@
-import { before, describe, it } from 'node:test';
+import { beforeAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
@@ -28,7 +28,7 @@ describe('benchmark command', () => {
   let sharedBaselinePayload = null;
   let sharedBaselineStderr = '';
   let sharedBaselineStatus = null;
-  before(() => {
+  beforeAll(() => {
     const result = runCli(['benchmark', '--json']);
     sharedBaselineStatus = result.status;
     sharedBaselineStderr = result.stderr;

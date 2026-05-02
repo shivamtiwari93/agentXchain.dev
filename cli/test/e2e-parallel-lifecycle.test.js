@@ -7,7 +7,7 @@
  * See: .planning/E2E_PARALLEL_LIFECYCLE_SPEC.md
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, cpSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
@@ -148,7 +148,7 @@ describe('E2E parallel lifecycle', () => {
   let root;
   let config;
 
-  before(() => {
+  beforeAll(() => {
     root = join(tmpdir(), `axc-e2e-parallel-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
 
@@ -159,7 +159,7 @@ describe('E2E parallel lifecycle', () => {
     config = makeConfig();
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 

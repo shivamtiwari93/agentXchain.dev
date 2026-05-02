@@ -12,7 +12,7 @@
  *   4. Check CLI output or dispatch bundle for dirty file warning
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

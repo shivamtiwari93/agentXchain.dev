@@ -10,7 +10,7 @@
  * AT-CI-RUNNER-001 through AT-CI-RUNNER-005
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join } from 'path';

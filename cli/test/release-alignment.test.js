@@ -1,4 +1,4 @@
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,7 +38,7 @@ function writeOnboardingDocs(root, version) {
   writeFileSync(join(root, 'website-v2', 'docs', 'five-minute-tutorial.mdx'), prereqBlock);
 }
 
-after(() => {
+afterAll(() => {
   for (const fixture of FIXTURES) {
     rmSync(fixture.root, { recursive: true, force: true });
   }

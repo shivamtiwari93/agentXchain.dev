@@ -30,7 +30,7 @@
  * cleanup claim is wrong for that path.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -149,9 +149,9 @@ function countDiag(logs, label) {
   return logs.reduce((n, line) => (typeof line === 'string' && line.includes(needle) ? n + 1 : n), 0);
 }
 
-function requireClaudeProbe(t) {
+function requireClaudeProbe(ctx) {
   if (CLAUDE_PROBE.mode === 'skip') {
-    t.skip(CLAUDE_PROBE.reason);
+    ctx.skip(CLAUDE_PROBE.reason);
     return false;
   }
   if (CLAUDE_PROBE.mode === 'fail') {

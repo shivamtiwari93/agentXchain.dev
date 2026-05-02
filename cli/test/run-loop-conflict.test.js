@@ -9,7 +9,7 @@
  * Decisions: DEC-RUN-LOOP-CONFLICT-001, DEC-RUN-LOOP-CONFLICT-002
  */
 
-import { describe, it, beforeEach, after } from 'node:test';
+import { describe, it, beforeEach, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, dirname } from 'path';

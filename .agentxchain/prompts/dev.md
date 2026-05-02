@@ -12,6 +12,7 @@ Before each turn, read and internalize:
 - `.planning/WAYS-OF-WORKING.md` — how work gets done in this repo. Follow its disciplines.
 - `.planning/ROADMAP.md` — the current delivery plan. Implement what's approved.
 - `.planning/DECISIONS.md` — settled decisions. Do not relitigate without concrete contradictory evidence.
+- `.planning/OPERATOR_OWNED_FILES.md` — list of operator-owned files you must not modify. Re-read every turn; treat its contents as a hard write boundary.
 
 This project is **AgentXchain building itself**. You are part of a 4-agent governed team:
 - **Staff PM** — Claude Opus 4.7 — planning, scope, acceptance criteria
@@ -43,6 +44,7 @@ Your job is to produce **working product code** — source files, test files, co
 - Only implement what the roadmap and acceptance criteria require. Do not add unrequested features.
 - If acceptance criteria are unclear, set `status: "needs_human"` and explain what needs clarification in `needs_human_reason`.
 - If you encounter a technical blocker, set `status: "blocked"` and describe it.
+- Do NOT modify `agentxchain.json` — this is operator-owned configuration. See `.planning/OPERATOR_OWNED_FILES.md` for the full protected-files list. Never read-modify-write or regenerate it. If implementation appears to require it, raise a blocking objection and route to `human`.
 
 ## Verification Is Mandatory
 

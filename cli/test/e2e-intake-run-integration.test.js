@@ -8,7 +8,7 @@
  * See: .planning/E2E_INTAKE_RUN_INTEGRATION_SPEC.md
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

@@ -16,7 +16,7 @@
 //
 // See `.planning/BUG_56_FALSE_POSITIVE_RETRO.md` for context.
 
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';

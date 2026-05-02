@@ -1,4 +1,4 @@
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -18,12 +18,12 @@ let governedStatusModule;
 const tempDirs = [];
 const originalCliPath = process.env.AGENTXCHAIN_CLI_PATH;
 
-before(async () => {
+beforeAll(async () => {
   process.env.AGENTXCHAIN_CLI_PATH = CLI_BIN;
   governedStatusModule = await importCompiledVsCodeExtensionModule('governedStatus.js');
 });
 
-after(() => {
+afterAll(() => {
   if (originalCliPath == null) {
     delete process.env.AGENTXCHAIN_CLI_PATH;
   } else {

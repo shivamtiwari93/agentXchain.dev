@@ -5,7 +5,7 @@
  * for both active turns (elapsed) and completed turns (duration + accepted_at).
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 
 import {

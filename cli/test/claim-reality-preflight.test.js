@@ -15,7 +15,7 @@
  * Runs as part of the release-gate test suite.
  */
 
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,
@@ -36,6 +36,14 @@ import { pathToFileURL } from 'node:url';
 const CLI_DIR = resolve(import.meta.dirname, '..');
 const SCENARIOS_DIR = join(import.meta.dirname, 'beta-tester-scenarios');
 const TEMP_PATHS = [];
+
+function ensureImplementationProductFixture(root, fileName = 'implementation-proof.js') {
+  const relPath = `src/${fileName}`;
+  const absPath = join(root, relPath);
+  mkdirSync(dirname(absPath), { recursive: true });
+  writeFileSync(absPath, `export const implementationProof = ${JSON.stringify(fileName)};\n`);
+  return relPath;
+}
 
 function writeClaudeShim(root, body) {
   const shimDir = join(root, 'shim-bin');
@@ -91,7 +99,7 @@ const BUG55_COMBINED_FIXTURE_FILES = [
 let packedFilesCache = null;
 let extractedPackageCache = null;
 
-after(() => {
+afterAll(() => {
   while (TEMP_PATHS.length > 0) {
     rmSync(TEMP_PATHS.pop(), { recursive: true, force: true });
   }
@@ -907,7 +915,7 @@ describe('claim-reality preflight', () => {
       role: 'dev', runtime_id: 'r-dev', status: 'completed',
       summary: 'Implementation repair done, advancing to QA.',
       decisions: [], objections: [],
-      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md', ensureImplementationProductFixture(root, 'bug44-packaged-phase-advance.js')],
       verification: { status: 'pass' },
       artifact: { type: 'workspace', ref: null },
       proposed_next_role: 'qa', phase_transition_request: 'qa',
@@ -1071,7 +1079,7 @@ describe('claim-reality preflight', () => {
       summary: 'Completed the implementation repair and advanced the run to QA.',
       decisions: [],
       objections: [],
-      files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+      files_changed: ['.planning/IMPLEMENTATION_NOTES.md', ensureImplementationProductFixture(root, 'bug44-continue-from.js')],
       verification: { status: 'pass' },
       artifact: { type: 'workspace', ref: null },
       proposed_next_role: 'qa',
@@ -4378,10 +4386,10 @@ exec sleep 30
       "const session = JSON.parse(readFileSync(join(cwd, '.agentxchain/continuous-session.json'), 'utf8'));",
       "const objective = String(session.current_vision_objective || runId);",
       "const slug = objective.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || turnId;",
-      "const relPath = `.planning/objectives/${slug}.md`;",
+      "const relPath = `src/objectives/${slug}.js`;",
       "const absPath = join(cwd, relPath);",
       "mkdirSync(dirname(absPath), { recursive: true });",
-      "writeFileSync(absPath, `# Objective\\n\\n- Turn: ${turnId}\\n- Run: ${runId}\\n- Objective: ${objective}\\n`);",
+      "writeFileSync(absPath, `export const objective = ${JSON.stringify(objective)};\\nexport const turnId = ${JSON.stringify(turnId)};\\nexport const runId = ${JSON.stringify(runId)};\\n`);",
       "const result = {",
       "  schema_version: '1.0',",
       '  run_id: runId,',

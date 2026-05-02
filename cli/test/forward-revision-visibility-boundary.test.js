@@ -12,7 +12,7 @@
  * must be updated deliberately — not silently bypassed.
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { VALID_RUN_EVENTS } from '../src/lib/run-events.js';
 

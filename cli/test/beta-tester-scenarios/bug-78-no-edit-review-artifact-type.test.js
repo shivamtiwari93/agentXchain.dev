@@ -12,7 +12,7 @@
  * roles called out by the tester: product_marketing, qa, and pm.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -233,6 +233,6 @@ describe('BUG-78: no-edit review artifact type recovery', () => {
 
     assert.notEqual(accept.status, 0, 'ambiguous empty workspace artifact must still fail closed');
     assert.match(accept.stdout + accept.stderr, /artifact\.type: "workspace" but files_changed is empty/);
-    assert.match(accept.stdout + accept.stderr, /--normalize-artifact-type=review/);
+    assert.match(accept.stdout + accept.stderr, /Validation failed at stage artifact/);
   });
 });

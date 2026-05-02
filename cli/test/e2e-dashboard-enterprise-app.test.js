@@ -12,7 +12,7 @@
  * AT-DASH-ENT-007: Render produces correct owner resolution badges per phase
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

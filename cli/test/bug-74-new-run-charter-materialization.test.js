@@ -11,7 +11,7 @@
  * Spec: .planning/BUG_74_NEW_RUN_CHARTER_MATERIALIZATION_SPEC.md
  */
 
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';

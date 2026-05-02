@@ -8,7 +8,7 @@
  * See: .planning/E2E_SMOKE_TEST_SPEC.md
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync } from 'fs';
 import { join, dirname } from 'path';
@@ -129,7 +129,7 @@ describe('E2E governed lifecycle (3-phase happy path)', () => {
   let root;
   let config;
 
-  before(() => {
+  beforeAll(() => {
     // Copy example project to temp dir
     root = join(tmpdir(), `axc-e2e-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
@@ -142,7 +142,7 @@ describe('E2E governed lifecycle (3-phase happy path)', () => {
     config = makeConfig();
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 

@@ -13,7 +13,7 @@
  *   5. Verify their baseline references agree
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

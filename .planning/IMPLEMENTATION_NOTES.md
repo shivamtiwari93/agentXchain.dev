@@ -1,5 +1,38 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 MV Vitest Full-Suite Migration
+
+### Challenge
+
+The previous PM turn correctly identified that the 36-file slice architecture had become migration overhead, but I do not accept a narrow implementation that only rewrites imports and leaves release tooling on `node --test`. Native Vitest imports make every direct `node --test` test path invalid, so release preflight's targeted publish gate also had to move onto the package's Vitest runner.
+
+### Changes
+
+- Added `cli/scripts/migrate-node-test-to-vitest.mjs`, an idempotent codemod for the 663 CLI test files.
+- Ran the codemod across `cli/test/`, replacing `node:test` imports with native `vitest` imports and renaming `before` / `after` hooks to `beforeAll` / `afterAll`.
+- Replaced the Vitest slice config with the full `test/**/*.test.js` glob, serial file execution, and a 60s timeout.
+- Consolidated package scripts to `npm test` and `npm run test:watch`; removed the `test:node`, `test:vitest`, and `test:beta` split.
+- Deleted the Vitest `node:test` shim and slice manifest.
+- Updated release preflight's targeted publish-gate test runner to execute through `npm test -- <files>` so it follows the new Vitest-only contract.
+- Updated README testing docs, the Vitest contract regression, the release-preflight fixtures, and ROADMAP status.
+- Fixed the mixed-runtime parallel failure-path fixture so the proposed `integrator` API-proxy turn no longer gets rewritten to a direct `workspace` artifact by the test helper.
+- Fixed the full-suite follow-up failures exposed by the first Vitest run: updated the productive-timeout retry assertion to the shipped 120-minute extension and made product-example test scripts invoke explicit `*.test.js` files serially.
+
+### Verification
+
+- `node cli/scripts/migrate-node-test-to-vitest.mjs`
+- `grep -RIn "from 'node:test'\|from \"node:test\"" cli/test`
+- `node --check cli/scripts/migrate-node-test-to-vitest.mjs`
+- `bash -n cli/scripts/release-preflight.sh`
+- `(cd cli && npm run test -- --run test/vitest-contract.test.js test/release-preflight.test.js)`
+- `(cd cli && npm test -- --run test/e2e-mixed-runtime-parallel-failure-path.test.js)`
+- `(cd cli && npm test -- --run test/continuous-run.test.js test/product-examples-contract.test.js)`
+- `(cd examples/habit-board && npm test)`
+- `(cd examples/async-standup-bot && npm test)`
+- `(cd examples/trail-meals-mobile && npm test)`
+- `(cd examples/schema-guard && npm test)`
+- `npm test`
+
 ## 2026-05-02 M3 eng_director Acceptance Pipeline Regression
 
 ### Challenge

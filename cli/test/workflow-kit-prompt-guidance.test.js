@@ -3,7 +3,7 @@
  * Per WORKFLOW_KIT_PROMPT_GUIDANCE_SPEC.md (AT-WKP-001 through AT-WKP-005).
  */
 
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';

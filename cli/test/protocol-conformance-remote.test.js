@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { verifyProtocolConformance } from '../src/lib/protocol-conformance.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

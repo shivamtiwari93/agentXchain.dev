@@ -1,4 +1,4 @@
-import { describe, it, before, after, beforeEach } from 'node:test';
+import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -272,7 +272,7 @@ describe('run-loop', () => {
   // AT-RUNLOOP-010 + AT-RUNLOOP-012: Boundary purity
   describe('boundary purity', () => {
     let source;
-    before(async () => {
+    beforeAll(async () => {
       source = readFileSync(join(cliRoot, 'src', 'lib', 'run-loop.js'), 'utf8');
     });
 
@@ -308,7 +308,7 @@ describe('run-loop', () => {
     let root, config, result;
     const events = [];
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig({ gate_semantic_coverage_mode: 'lenient' });
       scaffoldProject(root, config);
@@ -317,7 +317,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('returns ok: true', () => {
       assert.deepEqual(result.errors, [], `errors: ${JSON.stringify(result.errors)}`);
@@ -356,7 +356,7 @@ describe('run-loop', () => {
   describe('onEvent emissions', () => {
     let root, config, events;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig();
       scaffoldProject(root, config);
@@ -366,7 +366,7 @@ describe('run-loop', () => {
       await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('emits turn_assigned for each turn', () => {
       const assigned = events.filter(e => e.type === 'turn_assigned');
@@ -394,7 +394,7 @@ describe('run-loop', () => {
   describe('onEvent callback failures are advisory', () => {
     let root, config, result;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig();
       scaffoldProject(root, config);
@@ -406,7 +406,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('still completes the governed lifecycle', () => {
       assert.equal(result.ok, true);
@@ -426,7 +426,7 @@ describe('run-loop', () => {
   describe('gate_held on phase transition', () => {
     let root, config, result;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig();
       scaffoldProject(root, config);
@@ -458,7 +458,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('returns ok: false', () => {
       assert.equal(result.ok, false);
@@ -477,7 +477,7 @@ describe('run-loop', () => {
   describe('caller_stopped', () => {
     let root, config, result;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig();
       scaffoldProject(root, config);
@@ -491,7 +491,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('returns ok: false with caller_stopped', () => {
       assert.equal(result.ok, false);
@@ -507,7 +507,7 @@ describe('run-loop', () => {
   describe('max_turns_reached', () => {
     let root, config, result;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig({
         roles: {
@@ -549,7 +549,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs, { maxTurns: 2 });
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('stop_reason is max_turns_reached', () => {
       assert.equal(result.stop_reason, 'max_turns_reached');
@@ -564,7 +564,7 @@ describe('run-loop', () => {
   describe('rejection and retry', () => {
     let root, config, result;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig();
       scaffoldProject(root, config);
@@ -607,7 +607,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('executed 1 accepted turn after a rejection', () => {
       assert.equal(result.turns_executed, 1);
@@ -632,7 +632,7 @@ describe('run-loop', () => {
   describe('staged-result minimum shape guard', () => {
     let root, config, result, events;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig();
       scaffoldProject(root, config);
@@ -656,7 +656,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('does NOT mark any turn accepted', () => {
       assert.equal(result.turn_history.every(t => t.accepted === false), true,
@@ -686,7 +686,7 @@ describe('run-loop', () => {
   describe('dispatch callback error', () => {
     let root, config, result;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig();
       scaffoldProject(root, config);
@@ -700,7 +700,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('returns dispatch_error', () => {
       assert.equal(result.stop_reason, 'dispatch_error');
@@ -715,7 +715,7 @@ describe('run-loop', () => {
   describe('dispatch callback typed blocker', () => {
     let root, config, result, state;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig();
       scaffoldProject(root, config);
@@ -744,7 +744,7 @@ describe('run-loop', () => {
       state = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('BUG-110: blocks the run without retrying/rejecting the turn', () => {
       assert.equal(result.ok, false);
@@ -759,7 +759,7 @@ describe('run-loop', () => {
   describe('in-flight dispatch timeout blocking', () => {
     let root, config, result, events, state, ledger;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig({
         timeouts: {
@@ -795,7 +795,7 @@ describe('run-loop', () => {
         .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('AT-RUN-TIMEOUT-001: blocks the run on timed-out in-flight dispatch', () => {
       assert.equal(result.ok, false);
@@ -820,7 +820,7 @@ describe('run-loop', () => {
   describe('auto-advancing phase gates', () => {
     let root, config, result, gateCallCount;
 
-    before(async () => {
+    beforeAll(async () => {
       root = makeTempRoot();
       config = makeConfig({
         gates: {
@@ -846,7 +846,7 @@ describe('run-loop', () => {
       result = await runLoop(root, config, cbs);
     });
 
-    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+    afterAll(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
 
     it('completed successfully', () => {
       assert.equal(result.ok, true);

@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, cpSync, readFileSync, rmSync, existsSync, readdirSync, statSync } from 'node:fs';
@@ -74,12 +74,12 @@ describe('built-in plugin discovery', () => {
   describe('short-name install from bundled path', () => {
     let tmpDir;
 
-    before(() => {
+    beforeAll(() => {
       tmpDir = mkdtempSync(join(tmpdir(), 'axc-builtin-plugin-'));
       cpSync(GOVERNED_FIXTURE, join(tmpDir, 'agentxchain.json'));
     });
 
-    after(() => {
+    afterAll(() => {
       if (tmpDir && existsSync(tmpDir)) rmSync(tmpDir, { recursive: true });
     });
 

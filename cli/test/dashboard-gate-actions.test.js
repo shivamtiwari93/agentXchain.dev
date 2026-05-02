@@ -9,7 +9,7 @@
  * Acceptance IDs: AT-DASH-GA-001 through AT-DASH-GA-006
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

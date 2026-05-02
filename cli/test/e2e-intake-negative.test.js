@@ -9,7 +9,7 @@
  * - Scan batch ingestion
  */
 
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,
@@ -140,11 +140,11 @@ function recordIntent(root, description) {
 describe('E2E intake negative paths', () => {
   let root;
 
-  before(() => {
+  beforeAll(() => {
     root = createGovernedRepo();
   });
 
-  after(() => {
+  afterAll(() => {
     try {
       rmSync(root, { recursive: true, force: true });
     } catch {}

@@ -12,7 +12,7 @@
  * See: .planning/PLUGIN_HOOK_SYSTEM_SPEC.md
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
@@ -146,7 +146,7 @@ function stageTurnResult(root, state, overrides = {}) {
 describe('E2E hook composition: blocking before_validation halts cleanly', () => {
   let root;
 
-  before(() => {
+  beforeAll(() => {
     root = join(tmpdir(), `axc-hook-e2e-block-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
     execSync('git init', { cwd: root, stdio: 'ignore' });
@@ -165,7 +165,7 @@ fi
 `);
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 
@@ -224,7 +224,7 @@ describe('E2E hook composition: advisory after_acceptance with annotations', () 
   let root;
   let config;
 
-  before(() => {
+  beforeAll(() => {
     root = join(tmpdir(), `axc-hook-e2e-advisory-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
     execSync('git init', { cwd: root, stdio: 'ignore' });
@@ -264,7 +264,7 @@ echo '{"verdict":"block","message":"I tried to block but cannot","annotations":[
     config = makeConfigWithHooks(hooks);
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 
@@ -332,7 +332,7 @@ describe('E2E hook composition: multi-phase hooks across full lifecycle', () => 
   let root;
   let config;
 
-  before(() => {
+  beforeAll(() => {
     root = join(tmpdir(), `axc-hook-e2e-multi-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
     execSync('git init', { cwd: root, stdio: 'ignore' });
@@ -396,7 +396,7 @@ echo '{"verdict":"allow","message":"escalation notified","annotations":[]}'
     config = makeConfigWithHooks(hooks);
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 
@@ -584,7 +584,7 @@ describe('E2E hook composition: full lifecycle includes after_validation, before
   let devTurnId;
   let qaTurnId;
 
-  before(() => {
+  beforeAll(() => {
     root = join(tmpdir(), `axc-hook-e2e-full-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
     execSync('git init', { cwd: root, stdio: 'ignore' });
@@ -671,7 +671,7 @@ echo "{\\"verdict\\":\\"allow\\",\\"message\\":\\"before_gate:\${GATE_TYPE}\\",\
     });
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 
@@ -824,7 +824,7 @@ describe('E2E hook composition: before_gate block preserves pending approval for
   let root;
   let config;
 
-  before(() => {
+  beforeAll(() => {
     root = join(tmpdir(), `axc-hook-e2e-gate-replay-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
     execSync('git init', { cwd: root, stdio: 'ignore' });
@@ -850,7 +850,7 @@ fi
     });
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 
@@ -905,7 +905,7 @@ fi
 describe('E2E hook composition: on_escalation exclusion for hook-caused blocks', () => {
   let root;
 
-  before(() => {
+  beforeAll(() => {
     root = join(tmpdir(), `axc-hook-e2e-esc-${randomBytes(6).toString('hex')}`);
     cpSync(EXAMPLE_DIR, root, { recursive: true });
     execSync('git init', { cwd: root, stdio: 'ignore' });
@@ -926,7 +926,7 @@ echo '{"verdict":"block","message":"always blocks","annotations":[]}'
 `);
   });
 
-  after(() => {
+  afterAll(() => {
     try { rmSync(root, { recursive: true, force: true }); } catch {}
   });
 

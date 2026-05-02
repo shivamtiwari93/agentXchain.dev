@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -13,7 +13,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..');
 const CLI_BIN = join(REPO_ROOT, 'cli', 'bin', 'agentxchain.js');
 const tempDirs = [];
 
-after(() => {
+afterAll(() => {
   for (const dir of tempDirs) {
     rmSync(dir, { recursive: true, force: true });
   }

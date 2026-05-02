@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';

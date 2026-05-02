@@ -1,4 +1,4 @@
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { chmodSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -59,7 +59,7 @@ function createFixture({
     mkdirSync(testDir, { recursive: true });
     writeFileSync(
       join(testDir, 'release-preflight.test.js'),
-      "import { describe, it } from 'node:test';\nimport assert from 'node:assert/strict';\ndescribe('gate', () => { it('passes', () => { assert.ok(true); }); });\n",
+      "import { describe, it } from 'vitest';\nimport assert from 'node:assert/strict';\ndescribe('gate', () => { it('passes', () => { assert.ok(true); }); });\n",
     );
   }
 
@@ -68,7 +68,7 @@ function createFixture({
     mkdirSync(scenarioDir, { recursive: true });
     writeFileSync(
       join(scenarioDir, 'bug-99-fixture.test.js'),
-      "import { describe, it } from 'node:test';\nimport assert from 'node:assert/strict';\ndescribe('beta scenario gate', () => { it('passes', () => { assert.ok(true); }); });\n",
+      "import { describe, it } from 'vitest';\nimport assert from 'node:assert/strict';\ndescribe('beta scenario gate', () => { it('passes', () => { assert.ok(true); }); });\n",
     );
   }
 
@@ -147,9 +147,9 @@ function runPreflight(cliDir, fakeBinDir, args = [], envOverrides = {}) {
 describe('release-preflight.sh', () => {
   const fixtures = [];
 
-  before(() => {});
+  beforeAll(() => {});
 
-  after(() => {
+  afterAll(() => {
     for (const fixture of fixtures) {
       rmSync(fixture.root, { recursive: true, force: true });
     }
@@ -242,7 +242,7 @@ describe('release-preflight.sh', () => {
     assert.match(result.stdout, /Results: 6 passed, 0 failed, 1 warnings/);
   });
 
-  it('summarizes dual-runner npm test output without losing the pass count', () => {
+  it('summarizes mixed-runner npm test output without losing the pass count', () => {
     const fixture = createFixture({ version: '2.21.0', changelogVersions: ['2.21.0'] });
     fixtures.push(fixture);
 

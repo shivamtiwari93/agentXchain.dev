@@ -4,7 +4,7 @@
  * require a human approval boundary.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync, execSync, spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -128,6 +128,13 @@ function spawnStep(cwd) {
 }
 
 function stageTurnResult(cwd, turn, state, overrides = {}) {
+  const isDevTurn = turn.assigned_role === 'dev';
+  const defaultFilesChanged = isDevTurn ? ['src/bug59-implementation-proof.js'] : [];
+  if (isDevTurn) {
+    const absPath = join(cwd, defaultFilesChanged[0]);
+    mkdirSync(dirname(absPath), { recursive: true });
+    writeFileSync(absPath, 'export const bug59ImplementationProof = true;\n');
+  }
   const result = {
     schema_version: '1.0',
     run_id: state.run_id,
@@ -148,7 +155,7 @@ function stageTurnResult(cwd, turn, state, overrides = {}) {
       statement: 'Keep BUG-59 auto-approval scoped to routine non-credentialed gates.',
       status: 'raised',
     }],
-    files_changed: [],
+    files_changed: defaultFilesChanged,
     artifacts_created: [],
     verification: {
       status: 'pass',
@@ -164,6 +171,10 @@ function stageTurnResult(cwd, turn, state, overrides = {}) {
     cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
     ...overrides,
   };
+  if (isDevTurn && !result.files_changed.some((p) => !p.startsWith('.planning/'))) {
+    result.files_changed = [...result.files_changed, defaultFilesChanged[0]];
+  }
+  if (isDevTurn) result.artifact = { type: 'workspace', ref: null };
 
   const stagingDir = join(cwd, '.agentxchain', 'staging', turn.turn_id);
   mkdirSync(stagingDir, { recursive: true });
@@ -197,6 +208,9 @@ function writeImplementationArtifacts(cwd) {
     join(cwd, '.planning', 'IMPLEMENTATION_NOTES.md'),
     '# Implementation Notes\n\n## Changes\n\nConfigured the generated project for BUG-59 full-auto proof.\n\n## Verification\n\n- `node --test bug-59`\n',
   );
+  const productPath = join(cwd, 'src', 'bug59-implementation-proof.js');
+  mkdirSync(dirname(productPath), { recursive: true });
+  writeFileSync(productPath, 'export const bug59ImplementationProof = true;\n');
 }
 
 function writeQaArtifacts(cwd) {

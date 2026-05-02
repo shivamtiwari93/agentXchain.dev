@@ -14,7 +14,7 @@
  *  10. reports gate-pass evidence through phase_gate_status
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';

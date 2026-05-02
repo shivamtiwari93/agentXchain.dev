@@ -15,11 +15,12 @@
  * Spec: .planning/MIXED_RUNTIME_PARALLEL_FAILURE_PATH_SPEC.md
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync,
   mkdirSync,
+  existsSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -176,6 +177,21 @@ function writeMixedRuntimeConfig(cwd) {
 }
 
 function stageTurnResult(cwd, turn, state, overrides = {}) {
+  const isReviewRole = turn.assigned_role === 'qa' || turn.assigned_role === 'pm';
+  const isProposedRole = turn.assigned_role === 'integrator';
+  const writesWorkspace = !isReviewRole && !isProposedRole;
+  const filesChanged = overrides.files_changed ?? (writesWorkspace ? [`src/${turn.assigned_role}-failure-path.js`] : []);
+  const defaultProductPath = `src/${turn.assigned_role}-failure-path.js`;
+  if (writesWorkspace && !filesChanged.some((p) => !p.startsWith('.planning/'))) {
+    filesChanged.push(defaultProductPath);
+  }
+  for (const relPath of filesChanged) {
+    if (relPath.startsWith('.planning/')) continue;
+    const absPath = join(cwd, relPath);
+    if (existsSync(absPath)) continue;
+    mkdirSync(dirname(absPath), { recursive: true });
+    writeFileSync(absPath, `export const ${turn.assigned_role}FailurePath = true;\n`);
+  }
   const result = {
     schema_version: '1.0',
     run_id: state.run_id,
@@ -202,7 +218,7 @@ function stageTurnResult(cwd, turn, state, overrides = {}) {
             status: 'raised',
           },
         ],
-    files_changed: [],
+    files_changed: filesChanged,
     artifacts_created: [],
     verification: {
       status: 'pass',
@@ -210,7 +226,7 @@ function stageTurnResult(cwd, turn, state, overrides = {}) {
       evidence_summary: 'Fixture verification passed.',
       machine_evidence: [],
     },
-    artifact: { type: turn.assigned_role === 'qa' || turn.assigned_role === 'pm' ? 'review' : 'workspace', ref: null },
+    artifact: { type: writesWorkspace ? 'workspace' : 'review', ref: null },
     proposed_next_role: 'human',
     phase_transition_request: null,
     run_completion_request: false,
@@ -218,6 +234,9 @@ function stageTurnResult(cwd, turn, state, overrides = {}) {
     cost: { input_tokens: 100, output_tokens: 200, usd: 0.01 },
     ...overrides,
   };
+  if (writesWorkspace && !result.files_changed.some((p) => !p.startsWith('.planning/'))) {
+    result.files_changed = [...result.files_changed, defaultProductPath];
+  }
 
   const stagingDir = join(cwd, '.agentxchain', 'staging', turn.turn_id);
   mkdirSync(stagingDir, { recursive: true });

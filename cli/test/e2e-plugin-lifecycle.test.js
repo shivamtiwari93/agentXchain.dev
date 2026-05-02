@@ -7,7 +7,7 @@
  * See: .planning/PLUGIN_LIFECYCLE_E2E_SPEC.md
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

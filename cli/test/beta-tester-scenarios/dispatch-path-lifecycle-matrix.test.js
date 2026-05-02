@@ -11,7 +11,7 @@
  *      gate/file rejection when the gated file was not touched.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -192,6 +192,11 @@ function injectIntent(root, charter, acceptance) {
 
 function stageValidRetryCandidate(root, turn) {
   const state = readState(root);
+  const retryProofPath = `src/retry-candidate-${turn.turn_id}.js`;
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, retryProofPath), 'export const retryCandidateProof = true;\n');
+  execSync(`git add ${retryProofPath} && git commit -m "retry candidate proof"`, { cwd: root, stdio: 'ignore' });
+
   writeTurnScopedResult(root, turn.turn_id, {
     schema_version: '1.0',
     run_id: state.run_id,
@@ -216,13 +221,13 @@ function stageValidRetryCandidate(root, turn) {
         status: 'raised',
       },
     ],
-    files_changed: [],
+    files_changed: [retryProofPath],
     artifacts_created: [],
     verification: {
       status: 'pass',
       evidence_summary: 'Fixture-only valid staged result for retry rebinding proof.',
     },
-    artifact: { type: 'review', ref: 'review:dispatch-lifecycle-matrix' },
+    artifact: { type: 'workspace', ref: null },
     proposed_next_role: 'human',
     phase_transition_request: null,
     cost: { usd: 0.01 },
@@ -239,6 +244,10 @@ function seedRetryingTurn(root, commandName) {
   // Accept the initial turn quickly so we can inject + re-dispatch
   const initialTurn = getSingleActiveTurn(root);
   const state = readState(root);
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src', 'bootstrap.js'), 'export const bootstrapProof = true;\n');
+  execSync('git add src/bootstrap.js && git commit -m "bootstrap proof"', { cwd: root, stdio: 'ignore' });
+
   writeTurnScopedResult(root, initialTurn.turn_id, {
     schema_version: '1.0',
     run_id: state.run_id,
@@ -249,10 +258,10 @@ function seedRetryingTurn(root, commandName) {
     summary: 'Initial bootstrap turn.',
     decisions: [],
     objections: [],
-    files_changed: [],
+    files_changed: ['src/bootstrap.js'],
     artifacts_created: [],
     verification: { status: 'pass', evidence_summary: 'bootstrap' },
-    artifact: { type: 'review', ref: null },
+    artifact: { type: 'workspace', ref: null },
     proposed_next_role: 'dev',
     phase_transition_request: null,
     cost: { usd: 0.001 },

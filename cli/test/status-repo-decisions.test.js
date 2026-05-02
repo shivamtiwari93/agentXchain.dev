@@ -1,5 +1,5 @@
-import { after } from 'node:test';
-import { describe, it } from 'node:test';
+import { afterAll } from 'vitest';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -102,7 +102,7 @@ function createRepoDecisionFixture() {
   return dir;
 }
 
-after(() => {
+afterAll(() => {
   for (const dir of dirs) {
     rmSync(dir, { recursive: true, force: true });
   }

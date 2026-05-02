@@ -13,7 +13,7 @@
  * Uses async spawn because the mock HTTP server runs in the test process.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync,

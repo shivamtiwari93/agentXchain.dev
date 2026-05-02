@@ -8,7 +8,7 @@
  * No mocking of runLoop, adapters, or state machine — the real code path runs.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync,

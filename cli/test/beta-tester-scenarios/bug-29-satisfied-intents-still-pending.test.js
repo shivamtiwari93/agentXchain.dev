@@ -14,7 +14,7 @@
  * the intent should auto-complete.
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdirSync,

@@ -1,4 +1,4 @@
-import { after, describe, it } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -39,7 +39,7 @@ function setupProject(stateOverrides = {}) {
   return { dir, config, state };
 }
 
-after(() => {
+afterAll(() => {
   for (const dir of dirs) {
     rmSync(dir, { recursive: true, force: true });
   }

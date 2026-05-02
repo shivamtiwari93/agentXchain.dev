@@ -8,7 +8,7 @@
  *   - `step --role qa` dispatches a review_only turn over HTTP and derives a review artifact
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync,

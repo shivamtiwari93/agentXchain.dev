@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import {
   mkdtempSync,
   mkdirSync,

@@ -8,7 +8,7 @@
  * See: .planning/E2E_INTAKE_COORDINATOR_BLOCKED_SPEC.md
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';

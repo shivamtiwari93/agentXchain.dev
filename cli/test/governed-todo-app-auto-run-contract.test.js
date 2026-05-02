@@ -12,7 +12,7 @@
  *   8. Cleans up temp directory on completion
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';

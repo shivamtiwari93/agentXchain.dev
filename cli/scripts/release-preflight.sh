@@ -179,15 +179,15 @@ if [[ "$PUBLISH_GATE" -eq 1 ]]; then
       fail "No beta-tester scenario tests found for release-gate verification"
       TEST_OUTPUT=""
       TEST_STATUS=1
-    elif run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 node --test "${GATE_TEST_ARGS[@]}"; then
+    elif run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test -- "${GATE_TEST_ARGS[@]}"; then
       TEST_STATUS=0
     else
       TEST_STATUS=$?
     fi
-    NODE_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ tests / { print $3; exit }')"
-    NODE_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ fail / { print $3; exit }')"
-    if [ "$TEST_STATUS" -eq 0 ] && [ "${NODE_FAIL:-0}" = "0" ]; then
-      pass "${NODE_PASS:-?} release-gate tests passed, 0 failures"
+    VITEST_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^[[:space:]]*Tests[[:space:]]+[0-9]+[[:space:]]+passed/ { for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+$/) { print $i; exit } }')"
+    VITEST_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^[[:space:]]*Tests[[:space:]]+[0-9]+[[:space:]]+failed/ { for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+$/) { print $i; exit } }')"
+    if [ "$TEST_STATUS" -eq 0 ] && [ "${VITEST_FAIL:-0}" = "0" ]; then
+      pass "${VITEST_PASS:-?} release-gate tests passed, 0 failures"
     else
       fail "Release-gate tests failed"
       printf '%s\n' "$TEST_OUTPUT" | tail -20

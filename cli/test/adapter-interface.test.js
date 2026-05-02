@@ -1,4 +1,4 @@
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -153,7 +153,7 @@ describe('adapter interface', () => {
         },
       ],
       objections: [],
-      files_changed: [],
+      files_changed: ['src/adapter-interface-proof.js'],
       artifacts_created: [],
       verification: {
         status: 'pass',
@@ -161,7 +161,7 @@ describe('adapter interface', () => {
         evidence_summary: 'Mock local agent wrote a valid staged result.',
         machine_evidence: [{ command: 'node mock-local-agent.js', exit_code: 0 }],
       },
-      artifact: { type: 'review', ref: 'git:dirty' },
+      artifact: { type: 'workspace', ref: null },
       proposed_next_role: 'qa',
       phase_transition_request: null,
       run_completion_request: null,
@@ -174,6 +174,8 @@ describe('adapter interface', () => {
       `
         const fs = require('fs');
         const path = require('path');
+        fs.mkdirSync(path.join(process.cwd(), 'src'), { recursive: true });
+        fs.writeFileSync(path.join(process.cwd(), 'src', 'adapter-interface-proof.js'), 'export const adapterInterfaceProof = true;\\n');
         const stagingDir = path.join(process.cwd(), ${JSON.stringify(join('.agentxchain', 'staging', turn.turn_id))});
         fs.mkdirSync(stagingDir, { recursive: true });
         fs.writeFileSync(

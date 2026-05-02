@@ -8,7 +8,7 @@
  * Spec: .planning/BUG_67_REPORT_STRING_LENGTH_SPEC.md
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';

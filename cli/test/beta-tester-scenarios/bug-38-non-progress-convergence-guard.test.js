@@ -18,7 +18,7 @@
  * This test must FAIL on pre-fix HEAD and PASS after the fix.
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -346,8 +346,11 @@ describe('BUG-38: non-progress convergence guard', () => {
     state = readState(root);
     writeDispatchBundle(root, state, simpleGateConfig, { turnId });
 
-    // Create the gated file — satisfies the gate
+    // Create the gated file and a product-code path so the implementation turn
+    // satisfies both the gate-progress check and the product-code guard.
     writeFileSync(join(root, '.planning', 'DESIGN.md'), '# Design\n\nComplete design doc.\n');
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'design-proof.js'), 'export const designProof = true;\n');
     execSync('git add -A && git commit -m "create gated file"', { cwd: root, stdio: 'ignore' });
 
     const turnResult = {
@@ -360,7 +363,7 @@ describe('BUG-38: non-progress convergence guard', () => {
       summary: 'Created the gated file.',
       decisions: [],
       objections: [],
-      files_changed: ['.planning/DESIGN.md'],
+      files_changed: ['.planning/DESIGN.md', 'src/design-proof.js'],
       verification: { status: 'pass' },
       artifact: { type: 'workspace', ref: null },
       proposed_next_role: 'dev',

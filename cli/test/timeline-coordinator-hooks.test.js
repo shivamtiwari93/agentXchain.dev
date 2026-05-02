@@ -8,7 +8,7 @@
  * See: TIMELINE_COORDINATOR_HOOKS_SPEC.md
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { render as renderTimeline } from '../dashboard/components/timeline.js';

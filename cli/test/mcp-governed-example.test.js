@@ -1,4 +1,4 @@
-import { describe, it, before, afterEach } from 'node:test';
+import { describe, it, beforeAll, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import {
@@ -357,7 +357,7 @@ afterEach(async () => {
 });
 
 describe('MCP governed example proof', () => {
-  before(() => {
+  beforeAll(() => {
     const exampleNodeModules = join(dirname(MCP_SERVER_PATH), 'node_modules');
     if (!existsSync(exampleNodeModules)) {
       try {
@@ -395,7 +395,12 @@ describe('MCP governed example proof', () => {
 
     assert.equal(validation.ok, true, validation.errors?.join('\n'));
     assert.equal(validation.turnResult.verification.status, 'skipped');
-    assert.equal(validation.turnResult.artifact.type, 'review');
+    assert.equal(validation.turnResult.artifact.type, 'workspace');
+    assert.deepEqual(validation.turnResult.files_changed, ['src/mcp-echo-agent-output.js']);
+    assert.equal(
+      readFileSync(join(root, 'src', 'mcp-echo-agent-output.js'), 'utf8'),
+      `export const mcpEchoAgentTurn = ${JSON.stringify(turnId)};\n`,
+    );
     assert.equal(validation.turnResult.proposed_next_role, 'human');
     assert.equal(validation.turnResult.objections.length, 1);
   });
@@ -417,6 +422,7 @@ describe('MCP governed example proof', () => {
     assert.equal(history.length, 2);
     assert.deepEqual(history.map((entry) => entry.role), ['pm', 'dev']);
     assert.equal(history[1].runtime_id, 'local-dev');
+    assert.equal(existsSync(join(root, 'src', 'mcp-echo-agent-output.js')), true);
   });
 
   it('auto-accepts a streamable_http MCP-backed dev turn through the shipped HTTP example server', async () => {
@@ -428,6 +434,7 @@ describe('MCP governed example proof', () => {
     assert.match(result.combined, /Dispatching to MCP streamable_http:/i);
     assert.match(result.combined, new RegExp(remote.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(result.combined, /accepted/i);
+    assert.equal(existsSync(join(root, 'src', 'mcp-http-echo-agent-output.js')), true);
   });
 
   it('documents the governed todo app MCP dev variant', () => {

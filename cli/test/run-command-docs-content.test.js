@@ -5,7 +5,7 @@
  * These guards ensure it stays visible in the README, CLI docs, and quickstart.
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

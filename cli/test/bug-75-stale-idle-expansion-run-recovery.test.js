@@ -13,7 +13,7 @@
  * Spec: .planning/BUG_75_STALE_IDLE_EXPANSION_RUN_RECOVERY_SPEC.md
  */
 
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';

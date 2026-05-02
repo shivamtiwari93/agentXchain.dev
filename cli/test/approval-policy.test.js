@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { evaluateApprovalPolicy } from '../src/lib/approval-policy.js';
 import { validateApprovalPolicy } from '../src/lib/normalized-config.js';

@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -45,6 +45,12 @@ function readJsonl(dir, relPath) {
 
 function writeTurnResult(dir, state, overrides = {}) {
   const turn = state.current_turn;
+  const isImplementationRole = turn.assigned_role === 'dev';
+  if (isImplementationRole) {
+    const productPath = join(dir, 'src', 'workflow-kit-implementation-proof.js');
+    mkdirSync(dirname(productPath), { recursive: true });
+    writeFileSync(productPath, 'export const workflowKitImplementationProof = true;\n');
+  }
   const base = {
     schema_version: '1.0',
     run_id: state.run_id,
@@ -69,7 +75,7 @@ function writeTurnResult(dir, state, overrides = {}) {
         status: 'raised',
       },
     ],
-    files_changed: [],
+    files_changed: isImplementationRole ? ['src/workflow-kit-implementation-proof.js'] : [],
     artifacts_created: [],
     verification: {
       status: 'pass',
@@ -77,7 +83,7 @@ function writeTurnResult(dir, state, overrides = {}) {
       evidence_summary: 'Manual review complete.',
       machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
     },
-    artifact: { type: 'review', ref: null },
+    artifact: { type: isImplementationRole ? 'workspace' : 'review', ref: null },
     proposed_next_role: 'human',
     phase_transition_request: null,
     run_completion_request: null,
@@ -85,6 +91,10 @@ function writeTurnResult(dir, state, overrides = {}) {
     cost: { input_tokens: 10, output_tokens: 5, usd: 0.001 },
     ...overrides,
   };
+  if (isImplementationRole && !base.files_changed.some((p) => !p.startsWith('.planning/'))) {
+    base.files_changed = [...base.files_changed, 'src/workflow-kit-implementation-proof.js'];
+  }
+  if (isImplementationRole) base.artifact = { type: 'workspace', ref: null };
 
   const stagingDir = join(dir, '.agentxchain', 'staging', turn.turn_id);
   mkdirSync(stagingDir, { recursive: true });
@@ -115,6 +125,9 @@ function fillImplementationArtifact(dir) {
     join(dir, '.planning', 'IMPLEMENTATION_NOTES.md'),
     '# Implementation Notes\n\n## Changes\n\nImplemented the approved slice under the architecture contract.\n\n## Verification\n\nRun `echo implementation-ok` to confirm the implementation turn recorded machine evidence.\n',
   );
+  const productPath = join(dir, 'src', 'workflow-kit-implementation-proof.js');
+  mkdirSync(dirname(productPath), { recursive: true });
+  writeFileSync(productPath, 'export const workflowKitImplementationProof = true;\n');
 }
 
 function fillSecurityArtifact(dir) {

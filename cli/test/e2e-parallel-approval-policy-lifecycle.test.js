@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync,
@@ -191,6 +191,13 @@ function writeQaArtifacts(cwd, shortCode) {
 }
 
 function stageTurnResult(cwd, turn, state, overrides = {}) {
+  const isReviewRole = turn.assigned_role === 'qa' || turn.assigned_role === 'pm';
+  const filesChanged = isReviewRole ? [] : [`src/${turn.assigned_role}-approval-policy.js`];
+  for (const relPath of filesChanged) {
+    const absPath = join(cwd, relPath);
+    mkdirSync(dirname(absPath), { recursive: true });
+    writeFileSync(absPath, `export const ${turn.assigned_role}ApprovalPolicy = true;\n`);
+  }
   const objectionId = turn.assigned_role === 'pm'
     ? 'OBJ-001'
     : turn.assigned_role === 'integrator'
@@ -226,7 +233,7 @@ function stageTurnResult(cwd, turn, state, overrides = {}) {
             status: 'raised',
           },
         ],
-    files_changed: [],
+    files_changed: filesChanged,
     artifacts_created: [],
     verification: {
       status: 'pass',
@@ -234,7 +241,7 @@ function stageTurnResult(cwd, turn, state, overrides = {}) {
       evidence_summary: 'Fixture verification passed.',
       machine_evidence: [],
     },
-    artifact: { type: turn.assigned_role === 'qa' || turn.assigned_role === 'pm' ? 'review' : 'workspace', ref: null },
+    artifact: { type: isReviewRole ? 'review' : 'workspace', ref: null },
     proposed_next_role: 'human',
     phase_transition_request: null,
     run_completion_request: false,
@@ -242,6 +249,10 @@ function stageTurnResult(cwd, turn, state, overrides = {}) {
     cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
     ...overrides,
   };
+  if (!isReviewRole && !result.files_changed.some((p) => !p.startsWith('.planning/'))) {
+    result.files_changed = [...result.files_changed, filesChanged[0]];
+  }
+  if (!isReviewRole) result.artifact = { type: 'workspace', ref: null };
 
   const stagingDir = join(cwd, '.agentxchain', 'staging', turn.turn_id);
   mkdirSync(stagingDir, { recursive: true });

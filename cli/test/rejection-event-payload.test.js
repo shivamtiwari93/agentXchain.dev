@@ -7,7 +7,7 @@
  * DEC-REJECTION-EVENT-001
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, cpSync, existsSync } from 'fs';
 import { join, dirname } from 'path';

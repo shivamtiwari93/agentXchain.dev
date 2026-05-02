@@ -1,4 +1,4 @@
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync,
@@ -362,9 +362,9 @@ describe('continuous run E2E', () => {
       .filter(Boolean);
     const checkpointSubjects = logSubjects.filter((line) => line.startsWith('checkpoint: '));
     assert.ok(checkpointSubjects.length >= 3, `expected checkpoint commits in git log, got ${checkpointSubjects.length}`);
-    assert.ok(checkpointSubjects.some((line) => line.includes('(role=pm, phase=planning)')));
-    assert.ok(checkpointSubjects.some((line) => line.includes('(role=dev, phase=implementation)')));
-    assert.ok(checkpointSubjects.some((line) => line.includes('(role=qa, phase=qa)')));
+    assert.ok(checkpointSubjects.some((line) => /\(role=pm, phase=planning, runtime=[^)]+\)/.test(line)));
+    assert.ok(checkpointSubjects.some((line) => /\(role=dev, phase=implementation, runtime=[^)]+\)/.test(line)));
+    assert.ok(checkpointSubjects.some((line) => /\(role=qa, phase=qa, runtime=[^)]+\)/.test(line)));
   });
 
   it('AT-VCONT-007: SIGINT stops the continuous loop cleanly after the current in-flight turn', async () => {

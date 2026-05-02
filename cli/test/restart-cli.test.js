@@ -1,4 +1,4 @@
-import { describe, it, after } from 'node:test';
+import { describe, it, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync, execSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
@@ -130,7 +130,7 @@ function markPlanningSignoffCredentialed(dir) {
 
 const dirs = [];
 
-after(() => {
+afterAll(() => {
   for (const d of dirs) {
     try { rmSync(d, { recursive: true, force: true }); } catch {}
   }

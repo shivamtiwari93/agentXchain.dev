@@ -10,7 +10,7 @@
  * cutting v2.127.0.
  */
 
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync, rmSync,

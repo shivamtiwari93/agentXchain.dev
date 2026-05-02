@@ -1,4 +1,4 @@
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   chmodSync,
@@ -43,6 +43,11 @@ if (!turnId) {
 
 const assignmentPath = join(process.cwd(), '.agentxchain', 'dispatch', 'turns', turnId, 'ASSIGNMENT.json');
 const assignment = JSON.parse(readFileSync(assignmentPath, 'utf8'));
+const productPath = 'src/codex-spawn-context-proof.js';
+const productAbsPath = join(process.cwd(), productPath);
+mkdirSync(dirname(productAbsPath), { recursive: true });
+writeFileSync(productAbsPath, 'export const codexSpawnContextProof = true;\\n');
+
 const result = {
   schema_version: '1.0',
   run_id: assignment.run_id,
@@ -58,9 +63,9 @@ const result = {
     rationale: 'Synthetic connector validation wrote a staged governed result.'
   }],
   objections: [],
-  files_changed: [],
+  files_changed: [productPath],
   verification: { status: 'skipped', evidence_summary: 'spawn-context proof' },
-  artifact: { type: 'review', ref: null },
+  artifact: { type: 'workspace', ref: null },
   proposed_next_role: 'human'
 };
 const stagingPath = join(process.cwd(), assignment.staging_result_path);
@@ -80,7 +85,7 @@ function createProject(commandValue) {
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
   config.runtimes['codex-dev'] = {
     type: 'local_cli',
-    command: [commandValue, 'exec', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
+    command: [commandValue, 'exec', '--json', '--dangerously-bypass-approvals-and-sandbox', '{prompt}'],
     cwd: '.',
     prompt_transport: 'argv',
   };

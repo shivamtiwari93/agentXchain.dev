@@ -9,7 +9,7 @@
  *   5. docs and README name the workflow-backed CI proof path
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';

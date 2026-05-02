@@ -45,7 +45,7 @@
         "summary": "Completed dev work",
         "decisions": [],
         "objections": [],
-        "files_changed": [],
+        "files_changed": ["src/implementation-proof.js"],
         "verification": { "status": "pass" },
         "artifact": { "type": "workspace" },
         "proposed_next_role": "human"

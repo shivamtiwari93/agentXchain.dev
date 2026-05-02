@@ -31,7 +31,7 @@
  *   either max_runs is hit or no vision candidates remain.
  */
 
-import { afterEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -137,10 +137,10 @@ function createCliProject() {
     "const session = JSON.parse(readFileSync(join(root, '.agentxchain/continuous-session.json'), 'utf8'));",
     "const objective = String(session.current_vision_objective || runId);",
     "const slug = objective.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || turnId;",
-    "const relPath = `.planning/objectives/${slug}.md`;",
+    "const relPath = `src/objectives/${slug}.js`;",
     "const absPath = join(root, relPath);",
     "mkdirSync(dirname(absPath), { recursive: true });",
-    "writeFileSync(absPath, `# Objective\\n\\n- Turn: ${turnId}\\n- Run: ${runId}\\n- Objective: ${objective}\\n`);",
+    "writeFileSync(absPath, `export const objective = ${JSON.stringify(objective)};\\nexport const turnId = ${JSON.stringify(turnId)};\\nexport const runId = ${JSON.stringify(runId)};\\n`);",
     "const result = {",
     "  schema_version: '1.0',",
     '  run_id: runId,',
