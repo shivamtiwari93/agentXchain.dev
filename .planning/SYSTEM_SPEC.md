@@ -150,6 +150,33 @@ Roles defined dynamically in `agentxchain.json`. Current roster: `pm`, `dev`, `q
 
 **Semantics:** Tracked items are functionally equivalent to checked items for exhaustion detection — they represent in-progress longitudinal criteria that cannot be completed in a single cycle.
 
+### Vision-Driven Roadmap Replenishment Dispatch (M2 — run `run_b51cc53d95925d53`)
+
+**Context:** When `seedFromVision()` finds zero actionable roadmap candidates (all checked or tracked) but VISION.md has unplanned scope, the system must dispatch PM to derive the next bounded roadmap increment — not idle-stop or fall through to generic vision candidates.
+
+**Implementation (BUG-77, already shipped):**
+
+`seedFromVision()` in `continuous-run.js` enforces a strict priority:
+
+1. **Roadmap unchecked work** (`deriveRoadmapCandidates`) — dispatch the roadmap item directly
+2. **Roadmap exhausted + vision open** (`detectRoadmapExhaustedVisionOpen`) — create PM replenishment intent
+3. **Broad VISION goals** (`deriveVisionCandidates`) — fallback to generic candidates
+
+When state 2 fires, `seedFromVision()`:
+- Records intake event with `category: 'roadmap_exhausted_vision_open'`
+- Creates intent with `preferred_role: 'pm'`, `phase_scope: 'planning'`, `priority: 'p1'`
+- Charter directs PM to read VISION.md + ROADMAP.md, select one next testable milestone from unplanned sections, and produce concrete unchecked items
+- Auto-approves in continuous mode (`triageApproval: 'auto'`)
+- Returns `{ idle: false, source: 'roadmap_replenishment' }`
+- Main loop emits status: "Roadmap exhausted, vision still open, deriving next increment"
+
+**Dependencies:** Requires `detectRoadmapExhaustedVisionOpen()` to correctly skip tracking-annotated items (fixed in `run_e9d2aeed559c018e`).
+
+**Test coverage:**
+- Unit: `vision-reader.test.js` — `detectRoadmapExhaustedVisionOpen` three-state with tracked items
+- Integration: `bug-77-roadmap-exhausted-vision-open.test.js` — CLI continuous mode dispatches PM replenishment
+- Integration: `seedFromVision()` three-state regression tests (added in this run)
+
 ## Resolved Questions
 
 1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)

@@ -81,6 +81,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Fix idle-expansion heuristic three-state model | In progress (`run_e9d2aeed559c018e`) |
-| Implementation | Patch `detectRoadmapExhaustedVisionOpen()` to skip tracked items | Complete |
-| QA | Verify three-state model works correctly with tracked items | Pending |
+| Planning | Verify M2 #2 dispatch mechanism, scope status message + three-state tests | In progress (`run_b51cc53d95925d53`) |
+| Implementation | Update status message, add seedFromVision three-state integration tests, check off M2 #2–#4 | Pending |
+| QA | Verify all tests pass, confirm M2 items correctly reflect implementation state | Pending |
