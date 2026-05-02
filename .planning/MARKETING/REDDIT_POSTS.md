@@ -1,12 +1,12 @@
-# Reddit Posts — AgentXchain v2.155.72
+# Reddit Posts — AgentXchain v2.155.73
 
-> Ready-to-post content for Reddit for the `v2.155.72` release. Updated 2026-04-30 for DOGFOOD credential smoke bin alias.
+> Ready-to-post content for Reddit for the `v2.155.73` release. Updated 2026-05-02 for recovery classification, crash-resume PID guards, continuous checkpoint consistency, configurable deadlines, intake persistence, and Claude recovery hardening.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
+> - npm test -- --test-timeout=60000 -> 7386 tests / 1485 suites / 0 failures / 0 skipped
 
 ---
 
@@ -26,16 +26,19 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.155.72:
+What shipped in v2.155.73:
 
-- Retained Claude auth blockers auto-reissue after credentials are available.
-- Recovery verifies Claude local_cli runtime plus auth-failure dispatch logs.
-- Missing credentials and non-Claude blockers stay fail-closed.
-- BUG-107 through BUG-113 recovery fixes carry forward unchanged.
+- Recovery events now carry structured class/severity/operator-action metadata.
+- Governance reports render recovery health from historical events.
+- `step --resume` rejects retained live worker PIDs before duplicate dispatch.
+- Ghost blocker clearing writes the matching session checkpoint.
+- Configurable per-turn deadlines and restart-safe intake are included.
+- Claude retained auth/provider/Node/refreshed-credential recovery paths stay fail-closed.
+- DOGFOOD credential smoke remains available as a direct shipped npx bin.
 
 Proof:
 
-- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7386 tests / 1485 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 - All 5 adapter types proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path
@@ -59,24 +62,26 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.155.72 — DOGFOOD credential smoke npx entrypoint
+**Title:** AgentXchain v2.155.73 — recovery classification and crash-resume hardening
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.155.72 tightens a DOGFOOD-100 recovery check found during dogfooding:
+v2.155.73 tightens governed-run recovery found during dogfooding:
 
-- `agentxchain-dogfood-claude-smoke` is now a shipped npm bin
-- agents can run it through `npx --yes -p agentxchain@latest`
-- no tarball extraction or local checkout helper path is required
-- the helper remains state-free and does not touch Tusq state
+- recovery events are classified at emit time
+- governance reports summarize recovery health from events
+- `step --resume` rejects retained worker PIDs that are still alive
+- ghost blocker clearing now writes the corresponding session checkpoint
+- configurable deadlines, restart-safe intake, and Claude recovery hardening are included
+- the DOGFOOD credential smoke npx bin remains available for state-free diagnostics
 
 The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and remote_agent adapters are all proven live. The non-manual adapters have real-model proof; manual remains the governed human path.
 
 Evidence:
 
-- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7386 tests / 1485 suites / 0 failures / 0 skipped
 - 108 conformance fixtures across 13 protocol surfaces
 
 Try it:
@@ -107,7 +112,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.155.72 adds a direct DOGFOOD credential smoke npx entrypoint while the paused Tusq session remains fail-closed until credentials verify successfully.
+v2.155.73 adds structured recovery classification, crash-resume PID guards, ghost blocker checkpoint consistency, configurable deadlines, restart-safe intake, and Claude recovery hardening.
 
 Try the zero-key demo:
 
@@ -116,7 +121,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 - 108 conformance fixtures across 13 protocol surfaces
-- npm test -- --test-timeout=60000 -> 7340 tests / 1485 suites / 0 failures / 3 skipped
+- npm test -- --test-timeout=60000 -> 7386 tests / 1485 suites / 0 failures / 0 skipped
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -136,7 +141,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.155.72 accepts PM roadmap-replenishment staged results without operator-side staging edits
+- v2.155.73 classifies recovery events, rejects duplicate live crash resumes, and preserves continuous checkpoint consistency
 
 Try it in 30 seconds:
 
@@ -150,7 +155,7 @@ MIT licensed. https://agentxchain.dev
 
 ## Posting Instructions
 
-1. Confirm `npm view agentxchain@2.155.72 version` before posting.
+1. Confirm `npm view agentxchain@2.155.73 version` before posting.
 2. Post during US morning hours, preferably Tuesday-Thursday 10-11am ET.
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT.
 4. Lead with the demo command because it works without API keys.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.155.73
+
+- **Recovery outcomes are now classified at the event boundary and surfaced in governance reports.** Recovery events carry structured class, severity, actor-action, and operator-action metadata, while text, markdown, and HTML reports now summarize recovery health from historical `events.jsonl` data.
+- **Crash resume is safer.** `step --resume` now rejects retained worker PIDs that are still alive before reactivating governed runs, cleans stale dispatch-progress files when crash recovery is proven, and preserves backwards compatibility for legacy retained turns without PID metadata.
+- **Continuous recovery state is more consistent.** Ghost blocker clearing now writes the matching session checkpoint, failed continuous steps recover only when the governed run is still active for the same session, and retained Claude auth/provider/Node blockers continue to recover through typed fail-closed paths.
+- **Release users also receive the recent operational hardening wave:** configurable per-turn deadlines from `per_turn_minutes`, restart-safe intent/event intake, BUG-111 retained Claude auth reclassification, BUG-112 Claude provider timeout recovery, BUG-113 Claude Node incompatibility recovery, BUG-114 refreshed Claude auth recovery, and the DOGFOOD-100 shipped `agentxchain-dogfood-claude-smoke` npx entrypoint.
+
+- npm test -- --test-timeout=60000 -> 7386 tests / 1485 suites / 0 failures / 0 skipped
+
 ## 2.155.72
 
 - **DOGFOOD Claude credential smoke now has a direct shipped npx entrypoint.** The helper is exposed as `agentxchain-dogfood-claude-smoke`, so DOGFOOD-100 credential rechecks can run from `npx --yes -p agentxchain@latest` without unpacking the npm tarball or relying on the local AgentXchain checkout.

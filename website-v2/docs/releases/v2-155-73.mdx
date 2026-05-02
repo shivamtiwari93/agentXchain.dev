@@ -1,0 +1,29 @@
+---
+sidebar_position: 0
+title: "v2.155.73 Release Notes"
+---
+
+# AgentXchain v2.155.73
+
+`v2.155.73` publishes the recovery and release-readiness work accumulated since `v2.155.72`. The release focuses on governed-run resilience: recovery events are classified for operators, crash resume refuses duplicate live workers, continuous sessions keep their persisted checkpoints aligned, and the recent Claude/DOGFOOD recovery fixes are included in the shipped npm and Homebrew surfaces.
+
+## What's New
+
+- **Structured recovery classification.** Recovery events are enriched as they are emitted, so current and historical governance reports can show recovery class, severity, actor action, operator action, and health score without relying on one-off prose.
+- **Crash-resume PID liveness guard.** `step --resume` checks retained worker PIDs before reactivating active or blocked runs. Alive workers are rejected to prevent duplicate dispatch, while stale crash metadata is cleaned when the worker is gone.
+- **Configurable turn deadlines.** Local dispatch timeout now follows `per_turn_minutes`, giving governed runs a config-backed deadline instead of a fixed operator assumption.
+- **Restart-safe intake.** Intent and event intake data survives process restarts, keeping continuous runs aligned with their governed work queue.
+
+## Bug Fixes
+
+- **Ghost blocker session consistency.** Ghost blocker clearing now writes the corresponding `blocker_cleared` session checkpoint, and failed continuous steps are recovered only when persisted governed state is still active for the same session.
+- **Claude recovery hardening.** Retained Claude auth escalations, provider timeouts, Node incompatibility crashes, and refreshed-auth blockers now route through typed recovery paths with fail-closed negative cases.
+- **DOGFOOD-100 shipped-package helper.** `agentxchain-dogfood-claude-smoke` remains available as a direct npx bin for credential diagnostics without relying on a local checkout.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7386 tests / 1485 suites / 0 failures / 0 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.155.73 -c "agentxchain --version"`
