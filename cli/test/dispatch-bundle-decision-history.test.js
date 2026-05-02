@@ -9,9 +9,11 @@ import { writeDispatchBundle } from '../src/lib/dispatch-bundle.js';
 import {
   initializeGovernedRun,
   assignGovernedTurn,
+  acceptGovernedTurn,
   normalizeGovernedStateShape,
   getActiveTurn,
   STATE_PATH,
+  STAGING_PATH,
 } from '../src/lib/governed-state.js';
 import { scaffoldGoverned } from '../src/commands/init.js';
 
@@ -37,6 +39,14 @@ function readJson(root, relPath) {
   return parsed;
 }
 
+function readJsonl(root, relPath) {
+  const path = join(root, relPath);
+  if (!existsSync(path)) return [];
+  const content = readFileSync(path, 'utf8').trim();
+  if (!content) return [];
+  return content.split('\n').map((line) => JSON.parse(line));
+}
+
 function makeConfig() {
   return {
     schema_version: 4,
@@ -44,18 +54,23 @@ function makeConfig() {
     project: { id: 'test-dh', name: 'Test DH', default_branch: 'main' },
     roles: {
       pm: { title: 'Product Manager', mandate: 'Protect user value.', write_authority: 'review_only', runtime_class: 'manual', runtime_id: 'manual-pm' },
-      dev: { title: 'Developer', mandate: 'Build.', write_authority: 'authoritative', runtime_class: 'local_cli', runtime_id: 'local-dev' },
+      dev: { title: 'Developer', mandate: 'Build.', write_authority: 'authoritative', runtime_class: 'local_cli', runtime_id: 'local-gpt-5.5' },
+      qa: { title: 'QA', mandate: 'Challenge correctness.', write_authority: 'review_only', runtime_class: 'api_proxy', runtime_id: 'local-opus-4.6' },
     },
-    runtimes: { 'manual-pm': { type: 'manual' }, 'local-dev': { type: 'local_cli' } },
+    runtimes: { 'manual-pm': { type: 'manual' }, 'local-gpt-5.5': { type: 'local_cli' }, 'local-opus-4.6': { type: 'api_proxy' } },
     routing: {
       planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev'], exit_gate: 'planning_done' },
-      implementation: { entry_role: 'dev', allowed_next_roles: ['dev'], exit_gate: 'impl_done' },
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa'], exit_gate: 'impl_done' },
+      qa: { entry_role: 'qa', allowed_next_roles: ['dev', 'qa'], exit_gate: 'qa_done' },
+      remediation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa'], exit_gate: 'remediation_done' },
     },
     gates: {
       planning_done: { requires_human_approval: true },
       impl_done: { requires_verification_pass: true },
+      qa_done: { requires_verification_pass: true },
+      remediation_done: { requires_verification_pass: true },
     },
-    workflow: { phases: ['planning', 'implementation'] },
+    workflow: { phases: ['planning', 'implementation', 'qa', 'remediation'] },
   };
 }
 
@@ -76,6 +91,36 @@ function getContextMd(root, config) {
   assert.ok(bundleResult.ok, `dispatch failed: ${bundleResult.error}`);
   const contextPath = join(bundleResult.bundlePath, 'CONTEXT.md');
   return readFileSync(contextPath, 'utf8');
+}
+
+function writeStagedResult(root, state, overrides) {
+  const turn = state.current_turn;
+  const base = {
+    schema_version: '1.0',
+    run_id: state.run_id,
+    turn_id: turn.turn_id,
+    role: turn.assigned_role,
+    runtime_id: turn.runtime_id,
+    status: 'completed',
+    summary: `${turn.assigned_role} completed the assigned turn.`,
+    decisions: [],
+    objections: [],
+    files_changed: [],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: ['node --version'],
+      evidence_summary: 'Turn behavior verified in fixture.',
+      machine_evidence: [{ command: 'node --version', exit_code: 0 }],
+    },
+    artifact: { type: 'review', ref: null },
+    proposed_next_role: 'dev',
+    phase_transition_request: null,
+    run_completion_request: null,
+    cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+  };
+  mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+  writeFileSync(join(root, STAGING_PATH), JSON.stringify({ ...base, ...overrides }, null, 2));
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -247,6 +292,79 @@ describe('dispatch bundle: decision history', () => {
 
     // Pipes should be escaped so the table isn't broken
     assert.ok(ctx.includes('Use A \\| B pattern'), 'pipes in statement should be escaped');
+  });
+
+  it('preserves cross-model challenge attribution through ledger, history, and CONTEXT.md', () => {
+    initializeGovernedRun(root, config);
+
+    const initialState = readJson(root, STATE_PATH);
+    initialState.phase = 'implementation';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(initialState, null, 2));
+
+    const devAssign = assignGovernedTurn(root, config, 'dev');
+    assert.equal(devAssign.ok, true, devAssign.error);
+    const devState = readJson(root, STATE_PATH);
+    writeFileSync(join(root, 'feature.js'), 'export const challengeReady = true;\n');
+    writeStagedResult(root, devState, {
+      summary: 'Implemented the challenge-quality fixture.',
+      decisions: [{
+        id: 'DEC-001',
+        category: 'implementation',
+        statement: 'Dev implementation is ready for QA challenge.',
+        rationale: 'The product fixture has executable behavior and verification evidence.',
+      }],
+      files_changed: ['feature.js'],
+      artifact: { type: 'workspace', ref: 'git:dirty' },
+      proposed_next_role: 'qa',
+      phase_transition_request: 'qa',
+    });
+    const devAccept = acceptGovernedTurn(root, config);
+    assert.equal(devAccept.ok, true, devAccept.error);
+
+    const qaAssign = assignGovernedTurn(root, config, 'qa');
+    assert.equal(qaAssign.ok, true, qaAssign.error);
+    const qaState = readJson(root, STATE_PATH);
+    writeStagedResult(root, qaState, {
+      summary: 'Challenged the dev implementation and preserved the finding.',
+      decisions: [{
+        id: 'DEC-002',
+        category: 'quality',
+        statement: 'QA challenge is substantive and attributable to a different runtime.',
+        rationale: 'The objection is stored with the QA accepted turn while the decision ledger retains runtime identity.',
+      }],
+      objections: [{
+        id: 'OBJ-001',
+        severity: 'low',
+        statement: 'Dev evidence should remain visible to the next implementer.',
+        status: 'raised',
+      }],
+      proposed_next_role: 'dev',
+      phase_transition_request: 'remediation',
+    });
+    const qaAccept = acceptGovernedTurn(root, config);
+    assert.equal(qaAccept.ok, true, qaAccept.error);
+
+    const history = readJsonl(root, '.agentxchain/history.jsonl');
+    assert.equal(history.at(-1).runtime_id, 'local-opus-4.6');
+    assert.deepEqual(history.at(-1).objections, [{
+      id: 'OBJ-001',
+      severity: 'low',
+      statement: 'Dev evidence should remain visible to the next implementer.',
+      status: 'raised',
+    }]);
+
+    const ledger = readJsonl(root, '.agentxchain/decision-ledger.jsonl');
+    assert.equal(ledger.find((entry) => entry.id === 'DEC-001').runtime_id, 'local-gpt-5.5');
+    assert.equal(ledger.find((entry) => entry.id === 'DEC-002').runtime_id, 'local-opus-4.6');
+
+    const followupAssign = assignGovernedTurn(root, config, 'dev');
+    assert.equal(followupAssign.ok, true, followupAssign.error);
+    const ctx = getContextMd(root, config);
+
+    assert.match(ctx, /## Last Accepted Turn[\s\S]*- \*\*Role:\*\* qa[\s\S]*- \*\*Runtime:\*\* local-opus-4\.6/);
+    assert.match(ctx, /- \*\*Objections:\*\*[\s\S]*OBJ-001 \(low\): Dev evidence should remain visible to the next implementer\./);
+    assert.ok(ctx.includes('| DEC-001 | implementation | dev | local-gpt-5.5 | Dev implementation is ready for QA challenge. |'));
+    assert.ok(ctx.includes('| DEC-002 | qa | qa | local-opus-4.6 | QA challenge is substantive and attributable to a different runtime. |'));
   });
 
   it('section appears between Last Accepted Turn and Blockers', () => {

@@ -1,5 +1,24 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 M3 Cross-Model Challenge Quality Regression
+
+### Challenge
+
+The previous PM turn correctly identified that the cross-model challenge audit needed to become executable coverage, but I do not accept a shallow static rendering test as sufficient. The regression must exercise the acceptance pipeline so runtime identity and objections are proven to survive accepted history, decision-ledger persistence, and the next generated `CONTEXT.md`.
+
+### Changes
+
+- Added an integration regression in `dispatch-bundle-decision-history.test.js` that accepts a Dev turn from `local-gpt-5.5`, accepts a QA challenge turn from `local-opus-4.6`, and generates the follow-up Dev dispatch context.
+- Asserted that decision-ledger entries retain each accepted turn's `runtime_id`.
+- Asserted that the QA objection is preserved in accepted history and rendered in `## Last Accepted Turn`.
+- Asserted that `## Decision History` renders Dev and QA decisions with distinct runtime attribution.
+- Marked the M3 cross-model challenge quality ROADMAP item complete.
+- Added a tracking annotation to the M3 3-cycle acceptance item because PM found 3/4 roles covered; `eng_director` still needs a normal governed-cycle dispatch before completion.
+
+### Verification
+
+- `node --test --test-timeout=60000 --test-name-pattern "preserves cross-model" cli/test/dispatch-bundle-decision-history.test.js`
+
 ## 2026-05-02 Checkpoint Runtime Identity Metadata
 
 ### Challenge
