@@ -477,3 +477,16 @@ Canonical human-readable handoff log for all agents.
 
 ---
 
+## Turn 89df1d6c — qa (qa)
+
+- **Status:** completed
+- **Summary:** Vitest migration SHIP-approved with glob regression fix; GSD intent NO-SHIP — never implemented (injected at QA phase without PM/Dev work).
+- **Decision DEC-001:** Dev's product-examples-contract.test.js glob-in-spawnSync pattern is a regression — Node v20 does not resolve glob patterns without shell expansion. Fixed by QA using directory-based discovery.
+- **Decision DEC-002:** Vitest migration (PM-chartered scope) passes all acceptance criteria and is approved for ship after QA glob fix.
+- **Decision DEC-003:** GSD 5-step workflow acceptance contract (intent_1777697421568_4538) cannot pass this run — 4 of 6 items FAIL because the work was never planned or implemented. Intent was injected at QA phase only.
+- **Objection OBJ-001 (blocking):** GSD acceptance contract (intent_1777697421568_4538) was misrouted into a Vitest migration run. 4 of 6 acceptance items FAIL because the GSD work was never scoped, planned, or implemented. This intent requires a fresh PM→Dev→QA cycle in a new run.
+- **Objection OBJ-002 (medium):** Dev's DEC-003 claimed product-example test scripts use explicit serial globs, but the contract test file was broken by the same glob pattern because spawnSync does not expand shell globs. Dev's full-suite verification (663 files, 7371 tests) contradicts the 4 failures found by QA.
+- **Proposed next:** human
+
+---
+

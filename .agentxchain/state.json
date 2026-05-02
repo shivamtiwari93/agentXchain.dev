@@ -4,10 +4,10 @@
   "project_id": "agentxchain-dev",
   "status": "active",
   "phase": "qa",
-  "accepted_integration_ref": "git:c7be6a211ee9410b2e8fa9229ff503031f499c69",
+  "accepted_integration_ref": "git:117c5f2f7bfd38bbf432c4bbe38e4c0586b003a2",
   "active_turns": {},
-  "turn_sequence": 12,
-  "last_completed_turn_id": "turn_5fe4ac0cb6c9ab12",
+  "turn_sequence": 14,
+  "last_completed_turn_id": "turn_89df1d6ca8372e50",
   "blocked_on": null,
   "blocked_reason": null,
   "escalation": null,
@@ -15,11 +15,25 @@
   "pending_run_completion": null,
   "queued_phase_transition": null,
   "queued_run_completion": null,
-  "last_gate_failure": null,
+  "last_gate_failure": {
+    "gate_type": "run_completion",
+    "gate_id": "qa_ship_verdict",
+    "phase": "qa",
+    "from_phase": "qa",
+    "to_phase": null,
+    "requested_by_turn": "turn_89df1d6ca8372e50",
+    "failed_at": "2026-05-02T09:09:23.972Z",
+    "queued_request": false,
+    "reasons": [
+      "Ship verdict is not affirmative. Found \"## Verdict: SHIP (Vitest Migration) / NO-SHIP (GSD Intent)\" in .planning/ship-verdict.md; use \"## Verdict: YES\"."
+    ],
+    "missing_files": [],
+    "missing_verification": false
+  },
   "phase_gate_status": {
     "planning_signoff": "passed",
     "implementation_complete": "passed",
-    "qa_ship_verdict": "pending"
+    "qa_ship_verdict": "failed"
   },
   "budget_reservations": {},
   "budget_status": {
@@ -38,7 +52,7 @@
   "inherited_context": null,
   "repo_decisions": null,
   "delegation_queue": [],
-  "next_recommended_role": "qa",
+  "next_recommended_role": null,
   "pending_delegation_review": null,
   "non_progress_signature": null,
   "non_progress_count": 0,

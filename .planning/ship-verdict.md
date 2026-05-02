@@ -1,55 +1,78 @@
 # Ship Verdict — agentXchain.dev
 
-## Verdict: SHIP
+## Verdict: SHIP (Vitest Migration) / NO-SHIP (GSD Intent)
 
 ## QA Summary
 
-**Run:** run_d758c25c8d0ba32d
-**Turn:** turn_a7d3379ef735ae71 (QA)
-**Scope:** M3 eng_director Acceptance Pipeline Regression + M3 #5 Completion
+**Run:** run_4a6f8ae7668a237a
+**Turn:** turn_89df1d6ca8372e50 (QA)
+**Scope:** MV Vitest Migration (PM-chartered) + GSD 5-Step Workflow (injected intent)
+
+### Intent/Scope Mismatch (Blocking Objection)
+
+This run has two competing acceptance contracts:
+
+1. **PM-chartered Vitest migration** (intent_1777694634183_ac81) — planned by PM, implemented by Dev, verified by QA. This work IS complete and shippable.
+
+2. **GSD 5-step workflow integration** (intent_1777697421568_4538) — injected into this run at QA phase only. Never went through PM planning or Dev implementation. The intent history shows it transitioned directly from "planned" (0 artifacts) to "executing" at this QA turn.
+
+The GSD acceptance contract cannot pass because no GSD work was done in this run. 4 of 6 GSD acceptance items FAIL (see acceptance-matrix.md Section B).
 
 ### Challenge of Dev Turn
 
-The dev's implementation (turn_80266b66379dbbbd) delivered an eng_director governed-pipeline integration test and marked M3 #5 complete. Specific challenges:
+The dev's implementation (turn_5fe4ac0cb6c9ab12) delivered the Vitest full-suite migration. Specific challenges:
 
-1. **DEC-001 claim: "eng_director coverage must exercise the accepted-turn persistence pipeline, not just static context rendering."** Verified. The test at dispatch-bundle-decision-history.test.js:371-448 runs the full pipeline: initializeGovernedRun → assignGovernedTurn(dev) → writeStagedResult → acceptGovernedTurn → assignGovernedTurn(eng_director) → writeStagedResult → acceptGovernedTurn → assignGovernedTurn(qa) → getContextMd. All 4 persistence surfaces are asserted: history.jsonl (role, runtime_id, objections), decision-ledger.jsonl (runtime_id for both dev and director decisions), CONTEXT.md Last Accepted Turn (role, runtime, objections), and CONTEXT.md Decision History (correct row attribution).
+1. **DEC-001 claim: "The Vitest migration needs full-suite verification, not just import rewrite and targeted contract checks."** Verified. Dev ran the full CLI suite (663 files, 7371 tests) after fixing follow-up failures. QA independently verified 492 tests across 11 core suites.
 
-2. **DEC-002 claim: "The director fixture declares product-code evidence for its implementation-phase turn."** Verified. The fixture creates `director-decision.js` as a product-code artifact (line 401) and declares it in `files_changed` (line 416). The `artifact.type` is `workspace` (line 417), matching the authoritative write authority contract.
+2. **DEC-002 claim: "Continuous-run productive-timeout tests now assert the shipped 120-minute retry deadline."** Verified. continuous-run.test.js passes (87 tests). The timeout assertion matches the shipped `per_turn_minutes` configuration.
 
-3. **DEC-003 claim: "M3 all-role acceptance item is marked complete."** Verified and accepted. The evidence model is sound: PM/Dev/QA have 13+ production governed cycles with zero post-ship regressions. eng_director is structurally an escalation-only role — it cannot appear in normal PM→Dev→QA cycles without a real deadlock. The integration test proves the acceptance pipeline treats eng_director turns identically to PM/Dev/QA turns across all persistence surfaces. Requiring a production deadlock would be testing organizational pathology, not pipeline correctness.
+3. **DEC-003 claim: "Product example test scripts and contract probes use explicit serial node:test file globs."** **CHALLENGED.** The dev changed package.json scripts to use `test/*.test.js` globs (works via shell). BUT the dev also changed `product-examples-contract.test.js` to use the same glob pattern in `spawnSync()` — which does NOT expand globs because spawnSync bypasses the shell. This broke 4 tests. **Fixed by QA:** reverted to directory-based discovery `['--test', '--test-concurrency=1', 'test/']` which works with spawnSync.
 
-4. **Fixture config fidelity.** The test fixture's eng_director role uses `runtime_id: 'local-gpt-5.5'` (line 59), matching the production `agentxchain.json` value (line 32: `"runtime": "local-gpt-5.5"`). Routing eligibility in all three phases matches production config.
+### GSD Acceptance Contract Assessment
 
-5. **Reserved file integrity.** Dev modified exactly 3 files: 2 in `.planning/` and 1 in `cli/test/`. No `.agentxchain/` or `agentxchain.json` modifications. Verified via `git show --name-only HEAD`.
+| # | Item | Verdict | Root Cause |
+|---|------|---------|------------|
+| 1 | Protocol supports GSD phases | FAIL | No GSD phase definitions exist. Routing uses planning/implementation/qa |
+| 2 | Templates scaffold GSD artifacts | FAIL | No RESEARCH.md, SUMMARY.md, VERIFICATION.md, UAT.md templates |
+| 3 | Role prompts enforce GSD discipline | PARTIAL | Existing protocol enforces artifact production but not GSD-specific sequencing |
+| 4 | Sub-agent context isolation | PASS | Delegation context provides charter-scoped isolation |
+| 5 | PLAN.md uses structured XML | FAIL | PLAN.md uses Markdown throughout |
+| 6 | Verification and UAT gates | PARTIAL | Verification gates exist; no separate UAT gate |
+
+**Result: 1 PASS, 2 PARTIAL, 3 FAIL — GSD acceptance contract NOT met.**
+
+### Vitest Migration Verification
+
+| Check | Result |
+|-------|--------|
+| Zero live `node:test` imports | PASS (2 hits are test fixture strings) |
+| npm run test passes | PASS (vitest run, 663 files) |
+| vitest-node-test-shim.js deleted | PASS |
+| vitest-slice-manifest.js deleted | PASS |
+| Config: full glob, serial, 60s timeout | PASS |
+| Package scripts consolidated | PASS |
+| Codemod idempotent and checked in | PASS |
+| E2E subprocess tests pass | PASS |
+| No assertion logic changes | PASS |
+
+**Result: All 9 Vitest migration acceptance items PASS.**
 
 ### Independent Verification
 
-| Test Suite | Count | Result |
-|------------|-------|--------|
-| dispatch-bundle-decision-history.test.js | 12 | PASS |
-| checkpoint-turn.test.js | 12 | PASS |
-| governed-state.test.js | 99 | PASS |
-| dispatch-bundle.test.js | 74 | PASS |
-| turn-result-validator.test.js | 100 | PASS |
-| staged-result-proof.test.js | 14 | PASS |
-| continuous-run.test.js | 87 | PASS |
-| local-cli-adapter.test.js | 46 | PASS |
-| vision-reader.test.js | 36 | PASS |
-| claude-local-auth-smoke-probe.test.js | 8 | PASS |
-| timeout-evaluator + run-loop + release-notes-gate | 80 | PASS |
-| config-governed.test.js | 28 | PASS |
-| **Core total** | **596 pass / 0 failures** | |
+11 core test suites independently run by QA: 492 tests, 0 failures.
 
-Full suite: 6993 pass / 30 fail / 1 cancelled. All 30 failures are in infrastructure-dependent E2E suites unrelated to this change.
+### Bug Fixed
 
-### Pre-existing Non-blocking
-
-- AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 14 consecutive QA runs. TALK.md state issue from prior runs, not a regression.
+- `product-examples-contract.test.js`: 4 tests broken by glob-in-spawnSync pattern (Node v20 does not resolve globs without shell expansion). Fixed by using directory path with `--test-concurrency=1`.
 
 ## Open Blockers
 
-None.
+- **GSD intent misrouted**: intent_1777697421568_4538 was injected at QA phase without PM planning or Dev implementation. Requires fresh run to properly scope and implement.
 
-## Conditions
+## Ship Decision
 
-None. Ship as-is.
+The **Vitest migration** is complete and shippable. All PM-chartered acceptance criteria pass. The glob regression was fixed by QA.
+
+The **GSD acceptance contract** cannot be satisfied by this run — it requires a fresh PM→Dev→QA cycle. Recommend routing the GSD intent to a new run.
+
+**Final verdict: SHIP the Vitest migration. Route GSD intent to new run.**
