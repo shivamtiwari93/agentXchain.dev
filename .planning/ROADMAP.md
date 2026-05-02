@@ -95,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | M4 recovery path audit: document all recovery entry points, state transitions, checkpoint coverage, and gaps across ghost/budget/credential/crash domains | Active (`run_24a851cc6e95d841`) |
-| Implementation | Dev verifies audit accuracy: confirm P1/P2 gaps at cited line numbers, produce evidence document | Pending |
-| QA | Validate audit completeness, evidence accuracy, no regressions | Pending |
+| Planning | M4 structured recovery classification: design taxonomy (domain/severity/outcome/mechanism), chart dev scope for new `recovery-classification.js` module + report integration | Active (`run_5276bd12be02449a`) |
+| Implementation | Dev implements classification module, integrates into governance report formats, enhances 8 recovery event payloads, writes tests | Pending |
+| QA | Validate classification correctness, report output, test coverage, no regressions | Pending |

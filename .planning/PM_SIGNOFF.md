@@ -1,10 +1,10 @@
-# PM Signoff — M4 Recovery Path Audit
+# PM Signoff — M4: Structured Recovery Classification in Governance Reports
 
 Approved: YES
 
-**Run:** `run_24a851cc6e95d841`
+**Run:** `run_5276bd12be02449a`
 **Phase:** planning
-**Turn:** `turn_8bb65a8b874fbcad`
+**Turn:** `turn_ced5f60086d919bc`
 **Date:** 2026-05-02
 
 ## Discovery Checklist
@@ -17,89 +17,100 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running governed and continuous runs where recovery from failures is critical to long-horizon execution.
+AgentXchain operators monitoring governed and continuous runs who need visibility into which recovery domains are firing, whether auto-recovery succeeds, and when manual intervention is required.
 
 ### Core Pain Point
 
-M4 requires a comprehensive audit of all recovery paths before hardening work can proceed. Without a systematic audit, subsequent work (structured classification, checkpoint-restore, cost tracking) would lack a baseline of known gaps and priorities.
+Recovery events (ghost retries, budget exhaustion, credential failures, crash recovery) are emitted to `events.jsonl` but governance reports show only a single blocked-state snapshot via `recovery_summary`. Operators cannot see the full recovery history, cannot distinguish transient retries from systemic failures, and have no per-domain aggregation to guide M4 hardening prioritization.
 
 ### Root Cause
 
-Recovery paths were built incrementally across M1 (ghost recovery), BUG-FIX (session status), and various bug fixes. No single document maps all recovery entry points, their state transitions, checkpoint coverage, and known gaps. This audit produces that baseline.
+Recovery events were added incrementally across M1, BUG-FIX, and various improvements without a classification taxonomy. Each event type has its own payload structure with no common schema. The report layer (`report.js`) only reads `blocked_reason.recovery` from the current state — it never reads the event timeline for recovery history.
 
 ### Core Workflow
 
-1. PM (this turn) — Performs comprehensive audit across 4 failure domains (ghost, budget, credential, crash), documents findings in SYSTEM_SPEC.md, checks off ROADMAP.md:60, charters dev
-2. Dev — Verifies audit accuracy by confirming each cited gap at its line number, produces evidence document
-3. QA — Validates audit completeness and evidence accuracy
+1. PM (this turn) — Designs classification taxonomy, charters dev with file-level scope
+2. Dev — Implements `recovery-classification.js` module, integrates into `report.js`, enhances event payloads in `continuous-run.js`, writes tests
+3. QA — Validates classification correctness, report output, and test coverage
 
 ### MVP Scope (this run)
 
 **PM deliverables (this turn):**
-1. SYSTEM_SPEC.md: Full recovery path audit across 4 domains with 17 identified gaps
-2. ROADMAP.md:60 checked off
-3. Dev charter: verification-only (confirm gaps at cited line numbers)
+1. SYSTEM_SPEC.md: Full feature spec with taxonomy, event mapping, interface contracts
+2. Dev charter: implementation scope with 5 files (2 new, 3 modified)
+3. Clear boundary: new classification coexists alongside existing `recovery_summary`
 
 **Dev deliverables:**
-1. `.planning/recovery-audit-evidence.md` — line-number evidence for each P1/P2 gap
-2. Verification: `npm run test` passes (no code changes, regression-only check)
-
-**This run produces no code changes.** Code fixes are subsequent M4 items.
+1. `cli/src/lib/recovery-classification.js` — `classifyRecoveryEvent()` + `buildRecoveryClassificationReport()`
+2. `cli/src/lib/report.js` — `extractRecoveryClassification()` + text/markdown format sections
+3. `cli/src/lib/continuous-run.js` — `recovery_classification` field in 8 event payloads
+4. `cli/test/recovery-classification.test.js` — unit tests for classification + aggregation
+5. `cli/test/report.test.js` — test for report output section
 
 ### Out of Scope
 
-- Code changes (M4 items: structured recovery classification, checkpoint-restore, cost tracking)
-- New tests
+- New event types in `run-events.js` (reuses existing 8 recovery events)
+- Changing existing `recovery_summary` behavior
+- Emitting events for gaps not yet covered (G-BUDGET-3 budget recovery success — separate M4 item)
+- Dashboard integration (M6)
+- HTML report format (optional stretch for dev)
 - Cold-start resume of failed sessions
-- Fixing any identified gaps (follow-up runs)
+- Fixing any of the 17 audited gaps (separate M4 items)
 
 ### Success Metric
 
-1. ROADMAP.md:60 (audit item) checked off with SYSTEM_SPEC.md as evidence
-2. All 4 recovery domains audited with entry points and gaps documented
-3. Dev confirms P1/P2 gaps exist at cited line numbers
-4. Full test suite passes (no regressions from documentation-only run)
+1. `classifyRecoveryEvent()` correctly classifies all 8 recovery event types
+2. `buildRecoveryClassificationReport()` produces per-domain aggregation with health score
+3. Governance report text output includes "Recovery Classification:" section
+4. All tests pass (`npm run test`)
+5. ROADMAP.md:61 checked off
 
 ### Risk Assessment
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Audit findings become stale as code evolves | Low | Gaps cite specific line numbers; dev verification confirms current accuracy |
-| Audit misses a recovery path | Low | 4 parallel exploration agents covered ghost, budget, credential, and crash domains independently |
-| Dev makes unnecessary code changes | None | Charter explicitly states verification-only, no code changes |
+| Classification mapping doesn't cover future event types | Low | Function returns `null` for unrecognized events; adding new types is additive |
+| Report section adds noise when no recovery events exist | Low | Section omitted entirely when `total_recovery_events === 0` |
+| Payload enhancement breaks existing event consumers | Low | `recovery_classification` is a new additive field; no existing fields changed |
+| Health score thresholds are wrong for operators | Low | Score is informational only; thresholds can be tuned in follow-up |
 
 ## Challenge to Previous Work
 
-### OBJ-PM-001: No prior systematic recovery audit existed (severity: medium)
+### OBJ-PM-001: Previous 3 turns reused stale audit artifacts (severity: high)
 
-All recovery paths (ghost retry, budget exhaustion, credential failure, process crash) were implemented incrementally across M1, BUG-FIX, and various bug fixes. State transitions and checkpoint coverage were never mapped holistically. This audit is the first cross-domain recovery baseline, identifying 17 gaps (2 high, 7 medium, 8 low severity).
+The prior turns in this run (`non_progress_count: 3`) attempted to fast-track through planning by reusing artifacts from the completed audit run (`run_24a851cc6e95d841`). The PM_SIGNOFF.md and SYSTEM_SPEC.md described audit scope (verification-only, no code changes) while the actual intent requires implementing a new feature (classification module, report integration, event enhancement). The gate failure on `## Interface` was a symptom — the real problem was that planning was never done for this intent.
 
-### OBJ-PM-002: Previous BUG-115 fix addressed symptoms, not systemic write-error resilience (severity: low)
+This turn rewrites all three planning artifacts from scratch for the actual charter: "Add structured recovery classification to governance reports."
 
-BUG-115 correctly added `writeSessionCheckpoint` to `clearGhostBlockerAfterReissue()`. However, the audit reveals that the broader pattern — recovery path writes without try-catch — affects all recovery callers, not just the ghost blocker path. BUG-115 was a correct targeted fix; the systemic pattern is now documented as G-GHOST-1/G-GHOST-2 for follow-up.
+### OBJ-PM-002: Recovery events lack common classification schema (severity: medium)
+
+The 8 recovery event types use inconsistent payload structures. Ghost events include `failure_type`, `attempt`, `diagnostic_bundle`; budget events include `spent_usd`, `remaining_usd`; credential events include `previous_blocked_on`. No common field identifies the recovery domain or outcome. This feature introduces that common layer without changing existing fields.
 
 ## Notes for Dev
 
-**Your charter is verification-only:** Confirm each P1/P2 gap exists at its cited line number in the code. Produce `.planning/recovery-audit-evidence.md` with grep/read evidence. No code changes.
+**Your charter is implementation:**
 
-Specific verifications:
-1. G-GHOST-1: `writeGovernedState()` at continuous-run.js:639 — no surrounding try-catch
-2. G-GHOST-2: `writeContinuousSession()` at continuous-run.js:969 — no surrounding try-catch
-3. G-GHOST-4: `reissueTurn()` at continuous-run.js:926 + `clearGhostBlockerAfterReissue()` at :938 — no rollback if second write fails
-4. G-BUDGET-1: continuous-run.js:1993-1999 — `session_budget` is terminal with no recovery
-5. G-CRASH-1: No `process.on('uncaughtException')` or `process.on('unhandledRejection')` in continuous-run.js
-6. G-CRASH-6: `advanceContinuousRunOnce()` at continuous-run.js:2574 — no top-level try-catch
+Create `cli/src/lib/recovery-classification.js` with two exported functions per SYSTEM_SPEC.md Section 2.1. Integrate into `report.js` per Section 2.2. Add `recovery_classification` to 8 event payloads in `continuous-run.js` per Section 2.3.
+
+The 8 event-to-classification mappings are specified in SYSTEM_SPEC.md Section 1.2. The severity escalation rules (Section 1.3) require reading payload fields — e.g., `exhaustion_reason === 'same_signature_repeat'` escalates ghost exhaustion severity to `critical`.
+
+**Key implementation detail:** `classifyRecoveryEvent()` must be a pure function (no I/O). Import it into `continuous-run.js` to embed classification at emit-time, and into `report.js` to re-derive classification from historical events (for reports on runs that predate the payload enhancement).
+
+**Test expectations:**
+- `recovery-classification.test.js`: test each of the 8 event types, test non-recovery event returns null, test aggregation, test all 3 health scores, test severity escalation
+- `report.test.js`: test that text output includes "Recovery Classification:" header and per-domain lines
 
 ## Notes for QA
 
-- Verify dev's evidence document covers all P1/P2 gaps (11 gaps total: 3 P1 + 8 P2)
-- **Dev skipped test verification** — QA must run `npm run test` and confirm no regressions
-- Verify ROADMAP.md:60 is checked off
-- Verify G-CRASH-6 wording correction: dev correctly noted `runContinuous()` has `try/finally` (lines 2572-2627) with no `catch`, not "no try block" — this is a refinement, not a contradiction
-- This is a documentation/audit run — no code changes to verify
+- Verify dev's classification logic matches SYSTEM_SPEC.md Section 1.2 mapping exactly
+- Verify severity escalation rules from Section 1.3
+- Verify health score derivation: healthy (all recovered/pending), degraded (any exhausted/manual), critical (severity critical OR exhausted > recovered)
+- Verify report output omits section when no recovery events exist
+- Run `npm run test` — all tests including new ones must pass
+- Verify no existing tests broken by the new `recovery_classification` payload field
 
 ## Acceptance Contract
 
 1. **Roadmap milestone addressed:** M4: Recovery & Resilience Hardening
-2. **Unchecked roadmap item completed:** Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash — now checked `[x]` at ROADMAP.md:60
-3. **Evidence source:** .planning/SYSTEM_SPEC.md (full audit with 17 gaps across 4 domains), ROADMAP.md:60
+2. **Unchecked roadmap item completed:** Add structured recovery classification to governance reports — checked `[x]` at ROADMAP.md:61
+3. **Evidence source:** .planning/SYSTEM_SPEC.md (full feature spec), `cli/src/lib/recovery-classification.js` (implementation), `cli/test/recovery-classification.test.js` (test evidence)
