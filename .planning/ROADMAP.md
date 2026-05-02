@@ -82,5 +82,5 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 | Phase | Goal | Status |
 |-------|------|--------|
 | Planning | Verify M2 #2 dispatch mechanism, scope status message + three-state tests | Complete (`run_b51cc53d95925d53`) |
-| Implementation | Update status message, add seedFromVision three-state integration tests, check off M2 #2–#4 | In progress (`run_b51cc53d95925d53`) |
-| QA | Verify all tests pass, confirm M2 items correctly reflect implementation state | Pending |
+| Implementation | Update status message, add seedFromVision three-state integration tests, check off M2 #2–#4 | Complete (`run_b51cc53d95925d53`) |
+| QA | Verify all tests pass, confirm M2 items correctly reflect implementation state | Complete (`run_b51cc53d95925d53`) |

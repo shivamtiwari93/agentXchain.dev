@@ -2,21 +2,32 @@
 
 ## User Impact
 
-The idle-expansion exhaustion heuristic in `detectRoadmapExhaustedVisionOpen()` now correctly skips tracking-annotated unchecked ROADMAP items when deciding whether actionable unchecked work remains. Previously, this function counted `<!-- tracking: ... -->` annotated items as unchecked work, while `deriveRoadmapCandidates()` already skipped them — causing an inconsistency where the exhaustion detector would report `has_unchecked` even though the candidate derivation function found no actionable items.
+The `seedFromVision()` continuous-mode entry point now correctly handles all three terminal states from the roadmap exhaustion detector:
 
-This fix ensures both functions agree: when a ROADMAP milestone has only tracking-annotated unchecked items (e.g., longitudinal acceptance criteria like "zero ghost turns across 10 consecutive runs"), the milestone is treated as exhausted by both the candidate derivation and the exhaustion heuristic. If VISION.md has unplanned scope beyond those milestones, the system can now correctly trigger PM to derive the next roadmap increment.
+1. **Roadmap has open work** — seeds an intent from the next unchecked roadmap item (existing behavior, unchanged).
+2. **Roadmap functionally exhausted, vision still open** — dispatches PM for roadmap replenishment with the exact status message "Roadmap exhausted, vision still open, deriving next increment" (BUG-77 path, now with correct log message per M2 #3 spec).
+3. **Vision fully mapped / no actionable scope** — returns idle instead of falling through to generic VISION derivation (new guard). Previously, `vision_fully_mapped` and `vision_no_actionable_scope` results from the exhaustion detector were ignored, causing `seedFromVision()` to attempt broad per-goal vision candidate derivation against already-mapped goals.
+
+M2 ROADMAP items #2 (PM dispatch), #3 (status message), and #4 (three-state tests) are now complete. Item #5 (longitudinal 5-run acceptance) has a tracking annotation and will be completed across future runs.
 
 ## Verification Summary
 
-- 270 tests pass across 5 test suites (34 vision-reader + 100 validator + 17 staged-result + 42 adapter + 77 schema/timeout/run-loop), 0 failures
-- 3 new regression tests added: tracked-only roadmap exhaustion, actionable unchecked items, fully mapped vision scope
-- Live workspace scan: 33 candidates with 0 from M1 (tracking-filtered); exhaustion detector returns `has_unchecked` because M2-M8 have actionable work
-- All 8 acceptance criteria verified (see acceptance-matrix.md)
+- 354 tests pass across 7 test suites, 0 failures:
+  - continuous-run.test.js: 86 pass (includes 2 new seedFromVision three-state tests)
+  - vision-reader.test.js: 34 pass
+  - bug-77-roadmap-exhausted-vision-open.test.js: 1 pass (tightened to exact status message assertion)
+  - turn-result-validator.test.js: 100 pass
+  - staged-result-proof.test.js + local-cli-adapter.test.js: 56 pass
+  - agentxchain-config-schema.test.js + timeout-evaluator.test.js + run-loop.test.js: 77 pass
+- All 13 acceptance criteria verified (see acceptance-matrix.md)
+- BUG-77 command-chain end-to-end test passes with exact status message validation
+- No reserved `.agentxchain/` file modifications by dev
 
 ## Upgrade Notes
 
-No breaking changes. This is a bug fix that corrects an internal inconsistency. No user-facing API or configuration changes.
+No breaking changes. The new `vision_exhausted` idle return from `seedFromVision()` includes `source` and `reason` fields not present in the previous idle returns. Callers that check `seeded.idle === true` are unaffected; callers that inspect `seeded.source` will now see `'vision_exhausted'` with `reason: 'vision_fully_mapped'` or `reason: 'vision_no_actionable_scope'`.
 
 ## Known Issues
 
-- AGENT-TALK collaboration log guard tests (3/8 fail) are a pre-existing state issue unrelated to this change. TALK.md lacks compressed summary structure from prior runs.
+- AGENT-TALK collaboration log guard tests (3/8 fail) are a pre-existing state issue unrelated to this change. TALK.md lacks compressed summary structure from prior runs. Confirmed across 7 consecutive QA runs.
+- M2 item #5 (5+ consecutive runs without idle-stopping) is longitudinal and tracked at 0/5 runs.
