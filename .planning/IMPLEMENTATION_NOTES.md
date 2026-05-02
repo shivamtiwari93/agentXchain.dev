@@ -1,5 +1,25 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 M2 Acceptance Tracking Defense-in-Depth
+
+### Challenge
+
+The previous PM turn correctly identified a timing anomaly as the likely reason M2 #5 re-triggered, but I do not accept that diagnosis as sufficient by itself. The current scanner already skips complete tracking annotations, so the practical risk is metadata leakage and mixed-state routing: tracked longitudinal items must not influence dedup text, and untracked downstream roadmap work must still seed normally.
+
+### Changes
+
+- Added `stripRoadmapTrackingAnnotations()` and applied it at `deriveRoadmapCandidates()` goal extraction so candidate goal text cannot retain complete `<!-- tracking: ... -->` annotations if it survives parsing.
+- Added focused regression coverage for the sanitizer, including preservation of normal non-tracking HTML comments.
+- Added a `seedFromVision()` mixed-state integration test with tracked M1 and M2 acceptance items plus untracked M3 roadmap work, verifying that M3 is seeded and tracking metadata does not enter the resulting intent.
+- Updated the M2 longitudinal acceptance tracking counter from `0/5` to `1/5`.
+
+### Verification
+
+- `node --check cli/src/lib/vision-reader.js`
+- `node --test --test-timeout=60000 cli/test/vision-reader.test.js`
+- `node --test --test-timeout=60000 --test-name-pattern seedFromVision cli/test/continuous-run.test.js`
+- `node --test --test-timeout=60000 cli/test/continuous-run.test.js`
+
 ## 2026-05-02 M2 Roadmap Replenishment Three-State Integration
 
 ### Challenge

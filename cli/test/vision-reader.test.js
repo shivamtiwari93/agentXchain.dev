@@ -16,6 +16,7 @@ import {
   captureVisionHeadingsSnapshot,
   computeVisionContentSha,
   buildSourceManifest,
+  stripRoadmapTrackingAnnotations,
 } from '../src/lib/vision-reader.js';
 
 function createTmpProject() {
@@ -180,6 +181,20 @@ describe('Vision Reader', () => {
   });
 
   describe('deriveRoadmapCandidates', () => {
+    it('M2 defense-in-depth: strips tracking annotation text from roadmap goals', () => {
+      const goal = stripRoadmapTrackingAnnotations(
+        'Acceptance: continuous mode runs 5+ consecutive runs <!-- tracking: 1/5 consecutive runs as of 2026-05-02 -->',
+      );
+
+      assert.equal(goal, 'Acceptance: continuous mode runs 5+ consecutive runs');
+    });
+
+    it('M2 defense-in-depth: preserves non-tracking roadmap comments', () => {
+      const goal = stripRoadmapTrackingAnnotations('Preserve this open item <!-- owner: dev -->');
+
+      assert.equal(goal, 'Preserve this open item <!-- owner: dev -->');
+    });
+
     it('BUG-76: derives first unchecked milestone item from ROADMAP before vision idle', () => {
       mkdirSync(join(tmpDir, '.planning'), { recursive: true });
       writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap

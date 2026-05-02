@@ -17,6 +17,11 @@ import { createHash } from 'node:crypto';
 
 const ROADMAP_TRACKING_ANNOTATION_PATTERN = /<!--\s*tracking\s*:[\s\S]*?-->/i;
 
+export function stripRoadmapTrackingAnnotations(text) {
+  if (typeof text !== 'string') return '';
+  return text.replace(ROADMAP_TRACKING_ANNOTATION_PATTERN, '').replace(/\s+/g, ' ').trim();
+}
+
 // ---------------------------------------------------------------------------
 // Parsing
 // ---------------------------------------------------------------------------
@@ -263,7 +268,8 @@ export function deriveRoadmapCandidates(root, roadmapPath = '.planning/ROADMAP.m
     if (!uncheckedMatch || !currentMilestone) continue;
     if (ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line)) continue;
 
-    const goal = uncheckedMatch[1].trim();
+    const goal = stripRoadmapTrackingAnnotations(uncheckedMatch[1]);
+    if (!goal) continue;
     const combinedGoal = `${currentMilestone}: ${goal}`;
     if (isGoalAddressed(combinedGoal, allSignals) || isGoalAddressed(goal, allSignals)) {
       continue;

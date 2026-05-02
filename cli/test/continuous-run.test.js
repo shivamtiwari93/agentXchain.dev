@@ -1425,6 +1425,41 @@ describe('Continuous Run', () => {
       assert.ok(intent.acceptance_contract.some((line) => line.includes('Unchecked roadmap item completed')));
     });
 
+    it('M2 acceptance tracking: skips tracked M1/M2 items and seeds the next untracked roadmap milestone', () => {
+      writeVision(tmpDir, `## Multi-Model Turn Handoff Quality
+
+- preserve full context through handoffs
+`);
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M1: Self-Governance Hardening
+- [x] Add startup heartbeat protocol
+- [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 zero-ghost runs as of 2026-05-02 -->
+
+### M2: Vision Derivation
+- [x] Fix idle-expansion heuristic
+- [x] Dispatch PM for next roadmap increment
+- [ ] Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 1/5 consecutive runs as of 2026-05-02 -->
+
+### M3: Multi-Model Turn Handoff Quality
+- [ ] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
+`);
+
+      const visionPath = join(tmpDir, '.planning', 'VISION.md');
+      const result = seedFromVision(tmpDir, visionPath);
+      assert.ok(result.ok);
+      assert.equal(result.idle, false);
+      assert.equal(result.source, 'roadmap_open_work');
+      assert.match(result.section, /^M3:/);
+      assert.equal(result.goal, 'Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md');
+
+      const intent = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'intake', 'intents', `${result.intentId}.json`), 'utf8'));
+      assert.match(intent.charter, /^\[roadmap\] M3:/);
+      assert.ok(!intent.charter.includes('tracking:'));
+      assert.ok(!intent.acceptance_contract.some((line) => line.includes('tracking:')));
+    });
+
     it('M2 three-state: seeds roadmap replenishment when roadmap is functionally exhausted but vision remains open', () => {
       writeVision(tmpDir, `## Current Runtime
 

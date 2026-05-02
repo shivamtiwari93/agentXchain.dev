@@ -33,7 +33,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] When ROADMAP.md milestones are all checked and VISION.md has uncovered scope, dispatch PM to derive next increment
 - [x] Emit clear status: "Roadmap exhausted, vision still open, deriving next increment"
 - [x] Regression tests for the three-state model: run complete, roadmap exhausted, vision exhausted
-- [ ] Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 0/5 consecutive runs as of 2026-05-02 -->
+- [ ] Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 1/5 consecutive runs as of 2026-05-02 -->
 
 ### M3: Multi-Model Turn Handoff Quality
 - [ ] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
@@ -81,6 +81,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Diagnose M2 #5 re-trigger, scope tracking annotation defense-in-depth + mixed-state test | Active (`run_bd3c68e0331fa956`) |
-| Implementation | Goal text sanitization in deriveRoadmapCandidates, mixed-state seedFromVision test, update tracking 0/5→1/5 | Pending |
+| Planning | Diagnose M2 #5 re-trigger, scope tracking annotation defense-in-depth + mixed-state test | Complete (`run_bd3c68e0331fa956`) |
+| Implementation | Goal text sanitization in deriveRoadmapCandidates, mixed-state seedFromVision test, update tracking 0/5→1/5 | Complete (`run_bd3c68e0331fa956`) |
 | QA | Verify all tests pass, confirm defense-in-depth fixes and tracking update | Pending |
