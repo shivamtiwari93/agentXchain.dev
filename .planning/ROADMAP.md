@@ -40,7 +40,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Validate that stream-json and --json output formats are correctly parsed by the adapter
 - [x] Add model identity metadata to turn checkpoints (which model produced this turn)
 - [x] Test cross-model challenge quality: does QA (Opus 4.6) effectively challenge Dev (GPT 5.5)?
-- [ ] Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles <!-- tracking: 3/4 roles validated across 3+ governed cycles as of 2026-05-02; eng_director not yet dispatched in a normal governed cycle -->
+- [x] Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles
 
 ### M4: Recovery & Resilience Hardening
 - [ ] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash

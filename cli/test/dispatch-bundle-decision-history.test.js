@@ -56,12 +56,13 @@ function makeConfig() {
       pm: { title: 'Product Manager', mandate: 'Protect user value.', write_authority: 'review_only', runtime_class: 'manual', runtime_id: 'manual-pm' },
       dev: { title: 'Developer', mandate: 'Build.', write_authority: 'authoritative', runtime_class: 'local_cli', runtime_id: 'local-gpt-5.5' },
       qa: { title: 'QA', mandate: 'Challenge correctness.', write_authority: 'review_only', runtime_class: 'api_proxy', runtime_id: 'local-opus-4.6' },
+      eng_director: { title: 'Engineering Director', mandate: 'Resolve deadlocks.', write_authority: 'authoritative', runtime_class: 'local_cli', runtime_id: 'local-gpt-5.5' },
     },
     runtimes: { 'manual-pm': { type: 'manual' }, 'local-gpt-5.5': { type: 'local_cli' }, 'local-opus-4.6': { type: 'api_proxy' } },
     routing: {
-      planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev'], exit_gate: 'planning_done' },
-      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa'], exit_gate: 'impl_done' },
-      qa: { entry_role: 'qa', allowed_next_roles: ['dev', 'qa'], exit_gate: 'qa_done' },
+      planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev', 'eng_director'], exit_gate: 'planning_done' },
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'eng_director'], exit_gate: 'impl_done' },
+      qa: { entry_role: 'qa', allowed_next_roles: ['dev', 'qa', 'eng_director'], exit_gate: 'qa_done' },
       remediation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa'], exit_gate: 'remediation_done' },
     },
     gates: {
@@ -365,6 +366,85 @@ describe('dispatch bundle: decision history', () => {
     assert.match(ctx, /- \*\*Objections:\*\*[\s\S]*OBJ-001 \(low\): Dev evidence should remain visible to the next implementer\./);
     assert.ok(ctx.includes('| DEC-001 | implementation | dev | local-gpt-5.5 | Dev implementation is ready for QA challenge. |'));
     assert.ok(ctx.includes('| DEC-002 | qa | qa | local-opus-4.6 | QA challenge is substantive and attributable to a different runtime. |'));
+  });
+
+  it('accepts eng_director escalation turns through the governed persistence pipeline', () => {
+    initializeGovernedRun(root, config);
+
+    const initialState = readJson(root, STATE_PATH);
+    initialState.phase = 'implementation';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(initialState, null, 2));
+
+    const devAssign = assignGovernedTurn(root, config, 'dev');
+    assert.equal(devAssign.ok, true, devAssign.error);
+    const devState = readJson(root, STATE_PATH);
+    writeFileSync(join(root, 'deadlock-resolution.js'), 'export const escalationRequested = true;\n');
+    writeStagedResult(root, devState, {
+      summary: 'Identified a tactical deadlock and routed to engineering director.',
+      decisions: [{
+        id: 'DEC-001',
+        category: 'process',
+        statement: 'Escalate the deadlock to engineering director.',
+        rationale: 'The implementation turn needs a binding technical decision before QA.',
+      }],
+      files_changed: ['deadlock-resolution.js'],
+      artifact: { type: 'workspace', ref: 'git:dirty' },
+      proposed_next_role: 'eng_director',
+    });
+    const devAccept = acceptGovernedTurn(root, config);
+    assert.equal(devAccept.ok, true, devAccept.error);
+    assert.equal(devAccept.state.next_recommended_role, 'eng_director');
+
+    const directorAssign = assignGovernedTurn(root, config, 'eng_director');
+    assert.equal(directorAssign.ok, true, directorAssign.error);
+    const directorState = readJson(root, STATE_PATH);
+    writeFileSync(join(root, 'director-decision.js'), 'export const escalationResolved = true;\n');
+    writeStagedResult(root, directorState, {
+      summary: 'Resolved the deadlock with a binding implementation direction.',
+      decisions: [{
+        id: 'DEC-002',
+        category: 'architecture',
+        statement: 'Use the role-agnostic acceptance path for escalation roles.',
+        rationale: 'Director turns must persist the same evidence surfaces as PM, Dev, and QA turns.',
+      }],
+      objections: [{
+        id: 'OBJ-001',
+        severity: 'medium',
+        statement: 'Do not mark escalation coverage complete unless director runtime evidence is persisted.',
+        status: 'raised',
+      }],
+      files_changed: ['director-decision.js'],
+      artifact: { type: 'workspace', ref: 'git:dirty' },
+      proposed_next_role: 'qa',
+    });
+    const directorAccept = acceptGovernedTurn(root, config);
+    assert.equal(directorAccept.ok, true, directorAccept.error);
+
+    const history = readJsonl(root, '.agentxchain/history.jsonl');
+    const directorHistory = history.at(-1);
+    assert.equal(directorHistory.role, 'eng_director');
+    assert.equal(directorHistory.runtime_id, 'local-gpt-5.5');
+    assert.deepEqual(directorHistory.objections, [{
+      id: 'OBJ-001',
+      severity: 'medium',
+      statement: 'Do not mark escalation coverage complete unless director runtime evidence is persisted.',
+      status: 'raised',
+    }]);
+
+    const ledger = readJsonl(root, '.agentxchain/decision-ledger.jsonl');
+    assert.equal(ledger.find((entry) => entry.id === 'DEC-001').runtime_id, 'local-gpt-5.5');
+    const directorDecision = ledger.find((entry) => entry.id === 'DEC-002');
+    assert.equal(directorDecision.role, 'eng_director');
+    assert.equal(directorDecision.runtime_id, 'local-gpt-5.5');
+
+    const qaAssign = assignGovernedTurn(root, config, 'qa');
+    assert.equal(qaAssign.ok, true, qaAssign.error);
+    const ctx = getContextMd(root, config);
+
+    assert.match(ctx, /## Last Accepted Turn[\s\S]*- \*\*Role:\*\* eng_director[\s\S]*- \*\*Runtime:\*\* local-gpt-5\.5/);
+    assert.match(ctx, /- \*\*Objections:\*\*[\s\S]*OBJ-001 \(medium\): Do not mark escalation coverage complete unless director runtime evidence is persisted\./);
+    assert.ok(ctx.includes('| DEC-001 | implementation | dev | local-gpt-5.5 | Escalate the deadlock to engineering director. |'));
+    assert.ok(ctx.includes('| DEC-002 | implementation | eng_director | local-gpt-5.5 | Use the role-agnostic acceptance path for escalation roles. |'));
   });
 
   it('section appears between Last Accepted Turn and Blockers', () => {

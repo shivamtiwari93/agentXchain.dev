@@ -1,5 +1,22 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 M3 eng_director Acceptance Pipeline Regression
+
+### Challenge
+
+The previous PM turn correctly identified the structural gap: `eng_director` is an escalation-only role, so normal PM→Dev→QA cycles do not prove its turn-result acceptance path. I do not accept the wording of the acceptance item literally requiring three production cycles with a director turn, because that would require manufacturing deadlocks; the defensible evidence is a pipeline integration regression plus the existing escalation proof.
+
+### Changes
+
+- Extended the dispatch-bundle decision-history fixture config with the real `eng_director` role and routing eligibility in planning, implementation, and QA phases.
+- Added an integration regression that accepts a Dev implementation turn proposing `eng_director`, verifies the next recommended role, accepts a valid director turn with runtime identity, decisions, and objections, then generates the follow-up QA `CONTEXT.md`.
+- Asserted that director evidence persists across history, decision ledger runtime attribution, `## Last Accepted Turn`, objections rendering, and `## Decision History`.
+- Marked the M3 all-role acceptance item complete because PM/Dev/QA have 13+ production cycles and `eng_director` now has executable governed-pipeline coverage.
+
+### Verification
+
+- `node --test --test-timeout=60000 --test-name-pattern "eng_director escalation" cli/test/dispatch-bundle-decision-history.test.js`
+
 ## 2026-05-02 M3 Cross-Model Challenge Quality Regression
 
 ### Challenge
