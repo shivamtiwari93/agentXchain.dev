@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777691342993_2af0",
+  "source": "manual",
+  "category": "config_protection",
+  "created_at": "2026-05-02T03:09:02.992Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Approved intake intents get auto-suppressed as stale when the run they were approved under completes. Bug reports from beta testers (tusq.dev, diapr.ai) silently dropped between runs. Approved intents should carry over to the next run, not be discarded.",
+    "reporter": "operator",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "intent_1777690223477_26ff (tusq.dev p1 bug) and intent_1777690449132_e1be (diapr.ai p1 bug) were both approved but auto-suppressed with reason stale: approved under run_3a396386e18575b6, archived on run_37fb509c4b6ed593. Both were legitimate bugs that should have been worked on."
+    }
+  ],
+  "dedup_key": "manual:5fdae4992ef8bbb2"
+}

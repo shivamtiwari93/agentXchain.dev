@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777691339197_448d",
+  "event_id": "evt_1777691339196_09a0",
+  "status": "superseded",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "Fix continuous loop auto-chaining: loop must automatically derive next run from VISION.md after run completion without operator restart",
+  "acceptance_contract": [
+    "Continuous loop completes a PM-Dev-QA run and automatically starts the next run without operator intervention",
+    "runs_completed counter increments correctly after each run",
+    "Session status shows running not paused between auto-chained runs",
+    "5 consecutive runs complete without manual restart"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T03:08:59.195Z",
+  "updated_at": "2026-05-02T03:22:59.263Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T03:08:59.195Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T03:09:11.397Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T03:09:12.053Z",
+      "reason": "approved for planning",
+      "approver": "operator"
+    },
+    {
+      "from": "approved",
+      "to": "superseded",
+      "at": "2026-05-02T03:22:59.263Z",
+      "reason": "planning artifacts for this intent already exist on disk; intent superseded"
+    }
+  ],
+  "approved_run_id": "run_37fb509c4b6ed593",
+  "approved_by": "operator",
+  "archived_reason": "planning artifacts for this intent already exist on disk; intent superseded"
+}

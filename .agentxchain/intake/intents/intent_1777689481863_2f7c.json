@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777689481863_2f7c",
+  "event_id": "evt_1777689481863_e20e",
+  "status": "completed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "Prevent agents from overwriting agentxchain.json — add operator-owned protection to all 4 role prompts",
+  "acceptance_contract": [
+    "All 4 role prompts (.agentxchain/prompts/pm.md dev.md qa.md eng_director.md) contain Do NOT modify agentxchain.json instruction",
+    "Instruction is in the write boundaries or protocol rules section",
+    "agentxchain.json timeouts and watch routes survive a full PM+Dev+QA cycle without being stripped"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_3a396386e18575b6",
+  "created_at": "2026-05-02T02:38:01.862Z",
+  "updated_at": "2026-05-02T02:49:41.540Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T02:38:01.862Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T02:38:17.721Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T02:38:21.299Z",
+      "reason": "approved for planning",
+      "approver": "operator"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T02:42:45.352Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T02:42:45.749Z",
+      "run_id": "run_3a396386e18575b6",
+      "turn_id": "turn_080c074e61bbd5eb",
+      "role": "qa",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T02:49:41.540Z",
+      "turn_id": "turn_080c074e61bbd5eb",
+      "role": "qa",
+      "run_id": "run_3a396386e18575b6",
+      "reason": "turn accepted — acceptance contract satisfied"
+    }
+  ],
+  "approved_run_id": "run_3a396386e18575b6",
+  "approved_by": "operator",
+  "planning_artifacts": [],
+  "target_turn": "turn_080c074e61bbd5eb",
+  "started_at": "2026-05-02T02:42:45.749Z",
+  "completed_at": "2026-05-02T02:49:41.540Z",
+  "run_completed_at": "2026-05-02T02:49:41.540Z",
+  "run_final_turn": "turn_080c074e61bbd5eb",
+  "satisfying_turn": "turn_080c074e61bbd5eb"
+}

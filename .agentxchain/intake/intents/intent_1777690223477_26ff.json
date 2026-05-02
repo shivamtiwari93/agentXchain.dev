@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777690223477_26ff",
+  "event_id": "evt_1777690223476_97c7",
+  "status": "suppressed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "[Beta Bug] Continuous session remains paused with runs_completed=0 after governed run_completed, requiring manual rerun to continue (reported by tusq.dev)",
+  "acceptance_contract": [
+    "Root cause of stale paused continuous-session accounting is identified",
+    "Continuous mode increments runs_completed and auto-chains after run_completed when VISION remains open",
+    "Regression coverage reproduces cont-be8f0614/run_7a910fe9b6ccd8c7 shape"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T02:50:23.474Z",
+  "updated_at": "2026-05-02T03:06:09.916Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T02:50:23.474Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T02:50:45.326Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T02:50:46.037Z",
+      "reason": "p1 beta bug with shipped-package evidence and manual recovery details",
+      "approver": "tusq.dev beta tester"
+    },
+    {
+      "from": "approved",
+      "to": "suppressed",
+      "at": "2026-05-02T03:06:09.916Z",
+      "reason": "stale: approved under run run_3a396386e18575b6, archived on run run_37fb509c4b6ed593 initialization"
+    }
+  ],
+  "approved_run_id": "run_3a396386e18575b6",
+  "approved_by": "tusq.dev beta tester",
+  "archived_reason": "stale: approved under run run_3a396386e18575b6, archived on run run_37fb509c4b6ed593 initialization"
+}

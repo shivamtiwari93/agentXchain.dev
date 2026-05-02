@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777602136213_b854",
+  "event_id": "evt_1777602136212_f441",
+  "status": "blocked",
+  "priority": "p2",
+  "template": "generic",
+  "charter": "[vision] What We Are Building: a **protocol** for governed multi-agent software delivery",
+  "acceptance_contract": [
+    "Vision goal addressed: a **protocol** for governed multi-agent software delivery"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_c51e75b8cbeca9db",
+  "created_at": "2026-05-01T02:22:16.212Z",
+  "updated_at": "2026-05-01T02:24:00.759Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-01T02:22:16.212Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-01T02:22:16.213Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-01T02:22:16.213Z",
+      "reason": "vision-derived auto-approval",
+      "approver": "continuous_loop"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-01T02:22:16.214Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "planned",
+      "at": "2026-05-01T02:22:16.216Z",
+      "reason": "pre-run durable approval bound to run run_a747940337c8fb34"
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-01T02:23:56.757Z",
+      "run_id": "run_c51e75b8cbeca9db",
+      "turn_id": "turn_de2bd5e43b152f2b",
+      "role": "pm",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "blocked",
+      "at": "2026-05-01T02:24:00.759Z",
+      "reason": "governed run run_c51e75b8cbeca9db reached status blocked",
+      "run_id": "run_c51e75b8cbeca9db",
+      "run_status": "blocked"
+    }
+  ],
+  "approved_by": "continuous_loop",
+  "planning_artifacts": [],
+  "approved_run_id": "run_a747940337c8fb34",
+  "target_turn": "turn_de2bd5e43b152f2b",
+  "started_at": "2026-05-01T02:23:56.757Z",
+  "run_blocked_on": "escalation:retries-exhausted:pm",
+  "run_blocked_reason": "retries_exhausted",
+  "run_blocked_recovery": "Resolve the escalation, then run agentxchain step --resume"
+}

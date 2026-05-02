@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777684862086_3cac",
+  "event_id": "evt_1777684862086_7a5b",
+  "status": "completed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "[roadmap] M2: Vision Derivation — Continuous Roadmap Replenishment: Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 0/5 consecutive runs as of 2026-05-02 -->",
+  "acceptance_contract": [
+    "Roadmap milestone addressed: M2: Vision Derivation — Continuous Roadmap Replenishment",
+    "Unchecked roadmap item completed: Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 0/5 consecutive runs as of 2026-05-02 -->",
+    "Evidence source: .planning/ROADMAP.md:36"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_bd3c68e0331fa956",
+  "created_at": "2026-05-02T01:21:02.086Z",
+  "updated_at": "2026-05-02T01:34:49.407Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T01:21:02.086Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T01:21:02.087Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T01:21:02.087Z",
+      "reason": "roadmap-open-work auto-approval",
+      "approver": "continuous_loop"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T01:21:02.089Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T01:21:02.392Z",
+      "run_id": "run_bd3c68e0331fa956",
+      "turn_id": "turn_98bc9efe31efca77",
+      "role": "pm",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T01:34:49.407Z",
+      "turn_id": "turn_98bc9efe31efca77",
+      "role": "pm",
+      "run_id": "run_bd3c68e0331fa956",
+      "reason": "turn accepted — acceptance contract satisfied"
+    }
+  ],
+  "approved_run_id": "run_b51cc53d95925d53",
+  "approved_by": "continuous_loop",
+  "planning_artifacts": [],
+  "target_turn": "turn_98bc9efe31efca77",
+  "started_at": "2026-05-02T01:21:02.392Z",
+  "completed_at": "2026-05-02T01:34:49.407Z",
+  "run_completed_at": "2026-05-02T01:34:49.407Z",
+  "run_final_turn": "turn_98bc9efe31efca77",
+  "satisfying_turn": "turn_98bc9efe31efca77"
+}

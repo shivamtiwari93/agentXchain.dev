@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777692571921_6748",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T03:29:31.921Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "diapr.ai per_turn_minutes=120 ignored; implementation turn escalated after 20 minutes",
+    "reporter": "diapr.ai",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Run run_0b00ed1aa694dda8 turn turn_72a64c0843dd16d1. agentxchain.json has timeouts.per_turn_minutes=120, but status assigned_at=2026-05-02T03:08:56.289Z and deadline_at=2026-05-02T03:28:56.440Z, then events.jsonl raised human_escalation hesc_35fccc3b6d745cbb at 2026-05-02T03:28:56.506Z with blocked_on=dispatch:timeout and detail='Subprocess timed out before staging a turn result.' Workaround: full-auto/heartbeat resumed with agentxchain step --resume; run is active again."
+    }
+  ],
+  "dedup_key": "manual:b85e78bb20fe53bf"
+}

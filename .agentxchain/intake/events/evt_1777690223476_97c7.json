@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777690223476_97c7",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T02:50:23.474Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Continuous session remains paused with runs_completed=0 after governed run_completed, requiring manual rerun to continue",
+    "reporter": "tusq.dev",
+    "requested_priority": "p1",
+    "project_path": "/Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-main-merge",
+    "agentxchain_version": "2.155.72",
+    "continuous_session_id": "cont-be8f0614",
+    "run_id": "run_7a910fe9b6ccd8c7",
+    "last_turn_id": "turn_79279ee5433d3ae5"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Governed run completed with all gates passed and event evt_ccea9d17a8e854df run_completed, but .agentxchain/continuous-session.json remained status=paused and runs_completed=0 with current_run_id=run_7a910fe9b6ccd8c7. agentxchain status --json showed no drift, no active turn, state.status=completed, and next_actions recommended manually running agentxchain run --continuous. Manual rerun output: Resuming existing continuous session cont-be8f0614. Blocked run resolved — resuming continuous session. New PM turn dispatched: turn_fb88572892225850. Expected: after run_completed with VISION still open, continuous mode should increment runs_completed and auto-dispatch the next run without requiring an operator rerun. Evidence paths: /Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-main-merge/.agentxchain/continuous-session.json, /Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-main-merge/.agentxchain/events.jsonl, /Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-main-merge/.agentxchain/state.json"
+    }
+  ],
+  "dedup_key": "manual:f5aeb8aa76e4bb75"
+}

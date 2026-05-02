@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777690546755_1eb1",
+  "event_id": "evt_1777690546754_3271",
+  "status": "suppressed",
+  "priority": null,
+  "template": null,
+  "charter": null,
+  "acceptance_contract": [],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T02:55:46.754Z",
+  "updated_at": "2026-05-02T02:56:39.222Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T02:55:46.754Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "suppressed",
+      "at": "2026-05-02T02:56:39.222Z",
+      "reason": "Smoke test of report-bug.sh pipeline, not a real bug. Evidence explicitly says no action required."
+    }
+  ]
+}

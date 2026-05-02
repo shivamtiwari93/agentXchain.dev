@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777693899310_04bf",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T03:51:39.310Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "diapr.ai accept-turn --normalize-staged-result replaced per-turn staged result with empty object after acceptance failure",
+    "reporter": "diapr.ai",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Run run_0b00ed1aa694dda8, turn turn_fdbed710bb1ec95e. The turn staged .agentxchain/staging/turn_fdbed710bb1ec95e/turn-result.json with status completed and npm run verify pass. agentxchain step then reported startup failure despite staged result; status later showed failed_acceptance because src/diapr-core.mjs was dirty and not classified. Running agentxchain accept-turn --turn turn_fdbed710bb1ec95e --normalize-staged-result exited schema_error and after that cat .agentxchain/staging/turn_fdbed710bb1ec95e/turn-result.json returned {}. agentxchain validate --mode turn then reported No staged turn result found at .agentxchain/staging/turn-result.json, which appears to ignore the per-turn staging path. Workaround: stopped before editing product files or committing .agentxchain runtime churn; run remains active with failed_acceptance and uncheckpointed product files."
+    }
+  ],
+  "dedup_key": "manual:6dc3046e89cfd318"
+}

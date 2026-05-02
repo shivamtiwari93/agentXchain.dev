@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777694634183_6364",
+  "source": "manual",
+  "category": "feature_request",
+  "created_at": "2026-05-02T04:03:54.182Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Complete Vitest migration: 564 of 565 test files still use node:test despite vitest 4.1.2 being installed and vitest.config.js existing. Migration specs (VITEST_PILOT_SPEC.md, VITEST_EXPANSION_S1-S3_SPEC.md) exist but execution stalled. Migrate all test files from node:test to vitest for faster execution, better DX, and TDD-first development.",
+    "reporter": "operator-monitoring",
+    "requested_priority": "p2"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "vitest devDep: vitest@4.1.2. vitest.config.js exists with node:test shim. 1/565 files use vitest. 564/565 use node:test. Existing migration specs: VITEST_PILOT, EXPANSION_S1-S3, MIGRATION_ASSESSMENT, STEADY_STATE."
+    }
+  ],
+  "dedup_key": "manual:11874d90916e215f"
+}

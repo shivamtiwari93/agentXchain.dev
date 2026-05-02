@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777687499348_8fd2",
+  "event_id": "evt_1777687499348_94e1",
+  "status": "completed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "[roadmap] M3: Multi-Model Turn Handoff Quality: Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md",
+  "acceptance_contract": [
+    "Roadmap milestone addressed: M3: Multi-Model Turn Handoff Quality",
+    "Unchecked roadmap item completed: Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md",
+    "Evidence source: .planning/ROADMAP.md:39"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_fb3583590a1a4799",
+  "created_at": "2026-05-02T02:04:59.348Z",
+  "updated_at": "2026-05-02T02:11:36.013Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T02:04:59.348Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T02:04:59.349Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T02:04:59.349Z",
+      "reason": "roadmap-open-work auto-approval",
+      "approver": "continuous_loop"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T02:04:59.351Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T02:04:59.749Z",
+      "run_id": "run_fb3583590a1a4799",
+      "turn_id": "turn_089b8301e9c618c1",
+      "role": "pm",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T02:11:36.013Z",
+      "turn_id": "turn_089b8301e9c618c1",
+      "role": "pm",
+      "run_id": "run_fb3583590a1a4799",
+      "reason": "turn accepted — acceptance contract satisfied"
+    }
+  ],
+  "approved_run_id": "run_bd3c68e0331fa956",
+  "approved_by": "continuous_loop",
+  "planning_artifacts": [],
+  "target_turn": "turn_089b8301e9c618c1",
+  "started_at": "2026-05-02T02:04:59.749Z",
+  "completed_at": "2026-05-02T02:11:36.013Z",
+  "run_completed_at": "2026-05-02T02:11:36.013Z",
+  "run_final_turn": "turn_089b8301e9c618c1",
+  "satisfying_turn": "turn_089b8301e9c618c1"
+}

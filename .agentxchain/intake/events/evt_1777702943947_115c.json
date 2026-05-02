@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777702943947_115c",
+  "source": "manual",
+  "category": "framework_enhancement",
+  "created_at": "2026-05-02T06:22:23.946Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Make per-turn governance timeout (120min) and productive timeout retry deadline (120min) the framework defaults. Currently per_turn_minutes defaults to unset (must be configured in agentxchain.json), the normal per-dispatch deadline is hardcoded at 20min in governed-state.js (lines 3675 and 3957), and PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES is hardcoded at 60min in continuous-run.js line 66. All three should default to 120min out of the box so new projects get generous turn budgets without manual config. Changes needed: (1) governed-state.js: read per_turn_minutes from config and use it for deadline_at instead of hardcoded 20, falling back to 120 if unset. (2) continuous-run.js: read per_turn_minutes from config for PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES, falling back to 120. (3) Templates in cli/src/templates/ should include timeouts.per_turn_minutes: 120 in their default configs.",
+    "reporter": "operator",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Dev GPT 5.5 was killed at 45min into productive output (202 lines) because PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES was 60min. Normal dispatches killed at 20min. Both are hardcoded and ignore the per_turn_minutes: 120 config. This caused 6 failed attempts on a single Vitest migration turn in Run 12."
+    }
+  ],
+  "dedup_key": "manual:fc38491fbd152e0c"
+}

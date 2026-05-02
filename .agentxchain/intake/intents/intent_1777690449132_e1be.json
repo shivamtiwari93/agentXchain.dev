@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777690449132_e1be",
+  "event_id": "evt_1777690449132_a93a",
+  "status": "suppressed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "Fix Codex ghost detection false positive: watchdog marks stdout_attach_failed while subprocess is alive and producing output. State does not clear failed_start metadata when output arrives late.",
+  "acceptance_contract": [
+    "Watchdog does not mark a Codex turn as ghost/stdout_attach_failed when output arrives within startup timeout",
+    "failed_start_at and failed_start_reason metadata are cleared when late output is detected",
+    "Regression test reproducing diapr.ai run_0b00ed1aa694dda8 shape passes"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T02:54:09.128Z",
+  "updated_at": "2026-05-02T03:06:09.916Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T02:54:09.128Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T02:56:43.196Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T02:56:47.152Z",
+      "reason": "approved for planning",
+      "approver": "operator"
+    },
+    {
+      "from": "approved",
+      "to": "suppressed",
+      "at": "2026-05-02T03:06:09.916Z",
+      "reason": "stale: approved under run run_3a396386e18575b6, archived on run run_37fb509c4b6ed593 initialization"
+    }
+  ],
+  "approved_run_id": "run_3a396386e18575b6",
+  "approved_by": "operator",
+  "archived_reason": "stale: approved under run run_3a396386e18575b6, archived on run run_37fb509c4b6ed593 initialization"
+}

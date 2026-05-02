@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777697421568_4538",
+  "event_id": "evt_1777697421567_07ef",
+  "status": "approved",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "Integrate GSD 5-step workflow (Discuss→Plan→Execute→Verify→Ship) into agentXchain protocol and all templates",
+  "acceptance_contract": [
+    "Protocol phase system in cli/src/lib/ supports GSD phases (Discuss/Plan/Execute/Verify/Ship) alongside existing phases",
+    "All templates scaffold GSD artifacts (CONTEXT.md/RESEARCH.md/PLAN.md/SUMMARY.md/VERIFICATION.md/UAT.md) per task",
+    "Role prompts enforce GSD discipline — each phase produces its required artifacts before advancing",
+    "Fresh sub-agent context isolation per task prevents cross-task contamination",
+    "PLAN.md uses structured XML format per GSD spec",
+    "Verification and UAT gates enforce evidence-backed ship decisions"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T04:50:21.567Z",
+  "updated_at": "2026-05-02T04:50:40.730Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T04:50:21.567Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T04:50:35.403Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T04:50:40.730Z",
+      "reason": "approved for planning",
+      "approver": "operator"
+    }
+  ],
+  "approved_run_id": "run_4a6f8ae7668a237a",
+  "approved_by": "operator"
+}

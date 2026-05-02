@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777602136212_f441",
+  "source": "vision_scan",
+  "category": "vision_derived",
+  "created_at": "2026-05-01T02:22:16.212Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "a **protocol** for governed multi-agent software delivery",
+    "vision_section": "What We Are Building",
+    "derived": true
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Vision section: What We Are Building — Goal: a **protocol** for governed multi-agent software delivery"
+    }
+  ],
+  "dedup_key": "vision_scan:fa874ed68cf2bdf0"
+}

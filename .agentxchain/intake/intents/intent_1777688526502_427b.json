@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777688526502_427b",
+  "event_id": "evt_1777688526501_6cca",
+  "status": "completed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "[roadmap] M3: Multi-Model Turn Handoff Quality: Validate that stream-json and --json output formats are correctly parsed by the adapter",
+  "acceptance_contract": [
+    "Roadmap milestone addressed: M3: Multi-Model Turn Handoff Quality",
+    "Unchecked roadmap item completed: Validate that stream-json and --json output formats are correctly parsed by the adapter",
+    "Evidence source: .planning/ROADMAP.md:40"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_3a396386e18575b6",
+  "created_at": "2026-05-02T02:22:06.501Z",
+  "updated_at": "2026-05-02T02:33:22.222Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T02:22:06.501Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T02:22:06.502Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T02:22:06.502Z",
+      "reason": "roadmap-open-work auto-approval",
+      "approver": "continuous_loop"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T02:22:06.504Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T02:22:06.831Z",
+      "run_id": "run_3a396386e18575b6",
+      "turn_id": "turn_90518aab38b346cf",
+      "role": "pm",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T02:33:22.222Z",
+      "turn_id": "turn_90518aab38b346cf",
+      "role": "pm",
+      "run_id": "run_3a396386e18575b6",
+      "reason": "turn accepted — acceptance contract satisfied"
+    }
+  ],
+  "approved_run_id": "run_fb3583590a1a4799",
+  "approved_by": "continuous_loop",
+  "planning_artifacts": [],
+  "target_turn": "turn_90518aab38b346cf",
+  "started_at": "2026-05-02T02:22:06.831Z",
+  "completed_at": "2026-05-02T02:33:22.222Z",
+  "run_completed_at": "2026-05-02T02:33:22.222Z",
+  "run_final_turn": "turn_90518aab38b346cf",
+  "satisfying_turn": "turn_90518aab38b346cf"
+}

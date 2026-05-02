@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777697421567_07ef",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T04:50:21.567Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Integrate GSD (Get Shit Done) 5-step workflow into agentXchain protocol and templates — formalize Discuss, Plan, Execute, Verify, Ship as first-class protocol phases with per-task artifacts. Each phase produces structured artifacts: CONTEXT.md (task framing), RESEARCH.md (investigation findings), PLAN.md (XML-structured implementation plan), SUMMARY.md (what was built), VERIFICATION.md (test evidence), UAT.md (acceptance testing). Fresh sub-agent contexts per task. Update cli/src/lib/ phase system to recognize GSD phases. Update all cli/src/templates/ to include GSD artifact scaffolds. Update role prompts to follow GSD discipline. This is framework-level — the protocol itself should understand and enforce GSD workflow.",
+    "reporter": "operator",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Current state: Framework has GSD-like structures but does not follow full GSD 5-step workflow from https://github.com/gsd-build/get-shit-done. Gaps: (1) No RESEARCH.md, UAT.md, SUMMARY.md artifacts in protocol, (2) PLAN.md exists but not in GSD XML format, (3) No fresh sub-agent context isolation per task, (4) Phase system uses planning/implementation/qa not Discuss/Plan/Execute/Verify/Ship, (5) Templates dont scaffold GSD artifacts, (6) Role prompts dont reference GSD discipline. The GSD framework provides: spec-driven development with 5 phases, per-phase structured artifacts, fresh contexts preventing cross-task contamination, explicit verification and UAT gates. agentXchain was originally designed to use GSD but it was never formally integrated into the protocol and templates."
+    }
+  ],
+  "dedup_key": "manual:02be2eb3d32f7ff9"
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777696554936_72c2",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T04:35:54.935Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Dev turn rejected after checkpoint because staged result lacks governed envelope",
+    "reporter": "tusq.dev",
+    "requested_priority": "p1",
+    "run_id": "run_8734d7a1313a33b2",
+    "turn_id": "turn_acf70156f6cfa369"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Project: tusq.dev. Repo: /Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-main-merge. agentxchain run_id=run_8734d7a1313a33b2, turn_id=turn_acf70156f6cfa369, role=dev, phase=implementation, escalation_id=hesc_5f3f809bf4ca8dfb. Attempt 1 failed after 1200s/11187 output lines: Subprocess exited code 143 without writing .agentxchain/staging/turn_acf70156f6cfa369/turn-result.json. Attempt 2 completed after 1191s/9320 output lines and created checkpoint afe6222726bf949ee4d5228e20a1012912e015c8 with product/planning/test/doc files changed, but AgentXchain rejected with: staged result missing minimum governed envelope (schema_version + identity + lifecycle fields). The rejected payload at .agentxchain/dispatch/rejected/turn_acf70156f6cfa369-attempt-2-2026-05-02T04-28-26-021Z.json contains a useful completed result with run_id, turn_id, role, status, phase_transition_request, summary, verification/test_results, and files_changed, but lacks the newer governed envelope fields. This blocks an otherwise valid dev checkpoint and requires human recovery."
+    }
+  ],
+  "dedup_key": "manual:df8318abcfb07d3e"
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777702113605_1283",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T06:08:33.604Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "diapr.ai completed run cannot continue: continuous loop idles with stale current_run_id and injected PM intent is superseded",
+    "reporter": "diapr.ai",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Repo: /Users/shivamtiwari.highlevel/VS Code/1008apps/diapr.ai. Last completed governed run: run_954fc3dc8164adc2, QA turn turn_ffcd79c5a79d8555, accepted integration git:40e6ec32ac00caf5ce43bfd40312be0be6a67d1b, completed_at 2026-05-02T04:48:53.324Z. agentxchain status shows status=completed, phase=qa, active_turns={}, pending_intents=[], delegation_queue=[], next_recommended_role=null, but next_actions still reports roadmap_open_work_detected for ROADMAP M8 line 97 care-streak freeze. ship-verdict says scope shipped was M8 supportive copy library + care-streak freeze; ROADMAP remains unchecked/stale. Running continuous continuation from completed run using: agentxchain run --continue-from run_954fc3dc8164adc2 --inherit-context --continuous --vision .planning/VISION.md --auto-approve --auto-checkpoint --auto-retry-on-ghost --reconcile-operator-commits auto_safe_only --session-budget 250 --max-runs 100 --max-idle-cycles 3 --poll-seconds 30 --verbose created/resumed continuous_session cont-39964d1f but status immediately reports idle_cycles=3/3, current_run_id=run_0b00ed1aa694dda8 (stale previous run), current_vision_objective=null, no active turn, no dispatch events after 2026-05-02T04:48:59 except continuous_session_resumed at 2026-05-02T06:07:59 against stale run_0b00ed1aa694dda8. Attempted workaround: agentxchain inject PM continuation intent_1777701984130_401f with p0 enterprise-app charter to reconcile M8 and plan next work. inject returned ok=true but status=superseded, reason: planning artifacts for this intent already exist on disk; intent superseded during approval. agentxchain intake start --intent intent_1777701984130_401f --restart-completed --role pm -j failed with: cannot start from status superseded (must be planned). A non-continuous dry-run for agentxchain run --continue-from run_954fc3dc8164adc2 --inherit-context --role pm --max-turns 1 succeeds, but actual background run did not produce run_started/turn_dispatched events and status remained on completed run_954fc3dc8164adc2. Impact: after a completed QA run with open roadmap work, framework reports no active turns and fails to seed PM/next work, blocking full-auto continuation."
+    }
+  ],
+  "dedup_key": "manual:314ff1634ae1811b"
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777703387326_6578",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T06:29:47.326Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "agentxchain intake suppresses populated beta_bug_report as empty signal/evidence",
+    "reporter": "diapr.ai",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Reporter diapr.ai. In agentXchain.dev intake, two beta_bug_report intents that were filed via scripts/report-bug.sh with populated description and evidence were later suppressed as if empty. Intent intent_1777702113605_72a4 event evt_1777702113605_1283 has event.signal.description='diapr.ai completed run cannot continue: continuous loop idles with stale current_run_id and injected PM intent is superseded', event.signal.reporter='diapr.ai', event.signal.requested_priority='p1', and event.evidence[0].value contains a long repro including run_954fc3dc8164adc2, turn_ffcd79c5a79d8555, stale current_run_id=run_0b00ed1aa694dda8, and intake start failure. Despite this, intent history shows detected -> suppressed at 2026-05-02T06:23:31.611Z with reason 'Empty signal and evidence — auto-detected noise with no actionable content'. Intent intent_1777702188801_b0ab event evt_1777702188800_91b1 likewise has event.signal.description='Supplement for diapr.ai continuation bug: non-continuous PM seed works after cleanup; continuous/intake issue remains', reporter='diapr.ai', requested_priority='p2', and event.evidence[0].value describing the successful non-continuous workaround. It was suppressed at 2026-05-02T06:23:30.198Z with the same empty-signal reason. Expected: suppression classifier should inspect event.signal and event.evidence, or at minimum not mark populated beta_bug_report records as empty. Actual: populated reports were suppressed as empty/noise. Impact: real beta bug reports can disappear from the agentXChain.dev intake queue even though the data is present on disk. Commands used to verify: agentxchain intake status --intent intent_1777702113605_72a4 -j and agentxchain intake status --intent intent_1777702188801_b0ab -j in /Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev."
+    }
+  ],
+  "dedup_key": "manual:db69c665aa61ac6e"
+}

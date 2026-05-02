@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777683963850_b028",
+  "event_id": "evt_1777683963850_2a21",
+  "status": "completed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "[roadmap] M2: Vision Derivation — Continuous Roadmap Replenishment: When ROADMAP.md milestones are all checked and VISION.md has uncovered scope, dispatch PM to derive next increment",
+  "acceptance_contract": [
+    "Roadmap milestone addressed: M2: Vision Derivation — Continuous Roadmap Replenishment",
+    "Unchecked roadmap item completed: When ROADMAP.md milestones are all checked and VISION.md has uncovered scope, dispatch PM to derive next increment",
+    "Evidence source: .planning/ROADMAP.md:33"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_b51cc53d95925d53",
+  "created_at": "2026-05-02T01:06:03.850Z",
+  "updated_at": "2026-05-02T01:12:41.610Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T01:06:03.850Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T01:06:03.850Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T01:06:03.851Z",
+      "reason": "roadmap-open-work auto-approval",
+      "approver": "continuous_loop"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T01:06:03.852Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T01:06:04.165Z",
+      "run_id": "run_b51cc53d95925d53",
+      "turn_id": "turn_853295f1b3b14b5b",
+      "role": "pm",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T01:12:41.610Z",
+      "turn_id": "turn_853295f1b3b14b5b",
+      "role": "pm",
+      "run_id": "run_b51cc53d95925d53",
+      "reason": "turn accepted — acceptance contract satisfied"
+    }
+  ],
+  "approved_run_id": "run_e9d2aeed559c018e",
+  "approved_by": "continuous_loop",
+  "planning_artifacts": [],
+  "target_turn": "turn_853295f1b3b14b5b",
+  "started_at": "2026-05-02T01:06:04.165Z",
+  "completed_at": "2026-05-02T01:12:41.610Z",
+  "run_completed_at": "2026-05-02T01:12:41.610Z",
+  "run_final_turn": "turn_853295f1b3b14b5b",
+  "satisfying_turn": "turn_853295f1b3b14b5b"
+}

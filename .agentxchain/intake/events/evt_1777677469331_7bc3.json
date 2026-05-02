@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777677469331_7bc3",
+  "source": "vision_scan",
+  "category": "roadmap_open_work_detected",
+  "created_at": "2026-05-01T23:17:49.331Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "M1: Self-Governance Hardening — Ghost Turn Elimination: Diagnose root cause of ghost turns when dispatching to local_cli runtimes with stream-json output",
+    "roadmap_milestone": "M1: Self-Governance Hardening — Ghost Turn Elimination",
+    "roadmap_path": ".planning/ROADMAP.md",
+    "roadmap_line": 14,
+    "derived": true
+  },
+  "evidence": [
+    {
+      "type": "file",
+      "value": ".planning/ROADMAP.md:14"
+    },
+    {
+      "type": "text",
+      "value": "Unchecked roadmap work: M1: Self-Governance Hardening — Ghost Turn Elimination — Diagnose root cause of ghost turns when dispatching to local_cli runtimes with stream-json output"
+    }
+  ],
+  "dedup_key": "vision_scan:a5dbe0b7b09d46ab"
+}

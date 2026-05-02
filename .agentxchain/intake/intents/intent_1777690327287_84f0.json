@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777690327287_84f0",
+  "event_id": "evt_1777690327286_4a4a",
+  "status": "suppressed",
+  "priority": "p2",
+  "template": "generic",
+  "charter": "[Beta Bug] Documented beta tester bug-report script is missing from agentXchain.dev/scripts (reported by tusq.dev)",
+  "acceptance_contract": [
+    "scripts/report-bug.sh exists at the documented full path",
+    "Script works from outside agentXchain.dev repo",
+    "Documentation or heartbeat prompt matches the actual supported reporting path"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T02:52:07.285Z",
+  "updated_at": "2026-05-02T03:06:09.916Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T02:52:07.285Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T02:52:19.300Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T02:52:19.785Z",
+      "reason": "p2 bug-reporting workflow defect found while filing p1 continuous-session bug",
+      "approver": "tusq.dev beta tester"
+    },
+    {
+      "from": "approved",
+      "to": "suppressed",
+      "at": "2026-05-02T03:06:09.916Z",
+      "reason": "stale: approved under run run_3a396386e18575b6, archived on run run_37fb509c4b6ed593 initialization"
+    }
+  ],
+  "approved_run_id": "run_3a396386e18575b6",
+  "approved_by": "tusq.dev beta tester",
+  "archived_reason": "stale: approved under run run_3a396386e18575b6, archived on run run_37fb509c4b6ed593 initialization"
+}

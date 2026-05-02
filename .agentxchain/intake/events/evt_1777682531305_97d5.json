@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777682531305_97d5",
+  "source": "vision_scan",
+  "category": "roadmap_open_work_detected",
+  "created_at": "2026-05-02T00:42:11.305Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "M1: Self-Governance Hardening — Ghost Turn Elimination: Acceptance: zero ghost turns across 10 consecutive self-governed runs",
+    "roadmap_milestone": "M1: Self-Governance Hardening — Ghost Turn Elimination",
+    "roadmap_path": ".planning/ROADMAP.md",
+    "roadmap_line": 29,
+    "derived": true
+  },
+  "evidence": [
+    {
+      "type": "file",
+      "value": ".planning/ROADMAP.md:29"
+    },
+    {
+      "type": "text",
+      "value": "Unchecked roadmap work: M1: Self-Governance Hardening — Ghost Turn Elimination — Acceptance: zero ghost turns across 10 consecutive self-governed runs"
+    }
+  ],
+  "dedup_key": "vision_scan:bb5b2361cdf2b4a6"
+}

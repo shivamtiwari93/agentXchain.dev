@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777702188801_b0ab",
+  "event_id": "evt_1777702188800_91b1",
+  "status": "suppressed",
+  "priority": null,
+  "template": null,
+  "charter": null,
+  "acceptance_contract": [],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T06:09:48.799Z",
+  "updated_at": "2026-05-02T06:23:30.198Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T06:09:48.799Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "suppressed",
+      "at": "2026-05-02T06:23:30.198Z",
+      "reason": "Empty signal and evidence — auto-detected noise with no actionable content"
+    }
+  ]
+}

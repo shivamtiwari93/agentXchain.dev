@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777602796523_5b0b",
+  "event_id": "evt_1777602796523_3c8b",
+  "status": "suppressed",
+  "priority": "p2",
+  "template": "generic",
+  "charter": "[vision] What We Are Building: runners** that execute that protocol",
+  "acceptance_contract": [
+    "Vision goal addressed: runners** that execute that protocol"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-01T02:33:16.523Z",
+  "updated_at": "2026-05-01T03:26:13.891Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-01T02:33:16.523Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-01T02:33:16.524Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-01T02:33:16.524Z",
+      "reason": "vision-derived auto-approval",
+      "approver": "continuous_loop"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-01T02:33:16.526Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "suppressed",
+      "at": "2026-05-01T03:26:13.891Z",
+      "reason": "stale: approved under run run_5fb440e67c8d1cae, archived on run run_2768a5d6ca1ca89a initialization"
+    }
+  ],
+  "approved_run_id": "run_5fb440e67c8d1cae",
+  "approved_by": "continuous_loop",
+  "planning_artifacts": [],
+  "archived_reason": "stale: approved under run run_5fb440e67c8d1cae, archived on run run_2768a5d6ca1ca89a initialization"
+}

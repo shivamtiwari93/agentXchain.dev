@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777703086045_fc4b",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T06:24:46.044Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "diapr.ai eng_director turn hit stdout_attach_failed ghost and required auto retry",
+    "reporter": "diapr.ai",
+    "requested_priority": "p2"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Repo: /Users/shivamtiwari.highlevel/VS Code/1008apps/diapr.ai. Run run_92726b2ff343c746 entered implementation after PM planning turns. eng_director turn turn_c57188f878beebd8 dispatched at 2026-05-02T06:19:05Z and failed at 2026-05-02T06:22:05Z with failure_type=stdout_attach_failed, running_ms=180007, threshold_ms=180000. Recommendation was agentxchain reissue-turn --turn turn_c57188f878beebd8 --reason ghost. Continuous auto retry reissued it to turn_1958233262dd4b90 at 2026-05-02T06:22:05Z and status is active/starting. stderr excerpt in status shows repeated Codex skill loader warnings: interface.icon_large/icon_small path must not contain '..', then exit_signal SIGTERM. Workaround: auto_retry_ghost handled this once; no manual operator action taken yet."
+    }
+  ],
+  "dedup_key": "manual:f1609754adc669bf"
+}

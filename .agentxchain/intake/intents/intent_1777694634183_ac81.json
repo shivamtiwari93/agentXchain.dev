@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777694634183_ac81",
+  "event_id": "evt_1777694634183_6364",
+  "status": "completed",
+  "priority": "p2",
+  "template": "generic",
+  "charter": "Complete Vitest migration: migrate 564 node:test files to vitest for faster TDD workflow",
+  "acceptance_contract": [
+    "All 565 test files use vitest imports instead of node:test",
+    "npm run test:vitest passes with all tests",
+    "Vitest watch mode works for TDD development",
+    "E2E tests run under vitest harness"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_4a6f8ae7668a237a",
+  "created_at": "2026-05-02T04:03:54.182Z",
+  "updated_at": "2026-05-02T04:18:22.388Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T04:03:54.182Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T04:04:10.199Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T04:04:17.943Z",
+      "reason": "approved for planning",
+      "approver": "operator"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T04:07:04.048Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T04:07:04.359Z",
+      "run_id": "run_4a6f8ae7668a237a",
+      "turn_id": "turn_bce5c1866bf6170d",
+      "role": "pm",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T04:18:22.388Z",
+      "turn_id": "turn_bce5c1866bf6170d",
+      "role": "pm",
+      "run_id": "run_4a6f8ae7668a237a",
+      "reason": "turn accepted — acceptance contract satisfied"
+    }
+  ],
+  "approved_run_id": "run_d758c25c8d0ba32d",
+  "approved_by": "operator",
+  "planning_artifacts": [],
+  "target_turn": "turn_bce5c1866bf6170d",
+  "started_at": "2026-05-02T04:07:04.359Z",
+  "completed_at": "2026-05-02T04:18:22.388Z",
+  "run_completed_at": "2026-05-02T04:18:22.388Z",
+  "run_final_turn": "turn_bce5c1866bf6170d",
+  "satisfying_turn": "turn_bce5c1866bf6170d"
+}

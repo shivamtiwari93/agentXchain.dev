@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777698201593_1d82",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T05:03:21.592Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "diapr.ai continuous mode idles/completes despite roadmap_open_work_detected for completed run",
+    "reporter": "diapr.ai",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Project: /Users/shivamtiwari.highlevel/VS Code/1008apps/diapr.ai. agentxchain status -j at 2026-05-02T05:02Z reports run_id=run_954fc3dc8164adc2 status=completed, phase=qa, qa_ship_verdict=passed, accepted_integration_ref=git:40e6ec32ac00caf5ce43bfd40312be0be6a67d1b. It also reports next_actions=[agentxchain run --continuous --vision .planning/VISION.md] with type=roadmap_open_work_detected for M8 Care-streak save (freeze) line 97, even though that exact item was planned, implemented, QA accepted, and checkpointed by turn_ffcd79c5a79d8555. continuous_session.status=completed, idle_cycles=3, max_idle_cycles=3, current_run_id=run_0b00ed1aa694dda8 (stale previous run), started_at=2026-05-02T05:01:10.045Z. pgrep shows a live process: PID 2929 node ... agentxchain run --continuous --vision .planning/VISION.md --triage-approval auto, elapsed 08:07, but no new events after evt_fba8923336b8667a state_reconciled_operator_commits at 2026-05-02T04:48:59.972Z. Workaround: do not touch product files; operator can manually start a fresh continuous run or resolve roadmap checkbox/status once framework classification is clear."
+    }
+  ],
+  "dedup_key": "manual:3949c4e3587ce5ff"
+}

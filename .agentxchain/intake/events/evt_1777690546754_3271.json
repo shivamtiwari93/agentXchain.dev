@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777690546754_3271",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T02:55:46.754Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "SCRIPT_SMOKE_TEST: report-bug.sh end-to-end verification from tusq.dev after env-var npx invocation patch",
+    "reporter": "tusq.dev-smoke-test",
+    "requested_priority": "p3"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Smoke test only. Verifies scripts/report-bug.sh can be called from /Users/shivamtiwari.highlevel/VS Code/1008apps/tusq.cloud/tusq.dev-main-merge and create a beta_bug_report intake event after replacing eval-based invocation. No product bug action required; this can be suppressed/closed."
+    }
+  ],
+  "dedup_key": "manual:7171baa88b332720"
+}

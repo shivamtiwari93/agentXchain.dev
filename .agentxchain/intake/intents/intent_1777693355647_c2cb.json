@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777693355647_c2cb",
+  "event_id": "evt_1777693355647_e018",
+  "status": "completed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "[roadmap] M3: Multi-Model Turn Handoff Quality: Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles <!-- tracking: 3/4 roles validated across 3+ governed cycles as of 2026-05-02; eng_director not yet dispatched in a normal governed cycle -->",
+  "acceptance_contract": [
+    "Roadmap milestone addressed: M3: Multi-Model Turn Handoff Quality",
+    "Unchecked roadmap item completed: Acceptance: all 4 roles produce valid turn results across 3 consecutive PM→Dev→QA→completion cycles <!-- tracking: 3/4 roles validated across 3+ governed cycles as of 2026-05-02; eng_director not yet dispatched in a normal governed cycle -->",
+    "Evidence source: .planning/ROADMAP.md:43"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_d758c25c8d0ba32d",
+  "created_at": "2026-05-02T03:42:35.647Z",
+  "updated_at": "2026-05-02T03:48:52.173Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T03:42:35.647Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T03:42:35.648Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T03:42:35.648Z",
+      "reason": "roadmap-open-work auto-approval",
+      "approver": "continuous_loop"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T03:42:35.650Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T03:42:35.949Z",
+      "run_id": "run_d758c25c8d0ba32d",
+      "turn_id": "turn_24f816c53ca9dcd3",
+      "role": "pm",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T03:48:52.173Z",
+      "turn_id": "turn_24f816c53ca9dcd3",
+      "role": "pm",
+      "run_id": "run_d758c25c8d0ba32d",
+      "reason": "turn accepted — acceptance contract satisfied"
+    }
+  ],
+  "approved_run_id": "run_4b236357e5bdba02",
+  "approved_by": "continuous_loop",
+  "planning_artifacts": [],
+  "target_turn": "turn_24f816c53ca9dcd3",
+  "started_at": "2026-05-02T03:42:35.949Z",
+  "completed_at": "2026-05-02T03:48:52.173Z",
+  "run_completed_at": "2026-05-02T03:48:52.173Z",
+  "run_final_turn": "turn_24f816c53ca9dcd3",
+  "satisfying_turn": "turn_24f816c53ca9dcd3"
+}

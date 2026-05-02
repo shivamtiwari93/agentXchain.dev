@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777702188800_91b1",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T06:09:48.799Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Supplement for diapr.ai continuation bug: non-continuous PM seed works after cleanup; continuous/intake issue remains",
+    "reporter": "diapr.ai",
+    "requested_priority": "p2"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Supplement to bug intent_1777702113605_72a4. Correction: a foreground non-continuous continuation did start successfully after removing empty .agentxchain/logs files I had created. Command: agentxchain run --continue-from run_954fc3dc8164adc2 --inherit-context --role pm --max-turns 1 --auto-approve --auto-checkpoint --verbose. It assigned active PM turn turn_48c477f22fcaec1d in planning phase and dispatched local-pm stream-json. The original continuous/intake bug remains: continuous continuation from completed run idles with current_run_id=run_0b00ed1aa694dda8 and no current objective; injected p0 PM intent_1777701984130_401f was marked superseded because planning artifacts already existed and intake start refused it. Operational workaround: remove unrelated actor-owned dirty files, then use non-continuous continuation with --role pm."
+    }
+  ],
+  "dedup_key": "manual:9583534f36d017e7"
+}

@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777694642834_d38e",
+  "event_id": "evt_1777694642834_b2e3",
+  "status": "suppressed",
+  "priority": "p2",
+  "template": "generic",
+  "charter": "Integrate GSD spec-driven framework for planning artifacts and workflow",
+  "acceptance_contract": [
+    "GSD planning artifacts (CONTEXT.md RESEARCH.md PLAN.md SUMMARY.md VERIFICATION.md UAT.md) generated per phase",
+    "GSD discuss-plan-execute-verify-ship workflow integrated into governed protocol",
+    "Per-task fresh context approach documented and operational",
+    "Existing 500+ spec files mapped to GSD structure"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T04:04:02.833Z",
+  "updated_at": "2026-05-02T04:07:04.049Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T04:04:02.833Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T04:04:13.015Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T04:04:18.624Z",
+      "reason": "approved for planning",
+      "approver": "operator"
+    },
+    {
+      "from": "approved",
+      "to": "suppressed",
+      "at": "2026-05-02T04:07:04.049Z",
+      "reason": "stale: approved under run run_d758c25c8d0ba32d, archived on run run_4a6f8ae7668a237a initialization"
+    }
+  ],
+  "approved_run_id": "run_d758c25c8d0ba32d",
+  "approved_by": "operator",
+  "archived_reason": "stale: approved under run run_d758c25c8d0ba32d, archived on run run_4a6f8ae7668a237a initialization"
+}

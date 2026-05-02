@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777684862086_7a5b",
+  "source": "vision_scan",
+  "category": "roadmap_open_work_detected",
+  "created_at": "2026-05-02T01:21:02.086Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "M2: Vision Derivation — Continuous Roadmap Replenishment: Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 0/5 consecutive runs as of 2026-05-02 -->",
+    "roadmap_milestone": "M2: Vision Derivation — Continuous Roadmap Replenishment",
+    "roadmap_path": ".planning/ROADMAP.md",
+    "roadmap_line": 36,
+    "derived": true
+  },
+  "evidence": [
+    {
+      "type": "file",
+      "value": ".planning/ROADMAP.md:36"
+    },
+    {
+      "type": "text",
+      "value": "Unchecked roadmap work: M2: Vision Derivation — Continuous Roadmap Replenishment — Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 0/5 consecutive runs as of 2026-05-02 -->"
+    }
+  ],
+  "dedup_key": "vision_scan:10a6914a28cbe09d"
+}

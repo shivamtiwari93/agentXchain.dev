@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777703086045_7a5e",
+  "event_id": "evt_1777703086045_fc4b",
+  "status": "detected",
+  "priority": null,
+  "template": null,
+  "charter": null,
+  "acceptance_contract": [],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-05-02T06:24:46.044Z",
+  "updated_at": "2026-05-02T06:24:46.044Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T06:24:46.044Z",
+      "reason": "event ingested"
+    }
+  ]
+}

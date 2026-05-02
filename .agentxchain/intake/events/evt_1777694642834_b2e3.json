@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777694642834_b2e3",
+  "source": "manual",
+  "category": "feature_request",
+  "created_at": "2026-05-02T04:04:02.833Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Integrate GSD (Get Shit Done) spec-driven framework for planning artifacts. agentXchain was originally intended to use GSD (https://github.com/gsd-build/get-shit-done) for its planning workflow. Current governed protocol (PM->Dev->QA) works but does not leverage GSD discuss-phase, plan-phase, execute-phase, verify-work, ship workflow or its per-task fresh context approach. Align planning artifacts with GSD structure: per-phase CONTEXT.md, RESEARCH.md, atomic XML PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md.",
+    "reporter": "operator-monitoring",
+    "requested_priority": "p2"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "GSD framework: https://github.com/gsd-build/get-shit-done. Currently 500+ _SPEC.md files exist (spec-driven) but not using GSD artifact structure or workflow commands. agentXchain has its own governed protocol but missing GSD context engineering layer for fresh sub-agent contexts per task."
+    }
+  ],
+  "dedup_key": "manual:7a67d939b179af7d"
+}

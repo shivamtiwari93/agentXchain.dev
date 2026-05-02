@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777689481863_e20e",
+  "source": "manual",
+  "category": "config_protection",
+  "created_at": "2026-05-02T02:38:01.862Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Agents keep overwriting agentxchain.json during turns, stripping operator-added sections (timeouts, watch routes). Add Do NOT modify agentxchain.json instruction to all 4 role prompts under write boundaries section. File is operator-owned config.",
+    "reporter": "shivam@gohighlevel.com",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Confirmed across 3+ runs: PM agent overwrites agentxchain.json stripping timeouts and beta_bug_report watch route. Requires manual restoration each monitoring cycle."
+    }
+  ],
+  "dedup_key": "manual:6c728c44f224e5bf"
+}

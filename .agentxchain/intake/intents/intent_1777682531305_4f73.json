@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1777682531305_4f73",
+  "event_id": "evt_1777682531305_97d5",
+  "status": "completed",
+  "priority": "p1",
+  "template": "generic",
+  "charter": "[roadmap] M1: Self-Governance Hardening — Ghost Turn Elimination: Acceptance: zero ghost turns across 10 consecutive self-governed runs",
+  "acceptance_contract": [
+    "Roadmap milestone addressed: M1: Self-Governance Hardening — Ghost Turn Elimination",
+    "Unchecked roadmap item completed: Acceptance: zero ghost turns across 10 consecutive self-governed runs",
+    "Evidence source: .planning/ROADMAP.md:29"
+  ],
+  "phase_scope": null,
+  "requires_human_start": true,
+  "target_run": "run_cc4217fafd6611bc",
+  "created_at": "2026-05-02T00:42:11.305Z",
+  "updated_at": "2026-05-02T00:48:30.181Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-05-02T00:42:11.305Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-05-02T00:42:11.305Z",
+      "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-05-02T00:42:11.306Z",
+      "reason": "roadmap-open-work auto-approval",
+      "approver": "continuous_loop"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T00:42:11.308Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T00:42:11.614Z",
+      "run_id": "run_cc4217fafd6611bc",
+      "turn_id": "turn_cf0f0e619c3d4118",
+      "role": "pm",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T00:48:30.181Z",
+      "turn_id": "turn_cf0f0e619c3d4118",
+      "role": "pm",
+      "run_id": "run_cc4217fafd6611bc",
+      "reason": "turn accepted — acceptance contract satisfied"
+    }
+  ],
+  "approved_run_id": "run_936b36c729c01f54",
+  "approved_by": "continuous_loop",
+  "planning_artifacts": [],
+  "target_turn": "turn_cf0f0e619c3d4118",
+  "started_at": "2026-05-02T00:42:11.614Z",
+  "completed_at": "2026-05-02T00:48:30.181Z",
+  "run_completed_at": "2026-05-02T00:48:30.181Z",
+  "run_final_turn": "turn_cf0f0e619c3d4118",
+  "satisfying_turn": "turn_cf0f0e619c3d4118"
+}

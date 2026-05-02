@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777690449132_a93a",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T02:54:09.128Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "diapr.ai eng_director Codex turn repeatedly marked stdout_attach_failed/ghost while subprocess is running",
+    "reporter": "diapr.ai",
+    "requested_priority": "p1",
+    "run_id": "run_0b00ed1aa694dda8",
+    "turn_id": "turn_37119b33570569d2"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Repo: /Users/shivamtiwari.highlevel/VS Code/1008apps/diapr.ai. Run ID: run_0b00ed1aa694dda8. Turn ID: turn_37119b33570569d2. Phase: implementation. Events show repeated turn_start_failed/stdout_attach_failed and run_blocked for local-eng-director at 2026-05-02T02:42:35Z, 02:45:42Z, 02:48:48Z, 02:51:55Z with recommendation to run agentxchain reissue-turn --turn turn_37119b33570569d2 --reason ghost. However full-auto subsequently runs agentxchain step --resume --turn turn_37119b33570569d2 --verbose and a Codex subprocess is alive: /Applications/Codex.app/Contents/Resources/codex exec -m gpt-5.5 ... PID 96764. full-auto.log contains Codex stdout after the failure. agentxchain status shows active turn status=starting with stale failed_start_at/failed_start_reason while blocked_on=null. Looks like watchdog can mark a Codex local_cli turn as ghost/stdout_attach_failed even though output arrives later, and state does not clear failed_start metadata."
+    }
+  ],
+  "dedup_key": "manual:65b5c80f6298ef97"
+}

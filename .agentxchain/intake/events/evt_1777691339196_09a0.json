@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777691339196_09a0",
+  "source": "manual",
+  "category": "config_protection",
+  "created_at": "2026-05-02T03:08:59.195Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Continuous vision-driven loop pauses after run completion instead of auto-chaining. Operator must manually restart with agentxchain run --continuous after every PM-Dev-QA cycle. The loop should: complete run, check VISION.md for remaining scope, derive next roadmap item, start new run automatically. Currently requires operator intervention every 20-40 minutes.",
+    "reporter": "operator",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Observed across runs 7-9: continuous session cont-370dd13e pauses at run completion. tusq.dev also reported same issue (intent_1777690223477_26ff, suppressed as stale). The --continuous --vision flags exist but the run-loop exits or pauses instead of chaining."
+    }
+  ],
+  "dedup_key": "manual:e11fccfb030204cb"
+}

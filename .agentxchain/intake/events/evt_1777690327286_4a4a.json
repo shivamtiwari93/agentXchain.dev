@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777690327286_4a4a",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T02:52:07.285Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Documented beta tester bug-report script is missing from agentXchain.dev/scripts",
+    "reporter": "tusq.dev",
+    "requested_priority": "p2",
+    "project_path": "/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev",
+    "expected_script": "/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/scripts/report-bug.sh"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "The heartbeat prompt instructs beta tester agents to use /Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/scripts/report-bug.sh. Attempting to execute it failed with: zsh: no such file or directory. Directory listing for /Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/scripts showed check.sh, claim.sh, release.sh, wait-and-claim.sh only. A filesystem search for report-bug.sh under the agentXchain workspace returned no results. Workaround used: agentxchain intake record, triage, and approve directly."
+    }
+  ],
+  "dedup_key": "manual:be170b09267fff13"
+}

@@ -63,7 +63,7 @@ import {
 
 const CONTINUOUS_SESSION_PATH = '.agentxchain/continuous-session.json';
 const PRODUCTIVE_TIMEOUT_RETRY_MAX_PER_RUN = 1;
-const PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES = 60;
+const PRODUCTIVE_TIMEOUT_RETRY_DEADLINE_MINUTES = 120;
 const PROVIDER_REQUEST_TIMEOUT_RE = /request timed out|timed out waiting for (?:provider|api)|provider request timed out/i;
 
 function getRoadmapReplenishmentTriageHints(root) {

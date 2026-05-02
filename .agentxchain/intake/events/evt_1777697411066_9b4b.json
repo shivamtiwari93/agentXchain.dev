@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777697411066_9b4b",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T04:50:11.064Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "Ship testing scaffold (vitest + E2E) in framework templates — every agentxchain init project must get a working test harness out of the box. Add vitest.config.js boilerplate, sample unit and E2E test files, test npm scripts (test, test:unit, test:e2e), and vitest devDependency to all templates (generic, saas-mvp, enterprise-app, api-builder, bug-squad, refactor-team, landing-page). Update role prompts (dev.md) in templates to reference vitest patterns. Wire test:e2E into verification gates so QA turns automatically validate test evidence. This is framework-level — changes go into cli/src/templates/ and cli/src/lib/, not just .planning/.",
+    "reporter": "operator",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Current state: cli/src/templates/ ships zero testing infrastructure. Templates mention testing conceptually in QA prompts but scaffold no test runner, no config, no sample tests. The agentXchain.dev repo itself has vitest@4.1.2 with vitest.config.js and node:test shim, but only 1/565 test files uses vitest — proving even self-dev hasnt migrated. Every user project reinvents test setup. Framework must provide: (1) vitest.config.js template with sensible defaults, (2) sample test file per template showing the pattern, (3) npm test scripts wired into package.json template, (4) verification gate integration checking test evidence, (5) dev role prompt updates teaching agents vitest patterns."
+    }
+  ],
+  "dedup_key": "manual:9ed71fb045177763"
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1777696734789_6158",
+  "source": "manual",
+  "category": "beta_bug_report",
+  "created_at": "2026-05-02T04:38:54.788Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "description": "diapr.ai conflict detector repeatedly flags current-run turn against previous-run accepted turns",
+    "reporter": "diapr.ai",
+    "requested_priority": "p1"
+  },
+  "evidence": [
+    {
+      "type": "text",
+      "value": "Run run_954fc3dc8164adc2, turn turn_e8980b447123e0dc. AgentXChain reported turn_conflicted on 2026-05-02T04:26:03Z and again on 2026-05-02T04:33:07Z for .planning/IMPLEMENTATION_NOTES.md, app/styles.css, tests/diapr-core.test.mjs. conflict_state.accepted_since listed turn_fdbed710bb1ec95e and turn_d6be2cf77e0a19b8 from prior run run_0b00ed1aa694dda8, even though current run baseline/checkpoints should already include prior-run accepted work. reject-turn --reassign exhausted retry budget and re-conflicted; staged result was schema-valid and npm run verify plus CSS guard passed. Workaround used: agentxchain accept-turn --turn turn_e8980b447123e0dc --resolution human_merge, then checkpoint-turn and resume QA. This unblocked run and checkpointed 36eb68e0c691848395b2f764fe0bfd33cf8c2818."
+    }
+  ],
+  "dedup_key": "manual:0427fbe55fbb04d7"
+}
