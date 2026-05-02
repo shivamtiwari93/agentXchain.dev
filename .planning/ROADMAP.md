@@ -51,10 +51,10 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Acceptance: `npm run test` passes all 663 files under vitest, `test:watch` provides TDD workflow, zero `node:test` imports remain
 
 ### BUG-FIX: Session Status Inconsistency After Ghost Auto-Retry
-- [ ] Fix `clearGhostBlockerAfterReissue()` to write session checkpoint after clearing blocked state (Bug A: session.json stale) <!-- run_aeb78d7979d66c0a -->
-- [ ] Add `isGovernedRunStillActiveForSession()` helper + main loop recovery guard (Bug B: premature session terminal) <!-- run_aeb78d7979d66c0a -->
-- [ ] 3 regression tests: checkpoint consistency, loop recovery, loop no-recovery <!-- run_aeb78d7979d66c0a -->
-- [ ] Acceptance: session.json consistent with state.json after auto-retry; continuous loop does not exit when governed run is active
+- [x] Fix `clearGhostBlockerAfterReissue()` to write session checkpoint after clearing blocked state (Bug A: session.json stale) <!-- run_aeb78d7979d66c0a -->
+- [x] Add `isGovernedRunStillActiveForSession()` helper + main loop recovery guard (Bug B: premature session terminal) <!-- run_aeb78d7979d66c0a -->
+- [x] 3 regression tests: checkpoint consistency, loop recovery, loop no-recovery <!-- run_aeb78d7979d66c0a -->
+- [x] Acceptance: session.json consistent with state.json after auto-retry; continuous loop does not exit when governed run is active
 
 ### M4: Recovery & Resilience Hardening
 - [ ] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash

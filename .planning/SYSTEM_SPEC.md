@@ -207,9 +207,9 @@ if (step.status === 'failed'
 
 ## Acceptance Tests
 
-- [ ] After `clearGhostBlockerAfterReissue()`, session.json has `run_status: 'active'` and `blocked: false` [Bug A]
-- [ ] After `clearGhostBlockerAfterReissue()`, session.json has `checkpoint_reason: 'blocker_cleared'` [Bug A]
-- [ ] After `clearGhostBlockerAfterReissue()`, session_id is preserved [Bug A]
-- [ ] Main loop recovery: `step.status === 'failed'` + governed `status: 'active'` → session recovered, loop continues [Bug B]
-- [ ] Main loop no-recovery: `step.status === 'failed'` + governed `status: 'completed'` → loop exits [Bug B negative]
-- [ ] `npm run test` passes with no regressions
+- [x] After `clearGhostBlockerAfterReissue()`, session.json has `run_status: 'active'` and `blocked: false` [Bug A] — verified via BUG-115 test at continuous-run.test.js:1075
+- [x] After `clearGhostBlockerAfterReissue()`, session.json has `checkpoint_reason: 'blocker_cleared'` [Bug A] — verified via BUG-115 test at continuous-run.test.js:1075
+- [x] After `clearGhostBlockerAfterReissue()`, session_id is preserved [Bug A] — verified via BUG-115 test at continuous-run.test.js:1075
+- [x] Main loop recovery: `step.status === 'failed'` + governed `status: 'active'` → session recovered, loop continues [Bug B] — verified via BUG-115 test at continuous-run.test.js:1911
+- [x] Main loop no-recovery: `step.status === 'failed'` + governed `status: 'completed'` → loop exits [Bug B negative] — verified via BUG-115 test at continuous-run.test.js:1999
+- [x] `npm run test` passes with no regressions — 441/441 tests passed in QA run_aeb78d7979d66c0a, BUG-115 tests 3/3 pass in current run
