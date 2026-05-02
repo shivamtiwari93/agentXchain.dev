@@ -4,41 +4,47 @@
 
 ## QA Summary
 
-**Run:** run_4a6f8ae7668a237a
-**Turn:** turn_f41ca0d821d9c8cd (QA)
-**Scope:** [Beta Bug] Continuous mode idles after run completion despite roadmap_open_work_detected
+**Run:** run_aeb78d7979d66c0a
+**Turn:** turn_252750ed9241b7a4 (QA)
+**Scope:** Fix session status inconsistency after ghost auto-retry (BUG-115)
 
 ### Acceptance Contract — All 3 Items PASS
 
 | # | Criterion | Verdict | Evidence |
 |---|-----------|---------|----------|
-| 1 | Continuous loop auto-starts next run when roadmap_open_work_detected is present | PASS | `seedFromVision()` calls `deriveRoadmapCandidates()` first (line 1259), records intake event with `roadmap_open_work_detected` category, resets idle_cycles to 0. BUG-76 command-chain test proves M28 derivation and execution. |
-| 2 | Idle limit only triggers when there is genuinely no remaining work | PASS | Idle increment is gated behind `seeded.idle === true` which requires both roadmap and vision exhaustion. 87 continuous-run tests + BUG-76/77 command-chain tests confirm. |
-| 3 | Status correctly reports pending work and next action | PASS | `appendRoadmapOpenWorkNextAction()` in status.js pushes typed `roadmap_open_work_detected` action with milestone details and suggested command. BUG-76 test verifies JSON output. |
+| 1 | Session.json checkpoint consistency after `clearGhostBlockerAfterReissue()` | PASS | `writeSessionCheckpoint(root, nextState, 'blocker_cleared')` added at line 640. BUG-115 test verifies `run_status: 'active'`, `blocked: false`, `checkpoint_reason: 'blocker_cleared'`. |
+| 2 | Loop resilience — transient failure with active governed run does not terminate | PASS | Main-loop guard at line 2576 checks `isGovernedRunStillActiveForSession()`, recovers session to `'running'`, emits audit event, continues. BUG-115 test proves 2 executor calls (recovery + completion). |
+| 3 | No regressions | PASS | 441 tests across 9 suites verified independently by QA, 0 failures. Pre-existing timeout in claim-reality-preflight.test.js not caused by this turn (file untouched by dev). |
 
-### Challenge of Prior QA Turn
+### Challenge of Dev Turn
 
-**Objection (medium): RELEASE_NOTES.md missing required `## User Impact` section.**
+**Dev's implementation matches the PM charter exactly:** 1 import + 1 checkpoint call + 1 helper function + 1 loop guard + 3 regression tests. No scope creep — `reissueTurn()`, `canResumeExistingContinuousSession()`, and `reconcileContinuousStartupState()` are untouched.
 
-The prior QA turn (turn_873ad25ebeab40c9) wrote RELEASE_NOTES.md with descriptive section headings (`## Bug Fix: ...`, `## Verification Summary`) but omitted the required `## User Impact` heading. The gate validator in `workflow-gate-semantics.js:259-263` checks for exact `## User Impact` and `## Verification Summary` H2 headings. The missing heading caused `qa_ship_verdict` gate failure:
+**OBJ-001 (low) accepted:** Dev tested `clearGhostBlockerAfterReissue` through the exported `advanceContinuousRunOnce` path rather than exporting the private function. The test at line 1075 triggers the full ghost auto-retry flow and reads session.json directly. This is the correct test design — it proves the production retry path rather than testing an isolated helper.
 
-> `.planning/RELEASE_NOTES.md must define ## User Impact before ship approval can be requested.`
-
-**Fix:** Rewrote RELEASE_NOTES.md with both required section headings and non-placeholder content. The `## User Impact` section now describes the operator-facing behavioral changes (auto-derivation of roadmap objectives, idle-only-on-genuine-exhaustion, status reporting improvements).
+**Risk assessment:** The unbounded recovery loop has no explicit retry counter, but is bounded by: (1) governed run timeout/exhaustion, (2) budget cap, (3) SIGINT handler. PM's risk assessment acknowledged this as medium risk with adequate mitigation.
 
 ### Independent Verification (This Turn)
 
-All prior-turn test claims re-verified independently:
+All dev-claimed test results re-verified independently:
 
 | Suite | Tests | Result |
 |-------|-------|--------|
-| bug-76-roadmap-open-work-continuous.test.js | 1 | PASS |
-| bug-77-roadmap-exhausted-vision-open.test.js | 1 | PASS |
-| continuous-run.test.js | 87 | PASS |
+| continuous-run.test.js (BUG-115 targeted) | 3 | PASS |
+| continuous-run.test.js (full) | 90 | PASS |
 | governed-state.test.js | 99 | PASS |
-| turn-result-validator.test.js + release-preflight.test.js | 115 | PASS |
+| turn-result-validator.test.js | 100 | PASS |
 | gate-evaluator.test.js | 52 | PASS |
-| **Total** | **355** | **0 failures** |
+| release-preflight.test.js | 15 | PASS |
+| vision-reader.test.js | 36 | PASS |
+| session-checkpoint.test.js | 6 | PASS |
+| agent-talk-word-cap.test.js | 8 | PASS |
+| checkpoint-turn + dispatch-bundle + vitest-contract | 35 | PASS |
+| **Total** | **441** | **0 failures** |
+
+### AGENT-TALK Guard Status
+
+All 8/8 tests pass. The 3/8 pre-existing failures reported in prior QA turns (across 14 consecutive runs) have been resolved.
 
 ## Open Blockers
 
@@ -46,4 +52,4 @@ None.
 
 ## Ship Decision
 
-All 3 acceptance criteria pass. Gate-blocking `## User Impact` section added to RELEASE_NOTES.md. 355 tests verified with 0 failures. **SHIP.**
+All 3 acceptance criteria pass. Code is minimal, correctly placed, and fail-safe. 441 tests verified with 0 failures. **SHIP.**

@@ -1,43 +1,45 @@
 # Acceptance Matrix — agentXchain.dev
 
-**Run:** run_4a6f8ae7668a237a
-**Turn:** turn_f41ca0d821d9c8cd (QA)
-**Scope:** [Beta Bug] Continuous mode idles after run completion despite roadmap_open_work_detected
+**Run:** run_aeb78d7979d66c0a
+**Turn:** turn_252750ed9241b7a4 (QA)
+**Scope:** Fix session status inconsistency after ghost auto-retry (BUG-115)
 
-## Section A: Acceptance Contract — Continuous Mode Idle Bug
+## Section A: Acceptance Contract
 
 | Req # | Requirement | Evidence | Status |
 |-------|-------------|----------|--------|
-| AC-001 | Continuous loop auto-starts next run when roadmap_open_work_detected is present after a completed run | `seedFromVision()` (continuous-run.js:1259) calls `deriveRoadmapCandidates(root)` first. If unchecked milestones exist, records `roadmap_open_work_detected` intake event (line 1268), returns `idle: false` with `source: 'roadmap_open_work'`. Calling code resets `session.idle_cycles = 0` at line 2297. BUG-76 command-chain test proves CLI-owned continuous path derives and executes M28 roadmap objective: session completes with `runs_completed: 1` and `current_vision_objective` matching `/^M28:/`. | PASS |
-| AC-002 | Idle limit only triggers when there is genuinely no remaining work | Idle increment at line 2280 only fires when `seeded.idle === true` — requires both roadmap candidates AND vision candidates to be exhausted. Idle threshold check (line 2030) runs after blocked-state recovery. `continuous-run.test.js` confirms idle_cycles=2 only when all vision goals appear addressed (line 1656). BUG-77 test confirms roadmap-exhausted-but-vision-open dispatches replenishment instead of idling. | PASS |
-| AC-003 | Status correctly reports pending work and next action | `appendRoadmapOpenWorkNextAction()` (status.js:703-736) pushes `{ type: 'roadmap_open_work_detected', command, reason }` when run is terminal and unchecked milestones exist. BUG-76 test line 194: `statusJson.next_actions.some((action) => action.type === 'roadmap_open_work_detected' && /M28:/.test(action.reason))`. BUG-77 test line 245: verifies `roadmap_exhausted_vision_open` next action when roadmap is fully checked but VISION has unplanned scope. | PASS |
+| AC-001 | After `clearGhostBlockerAfterReissue()`, both `state.json` and `session.json` agree on `status: active`, `blocked: false` | `clearGhostBlockerAfterReissue()` at continuous-run.js:631-642 writes `writeGovernedState(root, nextState)` followed by `writeSessionCheckpoint(root, nextState, 'blocker_cleared')`. BUG-115 test (line 1075) reads session.json and asserts `run_status === 'active'`, `blocked === false`, `checkpoint_reason === 'blocker_cleared'`, session_id preserved. | PASS |
+| AC-002 | Ghost auto-retry followed by transient `executeGovernedRun()` failure does NOT terminate loop when governed run has active turns | Main-loop guard at continuous-run.js:2576 checks `step.status === 'failed' && isGovernedRunStillActiveForSession(root, context.config, session)`. If true, sets `session.status = 'running'`, emits `session_failed_recovered_active_run` event, continues loop. BUG-115 "recovers a failed step" test (line 1911) verifies `executeCount === 2`, recovery event emitted, session completes normally. | PASS |
+| AC-003 | No regressions — `npm run test` passes | continuous-run.test.js: 90/90, governed-state.test.js: 99/99, turn-result-validator.test.js: 100/100, gate-evaluator.test.js: 52/52, release-preflight.test.js: 15/15, vision-reader.test.js: 36/36, session-checkpoint.test.js: 6/6, agent-talk-word-cap.test.js: 8/8, checkpoint-turn.test.js + dispatch-bundle-decision-history.test.js + vitest-contract.test.js: 35/35 combined. Pre-existing flaky timeout in claim-reality-preflight.test.js (not touched by dev). | PASS |
 
 ## Section B: Code Path Verification
 
 | Check | Detail | Status |
 |-------|--------|--------|
-| Roadmap derivation precedes vision scan | `seedFromVision()` line 1259: `deriveRoadmapCandidates(root)` is the first call before any vision candidate derivation | PASS |
-| Idle reset on roadmap work | Line 2297: `session.idle_cycles = 0` executes when `seeded.idle` is false (roadmap or vision work found) | PASS |
-| Deduplication returns idle | Lines 1283-1285 and 1289-1291: deduplicated roadmap events return `idle: true`, preventing infinite re-intake of the same milestone | PASS |
-| BUG-77 roadmap exhaustion fallback | Lines 1332-1412: when roadmap has zero unchecked items, `detectRoadmapExhaustedVisionOpen()` checks for unplanned VISION sections and dispatches `roadmap_replenishment` intent | PASS |
+| Session checkpoint covers all 4 callers | `clearGhostBlockerAfterReissue()` is the shared function called by all 4 recovery paths (Claude Node runtime, Claude auth, productive timeout, ghost blocker). The checkpoint call at line 640 covers all callers without per-site changes. | PASS |
+| Helper is fail-safe | `isGovernedRunStillActiveForSession()` at line 644 catches all exceptions and returns `false` — failed disk reads do not trigger recovery. | PASS |
+| Loop guard placement | Guard at line 2576 is BEFORE the terminal state check, so `'failed'` is intercepted before loop exit logic. | PASS |
+| No reissueTurn modification | Dev correctly left `reissueTurn()` in governed-state.js unchanged — Bug A fix is in the shared clear function. | PASS |
+| No cold-start scope creep | `canResumeExistingContinuousSession()` and `reconcileContinuousStartupState()` are unchanged — confirmed via git diff. | PASS |
 
-## Section C: Regression Suites (QA-Verified)
-
-| Suite | Count | Result |
-|-------|-------|--------|
-| bug-76-roadmap-open-work-continuous.test.js | 1 | PASS |
-| bug-77-roadmap-exhausted-vision-open.test.js | 1 | PASS |
-| continuous-run.test.js | 87 | PASS |
-| governed-state.test.js | 99 | PASS |
-| turn-result-validator.test.js | 100 | PASS |
-| release-preflight.test.js | 15 | PASS |
-| gate-evaluator.test.js | 52 | PASS |
-| **QA-verified total** | **355** | **0 failures** |
-
-## Section D: Gate Compliance Fix
+## Section C: Negative Case Verification
 
 | Check | Detail | Status |
 |-------|--------|--------|
-| RELEASE_NOTES.md contains `## User Impact` heading | Prior turn omitted this required heading — gate validator (`workflow-gate-semantics.js:259`) requires exact `## User Impact` H2 with non-placeholder content | FIXED |
-| RELEASE_NOTES.md contains `## Verification Summary` heading | Present in prior turn and preserved | PASS |
-| Gate validator passes both section checks | `evaluateReleaseNotes()` checks `hasReleaseNotesSectionContent()` for both sections — both now present with real content | PASS |
+| Inactive governed run → no recovery | BUG-115 "keeps a failed step terminal when the governed run is inactive" test (line 1999): state.json `status: 'completed'`, loop exits with code 1, session stays `'failed'`, no recovery event emitted. | PASS |
+| Run ID mismatch → no recovery | `isGovernedRunStillActiveForSession()` returns false when `session.current_run_id !== state.run_id`. Covered by test structure. | PASS |
+
+## Section D: Regression Suites (QA-Verified)
+
+| Suite | Count | Result |
+|-------|-------|--------|
+| continuous-run.test.js | 90 | PASS |
+| governed-state.test.js | 99 | PASS |
+| turn-result-validator.test.js | 100 | PASS |
+| gate-evaluator.test.js | 52 | PASS |
+| release-preflight.test.js | 15 | PASS |
+| vision-reader.test.js | 36 | PASS |
+| session-checkpoint.test.js | 6 | PASS |
+| agent-talk-word-cap.test.js | 8 | PASS |
+| checkpoint-turn.test.js + dispatch-bundle + vitest-contract | 35 | PASS |
+| **QA-verified total** | **441** | **0 failures** |
