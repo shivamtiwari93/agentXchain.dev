@@ -30,10 +30,10 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 ### M2: Vision Derivation — Continuous Roadmap Replenishment
 - [x] Fix idle-expansion heuristic to distinguish "current roadmap exhausted" from "vision fully addressed"
-- [ ] When ROADMAP.md milestones are all checked and VISION.md has uncovered scope, dispatch PM to derive next increment
-- [ ] Emit clear status: "Roadmap exhausted, vision still open, deriving next increment"
-- [ ] Regression tests for the three-state model: run complete, roadmap exhausted, vision exhausted
-- [ ] Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope
+- [x] When ROADMAP.md milestones are all checked and VISION.md has uncovered scope, dispatch PM to derive next increment
+- [x] Emit clear status: "Roadmap exhausted, vision still open, deriving next increment"
+- [x] Regression tests for the three-state model: run complete, roadmap exhausted, vision exhausted
+- [ ] Acceptance: continuous mode runs 5+ consecutive runs without idle-stopping when VISION.md has scope <!-- tracking: 0/5 consecutive runs as of 2026-05-02 -->
 
 ### M3: Multi-Model Turn Handoff Quality
 - [ ] Ensure Claude-to-GPT and GPT-to-Claude handoffs preserve full context via CONTEXT.md
@@ -81,6 +81,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Verify M2 #2 dispatch mechanism, scope status message + three-state tests | In progress (`run_b51cc53d95925d53`) |
-| Implementation | Update status message, add seedFromVision three-state integration tests, check off M2 #2–#4 | Pending |
+| Planning | Verify M2 #2 dispatch mechanism, scope status message + three-state tests | Complete (`run_b51cc53d95925d53`) |
+| Implementation | Update status message, add seedFromVision three-state integration tests, check off M2 #2–#4 | In progress (`run_b51cc53d95925d53`) |
 | QA | Verify all tests pass, confirm M2 items correctly reflect implementation state | Pending |

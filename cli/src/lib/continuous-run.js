@@ -1253,7 +1253,7 @@ function reconcileContinuousStartupState(context, session, contOpts, log) {
  * @param {string} root
  * @param {string} visionPath - Absolute path to VISION.md
  * @param {{ triageApproval?: string }} options
- * @returns {{ ok: boolean, intentId?: string, section?: string, goal?: string, error?: string, idle?: boolean }}
+ * @returns {{ ok: boolean, intentId?: string, section?: string, goal?: string, source?: string, error?: string, idle?: boolean }}
  */
 export function seedFromVision(root, visionPath, options = {}) {
   const roadmapResult = deriveRoadmapCandidates(root);
@@ -1399,6 +1399,15 @@ export function seedFromVision(root, visionPath, options = {}) {
       section: 'Roadmap replenishment',
       goal: `Derive next increment from unplanned VISION scope: ${sectionNames}`,
       source: 'roadmap_replenishment',
+    };
+  }
+
+  if (exhaustion.reason === 'vision_fully_mapped' || exhaustion.reason === 'vision_no_actionable_scope') {
+    return {
+      ok: true,
+      idle: true,
+      source: 'vision_exhausted',
+      reason: exhaustion.reason,
     };
   }
 
@@ -2289,7 +2298,7 @@ export async function advanceContinuousRunOnce(context, session, contOpts, execu
     if (seeded.source === 'roadmap_open_work') {
       log(`Roadmap-derived: ${visionObjective}`);
     } else if (seeded.source === 'roadmap_replenishment') {
-      log(`Roadmap-replenishment (roadmap exhausted, vision open): ${visionObjective}`);
+      log(`Roadmap exhausted, vision still open, deriving next increment: ${visionObjective}`);
     } else {
       log(`Vision-derived: ${visionObjective}`);
     }

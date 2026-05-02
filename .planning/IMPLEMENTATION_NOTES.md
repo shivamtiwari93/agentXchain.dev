@@ -1,5 +1,27 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 M2 Roadmap Replenishment Three-State Integration
+
+### Challenge
+
+The previous PM turn correctly scoped the status message and missing integration coverage, but I do not accept the claim that `seedFromVision()` already handled the full three-state model. Inspection showed that `detectRoadmapExhaustedVisionOpen()` could return `vision_fully_mapped`, but `seedFromVision()` ignored that terminal classification and fell through to generic VISION.md derivation. That could seed new work from already-mapped vision goals instead of idling.
+
+### Changes
+
+- Updated the roadmap-replenishment operator log to the required exact status: "Roadmap exhausted, vision still open, deriving next increment".
+- Changed `seedFromVision()` to treat `vision_fully_mapped` and `vision_no_actionable_scope` detector results as an idle `vision_exhausted` state instead of falling through to generic vision derivation.
+- Added `seedFromVision()` integration regression coverage for the M2 three-state model: roadmap open work, roadmap exhausted with unplanned vision scope, and vision fully mapped.
+- Tightened the BUG-77 command-chain assertion to require the exact roadmap-exhausted status message.
+- Marked M2 ROADMAP items #2-#4 complete and added a tracking annotation to the longitudinal 5-run acceptance item.
+
+### Verification
+
+- `node --check cli/src/lib/continuous-run.js`
+- `node --test --test-timeout=60000 --test-name-pattern seedFromVision cli/test/continuous-run.test.js`
+- `node --test --test-timeout=60000 cli/test/continuous-run.test.js`
+- `node --test --test-timeout=60000 cli/test/vision-reader.test.js`
+- `node --test --test-timeout=120000 cli/test/beta-tester-scenarios/bug-77-roadmap-exhausted-vision-open.test.js`
+
 ## 2026-05-02 M2 Idle-Expansion Heuristic Fix
 
 ### Challenge

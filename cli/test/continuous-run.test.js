@@ -1425,6 +1425,58 @@ describe('Continuous Run', () => {
       assert.ok(intent.acceptance_contract.some((line) => line.includes('Unchecked roadmap item completed')));
     });
 
+    it('M2 three-state: seeds roadmap replenishment when roadmap is functionally exhausted but vision remains open', () => {
+      writeVision(tmpDir, `## Current Runtime
+
+- startup heartbeat protocol
+
+## Connector Ecosystem
+
+- add local IDE connectors
+`);
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M1: Current Runtime
+- [x] Add startup heartbeat protocol
+- [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 zero-ghost runs as of 2026-05-02 -->
+`);
+
+      const visionPath = join(tmpDir, '.planning', 'VISION.md');
+      const result = seedFromVision(tmpDir, visionPath);
+      assert.ok(result.ok);
+      assert.equal(result.idle, false);
+      assert.equal(result.source, 'roadmap_replenishment');
+      assert.equal(result.section, 'Roadmap replenishment');
+      assert.match(result.goal, /Connector Ecosystem/);
+
+      const intent = JSON.parse(readFileSync(join(tmpDir, '.agentxchain', 'intake', 'intents', `${result.intentId}.json`), 'utf8'));
+      assert.match(intent.charter, /^\[roadmap-replenishment\]/);
+      assert.equal(intent.status, 'approved');
+      assert.ok(intent.acceptance_contract.some((line) => line.includes('New unchecked milestone items')));
+    });
+
+    it('M2 three-state: returns idle when checked roadmap milestones fully map the vision', () => {
+      writeVision(tmpDir, `## Vision Derivation
+
+- derive bounded roadmap increments
+`);
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M2: Vision Derivation
+- [x] Fix idle-expansion heuristic
+- [x] Dispatch PM for next roadmap increment
+`);
+
+      const visionPath = join(tmpDir, '.planning', 'VISION.md');
+      const result = seedFromVision(tmpDir, visionPath);
+      assert.ok(result.ok);
+      assert.equal(result.idle, true);
+      assert.equal(result.source, 'vision_exhausted');
+      assert.equal(result.reason, 'vision_fully_mapped');
+    });
+
     it('AT-VCONT-005: seeds an intent with vision provenance metadata', () => {
       writeVision(tmpDir, `## Protocol
 

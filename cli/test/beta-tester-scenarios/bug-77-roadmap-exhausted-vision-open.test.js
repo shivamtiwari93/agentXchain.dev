@@ -259,8 +259,8 @@ describe('BUG-77: continuous mode dispatches roadmap replenishment when roadmap 
       'Must not claim no derivable work when VISION has unplanned scope');
 
     // Must show roadmap-replenishment dispatch
-    assert.match(combined, /[Rr]oadmap.replenish|[Rr]oadmap.exhausted.*vision/,
-      'Must log roadmap-replenishment or roadmap-exhausted-vision-open dispatch');
+    assert.match(combined, /Roadmap exhausted, vision still open, deriving next increment/,
+      'Must log the exact roadmap-exhausted status message');
     assert.match(combined, /Run 1\/1 completed/,
       'Must complete a governed run for the replenishment intent');
 
