@@ -26,7 +26,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
   - (d) auto-retry with attempt counter: `continuous-run.test.js:1025` (`auto-reissues a paused ghost-blocked run`), `ghost-retry.test.js`
   - (e) max-retry escalation to human: `continuous-run.test.js`, `notifications-lifecycle.test.js:260` (escalation events)
   - (f) heartbeat during tool-use silence: `local-cli-adapter.test.js:931` — heartbeat fires without marking startup proof
-- [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs
+- [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 zero-ghost runs (8485b804, 984f0f8c, 936b36c7) as of 2026-05-02 -->
 
 ### M2: Vision Derivation — Continuous Roadmap Replenishment
 - [ ] Fix idle-expansion heuristic to distinguish "current roadmap exhausted" from "vision fully addressed"
@@ -81,6 +81,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Protect user value, scope clarity, and acceptance criteria. | In progress |
-| Implementation | Implement approved work safely and verify behavior. | Pending |
+| Planning | Protect user value, scope clarity, and acceptance criteria. | In progress (`run_cc4217fafd6611bc`) |
+| Implementation | Implement `<!-- tracking: -->` annotation in vision scanner | Pending |
 | QA | Challenge correctness, acceptance coverage, and ship readiness. | Pending |

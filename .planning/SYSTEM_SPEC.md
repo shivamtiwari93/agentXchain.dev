@@ -109,6 +109,26 @@ Roles defined dynamically in `agentxchain.json`. Current roster: `pm`, `dev`, `q
 - [ ] Ghost recovery: timed-out turn is reissued without human intervention *(already evidenced: 4 ghost reissues in history.jsonl for this project)*
 - [ ] End-to-end: complete planning→implementation→QA cycle produces inspectable audit trail in `.agentxchain/history.jsonl` *(QA phase)*
 
+### Roadmap Tracking Annotations (M1 — run `run_cc4217fafd6611bc`)
+
+**Problem:** `deriveRoadmapCandidates()` in `vision-reader.js` treats every unchecked `[ ]` item under a milestone heading as actionable open work. Longitudinal criteria (e.g., "zero ghost turns across N consecutive runs") cannot be completed in a single run, causing an infinite re-trigger loop where the scanner spawns a new run each time a prior run completes without checking off the item.
+
+**Solution:** Inline `<!-- tracking: ... -->` HTML comment annotations on ROADMAP items. When `deriveRoadmapCandidates()` encounters an unchecked item whose line contains `<!-- tracking:`, it skips the item — treating it as actively tracked but not actionable for a new run.
+
+**Annotation format:**
+```
+- [ ] Goal description <!-- tracking: <progress description> -->
+```
+
+**Semantics:**
+- The item remains visually unchecked (`[ ]`) for human review
+- The annotation documents current progress (e.g., `3/10 zero-ghost runs`)
+- The scanner skips the item, preventing re-triggering
+- When the criterion is met, the annotation is removed and the item is checked off (`[x]`)
+- Annotations must include evidence references (run IDs, dates) so they can be verified
+
+**Implementation:** Single guard clause in `deriveRoadmapCandidates()` after the unchecked regex match, checking for `<!-- tracking:` in the line text.
+
 ## Resolved Questions
 
 1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)

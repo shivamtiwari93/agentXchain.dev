@@ -1,11 +1,11 @@
-# PM Signoff — M1: Ghost Turn Elimination (Roadmap Reconciliation)
+# PM Signoff — M1: Ghost Turn Elimination (Vision Scanner Re-Trigger Fix)
 
 Approved: YES
 
-**Run:** `run_936b36c729c01f54`
+**Run:** `run_cc4217fafd6611bc`
 **Phase:** planning
-**Turn:** `turn_a235a009bfe9fc9d`
-**Date:** 2026-05-01
+**Turn:** `turn_cf0f0e619c3d4118`
+**Date:** 2026-05-02
 
 ## Discovery Checklist
 - [x] Target user defined
@@ -17,64 +17,89 @@ Approved: YES
 
 ### Target User
 
-Same as prior run: agentXchain operators running governed multi-agent delivery via local_cli runtimes.
+AgentXchain operators running continuous vision-driven mode with local_cli runtimes.
 
 ### Core Pain Point
 
-The prior run (`run_984f0f8c07a30a5c`) implemented all M1 hardening items (startup heartbeat, pre-spawn guard, regression tests) and QA approved them, but failed to update ROADMAP.md to check off completed items. The vision scanner detected the unchecked item as open work and triggered this unnecessary run. The pain point is a **process gap**, not a missing implementation.
+The vision scanner's `deriveRoadmapCandidates()` has no mechanism to recognize longitudinal ROADMAP items — items that require evidence from multiple runs and cannot be completed in a single cycle. The M1 acceptance criterion "zero ghost turns across 10 consecutive self-governed runs" is the first instance. The scanner re-triggers a new run each time a prior run completes without checking off this item, creating a budget-wasting infinite loop.
+
+**Evidence of the loop:**
+- `run_936b36c729c01f54` — PM explicitly said acceptance criterion is correctly left unchecked (DEC-003), run completed
+- `run_cc4217fafd6611bc` (this run) — vision scanner immediately re-triggered for the same unchecked item
+- Intent `intent_1777682531305_4f73` was created because no completed intent has sufficient keyword overlap (prior completed intents `_af6e` and `_4275` covered "Diagnose root cause" and "Add startup heartbeat", not "Acceptance: zero ghost turns...")
 
 ### Core Workflow
 
-1. PM verifies the implementation exists and tests pass (this turn)
-2. PM checks off completed ROADMAP items with evidence references
-3. Dev verifies the full M1 regression suite still passes
-4. QA confirms roadmap accuracy against code reality
+1. PM diagnoses the re-trigger loop and scopes dev work (this turn)
+2. Dev adds `<!-- tracking: -->` annotation recognition to `deriveRoadmapCandidates()` in `vision-reader.js`
+3. Dev annotates the M1 acceptance item in ROADMAP.md with tracking status
+4. Dev adds regression tests for the skip behavior
+5. QA verifies the scanner correctly skips annotated items and the annotation is accurate
 
 ### MVP Scope (this run)
 
-- **PM (this turn):** Verify implementation, check off ROADMAP items, document evidence
-- **Dev:** Run the full M1 regression test suite, confirm all hardening code is intact, verify no regressions since prior run
-- **QA:** Cross-check ROADMAP checkoffs against actual implementation, confirm the remaining acceptance criterion (10 consecutive zero-ghost runs) is correctly left open
+- **PM (this turn):** Document the re-trigger root cause, scope dev implementation, update planning artifacts
+- **Dev:** Implement `<!-- tracking: -->` annotation parsing in `deriveRoadmapCandidates()`, add tests, annotate ROADMAP.md
+- **QA:** Verify scanner skip logic, verify annotation accuracy against run history, confirm no regressions
 
 ### Out of Scope
 
-- New M1 implementation work (already done in prior run)
+- Checking off the M1 acceptance criterion (only 3/10 consecutive zero-ghost runs achieved)
+- Vision-level deferred classification (already exists in `idle-expansion-result-validator.js`, works at heading level not item level)
 - M2-M8 roadmap items
-- The 10-run acceptance criterion (tracked as open in ROADMAP.md, requires dogfood runs over time)
 - DOGFOOD-100 (paused on credential blocker)
-- Any code changes unless regressions are found
+- Intent dedup improvements (keyword overlap is working correctly — the problem is that no completed intent addresses this specific goal)
 
 ### Success Metric
 
-ROADMAP.md M1 items accurately reflect implemented state. All 3 completed items checked with evidence. The remaining acceptance item correctly left open.
+`deriveRoadmapCandidates()` skips ROADMAP items annotated with `<!-- tracking: -->`. The M1 acceptance item is annotated with current streak evidence. Future vision scans no longer re-trigger runs for this item.
 
 ## Challenge to Previous Work
 
-### OBJ-PM-001: Prior QA turn shipped without roadmap synchronization
+### OBJ-PM-001: Prior PM identified the re-trigger risk but proposed no fix (severity: medium)
 
-The QA turn in `run_984f0f8c07a30a5c` (DEC-001/002/003) approved the M1 implementation and declared ship-ready, but did not verify or update ROADMAP.md to check off the completed items. This is a process gap: the QA checklist should include roadmap synchronization as a release gate. Without it, the vision scanner re-triggers runs for work that is already complete — wasting budget and cluttering history.
+The PM in `run_936b36c729c01f54` (DEC-003) explicitly stated: "The M1 acceptance criterion is correctly left unchecked — it requires dogfood runs over time, not a single implementation cycle." This is correct analysis. But the PM failed to address the obvious consequence: the vision scanner will keep triggering new runs for this item. This run is proof of that failure. Three consecutive runs have now touched M1 without making progress on the acceptance criterion itself — budget spent on reconciliation and re-analysis rather than building the mechanism to prevent re-triggering.
 
-**Recommendation:** Future QA turns should include a "roadmap accuracy" check: all items addressed by the run should be checked off before ship approval.
+### OBJ-PM-002: The acceptance contract for this run cannot be literally satisfied
 
-### OBJ-PM-002: Configurable turn timeout was not a new implementation
-
-The ROADMAP item "Add configurable turn timeout (distinct from startup watchdog)" implied new work, but `timeouts.per_turn_minutes` already existed as the configurable turn-level timeout. Dev correctly identified this and threaded dispatch timeout inputs rather than creating a redundant mechanism. Checking this off with a clarifying note.
+The intake acceptance contract states "Unchecked roadmap item completed: Acceptance: zero ghost turns across 10 consecutive self-governed runs." This item CANNOT be completed this run — we have only 3 consecutive zero-ghost runs (runs `8485b804`, `984f0f8c`, `936b36c7`). Checking it off would be dishonest. Instead, this run will:
+1. Fix the re-trigger mechanism so we stop wasting budget on empty reconciliation runs
+2. Annotate the item with longitudinal tracking evidence (3/10)
+3. Let the criterion accumulate naturally across future governed runs
 
 ## Notes for Dev
 
-Your charter for this run is **verification, not implementation**:
+Your charter is **implementation of tracking annotation support in the vision scanner**:
 
-1. Run the full adapter test suite: `node --test --test-timeout=60000 cli/test/local-cli-adapter.test.js`
-2. Run the ghost-retry and continuous-run tests: `node --test --test-timeout=60000 cli/test/ghost-retry.test.js cli/test/continuous-run.test.js`
-3. Run the schema validation tests: `node --test --test-timeout=60000 cli/test/agentxchain-config-schema.test.js`
-4. Confirm all tests pass with zero failures
-5. If any test fails, investigate and fix — but new regressions are unlikely given QA approval in the prior run
+1. Modify `deriveRoadmapCandidates()` in `cli/src/lib/vision-reader.js` (line 260-267):
+   - After the `uncheckedMatch` regex, check if the line contains `<!-- tracking:` followed by any content and `-->`
+   - If the annotation is present, skip the item (do not add to candidates)
+   - The annotation format: `<!-- tracking: <description> -->`
 
-**Do NOT** write new code unless a regression is found. This is a reconciliation run.
+2. Add regression tests in `cli/test/vision-reader.test.js` (or create if needed):
+   - Unchecked item WITHOUT annotation → included in candidates (existing behavior)
+   - Unchecked item WITH `<!-- tracking: ... -->` → excluded from candidates
+   - Checked item with annotation → still excluded (already excluded by `[x]`)
+
+3. Annotate the M1 acceptance item in `.planning/ROADMAP.md` line 29:
+   ```
+   - [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 zero-ghost runs (8485b804, 984f0f8c, 936b36c7) as of 2026-05-02 -->
+   ```
+
+4. Run the existing vision-reader tests + your new tests to confirm no regressions.
 
 ## Notes for QA
 
-- Cross-check each ROADMAP checkoff against the actual implementation files cited
-- Verify the test references in the ROADMAP are accurate (file:line)
-- Confirm the "Acceptance: zero ghost turns across 10 consecutive runs" item is correctly left unchecked
-- Budget: this run should be lightweight — no new implementation, just verification and reconciliation
+- Verify the `<!-- tracking: -->` regex doesn't false-positive on normal HTML comments in ROADMAP items
+- Verify the annotation text accurately reflects the zero-ghost run history (cross-check history.jsonl)
+- Confirm the 3 cited runs (`8485b804`, `984f0f8c`, `936b36c7`) all completed with zero ghost turns
+- Confirm existing `deriveRoadmapCandidates` behavior is preserved for non-annotated items
+- Run the full vision-reader test suite
+
+## Acceptance Contract Response
+
+1. **Roadmap milestone addressed: M1: Self-Governance Hardening — Ghost Turn Elimination** — YES. The re-trigger loop is a direct consequence of M1's longitudinal acceptance criterion. Fixing the scanner to support tracking annotations is necessary M1 completion infrastructure.
+
+2. **Unchecked roadmap item completed: Acceptance: zero ghost turns across 10 consecutive self-governed runs** — CANNOT BE COMPLETED THIS RUN. Only 3/10 consecutive zero-ghost runs exist. Instead, this run prevents the wasteful re-trigger loop and annotates the item with tracking evidence so progress accumulates across future runs.
+
+3. **Evidence source: .planning/ROADMAP.md:29** — Will be annotated with `<!-- tracking: 3/10 -->` after dev implementation.
