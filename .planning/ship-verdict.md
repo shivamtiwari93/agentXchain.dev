@@ -4,65 +4,44 @@
 
 ## QA Summary
 
-**Run:** run_3a396386e18575b6
-**Turn:** turn_7f56b1588cdeebb0 (QA)
-**Scope:** Config protection (agentxchain.json operator-owned guardrails) + M3 Codex output format validation
-
-### Challenge of Prior QA Turn
-
-The previous QA turn (turn_080c074e61bbd5eb) approved the implementation but had two issues that blocked the gate:
-
-1. **Acceptance matrix gate failure:** CP-005 and CP-006 were marked `PASS (see note 1)` instead of plain `PASS`. The gate validator rejected these rows because it performs strict Status matching. The note content was legitimate (explaining section naming differences), but the Status cell contained the annotation rather than the Evidence cell. **Fixed this turn** by moving annotations to the Evidence column.
-
-2. **Missed test regression:** The prior QA ran only 9 curated test suites (551 tests) and did not run `dispatch-bundle-decision-history.test.js`, which had 2 failing tests. These failures were caused by the M3 runtime_id implementation adding a Runtime column to the Decision History table (`dispatch-bundle.js:1418`) without updating the corresponding test expectations. The test expected `| ID | Phase | Role | Statement |` but the implementation now renders `| ID | Phase | Role | Runtime | Statement |`. **Fixed this turn** by updating the test to match the 5-column format.
+**Run:** run_37fb509c4b6ed593
+**Turn:** turn_ae1f99e6b5e0cf3c (QA)
+**Scope:** M3 Checkpoint Runtime Identity Metadata
 
 ### Challenge of Dev Turn
 
-The dev's implementation (turn_65b0f055586a2a77) delivered Codex output format validation as chartered. Specific challenges (carried forward from prior QA, independently re-verified):
+The dev's implementation (turn_1b005cccb5dbb7d2) delivered checkpoint runtime identity metadata as chartered. Specific challenges:
 
-1. **Codex runtime detection (DEC-001):** `isCodexLocalCliRuntime()` matches `codex` or paths ending with `/codex`, consistent with existing Claude detector pattern. Version-suffixed binaries are correctly excluded. ✓
+1. **DEC-001 claim: "normalized once and reused."** Inspection shows `normalizeRuntimeId(entry)` is called twice — once inside `buildCheckpointCommit()` at line 211 and once at line 460. Both calls operate on the same immutable `entry` object, so the result is deterministic. The two call sites serve different purposes: line 211 uses `|| '(unknown)'` for human-readable commit strings, while line 460 returns raw `null` for structured JSON. This is a minor wording inaccuracy in the decision statement but is functionally correct and arguably better design than passing one normalized value to both consumers.
 
-2. **Codex auth failure classification (DEC-001):** `hasCodexAuthFailureOutput()` regex is OR'd across specific patterns (`unauthorized`, `invalid api key`, `invalid_api_key`, `authentication failed`, `openai.*401`, `api_key.*invalid`), sufficiently specific for auth failure classification. False positives are prevented by the runtime type guard. ✓
+2. **DEC-002 claim: four tests chartered, two tests delivered.** The PM chartered four regression tests (one per surface + legacy fallback). The dev consolidated the three runtime-bearing surfaces into a single test (test 1, line 158-194) and made the legacy fallback a separate test (test 2, line 196-223). The dev's IMPLEMENTATION_NOTES explicitly challenge the PM's test scope, and the consolidation is defensible — the three surfaces are tightly coupled and testing them together in one case is cleaner. Each surface has its own assertion within the test. Accepted.
 
-3. **Codex flag validation (DEC-002):** `validateLocalCliCommandCompatibility()` requires `exec` subcommand as prerequisite — without `exec`, command is blocked before `--json` check. Correct cascade behavior. ✓
+3. **normalizeRuntimeId defensiveness.** The helper checks `typeof entry?.runtime_id === 'string'` and trims. This handles: (a) missing entry, (b) missing runtime_id, (c) non-string runtime_id, (d) whitespace-only runtime_id. All return `null`. Correct and sufficient.
 
-4. **Adapter close handler Codex branch (DEC-001):** Structure is `if (claude_auth) ... else if (codex_auth) ... else (generic)`. Falls through correctly. ✓
+4. **Commit subject format.** The `buildCheckpointCommit` function renders `checkpoint: <turn_id> (role=<role>, phase=<phase>, runtime=<id>)`. The HEAD commit itself (`29968e9e3`) was checkpointed by the orchestrator using pre-change code, so it shows the old format `(role=dev, phase=implementation)` without `runtime=`. This is expected — the dev's code takes effect on the NEXT checkpoint. Not a defect.
 
-5. **Reserved file integrity:** Dev did not modify `.agentxchain/` orchestrator-owned files or `agentxchain.json`. ✓
-
-### Config Protection Verification
-
-All 4 role prompts contain "Do NOT modify `agentxchain.json`" instruction:
-
-| Prompt | Line | Section | Escalation guidance |
-|--------|------|---------|-------------------|
-| pm.md | 76 | Operator-Owned Files | Escalate via objection |
-| dev.md | 47 | Implementation Rules | Blocking objection → human |
-| qa.md | 54 | Write Boundaries | Blocking objection → human |
-| eng_director.md | 59 | Write Boundaries | Architectural decisions cannot override; route to human |
-
-`agentxchain.json` verified unchanged via `git diff HEAD -- agentxchain.json` (empty diff). Timeouts (`per_turn_minutes: 120`) and watch routes (2 routes) confirmed intact via JSON parse.
+5. **Reserved file integrity.** Dev modified exactly 4 files: 2 in `.planning/` and 2 in `cli/`. No `.agentxchain/` or `agentxchain.json` modifications. Verified via `git show --name-only HEAD`.
 
 ### Independent Verification
 
 | Test Suite | Count | Result |
 |------------|-------|--------|
-| local-cli-adapter.test.js | 46 | PASS |
-| claude-local-auth-smoke-probe.test.js | 8 | PASS |
-| agentxchain-config-schema.test.js | 7 | PASS |
+| checkpoint-turn.test.js | 12 | PASS |
+| dispatch-bundle-decision-history.test.js | 10 | PASS |
 | governed-state.test.js | 99 | PASS |
 | dispatch-bundle.test.js | 74 | PASS |
-| turn-result-validator + staged-result-proof | 114 | PASS |
+| turn-result-validator.test.js | 100 | PASS |
+| staged-result-proof.test.js | 14 | PASS |
 | continuous-run.test.js | 87 | PASS |
+| local-cli-adapter.test.js | 46 | PASS |
 | vision-reader.test.js | 36 | PASS |
-| timeout-evaluator + run-loop + release-notes-gate | 80 | PASS |
-| dispatch-bundle-decision-history.test.js | 10 | PASS (fixed this turn) |
-| **Total** | **561 pass / 0 failures** | |
+| claude-local-auth-smoke-probe.test.js | 8 | PASS |
+| config-schema + timeout-evaluator + run-loop + release-notes-gate | 87 | PASS |
+| **Total** | **573 pass / 0 failures** | |
 
 ### Pre-existing Non-blocking
 
-- AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 10+ consecutive QA runs. TALK.md state issue from prior runs, not a regression.
-- Broader test suite (6911 total) has ~28 additional failures: 6 timeouts, 7 artifact-validation cascades, 9 delegation-chain cascades, 3 MCP/remote/E2E environment-dependent. All pre-existing at committed baseline (verified via `git stash` + test).
+- AGENT-TALK guard: 3/8 fail (tests 4-6). Same 3 tests failing across 12 consecutive QA runs. TALK.md state issue from prior runs, not a regression.
 
 ## Open Blockers
 

@@ -1,62 +1,41 @@
 # Acceptance Matrix — agentXchain.dev
 
-**Run:** run_3a396386e18575b6
-**Turn:** turn_7f56b1588cdeebb0 (QA)
-**Scope:** Config protection (agentxchain.json operator-owned guardrails) + M3 Codex output format validation
+**Run:** run_37fb509c4b6ed593
+**Turn:** turn_ae1f99e6b5e0cf3c (QA)
+**Scope:** M3 Checkpoint Runtime Identity Metadata
 
-## Config Protection Acceptance Contract
-
-| Req # | Requirement | Evidence | Status |
-|-------|-------------|----------|--------|
-| CP-001 | pm.md contains "Do NOT modify agentxchain.json" instruction | Line 76: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
-| CP-002 | dev.md contains "Do NOT modify agentxchain.json" instruction | Line 47: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
-| CP-003 | qa.md contains "Do NOT modify agentxchain.json" instruction | Line 54: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
-| CP-004 | eng_director.md contains "Do NOT modify agentxchain.json" instruction | Line 59: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
-| CP-005 | pm.md instruction is in write boundaries or protocol rules section | In `## Operator-Owned Files` section (line 75) — functionally equivalent constraint section for the PM role (see note 1) | PASS |
-| CP-006 | dev.md instruction is in write boundaries or protocol rules section | In `## Implementation Rules` section (line 42) — the dev's constraint/rules section (see note 1) | PASS |
-| CP-007 | qa.md instruction is in write boundaries or protocol rules section | In `## Write Boundaries` section (line 50) — exact match | PASS |
-| CP-008 | eng_director.md instruction is in write boundaries or protocol rules section | In `## Write Boundaries` section (line 56) — exact match | PASS |
-| CP-009 | agentxchain.json timeouts survive PM+Dev+QA cycle | `timeouts.per_turn_minutes: 120`, `timeouts.action: "escalate"` — verified via JSON parse; `git diff` empty across PM checkpoint (61323db1b), Dev checkpoint (d697508e1), and working tree | PASS |
-| CP-010 | agentxchain.json watch routes survive PM+Dev+QA cycle | `watch.routes[0].match.category: "github_workflow_run_failed"`, `watch.routes[1].match.category: "beta_bug_report"` — 2 routes intact; `git diff` empty across all checkpoints | PASS |
-| CP-011 | All 4 prompts reference OPERATOR_OWNED_FILES.md in Project Context | Each prompt's Project Context section includes `.planning/OPERATOR_OWNED_FILES.md` as a read-on-every-turn file | PASS |
-| CP-012 | OPERATOR_OWNED_FILES.md lists agentxchain.json as protected | Table row: `agentxchain.json | Runtime configuration, timeouts, watch routes, role definitions, budget — operator-controlled` | PASS |
-
-### Note 1: Section naming
-
-The acceptance contract requires the instruction to be in the "write boundaries or protocol rules section." Two of four prompts (qa.md, eng_director.md) use the exact section name "Write Boundaries." The PM prompt uses "Operator-Owned Files" (a dedicated section for file write restrictions), and the Dev prompt uses "Implementation Rules" (the section governing implementation constraints). Both are contextually appropriate sections that govern write constraints — the spirit of the requirement is fully met. The literal section name differs because the PM and Dev roles have different structural conventions from the review-only roles.
-
-## Codex Output Format Validation
+## Checkpoint Runtime Identity Acceptance Contract
 
 | Req # | Requirement | Evidence | Status |
 |-------|-------------|----------|--------|
-| M3-001 | Codex runtime detection | `isCodexLocalCliRuntime()` in claude-local-auth.js; 8/8 auth smoke probe tests pass | PASS |
-| M3-002 | Codex auth failure classification | `hasCodexAuthFailureOutput()` in claude-local-auth.js; tested in local-cli-adapter.test.js | PASS |
-| M3-003 | Codex error branch in adapter close handler | Codex auth failures return typed `codex_auth_failed` blocker; 46/46 adapter tests pass | PASS |
-| M3-004 | Codex exec flag validation | `validateLocalCliCommandCompatibility()` catches missing `exec` subcommand; tested | PASS |
-| M3-005 | No regression in Claude error classification | Claude auth failure, flag compatibility, Node incompatibility tests all pass | PASS |
+| CRI-001 | `state.json` `last_completed_turn` includes `runtime_id` | turn-checkpoint.js:481 writes `runtime_id: runtimeId`; test 1 asserts `state.last_completed_turn.runtime_id === 'local-dev'` (line 169) | PASS |
+| CRI-002 | `turn_checkpointed` event includes `runtime_id` in `turn` object | turn-checkpoint.js:492 writes `runtime_id: runtimeId` in turn object; test 1 asserts event `turn.runtime_id === 'local-dev'` (line 180) | PASS |
+| CRI-003 | Checkpoint commit subject includes `runtime=<id>` | turn-checkpoint.js:212 renders `runtime=${runtimeId}` in subject; test 1 regex match `runtime=local-dev` (line 187) | PASS |
+| CRI-004 | Legacy entries without `runtime_id` produce `null` in state/events | normalizeRuntimeId returns null for missing/blank runtime_id; test 2 asserts `state.last_completed_turn.runtime_id === null` (line 212) and `event.turn.runtime_id === null` (line 219) | PASS |
+| CRI-005 | Legacy entries produce `(unknown)` in commit subject | buildCheckpointCommit uses `normalizeRuntimeId(entry) \|\| '(unknown)'`; test 2 regex match `runtime=\(unknown\)` (line 222) | PASS |
+| CRI-006 | M3 ROADMAP item #3 checked off | ROADMAP.md:41 `- [x] Add model identity metadata to turn checkpoints` | PASS |
+| CRI-007 | No reserved files modified by dev | git show HEAD: 4 files — `.planning/IMPLEMENTATION_NOTES.md`, `.planning/ROADMAP.md`, `cli/src/lib/turn-checkpoint.js`, `cli/test/checkpoint-turn.test.js`. No `.agentxchain/` or `agentxchain.json` paths | PASS |
+| CRI-008 | `agentxchain.json` unmodified | `git diff HEAD -- agentxchain.json` returns empty | PASS |
 
 ## Regression Suites
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| local-cli-adapter.test.js | 46 | PASS |
-| claude-local-auth-smoke-probe.test.js | 8 | PASS |
-| agentxchain-config-schema.test.js | 7 | PASS |
+| checkpoint-turn.test.js | 12 | PASS |
+| dispatch-bundle-decision-history.test.js | 10 | PASS |
 | governed-state.test.js | 99 | PASS |
 | dispatch-bundle.test.js | 74 | PASS |
-| turn-result-validator + staged-result-proof | 114 | PASS |
+| turn-result-validator.test.js | 100 | PASS |
+| staged-result-proof.test.js | 14 | PASS |
 | continuous-run.test.js | 87 | PASS |
+| local-cli-adapter.test.js | 46 | PASS |
 | vision-reader.test.js | 36 | PASS |
-| timeout-evaluator + run-loop + release-notes-gate | 80 | PASS |
-| dispatch-bundle-decision-history.test.js | 10 | PASS (fixed this turn — see note 2) |
-| **Total** | **561** | **0 failures** |
+| claude-local-auth-smoke-probe.test.js | 8 | PASS |
+| config-schema + timeout-evaluator + run-loop + release-notes-gate | 87 | PASS |
+| **Total** | **573** | **0 failures** |
 
 ## Pre-existing Failures (Not Blocking)
 
 | Issue | Detail | Verdict |
 |-------|--------|---------|
-| AGENT-TALK guard (3/8 fail) | Tests 4-6 fail: TALK.md lacks compressed summary structure from prior runs; predates this run | Not a regression — confirmed across 10 consecutive QA runs |
-
-### Note 2: dispatch-bundle-decision-history test fix
-
-The previous dev turn (M3 runtime_id) added a Runtime column to the Decision History table in `dispatch-bundle.js:1418` but did not update `dispatch-bundle-decision-history.test.js` to match the new 5-column format. Tests 1 and 6 expected 4-column headers/rows. This QA turn fixed the test expectations to match the implementation. The fix is trivial and correct — the test now asserts `| ID | Phase | Role | Runtime | Statement |` and checks that rows without `runtime_id` render an empty Runtime cell.
+| AGENT-TALK guard (3/8 fail) | Tests 4-6 fail: TALK.md lacks compressed summary structure from prior runs; predates this run | Not a regression — confirmed across 12 consecutive QA runs |
