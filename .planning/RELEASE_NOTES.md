@@ -2,23 +2,23 @@
 
 ## User Impact
 
-Authoritative implementation turns now require at least one product code change in `files_changed` to complete successfully. Implementation turns that list only planning artifacts (`.planning/*`), review artifacts (`.agentxchain/reviews/*`), or staging outputs (`.agentxchain/staging/*`) — or that list no files at all — are rejected with a hard validation error. This closes the loophole where an implementation turn could satisfy the `implementation_complete` gate without delivering actual source changes.
+The vision scanner's `deriveRoadmapCandidates()` function now recognizes `<!-- tracking: ... -->` inline annotations on unchecked ROADMAP.md items. Annotated items are skipped during candidate derivation, preventing the continuous loop from re-triggering work on longitudinal acceptance criteria that cannot be completed in a single governed cycle (e.g., "zero ghost turns across 10 consecutive runs").
 
-Non-implementation phases (planning, qa) are unaffected. Blocked or failed implementation turns are also unaffected.
+This eliminates the re-trigger loop where the vision scanner repeatedly queued already-in-progress longitudinal work, causing wasted PM/Dev/QA cycles on items that require multi-run observation.
+
+Non-annotated unchecked items — including items with other HTML comments like `<!-- owner: dev -->` — remain fully actionable. The annotation is case-insensitive and requires a complete `<!-- tracking: ... -->` form (colon required, closing `-->` required).
 
 ## Verification Summary
 
-- 100 turn-result-validator tests pass (including 2 new implementation-completion regression tests)
-- 17 staged-result-proof + turn-result-shape tests pass
-- 42 local-cli-adapter tests pass
-- 77 config-schema + timeout-evaluator + run-loop tests pass
-- **Total: 236 tests, 0 failures**
+- 267 tests pass across 5 test suites (31 vision-reader + 100 validator + 17 staged-result + 42 adapter + 77 schema/timeout/run-loop), 0 failures
+- 2 new regression tests added: tracking annotation skip + normal HTML comment preservation
+- 8 regex edge cases independently verified (valid annotations, empty annotations, case-insensitive, no-space, missing colon, different annotation type, bare word, unclosed annotation)
+- Live workspace scan: 35 candidates emitted, M1 acceptance item correctly filtered, M2+ items correctly emitted
 - All 8 acceptance criteria verified (see acceptance-matrix.md)
-- No reserved path modifications confirmed via git diff
 
 ## Upgrade Notes
 
-No breaking changes for conformant implementations. Implementation-phase turns that previously completed with only planning file changes will now fail validation. Ensure implementation turns include at least one product source path in `files_changed` (e.g., `cli/src/*`, `src/*`, `tests/*`).
+No breaking changes. Existing ROADMAP.md files without `<!-- tracking: ... -->` annotations behave identically to before. To use the new feature, add an inline `<!-- tracking: description -->` annotation to any unchecked roadmap item that should be excluded from vision scanner candidate derivation.
 
 ## Known Issues
 

@@ -4,25 +4,36 @@
 
 ## QA Summary
 
-This turn re-verifies the implementation after the prior QA turn's run-completion request was rejected by the `qa_ship_verdict` gate. The gate failure was caused by `.planning/RELEASE_NOTES.md` missing the required `## User Impact` section header.
+**Run:** run_cc4217fafd6611bc
+**Scope:** ROADMAP tracking annotation support in vision scanner
 
-**Root cause of gate failure:** The prior QA turn (turn_c215df3c0409f406) authored RELEASE_NOTES.md with section headers `## Implementation-Phase Completion Guard` and `## Verification Summary`, but the gate spec (RELEASE_ARTIFACT_GATE_SPEC.md) requires `## User Impact` as a mandatory section. The content was adequate but the heading was non-conformant.
+### Challenge of Dev Turn
 
-**Challenge of prior QA turn:** The prior turn performed thorough technical verification (236 tests, 8 acceptance criteria, code review) but failed to validate its own deliverable against the gate spec. This is a process gap — QA should verify gate compliance of its own artifacts before requesting completion. The fix is straightforward: restructure RELEASE_NOTES.md with the required headings.
+The dev's implementation is correct and appropriately scoped. I challenged the following:
 
-**Implementation re-verification (independently confirmed):**
+1. **Regex correctness:** Independently verified the `ROADMAP_TRACKING_ANNOTATION_PATTERN` regex against 8 edge cases (valid annotations, empty annotations, case variations, missing colon, unclosed annotations, non-tracking comments, bare word). All 8 passed correctly.
 
-- `node --check cli/src/lib/turn-result-validator.js` — syntax OK
-- 100 turn-result-validator tests: PASS
-- 17 staged-result-proof + turn-result-shape tests: PASS
-- 42 local-cli-adapter tests: PASS
-- 77 config-schema + timeout-evaluator + run-loop tests: PASS
-- **Total: 236 tests, 0 failures** (matches prior turn's count exactly)
+2. **Dev's tightening of PM spec:** The PM specified a `<!-- tracking:` substring check. The dev implemented a complete annotation pattern requiring both the colon separator and closing `-->` tag. I verify this is the right decision — it prevents false positives from partial or malformed annotations while still matching all reasonable annotation forms.
 
-**Artifact compliance:**
-- `.planning/RELEASE_NOTES.md` — rewritten with required `## User Impact` and `## Verification Summary` sections
-- `.planning/acceptance-matrix.md` — updated with AC-009 for gate compliance and gate failure analysis
-- `.planning/ship-verdict.md` — this file
+3. **Live workspace behavior:** Ran `deriveRoadmapCandidates()` against the real workspace ROADMAP.md. The M1 acceptance item with `<!-- tracking: 3/10 zero-ghost runs ... -->` is correctly filtered. All M2–M8 unchecked items are correctly emitted (35 total candidates, 5 from M2 alone).
+
+4. **Reserved file integrity:** The reserved .agentxchain state files in the dev's commit are orchestrator-managed checkpointing, not manual dev edits. The dev correctly declared only the 3 product files it changed.
+
+### Independent Verification
+
+| Test Suite | Count | Result |
+|------------|-------|--------|
+| vision-reader.test.js | 31 | PASS |
+| turn-result-validator.test.js | 100 | PASS |
+| staged-result-proof + turn-result-shape | 17 | PASS |
+| local-cli-adapter.test.js | 42 | PASS |
+| config-schema + timeout + run-loop | 77 | PASS |
+| **Total** | **267** | **0 failures** |
+
+Additional:
+- `node --check cli/src/lib/vision-reader.js` — syntax OK
+- Regex edge case verification: 8/8 pass
+- Live workspace scan: 35 candidates, M1 correctly filtered
 
 ## Open Blockers
 
