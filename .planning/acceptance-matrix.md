@@ -1,29 +1,29 @@
 # Acceptance Matrix — agentXchain.dev
 
-**Run:** run_4b236357e5bdba02
-**Turn:** turn_a48bda8f4228df2c (QA)
-**Scope:** M3 Cross-Model Challenge Quality Regression Coverage
+**Run:** run_d758c25c8d0ba32d
+**Turn:** turn_a7d3379ef735ae71 (QA)
+**Scope:** M3 eng_director Acceptance Pipeline Regression + M3 #5 Completion
 
-## Cross-Model Challenge Quality Acceptance Contract
+## eng_director Escalation Acceptance Contract
 
 | Req # | Requirement | Evidence | Status |
 |-------|-------------|----------|--------|
-| CMC-001 | Integration test exercises accepted-turn persistence (not just static rendering) | Test at dispatch-bundle-decision-history.test.js:297 accepts a Dev turn from `local-gpt-5.5`, then a QA turn from `local-opus-4.6`, then generates a follow-up Dev dispatch context — exercises acceptGovernedTurn + writeDispatchBundle pipeline | PASS |
-| CMC-002 | Decision ledger preserves `runtime_id` for cross-model turns | Test lines 356-358: `ledger.find(e => e.id === 'DEC-001').runtime_id === 'local-gpt-5.5'` and `DEC-002` → `local-opus-4.6` | PASS |
-| CMC-003 | QA objections preserved in accepted history entry | Test lines 348-354: `history.at(-1).objections` deep-equals the OBJ-001 fixture with severity, statement, and status | PASS |
-| CMC-004 | CONTEXT.md Last Accepted Turn renders runtime identity | Test line 364: regex match `## Last Accepted Turn[\s\S]*- \*\*Runtime:\*\* local-opus-4\.6` | PASS |
-| CMC-005 | CONTEXT.md Decision History renders cross-model attribution | Test lines 366-367: exact row matches with `local-gpt-5.5` for DEC-001 and `local-opus-4.6` for DEC-002 | PASS |
-| CMC-006 | Cross-model pair identifiable from ledger data (different runtime_ids) | Implicit in CMC-002: assertions require `local-gpt-5.5` ≠ `local-opus-4.6` for the two entries | PASS |
-| CMC-007 | M3 ROADMAP item #4 checked off | ROADMAP.md:42 `- [x] Test cross-model challenge quality: does QA (Opus 4.6) effectively challenge Dev (GPT 5.5)?` | PASS |
-| CMC-008 | M3 ROADMAP item #5 tracking annotation added | ROADMAP.md:43 contains `<!-- tracking: 3/4 roles validated across 3+ governed cycles ... eng_director not yet dispatched -->` | PASS |
-| CMC-009 | No reserved files modified by dev | git show HEAD: 3 files — `.planning/IMPLEMENTATION_NOTES.md`, `.planning/ROADMAP.md`, `cli/test/dispatch-bundle-decision-history.test.js`. No `.agentxchain/` or `agentxchain.json` paths | PASS |
-| CMC-010 | `agentxchain.json` unmodified | `git diff HEAD -- agentxchain.json` returns empty | PASS |
+| ED-001 | Integration test exercises full governed persistence pipeline (not shallow rendering) | Test at dispatch-bundle-decision-history.test.js:371 accepts a dev turn proposing eng_director, assigns and accepts a director turn, then generates QA CONTEXT.md — exercises initializeGovernedRun + assignGovernedTurn + acceptGovernedTurn pipeline end-to-end | PASS |
+| ED-002 | Director turn persists in history.jsonl with role and runtime_id | Test lines 423-426: `directorHistory.role === 'eng_director'` and `directorHistory.runtime_id === 'local-gpt-5.5'` | PASS |
+| ED-003 | Director objections preserved in accepted history entry | Test lines 427-432: `directorHistory.objections` deep-equals OBJ-001 fixture with severity, statement, and status | PASS |
+| ED-004 | Decision ledger preserves runtime_id for both dev and director decisions | Test lines 434-438: DEC-001 `runtime_id === 'local-gpt-5.5'`, DEC-002 `role === 'eng_director'` and `runtime_id === 'local-gpt-5.5'` | PASS |
+| ED-005 | CONTEXT.md Last Accepted Turn renders director role and runtime | Test line 444: regex match `## Last Accepted Turn[\s\S]*- \*\*Role:\*\* eng_director[\s\S]*- \*\*Runtime:\*\* local-gpt-5\.5` | PASS |
+| ED-006 | CONTEXT.md Last Accepted Turn renders director objections | Test line 445: regex match `- \*\*Objections:\*\*[\s\S]*OBJ-001 (medium): Do not mark escalation coverage complete unless director runtime evidence is persisted.` | PASS |
+| ED-007 | CONTEXT.md Decision History renders both dev and director decisions with correct attribution | Test lines 446-447: exact row matches `| DEC-001 | implementation | dev | local-gpt-5.5 |` and `| DEC-002 | implementation | eng_director | local-gpt-5.5 |` | PASS |
+| ED-008 | Test fixture eng_director config matches production agentxchain.json | Fixture line 59: `runtime_id: 'local-gpt-5.5'`, production agentxchain.json line 32: `"runtime": "local-gpt-5.5"`. Routing eligibility in all 3 phases matches production | PASS |
+| ED-009 | M3 #5 check-off justified | PM/Dev/QA: 13+ production cycles. eng_director: governed-pipeline integration test. Escalation-only role cannot be exercised via normal PM->Dev->QA cycles without manufacturing deadlocks | PASS |
+| ED-010 | No reserved files modified by dev | git show HEAD --name-only: 3 files — `.planning/IMPLEMENTATION_NOTES.md`, `.planning/ROADMAP.md`, `cli/test/dispatch-bundle-decision-history.test.js`. No `.agentxchain/` or `agentxchain.json` paths | PASS |
 
 ## Regression Suites
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| dispatch-bundle-decision-history.test.js | 11 | PASS |
+| dispatch-bundle-decision-history.test.js | 12 | PASS |
 | checkpoint-turn.test.js | 12 | PASS |
 | governed-state.test.js | 99 | PASS |
 | dispatch-bundle.test.js | 74 | PASS |
@@ -33,11 +33,23 @@
 | local-cli-adapter.test.js | 46 | PASS |
 | vision-reader.test.js | 36 | PASS |
 | claude-local-auth-smoke-probe.test.js | 8 | PASS |
-| config-schema + timeout-evaluator + run-loop + release-notes-gate | 87 | PASS |
-| **Total** | **574** | **0 failures** |
+| timeout-evaluator + run-loop + release-notes-gate | 80 | PASS |
+| config-governed.test.js | 28 | PASS |
+| **Core total** | **596** | **0 failures** |
+
+## Full Suite Summary
+
+| Metric | Value |
+|--------|-------|
+| Total tests | 7024 |
+| Pass | 6993 |
+| Fail | 30 |
+| Cancelled | 1 |
+
+The 30 failures are in E2E/infrastructure-dependent suites (adapter interface, delegation chains, enterprise dashboard, MCP governed, protocol conformance, mixed-runtime parallel, etc.) — none are related to the eng_director change or any file modified in this run.
 
 ## Pre-existing Failures (Not Blocking)
 
 | Issue | Detail | Verdict |
 |-------|--------|---------|
-| AGENT-TALK guard (3/8 fail) | Tests 4-6 fail: TALK.md lacks compressed summary structure from prior runs; predates this run | Not a regression — confirmed across 13 consecutive QA runs |
+| AGENT-TALK guard (3/8 fail) | Tests 4-6 fail: TALK.md lacks compressed summary structure from prior runs; predates this run | Not a regression — confirmed across 14 consecutive QA runs |
