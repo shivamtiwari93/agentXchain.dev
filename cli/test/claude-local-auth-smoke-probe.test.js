@@ -21,7 +21,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runClaudeSmokeProbe } from '../src/lib/claude-local-auth.js';
+import {
+  hasCodexAuthenticationFailureText,
+  isCodexLocalCliRuntime,
+  runClaudeSmokeProbe,
+} from '../src/lib/claude-local-auth.js';
 
 function writeShim(contents) {
   const dir = mkdtempSync(join(tmpdir(), 'claude-shim-'));
@@ -127,4 +131,17 @@ test('runClaudeSmokeProbe — spawn_error: missing binary reports spawn_error', 
     result.code === 'ENOENT' || result.code === 'EACCES' || result.code === null,
     `expected ENOENT/EACCES, got ${result.code}`,
   );
+});
+
+test('isCodexLocalCliRuntime identifies codex binaries without matching other commands', () => {
+  assert.equal(isCodexLocalCliRuntime({ command: ['codex', 'exec', '--json'] }), true);
+  assert.equal(isCodexLocalCliRuntime({ command: ['/Applications/Codex.app/Contents/Resources/codex', 'exec', '--json'] }), true);
+  assert.equal(isCodexLocalCliRuntime({ command: ['claude', '--print'] }), false);
+  assert.equal(isCodexLocalCliRuntime({ command: ['node', 'codex'] }), false);
+});
+
+test('hasCodexAuthenticationFailureText recognizes OpenAI/Codex auth errors', () => {
+  assert.equal(hasCodexAuthenticationFailureText('{"error":"unauthorized","status":401}'), true);
+  assert.equal(hasCodexAuthenticationFailureText('Invalid API key for OpenAI request'), true);
+  assert.equal(hasCodexAuthenticationFailureText('normal codex diagnostic output'), false);
 });

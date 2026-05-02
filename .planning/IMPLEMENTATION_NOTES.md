@@ -1,5 +1,26 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 M3 Output Format Validation
+
+### Challenge
+
+The previous PM turn correctly identified the Claude/Codex asymmetry, but I do not accept its validation detail as complete. Limiting Codex `--json` validation to stdin transport would leave argv and dispatch-bundle Codex runtimes able to run without machine-readable diagnostics. The adapter still treats staged `turn-result.json` as authoritative, but Codex subprocess output should consistently be JSON diagnostics.
+
+### Changes
+
+- Added Codex local CLI runtime detection and Codex/OpenAI auth failure text classification alongside the existing Claude helpers.
+- Added a Codex auth-failure close-handler branch in the local CLI adapter, returning a typed `codex_auth_failed` blocker with OpenAI credential recovery guidance.
+- Extended local CLI command compatibility validation so Codex runtimes must use `codex exec --json` before dispatch.
+- Added regression coverage for Codex auth failure classification, adapter-level Codex command-shape preflight blocking, Codex successful `exec --json` staged-result handling, and the shared Codex detector/classifier helpers.
+- Marked the M3 ROADMAP output-format validation item complete.
+
+### Verification
+
+- `node --check cli/src/lib/claude-local-auth.js`
+- `node --check cli/src/lib/adapters/local-cli-adapter.js`
+- `node --test --test-timeout=60000 cli/test/claude-local-auth-smoke-probe.test.js`
+- `node --test --test-timeout=60000 cli/test/local-cli-adapter.test.js`
+
 ## 2026-05-02 M3 Runtime Identity Handoff Context
 
 ### Challenge

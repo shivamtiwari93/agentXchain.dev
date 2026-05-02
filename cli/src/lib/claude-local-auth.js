@@ -12,6 +12,7 @@ const CLAUDE_ENV_AUTH_KEYS = [
 const DEFAULT_SMOKE_PROBE_TIMEOUT_MS = 10_000;
 const DEFAULT_SMOKE_PROBE_STDIN = 'ok';
 const CLAUDE_AUTH_FAILURE_RE = /authentication_failed|authentication_error|invalid authentication credentials|unauthorized|API Error:\s*401/i;
+const CODEX_AUTH_FAILURE_RE = /unauthorized|invalid api key|invalid_api_key|authentication failed|authentication_failed|openai[\s\S]{0,200}401|api[_ -]?key[\s\S]{0,200}invalid|401[\s\S]{0,200}(openai|invalid|unauthorized)/i;
 const CLAUDE_NODE_INCOMPATIBILITY_RE =
   /TypeError:\s*Object not disposable|TypeError\(["']Object not disposable["']\)|Object not disposable[\s\S]{0,2000}Node\.js v(?:1[0-9]|20\.[0-4]\.)/i;
 const CLAUDE_COMPATIBLE_NODE_MIN = { major: 20, minor: 5, patch: 0 };
@@ -37,8 +38,21 @@ export function isClaudeLocalCliRuntime(runtime) {
   return head === 'claude' || head.endsWith('/claude');
 }
 
+export function isCodexLocalCliRuntime(runtime) {
+  const tokens = normalizeCommandTokens(runtime);
+  if (tokens.length === 0) {
+    return false;
+  }
+  const head = tokens[0].toLowerCase();
+  return head === 'codex' || head.endsWith('/codex');
+}
+
 export function hasClaudeAuthenticationFailureText(text) {
   return typeof text === 'string' && CLAUDE_AUTH_FAILURE_RE.test(text);
+}
+
+export function hasCodexAuthenticationFailureText(text) {
+  return typeof text === 'string' && CODEX_AUTH_FAILURE_RE.test(text);
 }
 
 export function hasClaudeNodeIncompatibilityText(text) {

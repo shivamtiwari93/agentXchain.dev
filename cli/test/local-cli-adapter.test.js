@@ -37,6 +37,15 @@ function writeClaudeShim(root, contents) {
   return shimPath;
 }
 
+function writeCodexShim(root, contents) {
+  const shimDir = join(root, 'shim-bin');
+  mkdirSync(shimDir, { recursive: true });
+  const shimPath = join(shimDir, 'codex');
+  writeFileSync(shimPath, contents);
+  chmodSync(shimPath, 0o755);
+  return shimPath;
+}
+
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
 }
@@ -321,6 +330,56 @@ exit 1
       }
     });
 
+    it('classifies Codex --json stdout auth failures as typed dispatch blockers instead of retryable turn failures', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const shim = writeCodexShim(root, `#!/bin/sh
+cat > /dev/null
+printf '%s\\n' '{"error":"unauthorized","message":"Invalid API key for OpenAI request","status":401}'
+exit 1
+`);
+      const config = makeConfig({
+        command: [shim, 'exec', '--json'],
+        prompt_transport: 'stdin',
+      });
+      setupDispatchBundle(root, state, config);
+
+      const result = await dispatchLocalCli(root, state, config);
+
+      assert.equal(result.ok, false);
+      assert.equal(result.blocked, true);
+      assert.equal(result.startupFailure, undefined);
+      assert.equal(result.classified?.error_class, 'codex_auth_failed');
+      assert.match(result.error, /Codex local_cli authentication failed/);
+      assert.match(result.classified.recovery, /OPENAI_API_KEY/);
+    });
+
+    it('blocks Codex runtimes missing the exec subcommand before spawning', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const shim = writeCodexShim(root, `#!/bin/sh
+printf '%s\\n' 'unexpected spawn' >&2
+exit 99
+`);
+      const config = makeConfig({
+        command: [shim, '--json'],
+        prompt_transport: 'stdin',
+      });
+      setupDispatchBundle(root, state, config);
+
+      const result = await dispatchLocalCli(root, state, config);
+
+      assert.equal(result.ok, false);
+      assert.equal(result.blocked, true);
+      assert.equal(result.exitCode, undefined);
+      assert.equal(result.classified?.error_class, 'local_cli_command_incompatible');
+      assert.match(result.classified.recovery, /codex exec/);
+      assert.ok(
+        result.logs.some((line) => line.includes('command_compatibility_failed')),
+        'compatibility failure should be logged before spawn',
+      );
+    });
+
     it('BUG-113 classifies Claude Node runtime incompatibility as a typed dispatch blocker instead of a ghost turn', async () => {
       const root = createAndTrack();
       const state = makeState();
@@ -464,6 +523,34 @@ exit 1
       const result = await dispatchLocalCli(root, state, config);
       assert.equal(result.ok, true);
       assert.equal(result.exitCode, 1);
+    });
+
+    it('succeeds when Codex exec --json emits diagnostic JSON and writes a staged result', async () => {
+      const root = createAndTrack();
+      const state = makeState();
+      const turnResult = makeValidTurnResult(state);
+      const shim = writeCodexShim(root, `#!/bin/sh
+cat > /dev/null
+mkdir -p ${JSON.stringify(join(root, '.agentxchain', 'staging', state.current_turn.turn_id))}
+cat > ${JSON.stringify(join(root, stagingPathFor(state)))} <<'JSON'
+${JSON.stringify(turnResult, null, 2)}
+JSON
+printf '%s\\n' '{"type":"message","message":"turn result staged"}'
+exit 0
+`);
+      const config = makeConfig({
+        command: [shim, 'exec', '--json'],
+        prompt_transport: 'stdin',
+      });
+      setupDispatchBundle(root, state, config);
+
+      const result = await dispatchLocalCli(root, state, config);
+
+      assert.equal(result.ok, true);
+      assert.equal(result.aborted, false);
+      assert.equal(result.timedOut, false);
+      const staged = readJson(join(root, stagingPathFor(state)));
+      assert.equal(staged.runtime_id, state.current_turn.runtime_id);
     });
 
     it('captures stdout and stderr in logs', async () => {
@@ -1070,6 +1157,35 @@ exit 1
         command: 'claude',
         args: ['--print', '--output-format', 'stream-json', '--verbose'],
         runtimeId: 'local-claude',
+      });
+      assert.equal(valid.ok, true);
+    });
+
+    it('requires Codex runtimes to use exec with JSON diagnostics', () => {
+      const missingExec = validateLocalCliCommandCompatibility({
+        command: 'codex',
+        args: ['--json', '{prompt}'],
+        runtimeId: 'local-codex',
+      });
+      assert.equal(missingExec.ok, false);
+      assert.equal(missingExec.error_class, 'local_cli_command_incompatible');
+      assert.equal(missingExec.diagnostic.rule, 'codex_requires_exec');
+      assert.match(missingExec.error, /codex exec/);
+
+      const missingJson = validateLocalCliCommandCompatibility({
+        command: '/Applications/Codex.app/Contents/Resources/codex',
+        args: ['exec', '{prompt}'],
+        runtimeId: 'local-codex',
+      });
+      assert.equal(missingJson.ok, false);
+      assert.equal(missingJson.error_class, 'local_cli_command_incompatible');
+      assert.equal(missingJson.diagnostic.rule, 'codex_exec_requires_json');
+      assert.match(missingJson.error, /--json/);
+
+      const valid = validateLocalCliCommandCompatibility({
+        command: 'codex',
+        args: ['exec', '--json'],
+        runtimeId: 'local-codex',
       });
       assert.equal(valid.ok, true);
     });

@@ -34,7 +34,9 @@ import {
   getClaudeSubprocessAuthIssue,
   hasClaudeAuthenticationFailureText,
   hasClaudeNodeIncompatibilityText,
+  hasCodexAuthenticationFailureText,
   isClaudeLocalCliRuntime,
+  isCodexLocalCliRuntime,
   resolveClaudeCompatibleNodeBinary,
 } from '../claude-local-auth.js';
 
@@ -517,6 +519,22 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
           error: `Claude local_cli authentication failed. ${recovery}`,
           logs,
         });
+      } else if (isCodexLocalCliRuntime(runtime) && hasCodexAuthFailureOutput(logs)) {
+        const recovery = 'Refresh OpenAI credentials before resuming: export a valid OPENAI_API_KEY, then run agentxchain step --resume.';
+        settle({
+          ok: false,
+          blocked: true,
+          exitCode,
+          timedOut: false,
+          aborted: false,
+          firstOutputAt,
+          classified: {
+            error_class: 'codex_auth_failed',
+            recovery,
+          },
+          error: `Codex local_cli authentication failed. ${recovery}`,
+          logs,
+        });
       } else if (isClaudeLocalCliRuntime(runtime) && hasClaudeNodeRuntimeIncompatibilityOutput(logs)) {
         const recovery = 'Run AgentXchain with Node.js 20.5+ available to the Claude local_cli runtime, then resume continuous mode.';
         settle({
@@ -741,12 +759,16 @@ function resolveStartupWatchdogKillGraceMs(value) {
 function validateLocalCliCommandCompatibility({ command, args = [], runtimeId = null }) {
   const tokens = [command, ...args].filter((token) => typeof token === 'string');
   const binaryName = command ? command.split('/').filter(Boolean).pop() || command : '';
+  const runtimeShape = { command: tokens };
   const outputFormatIndex = tokens.findIndex((token) => token === '--output-format');
   const outputFormatValue = outputFormatIndex >= 0 ? tokens[outputFormatIndex + 1] : null;
   const usesStreamJson = tokens.includes('--output-format=stream-json')
     || outputFormatValue === 'stream-json';
   const usesPrint = tokens.includes('--print') || tokens.includes('-p');
   const hasVerbose = tokens.includes('--verbose');
+  const usesCodex = isCodexLocalCliRuntime(runtimeShape);
+  const usesCodexExec = tokens.includes('exec');
+  const hasCodexJson = tokens.includes('--json');
 
   if (binaryName === 'claude' && usesPrint && usesStreamJson && !hasVerbose) {
     const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Claude local_cli runtime';
@@ -763,6 +785,43 @@ function validateLocalCliCommandCompatibility({ command, args = [], runtimeId = 
         has_print: usesPrint,
         has_stream_json: usesStreamJson,
         has_verbose: hasVerbose,
+        recovery,
+      },
+    };
+  }
+
+  if (usesCodex && !usesCodexExec) {
+    const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Codex local_cli runtime';
+    const recovery = `${runtimeLabel} uses "codex" without the "exec" subcommand. Governed local runs require "codex exec" for non-interactive execution.`;
+    return {
+      ok: false,
+      error_class: 'local_cli_command_incompatible',
+      recovery,
+      error: recovery,
+      diagnostic: {
+        runtime_id: runtimeId,
+        binary: binaryName,
+        rule: 'codex_requires_exec',
+        has_exec: usesCodexExec,
+        recovery,
+      },
+    };
+  }
+
+  if (usesCodex && usesCodexExec && !hasCodexJson) {
+    const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Codex local_cli runtime';
+    const recovery = `${runtimeLabel} uses "codex exec" without "--json". Add "--json" so subprocess output is machine-readable diagnostics while turn results remain staged on disk.`;
+    return {
+      ok: false,
+      error_class: 'local_cli_command_incompatible',
+      recovery,
+      error: recovery,
+      diagnostic: {
+        runtime_id: runtimeId,
+        binary: binaryName,
+        rule: 'codex_exec_requires_json',
+        has_exec: usesCodexExec,
+        has_json: hasCodexJson,
         recovery,
       },
     };
@@ -796,6 +855,11 @@ function appendDiagnostic(logs, label, payload) {
 function hasClaudeAuthFailureOutput(logs) {
   if (!Array.isArray(logs)) return false;
   return logs.some((line) => hasClaudeAuthenticationFailureText(line));
+}
+
+function hasCodexAuthFailureOutput(logs) {
+  if (!Array.isArray(logs)) return false;
+  return logs.some((line) => hasCodexAuthenticationFailureText(line));
 }
 
 function hasClaudeNodeRuntimeIncompatibilityOutput(logs) {
