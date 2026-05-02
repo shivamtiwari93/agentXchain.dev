@@ -48,7 +48,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Update vitest config: glob pattern `test/**/*.test.js`, remove shim alias, 60s timeout
 - [x] Update package.json scripts: consolidate to single `test` + new `test:watch`
 - [x] Delete `vitest-node-test-shim.js` and `vitest-slice-manifest.js`
-- [x] Acceptance: `npm run test` passes all 663 files under vitest, `test:watch` provides TDD workflow, zero `node:test` imports remain
+- [x] Acceptance: `npm run test` passes all 664 files under vitest, `test:watch` provides TDD workflow, zero `node:test` imports remain
 
 ### BUG-FIX: Session Status Inconsistency After Ghost Auto-Retry
 - [x] Fix `clearGhostBlockerAfterReissue()` to write session checkpoint after clearing blocked state (Bug A: session.json stale) <!-- run_aeb78d7979d66c0a -->
@@ -58,7 +58,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 ### M4: Recovery & Resilience Hardening
 - [x] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash <!-- run_24a851cc6e95d841: SYSTEM_SPEC.md documents 17 gaps across 4 domains (ghost, budget, credential, crash) -->
-- [ ] Add structured recovery classification to governance reports
+- [x] Add structured recovery classification to governance reports <!-- run_5276bd12be02449a: recovery-classification module, emit-time payload enrichment, and report rendering across text/markdown/html -->
 - [ ] Improve checkpoint-restore: verify a killed mid-turn process can cleanly resume
 - [ ] Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)
 - [ ] Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`
@@ -95,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | M4 structured recovery classification: design taxonomy (domain/severity/outcome/mechanism), chart dev scope for new `recovery-classification.js` module + report integration | Active (`run_5276bd12be02449a`) |
-| Implementation | Dev implements classification module, integrates into governance report formats, enhances 8 recovery event payloads, writes tests | Pending |
+| Planning | M4 structured recovery classification: design taxonomy (domain/severity/outcome/mechanism), chart dev scope for new `recovery-classification.js` module + report integration | Complete (`run_5276bd12be02449a`) |
+| Implementation | Dev implements classification module, integrates into governance report formats, enhances recovery event payloads, writes tests | Complete (`run_5276bd12be02449a`) |
 | QA | Validate classification correctness, report output, test coverage, no regressions | Pending |

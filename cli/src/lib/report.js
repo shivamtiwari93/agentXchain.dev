@@ -12,6 +12,7 @@ import {
 import { buildCoordinatorRepoStatusEntries } from './coordinator-repo-status-presentation.js';
 import { summarizeCoordinatorEvent } from './coordinator-event-narrative.js';
 import { extractGateActionDigest } from './gate-actions.js';
+import { buildRecoveryClassificationReport } from './recovery-classification.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
@@ -703,6 +704,19 @@ function extractRecoverySummary(artifact) {
   };
 }
 
+function extractRecoveryClassification(artifact) {
+  const report = buildRecoveryClassificationReport(extractRunEventTimeline(artifact));
+  return report.total_recovery_events > 0 ? report : null;
+}
+
+function formatRecoveryOutcomeCounts(counts) {
+  return `${counts.recovered} recovered, ${counts.exhausted} exhausted, ${counts.manual} manual, ${counts.pending} pending`;
+}
+
+function formatRecoveryDomainLabel(domain) {
+  return domain.charAt(0).toUpperCase() + domain.slice(1);
+}
+
 function extractCoordinatorTimeline(artifact) {
   const data = extractFileData(artifact, '.agentxchain/multirepo/history.jsonl');
   if (!Array.isArray(data) || data.length === 0) return [];
@@ -1008,6 +1022,7 @@ function buildRunSubject(artifact) {
   const gateSummary = extractGateSummary(artifact);
   const intakeLinks = extractIntakeLinks(artifact);
   const recoverySummary = extractRecoverySummary(artifact);
+  const recoveryClassification = extractRecoveryClassification(artifact);
   const nextActions = deriveGovernedRunNextActions(artifact.state, artifact.config);
   const continuity = extractContinuityMetadata(artifact);
   const governanceEvents = extractGovernanceEventDigest(artifact);
@@ -1057,6 +1072,7 @@ function buildRunSubject(artifact) {
       gate_summary: gateSummary,
       intake_links: intakeLinks,
       recovery_summary: recoverySummary,
+      recovery_classification: recoveryClassification,
       next_actions: nextActions,
       continuity,
       workflow_kit_artifacts: extractWorkflowKitArtifacts(artifact),
@@ -1536,6 +1552,26 @@ export function formatGovernanceReportText(report) {
         for (const entry of run.recovery_summary.runtime_guidance) {
           lines.push(`    - ${entry.code} | ${entry.command} | ${entry.reason}`);
         }
+      }
+    }
+
+    if (run.recovery_classification) {
+      const rc = run.recovery_classification;
+      lines.push('', 'Recovery Classification:');
+      lines.push(`  Health: ${rc.health_score}`);
+      lines.push(`  Events: ${rc.total_recovery_events} total (${formatRecoveryOutcomeCounts(rc.by_outcome)})`);
+      lines.push('  By Domain:');
+      for (const [domain, counts] of Object.entries(rc.by_domain)) {
+        lines.push(`    ${formatRecoveryDomainLabel(domain)}: ${counts.total} (${formatRecoveryOutcomeCounts(counts)})`);
+      }
+      if (rc.timeline.length > 0) {
+        const { items: boundedRecoveryEvents, omitted: recoveryEventsOmitted } = boundedSlice(rc.timeline);
+        lines.push('  Timeline:');
+        for (let i = 0; i < boundedRecoveryEvents.length; i++) {
+          const evt = boundedRecoveryEvents[i];
+          lines.push(`    ${i + 1}. ${evt.timestamp || 'n/a'} | ${evt.domain} | ${evt.severity} | ${evt.outcome} | ${evt.mechanism} | ${evt.summary}`);
+        }
+        if (recoveryEventsOmitted > 0) lines.push(`    (${recoveryEventsOmitted} more recovery events omitted)`);
       }
     }
 
@@ -2134,6 +2170,27 @@ export function formatGovernanceReportMarkdown(report) {
         for (const entry of run.recovery_summary.runtime_guidance) {
           lines.push(`  - \`${entry.code}\` — \`${entry.command}\`: ${entry.reason}`);
         }
+      }
+    }
+
+    if (run.recovery_classification) {
+      const rc = run.recovery_classification;
+      lines.push('', '## Recovery Classification', '');
+      lines.push(`- Health: \`${rc.health_score}\``);
+      lines.push(`- Events: ${rc.total_recovery_events} total (${formatRecoveryOutcomeCounts(rc.by_outcome)})`);
+      lines.push('', '| Domain | Total | Recovered | Exhausted | Manual | Pending |', '|--------|-------|-----------|-----------|--------|---------|');
+      for (const [domain, counts] of Object.entries(rc.by_domain)) {
+        lines.push(`| ${formatRecoveryDomainLabel(domain)} | ${counts.total} | ${counts.recovered} | ${counts.exhausted} | ${counts.manual} | ${counts.pending} |`);
+      }
+      if (rc.timeline.length > 0) {
+        const { items: boundedRecoveryEvents, omitted: recoveryEventsOmitted } = boundedSlice(rc.timeline);
+        lines.push('', '| # | Time | Domain | Severity | Outcome | Mechanism | Summary |', '|---|------|--------|----------|---------|-----------|---------|');
+        for (let i = 0; i < boundedRecoveryEvents.length; i++) {
+          const evt = boundedRecoveryEvents[i];
+          const summary = (evt.summary || '').replace(/\|/g, '\\|');
+          lines.push(`| ${i + 1} | \`${evt.timestamp || 'n/a'}\` | \`${evt.domain}\` | \`${evt.severity}\` | \`${evt.outcome}\` | \`${evt.mechanism}\` | ${summary} |`);
+        }
+        if (recoveryEventsOmitted > 0) lines.push('', `*(${recoveryEventsOmitted} more recovery events omitted)*`);
       }
     }
 
@@ -2875,6 +2932,40 @@ function renderRunHtml(report) {
       recoveryHtml += htmlSection('Runtime Guidance', items);
     }
     sections.push(`<div class="section">${htmlSection('Recovery', recoveryHtml)}</div>`);
+  }
+
+  if (run.recovery_classification) {
+    const rc = run.recovery_classification;
+    const domainRows = Object.entries(rc.by_domain).map(([domain, counts]) => [
+      esc(formatRecoveryDomainLabel(domain)),
+      String(counts.total),
+      String(counts.recovered),
+      String(counts.exhausted),
+      String(counts.manual),
+      String(counts.pending),
+    ]);
+    const { items: boundedRecoveryEvents, omitted: recoveryEventsOmitted } = boundedSlice(rc.timeline);
+    const timelineRows = boundedRecoveryEvents.map((evt, index) => [
+      String(index + 1),
+      `<code>${esc(evt.timestamp || 'n/a')}</code>`,
+      `<code>${esc(evt.domain)}</code>`,
+      `<code>${esc(evt.severity)}</code>`,
+      `<code>${esc(evt.outcome)}</code>`,
+      `<code>${esc(evt.mechanism)}</code>`,
+      esc(evt.summary || ''),
+    ]);
+    let classificationHtml = htmlDl([
+      ['Health', `<code>${esc(rc.health_score)}</code>`],
+      ['Events', `${rc.total_recovery_events} total (${esc(formatRecoveryOutcomeCounts(rc.by_outcome))})`],
+    ]);
+    classificationHtml += htmlSection('By Domain', htmlTable(['Domain', 'Total', 'Recovered', 'Exhausted', 'Manual', 'Pending'], domainRows), 3);
+    if (timelineRows.length > 0) {
+      classificationHtml += htmlSection('Timeline', htmlTable(['#', 'Time', 'Domain', 'Severity', 'Outcome', 'Mechanism', 'Summary'], timelineRows), 3);
+    }
+    if (recoveryEventsOmitted > 0) {
+      classificationHtml += `<p><em>(${recoveryEventsOmitted} more recovery events omitted)</em></p>`;
+    }
+    sections.push(`<div class="section">${htmlSection('Recovery Classification', classificationHtml)}</div>`);
   }
 
   if (run.next_actions?.length > 0) {

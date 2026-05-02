@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -23,6 +23,20 @@ function runNode(args, cwd) {
     encoding: 'utf8',
     timeout: 20_000,
   });
+}
+
+function listExampleTestFiles(exampleDir) {
+  const testDir = join(exampleDir, 'test');
+  const visit = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = join(dir, entry.name);
+    if (entry.isDirectory()) return visit(absolute);
+    return entry.isFile() && entry.name.endsWith('.js') ? [absolute] : [];
+  });
+  return visit(testDir).sort();
+}
+
+function runExampleTestSuite(exampleDir) {
+  return runNode(['--test', '--test-concurrency=1', ...listExampleTestFiles(exampleDir)], exampleDir);
 }
 
 describe('product examples contract', () => {
@@ -122,12 +136,12 @@ describe('product examples contract', () => {
   });
 
   it('proves the habit-board test suite passes', () => {
-    const result = runNode(['--test', '--test-concurrency=1', 'test/'], HABIT_BOARD_DIR);
+    const result = runExampleTestSuite(HABIT_BOARD_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
   it('proves the async-standup-bot test suite passes', () => {
-    const result = runNode(['--test', '--test-concurrency=1', 'test/'], ASYNC_STANDUP_BOT_DIR);
+    const result = runExampleTestSuite(ASYNC_STANDUP_BOT_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
@@ -223,7 +237,7 @@ describe('product examples contract', () => {
   });
 
   it('proves the trail-meals-mobile test suite passes', () => {
-    const result = runNode(['--test', '--test-concurrency=1', 'test/'], TRAIL_MEALS_DIR);
+    const result = runExampleTestSuite(TRAIL_MEALS_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
@@ -274,7 +288,7 @@ describe('product examples contract', () => {
   });
 
   it('proves the schema-guard test suite passes', () => {
-    const result = runNode(['--test', '--test-concurrency=1', 'test/'], SCHEMA_GUARD_DIR);
+    const result = runExampleTestSuite(SCHEMA_GUARD_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 

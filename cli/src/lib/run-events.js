@@ -8,6 +8,7 @@
 import { appendFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { classifyRecoveryEvent } from './recovery-classification.js';
 
 export const RUN_EVENTS_PATH = '.agentxchain/events.jsonl';
 
@@ -72,6 +73,11 @@ export const VALID_RUN_EVENTS = [
  */
 export function emitRunEvent(root, eventType, details = {}) {
   const event_id = `evt_${randomBytes(8).toString('hex')}`;
+  const payload = details.payload || {};
+  const recoveryClassification = classifyRecoveryEvent({ event_type: eventType, payload });
+  const classifiedPayload = recoveryClassification && !payload.recovery_classification
+    ? { ...payload, recovery_classification: recoveryClassification }
+    : payload;
   const entry = {
     event_id,
     event_type: eventType,
@@ -81,7 +87,7 @@ export function emitRunEvent(root, eventType, details = {}) {
     status: details.status || null,
     turn: details.turn || null,
     intent_id: details.intent_id || null,
-    payload: details.payload || {},
+    payload: classifiedPayload,
   };
 
   try {

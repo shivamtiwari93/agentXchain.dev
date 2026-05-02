@@ -1,4 +1,33 @@
-# Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
+# Implementation Notes — agentXchain.dev M4 Recovery Classification
+
+## 2026-05-02 M4 Structured Recovery Classification
+
+### Challenge
+
+The PM plan was directionally correct, but I challenged two implementation details against the repository. First, `budget_exceeded_warn` is emitted from `governed-state.js`, not `continuous-run.js`, so attaching classifications only in continuous-run would miss one of the chartered recovery events. Second, HTML report support is an active governance report format, so I treated it as part of the implementation instead of an optional stretch.
+
+### Changes
+
+- Added `cli/src/lib/recovery-classification.js` with pure event classification and aggregate recovery-report building.
+- Added automatic `payload.recovery_classification` enrichment in `emitRunEvent()` for all recognized recovery event types, including budget warnings emitted outside continuous mode.
+- Added `subject.run.recovery_classification` to governance reports and rendered it in text, markdown, and HTML formats.
+- Added unit/report tests covering the 8 recovery event mappings, severity escalation, health scoring, omitted non-recovery events, report rendering, and emitted event payload enrichment.
+- Fixed verification blockers exposed by a full-suite run: Node 25 no longer resolves `node --test test/` directory arguments in the product example subprocess checks, the Vitest contract file count needed to include the new recovery test, and one packaged CLI preflight needed a per-test timeout matching its existing 120s subprocess budget.
+- Checked off the M4 roadmap item for structured recovery classification.
+
+### Verification
+
+- `node --check cli/src/lib/recovery-classification.js && node --check cli/src/lib/run-events.js && node --check cli/src/lib/report.js && node --check cli/test/product-examples-contract.test.js && node --check cli/test/claim-reality-preflight.test.js`
+- `cd cli && npm test -- recovery-classification.test.js`
+- `cd cli && npm test -- run-events.test.js`
+- `cd cli && npm test -- report-cli.test.js report-html.test.js governance-report-content.test.js`
+- `cd cli && npm test -- continuous-run.test.js budget-warn-mode.test.js`
+- `cd cli && npm test -- product-examples-contract.test.js`
+- `cd cli && npm test -- vitest-contract.test.js`
+- `cd cli && npm test -- claim-reality-preflight.test.js -t "BUG-46 packaged CLI continuous mode surfaces legacy-empty checkpoint recovery guidance before dispatch"`
+- `cd cli && npm test -- recovery-classification.test.js run-events.test.js report-cli.test.js report-html.test.js governance-report-content.test.js continuous-run.test.js budget-warn-mode.test.js product-examples-contract.test.js vitest-contract.test.js`
+
+Full-suite note: an initial `cd cli && npm run test` execution reached completion and exposed the three verification blockers listed above (6 failing assertions total). After patching those blockers, each formerly failing surface and the changed-area report/recovery/continuous suite passed in the patched workspace.
 
 ## 2026-05-02 BUG-115 Roadmap Housekeeping Implementation Verification
 

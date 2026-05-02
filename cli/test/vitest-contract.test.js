@@ -53,7 +53,7 @@ describe('Vitest coverage contract', () => {
   });
 
   it('keeps all CLI tests on native Vitest imports', () => {
-    assert.equal(TEST_FILES.length, 663);
+    assert.equal(TEST_FILES.length, 664);
     for (const file of TEST_FILES) {
       const source = readFileSync(file, 'utf8');
       assert.doesNotMatch(source, /^import\s+.*from ['"]node:test['"]/m);

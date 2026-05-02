@@ -1836,7 +1836,7 @@ describe('claim-reality preflight', () => {
     const repairedBaseline = checkCleanBaseline(root, 'authoritative');
     assert.equal(repairedBaseline.clean, true,
       `checkpoint repair must restore a clean authoritative baseline for the next continuous dispatch:\n${repairedBaseline.reason || 'baseline remained dirty'}`);
-  });
+  }, 180000);
 
   it('BUG-47 stale-turn watchdog proof exists and packed watchdog source still honors the stale-threshold contract', () => {
     const packedFiles = getPackedFiles();

@@ -113,6 +113,27 @@ describe('run-events', () => {
     assert.ok(result.event_id.startsWith('evt_'));
   });
 
+  it('adds recovery_classification to recognized recovery event payloads', () => {
+    emitRunEvent(root, 'budget_exceeded_warn', {
+      run_id: 'run_budget',
+      phase: 'implementation',
+      status: 'active',
+      payload: {
+        spent_usd: 12,
+        remaining_usd: 0,
+        warning: 'Run budget exceeded.',
+      },
+    });
+
+    const [event] = readRunEvents(root);
+    assert.deepEqual(event.payload.recovery_classification, {
+      domain: 'budget',
+      severity: 'high',
+      outcome: 'pending',
+      mechanism: 'config_change',
+    });
+  });
+
   it('readRunEvents on missing file returns empty array', () => {
     const emptyRoot = mkdtempSync(join(tmpdir(), 'axc-events-empty-'));
     const events = readRunEvents(emptyRoot);
