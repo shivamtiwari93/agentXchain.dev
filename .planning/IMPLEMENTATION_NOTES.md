@@ -1,5 +1,23 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 BUG-115 Roadmap Housekeeping Implementation Verification
+
+### Challenge
+
+The PM turn concluded this implementation phase should be a no-op because the BUG-115 code and tests already shipped in the previous run. I challenged that against the current repository instead of accepting it on process grounds. The source implementation is present at `continuous-run.js:640`, `continuous-run.js:644`, and `continuous-run.js:2579`; the roadmap BUG-FIX items are checked off; and the targeted BUG-115 regression slice passes.
+
+### Changes
+
+- Tightened the existing BUG-115 checkpoint regression to assert the recovered session checkpoint also carries the implementation phase and the newly reissued turn as `last_turn_id`.
+- Recorded this implementation-phase verification evidence so QA has a current challenge trail for the fast-track handoff.
+
+### Verification
+
+- `node --check cli/src/lib/continuous-run.js`
+- `sed -n '53,57p' .planning/ROADMAP.md | grep -E '^- \[x\]'`
+- `grep -n "writeSessionCheckpoint(root, nextState, 'blocker_cleared')\|function isGovernedRunStillActiveForSession\|session_failed_recovered_active_run" cli/src/lib/continuous-run.js`
+- `cd cli && npm test -- --run test/continuous-run.test.js -t "BUG-115"`
+
 ## 2026-05-02 Ghost Auto-Retry Session Status Consistency
 
 ### Challenge

@@ -1112,6 +1112,8 @@ describe('Continuous Run', () => {
       assert.equal(checkpoint.session_id, 'session-ghost-retry-existing');
       assert.equal(checkpoint.run_id, 'run_ghost_001');
       assert.equal(checkpoint.run_status, 'active');
+      assert.equal(checkpoint.phase, 'implementation');
+      assert.equal(checkpoint.last_turn_id, step.new_turn_id);
       assert.equal(checkpoint.blocked, false);
       assert.equal(checkpoint.checkpoint_reason, 'blocker_cleared');
       assert.deepEqual(checkpoint.active_turn_ids, [step.new_turn_id]);
