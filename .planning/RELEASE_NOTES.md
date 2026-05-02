@@ -24,9 +24,13 @@ The local CLI adapter now handles Codex (`--json`) runtimes with the same output
 
 3. **Codex command validation** — `validateLocalCliCommandCompatibility()` now validates Codex commands at dispatch pre-flight: `exec` subcommand is required for non-interactive execution, and `--json` flag is required for machine-readable output. Misconfigured Codex runtimes are caught before subprocess spawn.
 
+### Test Fix: Decision History Runtime Column
+
+The M3 runtime_id implementation added a Runtime column to the Decision History table in dispatch bundles but did not update the corresponding test file (`dispatch-bundle-decision-history.test.js`). The QA turn fixed the 2 stale test expectations to match the new 5-column format (`ID | Phase | Role | Runtime | Statement`).
+
 ## Verification Summary
 
-- 551 tests pass across 9 independently verified test suites, 0 new failures
+- 561 tests pass across 10 independently verified test suites, 0 failures
   - local-cli-adapter.test.js: 46 pass (Codex auth, preflight, staged-result scenarios added)
   - claude-local-auth-smoke-probe.test.js: 8 pass (Codex detector/classifier helpers added)
   - agentxchain-config-schema.test.js: 7 pass
@@ -36,7 +40,7 @@ The local CLI adapter now handles Codex (`--json`) runtimes with the same output
   - continuous-run.test.js: 87 pass
   - vision-reader.test.js: 36 pass
   - timeout-evaluator + run-loop + release-notes-gate: 80 pass
-  - agent-talk-word-cap: 5 pass (3 pre-existing failures, not regression)
+  - dispatch-bundle-decision-history.test.js: 10 pass (fixed this run)
 - Config protection acceptance contract: all 12 criteria verified (see acceptance-matrix.md)
 - `agentxchain.json` confirmed unmodified across all 3 phase checkpoints via git diff
 - No reserved `.agentxchain/` file modifications by dev

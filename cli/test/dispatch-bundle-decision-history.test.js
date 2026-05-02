@@ -107,7 +107,7 @@ describe('dispatch bundle: decision history', () => {
     const ctx = getContextMd(root, config);
 
     assert.ok(ctx.includes('## Decision History'), 'should have Decision History header');
-    assert.ok(ctx.includes('| ID | Phase | Role | Statement |'), 'should have table header');
+    assert.ok(ctx.includes('| ID | Phase | Role | Runtime | Statement |'), 'should have table header');
     assert.ok(ctx.includes('DEC-001'), 'should include first decision');
     assert.ok(ctx.includes('DEC-002'), 'should include second decision');
     assert.ok(ctx.includes('DEC-003'), 'should include third decision');
@@ -187,7 +187,7 @@ describe('dispatch bundle: decision history', () => {
     assert.ok(!ctx.includes('operator_escalated'), 'should not include system entry');
   });
 
-  it('table has correct columns: ID, Phase, Role, Statement', () => {
+  it('table has correct columns: ID, Phase, Role, Runtime, Statement', () => {
     initializeGovernedRun(root, config);
     assignGovernedTurn(root, config, 'pm');
 
@@ -197,8 +197,8 @@ describe('dispatch bundle: decision history', () => {
 
     const ctx = getContextMd(root, config);
 
-    // Check the actual row format
-    assert.ok(ctx.includes('| DEC-ARCH-001 | planning | architect | Microservices over monolith |'));
+    // Check the actual row format (Runtime column is empty when ledger entry has no runtime_id)
+    assert.ok(ctx.includes('| DEC-ARCH-001 | planning | architect |  | Microservices over monolith |'));
   });
 
   it('decisions appear in chronological order (oldest first)', () => {

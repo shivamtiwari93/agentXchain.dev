@@ -1,7 +1,7 @@
 # Acceptance Matrix — agentXchain.dev
 
 **Run:** run_3a396386e18575b6
-**Turn:** turn_080c074e61bbd5eb (QA)
+**Turn:** turn_7f56b1588cdeebb0 (QA)
 **Scope:** Config protection (agentxchain.json operator-owned guardrails) + M3 Codex output format validation
 
 ## Config Protection Acceptance Contract
@@ -12,8 +12,8 @@
 | CP-002 | dev.md contains "Do NOT modify agentxchain.json" instruction | Line 47: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
 | CP-003 | qa.md contains "Do NOT modify agentxchain.json" instruction | Line 54: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
 | CP-004 | eng_director.md contains "Do NOT modify agentxchain.json" instruction | Line 59: `Do NOT modify agentxchain.json — this is operator-owned configuration.` | PASS |
-| CP-005 | pm.md instruction is in write boundaries or protocol rules section | In `## Operator-Owned Files` section (line 75) — functionally equivalent to write boundaries for the PM role | PASS (see note 1) |
-| CP-006 | dev.md instruction is in write boundaries or protocol rules section | In `## Implementation Rules` section (line 42) — the dev's constraint/rules section | PASS (see note 1) |
+| CP-005 | pm.md instruction is in write boundaries or protocol rules section | In `## Operator-Owned Files` section (line 75) — functionally equivalent constraint section for the PM role (see note 1) | PASS |
+| CP-006 | dev.md instruction is in write boundaries or protocol rules section | In `## Implementation Rules` section (line 42) — the dev's constraint/rules section (see note 1) | PASS |
 | CP-007 | qa.md instruction is in write boundaries or protocol rules section | In `## Write Boundaries` section (line 50) — exact match | PASS |
 | CP-008 | eng_director.md instruction is in write boundaries or protocol rules section | In `## Write Boundaries` section (line 56) — exact match | PASS |
 | CP-009 | agentxchain.json timeouts survive PM+Dev+QA cycle | `timeouts.per_turn_minutes: 120`, `timeouts.action: "escalate"` — verified via JSON parse; `git diff` empty across PM checkpoint (61323db1b), Dev checkpoint (d697508e1), and working tree | PASS |
@@ -48,10 +48,15 @@ The acceptance contract requires the instruction to be in the "write boundaries 
 | continuous-run.test.js | 87 | PASS |
 | vision-reader.test.js | 36 | PASS |
 | timeout-evaluator + run-loop + release-notes-gate | 80 | PASS |
-| **Total** | **551** | **0 failures** |
+| dispatch-bundle-decision-history.test.js | 10 | PASS (fixed this turn — see note 2) |
+| **Total** | **561** | **0 failures** |
 
 ## Pre-existing Failures (Not Blocking)
 
 | Issue | Detail | Verdict |
 |-------|--------|---------|
 | AGENT-TALK guard (3/8 fail) | Tests 4-6 fail: TALK.md lacks compressed summary structure from prior runs; predates this run | Not a regression — confirmed across 10 consecutive QA runs |
+
+### Note 2: dispatch-bundle-decision-history test fix
+
+The previous dev turn (M3 runtime_id) added a Runtime column to the Decision History table in `dispatch-bundle.js:1418` but did not update `dispatch-bundle-decision-history.test.js` to match the new 5-column format. Tests 1 and 6 expected 4-column headers/rows. This QA turn fixed the test expectations to match the implementation. The fix is trivial and correct — the test now asserts `| ID | Phase | Role | Runtime | Statement |` and checks that rows without `runtime_id` render an empty Runtime cell.
