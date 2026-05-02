@@ -95,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | M4 checkpoint-restore verification: audit crash-resume path, design PID liveness guard, chart dev scope for step.js hardening + crash-resume tests | Completed (`run_da40a332eed44f56`) |
-| Implementation | Dev adds PID liveness guard to step.js resume paths, writes crash-resume test suite | Completed (`run_da40a332eed44f56`) |
-| QA | Validate PID guard behavior, test coverage, no regressions | Pending |
+| Planning | Release v2.155.73: charter dev with release-alignment surface updates + release-bump.sh execution | In Progress (`run_ada69e8852f7487d`) |
+| Implementation | Dev updates 14 release-alignment surfaces, runs release-bump.sh to create local release identity (commit + annotated tag v2.155.73) | Pending |
+| QA | Verify local release identity: tag exists, package.json correct, CHANGELOG accurate, alignment surfaces green, preflight passes | Pending |
