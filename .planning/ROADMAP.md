@@ -81,6 +81,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Protect user value, scope clarity, and acceptance criteria. | In progress (`run_cc4217fafd6611bc`) |
-| Implementation | Implement `<!-- tracking: -->` annotation in vision scanner | Pending |
-| QA | Challenge correctness, acceptance coverage, and ship readiness. | Pending |
+| Planning | Fix idle-expansion heuristic three-state model | In progress (`run_e9d2aeed559c018e`) |
+| Implementation | Patch `detectRoadmapExhaustedVisionOpen()` to skip tracked items | Pending |
+| QA | Verify three-state model works correctly with tracked items | Pending |

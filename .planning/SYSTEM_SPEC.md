@@ -129,6 +129,27 @@ Roles defined dynamically in `agentxchain.json`. Current roster: `pm`, `dev`, `q
 
 **Implementation:** Single guard clause in `deriveRoadmapCandidates()` after the unchecked regex match, checking for `<!-- tracking:` in the line text.
 
+### Idle-Expansion Three-State Model (M2 — run `run_e9d2aeed559c018e`)
+
+**Problem:** `detectRoadmapExhaustedVisionOpen()` and `deriveRoadmapCandidates()` disagree on what counts as "unchecked." `deriveRoadmapCandidates()` skips `<!-- tracking: -->` annotated items (added in `run_cc4217fafd6611bc`), but `detectRoadmapExhaustedVisionOpen()` counts them as unchecked, short-circuiting exhaustion detection with `{ open: false, reason: 'has_unchecked' }`.
+
+**Three-state model:**
+
+| State | `deriveRoadmapCandidates` | `detectRoadmapExhaustedVisionOpen` | Correct action |
+|-------|--------------------------|-----------------------------------|----------------|
+| Roadmap has actionable work | returns candidates | not called (candidates > 0) | Dispatch roadmap work |
+| Roadmap functionally exhausted, vision open | returns 0 candidates (tracked items skipped) | should return `{ open: true }` | Dispatch PM roadmap replenishment |
+| Vision fully addressed | returns 0 candidates | returns `{ open: false, reason: 'vision_fully_mapped' }` | idle_exit or vision_exhausted |
+
+**Fix:** Add `ROADMAP_TRACKING_ANNOTATION_PATTERN` guard to the `hasUnchecked` check in `detectRoadmapExhaustedVisionOpen()`. Tracked items should not count as unchecked for exhaustion purposes.
+
+**Annotation format reference:**
+```
+- [ ] Goal description <!-- tracking: <progress description> -->
+```
+
+**Semantics:** Tracked items are functionally equivalent to checked items for exhaustion detection — they represent in-progress longitudinal criteria that cannot be completed in a single cycle.
+
 ## Resolved Questions
 
 1. **Standalone protocol doc vs implementation-embedded spec?** → Standalone. Protocol spec lives in `.planning/SYSTEM_SPEC.md`, implementation follows it. VISION.md: "the protocol is core" and "should become the stable standard." (DEC-PM-001)

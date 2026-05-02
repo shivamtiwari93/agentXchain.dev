@@ -1,11 +1,11 @@
-# PM Signoff — M1: Ghost Turn Elimination (Vision Scanner Re-Trigger Fix)
+# PM Signoff — M2: Vision Derivation (Idle-Expansion Heuristic Fix)
 
 Approved: YES
 
-**Run:** `run_cc4217fafd6611bc`
+**Run:** `run_e9d2aeed559c018e`
 **Phase:** planning
-**Turn:** `turn_cf0f0e619c3d4118`
-**Date:** 2026-05-02
+**Turn:** `turn_e0f46bd030ff17de`
+**Date:** 2026-05-01
 
 ## Discovery Checklist
 - [x] Target user defined
@@ -17,89 +17,91 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running continuous vision-driven mode with local_cli runtimes.
+AgentXchain operators running continuous vision-driven mode (`--continuous`) with local_cli runtimes.
 
 ### Core Pain Point
 
-The vision scanner's `deriveRoadmapCandidates()` has no mechanism to recognize longitudinal ROADMAP items — items that require evidence from multiple runs and cannot be completed in a single cycle. The M1 acceptance criterion "zero ghost turns across 10 consecutive self-governed runs" is the first instance. The scanner re-triggers a new run each time a prior run completes without checking off this item, creating a budget-wasting infinite loop.
+The idle-expansion heuristic cannot distinguish "current roadmap exhausted" from "vision fully addressed." Specifically, `detectRoadmapExhaustedVisionOpen()` in `vision-reader.js` counts `<!-- tracking: -->` annotated items as "unchecked" work, which short-circuits the exhaustion detection. When all remaining unchecked roadmap items have tracking annotations (longitudinal criteria that cannot be completed in a single cycle), the function returns `{ open: false, reason: 'has_unchecked' }` instead of recognizing the roadmap as functionally exhausted.
 
-**Evidence of the loop:**
-- `run_936b36c729c01f54` — PM explicitly said acceptance criterion is correctly left unchecked (DEC-003), run completed
-- `run_cc4217fafd6611bc` (this run) — vision scanner immediately re-triggered for the same unchecked item
-- Intent `intent_1777682531305_4f73` was created because no completed intent has sufficient keyword overlap (prior completed intents `_af6e` and `_4275` covered "Diagnose root cause" and "Add startup heartbeat", not "Acceptance: zero ghost turns...")
+**Consequence:** `seedFromVision()` falls through to broad vision derivation (no candidates, already addressed) → returns `{ idle: true }` → idle cycles accumulate → system hits `idle_exit` or PM idle-expansion declares `vision_exhausted` → continuous mode stops prematurely even though VISION.md has unplanned scope that should trigger roadmap replenishment.
+
+**Evidence chain:**
+- M1 ROADMAP line 29: `- [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 ... -->` — this tracked item blocks exhaustion detection
+- `deriveRoadmapCandidates()` correctly skips tracked items (implemented in `run_cc4217fafd6611bc`)
+- `detectRoadmapExhaustedVisionOpen()` does NOT skip tracked items — inconsistency between the two functions
+- Vision has 8 milestones (M1-M8) in ROADMAP.md and many unplanned VISION.md sections
 
 ### Core Workflow
 
-1. PM diagnoses the re-trigger loop and scopes dev work (this turn)
-2. Dev adds `<!-- tracking: -->` annotation recognition to `deriveRoadmapCandidates()` in `vision-reader.js`
-3. Dev annotates the M1 acceptance item in ROADMAP.md with tracking status
-4. Dev adds regression tests for the skip behavior
-5. QA verifies the scanner correctly skips annotated items and the annotation is accurate
+1. PM diagnoses the three-state model bug and scopes dev work (this turn)
+2. Dev patches `detectRoadmapExhaustedVisionOpen()` to skip tracked items
+3. Dev adds unit tests for the three-state model with tracked items
+4. QA verifies the heuristic correctly distinguishes all three states
 
 ### MVP Scope (this run)
 
-- **PM (this turn):** Document the re-trigger root cause, scope dev implementation, update planning artifacts
-- **Dev:** Implement `<!-- tracking: -->` annotation parsing in `deriveRoadmapCandidates()`, add tests, annotate ROADMAP.md
-- **QA:** Verify scanner skip logic, verify annotation accuracy against run history, confirm no regressions
+- **PM (this turn):** Root-cause the idle-expansion heuristic bug, document the three-state model, scope dev implementation, update planning artifacts
+- **Dev:** Fix `detectRoadmapExhaustedVisionOpen()` to skip `<!-- tracking: -->` annotated lines, add regression tests for the three-state model
+- **QA:** Verify the fix, confirm existing tests pass, validate the three-state model works end-to-end
 
 ### Out of Scope
 
-- Checking off the M1 acceptance criterion (only 3/10 consecutive zero-ghost runs achieved)
-- Vision-level deferred classification (already exists in `idle-expansion-result-validator.js`, works at heading level not item level)
-- M2-M8 roadmap items
-- DOGFOOD-100 (paused on credential blocker)
-- Intent dedup improvements (keyword overlap is working correctly — the problem is that no completed intent addresses this specific goal)
+- Changing the idle-expansion PM charter (it's adequate once the pre-expansion heuristic is fixed)
+- M3-M8 roadmap items
+- Checking off the M1 acceptance criterion (still at 3/10)
+- Changes to `deriveRoadmapCandidates()` (already correct)
+- Changes to `ingestAcceptedIdleExpansion()` or the idle-expansion result validator
 
 ### Success Metric
 
-`deriveRoadmapCandidates()` skips ROADMAP items annotated with `<!-- tracking: -->`. The M1 acceptance item is annotated with current streak evidence. Future vision scans no longer re-trigger runs for this item.
+`detectRoadmapExhaustedVisionOpen()` treats roadmap items with `<!-- tracking: -->` annotations as functionally checked for exhaustion purposes. When all unchecked items are tracked and VISION.md has unplanned scope, the function returns `{ open: true, reason: 'roadmap_exhausted_vision_open' }` instead of `{ open: false, reason: 'has_unchecked' }`.
 
 ## Challenge to Previous Work
 
-### OBJ-PM-001: Prior PM identified the re-trigger risk but proposed no fix (severity: medium)
+### OBJ-PM-001: Prior tracking annotation implementation (run_cc4217fafd6611bc) only patched half the problem (severity: medium)
 
-The PM in `run_936b36c729c01f54` (DEC-003) explicitly stated: "The M1 acceptance criterion is correctly left unchecked — it requires dogfood runs over time, not a single implementation cycle." This is correct analysis. But the PM failed to address the obvious consequence: the vision scanner will keep triggering new runs for this item. This run is proof of that failure. Three consecutive runs have now touched M1 without making progress on the acceptance criterion itself — budget spent on reconciliation and re-analysis rather than building the mechanism to prevent re-triggering.
+The tracking annotation support added in `run_cc4217fafd6611bc` correctly patched `deriveRoadmapCandidates()` to skip tracked items, preventing re-trigger loops. However, it did not patch the paired function `detectRoadmapExhaustedVisionOpen()` — which uses its own independent `hasUnchecked` scan that doesn't respect tracking annotations. The two functions parse the same ROADMAP.md but disagree on what counts as "unchecked." This inconsistency causes the three-state model to collapse: roadmap-exhausted-but-tracked and roadmap-has-actionable-work are indistinguishable.
 
-### OBJ-PM-002: The acceptance contract for this run cannot be literally satisfied
+### OBJ-PM-002: The M2 roadmap item scope is narrower than it appears
 
-The intake acceptance contract states "Unchecked roadmap item completed: Acceptance: zero ghost turns across 10 consecutive self-governed runs." This item CANNOT be completed this run — we have only 3 consecutive zero-ghost runs (runs `8485b804`, `984f0f8c`, `936b36c7`). Checking it off would be dishonest. Instead, this run will:
-1. Fix the re-trigger mechanism so we stop wasting budget on empty reconciliation runs
-2. Annotate the item with longitudinal tracking evidence (3/10)
-3. Let the criterion accumulate naturally across future governed runs
+The M2 milestone has 5 unchecked items. This run addresses only the first: "Fix idle-expansion heuristic to distinguish 'current roadmap exhausted' from 'vision fully addressed'." The remaining 4 items (dispatch PM for derivation, emit clear status, regression tests for three-state model, acceptance criterion) are partially addressed by existing BUG-77 code but not fully testable until this fix lands. The acceptance contract for this run targets only the first item.
 
 ## Notes for Dev
 
-Your charter is **implementation of tracking annotation support in the vision scanner**:
+Your charter is **fixing `detectRoadmapExhaustedVisionOpen()` in `cli/src/lib/vision-reader.js`**:
 
-1. Modify `deriveRoadmapCandidates()` in `cli/src/lib/vision-reader.js` (line 260-267):
-   - After the `uncheckedMatch` regex, check if the line contains `<!-- tracking:` followed by any content and `-->`
-   - If the annotation is present, skip the item (do not add to candidates)
-   - The annotation format: `<!-- tracking: <description> -->`
-
-2. Add regression tests in `cli/test/vision-reader.test.js` (or create if needed):
-   - Unchecked item WITHOUT annotation → included in candidates (existing behavior)
-   - Unchecked item WITH `<!-- tracking: ... -->` → excluded from candidates
-   - Checked item with annotation → still excluded (already excluded by `[x]`)
-
-3. Annotate the M1 acceptance item in `.planning/ROADMAP.md` line 29:
+1. In `detectRoadmapExhaustedVisionOpen()` (line 482-492), the `hasUnchecked` loop currently does:
+   ```javascript
+   if (currentMilestone && /^\s*[-*]\s+\[\s\]/.test(line)) {
+     hasUnchecked = true;
+   }
    ```
-   - [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 zero-ghost runs (8485b804, 984f0f8c, 936b36c7) as of 2026-05-02 -->
+   Add a guard to skip lines matching `ROADMAP_TRACKING_ANNOTATION_PATTERN` (already defined at line 18). The corrected logic:
+   ```javascript
+   if (currentMilestone && /^\s*[-*]\s+\[\s\]/.test(line) && !ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line)) {
+     hasUnchecked = true;
+   }
    ```
 
-4. Run the existing vision-reader tests + your new tests to confirm no regressions.
+2. Add unit tests for `detectRoadmapExhaustedVisionOpen` in `cli/test/vision-reader.test.js`:
+   - All unchecked items tracked → function proceeds to VISION check → returns `{ open: true }` if vision has unplanned scope
+   - Mix of tracked + genuinely unchecked items → `{ open: false, reason: 'has_unchecked' }` (existing behavior preserved)
+   - All items checked (no `[ ]` at all) → existing behavior preserved
+   - All items tracked + vision fully mapped → `{ open: false, reason: 'vision_fully_mapped' }`
+
+3. Run the full vision-reader test suite to confirm no regressions.
 
 ## Notes for QA
 
-- Verify the `<!-- tracking: -->` regex doesn't false-positive on normal HTML comments in ROADMAP items
-- Verify the annotation text accurately reflects the zero-ghost run history (cross-check history.jsonl)
-- Confirm the 3 cited runs (`8485b804`, `984f0f8c`, `936b36c7`) all completed with zero ghost turns
-- Confirm existing `deriveRoadmapCandidates` behavior is preserved for non-annotated items
-- Run the full vision-reader test suite
+- Verify the fix handles edge cases: tracking annotation with extra whitespace, partial annotation, multiple tracked items
+- Verify the existing BUG-77 command-chain test still passes
+- Verify `deriveRoadmapCandidates()` and `detectRoadmapExhaustedVisionOpen()` now agree on what counts as "unchecked"
+- Run the full test suite
 
 ## Acceptance Contract Response
 
-1. **Roadmap milestone addressed: M1: Self-Governance Hardening — Ghost Turn Elimination** — YES. The re-trigger loop is a direct consequence of M1's longitudinal acceptance criterion. Fixing the scanner to support tracking annotations is necessary M1 completion infrastructure.
+1. **Roadmap milestone addressed: M2: Vision Derivation — Continuous Roadmap Replenishment** — YES. The idle-expansion heuristic fix is the first and most critical M2 item. It enables the three-state model (run complete / roadmap exhausted / vision exhausted) that the remaining M2 items depend on.
 
-2. **Unchecked roadmap item completed: Acceptance: zero ghost turns across 10 consecutive self-governed runs** — CANNOT BE COMPLETED THIS RUN. Only 3/10 consecutive zero-ghost runs exist. Instead, this run prevents the wasteful re-trigger loop and annotates the item with tracking evidence so progress accumulates across future runs.
+2. **Unchecked roadmap item completed: Fix idle-expansion heuristic to distinguish "current roadmap exhausted" from "vision fully addressed"** — YES. The fix is scoped: patch `detectRoadmapExhaustedVisionOpen()` to respect `<!-- tracking: -->` annotations, bringing it into consistency with `deriveRoadmapCandidates()`. This enables correct three-state detection.
 
-3. **Evidence source: .planning/ROADMAP.md:29** — Will be annotated with `<!-- tracking: 3/10 -->` after dev implementation.
+3. **Evidence source: .planning/ROADMAP.md:32** — Line 32 is the target unchecked item. After dev implementation and QA approval, this item will be checked off.
