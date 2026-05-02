@@ -1,0 +1,14 @@
+{
+  "turn_id": "turn_d1836f66c561daa1",
+  "runtime_id": "local-opus-4.7",
+  "adapter_type": "local_cli",
+  "started_at": "2026-05-02T09:24:46.734Z",
+  "first_output_at": null,
+  "last_activity_at": "2026-05-02T09:24:46.734Z",
+  "activity_type": "starting",
+  "activity_summary": "Subprocess started",
+  "output_lines": 0,
+  "stderr_lines": 0,
+  "silent_since": null,
+  "pid": null
+}

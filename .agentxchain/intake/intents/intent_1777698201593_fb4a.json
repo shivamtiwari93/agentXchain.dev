@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "intent_id": "intent_1777698201593_fb4a",
   "event_id": "evt_1777698201593_1d82",
-  "status": "approved",
+  "status": "completed",
   "priority": "p2",
   "template": "generic",
   "charter": "[Beta Bug] diapr.ai: Continuous mode idles after run completion despite roadmap_open_work_detected",
@@ -13,9 +13,9 @@
   ],
   "phase_scope": null,
   "requires_human_start": true,
-  "target_run": null,
+  "target_run": "run_4a6f8ae7668a237a",
   "created_at": "2026-05-02T05:03:21.592Z",
-  "updated_at": "2026-05-02T05:14:01.072Z",
+  "updated_at": "2026-05-02T09:20:55.871Z",
   "history": [
     {
       "from": null,
@@ -35,8 +35,40 @@
       "at": "2026-05-02T05:14:01.072Z",
       "reason": "approved for planning",
       "approver": "operator"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-05-02T09:14:47.136Z",
+      "reason": "generated 0 planning artifact(s) from template \"generic\"",
+      "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T09:14:47.475Z",
+      "run_id": "run_4a6f8ae7668a237a",
+      "turn_id": "turn_873ad25ebeab40c9",
+      "role": "qa",
+      "reason": "governed execution started"
+    },
+    {
+      "from": "executing",
+      "to": "completed",
+      "at": "2026-05-02T09:20:55.871Z",
+      "turn_id": "turn_873ad25ebeab40c9",
+      "role": "qa",
+      "run_id": "run_4a6f8ae7668a237a",
+      "reason": "turn accepted — acceptance contract satisfied"
     }
   ],
   "approved_run_id": "run_4a6f8ae7668a237a",
-  "approved_by": "operator"
+  "approved_by": "operator",
+  "planning_artifacts": [],
+  "target_turn": "turn_873ad25ebeab40c9",
+  "started_at": "2026-05-02T09:14:47.475Z",
+  "completed_at": "2026-05-02T09:20:55.871Z",
+  "run_completed_at": "2026-05-02T09:20:55.871Z",
+  "run_final_turn": "turn_873ad25ebeab40c9",
+  "satisfying_turn": "turn_873ad25ebeab40c9"
 }

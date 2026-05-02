@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "intent_id": "intent_1777695833301_31f1",
   "event_id": "evt_1777695833300_814b",
-  "status": "planned",
+  "status": "executing",
   "priority": "p1",
   "template": "generic",
   "charter": "Fix continuous session status inconsistency: session marked failed while governed run is still active after ghost auto-retry",
@@ -13,9 +13,9 @@
   ],
   "phase_scope": null,
   "requires_human_start": true,
-  "target_run": null,
+  "target_run": "run_aeb78d7979d66c0a",
   "created_at": "2026-05-02T04:23:53.299Z",
-  "updated_at": "2026-05-02T04:58:34.795Z",
+  "updated_at": "2026-05-02T09:24:46.591Z",
   "history": [
     {
       "from": null,
@@ -42,9 +42,20 @@
       "at": "2026-05-02T04:58:34.795Z",
       "reason": "generated 0 planning artifact(s) from template \"generic\"",
       "artifacts": []
+    },
+    {
+      "from": "planned",
+      "to": "executing",
+      "at": "2026-05-02T09:24:46.591Z",
+      "run_id": "run_aeb78d7979d66c0a",
+      "turn_id": "turn_d1836f66c561daa1",
+      "role": "pm",
+      "reason": "governed execution started"
     }
   ],
   "approved_run_id": "run_4a6f8ae7668a237a",
   "approved_by": "operator",
-  "planning_artifacts": []
+  "planning_artifacts": [],
+  "target_turn": "turn_d1836f66c561daa1",
+  "started_at": "2026-05-02T09:24:46.591Z"
 }

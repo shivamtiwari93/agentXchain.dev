@@ -490,3 +490,25 @@ Canonical human-readable handoff log for all agents.
 
 ---
 
+## Turn 873ad25e — qa (qa)
+
+- **Status:** completed
+- **Summary:** Continuous mode idle bug (BUG-76) verified SHIP: all 3 acceptance criteria pass — roadmap-first derivation auto-starts runs, idle only triggers on genuine exhaustion, status reports pending work correctly. 303 tests across 6 suites, 0 failures.
+- **Decision DEC-001:** BUG-76 fix is structurally correct: seedFromVision() calls deriveRoadmapCandidates() first (line 1259), records roadmap_open_work_detected intake event, and resets idle_cycles to 0 when work is found — preventing premature idle-exit.
+- **Decision DEC-002:** BUG-77 roadmap exhaustion fallback is correctly chained: when all roadmap milestones are checked, detectRoadmapExhaustedVisionOpen() dispatches roadmap_replenishment intent instead of idling, ensuring continuous mode keeps deriving bounded increments.
+- **Decision DEC-003:** All 3 acceptance criteria pass: (1) auto-start on roadmap_open_work_detected, (2) idle-only-on-genuine-exhaustion, (3) status reports pending work with typed next_actions. Ship approved.
+- **Proposed next:** human
+
+---
+
+## Turn f41ca0d8 — qa (qa)
+
+- **Status:** completed
+- **Summary:** Fixed qa_ship_verdict gate failure: prior QA turn omitted required ## User Impact heading in RELEASE_NOTES.md. Rewrote with gate-compliant structure, re-verified all 355 tests pass, all 3 gate artifacts validated.
+- **Decision DEC-001:** Prior QA turn's RELEASE_NOTES.md was structurally non-compliant — missing required ## User Impact H2 heading caused qa_ship_verdict gate failure. Fixed by rewriting with both required sections (## User Impact, ## Verification Summary) containing non-placeholder content.
+- **Decision DEC-002:** All 3 BUG-76/77 acceptance criteria independently re-verified — code correctness, test coverage, and gate compliance all confirmed for ship.
+- **Objection OBJ-001 (medium):** Prior QA turn (turn_873ad25ebeab40c9) wrote RELEASE_NOTES.md without the gate-required ## User Impact section heading, causing qa_ship_verdict to fail. This is a process gap — QA should validate gate compliance before requesting run completion.
+- **Proposed next:** human
+
+---
+

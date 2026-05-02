@@ -1,65 +1,80 @@
 {
   "schema_version": "1.1",
-  "run_id": "run_4a6f8ae7668a237a",
+  "run_id": "run_aeb78d7979d66c0a",
   "project_id": "agentxchain-dev",
-  "status": "active",
-  "phase": "qa",
-  "accepted_integration_ref": "git:468f24a54df88d9a0daeeeec1550b270824ed3bd",
-  "active_turns": {},
-  "turn_sequence": 14,
-  "last_completed_turn_id": "turn_89df1d6ca8372e50",
+  "status": "blocked",
+  "phase": "planning",
+  "accepted_integration_ref": null,
+  "active_turns": {
+    "turn_090b3ad5a98819d2": {
+      "turn_id": "turn_090b3ad5a98819d2",
+      "assigned_role": "pm",
+      "status": "dispatched",
+      "attempt": 2,
+      "assigned_at": "2026-05-02T09:30:10.313Z",
+      "deadline_at": "2026-05-02T11:30:10.507Z",
+      "runtime_id": "local-opus-4.7",
+      "baseline": {
+        "kind": "git_worktree",
+        "head_ref": "0e541304012a4234e04076df066e52703ce491a4",
+        "clean": true,
+        "captured_at": "2026-05-02T09:30:10.314Z",
+        "dirty_snapshot": {}
+      },
+      "assigned_sequence": 2,
+      "concurrent_with": [],
+      "reissued_from": "turn_d1836f66c561daa1",
+      "dispatched_at": "2026-05-02T09:30:10.572Z"
+    }
+  },
+  "turn_sequence": 2,
+  "last_completed_turn_id": null,
+  "blocked_on": "turn:failed_start:turn_d1836f66c561daa1",
+  "blocked_reason": {
+    "category": "ghost_turn",
+    "blocked_at": "2026-05-02T09:29:59.042Z",
+    "turn_id": "turn_d1836f66c561daa1",
+    "recovery": {
+      "typed_reason": "ghost_turn",
+      "owner": "human",
+      "recovery_action": "Turn turn_d1836f66c561daa1 has been dispatched for 312s with no subprocess output. The subprocess likely never started. Run `agentxchain reissue-turn --turn turn_d1836f66c561daa1 --reason ghost` to recover.",
+      "turn_retained": true,
+      "detail": "Turn turn_d1836f66c561daa1 has been dispatched for 312s with no subprocess output. The subprocess likely never started. Run `agentxchain reissue-turn --turn turn_d1836f66c561daa1 --reason ghost` to recover."
+    }
+  },
   "escalation": null,
   "pending_phase_transition": null,
   "pending_run_completion": null,
   "queued_phase_transition": null,
   "queued_run_completion": null,
-  "last_gate_failure": {
-    "gate_type": "run_completion",
-    "gate_id": "qa_ship_verdict",
-    "phase": "qa",
-    "from_phase": "qa",
-    "to_phase": null,
-    "requested_by_turn": "turn_89df1d6ca8372e50",
-    "failed_at": "2026-05-02T09:09:23.972Z",
-    "queued_request": false,
-    "reasons": [
-      "Ship verdict is not affirmative. Found \"## Verdict: SHIP (Vitest Migration) / NO-SHIP (GSD Intent)\" in .planning/ship-verdict.md; use \"## Verdict: YES\"."
-    ],
-    "missing_files": [],
-    "missing_verification": false
-  },
+  "last_gate_failure": null,
   "phase_gate_status": {
-    "planning_signoff": "passed",
-    "implementation_complete": "passed",
-    "qa_ship_verdict": "failed"
+    "planning_signoff": "pending",
+    "implementation_complete": "pending",
+    "qa_ship_verdict": "pending"
   },
-  "budget_reservations": {},
+  "budget_reservations": {
+    "turn_090b3ad5a98819d2": {
+      "reserved_usd": 5,
+      "role_id": "pm",
+      "created_at": "2026-05-02T09:30:10.313Z",
+      "reissued_from": "turn_d1836f66c561daa1"
+    }
+  },
   "budget_status": {
     "spent_usd": 0,
     "remaining_usd": 100
   },
-  "created_at": "2026-05-02T04:07:04.048Z",
-  "phase_entered_at": "2026-05-02T08:20:54.177Z",
+  "created_at": "2026-05-02T09:24:46.299Z",
+  "phase_entered_at": "2026-05-02T09:24:46.299Z",
   "provenance": {
     "trigger": "intake",
     "parent_run_id": null,
-    "trigger_reason": "Complete Vitest migration: migrate 564 node:test files to vitest for faster TDD workflow",
-    "intake_intent_id": "intent_1777694634183_ac81",
+    "trigger_reason": "Fix continuous session status inconsistency: session marked failed while governed run is still active after ghost auto-retry",
+    "intake_intent_id": "intent_1777695833301_31f1",
     "created_by": "continuous_loop"
   },
   "inherited_context": null,
   "repo_decisions": null,
-  "delegation_queue": [],
-  "next_recommended_role": null,
-  "pending_delegation_review": null,
-  "non_progress_signature": null,
-  "non_progress_count": 0,
-  "last_completed_turn": {
-    "turn_id": "turn_bce5c1866bf6170d",
-    "role": "pm",
-    "phase": "planning",
-    "checkpoint_sha": "313ad5360e9b48087dd6932d7452052e1249d53b",
-    "checkpointed_at": "2026-05-02T04:18:23.126Z",
-    "intent_id": "intent_1777694634183_ac81"
-  }
+  "delegation_queue": []
 }

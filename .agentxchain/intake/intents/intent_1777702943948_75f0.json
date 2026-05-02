@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "intent_id": "intent_1777702943948_75f0",
   "event_id": "evt_1777702943947_115c",
-  "status": "planned",
+  "status": "suppressed",
   "priority": "p1",
   "template": "cli-tool",
   "charter": "Make dispatch deadline and productive timeout retry deadline respect per_turn_minutes config (default 120min) instead of hardcoded 20min/60min values",
@@ -15,7 +15,7 @@
   "requires_human_start": true,
   "target_run": null,
   "created_at": "2026-05-02T06:22:23.946Z",
-  "updated_at": "2026-05-02T09:14:07.637Z",
+  "updated_at": "2026-05-02T09:24:46.300Z",
   "history": [
     {
       "from": null,
@@ -46,6 +46,12 @@
         ".planning/platform-support.md",
         ".planning/distribution-checklist.md"
       ]
+    },
+    {
+      "from": "planned",
+      "to": "suppressed",
+      "at": "2026-05-02T09:24:46.300Z",
+      "reason": "stale: approved under run run_4a6f8ae7668a237a, archived on run run_aeb78d7979d66c0a initialization"
     }
   ],
   "approved_run_id": "run_4a6f8ae7668a237a",
@@ -54,5 +60,6 @@
     ".planning/command-surface.md",
     ".planning/platform-support.md",
     ".planning/distribution-checklist.md"
-  ]
+  ],
+  "archived_reason": "stale: approved under run run_4a6f8ae7668a237a, archived on run run_aeb78d7979d66c0a initialization"
 }
