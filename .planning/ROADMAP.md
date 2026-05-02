@@ -29,7 +29,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 zero-ghost runs (8485b804, 984f0f8c, 936b36c7) as of 2026-05-02 -->
 
 ### M2: Vision Derivation — Continuous Roadmap Replenishment
-- [ ] Fix idle-expansion heuristic to distinguish "current roadmap exhausted" from "vision fully addressed"
+- [x] Fix idle-expansion heuristic to distinguish "current roadmap exhausted" from "vision fully addressed"
 - [ ] When ROADMAP.md milestones are all checked and VISION.md has uncovered scope, dispatch PM to derive next increment
 - [ ] Emit clear status: "Roadmap exhausted, vision still open, deriving next increment"
 - [ ] Regression tests for the three-state model: run complete, roadmap exhausted, vision exhausted
@@ -82,5 +82,5 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 | Phase | Goal | Status |
 |-------|------|--------|
 | Planning | Fix idle-expansion heuristic three-state model | In progress (`run_e9d2aeed559c018e`) |
-| Implementation | Patch `detectRoadmapExhaustedVisionOpen()` to skip tracked items | Pending |
+| Implementation | Patch `detectRoadmapExhaustedVisionOpen()` to skip tracked items | Complete |
 | QA | Verify three-state model works correctly with tracked items | Pending |

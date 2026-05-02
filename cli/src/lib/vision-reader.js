@@ -487,6 +487,7 @@ export function detectRoadmapExhaustedVisionOpen(root, visionPath, roadmapPath =
       continue;
     }
     if (currentMilestone && /^\s*[-*]\s+\[\s\]/.test(line)) {
+      if (ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line)) continue;
       hasUnchecked = true;
     }
   }

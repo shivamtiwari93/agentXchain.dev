@@ -1,5 +1,22 @@
 # Implementation Notes — agentXchain.dev M1 Ghost Turn Hardening
 
+## 2026-05-02 M2 Idle-Expansion Heuristic Fix
+
+### Challenge
+
+The previous PM turn correctly identified the inconsistent tracking-annotation handling between `deriveRoadmapCandidates()` and `detectRoadmapExhaustedVisionOpen()`. I do not accept the scope as fully proven by inspection alone: the exhaustion detector has its own roadmap scan, so it needed direct three-state regression coverage rather than relying on the existing candidate derivation tests.
+
+### Changes
+
+- Updated `detectRoadmapExhaustedVisionOpen()` to ignore unchecked roadmap lines containing a complete `<!-- tracking: ... -->` annotation when deciding whether actionable unchecked work remains.
+- Added regression coverage for the three relevant states: tracked-only roadmap with unplanned vision scope, actionable unchecked roadmap work, and exhausted roadmap with fully mapped vision scope.
+- Marked the first M2 ROADMAP item complete after implementation.
+
+### Verification
+
+- `node --check cli/src/lib/vision-reader.js`
+- `node --test --test-timeout=60000 cli/test/vision-reader.test.js`
+
 ## 2026-05-02 Roadmap Tracking Annotation Implementation
 
 ### Challenge

@@ -9,6 +9,7 @@ import {
   parseVisionDocument,
   deriveVisionCandidates,
   deriveRoadmapCandidates,
+  detectRoadmapExhaustedVisionOpen,
   isGoalAddressed,
   loadCompletedIntentSignals,
   resolveVisionPath,
@@ -253,6 +254,74 @@ describe('Vision Reader', () => {
       assert.equal(result.candidates.length, 2);
       assert.equal(result.candidates[0].goal, 'Preserve this open item <!-- owner: dev -->');
       assert.equal(result.candidates[1].goal, 'Preserve tracking word without annotation');
+    });
+  });
+
+  describe('detectRoadmapExhaustedVisionOpen', () => {
+    it('M2 idle expansion: treats tracking-annotated roadmap items as exhausted', () => {
+      const visionPath = writeVision(tmpDir, `# Vision
+
+## Connector Ecosystem
+
+- add additional local IDE connectors
+`);
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M1: Self-Governance Hardening
+- [x] Add startup heartbeat protocol
+- [ ] Acceptance: zero ghost turns across 10 consecutive self-governed runs <!-- tracking: 3/10 zero-ghost runs as of 2026-05-02 -->
+`);
+
+      const roadmap = deriveRoadmapCandidates(tmpDir);
+      assert.equal(roadmap.ok, true);
+      assert.equal(roadmap.candidates.length, 0);
+
+      const result = detectRoadmapExhaustedVisionOpen(tmpDir, visionPath);
+      assert.equal(result.open, true);
+      assert.equal(result.reason, 'roadmap_exhausted_vision_open');
+      assert.deepEqual(result.unplanned_sections, ['Connector Ecosystem']);
+      assert.equal(result.total_milestones, 1);
+      assert.match(result.latest_milestone, /^M1:/);
+    });
+
+    it('M2 idle expansion: keeps actionable unchecked roadmap items open', () => {
+      const visionPath = writeVision(tmpDir, `# Vision
+
+## Connector Ecosystem
+
+- add additional local IDE connectors
+`);
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M2: Vision Derivation
+- [ ] Fix idle-expansion heuristic
+`);
+
+      const result = detectRoadmapExhaustedVisionOpen(tmpDir, visionPath);
+      assert.equal(result.open, false);
+      assert.equal(result.reason, 'has_unchecked');
+    });
+
+    it('M2 idle expansion: reports vision fully mapped when exhausted roadmap covers all vision sections', () => {
+      const visionPath = writeVision(tmpDir, `# Vision
+
+## Vision Derivation
+
+- derive bounded roadmap increments
+`);
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M2: Vision Derivation
+- [x] Fix idle-expansion heuristic
+`);
+
+      const result = detectRoadmapExhaustedVisionOpen(tmpDir, visionPath);
+      assert.equal(result.open, false);
+      assert.equal(result.reason, 'vision_fully_mapped');
+      assert.deepEqual(result.mapped_sections, ['Vision Derivation']);
     });
   });
 
