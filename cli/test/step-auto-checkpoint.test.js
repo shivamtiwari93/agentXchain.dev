@@ -291,4 +291,57 @@ describe('step auto-checkpoint after acceptance', () => {
     const gitStatus = execSync('git status --porcelain', { cwd: root, encoding: 'utf8' });
     assert.match(gitStatus, /PM_SIGNOFF/, 'Expected PM_SIGNOFF.md to still be dirty');
   });
+
+  it('AT-STEP-CKPT-003: checkpoint failure exits non-zero with error message and retry command', async () => {
+    const root = makeTmpDir();
+    tmpDirs.push(root);
+    const config = setupProject(root);
+    const { turn, state } = assignAndPreparePmTurn(root, config);
+
+    // Rewrite the staged turn result to include a phantom file alongside the real
+    // modified file. acceptGovernedTurn() passes because .planning/PM_SIGNOFF.md
+    // is declared, but checkpointAcceptedTurn() fails when git can't stage the
+    // phantom path (checkpoint completeness failure).
+    const turnResult = {
+      schema_version: '1.0',
+      run_id: state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'PM with phantom file.',
+      decisions: [],
+      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No issues.', status: 'raised' }],
+      files_changed: ['.planning/PM_SIGNOFF.md', 'PHANTOM_FILE_THAT_DOES_NOT_EXIST.md'],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'ok', machine_evidence: [] },
+      artifact: { type: 'workspace', ref: null },
+      proposed_next_role: 'dev',
+      phase_transition_request: null,
+      run_completion_request: false,
+      needs_human_reason: null,
+      cost: { input_tokens: 100, output_tokens: 50, usd: 0.01 },
+    };
+    writeJson(join(root, getTurnStagingResultPath(turn.turn_id)), turnResult);
+
+    dispatchLocalCli.mockResolvedValue({ ok: true, logs: [] });
+
+    // Run step --resume — checkpoint should fail because PHANTOM file doesn't exist
+    const result = await captureExit(() => runStepInDir(root, { resume: true }));
+
+    // Verify: process exited non-zero
+    assert.ok(result.exited, 'Expected process.exit to be called on checkpoint failure');
+    assert.equal(result.exitCode, 1, 'Expected exit code 1');
+
+    // Verify: error output includes checkpoint failure and retry guidance
+    assert.match(result.output, /checkpoint/i, 'Expected "checkpoint" in error output');
+    assert.match(result.output, /Retry:.*checkpoint-turn/i, 'Expected retry command in error output');
+    assert.match(result.output, new RegExp(turn.turn_id), 'Expected turn ID in retry command');
+
+    // Verify: turn WAS accepted even though checkpoint failed
+    const history = readJsonl(root, '.agentxchain/history.jsonl');
+    const pmEntry = history.find((e) => e.turn_id === turn.turn_id);
+    assert.ok(pmEntry, 'Turn should be accepted before checkpoint attempt');
+    assert.equal(pmEntry.checkpoint_sha, undefined, 'No checkpoint_sha when checkpoint fails');
+  });
 });
