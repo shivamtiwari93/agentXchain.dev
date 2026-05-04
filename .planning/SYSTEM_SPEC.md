@@ -146,12 +146,12 @@ Dev must confirm:
 
 ## Acceptance Tests
 
-- [ ] `step.js` imports `checkpointAcceptedTurn` from `../lib/turn-checkpoint.js`
-- [ ] After successful acceptance, `step` calls `checkpointAcceptedTurn(root, { turnId: turn.turn_id })`
-- [ ] Checkpoint failure exits non-zero with error message and retry command
-- [ ] Checkpoint skip (no files) is silent and continues normally
-- [ ] `--no-checkpoint` flag registered on step command in `cli/bin/agentxchain.js`
-- [ ] `--no-checkpoint` flag skips checkpoint call
-- [ ] AT-STEP-CKPT-001: PM turn → accept → auto-checkpoint → dev turn assigns without error
-- [ ] AT-STEP-CKPT-002: PM turn → accept with `--no-checkpoint` → workspace remains dirty
-- [ ] `npm test` passes with 0 failures
+- [x] `step.js` imports `checkpointAcceptedTurn` from `../lib/turn-checkpoint.js` — verified at `step.js:80`
+- [x] After successful acceptance, `step` calls `checkpointAcceptedTurn(root, { turnId: turn.turn_id })` — verified at `step.js:1009`, guarded by `.git` existence check (DEC-001)
+- [x] Checkpoint failure exits non-zero with error message and retry command — verified at `step.js:1010-1016`
+- [x] Checkpoint skip (no files) is silent and continues normally — verified at `step.js:1017-1019`, `!checkpoint.skipped` guard
+- [x] `--no-checkpoint` flag registered on step command in `cli/bin/agentxchain.js` — verified at `agentxchain.js:752`
+- [x] `--no-checkpoint` flag skips checkpoint call — verified at `step.js:1008`, `!opts.noCheckpoint` guard
+- [x] AT-STEP-CKPT-001: PM turn → accept → auto-checkpoint → dev turn assigns without error — verified in `step-auto-checkpoint.test.js:229-269`
+- [x] AT-STEP-CKPT-002: PM turn → accept with `--no-checkpoint` → workspace remains dirty — verified in `step-auto-checkpoint.test.js:271-293`
+- [ ] `npm test` passes with 0 failures — deferred to QA; dev ran 12 targeted test files (443 tests, 0 failures)

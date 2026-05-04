@@ -64,9 +64,9 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [ ] Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`
 
 ### BUG-FIX: Step Command Missing Auto-Checkpoint After Acceptance
-- [ ] Wire `checkpointAcceptedTurn()` into `step.js` after successful acceptance (matches `run.js` afterAccept behavior) <!-- run_8aceec319cd6aaed -->
-- [ ] Add `--no-checkpoint` opt-out flag to `step` command <!-- run_8aceec319cd6aaed -->
-- [ ] Integration test: PM turn accepted → auto-checkpointed → dev turn assigned without dirty-workspace error <!-- run_8aceec319cd6aaed -->
+- [x] Wire `checkpointAcceptedTurn()` into `step.js` after successful acceptance (matches `run.js` afterAccept behavior) <!-- run_8aceec319cd6aaed: step.js:80 import + step.js:1007-1020 auto-checkpoint block -->
+- [x] Add `--no-checkpoint` opt-out flag to `step` command <!-- run_8aceec319cd6aaed: agentxchain.js:752 -->
+- [x] Integration test: PM turn accepted → auto-checkpointed → dev turn assigned without dirty-workspace error <!-- run_8aceec319cd6aaed: step-auto-checkpoint.test.js (AT-STEP-CKPT-001 + AT-STEP-CKPT-002) -->
 - [ ] Acceptance: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit
 
 ### M5: Protocol V8 — Parallel Turn Support
@@ -102,5 +102,5 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 | Phase | Goal | Status |
 |-------|------|--------|
 | Planning | Charter dev: wire `checkpointAcceptedTurn()` into `step.js` after acceptance + integration test | Complete (`run_8aceec319cd6aaed`) |
-| Implementation | Add auto-checkpoint to `step.js`, `--no-checkpoint` flag, 2 integration tests | Pending |
+| Implementation | Add auto-checkpoint to `step.js`, `--no-checkpoint` flag, 2 integration tests | Dev code complete (turn `turn_7a5c9712b233657a`); 3 files changed, 443 tests pass |
 | QA | Verify PM→Dev handoff via `step` works without manual git commit, full suite green | Pending |
