@@ -70,11 +70,11 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [ ] Acceptance: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit
 
 ### M5: Protocol V8 — Parallel Turn Support
-- [ ] Implement parallel turn dispatch within a single phase (multiple devs working concurrently)
-- [ ] Add conflict detection when parallel turns modify overlapping files
-- [ ] Add merge strategy for parallel turn results
-- [ ] Update governance reports to show parallel execution timelines
-- [ ] Acceptance: 2 dev turns dispatched in parallel, both accepted, conflicts detected and resolved
+- [x] Implement parallel turn dispatch within a single phase (multiple devs working concurrently) <!-- run-loop.js:251 executeParallelTurns() + governed-state.js:3540-3555 max_concurrent_turns enforcement + normalized-config.js:1494 getMaxConcurrentTurns() -->
+- [x] Add conflict detection when parallel turns modify overlapping files <!-- governed-state.js:4984-5025 acceptance-time file overlap detection, turns to conflicted status with conflict_state -->
+- [x] Add merge strategy for parallel turn results <!-- governed-state.js:6467-6482 reject_and_reassign (Path A) + governed-state.js:4179-4201 human_merge (Path B); spec: PARALLEL_CONFLICT_RECOVERY_SPEC.md -->
+- [x] Update governance reports to show parallel execution timelines <!-- report.js:459-461 concurrent_with + sibling_attributed_files in history; text/markdown/HTML rendering at lines 1435, 1817, 2053, 2432, 2797 -->
+- [x] Acceptance: 2 dev turns dispatched in parallel, both accepted, conflicts detected and resolved <!-- e2e-parallel-lifecycle.test.js:166-200; 7 test files, 29 tests, 0 failures as of 2026-05-03 -->
 
 ### M6: Dashboard Live Observer
 - [ ] Real-time dashboard showing active turns, phase progression, and budget consumption
@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Charter dev: wire `checkpointAcceptedTurn()` into `step.js` after acceptance + integration test | Complete (`run_8aceec319cd6aaed`) |
-| Implementation | Add auto-checkpoint to `step.js`, `--no-checkpoint` flag, 2 integration tests | Dev code complete (turn `turn_7a5c9712b233657a`); 3 files changed, 443 tests pass |
-| QA | Verify PM→Dev handoff via `step` works without manual git commit, full suite green | Pending |
+| Planning | Verify M5 parallel turn support is fully implemented, check off ROADMAP items with evidence | In progress (`run_b7c5380413abfbfb`) |
+| Implementation | Dev verifies PM's cited line numbers and test references are accurate | Pending |
+| QA | Full test suite verification, confirm acceptance contract | Pending |

@@ -1,10 +1,10 @@
-# PM Signoff — Step Command Auto-Checkpoint After Acceptance
+# PM Signoff — M5: Protocol V8 — Parallel Turn Support
 
 Approved: YES
 
-**Run:** `run_8aceec319cd6aaed`
+**Run:** `run_b7c5380413abfbfb`
 **Phase:** planning
-**Turn:** `turn_0e31a4c2326e0d67`
+**Turn:** `turn_e7579dd94a0e64a4`
 **Date:** 2026-05-03
 
 ## Discovery Checklist
@@ -17,121 +17,116 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running governed turns via the `step` command, where PM→Dev or Dev→QA handoffs require a clean git workspace.
+AgentXchain operators running governed multi-agent workflows where multiple roles (e.g., two devs) can produce work concurrently within the same phase, reducing wall-clock time for implementation and QA.
 
 ### Core Pain Point
 
-The `step` command — the primary single-turn lifecycle command — accepts turns but does not commit the accepted files to git. This leaves the workspace dirty. The next `step` call fails at `assignGovernedTurn()` → `checkCleanBaseline()` with `checkpoint_required`, blocking the role handoff. Operators must manually run `accept-turn --checkpoint` or `checkpoint-turn` between every pair of `step` invocations.
+ROADMAP.md M5 lists 5 unchecked items for parallel turn support, yet the implementation is **already complete**. The protocol v7 codebase has:
+- `active_turns` state model replacing `current_turn` (schema v1.1)
+- `executeParallelTurns()` run-loop dispatch with configurable `max_concurrent_turns`
+- Acceptance-time file-level conflict detection with `reject_and_reassign` and `human_merge` paths
+- Per-turn dispatch bundle isolation (`.agentxchain/dispatch/turns/<turn_id>/`)
+- Governance reports rendering `concurrent_with` and `sibling_attributed_files`
+- 29 passing tests across 7 dedicated parallel test files
 
-**Direct evidence:** Commit `9c6c8bad1 baseline: commit PM planning artifacts for clean dev dispatch` is a manual workaround committed by the operator to unblock the dev turn after the PM turn was accepted but not checkpointed.
+The pain point is that ROADMAP.md does not reflect this shipped state. This run's purpose is to reconcile documentation with implementation.
 
-### Root Cause
+### Evidence of Completion
 
-`step.js` lines 992-1004 call `acceptGovernedTurn()` then `printAcceptSummary()` and exit. There is no call to `checkpointAcceptedTurn()`. The import for `turn-checkpoint.js` is absent entirely.
+| ROADMAP Item | Evidence |
+|---|---|
+| Parallel turn dispatch within a single phase | `run-loop.js:251` `executeParallelTurns()` fills concurrency slots via `Promise.allSettled()`; `governed-state.js:3540-3555` enforces `max_concurrent_turns` per phase; config capped at 4 (`normalized-config.js:1494`) |
+| Conflict detection when parallel turns modify overlapping files | `governed-state.js:4984-5025` checks file overlap against turns accepted after assignment; transitions conflicting turn to `conflicted` status with `conflict_state` |
+| Merge strategy for parallel turn results | Two recovery paths: Path A `reject_and_reassign` (`governed-state.js:6467-6482`) rebases and retries; Path B `human_merge` (`governed-state.js:4179-4201`) defers to operator. Spec: `PARALLEL_CONFLICT_RECOVERY_SPEC.md` |
+| Governance reports show parallel execution timelines | `report.js:459-461` renders `concurrent_with` and `sibling_attributed_files` per history entry; text/markdown/HTML all render sibling attribution notes (lines 1435, 1817, 2053, 2432, 2797) |
+| 2 dev turns dispatched in parallel, both accepted, conflicts detected and resolved | `e2e-parallel-lifecycle.test.js:166-200` exercises: assign dev_a + dev_b → accept first → conflict second → reject_and_reassign → accept rebased retry |
 
-By contrast:
-- `run.js` line 617: `afterAccept` callback calls `checkpointAcceptedTurn()` — continuous runs work correctly
-- `accept-turn.js` line 177: `--checkpoint` flag calls `checkpointAcceptedTurn()` — manual checkpoint works correctly
-- `continuous-run.js` line 2136: passes `autoCheckpoint` through to `executeGovernedRun()` — continuous mode works correctly
+### Test Evidence
 
-The gap is exclusively in the `step` command.
+```
+7 parallel test files, 29 tests, 0 failures:
+- e2e-parallel-lifecycle.test.js
+- e2e-parallel-cli.test.js
+- run-loop-parallel.test.js
+- run-loop-conflict.test.js
+- parallel-attribution-observability.test.js
+- parallel-dispatch-progress-e2e.test.js
+- e2e-parallel-approval-policy-lifecycle.test.js
+```
 
-### Core Workflow
+### Core Workflow (this run)
 
-1. **PM (this turn)** — Charter dev with a bounded 2-change fix + 2-test scope
-2. **Dev** — Adds auto-checkpoint to `step.js` after acceptance, adds integration test
-3. **QA** — Verifies PM→Dev handoff via `step` works without manual git commit
+1. **PM (this turn)** — Verify M5 is fully implemented, check off ROADMAP items, rewrite planning artifacts
+2. **Dev** — Verify ROADMAP check-offs are accurate by confirming cited line numbers and test evidence
+3. **QA** — Run full test suite to confirm no regressions, verify acceptance contract
 
 ### MVP Scope (this run)
 
 **PM deliverables (this turn):**
-1. PM_SIGNOFF.md: Feature planning with dev charter
-2. SYSTEM_SPEC.md: Technical spec for the fix + test
-3. ROADMAP.md: Phases table updated for this run
+1. PM_SIGNOFF.md: Verification-only signoff documenting M5 completion evidence
+2. SYSTEM_SPEC.md: Technical reference to the 8 frozen parallel specs + implementation inventory
+3. ROADMAP.md: M5 items checked off with evidence annotations
 
 **Dev deliverables:**
-1. `step.js`: Import `checkpointAcceptedTurn`, call it after successful acceptance, print checkpoint SHA/skip, add `--no-checkpoint` opt-out flag
-2. Integration test: PM turn accepted → workspace auto-checkpointed → dev turn assigned without dirty-workspace error
+- Verify each cited line number and test reference is accurate
+- Produce evidence document confirming or correcting PM's citations
+- No code changes expected (implementation already shipped)
 
 ### Out of Scope
 
-- Changes to `run.js` auto-checkpoint (already works correctly)
-- Changes to `accept-turn.js` checkpoint flag (already works correctly)
-- Changes to `continuous-run.js` (already works correctly)
-- Changes to `checkpointAcceptedTurn()` logic in `turn-checkpoint.js` (works correctly, just not wired into `step`)
-- Making `accept-turn` default to checkpointing (separate enhancement, not this bug)
-- Changes to `assignGovernedTurn()` clean-baseline check (correct behavior, should stay strict)
+- New code changes (M5 is already implemented)
+- Changes to parallel turn state model (stable at schema v1.1)
+- Changes to conflict detection or recovery (tested and stable)
+- Changes to run-loop parallel dispatch (tested and stable)
+- M6+ features (dashboard live observer, connectors, etc.)
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | PM→Dev handoff in continuous mode succeeds without manual git commit | Integration test: two consecutive `step` calls (PM then Dev) complete without dirty-workspace error |
-| 2 | Checkpoint includes git commit of accepted files_changed | Test verifies `git log` contains checkpoint commit with turn metadata |
-| 3 | Integration test: PM turn accepted, dev turn assigned without dirty-workspace error | New test in `cli/test/` exercises this exact flow |
-| 4 | `--no-checkpoint` flag on `step` skips auto-checkpoint | Test verifies workspace stays dirty when flag is passed |
+| 1 | Roadmap milestone addressed: M5: Protocol V8 — Parallel Turn Support | All 5 ROADMAP.md M5 items checked off with evidence |
+| 2 | Unchecked roadmap item completed: Implement parallel turn dispatch within a single phase | `executeParallelTurns()` + `max_concurrent_turns` config + 29 passing tests |
+| 3 | Evidence source: .planning/ROADMAP.md:73 | ROADMAP.md updated with check marks and evidence annotations |
 
 ### Risk Assessment
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Auto-checkpoint fails silently, blocking next turn | Low | Print checkpoint error to console and exit non-zero (matching `accept-turn --checkpoint` behavior) |
-| Review-only turns have no files to checkpoint | None | `checkpointAcceptedTurn()` already handles this (returns `skipped: true` for empty files_changed) |
-| Operator wants to inspect workspace before checkpoint | Low | `--no-checkpoint` flag provides opt-out |
+| Cited line numbers may have shifted since implementation | Low | Dev charter requires line-by-line verification |
+| Test count may have changed since snapshot | Low | QA runs full suite to confirm |
 
-## Challenge to Previous Work
+## Challenge to Previous Turn
 
-### OBJ-PM-001: Previous planning artifacts describe v2.155.73 release, not checkpoint-to-commit bug (severity: high)
+### OBJ-PM-001: Previous planning artifacts describe step auto-checkpoint bug fix, not M5 (severity: high)
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe v2.155.73 release-bump workflow from a previous intent. This run's intent is: "Fix checkpoint to commit accepted planning artifacts to git." All three artifacts rewritten from scratch for the checkpoint-to-commit bug fix.
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe the step auto-checkpoint bug fix from `run_8aceec319cd6aaed`. This run's intent is M5: Protocol V8 — Parallel Turn Support. All three artifacts rewritten from scratch.
 
-### OBJ-PM-002: Previous PM_SIGNOFF prescribed 14 release-alignment surface updates — zero of those apply here (severity: high)
+### OBJ-PM-002: Dev's last turn (turn_1eee6ec5c223b4ba) added checkpoint failure path test — unrelated to M5 (severity: medium)
 
-The previous dev charter required updating 14 version-reference files and a CHANGELOG entry via `release-bump.sh`. This run's fix is 1 import + ~15 LOC in `step.js` + 1 integration test. Completely different scope.
+The dev's AT-STEP-CKPT-003 test covers the auto-checkpoint failure path at `step.js:1010-1016`. This is residual work from the previous run's intent. It does not advance M5. The dev's decision DEC-001 ("PM's fast-track no-op claim is invalid") was correct for that run, but is irrelevant context for this M5 run.
 
 ## Notes for Dev
 
-**Your charter is 2 changes: one code fix in `step.js`, one integration test. No changes to `turn-checkpoint.js`, `run.js`, or `continuous-run.js`.**
+**Your charter is verification-only: confirm each M5 evidence citation is accurate. No code changes needed.**
 
-### Change 1: `cli/src/commands/step.js`
-
-1. Add import: `import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';`
-2. After line 1004 (`printAcceptSummary(acceptResult, config);`), add auto-checkpoint:
-   ```javascript
-   if (!opts.noCheckpoint) {
-     const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
-     if (!checkpoint.ok) {
-       console.log(chalk.yellow(`  Checkpoint: accepted but checkpoint failed`));
-       console.log(chalk.dim(`  Error: ${checkpoint.error}`));
-       console.log(chalk.dim(`  Retry: agentxchain checkpoint-turn --turn ${turn.turn_id}`));
-       process.exit(1);
-     }
-     if (!checkpoint.skipped) {
-       console.log(`  ${chalk.dim('Checkpoint:')} ${checkpoint.checkpoint_sha}`);
-     }
-   }
-   ```
-3. Add CLI flag: `--no-checkpoint` option on the step command (check `cli/bin/agentxchain.js` for the step command definition)
-
-### Change 2: Integration test
-
-Add a test (new file or append to `cli/test/checkpoint-turn.test.js`) that exercises:
-1. Set up governed project with PM role assigned
-2. Simulate PM turn completion (write staged result with `files_changed` pointing to real files)
-3. Run `step` (or equivalent test harness) — accept + auto-checkpoint
-4. Verify git log contains checkpoint commit
-5. Assign dev turn — verify no `checkpoint_required` error
+1. Confirm `run-loop.js:251` contains `executeParallelTurns()` with `Promise.allSettled()` dispatch
+2. Confirm `governed-state.js:3540-3555` enforces `max_concurrent_turns` concurrency limit
+3. Confirm `governed-state.js:4984-5025` performs acceptance-time file overlap conflict detection
+4. Confirm `governed-state.js:6467-6482` implements `reject_and_reassign` recovery path
+5. Confirm `governed-state.js:4179-4201` implements `human_merge` recovery path
+6. Confirm `report.js:459-461` renders `concurrent_with` and `sibling_attributed_files`
+7. Run the 7 parallel test files and confirm all 29 tests pass
+8. If any citation is inaccurate, document the correction — do NOT change code
 
 ## Notes for QA
 
-- Verify `step.js` imports `checkpointAcceptedTurn` and calls it after acceptance
-- Verify `--no-checkpoint` flag is registered and respected
-- Verify the integration test exercises the full PM→Dev handoff
 - Run full test suite: `cd cli && npm test`
-- After ship: verify the acceptance contract items from the intake intent
+- Verify all 7 parallel test files pass
+- Confirm ROADMAP.md M5 items are checked off with accurate evidence
+- After ship: verify acceptance contract items from intake intent
 
 ## Acceptance Contract
 
-1. **PM→Dev handoff in continuous mode succeeds without manual git commit** — `step` auto-checkpoints after acceptance, no manual `checkpoint-turn` or git commit needed between turns
-2. **Checkpoint includes git commit of accepted files_changed** — `checkpointAcceptedTurn()` already implements this, now wired into `step`
-3. **Integration test: PM turn accepted, dev turn assigned without dirty-workspace error** — new test exercises this exact flow
+1. **Roadmap milestone addressed: M5: Protocol V8 — Parallel Turn Support** — all 5 unchecked items checked off with implementation evidence
+2. **Unchecked roadmap item completed: Implement parallel turn dispatch within a single phase (multiple devs working concurrently)** — `executeParallelTurns()` dispatches concurrent turns via `Promise.allSettled()`, configurable via `max_concurrent_turns` (1-4 per phase)
+3. **Evidence source: .planning/ROADMAP.md:73** — ROADMAP.md updated to reflect checked-off M5 items
