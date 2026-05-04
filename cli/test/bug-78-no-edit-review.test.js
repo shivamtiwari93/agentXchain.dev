@@ -94,7 +94,7 @@ function makeState(overrides = {}) {
   };
 }
 
-// ── BUG-78: No-edit review turn normalization ────────────────────────────────
+// ── BUG-78: No-edit review turn normalization ─────────────────────────────────
 
 describe('BUG-78: no-edit review turn normalization', () => {
   // AT-WK-001: Completed turn with workspace+empty files_changed auto-normalizes to review
@@ -164,6 +164,47 @@ describe('BUG-78: no-edit review turn normalization', () => {
     assert.equal(normalized.artifact.type, 'workspace');
     const event = normalizationEvents.find(e => e.field === 'artifact.type' && e.rationale === 'empty_files_changed_no_repo_mutation_declared');
     assert.equal(event, undefined, 'no workspace→review normalization event should exist when produced_files has artifacts');
+  });
+
+  // AT-WK-007: Completed no-edit authoritative turn in implementation phase —
+  // Rule 0a normalizes workspace→review (BUG-78 fix), but implementation-phase guard
+  // independently rejects because no product code changes in files_changed.
+  // This documents that normalization and the implementation guard are separate constraints.
+  it('AT-WK-007: implementation-phase guard rejects completed no-edit authoritative turn even after normalization', () => {
+    rmSync(TMP_ROOT, { recursive: true, force: true });
+    mkdirSync(join(TMP_ROOT, '.agentxchain', 'staging'), { recursive: true });
+
+    const tr = makeNoEditTurnResult({
+      role: 'dev',
+      runtime_id: 'local-dev',
+      proposed_next_role: 'qa',
+    });
+    writeFileSync(
+      join(TMP_ROOT, STAGING_PATH),
+      JSON.stringify(tr, null, 2),
+      'utf8',
+    );
+
+    const state = makeState({
+      phase: 'implementation',
+      current_turn: {
+        turn_id: 'turn-0004',
+        assigned_role: 'dev',
+        status: 'running',
+        attempt: 1,
+        runtime_id: 'local-dev',
+      },
+    });
+    const config = makeConfig();
+    const result = validateStagedTurnResult(TMP_ROOT, state, config);
+
+    assert.equal(result.ok, false, 'Should fail: implementation guard rejects no-product-code completion');
+    assert.ok(
+      result.errors.some(e => e.includes('without product code changes')),
+      `Expected implementation-phase guard error, got: ${JSON.stringify(result.errors)}`
+    );
+
+    rmSync(TMP_ROOT, { recursive: true, force: true });
   });
 
   // AT-WK-006: Full validation pipeline: completed no-edit turn passes Stage C after normalization
