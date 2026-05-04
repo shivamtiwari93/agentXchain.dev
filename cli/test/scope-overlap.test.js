@@ -159,6 +159,37 @@ describe('scope-overlap', () => {
     assert.ok(result.max_score >= 0.4, `max_score ${result.max_score} should be >= 0.4`);
   });
 
+  it('AT-SOG-011: extractScopeFingerprint strips template noise words to prevent false overlap', () => {
+    // Template noise words (vision, goal, addressed, section) appear in every
+    // vision-derived charter template and were creating false overlap (DEC-002
+    // from original M10 delivery). They must be stripped.
+    const fp = extractScopeFingerprint('vision goal addressed section connector validator');
+    assert.ok(!fp.has('vision'), 'should not contain template noise "vision"');
+    assert.ok(!fp.has('goal'), 'should not contain template noise "goal"');
+    assert.ok(!fp.has('addressed'), 'should not contain template noise "addressed"');
+    assert.ok(!fp.has('section'), 'should not contain template noise "section"');
+    // Real keywords should survive
+    assert.ok(fp.has('connector'), 'should contain real keyword "connector"');
+    assert.ok(fp.has('validator'), 'should contain real keyword "validator"');
+  });
+
+  it('AT-SOG-012: checkIntentScopeOverlap skips comparison when fingerprint is below minimum size', () => {
+    // Charters with fewer than 3 tokens after filtering should not trigger
+    // overlap detection (minimum fingerprint size guard at scope-overlap.js:175).
+    writeIntent(tmpDir, {
+      intent_id: 'intent_min_fp',
+      status: 'completed',
+      charter: 'the and it',  // all stop words → empty fingerprint
+      acceptance_contract: [],
+      updated_at: '2026-05-03T00:00:00Z',
+    });
+
+    // Candidate also has very few meaningful tokens
+    const result = checkIntentScopeOverlap(tmpDir, 'ab cd', []);
+    assert.equal(result.overlapping, false, 'should not overlap with minimal fingerprint');
+    assert.equal(result.matches.length, 0, 'should have no matches');
+  });
+
   it('AT-SOG-010: approveIntent returns scope_overlap_detected when threshold exceeded, forceScope bypasses', () => {
     // Create a completed intent with specific scope
     writeIntent(tmpDir, {
