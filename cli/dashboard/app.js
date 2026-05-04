@@ -24,6 +24,8 @@ import { render as renderCoordinatorTimeouts } from './components/coordinator-ti
 import { render as renderWatch } from './components/watch.js';
 import { render as renderOrgOverview } from './components/org-overview.js';
 import { render as renderOrgRuns } from './components/org-runs.js';
+import { render as renderOrgHistory } from './components/org-history.js';
+import { render as renderOrgAuditTrail } from './components/org-audit-trail.js';
 import {
   buildLiveMeta,
   createLiveEventFromMessage,
@@ -33,6 +35,8 @@ import {
 const VIEWS = {
   'org-overview': { fetch: ['orgOverview'], render: renderOrgOverview },
   'org-runs': { fetch: ['orgRuns'], render: renderOrgRuns },
+  'org-history': { fetch: ['orgHistory'], render: renderOrgHistory },
+  'org-audit-trail': { fetch: ['orgAuditTrail'], render: renderOrgAuditTrail },
   timeline: { fetch: ['state', 'continuity', 'history', 'events', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderTimeline },
   delegations: { fetch: ['state', 'history'], render: renderDelegations },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger', 'repoDecisionsSummary'], render: renderLedger },
@@ -83,10 +87,13 @@ const API_MAP = {
   events: '/api/events?type=turn_conflicted&limit=10',
   orgOverview: '/v1/org/overview',
   orgRuns: '/v1/org/runs',
+  orgHistory: '/v1/org/history',
+  orgAuditTrail: '/v1/org/audit-trail',
 };
 
 const viewState = {
   'org-runs': { project: 'all', phase: 'all', status: 'all' },
+  'org-audit-trail': { project: 'all', severity: 'all', source: 'all' },
   ledger: {
     agent: 'all',
     query: '',
@@ -204,6 +211,13 @@ function buildRenderData(viewName, data) {
     return {
       ...data,
       filter: viewState['org-runs'],
+      liveMeta,
+    };
+  }
+  if (viewName === 'org-audit-trail') {
+    return {
+      ...data,
+      filter: viewState['org-audit-trail'],
       liveMeta,
     };
   }
@@ -480,6 +494,19 @@ document.addEventListener('change', (event) => {
     } else if (control === 'org-runs-status') {
       viewState['org-runs'].status = event.target.value;
       renderView('org-runs', activeViewData);
+    }
+  }
+
+  if (view === 'org-audit-trail') {
+    if (control === 'audit-trail-project') {
+      viewState['org-audit-trail'].project = event.target.value;
+      renderView('org-audit-trail', activeViewData);
+    } else if (control === 'audit-trail-severity') {
+      viewState['org-audit-trail'].severity = event.target.value;
+      renderView('org-audit-trail', activeViewData);
+    } else if (control === 'audit-trail-source') {
+      viewState['org-audit-trail'].source = event.target.value;
+      renderView('org-audit-trail', activeViewData);
     }
   }
 });

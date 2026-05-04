@@ -268,6 +268,20 @@ function buildRoutes(root, config, queue, registry, aggregator) {
         return { status: 200, body: aggregator.getDecisions(query) };
       },
     },
+    {
+      method: 'GET',
+      pattern: '/v1/org/history',
+      handler: (_params, _body, query) => {
+        return { status: 200, body: aggregator.getRunHistory(query) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/v1/org/audit-trail',
+      handler: (_params, _body, query) => {
+        return { status: 200, body: aggregator.getAuditTrail(query) };
+      },
+    },
   ];
 }
 
