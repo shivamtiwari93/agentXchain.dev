@@ -132,12 +132,12 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Turn-result validator enforces decision schema (DEC-NNN IDs, category, statement, rationale) and challenge requirement (review-only roles must raise objections, line 976) — 100 tests pass <!-- delivered across MW runs; PM verified run_a413eee8dd1891c7 -->
 - [x] Scope overlap guard prevents conflicting work at intake level (`scope-overlap.js`, `intake.js:901`, `continuous-run.js:1329,1407,1493`) — 12 tests pass <!-- delivered M10; PM verified run_a413eee8dd1891c7 -->
 - [x] No-edit review normalization (BUG-78 Rule 0a) prevents pipeline blockage on valid review turns — 7 tests pass <!-- delivered MW; PM verified run_a413eee8dd1891c7 -->
-- [ ] Acceptance: all 7 mechanisms verified as composition addressing VISION.md:32 "assumptions diverge" — 183 tests, 0 failures <!-- run_a413eee8dd1891c7: PM pre-verified; awaiting dev re-verification + QA ship verdict -->
+- [x] Acceptance: all 7 mechanisms verified as composition addressing VISION.md:32 "assumptions diverge" — 192 tests, 0 failures <!-- run_a413eee8dd1891c7: QA turn_db20eb0dc0486ff0 verified 192/192 (183 original + 9 new), ship verdict YES -->
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Document 7 assumption-divergence mechanisms, add M11 to ROADMAP, scope dev verification charter | In progress (`run_a413eee8dd1891c7`, turn_9fde3fed067c1677) |
-| Implementation | Re-run 7 mechanism test suites (183 tests), spot-check key exports | Pending |
-| QA | Verify tests pass, confirm vision bullet coverage, check off M11 acceptance, ship verdict | Pending |
+| Planning | Document 7 assumption-divergence mechanisms, add M11 to ROADMAP, scope dev verification charter | Complete (turn_9fde3fed067c1677, turn_eb83c5af4809acaf) |
+| Implementation | Re-run 7 mechanism test suites, add 9 new tests for untested governance exports | Complete (turn_d23c5d790a6e85b1: 192/192 pass) |
+| QA | Verify tests pass, confirm vision bullet coverage, check off M11 acceptance, ship verdict | Complete (turn_db20eb0dc0486ff0: ship verdict YES) |

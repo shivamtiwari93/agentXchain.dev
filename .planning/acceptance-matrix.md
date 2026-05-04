@@ -1,90 +1,74 @@
-# Acceptance Matrix — M10: Cross-Run Scope Overlap Guard (Formal Closure)
+# Acceptance Matrix — M11: Assumption Divergence Governance (Vision Closure)
 
-**Run:** run_4f63b0c987a50c73
-**Turn:** turn_736e4b77ea23f6b5 (QA)
-**Prior delivery run:** run_2e96850371ff1a1c (QA ship verdict YES, 10/10 criteria, 172 tests, 0 failures)
-**Scope:** Formal closure — re-verify all M10 code still passes, validate 2 new tests (AT-SOG-011/012), check off ROADMAP:125
+**Run:** run_a413eee8dd1891c7
+**Turn:** turn_db20eb0dc0486ff0 (QA)
+**Scope:** Verify 7 delivered mechanisms collectively close VISION.md:32 "assumptions diverge"; confirm 192 tests pass (183 original + 9 new coverage tests)
 
-## Section A: SYSTEM_SPEC Acceptance Tests (Original 10)
+## Section A: SYSTEM_SPEC Acceptance Criteria
 
-| Req # | Requirement | Evidence | Status |
-|-------|-------------|----------|--------|
-| AT-SOG-001 | extractScopeFingerprint extracts milestone refs (M1, M5, M10) | QA ran scope-overlap.test.js: test verifies fp.has('m1'), fp.has('m5'), fp.has('m10'). PASS. | PASS |
-| AT-SOG-002 | extractScopeFingerprint extracts bug refs and module keywords | QA verified: fp.has('bug-78'), fp.has('bug-54'), fp.has('connector'), fp.has('validator'). PASS. | PASS |
-| AT-SOG-003 | extractScopeFingerprint strips stop words and short tokens | QA verified: !fp.has('the'), !fp.has('and'), !fp.has('is'). Retains 'validator', 'module', 'fixed'. PASS. | PASS |
-| AT-SOG-004 | computeScopeOverlap returns 0 for disjoint sets | QA verified: {a,b} vs {c,d} = 0. PASS. | PASS |
-| AT-SOG-005 | computeScopeOverlap returns 1 for identical sets | QA verified: {a,b} vs {a,b} = 1. PASS. | PASS |
-| AT-SOG-006 | computeScopeOverlap returns correct Jaccard for partial overlap | QA verified: {a,b,c} vs {b,c,d} = 2/4 = 0.5. PASS. | PASS |
-| AT-SOG-007 | checkIntentScopeOverlap returns non-overlapping for distinct charters | QA verified: distinct domain charters return overlapping=false. PASS. | PASS |
-| AT-SOG-008 | checkIntentScopeOverlap detects overlap with active run charter | QA verified: semantically similar candidate returns overlapping=true, source='active_run'. PASS. | PASS |
-| AT-SOG-009 | checkIntentScopeOverlap detects overlap with recently completed intent | QA verified: same-domain charter returns overlapping=true with completed intent source. PASS. | PASS |
-| AT-SOG-010 | approveIntent returns scope_overlap_detected when threshold exceeded, forceScope bypasses | QA verified: (1) without forceScope returns ok=false, error='scope_overlap_detected'; (2) with forceScope=true returns ok=true. PASS. | PASS |
+| # | Criterion | Evidence | Status |
+|---|-----------|----------|--------|
+| AC-1 | All 183 mechanism tests pass | QA ran all 7 suites: 192/192 pass (183 original + 9 new), 0 failures, exit code 0. Exceeds requirement. | PASS |
+| AC-2 | `repo-decisions.js` exports governance functions | QA grep confirms 12 exported functions + 1 constant. `checkOverrideAuthority` is PRIVATE (not exported). PM spec incorrectly claims 6 exports. Actual governance exports verified. | PASS (with caveat) |
+| AC-3 | `dispatch-bundle.js` renders Decision History section | QA grep: line 1416 `lines.push('## Decision History')`. Confirmed. | PASS |
+| AC-4 | `scope-overlap.js` exports 3 deconfliction functions | QA grep: `extractScopeFingerprint` (line 34), `computeScopeOverlap` (line 82), `checkIntentScopeOverlap` (line 165). Exactly 3. | PASS |
+| AC-5 | `turn-result-validator.js` enforces challenge requirement (line 976) | QA confirmed: lines 976-982 enforce review_only roles must raise at least one objection. | PASS |
+| AC-6 | ROADMAP.md M11 milestone documented with mechanism evidence | QA confirmed: ROADMAP.md lines 127-135, 7 items with run/test evidence. | PASS |
+| AC-7 | Vision goal "assumptions diverge" addressed by composition | QA assessment: VISION.md:32 "assumptions diverge" is addressed by 7 mechanisms covering decision recording, persistence, visibility, authority-gated overrides, mandatory challenge, scope deconfliction, and structured workflow. Each mechanism is independently tested and the composition prevents any single agent from silently contradicting prior decisions. | PASS |
 
-**Original acceptance: 10/10 PASS**
+**Acceptance: 7/7 PASS**
 
-## Section B: New Tests Added This Run (Dev turn_29efa582b4a92c8f)
+## Section B: Dev Decision Verification
 
-| Req # | Requirement | Evidence | Status |
-|-------|-------------|----------|--------|
-| AT-SOG-011 | extractScopeFingerprint strips template noise words (vision, goal, addressed, section) while preserving real keywords | QA verified: test at scope-overlap.test.js:162-174 confirms template noise stripped, real keywords survive. PASS. | PASS |
-| AT-SOG-012 | checkIntentScopeOverlap skips comparison when fingerprint below minimum size (< 3 tokens) | QA verified: test at scope-overlap.test.js:176-191 confirms charters with < 3 tokens after filtering don't trigger overlap. PASS. | PASS |
+### DEC-001 (PM verification-only charter resolved via new tests): VERIFIED
 
-**New tests: 2/2 PASS**
+Dev correctly identified that `getDecisionAuthorityMetadata` and `buildRepoDecisionOperatorSummary` had zero test coverage despite being exported public API. Adding 9 tests (AT-ADG-001 through AT-ADG-009) is a valid resolution to the implementation-phase product-code guard constraint. This is the same pattern as previous runs — PM scopes "no code", dev finds genuine coverage gaps.
 
-These tests close a genuine coverage gap: the TEMPLATE_NOISE filter and min-fingerprint guard (dev DEC-002 from run_2e96850371ff1a1c) had no dedicated test coverage until this turn.
+### DEC-002 (All 7 mechanism test suites verified: 192/192 pass): VERIFIED
 
-## Section C: Code Artifact Verification (All 6 M10 Artifacts)
+QA independently ran `npx vitest run` with all 7 test files in a single invocation: 192 tests pass, 0 failures, exit code 0.
 
-| Artifact | Location | Evidence | Status |
-|----------|----------|----------|--------|
-| scope-overlap.js | cli/src/lib/scope-overlap.js | 3 exports: extractScopeFingerprint, computeScopeOverlap, checkIntentScopeOverlap | PASS |
-| Intake guard | cli/src/lib/intake.js:890-907 | scope_overlap_detected guard in approveIntent() after status check | PASS |
-| Deferral handler 1 | cli/src/lib/continuous-run.js:1329-1331 | Roadmap-derived auto-approval handles overlap with idle return | PASS |
-| Deferral handler 2 | cli/src/lib/continuous-run.js:1407-1409 | Roadmap-replenishment handles overlap with idle return | PASS |
-| Deferral handler 3 | cli/src/lib/continuous-run.js:1493-1495 | Vision-derived handles overlap with idle return | PASS |
-| CLI option | cli/bin/agentxchain.js:1044 | --force-scope registered on intake approve command | PASS |
-| Passthrough | cli/src/commands/intake-approve.js:21 | forceScope: opts.forceScope || false | PASS |
-
-**Code artifacts: 7/7 PASS**
-
-## Section D: Architecture Invariants
+## Section C: Architecture Invariants
 
 | Invariant | Evidence | Status |
 |-----------|----------|--------|
-| No changes to M5 parallel conflict detection | classifyAcceptanceOverlap in governed-state.js untouched | PASS |
-| No changes to event deduplication | computeDedupKey in intake.js untouched | PASS |
-| No changes to vision candidate derivation | isGoalAddressed, deriveVisionCandidates in vision-reader.js untouched | PASS |
-| Overlap is deferring, not blocking | approveIntent returns error, continuous loop returns idle, --force-scope overrides | PASS |
+| No changes to mechanism module source code | Dev only modified `cli/test/repo-decisions.test.js` — test file only | PASS |
+| Decision ledger append-only with monotonic IDs | Test suite verifies append behavior and sequential IDs | PASS |
+| Override authority role-gated, never bypassed | `validateOverride` tests confirm authority checks; `checkOverrideAuthority` is private, enforced via `validateOverride` | PASS |
+| Scope overlap deferring, not blocking | `--force-scope` override in place at agentxchain.js:1044, intake-approve.js:21 | PASS |
+| Challenge requirement enforced at validator level | turn-result-validator.js:976 — hard error, not advisory | PASS |
 
-**Invariants: 4/4 PASS**
+**Invariants: 5/5 PASS**
 
-## Section E: Regression Suites (QA-Verified This Turn)
+## Section D: Regression Results (QA-Verified)
 
-| Suite | Count | Result | Exit Code |
+| Suite | Tests | Result | Exit Code |
 |-------|-------|--------|-----------|
-| scope-overlap.test.js | 12 | 12/12 PASS | 0 |
-| intake.test.js | 21 | 21/21 PASS | 0 |
-| continuous-run.test.js | 90 | 90/90 PASS | 0 |
-| **Total** | **123** | **0 failures** | — |
+| repo-decisions.test.js | 48 (39 + 9 new) | PASS | 0 |
+| dispatch-bundle-decision-history.test.js | 12 | PASS | 0 |
+| coordinator-decision-ledger.test.js | 7 | PASS | 0 |
+| named-decisions-visibility.test.js | 6 | PASS | 0 |
+| scope-overlap.test.js | 12 | PASS | 0 |
+| turn-result-validator.test.js | 100 | PASS | 0 |
+| bug-78-no-edit-review.test.js | 7 | PASS | 0 |
+| **Total** | **192** | **0 failures** | **0** |
 
-All suites run independently by QA using `cd cli && npx vitest run test/<file>`.
+All suites run by QA via single `npx vitest run` invocation.
 
-## Section F: Dev Decision Review
+## Section E: QA Findings
 
-### DEC-001 (PM verification-only charter conflicts with product-code guard): VERIFIED
+### Finding 1 (blocking, fixed): Stale QA artifacts from wrong run — 5th consecutive occurrence
 
-Dev correctly identified that PM's verification-only charter would be rejected by turn-result-validator.js:733-739. Adding AT-SOG-011/012 was a valid resolution — both tests close real coverage gaps.
+All three QA workflow artifacts (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) referenced `run_4f63b0c987a50c73` (M10 formal closure) instead of current `run_a413eee8dd1891c7` (M11: Vision Closure). This is the **fifth** consecutive run where this pattern has occurred. All three rewritten from scratch by this QA turn.
 
-### DEC-002 (All 6 M10 code artifacts independently verified in place): VERIFIED
+### Finding 2 (non-blocking): SYSTEM_SPEC AC-2 factually incorrect — `checkOverrideAuthority` is private
 
-QA independently confirmed all 6 artifacts at the exact locations and line numbers claimed by dev.
+SYSTEM_SPEC.md line 26 lists `checkOverrideAuthority` as an export. It is a private function (line 176 of repo-decisions.js, NOT in `export` declarations). The module has 12 exported functions, not 6. Dev's OBJ-001 flagged this. PM never corrected. Non-blocking because the actual code is correct — only the spec description is inaccurate.
 
-## Section G: QA Findings
+### Finding 3 (non-blocking): PM verification-only friction — 4th recurrence
 
-### Finding 1 (blocking, fixed): Stale QA artifacts from wrong run
+This is the fourth time a PM verification-only charter has required dev to find real work to satisfy the implementation-phase product-code guard. The pattern is now well-established and produces genuine value (real coverage gaps are found each time), but the PM should consider scoping charters that acknowledge this constraint.
 
-All three QA workflow artifacts (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) referenced `run_2e96850371ff1a1c` (original M10 delivery) instead of current `run_4f63b0c987a50c73` (formal closure). This is the fourth consecutive run where this pattern has occurred. All three rewritten from scratch by this QA turn.
+### Finding 4 (non-blocking, fixed): ROADMAP.md Phases table stale
 
-### Finding 2 (non-blocking, process): PM verification-only charter friction — 3rd recurrence
-
-Dev's OBJ-001 correctly notes this is the third time a PM verification-only charter has collided with the implementation-phase product-code guard. The pattern: PM scopes "no code changes", dev must find real work to satisfy the guard. This works (dev finds genuine gaps) but creates unnecessary friction. No action required for ship readiness.
+ROADMAP.md lines 139-143 show Planning "In progress" and Implementation/QA "Pending". Updated by this QA turn to reflect completion.
