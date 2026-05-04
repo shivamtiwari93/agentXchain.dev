@@ -122,12 +122,12 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Handle `scope_overlap_detected` at 3 auto-approval sites in `seedFromVision()` — return idle instead of error <!-- run_2e96850371ff1a1c: continuous-run.js lines 1329, 1407, 1493 -->
 - [x] Add `--force-scope` CLI flag to `intake approve` command for operator override <!-- run_2e96850371ff1a1c: agentxchain.js:1044, intake-approve.js:21 -->
 - [x] 10 acceptance tests in `scope-overlap.test.js` (AT-SOG-001 through AT-SOG-010) <!-- run_2e96850371ff1a1c: 10/10 tests pass, verified run_4f63b0c987a50c73 -->
-- [ ] Acceptance: vision-derived intent with overlapping charter is deferred by continuous loop, `--force-scope` overrides
+- [x] Acceptance: vision-derived intent with overlapping charter is deferred by continuous loop, `--force-scope` overrides <!-- run_4f63b0c987a50c73: QA turn_736e4b77ea23f6b5 verified 12/12 acceptance tests (10 original + 2 new AT-SOG-011/012), 123 tests across 3 suites, 0 failures; M10 formally closed -->
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
 | Planning | Check off delivered M10 items, rewrite artifacts for `run_4f63b0c987a50c73` verification closure | Complete (`run_4f63b0c987a50c73`, turn_1685f54779c1e368) |
-| Implementation | Re-verify scope-overlap tests + broader regression, no new code changes expected | Pending |
-| QA | Confirm all tests pass, check off M10 acceptance item, ship verdict | Pending |
+| Implementation | Re-verify scope-overlap tests + broader regression, added AT-SOG-011/012 | Complete (`run_4f63b0c987a50c73`, turn_29efa582b4a92c8f) |
+| QA | Confirm all tests pass, check off M10 acceptance item, ship verdict YES | Complete (`run_4f63b0c987a50c73`, turn_736e4b77ea23f6b5) |

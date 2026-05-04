@@ -1,50 +1,51 @@
-# Release Notes — M10: Cross-Run Scope Overlap Guard
+# Release Notes — M10: Cross-Run Scope Overlap Guard (Formal Closure)
 
-**Run:** run_2e96850371ff1a1c
-**Version:** agentxchain@2.155.72
+**Run:** run_4f63b0c987a50c73
+**Prior delivery run:** run_2e96850371ff1a1c
 
 ## Summary
 
-New cross-run scope overlap detection prevents the continuous loop from spawning runs whose charter semantically overlaps with active or recently completed work. Uses Jaccard similarity on extracted charter tokens (milestone refs, bug refs, file paths, module keywords) with a configurable threshold (default 0.4). Overlap is advisory/deferring — the continuous loop returns idle for overlapping intents, and operators can bypass with `--force-scope`.
+Formal closure of M10: Cross-Run Scope Overlap Guard. All code was delivered in run_2e96850371ff1a1c and QA-verified (10/10 criteria, 172 tests, 0 failures). This run re-verified all deliverables, added 2 new tests covering previously untested TEMPLATE_NOISE filter and min-fingerprint guard, and checked off ROADMAP items 120-125.
 
-## What Changed
+## What Changed (This Run)
 
-### New Module: `cli/src/lib/scope-overlap.js`
+### New Tests: `cli/test/scope-overlap.test.js`
 
-- `extractScopeFingerprint(text)` — Extracts normalized tokens from charter/acceptance text: M-prefixed milestones, BUG-prefixed refs, MW, file paths, and significant keywords (>3 chars, stop-word and template-noise filtered)
+- **AT-SOG-011**: Verifies `extractScopeFingerprint` strips template noise words (`vision`, `goal`, `addressed`, `section`) while preserving real domain keywords
+- **AT-SOG-012**: Verifies `checkIntentScopeOverlap` returns non-overlapping when candidate fingerprint has fewer than 3 tokens after filtering
+
+### ROADMAP Updates
+
+- Items 120-124 checked off by PM (turn_1685f54779c1e368) based on QA-verified evidence from run_2e96850371ff1a1c
+- Item 125 (M10 acceptance) checked off by QA this turn after independent re-verification
+
+## Cumulative M10 Delivery (from run_2e96850371ff1a1c)
+
+### Module: `cli/src/lib/scope-overlap.js`
+
+- `extractScopeFingerprint(text)` — Extracts normalized tokens: M-prefixed milestones, BUG-prefixed refs, MW, file paths, significant keywords (>3 chars, stop-word and template-noise filtered)
 - `computeScopeOverlap(a, b)` — Jaccard similarity between two fingerprint sets
 - `checkIntentScopeOverlap(root, charter, acceptanceContract, options)` — Compares candidate intent against active run and recent completed intents
 
 ### Integration Points
 
-- **intake.js `approveIntent()`** — Scope overlap guard fires after status check, before approval. Returns `scope_overlap_detected` error with overlap details when threshold exceeded
-- **continuous-run.js `seedFromVision()`** — Three auto-approval sites (roadmap-derived, roadmap-replenishment, vision-derived) handle `scope_overlap_detected` by returning idle with `deferred_reason: 'scope_overlap'`
-- **CLI `intake approve --force-scope`** — Bypasses the scope overlap guard for manual operator override
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `cli/src/lib/scope-overlap.js` | New module (3 exports) |
-| `cli/src/lib/intake.js` | Static import + scope guard in approveIntent() |
-| `cli/src/lib/continuous-run.js` | Handle scope_overlap_detected at 3 seedFromVision() sites |
-| `cli/src/commands/intake-approve.js` | Pass forceScope option |
-| `cli/bin/agentxchain.js` | Add --force-scope CLI option |
-| `cli/test/scope-overlap.test.js` | 10 acceptance tests |
+- **intake.js:890-907** — Scope overlap guard in `approveIntent()`, returns `scope_overlap_detected` when threshold exceeded
+- **continuous-run.js:1329,1407,1493** — Three auto-approval sites handle overlap by returning idle with `deferred_reason: 'scope_overlap'`
+- **CLI `intake approve --force-scope`** — Bypasses the scope overlap guard for operator override
 
 ## User Impact
 
-- **Continuous loop operators:** Overlapping charters are now automatically deferred until prior work completes, preventing redundant runs. No configuration changes required — the guard activates automatically with default threshold 0.4.
-- **Manual approval operators:** `agentxchain intake approve --force-scope` bypasses the guard when deliberate overlap is intended.
-- **Existing workflows:** No breaking changes. The guard is advisory/deferring, not blocking. All existing event deduplication, M5 parallel conflict detection, and vision candidate derivation remain untouched.
+- **Continuous loop operators:** Overlapping charters automatically deferred until prior work completes. No configuration required — default threshold 0.4 activates automatically.
+- **Manual approval operators:** `agentxchain intake approve --force-scope` bypasses when deliberate overlap is intended.
+- **Existing workflows:** No breaking changes. Advisory/deferring only. All existing conflict detection, event deduplication, and vision derivation remain untouched.
 
 ## Verification Summary
 
-QA independently verified all 10 SYSTEM_SPEC acceptance criteria (AT-SOG-001 through AT-SOG-010):
+QA independently re-verified all 12 acceptance tests (10 original + 2 new AT-SOG-011/012) and ran 3 regression suites:
 
-- **Fingerprint extraction** (AT-SOG-001 to AT-SOG-003): Milestone refs, bug refs, module keywords extracted correctly. Stop words and short tokens filtered.
-- **Jaccard computation** (AT-SOG-004 to AT-SOG-006): Disjoint (0), identical (1), partial overlap (0.5) all correct.
-- **Overlap detection** (AT-SOG-007 to AT-SOG-009): Distinct charters return non-overlapping. Active run overlap detected. Completed intent overlap detected.
-- **End-to-end** (AT-SOG-010): approveIntent returns scope_overlap_detected without forceScope, succeeds with forceScope=true.
+- **scope-overlap.test.js**: 12/12 PASS (exit code 0)
+- **intake.test.js**: 21/21 PASS (exit code 0)
+- **continuous-run.test.js**: 90/90 PASS (exit code 0)
+- **Total**: 123 tests, 0 failures
 
-Test execution: 10/10 scope-overlap, 21/21 intake, 90/90 continuous-run, 51/51 intake-approve-plan + vision-reader. Total 172 tests, 0 failures. Exit code 0 for all commands.
+All 6 M10 code artifacts independently confirmed in place at documented locations. 4 architecture invariants maintained.
