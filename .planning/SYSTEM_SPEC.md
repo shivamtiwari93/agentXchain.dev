@@ -1,221 +1,208 @@
-# System Spec — M7: Connector Ecosystem Expansion — Cursor IDE Connector
+# System Spec — M7: Connector Ecosystem Expansion — Per-Connector Governed Turn E2E Validation
 
-**Run:** `run_10a2b2d8f0a8399b`
-**Baseline:** git:a24a39639c3fc1d2209911f1d457271279d5011d
+**Run:** `run_f89a47c58f54929c`
+**Baseline:** git:94803856c9814beae0d1021661e9bbf07037b551
 **Package version:** `agentxchain@2.155.72`
 
 ## Purpose
 
-Add Cursor IDE as a recognized `local_cli` adapter flavor, following the established Claude/Codex binary detection, command validation, and doctor health check patterns. No new runtime type — Cursor reuses the existing `local_cli` adapter and subprocess lifecycle.
+Prove that each recognized `local_cli` connector flavor (Claude, Codex, Cursor) can complete a full governed turn end-to-end through the `connector validate` pipeline. Claude E2E already exists (AT-CCV-007). This spec charters Codex and Cursor E2E tests.
 
 ---
 
 ## 1. Architecture Overview
 
-Cursor IDE joins Claude and Codex as a recognized `local_cli` binary flavor. The adapter already supports arbitrary local CLI binaries — this change adds Cursor-specific:
-- Binary detection (like Claude/Codex)
-- Command compatibility validation (like Claude's `--verbose` rule, Codex's `exec` rule)
-- Doctor health check messages
-- Config documentation
+The `connector validate` pipeline (`connector-validate.js:32`) already implements the full governed turn lifecycle:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   local_cli Adapter                          │
-│                   (local-cli-adapter.js)                     │
-│                                                              │
-│  Binary Detection:                                           │
-│    isClaudeLocalCliRuntime()  ← claude-local-auth.js:32      │
-│    isCodexLocalCliRuntime()   ← claude-local-auth.js:41      │
-│    isCursorLocalCliRuntime()  ← NEW (claude-local-auth.js)   │
-│                                                              │
-│  Command Validation:                                         │
-│    validateLocalCliCommandCompatibility()                     │
-│      ├── claude: --print --stream-json requires --verbose    │
-│      ├── codex: requires exec + --json                       │
-│      └── cursor: TBD rules (NEW)                             │
-│                                                              │
-│  Subprocess Lifecycle (shared, no changes):                  │
-│    spawn → startup watchdog → heartbeat → staged result      │
-└─────────────────────────────────────────────────────────────┘
+Config → scratch workspace → git init → governed run init → turn assign
+→ dispatch bundle → adapter dispatch → staged result → turn-result-validator
+```
+
+Each new E2E test exercises this entire pipeline with a connector-specific shim binary:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  connector-validate.js:validateConfiguredConnector()            │
+│                                                                 │
+│  1. copyRepoForValidation()          ← scratch workspace        │
+│  2. initializeScratchGit()           ← git init + baseline      │
+│  3. getClaudeSubprocessAuthIssue()   ← returns null for non-    │
+│     (claude-local-auth.js:167-169)     Claude runtimes          │
+│  4. probeRuntimeSpawnContext()        ← shim binary must exist   │
+│  5. initializeGovernedRun()          ← governed state            │
+│  6. assignGovernedTurn()             ← turn assignment            │
+│  7. writeDispatchBundle()            ← ASSIGNMENT.json + PROMPT  │
+│  8. dispatchLocalCli()               ← spawns shim binary        │
+│  9. validateStagedTurnResult()       ← schema + field checks     │
+│                                                                 │
+│  Result: { overall: 'pass', dispatch: { ok: true },             │
+│            validation: { ok: true } }                           │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 2. Integration Points
 
-### 2.1 Binary Detection — `claude-local-auth.js`
+### 2.1 Existing Claude E2E — `connector-validate-command.test.js:318`
 
-**Location:** `cli/src/lib/claude-local-auth.js:32-48`
+**Test ID:** AT-CCV-007
+**Status:** Already passing.
+**Pattern:** `writeClaudeShim()` creates `shim-bin/claude` → config uses `['claude', '--print', '--dangerously-skip-permissions']` with `prompt_transport: 'stdin'` → shim reads stdin, reads ASSIGNMENT.json, writes turn-result.json → `connector validate` returns `overall: 'pass'`.
 
-**Current state:** Exports `isClaudeLocalCliRuntime(runtime)` (line 32) and `isCodexLocalCliRuntime(runtime)` (line 41). Both check if the first command token matches the binary name.
+**No changes needed.** This test proves Claude governed turn E2E.
 
-**Change:** Add `isCursorLocalCliRuntime(runtime)` at line 49, following the identical pattern:
+### 2.2 Auth Preflight Bypass for Non-Claude Runtimes — `claude-local-auth.js:167-170`
 
-```javascript
-export function isCursorLocalCliRuntime(runtime) {
-  const tokens = normalizeCommandTokens(runtime);
-  if (tokens.length === 0) return false;
-  const head = tokens[0].toLowerCase();
-  return head === 'cursor' || head.endsWith('/cursor');
-}
-```
+`getClaudeSubprocessAuthIssue()` returns `null` immediately for non-Claude runtimes (line 168: `if (!isClaudeLocalCliRuntime(runtime)) return null`). This means Codex and Cursor shims do not need to worry about auth preflight — they skip it automatically.
 
-**Export:** The function must be exported (it already will be via `export function`).
+### 2.3 Command Validation — `local-cli-adapter.js:760-850`
 
-### 2.2 Adapter Import — `local-cli-adapter.js`
+The shim configs must satisfy the existing command validation rules:
 
-**Location:** `cli/src/lib/adapters/local-cli-adapter.js:33-41`
+| Connector | Rule | Required tokens | Reference |
+|-----------|------|----------------|-----------|
+| Claude | `claude_print_stream_json_requires_verbose` | `--verbose` when `--print --output-format stream-json` | `local-cli-adapter.js:774` |
+| Codex | `codex_requires_exec` + `codex_exec_requires_json` | `exec` + `--json` | `local-cli-adapter.js:794, 812` |
+| Cursor | `cursor_requires_agent_mode` | `--background-agent` or `agent` | `local-cli-adapter.js:832` |
 
-**Current state:** Imports `isClaudeLocalCliRuntime`, `isCodexLocalCliRuntime`, and related functions from `claude-local-auth.js`.
+### 2.4 Connector Validate Pipeline — `connector-validate.js:32-416`
 
-**Change:** Add `isCursorLocalCliRuntime` to the import statement at line 38.
+No changes required. The pipeline already supports all `local_cli` runtimes. The shim binary is spawned via `dispatchLocalCli()` at `connector-validate.js:588`.
 
-### 2.3 Command Validation — `local-cli-adapter.js`
+### 2.5 Spawn Probe — `runtime-spawn-context.js`
 
-**Location:** `cli/src/lib/adapters/local-cli-adapter.js:759-831`
-
-**Current state:** `validateLocalCliCommandCompatibility()` checks:
-- Claude: `--print --output-format stream-json` requires `--verbose` (line 773)
-- Codex: requires `exec` subcommand (line 793)
-- Codex: `exec` requires `--json` (line 811)
-
-**Change:** Add Cursor-specific validation after the Codex rules (after line 828). Minimum rule:
-
-```javascript
-const usesCursor = isCursorLocalCliRuntime(runtimeShape);
-if (usesCursor && !tokens.includes('--background-agent') && !tokens.includes('agent')) {
-  const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Cursor local_cli runtime';
-  const recovery = `${runtimeLabel} uses "cursor" without a background agent flag. Governed local runs require Cursor's agent or background-agent mode for non-interactive execution.`;
-  return {
-    ok: false,
-    error_class: 'local_cli_command_incompatible',
-    recovery,
-    error: recovery,
-    diagnostic: {
-      runtime_id: runtimeId,
-      binary: binaryName,
-      rule: 'cursor_requires_agent_mode',
-      recovery,
-    },
-  };
-}
-```
-
-**Dev discretion:** The exact flag name (`--background-agent`, `agent`, etc.) should be verified against Cursor's actual CLI. If Cursor's headless interface is not yet stable, the validation can be relaxed to a warning or deferred (document the decision).
-
-### 2.4 Doctor Health Check — `doctor.js`
-
-**Location:** `cli/src/commands/doctor.js:502-514`
-
-**Current state:** The `local_cli` case in `checkRuntimeReachable()` probes the binary spawn context and then checks Claude-specific auth (`getClaudeSubprocessAuthIssue`).
-
-**Change:** After the Claude auth check (line 513), add a Cursor-specific detail path:
-
-```javascript
-// After existing Claude auth check block (line 513):
-if (probe.ok && isCursorLocalCliRuntime(rt)) {
-  return attachRuntimeContract({
-    ...base,
-    level: 'pass',
-    detail: `${probe.detail} (Cursor IDE local_cli connector)`,
-  }, rtId, rt, boundRoleEntries);
-}
-```
-
-**Import:** Add `isCursorLocalCliRuntime` to doctor.js imports (from `claude-local-auth.js` or `adapter-interface.js` if re-exported).
-
-### 2.5 Config Validation — `normalized-config.js`
-
-**Location:** `cli/src/lib/normalized-config.js:34, 445-462`
-
-**No changes required.** Cursor uses `type: 'local_cli'`, which is already in `VALID_RUNTIME_TYPES` (line 34). The existing `local_cli` validation (startup_watchdog_ms, startup_heartbeat_ms, prompt_transport) all apply to Cursor.
-
-### 2.6 Connector Validation — `connector-validate.js`
-
-**Location:** `cli/src/lib/connector-validate.js:29`
-
-**No changes required.** `VALIDATABLE_RUNTIME_TYPES` already includes `local_cli`. Cursor runtimes configured as `local_cli` are automatically validatable via `agentxchain connector validate <runtime-id>`.
-
-### 2.7 Step Dispatcher — `step.js`
-
-**Location:** `cli/src/commands/step.js:732`
-
-**No changes required.** Cursor uses the existing `local_cli` dispatch path at line 732. The `dispatchLocalCli()` function handles arbitrary local CLI binaries.
+`probeRuntimeSpawnContext()` verifies the binary exists and is executable. The shim binary must be:
+1. Named after the connector (`codex` or `cursor`)
+2. In the test's PATH
+3. Executable (`chmod 0o755`)
 
 ---
 
-## 3. Config Shape
+## 3. Config Shapes
 
-Example `agentxchain.json` runtime configuration for Cursor:
+### Codex Runtime Config
 
 ```json
 {
-  "runtimes": {
-    "cursor-agent": {
-      "type": "local_cli",
-      "command": ["cursor", "--background-agent"],
-      "prompt_transport": "dispatch_bundle_only",
-      "startup_watchdog_ms": 300000
-    }
-  },
-  "roles": {
-    "dev": {
-      "runtime": "cursor-agent"
-    }
-  }
+  "type": "local_cli",
+  "command": ["codex", "exec", "--json"],
+  "prompt_transport": "dispatch_bundle_only"
 }
 ```
 
-**Key config decisions:**
+**Notes:**
+- `codex_requires_exec` expects `exec` in tokens — satisfied
+- `codex_exec_requires_json` expects `--json` — satisfied
+- `dispatch_bundle_only` means the shim reads the dispatch bundle from disk, not stdin
 
-| Field | Value | Rationale |
-|-------|-------|-----------|
-| `type` | `"local_cli"` | Cursor is a local_cli variant, not a new type |
-| `command` | `["cursor", "--background-agent"]` | Cursor's headless agent mode (flag name subject to Cursor CLI evolution) |
-| `prompt_transport` | `"dispatch_bundle_only"` | Cursor reads the staged dispatch bundle from disk; prompt is not injected via argv/stdin |
-| `startup_watchdog_ms` | `300000` (5 min) | Cursor IDE startup may be slower than Claude CLI; 5 min default matches IDE cold-start |
+### Cursor Runtime Config
+
+```json
+{
+  "type": "local_cli",
+  "command": ["cursor", "--background-agent"],
+  "prompt_transport": "dispatch_bundle_only"
+}
+```
+
+**Notes:**
+- `cursor_requires_agent_mode` expects `--background-agent` or `agent` — satisfied
+- `dispatch_bundle_only` matches Cursor's non-interactive dispatch model
 
 ---
 
-## 4. Files Changed (Expected)
+## 4. Shim Binary Pattern
+
+Each shim binary is a shell script that:
+
+1. Reads `AGENTXCHAIN_TURN_ID` from the environment
+2. Reads `.agentxchain/dispatch/turns/<turn_id>/ASSIGNMENT.json`
+3. Writes a schema-valid `turn-result.json` to the staged result path from the assignment
+4. Exits 0
+
+The pattern is identical to `writeClaudeShim()` in `connector-validate-command.test.js:43-49`, adapted for each connector:
+
+```bash
+#!/bin/sh
+node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const turnId = process.env.AGENTXCHAIN_TURN_ID;
+const assignmentPath = path.join(process.cwd(), '.agentxchain', 'dispatch', 'turns', turnId, 'ASSIGNMENT.json');
+const assignment = JSON.parse(fs.readFileSync(assignmentPath, 'utf8'));
+const stagingPath = path.join(process.cwd(), assignment.staging_result_path);
+fs.mkdirSync(path.dirname(stagingPath), { recursive: true });
+fs.writeFileSync(stagingPath, JSON.stringify({
+  schema_version: '1.0',
+  run_id: assignment.run_id,
+  turn_id: assignment.turn_id,
+  role: assignment.role,
+  runtime_id: assignment.runtime_id,
+  status: 'completed',
+  summary: '<Connector> shim completed validation.',
+  decisions: [],
+  objections: [],
+  files_changed: [],
+  verification: { status: 'skipped', evidence_summary: 'shim validation' },
+  artifact: { type: 'review', ref: null },
+  proposed_next_role: 'human'
+}, null, 2) + '\n');
+NODE
+exit 0
+```
+
+**Key:** The shim ignores argv (it doesn't need to parse `exec --json` or `--background-agent` — those tokens are only for command validation at adapter startup).
+
+---
+
+## 5. Files Changed (Expected)
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `cli/src/lib/claude-local-auth.js` | Add function | `isCursorLocalCliRuntime()` export |
-| `cli/src/lib/adapters/local-cli-adapter.js` | Modify | Import `isCursorLocalCliRuntime`; add Cursor rule to `validateLocalCliCommandCompatibility()` |
-| `cli/src/commands/doctor.js` | Modify | Import `isCursorLocalCliRuntime`; add Cursor detail in `local_cli` health check |
-| `cli/test/cursor-connector.test.js` | New file | Tests for binary detection, command validation, doctor health check |
+| `cli/test/connector-validate-command.test.js` | Modify | Add `writeCodexShim()`, `writeCursorShim()` helpers; add Codex + Cursor E2E tests |
+| `cli/test/vitest-contract.test.js` | Modify (only if new test file added) | Update file count from 667 to 668 |
+
+**Alternative:** Dev may create a new `cli/test/connector-e2e-per-type.test.js` file instead of modifying `connector-validate-command.test.js`. Either approach is acceptable — PM does not prescribe file organization.
 
 ---
 
-## 5. Test Plan
+## 6. Test Plan
 
-### Required Tests (minimum 4)
+### Required Tests (minimum 2 new)
 
-| # | Test | Location | Description |
-|---|------|----------|-------------|
-| T1 | Binary detection — positive | `cursor-connector.test.js` | `isCursorLocalCliRuntime({ command: 'cursor' })` returns `true`; `{ command: '/usr/local/bin/cursor' }` returns `true`; `{ command: ['cursor', '--background-agent'] }` returns `true` |
-| T2 | Binary detection — negative | `cursor-connector.test.js` | `isCursorLocalCliRuntime({ command: 'claude' })` returns `false`; `{ command: 'codex' }` returns `false`; `{ command: '' })` returns `false` |
-| T3 | Command validation | `cursor-connector.test.js` | `validateLocalCliCommandCompatibility({ command: 'cursor' })` returns `{ ok: false, error_class: 'local_cli_command_incompatible' }` (missing agent mode flag); `{ command: 'cursor', args: ['--background-agent'] }` returns `{ ok: true }` |
-| T4 | Config validation roundtrip | `cursor-connector.test.js` | A Cursor runtime config `{ type: 'local_cli', command: ['cursor', '--background-agent'] }` passes `normalizeConfig()` validation without errors |
+| # | Test ID | Connector | Description |
+|---|---------|-----------|-------------|
+| T1 | AT-CCV-009 | Codex | Codex shim binary `codex` → config `['codex', 'exec', '--json']` + `dispatch_bundle_only` → `connector validate` → `overall: 'pass'`, `dispatch.ok: true`, `validation.ok: true` |
+| T2 | AT-CCV-010 | Cursor | Cursor shim binary `cursor` → config `['cursor', '--background-agent']` + `dispatch_bundle_only` → `connector validate` → `overall: 'pass'`, `dispatch.ok: true`, `validation.ok: true` |
 
-### Optional Tests (dev discretion)
+### Existing Test (reference only — no changes)
 
-| # | Test | Description |
-|---|------|-------------|
-| T5 | Doctor Cursor detail | `checkRuntimeReachable()` with a mocked Cursor binary returns Cursor-specific detail string |
-| T6 | Non-interference | Claude and Codex validation rules still work unchanged (regression) |
-| T7 | Vitest contract | File count updated if new test file added |
+| # | Test ID | Connector | Location |
+|---|---------|-----------|----------|
+| T0 | AT-CCV-007 | Claude | `connector-validate-command.test.js:318` |
+
+### Assertion Checklist Per Test
+
+Each new test must assert:
+1. CLI exit code 0 (or programmatic `result.ok === true`)
+2. `output.overall === 'pass'`
+3. `output.schema_contract.ok === true`
+4. `output.dispatch.ok === true`
+5. `output.validation.ok === true`
+6. `output.runtime_id` matches the connector runtime id
+7. `output.role_id` matches the bound role
 
 ---
 
-## 6. Key Architecture Invariants
+## 7. Key Architecture Invariants
 
-1. **No new runtime type.** Cursor is `type: 'local_cli'` — the dispatcher, watchdog, heartbeat, staged-result, and abort paths are unchanged.
-2. **Binary detection is first-token only.** `isCursorLocalCliRuntime()` checks `tokens[0]` like Claude/Codex — no deep path parsing.
-3. **Command validation returns structured errors.** All rules use `{ ok: false, error_class: 'local_cli_command_incompatible', recovery, diagnostic }`.
-4. **Dispatch bundle transport.** Cursor uses `prompt_transport: 'dispatch_bundle_only'` — the adapter does NOT inject the prompt into argv or stdin.
-5. **Staged result is the only proof of completion.** Cursor must write `turn-result.json` to `.agentxchain/staging/turn-<id>/` like any other `local_cli` runtime.
+1. **No pipeline changes.** `connector-validate.js` is untouched — new tests exercise existing code.
+2. **Shim binary pattern is established.** `writeClaudeShim()` is the proven pattern; Codex/Cursor follow identically.
+3. **Auth preflight skips non-Claude.** `getClaudeSubprocessAuthIssue()` returns `null` for Codex/Cursor (line 168-170).
+4. **Command validation is already implemented.** Codex rules (lines 794-828) and Cursor rules (lines 831-848) are exercised by the E2E config.
+5. **Dispatch bundle transport.** All three connectors use `dispatch_bundle_only` in their E2E configs — the shim reads from disk, not stdin.
 
 ---
 
@@ -223,64 +210,65 @@ Example `agentxchain.json` runtime configuration for Cursor:
 
 ### Scope
 
-**Real code changes required — this is NOT a verification-only run.**
+**2 new E2E tests required — Codex and Cursor governed turn validation.**
 
-1. Add `isCursorLocalCliRuntime()` to `claude-local-auth.js` (or a new `cursor-local-auth.js` if dev prefers — PM does not prescribe file organization)
-2. Add Cursor command validation to `validateLocalCliCommandCompatibility()` in `local-cli-adapter.js`
-3. Add Cursor-specific doctor health check detail in `doctor.js`
-4. Write minimum 4 tests (T1-T4 above)
+1. Write `writeCodexShim(root, contents)` helper — creates `shim-bin/codex` with chmod 0o755
+2. Write `writeCursorShim(root, contents)` helper — creates `shim-bin/cursor` with chmod 0o755
+3. Add Codex E2E test (AT-CCV-009): governed turn through `connector validate` → `overall: 'pass'`
+4. Add Cursor E2E test (AT-CCV-010): governed turn through `connector validate` → `overall: 'pass'`
 5. Update vitest contract file count if new test file is added
 
 ### Out of Scope
 
-- New runtime type in `VALID_RUNTIME_TYPES`
-- Changes to `step.js` dispatcher
-- Changes to subprocess lifecycle in `local-cli-adapter.js` (spawn, watchdog, heartbeat)
-- Cursor auth failure classification (deferred)
-- Legacy `cursor-local.js` modifications
-- Windsurf/OpenCode connectors (separate M7 runs)
+- Changes to `connector-validate.js` pipeline
+- Changes to binary detection, command validation, doctor health checks
+- Windsurf/OpenCode connectors
+- `api_proxy`, `mcp`, `remote_agent` E2E
+- Refactoring existing AT-CCV-007 (Claude) test
 
 ### Verification
 
 Dev must confirm:
-1. All new tests pass
-2. Existing Claude/Codex local_cli tests pass (no regression)
-3. `node --check` on all modified files
-4. Vitest contract passes
+1. Codex E2E passes with `overall: 'pass'`
+2. Cursor E2E passes with `overall: 'pass'`
+3. Existing AT-CCV-007 (Claude) still passes
+4. All existing `connector-validate-command.test.js` tests pass (no regression)
+5. Vitest contract passes if file count changed
 
 ## Interface
 
-### Cursor Connector Integration Flow
+### Connector E2E Validation Flow
 
 ```
-User Config                     Binary Detection                  Command Validation
-─────────────                   ─────────────────                 ──────────────────
-agentxchain.json:               claude-local-auth.js:             local-cli-adapter.js:
-  runtimes:                       isCursorLocalCliRuntime()         validateLocalCliCommandCompatibility()
-    cursor-agent:                   ↓ true                           ↓
-      type: local_cli          ──────────────────────────        checks cursor-specific rules
-      command: ["cursor",         Doctor Health Check               ↓ ok: true/false
-        "--background-agent"]   ─────────────────────────
-      prompt_transport:           doctor.js:                      Dispatch (unchanged)
-        dispatch_bundle_only      checkRuntimeReachable()         ──────────────────
-                                    ↓                             step.js:732 → local_cli branch
-                                  "cursor binary found             → dispatchLocalCli()
-                                   (Cursor IDE connector)"          → spawn → watchdog → staged result
+Test Setup                      Shim Binary                    Connector Validate
+──────────                      ───────────                    ──────────────────
+scaffoldGoverned()              shim-bin/codex (0o755)         validateConfiguredConnector()
+  + mutate config:              shim-bin/cursor (0o755)          ├── probeRuntimeSpawnContext()
+    command: [codex, exec,      ┌───────────────────┐            │   → finds shim in PATH
+      --json]                   │ 1. Read env        │           ├── initializeGovernedRun()
+    command: [cursor,           │    TURN_ID         │           ├── assignGovernedTurn()
+      --background-agent]       │ 2. Read            │           ├── writeDispatchBundle()
+  + PATH includes               │    ASSIGNMENT.json │           ├── dispatchLocalCli()
+    shim-bin/                   │ 3. Write valid     │           │   → spawns shim
+                                │    turn-result.json│           ├── validateStagedTurnResult()
+                                │ 4. exit 0          │           │   → schema + field checks
+                                └───────────────────┘           └── return { overall: 'pass' }
 ```
 
-### Function Signatures
+### Function Signatures (existing, no changes)
 
-| Function | File | Signature | Returns |
-|----------|------|-----------|---------|
-| `isCursorLocalCliRuntime` | `claude-local-auth.js` | `(runtime: { command })` | `boolean` |
-| `validateLocalCliCommandCompatibility` | `local-cli-adapter.js` | `({ command, args, runtimeId })` | `{ ok: boolean, error_class?, recovery?, diagnostic? }` |
-| `checkRuntimeReachable` | `doctor.js` | `(root, rtId, rt, boundRoleEntries)` | `{ id, name, level, detail, ... }` |
+| Function | File | Signature |
+|----------|------|-----------|
+| `validateConfiguredConnector` | `connector-validate.js:32` | `(sourceRoot, options) → Promise<{ ok, overall, dispatch, validation, ... }>` |
+| `probeRuntimeSpawnContext` | `runtime-spawn-context.js` | `(root, runtime, options) → { ok, detail }` |
+| `dispatchLocalCli` | `local-cli-adapter.js` | `(root, state, config, options) → Promise<{ ok, logs, ... }>` |
+| `validateStagedTurnResult` | `turn-result-validator.js` | `(root, state, config, options) → { ok, stage, errors, warnings }` |
 
 ## Acceptance Tests
 
-- [ ] `isCursorLocalCliRuntime()` correctly identifies `cursor` binary (positive + negative cases)
-- [ ] `validateLocalCliCommandCompatibility()` enforces Cursor agent mode requirement
-- [ ] `agentxchain doctor` reports Cursor-specific detail for Cursor-configured runtimes
-- [ ] Cursor runtime config passes `normalizeConfig()` validation as `local_cli`
-- [ ] No regressions in Claude/Codex local_cli paths
+- [ ] Codex shim binary completes a governed turn through `connector validate` with `overall: 'pass'`
+- [ ] Cursor shim binary completes a governed turn through `connector validate` with `overall: 'pass'`
+- [ ] Claude E2E (AT-CCV-007) still passes (regression)
+- [ ] All existing connector validate tests pass (regression)
+- [ ] Vitest contract passes (file count updated if new file added)
 - [ ] Full test suite passes with 0 failures (deferred to QA)

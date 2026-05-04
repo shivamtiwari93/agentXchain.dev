@@ -1,10 +1,10 @@
-# PM Signoff — M7: Connector Ecosystem Expansion — Cursor IDE Connector
+# PM Signoff — M7: Connector Ecosystem Expansion — Per-Connector Governed Turn E2E Validation
 
 Approved: YES
 
-**Run:** `run_10a2b2d8f0a8399b`
+**Run:** `run_f89a47c58f54929c`
 **Phase:** planning
-**Turn:** `turn_7d29bbd18babb17b`
+**Turn:** `turn_4c3388b43da61521`
 **Date:** 2026-05-04
 
 ## Discovery Checklist
@@ -17,138 +17,129 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators who want to use Cursor IDE's background agent mode as a governed runtime — dispatching turns to Cursor the same way they dispatch to Claude or Codex, with full protocol governance, health checks, and connector validation.
+AgentXchain operators who need confidence that each local_cli connector flavor (Claude, Codex, Cursor) can complete a full governed turn lifecycle — from config to dispatch to staged result acceptance — without manual intervention.
 
 ### Core Pain Point
 
-AgentXchain supports 5 runtime types (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`), but among IDE-based agents, only Claude Code CLI and Codex are recognized as `local_cli` flavors. The adapter has Claude-specific validation (`isClaudeLocalCliRuntime`, `claude_print_stream_json_requires_verbose`) and Codex-specific validation (`isCodexLocalCliRuntime`, `codex_requires_exec`, `codex_exec_requires_json`), but no equivalent for Cursor.
+The connector ecosystem now has three recognized `local_cli` flavors (Claude, Codex, Cursor), each with binary detection, command validation, and doctor health checks. However, there is no single test that proves each connector type can complete a full governed turn end-to-end through the `connector validate` pipeline. The existing coverage is:
 
-Users who configure `cursor` as a `local_cli` runtime today get no flavor-specific guidance from `doctor`, no command compatibility validation, no auth check, and a confusing `unknown runtime binary` default in health probes.
+| Connector | Binary detection | Command validation | Doctor health | Governed turn E2E |
+|-----------|-----------------|-------------------|---------------|-------------------|
+| Claude    | Yes             | Yes               | Yes           | **Yes** (AT-CCV-007 in `connector-validate-command.test.js:318`) |
+| Codex     | Yes             | Yes               | Yes           | **No** |
+| Cursor    | Yes             | Yes               | Yes           | **No** |
 
-### Design Decision: local_cli Variant, Not New Runtime Type
+Claude has a governed turn E2E via the AT-CCV-007 test (shim binary + full `connector validate` pipeline). Codex and Cursor have unit-level coverage (binary detection, command validation, config roundtrip) but no governed turn E2E.
 
-The ROADMAP item says "local_cli adapter variant" and that is the correct approach:
+### Design Decision: Shim-Binary E2E Per Connector Type
 
-1. **No new runtime type.** Cursor uses `type: 'local_cli'` like Claude and Codex.
-2. **Binary detection** via `isCursorLocalCliRuntime()` following the `isClaudeLocalCliRuntime`/`isCodexLocalCliRuntime` pattern in `claude-local-auth.js:32-48`.
-3. **Command validation** rules added to `validateLocalCliCommandCompatibility()` in `local-cli-adapter.js:759-831`.
-4. **Doctor health check** enhanced in `doctor.js:502-514` to produce Cursor-specific messages.
-5. **Prompt transport** defaults to `dispatch_bundle_only` — Cursor's agent mode reads the staged dispatch bundle from `.agentxchain/dispatch/turns/<id>/PROMPT.md`.
+Each connector type gets a governed turn E2E test that:
+
+1. Scaffolds a governed project with the connector-specific config
+2. Writes a shim binary (shell script) named after the connector (`claude`, `codex`, `cursor`) into a temp `shim-bin/` directory
+3. Configures `PATH` so the shim is discoverable by `probeRuntimeSpawnContext()`
+4. Runs `validateConfiguredConnector()` (the programmatic API) or `agentxchain connector validate` (the CLI)
+5. Asserts `overall: 'pass'`, `dispatch.ok: true`, `validation.ok: true`
+
+The shim binary reads `ASSIGNMENT.json` from the dispatch bundle and writes a schema-valid `turn-result.json` to the staged path, exercising the full dispatch-to-acceptance pipeline.
 
 ### Evidence of Existing Patterns
 
-| Pattern | Claude | Codex | Cursor (to add) |
-|---|---|---|---|
-| Binary detection | `isClaudeLocalCliRuntime()` (`claude-local-auth.js:32`) | `isCodexLocalCliRuntime()` (`claude-local-auth.js:41`) | `isCursorLocalCliRuntime()` |
-| Command validation | `claude_print_stream_json_requires_verbose` (`local-cli-adapter.js:773`) | `codex_requires_exec` + `codex_exec_requires_json` (`local-cli-adapter.js:793, 811`) | TBD by dev |
-| Auth check | `getClaudeSubprocessAuthIssue()` (`doctor.js:505`) | (none — Codex uses OPENAI_API_KEY) | Cursor API key check if applicable |
-| Doctor detail | Claude-specific auth warning (`doctor.js:506-511`) | (falls through to generic probe) | Cursor-specific detail message |
+The AT-CCV-007 test in `connector-validate-command.test.js:318` already demonstrates this pattern for Claude:
+- `writeClaudeShim()` creates a shell script at `shim-bin/claude`
+- The shim reads `ASSIGNMENT.json` and writes a valid turn-result.json
+- The test invokes `connector validate local-dev --role dev --json`
+- The test asserts `overall: 'pass'`
 
-### Legacy Context
-
-A legacy v3 adapter exists at `cli/src/adapters/cursor-local.js` that opened Cursor windows, copied prompts to clipboard, and relied on human interaction. This is NOT the target pattern. The M7 connector uses the governed `local_cli` adapter with Cursor as a headless/background-agent CLI, following the same subprocess lifecycle (spawn → watchdog → staged result) as Claude and Codex.
+Dev reuses this pattern for Codex and Cursor.
 
 ## Challenge to Previous Turn
 
-### OBJ-PM-001: Previous planning artifacts describe M6 Dashboard Live Observer, not M7 Connector Expansion (severity: high)
+### OBJ-PM-001: Previous planning artifacts describe Cursor connector (ROADMAP.md:87), not per-connector E2E validation (ROADMAP.md:90) (severity: high)
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe M6: Dashboard Live Observer from `run_74fc370a40da7622`. This run's intent is M7: Connector Ecosystem Expansion — Add Cursor IDE connector. All three artifacts rewritten from scratch.
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe the Cursor IDE connector implementation from `run_10a2b2d8f0a8399b`. This run's intent is ROADMAP.md:90 — "Validate each connector with a single governed turn end-to-end." All three artifacts rewritten from scratch.
 
-### OBJ-PM-002: Dev correctly identified that PM should not charter verification-only implementation turns (severity: medium)
+### OBJ-PM-002: ROADMAP.md:87 (Cursor connector) remains unchecked despite successful dev implementation (severity: low)
 
-In the M6 run, dev's OBJ-001 stated "PM DEC-003 stated 'Dev charter is verification-only: no code changes expected' — this contradicts the implementation-phase product code gate at turn-result-validator.js:733." This is a valid pattern correction. M7 charters real code changes for dev.
+The previous dev turn implemented the Cursor connector with 14 passing tests, but ROADMAP.md:87 still shows `[ ]`. This was correctly deferred for QA verification. However, no QA turn was dispatched in the Cursor connector run. The check-off should happen as part of this run's QA phase after verifying the Cursor E2E test passes alongside Claude and Codex.
 
 ### Core Workflow (this run)
 
-1. **PM (this turn)** — Scope Cursor IDE connector as local_cli variant, write planning artifacts with line-number references and acceptance criteria
-2. **Dev** — Implement `isCursorLocalCliRuntime()`, Cursor command validation rules, doctor health check, connector-validate support, and tests
-3. **QA** — Run full test suite, verify acceptance contract, confirm `agentxchain doctor` passes for a Cursor-configured runtime
+1. **PM (this turn)** — Scope per-connector governed turn E2E validation, write planning artifacts
+2. **Dev** — Add Codex and Cursor governed turn E2E tests, verify all three connector types pass
+3. **QA** — Run full test suite, verify acceptance contract, check off ROADMAP.md:87 and ROADMAP.md:90
 
 ### MVP Scope (this run)
 
-**This run scopes only ROADMAP.md:87 — "Add Cursor IDE connector (local_cli adapter variant)".** The other M7 items (Windsurf, OpenCode, per-connector E2E, acceptance) are separate runs.
+**This run scopes ROADMAP.md:90 — "Validate each connector with a single governed turn end-to-end."** Additionally, ROADMAP.md:87 can be checked off as a side-effect once the Cursor E2E validates end-to-end.
 
 **PM deliverables (this turn):**
-1. PM_SIGNOFF.md: Scope definition, design decision, acceptance criteria
-2. SYSTEM_SPEC.md: Technical spec with exact file:line integration points, config shape, test plan
-3. ROADMAP.md: Phases table updated for M7 Cursor connector scope
+1. PM_SIGNOFF.md: Scope definition, design decisions, acceptance criteria
+2. SYSTEM_SPEC.md: Technical spec with file:line references, shim binary patterns, test plan
+3. ROADMAP.md: Phases table updated for per-connector E2E validation scope
 
 **Dev deliverables:**
-1. `isCursorLocalCliRuntime()` in `claude-local-auth.js` (or new file — dev's call on organization)
-2. Cursor command validation rules in `validateLocalCliCommandCompatibility()` in `local-cli-adapter.js`
-3. Cursor-specific doctor health check detail in `doctor.js`
-4. Config example for Cursor runtime in agentxchain.json template
-5. Unit tests: binary detection, command validation, doctor health check (minimum 4 tests)
+1. Codex connector E2E test: shim binary + governed turn + assertion
+2. Cursor connector E2E test: shim binary + governed turn + assertion
+3. Optional: refactor AT-CCV-007 (Claude) into a shared test file alongside Codex/Cursor, or leave Claude in place and add Codex/Cursor to the same file
+4. Update vitest contract file count if new test file is added
+5. Minimum 2 new tests (Codex E2E + Cursor E2E); Claude E2E is AT-CCV-007 (existing)
 
 ### Out of Scope
 
-- Windsurf connector (separate M7 run)
-- OpenCode connector (separate M7 run)
-- New runtime type (Cursor reuses `local_cli`)
-- Changes to local-cli-adapter.js subprocess lifecycle (spawn, watchdog, staged result)
-- Changes to step.js dispatcher (Cursor uses existing `local_cli` branch at line 732)
-- Legacy v3 cursor-local.js changes (deprecated, not part of governed protocol)
-- Cursor-specific auth failure classification (deferred — add only if Cursor has identifiable auth failure output patterns)
-- Full E2E governed turn validation with live Cursor process (deferred to acceptance item)
+- Windsurf connector (not implemented yet — separate M7 run)
+- OpenCode connector (not implemented yet — separate M7 run)
+- Changes to `connector-validate.js` pipeline logic (already works)
+- Changes to binary detection, command validation, or doctor health checks (already implemented)
+- Live binary testing (shim binaries are sufficient for governed turn E2E proof)
+- `api_proxy`, `mcp`, `remote_agent` E2E (AT-CCV-006 already covers api_proxy; others are out of M7 scope)
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | Roadmap milestone addressed: M7: Connector Ecosystem Expansion | ROADMAP.md:87 scoped and planning artifacts written |
-| 2 | Unchecked roadmap item completed: Add Cursor IDE connector (local_cli adapter variant) | `isCursorLocalCliRuntime()` + command validation + doctor health check + tests pass |
-| 3 | Evidence source: .planning/ROADMAP.md:87 | ROADMAP.md:87 checked off after QA verification |
+| 1 | Roadmap milestone addressed: M7: Connector Ecosystem Expansion | ROADMAP.md:90 scoped and planning artifacts written |
+| 2 | Unchecked roadmap item completed: Validate each connector with a single governed turn end-to-end | Claude (AT-CCV-007) + Codex (new) + Cursor (new) all pass `connector validate` with `overall: 'pass'` |
+| 3 | Evidence source: .planning/ROADMAP.md:90 | ROADMAP.md:90 checked off after QA verification |
 
 ### Risk Assessment
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Cursor CLI may not have a stable headless agent mode | Medium | Connector is configured via `command` array — users can adapt CLI args as Cursor evolves; `dispatch_bundle_only` transport is CLI-agnostic |
-| Cursor may not have identifiable auth failure patterns in stderr | Low | Auth classification deferred; generic `local_cli` exit code handling covers non-zero exits |
-| Binary name collision (cursor vs other tools) | Low | `isCursorLocalCliRuntime()` checks first token only, matching Claude/Codex pattern |
+| Codex shim binary may need different argv handling than Claude | Low | Codex uses `exec --json` and reads dispatch bundle — shim pattern is identical (read ASSIGNMENT.json, write turn-result.json) |
+| Cursor shim binary runs with `dispatch_bundle_only` transport | Low | Same shim pattern — all three connector types read the dispatch bundle, not stdin |
+| Test execution time for 3 shim-based E2E tests | Low | Each test scaffolds a governed project, shim dispatch completes in <5s |
 
 ## Notes for Dev
 
-**Your charter requires real code changes — this is NOT a verification-only run.**
+**Your charter requires 2 new E2E tests — Codex and Cursor governed turn validation.**
 
-Integration points (verify these line numbers before coding):
-1. `claude-local-auth.js:32-48` — Add `isCursorLocalCliRuntime()` following `isClaudeLocalCliRuntime`/`isCodexLocalCliRuntime` pattern
-2. `local-cli-adapter.js:759-831` — Add Cursor command validation rule(s) in `validateLocalCliCommandCompatibility()`
-3. `local-cli-adapter.js:33-41` — Add import for `isCursorLocalCliRuntime` from `claude-local-auth.js`
-4. `doctor.js:502-514` — Add Cursor-specific detail in `local_cli` case of `checkRuntimeReachable()`
-5. `connector-validate.js:29` — Confirm Cursor runtimes are validatable (already covered by `local_cli` in VALIDATABLE_RUNTIME_TYPES)
-6. `normalized-config.js:34` — No change needed (Cursor uses existing `local_cli` type)
+Claude E2E already exists at `connector-validate-command.test.js:318` (AT-CCV-007). You need to add equivalent tests for Codex and Cursor. The approach:
 
-Example agentxchain.json config for Cursor runtime:
-```json
-{
-  "runtimes": {
-    "cursor-agent": {
-      "type": "local_cli",
-      "command": ["cursor", "--background-agent"],
-      "prompt_transport": "dispatch_bundle_only",
-      "startup_watchdog_ms": 300000
-    }
-  }
-}
-```
+1. Write a `writeCodexShim(root, contents)` helper (like `writeClaudeShim`) that creates `shim-bin/codex`
+2. Write a `writeCursorShim(root, contents)` helper that creates `shim-bin/cursor`
+3. Each shim: reads `ASSIGNMENT.json`, writes valid `turn-result.json` to staged path
+4. Each test: configures the connector-specific runtime, puts `shim-bin/` on PATH, runs `connector validate`, asserts `overall: 'pass'`
 
-**Minimum 4 tests required:**
-1. `isCursorLocalCliRuntime()` returns true for `cursor` command, false for `claude`/`codex`
-2. `validateLocalCliCommandCompatibility()` enforces Cursor-specific rules
-3. `checkRuntimeReachable()` returns Cursor-specific detail for cursor runtimes
-4. Cursor runtime config passes `normalizeConfig()` validation as `local_cli`
+Config shapes:
+- **Codex:** `{ type: 'local_cli', command: ['codex', 'exec', '--json'], prompt_transport: 'dispatch_bundle_only' }`
+- **Cursor:** `{ type: 'local_cli', command: ['cursor', '--background-agent'], prompt_transport: 'dispatch_bundle_only' }`
+
+**Dev decides** whether to add tests to `connector-validate-command.test.js` or create a new `connector-e2e-per-type.test.js` file. Either is acceptable.
+
+**Minimum 2 new tests required:**
+1. Codex governed turn E2E — shim binary `codex` + full connector validate pipeline → `overall: 'pass'`
+2. Cursor governed turn E2E — shim binary `cursor` + full connector validate pipeline → `overall: 'pass'`
 
 ## Notes for QA
 
 - Run full test suite: `cd cli && npm test`
-- Verify new tests pass for Cursor binary detection, command validation, doctor check
-- Verify `agentxchain doctor` produces Cursor-specific output for a Cursor-configured runtime
-- Confirm no regressions in Claude/Codex local_cli paths
-- After ship: verify ROADMAP.md:87 can be checked off
+- Verify Claude E2E (AT-CCV-007), Codex E2E (new), and Cursor E2E (new) all pass
+- Confirm no regressions in existing connector validate tests
+- After ship: verify ROADMAP.md:87 and ROADMAP.md:90 can both be checked off
 
 ## Acceptance Contract
 
-1. **Roadmap milestone addressed: M7: Connector Ecosystem Expansion** — ROADMAP.md:87 "Add Cursor IDE connector" scoped with planning artifacts, dev implements, QA verifies
-2. **Unchecked roadmap item completed: Add Cursor IDE connector (local_cli adapter variant)** — `isCursorLocalCliRuntime()` detects Cursor binary; command validation enforces Cursor rules; `agentxchain doctor` reports Cursor-specific health; tests pass
-3. **Evidence source: .planning/ROADMAP.md:87** — ROADMAP.md:87 checked off after QA full suite verification
+1. **Roadmap milestone addressed: M7: Connector Ecosystem Expansion** — ROADMAP.md:90 scoped with planning artifacts; governed turn E2E tests added for all three local_cli connector types
+2. **Unchecked roadmap item completed: Validate each connector with a single governed turn end-to-end** — Claude (AT-CCV-007), Codex (new test), and Cursor (new test) all complete a governed turn through `connector validate` with `overall: 'pass'`
+3. **Evidence source: .planning/ROADMAP.md:90** — ROADMAP.md:90 checked off after QA full suite verification

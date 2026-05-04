@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M7 Cursor IDE connector as local_cli adapter variant, write planning artifacts | In progress (`run_10a2b2d8f0a8399b`) |
-| Implementation | Dev implements `isCursorLocalCliRuntime()`, command validation, doctor health check, tests | Pending |
-| QA | Full test suite verification, confirm acceptance contract, check off ROADMAP.md:87 | Pending |
+| Planning | Scope per-connector governed turn E2E validation (ROADMAP.md:90), write planning artifacts | In progress (`run_f89a47c58f54929c`) |
+| Implementation | Dev adds Codex + Cursor governed turn E2E tests via shim binaries in connector validate pipeline | Pending |
+| QA | Full test suite verification, confirm all 3 connector E2E pass, check off ROADMAP.md:87 + :90 | Pending |
