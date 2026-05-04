@@ -1,10 +1,10 @@
-# PM Signoff — M8: agentxchain.ai Managed Surface — MVP — Control Plane API Design
+# PM Signoff — M8: Hosted Runner — Execute Protocol Against Cloud Agent APIs
 
 Approved: YES
 
-**Run:** `run_8140752664578eb2`
+**Run:** `run_0937d8f23ff72791`
 **Phase:** planning
-**Turn:** `turn_2d28df23a61fa15c`
+**Turn:** `turn_210b54fbb6a3ea55`
 **Date:** 2026-05-04
 
 ## Discovery Checklist
@@ -17,160 +17,216 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators who need remote/programmatic run management — teams that want to govern runs from a cloud dashboard, CI pipeline, or third-party integration instead of only via the local CLI.
+AgentXchain operators who want to run governed turns against cloud agent APIs (Anthropic, OpenAI, Google) from a hosted HTTP server — without needing a local CLI session, repo clone, or long-running terminal process.
 
 ### Core Pain Point
 
-AgentXchain currently has no HTTP API contract for remote run management. The entire governed lifecycle (init run, assign turn, accept, reject, approve gates, checkpoint, restart, retry) is accessible only through:
-1. The CLI (`agentxchain run`, `agentxchain step`)
-2. The local dashboard bridge server (`bridge-server.js` — localhost-only, read-heavy, minimal mutations)
-3. Direct library imports via `runner-interface.js`
+The agentxchain protocol has three infrastructure layers ready:
+1. **Protocol bridge** (`cli/src/lib/api/protocol-bridge.js`) — wraps runner-interface.js for HTTP consumption with typed errors and state-provider seams (delivered in run_8140752664578eb2, ROADMAP.md:94)
+2. **API proxy adapter** (`cli/src/lib/adapters/api-proxy-adapter.js`) — dispatches turns to Anthropic, OpenAI, Google, and Ollama cloud APIs with retry, cost tracking, and error classification
+3. **Run loop** (`cli/src/lib/run-loop.js`) — reusable governed execution engine explicitly designed for "CLI, CI, hosted, custom" runners
 
-This means:
-- No remote triggering or monitoring of governed runs
-- No programmatic integration for CI/CD pipelines
-- No foundation for the `.ai` managed cloud surface
-- No standardized API contract for third-party tooling
-
-The frozen architecture specs define the vision and architecture boundary:
-- `AGENTXCHAIN_AI_MANAGED_SURFACE_SPEC.md` — architecture boundary, protocol parity invariant
-- `AGENTXCHAIN_AI_CONTROL_PLANE_API_SPEC.md` — endpoint paths, object schemas, behavior rules
-- `AGENTXCHAIN_AI_EXECUTION_PLANE_SPEC.md` — queue topology, lease model, worker capabilities
-- `AGENTXCHAIN_AI_PORTABILITY_SPEC.md` — export/import bundle format, round-trip semantics
-
-**But no concrete, machine-readable API specification exists.** The frozen specs define endpoints as prose tables and partial JSON examples. Missing: full request/response schemas, HTTP status codes, error format, pagination wrapper, authentication headers, and a module proving the protocol is composable by an HTTP server.
+**But there is no HTTP server that composes these layers into a remotely-accessible hosted runner.** The OpenAPI spec from :94 defines the contract, the bridge proves composability, but no process actually serves HTTP requests, dispatches turns to cloud APIs, and manages execution leases. ROADMAP.md:95 closes this gap.
 
 ## Challenge to Previous Turn
 
-### OBJ-PM-001: Planning artifacts describe M7 doctor acceptance (run_3da0168fc830ad47, ROADMAP.md:91) — this run targets M8 control plane API design (ROADMAP.md:94) (severity: high)
+### OBJ-PM-001: Planning artifacts describe control plane API design (run_8140752664578eb2, ROADMAP.md:94) — this run targets hosted runner implementation (ROADMAP.md:95) (severity: high)
 
 All three planning artifacts were written for the previous run's scope:
-- PM_SIGNOFF.md scoped doctor health check per connector type
-- SYSTEM_SPEC.md described `doctor.js` changes (import + Codex recognition branch)
-- ROADMAP.md phases table showed doctor implementation phases for `run_3da0168fc830ad47`
+- PM_SIGNOFF.md scoped OpenAPI spec + protocol bridge + schema tests
+- SYSTEM_SPEC.md described 3 new files (openapi.yaml, protocol-bridge.js, schema tests)
+- ROADMAP.md phases table showed control plane API design phases for `run_8140752664578eb2`
 
-This run targets ROADMAP.md:94 — "Design control plane API for remote run management" under M8: agentxchain.ai Managed Surface — MVP. All three artifacts rewritten from scratch.
+This run targets ROADMAP.md:95 — "Implement hosted runner that executes protocol against cloud agent APIs." All three artifacts rewritten from scratch.
 
 ### Core Workflow (this run)
 
-1. **PM (this turn)** — Scope control plane API design deliverables, define dev charter
-2. **Dev** — Produce OpenAPI 3.1 spec, protocol bridge module, schema compatibility tests
-3. **QA** — Validate OpenAPI spec, verify bridge coverage, confirm protocol compatibility
+1. **PM (this turn)** — Scope hosted runner implementation, define architecture, dev charter
+2. **Dev** — Implement HTTP server, execution worker, job queue, `agentxchain serve` command, integration tests
+3. **QA** — Verify end-to-end lifecycle: create run via API → worker dispatches to cloud API → turn result visible via API
 
 ### MVP Scope (this run)
 
-**This run scopes ROADMAP.md:94 — "Design control plane API for remote run management."**
+**This run scopes ROADMAP.md:95 — "Implement hosted runner that executes protocol against cloud agent APIs."**
 
 **PM deliverables (this turn):**
-1. PM_SIGNOFF.md: M8 scope, design decisions, acceptance criteria
-2. SYSTEM_SPEC.md: Technical spec for API design artifacts with file:line references
-3. ROADMAP.md: Update phases table for M8 control plane API scope
+1. PM_SIGNOFF.md: Scope, architecture decisions, acceptance criteria
+2. SYSTEM_SPEC.md: Technical spec with file:line integration points
+3. ROADMAP.md: Update phases table
 
 **Dev deliverables:**
-1. `api/v1/control-plane.openapi.yaml` — OpenAPI 3.1 specification for the control plane API (29 operations, 11+ component schemas, security schemes, error format, pagination)
-2. `cli/src/lib/api/protocol-bridge.js` — Module wrapping `runner-interface.js` primitives for HTTP consumption with typed error classes and state-provider seam documentation
-3. `cli/test/api/control-plane-schema.test.js` — Tests validating OpenAPI spec validity, bridge coverage, and protocol schema compatibility
+1. `cli/src/lib/api/hosted-runner.js` — HTTP server module implementing control plane API routes via the protocol bridge. Uses Node.js `node:http` (zero new dependencies). Routes map OpenAPI operations to bridge functions.
+2. `cli/src/lib/api/execution-worker.js` — Execution worker module. Wraps run-loop + api_proxy adapter. Implements the execution plane lease model (claim, heartbeat, finalize). Emits structured execution events.
+3. `cli/src/lib/api/job-queue.js` — In-memory FIFO job queue. Project-scoped dispatch queues, lease acquisition, heartbeat tracking, stale-lease expiry. Matches execution plane spec behavior rules 2-4.
+4. `cli/src/commands/serve.js` — `agentxchain serve` CLI command. Starts the hosted runner HTTP server on configurable port (default 4100). Binds to configurable host (default 127.0.0.1 for safety). Accepts `--project` for explicit project root.
+5. `cli/test/hosted-runner.test.js` — Integration tests. End-to-end lifecycle: create run → assign turn → worker dispatches to cloud API (mocked) → accept result → query via API. Plus job queue lease tests and error handling.
 
 ### Out of Scope
 
-- HTTP server implementation (future ROADMAP.md:95 — "Implement hosted runner that executes protocol against cloud agent APIs")
-- Cloud persistence layer / database schema
-- OAuth provider integration / user management service
-- Organization dashboard UI (future ROADMAP.md:96)
-- Execution plane workers / queue infrastructure
-- Webhook delivery implementation (the OpenAPI spec defines the webhook contract; implementation is separate)
-- Portability endpoint implementation (export/import — design only in the OpenAPI spec)
+- Cloud persistence layer (state remains filesystem-based via state-provider seams)
+- Multi-tenant organization/workspace management (single-project server for MVP)
+- OAuth/JWT authentication provider (server accepts requests without auth for v1 — localhost-only default)
+- Production deployment configuration (Dockerfile, systemd, cloud infrastructure)
+- Dashboard UI (future ROADMAP.md:96)
+- Webhook delivery implementation
+- Customer-provided workers (execution plane spec rule 11: service-operated only for v1)
+- Multi-region scheduling or failover
 - Rate limiting implementation
-- Changes to the existing local dashboard bridge server (`bridge-server.js`)
-- Changes to `runner-interface.js` or `governed-state.js`
-- Windsurf / OpenCode connectors (M7 scope)
+- TLS/HTTPS (reverse proxy concern)
+- Changes to existing protocol-bridge.js, runner-interface.js, api-proxy-adapter.js, or run-loop.js
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | Roadmap milestone addressed: M8: agentxchain.ai Managed Surface — MVP | ROADMAP.md:94 scoped with planning artifacts |
-| 2 | Unchecked roadmap item completed: Design control plane API for remote run management | OpenAPI 3.1 spec covers all frozen-spec endpoints + protocol bridge proves implementability + schema tests verify compatibility |
-| 3 | Evidence source: .planning/ROADMAP.md:94 | ROADMAP.md:94 checked off after QA verification |
+| 1 | Roadmap milestone addressed: M8: agentxchain.ai Managed Surface — MVP | ROADMAP.md:95 scoped with planning artifacts |
+| 2 | Unchecked roadmap item completed: Implement hosted runner that executes protocol against cloud agent APIs | HTTP server serves control plane API, execution worker dispatches to cloud APIs via api_proxy adapter, job queue manages leases |
+| 3 | Evidence source: .planning/ROADMAP.md:95 | ROADMAP.md:95 checked off after QA verification |
 
 ### Risk Assessment
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| OpenAPI spec diverges from frozen architecture specs | Medium | Schema compatibility test AT-CP-SCHEMA-002 validates every endpoint against the frozen spec's endpoint table |
-| Protocol bridge cannot wrap all runner-interface.js primitives | Low | All primitives are pure functions with explicit inputs/outputs; bridge is thin wrapper with no new protocol logic |
-| Design introduces cloud-only governance semantics | High | Test AT-CP-SCHEMA-007 validates no governance-affecting fields beyond protocol state; only presentation-tier cloud-only fields allowed |
-| OpenAPI spec too abstract to implement against | Medium | Every endpoint has full request body, response body, status codes, and error format — not just path + description |
+| HTTP server adds new dependency | Low | Use `node:http` built-in — zero new npm dependencies |
+| Execution worker re-implements run-loop logic | High | Worker composes run-loop directly (it's already designed for hosted use) — no reimplementation |
+| Job queue semantics diverge from execution plane spec | Medium | Queue implementation is tested against spec behavior rules 2-4; lease timeouts match spec (30min local_cli, 10min api_proxy) |
+| Localhost-only default is too restrictive for hosted use | Low | Configurable `--host` flag; default 127.0.0.1 is safe; production deployments override via flag |
+| api_proxy adapter changes break hosted runner | Low | Hosted runner uses api_proxy as-is via run-loop dispatch callback — no adapter modifications |
 
-### Design Decision: OpenAPI 3.1 as Primary Design Artifact (DEC-001)
+### Design Decision: Node.js `node:http` with Zero New Dependencies (DEC-001)
 
-The control plane API design is captured as an **OpenAPI 3.1 specification** rather than additional prose documentation because:
-1. **Machine-readable** — can be validated, used for code generation, imported into API testing tools
-2. **Precise** — forces explicit request/response schemas, status codes, and error contracts
-3. **Living** — the spec file is the source of truth for the API contract, not a document that drifts
-4. **Composable** — future server implementations (Node.js, Go, etc.) can generate stubs from the spec
+The hosted runner uses Node.js built-in `node:http` module rather than Express, Fastify, or Hono because:
+1. **Zero dependency addition** — package.json stays lean, no supply chain risk
+2. **The protocol bridge does the heavy lifting** — HTTP server is a thin routing layer (path matching + JSON parsing + bridge call + error-to-status mapping)
+3. **Consistent with existing patterns** — the dashboard bridge-server.js already uses bare `node:http`
+4. **Adequate for MVP** — no middleware chains, no template rendering, no complex routing needed
 
-### Design Decision: Protocol Bridge Module (DEC-002)
+### Design Decision: In-Process Execution Worker (DEC-002)
 
-The protocol bridge module (`cli/src/lib/api/protocol-bridge.js`) wraps `runner-interface.js` primitives with:
-1. HTTP-friendly signatures (protocol-level args → protocol-level results, no HTTP objects)
-2. Typed error classification (ProtocolError, NotFoundError, ValidationError, AuthorizationError)
-3. State-provider seam documentation (every filesystem operation annotated for cloud replacement)
-4. No side effects beyond protocol state (no notifications, metrics, or logs)
+The execution worker runs in the same process as the HTTP server rather than a separate worker process because:
+1. **Simplifies deployment** — single `agentxchain serve` process handles both API and execution
+2. **State coherence** — worker and server share filesystem access without coordination
+3. **Matches execution plane spec rule 12** — "keep execution narrow" for first implementation
+4. **No IPC complexity** — worker lifecycle tied to server lifecycle
+5. **Future split is trivial** — worker module is self-contained; extracting to a separate process later adds only a queue transport layer
 
-This module proves the protocol is composable by an HTTP server without modifying the protocol layer.
+### Design Decision: Run-Loop Composition for Turn Execution (DEC-003)
 
-### Design Decision: Scoping to Run Management as Primary, Full Surface for Completeness (DEC-003)
-
-ROADMAP.md:94 says "Design control plane API for **remote run management**." The OpenAPI spec covers the full surface (tenancy + run lifecycle + approvals + audit) because the frozen control plane spec defines them as a unit. However, run management endpoints (create, get, list, cancel, accept, reject, approve, checkpoint, restart, retry) are the primary deliverable — tenancy endpoints are included for completeness but are not the acceptance-gating concern.
+The execution worker dispatches turns by calling `runLoop()` with a dispatch callback that invokes the api_proxy adapter, rather than reimplementing dispatch logic:
+1. **Protocol parity invariant** — run-loop IS the protocol engine; using it guarantees identical state transitions
+2. **Reuse** — admission control, gate handling, parallel turns, timeout evaluation all come free
+3. **Already designed for this** — run-loop.js header: "Any runner (CLI, CI, hosted, custom) composes this"
+4. **package.json already exports it** — `"./run-loop": "./src/lib/run-loop.js"` in exports map
 
 ## Notes for Dev
 
-**Your charter is 3 new files: OpenAPI spec, protocol bridge, schema tests.**
+**Your charter is 5 files: HTTP server + execution worker + job queue + serve command + integration tests.**
 
-### 1. OpenAPI 3.1 Specification — `api/v1/control-plane.openapi.yaml`
+### 1. HTTP Server — `cli/src/lib/api/hosted-runner.js`
 
-Source contract: `.planning/AGENTXCHAIN_AI_CONTROL_PLANE_API_SPEC.md`
+Route table maps OpenAPI operations to protocol bridge functions:
 
-Must include:
-- **Info block:** title `AgentXchain Control Plane API`, version `0.1.0`
-- **Security schemes:** `api_key` (X-API-Key header) and `bearer_auth` (Bearer token)
-- **Tags:** `tenancy`, `runs`, `turns`, `approvals`, `audit`, `webhooks`
-- **29 operations** matching the frozen spec's endpoint tables (9 tenancy + 9 run lifecycle + 6 approvals/recovery + 4 audit + 1 webhook)
-- **11+ component schemas** matching protocol objects: Organization, Workspace, Project, Run, Turn, Decision, Gate, Event, AuditEntry, Error, PaginatedList
-- **HTTP status codes** per endpoint (200, 201, 400, 401, 403, 404, 409, 422, 429, 500)
-- **Error response format:** `{ error: { code, message, details? } }`
-- **Cursor-based pagination:** `?cursor=<opaque>&limit=<n>`, response `{ data, cursor, has_more }`
-- **RBAC annotations** via `x-required-role` extension (owner/operator/viewer)
-
-### 2. Protocol Bridge Module — `cli/src/lib/api/protocol-bridge.js`
-
-15 exports wrapping runner-interface.js. See SYSTEM_SPEC.md §2.2 for the full export table.
+| Method | Path | Bridge Function | Notes |
+|--------|------|----------------|-------|
+| POST | `/v1/projects/:proj_id/runs` | `createRun` | Starts execution worker for new run |
+| GET | `/v1/runs/:run_id` | `getRunState` | |
+| GET | `/v1/projects/:proj_id/runs` | `listRuns` | |
+| POST | `/v1/runs/:run_id/cancel` | `cancelRun` | |
+| GET | `/v1/runs/:run_id/turns` | `getTurns` | |
+| GET | `/v1/runs/:run_id/turns/:turn_id` | `getTurn` | |
+| POST | `/v1/runs/:run_id/turns/:turn_id/accept` | `acceptTurnResult` | |
+| POST | `/v1/runs/:run_id/turns/:turn_id/reject` | `rejectTurnResult` | |
+| POST | `/v1/runs/:run_id/approve-transition` | `approveTransition` | |
+| POST | `/v1/runs/:run_id/checkpoint` | `checkpointTurn` | |
+| POST | `/v1/runs/:run_id/retry` | `retryTurn` | |
+| GET | `/v1/runs/:run_id/events` | `getEvents` | |
+| GET | `/v1/runs/:run_id/decisions` | `getDecisions` | |
+| GET | `/v1/runs/:run_id/gates` | `getGates` | |
+| GET | `/v1/runs/:run_id/export` | `exportRun` | |
+| GET | `/health` | — | Returns `{ status: 'ok', version }` |
 
 Key constraints:
-- No HTTP objects (no req/res) — pure protocol-to-protocol adapter
-- Typed errors: `ProtocolError`, `NotFoundError`, `ValidationError`, `AuthorizationError`, `ConflictError`
-- `@state-provider` JSDoc on every filesystem operation
-- No side effects beyond protocol state mutations
+- Use `node:http` — no Express/Fastify
+- JSON request body parsing via `Buffer.concat` + `JSON.parse`
+- Error-to-HTTP mapping: `NotFoundError`→404, `ValidationError`→422, `ProtocolError`→409, `ConflictError`→409, `AuthorizationError`→403
+- Response format: `{ data: ... }` for success, `{ error: { code, message } }` for errors
+- Expose `createHostedRunner(options)` → returns `{ server, start(), stop() }`
 
-### 3. Schema Compatibility Tests — `cli/test/api/control-plane-schema.test.js`
+### 2. Execution Worker �� `cli/src/lib/api/execution-worker.js`
 
-7 tests. See SYSTEM_SPEC.md §2.3 for the full test table.
+Wraps run-loop for hosted execution:
 
-Dev may use `js-yaml` for YAML parsing and manual schema checks, or install an OpenAPI validator if preferred. The tests must confirm the spec is valid OpenAPI 3.1 and that response schemas match protocol object shapes.
+```javascript
+export function createExecutionWorker(options) {
+  // options: { root, config, queue, onEvent }
+  // Returns: { start(), stop(), getStatus() }
+}
+```
 
-**Vitest contract file count increases by 1** (1 new test file). Dev must update the vitest file count contract accordingly.
+Worker loop:
+1. Poll job queue for claimable jobs
+2. Acquire execution lease
+3. Call `runLoop(root, config, callbacks)` with dispatch callback that invokes api_proxy adapter
+4. On completion: finalize lease, emit `execution_completed` event
+5. On failure: mark lease failed, emit `execution_interrupted` event
+
+Heartbeat: worker updates lease `heartbeat_at` every 30s during execution (matches execution plane spec rule 3).
+
+### 3. Job Queue — `cli/src/lib/api/job-queue.js`
+
+In-memory queue matching execution plane spec:
+
+```javascript
+export function createJobQueue(options) {
+  // Returns: { enqueue(job), claim(workerId), heartbeat(leaseId), finalize(leaseId, result), getStatus(), getJobs() }
+}
+```
+
+Semantics:
+- FIFO within project
+- At most one active lease per job
+- Default lease durations: 30min (local_cli), 10min (api_proxy)
+- Stale lease detection: 2 missed heartbeat windows (60s without heartbeat)
+- Stale leases transition to `needs_recovery` (not auto-retried — matches spec rule 4)
+- Jobs carry: `{ job_id, project_id, run_id, turn_id, role, runtime_id, runtime_class, enqueued_at }`
+
+### 4. CLI Command — `cli/src/commands/serve.js`
+
+```
+agentxchain serve [--port 4100] [--host 127.0.0.1] [--project <path>]
+```
+
+- Resolves project root (same as other commands)
+- Loads normalized config
+- Creates job queue, execution worker, and HTTP server
+- Starts server, prints URL
+- Graceful shutdown on SIGINT/SIGTERM
+
+### 5. Integration Tests — `cli/test/hosted-runner.test.js`
+
+| # | Test ID | Description |
+|---|---------|-------------|
+| T1 | AT-HR-001 | Server starts on configured port and responds to GET /health |
+| T2 | AT-HR-002 | POST /v1/projects/:id/runs creates a run and returns state |
+| T3 | AT-HR-003 | GET /v1/runs/:id returns run state after creation |
+| T4 | AT-HR-004 | Execution worker picks up enqueued job and dispatches via api_proxy (mocked provider) |
+| T5 | AT-HR-005 | Job queue enforces FIFO ordering and single-lease exclusivity |
+| T6 | AT-HR-006 | Stale lease (no heartbeat for 60s) transitions to needs_recovery |
+| T7 | AT-HR-007 | End-to-end: create run → worker executes turn (mocked API) → turn visible in GET /turns |
+| T8 | AT-HR-008 | Error responses use standard error format: { error: { code, message } } |
+| T9 | AT-HR-009 | Server shuts down gracefully on stop() without orphaned connections |
+| T10 | AT-HR-010 | Cancel run via POST /cancel transitions state to blocked |
 
 ## Notes for QA
 
-- Verify `api/v1/control-plane.openapi.yaml` is valid OpenAPI 3.1
-- Verify protocol bridge exports cover all mutating API endpoints
-- Verify schema compatibility tests pass
+- Verify server starts and serves health endpoint
+- Verify end-to-end run lifecycle via HTTP
+- Verify job queue lease semantics match execution plane spec
 - Run full test suite: `cd cli && npm test`
-- After ship: verify ROADMAP.md:94 can be checked off
+- After ship: verify ROADMAP.md:95 can be checked off
 
 ## Acceptance Contract
 
-1. **Roadmap milestone addressed: M8: agentxchain.ai Managed Surface — MVP** — ROADMAP.md:94 scoped with planning artifacts; control plane API design delivered as OpenAPI 3.1 spec + protocol bridge module + schema compatibility tests
-2. **Unchecked roadmap item completed: Design control plane API for remote run management** — OpenAPI 3.1 spec covers all 29 frozen-spec endpoints with full request/response schemas; protocol bridge wraps runner-interface.js for HTTP consumption; schema tests verify compatibility with existing protocol state shapes
-3. **Evidence source: .planning/ROADMAP.md:94** — ROADMAP.md:94 checked off after QA full suite verification
+1. **Roadmap milestone addressed: M8: agentxchain.ai Managed Surface — MVP** — ROADMAP.md:95 scoped with planning artifacts; hosted runner composes protocol bridge + run-loop + api_proxy adapter into an HTTP-accessible runner
+2. **Unchecked roadmap item completed: Implement hosted runner that executes protocol against cloud agent APIs** — HTTP server implements control plane API routes, execution worker dispatches turns via api_proxy to Anthropic/OpenAI/Google, job queue manages leases per execution plane spec
+3. **Evidence source: .planning/ROADMAP.md:95** — ROADMAP.md:95 checked off after QA full suite verification

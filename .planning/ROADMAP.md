@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M8 control plane API design: OpenAPI 3.1 spec, protocol bridge, schema tests (ROADMAP.md:94) | In progress (`run_8140752664578eb2`) |
-| Implementation | Dev produces OpenAPI spec (`api/v1/control-plane.openapi.yaml`), protocol bridge (`cli/src/lib/api/protocol-bridge.js`), schema compatibility tests | Pending |
-| QA | Validate OpenAPI spec, verify bridge coverage, confirm protocol compatibility, check off ROADMAP.md:94 | Pending |
+| Planning | Scope M8 hosted runner: HTTP server + execution worker + job queue + serve command + integration tests (ROADMAP.md:95) | In progress (`run_0937d8f23ff72791`) |
+| Implementation | Dev produces hosted-runner.js, execution-worker.js, job-queue.js, serve.js command, hosted-runner.test.js, agentxchain.js registration | Pending |
+| QA | Verify end-to-end lifecycle (create run → worker dispatches to cloud API → turns visible), full test suite, check off ROADMAP.md:95 | Pending |
