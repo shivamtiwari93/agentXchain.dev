@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope doctor acceptance for each connector type (ROADMAP.md:91), check off :87 + :90, rewrite planning artifacts | In progress (`run_3da0168fc830ad47`) |
-| Implementation | Dev adds Codex recognition to doctor + 3 doctor E2E tests (Codex + Cursor + Claude regression) | Pending |
-| QA | Full test suite verification, confirm doctor passes for all connector types, check off ROADMAP.md:91 | Pending |
+| Planning | Scope M8 control plane API design: OpenAPI 3.1 spec, protocol bridge, schema tests (ROADMAP.md:94) | In progress (`run_8140752664578eb2`) |
+| Implementation | Dev produces OpenAPI spec (`api/v1/control-plane.openapi.yaml`), protocol bridge (`cli/src/lib/api/protocol-bridge.js`), schema compatibility tests | Pending |
+| QA | Validate OpenAPI spec, verify bridge coverage, confirm protocol compatibility, check off ROADMAP.md:94 | Pending |
