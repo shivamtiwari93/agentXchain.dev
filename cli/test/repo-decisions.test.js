@@ -11,12 +11,14 @@ import {
   readRepoDecisions,
   getActiveRepoDecisions,
   getRepoDecisionById,
+  getDecisionAuthorityMetadata,
   appendRepoDecision,
   overrideRepoDecision,
   validateOverride,
   resolveDecisionAuthority,
   renderRepoDecisionsMarkdown,
   buildRepoDecisionsSummary,
+  buildRepoDecisionOperatorSummary,
   summarizeRepoDecisions,
   REPO_DECISIONS_PATH,
 } from '../src/lib/repo-decisions.js';
@@ -767,6 +769,81 @@ describe('decision authority acceptance path', () => {
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
+  });
+});
+
+describe('getDecisionAuthorityMetadata', () => {
+  it('AT-ADG-001: returns null when config has no roles property', () => {
+    assert.strictEqual(getDecisionAuthorityMetadata('dev', null), null);
+    assert.strictEqual(getDecisionAuthorityMetadata('dev', {}), null);
+  });
+
+  it('AT-ADG-002: returns configured source for a role with decision_authority', () => {
+    const config = { roles: { dev: { decision_authority: 20 } } };
+    const result = getDecisionAuthorityMetadata('dev', config);
+    assert.deepStrictEqual(result, { level: 20, source: 'configured', role: 'dev' });
+  });
+
+  it('AT-ADG-003: returns human_default source for human role without explicit authority', () => {
+    const config = { roles: { dev: { decision_authority: 20 } } };
+    const result = getDecisionAuthorityMetadata('human', config);
+    assert.deepStrictEqual(result, { level: 100, source: 'human_default', role: 'human' });
+  });
+
+  it('AT-ADG-004: returns configured source for human role with explicit authority', () => {
+    const config = { roles: { human: { decision_authority: 40 } } };
+    const result = getDecisionAuthorityMetadata('human', config);
+    assert.deepStrictEqual(result, { level: 40, source: 'configured', role: 'human' });
+  });
+
+  it('AT-ADG-005: returns unknown_role source for a role not in config', () => {
+    const config = { roles: { dev: { decision_authority: 20 } } };
+    const result = getDecisionAuthorityMetadata('nonexistent', config);
+    assert.deepStrictEqual(result, { level: 0, source: 'unknown_role', role: 'nonexistent' });
+  });
+});
+
+describe('buildRepoDecisionOperatorSummary', () => {
+  it('AT-ADG-006: returns null for empty or null decisions array', () => {
+    assert.strictEqual(buildRepoDecisionOperatorSummary(null, {}), null);
+    assert.strictEqual(buildRepoDecisionOperatorSummary([], {}), null);
+  });
+
+  it('AT-ADG-007: returns sorted active_categories and correct authority metadata', () => {
+    const config = { roles: { dev: { decision_authority: 20 }, pm: { decision_authority: 50 } } };
+    const decisions = [
+      { id: 'DEC-001', category: 'implementation', statement: 'A', role: 'dev', status: 'active' },
+      { id: 'DEC-002', category: 'architecture', statement: 'B', role: 'pm', status: 'active' },
+    ];
+    const result = buildRepoDecisionOperatorSummary(decisions, config);
+    assert.deepStrictEqual(result.active_categories, ['architecture', 'implementation']);
+    assert.strictEqual(result.highest_active_authority_level, 50);
+    assert.strictEqual(result.highest_active_authority_role, 'pm');
+    assert.strictEqual(result.highest_active_authority_source, 'configured');
+    assert.strictEqual(result.superseding_active_count, 0);
+    assert.strictEqual(result.overridden_with_successor_count, 0);
+  });
+
+  it('AT-ADG-008: counts superseding and overridden decisions correctly', () => {
+    const config = { roles: { dev: { decision_authority: 20 } } };
+    const decisions = [
+      { id: 'DEC-001', category: 'scope', statement: 'Original', role: 'dev', status: 'overridden', overridden_by: 'DEC-002' },
+      { id: 'DEC-002', category: 'scope', statement: 'Replacement', role: 'dev', status: 'active', overrides: 'DEC-001' },
+    ];
+    const result = buildRepoDecisionOperatorSummary(decisions, config);
+    assert.strictEqual(result.superseding_active_count, 1);
+    assert.strictEqual(result.overridden_with_successor_count, 1);
+    assert.strictEqual(result.highest_active_authority_level, 20);
+  });
+
+  it('AT-ADG-009: handles null authority when no decision_authority configured', () => {
+    const config = { roles: { dev: {} } };
+    const decisions = [
+      { id: 'DEC-001', category: 'process', statement: 'A', role: 'dev', status: 'active' },
+    ];
+    const result = buildRepoDecisionOperatorSummary(decisions, config);
+    assert.strictEqual(result.highest_active_authority_level, null);
+    assert.strictEqual(result.highest_active_authority_role, null);
   });
 });
 
