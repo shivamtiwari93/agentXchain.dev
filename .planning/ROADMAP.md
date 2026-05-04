@@ -134,10 +134,21 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] No-edit review normalization (BUG-78 Rule 0a) prevents pipeline blockage on valid review turns — 7 tests pass <!-- delivered MW; PM verified run_a413eee8dd1891c7 -->
 - [x] Acceptance: all 7 mechanisms verified as composition addressing VISION.md:32 "assumptions diverge" — 192 tests, 0 failures <!-- run_a413eee8dd1891c7: QA turn_db20eb0dc0486ff0 verified 192/192 (183 original + 9 new), ship verdict YES -->
 
+### M12: Quality Drift Prevention — Vision Closure (VISION.md:33)
+- [x] Turn-result validator 5-stage pipeline (Schema → Assignment → Artifact → Verification → Protocol) enforces structural quality on every turn output — 100 tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
+- [x] Workflow gate semantics: 6 semantic evaluators (`evaluatePmSignoff`, `evaluateSystemSpec`, `evaluateImplementationNotes`, `evaluateAcceptanceMatrix`, `evaluateShipVerdict`, `evaluateReleaseNotes`) enforce content quality on governed artifacts — 52 gate-evaluator tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
+- [x] Phase gate enforcement: planning → implementation → QA progression requires all gate files to exist and pass semantic validation — 10 implementation-gate tests pass <!-- delivered M1; PM verified run_08c9a1482479ae2e -->
+- [x] Challenge requirement: review-only roles MUST raise at least one objection (`turn-result-validator.js:976`) — 7 BUG-78 tests confirm normalization doesn't bypass challenge — structurally prevents rubber-stamping <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
+- [x] Release alignment: `validateReleaseAlignment()` validates across 8 dimensions (docs, version, tests, CI, changelog, installation, configuration, compatibility) — 6 tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
+- [x] Acceptance matrix enforcement: `evaluateAcceptanceMatrix()` requires `| Req # |` table with all-passing rows, rejects placeholder text — 8 placeholder-leak tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
+- [x] Release notes enforcement: `evaluateReleaseNotes()` requires User Impact + Verification Summary with real content, rejects placeholders — 10 release-notes-gate tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
+- [x] E2E release gate: full pipeline proof from phase transitions through gate evaluation to release — 4 e2e tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
+- [ ] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:33 "quality drifts" — 197 tests, 0 failures <!-- tracking: PM verified 197/197 in run_08c9a1482479ae2e, awaiting QA ship verdict -->
+
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Document 7 assumption-divergence mechanisms, add M11 to ROADMAP, scope dev verification charter | Complete (turn_9fde3fed067c1677, turn_eb83c5af4809acaf) |
-| Implementation | Re-run 7 mechanism test suites, add 9 new tests for untested governance exports | Complete (turn_d23c5d790a6e85b1: 192/192 pass) |
-| QA | Verify tests pass, confirm vision bullet coverage, check off M11 acceptance, ship verdict | Complete (turn_db20eb0dc0486ff0: ship verdict YES) |
+| Planning | Document 8 quality-drift prevention mechanisms, add M12 to ROADMAP, scope dev verification charter | In progress (turn_ce7036a688d1fe38) |
+| Implementation | Re-run 8 quality-enforcement test suites (197 tests), spot-check key exports | Pending |
+| QA | Verify tests pass, confirm vision bullet coverage, check off M12 acceptance, ship verdict | Pending |

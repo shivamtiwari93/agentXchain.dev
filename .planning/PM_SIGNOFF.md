@@ -1,10 +1,10 @@
-# PM Signoff — M11: Assumption Divergence Governance (Vision Closure)
+# PM Signoff — M12: Quality Drift Prevention — Vision Closure (VISION.md:33)
 
 Approved: YES
 
-**Run:** `run_a413eee8dd1891c7`
+**Run:** `run_08c9a1482479ae2e`
 **Phase:** planning
-**Turn:** `turn_9fde3fed067c1677`
+**Turn:** `turn_ce7036a688d1fe38`
 **Date:** 2026-05-04
 
 ## Discovery Checklist
@@ -17,83 +17,92 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running multi-agent governed delivery. The "assumptions diverge" problem surfaces when agents across turns and runs make decisions that contradict or drift from prior established decisions without explicit governance.
+AgentXchain operators running multi-agent governed delivery over long horizons. The "quality drifts" problem surfaces when agents across turns produce progressively weaker outputs — shallow acceptance criteria, rubber-stamped QA, missing verification evidence — without structural enforcement preventing the degradation.
 
 ### Core Pain Point
 
-VISION.md line 32 names "assumptions diverge" as one of six core problems AgentXchain exists to solve. The vision scanner triggered this run because no single milestone is labeled as closing this bullet. However, assumption divergence is addressed by a **composition of 7 delivered mechanisms** across milestones M1, M3, M5, M10, and MW. This run exists to formally verify, document, and close that vision goal.
+VISION.md line 33 names "quality drifts" as one of six core problems AgentXchain exists to solve. The vision scanner triggered this run because no single milestone is labeled as closing this bullet. However, quality drift prevention is addressed by a **composition of 8 delivered mechanisms** across milestones MW, M1, and the protocol layer. This run exists to formally verify, document, and close that vision goal.
 
 ### Challenge to Previous Turn
 
 #### OBJ-PM-001: All planning artifacts reference stale run (severity: medium)
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all reference `run_4f63b0c987a50c73` (M10 formal closure). The current run is `run_a413eee8dd1891c7`. All three artifacts rewritten from scratch.
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all reference `run_a413eee8dd1891c7` (M11: Assumption Divergence Governance). The current run is `run_08c9a1482479ae2e`. All three artifacts rewritten from scratch.
 
-#### OBJ-PM-002: Vision bullet "assumptions diverge" never explicitly closed (severity: high)
+#### OBJ-PM-002: Vision bullet "quality drifts" never explicitly closed (severity: high)
 
-No prior run or milestone explicitly addressed the "assumptions diverge" vision bullet (VISION.md:32). Individual mechanisms were delivered as parts of other milestones (decision ledger in M1, dispatch context in M3, scope overlap in M10, challenge requirement in MW) but the cross-cutting concern was never verified as a whole. This created a gap where the vision scanner correctly identified the bullet as open.
+No prior run or milestone explicitly addressed the "quality drifts" vision bullet (VISION.md:33). Individual mechanisms were delivered as parts of other milestones (workflow gate semantics in MW, turn-result validator in MW, phase gates in M1, release alignment in MW) but the cross-cutting concern was never verified as a whole. This created a gap where the vision scanner correctly identified the bullet as open.
 
 ### Core Workflow
 
-1. **PM (this turn)** — Document the 7 mechanisms that collectively address assumption divergence, add M11 to ROADMAP, scope dev verification charter
-2. **Dev** — Re-run all 7 mechanism test suites (183 tests) to confirm assumption-governance infrastructure is intact, no new code changes expected
-3. **QA** — Verify all tests pass, confirm vision bullet coverage, check off M11 acceptance, ship verdict
+1. **PM (this turn)** — Document the 8 mechanisms that collectively prevent quality drift, add M12 to ROADMAP, scope dev verification charter
+2. **Dev** — Re-run all 8 quality-enforcement test suites (197 tests) to confirm quality-enforcement infrastructure is intact, no new code changes expected
+3. **QA** — Verify all tests pass, confirm vision bullet coverage, check off M12 acceptance, ship verdict
 
 ### MVP Scope
 
-**Verification-only.** No new code. The vision goal "assumptions diverge" is addressed by 7 delivered mechanisms:
+**Verification-only.** No new code. The vision goal "quality drifts" is addressed by 8 delivered mechanisms:
 
 | # | Mechanism | Module | Milestone | Tests |
 |---|-----------|--------|-----------|-------|
-| 1 | Decision ledger with cross-run persistence | `cli/src/lib/repo-decisions.js` | M1 | 39 |
-| 2 | Decision history in dispatch bundles | `cli/src/lib/dispatch-bundle.js` | M3 | 12 |
-| 3 | Coordinator decision ledger writes | `cli/src/lib/governed-state.js` | M1 | 7 |
-| 4 | Named decisions visibility in reports | `cli/src/lib/repo-decisions.js` | M1 | 6 |
-| 5 | Turn-result validator (decision schema + challenge req) | `cli/src/lib/turn-result-validator.js` | MW | 100 |
-| 6 | Scope overlap guard (prevents conflicting work) | `cli/src/lib/scope-overlap.js` | M10 | 12 |
-| 7 | No-edit review normalization (BUG-78 recovery) | `cli/src/lib/turn-result-validator.js` | MW | 7 |
-| | **Total** | | | **183** |
+| 1 | Turn-result validator (5-stage pipeline) | `cli/src/lib/turn-result-validator.js` | MW | 100 |
+| 2 | Workflow gate semantics (6 artifact validators) | `cli/src/lib/workflow-gate-semantics.js` | MW | 52 |
+| 3 | Phase gate enforcement (planning → impl → QA) | `cli/src/lib/governed-state.js` | M1 | 10 |
+| 4 | Challenge requirement (review_only must object) | `cli/src/lib/turn-result-validator.js:976` | MW | 7 |
+| 5 | Release alignment (8-dimension validation) | `cli/src/lib/release-alignment.js` | MW | 6 |
+| 6 | Acceptance matrix semantic validation | `cli/src/lib/workflow-gate-semantics.js:117` | MW | 8 |
+| 7 | Release notes gate validation | `cli/src/lib/workflow-gate-semantics.js:258` | MW | 10 |
+| 8 | E2E release gate (full pipeline proof) | e2e integration tests | MW | 4 |
+| | **Total** | | | **197** |
 
-**How these mechanisms prevent assumption divergence:**
+**How these mechanisms prevent quality drift:**
 
-1. **Decision recording** — Every turn records structured decisions (DEC-NNN) with category, statement, and rationale. No assumption is implicit.
-2. **Decision persistence** — Decisions with `durability: "repo"` survive across runs via `repo-decisions.jsonl`. An agent in run N+1 sees decisions from run N.
-3. **Decision visibility** — The dispatch bundle renders the last 50 decisions as a markdown table in CONTEXT.md. Every agent sees prior decisions before acting.
-4. **Override authority** — `checkOverrideAuthority()` enforces role-based authority thresholds. An agent cannot silently override a prior decision without explicit authority.
-5. **Challenge requirement** — Review-only roles MUST raise at least one objection (turn-result-validator.js:976). This forces cross-agent assumption checking.
-6. **Scope deconfliction** — M10's scope overlap guard prevents the continuous loop from spawning runs whose charter overlaps recently completed work, preventing conflicting assumptions at the intake level.
-7. **Structured workflow** — SYSTEM_SPEC.md makes assumptions explicit per run. PM_SIGNOFF.md scopes them. QA verifies them. The workflow kit ensures assumptions are written down, not implicit.
+1. **Structural turn validation** — Every turn result passes through a 5-stage validation pipeline (Schema → Assignment → Artifact → Verification → Protocol). Malformed, incomplete, or invalid outputs are rejected before acceptance. Quality cannot degrade because the validator enforces invariants at the turn boundary.
+
+2. **Workflow gate semantics** — 6 governed artifacts (PM_SIGNOFF, SYSTEM_SPEC, IMPLEMENTATION_NOTES, acceptance-matrix, ship-verdict, release-notes) each have a dedicated semantic evaluator. Gates fail if artifacts don't meet structural quality requirements. A PM cannot approve without declaring target user, pain point, and success metrics. A QA cannot ship without a structurally valid acceptance matrix and explicit YES/NO verdict.
+
+3. **Phase gate enforcement** — Planning cannot advance to implementation without PM_SIGNOFF.md + SYSTEM_SPEC.md + ROADMAP.md. Implementation cannot advance to QA without IMPLEMENTATION_NOTES.md. QA cannot ship without acceptance-matrix.md + ship-verdict.md. These gates prevent skipping quality steps.
+
+4. **Challenge requirement** — Review-only roles MUST raise at least one objection (line 976). This structurally prevents rubber-stamping — every review turn must actively evaluate and challenge prior work.
+
+5. **Release alignment** — `validateReleaseAlignment()` validates across 8 dimensions (docs, version, tests, CI, changelog, installation, configuration, compatibility) before release. This prevents quality drift in release artifacts.
+
+6. **Acceptance matrix enforcement** — `evaluateAcceptanceMatrix()` requires a `| Req # |` table header with actual requirement rows. Each row must have an affirmative status (PASS, PASSED, OK, YES). Placeholder text is rejected. QA cannot rubber-stamp.
+
+7. **Release notes enforcement** — `evaluateReleaseNotes()` requires `## User Impact` and `## Verification Summary` sections with real content (placeholder text rejected). Release documentation quality is structurally enforced.
+
+8. **End-to-end pipeline proof** — The e2e-release-gate tests verify the full pipeline from phase transitions through gate evaluation to release. This proves the quality enforcement mechanisms work together, not just in isolation.
 
 ### Out of Scope
 
-- Active contradiction detection between decisions (semantic analysis) — deferred as future enhancement, not required for vision bullet closure
-- Assumption ledger separate from decisions — the decision system IS the assumption governance system
-- New code changes — all 7 mechanisms already exist and are tested
+- Runtime quality metrics (latency, accuracy scoring) — these are operational, not governance concerns
+- Subjective quality assessment (is the code "good"?) — the system enforces structural quality, not aesthetic quality
+- New code changes — all 8 mechanisms already exist and are tested
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | All 7 mechanism test suites pass (183 tests, 0 failures) | Dev re-verification |
-| 2 | Each mechanism's source file exists and exports expected functions | Dev spot-check |
-| 3 | ROADMAP.md M11 milestone documented with evidence | PM (this turn) |
-| 4 | Vision goal "assumptions diverge" addressed by composition evidence | QA ship verdict |
+| 1 | All 8 quality-enforcement test suites pass (197 tests, 0 failures) | Dev re-verification |
+| 2 | Each mechanism's source file exists and exports/enforces expected quality gates | Dev spot-check |
+| 3 | ROADMAP.md M12 milestone documented with evidence | PM (this turn) |
+| 4 | Vision goal "quality drifts" addressed by composition evidence | QA ship verdict |
 
 ### Design Decisions
 
-#### DEC-001: Previous planning artifacts described run_4f63b0c987a50c73 — all three rewritten from scratch for run_a413eee8dd1891c7, scoped as M11: Assumption Divergence Governance — Vision Closure
+#### DEC-001: Previous planning artifacts described run_a413eee8dd1891c7 — all three rewritten from scratch for run_08c9a1482479ae2e, scoped as M12: Quality Drift Prevention — Vision Closure
 
-The vision scanner triggered this run for the "assumptions diverge" bullet in VISION.md:32. This bullet is a cross-cutting concern addressed by multiple milestones, not a single deliverable. This run documents and verifies the composition.
+The vision scanner triggered this run for the "quality drifts" bullet in VISION.md:33. This bullet is a cross-cutting concern addressed by multiple milestones, not a single deliverable. This run documents and verifies the composition.
 
-#### DEC-002: "assumptions diverge" is addressed by 7 delivered mechanisms across M1, M3, M10, and MW — no new code required
+#### DEC-002: "quality drifts" is addressed by 8 delivered mechanisms across MW and M1 — no new code required
 
-The decision ledger, dispatch context, override authority, challenge requirement, scope overlap guard, and structured workflow collectively prevent assumption divergence. PM independently verified all 183 tests pass (repo-decisions: 39, dispatch-bundle-decision-history: 12, coordinator-decision-ledger: 7, named-decisions-visibility: 6, scope-overlap: 12, turn-result-validator: 100, bug-78-no-edit-review: 7).
+The turn-result validator (5-stage pipeline), workflow gate semantics (6 artifact validators), phase gate enforcement, challenge requirement, release alignment, acceptance matrix validation, release notes validation, and e2e release gate collectively prevent quality drift. PM independently verified all 197 tests pass.
 
-#### DEC-003: Active contradiction detection deferred — not required for vision bullet closure
+#### DEC-003: Quality drift prevention is structural, not advisory — gates fail if quality standards are not met
 
-The existing system prevents divergence through visibility, authority-gated overrides, and mandatory challenge. Semantic contradiction detection (comparing decision statement text for logical conflicts) would add value but is not required to satisfy the vision goal. DOGFOOD-100-TURNS is the current priority per HUMAN-ROADMAP.
+Unlike the assumption-divergence mechanisms (M11) which combine visibility with enforcement, quality-drift prevention is primarily structural enforcement. Gates reject artifacts that don't meet standards. There is no "soft warning" path — the pipeline halts.
 
-#### DEC-004: Dev charter is verification-only — re-run 7 mechanism test suites, no new code expected
+#### DEC-004: Dev charter is verification-only — re-run 8 quality-enforcement test suites, no new code expected
 
 All mechanism code was delivered across prior milestones. Dev confirms the infrastructure is intact on the current codebase.
 
@@ -101,29 +110,30 @@ All mechanism code was delivered across prior milestones. Dev confirms the infra
 
 **Verification-only charter.** No new code changes expected.
 
-Run these 7 test suites:
+Run these 8 test suites:
 ```bash
-cd cli && npx vitest run test/repo-decisions.test.js
-cd cli && npx vitest run test/dispatch-bundle-decision-history.test.js
-cd cli && npx vitest run test/coordinator-decision-ledger.test.js
-cd cli && npx vitest run test/named-decisions-visibility.test.js
-cd cli && npx vitest run test/scope-overlap.test.js
 cd cli && npx vitest run test/turn-result-validator.test.js
 cd cli && npx vitest run test/bug-78-no-edit-review.test.js
+cd cli && npx vitest run test/gate-evaluator.test.js
+cd cli && npx vitest run test/release-alignment.test.js
+cd cli && npx vitest run test/implementation-gate.test.js
+cd cli && npx vitest run test/release-notes-gate.test.js
+cd cli && npx vitest run test/workflow-gate-placeholder-leak.test.js
+cd cli && npx vitest run test/e2e-release-gate.test.js
 ```
 
-Confirm 183 tests pass with 0 failures. Spot-check that key exports exist:
-- `repo-decisions.js`: `readRepoDecisions`, `getActiveRepoDecisions`, `appendRepoDecision`, `overrideRepoDecision`, `validateOverride`, `checkOverrideAuthority`
-- `scope-overlap.js`: `extractScopeFingerprint`, `computeScopeOverlap`, `checkIntentScopeOverlap`
-- `dispatch-bundle.js`: renders `## Decision History` section with repo decisions context
+Confirm 197 tests pass with 0 failures. Spot-check that key quality-enforcement mechanisms exist:
+- `workflow-gate-semantics.js`: exports `evaluatePmSignoff`, `evaluateSystemSpec`, `evaluateAcceptanceMatrix`, `evaluateShipVerdict`, `evaluateImplementationNotes`, `evaluateReleaseNotes`
+- `turn-result-validator.js`: 5-stage pipeline (A–E), challenge requirement at line 976
+- `release-alignment.js`: exports `validateReleaseAlignment`, `getReleaseAlignmentContext`
 
 ## Notes for QA
 
-- Verify all 7 test suites pass (183 tests, 0 failures)
-- Confirm each mechanism addresses an aspect of assumption divergence
-- Check off ROADMAP.md M11 acceptance item after verification
+- Verify all 8 test suites pass (197 tests, 0 failures)
+- Confirm each mechanism addresses an aspect of quality drift prevention
+- Check off ROADMAP.md M12 acceptance item after verification
 - Ship verdict YES if all tests pass and vision bullet coverage is demonstrated
 
 ## Acceptance Contract
 
-1. **Vision goal addressed: assumptions diverge** — 7 delivered mechanisms collectively prevent assumption divergence through decision recording, cross-run persistence, dispatch-time visibility, authority-gated overrides, mandatory challenge, scope deconfliction, and structured workflow artifacts. All 183 tests pass.
+1. **Vision goal addressed: quality drifts** — 8 delivered mechanisms collectively prevent quality drift through structural turn validation (5-stage pipeline), workflow gate semantics (6 artifact validators), phase gate enforcement, challenge requirement, release alignment (8 dimensions), acceptance matrix enforcement, release notes enforcement, and e2e pipeline proof. All 197 tests pass.
