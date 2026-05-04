@@ -54,6 +54,28 @@ agentxchain ci-report --input .agentxchain/export.json --format github-actions
 
 The CI reporter reuses the existing `buildRunExport()` → `buildGovernanceReport()` pipeline. No new state reading, no modifications to report.js/export.js/export-verifier.js. Pure formatting layer over existing governance reports.
 
+## User Impact
+
+CI/CD operators can now integrate AgentXchain governance results directly into their pipelines without custom parsing. Key impacts:
+
+- **GitHub Actions users**: Run status, gate results, and decisions appear as native workflow annotations (notice/warning/error). Six output variables (`run_status`, `run_id`, `phase`, `blocked`, `turn_count`, `decision_count`) are available to downstream steps via `$GITHUB_OUTPUT`.
+- **JUnit XML consumers**: Governance results export as standard JUnit 4 XML, compatible with GitHub, GitLab, Jenkins, and CircleCI test result viewers. Failed gates and blocked turns surface as `<failure>` elements.
+- **All CI systems**: Exit codes follow CI conventions — 0 (governance pass), 1 (governance fail), 2 (error) — so pipeline steps fail when governance fails, with no additional scripting required.
+- **Auto-detection**: No configuration needed in most cases; the command detects GitHub Actions and GitLab CI environments automatically and selects the appropriate format.
+
+## Verification Summary
+
+QA independently verified all 12 SYSTEM_SPEC acceptance criteria (AT-CI-001 through AT-CI-012):
+
+- **CI detection** (AT-CI-001–004): GitHub Actions, GitLab CI, generic, and null environments correctly identified with proper priority ordering.
+- **GitHub annotations** (AT-CI-005–007): Pass/fail/gate-level annotations use correct `::notice`/`::warning`/`::error` syntax.
+- **Output variables** (AT-CI-008): 6 key=value pairs written via appendFileSync to GITHUB_OUTPUT path.
+- **JUnit XML** (AT-CI-009–010): Valid XML structure with Gates and Turns testsuites; unsatisfied gates and failed turns mapped to `<failure>` elements.
+- **Exit codes** (AT-CI-011): 0=pass, 1=fail, 2=error confirmed.
+- **Integration** (AT-CI-012): All formatters verified on both passing and failing report fixtures.
+
+Test execution: 12/12 ci-reporter.test.js, 11/11 vitest-contract.test.js (674 files). 0 new failures. Architecture invariants maintained (no state reading, no module modifications, pure functions).
+
 ## Known Limitations
 
 - GitLab CI collapsible section formatting not implemented (falls back to JSON output)
