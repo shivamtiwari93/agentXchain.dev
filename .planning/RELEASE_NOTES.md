@@ -1,37 +1,44 @@
-# Release Notes — M8: Control Plane API Design
+# Release Notes — M8: Hosted Runner — Execute Protocol Against Cloud Agent APIs
 
 ## User Impact
 
-This release delivers the **machine-readable API contract** for the agentxchain.ai control plane, proving that the existing governed execution protocol is composable by an HTTP server without modification.
+This release delivers the **first runnable server** in the agentxchain ecosystem: an HTTP server that exposes control plane API routes and dispatches governed turns to cloud agent APIs (Anthropic, OpenAI, Google) using the existing protocol bridge, run-loop engine, and api_proxy adapter. This is ROADMAP.md:95.
 
 ### What Was Delivered
 
-- **OpenAPI 3.1 Specification** (`api/v1/control-plane.openapi.yaml`): 29 operations across 6 resource groups (tenancy, runs, turns, approvals, audit, webhooks) with full request/response schemas, RBAC annotations (`x-required-role`), cursor-based pagination, typed error taxonomy (7 generic + 7 protocol-specific error codes), and 2 authentication schemes (API key, JWT bearer).
+- **HTTP Server Module** (`cli/src/lib/api/hosted-runner.js`): 16 routes mapping OpenAPI operations to protocol bridge functions via `node:http`. JSON body parsing with 1MB cap. Typed error-to-HTTP mapping (404/409/422/403/500). Graceful shutdown with 5s drain timeout. Localhost-only default bind (127.0.0.1:4100).
 
-- **Protocol Bridge Module** (`cli/src/lib/api/protocol-bridge.js`): 15 exported functions wrapping `runner-interface.js` primitives for HTTP consumption, plus 5 typed error classes (`ProtocolError`, `NotFoundError`, `ValidationError`, `AuthorizationError`, `ConflictError`). Every filesystem operation is annotated with `@state-provider` seam documentation for future cloud storage replacement.
+- **Execution Worker** (`cli/src/lib/api/execution-worker.js`): In-process worker that polls the job queue, claims jobs, and dispatches governed turns via `runLoop()` + `dispatchApiProxy()` composition. Single turn per job (`maxTurns: 1`). 30s heartbeat interval. 4 structured execution events. Auto-approve gates in hosted mode.
 
-- **Schema Compatibility Tests** (`cli/test/control-plane-schema.test.js`): 7 tests validating the API contract against protocol state shapes (Run ↔ state.json, Turn ↔ history.jsonl, Decision ↔ decision-ledger.jsonl), endpoint coverage (29 operations), bridge export completeness, and cloud-only field governance isolation.
+- **Job Queue** (`cli/src/lib/api/job-queue.js`): In-memory FIFO queue implementing execution plane spec rules 2-4. Exclusive leases with heartbeat-based liveness. Stale detection (2 missed 30s heartbeats = 60s threshold). Crash-closed recovery (no auto-retry — transitions to `needs_recovery`). Lease durations: 10min for api_proxy, 30min for local_cli.
+
+- **CLI Command** (`cli/src/commands/serve.js`): `agentxchain serve [--port 4100] [--host 127.0.0.1] [--project <path>]` starts the hosted runner. Graceful shutdown on SIGINT/SIGTERM.
+
+- **Integration Tests** (`cli/test/hosted-runner.test.js`): 11 tests covering server lifecycle, run creation, state retrieval, queue FIFO/exclusivity, stale lease detection, error format, graceful shutdown, and run cancellation.
 
 ### Architecture Highlights
 
-- **No HTTP objects** in the bridge — pure protocol-to-protocol adapter. HTTP request/response mapping is the server's responsibility.
-- **Cursor-based pagination** on all list endpoints (no offset pagination — reliable with append-only event streams).
-- **Design-only restart endpoint** — the OpenAPI spec includes `POST /v1/runs/{run_id}/restart` for API completeness, but the protocol layer does not yet expose a restart primitive. The bridge will add it when the protocol does.
-- **12 component schemas** match protocol state shapes exactly — no cloud-only fields affect governance.
+- **Protocol parity invariant maintained.** All 16 routes delegate to protocol-bridge.js — no reimplementation of state machine logic.
+- **Zero new npm dependencies.** HTTP server uses `node:http`. All composition layers (protocol bridge, run-loop, api_proxy adapter, runner interface) are existing internal modules.
+- **Run-loop is THE execution engine.** The worker delegates entirely to `runLoop()` — no reimplementation of dispatch, acceptance, timeout, or retry logic.
+- **Single-turn-per-job model.** Each job executes exactly one turn. Multi-turn runs require re-enqueue after each turn, matching the explicit operator-driven recovery principle.
+- **Localhost-only default** matching bridge-server.js security posture. Must explicitly pass `--host 0.0.0.0` to expose externally.
 
 ### What This Enables (Future Work)
 
-This is the foundation for ROADMAP.md items :95-:98:
-- HTTP server implementation (wraps the bridge)
-- Cloud persistence layer (replaces `@state-provider` seams)
-- Dashboard UI (consumes the API)
-- Execution plane workers (use the API for run management)
+This is the foundation for remaining ROADMAP.md managed surface items:
+- Cloud persistence layer (replaces filesystem `@state-provider` seams in protocol-bridge.js)
+- Dashboard UI (consumes the HTTP API)
+- Multi-tenant org/workspace management
+- Authentication/authorization enforcement
+- Webhook delivery for external integrations
 
 ## Verification Summary
 
-- All 7 AT-CP-SCHEMA acceptance tests pass (independently verified by QA)
-- Vitest contract: 11/11 pass (file count = 668)
-- Targeted protocol regression suite: 141 tests across 5 files, 0 failures
-- No whitespace issues (`git diff --check` clean)
-- OpenAPI operation count independently verified: 29
-- Protocol bridge imports verified against runner-interface.js, turn-checkpoint.js, run-history.js, run-events.js, gate-evaluator.js, export.js — all exist
+- 8/10 SYSTEM_SPEC acceptance tests pass (2 deferred: AT-HR-004/AT-HR-007 module-level mock tests, non-blocking)
+- 323 tests across 8 files, 0 failures, 0 regressions
+- Vitest contract: 11/11 pass (file count = 669)
+- CLI `serve --help` output verified with correct options
+- Gate evaluation: `{ok: true}`
+- Whitespace check: clean
+- Code reviewed for correctness, security (localhost-only), import validity, spec compliance, and architecture invariants
