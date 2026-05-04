@@ -95,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Charter dev with stream-json cost parser, local-cli-adapter integration, acceptance-time cost override, and dispatch-progress live cost | Complete (`run_9a37a5dc395bc9b8`) |
-| Implementation | Implement `stream-json-cost-parser.js`, hook into adapter stdout, extend dispatch-progress, add acceptance cost override in governed-state, plumb through step.js | Pending |
-| QA | Verify cost parsing accuracy, budget tracking reflects adapter cost, governance reports render non-zero cost for local_cli turns, full test suite green | Pending |
+| Planning | Charter dev with simulated crash acceptance test — real PID lifecycle (spawn → SIGKILL → step --resume recovery) | Complete (`run_5723929be7513f77`) |
+| Implementation | Add 1 test to `step-crash-resume.test.js`: spawn real process, kill it, verify step --resume recovers cleanly | Pending |
+| QA | Verify test exercises real PID lifecycle, all 5 crash-resume tests pass, full suite green, check off ROADMAP.md:64 | Pending |
