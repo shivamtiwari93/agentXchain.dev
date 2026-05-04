@@ -87,6 +87,7 @@ import { auditCommand } from '../src/commands/audit.js';
 import { restoreCommand } from '../src/commands/restore.js';
 import { restartCommand } from '../src/commands/restart.js';
 import { reportCommand } from '../src/commands/report.js';
+import { ciReportCommand } from '../src/commands/ci-report.js';
 import {
   pluginInstallCommand,
   pluginListCommand,
@@ -193,6 +194,13 @@ program
   .option('--input <path>', 'Export artifact path, or "-" for stdin', '-')
   .option('--format <format>', 'Output format: text, json, markdown, or html', 'text')
   .action(reportCommand);
+
+program
+  .command('ci-report')
+  .description('Report governed run results in CI-native formats (GitHub Actions annotations, JUnit XML)')
+  .option('--input <path>', 'Export artifact path, or use current project if omitted')
+  .option('--format <format>', 'Output format: auto, github-actions, junit-xml, json', 'auto')
+  .action(ciReportCommand);
 
 program
   .command('start')
