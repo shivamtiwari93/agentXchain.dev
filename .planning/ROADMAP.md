@@ -91,8 +91,8 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [ ] Acceptance: `agentxchain doctor` passes for each new connector type
 
 ### M8: agentxchain.ai Managed Surface — MVP
-- [ ] Design control plane API for remote run management
-- [ ] Implement hosted runner that executes protocol against cloud agent APIs
+- [x] Design control plane API for remote run management <!-- run_8140752664578eb2: OpenAPI 3.1 spec at api/v1/control-plane.openapi.yaml + protocol-bridge.js (15 bridge functions + 5 error classes) + 7 schema tests; QA ship verdict YES -->
+- [x] Implement hosted runner that executes protocol against cloud agent APIs <!-- run_0937d8f23ff72791: hosted-runner.js (16 routes, node:http), execution-worker.js, job-queue.js, serve.js command, 11 tests; QA ship verdict YES, 323 regression tests clean -->
 - [ ] Organization dashboard with multi-project visibility
 - [ ] Persistent run history and governance audit trail
 - [ ] Acceptance: a governed run completes via the hosted runner with dashboard visibility
@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M8 hosted runner: HTTP server + execution worker + job queue + serve command + integration tests (ROADMAP.md:95) | In progress (`run_0937d8f23ff72791`) |
-| Implementation | Dev produces hosted-runner.js, execution-worker.js, job-queue.js, serve.js command, hosted-runner.test.js, agentxchain.js registration | Pending |
-| QA | Verify end-to-end lifecycle (create run → worker dispatches to cloud API → turns visible), full test suite, check off ROADMAP.md:95 | Pending |
+| Planning | Scope M8 org dashboard: project registry + org state aggregator + 6 org API routes + 2 dashboard views + integration tests (ROADMAP.md:96) | In progress (`run_76ce2c791a84e1cb`) |
+| Implementation | Dev produces project-registry.js, org-state-aggregator.js, org-overview.js, org-runs.js, org-dashboard.test.js; modifies hosted-runner.js, serve.js, agentxchain.js, app.js, index.html | Pending |
+| QA | Verify multi-project aggregation end-to-end (register projects → org overview shows cross-project state → runs list shows all projects), full test suite, check off ROADMAP.md:96 | Pending |
