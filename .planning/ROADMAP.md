@@ -124,10 +124,20 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] 10 acceptance tests in `scope-overlap.test.js` (AT-SOG-001 through AT-SOG-010) <!-- run_2e96850371ff1a1c: 10/10 tests pass, verified run_4f63b0c987a50c73 -->
 - [x] Acceptance: vision-derived intent with overlapping charter is deferred by continuous loop, `--force-scope` overrides <!-- run_4f63b0c987a50c73: QA turn_736e4b77ea23f6b5 verified 12/12 acceptance tests (10 original + 2 new AT-SOG-011/012), 123 tests across 3 suites, 0 failures; M10 formally closed -->
 
+### M11: Assumption Divergence Governance — Vision Closure (VISION.md:32)
+- [x] Decision ledger with cross-run persistence (`repo-decisions.js`: `readRepoDecisions`, `getActiveRepoDecisions`, `appendRepoDecision`, `overrideRepoDecision`, `validateOverride`, `checkOverrideAuthority`) — 39 tests pass <!-- delivered across M1 runs; PM verified run_a413eee8dd1891c7 -->
+- [x] Decision history rendered in dispatch bundles (`dispatch-bundle.js:1416` Decision History section, `dispatch-bundle.js:775` repo decisions context) — 12 tests pass <!-- delivered across M3 runs; PM verified run_a413eee8dd1891c7 -->
+- [x] Coordinator decision ledger writes at 5 coordination events (init, dispatch, phase-transition, completion, recovery) — 7 tests pass <!-- delivered across M1 runs; PM verified run_a413eee8dd1891c7 -->
+- [x] Named decisions visibility in reports and dashboards with per-repo decision breakdowns — 6 tests pass <!-- delivered across M1 runs; PM verified run_a413eee8dd1891c7 -->
+- [x] Turn-result validator enforces decision schema (DEC-NNN IDs, category, statement, rationale) and challenge requirement (review-only roles must raise objections, line 976) — 100 tests pass <!-- delivered across MW runs; PM verified run_a413eee8dd1891c7 -->
+- [x] Scope overlap guard prevents conflicting work at intake level (`scope-overlap.js`, `intake.js:901`, `continuous-run.js:1329,1407,1493`) — 12 tests pass <!-- delivered M10; PM verified run_a413eee8dd1891c7 -->
+- [x] No-edit review normalization (BUG-78 Rule 0a) prevents pipeline blockage on valid review turns — 7 tests pass <!-- delivered MW; PM verified run_a413eee8dd1891c7 -->
+- [ ] Acceptance: all 7 mechanisms verified as composition addressing VISION.md:32 "assumptions diverge" — 183 tests, 0 failures <!-- run_a413eee8dd1891c7: PM pre-verified; awaiting dev re-verification + QA ship verdict -->
+
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Check off delivered M10 items, rewrite artifacts for `run_4f63b0c987a50c73` verification closure | Complete (`run_4f63b0c987a50c73`, turn_1685f54779c1e368) |
-| Implementation | Re-verify scope-overlap tests + broader regression, added AT-SOG-011/012 | Complete (`run_4f63b0c987a50c73`, turn_29efa582b4a92c8f) |
-| QA | Confirm all tests pass, check off M10 acceptance item, ship verdict YES | Complete (`run_4f63b0c987a50c73`, turn_736e4b77ea23f6b5) |
+| Planning | Document 7 assumption-divergence mechanisms, add M11 to ROADMAP, scope dev verification charter | In progress (`run_a413eee8dd1891c7`, turn_9fde3fed067c1677) |
+| Implementation | Re-run 7 mechanism test suites (183 tests), spot-check key exports | Pending |
+| QA | Verify tests pass, confirm vision bullet coverage, check off M11 acceptance, ship verdict | Pending |

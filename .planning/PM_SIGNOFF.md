@@ -1,10 +1,10 @@
-# PM Signoff — M10: Cross-Run Scope Overlap Guard (Formal Closure)
+# PM Signoff — M11: Assumption Divergence Governance (Vision Closure)
 
 Approved: YES
 
-**Run:** `run_4f63b0c987a50c73`
+**Run:** `run_a413eee8dd1891c7`
 **Phase:** planning
-**Turn:** `turn_1685f54779c1e368`
+**Turn:** `turn_9fde3fed067c1677`
 **Date:** 2026-05-04
 
 ## Discovery Checklist
@@ -17,89 +17,113 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running continuous vision-driven mode. The scope overlap guard prevents the continuous loop from spawning runs whose scope duplicates recently completed work.
+AgentXchain operators running multi-agent governed delivery. The "assumptions diverge" problem surfaces when agents across turns and runs make decisions that contradict or drift from prior established decisions without explicit governance.
 
 ### Core Pain Point
 
-M10 was fully delivered and QA-verified in run_2e96850371ff1a1c (ship verdict YES, 10/10 acceptance criteria, 172 tests across 5 suites, 0 failures). However, ROADMAP.md:120-125 items were never checked off, causing the vision scanner to re-trigger the same work as a new run. This run exists solely to close that gap.
+VISION.md line 32 names "assumptions diverge" as one of six core problems AgentXchain exists to solve. The vision scanner triggered this run because no single milestone is labeled as closing this bullet. However, assumption divergence is addressed by a **composition of 7 delivered mechanisms** across milestones M1, M3, M5, M10, and MW. This run exists to formally verify, document, and close that vision goal.
 
 ### Challenge to Previous Turn
 
 #### OBJ-PM-001: All planning artifacts reference stale run (severity: medium)
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all reference `run_2e96850371ff1a1c`. The current run is `run_4f63b0c987a50c73`. All three artifacts rewritten from scratch.
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all reference `run_4f63b0c987a50c73` (M10 formal closure). The current run is `run_a413eee8dd1891c7`. All three artifacts rewritten from scratch.
 
-#### OBJ-PM-002: ROADMAP.md items unchecked despite QA ship verdict YES (severity: high)
+#### OBJ-PM-002: Vision bullet "assumptions diverge" never explicitly closed (severity: high)
 
-The QA turn in run_2e96850371ff1a1c (DEC-003: "Ship verdict YES — 10/10 SYSTEM_SPEC acceptance criteria independently verified, 172 tests across 5 suites with 0 failures") should have resulted in ROADMAP.md:120-124 being checked off. The omission directly caused the vision scanner to spawn this redundant run. PM is now checking off items 120-124 based on that verified evidence. Item 125 (acceptance) reserved for QA in this run.
+No prior run or milestone explicitly addressed the "assumptions diverge" vision bullet (VISION.md:32). Individual mechanisms were delivered as parts of other milestones (decision ledger in M1, dispatch context in M3, scope overlap in M10, challenge requirement in MW) but the cross-cutting concern was never verified as a whole. This created a gap where the vision scanner correctly identified the bullet as open.
 
 ### Core Workflow
 
-1. **PM (this turn)** — Check off delivered M10 ROADMAP items, rewrite planning artifacts for `run_4f63b0c987a50c73`
-2. **Dev** — Re-run `scope-overlap.test.js` (10 tests) and broader regression suite, no new code changes expected
-3. **QA** — Verify all tests pass, check off M10 acceptance item (ROADMAP:125), ship verdict
+1. **PM (this turn)** — Document the 7 mechanisms that collectively address assumption divergence, add M11 to ROADMAP, scope dev verification charter
+2. **Dev** — Re-run all 7 mechanism test suites (183 tests) to confirm assumption-governance infrastructure is intact, no new code changes expected
+3. **QA** — Verify all tests pass, confirm vision bullet coverage, check off M11 acceptance, ship verdict
 
 ### MVP Scope
 
-**Verification-only.** All M10 code was delivered in run_2e96850371ff1a1c:
+**Verification-only.** No new code. The vision goal "assumptions diverge" is addressed by 7 delivered mechanisms:
 
-1. `cli/src/lib/scope-overlap.js` — `extractScopeFingerprint()`, `computeScopeOverlap()`, `checkIntentScopeOverlap()` (exists)
-2. `cli/src/lib/intake.js` — scope overlap guard in `approveIntent()` at line 901 (exists)
-3. `cli/src/lib/continuous-run.js` — `scope_overlap_detected` handled at lines 1329, 1407, 1493 (exists)
-4. `cli/src/commands/intake-approve.js` — `forceScope` passthrough at line 21 (exists)
-5. `cli/bin/agentxchain.js` — `--force-scope` option at line 1044 (exists)
-6. `cli/test/scope-overlap.test.js` — 10 tests, all passing (verified this turn: 10/10 pass)
+| # | Mechanism | Module | Milestone | Tests |
+|---|-----------|--------|-----------|-------|
+| 1 | Decision ledger with cross-run persistence | `cli/src/lib/repo-decisions.js` | M1 | 39 |
+| 2 | Decision history in dispatch bundles | `cli/src/lib/dispatch-bundle.js` | M3 | 12 |
+| 3 | Coordinator decision ledger writes | `cli/src/lib/governed-state.js` | M1 | 7 |
+| 4 | Named decisions visibility in reports | `cli/src/lib/repo-decisions.js` | M1 | 6 |
+| 5 | Turn-result validator (decision schema + challenge req) | `cli/src/lib/turn-result-validator.js` | MW | 100 |
+| 6 | Scope overlap guard (prevents conflicting work) | `cli/src/lib/scope-overlap.js` | M10 | 12 |
+| 7 | No-edit review normalization (BUG-78 recovery) | `cli/src/lib/turn-result-validator.js` | MW | 7 |
+| | **Total** | | | **183** |
+
+**How these mechanisms prevent assumption divergence:**
+
+1. **Decision recording** — Every turn records structured decisions (DEC-NNN) with category, statement, and rationale. No assumption is implicit.
+2. **Decision persistence** — Decisions with `durability: "repo"` survive across runs via `repo-decisions.jsonl`. An agent in run N+1 sees decisions from run N.
+3. **Decision visibility** — The dispatch bundle renders the last 50 decisions as a markdown table in CONTEXT.md. Every agent sees prior decisions before acting.
+4. **Override authority** — `checkOverrideAuthority()` enforces role-based authority thresholds. An agent cannot silently override a prior decision without explicit authority.
+5. **Challenge requirement** — Review-only roles MUST raise at least one objection (turn-result-validator.js:976). This forces cross-agent assumption checking.
+6. **Scope deconfliction** — M10's scope overlap guard prevents the continuous loop from spawning runs whose charter overlaps recently completed work, preventing conflicting assumptions at the intake level.
+7. **Structured workflow** — SYSTEM_SPEC.md makes assumptions explicit per run. PM_SIGNOFF.md scopes them. QA verifies them. The workflow kit ensures assumptions are written down, not implicit.
 
 ### Out of Scope
 
-- New code changes — all deliverables already exist
-- Changes to any existing module beyond what was delivered in run_2e96850371ff1a1c
+- Active contradiction detection between decisions (semantic analysis) — deferred as future enhancement, not required for vision bullet closure
+- Assumption ledger separate from decisions — the decision system IS the assumption governance system
+- New code changes — all 7 mechanisms already exist and are tested
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | ROADMAP.md:120-124 checked off based on QA evidence | PM verification (this turn) |
-| 2 | `scope-overlap.test.js` 10/10 tests still pass | Dev re-verification |
-| 3 | No regressions in intake/continuous-run suites | Dev regression run |
-| 4 | ROADMAP.md:125 (acceptance) checked off | QA ship verdict |
+| 1 | All 7 mechanism test suites pass (183 tests, 0 failures) | Dev re-verification |
+| 2 | Each mechanism's source file exists and exports expected functions | Dev spot-check |
+| 3 | ROADMAP.md M11 milestone documented with evidence | PM (this turn) |
+| 4 | Vision goal "assumptions diverge" addressed by composition evidence | QA ship verdict |
 
 ### Design Decisions
 
-#### DEC-001: Previous planning artifacts described run_2e96850371ff1a1c — all three rewritten from scratch for run_4f63b0c987a50c73
+#### DEC-001: Previous planning artifacts described run_4f63b0c987a50c73 — all three rewritten from scratch for run_a413eee8dd1891c7, scoped as M11: Assumption Divergence Governance — Vision Closure
 
-The continuous loop opened a new run because ROADMAP items were left unchecked. This run is scoped as verification-only + ROADMAP closure.
+The vision scanner triggered this run for the "assumptions diverge" bullet in VISION.md:32. This bullet is a cross-cutting concern addressed by multiple milestones, not a single deliverable. This run documents and verifies the composition.
 
-#### DEC-002: ROADMAP.md:120-124 checked off based on QA-verified evidence from run_2e96850371ff1a1c
+#### DEC-002: "assumptions diverge" is addressed by 7 delivered mechanisms across M1, M3, M10, and MW — no new code required
 
-QA ship verdict YES (turn_e7504051098fe94b in decision history: 10/10 criteria, 172 tests, 0 failures). PM independently verified all code is in place and 10/10 scope-overlap tests still pass.
+The decision ledger, dispatch context, override authority, challenge requirement, scope overlap guard, and structured workflow collectively prevent assumption divergence. PM independently verified all 183 tests pass (repo-decisions: 39, dispatch-bundle-decision-history: 12, coordinator-decision-ledger: 7, named-decisions-visibility: 6, scope-overlap: 12, turn-result-validator: 100, bug-78-no-edit-review: 7).
 
-#### DEC-003: Dev charter is verification-only — re-run scope-overlap.test.js and representative regression suites, no new code changes expected
+#### DEC-003: Active contradiction detection deferred — not required for vision bullet closure
 
-All M10 code was delivered and QA-verified in the prior run. Dev's role is to confirm tests still pass on the current codebase.
+The existing system prevents divergence through visibility, authority-gated overrides, and mandatory challenge. Semantic contradiction detection (comparing decision statement text for logical conflicts) would add value but is not required to satisfy the vision goal. DOGFOOD-100-TURNS is the current priority per HUMAN-ROADMAP.
+
+#### DEC-004: Dev charter is verification-only — re-run 7 mechanism test suites, no new code expected
+
+All mechanism code was delivered across prior milestones. Dev confirms the infrastructure is intact on the current codebase.
 
 ## Notes for Dev
 
 **Verification-only charter.** No new code changes expected.
 
-Run these test suites:
+Run these 7 test suites:
 ```bash
+cd cli && npx vitest run test/repo-decisions.test.js
+cd cli && npx vitest run test/dispatch-bundle-decision-history.test.js
+cd cli && npx vitest run test/coordinator-decision-ledger.test.js
+cd cli && npx vitest run test/named-decisions-visibility.test.js
 cd cli && npx vitest run test/scope-overlap.test.js
-cd cli && npx vitest run test/intake.test.js
-cd cli && npx vitest run test/continuous-run.test.js
+cd cli && npx vitest run test/turn-result-validator.test.js
+cd cli && npx vitest run test/bug-78-no-edit-review.test.js
 ```
 
-Confirm 10/10 scope-overlap tests pass and no regressions in intake/continuous-run suites.
+Confirm 183 tests pass with 0 failures. Spot-check that key exports exist:
+- `repo-decisions.js`: `readRepoDecisions`, `getActiveRepoDecisions`, `appendRepoDecision`, `overrideRepoDecision`, `validateOverride`, `checkOverrideAuthority`
+- `scope-overlap.js`: `extractScopeFingerprint`, `computeScopeOverlap`, `checkIntentScopeOverlap`
+- `dispatch-bundle.js`: renders `## Decision History` section with repo decisions context
 
 ## Notes for QA
 
-- Verify `scope-overlap.test.js`: 10/10 pass
-- Verify no regressions in intake + continuous-run test suites
-- Check off ROADMAP.md:125 (acceptance) after verification
-- Ship verdict YES if all tests pass and ROADMAP closure is complete
+- Verify all 7 test suites pass (183 tests, 0 failures)
+- Confirm each mechanism addresses an aspect of assumption divergence
+- Check off ROADMAP.md M11 acceptance item after verification
+- Ship verdict YES if all tests pass and vision bullet coverage is demonstrated
 
 ## Acceptance Contract
 
-1. **Roadmap milestone addressed: M10: Cross-Run Scope Overlap Guard** — All 5 delivery items (ROADMAP:120-124) checked off based on QA-verified evidence from run_2e96850371ff1a1c. Acceptance item (ROADMAP:125) reserved for QA.
-2. **Unchecked roadmap item completed** — ROADMAP:120 (`scope-overlap.js` module) verified in place: `cli/src/lib/scope-overlap.js` exists with all 3 exported functions, 10/10 tests pass.
-3. **Evidence source: .planning/ROADMAP.md:120** — Item now checked off with evidence annotation.
+1. **Vision goal addressed: assumptions diverge** — 7 delivered mechanisms collectively prevent assumption divergence through decision recording, cross-run persistence, dispatch-time visibility, authority-gated overrides, mandatory challenge, scope deconfliction, and structured workflow artifacts. All 183 tests pass.
