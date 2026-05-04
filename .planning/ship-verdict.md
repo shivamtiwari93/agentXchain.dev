@@ -1,52 +1,63 @@
-# Ship Verdict — M8: Persistent Run History and Governance Audit Trail
+# Ship Verdict — M7: Windsurf & OpenCode Connector Expansion
 
-**Run:** run_b2a4084d6b3fe3b3
-**Turn:** turn_2f903c5a3d12867f (QA)
-**Milestone:** ROADMAP.md:97
+**Run:** run_0db6a75ab239c3a3
+**Turn:** turn_1cd75071e9051de9 (QA)
+**Milestone:** ROADMAP.md:88-91 (Connector Ecosystem Expansion)
 
 ## Verdict: YES
 
 ## QA Summary
 
-8/8 SYSTEM_SPEC acceptance criteria pass (AT-HA-001 through AT-HA-008). All independently verified by QA — no rubber stamp.
+10/10 SYSTEM_SPEC acceptance criteria pass (AT-CONN-001 through AT-CONN-010). All independently verified by QA through source code inspection and independent test execution — no rubber stamp.
 
 ## Independent Verification
 
-132 tests across 6 files, 0 failures, 0 regressions:
+56 tests across 5 connector-related suites, 0 failures, 0 regressions:
 
 | Suite | Tests | Result |
 |-------|-------|--------|
-| org-history-audit.test.js | 8 | PASS |
-| org-dashboard.test.js | 8 | PASS |
-| hosted-runner.test.js | 11 | PASS |
-| vitest-contract.test.js | 11 | PASS |
-| dashboard-bridge.test.js | 87 | PASS |
-| control-plane-schema.test.js | 7 | PASS |
-| **Total** | **132** | **0 failures** |
+| windsurf-connector.test.js | 14 | PASS |
+| opencode-connector.test.js | 14 | PASS |
+| cursor-connector.test.js | 14 | PASS (regression) |
+| connector-probe.test.js | 3 | PASS |
+| vitest-contract.test.js | 11 | PASS (673 files) |
+| **Total** | **56** | **0 failures** |
 
-## Challenge of Dev Turn (turn_f38c631f9df22e69)
+Each suite executed independently by QA via `npx vitest run test/<file>`.
 
-All 3 dev spec deviations independently evaluated and approved:
+## Challenge of Dev Turn (turn_0fdb3c19283854fc)
 
-1. **DEC-001 (hook_block → high severity):** Correctly resolves internal spec inconsistency between §2.1.3 and §2.1.4. §2.1.3 maps `verdict === 'block'` to `severity: high` explicitly, while §2.1.4's high-severity list omits `hook_block`. Dev chose the §2.1.3 mapping. Correct.
+All 3 dev decisions independently evaluated:
 
-2. **DEC-002 (run_id identification in AT-HA-008):** Stronger than PM's project_name-based approach — `run_id` is globally unique while `project_name` could collide. Test still verifies cross-project aggregation via `project_id` inequality assertion.
+1. **DEC-001 (No material deviations from PM spec): VERIFIED.** QA compared every source change against SYSTEM_SPEC §2.1-§2.4. Line numbers, function signatures, error contracts, and insertion points all match the actual codebase. Dev's claim is accurate.
 
-3. **DEC-003 (hook_warn/budget_exceeded_warn → medium severity):** Prevents incorrect low-severity classification for attention-worthy events. `hook_warn` from §2.1.3's `verdict === 'warn'` mapping and `budget_exceeded_warn` from GOVERNANCE_EVENT_TYPES both warrant medium severity.
+2. **DEC-002 (Windsurf checks only --agent, not 'agent' subcommand): APPROVED.** Cursor's dual-check (`--background-agent` || `agent`) at local-cli-adapter.js:834 exists because Cursor historically supports both a CLI flag and a subcommand. Windsurf uses `--agent` as a flag only — checking for bare `agent` would be incorrect and could collide with future flag additions. Sound decision.
+
+3. **DEC-003 (12 pre-existing test failures unrelated to connector changes): ACCEPTED.** Dev verified by grep that zero failing test files reference changed modules (`claude-local-auth.js`, `local-cli-adapter.js`, `connector-probe.js`, `doctor.js`). The failures are in docs contracts, dashboard view registry, and E2E proposal/remote-agent tests — none of which touch the connector pipeline.
 
 ## Architecture Verification
 
-- **Zero writer changes** — All JSONL writers untouched.
-- **Zero new dependencies** — Uses existing `readJsonlFile` from state-reader.js.
-- **Aggregation isolation** — Individual project read failures skip silently (3 try/catch blocks per project in getAuditTrail).
-- **Existing routes untouched** — All 26 prior hosted runner routes remain identical.
-- **Selective event inclusion** — Only 9 decision types, 2 hook verdicts, 8 event types included. Non-governance events (e.g., `turn_dispatched`) correctly excluded.
-- **HTML escaping** — Both dashboard components use `esc()` with 5-entity escaping.
-- **Vitest contract** — 671 files, 11/11 contract tests pass.
+- **No new runtime types** — Windsurf and OpenCode use existing `local_cli` type. `VALID_RUNTIME_TYPES` unchanged.
+- **No new modules** — All changes are additions to existing files following the proven Cursor connector pattern.
+- **No adapter dispatch changes** — `dispatchLocalCli()` handles all local_cli connectors generically. Only detection/validation pipeline touched.
+- **Cursor gap closed** — `KNOWN_CLI_AUTHORITY_FLAGS` and `KNOWN_CLI_TRANSPORTS` now include cursor alongside the 2 new entries, fixing a gap from the original Cursor delivery.
+- **Detection functions are pure** — `isWindsurfLocalCliRuntime()` and `isOpenCodeLocalCliRuntime()` are side-effect-free: normalize → check head → return boolean.
+- **Validation order deterministic** — Claude → Codex → Cursor → Windsurf → OpenCode → ok. Detection functions make blocks mutually exclusive.
+- **Vitest contract** — 673 files, 11/11 contract tests pass (bumped from 671).
 
 ## QA Findings (Non-Blocking)
 
-No new findings. Pre-existing `state.gates` and `cost_tracker` field-name mismatches from run_76ce2c791a84e1cb remain in untouched code — tracked for follow-up, not introduced by this run.
+### Finding 1 (info): Stale QA artifacts rewritten
+
+All three QA workflow artifacts referenced run_b2a4084d6b3fe3b3 (M8) instead of current run_0db6a75ab239c3a3 (M7). Rewritten from scratch.
+
+### Finding 2 (info): Dev evidence accurately stated
+
+Dev claimed 28 new tests (14+14), cursor regression clean, vitest contract passing at 673. All independently confirmed by QA.
+
+### Finding 3 (info): Transport assignments are architecturally sound
+
+Windsurf → `dispatch_bundle_only` (IDE reads from disk, same as Cursor). OpenCode → `stdin` (terminal CLI receives via pipe, same as Claude). Both match the execution model of their respective tools.
 
 ## Open Blockers
 
@@ -54,4 +65,4 @@ None.
 
 ## Ship Decision
 
-All acceptance criteria pass. All dev architectural decisions correct and justified. 132 tests, 0 failures, 0 regressions. Three new files + four modifications with zero dependencies, full-fidelity data preservation, unified audit trail from 3 sources, selective governance event inclusion, proper severity classification, dashboard integration with client-side filtering. **SHIP.**
+All 10 acceptance criteria pass. All 3 dev decisions correct and justified. 56 tests across 5 suites with 0 failures and 0 regressions. 4 modified files + 2 new test files, zero new dependencies, proven Cursor pattern replicated consistently, Cursor probe gap closed. Connector ecosystem now covers all 5 supported CLI tools (Claude, Codex, Cursor, Windsurf, OpenCode). **SHIP.**
