@@ -1,10 +1,10 @@
-# PM Signoff — Release v2.155.73 to npm and Homebrew
+# PM Signoff — Turn-Level Cost Tracking for local_cli Runtimes
 
 Approved: YES
 
-**Run:** `run_ada69e8852f7487d`
+**Run:** `run_9a37a5dc395bc9b8`
 **Phase:** planning
-**Turn:** `turn_0ea48581670cf4c2`
+**Turn:** `turn_f3f268bc50a840d9`
 **Date:** 2026-05-02
 
 ## Discovery Checklist
@@ -17,130 +17,125 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators and downstream consumers who install via `npm install -g agentxchain` or `brew install shivamtiwari93/tap/agentxchain`. 185+ commits have accumulated since v2.155.72 (2026-04-30) with significant recovery, resilience, and observability improvements that are not yet available on the public registry.
+AgentXchain operators running governed sessions with `local_cli` runtimes (e.g., `claude --print --output-format stream-json --verbose`). Currently every local_cli turn reports `cost: {input_tokens: 0, output_tokens: 0, usd: 0}` regardless of actual API spend, making budget tracking and governance reports inaccurate.
 
 ### Core Pain Point
 
-v2.155.72 is published but does not include the recovery classification system, PID liveness guard for crash resume, ghost blocker session checkpoint fix, configurable per-turn deadlines, or intake persistence. Users running governed sessions encounter these issues without the fixes unless they build from source.
+The `api_proxy` adapter tracks cost accurately (token-level telemetry from API responses), but the `local_cli` adapter — the most common runtime for Claude Code and Codex — reports zero cost because the agent subprocess doesn't know its own API spend. This means:
+
+1. **Budget tracking is broken**: `budget_status.spent_usd` stays at `$0.00` across entire runs that consume real money
+2. **Governance reports lack cost data**: `computeCostSummary()` reports `$0.00 across N turns (0 with cost data)` for local_cli-only runs
+3. **Budget guards can't enforce limits**: `per_run_max_usd` budget policies never trigger because observed spend is always zero
+4. **Operator blind spot**: No visibility into per-turn or per-role cost during active sessions
 
 ### Root Cause
 
-Normal release cadence gap — 186 commits (806 files, 9,336 insertions, 1,928 deletions) accumulated since the v2.155.72 tag without a release cut.
+The `local_cli` adapter (`cli/src/lib/adapters/local-cli-adapter.js`) spawns a subprocess and captures stdout, but treats stdout as opaque log data. Claude CLI's `--output-format stream-json` emits structured JSON events to stdout that include cost and usage telemetry — specifically `result` events with `cost_usd`, `total_cost_usd`, and `usage: {input_tokens, output_tokens}` — but the adapter doesn't parse these.
+
+Meanwhile, the agent writes its own turn-result.json with `cost: {input_tokens: 0, output_tokens: 0, usd: 0}` because it doesn't have access to API billing data. The acceptance path at `governed-state.js:5303` reads `turnResult.cost?.usd || 0` and gets zero.
 
 ### Core Workflow
 
-1. **PM (this turn)** — Charters dev with the pre-publish release prep sequence, using the established `release-bump.sh` (not raw `npm version patch`)
-2. **Dev** — Prepares all 14 release-alignment surfaces (CHANGELOG, release notes, version refs, marketing drafts), then runs `release-bump.sh` to create local release identity (commit + annotated tag)
-3. **QA** — Verifies release identity is correct: tag exists, package.json shows 2.155.73, CHANGELOG is accurate, preflight passes
-4. **Human** — Pushes tag (`git push origin main --follow-tags`), waits for CI (`publish-npm-on-tag.yml`), runs post-publish verification and marketing
+1. **PM (this turn)** — Charter dev with stream-json cost parser + adapter integration + acceptance-time override
+2. **Dev** — Implements the parser module, hooks it into the adapter, extends dispatch-progress with live cost, adds acceptance-time override, writes tests
+3. **QA** — Verifies cost parsing against realistic stream-json fixtures, confirms budget tracking reflects parsed cost, validates governance report accuracy
 
 ### MVP Scope (this run)
 
 **PM deliverables (this turn):**
-1. PM_SIGNOFF.md: Release planning with dev charter
-2. SYSTEM_SPEC.md: Release specification with file-level scope for all 14 alignment surfaces + release-bump.sh execution
-3. ROADMAP.md: Phases table updated for release run
+1. PM_SIGNOFF.md: Feature planning with dev charter
+2. SYSTEM_SPEC.md: Technical specification with module boundaries, data flow, and acceptance tests
+3. ROADMAP.md: Phases table updated for cost tracking run
 
 **Dev deliverables:**
-1. CHANGELOG.md entry for v2.155.73 (aggregate evidence line required)
-2. Release notes page: `website-v2/docs/releases/v2-155-73.mdx`
-3. All 14 release-alignment surfaces updated to reference v2.155.73
-4. Run `release-bump.sh --target-version 2.155.73` (creates commit + tag + runs inline preflight)
-
-**Human deliverables (post-QA):**
-1. `git push origin main --follow-tags` (triggers CI publish)
-2. Wait for `publish-npm-on-tag.yml` to complete
-3. `bash cli/scripts/verify-post-publish.sh --target-version 2.155.73`
-4. `bash marketing/post-release.sh "v2.155.73" "Recovery classification, crash resume PID guard, ghost blocker fix, configurable deadlines"`
+1. `cli/src/lib/stream-json-cost-parser.js` — New pure-function module that parses Claude CLI stream-json events and accumulates cost/usage data
+2. `local-cli-adapter.js` integration — Hook parser into stdout handler when stream-json mode is detected; return accumulated cost in dispatch result
+3. `dispatch-progress.js` extension — Add `cost` field to progress state for live cost visibility
+4. `governed-state.js` cost override — When adapter reports non-zero cost and turn result reports zero, use adapter-observed cost at acceptance time
+5. `step.js` plumbing — Pass adapter cost data through to acceptance flow
+6. Tests — Parser unit tests + adapter integration tests + acceptance override tests
 
 ### Out of Scope
 
-- Running `npm publish` manually (CI-only trusted publishing)
-- Code changes — this is a release cut, all features are already merged
-- Homebrew SHA update (handled automatically by CI workflow and sync-homebrew.sh)
-- Creating the GitHub Release (handled by CI workflow)
-- Any feature work from ROADMAP.md M5+ milestones
+- Parsing non-Claude CLIs (Codex, Gemini) — can be added later with the same parser pattern
+- Retroactive cost backfill for historical turns
+- Cost alerting or budget-exceeded notifications (existing `budget_exceeded_warn` event handles this once cost data flows)
+- Extracting `BUNDLED_COST_RATES` to a shared module — import from `api-proxy-adapter.js` (already exported)
+- Changes to `computeCostSummary()` or report rendering — these already handle non-zero cost correctly; they just need non-zero input data
+- Parsing cost from non-stream-json output (plain text mode)
 
 ### Success Metric
 
 Maps directly to the acceptance contract:
 
-| # | Acceptance Item | Verified By | Owner |
-|---|----------------|-------------|-------|
-| 1 | `npm view agentxchain version` returns `2.155.73` | CI publish-npm-on-tag.yml + human `npm view` check | CI + Human |
-| 2 | Homebrew formula updated with correct SHA | CI sync-homebrew.sh step + verify-post-publish.sh step 3 | CI + Human |
-| 3 | `verify-post-publish.sh` passes | Human runs `bash cli/scripts/verify-post-publish.sh --target-version 2.155.73` | Human |
-| 4 | Release notes posted to social channels | Human runs `bash marketing/post-release.sh` | Human |
-
-**Items 1-3 cannot be verified until after CI completes.** Dev's responsibility ends at creating a correct local release identity. QA validates the pre-publish state. Human handles push and post-publish verification.
+| # | Acceptance Item | Verified By |
+|---|----------------|-------------|
+| 1 | `stream-json-cost-parser.js` correctly extracts `{input_tokens, output_tokens, usd}` from Claude CLI `result` events | Unit tests with realistic fixtures |
+| 2 | `local-cli-adapter.js` returns non-zero cost in dispatch result when subprocess emits cost events | Integration test with mock subprocess |
+| 3 | `dispatch-progress.json` includes live `cost` field during dispatch | Progress tracker unit test |
+| 4 | Accepted turn's `budget_status.spent_usd` reflects adapter-observed cost when agent reports zero | Acceptance flow integration test |
+| 5 | Governance report `computeCostSummary()` renders non-zero cost for local_cli turns | Report test with cost-enriched history |
 
 ### Risk Assessment
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Release-alignment surfaces are stale | Medium | `check-release-alignment.mjs` gates release-bump.sh — 14 surfaces must be updated first |
-| Test suite failure during inline preflight | Medium | Dev runs full suite before bump; release-bump.sh re-runs as gate |
-| CI publish fails | Low | publish-npm-on-tag.yml has retry logic and idempotent re-run support |
-| Homebrew tap push fails (missing HOMEBREW_TAP_TOKEN) | Low | CI checks token availability before first publish; canonical tap push is gated |
-| Marketing post fails (missing API tokens) | Low | post-release.sh reports per-channel pass/fail; partial success is acceptable |
+| Claude CLI stream-json format changes | Low | Parser validates event shape defensively; unknown events are ignored |
+| Non-JSON stdout lines from verbose mode | Low | Parser wraps `JSON.parse` in try/catch; non-JSON lines are skipped |
+| Cost override suppresses legitimate agent-reported cost | Low | Override only activates when agent reports zero; non-zero agent cost is always preserved |
+| Multi-turn Claude sessions emit multiple result events | Low | Parser accumulates across all events; `total_cost_usd` from final result is preferred when available |
+| Performance impact of per-line JSON parsing | Low | Only activated for stream-json runtimes; parsing is O(1) per line |
 
 ## Challenge to Previous Work
 
 ### OBJ-PM-001: Previous planning artifacts describe a different feature (severity: high)
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe "M4: Checkpoint-Restore Verification" from run `run_da40a332eed44f56`. This run's intent is a release cut for v2.155.73. All three artifacts have been rewritten from scratch.
-
-### OBJ-PM-002: Intent's release sequence is simplified vs established infrastructure (severity: medium)
-
-The intent prescribes `cd cli && npm version patch` + manual `git tag v2.155.73`. The codebase has `release-bump.sh` with 10 steps: tree validation, release-alignment check, Homebrew auto-alignment, version bump, commit creation, inline preflight (tests + pack + docs build), and annotated tag creation. Dev charter uses release-bump.sh to get the full safety net.
-
-### OBJ-PM-003: Post-publish acceptance items require human action (severity: medium)
-
-Acceptance items 1-4 all require the tag to be pushed to remote and CI to complete. Dev and QA can only verify pre-publish correctness. The turn result will explicitly note which acceptance items are human-gated.
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md all describe the v2.155.73 release cut from run `run_ada69e8852f7487d`. This run's intent is "Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)" from ROADMAP.md:63. All three artifacts have been rewritten from scratch.
 
 ## Notes for Dev
 
-**Your charter is release prep + release-bump.sh execution. No code changes.**
+**Your charter is a new stream-json cost parser + adapter integration. 6 code changes + tests.**
 
-1. **Update all 14 release-alignment surfaces** per SYSTEM_SPEC.md Section 2. The `check-release-alignment.mjs --scope prebump --target-version 2.155.73` command must report 0 needing update before release-bump.sh will succeed.
+1. **Create `cli/src/lib/stream-json-cost-parser.js`**: A pure-function module that:
+   - Exports `createStreamJsonCostAccumulator()` returning an accumulator object
+   - `accumulator.processLine(line)` — parses a single stdout line, extracts cost if present
+   - `accumulator.getCost()` — returns `{input_tokens, output_tokens, usd}` or null if no cost data seen
+   - Recognizes Claude CLI `result` events: `{"type": "result", ..., "cost_usd": N, "usage": {input_tokens, output_tokens}}`
+   - Defensively ignores non-JSON lines and unknown event types
+   - Uses `getCostRates` from `api-proxy-adapter.js` as fallback when event has tokens but no USD
 
-2. **Run `bash cli/scripts/release-bump.sh --target-version 2.155.73 --coauthored-by "Claude Opus 4.6 <noreply@anthropic.com>"`** which will:
-   - Validate tree state (only allowed release paths dirty)
-   - Check release alignment (all 14 surfaces)
-   - Auto-align Homebrew mirror URL (SHA carried from previous version — post-publish truth)
-   - Bump package.json + package-lock.json to 2.155.73
-   - Create release commit with message `2.155.73`
-   - Run inline preflight: full test suite + npm pack dry-run + docs build
-   - Create annotated tag `v2.155.73`
+2. **Hook parser into `local-cli-adapter.js`**:
+   - At dispatch start: detect stream-json mode (reuse existing `usesStreamJson` check at line 765)
+   - If stream-json: create accumulator, feed each stdout chunk to `accumulator.processLine()` (split on newlines)
+   - On dispatch completion: include `accumulator.getCost()` in the result object as `cost` field
 
-3. **Do NOT push to remote.** That is a human action after QA approval.
+3. **Extend `dispatch-progress.js`**:
+   - Add optional `cost` field to progress state
+   - Update `onOutput()` or add `onCost()` method to progress tracker
+   - Live cost visible in `agentxchain status` during dispatch
 
-4. **Key features to highlight in CHANGELOG and release notes:**
-   - Recovery classification system (emitRunEvent enrichment + governance report rendering)
-   - PID liveness guard for crash resume (`step --resume` rejects alive workers)
-   - Ghost blocker session checkpoint fix (clearGhostBlockerAfterReissue persistence)
-   - Configurable per-turn deadline (dispatch timeout from per_turn_minutes)
-   - Intake persistence (intent/event intake survives restarts)
-   - Claude Node incompatibility recovery (BUG-113)
-   - Claude auth refreshed recovery (BUG-114)
-   - Claude provider timeout recovery (BUG-112)
-   - Retained Claude auth reclassification (BUG-111)
-   - DOGFOOD-100 shipped npx entrypoint
+4. **Add cost override in `governed-state.js`**:
+   - Near line 5303 where `costUsd = turnResult.cost?.usd || 0`: check for adapter-reported cost
+   - If adapter cost is non-zero and turn result cost is zero, use adapter cost
+   - Store override provenance in history entry: `cost_source: 'adapter_stream_json'` vs `'turn_result'`
+
+5. **Plumb adapter cost through `step.js`**:
+   - After `dispatchLocalCli()` returns, extract `cliResult.cost` and pass it to the acceptance path
+   - Display adapter-observed cost in CLI output: `Tokens: N in / N out ($X.XX from stream-json)`
+
+6. **Tests**: See SYSTEM_SPEC.md Acceptance Tests section for specific test cases.
 
 ## Notes for QA
 
-- Verify `v2.155.73` tag exists locally: `git rev-parse v2.155.73`
-- Verify tag is annotated: `git cat-file -t v2.155.73` should be `tag`
-- Verify package.json shows `2.155.73`
-- Verify CHANGELOG.md has `## 2.155.73` with aggregate evidence line
-- Verify release notes page exists at `website-v2/docs/releases/v2-155-73.mdx`
-- Verify `check-release-alignment.mjs --scope prebump --target-version 2.155.73` reports 0 needing update
-- Verify `npm run test` passes (release-bump.sh already ran this, but QA should re-verify)
-- **Do NOT push to remote** — that is human-gated
+- Verify parser handles edge cases: empty lines, partial JSON, non-result events, multiple result events
+- Verify cost override only fires when agent reports zero (not when agent reports non-zero)
+- Verify `dispatch-progress.json` shows live cost accumulation during dispatch
+- Verify governance report `computeCostSummary()` includes adapter-sourced cost
+- Verify budget_status.spent_usd increments correctly across multiple turns
+- Run full test suite: `cd cli && npm test`
 
 ## Acceptance Contract
 
-1. **npm view returns 2.155.73** — Human-gated: requires push + CI. Dev creates correct local release identity.
-2. **Homebrew formula updated with correct SHA** — Human-gated: requires post-publish sync. Dev's release-bump auto-aligns URL; SHA is post-publish truth.
-3. **verify-post-publish.sh passes** — Human-gated: requires npm publish to have completed. Dev ensures script exists and pre-publish state is correct.
-4. **Release notes posted to social channels** — Human-gated: `marketing/post-release.sh` requires API tokens. Dev ensures marketing drafts are updated.
+1. **Roadmap milestone addressed: M4: Recovery & Resilience Hardening** — ROADMAP.md:59
+2. **Unchecked roadmap item completed: Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)** — ROADMAP.md:63
+3. **Evidence source: .planning/ROADMAP.md:63** — Item will be checked off after QA ship approval

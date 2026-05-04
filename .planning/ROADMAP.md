@@ -95,6 +95,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Release v2.155.73: charter dev with release-alignment surface updates + release-bump.sh execution | In Progress (`run_ada69e8852f7487d`) |
-| Implementation | Dev updates 14 release-alignment surfaces, runs release-bump.sh to create local release identity (commit + annotated tag v2.155.73) | Pending |
-| QA | Verify local release identity: tag exists, package.json correct, CHANGELOG accurate, alignment surfaces green, preflight passes | Pending |
+| Planning | Charter dev with stream-json cost parser, local-cli-adapter integration, acceptance-time cost override, and dispatch-progress live cost | Complete (`run_9a37a5dc395bc9b8`) |
+| Implementation | Implement `stream-json-cost-parser.js`, hook into adapter stdout, extend dispatch-progress, add acceptance cost override in governed-state, plumb through step.js | Pending |
+| QA | Verify cost parsing accuracy, budget tracking reflects adapter cost, governance reports render non-zero cost for local_cli turns, full test suite green | Pending |

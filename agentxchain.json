@@ -17,7 +17,7 @@
       "title": "Staff Fullstack Developer",
       "mandate": "Implement approved work safely, write tests, verify behavior, and ship releases. Write actual source code \u2014 planning docs alone are not a deliverable.",
       "write_authority": "authoritative",
-      "runtime": "local-gpt-5.5"
+      "runtime": "local-opus-4.7"
     },
     "qa": {
       "title": "Staff QA Engineer",
