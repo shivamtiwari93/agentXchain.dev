@@ -1,73 +1,71 @@
-# Implementation Notes — M7: Per-Connector Governed Turn E2E Validation
+# Implementation Notes — M8: Control Plane API Design
 
-**Run:** `run_f89a47c58f54929c`
-**Turn:** `turn_548c173db537029e`
+**Run:** `run_8140752664578eb2`
+**Turn:** `turn_16de2da8ae62750c`
 **Role:** dev
 **Date:** 2026-05-04
 
 ## What Was Built
 
-Added Codex and Cursor governed turn E2E tests to `connector-validate-command.test.js`, completing per-connector E2E coverage for all three `local_cli` connector flavors.
+Delivered the machine-readable control plane API contract and protocol bridge proving composability for HTTP consumption. Three new files: OpenAPI 3.1 specification (29 operations), protocol bridge module (15 exports + 5 error classes), and schema compatibility tests (7 tests).
 
 ## Changes
 
-**`cli/test/connector-validate-command.test.js`** — 2 new shim helpers + 2 new E2E tests:
+**`api/v1/control-plane.openapi.yaml`** — New OpenAPI 3.1 specification:
+- 29 operations across 6 tags (tenancy, runs, turns, approvals, audit, webhooks)
+- 12 component schemas (Organization, Workspace, WorkspacePolicy, Project, Run, Turn, Decision, Gate, Event, AuditEntry, Error, PaginatedList)
+- 2 security schemes (api_key X-API-Key header, bearer_auth JWT)
+- 6 path parameters, 2 pagination query parameters (cursor, limit)
+- 8 reusable error response components (400–500)
+- RBAC annotations via `x-required-role` extension on every operation
+- Cursor-based pagination on all list endpoints per frozen spec behavior rule 4
 
-1. `writeCodexShim(root, contents)` — creates `shim-bin/codex` with chmod 0o755
-2. `writeCursorShim(root, contents)` — creates `shim-bin/cursor` with chmod 0o755
-3. **AT-CCV-009** — Codex governed turn E2E: config `['codex', 'exec', '--json']` + `dispatch_bundle_only` → shim reads `ASSIGNMENT.json`, writes `turn-result.json` → `connector validate` returns `overall: 'pass'`
-4. **AT-CCV-010** — Cursor governed turn E2E: config `['cursor', '--background-agent']` + `dispatch_bundle_only` → shim reads `ASSIGNMENT.json`, writes `turn-result.json` → `connector validate` returns `overall: 'pass'`
+**`cli/src/lib/api/protocol-bridge.js`** — New protocol bridge module:
+- 15 exported functions wrapping runner-interface.js and related modules
+- 5 typed error classes: ProtocolError, NotFoundError, ValidationError, AuthorizationError, ConflictError
+- `@state-provider` JSDoc annotations on every filesystem operation documenting cloud replacement seams
+- No HTTP objects — pure protocol-to-protocol adapter
+- Internal pagination helper for JSONL-based cursoring
 
-### Design Decisions
+**`cli/test/control-plane-schema.test.js`** — New schema compatibility tests:
+- AT-CP-SCHEMA-001: OpenAPI 3.1 structural validity
+- AT-CP-SCHEMA-002: 29 frozen-spec endpoint coverage
+- AT-CP-SCHEMA-003: Run schema matches state.json structure
+- AT-CP-SCHEMA-004: Turn schema matches history.jsonl entry structure
+- AT-CP-SCHEMA-005: Decision schema matches decision-ledger.jsonl entry structure
+- AT-CP-SCHEMA-006: Bridge export coverage (8 mutating + 7 read + 5 error classes)
+- AT-CP-SCHEMA-007: No governance-affecting fields in cloud-only metadata
 
-- Added tests to existing `connector-validate-command.test.js` rather than creating a new file — keeps all connector validate E2E tests in one place and avoids vitest contract file count update.
-- Codex/Cursor shims are simpler than the Claude shim (AT-CCV-007) — no stdin handling needed since both use `dispatch_bundle_only` transport, and no auth smoke probe handling since `getClaudeSubprocessAuthIssue()` returns `null` for non-Claude runtimes.
-- Both shims handle the spawn probe gracefully by exiting cleanly when `AGENTXCHAIN_TURN_ID` is empty.
+**`cli/test/vitest-contract.test.js`** — Updated file count 667 → 668.
+
+**`cli/package.json`** — Added `js-yaml` as devDependency for test YAML parsing.
 
 ### PM Charter Challenge
 
-- PM DEC-002 (dev scope is 2 new E2E tests, no pipeline code changes): **Confirmed correct.** Pipeline already supports all `local_cli` runtimes.
-- PM DEC-003 (ROADMAP.md:87 check-off in QA): **Agreed.** Cursor E2E (AT-CCV-010) now provides the validation evidence for check-off.
+Three errors found in PM's SYSTEM_SPEC:
+
+1. **OBJ-DEV-001 (medium): `buildExportArtifact` does not exist.** PM SYSTEM_SPEC §2.2 says `exportRun` wraps `buildExportArtifact`. Actual export: `buildRunExport(startDir, exportOpts)` in `export.js:463`. Bridge wraps `buildRunExport` instead.
+
+2. **OBJ-DEV-002 (medium): `restartFromCheckpoint` does not exist.** PM SYSTEM_SPEC §2.2 and §3.3 say bridge wraps `restartFromCheckpoint` from `turn-checkpoint.js`. Only `detectPendingCheckpoint` and `checkpointAcceptedTurn` are exported. Protocol layer has no restart primitive. Bridge has 15 exports (not 16). The `restartRun` OpenAPI endpoint is documented as design-only until the protocol adds the primitive.
+
+3. **OBJ-DEV-003 (low): Run Lifecycle count mismatch.** PM header says "9 operations" but table has 8 rows. Frozen spec implies a 29th endpoint `GET /v1/workspaces/{ws_id}/webhooks` (list webhooks). Added as `listWebhooks` under webhooks tag (2 webhook operations) to reach 29 total.
+
+### Design Decisions
+
+- **Test file placement:** PM chartered `cli/test/api/control-plane-schema.test.js` but `vitest-contract.test.js:108` hygiene rule only allows `fixtures` and `beta-tester-scenarios` directories in `cli/test/`. Placed test at `cli/test/control-plane-schema.test.js` instead to avoid modifying hygiene constraints.
+- **Bridge drops restartFromCheckpoint:** Since the underlying protocol primitive doesn't exist, including a stub would falsely claim composability. The OpenAPI endpoint exists for API design completeness with a note that the bridge will add the function when the protocol does.
 
 ## Verification
 
 | Test File | Tests | Result |
 |-----------|-------|--------|
-| `connector-validate-command.test.js` | 12 | All pass |
-| `connector-validate.test.js` | (included in broader run) | Pass |
-| `connector-probe.test.js` | (included in broader run) | Pass |
-| `local-cli-adapter.test.js` | (included in broader run) | Pass |
-| `cursor-connector.test.js` | 14 | All pass |
-| `vitest-contract.test.js` | 11 | All pass |
+| `control-plane-schema.test.js` | 7 | 7/7 pass |
+| `vitest-contract.test.js` | 11 | 11/11 pass |
+| `governed-state.test.js` | (included in broader run) | Pass |
+| `runner-interface.test.js` | (included in broader run) | Pass |
+| `turn-checkpoint.test.js` | (included in broader run) | Pass |
+| `export.test.js` | (included in broader run) | Pass |
+| `run-events.test.js` | (included in broader run) | Pass |
+| **Total targeted** | **248** | **248/248 pass** |
 
 Full suite deferred to QA.
-
-## QA Verification (turn_d9ed8684dd317bb7)
-
-**Role:** qa | **Runtime:** local-opus-4.6 | **Date:** 2026-05-04
-
-### Gate Fix
-
-Dev used `### Changes` (h3) but `workflow-gate-semantics.js:210` requires `## Changes` (h2). Fixed heading level to satisfy `implementation_complete` gate.
-
-### Targeted Test Evidence
-
-| Test File | Tests | Result |
-|-----------|-------|--------|
-| `connector-validate-command.test.js` | 12 | 12/12 pass |
-| `vitest-contract.test.js` | 11 | 11/11 pass |
-| `connector-validate.test.js` + `connector-probe.test.js` + `local-cli-adapter.test.js` | 49 | 49/49 pass |
-| `cursor-connector.test.js` | 14 | 14/14 pass |
-| `turn-result-validator.test.js` + `governed-state.test.js` + `step-command.test.js` | 233 | 233/233 pass |
-| `workflow-gate-semantics.test.js` | 52 | 52/52 pass |
-| `run-events.test.js` + `continuous-run.test.js` | 103 | 103/103 pass |
-| **Total** | **474** | **474/474 pass** |
-
-### Acceptance Criteria Verified
-
-- [x] Codex shim binary completes a governed turn through `connector validate` with `overall: 'pass'` (AT-CCV-009)
-- [x] Cursor shim binary completes a governed turn through `connector validate` with `overall: 'pass'` (AT-CCV-010)
-- [x] Claude E2E (AT-CCV-007) still passes (regression)
-- [x] All existing connector validate tests pass (regression, 12/12)
-- [x] Vitest contract passes (file count unchanged, 11/11)
-- [x] All 7 assertion checklist items per test verified (exit code, overall, schema_contract, dispatch, validation, runtime_id, role_id)
