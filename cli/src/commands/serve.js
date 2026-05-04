@@ -8,7 +8,7 @@
  *   agentxchain serve [--port 4100] [--host 127.0.0.1] [--project <path>]
  */
 
-import { resolve } from 'path';
+import { resolve } from 'node:path';
 import { findProjectRoot, loadProjectContext } from '../lib/config.js';
 import { createHostedRunner } from '../lib/api/hosted-runner.js';
 
@@ -36,11 +36,18 @@ export async function serveCommand(opts) {
   const port = parseInt(opts.port || '4100', 10);
   const host = opts.host || '127.0.0.1';
 
+  const additionalProjects = (opts.projects || '')
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => resolve(p));
+
   const runner = createHostedRunner({
     root,
     config: ctx.config,
     port,
     host,
+    projects: additionalProjects,
   });
 
   await runner.start();

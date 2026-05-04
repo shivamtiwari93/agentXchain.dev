@@ -12,9 +12,12 @@
  */
 
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, existsSync } from 'node:fs';
+import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { createProjectRegistry } from './project-registry.js';
+import { createOrgAggregator } from './org-state-aggregator.js';
 
 import {
   createRun, getRunState, listRuns, cancelRun,
@@ -68,7 +71,7 @@ function matchRoute(pattern, pathname) {
 
 // ── Route Table ───────────────────────────────────────────────────────────────
 
-function buildRoutes(root, config, queue) {
+function buildRoutes(root, config, queue, registry, aggregator) {
   return [
     {
       method: 'GET',
@@ -213,7 +216,93 @@ function buildRoutes(root, config, queue) {
         return { status: 200, body: { data: result } };
       },
     },
+    // ── Org Routes ──────────────────────────────────────────────────────────
+    {
+      method: 'POST',
+      pattern: '/v1/org/projects',
+      handler: (_params, body) => {
+        if (!body?.root) {
+          return { status: 422, body: { error: { code: 'validation_error', message: 'root is required' } } };
+        }
+        try {
+          const entry = registry.register(body.root, body.name);
+          return { status: 201, body: { data: entry } };
+        } catch (err) {
+          return { status: 422, body: { error: { code: 'validation_error', message: err.message } } };
+        }
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/v1/org/projects',
+      handler: () => {
+        return { status: 200, body: { data: registry.list() } };
+      },
+    },
+    {
+      method: 'DELETE',
+      pattern: '/v1/org/projects/:proj_id',
+      handler: (params) => {
+        registry.unregister(params.proj_id);
+        return { status: 200, body: { ok: true } };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/v1/org/overview',
+      handler: () => {
+        return { status: 200, body: { data: aggregator.getOverview() } };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/v1/org/runs',
+      handler: (_params, _body, query) => {
+        return { status: 200, body: aggregator.getRuns(query) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/v1/org/decisions',
+      handler: (_params, _body, query) => {
+        return { status: 200, body: aggregator.getDecisions(query) };
+      },
+    },
   ];
+}
+
+// ── Static File Serving ──────────────────────────────────────────────────────
+
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+};
+
+function getDashboardDir() {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  return join(__dirname, '..', '..', '..', 'dashboard');
+}
+
+function serveDashboardFile(pathname, res) {
+  const dashDir = getDashboardDir();
+  const filePath = pathname === '/' ? join(dashDir, 'index.html') : join(dashDir, pathname.slice(1));
+
+  // Prevent directory traversal
+  if (!filePath.startsWith(dashDir)) return false;
+  if (!existsSync(filePath)) return false;
+
+  try {
+    const content = readFileSync(filePath);
+    const ext = extname(filePath);
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(content);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ── Error → HTTP Status Mapping ───────────────────────────────────────────────
@@ -291,7 +380,8 @@ function parseQuery(url) {
  * @param {object} options.config - normalized config
  * @param {number} [options.port=4100] - server port
  * @param {string} [options.host='127.0.0.1'] - bind address
- * @returns {{ server: http.Server, start(): Promise<void>, stop(): Promise<void>, worker: object, queue: object }}
+ * @param {string[]} [options.projects=[]] - additional project root paths
+ * @returns {{ server: http.Server, start(): Promise<void>, stop(): Promise<void>, worker: object, queue: object, registry: object }}
  */
 export function createHostedRunner(options) {
   const {
@@ -299,11 +389,18 @@ export function createHostedRunner(options) {
     config,
     port = 4100,
     host = '127.0.0.1',
+    projects = [],
   } = options;
 
   const queue = createJobQueue();
   const worker = createExecutionWorker({ root, config, queue });
-  const routes = buildRoutes(root, config, queue);
+
+  const registry = createProjectRegistry(root);
+  for (const projRoot of projects) {
+    try { registry.register(projRoot); } catch { /* skip invalid */ }
+  }
+  const aggregator = createOrgAggregator(registry);
+  const routes = buildRoutes(root, config, queue, registry, aggregator);
 
   const server = createServer(async (req, res) => {
     const pathname = req.url.split('?')[0];
@@ -324,6 +421,10 @@ export function createHostedRunner(options) {
     }
 
     if (!matched) {
+      // Static file serving for dashboard
+      if (method === 'GET' && !pathname.startsWith('/v1/') && pathname !== '/health') {
+        if (serveDashboardFile(pathname, res)) return;
+      }
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { code: 'not_found', message: `No route for ${method} ${pathname}` } }));
       return;
@@ -375,5 +476,5 @@ export function createHostedRunner(options) {
     });
   }
 
-  return { server, start, stop, worker, queue };
+  return { server, start, stop, worker, queue, registry };
 }

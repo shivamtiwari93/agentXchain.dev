@@ -22,6 +22,8 @@ import { render as renderRunHistory } from './components/run-history.js';
 import { render as renderTimeouts } from './components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from './components/coordinator-timeouts.js';
 import { render as renderWatch } from './components/watch.js';
+import { render as renderOrgOverview } from './components/org-overview.js';
+import { render as renderOrgRuns } from './components/org-runs.js';
 import {
   buildLiveMeta,
   createLiveEventFromMessage,
@@ -29,6 +31,8 @@ import {
 } from './live-observer.js';
 
 const VIEWS = {
+  'org-overview': { fetch: ['orgOverview'], render: renderOrgOverview },
+  'org-runs': { fetch: ['orgRuns'], render: renderOrgRuns },
   timeline: { fetch: ['state', 'continuity', 'history', 'events', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderTimeline },
   delegations: { fetch: ['state', 'history'], render: renderDelegations },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger', 'repoDecisionsSummary'], render: renderLedger },
@@ -77,9 +81,12 @@ const API_MAP = {
   coordinatorTimeouts: '/api/coordinator/timeouts',
   gateActions: '/api/gate-actions',
   events: '/api/events?type=turn_conflicted&limit=10',
+  orgOverview: '/v1/org/overview',
+  orgRuns: '/v1/org/runs',
 };
 
 const viewState = {
+  'org-runs': { project: 'all', phase: 'all', status: 'all' },
   ledger: {
     agent: 'all',
     query: '',
@@ -190,6 +197,13 @@ function buildRenderData(viewName, data) {
     return {
       ...data,
       filter: viewState.hooks,
+      liveMeta,
+    };
+  }
+  if (viewName === 'org-runs') {
+    return {
+      ...data,
+      filter: viewState['org-runs'],
       liveMeta,
     };
   }
@@ -453,6 +467,19 @@ document.addEventListener('change', (event) => {
     } else if (control === 'hooks-hookname') {
       viewState.hooks.hookName = event.target.value;
       renderView('hooks', activeViewData);
+    }
+  }
+
+  if (view === 'org-runs') {
+    if (control === 'org-runs-project') {
+      viewState['org-runs'].project = event.target.value;
+      renderView('org-runs', activeViewData);
+    } else if (control === 'org-runs-phase') {
+      viewState['org-runs'].phase = event.target.value;
+      renderView('org-runs', activeViewData);
+    } else if (control === 'org-runs-status') {
+      viewState['org-runs'].status = event.target.value;
+      renderView('org-runs', activeViewData);
     }
   }
 });

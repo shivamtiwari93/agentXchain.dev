@@ -811,6 +811,7 @@ program
   .option('--port <number>', 'Server port', '4100')
   .option('--host <address>', 'Bind address', '127.0.0.1')
   .option('--project <path>', 'Project root')
+  .option('--projects <paths>', 'Additional project roots (comma-separated)')
   .action(serveCommand);
 
 program

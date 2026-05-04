@@ -1,100 +1,101 @@
-# Implementation Notes — M8: Hosted Runner — Execute Protocol Against Cloud Agent APIs
+# Implementation Notes — M8: Organization Dashboard with Multi-Project Visibility
 
-**Run:** `run_0937d8f23ff72791`
-**Turn:** `turn_428870b5d4daeafc`
+**Run:** `run_76ce2c791a84e1cb`
+**Turn:** `turn_56f91475278921ae`
 **Role:** dev
 **Date:** 2026-05-04
 
 ## What Was Built
 
-Delivered the hosted runner for agentxchain.ai: an HTTP server process that exposes 16 control plane API routes and dispatches governed turns to cloud agent APIs using the existing api_proxy adapter and run-loop engine. Five new files plus one modified file. This is ROADMAP.md:95.
+Delivered the organization dashboard with multi-project visibility for the agentxchain.ai managed surface. An operator registers multiple governed projects with the hosted runner, and the dashboard displays aggregated cross-project metrics, a unified run list, and a cross-project decision ledger — all from a single URL. This is ROADMAP.md:96.
+
+Five new files, five modified files, vitest contract bumped from 669 to 670.
 
 ## Changes
 
-**`cli/src/lib/api/job-queue.js`** — New in-memory FIFO job queue:
-- Implements execution plane spec behavior rules 2-4 (FIFO, exclusive leases, crash-closed recovery)
-- Lease duration defaults: 10min api_proxy, 30min local_cli
-- Heartbeat-based liveness with configurable stale threshold (default: 2 missed windows = 60s)
-- No auto-retry on stale — transitions to `needs_recovery` per spec rule 4
-- Operations: enqueue, claim, heartbeat, finalize, expireStaleLeases, getJobs, getStatus
+**`cli/src/lib/api/project-registry.js`** — New file-backed project registry:
+- `createProjectRegistry(primaryRoot)` → `{ register, unregister, list, get, save, load }`
+- Project IDs derived from SHA-256 of normalized absolute path (first 12 hex chars)
+- Persists to `<primaryRoot>/.agentxchain/org-registry.json`
+- Primary project always registered and cannot be unregistered
+- `register()` validates `agentxchain.json` existence (governance check)
+- Idempotent: re-registering same root updates name only
+- Graceful load: corrupt/missing registry file → primary-only registry
 
-**`cli/src/lib/api/execution-worker.js`** — New execution worker module:
-- Polls job queue, claims jobs, dispatches via runLoop + dispatchApiProxy composition
-- Single turn per job (maxTurns: 1) per spec rule 12
-- Heartbeat interval: 30s, matching execution plane spec rule 3
-- Structured execution events: execution_started, execution_progress, execution_completed, execution_interrupted
-- Dispatch callback reads staged result from disk (matches run.js pattern at line 552-576)
-- Auto-approve gates in hosted mode
+**`cli/src/lib/api/org-state-aggregator.js`** — New multi-project state aggregator:
+- `createOrgAggregator(registry)` → `{ getOverview, getRuns, getDecisions }`
+- `getOverview()`: aggregates total_projects, active_runs, pending_gates, total_decisions, total_cost_usd across all registered projects
+- `getRuns(query?)`: cross-project run list from state.json + run-history.jsonl, filterable by project/phase/status
+- `getDecisions(query?)`: cross-project decision ledger from decision-ledger.jsonl, filterable by project/phase/role
+- Individual project read failures isolated — never throws; failed projects show `error: 'state_unreadable'`
+- Imports `readJsonFile`/`readJsonlFile` from `state-reader.js` (no new file readers)
 
-**`cli/src/lib/api/hosted-runner.js`** — New HTTP server module:
-- 16 routes mapping OpenAPI operations to protocol bridge functions
-- Uses node:http (zero new dependencies), following bridge-server.js pattern
-- JSON body parsing with 1MB size cap
-- Error-to-HTTP mapping: NotFound→404, Validation→422, Protocol/Conflict→409, Authorization→403
-- Response format: `{ data: ... }` for success, `{ error: { code, message } }` for errors
-- Graceful shutdown with 5s drain timeout
-- Creates job queue + execution worker internally, starts worker on server start
-- Enqueues first-turn dispatch job automatically on run creation
+**`cli/dashboard/components/org-overview.js`** — New org overview component:
+- Metrics banner: 5 stat cards (projects, active runs, pending gates, decisions, total cost)
+- Project cards grid: one card per project showing status/phase/run/turns/cost/pending gates
+- Uses existing CSS classes (`.section`, `.badge`, `.turn-card`) plus inline `.org-metrics`/`.org-projects-grid` CSS
+- `esc()` HTML escaping following timeline.js pattern
 
-**`cli/src/commands/serve.js`** — New CLI command:
-- `agentxchain serve [--port 4100] [--host 127.0.0.1] [--project <path>]`
-- Resolves project root, loads normalized config, creates hosted runner, starts server
-- Graceful shutdown on SIGINT/SIGTERM
+**`cli/dashboard/components/org-runs.js`** — New cross-project run list component:
+- Filter bar with 3 dropdowns: project, phase, status (client-side filtering)
+- Data table: 8 columns (project, run ID, phase, status, turns, cost, started, updated)
+- Relative time formatting for started/updated columns
+- Uses existing CSS classes (`.filter-bar`, `.filter-control`, `.data-table`, `.badge`)
 
-**`cli/bin/agentxchain.js`** — Modified (2 lines added):
-- Import: `import { serveCommand } from '../src/commands/serve.js'`
-- Registration: `program.command('serve')` with --port, --host, --project options
+**`cli/src/lib/api/hosted-runner.js`** — Modified (6 new routes + static file serving):
+- 6 org routes: POST/GET/DELETE `/v1/org/projects`, GET `/v1/org/overview`, GET `/v1/org/runs`, GET `/v1/org/decisions`
+- Static file serving for dashboard HTML/JS/CSS (GET / serves index.html, non-`/v1/` non-`/health` paths resolve from `cli/dashboard/`)
+- MIME type map: `.html`, `.js`, `.css`, `.json`
+- Directory traversal prevention in static file serving
+- `createHostedRunner()` accepts optional `projects` array, creates registry + aggregator, returns `registry` in result
+- `buildRoutes()` extended to accept `registry` and `aggregator` parameters
 
-**`cli/test/hosted-runner.test.js`** — New integration tests (11 tests):
-- AT-HR-001: Server starts and serves /health → 200
-- AT-HR-002: POST /v1/projects/:id/runs creates run → 201
-- AT-HR-003: GET /v1/runs/:id returns run state → 200
-- AT-HR-005: Job queue FIFO and lease exclusivity
-- AT-HR-006: Stale lease transitions to needs_recovery
-- AT-HR-008: Error responses use standard format
-- AT-HR-009: Graceful shutdown
-- AT-HR-010: Cancel run transitions state
-- Queue unit tests: enqueue/getStatus, heartbeat expiry, finalize
+**`cli/src/commands/serve.js`** — Modified:
+- Parses `--projects` option as comma-separated paths
+- Resolves each path and passes as `projects` array to `createHostedRunner()`
+
+**`cli/bin/agentxchain.js`** — Modified (1 line):
+- Added `.option('--projects <paths>', 'Additional project roots (comma-separated)')` to serve command
+
+**`cli/dashboard/app.js`** — Modified:
+- 2 new imports: `renderOrgOverview`, `renderOrgRuns`
+- 2 new VIEWS entries: `org-overview`, `org-runs`
+- 2 new API_MAP entries: `orgOverview: '/v1/org/overview'`, `orgRuns: '/v1/org/runs'`
+- 1 new viewState entry for `org-runs` filters
+- `buildRenderData()` passes filter for `org-runs` view
+- `change` event handler updated for org-runs filter controls
+
+**`cli/dashboard/index.html`** — Modified (2 lines):
+- 2 new nav links: "Org Overview" and "Org Runs" before "Initiative"
+
+**`cli/test/org-dashboard.test.js`** — New integration tests (8 tests):
+- AT-OD-001 through AT-OD-008 covering registry CRUD, aggregation, org routes, multi-project scenarios
+
+**`cli/test/vitest-contract.test.js`** — Modified:
+- File count bumped from 669 to 670
 
 ## Challenges to PM Spec
 
-1. **PM cited `cli/src/agentxchain.js` as the CLI entry point** — actual path is `cli/bin/agentxchain.js` (line 133 for imports, line 802+ for command registration). Used correct path.
-2. **PM's worker dispatch callback spec assumes `dispatchApiProxy` returns turnResult directly** — it doesn't. The adapter stages to disk and returns `{ ok: true, staged: true }`. Worker reads staged file back from disk, matching run.js dispatch callback pattern (lines 552-576).
-3. **AT-HR-004 and AT-HR-007 (end-to-end with mocked provider)** — deferred to QA phase because mocking dispatchApiProxy at module level requires vitest mock setup that would make the test file brittle. The remaining 11 tests cover all critical paths.
+1. **PM_SIGNOFF §6 API_MAP uses `/api/org/overview` and `/api/org/runs`** — SYSTEM_SPEC §2.6.3 correctly notes these should use `/v1/` prefix since the dashboard is served from the hosted runner (port 4100), not the bridge server. Used `/v1/org/overview` and `/v1/org/runs`.
+
+2. **PM SYSTEM_SPEC §2.2.5 getDecisions response shape omits `rationale` and `runtime_id`** — these fields exist in the decision-ledger.jsonl entries and are useful for the cross-project view. Included both for completeness (no extra read cost since the data is already parsed).
+
+3. **PM SYSTEM_SPEC §2.3.3 static file serving says "after line 326"** — actual insertion point is after the no-route-match check (line varies with edits). Static serving is correctly placed before the 404 fallback in the `!matched` block.
 
 ## Verification
 
-QA independently verified (turn_c7093296145491a8):
-
-1. **Hosted runner tests**: `npx vitest run test/hosted-runner.test.js` — 11/11 pass (AT-HR-001 through AT-HR-010 + 3 queue unit tests)
-2. **Control plane schema tests**: `npx vitest run test/control-plane-schema.test.js` — 7/7 pass (no regressions)
-3. **Run-loop tests**: `npx vitest run test/run-loop.test.js` — 39/39 pass (no regressions)
-4. **Governed CLI tests**: `npx vitest run test/governed-cli.test.js` — 56/56 pass (no regressions)
-5. **Connector validate tests**: `npx vitest run test/connector-validate-command.test.js` — 12/12 pass (no regressions)
-6. **Turn result validator tests**: `npx vitest run test/turn-result-validator.test.js` — 100/100 pass (no regressions)
-7. **Dashboard bridge tests**: `npx vitest run test/dashboard-bridge.test.js` — 87/87 pass (no regressions)
-8. **CLI registration**: `node bin/agentxchain.js serve --help` — correct output with --port, --host, --project options
-9. **Code review**: All 5 new files and 1 modification reviewed for correctness, security (localhost-only default), import validity, and spec compliance
-
-**Acceptance test coverage**:
-- AT-HR-001 (health): verified ✅
-- AT-HR-002 (create run): verified ✅
-- AT-HR-003 (get run state): verified ✅
-- AT-HR-004 (mocked dispatch): deferred — dev decision DEC-003 accepted
-- AT-HR-005 (FIFO + exclusivity): verified ✅
-- AT-HR-006 (stale lease → needs_recovery): verified ✅
-- AT-HR-007 (end-to-end lifecycle): deferred — dev decision DEC-003 accepted
-- AT-HR-008 (error format): verified ✅
-- AT-HR-009 (graceful shutdown): verified ✅
-- AT-HR-010 (cancel run): verified ✅
-
-**Total tests verified**: 312 across 7 test files, 0 failures, 0 regressions.
+1. **Org dashboard tests**: `npx vitest run test/org-dashboard.test.js` — 8/8 pass (AT-OD-001 through AT-OD-008)
+2. **Hosted runner tests**: `npx vitest run test/hosted-runner.test.js` — 11/11 pass (no regressions)
+3. **Vitest contract**: `npx vitest run test/vitest-contract.test.js` — 11/11 pass (670 files counted)
+4. **Dashboard bridge tests**: `npx vitest run test/dashboard-bridge.test.js` — 87/87 pass (no regressions)
+5. **Control plane schema tests**: `npx vitest run test/control-plane-schema.test.js` — 7/7 pass (no regressions)
+6. **CLI registration**: `node bin/agentxchain.js serve --help` — shows --projects option
 
 ## Architecture Invariants Maintained
 
-1. **Protocol parity**: All protocol operations route through protocol-bridge.js — no reimplementation
-2. **Zero new dependencies**: node:http is built-in; all composition layers are existing modules
-3. **Run-loop is THE execution engine**: Worker delegates entirely to runLoop()
-4. **Execution plane lease model**: Queue implements spec rules 2-4 (FIFO, exclusive, crash-closed)
-5. **Single-turn-per-job**: maxTurns: 1 per execution
-6. **Localhost-only default**: 127.0.0.1 bind, matching bridge-server.js security posture
+1. **Protocol parity**: Org views read the same state.json, history.jsonl, and decision-ledger.jsonl that the protocol engine writes — no new state formats
+2. **Zero new dependencies**: All modules use node:fs, node:path, node:crypto, node:http — no npm packages added
+3. **Aggregation isolation**: Individual project read failures never break the org overview — failed projects show degraded state with error flag
+4. **Primary project immutability**: Primary project cannot be unregistered; it defines the registry persistence location
+5. **Existing routes untouched**: All 16 existing hosted runner routes remain identical; org routes use `/v1/org/` prefix with no overlap
+6. **Read-only org surface (MVP)**: Org views are observation-only; no cross-project mutations
