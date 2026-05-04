@@ -116,10 +116,18 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Recovery gap: BUG-78 no-edit review turn auto-normalization (workspace→review for completed turns with empty files_changed) <!-- run_cf572ef2d54d357d: turn-result-validator.js Rule 0a line 1527 now includes status==='completed'; 7 regression tests (AT-WK-001–AT-WK-007) in bug-78-no-edit-review.test.js; QA ship verdict YES (8/8 criteria, 159 tests, 0 failures) -->
 - [x] Acceptance: all 8 workflow concerns delivered with regression tests, BUG-78 recovery gap closed <!-- run_cf572ef2d54d357d: QA turn_67328376fac5987c verified 8/8 acceptance criteria, 159 tests pass, ship verdict YES; MW workflow kit pillar complete -->
 
+### M10: Cross-Run Scope Overlap Guard
+- [ ] New module `scope-overlap.js` with `extractScopeFingerprint()`, `computeScopeOverlap()`, `checkIntentScopeOverlap()` <!-- run_2e96850371ff1a1c -->
+- [ ] Integrate scope overlap guard into `approveIntent()` in intake.js — defer overlapping intents before approval <!-- run_2e96850371ff1a1c -->
+- [ ] Handle `scope_overlap_detected` at 3 auto-approval sites in `seedFromVision()` — return idle instead of error <!-- run_2e96850371ff1a1c -->
+- [ ] Add `--force-scope` CLI flag to `intake approve` command for operator override <!-- run_2e96850371ff1a1c -->
+- [ ] 10 acceptance tests in `scope-overlap.test.js` (AT-SOG-001 through AT-SOG-010) <!-- run_2e96850371ff1a1c -->
+- [ ] Acceptance: vision-derived intent with overlapping charter is deferred by continuous loop, `--force-scope` overrides
+
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Update planning artifacts for `run_cf572ef2d54d357d`, verify BUG-78 fix in place (158 tests pass), PM signoff | Complete (`run_cf572ef2d54d357d`, turn_781900573eb70a7e) |
-| Implementation | Verification-only: re-run BUG-78 tests + regression suite, confirm no new code needed; added AT-WK-007 documenting Rule 0a + implementation guard interaction | Complete (`run_cf572ef2d54d357d`, turn_9f3e5b903bba16fd) |
-| QA | Ship verdict YES, checked off ROADMAP.md:116-117, rewrote acceptance-matrix + ship-verdict + RELEASE_NOTES for current run | Complete (`run_cf572ef2d54d357d`, turn_67328376fac5987c) |
+| Planning | Define M10 scope, spec insertion points, rewrite all planning artifacts for `run_2e96850371ff1a1c` | Complete (`run_2e96850371ff1a1c`, turn_757534c324a0b0bb) |
+| Implementation | Implement `scope-overlap.js`, integrate into intake + continuous-run, add CLI flag, write 10 tests | Pending |
+| QA | Verify 10 acceptance tests, confirm no regressions in intake/continuous-run suites, ship verdict | Pending |

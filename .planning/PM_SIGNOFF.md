@@ -1,10 +1,10 @@
-# PM Signoff — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix (Formal Closure)
+# PM Signoff — M10: Cross-Run Scope Overlap Guard
 
 Approved: YES
 
-**Run:** `run_cf572ef2d54d357d`
+**Run:** `run_2e96850371ff1a1c`
 **Phase:** planning
-**Turn:** `turn_781900573eb70a7e`
+**Turn:** `turn_757534c324a0b0bb`
 **Date:** 2026-05-04
 
 ## Discovery Checklist
@@ -17,102 +17,120 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running governed multi-agent runs in full-auto continuous mode, where review-only roles (e.g. product_marketing, security_reviewer, technical_writer) perform no-edit analysis turns.
+AgentXchain operators running continuous vision-driven mode, where `seedFromVision()` auto-derives and auto-approves intents between runs. The scope overlap guard prevents the continuous loop from spawning runs whose scope duplicates recently completed work.
 
 ### Core Pain Point
 
-BUG-78: When a review-only role completes a valid no-edit turn and emits `artifact.type: "workspace"` with `files_changed: []`, AgentXchain correctly rejects the inconsistency at Stage C validation but the continuous loop cannot auto-recover — it pauses and requires manual JSON surgery on `.agentxchain/staging/<turn>/turn-result.json`. This directly blocks the DOGFOOD-100-TURNS credibility gate (HUMAN-ROADMAP top priority) and is the last remaining gap in the workflow kit's recovery layer.
+The vision scanner derives intent candidates from VISION.md goals using word-matching (`isGoalAddressed` at 0.6 threshold). Event-level deduplication uses exact signal hashes (`computeDedupKey`). Neither mechanism prevents semantically overlapping charters from spawning back-to-back runs that touch the same codebase areas.
 
-**Status:** The code fix was delivered in prior run `run_5e7a4020b052bc68` (turn_7f509cddfd9d064b). This run (`run_cf572ef2d54d357d`) performs formal QA closure and checks off the ROADMAP.md:116 item.
+**Concrete example:** M5 (Parallel Turn Support) fully addressed intra-run "work overlaps" via `classifyAcceptanceOverlap()`. But the vision scanner still flags "work overlaps" (VISION.md:30) as unaddressed because no completed intent signal contains both significant words. A new run spawns, potentially re-touching the same conflict detection modules that M5 just delivered.
+
+This directly manifests as wasted budget ($5–15 per unnecessary run), history clutter, and the perception that the continuous loop is churning rather than converging.
 
 ### Challenge to Previous Turn
 
-#### OBJ-PM-001: All planning artifacts and IMPLEMENTATION_NOTES.md reference wrong run (severity: medium)
+#### OBJ-PM-001: All planning artifacts reference stale run (severity: medium)
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md, ROADMAP.md Phases table, and IMPLEMENTATION_NOTES.md all referenced `run_5e7a4020b052bc68`. The current run is `run_cf572ef2d54d357d`, opened by the continuous loop to formally close ROADMAP.md:116 (BUG-78 recovery gap). The dev turn (turn_fb61d81381433de5) correctly verified the code fix is in place and all 158 tests pass, but did not update run references in planning artifacts. All four artifacts updated in this PM turn.
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all reference `run_cf572ef2d54d357d` (MW: BUG-78 Formal Closure). The current run is `run_2e96850371ff1a1c`, derived from the vision scan identifying "work overlaps" as uncovered scope. All three artifacts rewritten from scratch.
 
-#### OBJ-PM-002: Dev requested QA phase transition from planning phase (severity: low)
+#### OBJ-PM-002: Vision scanner correctly identified a real gap (severity: low)
 
-The dev's turn summary requested "phase transition to QA" but the run is in the planning phase. The correct sequence is planning → implementation → QA. Since both planning_signoff and implementation_complete gates have already passed (code was delivered in the prior run), this PM turn requests transition to implementation, which should proceed quickly to QA.
+The "work overlaps" vision goal (VISION.md:30) IS substantially addressed by M5's parallel conflict detection within runs. However, cross-run scope overlap — the continuous loop spawning runs with overlapping scope — is NOT addressed anywhere. This PM turn scopes M10 to close that specific gap rather than declaring the vision goal already covered.
 
-### Core Workflow (this run)
+### Core Workflow
 
-1. **PM (this turn)** — Verify fix is in place (158 tests pass), update all planning artifacts for current run, request phase transition
-2. **Dev** — Verification-only: confirm 6 BUG-78 tests + broader regression suite pass (no new code changes expected)
-3. **QA** — Ship verdict, check off ROADMAP.md:116-117 (BUG-78 recovery gap + MW acceptance)
+1. **PM (this turn)** — Define M10 scope, spec insertion points, rewrite all planning artifacts
+2. **Dev** — Implement `scope-overlap.js`, integrate into `approveIntent()` and `seedFromVision()`, write 10 tests
+3. **QA** — Verify 10 acceptance tests pass, confirm no regressions in intake/continuous-run test suites
 
-### MVP Scope (this run)
+### MVP Scope
 
-**Formal closure of already-delivered fix.**
+**New module + two integration points + CLI flag.**
 
-The BUG-78 fix (`|| normalized.status === 'completed'` at turn-result-validator.js:1527) and 6 regression tests (bug-78-no-edit-review.test.js) were delivered in run `run_5e7a4020b052bc68`. This run provides:
-- Updated planning artifacts referencing the correct run
-- Dev verification that all tests still pass
-- QA ship verdict to formally close ROADMAP.md:116-117
+1. `cli/src/lib/scope-overlap.js` (new) — `extractScopeFingerprint()`, `computeScopeOverlap()`, `checkIntentScopeOverlap()`
+2. `cli/src/lib/intake.js` (modify) — scope overlap guard in `approveIntent()` (after line 886 status check, before line 889)
+3. `cli/src/lib/continuous-run.js` (modify) — handle `scope_overlap_detected` error at 3 auto-approval sites (lines 1324, 1399, 1482) by returning idle
+4. `cli/src/commands/intake-approve.js` (modify) — pass `forceScope` option from `--force-scope` CLI flag
+5. `cli/bin/agentxchain.js` (modify) — add `--force-scope` option to `intake approve` command (line 1041 area)
+6. `cli/test/scope-overlap.test.js` (new) — 10 tests
 
 ### Out of Scope
 
-- New code changes (fix already delivered)
-- Changes to Stage C validation logic (line 696-707)
-- Changes to review->workspace guard (line 716-728)
-- Changes to any module outside turn-result-validator.js
-- New normalizer rules beyond the status=completed condition
-- Workflow kit feature additions
+- Cross-repo file overlap detection (multi-repo coordinator is workstream-level)
+- Changes to `classifyAcceptanceOverlap()` or M5 parallel conflict infrastructure
+- Changes to `computeDedupKey()` or event-level deduplication
+- Changes to `isGoalAddressed()` word-matching in vision-reader.js
+- Config schema additions (use code-level defaults; schema can be added later)
+- Dashboard visibility of scope overlap events (future enhancement)
+- Blocking behavior (overlap is advisory/deferring, not hard-blocking)
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | Roadmap milestone addressed: M9: CI Pipeline Integration | MW milestone on ROADMAP.md includes BUG-78 under M9-adjacent recovery work |
-| 2 | Unchecked roadmap item completed: ROADMAP.md:116 BUG-78 recovery gap | AT-WK-001 through AT-WK-006 pass, QA checks off item |
-| 3 | No regression in existing validation | 152 tests pass across turn-result-validator.test.js + workflow-gate-semantics.test.js + gate-evaluator.test.js |
-| 4 | Status guard preserved (failed/blocked turns NOT normalized) | AT-WK-003 + AT-WK-004 pass |
-| 5 | Files_changed guard preserved | AT-WK-002 pass |
-| 6 | Produced_files guard preserved | AT-WK-005 pass |
+| 1 | Vision goal addressed: work overlaps | M10 directly prevents cross-run scope overlap, the remaining uncovered aspect of "work overlaps" |
+| 2 | `extractScopeFingerprint` extracts milestone refs and module keywords | AT-SOG-001, AT-SOG-002, AT-SOG-003 |
+| 3 | `computeScopeOverlap` returns correct Jaccard coefficient | AT-SOG-004, AT-SOG-005, AT-SOG-006 |
+| 4 | `checkIntentScopeOverlap` detects overlap with active and recent runs | AT-SOG-007, AT-SOG-008, AT-SOG-009 |
+| 5 | `approveIntent` returns `scope_overlap_detected` when threshold exceeded | AT-SOG-010 |
+| 6 | `--force-scope` flag bypasses the guard | AT-SOG-010 variant or manual verification |
+| 7 | Continuous loop defers overlapping intents (returns idle) | Integration behavior confirmed by AT-SOG-010 + code review |
+| 8 | No regressions in intake or continuous-run test suites | Regression suite pass |
 
 ### Design Decisions
 
-#### DEC-001: Planning artifacts updated from run_5e7a4020b052bc68 to run_cf572ef2d54d357d
+#### DEC-001: Previous planning artifacts described BUG-78 (run_cf572ef2d54d357d) — all three rewritten from scratch for M10 (run_2e96850371ff1a1c)
 
-The continuous loop opened a new run to formally close ROADMAP.md:116. All four planning/implementation artifacts updated to reference the correct run without changing technical scope.
+The continuous loop opened a new run to address the "work overlaps" vision goal. M10 scoped as the next increment.
 
-#### DEC-002: Dev charter is verification-only — no new code changes expected
+#### DEC-002: Scope overlap is advisory/deferring, not hard-blocking
 
-The BUG-78 fix and all 6 regression tests are already in the codebase and passing. Dev should re-run tests to confirm, not write new code.
+When `approveIntent()` detects scope overlap, it returns an error that the continuous loop handles by deferring (returning idle). The operator can always override with `--force-scope`. This matches the existing advisory pattern (`advisory_scope_overlap` warnings at dispatch time in `dispatch-bundle.js:165`).
 
-#### DEC-003: ROADMAP.md:116 and :117 reserved for QA to check off after ship verdict
+#### DEC-003: Jaccard similarity on extracted tokens is the right overlap measure for charter text
 
-PM does not check off roadmap items that QA has not yet verified. QA will check these off as part of the ship verdict.
+Charter text is short (1-2 sentences). Jaccard on significant extracted tokens (milestone refs, module keywords, file paths) is simple, deterministic, and sufficient. ML-based embeddings would be overkill and introduce model dependency.
+
+#### DEC-004: Overlap check looks at recent completed intents + active run charter, not turn-level files_changed
+
+Checking at the charter/intent level (not individual file paths) is correct because:
+- The overlap decision should be made BEFORE the run starts (at approval time)
+- File paths aren't known until after turns execute
+- Charter text captures the semantic scope of the work
 
 ## Notes for Dev
 
-**Verification-only turn.** The code is already delivered. Run:
-```bash
-cd cli && npx vitest run test/bug-78-no-edit-review.test.js
-cd cli && npx vitest run test/turn-result-validator.test.js test/workflow-gate-semantics.test.js test/gate-evaluator.test.js
-```
+**Three code deliverables:**
 
-Confirm 158 tests, 0 failures. Do NOT modify turn-result-validator.js or any other source file.
+1. **New module** `cli/src/lib/scope-overlap.js` — See SYSTEM_SPEC.md for exact function signatures and behavior
+2. **Intake integration** — `approveIntent()` in `cli/src/lib/intake.js` at line 886-889 — add scope overlap check
+3. **Continuous loop integration** — `seedFromVision()` in `cli/src/lib/continuous-run.js` at lines 1324, 1399, 1482 — handle `scope_overlap_detected` by returning idle
+
+**CLI addition:** `--force-scope` flag on `intake approve` (agentxchain.js:1041, intake-approve.js:18)
+
+**Test file:** `cli/test/scope-overlap.test.js` with 10 tests (AT-SOG-001 through AT-SOG-010)
 
 ## Notes for QA
 
-- Run bug-78-no-edit-review.test.js: all 6 tests must pass
-- Run workflow-gate-semantics.test.js, gate-evaluator.test.js, turn-result-validator.test.js: no regressions
-- Verify ROADMAP.md MW items 107-115 are checked (8 delivered workflow concerns)
-- Check off ROADMAP.md:116 (BUG-78 recovery gap closed) and :117 (MW acceptance)
-- Confirm normalization event is recorded when fix fires (AT-WK-001)
-- Write acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md
+- Run `scope-overlap.test.js`: all 10 tests must pass
+- Run `intake.test.js`: no regressions
+- Run `continuous-run.test.js`: no regressions
+- Verify `extractScopeFingerprint` correctly extracts M-prefixed milestones, BUG-prefixed refs, and module keywords
+- Verify Jaccard coefficient math is correct (intersection / union)
+- Verify `--force-scope` bypasses the guard in intake-approve.js
+- Confirm no changes to governed-state.js, turn-result-validator.js, or any M5 parallel conflict code
 
 ## Acceptance Contract
 
-1. **Roadmap milestone addressed: M9: CI Pipeline Integration** — The BUG-78 recovery gap is listed under MW (Workflow Kit) on ROADMAP.md but was detected by the vision scanner under M9 scope. The fix is in turn-result-validator.js, which is part of the CI pipeline's turn validation layer.
-2. **Unchecked roadmap item completed: ROADMAP.md:116** — Code fix delivered (Rule 0a line 1527), 6 regression tests passing, awaiting QA ship verdict to formally check off.
-3. **Evidence source: .planning/ROADMAP.md:116** — Item currently unchecked; will be checked by QA after verification.
+1. **Vision goal addressed: work overlaps** — M10 closes the cross-run scope overlap gap. Intra-run overlap was already addressed by M5 (classifyAcceptanceOverlap). M10 prevents the continuous loop from spawning semantically overlapping runs by checking charter similarity at approval time.
 
 ## API Map
 
 | Module | Status | Purpose |
 |--------|--------|---------|
-| `cli/src/lib/turn-result-validator.js` | Modified (prior run) | Rule 0a expanded: workspace->review for completed no-edit turns |
-| `cli/test/bug-78-no-edit-review.test.js` | Created (prior run) | 6 regression tests for BUG-78 fix |
-| `cli/test/turn-result-validator.test.js` | Modified (prior run) | 2 existing tests updated to use status:'blocked' |
+| `cli/src/lib/scope-overlap.js` | New | Scope fingerprint extraction, Jaccard overlap, intent overlap check |
+| `cli/src/lib/intake.js` | Modified | `approveIntent()` scope overlap guard before approval |
+| `cli/src/lib/continuous-run.js` | Modified | `seedFromVision()` handles overlap deferral at 3 auto-approval sites |
+| `cli/src/commands/intake-approve.js` | Modified | `--force-scope` option passthrough |
+| `cli/bin/agentxchain.js` | Modified | `--force-scope` CLI option on `intake approve` |
+| `cli/test/scope-overlap.test.js` | New | 10 acceptance + regression tests |
