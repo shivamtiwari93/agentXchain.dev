@@ -1,155 +1,195 @@
-# System Spec — M12: Quality Drift Prevention — Vision Closure (VISION.md:33)
+# System Spec — M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
 
-**Run:** `run_08c9a1482479ae2e`
-**Baseline:** git:540aca491 (latest checkpoint)
+**Run:** `run_5b6ee2a8de1bd612`
+**Baseline:** git:d36c7185a (latest checkpoint)
 
 ## Purpose
 
-This run formally closes the VISION.md:33 goal "quality drifts" by verifying that 8 delivered mechanisms across milestones MW and M1 collectively prevent quality drift in multi-agent governed delivery.
+This run formally closes the VISION.md:34 goal "nobody owns the decision trail" by verifying that 8 delivered mechanisms across milestones M1, M3, M10, and MW collectively ensure decision trail ownership in multi-agent governed delivery.
 
-"Quality drifts" is a cross-cutting concern — no single module or milestone addresses it alone. Instead, it is addressed by the composition of: structural turn validation, workflow gate semantics, phase gate enforcement, mandatory challenge, release alignment, acceptance matrix enforcement, release notes enforcement, and end-to-end pipeline proof.
+"Nobody owns the decision trail" is a governance concern about accountability and auditability — decisions made during agent turns must be persistent, attributed, authority-enforced, and queryable by both agents and operators. Without this, decisions are ephemeral side-effects of code changes rather than owned governance records.
+
+This is distinct from M11's "assumptions diverge" (VISION.md:32), which focused on preventing contradictory decisions via visibility and overlap detection. M13 focuses on the ownership dimension: who decided, with what authority, and how operators and agents can audit the trail.
 
 This is a verification-only run. No new code changes are expected.
 
 ## Interface
 
-### Mechanism 1: Turn-Result Validator (5-Stage Pipeline) — `cli/src/lib/turn-result-validator.js`
+### Mechanism 1: Decision Ledger with Cross-Run Persistence — `cli/src/lib/repo-decisions.js`
 
-5-stage validation pipeline enforces structural quality on every turn result:
-- **Stage A** (line 178): Schema validation — enforces required fields, correct types, enum values
-- **Stage B** (line 638): Assignment validation — verifies run_id, turn_id, role, runtime_id match dispatch
-- **Stage C** (line 671): Artifact validation — verifies artifact type matches files_changed, write authority
-- **Stage D** (line 806): Verification validation — ensures machine_evidence exit codes support verification status
-- **Stage E** (line 966): Protocol compliance — challenge requirement, routing legality, phase transitions
-
-**How it prevents quality drift:** Every turn output must pass all 5 stages before acceptance. An agent cannot submit a malformed, incomplete, or structurally invalid result. Quality enforcement is at the turn boundary, not advisory.
-
-### Mechanism 2: Workflow Gate Semantics — `cli/src/lib/workflow-gate-semantics.js`
-
-6 semantic evaluators enforce content quality on governed artifacts:
+302 lines, 12 exported functions providing full decision CRUD with authority enforcement:
 
 ```javascript
-evaluatePmSignoff(content)          // Requires "Approved: YES" declaration
-evaluateSystemSpec(content)          // Requires Purpose, Interface, Acceptance Tests sections
-evaluateImplementationNotes(content) // Requires Changes and Verification sections with real content
-evaluateAcceptanceMatrix(content)    // Requires | Req # | table with all-passing rows
-evaluateShipVerdict(content)         // Requires explicit YES/NO verdict
-evaluateReleaseNotes(content)        // Requires User Impact and Verification Summary sections
+readRepoDecisions(repoRoot)                     // Load all decisions from repo-decisions.jsonl
+getActiveRepoDecisions(repoRoot)                 // Filter to active (non-overridden) decisions
+getRepoDecisionById(repoRoot, id)                // Lookup by DEC-NNN ID
+appendRepoDecision(repoRoot, decision)           // Persist new decision with role, authority, timestamp
+overrideRepoDecision(repoRoot, id, override)     // Mark decision as overridden with lineage
+validateOverride(config, overridingRole, targetDecision)  // Enforce authority rules (line 130)
+resolveDecisionAuthority(config, roleName)       // Get role's authority level (0-99, human=100)
+renderRepoDecisionsMarkdown(decisions, config)   // Format for agent/operator context
+summarizeRepoDecisions(decisions)                // Aggregate stats
+getDecisionAuthorityMetadata(config, decision)   // Enrich with authority info
+buildRepoDecisionOperatorSummary(repoRoot, config)  // Operator-facing summary
+checkOverrideAuthority(config, overridingRole, targetDecision)  // Internal authority check (private)
 ```
 
-Exported via `SEMANTIC_EVALUATORS` map (line 447) and `evaluateSemantic()` dispatcher (line 481).
+**Storage:** `.agentxchain/repo-decisions.jsonl` — decisions with `durability: "repo"` persist across run boundaries.
 
-**How it prevents quality drift:** Each governed artifact has a structural quality contract. Placeholder text is rejected. Missing sections are rejected. Non-passing acceptance rows are rejected. Quality requirements are enforced by machine, not by convention.
+**Decision Authority Model:**
+- `roles[role].decision_authority` — opt-in integer (0-99) per role in config
+- Human defaults to authority 100
+- Same-role override always allowed
+- Cross-role override requires `overridingAuthority >= targetAuthority`
+- Unknown roles treated as authority 0 with warning
 
-### Mechanism 3: Phase Gate Enforcement — `cli/src/lib/governed-state.js`
+**How it ensures ownership:** Decisions are persistent records with explicit role attribution, authority level, timestamp, and override lineage. The authority model ensures decisions can only be changed by roles with sufficient authority — ownership is enforced, not assumed.
 
-Phase transitions require all gate files to exist and pass semantic validation:
-- **planning → implementation**: PM_SIGNOFF.md + SYSTEM_SPEC.md + ROADMAP.md
-- **implementation → QA**: IMPLEMENTATION_NOTES.md
-- **QA → ship**: acceptance-matrix.md + ship-verdict.md
+### Mechanism 2: Decision History in Dispatch Bundles — `cli/src/lib/dispatch-bundle.js`
 
-**How it prevents quality drift:** Phases cannot advance without completing quality checkpoints. An agent cannot skip planning and jump to implementation, or skip QA and ship directly.
+Decision visibility to agents at turn time:
 
-### Mechanism 4: Challenge Requirement — `cli/src/lib/turn-result-validator.js:976`
+- **Line ~1416:** "Decision History" markdown table showing last 50 decisions from the current run
+- **Columns:** ID, Phase, Role, Runtime, Statement
+- **Line ~775:** Active repo decisions rendered in CONTEXT.md for cross-run constraint visibility
+- Rendering via `renderRepoDecisionsMarkdown()` with authority metadata
+
+**How it ensures ownership:** Every agent entering a turn sees the full decision trail. Agents cannot claim ignorance of prior decisions. The trail is proactively delivered, making decision ownership transparent at the point of action.
+
+### Mechanism 3: Coordinator Decision Ledger — `cli/src/lib/governed-state.js`
+
+The framework itself records governance decisions at 5 critical coordination events:
+
+1. **init** — Run initialization decisions (config, template, roles)
+2. **dispatch** — Turn dispatch decisions (role selection, charter assignment)
+3. **phase-transition** — Gate evaluation and phase advancement decisions
+4. **completion** — Run completion and ship decisions
+5. **recovery** — Error recovery and retry decisions
+
+Written to `.agentxchain/decision-ledger.jsonl` with full provenance (turn_id, role, phase, category, statement, rationale, durability, status, created_at).
+
+**How it ensures ownership:** The coordination layer itself has an auditable trail. Framework decisions (not just agent decisions) are recorded, ensuring the full governance chain is owned and traceable.
+
+### Mechanism 4: Named Decisions for Multi-Repo Coordination
+
+For cross-repo workstreams:
 
 ```javascript
-// Challenge requirement: review_only roles MUST raise at least one objection
+named_decisions: {
+  decision_ids_by_repo: {
+    api: ["DEC-101"],
+    web: ["DEC-201", "DEC-202"]
+  }
+}
 ```
 
-Review-only roles (typically dev-in-planning-review, qa-in-review) must include at least one objection in their turn result. The validator rejects turn results from review-only roles with empty objections arrays.
+- Workstreams declare required decision IDs per repo as completion barriers
+- Reports render `required_decision_ids_by_repo` and `satisfied_decision_ids_by_repo`
+- `named_decisions` is a barrier type alongside `all_repos_accepted` and `interface_alignment`
 
-**How it prevents quality drift:** Forces active quality evaluation. Rubber-stamping is structurally impossible for review roles — the pipeline rejects turn results that don't challenge prior work.
+**How it ensures ownership:** Decision ownership extends across repository boundaries. Multi-repo deliveries cannot complete unless named decisions are satisfied per repo. Ownership is explicit per-repo, not implicit.
 
-### Mechanism 5: Release Alignment (8-Dimension Validation) — `cli/src/lib/release-alignment.js`
+### Mechanism 5: Turn-Result Validator Decision Schema — `cli/src/lib/turn-result-validator.js`
+
+Decision schema enforcement at the protocol boundary:
+
+- **Stage A (Schema):** Validates decision IDs match `DEC-NNN` pattern, categories are from valid enum, statement and rationale are non-empty strings
+- **Lines 1293-1377 (Normalization):** Auto-fixes malformed decision IDs, synthesizes missing statements from alternative fields, copies rationale from `reason`/`why`/`description`
+- **Stage E (Protocol, line 976):** Challenge requirement — review-only roles MUST raise at least one objection
+
+**How it ensures ownership:** Every turn must explicitly declare decisions with proper attribution. The protocol boundary structurally prevents unowned decisions from entering the system. Malformed decisions are normalized where possible, rejected otherwise.
+
+### Mechanism 6: Scope Overlap Guard — `cli/src/lib/scope-overlap.js`
+
+215 lines, 3 exported functions:
 
 ```javascript
-export function validateReleaseAlignment(repoRoot, { targetVersion, scope })
-  // → { aligned, dimensions: Array<{ name, status, details }> }
-export function getReleaseAlignmentContext(repoRoot, { targetVersion })
-  // → { version, changelog, docs, tests, ... }
+extractScopeFingerprint(text)              // Extract milestones, bug refs, file paths, module keywords
+computeScopeOverlap(fp1, fp2)              // Jaccard similarity (0.0-1.0)
+checkIntentScopeOverlap(intent, activeRun, recentIntents)  // Compare against active work
 ```
 
-Validates release readiness across 8 dimensions: documentation, version consistency, test coverage, CI status, changelog, installation, configuration, and compatibility.
+Integrated at `intake.js:901` (approval gate) and `continuous-run.js:1329,1407,1493` (auto-approval sites).
 
-**How it prevents quality drift:** Release quality is not a subjective assessment — it is an 8-dimension structured validation. Drift in any dimension is detected and reported.
+**How it ensures ownership:** Prevents conflicting decision chains from forming. If two runs would produce overlapping decisions, the system defers the second. This ensures decision ownership is unambiguous — a single run owns decisions for a given scope.
 
-### Mechanism 6: Acceptance Matrix Enforcement — `cli/src/lib/workflow-gate-semantics.js:117`
+### Mechanism 7: No-Edit Review Normalization (BUG-78) — `cli/src/lib/turn-result-validator.js`
 
-`evaluateAcceptanceMatrix()` enforces:
-- `| Req # |` table header must be present (line 119)
-- At least one real requirement row (not placeholder text)
-- Every requirement row must have an affirmative status (PASS, PASSED, OK, YES)
-- Non-passing rows cause gate failure with specific error listing which rows failed
+Rule 0a (line 1527) normalizes artifact type from `workspace` to `review` for completed turns with empty `files_changed`.
 
-**How it prevents quality drift:** QA cannot ship with vague or incomplete acceptance evidence. Every acceptance criterion must be explicitly evaluated and marked passing.
+**How it ensures ownership:** Review turns record challenge decisions and objections. If the validation pipeline incorrectly rejected review turns (requiring file changes), the decision audit trail would be corrupted — challenge decisions would fail to record. This normalization ensures the review decision trail remains intact.
 
-### Mechanism 7: Release Notes Enforcement — `cli/src/lib/workflow-gate-semantics.js:258`
+### Mechanism 8: Operator Decision CLI — `cli/src/commands/decisions.js`
 
-`evaluateReleaseNotes()` enforces:
-- `## User Impact` section must exist with real content (line 259)
-- `## Verification Summary` section must exist with real content (line 260)
-- Placeholder text "(QA fills this during the QA phase)" is rejected (line 238)
+190-line operator-facing command:
 
-**How it prevents quality drift:** Release documentation quality is structurally enforced. An agent cannot ship with template placeholders or missing documentation.
+```bash
+agentxchain decisions              # List active repo decisions
+agentxchain decisions --all        # Include overridden decisions
+agentxchain decisions --show DEC-042  # Detailed view with authority metadata
+agentxchain decisions --json       # Machine-readable export
+```
 
-### Mechanism 8: No-Edit Review Normalization (BUG-78) — `cli/src/lib/turn-result-validator.js`
+Shows authority level, binding state (binding/replaced/historical), and override lineage.
 
-Rule 0a (line 1527) normalizes artifact type from `workspace` to `review` for completed turns with empty `files_changed`. This prevents the pipeline from blocking on valid review turns that made no code changes.
-
-**How it prevents quality drift:** Ensures the quality enforcement pipeline itself doesn't create false positives that force agents to circumvent validation. A well-functioning quality system must not reject legitimate work patterns.
+**How it ensures ownership:** Operators — the ultimate decision trail owners — have direct query access to inspect, understand, and audit the full decision history at any time. The trail is not locked inside framework internals; it is an operator-facing governance surface.
 
 ### Dev Charter
 
-**Verification-only.** Re-run all 8 quality-enforcement test suites to confirm the quality-drift prevention infrastructure is intact:
+**Verification-only.** Re-run all 8 decision-trail test suites to confirm the decision ownership infrastructure is intact:
 
 ```bash
-cd cli && npx vitest run test/turn-result-validator.test.js             # 100 tests
-cd cli && npx vitest run test/gate-evaluator.test.js                    # 52 tests
-cd cli && npx vitest run test/implementation-gate.test.js               # 10 tests
-cd cli && npx vitest run test/release-notes-gate.test.js                # 10 tests
-cd cli && npx vitest run test/workflow-gate-placeholder-leak.test.js    # 8 tests
-cd cli && npx vitest run test/bug-78-no-edit-review.test.js             # 7 tests
-cd cli && npx vitest run test/release-alignment.test.js                 # 6 tests
-cd cli && npx vitest run test/e2e-release-gate.test.js                  # 4 tests
+cd cli && npx vitest run test/repo-decisions.test.js                       # 48 tests
+cd cli && npx vitest run test/dispatch-bundle-decision-history.test.js     # 12 tests
+cd cli && npx vitest run test/coordinator-decision-ledger.test.js          # 7 tests
+cd cli && npx vitest run test/named-decisions-visibility.test.js           # 6 tests
+cd cli && npx vitest run test/turn-result-validator.test.js                # 100 tests
+cd cli && npx vitest run test/scope-overlap.test.js                        # 12 tests
+cd cli && npx vitest run test/bug-78-no-edit-review.test.js                # 7 tests
+cd cli && npx vitest run test/status-repo-decisions.test.js                # 2 tests
 ```
 
-Expected: 197 tests, 0 failures. No new code changes expected.
+Expected: 194 tests, 0 failures. No new code changes expected.
 
-Spot-check key exports exist in `workflow-gate-semantics.js`, `turn-result-validator.js`, and `release-alignment.js`.
+Spot-check key exports:
+- `repo-decisions.js`: 12 exports including `appendRepoDecision`, `overrideRepoDecision`, `validateOverride`, `resolveDecisionAuthority`, `getDecisionAuthorityMetadata`
+- `decisions.js` command: `--all`, `--show`, `--json` options
+- `dispatch-bundle.js`: Decision History table in CONTEXT.md
+- `scope-overlap.js`: 3 exports (`extractScopeFingerprint`, `computeScopeOverlap`, `checkIntentScopeOverlap`)
 
 ### Architecture Invariants
 
 1. No changes to any mechanism module — verification only
-2. Turn-result validation is 5-stage and mandatory — no bypass path exists
-3. Workflow gate semantics reject placeholder text — real content required
-4. Phase gates are enforced by governed-state.js, not by convention
-5. Challenge requirement is enforced at the validator level (line 976), not advisory
+2. Decision ledger uses append-only JSONL — decisions are never silently deleted
+3. Decision authority is opt-in per role — null authority means no enforcement
+4. Override lineage is immutable — overridden decisions retain their history
+5. Operator CLI is read-only — cannot mutate decisions via the command
 
 ## Acceptance Tests
 
-All 197 tests across 8 suites must pass:
+All 194 tests across 8 suites must pass:
 
 | # | Suite | Test Count | Mechanism | Status |
 |---|-------|-----------|-----------|--------|
-| 1 | `turn-result-validator.test.js` | 100 | 5-stage turn validation pipeline | Passing (PM verified) |
-| 2 | `gate-evaluator.test.js` | 52 | Gate evaluation + semantic dispatch | Passing (PM verified) |
-| 3 | `implementation-gate.test.js` | 10 | Implementation phase gate enforcement | Passing (PM verified) |
-| 4 | `release-notes-gate.test.js` | 10 | Release notes quality enforcement | Passing (PM verified) |
-| 5 | `workflow-gate-placeholder-leak.test.js` | 8 | Placeholder text rejection | Passing (PM verified) |
-| 6 | `bug-78-no-edit-review.test.js` | 7 | No-edit review normalization | Passing (PM verified) |
-| 7 | `release-alignment.test.js` | 6 | 8-dimension release validation | Passing (PM verified) |
-| 8 | `e2e-release-gate.test.js` | 4 | Full pipeline proof | Passing (PM verified) |
-| | **Total** | **197** | | **All passing** |
+| 1 | `repo-decisions.test.js` | 48 | Decision CRUD, authority, override, persistence | Passing (PM verified) |
+| 2 | `dispatch-bundle-decision-history.test.js` | 12 | Agent-facing decision history rendering | Passing (PM verified) |
+| 3 | `coordinator-decision-ledger.test.js` | 7 | Framework governance event recording | Passing (PM verified) |
+| 4 | `named-decisions-visibility.test.js` | 6 | Multi-repo decision coordination | Passing (PM verified) |
+| 5 | `turn-result-validator.test.js` | 100 | Decision schema enforcement + challenge | Passing (PM verified) |
+| 6 | `scope-overlap.test.js` | 12 | Scope overlap detection + deferral | Passing (PM verified) |
+| 7 | `bug-78-no-edit-review.test.js` | 7 | Review turn normalization (audit integrity) | Passing (PM verified) |
+| 8 | `status-repo-decisions.test.js` | 2 | Operator status rendering of decisions | Passing (PM verified) |
+| | **Total** | **194** | | **All passing** |
 
 ### Acceptance Criteria
 
 | # | Criterion | Evidence Required |
 |---|-----------|-------------------|
-| AC-1 | All 197 quality-enforcement tests pass | Dev test output showing 197/197, 0 failures |
-| AC-2 | `workflow-gate-semantics.js` exports 6 semantic evaluators | Dev grep/spot-check |
-| AC-3 | `turn-result-validator.js` enforces 5-stage pipeline (A–E) | Dev grep confirmation |
-| AC-4 | `turn-result-validator.js` enforces challenge requirement (line 976) | Dev grep confirmation |
-| AC-5 | `release-alignment.js` exports `validateReleaseAlignment` and `getReleaseAlignmentContext` | Dev grep/spot-check |
-| AC-6 | Phase gates prevent skipping quality steps (planning → impl → QA) | Dev confirmation of governed-state.js enforcement |
-| AC-7 | ROADMAP.md M12 milestone documented with mechanism evidence | PM artifact (this turn) |
-| AC-8 | Vision goal "quality drifts" addressed by composition | QA assessment of 8-mechanism coverage |
+| AC-1 | All 194 decision-trail tests pass | Dev test output showing 194/194, 0 failures |
+| AC-2 | `repo-decisions.js` exports 12 decision management functions including authority enforcement | Dev grep/spot-check |
+| AC-3 | `decisions` CLI command provides `--all`, `--show`, `--json` operator query access | Dev spot-check |
+| AC-4 | Decision authority model enforces hierarchical override (`validateOverride`, `resolveDecisionAuthority`) | Dev grep confirmation |
+| AC-5 | Dispatch bundles render decision history for incoming agents | Dev grep of dispatch-bundle.js |
+| AC-6 | Coordinator records governance decisions at 5 critical events | Dev confirmation of governed-state.js |
+| AC-7 | ROADMAP.md M13 milestone documented with mechanism evidence | PM artifact (this turn) |
+| AC-8 | Vision goal "nobody owns the decision trail" addressed by ownership composition | QA assessment of 8-mechanism coverage |
