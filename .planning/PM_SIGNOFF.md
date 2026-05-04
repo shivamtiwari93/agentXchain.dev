@@ -1,10 +1,10 @@
-# PM Signoff — M9: CI Pipeline Integration (Verification)
+# PM Signoff — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix
 
 Approved: YES
 
-**Run:** `run_0cd65963809561d6`
+**Run:** `run_5e7a4020b052bc68`
 **Phase:** planning
-**Turn:** `turn_7bad89d46e4419c3`
+**Turn:** `turn_dedcba0327220bf1`
 **Date:** 2026-05-04
 
 ## Discovery Checklist
@@ -17,120 +17,125 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators running governed multi-agent runs inside CI pipelines (GitHub Actions, GitLab CI, or any generic CI provider).
+AgentXchain operators running governed multi-agent runs in full-auto continuous mode, where review-only roles (e.g. product_marketing, security_reviewer, technical_writer) perform no-edit analysis turns.
 
 ### Core Pain Point
 
-ROADMAP.md lines 101–104 (M9: CI Pipeline Integration) remained unchecked despite the full code delivery and QA verification in run_685ea79f49acd469. The CI reporter module, ci-report command, exit code derivation, and 12 tests were all delivered and verified (QA ship verdict YES, 12/12 criteria, 23 tests across 2 suites, 0 failures), but the roadmap items were never marked complete. The orchestrator's vision_scan detected the unchecked items and opened this run.
+BUG-78: When a review-only role completes a valid no-edit turn and emits `artifact.type: "workspace"` with `files_changed: []`, AgentXchain correctly rejects the inconsistency at Stage C validation but the continuous loop cannot auto-recover — it pauses and requires manual JSON surgery on `.agentxchain/staging/<turn>/turn-result.json`. This directly blocks the DOGFOOD-100-TURNS credibility gate (HUMAN-ROADMAP top priority) and is the last remaining gap in the workflow kit's recovery layer.
 
-**Evidence of prior delivery:**
-- `cli/src/lib/ci-reporter.js` — Exists: 5 exported functions (detectCIEnvironment, formatGitHubAnnotations, writeGitHubOutputVars, formatJUnitXml, deriveCIExitCode)
-- `cli/src/commands/ci-report.js` — Exists: ciReportCommand with --input and --format options
-- `cli/bin/agentxchain.js` — Modified: import at line 90, command registration at line 199
-- `cli/test/ci-reporter.test.js` — Exists: 12 tests, all passing (verified this turn: 12 passed, 143ms)
-- QA ship verdict YES from run_685ea79f49acd469 (turn_f46d678b252cb141): 12/12 acceptance criteria, 23 tests, 0 failures
+**Evidence of the bug:** Reproduced by tusq.dev beta tester on agentxchain@2.155.26 (2026-04-26). The product_marketing role performed valid launch readiness review, turn was rejected, manual `jq` edit of staging JSON to change `workspace` → `review` was required to unblock the continuous loop.
 
 ### Challenge to Previous Turn
 
-#### OBJ-PM-001: Planning artifacts describe run_685ea79f49acd469, not current run_0cd65963809561d6 (severity: high)
+#### OBJ-PM-001: All three planning artifacts reference wrong run (severity: high)
 
-All three planning artifacts reference run_685ea79f49acd469:
-- PM_SIGNOFF.md line 5: `run_685ea79f49acd469`
-- SYSTEM_SPEC.md line 3: `run_685ea79f49acd469`
-- ROADMAP.md phases table: `run_685ea79f49acd469`
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md phases table all referenced run_0cd65963809561d6 (CI reporter verification). This is run_5e7a4020b052bc68 with charter "[vision] What We Are Building: an opinionated workflow layer for planning, specs, documentation, testing, QA, release, and recovery." The dev turn (turn_4ba1bb436277fb74) correctly fixed SYSTEM_SPEC.md headers for the old run's gate, but the content is for the wrong scope. All three artifacts rewritten from scratch.
 
-This is a new run (run_0cd65963809561d6) that must have its own planning artifacts. All three rewritten from scratch.
+#### OBJ-PM-002: No milestone addresses the workflow layer vision pillar (severity: medium)
 
-#### OBJ-PM-002: ROADMAP.md M9 items 101-103 not checked off despite QA ship verdict YES (severity: high)
-
-Run_685ea79f49acd469 completed the full PM→Dev→QA cycle with ship verdict YES (12/12 criteria, 23 tests, 0 failures), but ROADMAP.md lines 101-103 remained unchecked. This is what triggered the vision_scan to open this run. Fixed: items 101-103 now checked off with evidence.
+ROADMAP.md had milestones M1-M9 covering governance, vision derivation, multi-model handoff, recovery, parallel turns, dashboard, connectors, managed surface, and CI — but no milestone that explicitly addresses VISION.md §4 "Workflow Kit: the opinionated operating model for real software delivery." The workflow kit was built incrementally across other milestones. Added MW milestone to formally close this pillar.
 
 ### Core Workflow (this run)
 
-1. **PM (this turn)** — Check off delivered M9 roadmap items, rewrite planning artifacts for this run, scope verification-only dev+QA cycle
-2. **Dev** — Re-run ci-reporter.test.js to confirm 12 tests still pass; run full test suite to confirm no regressions
-3. **QA** — Verify all 12 acceptance criteria hold against existing code, check off M9 acceptance item (ROADMAP.md:104)
+1. **PM (this turn)** — Audit workflow kit against VISION.md §4, identify BUG-78 as the remaining gap, rewrite planning artifacts, add MW milestone
+2. **Dev** — Expand Rule 0a in turn-result-validator.js, write 6 regression tests
+3. **QA** — Verify BUG-78 fix, confirm all 8 workflow concerns, check off MW acceptance
 
 ### MVP Scope (this run)
 
-**This run is a verification-only run.** The CI reporter code was fully delivered in run_685ea79f49acd469. This run verifies the delivery is intact and closes the roadmap gap.
+**One-line code change + 6 regression tests.**
+
+The fix adds `|| normalized.status === 'completed'` to Rule 0a's condition block (turn-result-validator.js:1527). This makes the normalizer auto-correct `workspace` → `review` for completed no-edit turns, eliminating the need for manual JSON surgery.
 
 **PM deliverables (this turn):**
-1. PM_SIGNOFF.md: Rewritten for run_0cd65963809561d6 with verification scope
-2. SYSTEM_SPEC.md: Rewritten for run_0cd65963809561d6 with verification-focused acceptance criteria
-3. ROADMAP.md: Items 101-103 checked off with evidence; phases table updated for this run
+1. PM_SIGNOFF.md: Rewritten for run_5e7a4020b052bc68 with BUG-78 scope
+2. SYSTEM_SPEC.md: Precise fix spec with insertion point, behavioral guarantees, test matrix
+3. ROADMAP.md: MW milestone added with 8 delivered workflow concerns + BUG-78 gap + acceptance item
 
 **Dev deliverables:**
-1. Re-run `cli/test/ci-reporter.test.js` — confirm 12 tests pass
-2. Re-run full test suite — confirm no new regressions
-3. No code changes expected (unless regressions found)
+1. Edit turn-result-validator.js: add one condition line to Rule 0a
+2. Create bug-78-no-edit-review.test.js: 6 regression tests (AT-WK-001 through AT-WK-006)
+3. Verify existing gate/validator tests still pass
 
 **QA deliverables:**
-1. Verify all 12 acceptance criteria against existing code
-2. Check off ROADMAP.md:104 (M9 acceptance item)
-3. Write acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md
+1. Verify 6 new tests pass
+2. Verify existing test suites unaffected
+3. Confirm all 8 workflow concerns are delivered with evidence
+4. Check off MW acceptance on ROADMAP.md
+5. Write acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md
 
 ### Out of Scope
 
-- New code changes (code already delivered)
-- Changes to ci-reporter.js, ci-report.js, or agentxchain.js
-- Changes to any existing modules
-- New features or enhancements to the CI reporter
+- Changes to Stage C validation logic (line 696-707)
+- Changes to review→workspace guard (line 716-728)
+- Changes to any other module (governed-state.js, run-loop.js, etc.)
+- New normalizer rules beyond the status=completed condition
+- Workflow kit feature additions (new templates, new phases, new artifact types)
+- Any work unrelated to BUG-78 or workflow kit vision pillar closure
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | Roadmap milestone addressed: M9: CI Pipeline Integration | ROADMAP.md items 101-103 checked off with evidence |
-| 2 | CI reporter module exists with 5 functions | `cli/src/lib/ci-reporter.js` file inspection |
-| 3 | ci-report command registered and functional | `cli/bin/agentxchain.js` lines 90, 199 |
-| 4 | All 12 ci-reporter tests pass | `npx vitest run test/ci-reporter.test.js` |
-| 5 | No regressions in full test suite | `cd cli && npm test` |
-| 6 | ROADMAP.md:104 acceptance item checked off | QA verification |
+| 1 | Vision goal addressed: opinionated workflow layer | MW milestone on ROADMAP.md with all 8 concerns checked + BUG-78 closed |
+| 2 | BUG-78 fixed: completed no-edit turns auto-normalize | AT-WK-001 + AT-WK-006 pass |
+| 3 | No regression in existing validation | workflow-gate-semantics.test.js + gate-evaluator.test.js + turn-result-validator.test.js pass |
+| 4 | Status guard preserved (failed/blocked turns NOT normalized) | AT-WK-003 + AT-WK-004 pass |
+| 5 | Files_changed guard preserved | AT-WK-002 pass |
+| 6 | Produced_files guard preserved | AT-WK-005 pass |
 
 ### Design Decisions
 
-#### DEC-001: Previous CI reporter delivery (run_685ea79f49acd469) is intact — roadmap checkoff only
+#### DEC-001: Previous planning artifacts described run_0cd65963809561d6 — rewritten from scratch for run_5e7a4020b052bc68
 
-The code was fully delivered and QA-verified in run_685ea79f49acd469 but the roadmap items were never checked off. This run's scope is verification + checkoff, not new implementation. Items 101-103 checked off by PM based on QA evidence; item 104 (acceptance) reserved for QA in this run.
+The vision scan opened this run for the "workflow layer" charter, not CI reporter verification. All three planning artifacts rewritten.
 
-#### DEC-002: CI reporter reuses existing governance report pipeline (confirmed)
+#### DEC-002: Workflow kit already implements all 8 VISION.md §4 concerns — MW milestone audits and formally closes the pillar
 
-Confirmed from code inspection: ci-reporter.js imports nothing from config.js, governed-state.js, or any state reader. It consumes the governance report object from buildGovernanceReport(). This architecture invariant holds.
+The workflow kit was built incrementally across M1-M9 but no milestone explicitly addressed it. MW enumerates all 8 concerns (planning, specs, implementation, QA, release, escalation, recovery, documentation) with evidence, plus the BUG-78 gap.
 
-#### DEC-003: Vitest contract count unchanged
+#### DEC-003: BUG-78 fix scoped as minimal Rule 0a expansion — `|| normalized.status === 'completed'`
 
-The vitest-contract.test.js file count was already updated in run_685ea79f49acd469. No file count changes needed in this run.
+The fix adds one condition line rather than restructuring the normalizer. This is safe because: (a) turns with empty files_changed and status=completed genuinely have no repo mutations, (b) the normalization is recorded in normalizationEvents for audit, (c) Stage C remains the safety net for non-normalized turns.
+
+#### DEC-004: BUG-78 fix directly serves DOGFOOD-100-TURNS credibility gate
+
+HUMAN-ROADMAP explicitly identifies BUG-78 as "open for natural no-edit review proof." Fixing this is aligned with the top human priority (substrate hardening for dogfood) and the vision charter (workflow recovery completeness).
 
 ## Notes for Dev
 
-**This is a verification-only turn.** No code changes expected. Your charter:
+**Minimal change.** One condition line added to turn-result-validator.js Rule 0a. Six regression tests in a new file. See SYSTEM_SPEC.md §2 for exact insertion point and test matrix.
 
-1. Run `cd cli && npx vitest run test/ci-reporter.test.js` — confirm 12 tests pass
-2. Run `cd cli && npm test` — confirm no new regressions
-3. Report results
-
-If any tests fail, diagnose and fix.
+Do NOT modify:
+- Stage C validation (lines 696-707)
+- Review→workspace guard (lines 716-728)
+- Implementation-phase product-code guard (lines 733-739)
+- Any module outside turn-result-validator.js
 
 ## Notes for QA
 
-- Verify ci-reporter.test.js passes: `cd cli && npx vitest run test/ci-reporter.test.js`
-- Verify full suite: `cd cli && npm test`
-- Verify ROADMAP.md items 101-103 are checked off with evidence
-- Check off ROADMAP.md:104 (M9 acceptance item) after verification
-- Write acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md for run_0cd65963809561d6
+- Run bug-78-no-edit-review.test.js: all 6 tests must pass
+- Run workflow-gate-semantics.test.js and gate-evaluator.test.js: no regressions
+- Run turn-result-validator.test.js if it exists: no regressions
+- Verify ROADMAP.md MW items are checked (8 delivered concerns)
+- Check off MW acceptance item after verification
+- Confirm normalization event is recorded when fix fires
 
 ## Acceptance Contract
 
-1. **Roadmap milestone addressed: M9: CI Pipeline Integration** — Items 101-103 checked off based on QA ship verdict YES from run_685ea79f49acd469; item 104 to be checked off by QA in this run after verification.
-2. **Unchecked roadmap item completed: CI reporter module with provider detection** — cli/src/lib/ci-reporter.js exists with all 5 functions; 12 tests pass; code delivered in run_685ea79f49acd469, verified this turn.
-3. **Evidence source: .planning/ROADMAP.md:101** — Now checked off: `- [x] CI reporter module with provider detection (GitHub Actions, GitLab CI, generic)`
+1. **Vision goal addressed: an opinionated workflow layer for planning, specs, documentation, testing, QA, release, and recovery** — All 8 workflow concerns audited and confirmed delivered on ROADMAP.md MW milestone. The one gap (BUG-78 recovery) is fixed in this run. Evidence: 7 semantic validators, 7 governed templates, recovery classification, release alignment, human escalation, plus BUG-78 fix with 6 regression tests.
 
 ## API Map
 
 | Module | Status | Purpose |
 |--------|--------|---------|
-| `cli/src/lib/ci-reporter.js` | Exists (delivered run_685ea79f49acd469) | CI detection, GitHub annotations, output vars, JUnit XML, exit codes |
-| `cli/src/commands/ci-report.js` | Exists (delivered run_685ea79f49acd469) | CLI command: export → report → CI format → exit code |
-| `cli/bin/agentxchain.js` | Modified (delivered run_685ea79f49acd469) | ci-report command registered at line 199 |
-| `cli/test/ci-reporter.test.js` | Exists (delivered run_685ea79f49acd469) | 12 tests covering detection, formatting, integration |
+| `cli/src/lib/turn-result-validator.js` | Modified (this run) | Rule 0a expanded: workspace→review for completed no-edit turns |
+| `cli/test/bug-78-no-edit-review.test.js` | New (this run) | 6 regression tests for BUG-78 fix |
+| `cli/src/lib/workflow-gate-semantics.js` | Exists (unchanged) | 7 semantic validators for workflow artifacts |
+| `cli/src/lib/workflow-kit-phase-templates.js` | Exists (unchanged) | Phase template definitions (planning, implementation, QA) |
+| `cli/src/lib/workflow-kit-artifacts.js` | Exists (unchanged) | Artifact derivation from config |
+| `cli/src/lib/gate-evaluator.js` | Exists (unchanged) | Phase-exit gate evaluation |
+| `cli/src/lib/recovery-classification.js` | Exists (unchanged) | Recovery event classification (4 domains) |
+| `cli/src/lib/human-escalations.js` | Exists (unchanged) | Human escalation tracking |
+| `cli/src/lib/release-alignment.js` | Exists (unchanged) | Release surface validation (8 dimensions) |
+| `cli/src/lib/governed-templates.js` | Exists (unchanged) | 7 governed template manifests |

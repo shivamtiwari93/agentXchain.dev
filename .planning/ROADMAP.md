@@ -103,10 +103,23 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Exit code derivation from governance report (0=pass, 1=fail, 2=error) <!-- run_685ea79f49acd469: deriveCIExitCode() in ci-reporter.js returns 0/1/2; QA verified AT-CI-011 -->
 - [ ] Acceptance: CI reporter formats a governed run report as GitHub Actions annotations and JUnit XML with correct exit codes
 
+### MW: Workflow Kit — Opinionated Delivery Layer (Vision Pillar Closure)
+- [x] Planning framework: PM_SIGNOFF.md + ROADMAP.md artifacts with pm_signoff semantic validation <!-- workflow-kit-phase-templates.js planning-default; workflow-gate-semantics.js evaluatePmSignoff() -->
+- [x] Spec-driven development: SYSTEM_SPEC.md with enforced Purpose, Interface, Acceptance Tests sections <!-- workflow-gate-semantics.js evaluateSystemSpec() -->
+- [x] Implementation phase: IMPLEMENTATION_NOTES.md with Changes + Verification sections <!-- workflow-kit-phase-templates.js implementation-default; workflow-gate-semantics.js evaluateImplementationNotes() -->
+- [x] QA as governed proof surface: acceptance-matrix.md + ship-verdict.md with semantic validation <!-- workflow-gate-semantics.js evaluateAcceptanceMatrix(), evaluateShipVerdict() -->
+- [x] Release workflow: RELEASE_NOTES.md with User Impact + Verification Summary sections, release-alignment.js across 8 dimensions <!-- workflow-gate-semantics.js evaluateReleaseNotes(); release-alignment.js -->
+- [x] Escalation workflow: human-escalations.js with HUMAN_TASKS.md management, credentialed gate support <!-- human-escalations.js, approval-policy.js -->
+- [x] Recovery workflow: recovery-classification.js (4 domains), coordinator-recovery.js, RECOVERY_REPORT.md scaffolding <!-- recovery-classification.js, coordinator-recovery.js, workflow-gate-semantics.js scaffoldRecoveryReport() -->
+- [x] Documentation as product artifact: repo-native planning/spec/QA/release docs, release-alignment.js validates docs, versions, installation methods <!-- release-alignment.js 8-dimension validation -->
+- [x] Template system: 7 governed templates (generic, api-service, cli-tool, library, web-app, full-local-cli, enterprise-app) with custom phases and role sets <!-- governed-templates.js, cli/src/templates/governed/ -->
+- [ ] Recovery gap: BUG-78 no-edit review turn auto-normalization (workspace→review for completed turns with empty files_changed) <!-- turn-result-validator.js Rule 0a lines 1515-1543 only fires on lifecycle signals; completed no-edit turns rejected at Stage C line 702 -->
+- [ ] Acceptance: all 8 workflow concerns delivered with regression tests, BUG-78 recovery gap closed
+
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Verify M9 CI Pipeline Integration delivery from run_685ea79f49acd469 is intact; check off roadmap items 101-103; scope verification-only dev+QA cycle | In progress (`run_0cd65963809561d6`) |
-| Implementation | Dev re-runs ci-reporter.test.js (12 tests) + full test suite to confirm no regressions since delivery | Pending |
-| QA | Verify all 12 acceptance criteria hold, confirm roadmap items checked off, check off M9 acceptance item (line 104) | Pending |
+| Planning | Audit workflow kit against VISION.md §4 (8 concerns), scope BUG-78 fix, rewrite planning artifacts for run_5e7a4020b052bc68 | In progress (`run_5e7a4020b052bc68`) |
+| Implementation | Expand Rule 0a in turn-result-validator.js to auto-normalize workspace→review for completed no-edit turns; add regression tests | Pending |
+| QA | Verify BUG-78 fix, confirm all 8 workflow concerns covered, check off MW acceptance | Pending |
