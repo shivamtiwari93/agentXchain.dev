@@ -98,15 +98,15 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [ ] Acceptance: a governed run completes via the hosted runner with dashboard visibility
 
 ### M9: CI Pipeline Integration
-- [ ] CI reporter module with provider detection (GitHub Actions, GitLab CI, generic) <!-- cli/src/lib/ci-reporter.js: detectCIEnvironment(), formatGitHubAnnotations(), writeGitHubOutputVars(), formatJUnitXml(), deriveCIExitCode() -->
-- [ ] `agentxchain ci-report` command with GitHub Actions annotations, output variables, and JUnit XML <!-- cli/src/commands/ci-report.js + cli/bin/agentxchain.js registration -->
-- [ ] Exit code derivation from governance report (0=pass, 1=fail, 2=error) <!-- deriveCIExitCode() in ci-reporter.js -->
+- [x] CI reporter module with provider detection (GitHub Actions, GitLab CI, generic) <!-- run_685ea79f49acd469: cli/src/lib/ci-reporter.js with detectCIEnvironment(), formatGitHubAnnotations(), writeGitHubOutputVars(), formatJUnitXml(), deriveCIExitCode(); QA ship verdict YES (12/12 criteria, 23 tests, 0 failures) -->
+- [x] `agentxchain ci-report` command with GitHub Actions annotations, output variables, and JUnit XML <!-- run_685ea79f49acd469: cli/src/commands/ci-report.js + cli/bin/agentxchain.js registration (line 90 import, line 199 command); QA verified -->
+- [x] Exit code derivation from governance report (0=pass, 1=fail, 2=error) <!-- run_685ea79f49acd469: deriveCIExitCode() in ci-reporter.js returns 0/1/2; QA verified AT-CI-011 -->
 - [ ] Acceptance: CI reporter formats a governed run report as GitHub Actions annotations and JUnit XML with correct exit codes
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M9 CI Pipeline Integration: CI reporter module + ci-report command + GitHub Actions annotations + JUnit XML + output variables + exit codes; charter 1 new test file with 12 tests | In progress (`run_685ea79f49acd469`) |
-| Implementation | Dev creates ci-reporter.js (5 functions), ci-report.js (1 command), registers in agentxchain.js, creates ci-reporter.test.js (~12 tests) | Pending |
-| QA | Verify 12 ci-reporter tests pass, verify JUnit XML well-formedness, verify GitHub annotations format, run full test suite, check off M9 items | Pending |
+| Planning | Verify M9 CI Pipeline Integration delivery from run_685ea79f49acd469 is intact; check off roadmap items 101-103; scope verification-only dev+QA cycle | In progress (`run_0cd65963809561d6`) |
+| Implementation | Dev re-runs ci-reporter.test.js (12 tests) + full test suite to confirm no regressions since delivery | Pending |
+| QA | Verify all 12 acceptance criteria hold, confirm roadmap items checked off, check off M9 acceptance item (line 104) | Pending |
