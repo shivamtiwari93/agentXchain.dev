@@ -1,83 +1,53 @@
-# Release Notes — M9: CI Pipeline Integration
+# Release Notes — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix
 
-**Run:** run_685ea79f49acd469
+**Run:** run_cf572ef2d54d357d
 **Version:** agentxchain@2.155.72
 
 ## What's New
 
-### CI Pipeline Integration
+### BUG-78: No-Edit Review Turn Auto-Normalization
 
-AgentXchain now reports governed run results in CI-native formats, closing the CI gap in the integrations pillar (VISION.md:18). New `agentxchain ci-report` command with three output formats:
+Review-only roles (e.g. product_marketing, security_reviewer, technical_writer) that complete valid no-edit analysis turns no longer get stuck at Stage C validation. The turn-result validator's Rule 0a now auto-normalizes `artifact.type: "workspace"` to `"review"` when a completed turn has empty `files_changed` and no checkpointable produced files.
 
-- **GitHub Actions annotations**: `::notice`, `::warning`, and `::error` workflow commands for run status, gate results, decisions, and blocked-on conditions
-- **GitHub output variables**: Writes `run_status`, `run_id`, `phase`, `blocked`, `turn_count`, `decision_count` to `$GITHUB_OUTPUT` for downstream CI steps
-- **JUnit XML**: Standard JUnit 4 report with Gates and Turns testsuites, consumed natively by GitHub, GitLab, Jenkins, and CircleCI
+**Before:** Completed no-edit turns emitting `workspace` with `files_changed: []` were rejected at Stage C ("workspace but files_changed is empty"), requiring manual JSON surgery on the staging turn-result to continue the governed run.
 
-### Auto-Detection
+**After:** Rule 0a detects the inconsistency and auto-corrects `workspace` → `review`, recording the normalization in the auditable `normalizationEvents` array. The continuous loop proceeds without manual intervention.
 
-The `ci-report` command auto-detects the CI provider (GitHub Actions, GitLab CI, or generic) and selects the appropriate output format. Override with `--format github-actions|junit-xml|json`.
+### Guards Preserved
 
-### Exit Codes
-
-CI-appropriate exit codes: 0 (governance pass), 1 (governance fail), 2 (error). CI systems treat non-zero as failure, matching governance semantics.
-
-## Usage
-
-```bash
-# Auto-detect CI provider and emit formatted output
-agentxchain ci-report
-
-# Force JUnit XML output (e.g., for artifact upload)
-agentxchain ci-report --format junit-xml > governance-results.xml
-
-# Use a pre-built export artifact
-agentxchain ci-report --input .agentxchain/export.json --format github-actions
-```
+- **Status guard**: Only `completed` turns are normalized. `failed` and `blocked` turns still hit Stage C as before.
+- **Files guard**: Turns with non-empty `files_changed` are never normalized — they legitimately declared workspace changes.
+- **Produced files guard**: Turns with checkpointable `verification.produced_files` entries are not normalized — they have artifacts to checkpoint even without repo mutations.
+- **Implementation guard**: The implementation-phase product-code guard (line 733) is fully independent of Rule 0a. Authoritative implementation turns still require product code changes regardless of normalization.
 
 ## Files Changed
 
 | File | Change | Description |
 |------|--------|-------------|
-| `cli/src/lib/ci-reporter.js` | New | 5 exported functions: detectCIEnvironment, formatGitHubAnnotations, writeGitHubOutputVars, formatJUnitXml, deriveCIExitCode |
-| `cli/src/commands/ci-report.js` | New | CLI command: export → report → CI format → exit code |
-| `cli/bin/agentxchain.js` | Modified | +1 import, +1 command registration |
-| `cli/test/ci-reporter.test.js` | New | 12 acceptance tests (AT-CI-001 through AT-CI-012) |
-| `cli/test/vitest-contract.test.js` | Modified | File count 673 → 674 |
+| `cli/src/lib/turn-result-validator.js` | Modified | Rule 0a (line 1527): added `\|\| normalized.status === 'completed'` to normalization trigger |
+| `cli/test/bug-78-no-edit-review.test.js` | New | 7 regression tests (AT-WK-001 through AT-WK-007) |
+| `cli/test/turn-result-validator.test.js` | Modified | 2 existing tests updated: status `completed` → `blocked` to preserve Stage C coverage |
 
 ## Test Results
 
-- 12/12 ci-reporter tests pass
-- 11/11 vitest contract tests pass (674 files)
+- 7/7 BUG-78 regression tests pass (AT-WK-001 through AT-WK-007)
+- 152/152 validator + gate tests pass (turn-result-validator, workflow-gate-semantics, gate-evaluator)
 - 0 new failures introduced
-
-## Architecture
-
-The CI reporter reuses the existing `buildRunExport()` → `buildGovernanceReport()` pipeline. No new state reading, no modifications to report.js/export.js/export-verifier.js. Pure formatting layer over existing governance reports.
 
 ## User Impact
 
-CI/CD operators can now integrate AgentXchain governance results directly into their pipelines without custom parsing. Key impacts:
-
-- **GitHub Actions users**: Run status, gate results, and decisions appear as native workflow annotations (notice/warning/error). Six output variables (`run_status`, `run_id`, `phase`, `blocked`, `turn_count`, `decision_count`) are available to downstream steps via `$GITHUB_OUTPUT`.
-- **JUnit XML consumers**: Governance results export as standard JUnit 4 XML, compatible with GitHub, GitLab, Jenkins, and CircleCI test result viewers. Failed gates and blocked turns surface as `<failure>` elements.
-- **All CI systems**: Exit codes follow CI conventions — 0 (governance pass), 1 (governance fail), 2 (error) — so pipeline steps fail when governance fails, with no additional scripting required.
-- **Auto-detection**: No configuration needed in most cases; the command detects GitHub Actions and GitLab CI environments automatically and selects the appropriate format.
+Operators running governed multi-agent runs in continuous mode no longer need to manually edit turn-result JSON when review-only roles emit `artifact.type: "workspace"` with no file changes. This was the last remaining gap in the workflow kit's recovery layer, directly unblocking the DOGFOOD-100-TURNS credibility gate. The fix is a one-line condition expansion with zero behavioral change for turns that declare file changes or have non-completed status.
 
 ## Verification Summary
 
-QA independently verified all 12 SYSTEM_SPEC acceptance criteria (AT-CI-001 through AT-CI-012):
+QA independently verified all 8 SYSTEM_SPEC acceptance criteria (AT-WK-001 through AT-WK-008):
 
-- **CI detection** (AT-CI-001–004): GitHub Actions, GitLab CI, generic, and null environments correctly identified with proper priority ordering.
-- **GitHub annotations** (AT-CI-005–007): Pass/fail/gate-level annotations use correct `::notice`/`::warning`/`::error` syntax.
-- **Output variables** (AT-CI-008): 6 key=value pairs written via appendFileSync to GITHUB_OUTPUT path.
-- **JUnit XML** (AT-CI-009–010): Valid XML structure with Gates and Turns testsuites; unsatisfied gates and failed turns mapped to `<failure>` elements.
-- **Exit codes** (AT-CI-011): 0=pass, 1=fail, 2=error confirmed.
-- **Integration** (AT-CI-012): All formatters verified on both passing and failing report fixtures.
+- **Normalization** (AT-WK-001): Completed workspace + empty files_changed correctly auto-normalizes to review, with normalization event recorded.
+- **Files guard** (AT-WK-002): Non-empty files_changed prevents normalization.
+- **Status guard** (AT-WK-003, AT-WK-004): Failed and blocked turns are NOT normalized.
+- **Produced files guard** (AT-WK-005): Checkpointable produced_files prevent normalization.
+- **Full pipeline** (AT-WK-006): Completed no-edit QA turn passes Stage C after normalization.
+- **Independence** (AT-WK-007): Implementation-phase guard independently rejects even after normalization — proves the two constraints are decoupled.
+- **Regression** (AT-WK-008): 152 existing validator + gate tests pass with 0 failures.
 
-Test execution: 12/12 ci-reporter.test.js, 11/11 vitest-contract.test.js (674 files). 0 new failures. Architecture invariants maintained (no state reading, no module modifications, pure functions).
-
-## Known Limitations
-
-- GitLab CI collapsible section formatting not implemented (falls back to JSON output)
-- CI workflow generation (e.g., auto-creating GitHub Actions YAML) out of scope
-- 12 pre-existing test failures in docs contracts, dashboard view registry, and E2E proposal/remote-agent tests remain from prior milestones (unrelated to CI delivery)
+Test execution: 7/7 bug-78-no-edit-review.test.js, 152/152 combined validator+gate suites. Total 159 tests, 0 failures. Exit code 0 for all commands.

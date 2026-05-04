@@ -1,64 +1,64 @@
-# Ship Verdict — M9: CI Pipeline Integration
+# Ship Verdict — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix (Formal Closure)
 
-**Run:** run_685ea79f49acd469
-**Turn:** turn_ee2c089077fbd4d8 (QA)
+**Run:** run_cf572ef2d54d357d
+**Turn:** turn_67328376fac5987c (QA)
 **Date:** 2026-05-04
 
 ## Verdict: YES
 
 ## Evidence Summary
 
-### Acceptance Criteria: 12/12 PASS
+### Acceptance Criteria: 8/8 PASS
 
-All 12 SYSTEM_SPEC acceptance criteria independently verified by QA:
-- AT-CI-001 through AT-CI-004: CI detection (GitHub Actions, GitLab CI, generic, null)
-- AT-CI-005 through AT-CI-007: GitHub annotations (pass/fail/gate-level)
-- AT-CI-008: GitHub output variables (6 key=value pairs to file)
-- AT-CI-009 through AT-CI-010: JUnit XML (valid structure + failure mapping)
-- AT-CI-011: Exit code derivation (0/1/2)
-- AT-CI-012: Command integration (all formatters on both passing and failing reports)
+All 8 SYSTEM_SPEC acceptance criteria independently verified by QA:
+- AT-WK-001: Completed workspace+empty files normalizes to review (Rule 0a line 1527)
+- AT-WK-002: Non-empty files_changed prevents normalization (files guard)
+- AT-WK-003: Failed status prevents normalization (status guard)
+- AT-WK-004: Blocked status prevents normalization (status guard)
+- AT-WK-005: Checkpointable produced_files prevent normalization (produced_files guard)
+- AT-WK-006: Full validation pipeline passes for completed no-edit turn after normalization
+- AT-WK-007: Implementation-phase guard independently rejects even after normalization (proves constraints are independent)
+- AT-WK-008: 152 existing validator+gate tests still pass (regression)
 
 ### Test Results
 
 | Suite | Tests | Result |
 |-------|-------|--------|
-| ci-reporter.test.js | 12 | 12/12 PASS |
-| vitest-contract.test.js | 11 | 11/11 PASS (674 files) |
-| **Total** | **23** | **0 failures** |
+| bug-78-no-edit-review.test.js | 7 | 7/7 PASS |
+| turn-result-validator.test.js + workflow-gate-semantics.test.js + gate-evaluator.test.js | 152 | 152/152 PASS |
+| **Total** | **159** | **0 failures** |
 
-Each suite executed independently by QA via `npx vitest run test/<file>`.
+Each suite executed independently by QA via `npx vitest run test/<file>`. Exit code 0 for both commands.
 
-### Dev Decisions: 3/3 Verified
+### Dev Decisions: 2/2 Verified
 
-1. **DEC-001 (No material deviations from PM spec): VERIFIED.** QA compared all 5 exported functions in ci-reporter.js against SYSTEM_SPEC §2.1. Function signatures, return types, detection priority, annotation format, XML structure, and exit code contract all match. One spec micro-improvement: unused `const summary` variable in §2.1.2 correctly omitted.
+1. **DEC-001 (Implementation guard interaction resolved via AT-WK-007): VERIFIED.** The PM-scoped verification-only charter created a protocol tension with the implementation-phase product-code guard (line 733). Dev correctly resolved this by adding AT-WK-007, which documents the Rule 0a + implementation guard interaction and provides genuine regression coverage.
 
-2. **DEC-002 (12 pre-existing test failures unchanged): ACCEPTED.** Full suite exits with code 1 due to 12 pre-existing failures documented since M7 dev turn DEC-003. Zero references to ci-reporter.js or ci-report.js in any failing test file.
-
-3. **DEC-003 (AT-CI-012 alternative approach): APPROVED.** SYSTEM_SPEC §3.1 AT-CI-012 explicitly offers direct function invocation as an alternative to full project fixture. Dev chose the cleaner approach, exercising all 3 formatters on both passing and failing fixtures.
+2. **DEC-002 (All prior claims independently verified): VERIFIED.** QA independently confirmed Rule 0a fix at line 1527, Stage C guard at lines 696-707, implementation guard at lines 733-739, all 7 BUG-78 tests pass, all 152 validator+gate tests pass.
 
 ### Architecture Invariants: 5/5 Maintained
 
-1. **No new state reading** — ci-reporter.js imports only `appendFileSync` from `node:fs`. No config.js, no governed-state.js.
-2. **No module modifications** — report.js, export.js, export-verifier.js untouched. Confirmed via `git diff HEAD~1 --name-only`.
-3. **Pure functions** — formatGitHubAnnotations, formatJUnitXml, deriveCIExitCode are deterministic. Only writeGitHubOutputVars has file I/O, detectCIEnvironment reads env vars.
-4. **Standard output formats** — GitHub Actions `::cmd title=T::msg` syntax, JUnit 4 schema (testsuites/testsuite/testcase/failure).
-5. **Exit code contract** — 0=pass, 1=fail, 2=error.
+1. **No new imports** — Fix is one condition line in an existing if-block
+2. **No behavioral change for turns with files_changed** — Only empty-files_changed turns affected (AT-WK-002)
+3. **No behavioral change for non-completed turns** — Only `status === 'completed'` triggers (AT-WK-003, AT-WK-004)
+4. **Normalization is auditable** — `normalizationEvents` array records the correction (AT-WK-001)
+5. **Stage C remains the safety net** — Non-normalized turns still fail Stage C validation (existing tests preserved via status:'blocked' update)
 
 ### Scope Adherence
 
-- 2 new source files + 1 modified entry point + 1 new test file + 1 contract bump = 5 code files changed
+- 1 line added to turn-result-validator.js (Rule 0a condition)
+- 7 new tests in bug-78-no-edit-review.test.js (AT-WK-001 through AT-WK-007)
+- 2 existing tests updated in turn-result-validator.test.js (status:'completed' → status:'blocked')
 - Zero out-of-scope changes
-- Vitest contract correctly bumped 673 → 674
-- Closes CI gap in VISION.md:18 integrations pillar
+- Closes ROADMAP.md:116 (BUG-78 recovery gap) and :117 (MW acceptance)
 
 ## Blocking Issues: 0
 
 ## Non-Blocking Findings
 
-1. **Stale QA artifacts (fixed)**: acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md all referenced run_0db6a75ab239c3a3 (M7). Rewritten.
-2. **Dev IMPLEMENTATION_NOTES line 60**: Claims "all tests pass" but full suite has 12 pre-existing failures. Non-functional.
-3. **Spec dead variable**: SYSTEM_SPEC §2.1.2 includes unused `const summary` — implementation correctly omits.
+1. **Stale QA artifacts (fixed)**: All three QA artifacts referenced run_685ea79f49acd469 (M9). Rewritten from scratch for current run.
+2. **ROADMAP.md:116 comment stale (fixed)**: Inline comment described pre-fix behavior. Updated when checking off item.
 
 ## Ship Decision
 
-12/12 acceptance criteria pass. 3/3 dev decisions verified. 5/5 architecture invariants maintained. 23 tests across 2 suites with 0 failures. Clean formatting layer over existing governance pipeline. CI integrations pillar complete. **SHIP.**
+8/8 acceptance criteria pass. 2/2 dev decisions verified. 5/5 architecture invariants maintained. 159 tests across 4 suites with 0 failures. One-line fix with comprehensive regression coverage. BUG-78 recovery gap closed. MW workflow kit acceptance complete. **SHIP.**

@@ -1,86 +1,61 @@
-# Acceptance Matrix — M9: CI Pipeline Integration
+# Acceptance Matrix — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix (Formal Closure)
 
-**Run:** run_685ea79f49acd469
-**Turn:** turn_ee2c089077fbd4d8 (QA)
-**Scope:** 1 new lib module (5 functions), 1 new command, 1 modified CLI entry, 12 new tests, vitest contract bumped 673 → 674.
+**Run:** run_cf572ef2d54d357d
+**Turn:** turn_67328376fac5987c (QA)
+**Scope:** 1 modified source module (1 line added), 1 new test file (7 tests), 2 modified existing tests. Code delivered in prior run `run_5e7a4020b052bc68`; this run is formal QA closure.
 
 ## Section A: SYSTEM_SPEC Acceptance Tests
 
-| Req # | Requirement (from SYSTEM_SPEC §Acceptance Tests) | Evidence | Status |
-|-------|------------------------------------------------------|----------|--------|
-| AT-CI-001 | detectCIEnvironment returns github_actions when GITHUB_ACTIONS=true | QA verified source: `ci-reporter.js:7-18` — checks `process.env.GITHUB_ACTIONS === 'true'`, constructs run_url from SERVER_URL/REPOSITORY/RUN_ID, returns provider/run_url/run_id/ref/sha. Test AT-CI-001 passes: env.provider === 'github_actions', run_url correctly assembled. | PASS |
-| AT-CI-002 | detectCIEnvironment returns gitlab_ci when GITLAB_CI=true | QA verified source: `ci-reporter.js:19-27` — checks `process.env.GITLAB_CI === 'true'`, reads CI_PIPELINE_URL/ID/REF/SHA. Test AT-CI-002 passes: env.provider === 'gitlab_ci'. | PASS |
-| AT-CI-003 | detectCIEnvironment returns generic when only CI=true | QA verified source: `ci-reporter.js:28-36` — fallback check `process.env.CI === 'true'`, returns generic provider with all nulls. Test AT-CI-003 passes. | PASS |
-| AT-CI-004 | detectCIEnvironment returns null outside CI | QA verified source: `ci-reporter.js:37` — returns null when no CI env vars set. Test AT-CI-004 passes: env === null. Detection priority: GitHub → GitLab → generic → null confirmed. | PASS |
-| AT-CI-005 | formatGitHubAnnotations emits ::notice for passing run | QA verified source: `ci-reporter.js:49-50` — `report.overall === 'pass'` → `::notice title=AgentXchain Governance::Run ... — PASS`. Test AT-CI-005 passes: output includes `::notice` and `PASS`. | PASS |
-| AT-CI-006 | formatGitHubAnnotations emits ::error for failing run | QA verified source: `ci-reporter.js:51-52` — `report.overall === 'fail'` → `::error title=AgentXchain Governance::Run ... — FAIL`. Test AT-CI-006 passes: output includes `::error` and `FAIL`. Blocked-on annotation (line 78-79) also emits `::error`. | PASS |
-| AT-CI-007 | formatGitHubAnnotations includes gate-level annotations | QA verified source: `ci-reporter.js:58-69` — iterates gate_summary entries, satisfied/pass/passed → `::notice`, other → `::warning`. Test AT-CI-007 passes: `::notice title=Gate planning_signoff::satisfied`, `::warning title=Gate qa_ship_verdict::pending`. | PASS |
-| AT-CI-008 | writeGitHubOutputVars writes key=value pairs to file | QA verified source: `ci-reporter.js:91-107` — 6 key=value pairs (run_status, run_id, phase, blocked, turn_count, decision_count), appends to outputPath via appendFileSync. Test AT-CI-008 passes: file contents verified, pairs array returned. | PASS |
-| AT-CI-009 | formatJUnitXml produces valid XML with testsuites and testcases | QA verified source: `ci-reporter.js:114-177` — XML declaration, root `<testsuites>`, two `<testsuite>` (Gates, Turns), `<testcase>` per gate/turn. XML escaping for &, <, >, ". Test AT-CI-009 passes: `<?xml`, `<testsuites`, `<testsuite name="Gates"`, `<testsuite name="Turns"`, `<testcase name="planning_signoff"`. | PASS |
-| AT-CI-010 | formatJUnitXml maps failed gates to failure elements | QA verified source: `ci-reporter.js:128-143` — unsatisfied gates (not satisfied/pass/passed) get `<failure>` elements. Failed/blocked turns (line 146-157) also get `<failure>`. Test AT-CI-010 passes: `<failure message="pending">`, `<failure message="failed">`. | PASS |
-| AT-CI-011 | deriveCIExitCode returns 0 for pass, 1 for fail, 2 for error | QA verified source: `ci-reporter.js:184-188` — pass→0, fail→1, all others→2. Test AT-CI-011 passes: 4 assertions (pass=0, fail=1, error=2, unknown=2). | PASS |
-| AT-CI-012 | ci-report command integrates with governance report pipeline | QA verified source: `ci-report.js:1-80` — imports buildRunExport, loadExportArtifact, buildGovernanceReport from existing pipeline. Auto-detection and --format override logic correct. Test AT-CI-012 uses direct function invocation per spec-recommended alternative approach. | PASS |
+| Req # | Requirement (from SYSTEM_SPEC Acceptance Tests) | Evidence | Status |
+|-------|--------------------------------------------------|----------|--------|
+| AT-WK-001 | Completed workspace+empty files normalizes to review | QA verified source: `turn-result-validator.js:1515-1543` — Rule 0a condition at line 1527 includes `normalized.status === 'completed'`. Test AT-WK-001 passes: artifact.type normalized from workspace to review, normalizationEvents array records `empty_files_changed_no_repo_mutation_declared`. | PASS |
+| AT-WK-002 | Completed workspace+non-empty files NOT normalized | QA verified source: Rule 0a requires `filesChangedIsEmpty` (line 1521). Test AT-WK-002 passes: artifact.type remains workspace when files_changed is non-empty. | PASS |
+| AT-WK-003 | Failed workspace+empty files NOT normalized | QA verified source: Rule 0a requires `normalized.status === 'completed'` (line 1527). Test AT-WK-003 passes: status `failed` does NOT trigger normalization. | PASS |
+| AT-WK-004 | Blocked workspace+empty files NOT normalized | QA verified source: same status guard as AT-WK-003. Test AT-WK-004 passes: status `blocked` does NOT trigger normalization. | PASS |
+| AT-WK-005 | Completed workspace+empty files+produced_files NOT normalized | QA verified source: Rule 0a requires `!hasCheckpointableProducedFiles(normalized)` (line 1522). Test AT-WK-005 passes: checkpointable produced_files prevent normalization even with empty files_changed. | PASS |
+| AT-WK-006 | Full validation: completed no-edit passes Stage C | QA verified source: Stage C guard at lines 696-707 checks workspace+empty files_changed. After Rule 0a normalizes to review, Stage C no longer applies. Test AT-WK-006 passes: full validateTurnResult pipeline returns 0 errors for completed no-edit QA turn. | PASS |
+| AT-WK-007 | Implementation-phase guard rejects completed no-edit authoritative turn even after normalization | QA verified source: implementation guard at lines 733-739 independently requires product code changes. Test AT-WK-007 passes: Rule 0a normalizes workspace to review, but implementation guard still rejects. Proves the two constraints are independent. | PASS |
+| AT-WK-008 | Existing workflow-gate-semantics and gate-evaluator tests still pass | QA ran combined suite: 152 tests across turn-result-validator.test.js + workflow-gate-semantics.test.js + gate-evaluator.test.js, 0 failures. Exit code 0. | PASS |
 
-**Summary: 12/12 PASS**
+**Summary: 8/8 PASS**
 
 ## Section B: Code Correctness Verification
 
 | Check | Detail | Status |
 |-------|--------|--------|
-| CI detection priority (ci-reporter.js:7-37) | GitHub Actions (line 8) → GitLab CI (line 19) → generic (line 28) → null (line 37). GitHub Actions sets both GITHUB_ACTIONS=true and CI=true; specific check correctly comes first. | PASS |
-| GitHub annotations format (ci-reporter.js:45-83) | Overall: pass→::notice, fail→::error, other→::warning. Gates: satisfied/pass/passed→::notice, other→::warning. Decisions capped at 20. Blocked-on→::error. Uses standard `::cmd title=T::msg` syntax. | PASS |
-| Output vars contract (ci-reporter.js:91-107) | 6 key=value pairs match spec §2.1.3. appendFileSync used (not writeFileSync). Returns pairs for testability. Guards outputPath before write. | PASS |
-| JUnit XML structure (ci-reporter.js:114-177) | Two testsuites (Gates, Turns). Correct test/failure counts at root and suite level. XML special characters escaped. Turn time uses duration_seconds. | PASS |
-| Exit code contract (ci-reporter.js:184-188) | 0=pass, 1=fail, 2=error. Clean switch on report.overall. | PASS |
-| Command orchestration (ci-report.js:12-80) | --input → loadExportArtifact, otherwise → buildRunExport. Auto → github-actions on GHA, json otherwise. Writes GITHUB_OUTPUT only in github-actions mode. Sets process.exitCode (not process.exit()). | PASS |
-| Error handling (ci-report.js:20-24, 31-34, 73-75) | loadExportArtifact failure → stderr + exitCode 1. buildRunExport failure → stderr + exitCode 1. Unsupported format → stderr + exitCode 1 + return (skips deriveCIExitCode). | PASS |
-| Import placement (agentxchain.js:90) | `ciReportCommand` imported after `reportCommand` (line 89). Clean insertion. | PASS |
-| Command registration (agentxchain.js:198-203) | Registered after `report` command (line 192-196). Two options: --input, --format with default 'auto'. | PASS |
-| Architecture invariant: no state reading | `ci-reporter.js` imports only `appendFileSync` from `node:fs`. No config.js, no governed-state.js. Confirmed via grep. | PASS |
-| Architecture invariant: no module modifications | git diff HEAD~1 --name-only shows only 6 files. report.js, export.js, export-verifier.js untouched. | PASS |
-| Architecture invariant: pure functions | formatGitHubAnnotations, formatJUnitXml, deriveCIExitCode are deterministic (input→output). Only writeGitHubOutputVars has file I/O side effect. detectCIEnvironment reads process.env. | PASS |
-| Vitest contract (vitest-contract.test.js:56) | Asserts `TEST_FILES.length === 674`. 11/11 pass. Bumped from 673 (1 new test file). | PASS |
+| Rule 0a condition (line 1527) | `\|\| normalized.status === 'completed'` present in the condition block at lines 1523-1527. Correctly placed after `needs_human` check and before closing paren. | PASS |
+| Stage C guard (lines 696-707) | Intact. Still rejects `workspace` with empty `files_changed` when normalization did not fire. | PASS |
+| Implementation-phase guard (lines 733-739) | Intact. Still requires product code changes for authoritative completed implementation turns. AT-WK-007 documents this interaction. | PASS |
+| Review-to-workspace guard (lines 716-728) | Intact. Still rejects `artifact.type: "review"` with non-empty product file changes. Not affected by BUG-78 fix. | PASS |
+| Normalization event recording | Rule 0a pushes to `normalizationEvents` array with field/original/normalized/rationale. AT-WK-001 verifies presence. | PASS |
+| Two existing test updates | `turn-result-validator.test.js`: "rejects review_only role with non-review artifact type" and "rejects authoritative workspace artifact with no files_changed" both changed from `status:'completed'` to `status:'blocked'` to preserve Stage C coverage post-fix. Correct. | PASS |
 
 ## Section C: Regression Suites (QA-Verified)
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| ci-reporter.test.js | 12 | PASS |
-| vitest-contract.test.js | 11 | PASS (674 files) |
-| **Total (2 suites)** | **23** | **0 failures** |
+| bug-78-no-edit-review.test.js | 7 | 7/7 PASS |
+| turn-result-validator.test.js + workflow-gate-semantics.test.js + gate-evaluator.test.js | 152 | 152/152 PASS |
+| **Total** | **159** | **0 failures** |
 
-All test suites run independently by QA using `npx vitest run test/<file>`.
-
-Note: Full suite (674 files) shows 12 pre-existing failures (7 E2E proposal/remote-agent, 2 current-release-surface, 1 docs-cli-governance, 2 docs-dashboard, 1 dashboard-app) documented since M7 dev turn DEC-003. These are unrelated to M9 delivery.
+All test suites run independently by QA using `npx vitest run test/<file>`. Exit code 0 for both commands.
 
 ## Section D: Dev Challenge Review
 
-### DEC-001 (No material deviations from PM spec): VERIFIED
+### DEC-001 (PM-scoped verification-only charter incompatible with implementation guard): VERIFIED
 
-QA independently compared all 5 exported functions in ci-reporter.js against SYSTEM_SPEC §2.1 deliverables. Function signatures, return types, detection priority, annotation format, XML structure, and exit code contract all match. One micro-improvement: spec §2.1.2 includes an unused `const summary` variable (line 113 of spec) that the implementation correctly omits. Dev's claim is accurate.
+The implementation-phase product-code guard (line 733) independently rejects completed authoritative turns without product file changes. Dev resolved this by adding AT-WK-007 test, which provides genuine regression coverage (proving Rule 0a and implementation guard are independent constraints) while satisfying the guard. Correct resolution.
 
-### DEC-002 (12 pre-existing failures unchanged): ACCEPTED
+### DEC-002 (All prior claims independently verified): VERIFIED
 
-Dev's machine evidence shows full suite at 662 passed / 12 failed (674 files). These 12 failures are documented in M7 dev turn DEC-003 and verified in multiple subsequent QA turns. Zero references to ci-reporter.js or ci-report.js in any failing test file.
-
-### DEC-003 (AT-CI-012 uses direct function invocation): APPROVED
-
-SYSTEM_SPEC §3.1 AT-CI-012 explicitly offers two approaches: full project fixture OR "invoke the CI reporter functions directly on a pre-built export artifact." Dev chose the cleaner alternative. The test (ci-reporter.test.js:254-278) exercises formatGitHubAnnotations, formatJUnitXml, and deriveCIExitCode on both PASSING_REPORT and FAILING_REPORT fixtures, verifying both happy and failure paths.
+QA independently confirmed: Rule 0a at line 1527 present, Stage C at lines 696-707 intact, implementation guard at lines 733-739 intact, 7/7 BUG-78 tests pass, 152/152 validator+gate tests pass. Total: 159 tests, 0 failures.
 
 ## Section E: QA Findings
 
-### Finding 1 (blocking): Stale QA artifacts from wrong run
+### Finding 1 (blocking, fixed): Stale QA artifacts from wrong run
 
-All three QA workflow artifacts (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) referenced run_0db6a75ab239c3a3 (M7: Windsurf & OpenCode Connectors) instead of current run_685ea79f49acd469 (M9: CI Pipeline Integration). All three rewritten from scratch by this QA turn.
+All three QA workflow artifacts referenced run_685ea79f49acd469 (M9: CI Pipeline Integration) instead of current run_cf572ef2d54d357d (MW: BUG-78 Formal Closure). All three rewritten from scratch by this QA turn.
 
-### Finding 2 (info): Dev IMPLEMENTATION_NOTES verification inaccuracy
+### Finding 2 (info): ROADMAP.md:116 comment describes pre-fix behavior
 
-IMPLEMENTATION_NOTES.md line 60 states "Full test suite: all tests pass" but dev's machine evidence shows exit code 1 for `cd cli && npx vitest run` due to 12 pre-existing failures. The claim is misleading; DEC-002 correctly documents the situation. Non-blocking — does not affect functional correctness.
-
-### Finding 3 (info): Dev verification normalized as not_reproducible
-
-Orchestrator marked dev verification as "not_reproducible — local_cli turn has machine evidence with non-zero exit codes despite claiming pass." This is due to the full suite exit code 1 (pre-existing failures). QA independently confirms: all M9-specific tests pass (12/12 ci-reporter, 11/11 vitest-contract). The not_reproducible tag is a false alarm.
-
-### Finding 4 (info): Spec micro-deviation correctly resolved
-
-SYSTEM_SPEC §2.1.2 formatGitHubAnnotations includes `const summary = report.subject?.run?.status || report.overall;` which is defined but never referenced. Implementation correctly omits this dead variable. This is a spec quality issue, not an implementation defect.
+ROADMAP.md:116 inline comment says "only fires on lifecycle signals" — this was the pre-fix state. Updated when checking off the item.

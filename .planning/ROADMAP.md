@@ -113,13 +113,13 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Recovery workflow: recovery-classification.js (4 domains), coordinator-recovery.js, RECOVERY_REPORT.md scaffolding <!-- recovery-classification.js, coordinator-recovery.js, workflow-gate-semantics.js scaffoldRecoveryReport() -->
 - [x] Documentation as product artifact: repo-native planning/spec/QA/release docs, release-alignment.js validates docs, versions, installation methods <!-- release-alignment.js 8-dimension validation -->
 - [x] Template system: 7 governed templates (generic, api-service, cli-tool, library, web-app, full-local-cli, enterprise-app) with custom phases and role sets <!-- governed-templates.js, cli/src/templates/governed/ -->
-- [ ] Recovery gap: BUG-78 no-edit review turn auto-normalization (workspace→review for completed turns with empty files_changed) <!-- turn-result-validator.js Rule 0a lines 1515-1543 only fires on lifecycle signals; completed no-edit turns rejected at Stage C line 702 -->
-- [ ] Acceptance: all 8 workflow concerns delivered with regression tests, BUG-78 recovery gap closed
+- [x] Recovery gap: BUG-78 no-edit review turn auto-normalization (workspace→review for completed turns with empty files_changed) <!-- run_cf572ef2d54d357d: turn-result-validator.js Rule 0a line 1527 now includes status==='completed'; 7 regression tests (AT-WK-001–AT-WK-007) in bug-78-no-edit-review.test.js; QA ship verdict YES (8/8 criteria, 159 tests, 0 failures) -->
+- [x] Acceptance: all 8 workflow concerns delivered with regression tests, BUG-78 recovery gap closed <!-- run_cf572ef2d54d357d: QA turn_67328376fac5987c verified 8/8 acceptance criteria, 159 tests pass, ship verdict YES; MW workflow kit pillar complete -->
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
 | Planning | Update planning artifacts for `run_cf572ef2d54d357d`, verify BUG-78 fix in place (158 tests pass), PM signoff | Complete (`run_cf572ef2d54d357d`, turn_781900573eb70a7e) |
-| Implementation | Verification-only: re-run BUG-78 tests + regression suite, confirm no new code needed | Pending (`run_cf572ef2d54d357d`) |
-| QA | Ship verdict, check off ROADMAP.md:116-117, write acceptance-matrix + ship-verdict + RELEASE_NOTES | Pending (`run_cf572ef2d54d357d`) |
+| Implementation | Verification-only: re-run BUG-78 tests + regression suite, confirm no new code needed; added AT-WK-007 documenting Rule 0a + implementation guard interaction | Complete (`run_cf572ef2d54d357d`, turn_9f3e5b903bba16fd) |
+| QA | Ship verdict YES, checked off ROADMAP.md:116-117, rewrote acceptance-matrix + ship-verdict + RELEASE_NOTES for current run | Complete (`run_cf572ef2d54d357d`, turn_67328376fac5987c) |
