@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Verify M6 Dashboard Live Observer is fully implemented, check off ROADMAP items with evidence | In progress (`run_74fc370a40da7622`) |
-| Implementation | Dev verifies PM's cited line numbers and test references are accurate (28 test files, 478 tests) | Pending |
-| QA | Full test suite verification, confirm acceptance contract | Pending |
+| Planning | Scope M7 Cursor IDE connector as local_cli adapter variant, write planning artifacts | In progress (`run_10a2b2d8f0a8399b`) |
+| Implementation | Dev implements `isCursorLocalCliRuntime()`, command validation, doctor health check, tests | Pending |
+| QA | Full test suite verification, confirm acceptance contract, check off ROADMAP.md:87 | Pending |

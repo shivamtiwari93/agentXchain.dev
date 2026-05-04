@@ -1,205 +1,221 @@
-# System Spec — M6: Dashboard Live Observer
+# System Spec — M7: Connector Ecosystem Expansion — Cursor IDE Connector
 
-**Run:** `run_74fc370a40da7622`
-**Baseline:** git:0dab72102a4eabdc3ff7cf1427aead1964c506d3
+**Run:** `run_10a2b2d8f0a8399b`
+**Baseline:** git:a24a39639c3fc1d2209911f1d457271279d5011d
 **Package version:** `agentxchain@2.155.72`
 
 ## Purpose
 
-Verify and document the complete implementation of the real-time governance dashboard. This is a verification-only spec — all code is already shipped.
+Add Cursor IDE as a recognized `local_cli` adapter flavor, following the established Claude/Codex binary detection, command validation, and doctor health check patterns. No new runtime type — Cursor reuses the existing `local_cli` adapter and subprocess lifecycle.
 
 ---
 
 ## 1. Architecture Overview
 
-The dashboard is a localhost-only HTTP + WebSocket server that serves static UI assets and exposes API endpoints backed by `.agentxchain/` state files. Real-time updates are achieved via filesystem watching + WebSocket push.
+Cursor IDE joins Claude and Codex as a recognized `local_cli` binary flavor. The adapter already supports arbitrary local CLI binaries — this change adds Cursor-specific:
+- Binary detection (like Claude/Codex)
+- Command compatibility validation (like Claude's `--verbose` rule, Codex's `exec` rule)
+- Doctor health check messages
+- Config documentation
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                   Browser (dashboard UI)                   │
-│  app.js → views (timeline, gate, ledger, ...)            │
-└────────────────────┬─────────────────────────────────────┘
-                     │ HTTP GET /api/* + WebSocket
-                     │
-┌────────────────────▼─────────────────────────────────────┐
-│              Bridge Server (bridge-server.js)              │
-│  - HTTP: serves static assets + JSON API                  │
-│  - WebSocket: RFC 6455, text frames, invalidation push    │
-│  - Auth: token-based for mutations, localhost-only bind   │
-└────────┬──────────────────────────────┬──────────────────┘
-         │                              │
-┌────────▼────────┐          ┌─────────▼──────────────────┐
-│  State Reader    │          │  File Watcher              │
-│  (state-reader)  │          │  (file-watcher.js)         │
-│  Reads state.json│          │  Watches .agentxchain/     │
-│  history.jsonl   │          │  100ms debounce            │
-│  events.jsonl    │          │  Emits invalidation events │
-│  etc.            │          └────────────────────────────┘
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                   local_cli Adapter                          │
+│                   (local-cli-adapter.js)                     │
+│                                                              │
+│  Binary Detection:                                           │
+│    isClaudeLocalCliRuntime()  ← claude-local-auth.js:32      │
+│    isCodexLocalCliRuntime()   ← claude-local-auth.js:41      │
+│    isCursorLocalCliRuntime()  ← NEW (claude-local-auth.js)   │
+│                                                              │
+│  Command Validation:                                         │
+│    validateLocalCliCommandCompatibility()                     │
+│      ├── claude: --print --stream-json requires --verbose    │
+│      ├── codex: requires exec + --json                       │
+│      └── cursor: TBD rules (NEW)                             │
+│                                                              │
+│  Subprocess Lifecycle (shared, no changes):                  │
+│    spawn → startup watchdog → heartbeat → staged result      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Implementation Inventory
+## 2. Integration Points
 
-### CLI Command Registration
+### 2.1 Binary Detection — `claude-local-auth.js`
 
-| Component | File:Line | Evidence |
-|-----------|-----------|----------|
-| Command registration | `agentxchain.js:808-813` | `.command('dashboard')` with `--port`, `--daemon`, `--no-open` options |
-| Command handler | `dashboard.js:20` | `dashboardCommand()` — validates `.agentxchain/`, creates bridge server, opens browser |
-| Daemon mode | `dashboard.js:36-38` | Spawns detached child process, writes PID file |
-| Session file | `dashboard.js:49-54` | Writes `.agentxchain-dashboard.json` with pid, port, url, started_at |
-| Stop integration | `agentxchain.js:215-216` | `stop` command kills dashboard daemon via PID file |
+**Location:** `cli/src/lib/claude-local-auth.js:32-48`
 
-### Bridge Server (HTTP + WebSocket)
+**Current state:** Exports `isClaudeLocalCliRuntime(runtime)` (line 32) and `isCodexLocalCliRuntime(runtime)` (line 41). Both check if the first command token matches the binary name.
 
-| Component | File:Line | Evidence |
-|-----------|-----------|----------|
-| Server factory | `bridge-server.js:261` | `createBridgeServer({ agentxchainDir, dashboardDir, port })` — returns `{ start(), stop() }` |
-| WebSocket upgrade | `bridge-server.js:50-71` | `acceptWebSocket()` — RFC 6455 handshake with SHA-1 accept key |
-| Frame encoding | `bridge-server.js:73-92` | `createWsFrame(opcode, payload)` — supports payloads up to 2^63 bytes |
-| Client frame parsing | `bridge-server.js:111-146` | `parseClientFrame()` — handles masking, extended lengths |
-| Auth token | `bridge-server.js:267` | `randomBytes(24).toString('hex')` — 48-char hex token for mutations |
-| Timing-safe auth | `bridge-server.js:190-202` | `tokenMatches()` uses `timingSafeEqual` |
-| Path traversal guard | `bridge-server.js:204-223` | `resolveDashboardAssetPath()` validates resolved path stays within dashboardDir |
+**Change:** Add `isCursorLocalCliRuntime(runtime)` at line 49, following the identical pattern:
 
-### Real-Time Event Push
+```javascript
+export function isCursorLocalCliRuntime(runtime) {
+  const tokens = normalizeCommandTokens(runtime);
+  if (tokens.length === 0) return false;
+  const head = tokens[0].toLowerCase();
+  return head === 'cursor' || head.endsWith('/cursor');
+}
+```
 
-| Component | File:Line | Evidence |
-|-----------|-----------|----------|
-| File watcher setup | `bridge-server.js:266` | `new FileWatcher(agentxchainDir)` |
-| Invalidation broadcast | `bridge-server.js:279-283` | Watcher `invalidate` → broadcasts `{ type: 'invalidate', resource }` to all WS clients |
-| Event data push | `bridge-server.js:285-310` | On `/api/events` invalidation: reads new `events.jsonl` lines, pushes `{ type: 'event', event }` per-client with subscription filtering |
-| Event subscription | `bridge-server.js:265` | `wsEventSubscriptions` Map — clients subscribe to specific event types or `null` (all) |
-| Coordinator events | `bridge-server.js:313-329` | `watchChildRepoEvents()` pushes `{ type: 'coordinator_event', repo_id, event }` |
+**Export:** The function must be exported (it already will be via `export function`).
 
-### File Watcher
+### 2.2 Adapter Import — `local-cli-adapter.js`
 
-| Component | File:Line | Evidence |
-|-----------|-----------|----------|
-| Class definition | `file-watcher.js:15` | `class FileWatcher extends EventEmitter` |
-| Debounce constant | `file-watcher.js:13` | `DEBOUNCE_MS = 100` |
-| Watch setup | `file-watcher.js:26-79` | `#watchPath()` — uses native `fs.watch()` with optional recursive mode |
-| Resource mapping | `file-watcher.js:44` | Calls `resourcesForRelativePath(relativePath)` to map file → API resource |
-| Debounce logic | `file-watcher.js:57-66` | Per-resource debounce timer, 100ms window |
-| Watched directories | `state-reader.js:64-70` | `WATCH_DIRECTORIES`: root, multirepo, missions, reports, watch-results |
-| Recursive dirs | `state-reader.js:76-78` | `RECURSIVE_WATCH_DIRECTORIES`: missions/plans |
-| dispatch-progress mapping | `state-reader.js:86-88` | `dispatch-progress-*.json` → `/api/state` (active turn progress updates) |
+**Location:** `cli/src/lib/adapters/local-cli-adapter.js:33-41`
 
-### State Reader API
+**Current state:** Imports `isClaudeLocalCliRuntime`, `isCodexLocalCliRuntime`, and related functions from `claude-local-auth.js`.
 
-| Component | File:Line | Evidence |
-|-----------|-----------|----------|
-| Resource map | `state-reader.js:37-52` | `RESOURCE_MAP` — 13 entries mapping API paths to `.agentxchain/` files |
-| Reverse map | `state-reader.js:57-62` | `FILE_TO_RESOURCE` — file change → API resource for invalidation |
-| State enrichment | `state-reader.js:145` | `enrichGovernedState()` — applies approval-pause repair, budget reconciliation, stale-turn fixes, dispatch progress merge |
-| Dispatch progress | `state-reader.js:19` | Imports `readAllDispatchProgress()` — merged into state for active turn activity display |
+**Change:** Add `isCursorLocalCliRuntime` to the import statement at line 38.
 
-### HTTP API Endpoints
+### 2.3 Command Validation — `local-cli-adapter.js`
 
-| Endpoint | Handler | Purpose |
-|----------|---------|---------|
-| `/api/session` | `bridge-server.js:348-358` | Session info + mutation token + capabilities |
-| `/api/poll` | `bridge-server.js:360-364` | Dashboard heartbeat, SLA reminder evaluation |
-| `/api/state` | State reader | Governed run state (enriched: active turns, phase, budget, dispatch progress) |
-| `/api/history` | State reader | Turn acceptance/rejection history (includes `runtime_id`) |
-| `/api/events` | State reader | Run events JSONL (58 event types) |
-| `/api/ledger` | State reader | Decision ledger |
-| `/api/continuity` | State reader | Session recovery state |
-| `/api/connectors` | `connectors.js` | Connector health (runtime_id, state, active_turn_ids) |
-| `/api/gate-actions` | `gate-action-reader.js` | Pending gate evaluations with file-level detail |
-| `/api/actions/approve-gate` | `bridge-server.js:366-384` | POST mutation: approve pending gate (token-authed) |
-| `/api/workflow-kit-artifacts` | `workflow-kit-artifacts.js` | Workflow artifact status |
-| `/api/notifications` | `notifications-reader.js` | SLA reminders, escalation notifications |
-| `/api/run-history` | `run-history.js` | Historical run records with cost/duration |
-| `/api/missions`, `/api/plans` | `mission-reader.js`, `plan-reader.js` | Mission + plan tracking |
-| `/api/chain-reports` | `chain-report-reader.js` | Chain execution reports |
-| `/api/coordinator/*` | Various | Multi-repo coordinator state, history, barriers, blockers |
+**Location:** `cli/src/lib/adapters/local-cli-adapter.js:759-831`
 
-### Dashboard UI Views
+**Current state:** `validateLocalCliCommandCompatibility()` checks:
+- Claude: `--print --output-format stream-json` requires `--verbose` (line 773)
+- Codex: requires `exec` subcommand (line 793)
+- Codex: `exec` requires `--json` (line 811)
 
-| View | File | Key Features |
-|------|------|-------------|
-| Timeline | `components/timeline.js:444` | Active turns (474-493), phase header (464), dispatch activity, conflict panel, continuity, connector health |
-| Gate | `components/gate.js` | Pending gates, file-level evidence, approve action, CLI fallback command |
-| Ledger | `components/ledger.js` | Decision ledger with agent/phase/date filters |
-| Hooks | `components/hooks.js` | Hook audit trail with verdict/phase/name filters |
-| Blocked | `components/blocked.js` | Current blocked state, coordinator blockers, gate actions |
-| Delegations | `components/delegations.js` | Agent delegation chains |
-| Run History | `components/run-history.js` | Historical runs with `total_cost_usd` (line 177), status, outcomes |
-| Notifications | `components/notifications.js` | SLA reminders and escalations |
-| Mission | `components/mission.js` | Mission and plan tracking |
-| Live Status | `components/live-status.js:24` | `renderLiveStatus(liveMeta)` — freshness badge (live/stale/disconnected) |
+**Change:** Add Cursor-specific validation after the Codex rules (after line 828). Minimum rule:
 
-### Live Observer
+```javascript
+const usesCursor = isCursorLocalCliRuntime(runtimeShape);
+if (usesCursor && !tokens.includes('--background-agent') && !tokens.includes('agent')) {
+  const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Cursor local_cli runtime';
+  const recovery = `${runtimeLabel} uses "cursor" without a background agent flag. Governed local runs require Cursor's agent or background-agent mode for non-interactive execution.`;
+  return {
+    ok: false,
+    error_class: 'local_cli_command_incompatible',
+    recovery,
+    error: recovery,
+    diagnostic: {
+      runtime_id: runtimeId,
+      binary: binaryName,
+      rule: 'cursor_requires_agent_mode',
+      recovery,
+    },
+  };
+}
+```
 
-| Component | File:Line | Evidence |
-|-----------|-----------|----------|
-| Stale threshold | `live-observer.js:1` | `LIVE_OBSERVER_STALE_MS = 15_000` (15s) |
-| Live meta builder | `live-observer.js:17` | `buildLiveMeta()` — computes freshness state (live, stale, disconnected) from last refresh |
-| Event processor | `live-observer.js:64` | `createLiveEventFromMessage()` — extracts event info from WebSocket messages |
-| App integration | `app.js:26-28` | Imports `buildLiveMeta`, `createLiveEventFromMessage`, `shouldRefreshViewForLiveMessage` |
-| Poll fallback | `app.js:96` | `DASHBOARD_POLL_INTERVAL_MS = 60_000` — 60s poll as WebSocket fallback |
+**Dev discretion:** The exact flag name (`--background-agent`, `agent`, etc.) should be verified against Cursor's actual CLI. If Cursor's headless interface is not yet stable, the validation can be relaxed to a warning or deferred (document the decision).
 
-### Model Attribution in History
+### 2.4 Doctor Health Check — `doctor.js`
 
-| Component | File:Line | Evidence |
-|-----------|-----------|----------|
-| History entry write | `governed-state.js:5171` | `runtime_id: turnResult.runtime_id` stored in history entry |
-| Turn assignment | `governed-state.js:3697` | `runtime_id: runtimeId` set at assignment time |
-| Connector health | `timeline.js:410` | Renders `connector.runtime_id` in connector health panel |
-| History API | `/api/history` | Returns full JSONL entries including `runtime_id` per turn |
+**Location:** `cli/src/commands/doctor.js:502-514`
+
+**Current state:** The `local_cli` case in `checkRuntimeReachable()` probes the binary spawn context and then checks Claude-specific auth (`getClaudeSubprocessAuthIssue`).
+
+**Change:** After the Claude auth check (line 513), add a Cursor-specific detail path:
+
+```javascript
+// After existing Claude auth check block (line 513):
+if (probe.ok && isCursorLocalCliRuntime(rt)) {
+  return attachRuntimeContract({
+    ...base,
+    level: 'pass',
+    detail: `${probe.detail} (Cursor IDE local_cli connector)`,
+  }, rtId, rt, boundRoleEntries);
+}
+```
+
+**Import:** Add `isCursorLocalCliRuntime` to doctor.js imports (from `claude-local-auth.js` or `adapter-interface.js` if re-exported).
+
+### 2.5 Config Validation — `normalized-config.js`
+
+**Location:** `cli/src/lib/normalized-config.js:34, 445-462`
+
+**No changes required.** Cursor uses `type: 'local_cli'`, which is already in `VALID_RUNTIME_TYPES` (line 34). The existing `local_cli` validation (startup_watchdog_ms, startup_heartbeat_ms, prompt_transport) all apply to Cursor.
+
+### 2.6 Connector Validation — `connector-validate.js`
+
+**Location:** `cli/src/lib/connector-validate.js:29`
+
+**No changes required.** `VALIDATABLE_RUNTIME_TYPES` already includes `local_cli`. Cursor runtimes configured as `local_cli` are automatically validatable via `agentxchain connector validate <runtime-id>`.
+
+### 2.7 Step Dispatcher — `step.js`
+
+**Location:** `cli/src/commands/step.js:732`
+
+**No changes required.** Cursor uses the existing `local_cli` dispatch path at line 732. The `dispatchLocalCli()` function handles arbitrary local CLI binaries.
 
 ---
 
-## 3. Test Coverage
+## 3. Config Shape
 
-| Test File | Tests | Coverage |
-|-----------|-------|----------|
-| `dashboard-bridge.test.js` | Core bridge server lifecycle, WebSocket, auth | 
-| `dashboard-event-stream.test.js` | WebSocket event push, subscription filtering |
-| `dashboard-views.test.js` | All view render functions (timeline, gate, etc.) |
-| `dashboard-app.test.js` | App routing, data fetching, view mounting |
-| `e2e-dashboard.test.js` | End-to-end: start → fetch → push → stop |
-| `dashboard-command.test.js` | CLI command behavior, daemon mode, port handling |
-| `dashboard-gate-actions.test.js` | Gate approval flow + token auth |
-| `dashboard-reconciliation.test.js` | State enrichment (budget, stale turns, dispatch) |
-| `dashboard-bridge-resource-endpoints.test.js` | All API resource endpoints |
-| `dashboard-timeout-status.test.js` | Timeout status rendering |
-| `dashboard-notifications.test.js` | SLA reminders + escalation |
-| `dashboard-connector-health.test.js` | Connector health panel |
-| `dashboard-mission.test.js` | Mission view |
-| `dashboard-plan.test.js` | Plan view |
-| `dashboard-chain.test.js` | Chain report view |
-| `dashboard-blockers.test.js` | Coordinator blockers |
-| `dashboard-delegations.test.js` | Delegation chains |
-| `e2e-dashboard-enterprise-app.test.js` | Enterprise features |
-| `dashboard-evidence-drilldown.test.js` | Evidence drilldown |
-| `dashboard-historical-scope-content.test.js` | Historical scoping |
-| `dashboard-watch-results.test.js` | Watch results view |
-| `dashboard-coordinator-timeout-status.test.js` | Coordinator timeouts |
-| `e2e-dashboard-enterprise-gates.test.js` | Enterprise gate flow |
-| `e2e-dashboard-gate-actions.test.js` | Gate action mutations |
-| `workflow-kit-dashboard.test.js` | Workflow kit artifact display |
-| `governed-ide-restart-dashboard.test.js` | IDE restart resilience |
-| `doctor-dashboard-visibility.test.js` | `agentxchain doctor` dashboard checks |
-| `docs-dashboard-content.test.js` | Documentation content |
+Example `agentxchain.json` runtime configuration for Cursor:
 
-**Total: 28 files, 478 tests, 0 failures** (verified 2026-05-03)
+```json
+{
+  "runtimes": {
+    "cursor-agent": {
+      "type": "local_cli",
+      "command": ["cursor", "--background-agent"],
+      "prompt_transport": "dispatch_bundle_only",
+      "startup_watchdog_ms": 300000
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "cursor-agent"
+    }
+  }
+}
+```
+
+**Key config decisions:**
+
+| Field | Value | Rationale |
+|-------|-------|-----------|
+| `type` | `"local_cli"` | Cursor is a local_cli variant, not a new type |
+| `command` | `["cursor", "--background-agent"]` | Cursor's headless agent mode (flag name subject to Cursor CLI evolution) |
+| `prompt_transport` | `"dispatch_bundle_only"` | Cursor reads the staged dispatch bundle from disk; prompt is not injected via argv/stdin |
+| `startup_watchdog_ms` | `300000` (5 min) | Cursor IDE startup may be slower than Claude CLI; 5 min default matches IDE cold-start |
 
 ---
 
-## 4. Key Architecture Invariants
+## 4. Files Changed (Expected)
 
-1. **Localhost-only binding**: Bridge server binds to `127.0.0.1` — no external network exposure
-2. **Token-authed mutations**: Only `approve-gate` is mutable, requiring valid 48-char hex token
-3. **No caching**: State reader performs fresh file reads on every request (files are small)
-4. **Event push is append-only**: Bridge tracks `lastEventsFileSize` to push only new events
-5. **Debounced invalidation**: 100ms debounce prevents WebSocket flood during rapid state changes
-6. **Graceful degradation**: 60s HTTP poll fallback if WebSocket disconnects
-7. **No external dependencies**: HTTP, WebSocket, file watching all use Node.js native modules
-8. **Replay mode**: `agentxchain replay export` can open read-only dashboard on exported snapshots
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `cli/src/lib/claude-local-auth.js` | Add function | `isCursorLocalCliRuntime()` export |
+| `cli/src/lib/adapters/local-cli-adapter.js` | Modify | Import `isCursorLocalCliRuntime`; add Cursor rule to `validateLocalCliCommandCompatibility()` |
+| `cli/src/commands/doctor.js` | Modify | Import `isCursorLocalCliRuntime`; add Cursor detail in `local_cli` health check |
+| `cli/test/cursor-connector.test.js` | New file | Tests for binary detection, command validation, doctor health check |
+
+---
+
+## 5. Test Plan
+
+### Required Tests (minimum 4)
+
+| # | Test | Location | Description |
+|---|------|----------|-------------|
+| T1 | Binary detection — positive | `cursor-connector.test.js` | `isCursorLocalCliRuntime({ command: 'cursor' })` returns `true`; `{ command: '/usr/local/bin/cursor' }` returns `true`; `{ command: ['cursor', '--background-agent'] }` returns `true` |
+| T2 | Binary detection — negative | `cursor-connector.test.js` | `isCursorLocalCliRuntime({ command: 'claude' })` returns `false`; `{ command: 'codex' }` returns `false`; `{ command: '' })` returns `false` |
+| T3 | Command validation | `cursor-connector.test.js` | `validateLocalCliCommandCompatibility({ command: 'cursor' })` returns `{ ok: false, error_class: 'local_cli_command_incompatible' }` (missing agent mode flag); `{ command: 'cursor', args: ['--background-agent'] }` returns `{ ok: true }` |
+| T4 | Config validation roundtrip | `cursor-connector.test.js` | A Cursor runtime config `{ type: 'local_cli', command: ['cursor', '--background-agent'] }` passes `normalizeConfig()` validation without errors |
+
+### Optional Tests (dev discretion)
+
+| # | Test | Description |
+|---|------|-------------|
+| T5 | Doctor Cursor detail | `checkRuntimeReachable()` with a mocked Cursor binary returns Cursor-specific detail string |
+| T6 | Non-interference | Claude and Codex validation rules still work unchanged (regression) |
+| T7 | Vitest contract | File count updated if new test file added |
+
+---
+
+## 6. Key Architecture Invariants
+
+1. **No new runtime type.** Cursor is `type: 'local_cli'` — the dispatcher, watchdog, heartbeat, staged-result, and abort paths are unchanged.
+2. **Binary detection is first-token only.** `isCursorLocalCliRuntime()` checks `tokens[0]` like Claude/Codex — no deep path parsing.
+3. **Command validation returns structured errors.** All rules use `{ ok: false, error_class: 'local_cli_command_incompatible', recovery, diagnostic }`.
+4. **Dispatch bundle transport.** Cursor uses `prompt_transport: 'dispatch_bundle_only'` — the adapter does NOT inject the prompt into argv or stdin.
+5. **Staged result is the only proof of completion.** Cursor must write `turn-result.json` to `.agentxchain/staging/turn-<id>/` like any other `local_cli` runtime.
 
 ---
 
@@ -207,75 +223,64 @@ The dashboard is a localhost-only HTTP + WebSocket server that serves static UI 
 
 ### Scope
 
-**Verification-only — no code changes.**
+**Real code changes required — this is NOT a verification-only run.**
 
-1. Confirm each line number reference in Section 2 is accurate
-2. Run all 28 dashboard test files and confirm 478 tests pass
-3. Produce evidence document (`.planning/IMPLEMENTATION_NOTES.md`) with corrections if any citation is wrong
-4. If all citations are accurate, document "all cited references verified, 0 corrections"
+1. Add `isCursorLocalCliRuntime()` to `claude-local-auth.js` (or a new `cursor-local-auth.js` if dev prefers — PM does not prescribe file organization)
+2. Add Cursor command validation to `validateLocalCliCommandCompatibility()` in `local-cli-adapter.js`
+3. Add Cursor-specific doctor health check detail in `doctor.js`
+4. Write minimum 4 tests (T1-T4 above)
+5. Update vitest contract file count if new test file is added
 
 ### Out of Scope
 
-- Any code modifications
-- Any new tests
-- UI styling changes
-- M7+ features
+- New runtime type in `VALID_RUNTIME_TYPES`
+- Changes to `step.js` dispatcher
+- Changes to subprocess lifecycle in `local-cli-adapter.js` (spawn, watchdog, heartbeat)
+- Cursor auth failure classification (deferred)
+- Legacy `cursor-local.js` modifications
+- Windsurf/OpenCode connectors (separate M7 runs)
 
 ### Verification
 
 Dev must confirm:
-1. All 28 dashboard test files pass (478 tests, 0 failures)
-2. Each cited file:line reference matches the described functionality
-3. WebSocket event push path works as documented
+1. All new tests pass
+2. Existing Claude/Codex local_cli tests pass (no regression)
+3. `node --check` on all modified files
+4. Vitest contract passes
 
 ## Interface
 
-### Dashboard Data Flow
+### Cursor Connector Integration Flow
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │         Run Loop / Step              │
-                    │  (emitRunEvent → events.jsonl)       │
-                    └──────────────┬──────────────────────┘
-                                   │ filesystem write
-                    ┌──────────────▼──────────────────────┐
-                    │        .agentxchain/                  │
-                    │  state.json   events.jsonl            │
-                    │  history.jsonl dispatch-progress-*.json│
-                    └──────────────┬──────────────────────┘
-                                   │ fs.watch()
-                    ┌──────────────▼──────────────────────┐
-                    │       FileWatcher (100ms debounce)    │
-                    │  Maps file → API resource path        │
-                    └──────────────┬──────────────────────┘
-                                   │ emit('invalidate')
-                    ┌──────────────▼──────────────────────┐
-                    │       Bridge Server                   │
-                    │  1. Broadcast { type: 'invalidate' }  │
-                    │  2. If /api/events: push new events   │
-                    └──────────────┬──────────────────────┘
-                                   │ WebSocket frame
-                    ┌──────────────▼──────────────────────┐
-                    │       Browser (app.js)                │
-                    │  1. Receive invalidation              │
-                    │  2. Re-fetch affected API resource    │
-                    │  3. Re-render active view             │
-                    └─────────────────────────────────────┘
+User Config                     Binary Detection                  Command Validation
+─────────────                   ─────────────────                 ──────────────────
+agentxchain.json:               claude-local-auth.js:             local-cli-adapter.js:
+  runtimes:                       isCursorLocalCliRuntime()         validateLocalCliCommandCompatibility()
+    cursor-agent:                   ↓ true                           ↓
+      type: local_cli          ──────────────────────────        checks cursor-specific rules
+      command: ["cursor",         Doctor Health Check               ↓ ok: true/false
+        "--background-agent"]   ─────────────────────────
+      prompt_transport:           doctor.js:                      Dispatch (unchanged)
+        dispatch_bundle_only      checkRuntimeReachable()         ──────────────────
+                                    ↓                             step.js:732 → local_cli branch
+                                  "cursor binary found             → dispatchLocalCli()
+                                   (Cursor IDE connector)"          → spawn → watchdog → staged result
 ```
 
-### API Resource → File Mapping
+### Function Signatures
 
-| API Resource | .agentxchain/ File | Updated By |
-|---|---|---|
-| `/api/state` | `state.json` + `dispatch-progress-*.json` | Run loop, step command, acceptance |
-| `/api/history` | `history.jsonl` | Turn acceptance |
-| `/api/events` | `events.jsonl` | `emitRunEvent()` (58 event types) |
-| `/api/ledger` | `decision-ledger.jsonl` | Turn acceptance |
-| `/api/gate-actions` | Gate evaluation | Phase transition requests |
+| Function | File | Signature | Returns |
+|----------|------|-----------|---------|
+| `isCursorLocalCliRuntime` | `claude-local-auth.js` | `(runtime: { command })` | `boolean` |
+| `validateLocalCliCommandCompatibility` | `local-cli-adapter.js` | `({ command, args, runtimeId })` | `{ ok: boolean, error_class?, recovery?, diagnostic? }` |
+| `checkRuntimeReachable` | `doctor.js` | `(root, rtId, rt, boundRoleEntries)` | `{ id, name, level, detail, ... }` |
 
 ## Acceptance Tests
 
-- [ ] All 5 ROADMAP.md M6 items checked off with evidence annotations
-- [ ] Dev verifies all cited line numbers are accurate (0 corrections expected)
-- [ ] 28 dashboard test files pass: 478 tests, 0 failures
+- [ ] `isCursorLocalCliRuntime()` correctly identifies `cursor` binary (positive + negative cases)
+- [ ] `validateLocalCliCommandCompatibility()` enforces Cursor agent mode requirement
+- [ ] `agentxchain doctor` reports Cursor-specific detail for Cursor-configured runtimes
+- [ ] Cursor runtime config passes `normalizeConfig()` validation as `local_cli`
+- [ ] No regressions in Claude/Codex local_cli paths
 - [ ] Full test suite passes with 0 failures (deferred to QA)

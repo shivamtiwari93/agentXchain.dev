@@ -1,11 +1,11 @@
-# PM Signoff — M6: Dashboard Live Observer
+# PM Signoff — M7: Connector Ecosystem Expansion — Cursor IDE Connector
 
 Approved: YES
 
-**Run:** `run_74fc370a40da7622`
+**Run:** `run_10a2b2d8f0a8399b`
 **Phase:** planning
-**Turn:** `turn_e2852b31dab2f522`
-**Date:** 2026-05-03
+**Turn:** `turn_7d29bbd18babb17b`
+**Date:** 2026-05-04
 
 ## Discovery Checklist
 - [x] Target user defined
@@ -17,140 +17,138 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators who need visibility into active governed runs — watching turns execute, phases transition, budget accumulate, and gates evaluate in real time without polling CLI commands.
+AgentXchain operators who want to use Cursor IDE's background agent mode as a governed runtime — dispatching turns to Cursor the same way they dispatch to Claude or Codex, with full protocol governance, health checks, and connector validation.
 
 ### Core Pain Point
 
-ROADMAP.md M6 lists 5 unchecked items for the Dashboard Live Observer, yet the implementation is **already complete**. The codebase includes:
-- Full dashboard command (`agentxchain dashboard`) with HTTP + WebSocket bridge server
-- Real-time file watching (100ms debounce) with WebSocket invalidation push
-- Timeline view rendering active turns, phase, status, dispatch activity
-- Gate view with file-level evidence and approve-gate mutation
-- Connector health panel showing runtime_id per connector (model attribution)
-- Run-history view showing per-run cost/budget
-- 28 test files with 478 passing tests
+AgentXchain supports 5 runtime types (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`), but among IDE-based agents, only Claude Code CLI and Codex are recognized as `local_cli` flavors. The adapter has Claude-specific validation (`isClaudeLocalCliRuntime`, `claude_print_stream_json_requires_verbose`) and Codex-specific validation (`isCodexLocalCliRuntime`, `codex_requires_exec`, `codex_exec_requires_json`), but no equivalent for Cursor.
 
-The pain point is that ROADMAP.md does not reflect this shipped state.
+Users who configure `cursor` as a `local_cli` runtime today get no flavor-specific guidance from `doctor`, no command compatibility validation, no auth check, and a confusing `unknown runtime binary` default in health probes.
 
-### Evidence of Completion
+### Design Decision: local_cli Variant, Not New Runtime Type
 
-| ROADMAP Item | Evidence |
-|---|---|
-| Real-time dashboard showing active turns, phase progression, and budget consumption | `dashboard.js:20` `dashboardCommand()` starts bridge server; `bridge-server.js:261` `createBridgeServer()` serves HTTP API + WebSocket; `timeline.js:474-493` renders active turns with role, status, elapsed time, dispatch activity; `timeline.js:464` renders phase; `run-history.js:177` renders `total_cost_usd` per run |
-| WebSocket or SSE event stream from the run loop | `bridge-server.js:279-310` watches `events.jsonl` via FileWatcher, parses new lines, pushes `{ type: 'event', event }` to all connected WebSocket clients with per-client event type filtering (`wsEventSubscriptions`) |
-| Turn timeline visualization with model attribution | `timeline.js:444` `render()` exports timeline view with active turns (474-493), completed history (496-528), connector health panel (400-440) showing `runtime_id` per connector (line 410); history entries include `runtime_id` (governed-state.js:5171) |
-| Gate status indicators with file-level detail | `gate.js:1` Gate Review view renders pending phase transitions; `/api/gate-actions` endpoint (bridge-server.js, gate-action-reader.js); `bridge-server.js:366-384` approve-gate POST mutation with token auth |
-| Acceptance: dashboard reflects live state within 5s of turn events | `file-watcher.js:15` FileWatcher class with `DEBOUNCE_MS = 100`; `bridge-server.js:279` watcher invalidation handler pushes WebSocket frames immediately after debounce — typical latency ~100-200ms, well under 5s |
+The ROADMAP item says "local_cli adapter variant" and that is the correct approach:
 
-### Test Evidence
+1. **No new runtime type.** Cursor uses `type: 'local_cli'` like Claude and Codex.
+2. **Binary detection** via `isCursorLocalCliRuntime()` following the `isClaudeLocalCliRuntime`/`isCodexLocalCliRuntime` pattern in `claude-local-auth.js:32-48`.
+3. **Command validation** rules added to `validateLocalCliCommandCompatibility()` in `local-cli-adapter.js:759-831`.
+4. **Doctor health check** enhanced in `doctor.js:502-514` to produce Cursor-specific messages.
+5. **Prompt transport** defaults to `dispatch_bundle_only` — Cursor's agent mode reads the staged dispatch bundle from `.agentxchain/dispatch/turns/<id>/PROMPT.md`.
 
-```
-28 dashboard test files, 478 tests, 0 failures:
-- dashboard-bridge.test.js (core bridge server)
-- dashboard-event-stream.test.js (WebSocket event push)
-- dashboard-views.test.js (all view render functions)
-- dashboard-app.test.js (app routing + data fetching)
-- e2e-dashboard.test.js (end-to-end lifecycle)
-- dashboard-command.test.js (CLI command behavior)
-- dashboard-gate-actions.test.js (gate approval flow)
-- dashboard-reconciliation.test.js (state enrichment)
-- dashboard-bridge-resource-endpoints.test.js (API endpoints)
-- dashboard-timeout-status.test.js
-- dashboard-notifications.test.js
-- dashboard-connector-health.test.js
-- dashboard-mission.test.js
-- dashboard-plan.test.js
-- dashboard-chain.test.js
-- dashboard-blockers.test.js
-- dashboard-delegations.test.js
-- e2e-dashboard-enterprise-app.test.js
-- dashboard-evidence-drilldown.test.js
-- dashboard-historical-scope-content.test.js
-- dashboard-watch-results.test.js
-- dashboard-coordinator-timeout-status.test.js
-- e2e-dashboard-enterprise-gates.test.js
-- e2e-dashboard-gate-actions.test.js
-- workflow-kit-dashboard.test.js
-- governed-ide-restart-dashboard.test.js
-- doctor-dashboard-visibility.test.js
-- docs-dashboard-content.test.js
-```
+### Evidence of Existing Patterns
+
+| Pattern | Claude | Codex | Cursor (to add) |
+|---|---|---|---|
+| Binary detection | `isClaudeLocalCliRuntime()` (`claude-local-auth.js:32`) | `isCodexLocalCliRuntime()` (`claude-local-auth.js:41`) | `isCursorLocalCliRuntime()` |
+| Command validation | `claude_print_stream_json_requires_verbose` (`local-cli-adapter.js:773`) | `codex_requires_exec` + `codex_exec_requires_json` (`local-cli-adapter.js:793, 811`) | TBD by dev |
+| Auth check | `getClaudeSubprocessAuthIssue()` (`doctor.js:505`) | (none — Codex uses OPENAI_API_KEY) | Cursor API key check if applicable |
+| Doctor detail | Claude-specific auth warning (`doctor.js:506-511`) | (falls through to generic probe) | Cursor-specific detail message |
+
+### Legacy Context
+
+A legacy v3 adapter exists at `cli/src/adapters/cursor-local.js` that opened Cursor windows, copied prompts to clipboard, and relied on human interaction. This is NOT the target pattern. The M7 connector uses the governed `local_cli` adapter with Cursor as a headless/background-agent CLI, following the same subprocess lifecycle (spawn → watchdog → staged result) as Claude and Codex.
+
+## Challenge to Previous Turn
+
+### OBJ-PM-001: Previous planning artifacts describe M6 Dashboard Live Observer, not M7 Connector Expansion (severity: high)
+
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe M6: Dashboard Live Observer from `run_74fc370a40da7622`. This run's intent is M7: Connector Ecosystem Expansion — Add Cursor IDE connector. All three artifacts rewritten from scratch.
+
+### OBJ-PM-002: Dev correctly identified that PM should not charter verification-only implementation turns (severity: medium)
+
+In the M6 run, dev's OBJ-001 stated "PM DEC-003 stated 'Dev charter is verification-only: no code changes expected' — this contradicts the implementation-phase product code gate at turn-result-validator.js:733." This is a valid pattern correction. M7 charters real code changes for dev.
 
 ### Core Workflow (this run)
 
-1. **PM (this turn)** — Verify M6 is fully implemented, check off ROADMAP items, rewrite planning artifacts
-2. **Dev** — Verify ROADMAP check-offs are accurate by confirming cited line numbers and test evidence
-3. **QA** — Run full test suite to confirm no regressions, verify acceptance contract
+1. **PM (this turn)** — Scope Cursor IDE connector as local_cli variant, write planning artifacts with line-number references and acceptance criteria
+2. **Dev** — Implement `isCursorLocalCliRuntime()`, Cursor command validation rules, doctor health check, connector-validate support, and tests
+3. **QA** — Run full test suite, verify acceptance contract, confirm `agentxchain doctor` passes for a Cursor-configured runtime
 
 ### MVP Scope (this run)
 
+**This run scopes only ROADMAP.md:87 — "Add Cursor IDE connector (local_cli adapter variant)".** The other M7 items (Windsurf, OpenCode, per-connector E2E, acceptance) are separate runs.
+
 **PM deliverables (this turn):**
-1. PM_SIGNOFF.md: Verification-only signoff documenting M6 completion evidence
-2. SYSTEM_SPEC.md: Technical reference to dashboard architecture + implementation inventory
-3. ROADMAP.md: M6 items checked off with evidence annotations
+1. PM_SIGNOFF.md: Scope definition, design decision, acceptance criteria
+2. SYSTEM_SPEC.md: Technical spec with exact file:line integration points, config shape, test plan
+3. ROADMAP.md: Phases table updated for M7 Cursor connector scope
 
 **Dev deliverables:**
-- Verify each cited line number and test reference is accurate
-- Produce evidence document confirming or correcting PM's citations
-- No code changes expected (implementation already shipped)
+1. `isCursorLocalCliRuntime()` in `claude-local-auth.js` (or new file — dev's call on organization)
+2. Cursor command validation rules in `validateLocalCliCommandCompatibility()` in `local-cli-adapter.js`
+3. Cursor-specific doctor health check detail in `doctor.js`
+4. Config example for Cursor runtime in agentxchain.json template
+5. Unit tests: binary detection, command validation, doctor health check (minimum 4 tests)
 
 ### Out of Scope
 
-- New code changes (M6 is already implemented)
-- Changes to bridge server architecture (stable, RFC 6455 compliant)
-- Changes to file watcher or WebSocket push (tested and stable)
-- UI redesign or styling changes
-- M7+ features (connector expansion, managed surface)
+- Windsurf connector (separate M7 run)
+- OpenCode connector (separate M7 run)
+- New runtime type (Cursor reuses `local_cli`)
+- Changes to local-cli-adapter.js subprocess lifecycle (spawn, watchdog, staged result)
+- Changes to step.js dispatcher (Cursor uses existing `local_cli` branch at line 732)
+- Legacy v3 cursor-local.js changes (deprecated, not part of governed protocol)
+- Cursor-specific auth failure classification (deferred — add only if Cursor has identifiable auth failure output patterns)
+- Full E2E governed turn validation with live Cursor process (deferred to acceptance item)
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | Roadmap milestone addressed: M6: Dashboard Live Observer | All 5 ROADMAP.md M6 items checked off with evidence |
-| 2 | Unchecked roadmap item completed: Real-time dashboard showing active turns, phase progression, and budget consumption | `dashboardCommand()` + `createBridgeServer()` + timeline view rendering active turns/phase/budget with WebSocket live push |
-| 3 | Evidence source: .planning/ROADMAP.md:80 | ROADMAP.md updated with check marks and evidence annotations |
+| 1 | Roadmap milestone addressed: M7: Connector Ecosystem Expansion | ROADMAP.md:87 scoped and planning artifacts written |
+| 2 | Unchecked roadmap item completed: Add Cursor IDE connector (local_cli adapter variant) | `isCursorLocalCliRuntime()` + command validation + doctor health check + tests pass |
+| 3 | Evidence source: .planning/ROADMAP.md:87 | ROADMAP.md:87 checked off after QA verification |
 
 ### Risk Assessment
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Cited line numbers may have shifted since implementation | Low | Dev charter requires line-by-line verification |
-| Test count may have changed since snapshot | Low | QA runs full suite to confirm |
-
-## Challenge to Previous Turn
-
-### OBJ-PM-001: Previous planning artifacts describe M5 parallel turn support, not M6 dashboard (severity: high)
-
-PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe M5: Protocol V8 — Parallel Turn Support from `run_b7c5380413abfbfb`. This run's intent is M6: Dashboard Live Observer. All three artifacts rewritten from scratch.
-
-### OBJ-PM-002: ROADMAP.md Phases table references M5 verification workflow, not M6 (severity: medium)
-
-The Phases table at ROADMAP.md:100-107 describes "Verify M5 parallel turn support" as the planning goal. This is stale context from the previous run and will be updated for M6.
+| Cursor CLI may not have a stable headless agent mode | Medium | Connector is configured via `command` array — users can adapt CLI args as Cursor evolves; `dispatch_bundle_only` transport is CLI-agnostic |
+| Cursor may not have identifiable auth failure patterns in stderr | Low | Auth classification deferred; generic `local_cli` exit code handling covers non-zero exits |
+| Binary name collision (cursor vs other tools) | Low | `isCursorLocalCliRuntime()` checks first token only, matching Claude/Codex pattern |
 
 ## Notes for Dev
 
-**Your charter is verification-only: confirm each M6 evidence citation is accurate. No code changes needed.**
+**Your charter requires real code changes — this is NOT a verification-only run.**
 
-1. Confirm `dashboard.js:20` contains `dashboardCommand()` function
-2. Confirm `bridge-server.js:261` contains `createBridgeServer()` with `agentxchainDir`, `dashboardDir`, `port` params
-3. Confirm `bridge-server.js:279-310` implements WebSocket event push from `events.jsonl` changes
-4. Confirm `file-watcher.js:15` exports `FileWatcher` class with `DEBOUNCE_MS = 100` (line 13)
-5. Confirm `timeline.js:474-493` renders active turns section
-6. Confirm `timeline.js:464` renders phase in run header
-7. Confirm `gate.js` renders Gate Review view with pending gate details
-8. Confirm `governed-state.js:5171` stores `runtime_id` in history entries
-9. Run all 28 dashboard test files and confirm 478 tests pass
-10. If any citation is inaccurate, document the correction — do NOT change code
+Integration points (verify these line numbers before coding):
+1. `claude-local-auth.js:32-48` — Add `isCursorLocalCliRuntime()` following `isClaudeLocalCliRuntime`/`isCodexLocalCliRuntime` pattern
+2. `local-cli-adapter.js:759-831` — Add Cursor command validation rule(s) in `validateLocalCliCommandCompatibility()`
+3. `local-cli-adapter.js:33-41` — Add import for `isCursorLocalCliRuntime` from `claude-local-auth.js`
+4. `doctor.js:502-514` — Add Cursor-specific detail in `local_cli` case of `checkRuntimeReachable()`
+5. `connector-validate.js:29` — Confirm Cursor runtimes are validatable (already covered by `local_cli` in VALIDATABLE_RUNTIME_TYPES)
+6. `normalized-config.js:34` — No change needed (Cursor uses existing `local_cli` type)
+
+Example agentxchain.json config for Cursor runtime:
+```json
+{
+  "runtimes": {
+    "cursor-agent": {
+      "type": "local_cli",
+      "command": ["cursor", "--background-agent"],
+      "prompt_transport": "dispatch_bundle_only",
+      "startup_watchdog_ms": 300000
+    }
+  }
+}
+```
+
+**Minimum 4 tests required:**
+1. `isCursorLocalCliRuntime()` returns true for `cursor` command, false for `claude`/`codex`
+2. `validateLocalCliCommandCompatibility()` enforces Cursor-specific rules
+3. `checkRuntimeReachable()` returns Cursor-specific detail for cursor runtimes
+4. Cursor runtime config passes `normalizeConfig()` validation as `local_cli`
 
 ## Notes for QA
 
 - Run full test suite: `cd cli && npm test`
-- Verify all 28 dashboard test files pass
-- Confirm ROADMAP.md M6 items are checked off with accurate evidence
-- After ship: verify acceptance contract items from intake intent
+- Verify new tests pass for Cursor binary detection, command validation, doctor check
+- Verify `agentxchain doctor` produces Cursor-specific output for a Cursor-configured runtime
+- Confirm no regressions in Claude/Codex local_cli paths
+- After ship: verify ROADMAP.md:87 can be checked off
 
 ## Acceptance Contract
 
-1. **Roadmap milestone addressed: M6: Dashboard Live Observer** — all 5 unchecked items checked off with implementation evidence
-2. **Unchecked roadmap item completed: Real-time dashboard showing active turns, phase progression, and budget consumption** — `dashboardCommand()` starts bridge server with WebSocket push; timeline view renders active turns, phase, and budget; file watcher ensures <5s latency
-3. **Evidence source: .planning/ROADMAP.md:80** — ROADMAP.md updated to reflect checked-off M6 items
+1. **Roadmap milestone addressed: M7: Connector Ecosystem Expansion** — ROADMAP.md:87 "Add Cursor IDE connector" scoped with planning artifacts, dev implements, QA verifies
+2. **Unchecked roadmap item completed: Add Cursor IDE connector (local_cli adapter variant)** — `isCursorLocalCliRuntime()` detects Cursor binary; command validation enforces Cursor rules; `agentxchain doctor` reports Cursor-specific health; tests pass
+3. **Evidence source: .planning/ROADMAP.md:87** — ROADMAP.md:87 checked off after QA full suite verification
