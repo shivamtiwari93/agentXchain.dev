@@ -47,6 +47,15 @@ export function isCodexLocalCliRuntime(runtime) {
   return head === 'codex' || head.endsWith('/codex');
 }
 
+export function isCursorLocalCliRuntime(runtime) {
+  const tokens = normalizeCommandTokens(runtime);
+  if (tokens.length === 0) {
+    return false;
+  }
+  const head = tokens[0].toLowerCase();
+  return head === 'cursor' || head.endsWith('/cursor');
+}
+
 export function hasClaudeAuthenticationFailureText(text) {
   return typeof text === 'string' && CLAUDE_AUTH_FAILURE_RE.test(text);
 }

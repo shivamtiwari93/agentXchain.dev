@@ -37,6 +37,7 @@ import {
   hasCodexAuthenticationFailureText,
   isClaudeLocalCliRuntime,
   isCodexLocalCliRuntime,
+  isCursorLocalCliRuntime,
   resolveClaudeCompatibleNodeBinary,
 } from '../claude-local-auth.js';
 
@@ -822,6 +823,25 @@ function validateLocalCliCommandCompatibility({ command, args = [], runtimeId = 
         rule: 'codex_exec_requires_json',
         has_exec: usesCodexExec,
         has_json: hasCodexJson,
+        recovery,
+      },
+    };
+  }
+
+  const usesCursor = isCursorLocalCliRuntime(runtimeShape);
+  if (usesCursor && !tokens.includes('--background-agent') && !tokens.includes('agent')) {
+    const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Cursor local_cli runtime';
+    const recovery = `${runtimeLabel} uses "cursor" without a background agent flag. Governed local runs require Cursor's agent or background-agent mode for non-interactive execution.`;
+    return {
+      ok: false,
+      error_class: 'local_cli_command_incompatible',
+      recovery,
+      error: recovery,
+      diagnostic: {
+        runtime_id: runtimeId,
+        binary: binaryName,
+        rule: 'cursor_requires_agent_mode',
+        has_agent_flag: false,
         recovery,
       },
     };

@@ -21,7 +21,7 @@ import { detectActiveTurnBindingDrift, detectStateBundleDesync } from '../lib/go
 import { findPendingApprovedIntents } from '../lib/intake.js';
 import { checkCleanBaseline } from '../lib/repo-observer.js';
 import { probeRuntimeSpawnContext } from '../lib/runtime-spawn-context.js';
-import { getClaudeSubprocessAuthIssue } from '../lib/claude-local-auth.js';
+import { getClaudeSubprocessAuthIssue, isCursorLocalCliRuntime } from '../lib/claude-local-auth.js';
 
 export async function doctorCommand(opts = {}) {
   const root = findProjectRoot(process.cwd());
@@ -502,6 +502,13 @@ async function checkRuntimeReachable(root, rtId, rt, boundRoleEntries = []) {
     case 'local_cli': {
       const probe = probeRuntimeSpawnContext(root, rt, { runtimeId: rtId });
       if (probe.ok) {
+        if (isCursorLocalCliRuntime(rt)) {
+          return attachRuntimeContract({
+            ...base,
+            level: 'pass',
+            detail: `${probe.detail} (Cursor IDE local_cli connector)`,
+          }, rtId, rt, boundRoleEntries);
+        }
         const claudeAuthIssue = await getClaudeSubprocessAuthIssue(rt);
         if (claudeAuthIssue) {
           return attachRuntimeContract({
