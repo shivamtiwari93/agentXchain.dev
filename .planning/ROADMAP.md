@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M8 final acceptance (ROADMAP.md:98): identify continuation enqueue gap in execution-worker.js, charter E2E lifecycle test proving governed run completes via hosted runner with dashboard visibility | In progress (`run_bbbb5f230a0ec907`) |
-| Implementation | Dev modifies execution-worker.js (add enqueueContinuation after job finalization); creates hosted-runner-e2e.test.js (6 E2E lifecycle tests with mocked dispatch) | Pending |
-| QA | Verify E2E test passes, verify continuation enqueue has terminal guard, run full regression suite, check off ROADMAP.md:98 | Pending |
+| Planning | Scope M7 Windsurf + OpenCode connectors (ROADMAP.md:88-91): identify all insertion points in claude-local-auth.js, local-cli-adapter.js, connector-probe.js, doctor.js; charter 2 new test files | In progress (`run_0db6a75ab239c3a3`) |
+| Implementation | Dev adds detection functions, command validation rules, authority flag/transport entries, doctor annotations for Windsurf + OpenCode; creates windsurf-connector.test.js + opencode-connector.test.js (~28 tests total) | Pending |
+| QA | Verify 28 connector tests pass, verify cursor-connector.test.js regression-free, verify KNOWN_CLI_AUTHORITY_FLAGS has 5 entries, run full test suite, check off ROADMAP.md:88, :89, :91 | Pending |
