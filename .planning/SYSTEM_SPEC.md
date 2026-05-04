@@ -12,26 +12,9 @@ Verify that the CI reporter module and CLI command delivered in run_685ea79f49ac
 
 ---
 
-## 1. Existing Delivery Summary
+## Interface
 
-### 1.1 Files Delivered (run_685ea79f49acd469)
-
-| File | Type | Content |
-|------|------|---------|
-| `cli/src/lib/ci-reporter.js` | New | 5 exported functions: detectCIEnvironment, formatGitHubAnnotations, writeGitHubOutputVars, formatJUnitXml, deriveCIExitCode |
-| `cli/src/commands/ci-report.js` | New | ciReportCommand: export → report → CI format → exit code |
-| `cli/bin/agentxchain.js` | Modified | Line 90: import ciReportCommand; Line 199: .command('ci-report') registration |
-| `cli/test/ci-reporter.test.js` | New | 12 tests across CI detection, GitHub annotations, output vars, JUnit XML, exit codes, command integration |
-
-### 1.2 Architecture Invariants (unchanged)
-
-1. **No new state reading.** ci-reporter.js consumes the governance report object from buildGovernanceReport() — does not import config.js, governed-state.js, or any state reader.
-2. **No modifications to existing modules.** report.js, export.js, export-verifier.js remain untouched.
-3. **Pure functions.** formatGitHubAnnotations(), formatJUnitXml(), deriveCIExitCode() are pure. Only writeGitHubOutputVars() has a file-append side effect and detectCIEnvironment() reads env vars.
-4. **Standard output formats.** GitHub Actions `::command::` syntax, JUnit 4 XML schema.
-5. **Exit code contract.** 0=pass, 1=fail, 2=error.
-
-### 1.3 Exported Interface
+### Exported Functions (cli/src/lib/ci-reporter.js)
 
 ```
 cli/src/lib/ci-reporter.js
@@ -45,7 +28,7 @@ cli/src/commands/ci-report.js
   └─ export async ciReportCommand(options)     → void (writes to stdout, sets process.exitCode)
 ```
 
-### 1.4 CLI Interface
+### CLI Interface
 
 ```
 agentxchain ci-report [options]
@@ -60,9 +43,26 @@ Exit codes:
   2  Error (invalid input, missing project)
 ```
 
+### Files Delivered (run_685ea79f49acd469)
+
+| File | Type | Content |
+|------|------|---------|
+| `cli/src/lib/ci-reporter.js` | New | 5 exported functions: detectCIEnvironment, formatGitHubAnnotations, writeGitHubOutputVars, formatJUnitXml, deriveCIExitCode |
+| `cli/src/commands/ci-report.js` | New | ciReportCommand: export → report → CI format → exit code |
+| `cli/bin/agentxchain.js` | Modified | Line 90: import ciReportCommand; Line 199: .command('ci-report') registration |
+| `cli/test/ci-reporter.test.js` | New | 12 tests across CI detection, GitHub annotations, output vars, JUnit XML, exit codes, command integration |
+
+### Architecture Invariants (unchanged)
+
+1. **No new state reading.** ci-reporter.js consumes the governance report object from buildGovernanceReport() — does not import config.js, governed-state.js, or any state reader.
+2. **No modifications to existing modules.** report.js, export.js, export-verifier.js remain untouched.
+3. **Pure functions.** formatGitHubAnnotations(), formatJUnitXml(), deriveCIExitCode() are pure. Only writeGitHubOutputVars() has a file-append side effect and detectCIEnvironment() reads env vars.
+4. **Standard output formats.** GitHub Actions `::command::` syntax, JUnit 4 XML schema.
+5. **Exit code contract.** 0=pass, 1=fail, 2=error.
+
 ---
 
-## 2. Dev Charter (Verification Only)
+## Dev Charter (Verification Only)
 
 ### 2.1 Scope
 
@@ -95,7 +95,7 @@ These are unrelated to the CI reporter. Dev should confirm the failure count has
 
 ---
 
-## 3. Acceptance Tests
+## Acceptance Tests
 
 All 12 acceptance tests were defined and verified in run_685ea79f49acd469. Dev re-verifies they still pass:
 
@@ -116,7 +116,7 @@ All 12 acceptance tests were defined and verified in run_685ea79f49acd469. Dev r
 
 ---
 
-## 4. Verification Commands
+## Verification Commands
 
 ```bash
 # Dev verification
@@ -131,7 +131,7 @@ cd cli && npm test
 
 ---
 
-## 5. Key Architecture Invariants (Verification Checklist)
+## Key Architecture Invariants (Verification Checklist)
 
 QA should confirm each invariant still holds:
 
