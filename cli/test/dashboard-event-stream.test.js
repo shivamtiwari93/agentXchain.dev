@@ -635,3 +635,77 @@ describe('dashboard event stream — event-stream proof', () => {
     assert.deepEqual(proof.artifacts?.filtered_event_types, ['run_completed']);
   });
 });
+
+describe('dashboard event stream — multi-byte UTF-8 push correctness', () => {
+  let root, bridge, port;
+
+  beforeAll(async () => {
+    root = tmpDir();
+    writeGovernedRepo(root);
+
+    // Write initial events with multi-byte UTF-8 content so the byte length
+    // of events.jsonl exceeds its character length.  Before the fix,
+    // lastEventsFileSize was initialized as byte count (Buffer.length) but
+    // compared against string character count on the first invalidation,
+    // which falsely triggered the truncation-replay path.
+    const initialEvents = [
+      makeEvent('run_started', { payload: { summary: '🚀 启动新运行 — テスト' } }),
+      makeEvent('turn_dispatched', {
+        turn: { turn_id: 't_utf8', role_id: 'dev' },
+        payload: { summary: '日本語テスト 🎉 émojis résumé' },
+      }),
+    ];
+    writeEventsJsonl(root, initialEvents);
+
+    const dashboardDir = join(root, 'dashboard');
+    mkdirSync(dashboardDir, { recursive: true });
+    writeFileSync(join(dashboardDir, 'index.html'), '<html></html>');
+
+    bridge = createBridgeServer({
+      agentxchainDir: join(root, '.agentxchain'),
+      dashboardDir,
+      port: 0,
+    });
+    const result = await bridge.start();
+    port = result.port;
+  });
+
+  afterAll(async () => {
+    if (bridge) await bridge.stop();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('does not replay historical events when initial file contains multi-byte UTF-8', async () => {
+    const client = await connectWebSocketClient(port);
+    try {
+      // Append a new ASCII-only event for easy identification
+      const newEvent = makeEvent('run_completed', {
+        run_id: 'run_utf8_regression',
+        payload: { outcome: 'completed' },
+      });
+      appendEventJsonl(root, newEvent);
+
+      // Wait for the new event to arrive via WebSocket push
+      const eventMsg = await client.waitForMessage((m) => (
+        m.type === 'event' && m.event?.run_id === 'run_utf8_regression'
+      ));
+      assert.equal(eventMsg.event.event_type, 'run_completed');
+
+      // Allow time for any spurious replay events to arrive
+      await sleep(300);
+
+      // Only the newly appended event should have been pushed — not the
+      // initial multi-byte events that were already in the file at startup.
+      const eventMessages = client.messages.filter((m) => m.type === 'event');
+      assert.equal(
+        eventMessages.length,
+        1,
+        `Expected 1 pushed event but got ${eventMessages.length} — ` +
+        'historical multi-byte events were replayed (byte/char mismatch)',
+      );
+      assert.equal(eventMessages[0].event.run_id, 'run_utf8_regression');
+    } finally {
+      client.close();
+    }
+  });
+});

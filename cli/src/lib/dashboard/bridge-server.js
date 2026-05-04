@@ -287,14 +287,19 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, 
       try {
         const eventsPath = join(agentxchainDir, 'events.jsonl');
         if (!existsSync(eventsPath)) return;
-        const content = readFileSync(eventsPath, 'utf8');
-        if (content.length <= lastEventsFileSize) {
+        // Read as Buffer so .length is byte count, consistent with the
+        // byte-based lastEventsFileSize initialized at startup.  The old
+        // code read as 'utf8' (string), whose .length is *character* count
+        // — a mismatch that caused a full-replay on the first invalidation
+        // when events contained multi-byte UTF-8 content.
+        const contentBuf = readFileSync(eventsPath);
+        if (contentBuf.length <= lastEventsFileSize) {
           // File was truncated — reset and push all
-          if (content.length < lastEventsFileSize) lastEventsFileSize = 0;
+          if (contentBuf.length < lastEventsFileSize) lastEventsFileSize = 0;
           else return;
         }
-        const newContent = content.slice(lastEventsFileSize);
-        lastEventsFileSize = content.length;
+        const newContent = contentBuf.slice(lastEventsFileSize).toString('utf8');
+        lastEventsFileSize = contentBuf.length;
         const lines = newContent.split('\n').filter(Boolean);
         for (const line of lines) {
           try {
