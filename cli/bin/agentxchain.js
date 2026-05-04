@@ -131,6 +131,7 @@ import { chainLatestCommand, chainListCommand, chainShowCommand } from '../src/c
 import { missionAttachChainCommand, missionBindCoordinatorCommand, missionListCommand, missionPlanApproveCommand, missionPlanAutopilotCommand, missionPlanCommand, missionPlanLaunchCommand, missionPlanListCommand, missionPlanShowCommand, missionShowCommand, missionStartCommand } from '../src/commands/mission.js';
 import { workflowKitDescribeCommand } from '../src/commands/workflow-kit.js';
 import { serveMcpCommand } from '../src/commands/serve-mcp.js';
+import { serveCommand } from '../src/commands/serve.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -803,6 +804,14 @@ program
   .description('Start an MCP server exposing governance tools (stdio transport)')
   .option('--root <path>', 'Project root directory (default: cwd)')
   .action(serveMcpCommand);
+
+program
+  .command('serve')
+  .description('Start hosted runner HTTP server')
+  .option('--port <number>', 'Server port', '4100')
+  .option('--host <address>', 'Bind address', '127.0.0.1')
+  .option('--project <path>', 'Project root')
+  .action(serveCommand);
 
 program
   .command('dashboard')
