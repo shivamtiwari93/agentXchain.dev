@@ -77,11 +77,11 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Acceptance: 2 dev turns dispatched in parallel, both accepted, conflicts detected and resolved <!-- e2e-parallel-lifecycle.test.js:166-200; 7 test files, 29 tests, 0 failures as of 2026-05-03 -->
 
 ### M6: Dashboard Live Observer
-- [ ] Real-time dashboard showing active turns, phase progression, and budget consumption
-- [ ] WebSocket or SSE event stream from the run loop
-- [ ] Turn timeline visualization with model attribution
-- [ ] Gate status indicators with file-level detail
-- [ ] Acceptance: dashboard reflects live state within 5s of turn events during a governed run
+- [x] Real-time dashboard showing active turns, phase progression, and budget consumption <!-- dashboard.js:20 dashboardCommand(); bridge-server.js:261 createBridgeServer(); timeline.js:474-493 active turns + timeline.js:464 phase header + run-history.js:177 total_cost_usd -->
+- [x] WebSocket or SSE event stream from the run loop <!-- bridge-server.js:279-310 watches events.jsonl via FileWatcher, pushes { type: 'event', event } to all WS clients with per-client event type subscription filtering -->
+- [x] Turn timeline visualization with model attribution <!-- timeline.js:444 render() with active turns (474-493) + history (496-528); governed-state.js:5171 stores runtime_id per history entry; timeline.js:410 renders runtime_id in connector health panel -->
+- [x] Gate status indicators with file-level detail <!-- gate.js Gate Review view renders pending phase transitions with file-level evidence; bridge-server.js:366-384 approve-gate POST mutation; /api/gate-actions endpoint via gate-action-reader.js -->
+- [x] Acceptance: dashboard reflects live state within 5s of turn events during a governed run <!-- file-watcher.js:13 DEBOUNCE_MS=100; bridge-server.js:279 WebSocket push on invalidation; 28 test files, 478 tests, 0 failures as of 2026-05-03 -->
 
 ### M7: Connector Ecosystem Expansion
 - [ ] Add Cursor IDE connector (local_cli adapter variant)
@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Verify M5 parallel turn support is fully implemented, check off ROADMAP items with evidence | In progress (`run_b7c5380413abfbfb`) |
-| Implementation | Dev verifies PM's cited line numbers and test references are accurate | Pending |
+| Planning | Verify M6 Dashboard Live Observer is fully implemented, check off ROADMAP items with evidence | In progress (`run_74fc370a40da7622`) |
+| Implementation | Dev verifies PM's cited line numbers and test references are accurate (28 test files, 478 tests) | Pending |
 | QA | Full test suite verification, confirm acceptance contract | Pending |
