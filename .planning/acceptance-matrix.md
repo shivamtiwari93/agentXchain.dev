@@ -1,61 +1,84 @@
-# Acceptance Matrix — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix (Formal Closure)
+# Acceptance Matrix — M10: Cross-Run Scope Overlap Guard
 
-**Run:** run_cf572ef2d54d357d
-**Turn:** turn_67328376fac5987c (QA)
-**Scope:** 1 modified source module (1 line added), 1 new test file (7 tests), 2 modified existing tests. Code delivered in prior run `run_5e7a4020b052bc68`; this run is formal QA closure.
+**Run:** run_2e96850371ff1a1c
+**Turn:** turn_e7504051098fe94b (QA)
+**Scope:** 1 new module (scope-overlap.js), 3 integration sites (intake.js, continuous-run.js, intake-approve.js), 1 CLI option (agentxchain.js), 1 new test file (10 tests)
 
 ## Section A: SYSTEM_SPEC Acceptance Tests
 
 | Req # | Requirement (from SYSTEM_SPEC Acceptance Tests) | Evidence | Status |
 |-------|--------------------------------------------------|----------|--------|
-| AT-WK-001 | Completed workspace+empty files normalizes to review | QA verified source: `turn-result-validator.js:1515-1543` — Rule 0a condition at line 1527 includes `normalized.status === 'completed'`. Test AT-WK-001 passes: artifact.type normalized from workspace to review, normalizationEvents array records `empty_files_changed_no_repo_mutation_declared`. | PASS |
-| AT-WK-002 | Completed workspace+non-empty files NOT normalized | QA verified source: Rule 0a requires `filesChangedIsEmpty` (line 1521). Test AT-WK-002 passes: artifact.type remains workspace when files_changed is non-empty. | PASS |
-| AT-WK-003 | Failed workspace+empty files NOT normalized | QA verified source: Rule 0a requires `normalized.status === 'completed'` (line 1527). Test AT-WK-003 passes: status `failed` does NOT trigger normalization. | PASS |
-| AT-WK-004 | Blocked workspace+empty files NOT normalized | QA verified source: same status guard as AT-WK-003. Test AT-WK-004 passes: status `blocked` does NOT trigger normalization. | PASS |
-| AT-WK-005 | Completed workspace+empty files+produced_files NOT normalized | QA verified source: Rule 0a requires `!hasCheckpointableProducedFiles(normalized)` (line 1522). Test AT-WK-005 passes: checkpointable produced_files prevent normalization even with empty files_changed. | PASS |
-| AT-WK-006 | Full validation: completed no-edit passes Stage C | QA verified source: Stage C guard at lines 696-707 checks workspace+empty files_changed. After Rule 0a normalizes to review, Stage C no longer applies. Test AT-WK-006 passes: full validateTurnResult pipeline returns 0 errors for completed no-edit QA turn. | PASS |
-| AT-WK-007 | Implementation-phase guard rejects completed no-edit authoritative turn even after normalization | QA verified source: implementation guard at lines 733-739 independently requires product code changes. Test AT-WK-007 passes: Rule 0a normalizes workspace to review, but implementation guard still rejects. Proves the two constraints are independent. | PASS |
-| AT-WK-008 | Existing workflow-gate-semantics and gate-evaluator tests still pass | QA ran combined suite: 152 tests across turn-result-validator.test.js + workflow-gate-semantics.test.js + gate-evaluator.test.js, 0 failures. Exit code 0. | PASS |
+| AT-SOG-001 | extractScopeFingerprint extracts milestone refs (M1, M5, M10) | QA ran scope-overlap.test.js independently: test verifies fp.has('m1'), fp.has('m5'), fp.has('m10') from input containing M1, M5, M10. PASS. | PASS |
+| AT-SOG-002 | extractScopeFingerprint extracts bug refs and module keywords | QA verified: test checks fp.has('bug-78'), fp.has('bug-54'), fp.has('connector'), fp.has('validator'), fp.has('ghost'), fp.has('detection'). PASS. | PASS |
+| AT-SOG-003 | extractScopeFingerprint strips stop words and short tokens | QA verified: test asserts !fp.has('the'), !fp.has('and'), !fp.has('is'), !fp.has('a'), !fp.has('on'), !fp.has('it'). Retains 'validator', 'module', 'fixed'. PASS. | PASS |
+| AT-SOG-004 | computeScopeOverlap returns 0 for disjoint sets | QA verified: {a,b} vs {c,d} = 0. PASS. | PASS |
+| AT-SOG-005 | computeScopeOverlap returns 1 for identical sets | QA verified: {a,b} vs {a,b} = 1. PASS. | PASS |
+| AT-SOG-006 | computeScopeOverlap returns correct Jaccard for partial overlap | QA verified: {a,b,c} vs {b,c,d} = 2/4 = 0.5. PASS. | PASS |
+| AT-SOG-007 | checkIntentScopeOverlap returns non-overlapping for distinct charters | QA verified: completed Windsurf connector intent vs unrelated CI pipeline charter returns overlapping=false, max_score < 0.4. PASS. | PASS |
+| AT-SOG-008 | checkIntentScopeOverlap detects overlap with active run charter | QA verified: active_run with scope overlap charter vs semantically similar candidate returns overlapping=true, source='active_run', max_score >= 0.4. PASS. | PASS |
+| AT-SOG-009 | checkIntentScopeOverlap detects overlap with recently completed intent | QA verified: completed Windsurf connector intent vs same-domain charter returns overlapping=true, source='intent:intent_002_efgh', max_score >= 0.4. PASS. | PASS |
+| AT-SOG-010 | approveIntent returns scope_overlap_detected when threshold exceeded, forceScope bypasses | QA verified: (1) approveIntent without forceScope returns ok=false, error='scope_overlap_detected', exitCode=3; intent stays triaged. (2) approveIntent with forceScope=true returns ok=true. PASS. | PASS |
 
-**Summary: 8/8 PASS**
+**Summary: 10/10 PASS**
 
 ## Section B: Code Correctness Verification
 
 | Check | Detail | Status |
 |-------|--------|--------|
-| Rule 0a condition (line 1527) | `\|\| normalized.status === 'completed'` present in the condition block at lines 1523-1527. Correctly placed after `needs_human` check and before closing paren. | PASS |
-| Stage C guard (lines 696-707) | Intact. Still rejects `workspace` with empty `files_changed` when normalization did not fire. | PASS |
-| Implementation-phase guard (lines 733-739) | Intact. Still requires product code changes for authoritative completed implementation turns. AT-WK-007 documents this interaction. | PASS |
-| Review-to-workspace guard (lines 716-728) | Intact. Still rejects `artifact.type: "review"` with non-empty product file changes. Not affected by BUG-78 fix. | PASS |
-| Normalization event recording | Rule 0a pushes to `normalizationEvents` array with field/original/normalized/rationale. AT-WK-001 verifies presence. | PASS |
-| Two existing test updates | `turn-result-validator.test.js`: "rejects review_only role with non-review artifact type" and "rejects authoritative workspace artifact with no files_changed" both changed from `status:'completed'` to `status:'blocked'` to preserve Stage C coverage post-fix. Correct. | PASS |
+| scope-overlap.js exports | 3 named exports: extractScopeFingerprint, computeScopeOverlap, checkIntentScopeOverlap. All signatures match SYSTEM_SPEC. | PASS |
+| TEMPLATE_NOISE filter (dev DEC-002) | Set of {'vision','goal','addressed','section'} prevents false overlap from vision-derived charter scaffolding. Not in original spec but a valid improvement. | PASS |
+| Min fingerprint guard (dev DEC-002) | candidateFP.size < 3 returns non-overlapping. Spec said size === 0; dev raised to < 3 for better false-positive protection. Reasonable deviation. | PASS |
+| intake.js scope guard (line 891) | Guard placed after status check (line 886), before approver assignment (line 909). Uses static import (line 31). Matches spec integration point. | PASS |
+| continuous-run.js site 1 (line 1329) | Roadmap-derived: scope_overlap_detected returns idle with deferred_reason. Correct. | PASS |
+| continuous-run.js site 2 (line 1407) | Roadmap-replenishment: same idle pattern. Correct. | PASS |
+| continuous-run.js site 3 (line 1493) | Vision-derived: same idle pattern. Correct. | PASS |
+| CLI --force-scope (agentxchain.js:1044) | Option registered on intake approve command. | PASS |
+| intake-approve.js passthrough (line 21) | forceScope: opts.forceScope || false passed to approveIntent. | PASS |
+| Jaccard correctness | computeScopeOverlap handles empty sets (returns 0, no division by zero), identical sets (returns 1), partial overlap (correct ratio). | PASS |
 
-## Section C: Regression Suites (QA-Verified)
+## Section C: Architecture Invariants
+
+| Invariant | Evidence | Status |
+|-----------|----------|--------|
+| No changes to M5 parallel conflict detection | git diff 187f3cb4d HEAD -- cli/src/lib/governed-state.js produces empty output | PASS |
+| No changes to event deduplication | grep for computeDedupKey in intake.js confirms untouched; scope guard is separate insertion | PASS |
+| No changes to vision candidate derivation | git diff 187f3cb4d HEAD -- cli/src/lib/vision-reader.js produces empty output | PASS |
+| Overlap is deferring, not blocking | approveIntent returns error (exitCode 3), continuous loop returns idle, --force-scope bypasses | PASS |
+| Synchronous implementation | All functions use readFileSync/existsSync, no async/await in scope-overlap.js | PASS |
+| No new dependencies | Only node:fs and node:path imports in scope-overlap.js | PASS |
+
+## Section D: Regression Suites (QA-Verified)
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| bug-78-no-edit-review.test.js | 7 | 7/7 PASS |
-| turn-result-validator.test.js + workflow-gate-semantics.test.js + gate-evaluator.test.js | 152 | 152/152 PASS |
-| **Total** | **159** | **0 failures** |
+| scope-overlap.test.js | 10 | 10/10 PASS |
+| intake.test.js | 21 | 21/21 PASS |
+| continuous-run.test.js | 90 | 90/90 PASS |
+| intake-approve-plan.test.js + vision-reader.test.js | 51 | 51/51 PASS |
+| **Total** | **172** | **0 failures** |
 
-All test suites run independently by QA using `npx vitest run test/<file>`. Exit code 0 for both commands.
+All test suites run independently by QA using `cd cli && npx vitest run test/<file>`. Exit code 0 for all 4 commands.
 
-## Section D: Dev Challenge Review
+## Section E: Dev Decision Review
 
-### DEC-001 (PM-scoped verification-only charter incompatible with implementation guard): VERIFIED
+### DEC-001 (No material deviations from PM spec): VERIFIED
 
-The implementation-phase product-code guard (line 733) independently rejects completed authoritative turns without product file changes. Dev resolved this by adding AT-WK-007 test, which provides genuine regression coverage (proving Rule 0a and implementation guard are independent constraints) while satisfying the guard. Correct resolution.
+QA independently confirmed: all 3 function signatures match, static import used (correct per spec note), guard placement in approveIntent matches spec, 3 continuous-run.js sites match spec, CLI option and command handler match spec.
 
-### DEC-002 (All prior claims independently verified): VERIFIED
+### DEC-002 (TEMPLATE_NOISE filter and min fingerprint guard): VERIFIED AND APPROVED
 
-QA independently confirmed: Rule 0a at line 1527 present, Stage C at lines 696-707 intact, implementation guard at lines 733-739 intact, 7/7 BUG-78 tests pass, 152/152 validator+gate tests pass. Total: 159 tests, 0 failures.
+TEMPLATE_NOISE set {'vision','goal','addressed','section'} is a valid false-positive prevention for vision-derived charters. Min fingerprint guard (< 3 tokens vs spec's === 0) is a reasonable strengthening. Both are documented. The 2 mid-implementation test failures (AT-VCONT-001, AT-VCONT-006) were caused by this template noise and fully resolved.
 
-## Section E: QA Findings
+### DEC-003 (All 90 continuous-run tests pass with 0 regressions): VERIFIED
+
+QA ran continuous-run.test.js independently: 90/90 pass, exit code 0.
+
+## Section F: QA Findings
 
 ### Finding 1 (blocking, fixed): Stale QA artifacts from wrong run
 
-All three QA workflow artifacts referenced run_685ea79f49acd469 (M9: CI Pipeline Integration) instead of current run_cf572ef2d54d357d (MW: BUG-78 Formal Closure). All three rewritten from scratch by this QA turn.
+All three QA workflow artifacts (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) referenced run_cf572ef2d54d357d (MW: BUG-78 Formal Closure) instead of current run_2e96850371ff1a1c (M10: Cross-Run Scope Overlap Guard). All three rewritten from scratch by this QA turn.
 
-### Finding 2 (info): ROADMAP.md:116 comment describes pre-fix behavior
+### Finding 2 (info): Spec deviation in min fingerprint size
 
-ROADMAP.md:116 inline comment says "only fires on lifecycle signals" — this was the pre-fix state. Updated when checking off the item.
+SYSTEM_SPEC pseudocode (line 84) says `candidateFP.size === 0` returns non-overlapping. Implementation uses `candidateFP.size < 3`. This is a valid improvement per dev DEC-002 but constitutes a minor spec deviation. No action needed — the implementation is more conservative.

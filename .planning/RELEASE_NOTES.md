@@ -1,53 +1,50 @@
-# Release Notes — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix
+# Release Notes — M10: Cross-Run Scope Overlap Guard
 
-**Run:** run_cf572ef2d54d357d
+**Run:** run_2e96850371ff1a1c
 **Version:** agentxchain@2.155.72
 
-## What's New
+## Summary
 
-### BUG-78: No-Edit Review Turn Auto-Normalization
+New cross-run scope overlap detection prevents the continuous loop from spawning runs whose charter semantically overlaps with active or recently completed work. Uses Jaccard similarity on extracted charter tokens (milestone refs, bug refs, file paths, module keywords) with a configurable threshold (default 0.4). Overlap is advisory/deferring — the continuous loop returns idle for overlapping intents, and operators can bypass with `--force-scope`.
 
-Review-only roles (e.g. product_marketing, security_reviewer, technical_writer) that complete valid no-edit analysis turns no longer get stuck at Stage C validation. The turn-result validator's Rule 0a now auto-normalizes `artifact.type: "workspace"` to `"review"` when a completed turn has empty `files_changed` and no checkpointable produced files.
+## What Changed
 
-**Before:** Completed no-edit turns emitting `workspace` with `files_changed: []` were rejected at Stage C ("workspace but files_changed is empty"), requiring manual JSON surgery on the staging turn-result to continue the governed run.
+### New Module: `cli/src/lib/scope-overlap.js`
 
-**After:** Rule 0a detects the inconsistency and auto-corrects `workspace` → `review`, recording the normalization in the auditable `normalizationEvents` array. The continuous loop proceeds without manual intervention.
+- `extractScopeFingerprint(text)` — Extracts normalized tokens from charter/acceptance text: M-prefixed milestones, BUG-prefixed refs, MW, file paths, and significant keywords (>3 chars, stop-word and template-noise filtered)
+- `computeScopeOverlap(a, b)` — Jaccard similarity between two fingerprint sets
+- `checkIntentScopeOverlap(root, charter, acceptanceContract, options)` — Compares candidate intent against active run and recent completed intents
 
-### Guards Preserved
+### Integration Points
 
-- **Status guard**: Only `completed` turns are normalized. `failed` and `blocked` turns still hit Stage C as before.
-- **Files guard**: Turns with non-empty `files_changed` are never normalized — they legitimately declared workspace changes.
-- **Produced files guard**: Turns with checkpointable `verification.produced_files` entries are not normalized — they have artifacts to checkpoint even without repo mutations.
-- **Implementation guard**: The implementation-phase product-code guard (line 733) is fully independent of Rule 0a. Authoritative implementation turns still require product code changes regardless of normalization.
+- **intake.js `approveIntent()`** — Scope overlap guard fires after status check, before approval. Returns `scope_overlap_detected` error with overlap details when threshold exceeded
+- **continuous-run.js `seedFromVision()`** — Three auto-approval sites (roadmap-derived, roadmap-replenishment, vision-derived) handle `scope_overlap_detected` by returning idle with `deferred_reason: 'scope_overlap'`
+- **CLI `intake approve --force-scope`** — Bypasses the scope overlap guard for manual operator override
 
-## Files Changed
+### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `cli/src/lib/turn-result-validator.js` | Modified | Rule 0a (line 1527): added `\|\| normalized.status === 'completed'` to normalization trigger |
-| `cli/test/bug-78-no-edit-review.test.js` | New | 7 regression tests (AT-WK-001 through AT-WK-007) |
-| `cli/test/turn-result-validator.test.js` | Modified | 2 existing tests updated: status `completed` → `blocked` to preserve Stage C coverage |
-
-## Test Results
-
-- 7/7 BUG-78 regression tests pass (AT-WK-001 through AT-WK-007)
-- 152/152 validator + gate tests pass (turn-result-validator, workflow-gate-semantics, gate-evaluator)
-- 0 new failures introduced
+| File | Change |
+|------|--------|
+| `cli/src/lib/scope-overlap.js` | New module (3 exports) |
+| `cli/src/lib/intake.js` | Static import + scope guard in approveIntent() |
+| `cli/src/lib/continuous-run.js` | Handle scope_overlap_detected at 3 seedFromVision() sites |
+| `cli/src/commands/intake-approve.js` | Pass forceScope option |
+| `cli/bin/agentxchain.js` | Add --force-scope CLI option |
+| `cli/test/scope-overlap.test.js` | 10 acceptance tests |
 
 ## User Impact
 
-Operators running governed multi-agent runs in continuous mode no longer need to manually edit turn-result JSON when review-only roles emit `artifact.type: "workspace"` with no file changes. This was the last remaining gap in the workflow kit's recovery layer, directly unblocking the DOGFOOD-100-TURNS credibility gate. The fix is a one-line condition expansion with zero behavioral change for turns that declare file changes or have non-completed status.
+- **Continuous loop operators:** Overlapping charters are now automatically deferred until prior work completes, preventing redundant runs. No configuration changes required — the guard activates automatically with default threshold 0.4.
+- **Manual approval operators:** `agentxchain intake approve --force-scope` bypasses the guard when deliberate overlap is intended.
+- **Existing workflows:** No breaking changes. The guard is advisory/deferring, not blocking. All existing event deduplication, M5 parallel conflict detection, and vision candidate derivation remain untouched.
 
 ## Verification Summary
 
-QA independently verified all 8 SYSTEM_SPEC acceptance criteria (AT-WK-001 through AT-WK-008):
+QA independently verified all 10 SYSTEM_SPEC acceptance criteria (AT-SOG-001 through AT-SOG-010):
 
-- **Normalization** (AT-WK-001): Completed workspace + empty files_changed correctly auto-normalizes to review, with normalization event recorded.
-- **Files guard** (AT-WK-002): Non-empty files_changed prevents normalization.
-- **Status guard** (AT-WK-003, AT-WK-004): Failed and blocked turns are NOT normalized.
-- **Produced files guard** (AT-WK-005): Checkpointable produced_files prevent normalization.
-- **Full pipeline** (AT-WK-006): Completed no-edit QA turn passes Stage C after normalization.
-- **Independence** (AT-WK-007): Implementation-phase guard independently rejects even after normalization — proves the two constraints are decoupled.
-- **Regression** (AT-WK-008): 152 existing validator + gate tests pass with 0 failures.
+- **Fingerprint extraction** (AT-SOG-001 to AT-SOG-003): Milestone refs, bug refs, module keywords extracted correctly. Stop words and short tokens filtered.
+- **Jaccard computation** (AT-SOG-004 to AT-SOG-006): Disjoint (0), identical (1), partial overlap (0.5) all correct.
+- **Overlap detection** (AT-SOG-007 to AT-SOG-009): Distinct charters return non-overlapping. Active run overlap detected. Completed intent overlap detected.
+- **End-to-end** (AT-SOG-010): approveIntent returns scope_overlap_detected without forceScope, succeeds with forceScope=true.
 
-Test execution: 7/7 bug-78-no-edit-review.test.js, 152/152 combined validator+gate suites. Total 159 tests, 0 failures. Exit code 0 for all commands.
+Test execution: 10/10 scope-overlap, 21/21 intake, 90/90 continuous-run, 51/51 intake-approve-plan + vision-reader. Total 172 tests, 0 failures. Exit code 0 for all commands.
