@@ -84,10 +84,10 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Acceptance: dashboard reflects live state within 5s of turn events during a governed run <!-- file-watcher.js:13 DEBOUNCE_MS=100; bridge-server.js:279 WebSocket push on invalidation; 28 test files, 478 tests, 0 failures as of 2026-05-03 -->
 
 ### M7: Connector Ecosystem Expansion
-- [ ] Add Cursor IDE connector (local_cli adapter variant)
+- [x] Add Cursor IDE connector (local_cli adapter variant) <!-- run_10a2b2d8f0a8399b: isCursorLocalCliRuntime() + command validation + doctor support + 14 tests in cursor-connector.test.js; QA verified in run_f89a47c58f54929c -->
 - [ ] Add Windsurf connector
 - [ ] Add OpenCode connector
-- [ ] Validate each connector with a single governed turn end-to-end
+- [x] Validate each connector with a single governed turn end-to-end <!-- run_f89a47c58f54929c: AT-CCV-007 (Claude), AT-CCV-009 (Codex), AT-CCV-010 (Cursor) all pass connector validate with overall:'pass'; QA verified 474 tests, 0 failures -->
 - [ ] Acceptance: `agentxchain doctor` passes for each new connector type
 
 ### M8: agentxchain.ai Managed Surface — MVP
@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope per-connector governed turn E2E validation (ROADMAP.md:90), write planning artifacts | In progress (`run_f89a47c58f54929c`) |
-| Implementation | Dev adds Codex + Cursor governed turn E2E tests via shim binaries in connector validate pipeline | Pending |
-| QA | Full test suite verification, confirm all 3 connector E2E pass, check off ROADMAP.md:87 + :90 | Pending |
+| Planning | Scope doctor acceptance for each connector type (ROADMAP.md:91), check off :87 + :90, rewrite planning artifacts | In progress (`run_3da0168fc830ad47`) |
+| Implementation | Dev adds Codex recognition to doctor + 3 doctor E2E tests (Codex + Cursor + Claude regression) | Pending |
+| QA | Full test suite verification, confirm doctor passes for all connector types, check off ROADMAP.md:91 | Pending |
