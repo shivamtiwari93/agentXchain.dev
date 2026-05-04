@@ -63,6 +63,12 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [ ] Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)
 - [ ] Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`
 
+### BUG-FIX: Step Command Missing Auto-Checkpoint After Acceptance
+- [ ] Wire `checkpointAcceptedTurn()` into `step.js` after successful acceptance (matches `run.js` afterAccept behavior) <!-- run_8aceec319cd6aaed -->
+- [ ] Add `--no-checkpoint` opt-out flag to `step` command <!-- run_8aceec319cd6aaed -->
+- [ ] Integration test: PM turn accepted → auto-checkpointed → dev turn assigned without dirty-workspace error <!-- run_8aceec319cd6aaed -->
+- [ ] Acceptance: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit
+
 ### M5: Protocol V8 — Parallel Turn Support
 - [ ] Implement parallel turn dispatch within a single phase (multiple devs working concurrently)
 - [ ] Add conflict detection when parallel turns modify overlapping files
@@ -95,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Charter dev with simulated crash acceptance test — real PID lifecycle (spawn → SIGKILL → step --resume recovery) | Complete (`run_5723929be7513f77`) |
-| Implementation | Add 1 test to `step-crash-resume.test.js`: spawn real process, kill it, verify step --resume recovers cleanly | Pending |
-| QA | Verify test exercises real PID lifecycle, all 5 crash-resume tests pass, full suite green, check off ROADMAP.md:64 | Pending |
+| Planning | Charter dev: wire `checkpointAcceptedTurn()` into `step.js` after acceptance + integration test | Complete (`run_8aceec319cd6aaed`) |
+| Implementation | Add auto-checkpoint to `step.js`, `--no-checkpoint` flag, 2 integration tests | Pending |
+| QA | Verify PM→Dev handoff via `step` works without manual git commit, full suite green | Pending |

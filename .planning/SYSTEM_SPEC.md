@@ -1,144 +1,111 @@
-# System Spec — Simulated Crash Recovery Acceptance Test
+# System Spec — Step Command Auto-Checkpoint After Acceptance
 
-**Run:** `run_5723929be7513f77`
-**Baseline:** git:e8a1cda5b (HEAD at planning start)
+**Run:** `run_8aceec319cd6aaed`
+**Baseline:** git:9c6c8bad193abb51a02db43bc251d5a90a8a9c6c (HEAD at planning start)
 **Package version:** `agentxchain@2.155.72`
 
 ## Purpose
 
-Add one acceptance-grade integration test that exercises a real OS PID lifecycle (spawn → kill → death detection → resume) to satisfy ROADMAP.md:64: "Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`".
+Wire `checkpointAcceptedTurn()` into the `step` command after successful acceptance, so the workspace is clean for the next turn assignment without manual git commits.
 
-**No runtime code changes.** All crash-resume logic was shipped in run_da40a332eed44f56. This run adds the missing acceptance test.
+**Root cause:** `step.js:992-1004` calls `acceptGovernedTurn()` then `printAcceptSummary()` but never calls `checkpointAcceptedTurn()`. The import is absent. By contrast, `run.js:617` and `accept-turn.js:177` both call it.
 
 ---
 
 ## 1. Existing Infrastructure
 
-The crash-resume flow implemented in `step.js`:
+### Auto-checkpoint in `run.js` (already working)
 
 ```
-step --resume (active/running turn)
-  → guardResumeWorkerLiveness(root, turn)          [step.js:1045]
-    → isWorkerAlive(turn.worker_pid)                [step.js:1061]
-      → process.kill(pid, 0)                        [OS signal probe]
-        ├─ alive: fatal exit(1) "Worker still alive"
-        └─ dead (ESRCH): proceed
-    → cleanupStaleDispatchProgress(root, turnId)    [step.js:1075]
-  → transitionActiveTurnLifecycle(..., 'dispatched') [clears worker_pid]
-  → dispatchLocalCli()                              [fresh subprocess]
+run --continuous
+  → executeGovernedRun(root, config, { afterAccept })
+    → afterAccept({ turn, acceptResult })            [run.js:605]
+      → checkpointAcceptedTurn(root, { turnId })      [run.js:617]
+        → git add + git commit                         [turn-checkpoint.js:391-456]
+        → update history + state.json                  [turn-checkpoint.js:462-486]
 ```
 
-### Existing Tests (step-crash-resume.test.js)
+### Checkpoint in `accept-turn.js` (already working)
 
-| # | Test | PID Source | Coverage |
-|---|------|-----------|----------|
-| 1 | Dead PID re-dispatch | `DEAD_PID = 99999999` (never existed) | Guard allows resume, progress cleaned |
-| 2 | Alive PID rejection | `process.pid` (test process) | Guard blocks resume |
-| 3 | No-PID backward compat | `null` | Guard skips, dispatch proceeds |
-| 4 | Blocked retained turn | `DEAD_PID = 99999999` | Blocked→active→re-dispatch |
+```
+accept-turn --checkpoint
+  → acceptGovernedTurn(root, config, opts)            [accept-turn.js:22]
+  → checkpointAcceptedTurn(root, { turnId })          [accept-turn.js:177]
+```
 
-**Gap:** No test spawns a real process, kills it, and verifies recovery. `DEAD_PID = 99999999` tests the "PID doesn't exist" path (`ESRCH` from `process.kill`), which is the same error code as a killed process — but never exercises the full lifecycle.
+### Missing: `step.js` (the bug)
+
+```
+step
+  → acceptGovernedTurn(root, config, { turnId })      [step.js:994]
+  → printAcceptSummary(acceptResult, config)           [step.js:1004]
+  → (no checkpoint — workspace stays dirty)
+```
+
+### Dirty-workspace detection (the symptom)
+
+```
+step (next turn)
+  → assignGovernedTurn(root, config, { roleId })      
+    → checkCleanBaseline(root, writeAuthority)         [governed-state.js:3606]
+      → dirty files detected → detectPendingCheckpoint [governed-state.js:3608]
+      → return { ok: false, error_code: 'checkpoint_required' }  [governed-state.js:3610]
+```
 
 ---
 
-## 2. New Test Specification
+## 2. Fix Specification
 
-**File:** `cli/test/step-crash-resume.test.js` (append to existing describe block)
+### Change 1: `cli/src/commands/step.js` — Add auto-checkpoint after acceptance
 
-### Test: "recovers cleanly after a simulated process crash (real PID lifecycle)"
-
-**Scenario:** A dev turn is dispatched and running. The subprocess crashes (SIGKILL). Operator runs `step --resume`. The system detects the dead PID, cleans up stale progress, and re-dispatches.
-
-### Steps
+**Import addition** (add to existing imports near top of file):
 
 ```javascript
-it('recovers cleanly after a simulated process crash (real PID lifecycle)', async () => {
-  // ── Setup ───────────────────────────────────────────────────────────
-  const root = makeTmpDir();
-  tmpDirs.push(root);
-  const { state, turn } = setupProject(root);
-
-  // ── Spawn a real subprocess ─────────────────────────────────────────
-  // node -e "process.stdin.resume()" creates a process that stays
-  // alive indefinitely (stdin keeps the event loop open).
-  const child = spawn('node', ['-e', 'process.stdin.resume()'], {
-    stdio: 'pipe',
-    detached: false,
-  });
-
-  // Ensure cleanup if test fails mid-flight
-  const cleanup = () => { try { child.kill('SIGKILL'); } catch {} };
-
-  try {
-    // ── Record real PID in governed state ────────────────────────────
-    const runningState = setRunningTurn(root, turn.turn_id, child.pid);
-    writeDispatchProgress(root, turn.turn_id, child.pid);
-    writeStagedTurnResult(root, runningState);
-
-    const progressPath = join(root, getDispatchProgressRelativePath(turn.turn_id));
-    assert.equal(existsSync(progressPath), true, 'progress file exists before crash');
-
-    // Confirm the process is actually alive
-    assert.doesNotThrow(() => process.kill(child.pid, 0), 'spawned process is alive');
-
-    // ── Simulate crash: kill with SIGKILL ───────────────────────────
-    child.kill('SIGKILL');
-    await new Promise((resolve) => child.on('exit', resolve));
-
-    // Confirm the process is now dead
-    assert.throws(
-      () => process.kill(child.pid, 0),
-      { code: 'ESRCH' },
-      'killed process is dead'
-    );
-
-    // ── Run step --resume ───────────────────────────────────────────
-    await runStep(root);
-
-    // ── Verify recovery ─────────────────────────────────────────────
-    // 1. Stale dispatch-progress cleaned up
-    assert.equal(existsSync(progressPath), false, 'stale progress file removed');
-
-    // 2. dispatchLocalCli called (re-dispatch happened)
-    expect(dispatchLocalCli).toHaveBeenCalledTimes(1);
-
-    // 3. State transitioned to 'dispatched' with cleared worker_pid
-    const dispatchedState = dispatchLocalCli.mock.calls[0][1];
-    assert.equal(
-      dispatchedState.active_turns[turn.turn_id].status,
-      'dispatched',
-      'turn re-dispatched'
-    );
-    assert.equal(
-      dispatchedState.active_turns[turn.turn_id].worker_pid,
-      undefined,
-      'worker_pid cleared for fresh dispatch'
-    );
-  } finally {
-    cleanup();
-  }
-});
+import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
 ```
 
-### Required Import Addition
-
-Add to the existing imports at the top of the file:
+**Code addition** (insert after line 1004, inside the `if (validation.ok)` block, after `printAcceptSummary`):
 
 ```javascript
-import { spawn } from 'child_process';
+    // Auto-checkpoint accepted turn so workspace is clean for next assignment
+    if (!opts.noCheckpoint) {
+      const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
+      if (!checkpoint.ok) {
+        console.log(`  ${chalk.yellow('Checkpoint:')} accepted but checkpoint failed`);
+        console.log(`  ${chalk.dim('Error:')}  ${checkpoint.error}`);
+        console.log(`  ${chalk.dim('Retry:')}  agentxchain checkpoint-turn --turn ${turn.turn_id}`);
+        console.log('');
+        process.exit(1);
+      }
+      if (!checkpoint.skipped) {
+        console.log(`  ${chalk.dim('Checkpoint:')} ${checkpoint.checkpoint_sha}`);
+      }
+    }
+```
+
+**Behavior:**
+- Default: auto-checkpoint after acceptance (matches `run.js` behavior)
+- `--no-checkpoint` flag: skip checkpoint (workspace stays dirty, operator manages manually)
+- Checkpoint failure: print error with retry command, exit non-zero (matches `accept-turn.js:178-183`)
+- Skipped checkpoint (no files to commit, e.g. review-only turns): silent, no error
+
+### Change 2: `cli/bin/agentxchain.js` — Add `--no-checkpoint` flag
+
+**Location:** Line 751, add after `--auto-reject` option:
+
+```javascript
+  .option('--no-checkpoint', 'Skip git checkpoint after acceptance (workspace stays dirty)')
 ```
 
 ### Design Rationale
 
-1. **Real PID lifecycle** — Unlike `DEAD_PID = 99999999`, this test spawns a real OS process, confirms it's alive (`process.kill(pid, 0)` succeeds), kills it with SIGKILL, and confirms it's dead (`process.kill(pid, 0)` throws ESRCH). This exercises the exact code path that occurs during a real crash.
+1. **Default-on matches `run.js`** — The `run` command auto-checkpoints by default (line 614: `const autoCheckpoint = ...`). The `step` command should have the same default. Operators who want manual control use `--no-checkpoint`.
 
-2. **SIGKILL, not SIGTERM** — SIGKILL is unblockable and immediate, simulating a hard crash (OOM kill, power loss, `kill -9`). SIGTERM would allow graceful shutdown, which is not a crash.
+2. **Exit non-zero on checkpoint failure** — Matches `accept-turn.js:178-183`. The turn IS accepted (state updated, history written), but the workspace is dirty. Exiting non-zero signals to the operator that the next step will fail without intervention.
 
-3. **Wait for exit event** — `child.on('exit', resolve)` ensures the OS has fully reaped the process before testing the liveness guard. This eliminates any race condition where the PID is still in a zombie state.
+3. **No changes to `checkpointAcceptedTurn()`** — The checkpoint function is correct and complete. It handles: empty files_changed (skip), already-checkpointed turns (skip), missing files (error), staging + commit + state update + event emission. No modifications needed.
 
-4. **Mocked dispatch preserved** — The re-dispatch itself remains mocked via `vi.mock('../src/lib/adapters/local-cli-adapter.js')`. The value of this test is in the real PID lifecycle, not in testing the dispatch mechanism (which has its own test coverage).
-
-5. **try/finally cleanup** — If the test fails before killing the child, the finally block ensures no orphan processes are left.
+4. **No changes to `checkCleanBaseline()`** — The dirty-workspace check is correct and should remain strict. The fix is at the source (checkpoint after acceptance), not at the check (loosen the baseline requirement).
 
 ---
 
@@ -146,35 +113,45 @@ import { spawn } from 'child_process';
 
 ### Scope
 
-**Change 1: New test in `cli/test/step-crash-resume.test.js`**
-- Add `import { spawn } from 'child_process';` to existing imports
-- Add one test: "recovers cleanly after a simulated process crash (real PID lifecycle)"
-- Test body follows the specification in Section 2 above
-- ~35 LOC delta
+**Change 1: `cli/src/commands/step.js`**
+- Add `import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';`
+- After `printAcceptSummary(acceptResult, config);` (line 1004), add auto-checkpoint block (~12 LOC)
+- ~15 LOC delta total in step.js
+
+**Change 2: `cli/bin/agentxchain.js`**
+- Add `.option('--no-checkpoint', ...)` to the step command at line 751
+- 1 LOC delta
+
+**Change 3: Integration test** (new file `cli/test/step-auto-checkpoint.test.js` or append to `cli/test/checkpoint-turn.test.js`)
+- Test AT-STEP-CKPT-001: PM turn accepted via step → git log contains checkpoint commit → dev turn assignment succeeds (no `checkpoint_required` error)
+- Test AT-STEP-CKPT-002: PM turn accepted via step with `--no-checkpoint` → no checkpoint commit → `checkCleanBaseline` would detect dirty workspace
+- ~50-80 LOC
 
 ### Out of Scope
 
-- Runtime code changes (none needed)
-- New test files (append to existing file)
-- New mock agent scripts (test uses `node -e "process.stdin.resume()"`)
-- Changes to existing 4 tests (preserve as-is)
+- `run.js` (already works)
+- `accept-turn.js` (already works)
+- `continuous-run.js` (already works)
+- `turn-checkpoint.js` (correct, just unwired in step)
+- `governed-state.js` `checkCleanBaseline()` (correct, should stay strict)
+- Making `accept-turn` default to checkpoint (separate enhancement)
 
 ### Verification
 
 Dev must confirm:
 1. `npm test` passes with 0 failures
-2. The new test exercises a real spawned process PID, not DEAD_PID
-3. The test confirms the process is alive before killing and dead after killing
-4. All 5 tests in the `step --resume crash recovery` describe block pass
+2. New test AT-STEP-CKPT-001 exercises PM accept → checkpoint → dev assign flow
+3. New test AT-STEP-CKPT-002 exercises `--no-checkpoint` opt-out
+4. `step.js` imports and calls `checkpointAcceptedTurn` after acceptance
 
 ## Acceptance Tests
 
-- [ ] Test spawns a real child process via `child_process.spawn` and captures `child.pid`
-- [ ] Test records `child.pid` in governed state as `worker_pid` (not DEAD_PID constant)
-- [ ] Test confirms process is alive before kill: `process.kill(child.pid, 0)` does not throw
-- [ ] Test kills process with SIGKILL and waits for exit event
-- [ ] Test confirms process is dead after kill: `process.kill(child.pid, 0)` throws ESRCH
-- [ ] `step --resume` detects dead PID, cleans dispatch-progress, re-dispatches turn
-- [ ] State transitions to `dispatched` with `worker_pid` cleared
-- [ ] All 5 tests in `step-crash-resume.test.js` pass
+- [ ] `step.js` imports `checkpointAcceptedTurn` from `../lib/turn-checkpoint.js`
+- [ ] After successful acceptance, `step` calls `checkpointAcceptedTurn(root, { turnId: turn.turn_id })`
+- [ ] Checkpoint failure exits non-zero with error message and retry command
+- [ ] Checkpoint skip (no files) is silent and continues normally
+- [ ] `--no-checkpoint` flag registered on step command in `cli/bin/agentxchain.js`
+- [ ] `--no-checkpoint` flag skips checkpoint call
+- [ ] AT-STEP-CKPT-001: PM turn → accept → auto-checkpoint → dev turn assigns without error
+- [ ] AT-STEP-CKPT-002: PM turn → accept with `--no-checkpoint` → workspace remains dirty
 - [ ] `npm test` passes with 0 failures

@@ -1,10 +1,10 @@
-# PM Signoff — Simulated Crash Recovery Acceptance Test
+# PM Signoff — Step Command Auto-Checkpoint After Acceptance
 
 Approved: YES
 
-**Run:** `run_5723929be7513f77`
+**Run:** `run_8aceec319cd6aaed`
 **Phase:** planning
-**Turn:** `turn_79159e88f326080d`
+**Turn:** `turn_0e31a4c2326e0d67`
 **Date:** 2026-05-03
 
 ## Discovery Checklist
@@ -17,116 +17,121 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators who encounter mid-turn process crashes during governed runs and need confidence that `step --resume` will recover cleanly.
+AgentXchain operators running governed turns via the `step` command, where PM→Dev or Dev→QA handoffs require a clean git workspace.
 
 ### Core Pain Point
 
-ROADMAP.md:62 shipped the crash-resume infrastructure: PID liveness guard, stale dispatch-progress cleanup, and 4 regression tests. But those tests use `DEAD_PID = 99999999` — a PID that never existed — and mock `dispatchLocalCli` entirely. The acceptance criterion at ROADMAP.md:64 requires proving this works with a **real process lifecycle**: spawn a subprocess, kill it (simulating a crash), then verify `step --resume` detects the dead PID and recovers cleanly.
+The `step` command — the primary single-turn lifecycle command — accepts turns but does not commit the accepted files to git. This leaves the workspace dirty. The next `step` call fails at `assignGovernedTurn()` → `checkCleanBaseline()` with `checkpoint_required`, blocking the role handoff. Operators must manually run `accept-turn --checkpoint` or `checkpoint-turn` between every pair of `step` invocations.
 
-This is a test-only gap. The runtime code is complete and correct. What's missing is an acceptance-grade test that exercises real OS PID lifecycle semantics rather than synthetic non-existent PIDs.
+**Direct evidence:** Commit `9c6c8bad1 baseline: commit PM planning artifacts for clean dev dispatch` is a manual workaround committed by the operator to unblock the dev turn after the PM turn was accepted but not checkpointed.
 
-### Root Cause of the Gap
+### Root Cause
 
-The existing 4 tests in `step-crash-resume.test.js` were designed as unit tests for the guard logic. They prove:
-1. Dead PID (99999999) → re-dispatch ✓
-2. Alive PID (process.pid) → rejection ✓
-3. No PID (legacy) → backward compat ✓
-4. Blocked retained turn → re-dispatch ✓
+`step.js` lines 992-1004 call `acceptGovernedTurn()` then `printAcceptSummary()` and exit. There is no call to `checkpointAcceptedTurn()`. The import for `turn-checkpoint.js` is absent entirely.
 
-None of them spawn a real child process, kill it, and then prove recovery. The `DEAD_PID = 99999999` shortcut means the test never exercises the `process.kill(pid, 0)` → ESRCH error path that occurs with a genuinely killed process.
+By contrast:
+- `run.js` line 617: `afterAccept` callback calls `checkpointAcceptedTurn()` — continuous runs work correctly
+- `accept-turn.js` line 177: `--checkpoint` flag calls `checkpointAcceptedTurn()` — manual checkpoint works correctly
+- `continuous-run.js` line 2136: passes `autoCheckpoint` through to `executeGovernedRun()` — continuous mode works correctly
+
+The gap is exclusively in the `step` command.
 
 ### Core Workflow
 
-1. **PM (this turn)** — Charter dev with a bounded test-only scope
-2. **Dev** — Adds 1 new test that spawns+kills a real process, verifies crash resume
-3. **QA** — Confirms the test passes, acceptance criterion met, checks off ROADMAP.md:64
+1. **PM (this turn)** — Charter dev with a bounded 2-change fix + 2-test scope
+2. **Dev** — Adds auto-checkpoint to `step.js` after acceptance, adds integration test
+3. **QA** — Verifies PM→Dev handoff via `step` works without manual git commit
 
 ### MVP Scope (this run)
 
 **PM deliverables (this turn):**
 1. PM_SIGNOFF.md: Feature planning with dev charter
-2. SYSTEM_SPEC.md: Technical spec for the new test
+2. SYSTEM_SPEC.md: Technical spec for the fix + test
 3. ROADMAP.md: Phases table updated for this run
 
 **Dev deliverables:**
-1. One new test in `cli/test/step-crash-resume.test.js`: "simulated crash: spawns real subprocess, kills it via SIGKILL, verifies step --resume recovers cleanly"
-2. No runtime code changes
+1. `step.js`: Import `checkpointAcceptedTurn`, call it after successful acceptance, print checkpoint SHA/skip, add `--no-checkpoint` opt-out flag
+2. Integration test: PM turn accepted → workspace auto-checkpointed → dev turn assigned without dirty-workspace error
 
 ### Out of Scope
 
-- Runtime code changes to crash-resume logic (already shipped in run_da40a332eed44f56)
-- Full unmocked e2e test with real agent dispatch (the re-dispatch can remain mocked; the value is in the real PID lifecycle)
-- Changes to `guardResumeWorkerLiveness`, `isWorkerAlive`, or `cleanupStaleDispatchProgress`
-- New mock-agent scripts (the test spawns a simple `node -e "..."` process, no agent logic needed)
-- Cost tracking, budget changes, or any other M4 items
+- Changes to `run.js` auto-checkpoint (already works correctly)
+- Changes to `accept-turn.js` checkpoint flag (already works correctly)
+- Changes to `continuous-run.js` (already works correctly)
+- Changes to `checkpointAcceptedTurn()` logic in `turn-checkpoint.js` (works correctly, just not wired into `step`)
+- Making `accept-turn` default to checkpointing (separate enhancement, not this bug)
+- Changes to `assignGovernedTurn()` clean-baseline check (correct behavior, should stay strict)
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | Test spawns a real child process and records its PID in governed state | Test code inspection |
-| 2 | Test kills the process with SIGKILL (simulated crash) | Test code inspection |
-| 3 | Test confirms `step --resume` detects dead PID and re-dispatches | Assertion: `dispatchLocalCli` called, state transitions to `dispatched`, `worker_pid` cleared |
-| 4 | Test confirms stale dispatch-progress file is cleaned up | Assertion: progress file deleted |
-| 5 | `npm test` passes with 0 failures | CI / local test run |
+| 1 | PM→Dev handoff in continuous mode succeeds without manual git commit | Integration test: two consecutive `step` calls (PM then Dev) complete without dirty-workspace error |
+| 2 | Checkpoint includes git commit of accepted files_changed | Test verifies `git log` contains checkpoint commit with turn metadata |
+| 3 | Integration test: PM turn accepted, dev turn assigned without dirty-workspace error | New test in `cli/test/` exercises this exact flow |
+| 4 | `--no-checkpoint` flag on `step` skips auto-checkpoint | Test verifies workspace stays dirty when flag is passed |
 
 ### Risk Assessment
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Spawned process doesn't die fast enough after SIGKILL | Very Low | SIGKILL is unblockable; add a brief wait (50ms) to ensure OS reclaims PID |
-| PID reuse by OS between kill and resume check | Extremely Low | Test runs in <100ms; PID reuse requires full PID space wrap-around |
-| Test flakiness on CI due to process cleanup timing | Low | Use `child.on('exit')` callback to wait for confirmed death before resuming |
+| Auto-checkpoint fails silently, blocking next turn | Low | Print checkpoint error to console and exit non-zero (matching `accept-turn --checkpoint` behavior) |
+| Review-only turns have no files to checkpoint | None | `checkpointAcceptedTurn()` already handles this (returns `skipped: true` for empty files_changed) |
+| Operator wants to inspect workspace before checkpoint | Low | `--no-checkpoint` flag provides opt-out |
 
 ## Challenge to Previous Work
 
-### OBJ-PM-001: Previous planning artifacts describe a different feature (severity: high)
+### OBJ-PM-001: Previous planning artifacts describe v2.155.73 release, not checkpoint-to-commit bug (severity: high)
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe turn-level cost tracking for local_cli runtimes from run `run_9a37a5dc395bc9b8`. This run's intent is ROADMAP.md:64: "Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`". All three artifacts rewritten from scratch.
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all describe v2.155.73 release-bump workflow from a previous intent. This run's intent is: "Fix checkpoint to commit accepted planning artifacts to git." All three artifacts rewritten from scratch for the checkpoint-to-commit bug fix.
 
-### OBJ-PM-002: Existing crash-resume tests are necessary but insufficient for acceptance (severity: medium)
+### OBJ-PM-002: Previous PM_SIGNOFF prescribed 14 release-alignment surface updates — zero of those apply here (severity: high)
 
-The 4 existing tests in `step-crash-resume.test.js` validate the guard logic with synthetic PIDs. They are correct and should be preserved. The gap is that none exercises a real OS PID lifecycle (spawn → kill → PID death detection). The acceptance test adds this coverage without replacing the existing tests.
+The previous dev charter required updating 14 version-reference files and a CHANGELOG entry via `release-bump.sh`. This run's fix is 1 import + ~15 LOC in `step.js` + 1 integration test. Completely different scope.
 
 ## Notes for Dev
 
-**Your charter is a single new test. No runtime code changes.**
+**Your charter is 2 changes: one code fix in `step.js`, one integration test. No changes to `turn-checkpoint.js`, `run.js`, or `continuous-run.js`.**
 
-Add one test to `cli/test/step-crash-resume.test.js` inside the existing `describe('step --resume crash recovery')` block:
+### Change 1: `cli/src/commands/step.js`
 
-```
-it('recovers cleanly after a simulated process crash (real PID lifecycle)', async () => {
-  // 1. Set up governed project (reuse setupProject helper)
-  // 2. Spawn a real child process: child_process.spawn('node', ['-e', 'process.stdin.resume()'])
-  //    This creates a process that stays alive until killed.
-  // 3. Transition turn to 'running' with child.pid as worker_pid
-  // 4. Write dispatch-progress with child.pid
-  // 5. Write staged turn result (for acceptance after re-dispatch)
-  // 6. Kill the child process: child.kill('SIGKILL')
-  // 7. Wait for confirmed death: await new Promise(resolve => child.on('exit', resolve))
-  // 8. Verify: process.kill(child.pid, 0) throws (PID is dead)
-  // 9. Run step --resume
-  // 10. Assert: dispatch-progress cleaned up, dispatchLocalCli called, state = 'dispatched', worker_pid cleared
-})
-```
+1. Add import: `import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';`
+2. After line 1004 (`printAcceptSummary(acceptResult, config);`), add auto-checkpoint:
+   ```javascript
+   if (!opts.noCheckpoint) {
+     const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
+     if (!checkpoint.ok) {
+       console.log(chalk.yellow(`  Checkpoint: accepted but checkpoint failed`));
+       console.log(chalk.dim(`  Error: ${checkpoint.error}`));
+       console.log(chalk.dim(`  Retry: agentxchain checkpoint-turn --turn ${turn.turn_id}`));
+       process.exit(1);
+     }
+     if (!checkpoint.skipped) {
+       console.log(`  ${chalk.dim('Checkpoint:')} ${checkpoint.checkpoint_sha}`);
+     }
+   }
+   ```
+3. Add CLI flag: `--no-checkpoint` option on the step command (check `cli/bin/agentxchain.js` for the step command definition)
 
-**Key details:**
-- Import `spawn` from `child_process` (add to existing imports)
-- Use `node -e "process.stdin.resume()"` as the subprocess — it stays alive until killed, no file I/O needed
-- Wait for the `exit` event after SIGKILL to ensure the PID is fully reclaimed before running resume
-- All other test infrastructure (setupProject, setRunningTurn, runStep, etc.) already exists — reuse them
-- The `dispatchLocalCli` mock remains — we're testing the PID liveness guard with a real dead PID, not the full dispatch cycle
+### Change 2: Integration test
+
+Add a test (new file or append to `cli/test/checkpoint-turn.test.js`) that exercises:
+1. Set up governed project with PM role assigned
+2. Simulate PM turn completion (write staged result with `files_changed` pointing to real files)
+3. Run `step` (or equivalent test harness) — accept + auto-checkpoint
+4. Verify git log contains checkpoint commit
+5. Assign dev turn — verify no `checkpoint_required` error
 
 ## Notes for QA
 
-- Verify the new test spawns a real process and kills it (not using DEAD_PID constant)
-- Verify the test waits for confirmed process death before running resume
-- Verify all 5 existing tests still pass alongside the new one
+- Verify `step.js` imports `checkpointAcceptedTurn` and calls it after acceptance
+- Verify `--no-checkpoint` flag is registered and respected
+- Verify the integration test exercises the full PM→Dev handoff
 - Run full test suite: `cd cli && npm test`
-- After ship: ROADMAP.md:64 should be checked off
+- After ship: verify the acceptance contract items from the intake intent
 
 ## Acceptance Contract
 
-1. **Roadmap milestone addressed: M4: Recovery & Resilience Hardening** — ROADMAP.md:59
-2. **Unchecked roadmap item completed: Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`** — ROADMAP.md:64
-3. **Evidence source: .planning/ROADMAP.md:64** — Item will be checked off after QA ship approval
+1. **PM→Dev handoff in continuous mode succeeds without manual git commit** — `step` auto-checkpoints after acceptance, no manual `checkpoint-turn` or git commit needed between turns
+2. **Checkpoint includes git commit of accepted files_changed** — `checkpointAcceptedTurn()` already implements this, now wired into `step`
+3. **Integration test: PM turn accepted, dev turn assigned without dirty-workspace error** — new test exercises this exact flow
