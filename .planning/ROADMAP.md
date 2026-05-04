@@ -117,17 +117,17 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Acceptance: all 8 workflow concerns delivered with regression tests, BUG-78 recovery gap closed <!-- run_cf572ef2d54d357d: QA turn_67328376fac5987c verified 8/8 acceptance criteria, 159 tests pass, ship verdict YES; MW workflow kit pillar complete -->
 
 ### M10: Cross-Run Scope Overlap Guard
-- [ ] New module `scope-overlap.js` with `extractScopeFingerprint()`, `computeScopeOverlap()`, `checkIntentScopeOverlap()` <!-- run_2e96850371ff1a1c -->
-- [ ] Integrate scope overlap guard into `approveIntent()` in intake.js — defer overlapping intents before approval <!-- run_2e96850371ff1a1c -->
-- [ ] Handle `scope_overlap_detected` at 3 auto-approval sites in `seedFromVision()` — return idle instead of error <!-- run_2e96850371ff1a1c -->
-- [ ] Add `--force-scope` CLI flag to `intake approve` command for operator override <!-- run_2e96850371ff1a1c -->
-- [ ] 10 acceptance tests in `scope-overlap.test.js` (AT-SOG-001 through AT-SOG-010) <!-- run_2e96850371ff1a1c -->
+- [x] New module `scope-overlap.js` with `extractScopeFingerprint()`, `computeScopeOverlap()`, `checkIntentScopeOverlap()` <!-- run_2e96850371ff1a1c: dev implemented, QA ship verdict YES (10/10 criteria, 172 tests, 0 failures) -->
+- [x] Integrate scope overlap guard into `approveIntent()` in intake.js — defer overlapping intents before approval <!-- run_2e96850371ff1a1c: intake.js:901 scope_overlap_detected guard in place -->
+- [x] Handle `scope_overlap_detected` at 3 auto-approval sites in `seedFromVision()` — return idle instead of error <!-- run_2e96850371ff1a1c: continuous-run.js lines 1329, 1407, 1493 -->
+- [x] Add `--force-scope` CLI flag to `intake approve` command for operator override <!-- run_2e96850371ff1a1c: agentxchain.js:1044, intake-approve.js:21 -->
+- [x] 10 acceptance tests in `scope-overlap.test.js` (AT-SOG-001 through AT-SOG-010) <!-- run_2e96850371ff1a1c: 10/10 tests pass, verified run_4f63b0c987a50c73 -->
 - [ ] Acceptance: vision-derived intent with overlapping charter is deferred by continuous loop, `--force-scope` overrides
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Define M10 scope, spec insertion points, rewrite all planning artifacts for `run_2e96850371ff1a1c` | Complete (`run_2e96850371ff1a1c`, turn_757534c324a0b0bb) |
-| Implementation | Implement `scope-overlap.js`, integrate into intake + continuous-run, add CLI flag, write 10 tests | Pending |
-| QA | Verify 10 acceptance tests, confirm no regressions in intake/continuous-run suites, ship verdict | Pending |
+| Planning | Check off delivered M10 items, rewrite artifacts for `run_4f63b0c987a50c73` verification closure | Complete (`run_4f63b0c987a50c73`, turn_1685f54779c1e368) |
+| Implementation | Re-verify scope-overlap tests + broader regression, no new code changes expected | Pending |
+| QA | Confirm all tests pass, check off M10 acceptance item, ship verdict | Pending |
