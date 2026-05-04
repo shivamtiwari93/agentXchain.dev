@@ -49,6 +49,24 @@ function writeClaudeShim(root, contents) {
   return shimPath;
 }
 
+function writeCodexShim(root, contents) {
+  const shimDir = join(root, 'shim-bin');
+  mkdirSync(shimDir, { recursive: true });
+  const shimPath = join(shimDir, 'codex');
+  writeFileSync(shimPath, contents);
+  chmodSync(shimPath, 0o755);
+  return shimPath;
+}
+
+function writeCursorShim(root, contents) {
+  const shimDir = join(root, 'shim-bin');
+  mkdirSync(shimDir, { recursive: true });
+  const shimPath = join(shimDir, 'cursor');
+  writeFileSync(shimPath, contents);
+  chmodSync(shimPath, 0o755);
+  return shimPath;
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     const dir = tempDirs.pop();
@@ -462,6 +480,116 @@ exec sleep 30
     assert.notEqual(output.error_code, 'claude_auth_preflight_failed');
     assert.equal(output.auth_env_present, undefined,
       'auth_env_present should not appear unless preflight fired');
+  });
+
+  it('AT-CCV-009: Codex local_cli governed turn E2E through connector validate', () => {
+    let shim;
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['codex', 'exec', '--json'],
+        cwd: '.',
+        prompt_transport: 'dispatch_bundle_only',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    }, (projectRoot) => {
+      shim = writeCodexShim(projectRoot, `#!/bin/sh
+turn_id="$AGENTXCHAIN_TURN_ID"
+[ -z "$turn_id" ] && exit 0
+node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const turnId = process.env.AGENTXCHAIN_TURN_ID;
+const assignmentPath = path.join(process.cwd(), '.agentxchain', 'dispatch', 'turns', turnId, 'ASSIGNMENT.json');
+const assignment = JSON.parse(fs.readFileSync(assignmentPath, 'utf8'));
+const stagingPath = path.join(process.cwd(), assignment.staging_result_path);
+fs.mkdirSync(path.dirname(stagingPath), { recursive: true });
+fs.writeFileSync(stagingPath, JSON.stringify({
+  schema_version: '1.0',
+  run_id: assignment.run_id,
+  turn_id: assignment.turn_id,
+  role: assignment.role,
+  runtime_id: assignment.runtime_id,
+  status: 'completed',
+  summary: 'Codex shim completed validation.',
+  decisions: [],
+  objections: [],
+  files_changed: [],
+  verification: { status: 'skipped', evidence_summary: 'shim validation' },
+  artifact: { type: 'review', ref: null },
+  proposed_next_role: 'human'
+}, null, 2) + '\\n');
+NODE
+exit 0
+`);
+    });
+
+    const env = { ...process.env, PATH: `${dirname(shim)}:${process.env.PATH || ''}` };
+    const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json'], env);
+    assert.equal(result.status, 0, result.stdout);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'pass');
+    assert.equal(output.schema_contract.ok, true);
+    assert.equal(output.dispatch.ok, true);
+    assert.equal(output.validation.ok, true);
+    assert.equal(output.runtime_id, 'local-dev');
+    assert.equal(output.role_id, 'dev');
+  });
+
+  it('AT-CCV-010: Cursor local_cli governed turn E2E through connector validate', () => {
+    let shim;
+    const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['cursor', '--background-agent'],
+        cwd: '.',
+        prompt_transport: 'dispatch_bundle_only',
+      };
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.dev.write_authority = 'authoritative';
+    }, (projectRoot) => {
+      shim = writeCursorShim(projectRoot, `#!/bin/sh
+turn_id="$AGENTXCHAIN_TURN_ID"
+[ -z "$turn_id" ] && exit 0
+node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const turnId = process.env.AGENTXCHAIN_TURN_ID;
+const assignmentPath = path.join(process.cwd(), '.agentxchain', 'dispatch', 'turns', turnId, 'ASSIGNMENT.json');
+const assignment = JSON.parse(fs.readFileSync(assignmentPath, 'utf8'));
+const stagingPath = path.join(process.cwd(), assignment.staging_result_path);
+fs.mkdirSync(path.dirname(stagingPath), { recursive: true });
+fs.writeFileSync(stagingPath, JSON.stringify({
+  schema_version: '1.0',
+  run_id: assignment.run_id,
+  turn_id: assignment.turn_id,
+  role: assignment.role,
+  runtime_id: assignment.runtime_id,
+  status: 'completed',
+  summary: 'Cursor shim completed validation.',
+  decisions: [],
+  objections: [],
+  files_changed: [],
+  verification: { status: 'skipped', evidence_summary: 'shim validation' },
+  artifact: { type: 'review', ref: null },
+  proposed_next_role: 'human'
+}, null, 2) + '\\n');
+NODE
+exit 0
+`);
+    });
+
+    const env = { ...process.env, PATH: `${dirname(shim)}:${process.env.PATH || ''}` };
+    const result = runCli(root, ['connector', 'validate', 'local-dev', '--role', 'dev', '--json'], env);
+    assert.equal(result.status, 0, result.stdout);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.overall, 'pass');
+    assert.equal(output.schema_contract.ok, true);
+    assert.equal(output.dispatch.ok, true);
+    assert.equal(output.validation.ok, true);
+    assert.equal(output.runtime_id, 'local-dev');
+    assert.equal(output.role_id, 'dev');
   });
 
   it('AT-CCV-006: api_proxy validation fails closed when auth env is missing', () => {
