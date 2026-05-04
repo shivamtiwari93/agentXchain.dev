@@ -1,407 +1,530 @@
-# System Spec — M7: Windsurf & OpenCode Connector Expansion
+# System Spec — M9: CI Pipeline Integration
 
-**Run:** `run_0db6a75ab239c3a3`
-**Baseline:** git:a3b9a32 (latest checkpoint)
+**Run:** `run_685ea79f49acd469`
+**Baseline:** git:136b6cc (latest checkpoint)
 **Package version:** `agentxchain@2.155.72`
 
 ## Purpose
 
-Complete the M7 Connector Ecosystem Expansion milestone by adding Windsurf IDE and OpenCode CLI connectors to the local_cli adapter stack. Both follow the proven Cursor connector pattern: binary detection → command validation → connector probe registration → doctor annotation → regression tests.
+Add a CI reporter module and CLI command that formats governed run results in CI-native formats: GitHub Actions annotations, GitHub output variables, and JUnit XML. This closes the CI gap in the VISION.md:18 integrations pillar.
 
-This closes ROADMAP.md:88-91 and substantively addresses the VISION.md:17 connector pillar: "connectors to local and cloud AI agents."
+The CI reporter **reuses** the existing `buildRunExport()` → `buildGovernanceReport()` pipeline (export.js + report.js). It adds a thin formatting layer — no new state reading, no new validation, no duplication.
 
 ---
 
 ## 1. Architecture Overview
 
-### 1.1 Current Connector Detection Chain
+### 1.1 Current Report Pipeline
 
 ```
-agentxchain.json → runtimes.xxx.type === 'local_cli'
+agentxchain export → buildRunExport(cwd)
   │
-  ├─ claude-local-auth.js: isClaudeLocalCliRuntime()      (line 32)
-  ├─ claude-local-auth.js: isCodexLocalCliRuntime()        (line 41)
-  ├─ claude-local-auth.js: isCursorLocalCliRuntime()       (line 50)
-  │
-  ├─ local-cli-adapter.js: validateLocalCliCommandCompatibility()  (line 760)
-  │   ├─ claude_print_stream_json_requires_verbose         (line 774)
-  │   ├─ codex_requires_exec                               (line 794)
-  │   ├─ codex_exec_requires_json                          (line 812)
-  │   └─ cursor_requires_agent_mode                        (line 831)
-  │
-  ├─ connector-probe.js: KNOWN_CLI_AUTHORITY_FLAGS         (line 18)
-  │   ├─ claude: --dangerously-skip-permissions
-  │   └─ codex: --dangerously-bypass-approvals-and-sandbox
-  │   (NOTE: Cursor missing — gap from original delivery)
-  │
-  ├─ connector-probe.js: KNOWN_CLI_TRANSPORTS              (line 37)
-  │   ├─ claude: ['stdin']
-  │   └─ codex: ['argv', 'stdin']
-  │   (NOTE: Cursor missing)
-  │
-  └─ doctor.js: checkRuntimeReachable()                    (line 498)
-      └─ isCursorLocalCliRuntime → "(Cursor IDE local_cli connector)"  (line 505)
+  └─ agentxchain report → buildGovernanceReport(artifact)
+       ├─ formatGovernanceReportText(report)
+       ├─ formatGovernanceReportMarkdown(report)
+       ├─ formatGovernanceReportHtml(report)
+       └─ JSON.stringify(report)     (json format)
 ```
 
-### 1.2 Extended Chain (After This Deliverable)
+### 1.2 Extended Pipeline (After This Deliverable)
 
 ```
-  ├─ claude-local-auth.js: isWindsurfLocalCliRuntime()     ← NEW
-  ├�� claude-local-auth.js: isOpenCodeLocalCliRuntime()     ← NEW
+agentxchain ci-report → buildRunExport(cwd) or loadExportArtifact(input)
   │
-  ├─ local-cli-adapter.js: validateLocalCliCommandCompatibility()
-  │   ├─ ... (existing 4 rules unchanged)
-  │   ├─ windsurf_requires_agent_mode                      ← NEW
-  │   └─ opencode_requires_non_interactive                 ← NEW
-  │
-  ├─ connector-probe.js: KNOWN_CLI_AUTHORITY_FLAGS
-  │   ├─ claude: --dangerously-skip-permissions
-  │   ├─ codex: --dangerously-bypass-approvals-and-sandbox
-  │   ├─ cursor: --background-agent                        ← NEW (gap fix)
-  │   ├─ windsurf: --agent                                 ← NEW
-  │   └─ opencode: --non-interactive                       ← NEW
-  │
-  ├─ connector-probe.js: KNOWN_CLI_TRANSPORTS
-  │   ├─ claude: ['stdin']
-  │   ├─ codex: ['argv', 'stdin']
-  │   ├─ cursor: ['dispatch_bundle_only']                  ← NEW (gap fix)
-  │   ├─ windsurf: ['dispatch_bundle_only']                ← NEW
-  │   └─ opencode: ['stdin']                               ← NEW
-  │
-  └─ doctor.js: checkRuntimeReachable()
-      ├─ isCursorLocalCliRuntime → "(Cursor IDE local_cli connector)"
-      ├─ isWindsurfLocalCliRuntime → "(Windsurf IDE local_cli connector)"   ← NEW
-      └─ isOpenCodeLocalCliRuntime → "(OpenCode local_cli connector)"       ← NEW
+  └─ buildGovernanceReport(artifact)
+       │
+       └─ ci-reporter.js
+            ├─ detectCIEnvironment()                         ← NEW
+            ├─ formatGitHubAnnotations(report)               ← NEW
+            ├─ writeGitHubOutputVars(report, outputPath)     ← NEW
+            ├─ formatJUnitXml(report)                        ← NEW
+            └─ deriveCIExitCode(report)                      ← NEW
 ```
+
+The key architectural invariant: `ci-reporter.js` consumes the **same report object** that `formatGovernanceReportText()` and friends consume. No parallel state reading path.
 
 ---
 
 ## 2. Deliverables
 
-### 2.1 claude-local-auth.js — Add Detection Functions
+### 2.1 ci-reporter.js — CI Formatting Module
 
-**Modify existing file:** `cli/src/lib/claude-local-auth.js`
+**New file:** `cli/src/lib/ci-reporter.js`
 
-#### 2.1.1 Add `isWindsurfLocalCliRuntime(runtime)` after `isCursorLocalCliRuntime` (after line 57)
+#### 2.1.1 `detectCIEnvironment()`
+
+Returns a CI environment descriptor or `null` if not in CI.
 
 ```javascript
-export function isWindsurfLocalCliRuntime(runtime) {
-  const tokens = normalizeCommandTokens(runtime);
-  if (tokens.length === 0) {
-    return false;
+/**
+ * Detect CI environment from process.env.
+ * @returns {{ provider: string, run_url: string|null, run_id: string|null, ref: string|null, sha: string|null } | null}
+ */
+export function detectCIEnvironment() {
+  if (process.env.GITHUB_ACTIONS === 'true') {
+    return {
+      provider: 'github_actions',
+      run_url: process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
+        ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+        : null,
+      run_id: process.env.GITHUB_RUN_ID || null,
+      ref: process.env.GITHUB_REF || null,
+      sha: process.env.GITHUB_SHA || null,
+    };
   }
-  const head = tokens[0].toLowerCase();
-  return head === 'windsurf' || head.endsWith('/windsurf');
+  if (process.env.GITLAB_CI === 'true') {
+    return {
+      provider: 'gitlab_ci',
+      run_url: process.env.CI_PIPELINE_URL || null,
+      run_id: process.env.CI_PIPELINE_ID || null,
+      ref: process.env.CI_COMMIT_REF_NAME || null,
+      sha: process.env.CI_COMMIT_SHA || null,
+    };
+  }
+  if (process.env.CI === 'true') {
+    return {
+      provider: 'generic',
+      run_url: null,
+      run_id: null,
+      ref: null,
+      sha: null,
+    };
+  }
+  return null;
 }
 ```
 
-#### 2.1.2 Add `isOpenCodeLocalCliRuntime(runtime)` after `isWindsurfLocalCliRuntime`
+**Detection priority:** GitHub Actions → GitLab CI → generic. GitHub Actions sets `GITHUB_ACTIONS=true` *and* `CI=true`, so the specific check must come first.
+
+#### 2.1.2 `formatGitHubAnnotations(report)`
+
+Converts a governance report into GitHub Actions workflow command strings.
 
 ```javascript
-export function isOpenCodeLocalCliRuntime(runtime) {
-  const tokens = normalizeCommandTokens(runtime);
-  if (tokens.length === 0) {
-    return false;
+/**
+ * Format governance report as GitHub Actions annotations.
+ * @param {{ overall: string, subject?: object }} report - Governance report from buildGovernanceReport()
+ * @returns {string} Newline-separated GitHub Actions workflow commands
+ */
+export function formatGitHubAnnotations(report) {
+  const lines = [];
+
+  // Overall run status
+  const summary = report.subject?.run?.status || report.overall;
+  if (report.overall === 'pass') {
+    lines.push(`::notice title=AgentXchain Governance::Run ${report.subject?.run?.run_id || 'unknown'} — PASS (${report.subject?.run?.phase || 'unknown'} phase)`);
+  } else if (report.overall === 'fail') {
+    lines.push(`::error title=AgentXchain Governance::Run ${report.subject?.run?.run_id || 'unknown'} — FAIL: ${report.message || 'governance check failed'}`);
+  } else {
+    lines.push(`::warning title=AgentXchain Governance::Run ${report.subject?.run?.run_id || 'unknown'} — ${report.overall}: ${report.message || 'review required'}`);
   }
-  const head = tokens[0].toLowerCase();
-  return head === 'opencode' || head.endsWith('/opencode');
+
+  // Gate annotations
+  const gates = report.subject?.run?.gate_summary;
+  if (gates && typeof gates === 'object') {
+    for (const [gateName, gateStatus] of Object.entries(gates)) {
+      if (typeof gateStatus !== 'string') continue;
+      const normalizedStatus = gateStatus.toLowerCase();
+      if (normalizedStatus === 'satisfied' || normalizedStatus === 'pass' || normalizedStatus === 'passed') {
+        lines.push(`::notice title=Gate ${gateName}::satisfied`);
+      } else {
+        lines.push(`::warning title=Gate ${gateName}::${gateStatus}`);
+      }
+    }
+  }
+
+  // Decision annotations (first 20 to avoid flooding)
+  const decisions = report.subject?.run?.decisions || [];
+  for (const d of decisions.slice(0, 20)) {
+    lines.push(`::notice title=Decision ${d.id || 'unknown'}::${d.statement || d.summary || 'no statement'}`);
+  }
+
+  // Blocked-on annotation
+  if (report.subject?.run?.blocked_on) {
+    lines.push(`::error title=Blocked::${report.subject.run.blocked_reason || report.subject.run.blocked_on}`);
+  }
+
+  return lines.join('\n');
 }
 ```
 
-Both follow the exact structure of `isCursorLocalCliRuntime` (lines 50-57). The `normalizeCommandTokens` helper (line 20) is module-private and handles both string and array command formats.
+**Format contract:** Each line is a single GitHub Actions workflow command. Lines use `::notice title=X::message`, `::warning title=X::message`, or `::error title=X::message`. The title provides grouping; the message provides detail.
+
+#### 2.1.3 `writeGitHubOutputVars(report, outputPath)`
+
+Writes structured key-value pairs to the `$GITHUB_OUTPUT` file for downstream CI steps.
+
+```javascript
+import { appendFileSync } from 'node:fs';
+
+/**
+ * Write governance report summary as GitHub Actions output variables.
+ * @param {{ overall: string, subject?: object }} report
+ * @param {string} outputPath - Path to $GITHUB_OUTPUT file
+ * @returns {string[]} Array of key=value pairs written
+ */
+export function writeGitHubOutputVars(report, outputPath) {
+  const run = report.subject?.run || {};
+  const pairs = [
+    `run_status=${report.overall || 'unknown'}`,
+    `run_id=${run.run_id || ''}`,
+    `phase=${run.phase || ''}`,
+    `blocked=${run.blocked_on ? 'true' : 'false'}`,
+    `turn_count=${(run.turns || []).length}`,
+    `decision_count=${(run.decisions || []).length}`,
+  ];
+
+  if (outputPath) {
+    appendFileSync(outputPath, pairs.join('\n') + '\n');
+  }
+
+  return pairs;
+}
+```
+
+**Output variables available to downstream steps:**
+- `run_status`: overall governance verdict (pass/fail/error)
+- `run_id`: the governed run ID
+- `phase`: current phase
+- `blocked`: whether the run is blocked
+- `turn_count`: number of completed turns
+- `decision_count`: number of decisions recorded
+
+#### 2.1.4 `formatJUnitXml(report)`
+
+Generates JUnit XML from gate results and turn outcomes.
+
+```javascript
+/**
+ * Format governance report as JUnit XML.
+ * @param {{ overall: string, subject?: object }} report
+ * @returns {string} JUnit XML string
+ */
+export function formatJUnitXml(report) {
+  const run = report.subject?.run || {};
+  const gates = run.gate_summary || {};
+  const turns = run.turns || [];
+
+  // Escape XML special characters
+  const esc = (str) => String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  // Build gate test cases
+  const gateEntries = Object.entries(gates).filter(([, v]) => typeof v === 'string');
+  const gateFailures = gateEntries.filter(([, status]) => {
+    const s = status.toLowerCase();
+    return s !== 'satisfied' && s !== 'pass' && s !== 'passed';
+  });
+  const gateCases = gateEntries.map(([name, status]) => {
+    const s = status.toLowerCase();
+    const passed = s === 'satisfied' || s === 'pass' || s === 'passed';
+    if (passed) {
+      return `    <testcase name="${esc(name)}" classname="agentxchain.gates" time="0" />`;
+    }
+    return [
+      `    <testcase name="${esc(name)}" classname="agentxchain.gates" time="0">`,
+      `      <failure message="${esc(status)}">${esc(name)} gate status: ${esc(status)}</failure>`,
+      '    </testcase>',
+    ].join('\n');
+  });
+
+  // Build turn test cases
+  const turnFailures = turns.filter((t) => t.status === 'failed' || t.status === 'blocked');
+  const turnCases = turns.map((t) => {
+    const name = `${t.turn_id || 'unknown'} (${t.role || 'unknown'})`;
+    const time = typeof t.duration_seconds === 'number' ? t.duration_seconds.toFixed(1) : '0';
+    if (t.status === 'completed' || t.status === 'accepted') {
+      return `    <testcase name="${esc(name)}" classname="agentxchain.turns" time="${time}" />`;
+    }
+    return [
+      `    <testcase name="${esc(name)}" classname="agentxchain.turns" time="${time}">`,
+      `      <failure message="${esc(t.status || 'unknown')}">${esc(t.summary || t.status || 'turn did not complete successfully')}</failure>`,
+      '    </testcase>',
+    ].join('\n');
+  });
+
+  const totalTests = gateEntries.length + turns.length;
+  const totalFailures = gateFailures.length + turnFailures.length;
+  const totalTime = typeof run.duration_seconds === 'number' ? run.duration_seconds.toFixed(1) : '0';
+
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    `<testsuites name="AgentXchain Governance" tests="${totalTests}" failures="${totalFailures}" errors="0" time="${totalTime}">`,
+    `  <testsuite name="Gates" tests="${gateEntries.length}" failures="${gateFailures.length}" errors="0">`,
+    ...gateCases,
+    '  </testsuite>',
+    `  <testsuite name="Turns" tests="${turns.length}" failures="${turnFailures.length}" errors="0">`,
+    ...turnCases,
+    '  </testsuite>',
+    '</testsuites>',
+  ].join('\n');
+
+  return xml;
+}
+```
+
+**JUnit mapping:**
+- `<testsuites name="AgentXchain Governance">` — root element
+- `<testsuite name="Gates">` — each gate becomes a `<testcase>` with `classname="agentxchain.gates"`
+- `<testsuite name="Turns">` — each turn becomes a `<testcase>` with `classname="agentxchain.turns"`
+- `<failure>` elements added for unsatisfied gates and non-completed turns
+
+#### 2.1.5 `deriveCIExitCode(report)`
+
+```javascript
+/**
+ * Derive CI-appropriate exit code from governance report.
+ * @param {{ overall: string }} report
+ * @returns {number} 0 = pass, 1 = fail, 2 = error
+ */
+export function deriveCIExitCode(report) {
+  if (report.overall === 'pass') return 0;
+  if (report.overall === 'fail') return 1;
+  return 2;
+}
+```
 
 ---
 
-### 2.2 local-cli-adapter.js — Add Command Validation Rules
+### 2.2 ci-report.js — CLI Command
 
-**Modify existing file:** `cli/src/lib/adapters/local-cli-adapter.js`
-
-#### 2.2.1 Update import (line 33-42)
-
-Add the new detection functions to the existing import from `claude-local-auth.js`:
+**New file:** `cli/src/commands/ci-report.js`
 
 ```javascript
+import { buildRunExport } from '../lib/export.js';
+import { loadExportArtifact } from '../lib/export-verifier.js';
+import { buildGovernanceReport } from '../lib/report.js';
 import {
-  getClaudeSubprocessAuthIssue,
-  hasClaudeAuthenticationFailureText,
-  hasClaudeNodeIncompatibilityText,
-  hasCodexAuthenticationFailureText,
-  isClaudeLocalCliRuntime,
-  isCodexLocalCliRuntime,
-  isCursorLocalCliRuntime,
-  isWindsurfLocalCliRuntime,    // ← NEW
-  isOpenCodeLocalCliRuntime,    // ← NEW
-  resolveClaudeCompatibleNodeBinary,
-} from '../claude-local-auth.js';
-```
+  deriveCIExitCode,
+  detectCIEnvironment,
+  formatGitHubAnnotations,
+  formatJUnitXml,
+  writeGitHubOutputVars,
+} from '../lib/ci-reporter.js';
 
-#### 2.2.2 Add Windsurf validation rule after Cursor block (after line 848, before `return { ok: true }`)
+export async function ciReportCommand(options) {
+  const cwd = process.cwd();
+  const format = options.format || 'auto';
 
-```javascript
-  const usesWindsurf = isWindsurfLocalCliRuntime(runtimeShape);
-  if (usesWindsurf && !tokens.includes('--agent')) {
-    const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Windsurf local_cli runtime';
-    const recovery = `${runtimeLabel} uses "windsurf" without an agent flag. Governed local runs require Windsurf's --agent mode for non-interactive execution.`;
-    return {
-      ok: false,
-      error_class: 'local_cli_command_incompatible',
-      recovery,
-      error: recovery,
-      diagnostic: {
-        runtime_id: runtimeId,
-        binary: binaryName,
-        rule: 'windsurf_requires_agent_mode',
-        has_agent_flag: false,
-        recovery,
-      },
-    };
+  // Step 1: Build or load the governance report
+  let report;
+  if (options.input && options.input !== '-') {
+    const loaded = loadExportArtifact(options.input, cwd);
+    if (!loaded.ok) {
+      console.error(loaded.error);
+      process.exitCode = 1;
+      return;
+    }
+    const result = buildGovernanceReport(loaded.artifact, { input: loaded.input });
+    report = result.report;
+  } else {
+    // Build from current project
+    const exportResult = buildRunExport(cwd);
+    if (!exportResult.ok) {
+      console.error(exportResult.error);
+      process.exitCode = 1;
+      return;
+    }
+    const result = buildGovernanceReport(exportResult.export, { input: 'current-project' });
+    report = result.report;
   }
-```
 
-#### 2.2.3 Add OpenCode validation rule after Windsurf block
-
-```javascript
-  const usesOpenCode = isOpenCodeLocalCliRuntime(runtimeShape);
-  if (usesOpenCode && !tokens.includes('--non-interactive')) {
-    const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'OpenCode local_cli runtime';
-    const recovery = `${runtimeLabel} uses "opencode" without --non-interactive. Governed local runs require OpenCode's non-interactive mode for unattended execution.`;
-    return {
-      ok: false,
-      error_class: 'local_cli_command_incompatible',
-      recovery,
-      error: recovery,
-      diagnostic: {
-        runtime_id: runtimeId,
-        binary: binaryName,
-        rule: 'opencode_requires_non_interactive',
-        has_non_interactive_flag: false,
-        recovery,
-      },
-    };
+  // Step 2: Detect CI environment and resolve format
+  const ci = detectCIEnvironment();
+  let resolvedFormat = format;
+  if (resolvedFormat === 'auto') {
+    if (ci?.provider === 'github_actions') {
+      resolvedFormat = 'github-actions';
+    } else {
+      resolvedFormat = 'json';
+    }
   }
+
+  // Step 3: Emit formatted output
+  switch (resolvedFormat) {
+    case 'github-actions': {
+      const annotations = formatGitHubAnnotations(report);
+      console.log(annotations);
+
+      // Write output variables if $GITHUB_OUTPUT is set
+      const ghOutput = process.env.GITHUB_OUTPUT;
+      if (ghOutput) {
+        writeGitHubOutputVars(report, ghOutput);
+      }
+      break;
+    }
+    case 'junit-xml': {
+      const xml = formatJUnitXml(report);
+      console.log(xml);
+      break;
+    }
+    case 'json': {
+      console.log(JSON.stringify(report, null, 2));
+      break;
+    }
+    default:
+      console.error(`Unsupported ci-report format "${resolvedFormat}". Use "github-actions", "junit-xml", "json", or "auto".`);
+      process.exitCode = 1;
+      return;
+  }
+
+  // Step 4: Exit with CI-appropriate code
+  process.exitCode = deriveCIExitCode(report);
+}
 ```
 
-**Design invariant:** Both rules return `{ ok: false, error_class: 'local_cli_command_incompatible' }` matching the existing error contract. The `diagnostic.rule` field provides machine-readable identification for error reporting.
+**Command behavior:**
+1. Builds a governance report from the current project (or a provided export file)
+2. Auto-detects CI provider or uses `--format` override
+3. Emits formatted output to stdout
+4. Writes output variables to `$GITHUB_OUTPUT` (GitHub Actions format only)
+5. Exits with 0 (pass), 1 (fail), or 2 (error)
 
 ---
 
-### 2.3 connector-probe.js — Register Authority Flags and Transports
+### 2.3 agentxchain.js — Command Registration
 
-**Modify existing file:** `cli/src/lib/connector-probe.js`
+**Modify existing file:** `cli/bin/agentxchain.js`
 
-#### 2.3.1 Replace KNOWN_CLI_AUTHORITY_FLAGS (lines 18-31)
-
-Replace the current 2-entry array with a 5-entry array:
+#### 2.3.1 Add import (after line 89, after the `reportCommand` import)
 
 ```javascript
-const KNOWN_CLI_AUTHORITY_FLAGS = [
-  {
-    binary: 'claude',
-    authoritative_flag: '--dangerously-skip-permissions',
-    weak_flags: [],
-    label: 'Claude Code',
-  },
-  {
-    binary: 'codex',
-    authoritative_flag: '--dangerously-bypass-approvals-and-sandbox',
-    weak_flags: ['--full-auto'],
-    label: 'OpenAI Codex CLI',
-  },
-  {
-    binary: 'cursor',
-    authoritative_flag: '--background-agent',
-    weak_flags: [],
-    label: 'Cursor IDE',
-  },
-  {
-    binary: 'windsurf',
-    authoritative_flag: '--agent',
-    weak_flags: [],
-    label: 'Windsurf IDE',
-  },
-  {
-    binary: 'opencode',
-    authoritative_flag: '--non-interactive',
-    weak_flags: [],
-    label: 'OpenCode CLI',
-  },
-];
+import { ciReportCommand } from '../src/commands/ci-report.js';
 ```
 
-#### 2.3.2 Replace KNOWN_CLI_TRANSPORTS (lines 37-40)
-
-Replace the current 2-entry object with a 5-entry object:
+#### 2.3.2 Add command registration (after line 195, after the `report` command block)
 
 ```javascript
-const KNOWN_CLI_TRANSPORTS = {
-  claude: ['stdin'],
-  codex: ['argv', 'stdin'],
-  cursor: ['dispatch_bundle_only'],
-  windsurf: ['dispatch_bundle_only'],
-  opencode: ['stdin'],
+program
+  .command('ci-report')
+  .description('Report governed run results in CI-native formats (GitHub Actions annotations, JUnit XML)')
+  .option('--input <path>', 'Export artifact path, or use current project if omitted')
+  .option('--format <format>', 'Output format: auto, github-actions, junit-xml, json', 'auto')
+  .action(ciReportCommand);
+```
+
+---
+
+## 3. Test Specification
+
+### 3.1 ci-reporter.test.js (~12 tests)
+
+**New file:** `cli/test/ci-reporter.test.js`
+
+Imports `detectCIEnvironment`, `formatGitHubAnnotations`, `writeGitHubOutputVars`, `formatJUnitXml`, `deriveCIExitCode` from `ci-reporter.js`.
+
+#### Test Cases
+
+| # | Test ID | Suite | Description | Key Assertion |
+|---|---------|-------|-------------|---------------|
+| 1 | AT-CI-001 | CI detection | returns github_actions when GITHUB_ACTIONS=true | `env.provider === 'github_actions'` |
+| 2 | AT-CI-002 | CI detection | returns gitlab_ci when GITLAB_CI=true | `env.provider === 'gitlab_ci'` |
+| 3 | AT-CI-003 | CI detection | returns generic when only CI=true | `env.provider === 'generic'` |
+| 4 | AT-CI-004 | CI detection | returns null outside CI | `env === null` |
+| 5 | AT-CI-005 | GitHub annotations | emits ::notice for passing run | output includes `::notice title=AgentXchain Governance::` |
+| 6 | AT-CI-006 | GitHub annotations | emits ::error for failing run | output includes `::error title=AgentXchain Governance::` |
+| 7 | AT-CI-007 | GitHub annotations | includes gate annotations | output includes `::notice title=Gate` or `::warning title=Gate` |
+| 8 | AT-CI-008 | GitHub output vars | writes key=value pairs to file | file contains `run_status=pass` and `run_id=` |
+| 9 | AT-CI-009 | JUnit XML | produces valid XML with testsuites and testcases | output contains `<testsuites`, `<testsuite`, `<testcase` |
+| 10 | AT-CI-010 | JUnit XML | maps failed gates to failure elements | output contains `<failure` for unsatisfied gate |
+| 11 | AT-CI-011 | Exit code | returns 0 for pass, 1 for fail, 2 for error | `deriveCIExitCode({ overall: 'pass' }) === 0` etc. |
+| 12 | AT-CI-012 | Command integration | ci-report command produces output and exits with correct code | command produces non-empty output; exit code matches overall |
+
+#### Test Helpers
+
+**CI detection tests** must temporarily set and restore `process.env` variables. Use a helper pattern:
+
+```javascript
+function withEnv(overrides, fn) {
+  const saved = {};
+  for (const key of Object.keys(overrides)) {
+    saved[key] = process.env[key];
+    if (overrides[key] === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = overrides[key];
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    for (const key of Object.keys(saved)) {
+      if (saved[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = saved[key];
+      }
+    }
+  }
+}
+```
+
+**Report fixture** for formatting tests:
+
+```javascript
+const PASSING_REPORT = {
+  overall: 'pass',
+  subject: {
+    kind: 'governed_run',
+    run: {
+      run_id: 'run_test_001',
+      status: 'active',
+      phase: 'qa',
+      blocked_on: null,
+      blocked_reason: null,
+      gate_summary: {
+        planning_signoff: 'satisfied',
+        implementation_complete: 'satisfied',
+        qa_ship_verdict: 'pending',
+      },
+      turns: [
+        { turn_id: 'turn_001', role: 'pm', status: 'accepted', duration_seconds: 45 },
+        { turn_id: 'turn_002', role: 'dev', status: 'accepted', duration_seconds: 120 },
+      ],
+      decisions: [
+        { id: 'DEC-001', statement: 'Test decision' },
+      ],
+      duration_seconds: 165,
+    },
+  },
+};
+
+const FAILING_REPORT = {
+  overall: 'fail',
+  message: 'governance check failed',
+  subject: {
+    kind: 'governed_run',
+    run: {
+      run_id: 'run_test_002',
+      status: 'blocked',
+      phase: 'implementation',
+      blocked_on: 'credential_failure',
+      blocked_reason: 'API key expired',
+      gate_summary: {
+        planning_signoff: 'satisfied',
+        implementation_complete: 'pending',
+      },
+      turns: [
+        { turn_id: 'turn_003', role: 'pm', status: 'accepted', duration_seconds: 30 },
+        { turn_id: 'turn_004', role: 'dev', status: 'failed', summary: 'API key expired' },
+      ],
+      decisions: [],
+      duration_seconds: 60,
+    },
+  },
 };
 ```
 
-**Rationale:**
-- **Cursor** (gap fix): IDE-based → reads dispatch bundle from disk, not stdin
-- **Windsurf**: IDE-based (VS Code fork by Codeium) → same `dispatch_bundle_only` model as Cursor
-- **OpenCode**: Terminal CLI → same `stdin` model as Claude Code
+#### AT-CI-012 Command Integration Pattern
 
----
+For the command integration test, use a temporary directory with a minimal agentxchain project fixture (agentxchain.json + .agentxchain/state.json + .agentxchain/history.jsonl) and invoke `ciReportCommand` with `--format json`. Assert:
+- Non-empty stdout (JSON output)
+- `process.exitCode` matches `deriveCIExitCode` for the report
 
-### 2.4 doctor.js — Add Detection Branches
-
-**Modify existing file:** `cli/src/commands/doctor.js`
-
-#### 2.4.1 Update import (line 24)
-
-```javascript
-import {
-  getClaudeSubprocessAuthIssue,
-  isCursorLocalCliRuntime,
-  isWindsurfLocalCliRuntime,
-  isOpenCodeLocalCliRuntime,
-} from '../lib/claude-local-auth.js';
-```
-
-#### 2.4.2 Add Windsurf and OpenCode branches in `checkRuntimeReachable`
-
-Insert after the Cursor branch (after line 510, before the `claudeAuthIssue` check at line 512):
-
-```javascript
-        if (isWindsurfLocalCliRuntime(rt)) {
-          return attachRuntimeContract({
-            ...base,
-            level: 'pass',
-            detail: `${probe.detail} (Windsurf IDE local_cli connector)`,
-          }, rtId, rt, boundRoleEntries);
-        }
-        if (isOpenCodeLocalCliRuntime(rt)) {
-          return attachRuntimeContract({
-            ...base,
-            level: 'pass',
-            detail: `${probe.detail} (OpenCode local_cli connector)`,
-          }, rtId, rt, boundRoleEntries);
-        }
-```
-
-**Order matters:** Cursor → Windsurf → OpenCode → Claude auth probe → generic. The IDE connectors (Cursor, Windsurf) return early before the Claude-specific auth probe, matching the existing pattern at line 505.
-
----
-
-## 3. Test Specifications
-
-### 3.1 windsurf-connector.test.js (~14 tests)
-
-**New file:** `cli/test/windsurf-connector.test.js`
-
-Following `cursor-connector.test.js` structure. Imports `isWindsurfLocalCliRuntime` from `claude-local-auth.js`, `validateLocalCliCommandCompatibility` from `local-cli-adapter.js`, and `loadNormalizedConfig` from `normalized-config.js`.
-
-#### Test Cases
-
-| # | Test ID | Suite | Description | Key Assertion |
-|---|---------|-------|-------------|---------------|
-| 1 | WS-DET-001 | Binary detection | returns true for bare windsurf command | `isWindsurfLocalCliRuntime({ command: 'windsurf' }) === true` |
-| 2 | WS-DET-002 | Binary detection | returns true for absolute path | `isWindsurfLocalCliRuntime({ command: '/usr/local/bin/windsurf' }) === true` |
-| 3 | WS-DET-003 | Binary detection | returns true for command array with flags | `isWindsurfLocalCliRuntime({ command: ['windsurf', '--agent'] }) === true` |
-| 4 | WS-DET-004 | Binary detection | returns false for claude command | `isWindsurfLocalCliRuntime({ command: 'claude' }) === false` |
-| 5 | WS-DET-005 | Binary detection | returns false for cursor command | `isWindsurfLocalCliRuntime({ command: 'cursor' }) === false` |
-| 6 | WS-DET-006 | Binary detection | returns false for empty command | `isWindsurfLocalCliRuntime({ command: '' }) === false` |
-| 7 | WS-DET-007 | Binary detection | returns false for undefined runtime | `isWindsurfLocalCliRuntime(undefined) === false` |
-| 8 | WS-VAL-001 | Command validation | rejects windsurf without --agent | `result.ok === false`, `diagnostic.rule === 'windsurf_requires_agent_mode'` |
-| 9 | WS-VAL-002 | Command validation | accepts windsurf with --agent | `result.ok === true` |
-| 10 | WS-VAL-003 | Command validation | rejects absolute-path windsurf without --agent | `result.ok === false`, `diagnostic.rule === 'windsurf_requires_agent_mode'` |
-| 11 | WS-VAL-004 | Command validation | does not interfere with Claude validation | Claude rules still fire for claude command |
-| 12 | WS-VAL-005 | Command validation | does not interfere with Cursor validation | Cursor rules still fire for cursor command |
-| 13 | WS-VAL-006 | Command validation | does not interfere with Codex validation | Codex rules still fire for codex command |
-| 14 | WS-CFG-001 | Config validation | accepts Windsurf runtime config as valid local_cli | `loadNormalizedConfig(config).ok === true` |
-
-### 3.2 opencode-connector.test.js (~14 tests)
-
-**New file:** `cli/test/opencode-connector.test.js`
-
-Following `cursor-connector.test.js` structure. Imports `isOpenCodeLocalCliRuntime` from `claude-local-auth.js`.
-
-#### Test Cases
-
-| # | Test ID | Suite | Description | Key Assertion |
-|---|---------|-------|-------------|---------------|
-| 1 | OC-DET-001 | Binary detection | returns true for bare opencode command | `isOpenCodeLocalCliRuntime({ command: 'opencode' }) === true` |
-| 2 | OC-DET-002 | Binary detection | returns true for absolute path | `isOpenCodeLocalCliRuntime({ command: '/usr/local/bin/opencode' }) === true` |
-| 3 | OC-DET-003 | Binary detection | returns true for command array with flags | `isOpenCodeLocalCliRuntime({ command: ['opencode', '--non-interactive'] }) === true` |
-| 4 | OC-DET-004 | Binary detection | returns false for claude command | `isOpenCodeLocalCliRuntime({ command: 'claude' }) === false` |
-| 5 | OC-DET-005 | Binary detection | returns false for cursor command | `isOpenCodeLocalCliRuntime({ command: 'cursor' }) === false` |
-| 6 | OC-DET-006 | Binary detection | returns false for empty command | `isOpenCodeLocalCliRuntime({ command: '' }) === false` |
-| 7 | OC-DET-007 | Binary detection | returns false for undefined runtime | `isOpenCodeLocalCliRuntime(undefined) === false` |
-| 8 | OC-VAL-001 | Command validation | rejects opencode without --non-interactive | `result.ok === false`, `diagnostic.rule === 'opencode_requires_non_interactive'` |
-| 9 | OC-VAL-002 | Command validation | accepts opencode with --non-interactive | `result.ok === true` |
-| 10 | OC-VAL-003 | Command validation | rejects absolute-path opencode without flag | `result.ok === false`, `diagnostic.rule === 'opencode_requires_non_interactive'` |
-| 11 | OC-VAL-004 | Command validation | does not interfere with Claude validation | Claude rules still fire for claude command |
-| 12 | OC-VAL-005 | Command validation | does not interfere with Cursor validation | Cursor rules still fire for cursor command |
-| 13 | OC-VAL-006 | Command validation | does not interfere with Windsurf validation | Windsurf rules still fire for windsurf command |
-| 14 | OC-CFG-001 | Config validation | accepts OpenCode runtime config as valid local_cli | `loadNormalizedConfig(config).ok === true` |
-
-### 3.3 Config Shapes for Test Roundtrips
-
-**Windsurf config (WS-CFG-001):**
-```javascript
-{
-  schema_version: '1.0',
-  project: { id: 'windsurf-test', name: 'Windsurf Test' },
-  runtimes: {
-    'windsurf-agent': {
-      type: 'local_cli',
-      command: ['windsurf', '--agent'],
-      prompt_transport: 'dispatch_bundle_only',
-      startup_watchdog_ms: 300000,
-    },
-  },
-  roles: {
-    dev: {
-      title: 'Developer',
-      mandate: 'Implement features.',
-      write_authority: 'authoritative',
-      runtime: 'windsurf-agent',
-    },
-  },
-  phases: ['planning', 'implementation', 'qa'],
-  gates: {
-    planning_signoff: { required_files: [] },
-    implementation_complete: { required_files: [] },
-    qa_ship_verdict: { required_files: [] },
-  },
-}
-```
-
-**OpenCode config (OC-CFG-001):**
-```javascript
-{
-  schema_version: '1.0',
-  project: { id: 'opencode-test', name: 'OpenCode Test' },
-  runtimes: {
-    'opencode-agent': {
-      type: 'local_cli',
-      command: ['opencode', '--non-interactive'],
-      prompt_transport: 'stdin',
-      startup_watchdog_ms: 180000,
-    },
-  },
-  roles: {
-    dev: {
-      title: 'Developer',
-      mandate: 'Implement features.',
-      write_authority: 'authoritative',
-      runtime: 'opencode-agent',
-    },
-  },
-  phases: ['planning', 'implementation', 'qa'],
-  gates: {
-    planning_signoff: { required_files: [] },
-    implementation_complete: { required_files: [] },
-    qa_ship_verdict: { required_files: [] },
-  },
-}
-```
+Alternatively, invoke the CI reporter functions directly on a pre-built export artifact, avoiding the need for a full project fixture. This is cleaner and avoids coupling to the export machinery internals.
 
 ---
 
@@ -409,84 +532,74 @@ Following `cursor-connector.test.js` structure. Imports `isOpenCodeLocalCliRunti
 
 | File | Change Type | LOC | Description |
 |------|-------------|-----|-------------|
-| `cli/src/lib/claude-local-auth.js` | **Modify** | ~16 | Add `isWindsurfLocalCliRuntime()` + `isOpenCodeLocalCliRuntime()` |
-| `cli/src/lib/adapters/local-cli-adapter.js` | **Modify** | ~30 | Add Windsurf + OpenCode validation rules + import updates |
-| `cli/src/lib/connector-probe.js` | **Modify** | ~20 | Add Cursor + Windsurf + OpenCode to KNOWN_CLI_AUTHORITY_FLAGS + TRANSPORTS |
-| `cli/src/commands/doctor.js` | **Modify** | ~15 | Add Windsurf + OpenCode detection in local_cli case + import updates |
-| `cli/test/windsurf-connector.test.js` | **Create** | ~150 | 14 Windsurf connector tests |
-| `cli/test/opencode-connector.test.js` | **Create** | ~150 | 14 OpenCode connector tests |
+| `cli/src/lib/ci-reporter.js` | **Create** | ~120 | CI detection, GitHub annotations, output vars, JUnit XML, exit code |
+| `cli/src/commands/ci-report.js` | **Create** | ~70 | CLI command: export → report → CI format → exit code |
+| `cli/bin/agentxchain.js` | **Modify** | +3 | Import + command registration for ci-report |
+| `cli/test/ci-reporter.test.js` | **Create** | ~200 | 12 tests covering detection, formatting, integration |
 
-4 modified files, 2 new files. Vitest contract file count increases from 671 to 673.
+2 new source files, 1 modified file, 1 new test file. Vitest contract file count increases from 673 to 674.
 
 ---
 
 ## 5. Key Architecture Invariants
 
-1. **No new runtime types.** Windsurf and OpenCode are `local_cli` connectors, not new runtime types. `VALID_RUNTIME_TYPES` remains `['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent']`.
-2. **No new modules.** All changes are additions to existing modules following established patterns.
-3. **No adapter dispatch changes.** `dispatchLocalCli()` handles all local_cli connectors generically. Only the validation + detection pipeline needs connector-specific knowledge.
-4. **Cursor authority flag gap fixed.** Adding Cursor to `KNOWN_CLI_AUTHORITY_FLAGS` alongside the new entries closes a gap from the original Cursor delivery (run_10a2b2d8f0a8399b).
-5. **Detection functions are side-effect-free.** Each `isXxxLocalCliRuntime()` is a pure function: normalize command tokens → check head string → return boolean. No I/O, no state, no additional imports.
-6. **Validation order is deterministic.** In `validateLocalCliCommandCompatibility`, rules are checked sequentially: Claude → Codex → Cursor → Windsurf → OpenCode → ok. A command matching one binary will only trigger that binary's rule.
+1. **No new state reading.** `ci-reporter.js` does not import `config.js`, `governed-state.js`, or any state reader. It consumes the governance report object produced by the existing `buildGovernanceReport()` function in `report.js`.
+2. **No modifications to existing modules.** `report.js`, `export.js`, `export-verifier.js` remain untouched. The CI reporter is purely additive.
+3. **Pure functions.** `formatGitHubAnnotations()`, `formatJUnitXml()`, and `deriveCIExitCode()` are pure functions (input → output, no side effects). Only `writeGitHubOutputVars()` has a side effect (appends to a file) and `detectCIEnvironment()` reads env vars.
+4. **Standard output formats.** GitHub Actions annotations use the documented `::command::` syntax. JUnit XML follows the JUnit 4 schema (testsuites/testsuite/testcase/failure). Both are consumed natively by GitHub, GitLab, Jenkins, and CircleCI without configuration.
+5. **Exit code contract.** 0 = governance pass (ship-ready), 1 = governance fail, 2 = error (invalid input, missing project). CI systems treat non-zero as failure by default, matching the governance semantics.
 
 ---
 
 ## Interface
 
-### Connector Registration Points
+### Exported Functions
 
 ```
-claude-local-auth.js
-  └─ export isWindsurfLocalCliRuntime(runtime) → boolean
-  └─ export isOpenCodeLocalCliRuntime(runtime) → boolean
+cli/src/lib/ci-reporter.js
+  └─ export detectCIEnvironment()              → { provider, run_url, run_id, ref, sha } | null
+  └─ export formatGitHubAnnotations(report)    → string (newline-separated ::cmd:: lines)
+  └─ export writeGitHubOutputVars(report, path) → string[] (key=value pairs)
+  └─ export formatJUnitXml(report)             → string (XML document)
+  └─ export deriveCIExitCode(report)           → number (0, 1, or 2)
 
-local-cli-adapter.js: validateLocalCliCommandCompatibility()
-  └─ windsurf_requires_agent_mode → { ok: false, error_class, diagnostic }
-  └─ opencode_requires_non_interactive → { ok: false, error_class, diagnostic }
-
-connector-probe.js: KNOWN_CLI_AUTHORITY_FLAGS
-  └─ { binary: 'cursor', authoritative_flag: '--background-agent', label: 'Cursor IDE' }
-  └─ { binary: 'windsurf', authoritative_flag: '--agent', label: 'Windsurf IDE' }
-  └─ { binary: 'opencode', authoritative_flag: '--non-interactive', label: 'OpenCode CLI' }
-
-connector-probe.js: KNOWN_CLI_TRANSPORTS
-  └─ cursor: ['dispatch_bundle_only']
-  └─ windsurf: ['dispatch_bundle_only']
-  └─ opencode: ['stdin']
-
-doctor.js: checkRuntimeReachable()
-  └─ isWindsurfLocalCliRuntime(rt) → "(Windsurf IDE local_cli connector)"
-  └─ isOpenCodeLocalCliRuntime(rt) → "(OpenCode local_cli connector)"
+cli/src/commands/ci-report.js
+  └─ export async ciReportCommand(options)     → void (writes to stdout, sets process.exitCode)
 ```
 
-### Recommended Runtime Configurations
+### CLI Interface
 
-**Windsurf:**
-```json
-{
-  "runtimes": {
-    "windsurf-agent": {
-      "type": "local_cli",
-      "command": ["windsurf", "--agent"],
-      "prompt_transport": "dispatch_bundle_only",
-      "startup_watchdog_ms": 300000
-    }
-  }
-}
+```
+agentxchain ci-report [options]
+
+Options:
+  --input <path>    Export artifact path, or use current project if omitted
+  --format <format> Output format: auto, github-actions, junit-xml, json (default: auto)
+
+Exit codes:
+  0  Governance pass (ship-ready)
+  1  Governance fail
+  2  Error (invalid input, missing project)
 ```
 
-**OpenCode:**
-```json
-{
-  "runtimes": {
-    "opencode-agent": {
-      "type": "local_cli",
-      "command": ["opencode", "--non-interactive"],
-      "prompt_transport": "stdin",
-      "startup_watchdog_ms": 180000
-    }
-  }
-}
+### Example CI Usage
+
+**GitHub Actions step:**
+```yaml
+- name: Report governance results
+  run: npx agentxchain ci-report
+  env:
+    GITHUB_OUTPUT: ${{ github.output }}
+```
+
+**JUnit XML artifact:**
+```yaml
+- name: Generate JUnit report
+  run: npx agentxchain ci-report --format junit-xml > governance-results.xml
+- uses: actions/upload-artifact@v4
+  with:
+    name: governance-junit
+    path: governance-results.xml
 ```
 
 ---
@@ -495,48 +608,46 @@ doctor.js: checkRuntimeReachable()
 
 ### Scope
 
-**4 modified files + 2 new test files: Windsurf + OpenCode connector scaffolding.**
+**2 new source files + 1 modified file + 1 new test file (4 total).**
 
-1. `cli/src/lib/claude-local-auth.js` — Add 2 detection functions
-2. `cli/src/lib/adapters/local-cli-adapter.js` — Add 2 validation rules + import updates
-3. `cli/src/lib/connector-probe.js` — Add 3 entries to KNOWN_CLI_AUTHORITY_FLAGS (Cursor + Windsurf + OpenCode) + 3 entries to KNOWN_CLI_TRANSPORTS (Cursor + Windsurf + OpenCode)
-4. `cli/src/commands/doctor.js` — Add 2 detection branches + import updates
-5. `cli/test/windsurf-connector.test.js` — 14 tests
-6. `cli/test/opencode-connector.test.js` — 14 tests
+1. `cli/src/lib/ci-reporter.js` — Create: 5 exported functions
+2. `cli/src/commands/ci-report.js` — Create: 1 exported command function
+3. `cli/bin/agentxchain.js` — Modify: +1 import (after line 89), +1 command block (after line 195)
+4. `cli/test/ci-reporter.test.js` — Create: 12 tests
 
 ### Out of Scope
 
-- Changes to `dispatchLocalCli` (generic, works for all local_cli connectors)
-- Changes to api-proxy-adapter.js, mcp-adapter.js, remote-agent-adapter.js
-- Changes to run-loop.js, governed-state.js, hosted-runner.js, execution-worker.js
-- Real binary installation or end-to-end Windsurf/OpenCode dispatch
-- Plugin system for custom connectors
+- Changes to report.js, export.js, or export-verifier.js
+- Changes to notification-runner.js or webhook system
+- Changes to any adapter, state machine, or run-loop code
+- GitLab CI collapsible sections (use JSON fallback for non-GitHub providers)
+- Modifying governed-todo-app-proof.yml to use ci-report
 
 ### Verification
 
 Dev must confirm:
-1. `isWindsurfLocalCliRuntime()` correctly detects 'windsurf' command variants
-2. `isOpenCodeLocalCliRuntime()` correctly detects 'opencode' command variants
-3. `validateLocalCliCommandCompatibility()` rejects windsurf without `--agent`
-4. `validateLocalCliCommandCompatibility()` rejects opencode without `--non-interactive`
-5. `KNOWN_CLI_AUTHORITY_FLAGS` has entries for all 5 CLI tools (Claude, Codex, Cursor, Windsurf, OpenCode)
-6. `KNOWN_CLI_TRANSPORTS` has entries for all 5 CLI tools
-7. `doctor.js` shows Windsurf and OpenCode labels in local_cli case
-8. All 14 windsurf-connector.test.js tests pass
-9. All 14 opencode-connector.test.js tests pass
-10. cursor-connector.test.js still passes (no regressions)
-11. Vitest contract passes with 673 files
-12. Full test suite passes: `cd cli && npm test`
+1. `detectCIEnvironment()` returns correct provider for each env var combination
+2. `formatGitHubAnnotations()` produces valid `::notice`, `::warning`, `::error` lines
+3. `writeGitHubOutputVars()` writes key=value pairs to specified file
+4. `formatJUnitXml()` produces well-formed XML with testsuites/testsuite/testcase structure
+5. `formatJUnitXml()` includes `<failure>` elements for unsatisfied gates and failed turns
+6. `deriveCIExitCode()` returns 0 for 'pass', 1 for 'fail', 2 for other
+7. `ci-report` command registered in agentxchain.js and appears in `--help`
+8. All 12 ci-reporter.test.js tests pass
+9. Vitest contract passes with 674 files
+10. Full test suite passes: `cd cli && npm test`
 
 ## Acceptance Tests
 
-- [ ] AT-CONN-001: isWindsurfLocalCliRuntime detects 'windsurf' command variants
-- [ ] AT-CONN-002: isOpenCodeLocalCliRuntime detects 'opencode' command variants
-- [ ] AT-CONN-003: validateLocalCliCommandCompatibility rejects windsurf without --agent
-- [ ] AT-CONN-004: validateLocalCliCommandCompatibility rejects opencode without --non-interactive
-- [ ] AT-CONN-005: KNOWN_CLI_AUTHORITY_FLAGS includes all 5 CLI connectors
-- [ ] AT-CONN-006: KNOWN_CLI_TRANSPORTS includes all 5 CLI connectors
-- [ ] AT-CONN-007: Doctor labels Windsurf as "(Windsurf IDE local_cli connector)"
-- [ ] AT-CONN-008: Doctor labels OpenCode as "(OpenCode local_cli connector)"
-- [ ] AT-CONN-009: Windsurf config accepted by loadNormalizedConfig as valid local_cli
-- [ ] AT-CONN-010: OpenCode config accepted by loadNormalizedConfig as valid local_cli
+- [ ] AT-CI-001: detectCIEnvironment returns github_actions when GITHUB_ACTIONS=true
+- [ ] AT-CI-002: detectCIEnvironment returns gitlab_ci when GITLAB_CI=true
+- [ ] AT-CI-003: detectCIEnvironment returns generic when only CI=true
+- [ ] AT-CI-004: detectCIEnvironment returns null outside CI
+- [ ] AT-CI-005: formatGitHubAnnotations emits ::notice for passing run
+- [ ] AT-CI-006: formatGitHubAnnotations emits ::error for failing run
+- [ ] AT-CI-007: formatGitHubAnnotations includes gate-level annotations
+- [ ] AT-CI-008: writeGitHubOutputVars writes key=value pairs to file
+- [ ] AT-CI-009: formatJUnitXml produces valid XML with testsuites and testcases
+- [ ] AT-CI-010: formatJUnitXml maps failed gates to failure elements
+- [ ] AT-CI-011: deriveCIExitCode returns 0 for pass, 1 for fail, 2 for error
+- [ ] AT-CI-012: ci-report command integrates with governance report pipeline

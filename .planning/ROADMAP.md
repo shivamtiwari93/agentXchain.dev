@@ -85,10 +85,10 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 ### M7: Connector Ecosystem Expansion
 - [x] Add Cursor IDE connector (local_cli adapter variant) <!-- run_10a2b2d8f0a8399b: isCursorLocalCliRuntime() + command validation + doctor support + 14 tests in cursor-connector.test.js; QA verified in run_f89a47c58f54929c -->
-- [ ] Add Windsurf connector
-- [ ] Add OpenCode connector
+- [x] Add Windsurf connector <!-- run_0db6a75ab239c3a3: isWindsurfLocalCliRuntime() + windsurf_requires_agent_mode validation + KNOWN_CLI_AUTHORITY_FLAGS entry + doctor annotation + 14 tests in windsurf-connector.test.js; QA ship verdict YES (turn_1cd75071e9051de9) -->
+- [x] Add OpenCode connector <!-- run_0db6a75ab239c3a3: isOpenCodeLocalCliRuntime() + opencode_requires_non_interactive validation + KNOWN_CLI_AUTHORITY_FLAGS entry + doctor annotation + 14 tests in opencode-connector.test.js; QA ship verdict YES (turn_1cd75071e9051de9) -->
 - [x] Validate each connector with a single governed turn end-to-end <!-- run_f89a47c58f54929c: AT-CCV-007 (Claude), AT-CCV-009 (Codex), AT-CCV-010 (Cursor) all pass connector validate with overall:'pass'; QA verified 474 tests, 0 failures -->
-- [ ] Acceptance: `agentxchain doctor` passes for each new connector type
+- [x] Acceptance: `agentxchain doctor` passes for each new connector type <!-- run_0db6a75ab239c3a3: QA verified 10/10 acceptance criteria, 56 tests across 5 suites, 0 failures; all 5 connectors (Claude, Codex, Cursor, Windsurf, OpenCode) detected by doctor -->
 
 ### M8: agentxchain.ai Managed Surface — MVP
 - [x] Design control plane API for remote run management <!-- run_8140752664578eb2: OpenAPI 3.1 spec at api/v1/control-plane.openapi.yaml + protocol-bridge.js (15 bridge functions + 5 error classes) + 7 schema tests; QA ship verdict YES -->
@@ -97,10 +97,16 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Persistent run history and governance audit trail <!-- run_b2a4084d6b3fe3b3: getRunHistory + getAuditTrail (2 aggregator methods), 2 hosted runner routes (/v1/org/history, /v1/org/audit-trail), 2 dashboard components (org-history.js, org-audit-trail.js), 8 integration tests; QA ship verdict YES (turn_2f903c5a3d12867f), 132 tests across 6 files, 0 failures -->
 - [ ] Acceptance: a governed run completes via the hosted runner with dashboard visibility
 
+### M9: CI Pipeline Integration
+- [ ] CI reporter module with provider detection (GitHub Actions, GitLab CI, generic) <!-- cli/src/lib/ci-reporter.js: detectCIEnvironment(), formatGitHubAnnotations(), writeGitHubOutputVars(), formatJUnitXml(), deriveCIExitCode() -->
+- [ ] `agentxchain ci-report` command with GitHub Actions annotations, output variables, and JUnit XML <!-- cli/src/commands/ci-report.js + cli/bin/agentxchain.js registration -->
+- [ ] Exit code derivation from governance report (0=pass, 1=fail, 2=error) <!-- deriveCIExitCode() in ci-reporter.js -->
+- [ ] Acceptance: CI reporter formats a governed run report as GitHub Actions annotations and JUnit XML with correct exit codes
+
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M7 Windsurf + OpenCode connectors (ROADMAP.md:88-91): identify all insertion points in claude-local-auth.js, local-cli-adapter.js, connector-probe.js, doctor.js; charter 2 new test files | In progress (`run_0db6a75ab239c3a3`) |
-| Implementation | Dev adds detection functions, command validation rules, authority flag/transport entries, doctor annotations for Windsurf + OpenCode; creates windsurf-connector.test.js + opencode-connector.test.js (~28 tests total) | Pending |
-| QA | Verify 28 connector tests pass, verify cursor-connector.test.js regression-free, verify KNOWN_CLI_AUTHORITY_FLAGS has 5 entries, run full test suite, check off ROADMAP.md:88, :89, :91 | Pending |
+| Planning | Scope M9 CI Pipeline Integration: CI reporter module + ci-report command + GitHub Actions annotations + JUnit XML + output variables + exit codes; charter 1 new test file with 12 tests | In progress (`run_685ea79f49acd469`) |
+| Implementation | Dev creates ci-reporter.js (5 functions), ci-report.js (1 command), registers in agentxchain.js, creates ci-reporter.test.js (~12 tests) | Pending |
+| QA | Verify 12 ci-reporter tests pass, verify JUnit XML well-formedness, verify GitHub annotations format, run full test suite, check off M9 items | Pending |
