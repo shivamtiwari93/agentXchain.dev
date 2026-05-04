@@ -144,6 +144,25 @@ Dev must confirm:
 3. New test AT-STEP-CKPT-002 exercises `--no-checkpoint` opt-out
 4. `step.js` imports and calls `checkpointAcceptedTurn` after acceptance
 
+## Interface
+
+### Recovery Path Interfaces
+
+| Path | Trigger | Entry Point | Output |
+|------|---------|-------------|--------|
+| Ghost recovery | Turn exceeds startup watchdog with no output | `step.js` dispatch monitor → `reissue-turn` | Reissued turn with `--reason ghost` |
+| Budget recovery | Turn cost exceeds session or turn budget cap | `step.js` cost tracker → run completion | Budget-exceeded status in governance report |
+| Credential recovery | Runtime auth fails (e.g. `codex_auth_failed`) | Connector health check → human escalation | `hesc_*` escalation with refresh instructions |
+| Crash recovery | Worker PID dies mid-turn | `guardResumeWorkerLiveness()` in `step.js` | Stale dispatch cleanup → fresh re-dispatch |
+| Checkpoint interface | Turn accepted with workspace changes | `checkpointAcceptedTurn()` in `turn-checkpoint.js` | Git commit of accepted files for clean baseline |
+
+### Auto-Checkpoint Flow
+
+1. `accept-turn` succeeds → `step.js` calls `checkpointAcceptedTurn(root, { turnId })`
+2. Checkpoint reads `files_changed` from turn result, stages them via `git add`
+3. Commits with message `checkpoint: <turn_id> (role=<role>, phase=<phase>, runtime=<runtime>)`
+4. If `--no-checkpoint` flag set, step 1-3 are skipped entirely
+
 ## Acceptance Tests
 
 - [x] `step.js` imports `checkpointAcceptedTurn` from `../lib/turn-checkpoint.js` — verified at `step.js:80`
