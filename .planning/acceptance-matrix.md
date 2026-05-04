@@ -1,45 +1,72 @@
-# Acceptance Matrix — agentXchain.dev
+# Acceptance Matrix — M8: Control Plane API Design
 
-**Run:** run_da40a332eed44f56
-**Turn:** turn_c168cebde30fb319 (QA)
-**Scope:** M4 Checkpoint-Restore Crash Resume — PID liveness guard in `step --resume`, stale dispatch-progress cleanup, regression coverage
+**Run:** run_8140752664578eb2
+**Turn:** turn_a6693ba4405f6667 (QA)
+**Scope:** Control Plane API Design — OpenAPI 3.1 spec (29 operations), protocol bridge (15 exports + 5 error classes), schema compatibility tests (7 tests)
 
 ## Section A: SYSTEM_SPEC Acceptance Tests
 
-| Req # | Requirement (from SYSTEM_SPEC.md §Acceptance Tests) | Evidence | Status |
+| Req # | Requirement (from SYSTEM_SPEC §Acceptance Tests) | Evidence | Status |
 |-------|------------------------------------------------------|----------|--------|
-| AC-001 | `step --resume` with dead `worker_pid` on active running turn proceeds to re-dispatch (crash recovery verified) | `step-crash-resume.test.js` "re-dispatches an active running turn with a dead worker pid and removes stale dispatch-progress" — sets PID 99999999 (dead), writes dispatch-progress, calls `stepCommand({resume:true})`, asserts `dispatchLocalCli` called once, turn transitions to `dispatched`, `worker_pid` cleared. QA verified source at `step.js:1045-1058` — `guardResumeWorkerLiveness()` detects dead PID via `isWorkerAlive()`, calls `cleanupStaleDispatchProgress()`, then returns to allow re-dispatch. | PASS |
-| AC-002 | `step --resume` with alive `worker_pid` on active running turn rejects with clear error (duplicate dispatch prevented) | `step-crash-resume.test.js` "rejects active running turn resume when the previous worker pid is still alive" — sets PID to `process.pid` (guaranteed alive), calls `stepCommand({resume:true})`, captures exit. Asserts: exit code 1, output matches `/Worker process \(PID \d+\) is still alive/`, `dispatchLocalCli` not called, turn remains `running`, dispatch-progress file preserved. QA verified `step.js:1050-1054` — alive PID branch prints error and calls `process.exit(1)`. | PASS |
-| AC-003 | `step --resume` with no `worker_pid` on active running turn proceeds normally (backwards compatible) | `step-crash-resume.test.js` "keeps no-pid active running turn resume backwards compatible" — sets up running turn with `worker_pid: null` (via `setRunningTurn(root, turnId, null)`), calls resume. Asserts: `dispatchLocalCli` called once, turn accepted and removed from `active_turns`. QA verified `step.js:1046-1047` — `worker_pid == null` guard returns early, no liveness check. | PASS |
-| AC-004 | Stale `dispatch-progress-{turnId}.json` is deleted during crash recovery before re-dispatch | `step-crash-resume.test.js` test 1: writes `dispatch-progress-{turnId}.json` before resume, asserts `existsSync(progressPath) === false` after resume. Also test 4 (blocked path): same pattern. QA verified `step.js:1075-1086` — `cleanupStaleDispatchProgress()` calls `unlinkSync()` in try/catch, guarded by `existsSync()`. | PASS |
-| AC-005 | `npm run test` passes with no regressions | Full suite: 665 test files, 7386 tests, 0 failures. Independently run by QA to completion (duration 2069s). | PASS |
+| AT-CP-SCHEMA-001 | OpenAPI spec is valid OpenAPI 3.1 | Test asserts `spec.openapi === '3.1.0'`, required top-level keys (`info`, `paths`, `components`, `securitySchemes`), global security requirement array, and every operation has `operationId`, `responses`, and `tags`. QA independently ran: 7/7 pass. | PASS |
+| AT-CP-SCHEMA-002 | Every frozen-spec endpoint has a corresponding OpenAPI operation (29 operations) | Test asserts `operations.length === 29` and maps each of 29 `FROZEN_ENDPOINTS` entries by `method:path` to confirm matching `operationId`. QA verified `grep -c "operationId:" api/v1/control-plane.openapi.yaml` = 29. | PASS |
+| AT-CP-SCHEMA-003 | Run response schema matches state.json structure | Test asserts Run schema has required fields `[id, proj_id, phase, status, turns, gates, decision_ledger, created_at, updated_at]`, `phase` enum includes `planning/implementation/qa`, `status` enum includes `active/completed`, `turns` is array, `gates` is object, `decision_ledger` is array. | PASS |
+| AT-CP-SCHEMA-004 | Turn response schema matches history.jsonl entry structure | Test asserts Turn schema has required fields `[id, run_id, role, runtime_id, status, summary, files_changed, verification, artifact]`, `files_changed` is array, `verification` is object with `status` enum including `pass`, `artifact` is object with `type` enum including `workspace/commit`. | PASS |
+| AT-CP-SCHEMA-005 | Decision response schema matches decision-ledger.jsonl entry structure | Test asserts Decision schema has required fields `[id, category, statement, rationale]`, `category` enum includes `implementation/architecture/scope`, and `id` has pattern referencing `DEC` prefix. | PASS |
+| AT-CP-SCHEMA-006 | Protocol bridge exports cover all mutating API operations | Test dynamically imports `protocol-bridge.js` and asserts: 8 mutating functions (`createRun`, `cancelRun`, `acceptTurnResult`, `rejectTurnResult`, `approveTransition`, `checkpointTurn`, `retryTurn`, `exportRun`), 5 error classes (`ProtocolError`, `NotFoundError`, `ValidationError`, `AuthorizationError`, `ConflictError`), and 7 read functions (`getRunState`, `listRuns`, `getTurns`, `getTurn`, `getEvents`, `getDecisions`, `getGates`). Total: 15 functions + 5 error classes = 20 exports. | PASS |
+| AT-CP-SCHEMA-007 | No governance-affecting fields in cloud-only metadata | Test verifies governance schemas (`Run`, `Turn`, `Decision`, `Gate`, `Event`) contain no cloud-only fields except the allowed set (`display_name`, `notification_preferences`, `dashboard_layout`, `search_index_state`). Allowed fields must NOT be in `required` arrays. Pure governance schemas (`Decision`, `Gate`) must have zero cloud-only fields. `Run.display_name` exists but is nullable and not required. | PASS |
 
 ## Section B: Code Correctness Verification
 
 | Check | Detail | Status |
 |-------|--------|--------|
-| PID guard placement — active path | `guardResumeWorkerLiveness(root, targetTurn)` called at step.js:196, after target turn resolution, before `skipAssignment = true`. Correct per SYSTEM_SPEC §2.1. | PASS |
-| PID guard placement — blocked path | `guardResumeWorkerLiveness(root, targetTurn)` called at step.js:277, **before** `reactivateGovernedRun()` at line 279. Deviation from SYSTEM_SPEC §2.1 which says "after reactivation." Dev's ordering is **superior**: if worker is alive, run stays blocked (no state mutation). DEC-001 documents this reasoning. | PASS |
-| `isWorkerAlive()` defensive validation | step.js:1062-1063 validates PID is a positive integer before `process.kill(pid, 0)`. Prevents `NaN`, negative, or string PIDs from throwing unexpected errors. Not in spec but defensively correct. | PASS |
-| `cleanupStaleDispatchProgress()` error handling | step.js:1081-1084 wraps `unlinkSync` in try/catch. Best-effort cleanup prevents filesystem race conditions from aborting the resume path. | PASS |
-| `guardResumeWorkerLiveness()` is a single reusable function | Both active (line 196) and blocked (line 277) paths call the same function. Eliminates risk of logic drift between the two paths. | PASS |
-| No new exports | All helpers (`guardResumeWorkerLiveness`, `isWorkerAlive`, `cleanupStaleDispatchProgress`) are module-private in step.js. Per SYSTEM_SPEC §Interface: "No New Exports." | PASS |
-| Vitest contract file count updated | `vitest-contract.test.js:56` asserts `TEST_FILES.length === 665`, accounting for the new `step-crash-resume.test.js`. | PASS |
-| ROADMAP.md item checked off | ROADMAP.md:62 — M4 "Improve checkpoint-restore" marked `[x]` with `run_da40a332eed44f56` evidence. | PASS |
+| OpenAPI spec structural completeness | 29 operations across 6 tags (tenancy=9, runs=5, turns=2, approvals=6, audit=4, webhooks=2). 12 component schemas. 2 security schemes (api_key X-API-Key header, bearer_auth JWT). 6 path parameters with ULID patterns. Cursor-based pagination on all list endpoints. 8 reusable error response components (400-500). `x-required-role` RBAC annotation on every operation. | PASS |
+| Protocol bridge correctness | Imports verified against `runner-interface.js` (lines 27-50): `initRun`, `loadState`, `acceptTurn`, `rejectTurn`, `approvePhaseGate`, `markRunBlocked`, `reissueTurn`, `acquireLock`, `releaseLock`, `getTurnStagingResultPath` — all exist and match re-export aliases. Additional imports from `turn-checkpoint.js` (`checkpointAcceptedTurn`), `run-history.js` (`queryRunHistory`), `run-events.js` (`readRunEvents`), `export.js` (`buildRunExport`) — all verified to exist. | PASS |
+| Error classification design | 5 typed error classes with distinct `code` properties. ProtocolError (generic state violations), NotFoundError (404 target + id), ValidationError (422), AuthorizationError (403 with role info), ConflictError (409 lock). HTTP server can deterministically map error.name → status code. | PASS |
+| State-provider seam annotations | Every bridge function has `@state-provider` JSDoc documenting: what state file it reads/writes, what the cloud replacement would be. Verified 8 distinct seam annotations: `readState`, `writeState`, `readHistory`, `readEvents`, `readDecisions`, `acquireLock`, and inline descriptions. | PASS |
+| Pagination implementation | Internal `paginate(items, cursor, limit)` helper: clamps limit to [1,100], parses cursor as integer index, returns `{data, cursor, has_more}`. Matches the `PaginatedList` schema in the OpenAPI spec exactly. | PASS |
+| `restartRun` OpenAPI design-only marker | Endpoint exists in spec at `/v1/runs/{run_id}/restart` with description clearly noting "the protocol layer does not yet expose a restartFromCheckpoint primitive; this endpoint is design-only until the protocol adds it." Bridge correctly omits the function. | PASS |
+| Vitest contract file count | `vitest-contract.test.js` asserts 668 test files. Test passes (11/11). | PASS |
+| No existing source files modified | Only new files created: `api/v1/control-plane.openapi.yaml`, `cli/src/lib/api/protocol-bridge.js`, `cli/test/control-plane-schema.test.js`. Vitest contract and package.json/lock updated as expected. | PASS |
 
 ## Section C: Regression Suites (QA-Verified)
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| step-crash-resume.test.js | 4 | PASS |
+| control-plane-schema.test.js | 7 | PASS |
 | vitest-contract.test.js | 11 | PASS |
-| agent-talk-word-cap.test.js | 8 | PASS |
-| **Full suite total (665 files)** | **7386** | **0 failures** |
+| governed-state.test.js | 99 | PASS |
+| runner-interface.test.js | 11 | PASS |
+| run-events.test.js | 13 | PASS |
+| **Targeted total (5 files)** | **141** | **0 failures** |
+
+Full suite deferred (running at time of this report; 668 test files, expected ~7400+ tests based on prior runs).
 
 ## Section D: Dev Challenge
 
-**Blocked-path guard ordering (DEC-001):** Dev placed `guardResumeWorkerLiveness()` **before** `reactivateGovernedRun()` at step.js:277, contradicting SYSTEM_SPEC §2.1 which says "after reactivation, before baseline refresh." QA independently reviewed both orderings and confirms dev's choice is correct: rejecting a resume when the worker is alive should not mutate the run from `blocked` to `active` as a side effect. The IMPLEMENTATION_NOTES.md documents this reasoning explicitly. **Accepted.**
+### DEC-001 (buildExportArtifact → buildRunExport): APPROVED
 
-**Test implementation pattern (DEC-002):** Dev tests the PID guard by mocking `dispatchLocalCli` and calling `stepCommand({resume:true})` directly, rather than exporting the private `guardResumeWorkerLiveness`. This follows the established test pattern for step.js and avoids coupling tests to internal helper structure. QA verified all 4 test cases exercise the guard through the real resume flow. **Accepted.**
+Dev correctly identified PM SYSTEM_SPEC §2.2 and §3.4 reference `buildExportArtifact` which does not exist. QA independently confirmed: `export.js:463` exports `buildRunExport(startDir, exportOpts)`. Bridge wraps the correct function. PM spec is inaccurate on this point.
 
-**Vitest contract update (DEC-003):** File count moved from 664 to 665, reflecting the new `step-crash-resume.test.js`. QA verified the count matches the actual filesystem: 665 `.test.js` files under `cli/test/`. **Accepted.**
+### DEC-002 (restartFromCheckpoint does not exist): APPROVED
+
+Dev correctly identified PM SYSTEM_SPEC §2.2 and §3.3 reference `restartFromCheckpoint` from `turn-checkpoint.js`. QA independently confirmed only `detectPendingCheckpoint` (line 304) and `checkpointAcceptedTurn` (line 344) are exported. No restart primitive exists in the protocol layer. Bridge correctly omits this function and the OpenAPI endpoint documents it as design-only. 15 exports (not PM's 16) is the correct count.
+
+### DEC-003 (test file placement): APPROVED
+
+Dev placed test at `cli/test/control-plane-schema.test.js` instead of PM-chartered `cli/test/api/control-plane-schema.test.js`. QA verified `vitest-contract.test.js` test-surface hygiene rule (line 108) only allows `fixtures` and `beta-tester-scenarios` directories in `cli/test/`. Dev's placement is correct — creating `api/` would fail hygiene.
+
+## Section E: QA Findings
+
+### OBJ-QA-001 (low): Dead import in protocol-bridge.js
+
+`evaluatePhaseExit` is imported at line 38 from `'../gate-evaluator.js'` but never referenced in any function body. This is a minor code hygiene issue with no runtime impact (tree-shaking will remove it in bundled contexts, and Node.js ESM silently imports it).
+
+### OBJ-QA-002 (medium): Dev overstated verification evidence
+
+Dev's turn result claims "248 total tests across 7 targeted test files pass" but QA found:
+- `turn-checkpoint.test.js` does not exist (no file in cli/test/ matching that name)
+- `export.test.js` does not exist (only `export-cli.test.js`, `export-delegation-summary.test.js`, etc.)
+- Actual count: 5 files, 141 tests
+
+Vitest silently skips non-existent files specified on the CLI. The dev likely did not notice the 2 missing files. This does not affect correctness of the deliverables (all 7 acceptance tests still pass independently) but inflates the dev's evidence claims.

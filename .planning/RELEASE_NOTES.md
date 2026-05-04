@@ -1,22 +1,37 @@
-# Release Notes
+# Release Notes — M8: Control Plane API Design
 
 ## User Impact
 
-This release hardens the `agentxchain step --resume` crash-recovery path with **PID liveness detection** and **stale dispatch-progress cleanup**, preventing duplicate worker dispatch and stale progress data after a killed mid-turn process.
+This release delivers the **machine-readable API contract** for the agentxchain.ai control plane, proving that the existing governed execution protocol is composable by an HTTP server without modification.
 
-- **PID liveness guard on resume:** When `step --resume` encounters an active or blocked turn with a recorded `worker_pid`, it now checks whether that process is still alive via `process.kill(pid, 0)`. If alive, the resume is rejected with a clear error ("Worker process (PID N) is still alive") and exit code 1, preventing duplicate dispatch of two workers on the same turn. If dead, the resume proceeds normally with crash-recovery logging.
+### What Was Delivered
 
-- **Stale dispatch-progress cleanup:** When crash recovery is detected (dead worker PID), the stale `dispatch-progress-{turnId}.json` file from the killed process is automatically deleted before re-dispatch. This ensures the new worker starts with a clean progress tracker, preventing stale `last_activity_at` and `output_lines` data from misleading the watchdog system.
+- **OpenAPI 3.1 Specification** (`api/v1/control-plane.openapi.yaml`): 29 operations across 6 resource groups (tenancy, runs, turns, approvals, audit, webhooks) with full request/response schemas, RBAC annotations (`x-required-role`), cursor-based pagination, typed error taxonomy (7 generic + 7 protocol-specific error codes), and 2 authentication schemes (API key, JWT bearer).
 
-- **Backwards compatible:** Turns without a recorded `worker_pid` (pre-existing state or manual adapter turns) are unaffected — resume proceeds as before with no liveness check.
+- **Protocol Bridge Module** (`cli/src/lib/api/protocol-bridge.js`): 15 exported functions wrapping `runner-interface.js` primitives for HTTP consumption, plus 5 typed error classes (`ProtocolError`, `NotFoundError`, `ValidationError`, `AuthorizationError`, `ConflictError`). Every filesystem operation is annotated with `@state-provider` seam documentation for future cloud storage replacement.
 
-- **Blocked-turn crash recovery:** The PID guard also covers the blocked-turn resume path. If a run was blocked with a retained turn from a crashed worker, `step --resume` now detects the dead PID, cleans dispatch-progress, reactivates the run, and re-dispatches the turn in one operation.
+- **Schema Compatibility Tests** (`cli/test/control-plane-schema.test.js`): 7 tests validating the API contract against protocol state shapes (Run ↔ state.json, Turn ↔ history.jsonl, Decision ↔ decision-ledger.jsonl), endpoint coverage (29 operations), bridge export completeness, and cloud-only field governance isolation.
+
+### Architecture Highlights
+
+- **No HTTP objects** in the bridge — pure protocol-to-protocol adapter. HTTP request/response mapping is the server's responsibility.
+- **Cursor-based pagination** on all list endpoints (no offset pagination — reliable with append-only event streams).
+- **Design-only restart endpoint** — the OpenAPI spec includes `POST /v1/runs/{run_id}/restart` for API completeness, but the protocol layer does not yet expose a restart primitive. The bridge will add it when the protocol does.
+- **12 component schemas** match protocol state shapes exactly — no cloud-only fields affect governance.
+
+### What This Enables (Future Work)
+
+This is the foundation for ROADMAP.md items :95-:98:
+- HTTP server implementation (wraps the bridge)
+- Cloud persistence layer (replaces `@state-provider` seams)
+- Dashboard UI (consumes the API)
+- Execution plane workers (use the API for run management)
 
 ## Verification Summary
 
-- Full suite: 665 test files, 7386 tests, 0 failures — independently run to completion by QA
-- Targeted crash-resume tests: 4/4 pass (active crash recovery, alive-PID rejection, no-PID backwards compat, blocked-turn crash recovery)
-- Vitest contract + crash-resume combined: 15/15 pass
-- AGENT-TALK guard tests: 8/8 pass
+- All 7 AT-CP-SCHEMA acceptance tests pass (independently verified by QA)
+- Vitest contract: 11/11 pass (file count = 668)
+- Targeted protocol regression suite: 141 tests across 5 files, 0 failures
 - No whitespace issues (`git diff --check` clean)
-- ROADMAP.md M4 item "Improve checkpoint-restore" checked off with run evidence
+- OpenAPI operation count independently verified: 29
+- Protocol bridge imports verified against runner-interface.js, turn-checkpoint.js, run-history.js, run-events.js, gate-evaluator.js, export.js — all exist

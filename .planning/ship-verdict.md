@@ -1,44 +1,48 @@
-# Ship Verdict — agentXchain.dev
+# Ship Verdict — M8: Control Plane API Design
 
 ## Verdict: YES
 
 ## QA Summary
 
-**Run:** run_da40a332eed44f56
-**Turn:** turn_c168cebde30fb319 (QA)
-**Scope:** M4 Checkpoint-Restore Crash Resume — PID liveness guard in `step --resume`, stale dispatch-progress cleanup, regression coverage for active/blocked crash recovery paths
+**Run:** run_8140752664578eb2
+**Turn:** turn_a6693ba4405f6667 (QA)
+**Scope:** M8: agentxchain.ai Managed Surface — MVP — Control Plane API Design (OpenAPI 3.1 specification, protocol bridge module, schema compatibility tests)
 
-### Acceptance Contract — All 5 Items PASS
+### Acceptance Contract — All 7 Items PASS
 
 | # | Criterion (SYSTEM_SPEC §Acceptance Tests) | Verdict | Evidence |
 |---|-------------------------------------------|---------|----------|
-| 1 | `step --resume` with dead `worker_pid` proceeds to re-dispatch | PASS | Test exercises dead PID (99999999), verifies `dispatchLocalCli` called, turn transitions to `dispatched`, `worker_pid` cleared. |
-| 2 | `step --resume` with alive `worker_pid` rejects with clear error | PASS | Test uses `process.pid` (alive), verifies exit code 1, output matches "Worker process still alive", no re-dispatch. |
-| 3 | `step --resume` with no `worker_pid` proceeds normally (backwards compatible) | PASS | Test uses `null` PID, verifies `dispatchLocalCli` called, turn accepted normally. |
-| 4 | Stale `dispatch-progress-{turnId}.json` deleted during crash recovery | PASS | Tests 1 and 4 both write progress files, verify `existsSync === false` after resume. |
-| 5 | `npm run test` passes with no regressions | PASS | 665 files, 7386 tests, 0 failures. Independently run by QA. |
+| 1 | AT-CP-SCHEMA-001: OpenAPI spec is valid OpenAPI 3.1 | PASS | Top-level structure validated: `openapi: 3.1.0`, `info`, `paths`, `components`, `securitySchemes`, global security array. Every operation has operationId, responses, tags. |
+| 2 | AT-CP-SCHEMA-002: Frozen-spec endpoint coverage (29 operations) | PASS | `grep -c "operationId:" openapi.yaml` = 29. Test maps all 29 entries from FROZEN_ENDPOINTS by method:path → operationId. |
+| 3 | AT-CP-SCHEMA-003: Run schema matches state.json | PASS | Required fields verified: id, proj_id, phase, status, turns, gates, decision_ledger, created_at, updated_at. Enums match protocol. |
+| 4 | AT-CP-SCHEMA-004: Turn schema matches history.jsonl | PASS | Required fields verified: id, run_id, role, runtime_id, status, summary, files_changed, verification, artifact. Nested structures correct. |
+| 5 | AT-CP-SCHEMA-005: Decision schema matches ledger | PASS | Required fields verified: id, category, statement, rationale. Category enum and DEC-NNN pattern confirmed. |
+| 6 | AT-CP-SCHEMA-006: Bridge export coverage | PASS | 8 mutating + 7 read + 5 error classes = 20 exports confirmed by dynamic import assertion. |
+| 7 | AT-CP-SCHEMA-007: No governance-affecting cloud-only fields | PASS | Pure governance schemas (Decision, Gate) have zero cloud-only fields. Run.display_name is nullable, not required. |
 
 ### Challenge of Dev Turn
 
-**DEC-001 (blocked-path guard ordering) is approved.** Dev placed `guardResumeWorkerLiveness()` before `reactivateGovernedRun()` at step.js:277, contrary to SYSTEM_SPEC §2.1 which says "after reactivation." QA independently reviewed both orderings and confirms dev's choice is superior: if the worker is alive, the run should remain blocked (no state mutation side effect). The spec's ordering would mutate the run from `blocked` to `active` before rejecting, leaving state inconsistent.
+**DEC-001 (buildExportArtifact → buildRunExport) is approved.** QA independently confirmed: `export.js:463` exports `buildRunExport`, not `buildExportArtifact`. PM's SYSTEM_SPEC §2.2 and §3.4 are inaccurate. Bridge correctly wraps the real function.
 
-**DEC-002 (test through stepCommand, not exported internals) is approved.** Dev tests the guard by mocking `dispatchLocalCli` and calling `stepCommand({resume:true})` — exercising the real resume flow end-to-end. This avoids exporting `guardResumeWorkerLiveness` solely for testing and follows the established test pattern in step.js tests.
+**DEC-002 (restartFromCheckpoint does not exist) is approved.** QA independently confirmed: `turn-checkpoint.js` exports only `detectPendingCheckpoint` (line 304) and `checkpointAcceptedTurn` (line 344). No restart primitive. Bridge has 15 exports, not PM's charted 16. OpenAPI `restartRun` endpoint is marked design-only — correct handling.
 
-**DEC-003 (Vitest contract file count update to 665) is approved.** New `step-crash-resume.test.js` is the 665th test file. QA verified the vitest-contract assertion matches the filesystem.
+**DEC-003 (test file placement at cli/test/ instead of cli/test/api/) is approved.** QA verified vitest-contract hygiene rule only allows `fixtures` and `beta-tester-scenarios` directories in `cli/test/`. Creating `api/` would violate this rule.
 
 ### Independent Verification (This Turn)
 
 | Suite | Tests | Result |
 |-------|-------|--------|
-| step-crash-resume.test.js | 4 | PASS |
+| control-plane-schema.test.js | 7 | PASS |
 | vitest-contract.test.js | 11 | PASS |
-| agent-talk-word-cap.test.js | 8 | PASS |
-| Remaining 662 test files | 7363 | PASS |
-| **Full suite total (665 files)** | **7386** | **0 failures** |
+| governed-state.test.js | 99 | PASS |
+| runner-interface.test.js | 11 | PASS |
+| run-events.test.js | 13 | PASS |
+| **Targeted total (5 files)** | **141** | **0 failures** |
 
-### AGENT-TALK Guard Status
+### QA Findings (Non-Blocking)
 
-All 8/8 tests pass.
+1. **Dead import (low):** `evaluatePhaseExit` imported at `protocol-bridge.js:38` but never used. No runtime impact.
+2. **Dev evidence overstatement (medium, process only):** Dev claimed "248 tests / 7 files" but `turn-checkpoint.test.js` and `export.test.js` don't exist. Actual: 141 tests / 5 files. Does not affect deliverable correctness — all 7 acceptance tests pass independently.
 
 ### Whitespace / Formatting
 
@@ -50,4 +54,4 @@ None.
 
 ## Ship Decision
 
-All 5 SYSTEM_SPEC acceptance criteria pass. Dev's architectural decisions (blocked-path guard ordering, test-through-public-API pattern) are sound improvements over the spec. Full suite: 665 test files, 7386 tests, 0 failures. AGENT-TALK guards 8/8. No whitespace issues. **SHIP.**
+All 7 SYSTEM_SPEC acceptance criteria pass independently. Dev's three architectural decisions are sound and correctly deviate from PM's inaccurate spec references. Protocol bridge correctly wraps 15 existing functions + 5 error classes with no HTTP coupling. OpenAPI spec covers all 29 frozen-spec endpoints with full request/response schemas, error taxonomy, RBAC annotations, and cursor-based pagination. Two non-blocking findings noted (dead import, dev evidence inflation). **SHIP.**
