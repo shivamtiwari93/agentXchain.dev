@@ -1,68 +1,51 @@
-# Implementation Notes — M9: CI Pipeline Integration
+# Implementation Notes — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix
 
-**Run:** `run_685ea79f49acd469`
-**Turn:** `turn_2eefd464a8c77ea7`
+**Run:** `run_5e7a4020b052bc68`
+**Turn:** `turn_fb61d81381433de5` (verification & artifact completion)
+**Prior Turn:** `turn_7f509cddfd9d064b` (code delivery)
 **Role:** dev
 **Date:** 2026-05-04
 
 ## What Was Built
 
-Delivered the CI Pipeline Integration feature (M9): a CI reporter module with provider detection (GitHub Actions, GitLab CI, generic), GitHub Actions annotations, GitHub output variables, JUnit XML formatting, exit code derivation, and a new `agentxchain ci-report` CLI command. This closes the CI gap in the VISION.md:18 integrations pillar.
+Fixed BUG-78: when a review-only role completes a valid no-edit turn emitting `artifact.type: "workspace"` with `files_changed: []`, the turn-result validator's Rule 0a now auto-normalizes `workspace` → `review` for completed turns. Previously this only fired for `needs_human` status or explicit no-edit lifecycle signals, leaving completed no-edit turns stuck at Stage C validation with no auto-recovery path.
 
-Two new source files, one modified file, one new test file, vitest contract bumped from 673 to 674.
+This is a one-line condition expansion plus 6 regression tests — the last gap blocking the DOGFOOD-100-TURNS credibility gate.
 
 ## Changes
 
-**`cli/src/lib/ci-reporter.js`** — New (5 exported functions):
-- `detectCIEnvironment()`: detects GitHub Actions (GITHUB_ACTIONS=true), GitLab CI (GITLAB_CI=true), generic (CI=true), or null. Priority: GitHub → GitLab → generic. Returns provider, run_url, run_id, ref, sha.
-- `formatGitHubAnnotations(report)`: converts governance report into `::notice`/`::warning`/`::error` workflow commands. Includes overall status, per-gate annotations, decision annotations (capped at 20), and blocked-on annotation.
-- `writeGitHubOutputVars(report, outputPath)`: writes key=value pairs (run_status, run_id, phase, blocked, turn_count, decision_count) to $GITHUB_OUTPUT file.
-- `formatJUnitXml(report)`: generates JUnit 4 XML with Gates testsuite (gates→testcases) and Turns testsuite (turns→testcases). Unsatisfied gates and failed/blocked turns get `<failure>` elements. XML special characters escaped.
-- `deriveCIExitCode(report)`: returns 0 (pass), 1 (fail), or 2 (error/other).
+**`cli/src/lib/turn-result-validator.js`** — Modified (1 line added):
+- Rule 0a condition block (line 1527): added `|| normalized.status === 'completed'` to the normalization trigger conditions. This allows completed turns with empty `files_changed` and no checkpointable produced files to auto-normalize from `workspace` to `review`.
 
-**`cli/src/commands/ci-report.js`** — New (1 exported command function):
-- `ciReportCommand(options)`: builds governance report from current project (via buildRunExport→buildGovernanceReport) or from an export artifact (via loadExportArtifact→buildGovernanceReport). Auto-detects CI provider or uses --format override. Emits formatted output to stdout. Writes output vars to $GITHUB_OUTPUT when in github-actions format. Sets process.exitCode via deriveCIExitCode.
+**`cli/test/bug-78-no-edit-review.test.js`** — New (6 tests):
+- AT-WK-001: Completed workspace + empty files_changed normalizes to review
+- AT-WK-002: Completed workspace + non-empty files_changed is NOT normalized (files guard)
+- AT-WK-003: Failed workspace + empty files_changed is NOT normalized (status guard)
+- AT-WK-004: Blocked workspace + empty files_changed is NOT normalized (status guard)
+- AT-WK-005: Completed workspace + empty files + checkpointable produced_files is NOT normalized (produced_files guard)
+- AT-WK-006: Full validation pipeline — completed no-edit QA turn passes Stage C after normalization
 
-**`cli/bin/agentxchain.js`** — Modified (+1 import, +1 command block):
-- Import: added `ciReportCommand` from `../src/commands/ci-report.js` (after reportCommand import)
-- Command: registered `ci-report` command with `--input` and `--format` options (after report command block)
+**`cli/test/turn-result-validator.test.js`** — Modified (2 existing tests updated):
+- "rejects review_only role with non-review artifact type" — changed `status: 'completed'` to `status: 'blocked'` so the BUG-78 normalization doesn't fire and Stage C coverage is preserved
+- "rejects authoritative workspace artifact with no files_changed" — same status change for the same reason
 
-**`cli/test/ci-reporter.test.js`** — New (12 tests):
-- AT-CI-001: detectCIEnvironment returns github_actions when GITHUB_ACTIONS=true
-- AT-CI-002: detectCIEnvironment returns gitlab_ci when GITLAB_CI=true
-- AT-CI-003: detectCIEnvironment returns generic when only CI=true
-- AT-CI-004: detectCIEnvironment returns null outside CI
-- AT-CI-005: formatGitHubAnnotations emits ::notice for passing run
-- AT-CI-006: formatGitHubAnnotations emits ::error for failing run
-- AT-CI-007: formatGitHubAnnotations includes gate-level annotations
-- AT-CI-008: writeGitHubOutputVars writes key=value pairs to file
-- AT-CI-009: formatJUnitXml produces valid XML with testsuites and testcases
-- AT-CI-010: formatJUnitXml maps failed gates to failure elements
-- AT-CI-011: deriveCIExitCode returns 0 for pass, 1 for fail, 2 for error
-- AT-CI-012: ci-report functions produce correct output and exit code for a report
+## Challenges to Prior Turn
 
-**`cli/test/vitest-contract.test.js`** — Modified:
-- File count bumped from 673 to 674
-
-## Challenges to PM Spec
-
-No material deviations from PM spec. All function signatures, command options, JUnit XML mapping rules, and test case specifications matched the actual codebase and report shape exactly. The PM correctly identified:
-- The report shape (`report.subject.run.*` fields including gate_summary, turns, decisions, blocked_on)
-- The `buildRunExport` return shape (`{ ok, export }`) and `buildGovernanceReport` call pattern
-- The import and command registration insertion points in agentxchain.js
-- The vitest contract file count (673→674)
+The prior dev turn (turn_7f509cddfd9d064b) delivered correct code and all 6 regression tests pass. However, it did not update `.planning/IMPLEMENTATION_NOTES.md` — the file still described run_685ea79f49acd469 (M9: CI Pipeline Integration). This turn rewrites it for the current run.
 
 ## Verification
 
-1. **ci-reporter tests**: `npx vitest run test/ci-reporter.test.js` — 12/12 pass
-2. **Vitest contract**: `npx vitest run test/vitest-contract.test.js` — 11/11 pass (674 files counted)
-3. **ci-report command registration**: `node cli/bin/agentxchain.js ci-report --help` — shows correct usage, options, and defaults
-4. **Full test suite**: `cd cli && npm test` — all tests pass
+1. **BUG-78 regression tests**: `cd cli && npx vitest run test/bug-78-no-edit-review.test.js` — 6/6 pass
+2. **Validator + gate test suites**: `cd cli && npx vitest run test/turn-result-validator.test.js test/workflow-gate-semantics.test.js test/gate-evaluator.test.js` — 152/152 pass across 2 suites
+3. **Total**: 158 tests, 0 failures
 
 ## Architecture Invariants Maintained
 
-1. **No new state reading**: ci-reporter.js does not import config.js, governed-state.js, or any state reader. It consumes the governance report object from buildGovernanceReport().
-2. **No modifications to existing modules**: report.js, export.js, export-verifier.js remain untouched.
-3. **Pure functions**: formatGitHubAnnotations, formatJUnitXml, deriveCIExitCode are pure. Only writeGitHubOutputVars has a side effect (file append) and detectCIEnvironment reads env vars.
-4. **Standard output formats**: GitHub Actions annotations use documented ::command:: syntax. JUnit XML follows JUnit 4 schema.
-5. **Exit code contract**: 0=pass, 1=fail, 2=error.
+1. **No new imports** — Fix is one condition line in an existing if-block
+2. **No behavioral change for turns with files_changed** — Only empty-files_changed turns affected (AT-WK-002)
+3. **No behavioral change for non-completed turns** — Only `status === 'completed'` triggers (AT-WK-003, AT-WK-004)
+4. **Normalization is auditable** — Existing `normalizationEvents` array records the correction (AT-WK-001)
+5. **Stage C remains the safety net** — Non-normalized turns still fail Stage C validation
+6. **Stage C workspace-empty guard (line 696-707)** — Still rejects `workspace` with empty `files_changed` when normalization didn't fire
+7. **Review→workspace guard (line 716-728)** — Still rejects `artifact.type: "review"` with non-empty product file changes
+8. **Implementation-phase product-code guard (line 733-739)** — Still requires product code changes for implementation completion
