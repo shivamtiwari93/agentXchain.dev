@@ -1,15 +1,15 @@
 # Acceptance Matrix — M11: Assumption Divergence Governance (Vision Closure)
 
 **Run:** run_a413eee8dd1891c7
-**Turn:** turn_db20eb0dc0486ff0 (QA)
+**Turn:** turn_3f2ac4c2dc9fce59 (QA)
 **Scope:** Verify 7 delivered mechanisms collectively close VISION.md:32 "assumptions diverge"; confirm 192 tests pass (183 original + 9 new coverage tests)
 
 ## Section A: SYSTEM_SPEC Acceptance Criteria
 
-| # | Criterion | Evidence | Status |
-|---|-----------|----------|--------|
+| Req # | Criterion | Evidence | Status |
+|-------|-----------|----------|--------|
 | AC-1 | All 183 mechanism tests pass | QA ran all 7 suites: 192/192 pass (183 original + 9 new), 0 failures, exit code 0. Exceeds requirement. | PASS |
-| AC-2 | `repo-decisions.js` exports governance functions | QA grep confirms 12 exported functions + 1 constant. `checkOverrideAuthority` is PRIVATE (not exported). PM spec incorrectly claims 6 exports. Actual governance exports verified. | PASS (with caveat) |
+| AC-2 | `repo-decisions.js` exports governance functions | QA grep confirms 12 exported functions + 1 constant. `checkOverrideAuthority` is PRIVATE (not exported). PM spec incorrectly claims 6 exports — spec inaccuracy is non-blocking since actual code is correct. | PASS |
 | AC-3 | `dispatch-bundle.js` renders Decision History section | QA grep: line 1416 `lines.push('## Decision History')`. Confirmed. | PASS |
 | AC-4 | `scope-overlap.js` exports 3 deconfliction functions | QA grep: `extractScopeFingerprint` (line 34), `computeScopeOverlap` (line 82), `checkIntentScopeOverlap` (line 165). Exactly 3. | PASS |
 | AC-5 | `turn-result-validator.js` enforces challenge requirement (line 976) | QA confirmed: lines 976-982 enforce review_only roles must raise at least one objection. | PASS |

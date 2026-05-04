@@ -1,7 +1,7 @@
 # Ship Verdict — M11: Assumption Divergence Governance (Vision Closure)
 
 **Run:** run_a413eee8dd1891c7
-**Turn:** turn_db20eb0dc0486ff0 (QA)
+**Turn:** turn_3f2ac4c2dc9fce59 (QA)
 **Date:** 2026-05-04
 
 ## Verdict: YES

@@ -1,6 +1,7 @@
 # Release Notes — M11: Assumption Divergence Governance (Vision Closure)
 
 **Run:** run_a413eee8dd1891c7
+**Turn:** turn_3f2ac4c2dc9fce59 (QA)
 **Date:** 2026-05-04
 
 ## Summary
