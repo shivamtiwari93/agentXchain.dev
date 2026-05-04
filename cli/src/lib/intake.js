@@ -28,6 +28,7 @@ import {
   derivePhaseScopeFromIntentMetadata,
   getPhaseOrder,
 } from './intent-phase-scope.js';
+import { checkIntentScopeOverlap } from './scope-overlap.js';
 
 const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule', 'vision_scan', 'vision_idle_expansion'];
 const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
@@ -884,6 +885,25 @@ export function approveIntent(root, intentId, options = {}) {
 
   if (intent.status !== 'triaged' && intent.status !== 'blocked') {
     return { ok: false, error: `cannot approve from status "${intent.status}" (must be triaged or blocked)`, exitCode: 1 };
+  }
+
+  // --- Scope overlap guard (M10) ---
+  if (!options.forceScope) {
+    const charterText = intent.charter || '';
+    const acceptanceItems = Array.isArray(intent.acceptance_contract) ? intent.acceptance_contract : [];
+    if (charterText) {
+      const overlapCheck = checkIntentScopeOverlap(root, charterText, acceptanceItems, {
+        threshold: options.scopeOverlapThreshold ?? 0.4,
+      });
+      if (overlapCheck.overlapping) {
+        return {
+          ok: false,
+          error: 'scope_overlap_detected',
+          overlap: overlapCheck,
+          exitCode: 3,
+        };
+      }
+    }
   }
 
   const approver = options.approver || 'operator';

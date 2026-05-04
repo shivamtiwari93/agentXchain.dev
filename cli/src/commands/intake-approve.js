@@ -18,6 +18,7 @@ export async function intakeApproveCommand(opts) {
   const result = approveIntent(root, opts.intent, {
     approver: opts.approver || undefined,
     reason: opts.reason || undefined,
+    forceScope: opts.forceScope || false,
   });
 
   if (opts.json) {

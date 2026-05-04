@@ -1041,6 +1041,7 @@ intakeCmd
   .option('--intent <id>', 'Intent ID to approve')
   .option('--approver <name>', 'Name of the approving authority', 'operator')
   .option('--reason <text>', 'Reason for approval')
+  .option('--force-scope', 'Bypass scope overlap guard')
   .option('-j, --json', 'Output as JSON')
   .action(intakeApproveCommand);
 

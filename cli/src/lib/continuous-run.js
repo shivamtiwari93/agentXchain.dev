@@ -1326,6 +1326,9 @@ export function seedFromVision(root, visionPath, options = {}) {
         reason: 'roadmap-open-work auto-approval',
       });
       if (!approveResult.ok) {
+        if (approveResult.error === 'scope_overlap_detected') {
+          return { ok: true, idle: true, deferred_reason: 'scope_overlap', overlap: approveResult.overlap };
+        }
         return { ok: false, error: `approve failed: ${approveResult.error}` };
       }
     }
@@ -1401,6 +1404,9 @@ export function seedFromVision(root, visionPath, options = {}) {
         reason: 'roadmap-replenishment auto-approval (BUG-77)',
       });
       if (!approveResult.ok) {
+        if (approveResult.error === 'scope_overlap_detected') {
+          return { ok: true, idle: true, deferred_reason: 'scope_overlap', overlap: approveResult.overlap };
+        }
         return { ok: false, error: `approve failed: ${approveResult.error}` };
       }
     }
@@ -1484,6 +1490,9 @@ export function seedFromVision(root, visionPath, options = {}) {
       reason: 'vision-derived auto-approval',
     });
     if (!approveResult.ok) {
+      if (approveResult.error === 'scope_overlap_detected') {
+        return { ok: true, idle: true, deferred_reason: 'scope_overlap', overlap: approveResult.overlap };
+      }
       return { ok: false, error: `approve failed: ${approveResult.error}` };
     }
   }
