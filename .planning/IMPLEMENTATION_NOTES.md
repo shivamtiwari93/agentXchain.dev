@@ -9,7 +9,7 @@
 
 Added Codex and Cursor governed turn E2E tests to `connector-validate-command.test.js`, completing per-connector E2E coverage for all three `local_cli` connector flavors.
 
-### Changes
+## Changes
 
 **`cli/test/connector-validate-command.test.js`** — 2 new shim helpers + 2 new E2E tests:
 
@@ -41,3 +41,33 @@ Added Codex and Cursor governed turn E2E tests to `connector-validate-command.te
 | `vitest-contract.test.js` | 11 | All pass |
 
 Full suite deferred to QA.
+
+## QA Verification (turn_d9ed8684dd317bb7)
+
+**Role:** qa | **Runtime:** local-opus-4.6 | **Date:** 2026-05-04
+
+### Gate Fix
+
+Dev used `### Changes` (h3) but `workflow-gate-semantics.js:210` requires `## Changes` (h2). Fixed heading level to satisfy `implementation_complete` gate.
+
+### Targeted Test Evidence
+
+| Test File | Tests | Result |
+|-----------|-------|--------|
+| `connector-validate-command.test.js` | 12 | 12/12 pass |
+| `vitest-contract.test.js` | 11 | 11/11 pass |
+| `connector-validate.test.js` + `connector-probe.test.js` + `local-cli-adapter.test.js` | 49 | 49/49 pass |
+| `cursor-connector.test.js` | 14 | 14/14 pass |
+| `turn-result-validator.test.js` + `governed-state.test.js` + `step-command.test.js` | 233 | 233/233 pass |
+| `workflow-gate-semantics.test.js` | 52 | 52/52 pass |
+| `run-events.test.js` + `continuous-run.test.js` | 103 | 103/103 pass |
+| **Total** | **474** | **474/474 pass** |
+
+### Acceptance Criteria Verified
+
+- [x] Codex shim binary completes a governed turn through `connector validate` with `overall: 'pass'` (AT-CCV-009)
+- [x] Cursor shim binary completes a governed turn through `connector validate` with `overall: 'pass'` (AT-CCV-010)
+- [x] Claude E2E (AT-CCV-007) still passes (regression)
+- [x] All existing connector validate tests pass (regression, 12/12)
+- [x] Vitest contract passes (file count unchanged, 11/11)
+- [x] All 7 assertion checklist items per test verified (exit code, overall, schema_contract, dispatch, validation, runtime_id, role_id)
