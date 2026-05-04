@@ -1,79 +1,68 @@
-# Implementation Notes — M8: Persistent Run History and Governance Audit Trail
+# Implementation Notes — M7: Windsurf & OpenCode Connector Expansion
 
-**Run:** `run_b2a4084d6b3fe3b3`
-**Turn:** `turn_f38c631f9df22e69`
+**Run:** `run_0db6a75ab239c3a3`
+**Turn:** `turn_0fdb3c19283854fc`
 **Role:** dev
 **Date:** 2026-05-04
 
 ## What Was Built
 
-Delivered persistent cross-project run history and a unified governance audit trail for the agentxchain.ai managed surface. Two new aggregator methods read full-fidelity run-history.jsonl records and merge governance events from 3 JSONL sources (decision-ledger, hook-audit, events) across all registered projects. Two new hosted runner routes expose these as paginated APIs. Two new dashboard components render the data with filtering support. This is ROADMAP.md:97.
+Delivered Windsurf IDE and OpenCode CLI connectors to the local_cli adapter stack, completing the M7 Connector Ecosystem Expansion milestone (ROADMAP.md:88-91). Both connectors follow the proven Cursor pattern: binary detection function, command validation rule, connector-probe registration, doctor annotation, and dedicated regression test file. Also fixed the Cursor gap in connector-probe.js (missing from KNOWN_CLI_AUTHORITY_FLAGS and KNOWN_CLI_TRANSPORTS).
 
-Three new files, four modified files, one test file, vitest contract bumped from 670 to 671.
+Four modified files, two new test files, vitest contract bumped from 671 to 673.
 
 ## Changes
 
-**`cli/src/lib/api/org-state-aggregator.js`** — Modified to add 2 new methods + helpers:
-- `getRunHistory(query)`: reads `run-history.jsonl` from all registered projects, tags each record with `project_id`/`project_name` from registry, supports `?status` and `?project` filters, sorts by `completed_at` descending, returns `{ data, total }` for pagination
-- `getAuditTrail(query)`: merges governance events from 3 JSONL sources per project — `decision-ledger.jsonl` (9 governance decision types), `hook-audit.jsonl` (block/warn verdicts only), `events.jsonl` (8 governance event types) — normalizes to unified AuditEvent shape with `classifySeverity()`, supports `?severity`/`?project`/`?source`/`?event_type` filters, returns `{ data, total }`
-- Helper functions: `classifySeverity()`, `buildDecisionSummary()`, `buildEventSummary()`
-- Updated return from `{ getOverview, getRuns, getDecisions }` to `{ getOverview, getRuns, getDecisions, getRunHistory, getAuditTrail }`
+**`cli/src/lib/claude-local-auth.js`** — Modified to add 2 detection functions:
+- `isWindsurfLocalCliRuntime(runtime)`: detects 'windsurf' binary (bare or absolute path) via normalizeCommandTokens
+- `isOpenCodeLocalCliRuntime(runtime)`: detects 'opencode' binary (bare or absolute path) via normalizeCommandTokens
+- Both follow exact `isCursorLocalCliRuntime` pattern: normalize tokens → check head → return boolean
 
-**`cli/src/lib/api/hosted-runner.js`** — Modified (2 new routes):
-- `GET /v1/org/history` → `aggregator.getRunHistory(query)` → 200
-- `GET /v1/org/audit-trail` → `aggregator.getAuditTrail(query)` → 200
-- Inserted after existing `/v1/org/decisions` route; no existing routes changed
+**`cli/src/lib/adapters/local-cli-adapter.js`** — Modified (2 new validation rules + import updates):
+- Import: added `isWindsurfLocalCliRuntime`, `isOpenCodeLocalCliRuntime` from claude-local-auth.js
+- `windsurf_requires_agent_mode`: rejects windsurf command without `--agent` flag
+- `opencode_requires_non_interactive`: rejects opencode command without `--non-interactive` flag
+- Both rules return `{ ok: false, error_class: 'local_cli_command_incompatible' }` matching existing error contract
+- Validation order: Claude → Codex → Cursor → Windsurf → OpenCode → ok
 
-**`cli/dashboard/components/org-history.js`** — New org-level run history component:
-- Renders full-fidelity run cards with run ID, project name, status badge, duration, cost, phases (joined with →), retrospective headline, gate results (✓/pending)
-- Summary banner with total count and completed/blocked badges
-- Follows run-history.js patterns: `esc()`, `badge()`, `statusBadge()`, `formatDuration()`, `formatCost()`
+**`cli/src/lib/connector-probe.js`** — Modified (3 new KNOWN_CLI_AUTHORITY_FLAGS entries + 3 new KNOWN_CLI_TRANSPORTS entries):
+- KNOWN_CLI_AUTHORITY_FLAGS: added cursor (`--background-agent`), windsurf (`--agent`), opencode (`--non-interactive`) — cursor was a gap fix from original delivery
+- KNOWN_CLI_TRANSPORTS: added cursor (`dispatch_bundle_only`), windsurf (`dispatch_bundle_only`), opencode (`stdin`) — cursor was a gap fix
 
-**`cli/dashboard/components/org-audit-trail.js`** — New governance audit trail component:
-- Renders chronological event timeline with severity-colored left borders (red=high, yellow=medium, dim=low)
-- Filter bar with 3 dropdowns: Project, Severity, Source (client-side filtering matching ledger.js patterns)
-- Each event card shows severity badge, event_type badge, project name, timestamp, summary, and context (phase/role/run_id)
-- Follows ledger.js/hooks.js patterns: `.filter-bar`, `.filter-control`, `esc()`, `.badge`
+**`cli/src/commands/doctor.js`** — Modified (2 new detection branches + import updates):
+- Import: added `isWindsurfLocalCliRuntime`, `isOpenCodeLocalCliRuntime`
+- `checkRuntimeReachable()`: added Windsurf → "(Windsurf IDE local_cli connector)" and OpenCode → "(OpenCode local_cli connector)" branches after Cursor, before Claude auth probe
 
-**`cli/dashboard/app.js`** — Modified:
-- 2 new imports: `renderOrgHistory`, `renderOrgAuditTrail`
-- 2 new VIEWS entries: `org-history`, `org-audit-trail`
-- 2 new API_MAP entries: `orgHistory: '/v1/org/history'`, `orgAuditTrail: '/v1/org/audit-trail'`
-- 1 new viewState entry for `org-audit-trail` filters
-- `buildRenderData()` updated to pass filter for `org-audit-trail` view
-- `change` event handler updated for audit trail filter controls
+**`cli/test/windsurf-connector.test.js`** — New (14 tests):
+- 7 binary detection tests (WS-DET-001 through WS-DET-007)
+- 6 command validation tests (WS-VAL-001 through WS-VAL-006)
+- 1 config roundtrip test (WS-CFG-001)
 
-**`cli/dashboard/index.html`** — Modified (2 lines):
-- 2 new nav links: "Org History" and "Audit Trail" inserted after "Org Runs"
-
-**`cli/test/org-history-audit.test.js`** — New integration tests (8 tests):
-- AT-HA-001 through AT-HA-008 covering run history attribution, full-fidelity fields, status filter, decision-ledger events, hook block/warn events, lifecycle governance events, severity filter, multi-project aggregation
+**`cli/test/opencode-connector.test.js`** — New (14 tests):
+- 7 binary detection tests (OC-DET-001 through OC-DET-007)
+- 6 command validation tests (OC-VAL-001 through OC-VAL-006)
+- 1 config roundtrip test (OC-CFG-001)
 
 **`cli/test/vitest-contract.test.js`** — Modified:
-- File count bumped from 670 to 671
+- File count bumped from 671 to 673
 
 ## Challenges to PM Spec
 
-1. **PM spec `classifySeverity` omits `hook_block` from high severity list** — SYSTEM_SPEC §2.1.4 lists `run_blocked`, `timeout_run_level`, `policy_escalation` as high severity but omits `hook_block`. However, §2.1.3 maps `verdict === 'block'` to severity: high explicitly. Included `hook_block` in the high severity classification to match the §2.1.3 spec and the `event_type` assigned to block verdicts.
-
-2. **PM spec test assertions use `project_name` for multi-project identification** — AT-HA-008 in SYSTEM_SPEC expects filtering by `project_name` to identify records from different projects. However, the project registry uses `basename(dir)` as project name, not the config's `project.name`. Tests use `run_id` and `event_type` to identify records from each project instead, which is more reliable.
-
-3. **PM spec §2.1.2 `classifySeverity` omits `hook_warn` and `budget_exceeded_warn`** — SYSTEM_SPEC §2.1.4 lists medium-severity events but omits `hook_warn` and `budget_exceeded_warn`. These are clearly medium severity (attention-worthy but not blocking). Added to the medium severity classification.
+No material deviations from PM spec. All line numbers, function signatures, error contracts, and test case specifications matched the actual codebase. The PM correctly identified the Cursor gap in connector-probe.js and all 4 insertion points across the production files.
 
 ## Verification
 
-1. **New integration tests**: `npx vitest run test/org-history-audit.test.js` — 8/8 pass (AT-HA-001 through AT-HA-008)
-2. **Org dashboard tests**: `npx vitest run test/org-dashboard.test.js` — 8/8 pass (no regressions)
-3. **Hosted runner tests**: `npx vitest run test/hosted-runner.test.js` — 11/11 pass (no regressions)
-4. **Vitest contract**: `npx vitest run test/vitest-contract.test.js` — 11/11 pass (671 files counted)
-5. **Dashboard bridge tests**: `npx vitest run test/dashboard-bridge.test.js` — 87/87 pass (no regressions)
-6. **Control plane schema tests**: `npx vitest run test/control-plane-schema.test.js` — 7/7 pass (no regressions)
+1. **Windsurf connector tests**: `npx vitest run test/windsurf-connector.test.js` — 14/14 pass
+2. **OpenCode connector tests**: `npx vitest run test/opencode-connector.test.js` — 14/14 pass
+3. **Cursor connector regression**: `npx vitest run test/cursor-connector.test.js` — 14/14 pass (no regressions)
+4. **Vitest contract**: `npx vitest run test/vitest-contract.test.js` — 11/11 pass (673 files counted)
+5. **Full test suite**: `cd cli && npm test` — all tests pass
 
 ## Architecture Invariants Maintained
 
-1. **No writer changes**: All JSONL writers (run-history.js, governed-state.js, hook-runner.js, run-events.js) are untouched — this deliverable adds read-only aggregation only
-2. **Zero new dependencies**: All modules use node:path and the existing `readJsonlFile` from state-reader.js
-3. **Aggregation isolation**: A single project's JSONL read failure does not break the audit trail or history — failed projects are skipped silently (same pattern as existing `getRuns()`)
-4. **Existing routes untouched**: All 24 existing hosted runner routes remain identical; new routes use distinct paths (`/v1/org/history`, `/v1/org/audit-trail`)
-5. **Selective event inclusion**: Not all events.jsonl entries appear in the audit trail — only 8 governance-relevant types are included, filtering out routine lifecycle noise (turn_dispatched, etc.)
-6. **Pagination support**: Both new endpoints return `{ data, total }` enabling dashboard pagination
+1. **No new runtime types**: Windsurf and OpenCode are `local_cli` connectors; `VALID_RUNTIME_TYPES` unchanged
+2. **No new modules**: All changes are additions to existing modules following established patterns
+3. **No adapter dispatch changes**: `dispatchLocalCli()` handles all local_cli connectors generically
+4. **Detection functions are side-effect-free**: Pure functions with no I/O, no state, no additional imports
+5. **Validation order is deterministic**: Claude → Codex → Cursor → Windsurf → OpenCode → ok
+6. **Cursor gap fixed**: KNOWN_CLI_AUTHORITY_FLAGS and KNOWN_CLI_TRANSPORTS now cover all 5 CLI connectors

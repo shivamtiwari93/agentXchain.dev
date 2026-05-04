@@ -28,6 +28,24 @@ const KNOWN_CLI_AUTHORITY_FLAGS = [
     weak_flags: ['--full-auto'],
     label: 'OpenAI Codex CLI',
   },
+  {
+    binary: 'cursor',
+    authoritative_flag: '--background-agent',
+    weak_flags: [],
+    label: 'Cursor IDE',
+  },
+  {
+    binary: 'windsurf',
+    authoritative_flag: '--agent',
+    weak_flags: [],
+    label: 'Windsurf IDE',
+  },
+  {
+    binary: 'opencode',
+    authoritative_flag: '--non-interactive',
+    weak_flags: [],
+    label: 'OpenCode CLI',
+  },
 ];
 
 /**
@@ -37,6 +55,9 @@ const KNOWN_CLI_AUTHORITY_FLAGS = [
 const KNOWN_CLI_TRANSPORTS = {
   claude: ['stdin'],
   codex: ['argv', 'stdin'],
+  cursor: ['dispatch_bundle_only'],
+  windsurf: ['dispatch_bundle_only'],
+  opencode: ['stdin'],
 };
 
 function formatCommand(command, args = []) {

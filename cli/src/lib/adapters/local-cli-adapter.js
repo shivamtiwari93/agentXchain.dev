@@ -38,6 +38,8 @@ import {
   isClaudeLocalCliRuntime,
   isCodexLocalCliRuntime,
   isCursorLocalCliRuntime,
+  isWindsurfLocalCliRuntime,
+  isOpenCodeLocalCliRuntime,
   resolveClaudeCompatibleNodeBinary,
 } from '../claude-local-auth.js';
 
@@ -842,6 +844,44 @@ function validateLocalCliCommandCompatibility({ command, args = [], runtimeId = 
         binary: binaryName,
         rule: 'cursor_requires_agent_mode',
         has_agent_flag: false,
+        recovery,
+      },
+    };
+  }
+
+  const usesWindsurf = isWindsurfLocalCliRuntime(runtimeShape);
+  if (usesWindsurf && !tokens.includes('--agent')) {
+    const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'Windsurf local_cli runtime';
+    const recovery = `${runtimeLabel} uses "windsurf" without an agent flag. Governed local runs require Windsurf's --agent mode for non-interactive execution.`;
+    return {
+      ok: false,
+      error_class: 'local_cli_command_incompatible',
+      recovery,
+      error: recovery,
+      diagnostic: {
+        runtime_id: runtimeId,
+        binary: binaryName,
+        rule: 'windsurf_requires_agent_mode',
+        has_agent_flag: false,
+        recovery,
+      },
+    };
+  }
+
+  const usesOpenCode = isOpenCodeLocalCliRuntime(runtimeShape);
+  if (usesOpenCode && !tokens.includes('--non-interactive')) {
+    const runtimeLabel = runtimeId ? `Runtime "${runtimeId}"` : 'OpenCode local_cli runtime';
+    const recovery = `${runtimeLabel} uses "opencode" without --non-interactive. Governed local runs require OpenCode's non-interactive mode for unattended execution.`;
+    return {
+      ok: false,
+      error_class: 'local_cli_command_incompatible',
+      recovery,
+      error: recovery,
+      diagnostic: {
+        runtime_id: runtimeId,
+        binary: binaryName,
+        rule: 'opencode_requires_non_interactive',
+        has_non_interactive_flag: false,
         recovery,
       },
     };

@@ -56,6 +56,24 @@ export function isCursorLocalCliRuntime(runtime) {
   return head === 'cursor' || head.endsWith('/cursor');
 }
 
+export function isWindsurfLocalCliRuntime(runtime) {
+  const tokens = normalizeCommandTokens(runtime);
+  if (tokens.length === 0) {
+    return false;
+  }
+  const head = tokens[0].toLowerCase();
+  return head === 'windsurf' || head.endsWith('/windsurf');
+}
+
+export function isOpenCodeLocalCliRuntime(runtime) {
+  const tokens = normalizeCommandTokens(runtime);
+  if (tokens.length === 0) {
+    return false;
+  }
+  const head = tokens[0].toLowerCase();
+  return head === 'opencode' || head.endsWith('/opencode');
+}
+
 export function hasClaudeAuthenticationFailureText(text) {
   return typeof text === 'string' && CLAUDE_AUTH_FAILURE_RE.test(text);
 }
