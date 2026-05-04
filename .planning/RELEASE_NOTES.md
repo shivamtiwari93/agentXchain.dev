@@ -1,44 +1,44 @@
-# Release Notes — M8: Hosted Runner — Execute Protocol Against Cloud Agent APIs
+# Release Notes — M8: Organization Dashboard with Multi-Project Visibility
 
 ## User Impact
 
-This release delivers the **first runnable server** in the agentxchain ecosystem: an HTTP server that exposes control plane API routes and dispatches governed turns to cloud agent APIs (Anthropic, OpenAI, Google) using the existing protocol bridge, run-loop engine, and api_proxy adapter. This is ROADMAP.md:95.
+This release delivers **multi-project organization visibility** to the agentxchain.ai managed surface. Operators can register multiple governed projects with the hosted runner and view aggregated cross-project metrics, a unified run list, and a cross-project decision ledger — all from a single dashboard URL. This is ROADMAP.md:96.
 
 ### What Was Delivered
 
-- **HTTP Server Module** (`cli/src/lib/api/hosted-runner.js`): 16 routes mapping OpenAPI operations to protocol bridge functions via `node:http`. JSON body parsing with 1MB cap. Typed error-to-HTTP mapping (404/409/422/403/500). Graceful shutdown with 5s drain timeout. Localhost-only default bind (127.0.0.1:4100).
+- **Project Registry** (`cli/src/lib/api/project-registry.js`): File-backed registry mapping project IDs to root directories. Register/unregister additional governed projects. Deterministic SHA-256-based project IDs. Persists to `.agentxchain/org-registry.json`. Primary project always registered and cannot be unregistered.
 
-- **Execution Worker** (`cli/src/lib/api/execution-worker.js`): In-process worker that polls the job queue, claims jobs, and dispatches governed turns via `runLoop()` + `dispatchApiProxy()` composition. Single turn per job (`maxTurns: 1`). 30s heartbeat interval. 4 structured execution events. Auto-approve gates in hosted mode.
+- **Org State Aggregator** (`cli/src/lib/api/org-state-aggregator.js`): Reads governed state from each registered project. Three views: `getOverview()` (total projects, active runs, pending gates, decisions, cost), `getRuns(query?)` (cross-project run list with filtering), `getDecisions(query?)` (cross-project decision ledger with filtering). Individual project read failures are isolated — never breaks the org view.
 
-- **Job Queue** (`cli/src/lib/api/job-queue.js`): In-memory FIFO queue implementing execution plane spec rules 2-4. Exclusive leases with heartbeat-based liveness. Stale detection (2 missed 30s heartbeats = 60s threshold). Crash-closed recovery (no auto-retry — transitions to `needs_recovery`). Lease durations: 10min for api_proxy, 30min for local_cli.
+- **Org Overview Component** (`cli/dashboard/components/org-overview.js`): Metrics banner (5 stat cards) plus project cards grid showing status/phase/run/turns/cost per project. Dark theme, responsive grid layout.
 
-- **CLI Command** (`cli/src/commands/serve.js`): `agentxchain serve [--port 4100] [--host 127.0.0.1] [--project <path>]` starts the hosted runner. Graceful shutdown on SIGINT/SIGTERM.
+- **Org Runs Component** (`cli/dashboard/components/org-runs.js`): Cross-project run list with 3-dropdown filter bar (project, phase, status) and 8-column data table with relative time formatting.
 
-- **Integration Tests** (`cli/test/hosted-runner.test.js`): 11 tests covering server lifecycle, run creation, state retrieval, queue FIFO/exclusivity, stale lease detection, error format, graceful shutdown, and run cancellation.
+- **6 New Hosted Runner Routes**: `POST/GET/DELETE /v1/org/projects` (project CRUD), `GET /v1/org/overview` (aggregated metrics), `GET /v1/org/runs` (cross-project runs), `GET /v1/org/decisions` (cross-project decisions).
+
+- **Static File Serving**: Dashboard HTML/JS/CSS served directly from the hosted runner at `http://localhost:4100/`. Directory traversal prevention via path prefix check.
+
+- **CLI `--projects` Option**: `agentxchain serve --projects /path/to/proj2,/path/to/proj3` registers additional projects at startup.
+
+- **8 Integration Tests** (`cli/test/org-dashboard.test.js`): Full coverage of project registration CRUD, aggregation, org routes, multi-project scenarios, and unregistration exclusion.
 
 ### Architecture Highlights
 
-- **Protocol parity invariant maintained.** All 16 routes delegate to protocol-bridge.js — no reimplementation of state machine logic.
-- **Zero new npm dependencies.** HTTP server uses `node:http`. All composition layers (protocol bridge, run-loop, api_proxy adapter, runner interface) are existing internal modules.
-- **Run-loop is THE execution engine.** The worker delegates entirely to `runLoop()` — no reimplementation of dispatch, acceptance, timeout, or retry logic.
-- **Single-turn-per-job model.** Each job executes exactly one turn. Multi-turn runs require re-enqueue after each turn, matching the explicit operator-driven recovery principle.
-- **Localhost-only default** matching bridge-server.js security posture. Must explicitly pass `--host 0.0.0.0` to expose externally.
+- **Protocol parity invariant maintained.** Org views read the same state.json, history.jsonl, and decision-ledger.jsonl that the protocol engine writes. No new state formats.
+- **Zero new npm dependencies.** All modules use node:fs, node:path, node:crypto. Static serving uses node:fs + MIME type map.
+- **Aggregation isolation.** A single project's read failure does not break the org overview — failed projects show degraded state with error flag.
+- **Primary project immutability.** The primary project cannot be unregistered and defines the registry persistence location.
+- **Existing routes untouched.** All 16 prior hosted runner routes remain identical. Org routes use `/v1/org/` prefix with no overlap.
+- **Read-only org surface (MVP).** Org views are observation-only. No cross-project mutations.
 
-### What This Enables (Future Work)
+### Known Limitations
 
-This is the foundation for remaining ROADMAP.md managed surface items:
-- Cloud persistence layer (replaces filesystem `@state-provider` seams in protocol-bridge.js)
-- Dashboard UI (consumes the HTTP API)
-- Multi-tenant org/workspace management
-- Authentication/authorization enforcement
-- Webhook delivery for external integrations
+- Pending gates field (`state.gates`) and cost field (`cost_tracker.total_cost_usd`) in the PM spec do not match production state.json field names (`phase_gate_status`, `budget_status.spent_usd`). These cosmetic display fields will show defaults for real registered projects until a follow-up alignment pass.
 
 ## Verification Summary
 
-- 10/10 SYSTEM_SPEC acceptance tests pass (AT-HR-004/AT-HR-007 satisfied via alternative test coverage)
-- 323 tests across 8 files, 0 failures, 0 regressions
-- Vitest contract: 11/11 pass (file count = 669)
-- CLI `serve --help` output verified with correct options
-- Gate evaluation: `{ok: true}`
-- Whitespace check: clean
-- Code reviewed for correctness, security (localhost-only), import validity, spec compliance, and architecture invariants
+- 8/8 SYSTEM_SPEC acceptance tests pass (AT-OD-001 through AT-OD-008)
+- 136 tests across 6 files, 0 failures, 0 regressions
+- Vitest contract: 11/11 pass (file count = 670)
+- CLI `serve --help` verified with --projects option
+- Code reviewed for correctness, security (directory traversal prevention, HTML escaping), spec compliance, and architecture invariants
