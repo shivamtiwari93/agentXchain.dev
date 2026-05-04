@@ -143,12 +143,12 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Acceptance matrix enforcement: `evaluateAcceptanceMatrix()` requires `| Req # |` table with all-passing rows, rejects placeholder text — 8 placeholder-leak tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
 - [x] Release notes enforcement: `evaluateReleaseNotes()` requires User Impact + Verification Summary with real content, rejects placeholders — 10 release-notes-gate tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
 - [x] E2E release gate: full pipeline proof from phase transitions through gate evaluation to release — 4 e2e tests pass <!-- delivered MW; PM verified run_08c9a1482479ae2e -->
-- [ ] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:33 "quality drifts" — 197 tests, 0 failures <!-- tracking: PM verified 197/197 in run_08c9a1482479ae2e, awaiting QA ship verdict -->
+- [x] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:33 "quality drifts" — 247 tests (197 original + 50 new coverage), 0 failures <!-- run_08c9a1482479ae2e: QA turn_6445d6caf44ad1d8 verified 247/247, ship verdict YES -->
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Document 8 quality-drift prevention mechanisms, add M12 to ROADMAP, scope dev verification charter | In progress (turn_ce7036a688d1fe38) |
-| Implementation | Re-run 8 quality-enforcement test suites (197 tests), spot-check key exports | Pending |
-| QA | Verify tests pass, confirm vision bullet coverage, check off M12 acceptance, ship verdict | Pending |
+| Planning | Document 8 quality-drift prevention mechanisms, add M12 to ROADMAP, scope dev verification charter | Complete (turn_ce7036a688d1fe38) |
+| Implementation | Re-run 8 quality-enforcement test suites + add 50 new coverage tests for 12 untested exports | Complete (turn_74a43c02ed993c87) |
+| QA | Verify 247 tests pass, confirm vision bullet coverage, check off M12 acceptance, ship verdict | Complete (turn_6445d6caf44ad1d8) |

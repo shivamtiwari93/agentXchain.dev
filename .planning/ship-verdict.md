@@ -1,81 +1,89 @@
-# Ship Verdict — M11: Assumption Divergence Governance (Vision Closure)
+# Ship Verdict — M12: Quality Drift Prevention (Vision Closure)
 
-**Run:** run_a413eee8dd1891c7
-**Turn:** turn_3f2ac4c2dc9fce59 (QA)
+**Run:** run_08c9a1482479ae2e
+**Turn:** turn_6445d6caf44ad1d8 (QA)
 **Date:** 2026-05-04
 
 ## Verdict: YES
 
 ## Rationale
 
-All 7 SYSTEM_SPEC acceptance criteria independently verified and passing. 192 tests across 7 mechanism suites with 0 failures (exceeds the 183 requirement by 9 new coverage tests added by dev). All 5 architecture invariants confirmed. VISION.md:32 "assumptions diverge" is demonstrably addressed by the composition of 7 independently-delivered mechanisms. No blocking issues.
+All 8 SYSTEM_SPEC acceptance criteria independently verified and passing. 247 tests across 11 quality-enforcement suites with 0 failures (exceeds the 197 requirement by 50 new coverage tests for 12 previously-untested exports). All 5 architecture invariants confirmed. VISION.md:33 "quality drifts" is demonstrably addressed by the composition of 8 independently-delivered mechanisms. No blocking issues.
 
 ## Acceptance Test Results
 
-- **7/7 PASS** (AC-1 through AC-7)
-- AC-1: 192/192 mechanism tests pass (exceeds 183 requirement)
-- AC-2: 12 governance functions exported (PM spec says 6 — inaccurate but non-blocking)
-- AC-3: dispatch-bundle.js:1416 renders Decision History
-- AC-4: scope-overlap.js exports exactly 3 functions
-- AC-5: turn-result-validator.js:976 enforces challenge requirement
-- AC-6: ROADMAP.md M11 documented with evidence
-- AC-7: 7-mechanism composition covers assumption divergence
+- **8/8 PASS** (AC-1 through AC-8)
+- AC-1: 247/247 quality-enforcement tests pass (exceeds 197 requirement)
+- AC-2: SEMANTIC_VALIDATORS map at line 446 with 6 named evaluators + section_check
+- AC-3: 5-stage pipeline at lines 178/638/671/806/966
+- AC-4: Challenge requirement at line 976 (hard error, not advisory)
+- AC-5: validateReleaseAlignment (line 346) + getReleaseAlignmentContext (line 77) + 4 helper exports
+- AC-6: governed-state.js → gate-evaluator.js enforces sequential phase progression
+- AC-7: ROADMAP.md M12 documented (lines 137-146) with evidence, acceptance checked off
+- AC-8: 8-mechanism composition covers quality drift prevention at every stage
 
 ## Regression Results
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| repo-decisions.test.js | 48 | PASS |
-| dispatch-bundle-decision-history.test.js | 12 | PASS |
-| coordinator-decision-ledger.test.js | 7 | PASS |
-| named-decisions-visibility.test.js | 6 | PASS |
-| scope-overlap.test.js | 12 | PASS |
 | turn-result-validator.test.js | 100 | PASS |
+| gate-evaluator.test.js | 52 | PASS |
+| implementation-gate.test.js | 10 | PASS |
+| release-notes-gate.test.js | 10 | PASS |
+| workflow-gate-placeholder-leak.test.js | 8 | PASS |
 | bug-78-no-edit-review.test.js | 7 | PASS |
-| **Total** | **192** | **0 failures** |
+| release-alignment.test.js | 6 | PASS |
+| e2e-release-gate.test.js | 4 | PASS |
+| recovery-report-gate.test.js | 12 | PASS (new) |
+| gate-evaluator-helpers.test.js | 24 | PASS (new) |
+| release-alignment-helpers.test.js | 14 | PASS (new) |
+| **Total** | **247** | **0 failures** |
 
 ## Dev Decision Verification
 
 | Decision | Status |
 |----------|--------|
-| DEC-001: PM verification-only charter resolved by adding 9 tests for untested exports | VERIFIED — legitimate coverage gaps closed |
-| DEC-002: All 7 mechanism suites verified (192/192 pass) | VERIFIED — QA independently confirmed |
+| DEC-001: Prior turn left IMPLEMENTATION_NOTES.md stale + 12 untested exports identified | VERIFIED — legitimate findings, both resolved |
+| DEC-002: PM verification-only charter resolved by adding 50 tests for 12 untested exports | VERIFIED — 5th recurrence of pattern, consistently produces real value |
+| DEC-003: All 11 quality-enforcement suites verified (247/247 pass) | VERIFIED — QA independently confirmed |
 
 ## Architecture Invariants
 
 | Invariant | Status |
 |-----------|--------|
 | No source code changes (test-only additions) | CONFIRMED |
-| Decision ledger append-only with monotonic IDs | CONFIRMED |
-| Override authority role-gated, never bypassed | CONFIRMED |
-| Scope overlap deferring, not blocking | CONFIRMED |
+| Turn-result validation is 5-stage and mandatory | CONFIRMED |
+| Workflow gate semantics reject placeholder text | CONFIRMED |
+| Phase gates enforced by governed-state.js, not convention | CONFIRMED |
 | Challenge requirement at validator level (not advisory) | CONFIRMED |
 
 ## Blocking Issues: 0
 
 ## Non-Blocking Findings
 
-1. **Stale QA artifacts (fixed)**: Fifth consecutive run with artifacts from prior run. Rewritten from scratch.
-2. **SYSTEM_SPEC AC-2 inaccurate**: Claims 6 exports including `checkOverrideAuthority` — actual is 12 exports, `checkOverrideAuthority` is private. Non-blocking since code is correct.
-3. **PM verification-only friction**: Fourth recurrence. Dev resolves productively each time.
+1. **Stale QA artifacts (fixed)**: Sixth consecutive run with artifacts from prior run. Rewritten from scratch.
+2. **SYSTEM_SPEC "SEMANTIC_EVALUATORS" vs code "SEMANTIC_VALIDATORS"**: Documentation inaccuracy. Non-blocking since public API is unaffected.
+3. **PM verification-only friction**: Fifth recurrence. Dev resolves productively each time.
 4. **ROADMAP Phases table stale (fixed)**: Updated to reflect completed state.
+5. **Test count exceeds baseline**: 247 vs 197 required. Improvement, not defect.
 
 ## Vision Closure Assessment
 
-VISION.md:32 "assumptions diverge" is closed by composition:
+VISION.md:33 "quality drifts" is closed by composition:
 
-| # | Mechanism | How it prevents divergence |
-|---|-----------|---------------------------|
-| 1 | Decision ledger (repo-decisions.js) | Every decision is durably recorded; override authority is role-gated |
-| 2 | Decision history in dispatch (dispatch-bundle.js) | Every agent sees prior decisions before acting |
-| 3 | Coordinator ledger (governed-state.js) | System-level assumptions are also recorded |
-| 4 | Named decisions visibility | Operators can verify assumption alignment in reports |
-| 5 | Turn-result validator challenge req | At least one agent formally evaluates prior assumptions per run |
-| 6 | Scope overlap guard (scope-overlap.js) | Prevents conflicting work at intake level |
-| 7 | Workflow kit (BUG-78 normalization) | Assumptions written into governed artifacts per phase |
+| # | Mechanism | How it prevents quality drift |
+|---|-----------|-------------------------------|
+| 1 | Turn-result validator (5-stage) | Every turn output must pass schema, assignment, artifact, verification, and protocol checks |
+| 2 | Workflow gate semantics (6 evaluators) | Governed artifacts must have real content in required sections — placeholder text rejected |
+| 3 | Phase gate enforcement | Phases cannot advance without completing quality checkpoints |
+| 4 | Challenge requirement | Review-only roles must raise objections — rubber-stamping structurally impossible |
+| 5 | Release alignment (8 dimensions) | Release quality validated across docs, version, tests, CI, changelog, install, config, compat |
+| 6 | Acceptance matrix enforcement | Every acceptance criterion must be explicitly evaluated and marked passing |
+| 7 | Release notes enforcement | Release documentation requires User Impact + Verification Summary with real content |
+| 8 | E2E release gate | Full pipeline proof from phase transitions through gate evaluation to release |
 
-No single mechanism covers the full concern — but together they prevent assumption divergence at every stage: intake (scope guard), context (dispatch visibility), enforcement (validator + authority), persistence (cross-run ledger), and governance (workflow artifacts).
+No single mechanism covers the full concern — but together they prevent quality drift at every stage: turn output (validator), artifact content (semantic gates), phase progression (gate enforcement), review rigor (challenge req), release quality (alignment), acceptance evidence (matrix), documentation (notes), and end-to-end proof (pipeline test).
 
 ## Ship Decision
 
-7/7 acceptance criteria pass. 192 tests, 0 failures. 5/5 invariants maintained. 2/2 dev decisions verified. VISION.md:32 "assumptions diverge" closed by 7-mechanism composition. **SHIP.**
+8/8 acceptance criteria pass. 247 tests, 0 failures. 5/5 invariants maintained. 3/3 dev decisions verified. VISION.md:33 "quality drifts" closed by 8-mechanism composition. **SHIP.**

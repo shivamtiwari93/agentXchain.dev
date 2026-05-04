@@ -1,58 +1,65 @@
-# Release Notes — M11: Assumption Divergence Governance (Vision Closure)
+# Release Notes — M12: Quality Drift Prevention (Vision Closure)
 
-**Run:** run_a413eee8dd1891c7
-**Turn:** turn_3f2ac4c2dc9fce59 (QA)
+**Run:** run_08c9a1482479ae2e
+**Turn:** turn_6445d6caf44ad1d8 (QA)
 **Date:** 2026-05-04
 
 ## Summary
 
-Formal closure of VISION.md:32 "assumptions diverge". This vision bullet is a cross-cutting concern addressed by 7 delivered mechanisms across milestones M1, M3, M10, and MW. This run verified the composition, added 9 new tests covering previously-untested governance exports, and formally closed the vision goal.
+Formal closure of VISION.md:33 "quality drifts". This vision bullet is a cross-cutting concern addressed by 8 delivered mechanisms across milestones MW and M1. This run verified the composition, added 50 new tests covering 12 previously-untested quality-gate exports, and formally closed the vision goal.
 
 ## What Changed (This Run)
 
-### New Tests: `cli/test/repo-decisions.test.js` (9 tests)
+### New Tests: `cli/test/recovery-report-gate.test.js` (12 tests)
 
-**`getDecisionAuthorityMetadata` (5 tests):**
-- AT-ADG-001: Returns null for config without roles property
-- AT-ADG-002: Returns `configured` source for role with explicit authority
-- AT-ADG-003: Returns `human_default` source for human role without explicit authority
-- AT-ADG-004: Returns `configured` source for human role with explicit authority
-- AT-ADG-005: Returns `unknown_role` source for unconfigured role
+- `evaluateRecoveryReport` (6 tests): null for missing file, pass for all required sections, fail for missing/placeholder sections
+- `scaffoldRecoveryReport` (3 tests): creates scaffold with blocked reason, no overwrite, JSON-stringifies non-string reasons
+- `getSemanticIdForPath` (3 tests): correct IDs for 6 known paths, null for unknown/recovery paths
 
-**`buildRepoDecisionOperatorSummary` (4 tests):**
-- AT-ADG-006: Returns null for empty/null decisions
-- AT-ADG-007: Returns sorted active categories and highest authority metadata
-- AT-ADG-008: Counts superseding and overridden decisions correctly
-- AT-ADG-009: Handles null authority gracefully
+### New Tests: `cli/test/gate-evaluator-helpers.test.js` (24 tests)
+
+- `getEffectiveGateArtifacts` (6 tests): merges workflow_kit with requires_files, deduplicates, handles empty/missing
+- `hasRoleParticipationInPhase` (4 tests): true/false for role participation, handles null/empty state
+- `getNextPhase` (5 tests): correct next phase for each position, null for final/unknown/empty
+- `getInvalidPhaseTransitionReason` (4 tests): null for valid transitions, reason for skip-forward/final-phase
+- `isFinalPhase` (5 tests): true for last declared phase, false for non-final/unknown/empty, true for single-phase
+
+### New Tests: `cli/test/release-alignment-helpers.test.js` (14 tests)
+
+- `escapeRegExp` (3 tests): escapes special characters, leaves plain strings, safe for RegExp constructor
+- `formatCount` (2 tests): locale-appropriate grouping for numbers and zero
+- `extractTopReleaseSection` (4 tests): extracts matching version section, null for missing, handles last/single heading
+- `extractAggregateEvidenceLine` (5 tests): extracts evidence line, null for no match, picks highest count, handles commas/formatting
 
 ### ROADMAP Updates
 
-- Item 135 (M11 acceptance) checked off by QA after independent verification
-- Phases table updated to reflect completed state
+- Item 146 (M12 acceptance) checked off by QA after independent verification of 247/247 tests
+- Phases table updated to reflect all three phases completed
 
 ## Cumulative Mechanism Delivery (Verified This Run)
 
 | # | Mechanism | Module | Evidence |
 |---|-----------|--------|----------|
-| 1 | Decision ledger + override authority | `cli/src/lib/repo-decisions.js` | 48 tests pass (12 exports, role-gated overrides) |
-| 2 | Decision history in dispatch bundles | `cli/src/lib/dispatch-bundle.js` | 12 tests pass (line 1416 renders history) |
-| 3 | Coordinator decision ledger | `cli/src/lib/governed-state.js` | 7 tests pass (5 coordination events) |
-| 4 | Named decisions visibility | `cli/src/lib/repo-decisions.js` | 6 tests pass (per-repo breakdowns) |
-| 5 | Turn-result validator + challenge | `cli/src/lib/turn-result-validator.js` | 100 tests pass (line 976 challenge req) |
-| 6 | Scope overlap guard | `cli/src/lib/scope-overlap.js` | 12 tests pass (Jaccard + intake guard) |
-| 7 | No-edit review normalization | `cli/src/lib/turn-result-validator.js` | 7 tests pass (BUG-78 Rule 0a) |
-| | **Total** | | **192 tests, 0 failures** |
+| 1 | Turn-result validator (5-stage) | `cli/src/lib/turn-result-validator.js` | 100 tests pass (stages at lines 178/638/671/806/966) |
+| 2 | Workflow gate semantics (6 evaluators) | `cli/src/lib/workflow-gate-semantics.js` | 52 gate-evaluator + 12 recovery-report tests pass |
+| 3 | Phase gate enforcement | `cli/src/lib/governed-state.js` + `gate-evaluator.js` | 10 implementation-gate + 24 gate-evaluator-helpers tests pass |
+| 4 | Challenge requirement | `cli/src/lib/turn-result-validator.js:976` | 7 BUG-78 tests pass (review_only must challenge) |
+| 5 | Release alignment (8 dimensions) | `cli/src/lib/release-alignment.js` | 6 + 14 alignment-helpers tests pass |
+| 6 | Acceptance matrix enforcement | `cli/src/lib/workflow-gate-semantics.js:117` | 8 placeholder-leak tests pass |
+| 7 | Release notes enforcement | `cli/src/lib/workflow-gate-semantics.js:258` | 10 release-notes-gate tests pass |
+| 8 | E2E release gate | Full pipeline | 4 e2e tests pass |
+| | **Total** | | **247 tests, 0 failures** |
 
 ## User Impact
 
-- **Vision goal closure**: "assumptions diverge" is now formally verified as addressed — operators can reference M11 as the closure point for this bullet
-- **Improved test coverage**: Two previously-untested governance exports (`getDecisionAuthorityMetadata`, `buildRepoDecisionOperatorSummary`) now have dedicated test suites
-- **No breaking changes**: This was a verification-only run. No source module changes were made.
+- **Vision goal closure**: "quality drifts" is now formally verified as addressed — operators can reference M12 as the closure point for this bullet
+- **Improved test coverage**: 12 previously-untested quality-gate exports now have 50 dedicated tests covering `evaluateRecoveryReport`, `scaffoldRecoveryReport`, `getSemanticIdForPath`, `getEffectiveGateArtifacts`, `hasRoleParticipationInPhase`, `getNextPhase`, `getInvalidPhaseTransitionReason`, `isFinalPhase`, `escapeRegExp`, `formatCount`, `extractTopReleaseSection`, `extractAggregateEvidenceLine`
+- **No breaking changes**: No source module changes were made — test-only additions
 
 ## Verification Summary
 
-QA independently ran all 7 mechanism test suites in a single vitest invocation:
-- **192 tests, 0 failures** (exit code 0)
+QA independently ran all 11 quality-enforcement test suites in a single vitest invocation:
+- **247 tests, 0 failures** (exit code 0)
 - All 5 architecture invariants confirmed
-- All 7 SYSTEM_SPEC acceptance criteria pass
-- VISION.md:32 "assumptions diverge" closed by 7-mechanism composition
+- All 8 SYSTEM_SPEC acceptance criteria pass
+- VISION.md:33 "quality drifts" closed by 8-mechanism composition
