@@ -94,13 +94,13 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Design control plane API for remote run management <!-- run_8140752664578eb2: OpenAPI 3.1 spec at api/v1/control-plane.openapi.yaml + protocol-bridge.js (15 bridge functions + 5 error classes) + 7 schema tests; QA ship verdict YES -->
 - [x] Implement hosted runner that executes protocol against cloud agent APIs <!-- run_0937d8f23ff72791: hosted-runner.js (16 routes, node:http), execution-worker.js, job-queue.js, serve.js command, 11 tests; QA ship verdict YES, 323 regression tests clean -->
 - [x] Organization dashboard with multi-project visibility <!-- run_76ce2c791a84e1cb: project-registry.js, org-state-aggregator.js, org-overview.js, org-runs.js, 6 org routes on hosted-runner.js, static file serving, --projects CLI option, 8 integration tests (org-dashboard.test.js), 136 tests across 6 files; QA ship verdict YES -->
-- [ ] Persistent run history and governance audit trail
+- [x] Persistent run history and governance audit trail <!-- run_b2a4084d6b3fe3b3: getRunHistory + getAuditTrail (2 aggregator methods), 2 hosted runner routes (/v1/org/history, /v1/org/audit-trail), 2 dashboard components (org-history.js, org-audit-trail.js), 8 integration tests; QA ship verdict YES (turn_2f903c5a3d12867f), 132 tests across 6 files, 0 failures -->
 - [ ] Acceptance: a governed run completes via the hosted runner with dashboard visibility
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M8 persistent run history + governance audit trail: full-fidelity org history route, unified audit trail aggregation from 3 JSONL sources, 2 dashboard views, 8 integration tests (ROADMAP.md:97) | In progress (`run_b2a4084d6b3fe3b3`) |
-| Implementation | Dev modifies org-state-aggregator.js (add getRunHistory + getAuditTrail), hosted-runner.js (2 routes); creates org-history.js, org-audit-trail.js, org-history-audit.test.js; modifies app.js, index.html | Pending |
-| QA | Verify cross-project history returns full-fidelity records, audit trail merges 3 sources with correct severity classification, multi-project aggregation, full test suite, check off ROADMAP.md:97 | Pending |
+| Planning | Scope M8 final acceptance (ROADMAP.md:98): identify continuation enqueue gap in execution-worker.js, charter E2E lifecycle test proving governed run completes via hosted runner with dashboard visibility | In progress (`run_bbbb5f230a0ec907`) |
+| Implementation | Dev modifies execution-worker.js (add enqueueContinuation after job finalization); creates hosted-runner-e2e.test.js (6 E2E lifecycle tests with mocked dispatch) | Pending |
+| QA | Verify E2E test passes, verify continuation enqueue has terminal guard, run full regression suite, check off ROADMAP.md:98 | Pending |
