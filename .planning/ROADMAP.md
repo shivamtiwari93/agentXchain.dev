@@ -120,6 +120,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Audit workflow kit against VISION.md §4 (8 concerns), scope BUG-78 fix, rewrite planning artifacts for run_5e7a4020b052bc68 | In progress (`run_5e7a4020b052bc68`) |
-| Implementation | Expand Rule 0a in turn-result-validator.js to auto-normalize workspace→review for completed no-edit turns; add regression tests | Pending |
-| QA | Verify BUG-78 fix, confirm all 8 workflow concerns covered, check off MW acceptance | Pending |
+| Planning | Update planning artifacts for `run_cf572ef2d54d357d`, verify BUG-78 fix in place (158 tests pass), PM signoff | Complete (`run_cf572ef2d54d357d`, turn_781900573eb70a7e) |
+| Implementation | Verification-only: re-run BUG-78 tests + regression suite, confirm no new code needed | Pending (`run_cf572ef2d54d357d`) |
+| QA | Ship verdict, check off ROADMAP.md:116-117, write acceptance-matrix + ship-verdict + RELEASE_NOTES | Pending (`run_cf572ef2d54d357d`) |

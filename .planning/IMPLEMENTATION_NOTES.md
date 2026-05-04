@@ -1,8 +1,8 @@
 # Implementation Notes — MW: Workflow Kit Recovery — BUG-78 No-Edit Review Fix
 
-**Run:** `run_5e7a4020b052bc68`
-**Turn:** `turn_fb61d81381433de5` (verification & artifact completion)
-**Prior Turn:** `turn_7f509cddfd9d064b` (code delivery)
+**Run:** `run_cf572ef2d54d357d` (formal closure run; code delivered in `run_5e7a4020b052bc68`)
+**Code Delivery Turn:** `turn_7f509cddfd9d064b` (prior run)
+**Verification Turn:** `turn_fb61d81381433de5` (prior run)
 **Role:** dev
 **Date:** 2026-05-04
 
