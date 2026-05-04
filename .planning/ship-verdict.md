@@ -1,68 +1,64 @@
-# Ship Verdict — M7: Windsurf & OpenCode Connector Expansion
+# Ship Verdict — M9: CI Pipeline Integration
 
-**Run:** run_0db6a75ab239c3a3
-**Turn:** turn_1cd75071e9051de9 (QA)
-**Milestone:** ROADMAP.md:88-91 (Connector Ecosystem Expansion)
+**Run:** run_685ea79f49acd469
+**Turn:** turn_ee2c089077fbd4d8 (QA)
+**Date:** 2026-05-04
 
 ## Verdict: YES
 
-## QA Summary
+## Evidence Summary
 
-10/10 SYSTEM_SPEC acceptance criteria pass (AT-CONN-001 through AT-CONN-010). All independently verified by QA through source code inspection and independent test execution — no rubber stamp.
+### Acceptance Criteria: 12/12 PASS
 
-## Independent Verification
+All 12 SYSTEM_SPEC acceptance criteria independently verified by QA:
+- AT-CI-001 through AT-CI-004: CI detection (GitHub Actions, GitLab CI, generic, null)
+- AT-CI-005 through AT-CI-007: GitHub annotations (pass/fail/gate-level)
+- AT-CI-008: GitHub output variables (6 key=value pairs to file)
+- AT-CI-009 through AT-CI-010: JUnit XML (valid structure + failure mapping)
+- AT-CI-011: Exit code derivation (0/1/2)
+- AT-CI-012: Command integration (all formatters on both passing and failing reports)
 
-56 tests across 5 connector-related suites, 0 failures, 0 regressions:
+### Test Results
 
 | Suite | Tests | Result |
 |-------|-------|--------|
-| windsurf-connector.test.js | 14 | PASS |
-| opencode-connector.test.js | 14 | PASS |
-| cursor-connector.test.js | 14 | PASS (regression) |
-| connector-probe.test.js | 3 | PASS |
-| vitest-contract.test.js | 11 | PASS (673 files) |
-| **Total** | **56** | **0 failures** |
+| ci-reporter.test.js | 12 | 12/12 PASS |
+| vitest-contract.test.js | 11 | 11/11 PASS (674 files) |
+| **Total** | **23** | **0 failures** |
 
 Each suite executed independently by QA via `npx vitest run test/<file>`.
 
-## Challenge of Dev Turn (turn_0fdb3c19283854fc)
+### Dev Decisions: 3/3 Verified
 
-All 3 dev decisions independently evaluated:
+1. **DEC-001 (No material deviations from PM spec): VERIFIED.** QA compared all 5 exported functions in ci-reporter.js against SYSTEM_SPEC §2.1. Function signatures, return types, detection priority, annotation format, XML structure, and exit code contract all match. One spec micro-improvement: unused `const summary` variable in §2.1.2 correctly omitted.
 
-1. **DEC-001 (No material deviations from PM spec): VERIFIED.** QA compared every source change against SYSTEM_SPEC §2.1-§2.4. Line numbers, function signatures, error contracts, and insertion points all match the actual codebase. Dev's claim is accurate.
+2. **DEC-002 (12 pre-existing test failures unchanged): ACCEPTED.** Full suite exits with code 1 due to 12 pre-existing failures documented since M7 dev turn DEC-003. Zero references to ci-reporter.js or ci-report.js in any failing test file.
 
-2. **DEC-002 (Windsurf checks only --agent, not 'agent' subcommand): APPROVED.** Cursor's dual-check (`--background-agent` || `agent`) at local-cli-adapter.js:834 exists because Cursor historically supports both a CLI flag and a subcommand. Windsurf uses `--agent` as a flag only — checking for bare `agent` would be incorrect and could collide with future flag additions. Sound decision.
+3. **DEC-003 (AT-CI-012 alternative approach): APPROVED.** SYSTEM_SPEC §3.1 AT-CI-012 explicitly offers direct function invocation as an alternative to full project fixture. Dev chose the cleaner approach, exercising all 3 formatters on both passing and failing fixtures.
 
-3. **DEC-003 (12 pre-existing test failures unrelated to connector changes): ACCEPTED.** Dev verified by grep that zero failing test files reference changed modules (`claude-local-auth.js`, `local-cli-adapter.js`, `connector-probe.js`, `doctor.js`). The failures are in docs contracts, dashboard view registry, and E2E proposal/remote-agent tests — none of which touch the connector pipeline.
+### Architecture Invariants: 5/5 Maintained
 
-## Architecture Verification
+1. **No new state reading** — ci-reporter.js imports only `appendFileSync` from `node:fs`. No config.js, no governed-state.js.
+2. **No module modifications** — report.js, export.js, export-verifier.js untouched. Confirmed via `git diff HEAD~1 --name-only`.
+3. **Pure functions** — formatGitHubAnnotations, formatJUnitXml, deriveCIExitCode are deterministic. Only writeGitHubOutputVars has file I/O, detectCIEnvironment reads env vars.
+4. **Standard output formats** — GitHub Actions `::cmd title=T::msg` syntax, JUnit 4 schema (testsuites/testsuite/testcase/failure).
+5. **Exit code contract** — 0=pass, 1=fail, 2=error.
 
-- **No new runtime types** — Windsurf and OpenCode use existing `local_cli` type. `VALID_RUNTIME_TYPES` unchanged.
-- **No new modules** — All changes are additions to existing files following the proven Cursor connector pattern.
-- **No adapter dispatch changes** — `dispatchLocalCli()` handles all local_cli connectors generically. Only detection/validation pipeline touched.
-- **Cursor gap closed** — `KNOWN_CLI_AUTHORITY_FLAGS` and `KNOWN_CLI_TRANSPORTS` now include cursor alongside the 2 new entries, fixing a gap from the original Cursor delivery.
-- **Detection functions are pure** — `isWindsurfLocalCliRuntime()` and `isOpenCodeLocalCliRuntime()` are side-effect-free: normalize → check head → return boolean.
-- **Validation order deterministic** — Claude → Codex → Cursor → Windsurf → OpenCode → ok. Detection functions make blocks mutually exclusive.
-- **Vitest contract** — 673 files, 11/11 contract tests pass (bumped from 671).
+### Scope Adherence
 
-## QA Findings (Non-Blocking)
+- 2 new source files + 1 modified entry point + 1 new test file + 1 contract bump = 5 code files changed
+- Zero out-of-scope changes
+- Vitest contract correctly bumped 673 → 674
+- Closes CI gap in VISION.md:18 integrations pillar
 
-### Finding 1 (info): Stale QA artifacts rewritten
+## Blocking Issues: 0
 
-All three QA workflow artifacts referenced run_b2a4084d6b3fe3b3 (M8) instead of current run_0db6a75ab239c3a3 (M7). Rewritten from scratch.
+## Non-Blocking Findings
 
-### Finding 2 (info): Dev evidence accurately stated
-
-Dev claimed 28 new tests (14+14), cursor regression clean, vitest contract passing at 673. All independently confirmed by QA.
-
-### Finding 3 (info): Transport assignments are architecturally sound
-
-Windsurf → `dispatch_bundle_only` (IDE reads from disk, same as Cursor). OpenCode → `stdin` (terminal CLI receives via pipe, same as Claude). Both match the execution model of their respective tools.
-
-## Open Blockers
-
-None.
+1. **Stale QA artifacts (fixed)**: acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md all referenced run_0db6a75ab239c3a3 (M7). Rewritten.
+2. **Dev IMPLEMENTATION_NOTES line 60**: Claims "all tests pass" but full suite has 12 pre-existing failures. Non-functional.
+3. **Spec dead variable**: SYSTEM_SPEC §2.1.2 includes unused `const summary` — implementation correctly omits.
 
 ## Ship Decision
 
-All 10 acceptance criteria pass. All 3 dev decisions correct and justified. 56 tests across 5 suites with 0 failures and 0 regressions. 4 modified files + 2 new test files, zero new dependencies, proven Cursor pattern replicated consistently, Cursor probe gap closed. Connector ecosystem now covers all 5 supported CLI tools (Claude, Codex, Cursor, Windsurf, OpenCode). **SHIP.**
+12/12 acceptance criteria pass. 3/3 dev decisions verified. 5/5 architecture invariants maintained. 23 tests across 2 suites with 0 failures. Clean formatting layer over existing governance pipeline. CI integrations pillar complete. **SHIP.**

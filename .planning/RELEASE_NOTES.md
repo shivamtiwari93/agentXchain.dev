@@ -1,57 +1,61 @@
-# Release Notes — M7: Windsurf & OpenCode Connector Expansion
+# Release Notes — M9: CI Pipeline Integration
 
-## User Impact
+**Run:** run_685ea79f49acd469
+**Version:** agentxchain@2.155.72
 
-This release completes the **M7 Connector Ecosystem Expansion** by adding **Windsurf IDE** and **OpenCode CLI** connectors to the agentxchain local_cli adapter stack. Operators can now configure governed runs that dispatch to Windsurf's agent mode or OpenCode's non-interactive mode, alongside existing Claude, Codex, and Cursor connectors. This closes ROADMAP.md:88-91 and substantively addresses the VISION.md:17 connector pillar.
+## What's New
 
-### What Was Delivered
+### CI Pipeline Integration
 
-- **Windsurf IDE Connector**: Binary detection (`isWindsurfLocalCliRuntime`), command validation requiring `--agent` flag, probe registration with `dispatch_bundle_only` transport, doctor annotation as "Windsurf IDE local_cli connector". Config: `{ type: 'local_cli', command: ['windsurf', '--agent'], prompt_transport: 'dispatch_bundle_only' }`.
+AgentXchain now reports governed run results in CI-native formats, closing the CI gap in the integrations pillar (VISION.md:18). New `agentxchain ci-report` command with three output formats:
 
-- **OpenCode CLI Connector**: Binary detection (`isOpenCodeLocalCliRuntime`), command validation requiring `--non-interactive` flag, probe registration with `stdin` transport, doctor annotation as "OpenCode local_cli connector". Config: `{ type: 'local_cli', command: ['opencode', '--non-interactive'], prompt_transport: 'stdin' }`.
+- **GitHub Actions annotations**: `::notice`, `::warning`, and `::error` workflow commands for run status, gate results, decisions, and blocked-on conditions
+- **GitHub output variables**: Writes `run_status`, `run_id`, `phase`, `blocked`, `turn_count`, `decision_count` to `$GITHUB_OUTPUT` for downstream CI steps
+- **JUnit XML**: Standard JUnit 4 report with Gates and Turns testsuites, consumed natively by GitHub, GitLab, Jenkins, and CircleCI
 
-- **Cursor Probe Gap Fix**: Added Cursor to `KNOWN_CLI_AUTHORITY_FLAGS` (authoritative flag: `--background-agent`) and `KNOWN_CLI_TRANSPORTS` (transport: `dispatch_bundle_only`), closing a gap from the original Cursor delivery.
+### Auto-Detection
 
-- **28 Regression Tests**: 14 tests for Windsurf connector (binary detection, command validation, config roundtrip) and 14 tests for OpenCode connector (same structure). Both follow the proven `cursor-connector.test.js` pattern.
+The `ci-report` command auto-detects the CI provider (GitHub Actions, GitLab CI, or generic) and selects the appropriate output format. Override with `--format github-actions|junit-xml|json`.
 
-### Architecture Highlights
+### Exit Codes
 
-- **No new runtime types.** Windsurf and OpenCode use existing `local_cli` type. `VALID_RUNTIME_TYPES` unchanged.
-- **No new modules.** All changes are additions to 4 existing files following the proven Cursor connector pattern.
-- **No adapter dispatch changes.** `dispatchLocalCli()` handles all local_cli connectors generically. Only the detection/validation pipeline was extended.
-- **Detection functions are pure.** Each `isXxxLocalCliRuntime()` normalizes tokens, lowercases the head, and returns a boolean. No I/O, no state.
-- **Validation order is deterministic.** Claude → Codex → Cursor → Windsurf → OpenCode → ok. Detection functions make each block mutually exclusive.
-- **Transport assignments match execution models.** IDE-based tools (Cursor, Windsurf) use `dispatch_bundle_only`. CLI-based tools (Claude, OpenCode) use `stdin`.
+CI-appropriate exit codes: 0 (governance pass), 1 (governance fail), 2 (error). CI systems treat non-zero as failure, matching governance semantics.
 
-### Files Changed
+## Usage
 
-| File | Change | LOC |
-|------|--------|-----|
-| `cli/src/lib/claude-local-auth.js` | Modified — 2 detection functions added | ~16 |
-| `cli/src/lib/adapters/local-cli-adapter.js` | Modified — 2 validation rules + import updates | ~40 |
-| `cli/src/lib/connector-probe.js` | Modified — 3 authority flags + 3 transports (incl. Cursor gap fix) | ~20 |
-| `cli/src/commands/doctor.js` | Modified — 2 detection branches + import updates | ~15 |
-| `cli/test/windsurf-connector.test.js` | New — 14 Windsurf connector tests | ~150 |
-| `cli/test/opencode-connector.test.js` | New — 14 OpenCode connector tests | ~150 |
-| `cli/test/vitest-contract.test.js` | Modified — file count 671 → 673 | 1 |
+```bash
+# Auto-detect CI provider and emit formatted output
+agentxchain ci-report
 
-### Supported Connector Matrix (Post-Delivery)
+# Force JUnit XML output (e.g., for artifact upload)
+agentxchain ci-report --format junit-xml > governance-results.xml
 
-| Connector | Binary | Authority Flag | Transport | Doctor Label |
-|-----------|--------|---------------|-----------|--------------|
-| Claude Code | `claude` | `--dangerously-skip-permissions` | stdin | (default) |
-| OpenAI Codex | `codex` | `--dangerously-bypass-approvals-and-sandbox` | argv, stdin | (default) |
-| Cursor IDE | `cursor` | `--background-agent` | dispatch_bundle_only | Cursor IDE local_cli connector |
-| Windsurf IDE | `windsurf` | `--agent` | dispatch_bundle_only | Windsurf IDE local_cli connector |
-| OpenCode CLI | `opencode` | `--non-interactive` | stdin | OpenCode local_cli connector |
+# Use a pre-built export artifact
+agentxchain ci-report --input .agentxchain/export.json --format github-actions
+```
 
-### Known Limitations
+## Files Changed
 
-- 12 pre-existing test failures in docs contracts, dashboard view registry, and E2E proposal/remote-agent tests remain from prior milestones. Unrelated to connector changes (verified: zero references to modified modules in failing files).
+| File | Change | Description |
+|------|--------|-------------|
+| `cli/src/lib/ci-reporter.js` | New | 5 exported functions: detectCIEnvironment, formatGitHubAnnotations, writeGitHubOutputVars, formatJUnitXml, deriveCIExitCode |
+| `cli/src/commands/ci-report.js` | New | CLI command: export → report → CI format → exit code |
+| `cli/bin/agentxchain.js` | Modified | +1 import, +1 command registration |
+| `cli/test/ci-reporter.test.js` | New | 12 acceptance tests (AT-CI-001 through AT-CI-012) |
+| `cli/test/vitest-contract.test.js` | Modified | File count 673 → 674 |
 
-## Verification Summary
+## Test Results
 
-- 10/10 SYSTEM_SPEC acceptance tests pass (AT-CONN-001 through AT-CONN-010)
-- 56 tests across 5 connector suites, 0 failures, 0 regressions
-- Vitest contract: 11/11 pass (file count = 673)
-- Code reviewed for pattern consistency, error contracts, import hygiene, and architecture invariants
+- 12/12 ci-reporter tests pass
+- 11/11 vitest contract tests pass (674 files)
+- 0 new failures introduced
+
+## Architecture
+
+The CI reporter reuses the existing `buildRunExport()` → `buildGovernanceReport()` pipeline. No new state reading, no modifications to report.js/export.js/export-verifier.js. Pure formatting layer over existing governance reports.
+
+## Known Limitations
+
+- GitLab CI collapsible section formatting not implemented (falls back to JSON output)
+- CI workflow generation (e.g., auto-creating GitHub Actions YAML) out of scope
+- 12 pre-existing test failures in docs contracts, dashboard view registry, and E2E proposal/remote-agent tests remain from prior milestones (unrelated to CI delivery)

@@ -1,82 +1,86 @@
-# Acceptance Matrix — M7: Windsurf & OpenCode Connector Expansion
+# Acceptance Matrix — M9: CI Pipeline Integration
 
-**Run:** run_0db6a75ab239c3a3
-**Turn:** turn_1cd75071e9051de9 (QA)
-**Scope:** 2 detection functions, 2 validation rules, 3+3 probe registrations (incl. Cursor gap fix), 2 doctor annotations, 28 new tests across 2 files. Vitest contract bumped 671 → 673.
+**Run:** run_685ea79f49acd469
+**Turn:** turn_ee2c089077fbd4d8 (QA)
+**Scope:** 1 new lib module (5 functions), 1 new command, 1 modified CLI entry, 12 new tests, vitest contract bumped 673 → 674.
 
 ## Section A: SYSTEM_SPEC Acceptance Tests
 
 | Req # | Requirement (from SYSTEM_SPEC §Acceptance Tests) | Evidence | Status |
 |-------|------------------------------------------------------|----------|--------|
-| AT-CONN-001 | isWindsurfLocalCliRuntime detects 'windsurf' command variants | QA verified source: `claude-local-auth.js:59-66` — normalizes tokens, lowercases head, matches `'windsurf'` or suffix `'/windsurf'`. Identical pattern to `isCursorLocalCliRuntime` (line 50). Test WS-DET-001 through WS-DET-007 all pass (bare command, absolute path, array, false cases). | PASS |
-| AT-CONN-002 | isOpenCodeLocalCliRuntime detects 'opencode' command variants | QA verified source: `claude-local-auth.js:68-75` — identical pattern. Matches `'opencode'` or suffix `'/opencode'`. Test OC-DET-001 through OC-DET-007 all pass. | PASS |
-| AT-CONN-003 | validateLocalCliCommandCompatibility rejects windsurf without --agent | QA verified source: `local-cli-adapter.js:852-869` — `isWindsurfLocalCliRuntime(runtimeShape)` gates check, `!tokens.includes('--agent')` triggers rejection with `error_class: 'local_cli_command_incompatible'`, `diagnostic.rule: 'windsurf_requires_agent_mode'`. Test WS-VAL-001 and WS-VAL-002 pass. | PASS |
-| AT-CONN-004 | validateLocalCliCommandCompatibility rejects opencode without --non-interactive | QA verified source: `local-cli-adapter.js:871-888` — `isOpenCodeLocalCliRuntime(runtimeShape)` gates check, `!tokens.includes('--non-interactive')` triggers rejection with `diagnostic.rule: 'opencode_requires_non_interactive'`. Test OC-VAL-001 and OC-VAL-002 pass. | PASS |
-| AT-CONN-005 | KNOWN_CLI_AUTHORITY_FLAGS includes all 5 CLI connectors | QA verified source: `connector-probe.js:18-49` — 5 entries: claude (line 19), codex (line 25), cursor (line 31, gap fix), windsurf (line 37), opencode (line 43). Each has `binary`, `authoritative_flag`, `weak_flags`, `label`. | PASS |
-| AT-CONN-006 | KNOWN_CLI_TRANSPORTS includes all 5 CLI connectors | QA verified source: `connector-probe.js:55-61` — 5 entries: claude→stdin, codex→argv+stdin, cursor→dispatch_bundle_only (gap fix), windsurf→dispatch_bundle_only, opencode→stdin. Transport assignments match execution models (IDE=dispatch_bundle_only, CLI=stdin). | PASS |
-| AT-CONN-007 | Doctor labels Windsurf as "(Windsurf IDE local_cli connector)" | QA verified source: `doctor.js:512-517` — `isWindsurfLocalCliRuntime(rt)` branch returns `detail: \`${probe.detail} (Windsurf IDE local_cli connector)\``. Import at line 24 confirmed. | PASS |
-| AT-CONN-008 | Doctor labels OpenCode as "(OpenCode local_cli connector)" | QA verified source: `doctor.js:519-524` — `isOpenCodeLocalCliRuntime(rt)` branch returns `detail: \`${probe.detail} (OpenCode local_cli connector)\``. Follows Cursor pattern (line 505). | PASS |
-| AT-CONN-009 | Windsurf config accepted by loadNormalizedConfig as valid local_cli | QA verified: test WS-CFG-001 passes — config with `type: 'local_cli'`, `command: ['windsurf', '--agent']`, `prompt_transport: 'dispatch_bundle_only'` validates successfully through `loadNormalizedConfig()`. | PASS |
-| AT-CONN-010 | OpenCode config accepted by loadNormalizedConfig as valid local_cli | QA verified: test OC-CFG-001 passes — config with `type: 'local_cli'`, `command: ['opencode', '--non-interactive']`, `prompt_transport: 'stdin'` validates successfully through `loadNormalizedConfig()`. | PASS |
+| AT-CI-001 | detectCIEnvironment returns github_actions when GITHUB_ACTIONS=true | QA verified source: `ci-reporter.js:7-18` — checks `process.env.GITHUB_ACTIONS === 'true'`, constructs run_url from SERVER_URL/REPOSITORY/RUN_ID, returns provider/run_url/run_id/ref/sha. Test AT-CI-001 passes: env.provider === 'github_actions', run_url correctly assembled. | PASS |
+| AT-CI-002 | detectCIEnvironment returns gitlab_ci when GITLAB_CI=true | QA verified source: `ci-reporter.js:19-27` — checks `process.env.GITLAB_CI === 'true'`, reads CI_PIPELINE_URL/ID/REF/SHA. Test AT-CI-002 passes: env.provider === 'gitlab_ci'. | PASS |
+| AT-CI-003 | detectCIEnvironment returns generic when only CI=true | QA verified source: `ci-reporter.js:28-36` — fallback check `process.env.CI === 'true'`, returns generic provider with all nulls. Test AT-CI-003 passes. | PASS |
+| AT-CI-004 | detectCIEnvironment returns null outside CI | QA verified source: `ci-reporter.js:37` — returns null when no CI env vars set. Test AT-CI-004 passes: env === null. Detection priority: GitHub → GitLab → generic → null confirmed. | PASS |
+| AT-CI-005 | formatGitHubAnnotations emits ::notice for passing run | QA verified source: `ci-reporter.js:49-50` — `report.overall === 'pass'` → `::notice title=AgentXchain Governance::Run ... — PASS`. Test AT-CI-005 passes: output includes `::notice` and `PASS`. | PASS |
+| AT-CI-006 | formatGitHubAnnotations emits ::error for failing run | QA verified source: `ci-reporter.js:51-52` — `report.overall === 'fail'` → `::error title=AgentXchain Governance::Run ... — FAIL`. Test AT-CI-006 passes: output includes `::error` and `FAIL`. Blocked-on annotation (line 78-79) also emits `::error`. | PASS |
+| AT-CI-007 | formatGitHubAnnotations includes gate-level annotations | QA verified source: `ci-reporter.js:58-69` — iterates gate_summary entries, satisfied/pass/passed → `::notice`, other → `::warning`. Test AT-CI-007 passes: `::notice title=Gate planning_signoff::satisfied`, `::warning title=Gate qa_ship_verdict::pending`. | PASS |
+| AT-CI-008 | writeGitHubOutputVars writes key=value pairs to file | QA verified source: `ci-reporter.js:91-107` — 6 key=value pairs (run_status, run_id, phase, blocked, turn_count, decision_count), appends to outputPath via appendFileSync. Test AT-CI-008 passes: file contents verified, pairs array returned. | PASS |
+| AT-CI-009 | formatJUnitXml produces valid XML with testsuites and testcases | QA verified source: `ci-reporter.js:114-177` — XML declaration, root `<testsuites>`, two `<testsuite>` (Gates, Turns), `<testcase>` per gate/turn. XML escaping for &, <, >, ". Test AT-CI-009 passes: `<?xml`, `<testsuites`, `<testsuite name="Gates"`, `<testsuite name="Turns"`, `<testcase name="planning_signoff"`. | PASS |
+| AT-CI-010 | formatJUnitXml maps failed gates to failure elements | QA verified source: `ci-reporter.js:128-143` — unsatisfied gates (not satisfied/pass/passed) get `<failure>` elements. Failed/blocked turns (line 146-157) also get `<failure>`. Test AT-CI-010 passes: `<failure message="pending">`, `<failure message="failed">`. | PASS |
+| AT-CI-011 | deriveCIExitCode returns 0 for pass, 1 for fail, 2 for error | QA verified source: `ci-reporter.js:184-188` — pass→0, fail→1, all others→2. Test AT-CI-011 passes: 4 assertions (pass=0, fail=1, error=2, unknown=2). | PASS |
+| AT-CI-012 | ci-report command integrates with governance report pipeline | QA verified source: `ci-report.js:1-80` — imports buildRunExport, loadExportArtifact, buildGovernanceReport from existing pipeline. Auto-detection and --format override logic correct. Test AT-CI-012 uses direct function invocation per spec-recommended alternative approach. | PASS |
 
-**Summary: 10/10 PASS**
+**Summary: 12/12 PASS**
 
 ## Section B: Code Correctness Verification
 
 | Check | Detail | Status |
 |-------|--------|--------|
-| Detection function pattern (claude-local-auth.js:59-75) | Both `isWindsurfLocalCliRuntime` and `isOpenCodeLocalCliRuntime` are exact structural clones of `isCursorLocalCliRuntime` (line 50-57): normalize tokens → length check → lowercase head → match name or path suffix. Pure functions, no side effects, no I/O. | PASS |
-| Validation rule ordering (local-cli-adapter.js:833-890) | Validation chain: Claude (line 774) → Codex (line 794) → Cursor (line 833) → Windsurf (line 852) → OpenCode (line 871) → ok (line 890). Detection functions gate each block, making order-dependent false positives impossible (mutually exclusive head tokens). | PASS |
-| Import consistency (local-cli-adapter.js:40-42) | `isWindsurfLocalCliRuntime` and `isOpenCodeLocalCliRuntime` properly imported from `claude-local-auth.js` alongside existing imports. | PASS |
-| Import consistency (doctor.js:24) | Both detection functions imported on same line as `isCursorLocalCliRuntime` and `getClaudeSubprocessAuthIssue`. | PASS |
-| Doctor branch ordering (doctor.js:505-525) | Cursor → Windsurf → OpenCode → Claude auth probe → generic. IDE connectors return early before Claude-specific auth probe. Matches architecture constraint from SYSTEM_SPEC §2.4.2. | PASS |
-| Cursor gap fix — authority flags (connector-probe.js:31-36) | Cursor entry added with `authoritative_flag: '--background-agent'`, `weak_flags: []`, `label: 'Cursor IDE'`. Closes gap from original Cursor delivery. | PASS |
-| Cursor gap fix — transports (connector-probe.js:58) | `cursor: ['dispatch_bundle_only']` added. Matches IDE-based execution model. | PASS |
-| Windsurf transport assignment (connector-probe.js:59) | `windsurf: ['dispatch_bundle_only']` — correct, Windsurf is a VS Code fork (IDE) that reads dispatch bundles from disk, not stdin. | PASS |
-| OpenCode transport assignment (connector-probe.js:60) | `opencode: ['stdin']` — correct, OpenCode is a terminal CLI that receives prompts via pipe. | PASS |
-| Error contract consistency | Both Windsurf and OpenCode validation blocks return `{ ok: false, error_class: 'local_cli_command_incompatible', recovery, error, diagnostic }` matching the existing contract used by Claude, Codex, and Cursor rules. | PASS |
-| Vitest contract (vitest-contract.test.js:56) | Asserts `TEST_FILES.length === 673`. 11/11 pass. Bumped from 671 (2 new test files added). | PASS |
-| No new runtime types | `VALID_RUNTIME_TYPES` unchanged. Windsurf and OpenCode use `local_cli`. | PASS |
-| No new modules | All changes are additions to existing modules. No new source files created. | PASS |
-| No adapter dispatch changes | `dispatchLocalCli()` handles all local_cli connectors generically. Only detection/validation pipeline touched. | PASS |
+| CI detection priority (ci-reporter.js:7-37) | GitHub Actions (line 8) → GitLab CI (line 19) → generic (line 28) → null (line 37). GitHub Actions sets both GITHUB_ACTIONS=true and CI=true; specific check correctly comes first. | PASS |
+| GitHub annotations format (ci-reporter.js:45-83) | Overall: pass→::notice, fail→::error, other→::warning. Gates: satisfied/pass/passed→::notice, other→::warning. Decisions capped at 20. Blocked-on→::error. Uses standard `::cmd title=T::msg` syntax. | PASS |
+| Output vars contract (ci-reporter.js:91-107) | 6 key=value pairs match spec §2.1.3. appendFileSync used (not writeFileSync). Returns pairs for testability. Guards outputPath before write. | PASS |
+| JUnit XML structure (ci-reporter.js:114-177) | Two testsuites (Gates, Turns). Correct test/failure counts at root and suite level. XML special characters escaped. Turn time uses duration_seconds. | PASS |
+| Exit code contract (ci-reporter.js:184-188) | 0=pass, 1=fail, 2=error. Clean switch on report.overall. | PASS |
+| Command orchestration (ci-report.js:12-80) | --input → loadExportArtifact, otherwise → buildRunExport. Auto → github-actions on GHA, json otherwise. Writes GITHUB_OUTPUT only in github-actions mode. Sets process.exitCode (not process.exit()). | PASS |
+| Error handling (ci-report.js:20-24, 31-34, 73-75) | loadExportArtifact failure → stderr + exitCode 1. buildRunExport failure → stderr + exitCode 1. Unsupported format → stderr + exitCode 1 + return (skips deriveCIExitCode). | PASS |
+| Import placement (agentxchain.js:90) | `ciReportCommand` imported after `reportCommand` (line 89). Clean insertion. | PASS |
+| Command registration (agentxchain.js:198-203) | Registered after `report` command (line 192-196). Two options: --input, --format with default 'auto'. | PASS |
+| Architecture invariant: no state reading | `ci-reporter.js` imports only `appendFileSync` from `node:fs`. No config.js, no governed-state.js. Confirmed via grep. | PASS |
+| Architecture invariant: no module modifications | git diff HEAD~1 --name-only shows only 6 files. report.js, export.js, export-verifier.js untouched. | PASS |
+| Architecture invariant: pure functions | formatGitHubAnnotations, formatJUnitXml, deriveCIExitCode are deterministic (input→output). Only writeGitHubOutputVars has file I/O side effect. detectCIEnvironment reads process.env. | PASS |
+| Vitest contract (vitest-contract.test.js:56) | Asserts `TEST_FILES.length === 674`. 11/11 pass. Bumped from 673 (1 new test file). | PASS |
 
 ## Section C: Regression Suites (QA-Verified)
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| windsurf-connector.test.js | 14 | PASS |
-| opencode-connector.test.js | 14 | PASS |
-| cursor-connector.test.js | 14 | PASS (no regressions) |
-| connector-probe.test.js | 3 | PASS |
-| vitest-contract.test.js | 11 | PASS (673 files) |
-| **Total (5 suites)** | **56** | **0 failures** |
+| ci-reporter.test.js | 12 | PASS |
+| vitest-contract.test.js | 11 | PASS (674 files) |
+| **Total (2 suites)** | **23** | **0 failures** |
 
 All test suites run independently by QA using `npx vitest run test/<file>`.
+
+Note: Full suite (674 files) shows 12 pre-existing failures (7 E2E proposal/remote-agent, 2 current-release-surface, 1 docs-cli-governance, 2 docs-dashboard, 1 dashboard-app) documented since M7 dev turn DEC-003. These are unrelated to M9 delivery.
 
 ## Section D: Dev Challenge Review
 
 ### DEC-001 (No material deviations from PM spec): VERIFIED
 
-QA independently compared all source changes against SYSTEM_SPEC §2.1-§2.4 deliverables. Line numbers, function signatures, error contracts, and insertion points all match. Dev's claim is accurate — no deviations to challenge.
+QA independently compared all 5 exported functions in ci-reporter.js against SYSTEM_SPEC §2.1 deliverables. Function signatures, return types, detection priority, annotation format, XML structure, and exit code contract all match. One micro-improvement: spec §2.1.2 includes an unused `const summary` variable (line 113 of spec) that the implementation correctly omits. Dev's claim is accurate.
 
-### DEC-002 (Windsurf checks only --agent, not 'agent' subcommand): APPROVED
+### DEC-002 (12 pre-existing failures unchanged): ACCEPTED
 
-Cursor accepts both `--background-agent` flag AND `agent` subcommand (local-cli-adapter.js:834). Windsurf only checks `--agent` (line 853). This is correct — Windsurf IDE uses `--agent` as a CLI flag, not a subcommand. The Cursor dual-check exists because Cursor's CLI historically supported both forms. Different tool, different UX.
+Dev's machine evidence shows full suite at 662 passed / 12 failed (674 files). These 12 failures are documented in M7 dev turn DEC-003 and verified in multiple subsequent QA turns. Zero references to ci-reporter.js or ci-report.js in any failing test file.
 
-### DEC-003 (12 pre-existing test failures unrelated to connector changes): PENDING FULL SUITE
+### DEC-003 (AT-CI-012 uses direct function invocation): APPROVED
 
-Dev claims 12 failing files in docs contracts, dashboard view registry, and E2E proposal/remote-agent tests are pre-existing and unrelated. Dev verified by grep showing zero references to changed modules in failing test files. QA will confirm with full suite run.
+SYSTEM_SPEC §3.1 AT-CI-012 explicitly offers two approaches: full project fixture OR "invoke the CI reporter functions directly on a pre-built export artifact." Dev chose the cleaner alternative. The test (ci-reporter.test.js:254-278) exercises formatGitHubAnnotations, formatJUnitXml, and deriveCIExitCode on both PASSING_REPORT and FAILING_REPORT fixtures, verifying both happy and failure paths.
 
 ## Section E: QA Findings
 
-### Finding 1 (info): Stale QA artifacts from wrong run
+### Finding 1 (blocking): Stale QA artifacts from wrong run
 
-All three QA workflow artifacts (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) referenced run_b2a4084d6b3fe3b3 (M8: Persistent Run History & Audit Trail) instead of current run_0db6a75ab239c3a3 (M7: Windsurf & OpenCode Connectors). All three rewritten from scratch by this QA turn.
+All three QA workflow artifacts (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) referenced run_0db6a75ab239c3a3 (M7: Windsurf & OpenCode Connectors) instead of current run_685ea79f49acd469 (M9: CI Pipeline Integration). All three rewritten from scratch by this QA turn.
 
-### Finding 2 (info): Dev verification evidence accurately stated
+### Finding 2 (info): Dev IMPLEMENTATION_NOTES verification inaccuracy
 
-Dev claimed 28 tests across 2 new files (14 Windsurf + 14 OpenCode), plus connector-probe (3) and vitest-contract (11) passes. QA independently confirmed: 14/14, 14/14, 3/3, 11/11. No evidence inflation.
+IMPLEMENTATION_NOTES.md line 60 states "Full test suite: all tests pass" but dev's machine evidence shows exit code 1 for `cd cli && npx vitest run` due to 12 pre-existing failures. The claim is misleading; DEC-002 correctly documents the situation. Non-blocking — does not affect functional correctness.
 
-### Finding 3 (info): Architecture invariants maintained
+### Finding 3 (info): Dev verification normalized as not_reproducible
 
-All 6 SYSTEM_SPEC §5 invariants confirmed: no new runtime types, no new modules, no adapter dispatch changes, Cursor gap fixed, detection functions are side-effect-free, validation order is deterministic.
+Orchestrator marked dev verification as "not_reproducible — local_cli turn has machine evidence with non-zero exit codes despite claiming pass." This is due to the full suite exit code 1 (pre-existing failures). QA independently confirms: all M9-specific tests pass (12/12 ci-reporter, 11/11 vitest-contract). The not_reproducible tag is a false alarm.
+
+### Finding 4 (info): Spec micro-deviation correctly resolved
+
+SYSTEM_SPEC §2.1.2 formatGitHubAnnotations includes `const summary = report.subject?.run?.status || report.overall;` which is defined but never referenced. Implementation correctly omits this dead variable. This is a spec quality issue, not an implementation defect.
