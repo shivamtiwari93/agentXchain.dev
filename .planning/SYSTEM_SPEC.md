@@ -1,17 +1,19 @@
-# System Spec — M8: Organization Dashboard with Multi-Project Visibility
+# System Spec — M8: Persistent Run History and Governance Audit Trail
 
-**Run:** `run_76ce2c791a84e1cb`
-**Baseline:** git:9043afb73 (latest checkpoint)
+**Run:** `run_b2a4084d6b3fe3b3`
+**Baseline:** git:a5f2ea547 (latest checkpoint)
 **Package version:** `agentxchain@2.155.73`
 
 ## Purpose
 
-Add organization-level multi-project visibility to the agentxchain.ai managed surface. An operator registers multiple governed projects with the hosted runner, and the dashboard displays aggregated cross-project metrics, a unified run list, and a cross-project decision ledger — all from a single URL.
+Add persistent cross-project run history and a unified governance audit trail to the agentxchain.ai managed surface. Operators see full-fidelity run completion records (retrospective, provenance, gate results, lineage) aggregated across all registered projects, plus a chronological governance event timeline merging decisions, hook blocks, and lifecycle governance events from multiple sources.
 
-This is ROADMAP.md:96 — the third M8 deliverable. It composes three existing layers:
-1. Hosted runner (`cli/src/lib/api/hosted-runner.js:296`) — HTTP server with 16 control plane API routes
-2. State reader (`cli/src/lib/dashboard/state-reader.js:113-166`) — JSON/JSONL file readers for `.agentxchain/` state
-3. Dashboard UI (`cli/dashboard/app.js:31-49`) — 17 component views with fetch/render pattern
+This is ROADMAP.md:97 — the fourth M8 deliverable. It composes existing layers:
+1. Org state aggregator (`cli/src/lib/api/org-state-aggregator.js:107`) — `createOrgAggregator(registry)` with `getOverview()`, `getRuns()`, `getDecisions()`
+2. Hosted runner (`cli/src/lib/api/hosted-runner.js:386`) — `createHostedRunner(options)` with 22 routes + static file serving
+3. State reader (`cli/src/lib/dashboard/state-reader.js:113-125`) — `readJsonFile()` and `readJsonlFile()` for JSONL reads
+4. Run history persistence (`cli/src/lib/run-history.js:33`) — `recordRunHistory()` writes full-fidelity records to `run-history.jsonl`
+5. Dashboard UI (`cli/dashboard/app.js:33-53`) — VIEWS and API_MAP with org views already present
 
 ---
 
@@ -21,302 +23,307 @@ This is ROADMAP.md:96 — the third M8 deliverable. It composes three existing l
 
 | Layer | File | Key Exports Used |
 |-------|------|-----------------|
-| Hosted runner | `cli/src/lib/api/hosted-runner.js` | `createHostedRunner(options)`, `buildRoutes()`, `matchRoute()`, `mapErrorToResponse()` |
+| Org aggregator | `cli/src/lib/api/org-state-aggregator.js` | `createOrgAggregator(registry)` at :107, returned `{ getOverview, getRuns, getDecisions }` at :259 |
+| Hosted runner | `cli/src/lib/api/hosted-runner.js` | `createHostedRunner(options)` at :386, `buildRoutes()` at :66, existing org routes at :219-271 |
 | State reader | `cli/src/lib/dashboard/state-reader.js` | `readJsonFile(dir, filename)` at :113, `readJsonlFile(dir, filename)` at :125 |
-| Dashboard app | `cli/dashboard/app.js` | `VIEWS` at :31, `API_MAP` at :51, `fetchData()`, `loadView()` |
-| Dashboard HTML | `cli/dashboard/index.html` | Nav links at :397-414, CSS theme variables at :8-18 |
-| Serve command | `cli/src/commands/serve.js` | `serveCommand(opts)` at :15 |
-| CLI entry | `cli/bin/agentxchain.js` | `serve` command registration at :808-814 |
-| Config | `cli/src/lib/config.js` | `findProjectRoot()`, `loadProjectContext()` |
+| Run history writer | `cli/src/lib/run-history.js` | `recordRunHistory(root, state, config, status)` at :33 — writes full records to `run-history.jsonl` |
+| Dashboard app | `cli/dashboard/app.js` | VIEWS at :33, API_MAP at :55, imports at :1-26 |
+| Dashboard HTML | `cli/dashboard/index.html` | Org nav links at :398-399 |
+| Project registry | `cli/src/lib/api/project-registry.js` | `createProjectRegistry(primaryRoot)` — registry.list() used by aggregator |
 
-### 1.2 Frozen Architecture Specs (Referenced)
+### 1.2 Data Sources Per Project
 
-| Spec | Key Rules Applied |
-|------|------------------|
-| `AGENTXCHAIN_AI_MANAGED_SURFACE_SPEC.md` | Cross-project rollups are `.ai` advantages; protocol parity invariant; cloud-only metadata is presentation-tier only |
-| `AGENTXCHAIN_AI_CONTROL_PLANE_API_SPEC.md` | Org/workspace/project hierarchy (deferred to full tenancy — MVP uses flat registry) |
-| `AGENTXCHAIN_AI_OPERATOR_OBSERVABILITY_SPEC.md` | Turn aggregation response shape, observation_summary pattern |
-| `AGENTXCHAIN_AI_DASHBOARD_READ_MODEL_SPEC.md` | Server-projected actionability contract (org views are read-only for MVP) |
+| File | Format | Writer | Content |
+|------|--------|--------|---------|
+| `.agentxchain/run-history.jsonl` | JSONL | `run-history.js:recordRunHistory()` | Complete run completion records (schema_version 0.1) |
+| `.agentxchain/decision-ledger.jsonl` | JSONL | `governed-state.js` | Policy escalations, conflicts, timeouts, operator escalations |
+| `.agentxchain/hook-audit.jsonl` | JSONL | `hook-runner.js:309` | Hook execution records with verdicts (allow/warn/block) |
+| `.agentxchain/events.jsonl` | JSONL | `run-events.js` | 58 lifecycle event types including governance events |
 
 ---
 
 ## 2. Deliverables
 
-### 2.1 Project Registry Module — `cli/src/lib/api/project-registry.js`
+### 2.1 Org State Aggregator — Add `getRunHistory()` and `getAuditTrail()`
 
-**New file.** File-backed registry mapping project IDs to root directories.
+**Modify existing file:** `cli/src/lib/api/org-state-aggregator.js`
 
-#### 2.1.1 Module API
+#### 2.1.1 `getRunHistory(query?)`
 
-```javascript
-/**
- * Create a project registry persisted in the primary project's .agentxchain/ directory.
- * @param {string} primaryRoot - primary project root (always registered)
- * @returns {ProjectRegistry}
- */
-export function createProjectRegistry(primaryRoot)
-```
+Add after `getDecisions()` (after line 257). Reads `run-history.jsonl` from all registered projects and returns the **full** record shape (not the simplified shape used by `getRuns()`).
 
-Returns:
-```javascript
-{
-  register(root, name?): RegistryEntry,  // register a project; validates agentxchain.json exists
-  unregister(projectId): boolean,        // remove project; no-op for primary
-  list(): RegistryEntry[],               // all registered projects, sorted by name
-  get(projectId): RegistryEntry | null,  // lookup by ID
-  save(): void,                          // persist to disk
-  load(): void,                          // load from disk
-}
-```
+**Parameters:**
+- `query.project` — filter by project ID
+- `query.status` — filter by run status (`completed` | `blocked`)
+- `query.limit` — max results (default 50)
+- `query.offset` — pagination offset (default 0)
 
-#### 2.1.2 Registry Entry Shape
-
-```javascript
-{
-  id: string,           // deterministic: first 12 chars of SHA-256 of normalized absolute path
-  name: string,         // display name (defaults to directory basename)
-  root: string,         // absolute normalized path to project root
-  is_primary: boolean,  // true for the primary project
-  registered_at: number // Date.now() at registration
-}
-```
-
-#### 2.1.3 Persistence Format
-
-File: `<primaryRoot>/.agentxchain/org-registry.json`
-
-```json
-{
-  "version": 1,
-  "projects": [
-    { "id": "a1b2c3d4e5f6", "name": "my-project", "root": "/path/to/project", "is_primary": true, "registered_at": 1714819200000 }
-  ]
-}
-```
-
-#### 2.1.4 Constraints
-
-1. **Validation:** `register()` checks `existsSync(join(root, 'agentxchain.json'))` — rejects non-governed directories
-2. **Idempotent registration:** Re-registering the same root path updates `name` only; `id` and `registered_at` are preserved
-3. **Primary immutability:** `unregister()` silently skips entries where `is_primary === true`
-4. **Auto-save:** `register()` and `unregister()` call `save()` automatically
-5. **Graceful load:** If registry file does not exist or is corrupt, start with primary-only registry
-6. **ID stability:** ID is derived from the normalized absolute path, so it is stable across restarts
-
----
-
-### 2.2 Org State Aggregator Module — `cli/src/lib/api/org-state-aggregator.js`
-
-**New file.** Reads governed state from each registered project and returns aggregated views.
-
-#### 2.2.1 Module API
-
-```javascript
-import { readJsonFile, readJsonlFile } from '../dashboard/state-reader.js';
-import { join } from 'node:path';
-
-/**
- * Create an org state aggregator.
- * @param {ProjectRegistry} registry - project registry instance
- * @returns {{ getOverview(), getRuns(query?), getDecisions(query?) }}
- */
-export function createOrgAggregator(registry)
-```
-
-#### 2.2.2 `getOverview()` Response Shape
-
-```javascript
-{
-  total_projects: number,
-  active_runs: number,         // count of projects with state.status === 'active'
-  pending_gates: number,       // count of gates with status === 'pending' across all projects
-  total_decisions: number,     // sum of decision ledger entries across all projects
-  total_cost_usd: number,      // sum of cost_tracker.total_cost_usd across all projects
-  projects: [
-    {
-      id: string,              // registry project ID
-      name: string,            // registry project name
-      root: string,            // project root path
-      state: {
-        run_id: string | null,
-        status: string | null,   // 'active' | 'blocked' | 'completed' | null
-        phase: string | null,    // 'planning' | 'implementation' | 'qa' | null
-        active_turns: number,    // count of entries in state.active_turns
-        budget_spent_usd: number,
-        updated_at: string | null,
-      },
-      pending_gates: string[],  // names of gates with status 'pending'
-      decision_count: number,
-    }
-  ]
-}
-```
-
-#### 2.2.3 Data Sources per Project
-
-For each project in `registry.list()`:
-
-| Data | Source File | Reader Function |
-|------|------------|-----------------|
-| Run state | `<root>/.agentxchain/state.json` | `readJsonFile(axDir, 'state.json')` |
-| Gate status | Parsed from `state.gates` | — |
-| Decision ledger | `<root>/.agentxchain/decision-ledger.jsonl` | `readJsonlFile(axDir, 'decision-ledger.jsonl')` |
-| Run history | `<root>/.agentxchain/run-history.jsonl` | `readJsonlFile(axDir, 'run-history.jsonl')` |
-| History | `<root>/.agentxchain/history.jsonl` | `readJsonlFile(axDir, 'history.jsonl')` |
-| Cost | Parsed from `state.cost_tracker` | — |
-
-Where `axDir = join(project.root, '.agentxchain')`.
-
-#### 2.2.4 `getRuns(query?)` Response Shape
-
+**Response:**
 ```javascript
 {
   data: [
     {
-      project_id: string,
-      project_name: string,
+      // Full run-history.jsonl record shape (schema_version 0.1):
+      schema_version: '0.1',
       run_id: string,
-      status: string,
-      phase: string,
-      turns_completed: number,      // from history.jsonl length
-      cost_usd: number,             // from state.cost_tracker.total_cost_usd
-      started_at: string | null,    // from state.created_at or run-history entry
-      updated_at: string | null,    // from state.updated_at
+      project_id: string,      // from registry entry
+      project_name: string,    // from registry entry
+      template: string | null,
+      status: 'completed' | 'blocked',
+      started_at: string | null,
+      completed_at: string | null,
+      duration_ms: number | null,
+      phases_completed: string[],
+      total_turns: number,
+      roles_used: string[],
+      decisions_count: number,
+      total_cost_usd: number | null,
+      budget_limit_usd: number | null,
+      blocked_reason: string | null,
+      gate_results: { [gate_id]: 'passed' | 'pending' },
+      connector_used: string | null,
+      model_used: string | null,
+      provenance: { trigger, parent_run_id, ... } | null,
+      retrospective: {
+        headline: string,
+        terminal_reason: string,
+        next_operator_action: string | null,
+        follow_on_hint: string | null,
+      } | null,
+      recorded_at: string,
     }
-  ]
+  ],
+  total: number,    // total matching records before pagination
 }
 ```
 
-Query parameters:
-- `project`: filter by project ID
-- `phase`: filter by phase
-- `status`: filter by status
-- `limit`: max results (default 50)
+**Implementation constraints:**
+1. Each record is spread with `project_id` and `project_name` from the registry entry (overriding any stale values in the JSONL record itself)
+2. Sort by `completed_at` or `recorded_at` descending (most recent first)
+3. Pagination: apply `offset` then `limit` (not limit-then-offset)
+4. If a project's `run-history.jsonl` is unreadable, skip silently (same isolation pattern as `getRuns()`)
+5. `total` field enables the dashboard to show pagination controls
 
-Data source: For each project, read `state.json` for the active run and `run-history.jsonl` for historical runs. Merge, sort by `updated_at` descending.
+#### 2.1.2 `getAuditTrail(query?)`
 
-#### 2.2.5 `getDecisions(query?)` Response Shape
+Add after `getRunHistory()`. Merges governance events from 3 JSONL sources across all registered projects into a unified chronological timeline.
 
+**Parameters:**
+- `query.project` — filter by project ID
+- `query.severity` — filter by severity (`high` | `medium` | `low`)
+- `query.event_type` — filter by event type
+- `query.source` — filter by source (`decision_ledger` | `hook_audit` | `events`)
+- `query.limit` — max results (default 50)
+- `query.offset` — pagination offset (default 0)
+
+**Response — unified `AuditEvent` shape:**
 ```javascript
 {
   data: [
     {
+      timestamp: string | null,       // ISO 8601
+      event_type: string,             // e.g. 'policy_escalation', 'hook_block', 'gate_failed'
+      severity: 'high' | 'medium' | 'low',
+      source: 'decision_ledger' | 'hook_audit' | 'events',
       project_id: string,
       project_name: string,
-      id: string,             // DEC-NNN from the entry
-      phase: string,
-      role: string,
-      runtime_id: string,
-      category: string,
-      statement: string,
-      rationale: string,
+      run_id: string | null,
+      phase: string | null,
+      role: string | null,
+      summary: string,                // human-readable one-line summary
+      detail: object,                 // full original entry for drill-down
     }
-  ]
+  ],
+  total: number,
 }
 ```
 
-Query parameters:
-- `project`: filter by project ID
-- `phase`: filter by phase
-- `role`: filter by role
-- `limit`: max results (default 100)
+#### 2.1.3 Source Inclusion Rules
 
-Data source: For each project, read `decision-ledger.jsonl`, tag each entry with `project_id` and `project_name`. Merge, sort by timestamp/index descending.
+**From `decision-ledger.jsonl`** — include entries where `decision` (or `type`) is one of:
+- `policy_escalation`
+- `conflict_detected`
+- `conflict_rejected`
+- `conflict_resolution_selected`
+- `operator_escalated`
+- `escalation_resolved`
+- `timeout_turn_level`
+- `timeout_phase_level`
+- `timeout_run_level`
 
-#### 2.2.6 Error Handling
+**From `hook-audit.jsonl`** — include entries where `verdict` is `block` or `warn`:
+- `verdict === 'block'` → `event_type: 'hook_block'`, severity: high
+- `verdict === 'warn'` → `event_type: 'hook_warn'`, severity: medium
 
-- If a registered project's `.agentxchain/` directory is missing or state.json unreadable, the project appears in the overview with `state: { run_id: null, status: null, ... }` and a flag `"error": "state_unreadable"`
-- Aggregation never throws — individual project read failures are isolated
+**From `events.jsonl`** — include entries where `event_type` is one of:
+- `escalation_raised`
+- `escalation_resolved`
+- `gate_pending`
+- `gate_approved`
+- `gate_failed`
+- `run_blocked`
+- `human_escalation_raised`
+- `budget_exceeded_warn`
 
----
-
-### 2.3 Hosted Runner Modifications — `cli/src/lib/api/hosted-runner.js`
-
-**Modify existing file.** Add org routes and static file serving.
-
-#### 2.3.1 New Parameters for `createHostedRunner()`
-
-At line 296, extend the options destructuring:
-
-```javascript
-const {
-  root,
-  config,
-  port = 4100,
-  host = '127.0.0.1',
-  projects = [],       // NEW: additional project root paths
-} = options;
-```
-
-After queue/worker creation (line 304-305), add:
+#### 2.1.4 Severity Classification
 
 ```javascript
-import { createProjectRegistry } from './project-registry.js';
-import { createOrgAggregator } from './org-state-aggregator.js';
-
-const registry = createProjectRegistry(root);
-for (const projRoot of projects) {
-  try { registry.register(projRoot); } catch { /* skip invalid */ }
-}
-const aggregator = createOrgAggregator(registry);
-```
-
-Pass `registry` and `aggregator` to `buildRoutes()`.
-
-#### 2.3.2 New Routes (6 routes)
-
-Add to `buildRoutes()` after the existing 16 routes (after line 215):
-
-| Method | Pattern | Handler | Status |
-|--------|---------|---------|--------|
-| POST | `/v1/org/projects` | Validate body.root, call `registry.register(body.root, body.name)`, return entry | 201 |
-| GET | `/v1/org/projects` | Return `{ data: registry.list() }` | 200 |
-| DELETE | `/v1/org/projects/:proj_id` | Call `registry.unregister(params.proj_id)`, return `{ ok: true }` | 200 |
-| GET | `/v1/org/overview` | Return `{ data: aggregator.getOverview() }` | 200 |
-| GET | `/v1/org/runs` | Return `aggregator.getRuns(query)` | 200 |
-| GET | `/v1/org/decisions` | Return `aggregator.getDecisions(query)` | 200 |
-
-Error handling for POST `/v1/org/projects`:
-- Missing `body.root` → 422 `{ error: { code: 'validation_error', message: 'root is required' } }`
-- Non-governed directory → 422 `{ error: { code: 'validation_error', message: 'no agentxchain.json found at <root>' } }`
-
-#### 2.3.3 Static File Serving for Dashboard
-
-Add a fallback in the request handler (after line 326, the no-route-match block) — before sending 404, check if the request path maps to a file in `cli/dashboard/`:
-
-```javascript
-if (method === 'GET' && !pathname.startsWith('/v1/') && pathname !== '/health') {
-  const dashFile = resolveDashboardFile(pathname);
-  if (dashFile) {
-    // Serve static file with correct MIME type
-    return;
-  }
+function classifySeverity(eventType) {
+  // High: events that block run progress
+  if (['run_blocked', 'timeout_run_level', 'policy_escalation', 'hook_block'].includes(eventType)) return 'high';
+  // Medium: events that require attention but don't necessarily block
+  if (['escalation_raised', 'human_escalation_raised', 'gate_failed', 'conflict_detected', 'timeout_phase_level', 'timeout_turn_level', 'hook_warn', 'budget_exceeded_warn'].includes(eventType)) return 'medium';
+  // Low: informational governance events
+  return 'low';
 }
 ```
 
-MIME types: `.html` → `text/html`, `.js` → `application/javascript`, `.css` → `text/css`, `.json` → `application/json`. Default: `application/octet-stream`.
-
-Root path `/` serves `index.html`.
-
-Dashboard directory: resolved relative to the module's location via `join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'dashboard')`.
-
-#### 2.3.4 Updated Return Value
+#### 2.1.5 Summary Builders
 
 ```javascript
-return { server, start, stop, worker, queue, registry };
+// For decision-ledger entries:
+function buildDecisionSummary(entry) {
+  const type = entry.decision || entry.type || 'unknown';
+  if (type === 'policy_escalation') return `Policy violation: ${(entry.violations || []).map(v => v.message).join('; ') || 'unknown'}`;
+  if (type === 'conflict_detected') return `File conflict: ${(entry.conflict?.conflicting_files || []).join(', ')}`;
+  if (type.startsWith('timeout_')) return `Timeout (${entry.scope || type}): ${entry.elapsed_minutes || '?'}m / ${entry.limit_minutes || '?'}m limit`;
+  if (type === 'operator_escalated') return `Operator escalated: ${entry.escalation?.reason || entry.blocked_on || 'unknown'}`;
+  if (type === 'escalation_resolved') return `Escalation resolved`;
+  if (type.startsWith('conflict_')) return `Conflict ${type.replace('conflict_', '')}: ${(entry.conflict?.conflicting_files || []).join(', ')}`;
+  return type;
+}
+
+// For hook-audit entries:
+// summary = `Hook "${entry.hook_name}" ${entry.verdict}: ${entry.message || entry.event || ''}`
+
+// For events.jsonl entries:
+function buildEventSummary(entry) {
+  const type = entry.event_type;
+  const p = entry.payload || {};
+  if (type === 'escalation_raised') return `Escalation: ${p.reason || p.blocked_on || 'unknown'}`;
+  if (type === 'gate_pending') return `Gate pending: ${p.gate_id || 'unknown'}`;
+  if (type === 'gate_approved') return `Gate approved: ${p.gate_id || 'unknown'}`;
+  if (type === 'gate_failed') return `Gate failed: ${p.gate_id || 'unknown'}`;
+  if (type === 'run_blocked') return `Run blocked: ${p.reason || p.blocked_on || 'unknown'}`;
+  if (type === 'human_escalation_raised') return `Human escalation: ${p.reason || 'operator required'}`;
+  if (type === 'budget_exceeded_warn') return `Budget warning: ${p.message || 'approaching limit'}`;
+  if (type === 'escalation_resolved') return `Escalation resolved`;
+  return type;
+}
+```
+
+#### 2.1.6 Updated Module Export
+
+Line 259 changes from:
+```javascript
+return { getOverview, getRuns, getDecisions };
+```
+to:
+```javascript
+return { getOverview, getRuns, getDecisions, getRunHistory, getAuditTrail };
 ```
 
 ---
 
-### 2.4 Dashboard Org Overview Component — `cli/dashboard/components/org-overview.js`
+### 2.2 Hosted Runner — Add 2 Org Routes
 
-**New file.** Renders organization overview with metrics and project cards.
+**Modify existing file:** `cli/src/lib/api/hosted-runner.js`
+
+Insert 2 routes into `buildRoutes()` after the existing `/v1/org/decisions` route (after line 269, before the closing `]` at line 271):
+
+| Method | Pattern | Handler | HTTP Status |
+|--------|---------|---------|-------------|
+| GET | `/v1/org/history` | `aggregator.getRunHistory(query)` | 200 |
+| GET | `/v1/org/audit-trail` | `aggregator.getAuditTrail(query)` | 200 |
+
+Route implementation:
+```javascript
+{
+  method: 'GET',
+  pattern: '/v1/org/history',
+  handler: (_params, _body, query) => {
+    return { status: 200, body: aggregator.getRunHistory(query) };
+  },
+},
+{
+  method: 'GET',
+  pattern: '/v1/org/audit-trail',
+  handler: (_params, _body, query) => {
+    return { status: 200, body: aggregator.getAuditTrail(query) };
+  },
+},
+```
+
+No changes to `createHostedRunner()` — the aggregator already exists and is already passed to `buildRoutes()`. The new methods are simply available on the same `aggregator` instance.
+
+---
+
+### 2.3 Dashboard Org History Component — `cli/dashboard/components/org-history.js`
+
+**New file.** Renders persistent cross-project run history with full-fidelity data.
+
+#### 2.3.1 Module API
+
+```javascript
+/**
+ * @param {{ orgHistory: { data: object[], total: number }, liveMeta: object }} data
+ * @returns {string} HTML string
+ */
+export function render(data)
+```
+
+#### 2.3.2 Layout
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Org Run History                                       Total: 47 runs   │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ run_abc123 • project-alpha • completed • 2h 15m • $4.20        │    │
+│  │ Phases: planning → implementation → qa                         │    │
+│  │ "Delivered cursor connector with 14 tests"                     │    │
+│  │ Gates: planning_signoff ✓  implementation_complete ✓  qa ✓     │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ run_def456 • project-beta • blocked • 45m • $2.10              │    │
+│  │ Phases: planning → implementation                              │    │
+│  │ "Blocked: budget exceeded during implementation"               │    │
+│  │ Gates: planning_signoff ✓  implementation_complete pending     │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  [← Prev]  Page 1 of 3  [Next →]                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 2.3.3 Record Card Content
+
+Each run history record card displays:
+- **Header row:** Run ID (truncated, monospace), project name, status badge, duration (formatted), cost (USD)
+- **Phases row:** `phases_completed` joined with " → " arrows
+- **Retrospective row:** `retrospective.headline` in italic (if present)
+- **Gates row:** `gate_results` entries with ✓ for passed, pending for pending
+- **Metadata (collapsed):** roles_used, connector_used, provenance.trigger, provenance.parent_run_id
+
+#### 2.3.4 Patterns
+
+Follow exact patterns from existing `run-history.js` component:
+- `esc()` for HTML escaping
+- `badge()` and `statusBadge()` helpers
+- `formatDuration()` and `formatCost()` from run-history.js
+- `.section` wrapper div
+- `.data-table` or card layout
+
+---
+
+### 2.4 Dashboard Org Audit Trail Component — `cli/dashboard/components/org-audit-trail.js`
+
+**New file.** Renders unified governance audit trail as a filterable chronological event list.
 
 #### 2.4.1 Module API
 
 ```javascript
 /**
- * @param {{ orgOverview: object, liveMeta: object }} data
+ * @param {{ orgAuditTrail: { data: object[], total: number }, liveMeta: object }} data
  * @returns {string} HTML string
  */
 export function render(data)
@@ -325,260 +332,150 @@ export function render(data)
 #### 2.4.2 Layout
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Org Overview                                                │
-├──────────┬──────────┬──────────┬──────────┬─────────────────┤
-│ Projects │ Active   │ Pending  │ Total    │ Total Cost      │
-│    5     │ Runs: 3  │ Gates: 1 │ Dec: 234 │ $12.45          │
-├──────────┴──────────┴──────────┴──────────┴─────────────────┤
-│                                                              │
-│  ┌─────────────────────┐  ┌─────────────────────┐           │
-│  │ project-alpha        │  │ project-beta         │          │
-│  │ Phase: qa           │  │ Phase: implementation│           │
-│  │ Status: active      │  │ Status: active       │          │
-│  │ Run: run_abc123     │  │ Run: run_def456      │          │
-│  │ Turns: 7            │  │ Turns: 3             │          │
-│  │ Gates: [pending]    │  │ Gates: []            │          │
-│  │ Cost: $4.20         │  │ Cost: $3.15          │          │
-│  └─────────────────────┘  └─────────────────────┘           │
-│                                                              │
-│  ┌─────────────────────┐                                     │
-│  │ project-gamma        │                                    │
-│  │ No active run       │                                     │
-│  │ Last run: completed │                                     │
-│  └─────────────────────┘                                     │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Governance Audit Trail                                 47 events       │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Filter: [Project ▼] [Severity ▼] [Source ▼]                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ● HIGH  policy_escalation  project-alpha  May 4, 10:15 AM             │
+│    Policy violation: turn exceeds budget reservation                    │
+│    Phase: implementation  Role: dev  Run: run_abc123                    │
+│  ─────────────────────────────────────────────────────────────────────  │
+│  ● MED   hook_block        project-beta   May 4, 09:45 AM              │
+│    Hook "budget-guard" block: cost exceeds threshold                    │
+│    Phase: qa                                                            │
+│  ─────────────────────────────────────────────────────────────────────  │
+│  ● MED   gate_failed       project-alpha  May 4, 09:30 AM              │
+│    Gate failed: qa_ship_verdict — ship verdict not affirmative          │
+│    Phase: qa  Role: qa  Run: run_abc123                                 │
+│  ─────────────────────────────────────────────────────────────────────  │
+│  ● LOW   gate_approved     project-gamma  May 4, 09:00 AM              │
+│    Gate approved: planning_signoff                                      │
+│    Phase: planning  Run: run_ghi789                                     │
+│                                                                         │
+│  [← Prev]  Page 1 of 3  [Next →]                                       │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 2.4.3 CSS
+#### 2.4.3 Severity Badges
 
-Reuse existing CSS classes: `.section`, `.data-table`, `.badge`, `.turn-card` (for project cards). New CSS for the metrics banner:
+- `HIGH` → red badge (border-color: var(--red))
+- `MED` → yellow badge (border-color: var(--yellow))
+- `LOW` → dim badge (border-color: var(--text-dim))
 
-```css
-.org-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.org-metric-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
-  text-align: center;
-}
-.org-metric-value { font-size: 24px; font-weight: 700; color: var(--text); }
-.org-metric-label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-.org-projects-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
-}
-```
+#### 2.4.4 Filter Bar
 
-Inject this CSS inline at the top of the render output (same pattern as timeline.js which returns `<style>` + content).
+3 dropdown selects (same pattern as `ledger.js` filter bar):
+- **Project:** `all` + one option per registered project
+- **Severity:** `all`, `high`, `medium`, `low`
+- **Source:** `all`, `decision_ledger`, `hook_audit`, `events`
 
-#### 2.4.4 HTML Escaping
+Filters pass as query parameters to the API: `/v1/org/audit-trail?severity=high&project=abc123`
 
-Define local `esc()` function matching the pattern from timeline.js:
+#### 2.4.5 Patterns
 
-```javascript
-function esc(str) {
-  if (str == null) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-```
+Follow exact patterns from existing `ledger.js` and `hooks.js` components:
+- `esc()` for HTML escaping
+- `.filter-bar` and `.filter-control` CSS classes for filter dropdowns
+- `.section` wrapper div
+- Severity-colored left border on event entries
+- `.badge` class for severity and event_type badges
 
 ---
 
-### 2.5 Dashboard Org Runs Component — `cli/dashboard/components/org-runs.js`
-
-**New file.** Renders cross-project run list as a filterable data table.
-
-#### 2.5.1 Module API
-
-```javascript
-/**
- * @param {{ orgRuns: object, liveMeta: object, filter?: object }} data
- * @returns {string} HTML string
- */
-export function render(data)
-```
-
-#### 2.5.2 Layout
-
-Filter bar with 3 dropdowns: Project (all / specific), Phase (all / planning / implementation / qa), Status (all / active / blocked / completed).
-
-Data table columns:
-| Column | Source |
-|--------|--------|
-| Project | `project_name` |
-| Run ID | `run_id` (truncated, monospace) |
-| Phase | `phase` (badge) |
-| Status | `status` (badge) |
-| Turns | `turns_completed` |
-| Cost | `cost_usd` (formatted as USD) |
-| Started | `started_at` (relative time) |
-| Updated | `updated_at` (relative time) |
-
-#### 2.5.3 Filtering
-
-Client-side filtering (same pattern as ledger.js filter bar). Use `viewState['org-runs']` in app.js:
-
-```javascript
-viewState['org-runs'] = { project: 'all', phase: 'all', status: 'all' };
-```
-
----
-
-### 2.6 Dashboard App Modifications — `cli/dashboard/app.js`
+### 2.5 Dashboard App Modifications — `cli/dashboard/app.js`
 
 **Modify existing file.**
 
-#### 2.6.1 New Imports (after line 25)
+#### 2.5.1 New Imports (after line 26)
 
 ```javascript
-import { render as renderOrgOverview } from './components/org-overview.js';
-import { render as renderOrgRuns } from './components/org-runs.js';
+import { render as renderOrgHistory } from './components/org-history.js';
+import { render as renderOrgAuditTrail } from './components/org-audit-trail.js';
 ```
 
-#### 2.6.2 New VIEWS Entries (insert at top of VIEWS object, after line 31)
+#### 2.5.2 New VIEWS Entries (after `'org-runs'` at line 35)
 
 ```javascript
-'org-overview': { fetch: ['orgOverview'], render: renderOrgOverview },
-'org-runs': { fetch: ['orgRuns'], render: renderOrgRuns },
+'org-history': { fetch: ['orgHistory'], render: renderOrgHistory },
+'org-audit-trail': { fetch: ['orgAuditTrail'], render: renderOrgAuditTrail },
 ```
 
-#### 2.6.3 New API_MAP Entries (after line 51)
+#### 2.5.3 New API_MAP Entries (after `orgRuns` at line 85)
 
 ```javascript
-orgOverview: '/v1/org/overview',
-orgRuns: '/v1/org/runs',
+orgHistory: '/v1/org/history',
+orgAuditTrail: '/v1/org/audit-trail',
 ```
 
-Note: These paths use `/v1/` prefix (hosted runner routes) rather than `/api/` prefix (bridge-server routes). When the dashboard is served from the hosted runner (port 4100), these paths resolve correctly relative to the same origin.
+#### 2.5.4 New viewState Entry (after `'org-runs'` at line 89)
 
-#### 2.6.4 New viewState Entry
-
-Add to the viewState object:
 ```javascript
-'org-runs': { project: 'all', phase: 'all', status: 'all' },
+'org-audit-trail': { project: 'all', severity: 'all', source: 'all' },
 ```
 
 ---
 
-### 2.7 Dashboard Nav Modifications — `cli/dashboard/index.html`
+### 2.6 Dashboard Nav Modifications — `cli/dashboard/index.html`
 
 **Modify existing file.**
 
-Insert 2 nav links before the "Initiative" link at line 398:
+Insert 2 nav links after the "Org Runs" link at line 399:
 
 ```html
-<a href="#org-overview">Org Overview</a>
-<a href="#org-runs">Org Runs</a>
+<a href="#org-history">Org History</a>
+<a href="#org-audit-trail">Audit Trail</a>
 ```
 
 ---
 
-### 2.8 Serve Command Modifications — `cli/src/commands/serve.js`
+### 2.7 Integration Tests — `cli/test/org-history-audit.test.js`
 
-**Modify existing file.**
-
-#### 2.8.1 New Option
-
-Add `--projects` option to accept comma-separated additional project paths.
-
-After line 37, parse the projects option:
-```javascript
-const additionalProjects = (opts.projects || '')
-  .split(',')
-  .map(p => p.trim())
-  .filter(Boolean)
-  .map(p => resolve(p));
-```
-
-Pass to createHostedRunner:
-```javascript
-const runner = createHostedRunner({
-  root,
-  config: ctx.config,
-  port,
-  host,
-  projects: additionalProjects,
-});
-```
-
-#### 2.8.2 CLI Registration Update — `cli/bin/agentxchain.js`
-
-At line 813, add the new option:
-```javascript
-.option('--projects <paths>', 'Additional project roots (comma-separated)')
-```
-
----
-
-### 2.9 Integration Tests — `cli/test/org-dashboard.test.js`
-
-**New file.** Tests for project registry, org aggregator, and org routes.
+**New file.** Tests for run history aggregation, audit trail aggregation, and the 2 new routes.
 
 | # | Test ID | Description | Assertion |
 |---|---------|-------------|-----------|
-| T1 | AT-OD-001 | Register project via POST /v1/org/projects | POST with `{ root: <tempDir> }` returns 201 with entry containing id, name, root |
-| T2 | AT-OD-002 | List projects via GET /v1/org/projects | Returns 200 with array containing at least the primary project |
-| T3 | AT-OD-003 | Unregister project via DELETE /v1/org/projects/:id | Returns 200, subsequent GET /v1/org/projects excludes the removed project |
-| T4 | AT-OD-004 | Org overview returns correct metrics | GET /v1/org/overview returns 200 with `total_projects >= 1`, projects array has entries |
-| T5 | AT-OD-005 | Cross-project runs include project attribution | GET /v1/org/runs returns 200, each entry has `project_id` and `project_name` fields |
-| T6 | AT-OD-006 | Cross-project decisions include project attribution | GET /v1/org/decisions returns 200, each entry has `project_id` and `project_name` fields |
-| T7 | AT-OD-007 | Multi-project aggregation | Register 2 temp projects with different state.json; GET /v1/org/overview shows `total_projects >= 3` (primary + 2); both projects appear in projects array |
-| T8 | AT-OD-008 | Unregistered project excluded from aggregation | Register temp project, verify in overview, unregister, verify absent from overview |
+| T1 | AT-HA-001 | GET /v1/org/history returns records with project attribution | Response 200, each entry has `project_id` and `project_name` fields |
+| T2 | AT-HA-002 | Run history records include full-fidelity fields | At least one entry has `retrospective`, `provenance`, `gate_results`, `phases_completed`, `duration_ms` fields |
+| T3 | AT-HA-003 | Run history supports status filter | GET with `?status=completed` returns only completed entries |
+| T4 | AT-HA-004 | GET /v1/org/audit-trail returns governance events from decision-ledger | Write a decision-ledger entry with `decision: 'policy_escalation'`; audit trail includes it with `source: 'decision_ledger'` |
+| T5 | AT-HA-005 | Audit trail returns hook block events | Write a hook-audit entry with `verdict: 'block'`; audit trail includes it with `event_type: 'hook_block'`, `severity: 'high'` |
+| T6 | AT-HA-006 | Audit trail returns lifecycle governance events | Write an events.jsonl entry with `event_type: 'gate_failed'`; audit trail includes it with `source: 'events'` |
+| T7 | AT-HA-007 | Audit trail supports severity filter | GET with `?severity=high` returns only high-severity events |
+| T8 | AT-HA-008 | Multi-project aggregation for both endpoints | Register 2 temp projects with different run-history + decision-ledger; verify /v1/org/history `total >= 2` and /v1/org/audit-trail `total >= 2` with entries from both projects |
 
-#### 2.9.1 Test Setup Pattern
+#### 2.7.1 Test Setup Pattern
 
-Follow `hosted-runner.test.js` patterns:
+Follow `org-dashboard.test.js` patterns:
 - Create temp directories with `mkdtempSync`
-- Write minimal `agentxchain.json` and `.agentxchain/state.json` in each temp dir
-- Start hosted runner on random available port (use port 0 for auto-assign or a high-range port)
-- Make HTTP requests via `node:http` request helpers
+- Write minimal `agentxchain.json` in each temp dir
+- Write `.agentxchain/run-history.jsonl` with sample records
+- Write `.agentxchain/decision-ledger.jsonl` with governance entries
+- Write `.agentxchain/hook-audit.jsonl` with block verdict entries
+- Write `.agentxchain/events.jsonl` with governance event entries
+- Start hosted runner on random port
+- Make HTTP requests via `node:http`
 - Cleanup temp dirs in `afterAll`
 
 ---
 
 ## 3. Integration Points
 
-### 3.1 State Reader — `state-reader.js:113-166`
+### 3.1 State Reader — `state-reader.js:113-125`
 
-The org aggregator imports `readJsonFile` and `readJsonlFile`:
+Both new aggregator methods use the same `readJsonlFile(dir, filename)` function already imported at line 11 of org-state-aggregator.js. No new imports needed.
 
-```javascript
-import { readJsonFile, readJsonlFile } from '../dashboard/state-reader.js';
-```
+### 3.2 Hosted Runner — `hosted-runner.js:219-271`
 
-These are simple, synchronous file readers:
-- `readJsonFile(agentxchainDir, filename)` → parsed JSON or null
-- `readJsonlFile(agentxchainDir, filename)` → array of parsed objects
+The 2 new routes are added to the same route array in `buildRoutes()`. They follow the identical pattern as existing org routes: `{ method, pattern, handler }` objects calling aggregator methods.
 
-No enrichment (loadProjectState, reconcileStaleTurns) is applied for secondary projects — only the primary project gets full enrichment via the existing hosted runner routes. This is intentional: org views need fast reads, not full state repair.
+### 3.3 Dashboard App — `app.js:33-96`
 
-### 3.2 Hosted Runner — `hosted-runner.js:71-216`
+New views and API_MAP entries follow the exact same pattern as existing org entries (`orgOverview`, `orgRuns`). The `fetchData()` function uses `fetch()` with relative paths — since the dashboard is served from the hosted runner, `/v1/org/history` and `/v1/org/audit-trail` resolve correctly.
 
-The 6 new org routes are added to the same `buildRoutes()` function, extending the route array. They follow the identical pattern: `{ method, pattern, handler }` objects.
+### 3.4 Run History Record Shape — `run-history.js:74-128`
 
-### 3.3 Hosted Runner Server — `hosted-runner.js:308-356`
-
-The static file serving fallback is added to the `createServer()` request handler, before the 404 response. It checks if the path is not a known API prefix (`/v1/`, `/health`) and tries to resolve to a dashboard file.
-
-### 3.4 Dashboard App — `app.js:31-79`
-
-New views and API_MAP entries follow the exact same pattern as existing entries. The `fetchData()` function at app.js uses `fetch()` with relative paths — since the dashboard is now served from the hosted runner, `/v1/org/overview` resolves correctly.
-
-### 3.5 Dashboard Components Pattern
-
-All 17 existing components export a `render(data)` function that returns an HTML string. New components follow the same pattern:
-- No JSX, no virtual DOM — pure string concatenation
-- `esc()` helper for HTML escaping (defined locally in each component)
-- CSS classes from index.html: `.section`, `.badge`, `.data-table`, `.turn-card`, `.filter-bar`, `.filter-control`
-- Return value is injected into `#view-container` via `innerHTML`
+The `getRunHistory()` aggregator returns records in the same shape that `recordRunHistory()` writes. The dev should reference the record construction at run-history.js:74 to understand available fields.
 
 ---
 
@@ -586,91 +483,86 @@ All 17 existing components export a `render(data)` function that returns an HTML
 
 | File | Change Type | LOC | Description |
 |------|-------------|-----|-------------|
-| `cli/src/lib/api/project-registry.js` | **Create** | ~150 | File-backed project registry with register/unregister/list/get |
-| `cli/src/lib/api/org-state-aggregator.js` | **Create** | ~250 | Multi-project state aggregation: overview, runs, decisions |
-| `cli/dashboard/components/org-overview.js` | **Create** | ~250 | Org overview: metrics banner + project cards grid |
-| `cli/dashboard/components/org-runs.js` | **Create** | ~200 | Cross-project run list: filterable data table |
-| `cli/test/org-dashboard.test.js` | **Create** | ~400 | 8 integration tests for registry, aggregator, org routes |
-| `cli/src/lib/api/hosted-runner.js` | **Modify** | ~100 | Add 6 org routes, registry/aggregator init, static file serving |
-| `cli/src/commands/serve.js` | **Modify** | ~10 | Accept --projects option, pass to createHostedRunner |
-| `cli/bin/agentxchain.js` | **Modify** | ~1 | Add --projects option to serve command registration |
-| `cli/dashboard/app.js` | **Modify** | ~15 | Add 2 views, 2 API_MAP entries, viewState, imports |
+| `cli/src/lib/api/org-state-aggregator.js` | **Modify** | ~150 | Add `getRunHistory()`, `getAuditTrail()`, helpers, update export |
+| `cli/src/lib/api/hosted-runner.js` | **Modify** | ~15 | Add 2 org routes after `/v1/org/decisions` |
+| `cli/dashboard/components/org-history.js` | **Create** | ~200 | Full-fidelity cross-project run history view |
+| `cli/dashboard/components/org-audit-trail.js` | **Create** | ~250 | Governance audit trail timeline with filters |
+| `cli/dashboard/app.js` | **Modify** | ~10 | Add 2 views, 2 API_MAP entries, viewState, imports |
 | `cli/dashboard/index.html` | **Modify** | ~2 | Add 2 nav links |
+| `cli/test/org-history-audit.test.js` | **Create** | ~350 | 8 integration tests |
 
-5 new files, 5 modified files. Vitest contract file count increases from 669 to 670.
+3 new files, 4 modified files. Vitest contract file count increases from 670 to 671.
 
 ---
 
 ## 5. Key Architecture Invariants
 
-1. **Protocol parity (from frozen spec).** Org views read the same state.json, history.jsonl, and decision-ledger.jsonl that the protocol engine writes. No new state formats.
-2. **Zero new dependencies.** All new modules use `node:fs`, `node:path`, `node:crypto` (for SHA-256 ID generation). Static file serving uses `node:fs` + MIME map.
-3. **Read-only org surface (MVP).** Org views are observation-only. No cross-project mutations. Gate approvals remain per-project via the existing bridge-server or hosted runner single-project routes.
-4. **Aggregation isolation.** A single project's read failure does not break the org overview — failed projects show `status: null` with an error flag.
-5. **Primary project immutability.** The primary project cannot be unregistered. It defines the persistence location for the registry file.
-6. **Existing routes untouched.** All 16 existing hosted runner routes remain identical. Org routes use the `/v1/org/` prefix with no overlap.
+1. **No writer changes.** The JSONL writers (`run-history.js`, `governed-state.js`, `hook-runner.js`, `run-events.js`) are untouched. This deliverable adds read-only aggregation only.
+2. **Zero new dependencies.** All modules use `node:path` and the existing `readJsonlFile` from state-reader.js.
+3. **Aggregation isolation.** A single project's read failure does not break the audit trail or history — failed projects are skipped silently (same pattern as existing `getRuns()`).
+4. **Existing routes untouched.** All 22 existing hosted runner routes remain identical. New routes use distinct paths (`/v1/org/history`, `/v1/org/audit-trail`).
+5. **Selective event inclusion.** Not all events.jsonl entries appear in the audit trail — only governance-relevant types are included, filtering out routine lifecycle noise.
+6. **Pagination support.** Both new endpoints return `{ data, total }` enabling dashboard pagination without loading all records at once.
 
 ---
 
 ## Interface
 
-### Org Dashboard Architecture
+### Audit Trail Data Flow
 
 ```
-Browser (http://localhost:4100/)
+Browser (http://localhost:4100/#org-audit-trail)
     │
-    ├─ GET /                          ← Static: cli/dashboard/index.html
-    ├─ GET /app.js                    ← Static: cli/dashboard/app.js
-    ├─ GET /components/org-overview.js ← Static: cli/dashboard/components/org-overview.js
-    │
-    ├─ GET /v1/org/overview           ← NEW: aggregated org metrics
-    ├─ GET /v1/org/runs               ← NEW: cross-project run list
-    ├─ GET /v1/org/decisions          ← NEW: cross-project decisions
-    ├─ POST /v1/org/projects          ← NEW: register project
-    ├─ GET /v1/org/projects           ← NEW: list projects
-    ├─ DELETE /v1/org/projects/:id    ← NEW: unregister project
-    │
-    ├─ GET /v1/runs/:id               ← Existing: single-project run state
-    ├─ POST /v1/projects/:id/runs     ← Existing: create run
-    └─ ... (14 more existing routes)
+    ├─ GET /v1/org/audit-trail?severity=high&limit=50
     │
     ▼
 ┌──────────────────────────────────────────────────┐
-│  Hosted Runner HTTP Server                        │  cli/src/lib/api/hosted-runner.js
-│  (node:http, 22 routes + static files)            │  Port 4100
-├──────────────────────────────────────────────────┤
-│  Project Registry                                 │  NEW: cli/src/lib/api/project-registry.js
-│  (file-backed, primary + secondary projects)      │  Persists to .agentxchain/org-registry.json
-├──────────────────────────────────────────────────┤
-│  Org State Aggregator                             │  NEW: cli/src/lib/api/org-state-aggregator.js
-│  (reads state.json/history.jsonl per project)     │  Uses state-reader.js readJsonFile/readJsonlFile
-├──────────────────────────────────────────────────┤
-│  Protocol Bridge (existing 15 functions)          │  cli/src/lib/api/protocol-bridge.js
-│  Job Queue + Execution Worker (existing)          │  job-queue.js + execution-worker.js
-└──────────────────────────────────────────────────┘
-    │
-    ▼ (for each registered project)
+│  Hosted Runner (hosted-runner.js)                 │
+│  Route: /v1/org/audit-trail                       │
+│  Handler: aggregator.getAuditTrail(query)         │
+└──────────────────┬───────────────────────────────┘
+                   │
+                   ▼
 ┌──────────────────────────────────────────────────┐
-│  .agentxchain/state.json                         │  Governed run state
-│  .agentxchain/history.jsonl                      │  Turn history
-│  .agentxchain/decision-ledger.jsonl              │  Decision ledger
-│  .agentxchain/run-history.jsonl                  │  Historical runs
+│  Org State Aggregator (org-state-aggregator.js)   │
+│  getAuditTrail(query):                            │
+│    1. registry.list() → [proj_A, proj_B, ...]     │
+│    2. For each project:                           │
+│       a. readJsonlFile(axDir, 'decision-ledger.jsonl')  → governance decisions  │
+│       b. readJsonlFile(axDir, 'hook-audit.jsonl')       → block/warn verdicts   │
+│       c. readJsonlFile(axDir, 'events.jsonl')           → governance events     │
+│    3. Normalize each entry → AuditEvent shape     │
+│    4. Filter by query params                      │
+│    5. Sort by timestamp desc                      │
+│    6. Paginate: slice(offset, offset+limit)       │
+│    7. Return { data: AuditEvent[], total: N }     │
+└──────────────────┬───────────────────────────────┘
+                   │
+                   ▼ (for each registered project)
+┌──────────────────────────────────────────────────┐
+│  .agentxchain/decision-ledger.jsonl              │
+│  .agentxchain/hook-audit.jsonl                   │
+│  .agentxchain/events.jsonl                       │
 └──────────────────────────────────────────────────┘
 ```
 
-### Request Flow (Org Overview)
+### Run History Data Flow
 
 ```
-1. Browser → GET /v1/org/overview
-2. Hosted Runner → route match → aggregator.getOverview()
-3. Aggregator → registry.list() → [proj_A, proj_B, proj_C]
-4. For each project:
-   a. readJsonFile(join(proj.root, '.agentxchain'), 'state.json')
-   b. readJsonlFile(join(proj.root, '.agentxchain'), 'decision-ledger.jsonl')
-   c. Extract: run_id, status, phase, gates, cost, decision_count
-5. Aggregate: sum active_runs, pending_gates, total_decisions, total_cost
-6. Return { data: { total_projects: 3, active_runs: 2, ... , projects: [...] } }
-7. Browser → renderOrgOverview(data) → metrics banner + project cards
+Browser (http://localhost:4100/#org-history)
+    │
+    ├─ GET /v1/org/history?limit=50&offset=0
+    │
+    ▼
+┌──────────────────────────────────────────────────┐
+│  Hosted Runner → aggregator.getRunHistory(query)  │
+│    1. registry.list() → [proj_A, proj_B, ...]     │
+│    2. For each project:                           │
+│       readJsonlFile(axDir, 'run-history.jsonl')   │
+│    3. Tag each record with project_id/name        │
+│    4. Filter, sort by completed_at desc           │
+│    5. Return { data: FullRecord[], total: N }     │
+└──────────────────────────────────────────────────┘
 ```
 
 ---
@@ -679,49 +571,48 @@ Browser (http://localhost:4100/)
 
 ### Scope
 
-**5 new files + 5 modifications: project registry + org aggregator + 2 dashboard components + test file + hosted runner + serve command + CLI registration + app.js + index.html.**
+**3 new files + 4 modifications: aggregator methods + 2 routes + 2 dashboard components + app/nav mods + tests.**
 
-1. `cli/src/lib/api/project-registry.js` — File-backed project registry (register/unregister/list/get)
-2. `cli/src/lib/api/org-state-aggregator.js` — Multi-project state aggregation (overview/runs/decisions)
-3. `cli/dashboard/components/org-overview.js` — Org overview dashboard component (metrics + project cards)
-4. `cli/dashboard/components/org-runs.js` — Cross-project run list dashboard component (filterable table)
-5. `cli/test/org-dashboard.test.js` — 8 integration tests
-6. `cli/src/lib/api/hosted-runner.js` — Add 6 org routes + static file serving + registry/aggregator init
-7. `cli/src/commands/serve.js` — Accept --projects option
-8. `cli/bin/agentxchain.js` — Add --projects option to serve command
-9. `cli/dashboard/app.js` — Add 2 views + 2 API_MAP entries + viewState + imports
-10. `cli/dashboard/index.html` — Add 2 nav links
+1. `cli/src/lib/api/org-state-aggregator.js` — Add `getRunHistory(query)` + `getAuditTrail(query)` + helper functions + update return object
+2. `cli/src/lib/api/hosted-runner.js` — Add 2 routes: `GET /v1/org/history`, `GET /v1/org/audit-trail`
+3. `cli/dashboard/components/org-history.js` — Full-fidelity cross-project run history view
+4. `cli/dashboard/components/org-audit-trail.js` — Governance audit trail timeline with severity/source filters
+5. `cli/dashboard/app.js` — Add 2 views + 2 API_MAP entries + viewState + imports
+6. `cli/dashboard/index.html` — Add 2 nav links after "Org Runs"
+7. `cli/test/org-history-audit.test.js` — 8 integration tests
 
 ### Out of Scope
 
-- Cloud persistence (filesystem state-provider reads are used as-is)
-- Full org/workspace/project tenancy hierarchy
-- Authentication/authorization (localhost-only)
-- Real-time cross-project event streaming
-- Dashboard mutations from org views
-- Changes to protocol-bridge.js, run-loop.js, api-proxy-adapter.js, runner-interface.js, bridge-server.js, state-reader.js
+- Changes to any JSONL writer (run-history.js, governed-state.js, hook-runner.js, run-events.js)
+- Changes to state-reader.js, bridge-server.js, protocol-bridge.js
+- Full-text search or indexing
+- Retention policies or pruning
+- Real-time event streaming
+- Authentication/authorization
+- Export or report generation from audit trail
 
 ### Verification
 
 Dev must confirm:
-1. `agentxchain serve --port 4100 --projects /path/to/proj2` starts server and registers both projects
-2. GET /v1/org/projects returns both projects
-3. POST /v1/org/projects with a valid project root returns 201
-4. GET /v1/org/overview returns aggregated metrics including both projects
-5. GET /v1/org/runs returns runs from both projects with project attribution
-6. GET /v1/org/decisions returns decisions from both projects
-7. GET / serves the dashboard index.html from the hosted runner
-8. All 8 org-dashboard integration tests pass
-9. Vitest contract passes with the new test file (670 files)
-10. No existing tests broken
+1. GET /v1/org/history returns full-fidelity records (retrospective, provenance, gate_results, duration_ms present)
+2. GET /v1/org/history?status=completed returns only completed entries
+3. GET /v1/org/audit-trail returns events from all 3 sources (decision_ledger, hook_audit, events)
+4. GET /v1/org/audit-trail?severity=high returns only high-severity events
+5. Both endpoints include project_id and project_name attribution
+6. Both endpoints return `{ data, total }` for pagination
+7. Dashboard org-history view renders run cards with retrospective headlines
+8. Dashboard org-audit-trail view renders event timeline with severity badges
+9. All 8 integration tests pass
+10. Vitest contract passes with 671 files
+11. No existing tests broken
 
 ## Acceptance Tests
 
-- [ ] AT-OD-001: Register project via POST returns 201
-- [ ] AT-OD-002: List projects via GET returns registered projects
-- [ ] AT-OD-003: Unregister project via DELETE returns 200
-- [ ] AT-OD-004: Org overview returns correct aggregated metrics
-- [ ] AT-OD-005: Cross-project runs include project attribution
-- [ ] AT-OD-006: Cross-project decisions include project attribution
-- [ ] AT-OD-007: Multi-project aggregation shows all registered projects
-- [ ] AT-OD-008: Unregistered project excluded from aggregation
+- [ ] AT-HA-001: Run history returns records with project attribution
+- [ ] AT-HA-002: Records include full-fidelity fields (retrospective, provenance, gate_results)
+- [ ] AT-HA-003: Run history supports status filter
+- [ ] AT-HA-004: Audit trail includes decision-ledger governance events
+- [ ] AT-HA-005: Audit trail includes hook block/warn events with correct severity
+- [ ] AT-HA-006: Audit trail includes lifecycle governance events from events.jsonl
+- [ ] AT-HA-007: Audit trail supports severity filter
+- [ ] AT-HA-008: Multi-project aggregation works for both endpoints

@@ -93,7 +93,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 ### M8: agentxchain.ai Managed Surface — MVP
 - [x] Design control plane API for remote run management <!-- run_8140752664578eb2: OpenAPI 3.1 spec at api/v1/control-plane.openapi.yaml + protocol-bridge.js (15 bridge functions + 5 error classes) + 7 schema tests; QA ship verdict YES -->
 - [x] Implement hosted runner that executes protocol against cloud agent APIs <!-- run_0937d8f23ff72791: hosted-runner.js (16 routes, node:http), execution-worker.js, job-queue.js, serve.js command, 11 tests; QA ship verdict YES, 323 regression tests clean -->
-- [ ] Organization dashboard with multi-project visibility
+- [x] Organization dashboard with multi-project visibility <!-- run_76ce2c791a84e1cb: project-registry.js, org-state-aggregator.js, org-overview.js, org-runs.js, 6 org routes on hosted-runner.js, static file serving, --projects CLI option, 8 integration tests (org-dashboard.test.js), 136 tests across 6 files; QA ship verdict YES -->
 - [ ] Persistent run history and governance audit trail
 - [ ] Acceptance: a governed run completes via the hosted runner with dashboard visibility
 
@@ -101,6 +101,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M8 org dashboard: project registry + org state aggregator + 6 org API routes + 2 dashboard views + integration tests (ROADMAP.md:96) | In progress (`run_76ce2c791a84e1cb`) |
-| Implementation | Dev produces project-registry.js, org-state-aggregator.js, org-overview.js, org-runs.js, org-dashboard.test.js; modifies hosted-runner.js, serve.js, agentxchain.js, app.js, index.html | Pending |
-| QA | Verify multi-project aggregation end-to-end (register projects → org overview shows cross-project state → runs list shows all projects), full test suite, check off ROADMAP.md:96 | Pending |
+| Planning | Scope M8 persistent run history + governance audit trail: full-fidelity org history route, unified audit trail aggregation from 3 JSONL sources, 2 dashboard views, 8 integration tests (ROADMAP.md:97) | In progress (`run_b2a4084d6b3fe3b3`) |
+| Implementation | Dev modifies org-state-aggregator.js (add getRunHistory + getAuditTrail), hosted-runner.js (2 routes); creates org-history.js, org-audit-trail.js, org-history-audit.test.js; modifies app.js, index.html | Pending |
+| QA | Verify cross-project history returns full-fidelity records, audit trail merges 3 sources with correct severity classification, multi-project aggregation, full test suite, check off ROADMAP.md:97 | Pending |
