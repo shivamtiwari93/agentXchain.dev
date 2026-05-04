@@ -749,6 +749,7 @@ program
   .option('--verbose', 'Stream local_cli subprocess output while the turn is running')
   .option('--stream', 'Stream live subprocess output to terminal (alias for --verbose)')
   .option('--auto-reject', 'Auto-reject and retry on validation failure')
+  .option('--no-checkpoint', 'Skip git checkpoint after acceptance (workspace stays dirty)')
   .action(stepCommand);
 
 program

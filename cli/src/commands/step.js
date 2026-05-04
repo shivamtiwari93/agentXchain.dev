@@ -77,6 +77,7 @@ import { consumeNextApprovedIntent } from '../lib/intake.js';
 import { failTurnStartup, reconcileStaleTurns } from '../lib/stale-turn-watchdog.js';
 import { isKnownTurnRunningProofStream } from '../lib/dispatch-streams.js';
 import { getDispatchProgressRelativePath } from '../lib/dispatch-progress.js';
+import { checkpointAcceptedTurn } from '../lib/turn-checkpoint.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -1002,6 +1003,21 @@ export async function stepCommand(opts) {
     }
 
     printAcceptSummary(acceptResult, config);
+
+    // Auto-checkpoint accepted turn so workspace is clean for next assignment
+    if (!opts.noCheckpoint && existsSync(join(root, '.git'))) {
+      const checkpoint = checkpointAcceptedTurn(root, { turnId: turn.turn_id });
+      if (!checkpoint.ok) {
+        console.log(`  ${chalk.yellow('Checkpoint:')} accepted but checkpoint failed`);
+        console.log(`  ${chalk.dim('Error:')}  ${checkpoint.error}`);
+        console.log(`  ${chalk.dim('Retry:')}  agentxchain checkpoint-turn --turn ${turn.turn_id}`);
+        console.log('');
+        process.exit(1);
+      }
+      if (!checkpoint.skipped) {
+        console.log(`  ${chalk.dim('Checkpoint:')} ${checkpoint.checkpoint_sha}`);
+      }
+    }
   } else {
     // Reject and potentially retry
     console.log(chalk.yellow('Validation failed:'));
