@@ -1524,6 +1524,7 @@ export function normalizeTurnResult(tr, config, context = {}) {
       context.forceReviewArtifact
       || hasExplicitNoEditLifecycleSignal
       || (normalized.status === 'needs_human' && normalized.proposed_next_role === 'human')
+      || normalized.status === 'completed'
     )
   ) {
     normalized.artifact = {

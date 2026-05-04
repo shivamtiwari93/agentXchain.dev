@@ -596,10 +596,11 @@ describe('turn-result-validator', () => {
       assert.equal(res.ok, true);
     });
 
-    it('rejects review_only role with non-review artifact type', () => {
+    it('rejects review_only role with non-review artifact type (non-completed status bypasses BUG-78 normalization)', () => {
       const tr = makeValidTurnResult({
         role: 'qa',
         runtime_id: 'api-qa',
+        status: 'blocked',
         files_changed: [],
         artifact: { type: 'workspace', ref: 'git:abc' },
         objections: [{ id: 'OBJ-001', severity: 'low', statement: 'Fine.', status: 'raised' }],
@@ -624,8 +625,8 @@ describe('turn-result-validator', () => {
       assert.ok(res.errors.some(e => e.includes('reserved path')));
     });
 
-    it('rejects authoritative workspace artifact with no files_changed', () => {
-      writeStagedResult(makeValidTurnResult({ files_changed: [] }));
+    it('rejects authoritative workspace artifact with no files_changed (non-completed status bypasses BUG-78 normalization)', () => {
+      writeStagedResult(makeValidTurnResult({ files_changed: [], status: 'blocked' }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, false);
       assert.equal(res.stage, 'artifact');
