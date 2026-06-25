@@ -16,6 +16,11 @@ import { join, resolve as pathResolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 
 const ROADMAP_TRACKING_ANNOTATION_PATTERN = /<!--\s*tracking\s*:[\s\S]*?-->/i;
+// RB-3: a milestone left unchecked but annotated as delivered/done/shipped is
+// already-built work — skip it so the loop derives genuinely undelivered work
+// instead of re-picking finished items. Distinct from generic comments like
+// `<!-- owner: dev -->`, which stay actionable.
+const ROADMAP_DELIVERED_ANNOTATION_PATTERN = /<!--[^>]*\b(delivered|shipped|implemented|completed|done)\b[^>]*-->/i;
 
 export function stripRoadmapTrackingAnnotations(text) {
   if (typeof text !== 'string') return '';
@@ -266,7 +271,7 @@ export function deriveRoadmapCandidates(root, roadmapPath = '.planning/ROADMAP.m
 
     const uncheckedMatch = line.match(/^\s*[-*]\s+\[\s\]\s+(.+?)\s*$/);
     if (!uncheckedMatch || !currentMilestone) continue;
-    if (ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line)) continue;
+    if (ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line) || ROADMAP_DELIVERED_ANNOTATION_PATTERN.test(line)) continue;
 
     const goal = stripRoadmapTrackingAnnotations(uncheckedMatch[1]);
     if (!goal) continue;
@@ -493,7 +498,7 @@ export function detectRoadmapExhaustedVisionOpen(root, visionPath, roadmapPath =
       continue;
     }
     if (currentMilestone && /^\s*[-*]\s+\[\s\]/.test(line)) {
-      if (ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line)) continue;
+      if (ROADMAP_TRACKING_ANNOTATION_PATTERN.test(line) || ROADMAP_DELIVERED_ANNOTATION_PATTERN.test(line)) continue;
       hasUnchecked = true;
     }
   }

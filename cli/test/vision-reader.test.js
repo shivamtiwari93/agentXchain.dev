@@ -270,6 +270,25 @@ describe('Vision Reader', () => {
       assert.equal(result.candidates[0].goal, 'Preserve this open item <!-- owner: dev -->');
       assert.equal(result.candidates[1].goal, 'Preserve tracking word without annotation');
     });
+
+    it('RB-3: skips unchecked roadmap items annotated as delivered/done', () => {
+      mkdirSync(join(tmpDir, '.planning'), { recursive: true });
+      writeFileSync(join(tmpDir, '.planning', 'ROADMAP.md'), `# Roadmap
+
+### M1: Decision Trail Ownership
+- [ ] Decision ledger with cross-run persistence <!-- delivered across M1 runs; PM verified run_5b6ee2a8 -->
+
+### M2: Open Work
+- [ ] Implement the CSV exporter
+`);
+
+      const result = deriveRoadmapCandidates(tmpDir);
+      assert.equal(result.ok, true);
+      // The delivered-annotated M1 item is skipped; only the genuinely open M2 item remains.
+      assert.equal(result.candidates.length, 1);
+      assert.match(result.candidates[0].section, /^M2:/);
+      assert.equal(result.candidates[0].goal, 'Implement the CSV exporter');
+    });
   });
 
   describe('detectRoadmapExhaustedVisionOpen', () => {
