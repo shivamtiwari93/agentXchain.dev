@@ -458,6 +458,10 @@ describe('App Shell — VIEWS registry', () => {
 
   it('app.js registers the full shipped view set', () => {
     assert.deepEqual(viewIds, [
+      'org-overview',
+      'org-runs',
+      'org-history',
+      'org-audit-trail',
       'timeline',
       'delegations',
       'ledger',

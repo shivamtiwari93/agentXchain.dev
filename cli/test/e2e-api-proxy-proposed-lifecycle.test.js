@@ -446,7 +446,7 @@ function readLedger(root) {
 
 function commitAll(root, message) {
   execSync('git add .', { cwd: root, stdio: 'ignore' });
-  execSync(`git commit -m "${message}"`, { cwd: root, stdio: 'ignore' });
+  execSync(`git commit -m "${message}" --allow-empty`, { cwd: root, stdio: 'ignore' });
 }
 
 afterEach(() => {

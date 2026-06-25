@@ -110,8 +110,8 @@ function pipelineThroughPlan(dir, template = 'generic') {
     '--intent', intentId,
     '--priority', 'p1',
     '--template', template,
-    '--charter', 'S3 start test',
-    '--acceptance', 'governed execution starts',
+    '--charter', `S3 start test ${intentId}`,
+    '--acceptance', `governed execution starts ${intentId}`,
     '--json',
   ], dir);
   assert.equal(triageResult.status, 0, `triage failed: ${triageResult.stderr}`);

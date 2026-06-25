@@ -67,6 +67,10 @@ The docs must state that:
 
 The docs must cover the shipped top-level dashboard views:
 
+- Org Overview
+- Org Runs
+- Org History
+- Audit Trail
 - Initiative
 - Cross-Repo
 - Timeline

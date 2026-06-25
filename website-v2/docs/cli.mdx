@@ -52,6 +52,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
 | `audit` | Inspection | Render the governance audit directly from live repo state |
 | `report` | Inspection | Render a human-readable governance summary from a verified export artifact |
+| `ci-report` | Inspection | Report governed run results in CI-native formats (GitHub Actions annotations, JUnit XML) |
 | `restore` | Migration | Restore governed continuity roots from a prior run export into another checkout of the same repo |
 | `restart` | Turn lifecycle | Restart a governed run from the last checkpoint after a session boundary (terminal close, machine restart, context loss) |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
@@ -106,6 +107,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `connector validate` | Readiness | Dispatch one synthetic governed turn through a runtime and prove the staged turn-result contract before the first automated run |
 | `workflow-kit describe` | Readiness | Show the workflow kit contract — templates, artifacts, semantic validators, gate coverage |
 | `serve-mcp` | Integration | Start an MCP server exposing governance tools for Claude Code, Cursor, and other MCP clients |
+| `serve` | Integration | Start the hosted runner HTTP server for one or more governed projects |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
 
 ## Turn lifecycle commands
@@ -811,6 +813,7 @@ agentxchain step [options]
 | `--stream` | `false` | Stream live subprocess output to the terminal (alias for `--verbose`) |
 | `--verbose` | `false` | Stream `local_cli` subprocess output while the turn is running |
 | `--auto-reject` | `false` | Auto-reject and retry on validation failure |
+| `--no-checkpoint` | `false` | Skip git checkpoint after acceptance (workspace stays dirty) |
 
 The primary command for advancing a run. Creates a turn, writes the dispatch bundle, invokes the adapter, waits for a staged result, validates the result schema, and records it. If validation fails, the turn is marked `failed` with a `retained` disposition.
 That retained validation-failure path exits non-zero so automation can distinguish "turn accepted" from "turn needs operator recovery".
@@ -1711,6 +1714,10 @@ The shipped dashboard surface has these top-level views:
 
 | View | Description |
 |------|-------------|
+| **Org Overview** | Organization-scoped first-glance summary across registered projects from `/v1/org/overview` — aggregate metric cards (projects, active runs, pending gates, total decisions, total cost) plus a per-project card grid with status, phase, run id, active turns, cost, pending gates, and any read error |
+| **Org Runs** | Cross-project run list from `/v1/org/runs` as a filterable table by project, phase, and status — per-run project name, run id, phase, status, turns completed, cost, and relative started/updated times |
+| **Org History** | Full-fidelity cross-project run history from `/v1/org/history` — newest-first run cards with project name, status, duration, total cost, completed phases, retrospective headline, and per-gate pass/pending results, plus completed/blocked roll-up counts |
+| **Audit Trail** | Unified organization governance audit trail from `/v1/org/audit-trail` — severity- and source-tagged events (decision ledger, hook audit, events) filterable by project, severity, and source, with event type, project, summary, timestamp, and phase/role/run context |
 | **Initiative** | First-glance multi-repo coordinator summary: authority-first child repo status, pending gate, blocked state, compact **Cross-Run Constraints** for decision-constrained barriers, barrier snapshot, and one primary recovery action; full blocker diagnostics stay in the **Blockers** view sourced from `/api/coordinator/blockers` |
 | **Cross-Repo** | Coordinator event timeline across linked repos and workstreams, plus a live freshness banner showing websocket connection state, last dashboard refresh, and the last coordinator event seen |
 | **Timeline** | Run timeline with continuity status, connector health, a conflict panel sourced from `/api/events?type=turn_conflicted`, active turns with live elapsed time, accepted history with per-turn duration and acceptance timestamp, a live freshness banner showing websocket connection state, last dashboard refresh, and the last repo-local run event seen, and expandable turn-level hook evidence; in coordinator workspaces the turn detail panel renders coordinator hook audit and annotations from `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` alongside repo-local hook data |

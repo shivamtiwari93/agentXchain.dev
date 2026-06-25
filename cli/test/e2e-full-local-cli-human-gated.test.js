@@ -35,7 +35,7 @@ function gitInitAndCommit(cwd, message) {
 
 function commitAll(cwd, message) {
   execSync('git add -A', { cwd, stdio: 'ignore' });
-  execSync(`git commit -m "${message}"`, { cwd, stdio: 'ignore' });
+  execSync(`git commit -m "${message}" --allow-empty`, { cwd, stdio: 'ignore' });
 }
 
 function markGateCredentialed(cwd, gateId) {

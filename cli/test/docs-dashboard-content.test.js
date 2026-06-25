@@ -44,6 +44,10 @@ const DASHBOARD_MISSION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBO
 const DASHBOARD_WATCH_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_WATCH_RESULTS_SURFACE_SPEC.md'), 'utf8');
 const DASHBOARD_DOCS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DOCS_CONTRACT_SPEC.md'), 'utf8');
 const EXPECTED_TOP_LEVEL_VIEWS = [
+  { id: 'org-overview', label: 'Org Overview' },
+  { id: 'org-runs', label: 'Org Runs' },
+  { id: 'org-history', label: 'Org History' },
+  { id: 'org-audit-trail', label: 'Audit Trail' },
   { id: 'initiative', label: 'Initiative' },
   { id: 'cross-repo', label: 'Cross-Repo' },
   { id: 'timeline', label: 'Timeline' },
@@ -95,7 +99,10 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_BIN.includes(".option('--port <port>'"), 'CLI must expose --port');
     assert.ok(CLI_BIN.includes(".option('--daemon'"), 'CLI must expose --daemon');
     assert.ok(CLI_BIN.includes(".option('--no-open'"), 'CLI must expose --no-open');
-    assert.ok(!CLI_BIN.includes(".option('--host"), 'CLI must not expose a host flag');
+    const dashboardCommandBlock =
+      CLI_BIN.match(/\.command\('dashboard'\)[\s\S]*?\.action\(dashboardCommand\)/)?.[0] ?? '';
+    assert.ok(dashboardCommandBlock, 'CLI must register the dashboard command block');
+    assert.ok(!dashboardCommandBlock.includes(".option('--host"), 'dashboard command must not expose a host flag');
     assert.ok(DASHBOARD_COMMAND.includes('const DEFAULT_PORT = 3847;'), 'dashboard command must default to 3847');
     assert.ok(DASHBOARD_COMMAND.includes('.agentxchain-dashboard.pid'), 'dashboard command must persist a PID file');
     assert.ok(DASHBOARD_COMMAND.includes('.agentxchain-dashboard.json'), 'dashboard command must persist session metadata');
