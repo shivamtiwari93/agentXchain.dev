@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { validateStagedTurnResult, STAGING_PATH } from './turn-result-validator.js';
 import { getActiveTurn } from './governed-state.js';
+import { getTurnStagingResultPath } from './turn-paths.js';
 import {
   validateGovernedProjectTemplate,
   validateGovernedTemplateRegistry,
@@ -191,11 +192,18 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
 
   // ── Staged turn-result validation (the acceptance boundary) ─────────────
   if (mode === 'turn' && state) {
-    const stagingAbs = join(root, STAGING_PATH);
+    // RB-12: prefer the turn-scoped staging path for the active turn; the shared
+    // legacy path is only a fallback. Reading the legacy path unconditionally
+    // made `validate --mode turn` look at the wrong file and falsely report a
+    // missing turn result for turns staged at the turn-scoped path.
+    const activeTurn = getActiveTurn(state) || state.current_turn || null;
+    const turnScoped = activeTurn?.turn_id ? getTurnStagingResultPath(activeTurn.turn_id) : null;
+    const stagingRel = (turnScoped && existsSync(join(root, turnScoped))) ? turnScoped : STAGING_PATH;
+    const stagingAbs = join(root, stagingRel);
     if (!existsSync(stagingAbs)) {
-      warnings.push(`No staged turn result found at ${STAGING_PATH}. Agent has not yet emitted a turn result.`);
+      warnings.push(`No staged turn result found at ${stagingRel}. Agent has not yet emitted a turn result.`);
     } else {
-      const turnValidation = validateStagedTurnResult(root, state, config);
+      const turnValidation = validateStagedTurnResult(root, state, config, { stagingPath: stagingRel });
       if (!turnValidation.ok) {
         errors.push(
           `Staged turn result failed at stage "${turnValidation.stage}" (${turnValidation.error_class}):`,

@@ -17,6 +17,18 @@ const CLAUDE_NODE_INCOMPATIBILITY_RE =
   /TypeError:\s*Object not disposable|TypeError\(["']Object not disposable["']\)|Object not disposable[\s\S]{0,2000}Node\.js v(?:1[0-9]|20\.[0-4]\.)/i;
 const CLAUDE_COMPATIBLE_NODE_MIN = { major: 20, minor: 5, patch: 0 };
 
+// Rate-limit detection — provider-agnostic patterns for subprocess output.
+// Matches Claude/Anthropic, OpenAI/Codex, and generic rate-limit signatures.
+const RATE_LIMIT_RE = /rate_limit_error|"error"\s*:\s*"rate_limit"|rate[_\s-]?limited|hit[_\s-]your[_\s-]limit|usage\s+limit|rate\s+limit\s+reached|429\s*too\s*many\s*requests|too\s+many\s+requests/i;
+
+// Reset time extraction — best-effort parsing of provider-reported reset delay.
+const RESET_PATTERNS = [
+  /resets?\s+in\s+(\d+)\s*s/i,                   // "Resets in 42s"
+  /retry[_\s-]?after\s*[:=]\s*(\d+)/i,           // "Retry-After: 30"
+  /wait\s+(\d+)\s*s(?:econds?)?/i,               // "Please wait 60 seconds"
+  /(?:rate[_\s-]?limit|too\s+many)[\s\S]{0,80}?(\d+)\s*seconds?/i,  // "Rate limited. Try again in 120 seconds."
+];
+
 function normalizeCommandTokens(runtime) {
   if (Array.isArray(runtime?.command)) {
     return runtime.command.flatMap((element) =>
@@ -88,6 +100,41 @@ export function hasClaudeNodeIncompatibilityText(text) {
 
 export function hasClaudeBareFlag(runtime) {
   return normalizeCommandTokens(runtime).includes('--bare');
+}
+
+/**
+ * Returns true if the text contains any provider rate-limit signature.
+ * Provider-agnostic — works for Claude, OpenAI/Codex, Cursor, Windsurf, OpenCode, and generic 429 patterns.
+ */
+export function hasProviderRateLimitText(text) {
+  return typeof text === 'string' && RATE_LIMIT_RE.test(text);
+}
+
+/**
+ * Returns true if any log line contains a rate-limit signature.
+ * Mirrors hasClaudeAuthFailureOutput / hasCodexAuthFailureOutput pattern.
+ */
+export function hasRateLimitOutput(logs) {
+  if (!Array.isArray(logs)) return false;
+  return logs.some((line) => hasProviderRateLimitText(line));
+}
+
+/**
+ * Best-effort extraction of reset delay from subprocess output text.
+ * Returns milliseconds or null if no reset time is found.
+ */
+export function parseRateLimitResetMs(text) {
+  if (typeof text !== 'string') return null;
+  for (const pattern of RESET_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const seconds = Number.parseInt(match[1], 10);
+      if (seconds > 0 && seconds <= 3600) {
+        return seconds * 1000;
+      }
+    }
+  }
+  return null;
 }
 
 function parseNodeVersion(raw) {
@@ -351,4 +398,4 @@ export async function runClaudeSmokeProbe(opts) {
   });
 }
 
-export { CLAUDE_ENV_AUTH_KEYS, normalizeCommandTokens };
+export { CLAUDE_ENV_AUTH_KEYS, normalizeCommandTokens, RESET_PATTERNS };

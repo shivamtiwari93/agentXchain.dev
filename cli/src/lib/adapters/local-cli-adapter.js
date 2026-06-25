@@ -35,11 +35,13 @@ import {
   hasClaudeAuthenticationFailureText,
   hasClaudeNodeIncompatibilityText,
   hasCodexAuthenticationFailureText,
+  hasRateLimitOutput,
   isClaudeLocalCliRuntime,
   isCodexLocalCliRuntime,
   isCursorLocalCliRuntime,
   isWindsurfLocalCliRuntime,
   isOpenCodeLocalCliRuntime,
+  parseRateLimitResetMs,
   resolveClaudeCompatibleNodeBinary,
 } from '../claude-local-auth.js';
 
@@ -55,6 +57,11 @@ const DIAGNOSTIC_STDERR_EXCERPT_LIMIT = 800;
 const DEFAULT_STARTUP_WATCHDOG_MS = 180_000;
 const DEFAULT_STARTUP_WATCHDOG_SIGKILL_GRACE_MS = 10_000;
 const DEFAULT_STARTUP_HEARTBEAT_MS = 30_000;
+// RB-6: liveness heartbeat interval. Unlike the startup heartbeat (which stops
+// at first output), this keeps the dispatch-progress `last_activity_at` fresh
+// for the whole lifetime of an alive subprocess, so a long output-silent turn
+// (e.g. one running a slow test suite) is not misclassified as a stalled turn.
+const DEFAULT_LIVENESS_HEARTBEAT_MS = 60_000;
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -104,6 +111,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
   const startupWatchdogMs = startupWatchdogOverrideMs ?? resolveStartupWatchdogMs(config, runtime);
   const startupWatchdogKillGraceMs = resolveStartupWatchdogKillGraceMs(options.startupWatchdogKillGraceMs);
   const startupHeartbeatMs = resolveStartupHeartbeatMs(config, runtime, options.startupHeartbeatMs);
+  const livenessHeartbeatMs = resolveLivenessHeartbeatMs(config, runtime, options.livenessHeartbeatMs);
 
   // Read the dispatch bundle prompt
   const promptPath = join(root, getDispatchPromptPath(turn.turn_id));
@@ -229,6 +237,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     let startupWatchdog = null;
     let startupSigkillHandle = null;
     let startupHeartbeat = null;
+    let livenessHeartbeat = null;
     let startupTimedOut = false;
     let startupFailureType = null;
     let stdoutBytes = 0;
@@ -238,6 +247,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     const settle = (result) => {
       if (settled) return;
       settled = true;
+      clearLivenessHeartbeat();
       resolve(result);
     };
 
@@ -256,6 +266,48 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       if (startupHeartbeat) {
         clearInterval(startupHeartbeat);
         startupHeartbeat = null;
+      }
+    };
+
+    const clearLivenessHeartbeat = () => {
+      if (livenessHeartbeat) {
+        clearInterval(livenessHeartbeat);
+        livenessHeartbeat = null;
+      }
+    };
+
+    // RB-6: keep `last_activity_at` fresh for the full lifetime of an alive
+    // subprocess (NOT cleared at first output, unlike the startup heartbeat), so
+    // a long output-silent turn — e.g. one running a slow test suite — is not
+    // misclassified as stalled by the stale-turn watchdog. Genuine hangs are
+    // still bounded by the per-turn hard timeout.
+    const armLivenessHeartbeat = () => {
+      if (livenessHeartbeat || !(livenessHeartbeatMs > 0 && Number.isFinite(livenessHeartbeatMs))) {
+        return;
+      }
+      livenessHeartbeat = setInterval(() => {
+        if (settled) {
+          clearLivenessHeartbeat();
+          return;
+        }
+        const payload = {
+          liveness_heartbeat_ms: livenessHeartbeatMs,
+          pid: child.pid ?? null,
+          spawn_confirmed_at: spawnConfirmedAt,
+          elapsed_since_spawn_ms: spawnConfirmedAtMs == null ? null : Math.max(0, Date.now() - spawnConfirmedAtMs),
+          first_output_at: firstOutputAt,
+          stdout_bytes: stdoutBytes,
+          stderr_bytes: stderrBytes,
+        };
+        appendDiagnostic(logs, 'liveness_heartbeat', payload);
+        if (options.onLivenessHeartbeat) {
+          try {
+            options.onLivenessHeartbeat(payload);
+          } catch {}
+        }
+      }, livenessHeartbeatMs);
+      if (typeof livenessHeartbeat.unref === 'function') {
+        livenessHeartbeat.unref();
       }
     };
 
@@ -363,6 +415,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       }
       armStartupWatchdog();
       armStartupHeartbeat();
+      armLivenessHeartbeat();
     });
 
     // Collect stdout/stderr
@@ -552,6 +605,26 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
             recovery,
           },
           error: `Claude local_cli runtime is using an incompatible Node.js version. ${recovery}`,
+          logs,
+        });
+      } else if (hasRateLimitOutput(logs)) {
+        const resetMs = parseRateLimitResetMs(logs.join('\n'));
+        const resetDetail = resetMs ? ` Resets in ${Math.ceil(resetMs / 1000)}s.` : '';
+        const recovery = `Provider rate-limited.${resetDetail} Will retry with backoff.`;
+        settle({
+          ok: false,
+          blocked: true,
+          exitCode,
+          timedOut: false,
+          aborted: false,
+          firstOutputAt,
+          classified: {
+            error_class: 'rate_limited',
+            retryable: true,
+            recovery,
+            reset_ms: resetMs,
+          },
+          error: `Subprocess rate-limited by provider. ${recovery}`,
           logs,
         });
       } else if (startupTimedOut) {
@@ -750,6 +823,19 @@ function resolveStartupHeartbeatMs(config, runtime, override) {
     return config.run_loop.startup_heartbeat_ms;
   }
   return DEFAULT_STARTUP_HEARTBEAT_MS;
+}
+
+function resolveLivenessHeartbeatMs(config, runtime, override) {
+  if (Number.isInteger(override) && override > 0) {
+    return override;
+  }
+  if (runtime?.type === 'local_cli' && Number.isInteger(runtime?.liveness_heartbeat_ms) && runtime.liveness_heartbeat_ms > 0) {
+    return runtime.liveness_heartbeat_ms;
+  }
+  if (Number.isInteger(config?.run_loop?.liveness_heartbeat_ms) && config.run_loop.liveness_heartbeat_ms > 0) {
+    return config.run_loop.liveness_heartbeat_ms;
+  }
+  return DEFAULT_LIVENESS_HEARTBEAT_MS;
 }
 
 function resolveStartupWatchdogKillGraceMs(value) {
@@ -1013,4 +1099,5 @@ export { resolveCommand };
 export { resolvePromptTransport };
 export { resolveStartupWatchdogMs };
 export { resolveStartupHeartbeatMs };
+export { resolveLivenessHeartbeatMs };
 export { validateLocalCliCommandCompatibility };

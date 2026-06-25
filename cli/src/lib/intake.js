@@ -1097,13 +1097,19 @@ export function startIntent(root, intentId, options = {}) {
 
   // Load governed state
   const statePath = join(root, STATE_PATH);
+  let state;
   if (!existsSync(statePath)) {
-    return { ok: false, error: 'No governed state.json found', exitCode: 2 };
-  }
-
-  let state = loadProjectState(root, config);
-  if (!state) {
-    return { ok: false, error: 'Failed to parse governed state.json', exitCode: 2 };
+    // RB-11: cold-start. No state.json yet — synthesize an idle state so the
+    // bootstrap below initializes a fresh governed run, matching the `run`
+    // command. Without this, `intake start` (and continuous mode, which starts
+    // its first derived intent via this path) cannot start lights-out from a
+    // clean initialized project.
+    state = { status: 'idle', run_id: null };
+  } else {
+    state = loadProjectState(root, config);
+    if (!state) {
+      return { ok: false, error: 'Failed to parse governed state.json', exitCode: 2 };
+    }
   }
 
   const allowCompletedRestart = options.allowTerminalRestart === true

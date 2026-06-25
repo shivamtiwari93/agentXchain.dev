@@ -365,6 +365,12 @@ export async function executeGovernedRun(context, opts = {}) {
         onStartupHeartbeat: ({ elapsed_since_spawn_ms }) => {
           tracker.heartbeat(`Adapter keepalive (${Math.round((elapsed_since_spawn_ms || 0) / 1000)}s since spawn)`);
         },
+        onLivenessHeartbeat: ({ elapsed_since_spawn_ms }) => {
+          // RB-6: refresh last_activity_at while the subprocess is alive but
+          // output-silent, so the stale-turn watchdog does not misfire during
+          // long quiet operations (e.g. running a test suite inside the turn).
+          tracker.heartbeat(`Subprocess alive (${Math.round((elapsed_since_spawn_ms || 0) / 1000)}s since spawn)`);
+        },
       };
 
       const recordOutputActivity = (stream, text) => {
@@ -438,6 +444,37 @@ export async function executeGovernedRun(context, opts = {}) {
           const transport = runtime ? resolvePromptTransport(runtime) : 'dispatch_bundle_only';
           log(chalk.dim(`  Dispatching to local CLI: ${runtime?.command || '(default)'}  transport: ${transport}`));
           adapterResult = await dispatchLocalCli(projectRoot, state, cfg, adapterOpts);
+
+          // Rate-limit backoff: if adapter classified as rate_limited + retryable,
+          // apply exponential backoff and re-dispatch. Does NOT consume max_turn_retries.
+          const RATE_LIMIT_MAX_RETRIES = 5;
+          const RATE_LIMIT_BASE_DELAY_MS = 2000;
+          const RATE_LIMIT_MAX_DELAY_MS = 120_000;
+          const RATE_LIMIT_BACKOFF_MULTIPLIER = 2;
+
+          let rateLimitAttempt = 0;
+          while (
+            adapterResult?.classified?.error_class === 'rate_limited' &&
+            adapterResult?.classified?.retryable === true &&
+            rateLimitAttempt < RATE_LIMIT_MAX_RETRIES
+          ) {
+            rateLimitAttempt++;
+            const resetMs = adapterResult.classified.reset_ms;
+            const exponentialDelay = Math.min(
+              RATE_LIMIT_MAX_DELAY_MS,
+              RATE_LIMIT_BASE_DELAY_MS * RATE_LIMIT_BACKOFF_MULTIPLIER ** (rateLimitAttempt - 1),
+            );
+            const delayMs = resetMs != null ? Math.max(resetMs, RATE_LIMIT_BASE_DELAY_MS) : exponentialDelay;
+            // Add jitter: 0-25% of delay
+            const jitter = Math.floor(Math.random() * delayMs * 0.25);
+            const totalDelay = delayMs + jitter;
+
+            log(chalk.yellow(`  Rate-limited by provider (attempt ${rateLimitAttempt}/${RATE_LIMIT_MAX_RETRIES}). Retrying in ${Math.ceil(totalDelay / 1000)}s...`));
+            await new Promise((resolve) => setTimeout(resolve, totalDelay));
+
+            log(chalk.dim(`  Re-dispatching after rate-limit backoff...`));
+            adapterResult = await dispatchLocalCli(projectRoot, state, cfg, adapterOpts);
+          }
         } else if (runtimeType === 'remote_agent') {
           ensureStartingState(null);
           ensureRunningState('request');
