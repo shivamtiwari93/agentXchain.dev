@@ -18,6 +18,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { runLoop } from '../lib/run-loop.js';
+import { isCredentialedExitGate } from '../lib/approval-policy.js';
 import { transitionActiveTurnLifecycle } from '../lib/runner-interface.js';
 import { buildRunExport } from '../lib/export.js';
 import { buildGovernanceReport, formatGovernanceReportMarkdown } from '../lib/report.js';
@@ -615,6 +616,15 @@ export async function executeGovernedRun(context, opts = {}) {
 
     async approveGate(gateType, state) {
       if (autoApprove) {
+        // Lights-out without blind trust: a credentialed gate (protecting an
+        // irreversible, external, or operator-owned action) is NEVER auto-approved,
+        // even under --auto-approve / continuous mode. It falls through to gate_held,
+        // so a human must approve it (agentxchain approve-transition / approve-completion).
+        if (isCredentialedExitGate(config, state?.phase)) {
+          const gateId = config?.routing?.[state?.phase]?.exit_gate;
+          log(chalk.red(`  Gate "${gateId}" is credentialed — auto-approval refused. A human must approve (lights-out without blind trust).`));
+          return false;
+        }
         log(chalk.yellow(`  Auto-approved ${gateType} gate`));
         return true;
       }

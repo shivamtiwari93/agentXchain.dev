@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { evaluateApprovalPolicy } from '../src/lib/approval-policy.js';
+import { evaluateApprovalPolicy, isCredentialedExitGate } from '../src/lib/approval-policy.js';
 import { validateApprovalPolicy } from '../src/lib/normalized-config.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -569,5 +569,34 @@ describe('AT-AP-014: when.credentialed_gate predicate', () => {
     });
     assert.equal(result.action, 'require_human');
     assert.match(result.reason, /credentialed_gate: true not supported/);
+  });
+});
+
+// ── Safety-A: --auto-approve / continuous must not auto-approve credentialed gates ──
+describe('isCredentialedExitGate (lights-out without blind trust)', () => {
+  const config = {
+    routing: {
+      planning: { exit_gate: 'planning_signoff' },
+      qa: { exit_gate: 'qa_ship_verdict' },
+    },
+    gates: {
+      planning_signoff: { credentialed: false },
+      qa_ship_verdict: { credentialed: true },
+    },
+  };
+
+  it('AT-CRED-001: true when the phase exit gate is credentialed', () => {
+    assert.equal(isCredentialedExitGate(config, 'qa'), true);
+  });
+
+  it('AT-CRED-002: false when the phase exit gate is not credentialed', () => {
+    assert.equal(isCredentialedExitGate(config, 'planning'), false);
+  });
+
+  it('AT-CRED-003: false for unknown phase / missing routing, gate, or config', () => {
+    assert.equal(isCredentialedExitGate(config, 'nope'), false);
+    assert.equal(isCredentialedExitGate({}, 'qa'), false);
+    assert.equal(isCredentialedExitGate(config, undefined), false);
+    assert.equal(isCredentialedExitGate(null, 'qa'), false);
   });
 });

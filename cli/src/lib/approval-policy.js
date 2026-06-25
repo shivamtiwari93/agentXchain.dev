@@ -48,6 +48,18 @@ function isCredentialedGate(config, gateId) {
   return config?.gates?.[gateId]?.credentialed === true;
 }
 
+// BUG-59 follow-up — lights-out without blind trust. The --auto-approve /
+// continuous gate path (run.js approveGate) must apply the same credentialed
+// hard-stop as the policy path. Resolve the exit gate for a phase and report
+// whether it is credentialed, so a credentialed / irreversible gate is never
+// auto-approved by the flag path either — it falls through to gate_held and
+// requires a human (approve-transition / approve-completion).
+export function isCredentialedExitGate(config, phase) {
+  if (!phase) return false;
+  const gateId = config?.routing?.[phase]?.exit_gate;
+  return isCredentialedGate(config, gateId);
+}
+
 function evaluateRunCompletionPolicy({ gateResult, state, config, policy }) {
   if (isCredentialedGate(config, gateResult?.gate_id)) {
     return {
