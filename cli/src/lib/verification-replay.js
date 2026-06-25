@@ -122,15 +122,67 @@ export function resolveEvidenceArgv(entry) {
   return [];
 }
 
-// Minimal SAFE tokenizer: splits on whitespace, honoring single and double quotes.
+// Minimal SAFE tokenizer: splits on whitespace, honoring single and double quotes
+// and backslash escapes (so e.g. `node -e "{\"ok\":true}"` keeps its escaped quotes).
 // Performs NO shell expansion — variables, globs, pipes, chaining, and command
 // substitution are preserved as literal characters, never interpreted.
 export function tokenizeCommand(command) {
+  if (typeof command !== 'string') {
+    return [];
+  }
   const tokens = [];
-  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
-  let match;
-  while ((match = re.exec(command)) !== null) {
-    tokens.push(match[1] ?? match[2] ?? match[3]);
+  let current = '';
+  let hasToken = false;
+  let i = 0;
+  const n = command.length;
+  while (i < n) {
+    const ch = command[i];
+    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
+      if (hasToken) {
+        tokens.push(current);
+        current = '';
+        hasToken = false;
+      }
+      i += 1;
+      continue;
+    }
+    hasToken = true;
+    if (ch === "'") {
+      // Single-quoted: literal run until the next single quote (no escapes, POSIX-style).
+      i += 1;
+      while (i < n && command[i] !== "'") {
+        current += command[i];
+        i += 1;
+      }
+      i += 1; // consume closing quote (or run off the end)
+      continue;
+    }
+    if (ch === '"') {
+      // Double-quoted: backslash escapes only the structural `"` and `\` characters.
+      i += 1;
+      while (i < n && command[i] !== '"') {
+        if (command[i] === '\\' && i + 1 < n && (command[i + 1] === '"' || command[i + 1] === '\\')) {
+          current += command[i + 1];
+          i += 2;
+        } else {
+          current += command[i];
+          i += 1;
+        }
+      }
+      i += 1; // consume closing quote (or run off the end)
+      continue;
+    }
+    if (ch === '\\' && i + 1 < n) {
+      // Bare backslash escape: take the next character literally.
+      current += command[i + 1];
+      i += 2;
+      continue;
+    }
+    current += ch;
+    i += 1;
+  }
+  if (hasToken) {
+    tokens.push(current);
   }
   return tokens;
 }

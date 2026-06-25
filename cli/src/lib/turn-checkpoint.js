@@ -352,6 +352,27 @@ export function checkpointAcceptedTurn(root, opts = {}) {
   }
 
   const entry = resolved.entry;
+
+  // Proposed turns materialize their files under .agentxchain/proposed/<turn_id>/, never
+  // the workspace — there is nothing to `git add` until `proposal apply` promotes them.
+  // Attempting to stage the declared workspace paths fails with "pathspec did not match",
+  // so checkpoint cleanly skips proposed/patch turns.
+  if (
+    entry?.artifact
+    && typeof entry.artifact === 'object'
+    && !Array.isArray(entry.artifact)
+    && entry.artifact.type === 'patch'
+    && typeof entry.artifact.ref === 'string'
+    && entry.artifact.ref.startsWith('.agentxchain/proposed/')
+  ) {
+    return {
+      ok: true,
+      skipped: true,
+      turn: entry,
+      reason: 'Proposed turn materialized under .agentxchain/proposed/; no workspace checkpoint needed until proposal apply.',
+    };
+  }
+
   const supplementalFilesChanged = entry.checkpoint_sha
     ? recoverSupplementalCheckpointFiles(root, entry)
     : [];
