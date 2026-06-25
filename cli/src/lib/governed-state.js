@@ -4868,7 +4868,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
   const derivedRef = deriveAcceptedRef(observation, artifactType, state.accepted_integration_ref);
   const verificationReplay = (config.policies || []).some((policy) => policy?.rule === 'require_reproducible_verification')
-    ? replayVerificationMachineEvidence({ root, verification: turnResult.verification })
+    ? replayVerificationMachineEvidence({ root, verification: turnResult.verification, allowCommandExecution: true })
     : null;
 
   if (verificationReplay?.workspace_guard?.ok === false) {

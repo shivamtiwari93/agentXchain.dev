@@ -8,7 +8,7 @@ import { isOperationalPath } from './repo-observer.js';
 
 export const DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS = 30_000;
 
-export function replayVerificationMachineEvidence({ root, verification, timeoutMs = DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS }) {
+export function replayVerificationMachineEvidence({ root, verification, timeoutMs = DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS, allowCommandExecution = false }) {
   const verifiedAt = new Date().toISOString();
   const machineEvidence = Array.isArray(verification?.machine_evidence)
     ? verification.machine_evidence
@@ -28,6 +28,27 @@ export function replayVerificationMachineEvidence({ root, verification, timeoutM
     return payload;
   }
 
+  // SECURITY (verification-replay hardening): agent-declared machine_evidence
+  // commands are UNTRUSTED. Fail-safe default — they are recorded but NOT executed
+  // unless the operator has explicitly opted in (allowCommandExecution). When
+  // executed, they never run through a shell (see replayEvidenceCommand).
+  if (!allowCommandExecution) {
+    payload.overall = 'not_executed';
+    payload.reason = 'Command replay disabled: agent-declared verification commands are not executed unless explicitly enabled by the operator.';
+    payload.commands = machineEvidence.map((entry, index) => ({
+      index,
+      command: entry?.command ?? null,
+      declared_exit_code: entry?.exit_code,
+      actual_exit_code: null,
+      matched: false,
+      executed: false,
+      timed_out: false,
+      signal: null,
+      error: null,
+    }));
+    return payload;
+  }
+
   const workspaceGuard = createReplayWorkspaceGuard(root);
   try {
     payload.commands = machineEvidence.map((entry, index) => replayEvidenceCommand(root, entry, index, timeoutMs));
@@ -41,11 +62,33 @@ export function replayVerificationMachineEvidence({ root, verification, timeoutM
   return payload;
 }
 
+// SECURITY: agent-declared commands are NEVER run through a shell. The command is
+// resolved to an argv vector and executed with shell:false, so shell metacharacters
+// (; | && $() backticks globs) cannot chain, pipe, expand, or substitute. (A single
+// declared binary still runs on the host — that is gated by the explicit
+// allowCommandExecution opt-in upstream; a future sandbox/allowlist can constrain
+// which binaries are permitted.)
 export function replayEvidenceCommand(root, entry, index, timeoutMs = DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS) {
-  const result = spawnSync(entry.command, {
+  const argv = resolveEvidenceArgv(entry);
+  if (argv.length === 0) {
+    return {
+      index,
+      command: entry?.command ?? null,
+      declared_exit_code: entry?.exit_code,
+      actual_exit_code: null,
+      matched: false,
+      executed: false,
+      timed_out: false,
+      signal: null,
+      error: 'No executable command or argv vector could be resolved for this evidence entry.',
+    };
+  }
+
+  const [file, ...args] = argv;
+  const result = spawnSync(file, args, {
     cwd: root,
     encoding: 'utf8',
-    shell: true,
+    shell: false,
     timeout: timeoutMs,
     maxBuffer: 1024 * 1024,
   });
@@ -56,14 +99,40 @@ export function replayEvidenceCommand(root, entry, index, timeoutMs = DEFAULT_VE
 
   return {
     index,
-    command: entry.command,
+    command: entry.command ?? argv.join(' '),
     declared_exit_code: entry.exit_code,
     actual_exit_code: actualExitCode,
     matched: actualExitCode === entry.exit_code,
+    executed: true,
     timed_out: timedOut,
     signal: result.signal || null,
     error: errorMessage,
   };
+}
+
+// Resolve an evidence entry to an argv vector for shell-free execution.
+// Prefers a structured `argv` string array; falls back to safe-tokenizing `command`.
+export function resolveEvidenceArgv(entry) {
+  if (Array.isArray(entry?.argv) && entry.argv.length > 0 && entry.argv.every((a) => typeof a === 'string')) {
+    return entry.argv.slice();
+  }
+  if (typeof entry?.command === 'string' && entry.command.trim()) {
+    return tokenizeCommand(entry.command.trim());
+  }
+  return [];
+}
+
+// Minimal SAFE tokenizer: splits on whitespace, honoring single and double quotes.
+// Performs NO shell expansion — variables, globs, pipes, chaining, and command
+// substitution are preserved as literal characters, never interpreted.
+export function tokenizeCommand(command) {
+  const tokens = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let match;
+  while ((match = re.exec(command)) !== null) {
+    tokens.push(match[1] ?? match[2] ?? match[3]);
+  }
+  return tokens;
 }
 
 export function summarizeVerificationReplay(payload) {
