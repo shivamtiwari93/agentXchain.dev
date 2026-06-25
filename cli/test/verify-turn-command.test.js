@@ -115,7 +115,7 @@ describe('agentxchain verify turn command', () => {
     try {
       writeStagedTurnResult(dir, state, turnId, turn);
 
-      const result = runCli(dir, ['verify', 'turn', '--json']);
+      const result = runCli(dir, ['verify', 'turn', '--execute', '--json']);
       assert.equal(result.status, 0, result.stderr || result.stdout);
 
       const payload = JSON.parse(result.stdout);
@@ -137,7 +137,7 @@ describe('agentxchain verify turn command', () => {
     try {
       writeStagedTurnResult(dir, state, turnId, turn);
 
-      const result = runCli(dir, ['verify', 'turn']);
+      const result = runCli(dir, ['verify', 'turn', '--execute']);
       assert.equal(result.status, 0, result.stderr || result.stdout);
       assert.match(result.stdout, new RegExp(`Verify Turn: ${turnId}`));
       assert.match(result.stdout, /Declared:/);
@@ -164,7 +164,7 @@ describe('agentxchain verify turn command', () => {
         },
       });
 
-      const result = runCli(dir, ['verify', 'turn', turnId, '--json']);
+      const result = runCli(dir, ['verify', 'turn', turnId, '--execute', '--json']);
       assert.equal(result.status, 1);
       const payload = JSON.parse(result.stdout);
       assert.equal(payload.overall, 'mismatch');
@@ -215,7 +215,7 @@ describe('agentxchain verify turn command', () => {
         },
       });
 
-      const result = runCli(dir, ['verify', 'turn', turnId, '--json']);
+      const result = runCli(dir, ['verify', 'turn', turnId, '--execute', '--json']);
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const payload = JSON.parse(result.stdout);
       assert.equal(payload.declared_status, 'fail');

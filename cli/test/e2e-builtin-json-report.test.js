@@ -41,12 +41,17 @@ function makeProject() {
   for (const role of Object.values(config.roles)) {
     role.write_authority = 'authoritative';
   }
-  for (const gateId of ['planning_signoff', 'qa_ship_verdict']) {
-    config.gates[gateId] = {
-      ...config.gates[gateId],
-      credentialed: true,
-    };
-  }
+
+  // Route the run-completion gate through the pause→approve path (NOT the
+  // policy auto-approve fast-path) so the before_gate hook actually fires.
+  // The gate stays non-credentialed, so `--auto-approve` approves it (firing
+  // json_report_gate / before_gate) and the run still reaches "Run completed".
+  // (SAFETY-A: credentialed gates would instead hard-stop at gate_held.)
+  config.approval_policy = config.approval_policy || {};
+  config.approval_policy.run_completion = {
+    ...(config.approval_policy.run_completion || {}),
+    action: 'require_human',
+  };
 
   writeJson(configPath, config);
   return root;

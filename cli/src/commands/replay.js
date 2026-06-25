@@ -54,6 +54,7 @@ export async function replayTurnCommand(turnId, opts = {}) {
       root,
       verification: entry.verification,
       timeoutMs,
+      allowCommandExecution: Boolean(opts.execute),
     }),
   };
 

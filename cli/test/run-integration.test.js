@@ -183,12 +183,12 @@ describe('agentxchain run — integration', () => {
   // ──────────────────────────────────────────────────────────────────────────
   it('AT-RUN-INT-003: auto-approve advances through all gates', () => {
     const root = makeProject();
-    markGateCredentialed(root, 'planning_signoff');
 
     const result = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
 
-    // Should show auto-approved messages
-    assert.match(result.stdout, /Auto-approved/i, 'Expected auto-approve messages');
+    // Routine (non-credentialed) gates close through approval_policy under
+    // --auto-approve, so the run advances through every gate to completion.
+    assert.match(result.stdout, /Gates:\s+0 approved/, 'Expected routine gates to close by policy under auto-approve');
 
     // Should reach completion (not gate_held)
     assert.match(result.stdout, /Run completed/, 'Expected run completion with auto-approve');

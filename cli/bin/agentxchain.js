@@ -616,6 +616,7 @@ verifyCmd
   .description('Replay a staged turn\'s declared machine-evidence commands and compare exit codes')
   .option('-j, --json', 'Output as JSON')
   .option('--timeout <ms>', 'Per-command replay timeout in milliseconds', '30000')
+  .option('--execute', 'Execute the agent-declared machine-evidence commands (operator opt-in; default is fail-safe — commands are not executed)')
   .action(verifyTurnCommand);
 
 verifyCmd
@@ -652,6 +653,7 @@ replayCmd
   .description('Replay an accepted turn\'s declared machine-evidence commands from history')
   .option('-j, --json', 'Output as JSON')
   .option('--timeout <ms>', 'Per-command replay timeout in milliseconds', '30000')
+  .option('--execute', 'Execute the agent-declared machine-evidence commands (operator opt-in; default is fail-safe — commands are not executed)')
   .action(replayTurnCommand);
 
 replayCmd

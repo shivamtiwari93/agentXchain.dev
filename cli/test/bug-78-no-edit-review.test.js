@@ -97,10 +97,24 @@ function makeState(overrides = {}) {
 // ── BUG-78: No-edit review turn normalization ─────────────────────────────────
 
 describe('BUG-78: no-edit review turn normalization', () => {
-  // AT-WK-001: Completed turn with workspace+empty files_changed auto-normalizes to review
-  it('AT-WK-001: completed workspace + empty files_changed normalizes to review', () => {
+  // AT-WK-001: Completed empty-workspace turn from an AUTHORITATIVE role is NOT
+  // auto-normalized — it stays fail-closed (BUG-78 hardening). Only review_only roles
+  // (PM/QA) get the no-edit-review carve-out (see AT-WK-001b).
+  it('AT-WK-001: completed workspace + empty files_changed from an authoritative role is NOT normalized (fail-closed)', () => {
     const tr = makeNoEditTurnResult();
     const ctx = { phase: 'implementation', assignedRole: 'dev', writeAuthority: 'authoritative' };
+    const { normalized, normalizationEvents } = normalizeTurnResult(tr, makeConfig(), ctx);
+
+    assert.equal(normalized.artifact.type, 'workspace');
+    const event = normalizationEvents.find(e => e.field === 'artifact.type' && e.rationale === 'empty_files_changed_no_repo_mutation_declared');
+    assert.equal(event, undefined, 'authoritative empty-workspace turn must not be normalized to review');
+  });
+
+  // AT-WK-001b: Completed empty-workspace turn from a REVIEW_ONLY role normalizes to
+  // review — a legitimate no-edit review (the carve-out to AT-WK-001's fail-closed rule).
+  it('AT-WK-001b: completed workspace + empty files_changed from a review_only role normalizes to review', () => {
+    const tr = makeNoEditTurnResult({ role: 'qa' });
+    const ctx = { phase: 'qa', assignedRole: 'qa', writeAuthority: 'review_only' };
     const { normalized, normalizationEvents } = normalizeTurnResult(tr, makeConfig(), ctx);
 
     assert.equal(normalized.artifact.type, 'review');

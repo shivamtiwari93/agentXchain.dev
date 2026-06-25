@@ -185,9 +185,25 @@ describe('notifications E2E', () => {
       requireCredentialedApprovalNotifications(config);
       writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
+      // Safety-A: --auto-approve refuses credentialed exit gates, so the run
+      // halts at the credentialed planning_signoff gate (gate_held). Drive the
+      // run to completion via the human-approval CLI path, mirroring the real
+      // approval-mediated lifecycle.
       const run = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
       assert.equal(run.status, 0, `run failed:\n${run.combined}`);
-      assert.match(run.stdout, /Run completed/);
+      assert.match(run.stdout, /Gate held: phase_transition/);
+
+      const approveTransition = runCli(root, ['approve-transition']);
+      assert.equal(approveTransition.status, 0, `approve-transition failed:\n${approveTransition.combined}`);
+      assert.match(approveTransition.stdout, /Phase advanced: planning → implementation/);
+
+      const runImpl = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
+      assert.equal(runImpl.status, 0, `implementation run failed:\n${runImpl.combined}`);
+      assert.match(runImpl.stdout, /Gate held: run_completion/);
+
+      const approveCompletion = runCli(root, ['approve-completion']);
+      assert.equal(approveCompletion.status, 0, `approve-completion failed:\n${approveCompletion.combined}`);
+      assert.match(approveCompletion.stdout, /Run completed/);
 
       await waitFor(() => collector.readRequests().length === 3);
 
@@ -297,9 +313,24 @@ describe('notifications E2E', () => {
     requireCredentialedApprovalNotifications(config);
     writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
+    // Safety-A: --auto-approve refuses credentialed exit gates, so the run
+    // halts at the credentialed gates. Drive the run to completion via the
+    // human-approval CLI path; webhook deliveries fail throughout but must not
+    // block governed execution.
     const run = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
     assert.equal(run.status, 0, `run failed despite webhook outage:\n${run.combined}`);
-    assert.match(run.stdout, /Run completed/);
+    assert.match(run.stdout, /Gate held: phase_transition/);
+
+    const approveTransition = runCli(root, ['approve-transition']);
+    assert.equal(approveTransition.status, 0, `approve-transition failed despite webhook outage:\n${approveTransition.combined}`);
+
+    const runImpl = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
+    assert.equal(runImpl.status, 0, `implementation run failed despite webhook outage:\n${runImpl.combined}`);
+    assert.match(runImpl.stdout, /Gate held: run_completion/);
+
+    const approveCompletion = runCli(root, ['approve-completion']);
+    assert.equal(approveCompletion.status, 0, `approve-completion failed despite webhook outage:\n${approveCompletion.combined}`);
+    assert.match(approveCompletion.stdout, /Run completed/);
 
     const state = readState(root);
     assert.equal(state.status, 'completed', 'webhook failures must not block governed execution');

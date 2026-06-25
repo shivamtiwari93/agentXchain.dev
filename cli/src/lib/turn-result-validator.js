@@ -1523,6 +1523,11 @@ export function normalizeTurnResult(tr, config, context = {}) {
     && (
       context.forceReviewArtifact
       || hasExplicitNoEditLifecycleSignal
+      // review_only roles (PM/QA) legitimately produce no-edit reviews — an empty
+      // workspace from a COMPLETED review_only turn normalizes to a review. Authoritative
+      // /code-writing roles claiming a completed workspace artifact with no files stay
+      // fail-closed, and non-completed (blocked/failed) turns never normalize (BUG-78).
+      || (isReviewOnly && normalized.status === 'completed')
       || (normalized.status === 'needs_human' && normalized.proposed_next_role === 'human')
     )
   ) {

@@ -70,7 +70,7 @@ describe('agentxchain replay turn command', () => {
         makeEntry({ turn_id: 'turn_hist_new_002', accepted_at: '2026-04-13T01:00:00.000Z' }),
       ]);
 
-      const result = runCli(dir, ['replay', 'turn', '--json']);
+      const result = runCli(dir, ['replay', 'turn', '--execute', '--json']);
       assert.equal(result.status, 0, result.stderr || result.stdout);
 
       const payload = readJson(result.stdout);
@@ -92,7 +92,7 @@ describe('agentxchain replay turn command', () => {
         makeEntry({ turn_id: 'turn_beta_222222', role: 'qa', phase: 'verification' }),
       ]);
 
-      const result = runCli(dir, ['replay', 'turn', 'turn_beta', '--timeout', '4000']);
+      const result = runCli(dir, ['replay', 'turn', 'turn_beta', '--execute', '--timeout', '4000']);
       assert.equal(result.status, 0, result.stderr || result.stdout);
       assert.match(result.stdout, /Replay Turn: turn_beta_222222/);
       assert.match(result.stdout, /Source:\s+accepted history \(prefix\)/);
@@ -167,7 +167,7 @@ describe('agentxchain replay turn command', () => {
         }),
       ]);
 
-      const result = runCli(dir, ['replay', 'turn', 'turn_drift_001', '--json']);
+      const result = runCli(dir, ['replay', 'turn', 'turn_drift_001', '--execute', '--json']);
       assert.equal(result.status, 1);
       const payload = readJson(result.stdout);
       assert.equal(payload.overall, 'mismatch');
@@ -207,7 +207,7 @@ describe('agentxchain replay turn command', () => {
         }),
       ]);
 
-      const result = runCli(dir, ['replay', 'turn', 'turn_prior_replay_001', '--json']);
+      const result = runCli(dir, ['replay', 'turn', 'turn_prior_replay_001', '--execute', '--json']);
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const payload = readJson(result.stdout);
       assert.equal(payload.run_id, 'run_prior_replay_001');

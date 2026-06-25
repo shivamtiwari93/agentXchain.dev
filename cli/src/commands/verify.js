@@ -244,6 +244,7 @@ export async function verifyTurnCommand(turnId, opts = {}) {
       root,
       verification: turnResult.verification,
       timeoutMs,
+      allowCommandExecution: Boolean(opts.execute),
     }),
   };
 
