@@ -1,6 +1,23 @@
 import { appendFileSync } from 'node:fs';
 
 /**
+ * Normalize gate_summary to [gateName, statusString] entries.
+ * Handles both array format ([{ gate_id, status }]) from the real report pipeline
+ * and object format ({ gateName: statusString }) from legacy/synthetic fixtures.
+ */
+function normalizeGateEntries(gates) {
+  if (Array.isArray(gates)) {
+    return gates
+      .filter(g => typeof g?.gate_id === 'string' && typeof g?.status === 'string')
+      .map(g => [g.gate_id, g.status]);
+  }
+  if (gates && typeof gates === 'object') {
+    return Object.entries(gates).filter(([, v]) => typeof v === 'string');
+  }
+  return [];
+}
+
+/**
  * Detect CI environment from process.env.
  * @returns {{ provider: string, run_url: string|null, run_id: string|null, ref: string|null, sha: string|null } | null}
  */
@@ -55,16 +72,12 @@ export function formatGitHubAnnotations(report) {
   }
 
   // Gate annotations
-  const gates = report.subject?.run?.gate_summary;
-  if (gates && typeof gates === 'object') {
-    for (const [gateName, gateStatus] of Object.entries(gates)) {
-      if (typeof gateStatus !== 'string') continue;
-      const normalizedStatus = gateStatus.toLowerCase();
-      if (normalizedStatus === 'satisfied' || normalizedStatus === 'pass' || normalizedStatus === 'passed') {
-        lines.push(`::notice title=Gate ${gateName}::satisfied`);
-      } else {
-        lines.push(`::warning title=Gate ${gateName}::${gateStatus}`);
-      }
+  for (const [gateName, gateStatus] of normalizeGateEntries(report.subject?.run?.gate_summary)) {
+    const normalizedStatus = gateStatus.toLowerCase();
+    if (normalizedStatus === 'satisfied' || normalizedStatus === 'pass' || normalizedStatus === 'passed') {
+      lines.push(`::notice title=Gate ${gateName}::satisfied`);
+    } else {
+      lines.push(`::warning title=Gate ${gateName}::${gateStatus}`);
     }
   }
 
@@ -113,7 +126,6 @@ export function writeGitHubOutputVars(report, outputPath) {
  */
 export function formatJUnitXml(report) {
   const run = report.subject?.run || {};
-  const gates = run.gate_summary || {};
   const turns = run.turns || [];
 
   // Escape XML special characters
@@ -124,7 +136,7 @@ export function formatJUnitXml(report) {
     .replace(/"/g, '&quot;');
 
   // Build gate test cases
-  const gateEntries = Object.entries(gates).filter(([, v]) => typeof v === 'string');
+  const gateEntries = normalizeGateEntries(run.gate_summary);
   const gateFailures = gateEntries.filter(([, status]) => {
     const s = status.toLowerCase();
     return s !== 'satisfied' && s !== 'pass' && s !== 'passed';
