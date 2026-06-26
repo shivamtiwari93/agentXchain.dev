@@ -22,6 +22,21 @@ The product goal is simple:
 
 **Turn AI agents from isolated coders into a governed software team that can execute over long horizons.**
 
+## How It Is Driven: Vision In, Software Out
+
+The primary way work enters AgentXchain is a **human-authored vision document**.
+
+A person describes what they want built — goals, constraints, and definition of done — in a structured vision. From that, AgentXchain derives governed work and drives it forward: planning, specs, implementation, challenge, QA, release, and recovery, across long horizons. The vision is the durable source of intent; everything the agents do should trace back to it.
+
+This loop runs in one of two modes, chosen by the human:
+
+- **Checkpoint-governed** — the system runs autonomously between human approval gates. Humans approve critical transitions and releases. This is the default.
+- **Fully autonomous (lights-out)** — the system runs end to end without human steering, within boundaries the human set in advance.
+
+Both modes obey the same protocol, governance, and evidence requirements. Autonomy changes *how a gate is satisfied* — pre-authorized by the human in advance rather than approved in the moment — never *whether the gate exists*. Some gates, such as those guarding irreversible or credentialed actions, may still require a human even in lights-out operation. Lights-out is a delegation of approval within boundaries, not a suspension of governance.
+
+The vision document is human-owned. Agents read it; only a human writes it.
+
 ## Why This Must Exist
 
 AI capability is improving quickly. Coordination quality is not.
@@ -282,6 +297,8 @@ It is a governed delivery system for AI software teams.
 - Roles must be open-ended and charter-driven.
 - Connectors and runners must remain replaceable.
 - Humans remain sovereign.
+- A human-authored vision document is the primary entry point. Agents derive work from it; only a human authors it.
+- Autonomy is delegated approval within human-set boundaries, never the removal of gates.
 - The system must optimize for convergence quality, not just generation speed.
 
 ## Final Statement
