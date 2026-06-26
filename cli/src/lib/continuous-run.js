@@ -2579,10 +2579,47 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
   process.on('SIGINT', sigHandler);
 
   try {
+    // RB-13: circuit-breaker for the recover-and-continue path. A deterministic,
+    // recurring failure (e.g. an unclean baseline) must escalate, not busy-loop
+    // forever — without this, the same start error spun 582 times in seconds.
+    // Track consecutive identical recoveries; halt and escalate after a cap, and
+    // back off between attempts so even allowed retries can't tight-loop.
+    let consecutiveRecoveries = 0;
+    let lastRecoveryReason = null;
+    const maxConsecutiveRecoveries = Math.max(1, contOpts.maxConsecutiveRecoveries ?? 3);
+
     while (!stopping) {
       const step = await advanceContinuousRunOnce(context, session, contOpts, executeGovernedRun, log);
 
       if (step.status === 'failed' && isGovernedRunStillActiveForSession(root, context.config, session)) {
+        const recoveryReason = step.stop_reason || step.action || 'unknown';
+        if (recoveryReason === lastRecoveryReason) {
+          consecutiveRecoveries += 1;
+        } else {
+          consecutiveRecoveries = 1;
+          lastRecoveryReason = recoveryReason;
+        }
+
+        if (consecutiveRecoveries >= maxConsecutiveRecoveries) {
+          // Circuit open: the same recoverable failure keeps recurring without
+          // progress. Escalate to a human instead of spinning the loop.
+          session.status = 'blocked';
+          writeContinuousSession(root, session);
+          emitRunEvent(root, 'continuous_recovery_circuit_open', {
+            run_id: session.current_run_id || null,
+            phase: null,
+            status: 'blocked',
+            payload: {
+              session_id: session.session_id,
+              failed_action: step.action || null,
+              failed_reason: recoveryReason,
+              consecutive_recoveries: consecutiveRecoveries,
+            },
+          });
+          log(`Continuous loop halted (circuit-breaker): the same recoverable failure recurred ${consecutiveRecoveries} times with no progress — escalating to a human instead of spinning. Reason: ${recoveryReason}`);
+          return { exitCode: 1, session };
+        }
+
         session.status = 'running';
         writeContinuousSession(root, session);
         emitRunEvent(root, 'session_failed_recovered_active_run', {
@@ -2593,11 +2630,19 @@ export async function executeContinuousRun(context, contOpts, executeGovernedRun
             session_id: session.session_id,
             failed_action: step.action || null,
             failed_reason: step.stop_reason || null,
+            consecutive_recoveries: consecutiveRecoveries,
           },
         });
-        log('Session failure recovered - governed run still active, continuing.');
+        log(`Session failure recovered - governed run still active, continuing (recovery ${consecutiveRecoveries}/${maxConsecutiveRecoveries}).`);
+        // Backoff before retrying so a recurring failure cannot busy-loop.
+        const recoveryBackoffMs = Math.max(1000, (contOpts.cooldownSeconds ?? 5) * 1000);
+        await new Promise((resolve) => setTimeout(resolve, recoveryBackoffMs));
         continue;
       }
+
+      // A non-recovery step means the loop made forward progress — reset the breaker.
+      consecutiveRecoveries = 0;
+      lastRecoveryReason = null;
 
       // Terminal states
       if (step.status === 'completed' || step.status === 'idle_exit' || step.status === 'failed' || step.status === 'blocked' || step.status === 'stopped' || step.status === 'vision_exhausted' || step.status === 'vision_expansion_exhausted' || step.status === 'session_budget') {
