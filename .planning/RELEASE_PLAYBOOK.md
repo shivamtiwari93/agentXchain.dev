@@ -70,6 +70,8 @@ git push origin main --follow-tags
 
 > **Why `bump:release` instead of `npm version`?** Raw `npm version <semver>` from a subdirectory may update version files without creating the release commit and annotated tag. `release-bump.sh` separates the file update from git identity creation, requires an explicit `--coauthored-by` trailer value, and verifies both commit subject and trailer before exiting. See `DEC-RIH-001`.
 
+> **Push auth:** if `git push origin main` fails with `Password authentication is not supported`, the local git credential for GitHub is stale (e.g. an expired PAT embedded in the `origin` URL). Fix it once: keep `origin` free of an embedded token (`git remote set-url origin https://github.com/<owner>/<repo>.git`) and point git at the GitHub CLI (`gh auth setup-git`), or push through the gh token directly: `git -c credential.helper='!gh auth git-credential' push origin main --follow-tags`.
+
 ### Verification Commands
 
 ```bash
