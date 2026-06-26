@@ -1141,10 +1141,27 @@ export function maybeAutoReconcileOperatorCommits(context, session, contOpts, lo
   }
 
   const errorClass = result.error_class || 'reconcile_refused';
+  // RB-14: `reconcile-state --accept-operator-head` runs the SAME safety check, so it
+  // cannot clear an unsafe-edit refusal — recommending it for governance_state_modified
+  // or critical_artifact_deleted is a dead end. Give the recovery that actually applies.
+  const offendingCommit = result.offending_commit || result.commit || null;
+  const offendingPath = result.offending_path || result.path || null;
+  let recoveryAction;
+  let recoveryDetailTail;
+  if (errorClass === 'governance_state_modified') {
+    recoveryAction = offendingCommit ? `git revert ${offendingCommit.slice(0, 12)}` : 'git revert <offending-commit>';
+    recoveryDetailTail = `${offendingPath || 'A commit'} edits governed state under .agentxchain/ directly, which the anti-tamper guard never auto-accepts (reconcile-state --accept-operator-head enforces the same check). Revert it (${recoveryAction}) to restore the governed lineage, or restart from an explicit prior checkpoint.`;
+  } else if (errorClass === 'critical_artifact_deleted') {
+    recoveryAction = (offendingCommit && offendingPath) ? `git checkout ${offendingCommit.slice(0, 12)}^ -- ${offendingPath}` : 'git checkout <commit>^ -- <deleted-path>';
+    recoveryDetailTail = `Critical governed evidence ${offendingPath || ''} was deleted; restore it (${recoveryAction}), then resume.`;
+  } else {
+    recoveryAction = 'agentxchain reconcile-state --accept-operator-head';
+    recoveryDetailTail = `Run: ${recoveryAction} once the unsafe changes are resolved, or revert them.`;
+  }
   const detailLines = [
     `Operator-commit auto-reconcile refused (${errorClass}).`,
     result.error || 'Unsafe operator commits detected; manual recovery required.',
-    'Run: agentxchain reconcile-state --accept-operator-head once the unsafe changes are resolved, or revert them.',
+    recoveryDetailTail,
   ];
   const detail = detailLines.join(' ');
 
@@ -1164,7 +1181,7 @@ export function maybeAutoReconcileOperatorCommits(context, session, contOpts, lo
           ...((state.blocked_reason || {}).recovery || {}),
           typed_reason: 'operator_commit_reconcile_refused',
           owner: 'human',
-          recovery_action: 'agentxchain reconcile-state --accept-operator-head',
+          recovery_action: recoveryAction,
           turn_retained: false,
           detail,
         },
@@ -1196,7 +1213,7 @@ export function maybeAutoReconcileOperatorCommits(context, session, contOpts, lo
     status: 'blocked',
     action: 'operator_commit_reconcile_refused',
     run_id: session.current_run_id,
-    recovery_action: 'agentxchain reconcile-state --accept-operator-head',
+    recovery_action: recoveryAction,
     blocked_category: 'operator_commit_reconcile_refused',
     error_class: errorClass,
   };

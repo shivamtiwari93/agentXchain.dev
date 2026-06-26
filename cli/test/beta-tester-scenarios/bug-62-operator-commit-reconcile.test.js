@@ -217,13 +217,16 @@ describe('BUG-62 operator commit reconcile command-chain', () => {
     assert.equal(result.status, 'blocked');
     assert.equal(result.action, 'operator_commit_reconcile_refused');
     assert.equal(result.error_class, 'governance_state_modified');
-    assert.equal(result.recovery_action, 'agentxchain reconcile-state --accept-operator-head');
+    // RB-14: --accept-operator-head runs the same anti-tamper guard, so it can't clear a
+    // governed-state edit; the actual recovery is to revert the offending commit.
+    assert.match(result.recovery_action, /^git revert /);
+    assert.doesNotMatch(result.recovery_action, /reconcile-state --accept-operator-head/);
 
     const humanStatus = runCli(dir, ['status']);
     assert.equal(humanStatus.status, 0, `status failed: ${humanStatus.stdout}\n${humanStatus.stderr}`);
     assert.match(humanStatus.stdout, /BLOCKED/);
     assert.match(humanStatus.stdout, /Operator-commit auto-reconcile refused \(governance_state_modified\)/);
-    assert.match(humanStatus.stdout, /agentxchain reconcile-state --accept-operator-head/);
+    assert.match(humanStatus.stdout, /git revert /);
 
     const jsonStatus = runCli(dir, ['status', '--json']);
     assert.equal(jsonStatus.status, 0, `status --json failed: ${jsonStatus.stdout}\n${jsonStatus.stderr}`);
@@ -231,10 +234,7 @@ describe('BUG-62 operator commit reconcile command-chain', () => {
     assert.equal(payload.state.status, 'blocked');
     assert.equal(payload.state.blocked_on, 'operator_commit_reconcile_refused');
     assert.equal(payload.state.blocked_reason.error_class, 'governance_state_modified');
-    assert.equal(
-      payload.state.blocked_reason.recovery.recovery_action,
-      'agentxchain reconcile-state --accept-operator-head'
-    );
+    assert.match(payload.state.blocked_reason.recovery.recovery_action, /^git revert /);
     assert.match(payload.state.blocked_reason.recovery.detail, /governance_state_modified/);
   });
 
@@ -263,13 +263,15 @@ describe('BUG-62 operator commit reconcile command-chain', () => {
     assert.equal(result.status, 'blocked');
     assert.equal(result.action, 'operator_commit_reconcile_refused');
     assert.equal(result.error_class, 'critical_artifact_deleted');
-    assert.equal(result.recovery_action, 'agentxchain reconcile-state --accept-operator-head');
+    // RB-14: deleted governed evidence is restored with git checkout, not --accept-operator-head.
+    assert.match(result.recovery_action, /^git checkout .+ -- /);
+    assert.doesNotMatch(result.recovery_action, /reconcile-state --accept-operator-head/);
 
     const humanStatus = runCli(dir, ['status']);
     assert.equal(humanStatus.status, 0, `status failed: ${humanStatus.stdout}\n${humanStatus.stderr}`);
     assert.match(humanStatus.stdout, /BLOCKED/);
     assert.match(humanStatus.stdout, /Operator-commit auto-reconcile refused \(critical_artifact_deleted\)/);
-    assert.match(humanStatus.stdout, /agentxchain reconcile-state --accept-operator-head/);
+    assert.match(humanStatus.stdout, /git checkout .+ -- /);
 
     const jsonStatus = runCli(dir, ['status', '--json']);
     assert.equal(jsonStatus.status, 0, `status --json failed: ${jsonStatus.stdout}\n${jsonStatus.stderr}`);
@@ -281,10 +283,7 @@ describe('BUG-62 operator commit reconcile command-chain', () => {
       payload.state.blocked_reason.recovery.typed_reason,
       'operator_commit_reconcile_refused'
     );
-    assert.equal(
-      payload.state.blocked_reason.recovery.recovery_action,
-      'agentxchain reconcile-state --accept-operator-head'
-    );
+    assert.match(payload.state.blocked_reason.recovery.recovery_action, /^git checkout .+ -- /);
     assert.match(payload.state.blocked_reason.recovery.detail, /critical_artifact_deleted/);
   });
 

@@ -1355,7 +1355,8 @@ describe('Continuous Run', () => {
       assert.equal(result.status, 'blocked');
       assert.equal(result.action, 'operator_commit_reconcile_refused');
       assert.equal(result.error_class, 'governance_state_modified');
-      assert.equal(result.recovery_action, 'agentxchain reconcile-state --accept-operator-head');
+      // RB-14: governed-state edits are reverted, not cleared via --accept-operator-head.
+      assert.match(result.recovery_action, /^git revert /);
 
       const savedSession = readContinuousSession(tmpDir);
       assert.equal(savedSession.status, 'paused');
