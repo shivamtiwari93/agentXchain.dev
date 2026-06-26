@@ -44,6 +44,10 @@ import {
   parseRateLimitResetMs,
   resolveClaudeCompatibleNodeBinary,
 } from '../claude-local-auth.js';
+import {
+  createStreamJsonCostParser,
+  buildCostFromStreamJson,
+} from '../stream-json-cost-parser.js';
 
 const DIAGNOSTIC_ENV_KEYS = [
   'PATH',
@@ -146,6 +150,16 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       logs,
     };
   }
+
+  // Create stream-json cost parser for Claude runtimes with stream-json output.
+  // Only Claude runtimes emit parseable NDJSON with result events; other runtimes
+  // (Codex, Cursor, Windsurf, OpenCode) have different stdout formats.
+  const tokens = [command, ...args].filter((t) => typeof t === 'string');
+  const usesStreamJson = tokens.includes('--output-format=stream-json')
+    || (tokens.includes('--output-format') && tokens[tokens.indexOf('--output-format') + 1] === 'stream-json');
+  const costParser = isClaudeLocalCliRuntime(runtime) && usesStreamJson
+    ? createStreamJsonCostParser()
+    : null;
 
   // Compute timeout from explicit dispatch deadline, turn deadline, or default (20 minutes).
   const timeoutMs = options.dispatchTimeoutMs != null
@@ -425,6 +439,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
         stdoutBytes += Buffer.byteLength(text);
         recordFirstOutput('stdout');
         logs.push(text);
+        if (costParser) costParser.push(text);
         if (onStdout) onStdout(text);
       });
     }
@@ -558,6 +573,28 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       appendDiagnostic(logs, 'process_exit', exitDiagnostic);
 
       if (hasResult) {
+        // Enrich cost from stream-json if available (best-effort, never blocks settle)
+        if (costParser) {
+          try {
+            const parsedCost = costParser.getResult();
+            if (parsedCost) {
+              const stagingPath = join(root, getTurnStagingResultPath(turn.turn_id));
+              const raw = readFileSync(stagingPath, 'utf8');
+              const turnResult = JSON.parse(raw);
+              turnResult.cost = buildCostFromStreamJson(parsedCost, config);
+              writeFileSync(stagingPath, JSON.stringify(turnResult, null, 2) + '\n');
+              appendDiagnostic(logs, 'stream_json_cost_enriched', {
+                input_tokens: parsedCost.input_tokens,
+                output_tokens: parsedCost.output_tokens,
+                cost_usd: parsedCost.cost_usd,
+                model: parsedCost.model,
+                computed_usd: turnResult.cost.usd,
+              });
+            }
+          } catch {
+            // Cost enrichment is best-effort — if it fails, agent-reported cost is preserved
+          }
+        }
         settle({ ok: true, exitCode, timedOut: false, aborted: false, logs, firstOutputAt });
       } else if (isClaudeLocalCliRuntime(runtime) && hasClaudeAuthFailureOutput(logs)) {
         const recovery = 'Refresh Claude credentials before resuming: export a valid ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN, then run agentxchain step --resume.';
