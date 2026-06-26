@@ -1,0 +1,44 @@
+---
+sidebar_position: 0
+title: "v2.156.0 Release Notes"
+---
+
+# AgentXchain v2.156.0
+
+`v2.156.0` is the lights-out resilience and safety-hardening release: governed vision-driven runs now survive provider rate limits, stalled turns, and cold starts without operator intervention, while autonomy stays strictly inside human-set boundaries — `--auto-approve` can never approve a credentialed exit gate, and untrusted verification-replay commands can never reach a shell. It also lands the organization-scope dashboard, CI-native run reporting, and a hosted-runner server.
+
+## What's New
+
+- **Lights-out long-horizon execution.** Continuous vision-driven runs recover from Claude/provider rate limits with reset-aware backoff, detect and restart stalled turns via a liveness heartbeat, bootstrap a fresh run from cold state, and resolve turn-scoped staging paths correctly — so a run started from a VISION doc keeps making progress unattended.
+- **Organization dashboard.** Four new org-scope views — Org Overview, Org Runs, Org History, and Audit Trail — aggregate status, runs, history, and the decision audit trail across every registered project.
+- **CI-native reporting and a hosted runner.** `agentxchain ci-report` emits GitHub Actions annotations and JUnit XML; `agentxchain serve` starts the hosted runner HTTP server for one or more governed projects.
+
+## Safety
+
+- **`--auto-approve` never auto-approves credentialed exit gates.** Lights-out autonomy is delegated approval within human-set boundaries: gates wired to a credentialed approver still require explicit human approval even under full auto-approve.
+- **Verification-replay can never reach a shell.** Agent-declared `machine_evidence` commands execute argv-only (no shell expansion, chaining, or substitution) and only on explicit operator opt-in (`verify turn --execute` / `replay turn --execute`); the default is fail-safe non-execution.
+
+## Bug Fixes
+
+- **Empty-workspace completions stay fail-closed.** A completed turn from a code-writing role that declares a `workspace` artifact with no `files_changed` is rejected as ambiguous instead of being silently treated as a review; review-only roles keep the legitimate no-edit-review path (BUG-78).
+- **Proposed turns no longer fail checkpoint.** Turns whose files materialize under `.agentxchain/proposed/` skip the workspace checkpoint cleanly instead of failing `git add`, unblocking proposed authoring across api_proxy, remote_agent, and proposal-aware flows.
+- **Verification-replay tokenizer honors escaped quotes.** Replay commands like `node -e "{\"ok\":true}"` tokenize correctly while preserving the no-shell guarantee.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7528 tests / 1520 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.156.0 -c "agentxchain --version"`
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

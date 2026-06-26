@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.156.0
+
+- **Lights-out long-horizon execution.** Continuous vision-driven runs recover from Claude/provider rate limits with reset-aware backoff, restart stalled turns via a liveness heartbeat, bootstrap from cold state, and resolve turn-scoped staging paths — keeping VISION-driven runs progressing unattended.
+- **Autonomy stays inside human boundaries.** `--auto-approve` never auto-approves credentialed exit gates, and agent-declared verification-replay commands run argv-only (no shell) and only on explicit `--execute` operator opt-in.
+- **Organization dashboard, CI reporting, and a hosted runner.** New org-scope dashboard views (Org Overview/Runs/History/Audit Trail), `ci-report` (GitHub Actions annotations + JUnit XML), and `serve` (hosted runner HTTP server).
+- **Acceptance and checkpoint correctness.** Empty-workspace completions from code-writing roles stay fail-closed (BUG-78), proposed turns skip the workspace checkpoint cleanly instead of failing `git add`, and the verification-replay tokenizer honors escaped quotes.
+
+- npm test -- --test-timeout=60000 -> 7528 tests / 1520 suites / 0 failures / 5 skipped
+
 ## 2.155.73
 
 - **Recovery outcomes are now classified at the event boundary and surfaced in governance reports.** Recovery events carry structured class, severity, actor-action, and operator-action metadata, while text, markdown, and HTML reports now summarize recovery health from historical `events.jsonl` data.
