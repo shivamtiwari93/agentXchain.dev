@@ -737,6 +737,16 @@ function validateArtifact(tr, config, state = null) {
         `Role "${tr.role}" completed an implementation turn without product code changes in files_changed. ` +
         'Implementation-phase completion requires at least one non-planning, non-review repo path; planning artifacts alone are not sufficient.'
       );
+    } else if (productFiles.every(f => isTestPath(f))) {
+      // Work-substance signal: an implementation turn that changed ONLY test files produced
+      // no implementation source. That is legitimate for acceptance/verification objectives,
+      // but thin for an "implement X" objective — surface it for QA/operator review instead
+      // of silently accepting (this test-only pattern slipped through QA during dogfooding).
+      warnings.push(
+        `Role "${tr.role}" completed an implementation turn that changed only test files ` +
+        `(${productFiles.join(', ')}) with no implementation source. This is valid for acceptance or ` +
+        'verification work; if the objective was to implement behavior, review whether the turn is test-only before accepting.'
+      );
     }
   }
 
@@ -790,6 +800,16 @@ function isProductChangePath(filePath) {
     && filePath.trim().length > 0
     && !isAllowedReviewPath(filePath)
     && !filePath.startsWith('.agentxchain/staging/');
+}
+
+// A test/spec file path — used to flag implementation turns that produced only tests
+// (no implementation source) so test-only work is reviewed rather than silently accepted.
+function isTestPath(filePath) {
+  if (typeof filePath !== 'string') {
+    return false;
+  }
+  return /(^|\/)(tests?|__tests__|spec)\//.test(filePath)
+    || /\.(test|spec)\.[cm]?[jt]sx?$/.test(filePath);
 }
 
 function hasCheckpointableProducedFiles(tr) {

@@ -663,6 +663,32 @@ describe('turn-result-validator', () => {
       assert.ok(res.errors.some(w => w.includes('without product code changes')));
     });
 
+    it('warns (does not reject) when a completed implementation turn changes only test files', () => {
+      writeStagedResult(makeValidTurnResult({
+        files_changed: ['tests/feature.test.ts'],
+        artifact: { type: 'workspace', ref: 'git:abc' },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, true, `test-only impl turn should pass with a warning, errors: ${JSON.stringify(res.errors)}`);
+      assert.ok(
+        res.warnings.some(w => w.includes('only test files')),
+        `expected a test-only work-substance warning, got: ${JSON.stringify(res.warnings)}`
+      );
+    });
+
+    it('does not emit the test-only warning when implementation source is present', () => {
+      writeStagedResult(makeValidTurnResult({
+        files_changed: ['src/feature.ts', 'tests/feature.test.ts'],
+        artifact: { type: 'workspace', ref: 'git:abc' },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, true);
+      assert.ok(
+        !res.warnings.some(w => w.includes('only test files')),
+        `should not warn when implementation source changed, got: ${JSON.stringify(res.warnings)}`
+      );
+    });
+
     it('rejects completed implementation turns with only planning artifacts changed', () => {
       writeStagedResult(makeValidTurnResult({
         files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
