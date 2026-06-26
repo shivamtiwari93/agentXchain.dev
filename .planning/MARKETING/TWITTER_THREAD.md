@@ -1,11 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.156.0
+# Twitter/X Thread — AgentXchain v2.157.0
 
-> Ready-to-post thread for the `v2.156.0` release. Updated 2026-05-02 for recovery classification, crash-resume PID guards, continuous checkpoint consistency, configurable deadlines, intake persistence, and Claude recovery hardening.
+> Ready-to-post thread for the `v2.157.0` release. Updated 2026-05-02 for recovery classification, crash-resume PID guards, continuous checkpoint consistency, configurable deadlines, intake persistence, and Claude recovery hardening.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7528 tests / 1520 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7666 tests / 1528 suites / 0 failures / 5 skipped
 
 ---
 
@@ -17,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.156.0 ships recovery classification and crash-resume hardening. Open source. MIT.
+AgentXchain v2.157.0 ships recovery classification and crash-resume hardening. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -57,13 +57,13 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.156.0:
+New in v2.157.0:
 
 - Recovery events now carry structured class/severity/operator-action metadata.
 - Governance reports render recovery health from historical events.
 - `step --resume` rejects retained live worker PIDs before duplicate dispatch.
 - Ghost blocker clearing writes the matching session checkpoint.
-- Full suite: npm test -- --test-timeout=60000 -> 7528 tests / 1520 suites / 0 failures / 5 skipped.
+- Full suite: npm test -- --test-timeout=60000 -> 7666 tests / 1528 suites / 0 failures / 5 skipped.
 - 108 conformance fixtures across 13 protocol surfaces.
 
 **Tweet 5 (the insight):**

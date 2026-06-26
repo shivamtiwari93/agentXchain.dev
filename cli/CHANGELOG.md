@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.157.0
+
+- **CI report gate annotations restored.** `ci-report` built GitHub Actions annotations and JUnit gate testcases by treating `gate_summary` as an object, but the report pipeline emits it as an array — so all gate annotations silently vanished. Now handles both shapes (the bug shipped in 2.156.0).
+- **Turn-level cost tracking for local_cli.** Claude Code stream-json `result` events are parsed from local_cli stdout and the staged turn-result is enriched with input/output tokens and computed USD (bundled Claude rates, operator-overridable).
+- **Continuous-loop resilience.** A recurring recoverable failure no longer busy-loops — a circuit-breaker caps consecutive identical recoveries, backs off, and escalates (RB-13). Reconcile recovery guidance is now class-aware: governed-state edits recommend `git revert`, deleted evidence `git checkout`, with `--accept-operator-head` reserved for safe fast-forward commits (RB-14).
+- **Test-only implementation turns are flagged for review.** An implementation turn that changes only test files (no implementation source) now raises a review warning — valid for acceptance work, surfaced for scrutiny otherwise.
+
+- npm test -- --test-timeout=60000 -> 7666 tests / 1528 suites / 0 failures / 5 skipped
+
 ## 2.156.0
 
 - **Lights-out long-horizon execution.** Continuous vision-driven runs recover from Claude/provider rate limits with reset-aware backoff, restart stalled turns via a liveness heartbeat, bootstrap from cold state, and resolve turn-scoped staging paths — keeping VISION-driven runs progressing unattended.

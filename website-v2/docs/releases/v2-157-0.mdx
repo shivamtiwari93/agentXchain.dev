@@ -1,0 +1,40 @@
+---
+sidebar_position: 0
+title: "v2.157.0 Release Notes"
+---
+
+# AgentXchain v2.157.0
+
+`v2.157.0` fixes a CI-report regression shipped in 2.156.0, adds turn-level cost tracking for local_cli runtimes, and hardens the continuous loop's recovery path — every item surfaced by dogfooding 2.156.0 on agentXchain itself.
+
+## What's New
+
+- **Turn-level cost tracking for local_cli.** Claude Code stream-json `result` events are parsed from local_cli stdout and the staged turn-result is enriched with input/output tokens and computed USD (bundled Claude rates, operator-overridable), gated on the Claude runtime and stream-json output.
+
+## Bug Fixes
+
+- **CI report gate annotations restored.** `ci-report` built GitHub Actions annotations and JUnit gate testcases by treating `gate_summary` as an object, but the report pipeline emits it as an array — so all gate annotations silently vanished. The reporter now handles both array and legacy-object shapes (the bug shipped in 2.156.0).
+- **Continuous-loop recovery resilience.** A recurring recoverable failure no longer busy-loops: a circuit-breaker caps consecutive identical recoveries, backs off between attempts, and escalates instead of spinning (RB-13). Reconcile recovery guidance is now class-aware — a commit that edits governed state recommends `git revert <sha>`, deleted evidence recommends `git checkout <sha>^ -- <path>`, and `--accept-operator-head` is reserved for safe fast-forward commits it can actually clear (RB-14).
+
+## Quality
+
+- **Test-only implementation turns are flagged for review.** An implementation turn that changes only test files with no implementation source now raises a review warning. This is valid for acceptance and verification objectives, but is surfaced for QA/operator scrutiny when the objective was to implement behavior.
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7666 tests / 1528 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.157.0 -c "agentxchain --version"`
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.
