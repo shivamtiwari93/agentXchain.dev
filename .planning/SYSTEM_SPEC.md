@@ -1,106 +1,127 @@
-# System Spec — BUG-FIX: Step Auto-Checkpoint Acceptance — PM→Dev Handoff
+# System Spec — M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
 
-**Run:** `run_71c0a7eaf361090b`
-**Baseline:** git:743e6c48d (HEAD of dogfood/2157-lights-out)
+**Run:** `run_4793c2273d675dd9`
+**Baseline:** git:c5f77e94d (HEAD of dogfood/2157-lights-out)
 
 ## Purpose
 
-This run formally closes ROADMAP.md line 70: "Acceptance: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit" under the "BUG-FIX: Step Command Missing Auto-Checkpoint After Acceptance" section.
+This run formally closes ROADMAP.md M13 (lines 148-157): "Decision Trail Ownership — Vision Closure (VISION.md:34)."
 
-Before the fix (run_8aceec319cd6aaed), the `step` command did not auto-checkpoint accepted turns. This meant operators had to manually `git add && git commit` between consecutive `step` calls to keep the workspace clean for the next turn. The `run` command already had this behavior — the `step` command was missing it.
+VISION.md line 49 identifies a core coordination failure when multiple agents touch the same codebase over time: "nobody owns the decision trail." Without ownership, decisions scatter into transient turn outputs, get lost across runs, and become unqueryable. Operators have no way to inspect what was decided, when, or why.
 
-The fix wired `checkpointAcceptedTurn()` into `step.js` after acceptance, matching `run.js`'s behavior. Three integration tests verify the feature. All code is delivered — this run is verification-only.
+M13 addresses this by composing 8 mechanisms — all delivered across prior milestones (M1, M3, MW, M10) — that collectively provide:
+
+- **Persistence**: decisions survive across runs via a structured ledger
+- **Visibility**: decisions appear in dispatch context and governance reports
+- **Enforcement**: the protocol writes decisions at key events and validates their structure
+- **Integrity**: scope overlap and review normalization protect the trail
+- **Access**: operators can query the full decision trail via CLI
+
+All code is delivered. This run is verification-only: confirm ~194 tests pass and check off the milestone.
 
 ## Interface
 
-### Component: Auto-Checkpoint in `step.js` — `cli/src/commands/step.js`
+### Mechanism 1: Decision Ledger with Cross-Run Persistence
 
-**Integration point (lines 1007-1020):**
+**Module:** `cli/src/lib/repo-decisions.js`
+**Test suite:** `cli/test/repo-decisions.test.js` (48 tests)
 
-After `acceptGovernedTurn()` succeeds at line 995, the auto-checkpoint block executes:
+12 exports: `readRepoDecisions`, `getActiveRepoDecisions`, `appendRepoDecision`, `overrideRepoDecision`, `validateOverride`, `resolveDecisionAuthority`, `getDecisionAuthorityMetadata`, `renderRepoDecisionsMarkdown`, `summarizeRepoDecisions`, `buildRepoDecisionOperatorSummary`, plus query/filter functions.
 
-```javascript
-if (!opts.noCheckpoint && existsSync(join(root, '.git'))) {
-  const checkpointResult = await checkpointAcceptedTurn(root, config, {
-    turn_id: acceptedTurnId,
-    // ... turn metadata
-  });
-  if (checkpointResult.ok) {
-    console.log(`Checkpoint: ${checkpointResult.checkpoint_sha}`);
-  } else {
-    console.error(`Checkpoint failed: ${checkpointResult.error}`);
-    console.error(`Retry: agentxchain checkpoint-turn --turn ${acceptedTurnId}`);
-    process.exit(1);
-  }
-}
-```
+Persists decisions in `.agentxchain/decision-ledger.jsonl` with structured fields (id, category, statement, rationale, run_id, turn_id, role, phase). Supports override chains with authority validation.
 
-**Key behaviors:**
+### Mechanism 2: Decision History in Dispatch Bundles
 
-1. **Enabled by default** — runs after every successful acceptance in a git repo
-2. **`--no-checkpoint` opt-out** — `agentxchain.js:752` registers the flag; `step.js:1008` checks `opts.noCheckpoint`
-3. **Acceptance is durable** — if checkpoint fails, the turn is still accepted (acceptance happens first at line 995)
-4. **Checkpoint failure exits non-zero** — operator gets a retry command (`agentxchain checkpoint-turn --turn <id>`)
+**Module:** `cli/src/lib/dispatch-bundle.js` (Decision History section ~line 1416, repo decisions context ~line 775)
+**Test suite:** `cli/test/dispatch-bundle-decision-history.test.js` (12 tests)
 
-### Underlying Mechanism: `checkpointAcceptedTurn()` — `cli/src/lib/turn-checkpoint.js`
+Every dispatched turn receives the full decision history table in its context bundle. Agents see what was decided in prior turns and runs, preventing decision amnesia across handoffs.
 
-Lines 344-525. The checkpoint function:
+### Mechanism 3: Coordinator Decision Ledger Writes
 
-1. Resolves the accepted turn from history
-2. Stages only files declared in the turn's `files_changed` array: `git add -A -- ...filesChanged`
-3. Validates all declared files actually staged (partitions missing files into categories)
-4. Creates commit: `checkpoint: <turn_id> (role=<role>, phase=<phase>, runtime=<runtime>)`
-5. Updates `state.json` with `accepted_integration_ref: git:<sha>` and `last_completed_turn`
-6. Emits `turn_checkpointed` event
+**Integration:** coordinator writes at 5 coordination events (init, dispatch, phase-transition, completion, recovery)
+**Test suite:** `cli/test/coordinator-decision-ledger.test.js` (7 tests)
 
-**Result:** Workspace is clean after checkpoint. Next `step` call sees clean baseline and can assign the next turn without error.
+The coordinator automatically persists decisions at key lifecycle events, ensuring the trail captures governance actions not just agent decisions.
+
+### Mechanism 4: Named Decisions in Reports/Dashboards
+
+**Module:** `cli/src/lib/report.js` (decision rendering sections)
+**Test suite:** `cli/test/named-decisions-visibility.test.js` (6 tests)
+
+Governance reports render named decisions with per-repo breakdowns. Dashboard visibility ensures humans can inspect the decision trail through reports.
+
+### Mechanism 5: Turn-Result Validator Decision Schema Enforcement
+
+**Module:** `cli/src/lib/turn-result-validator.js` (decision validation in 5-stage pipeline)
+**Test suite:** `cli/test/turn-result-validator.test.js` (100 tests)
+
+Enforces DEC-NNN ID format, required category/statement/rationale fields, and challenge requirement (review-only roles must raise objections). Structurally prevents decision schema drift.
+
+### Mechanism 6: Scope Overlap Guard
+
+**Module:** `cli/src/lib/scope-overlap.js`
+**Integration:** `cli/src/lib/intake.js:901`, `cli/src/lib/continuous-run.js:1329,1407,1493`
+**Test suite:** `cli/test/scope-overlap.test.js` (12 tests)
+
+Prevents conflicting decision chains by deferring overlapping intents at intake level. `--force-scope` provides operator override.
+
+### Mechanism 7: No-Edit Review Normalization
+
+**Module:** `cli/src/lib/turn-result-validator.js` (Rule 0a)
+**Test suite:** `cli/test/bug-78-no-edit-review.test.js` (7 tests)
+
+BUG-78 fix: auto-normalizes `workspace` → `review` for completed turns with empty `files_changed`. Preserves review decision audit trail integrity by ensuring review-only turns don't block the pipeline.
+
+### Mechanism 8: Operator Decision CLI
+
+**Module:** `cli/src/commands/decisions.js`
+**Registration:** `cli/bin/agentxchain.js` (`agentxchain decisions`)
+**Test suite:** within `repo-decisions.test.js` (2 tests)
+
+`agentxchain decisions` with `--all` (include overridden), `--show` (detail view), `--json` (machine-readable) flags. Provides operators query access to the full decision trail.
 
 ### Dev Charter
 
-**Verification-only.** Run the step auto-checkpoint test suite:
+**Verification-only.** Run the 8 test suites:
 
 ```bash
-cd cli && npx vitest run test/step-auto-checkpoint.test.js
+cd cli && npx vitest run test/repo-decisions.test.js test/dispatch-bundle-decision-history.test.js test/coordinator-decision-ledger.test.js test/named-decisions-visibility.test.js test/turn-result-validator.test.js test/scope-overlap.test.js test/bug-78-no-edit-review.test.js
 ```
 
-Expected: 3 tests, 0 failures.
+Expected: ~194 tests, 0 failures.
 
-**What each test proves:**
-
-| Test ID | Name | What It Proves |
-|---------|------|----------------|
-| AT-STEP-CKPT-001 | PM accepted → auto-checkpoint → dev assigns cleanly | **The acceptance criterion itself** — consecutive step calls work without manual git commit |
-| AT-STEP-CKPT-002 | `--no-checkpoint` skips auto-checkpoint | Opt-out flag works; turn is accepted but workspace stays dirty |
-| AT-STEP-CKPT-003 | Checkpoint failure exits non-zero with retry command | Fail-safe: acceptance is durable even when checkpoint fails |
-
-After test verification, check off ROADMAP.md:70:
-```markdown
-- [x] Acceptance: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit
-```
+After test verification, check off ROADMAP.md:149-157 (8 mechanism items + acceptance item).
 
 ### Architecture Invariants
 
 1. No changes to any module — verification only
-2. Auto-checkpoint runs after acceptance, never before — acceptance is the durable event
-3. Checkpoint stages only declared `files_changed` — never `git add -A` on the whole workspace
-4. `--no-checkpoint` is opt-out, not opt-in — default is to checkpoint
-5. Checkpoint failure produces a retry command, not silent failure
+2. Decision ledger is append-only with override chains — never mutate existing entries
+3. Turn-result validator enforces decision schema on every turn — no bypass path
+4. Scope overlap guard runs at intake (before approval) — not at dispatch
+5. Dispatch bundles always include full decision history — agents never lack decision context
 
 ## Acceptance Tests
 
-All 3 tests must pass:
+All 8 test suites must pass:
 
-| # | Test ID | Description | Status |
-|---|---------|-------------|--------|
-| 1 | AT-STEP-CKPT-001 | PM turn accepted → auto-checkpointed → dev turn assigned without dirty-workspace error | Pending dev verification |
-| 2 | AT-STEP-CKPT-002 | `--no-checkpoint` skips auto-checkpoint after acceptance | Pending dev verification |
-| 3 | AT-STEP-CKPT-003 | Checkpoint failure exits non-zero with error message and retry command | Pending dev verification |
+| # | Mechanism | Test Suite | Expected Tests | Status |
+|---|-----------|------------|----------------|--------|
+| 1 | Decision Ledger | `repo-decisions.test.js` | 48 | Pending dev verification |
+| 2 | Dispatch Bundle History | `dispatch-bundle-decision-history.test.js` | 12 | Pending dev verification |
+| 3 | Coordinator Writes | `coordinator-decision-ledger.test.js` | 7 | Pending dev verification |
+| 4 | Reports/Dashboards | `named-decisions-visibility.test.js` | 6 | Pending dev verification |
+| 5 | Validator Schema | `turn-result-validator.test.js` | 100 | Pending dev verification |
+| 6 | Scope Overlap | `scope-overlap.test.js` | 12 | Pending dev verification |
+| 7 | Review Normalization | `bug-78-no-edit-review.test.js` | 7 | Pending dev verification |
+| 8 | Operator CLI | within `repo-decisions.test.js` | 2 | Pending dev verification |
 
 ### Acceptance Criteria
 
 | # | Criterion | Evidence Required |
 |---|-----------|-------------------|
-| AC-1 | All 3 step-auto-checkpoint tests pass (0 failures) | Dev test output |
-| AC-2 | AT-STEP-CKPT-001 proves PM→Dev handoff without manual git commit | Dev confirms test flow matches criterion |
-| AC-3 | ROADMAP.md:70 checked off | Dev edit |
-| AC-4 | Acceptance contract: "PM→Dev handoff via consecutive `step` calls succeeds without manual git commit" | QA ship verdict |
+| AC-1 | All 8 test suites pass (~194 tests, 0 failures) | Dev test output |
+| AC-2 | Each mechanism demonstrably addresses an aspect of "nobody owns the decision trail" | Dev confirms composition per PM_SIGNOFF.md table |
+| AC-3 | ROADMAP.md:149-156 (8 mechanism items) checked off | Dev edit |
+| AC-4 | ROADMAP.md:157 (acceptance item) checked off | Dev edit |
+| AC-5 | Vision closure: VISION.md:49 "nobody owns the decision trail" addressed by composition | QA ship verdict |

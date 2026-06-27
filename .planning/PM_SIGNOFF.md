@@ -1,10 +1,10 @@
-# PM Signoff — BUG-FIX: Step Auto-Checkpoint Acceptance — PM→Dev Handoff
+# PM Signoff — M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
 
 Approved: YES
 
-**Run:** `run_71c0a7eaf361090b`
+**Run:** `run_4793c2273d675dd9`
 **Phase:** planning
-**Turn:** `turn_84a187d10ffbe060`
+**Turn:** `turn_15d39107f73fd70f`
 **Date:** 2026-06-26
 
 ## Discovery Checklist
@@ -17,104 +17,126 @@ Approved: YES
 
 ### Target User
 
-AgentXchain operators using `agentxchain step` for manual turn-by-turn execution. Before the auto-checkpoint fix (run_8aceec319cd6aaed), operators had to manually run `git add && git commit` between consecutive `step` calls. The PM turn would leave planning artifacts dirty in the workspace, and the subsequent dev turn would fail with a "baseline not clean" error.
+AgentXchain operators and governed agent teams operating over long horizons. VISION.md line 49 identifies a core coordination failure: "nobody owns the decision trail." When multiple agents make decisions across runs, phases, and roles, decisions scatter into turn results, history entries, and transient logs — no single authority persists, enforces, renders, or provides query access to the full decision trail.
 
 ### Core Pain Point
 
-ROADMAP.md line 70 has an unchecked acceptance criterion: "PM→Dev handoff via consecutive `step` calls succeeds without manual git commit." The underlying bug-fix work is **already delivered** — `checkpointAcceptedTurn()` was wired into `step.js` (lines 1007-1020), the `--no-checkpoint` flag was added (agentxchain.js:752), and three integration tests were written (AT-STEP-CKPT-001, -002, -003). What remains is **formal verification and roadmap closure**.
+ROADMAP.md lines 148-157 define M13 with 8 mechanisms addressing decision trail ownership. All 8 mechanisms are **already delivered** across prior milestones (M1, M3, MW, M10) and verified by PM in `run_5b6ee2a8de1bd612`. What remains is:
+
+1. Running the full test composition (~194 tests) to confirm 0 failures on the current codebase
+2. Checking off the 8 sub-items (ROADMAP.md:149-156)
+3. Checking off the acceptance item (ROADMAP.md:157)
+4. QA ship verdict
 
 ### Challenge to Previous Turn
 
 #### OBJ-PM-001: All planning artifacts reference stale run (severity: high)
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md referenced `run_8498f2fd2d6c091d` (M4: Turn-Level Cost Tracking). The current run is `run_71c0a7eaf361090b` targeting a different M4 sub-item: step auto-checkpoint acceptance. All three artifacts rewritten from scratch.
+PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all reference `run_71c0a7eaf361090b` (BUG-FIX: Step Auto-Checkpoint Acceptance). The current run `run_4793c2273d675dd9` targets M13: Decision Trail Ownership — a completely different milestone. All three artifacts rewritten from scratch. This is the 8th+ consecutive occurrence of stale planning artifacts needing rewrite at run start.
+
+#### OBJ-PM-002: M13 mechanisms 1-7 overlap heavily with M11 (severity: low)
+
+M11 (VISION.md:32 "assumptions diverge") and M13 (VISION.md:34 "nobody owns the decision trail") share 7 of 8 mechanisms. This is architecturally valid — the same infrastructure addresses both vision problems from different angles. M11 emphasizes *divergence prevention*, M13 emphasizes *ownership and access*. M13 adds mechanism #8 (operator decision CLI) which is unique to trail ownership. The overlap is a feature of compositional design, not redundancy.
 
 ### Core Workflow
 
-1. **PM (this turn)** — Rewrite planning artifacts for this run's scope, define dev verification charter, scope acceptance
-2. **Dev** — Run `step-auto-checkpoint.test.js` to confirm all 3 tests pass (AT-STEP-CKPT-001, -002, -003), check off ROADMAP.md:70
-3. **QA** — Verify test evidence, confirm acceptance criterion is satisfied, ship verdict
+1. **PM (this turn)** — Rewrite planning artifacts for M13 scope, define dev verification charter, scope acceptance
+2. **Dev** — Run the 8 test suites (~194 tests) to confirm 0 failures, check off ROADMAP.md:149-157
+3. **QA** — Independently verify test evidence, confirm 8 mechanisms compose to address VISION.md:34, ship verdict
 
 ### MVP Scope
 
-**Verification-only.** No new code. The bug-fix was delivered in run_8aceec319cd6aaed:
+**Verification-only.** No new code. All 8 mechanisms were delivered across prior milestones:
 
-| # | Deliverable | Location | Status |
-|---|-------------|----------|--------|
-| 1 | `checkpointAcceptedTurn()` wired into `step.js` after acceptance | `step.js:1007-1020` | Delivered |
-| 2 | `--no-checkpoint` opt-out flag | `agentxchain.js:752`, `step.js:1008` | Delivered |
-| 3 | AT-STEP-CKPT-001: PM accepted → auto-checkpoint → dev assigns cleanly | `step-auto-checkpoint.test.js` | Delivered |
-| 4 | AT-STEP-CKPT-002: `--no-checkpoint` skips checkpoint | `step-auto-checkpoint.test.js` | Delivered |
-| 5 | AT-STEP-CKPT-003: checkpoint failure exits non-zero, acceptance is durable | `step-auto-checkpoint.test.js` | Delivered |
+| # | Mechanism | Source Module | Test Suite | Claimed Tests |
+|---|-----------|---------------|------------|---------------|
+| 1 | Decision Ledger with cross-run persistence | `cli/src/lib/repo-decisions.js` | `repo-decisions.test.js` | 48 |
+| 2 | Decision History in dispatch bundles | `cli/src/lib/dispatch-bundle.js` | `dispatch-bundle-decision-history.test.js` | 12 |
+| 3 | Coordinator decision ledger writes (5 events) | coordinator integration | `coordinator-decision-ledger.test.js` | 7 |
+| 4 | Named decisions in reports/dashboards | `cli/src/lib/report.js` | `named-decisions-visibility.test.js` | 6 |
+| 5 | Turn-result validator decision schema | `cli/src/lib/turn-result-validator.js` | `turn-result-validator.test.js` | 100 |
+| 6 | Scope overlap guard | `cli/src/lib/scope-overlap.js` | `scope-overlap.test.js` | 12 |
+| 7 | No-edit review audit trail integrity | `cli/src/lib/turn-result-validator.js` | `bug-78-no-edit-review.test.js` | 7 |
+| 8 | Operator decision CLI | `cli/src/commands/decisions.js` | within repo-decisions.test.js | 2 |
+| | **Total** | | | **194** |
 
-**How auto-checkpoint solves the PM→Dev handoff:**
+**How these 8 mechanisms compose to address "nobody owns the decision trail":**
 
-1. `step --role pm` dispatches PM turn → PM writes `.planning/` artifacts → turn accepted
-2. After acceptance, `checkpointAcceptedTurn()` runs automatically:
-   - Stages only files declared in `files_changed`
-   - Creates git commit: `checkpoint: <turn_id> (role=pm, phase=planning, runtime=...)`
-   - Updates `state.json` with `accepted_integration_ref: git:<sha>`
-3. `step --role dev` sees clean baseline → assigns dev turn without error
-4. **No manual `git add && git commit` needed between steps**
+| Vision Problem | Mechanism | How It Addresses Ownership |
+|----------------|-----------|---------------------------|
+| Decisions aren't persisted | #1 Decision Ledger | Cross-run persistent storage with 12 CRUD+query exports |
+| Decisions aren't visible to agents | #2 Dispatch bundle history | Every dispatched turn sees full decision history in context |
+| Decisions aren't written at key events | #3 Coordinator writes | 5 coordination events (init, dispatch, phase-transition, completion, recovery) produce ledger entries |
+| Decisions aren't visible to humans | #4 Reports/dashboards | Named decisions rendered in governance reports with per-repo breakdowns |
+| Decisions aren't structurally enforced | #5 Turn-result validator | DEC-NNN IDs, category, statement, rationale enforced on every turn output |
+| Decision chains don't prevent conflicts | #6 Scope overlap | Intake-level guard defers overlapping work before approval |
+| Review decisions aren't preserved | #7 No-edit normalization | BUG-78 Rule 0a preserves audit trail for review-only turns |
+| Operators can't query decisions | #8 CLI access | `agentxchain decisions` with `--all`, `--show`, `--json` flags |
 
 ### Out of Scope
 
-- New test coverage for negative cases (verifying next-turn rejection when checkpoint is skipped/fails) — useful but not required for this acceptance criterion
-- Changes to `checkpointAcceptedTurn()` logic — already working
-- Changes to `run.js` auto-checkpoint — already has this behavior; `step.js` now matches it
-- Any code changes — verification-only run
+- New mechanisms or code changes — verification only
+- Changes to M11's acceptance status — M11 is already closed with ship verdict
+- Re-running M11 or M12 test suites beyond what M13 mechanisms require
+- Expanding the decisions CLI — current feature set is sufficient for the vision closure
 
 ### Success Metric
 
 | # | Acceptance Item | Verified By |
 |---|----------------|-------------|
-| 1 | `step-auto-checkpoint.test.js` passes all 3 tests (AT-STEP-CKPT-001, -002, -003) | Dev test output |
-| 2 | AT-STEP-CKPT-001 specifically proves PM→Dev handoff without manual git commit | Dev evidence |
-| 3 | ROADMAP.md:70 acceptance item checked off | Dev marks it |
-| 4 | Acceptance contract satisfied: "PM→Dev handoff via consecutive `step` calls succeeds without manual git commit" | QA ship verdict |
+| 1 | All 8 test suites pass with 0 failures (~194 tests) | Dev test output |
+| 2 | Each of the 8 mechanisms verified as addressing decision trail ownership | Dev confirms composition |
+| 3 | ROADMAP.md:149-156 (8 mechanism items) checked off | Dev marks them |
+| 4 | ROADMAP.md:157 (acceptance item) checked off | Dev marks it |
+| 5 | Vision closure confirmed: VISION.md:34/49 "nobody owns the decision trail" addressed | QA ship verdict |
 
 ### Design Decisions
 
-#### DEC-001: Planning artifacts from run_8498f2fd2d6c091d (M4 cost tracking) rewritten for run_71c0a7eaf361090b (step auto-checkpoint acceptance)
+#### DEC-001: Planning artifacts from run_71c0a7eaf361090b (Step Auto-Checkpoint) rewritten for run_4793c2273d675dd9 (M13: Decision Trail Ownership)
 
-The vision scanner triggered this run for ROADMAP.md:70 under the "BUG-FIX: Step Command Missing Auto-Checkpoint After Acceptance" section. The bug-fix code is complete; this run verifies and formally closes the acceptance criterion.
+The vision scanner triggered this run for ROADMAP.md:157 — the unchecked M13 acceptance criterion. All mechanism code is delivered; this run verifies composition and formally closes the milestone.
 
-#### DEC-002: Acceptance is verification-only — AT-STEP-CKPT-001 directly demonstrates the PM→Dev handoff
+#### DEC-002: Verification is composition-focused — 8 mechanisms must each demonstrably address an aspect of "nobody owns the decision trail"
 
-AT-STEP-CKPT-001 runs the exact flow: PM turn accepted → auto-checkpoint creates git commit → dev turn assigns without dirty-workspace error. This test IS the acceptance evidence. No additional code or tests needed.
+Unlike M11 which focused on divergence prevention, M13 emphasizes ownership: persistence, visibility, enforcement, access. The dev charter requires confirming each mechanism's ownership contribution, not just test passage.
 
 #### DEC-003: Dev charter is test-run + roadmap-check — no new code expected
 
-All mechanism code was delivered in run_8aceec319cd6aaed. Dev confirms the test suite passes on the current codebase, then checks off ROADMAP.md:70.
+All 8 mechanisms were delivered across M1, M3, MW, M10 milestones and verified by PM in run_5b6ee2a8de1bd612. Dev confirms the full test suite passes on the current codebase, then checks off ROADMAP.md:149-157.
 
 ## Notes for Dev
 
 **Verification-only charter.** No new code changes expected.
 
-Run the step auto-checkpoint test suite:
+Run the 8 decision trail test suites:
 ```bash
-cd cli && npx vitest run test/step-auto-checkpoint.test.js
+cd cli && npx vitest run test/repo-decisions.test.js test/dispatch-bundle-decision-history.test.js test/coordinator-decision-ledger.test.js test/named-decisions-visibility.test.js test/turn-result-validator.test.js test/scope-overlap.test.js test/bug-78-no-edit-review.test.js
 ```
 
-Confirm 3 tests pass with 0 failures:
-- AT-STEP-CKPT-001: PM turn accepted → auto-checkpoint → dev turn assigns without dirty-workspace error
-- AT-STEP-CKPT-002: `--no-checkpoint` skips auto-checkpoint
-- AT-STEP-CKPT-003: checkpoint failure exits non-zero with retry command
+Confirm ~194 tests pass with 0 failures.
 
-Then check off ROADMAP.md:70:
+Then check off all 8 mechanism items and the acceptance item in ROADMAP.md:149-157:
 ```markdown
-- [x] Acceptance: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit
+- [x] Decision Ledger with cross-run persistence ...
+- [x] Decision History rendered in dispatch bundles ...
+- [x] Coordinator Decision Ledger writes at 5 coordination events ...
+- [x] Named Decisions visibility in reports and dashboards ...
+- [x] Turn-result validator enforces decision schema ...
+- [x] Scope overlap guard prevents conflicting decision chains ...
+- [x] No-edit review normalization preserves review decision audit trail ...
+- [x] Operator decision CLI provides query access to full decision trail ...
+- [x] Acceptance: all 8 mechanisms verified ...
 ```
 
 ## Notes for QA
 
-- Verify all 3 tests pass (0 failures)
-- Confirm AT-STEP-CKPT-001 directly tests the acceptance criterion (PM→Dev handoff without manual git commit)
-- Confirm ROADMAP.md:70 is checked off
-- Ship verdict YES if tests pass and acceptance criterion is satisfied
+- Independently run the same 8 test suites and confirm 0 failures
+- Verify each mechanism addresses an aspect of "nobody owns the decision trail"
+- Confirm ROADMAP.md:149-157 is fully checked off
+- Ship verdict YES if all 8 mechanisms verified and acceptance criterion satisfied
 
 ## Acceptance Contract
 
-1. **Roadmap milestone addressed: M4: Recovery & Resilience Hardening** — The "BUG-FIX: Step Command Missing Auto-Checkpoint After Acceptance" section (ROADMAP.md:66-70) is a sub-item under M4's recovery and resilience scope. Auto-checkpoint ensures step-driven workflows don't break on PM→Dev handoffs due to dirty workspace state.
-2. **Unchecked roadmap item completed: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit** — AT-STEP-CKPT-001 directly proves this: PM accepted → auto-checkpoint → dev assigns cleanly. Dev will check off ROADMAP.md:70 after test verification.
-3. **Evidence source: .planning/ROADMAP.md:70** — Line 70 contains the unchecked acceptance criterion that this run closes.
+1. **Roadmap milestone addressed: M13: Decision Trail Ownership — Vision Closure (VISION.md:34)** — M13 closes the VISION.md problem "nobody owns the decision trail" by composing 8 mechanisms for persistence, visibility, enforcement, and query access.
+2. **Unchecked roadmap item completed: all 8 mechanisms verified as composition addressing VISION.md:34 "nobody owns the decision trail" — 194 tests, 0 failures** — Dev will run 8 test suites and check off ROADMAP.md:149-157.
+3. **Evidence source: .planning/ROADMAP.md:157** — Line 157 contains the unchecked acceptance criterion that this run closes.

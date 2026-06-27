@@ -160,6 +160,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope step auto-checkpoint acceptance verification, rewrite planning artifacts for run_71c0a7eaf361090b | Complete (turn_84a187d10ffbe060) |
-| Implementation | Run step-auto-checkpoint.test.js (3 tests), check off ROADMAP.md:70 | Pending |
-| QA | Verify 3 tests pass, confirm PM→Dev handoff acceptance criterion satisfied, ship verdict | Pending |
+| Planning | Scope M13 decision trail ownership verification, rewrite planning artifacts for run_4793c2273d675dd9 | Complete (turn_15d39107f73fd70f) |
+| Implementation | Run 8 decision trail test suites (~194 tests), check off ROADMAP.md:149-157 | Pending |
+| QA | Verify 194 tests pass, confirm 8 mechanisms compose to address VISION.md:34, ship verdict | Pending |
