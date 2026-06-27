@@ -175,7 +175,35 @@ Closes the final unaddressed "Why This Must Exist" pain bullet, **VISION.md:51 "
 - [x] Regression tests for the human-attention module (`cli/test/human-attention.test.js`): clear-queue, pending-approval, open-escalation, pending-intent, credentialed-gate, budget/policy-blocked, mixed-category priority-ordering, and `--json`/`--all` CLI output scenarios.
 - [x] Acceptance: `agentxchain attention` returns a prioritized govern-by-exception human-decision queue composed from ≥5 categories; the queue is empty (`overall: 'clear'`, exit 0, "Nothing needs your attention") when no human decision is pending; each item surfaces a concrete `action_hint`; addresses VISION.md:51 "humans lose the ability to govern without micromanaging" as a composition over existing escalation/approval/intake primitives. — Verified by QA (run_2929265fcbabe440 / turn_92c39cb5177586c2): 6/6 acceptance criteria pass; **6** categories composed (≥5 floor); live `attention` → "Nothing needs your attention." exit 0; 18/18 + 37/37 + 46/46 tests green; ship verdict YES.
 
+### M16: Role Charter Well-Formedness — Open-Ended Roles Validation — Vision Closure (VISION.md:100–130)
+
+Opens the **"Roles Are Open-Ended, Not Fixed"** vision pillar (VISION.md:100–130), the first milestone to address it directly. The vision is emphatic: "AgentXchain must never assume that a software team consists only of `pm`, `dev`, and `qa`… The framework must support arbitrary agent roles and arbitrary charters" (VISION.md:102–121), and it fixes a precise, testable invariant for any chartered role (VISION.md:123–128):
+
+> - every role has a mandate
+> - every role has authority boundaries
+> - every role produces governed artifacts
+> - every role participates in a structured workflow
+
+Today roles are freely configurable (any id matching `^[a-z0-9_-]+$`), and templates ship extra roles (`enterprise-app` adds `architect` + `security_reviewer`). But there is **no validator that enforces the four-part charter invariant on a role definition.** `normalized-config.js` checks only that `mandate`/`title` are non-empty strings; `admission-control.js` (ADM-001/002/004) checks *phase-level file-production topology*, not whether a given **role** is a well-formed chartered participant. A user who adds a custom role (e.g. `security-reviewer`) gets no single answer to "is this role's charter complete, or is it mandate-only text with no authority boundary, no owned artifact, and no phase that routes to it?" `agentxchain role` exposes only `list` and `show` (role.js) — there is no `validate`. M16 closes that gap with a read-only, compose-don't-reimplement validator that scores every role against the four VISION invariants, mirroring the M14/M15 module+CLI+report discipline.
+
+- [ ] New module `cli/src/lib/role-charter.js` with `evaluateRoleCharter(config, rawConfig, roleId)` and `evaluateAllRoleCharters(config, rawConfig)` that score a role against the four VISION:123–128 invariants — (1) **mandate** present (`role.mandate` non-empty), (2) **authority boundary** coherent (`role.write_authority` valid AND its runtime binding resolves to a non-`none` `effective_write_path` via `getRoleRuntimeCapabilityContract`), (3) **produces governed artifacts** (role can reach required file production in ≥1 routed phase via `canRoleParticipateInRequiredFileProduction`, OR owns ≥1 workflow-kit artifact it can satisfy via `canRoleSatisfyWorkflowArtifactOwnership`/`getEffectiveGateArtifacts`), (4) **participates in a structured workflow** (role appears as `entry_role` or in `allowed_next_roles` of ≥1 phase in `config.routing`) — into a structured `RoleCharterReport` (`role_id`, `overall: 'well_formed' | 'incomplete'`, `invariants[]` each `{ id, name, satisfied, detail }`, `missing[]`, `evidence_summary`). Read-only; composes `runtime-capabilities.js`, `gate-evaluator.js`, `admission-control.js`, and config routing — reimplements none.
+- [ ] `agentxchain role validate [role_id]` subcommand (extend `cli/src/commands/role.js` + `roleCmd` in `cli/bin/agentxchain.js:958`) — validates one role, or all roles when `role_id` omitted; `--json` emits the full report(s). Exit 0 when all evaluated roles are `well_formed`; exit non-zero (1) when any evaluated role is `incomplete`, listing each unsatisfied invariant with a concrete fix hint.
+- [ ] Four-invariant evaluation semantics: `overall === 'well_formed'` **iff** all four invariants satisfied; `missing[]` enumerates unsatisfied invariant ids; each invariant reports independently (one failing invariant never suppresses evaluation of the others). The reference roles (`pm`/`dev`/`qa`) and an `enterprise-app` custom role (`security_reviewer`) both evaluate `well_formed` against a valid config.
+- [ ] Governance report integration — `buildGovernanceReport()` (`report.js:1245`, mirroring `buildHumanAttentionSummary` at `report.js:1083`) includes a `role_charters` summary section (`total`, `well_formed`, `incomplete`, `incomplete_role_ids[]`).
+- [ ] Regression tests `cli/test/role-charter.test.js` (AT-RC-001…013): all-well-formed config; missing-mandate; authority-boundary incoherent (review_only on local_cli → none); produces-no-artifacts (not routed to any file-producing phase and owns nothing); not-in-routing; mixed multi-role report; `well_formed iff 4/4`; `role validate` exit 0 all-well-formed; `role validate` exit 1 with an incomplete role; `--json` schema; all-roles vs single-role; read-only (config byte-identical before/after).
+- [ ] Acceptance: `agentxchain role validate` returns a per-role four-invariant well-formedness assessment composed from existing capability/routing/artifact primitives; reference roles and an `enterprise-app` custom role pass; an intentionally malformed custom role is reported `incomplete` with its missing invariant(s) and a fix hint; exit 0 all-well-formed / exit 1 any-incomplete; governance report exposes `role_charters`; read-only; addresses VISION.md:100–130 "Roles Are Open-Ended, Not Fixed" four-part charter invariant (VISION.md:123–128).
+
 ## Phases
+
+| Phase | Goal | Status |
+|-------|------|--------|
+| Planning | Derive M16 from VISION.md:100–130 "Roles Are Open-Ended, Not Fixed"; scope `role-charter.js` four-invariant well-formedness validator + `agentxchain role validate` CLI command, citing the role-charter invariant (VISION.md:123–128) | Done (run_dc50efa0354c0768 / turn_5abb2e0f09dc2e4f) |
+| Implementation | Build `role-charter.js` module (`evaluateRoleCharter` / `evaluateAllRoleCharters` scoring the four VISION:123–128 invariants), `role validate [role_id]` subcommand (`--json`, exit 0/1), report integration (`role_charters`), regression tests | Pending |
+| QA | Verify the validator scores all four invariants independently, `well_formed iff 4/4`, reference + `enterprise-app` custom role pass, malformed role reported `incomplete` with fix hints, exit 0/1 contract, read-only; test coverage; ship verdict | Pending |
+
+---
+
+### Completed Milestone History — M15 (closed)
 
 | Phase | Goal | Status |
 |-------|------|--------|
