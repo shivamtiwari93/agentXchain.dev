@@ -13,6 +13,7 @@ import { buildCoordinatorRepoStatusEntries } from './coordinator-repo-status-pre
 import { summarizeCoordinatorEvent } from './coordinator-event-narrative.js';
 import { extractGateActionDigest } from './gate-actions.js';
 import { buildRecoveryClassificationReport } from './recovery-classification.js';
+import { buildShipStatusSummary } from './ship-status.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
@@ -1077,6 +1078,7 @@ function buildRunSubject(artifact) {
       continuity,
       workflow_kit_artifacts: extractWorkflowKitArtifacts(artifact),
       repo_decisions: artifact.summary?.repo_decisions || null,
+      ship_status: buildShipStatusSummary(artifact),
     },
     artifacts: {
       history_entries: artifact.summary?.history_entries || 0,
@@ -1422,6 +1424,17 @@ export function formatGovernanceReportText(report) {
       for (const d of run.repo_decisions.overridden || []) {
         const authority = d.authority_level == null ? '' : ` | authority ${d.authority_level}${d.authority_source === 'human_default' ? ' (human default)' : ''}`;
         lines.push(`  - ${d.id} (overridden by ${d.overridden_by || 'unknown'}${authority})`);
+      }
+    }
+
+    if (run.ship_status) {
+      const ss = run.ship_status;
+      const label = ss.overall === 'pass' ? 'YES' : ss.overall === 'fail' ? 'NO' : 'PENDING';
+      lines.push('', `Ship Status: ${label} (${ss.dimensions_passed}/${ss.dimensions_total} dimensions pass)`);
+      if (ss.blocking_reasons.length > 0) {
+        for (const reason of ss.blocking_reasons) {
+          lines.push(`  - ${reason}`);
+        }
       }
     }
 

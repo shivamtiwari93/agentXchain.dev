@@ -124,6 +124,7 @@ import { benchmarkCommand } from '../src/commands/benchmark.js';
 import { benchmarkWorkloadsCommand } from '../src/commands/benchmark-workloads.js';
 import { historyCommand } from '../src/commands/history.js';
 import { decisionsCommand } from '../src/commands/decisions.js';
+import { shipStatusCommand } from '../src/commands/ship-status.js';
 import { diffCommand } from '../src/commands/diff.js';
 import { eventsCommand } from '../src/commands/events.js';
 import { connectorCapabilitiesCommand, connectorCheckCommand, connectorValidateCommand } from '../src/commands/connector.js';
@@ -419,6 +420,14 @@ program
   .option('-s, --show <id>', 'Show details for a specific decision (e.g. DEC-042)')
   .option('-d, --dir <path>', 'Project directory')
   .action(decisionsCommand);
+
+program
+  .command('ship-status')
+  .description('Evaluate whether the current project is ready to ship')
+  .option('-j, --json', 'Machine-readable JSON output')
+  .option('-v, --verbose', 'Per-dimension detail breakdown')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(shipStatusCommand);
 
 program
   .command('diff <left_ref> <right_ref>')
