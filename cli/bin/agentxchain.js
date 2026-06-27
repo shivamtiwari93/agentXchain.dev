@@ -971,6 +971,12 @@ roleCmd
   .option('-j, --json', 'Output as JSON')
   .action((roleId, opts) => roleCommand('show', roleId, opts));
 
+roleCmd
+  .command('validate [role_id]')
+  .description('Validate role charter well-formedness against the four VISION:123–128 invariants (exit 1 if any role incomplete)')
+  .option('-j, --json', 'Output as JSON')
+  .action((roleId, opts) => roleCommand('validate', roleId, opts));
+
 const turnCmd = program
   .command('turn')
   .description('Inspect active governed turn dispatch bundles');

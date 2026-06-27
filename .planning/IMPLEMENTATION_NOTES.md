@@ -1,78 +1,80 @@
-# Implementation Notes — M15: Govern Without Micromanaging — Human Attention Surface — Vision Closure (VISION.md:51)
+# Implementation Notes — M16: Role Charter Well-Formedness — Open-Ended Roles Validation — Vision Closure (VISION.md:100–130)
 
-**Run:** `run_2929265fcbabe440`
-**Turn:** `turn_9d23289f5ea9873b`
+**Run:** `run_dc50efa0354c0768`
+**Turn:** `turn_29fc38df7a095987`
 **Role:** dev
 **Runtime:** `local-opus-4.8-ultra`
 **Date:** 2026-06-27
-**Baseline:** git:e84671ed2 (HEAD of dogfood/2157-lights-out)
+**Baseline:** git:2fdba5642 (HEAD of dogfood/2158-lights-out, integration ref)
 
 ---
 
 ## Challenge to Previous Turn
 
-The previous accepted turn is the PM signoff for M15 (`turn_fd0c9ed117cd5d23`). I did **not** rubber-stamp it — I verified every compose-target API the spec named actually exists with the claimed signature **against current source** before writing a line of the module, because prior planning turns in this project have repeatedly handed Dev dead-end symbols:
+The previous accepted turn is the PM signoff for M16 (`turn_5abb2e0f09dc2e4f`). I did **not** rubber-stamp it — I verified every compose-target API the spec named exists with the claimed signature **against current source at HEAD** before writing the module, and I found two spec details that did not match the code and adjusted accordingly:
 
-- `governed-state.js` — there is **no exported `readState(root)`** despite the spec's reference to "governed-state.js `readState(root)`". State is a plain JSON file; ship-status.js reads it via a private `readGovernedStateReadOnly` helper. I reproduced that read-only helper rather than invent an export. The `blocked_on` encodings the spec cited are real: `human_approval:<gate>` (governed-state.js:2222), `budget:exhausted` (:868), `policy:<id>` (:691).
-- `human-escalations.js` — `readHumanEscalations(root)` (:316) returns materialized records each carrying `status` (`'open'`/`'resolved'`) and a real `resolution_command` of the form `agentxchain unblock <escalation_id>` (:369). The spec's suggested `escalate --resolve <id>` hint does **not** match the code; I used the record's own `resolution_command` so the action hint is the command that actually resolves it.
-- `intake.js` `findPendingApprovedIntents(root, {run_id})` (:687), `approval-policy.js` `isCredentialedExitGate(config, phase)` (:57) — both exported as claimed and used as-is.
-- `report.js` `buildGovernanceReport` operates on an **export artifact**, not a live repo — so I mirrored `buildShipStatusSummary(artifact)` with an artifact-scoped `buildHumanAttentionSummary(artifact)` rather than calling the live `evaluateHumanAttention`.
+- **Spec says "effective_write_path is not `none`."** `getRoleRuntimeCapabilityContract` (runtime-capabilities.js:104) **never returns the string `'none'`.** The actual incoherent-binding sentinels it emits are `'unknown'`, `'invalid_review_only_binding'`, and `'invalid_authoritative_binding'` (verified by direct probe: `review_only`+`local_cli` → `invalid_review_only_binding`, `review_only`+`manual` → `planning_only`, `authoritative`+`local_cli` → `direct`). I implemented invariant 2 against the real coherent/incoherent partition (`INCOHERENT_WRITE_PATHS` set) rather than a literal `=== 'none'` check that would never fire.
+- **Spec says `invariants[]` items carry `{ id, name, satisfied, detail }`** in one place and `{ id, name, satisfied, detail, fix_hint }` in another. The CLI contract and AT-RC-003/004/005/006 require a concrete fix hint per failing invariant, so I included `fix_hint` on every invariant (`null` when satisfied). This is a superset of the narrower shape — no consumer breaks.
+- **`config` shape:** `loadProjectContext` hands the CLI a **normalized** config where roles carry `runtime_id` (normalized-config.js:1304), while the governance report's export artifact `config` is the **raw** agentxchain.json where roles carry `runtime` (export.js:582). I made the evaluator tolerate both (`role.runtime_id || role.runtime`, and `config?.X || rawConfig?.X` fallbacks) exactly as admission-control.js does, so the same module serves the CLI and the report without a second code path.
+- **`report.js buildGovernanceReport` operates on an export artifact, not a live repo** — so I mirrored `buildShipStatusSummary(artifact)` / `buildHumanAttentionSummary(artifact)` with an artifact-scoped `buildRoleCharterSummary(artifact)` rather than calling the live evaluator against the filesystem.
 
 ## Changes
 
-### New: `cli/src/lib/human-attention.js`
-Govern-by-exception composition layer (Architecture Invariants #1–#7). Read-only; composes existing modules, reimplements no escalation/approval/intake logic.
+### New: `cli/src/lib/role-charter.js`
+Read-only, compose-don't-reimplement validator scoring every role against the four VISION:123–128 charter invariants. Composes `runtime-capabilities.js`, `gate-evaluator.js`, and config routing; reimplements no runtime-capability derivation, gate-artifact resolution, or file-production logic.
 
-- `evaluateHumanAttention(repoDir)` → `HumanAttentionReport` `{ overall, items[], items_count, blocking_count, categories[], evidence_summary }`. Each item: `{ category, priority, blocking, run_id, summary, action_hint }`. `overall === 'clear'` **iff** `items.length === 0`.
-- **6 exception categories** (spec floor is 5), each an independently-exported pure evaluator:
-  1. `evaluatePendingApprovalCategory(state, config)` — pending human-approval gate from `blocked_on` `human_approval:<gate>` / `pending_phase_transition` / `pending_run_completion`. **Categories 1 & 4 unified:** the same pending decision is classified as `credentialed_gate` when the phase's exit gate is credentialed (`isCredentialedExitGate`), else `approval` — mutually exclusive, so one decision is never double-counted while still honouring the ordering contract.
-  2. `evaluateEscalationCategory(escalations)` — open records from `readHumanEscalations`; action hint = each record's own `resolution_command`.
-  3. `evaluateBudgetPolicyCategory(state)` — `budget:exhausted` / `policy:<id>` blockers.
-  4. `evaluateManualActionCategory(state)` — **bonus** category catching the remaining human-owned `blocked_on` encodings (`gate_action:<gate>`, `human:<detail>`) so a blocked run is never silently dropped.
-  5. `evaluatePendingIntentCategory(intents)` — informational (non-blocking) approved-but-undispatched intents from `findPendingApprovedIntents`.
-- **Deterministic Ordering contract:** priorities `credentialed_gate(10) < escalation(20) < approval(30) < manual_action(35) < budget_policy(40) < pending_intent(100)`; blocking categories all `< 100` and informational `>= 100`, so the blocking-first sort plus priority/`run_id`/`summary` tiebreak yields a stable order matching SYSTEM_SPEC §"Ordering contract".
-- **Category isolation (Invariant #4):** each category runs inside a `collect()` try/catch; a throw or empty in one never blanks the rest of the queue.
-- `buildHumanAttentionSummary(artifact)` — artifact-scoped summary (`overall`, `items_count`, `blocking_count`, `categories[]`) for report integration; evaluates only the state/config-derivable categories (the live command surfaces escalations/intents).
+- `evaluateRoleCharter(config, rawConfig, roleId)` → `RoleCharterReport` `{ role_id, overall: 'well_formed'|'incomplete', invariants[], missing[], evidence_summary }`. Each invariant: `{ id, name, satisfied, detail, fix_hint }`. `overall === 'well_formed'` **iff** all four invariants are satisfied. Each invariant is evaluated independently — no short-circuit; `missing[]` enumerates every unsatisfied invariant id.
+- **Invariant 1 — `mandate`** (VISION.md:124): `role.mandate` is a non-empty trimmed string.
+- **Invariant 2 — `authority_boundary`** (VISION.md:125): `write_authority` is a valid enum AND the bound runtime exists AND `getRoleRuntimeCapabilityContract(roleId, role, runtime).effective_write_path` is **coherent** (not in `{none, unknown, invalid_review_only_binding, invalid_authoritative_binding}`). Catches the canonical incoherence `review_only` on a `local_cli` runtime.
+- **Invariant 3 — `produces_artifacts`** (VISION.md:126): satisfied when **(a)** the role can reach required-file production in ≥1 routed phase — `canRoleParticipateInRequiredFileProduction(role, runtime)` AND that phase's exit gate has a required artifact per `getEffectiveGateArtifacts` — **OR (b)** it owns ≥1 workflow-kit artifact it can satisfy (`getEffectiveGateArtifacts` `owned_by === roleId` AND `canRoleSatisfyWorkflowArtifactOwnership`). The manual-runtime carve-out is inherited for free: `canRoleParticipateInRequiredFileProduction` already returns `true` for manual roles (the same carve-out admission-control.js relies on), so manual reviewers/architects are not penalized for lacking an automated write path.
+- **Invariant 4 — `workflow_participation`** (VISION.md:127): the role id appears as `entry_role` or within `allowed_next_roles` of ≥1 phase in `config.routing`.
+- `evaluateAllRoleCharters(config, rawConfig)` → `{ total, well_formed, incomplete, incomplete_role_ids[], roles[] }`, with `roles` in stable order (sorted by id) for deterministic output/tests.
+- `buildRoleCharterSummary(artifact)` → compact `{ total, well_formed, incomplete, incomplete_role_ids }` for report integration; `null` for a missing artifact.
 
-### New: `cli/src/commands/attention.js` + registration in `cli/bin/agentxchain.js`
-`agentxchain attention [--json] [--all] [--dir]`. Presentation only — delegates all logic to the module (Invariant #6). Empty queue ⇒ prints "Nothing needs your attention." and **exits 0**; attention state also exits 0 (status surface, not a gate). `--json` always emits the full schema-valid `HumanAttentionReport`. Default view lists blocking items first with each item's `action_hint`; informational pending-intent items are summarized as a count unless `--all`.
+### Modified: `cli/src/commands/role.js` + registration in `cli/bin/agentxchain.js`
+`agentxchain role validate [role_id] [--json]`. Presentation only — delegates all charter logic to the module (Architecture Invariant #6, consistent with the existing thin `list`/`show`). Validates one role, or all defined roles when `role_id` is omitted. **Exit-code contract:** exit `0` when every evaluated role is `well_formed`, exit `1` when any evaluated role is `incomplete` (a config-validation gate suitable for CI / `doctor` use). `--json` always emits the schema-valid report regardless of exit code. An unknown explicit `role_id` exits `1` with an "Unknown role" message, mirroring `role show`.
 
 ### Modified: `cli/src/lib/report.js`
-Imports `buildHumanAttentionSummary` and adds `human_attention` to the governed-run subject in `buildRunSubject()`, immediately after `ship_status` (AC-5).
+Imports `buildRoleCharterSummary` and adds `role_charters` to the governed-run subject in `buildRunSubject()`, immediately after `human_attention` (report integration / AC-6).
 
 ### Tests + contracts
-- New `cli/test/human-attention.test.js` — 18 tests covering AT-HA-001…013 plus report-integration (`buildHumanAttentionSummary`) cases.
-- Updated `cli/test/vitest-contract.test.js` (test-file count 689 → 690, bumped by the new test file).
-- Updated `cli/test/docs-cli-command-map-content.test.js` (added `attention` to the governed-command list + row mapping) and `website-v2/docs/cli.mdx` (added the `attention` command-map row) — both required because adding a governed CLI command is gated by the docs-coverage contract.
+- New `cli/test/role-charter.test.js` — 18 tests covering AT-RC-001…013 plus the governance-report integration (`buildRoleCharterSummary`) cases.
+- Updated `cli/test/vitest-contract.test.js` (test-file count 690 → 691), required because adding a test file is gated by the coverage-count contract.
 
 ## Verification
 
-- `npx vitest run test/human-attention.test.js` → **18/18 pass** (AT-HA-001…013 + integration).
-- `npx vitest run test/docs-cli-command-map-content.test.js test/vitest-contract.test.js` → **19/19 pass** (the two count/coverage contracts my new command + test file touched).
-- `npx vitest run test/ship-status.test.js test/governance-report-content.test.js test/report-cli.test.js test/e2e-builtin-json-report.test.js test/workflow-kit-report.test.js` → **all pass** (report integration intact, no regression).
-- End-to-end report integration: built a valid run export via `buildRunExport` on a budget-blocked fixture and confirmed `report.subject.run.human_attention === { overall:'attention', items_count:1, blocking_count:1, categories:['budget_policy'] }`.
-- Live CLI smoke on this repo: `agentxchain attention` → "Nothing needs your attention." exit 0; `--json` → schema-valid `{ overall:'clear', items:[], ... }` exit 0.
-- **Full suite** (`npx vitest run`, 690 files / 7711 tests, ~34 min): **7708 passed, 3 failed** at first run. Two failures were the count/coverage contracts my change legitimately shifted (`vitest-contract` 689→690, `docs-cli-command-map` missing `attention`) — both fixed and re-verified green.
+All commands run blocking in the foreground; exit codes recorded inline.
 
-### Known pre-existing failure (NOT a regression)
-`test/beta-tester-scenarios/bug-54-real-claude-reliability.test.js` › Scenario B fails on this machine: it fires a **50ms watchdog against the real `claude` binary** expecting `no_subprocess_output` on all 10 iterations, but a fast/idle machine lets `claude --version` emit stdout within 50ms on some iterations (iter 5 here). Proven outside M15's blast radius: (a) the file is not among my 5 changed files; (b) its import graph is `local-cli-adapter.js`, `claude-local-auth.js`, `dispatch-bundle.js`, `turn-paths.js` — none of which I touched and none of which import `human-attention`/`attention`/`report`; (c) it fails identically in isolation with my changes present. This is an environment/timing-dependent real-binary test (its own docstring notes it is gated on the local `claude` binary).
+- `npx vitest run test/role-charter.test.js` → **18/18 pass** (AT-RC-001…013 + 2 report-integration + 1 unknown-role CLI case), exit 0.
+- **Targeted regression over every test importing a file I changed** — `report.js`, the `role` command, `runtime-capabilities`, `gate-evaluator`, `buildGovernanceReport` (20 suites: beta-scenario-emission-guard, bug-35/36/37/84/86, ci-report-acceptance, claim-reality-preflight, connector-capability-declaration, coordinator-report-narrative, cost-summary, gate-evaluator(+helpers), recovery-classification, report-html, role-charter, run-command, run-completion, workflow-kit-remote-accountability, workflow-kit-report) → **347/347 pass**, exit 0.
+- **CLI-surface + docs/command-map + coverage contracts** — `vitest-contract`, `docs-cli-command-map-content`, `docs-cli-governance-content`, `role-command`, `inspection-frontdoor-discoverability`, `status-runtime-guidance`, `docs-tutorial-content` → **all pass** (after bumping the test-file count 690 → 691). Confirms the new `role validate` subcommand does not break any command-enumeration/docs contract.
+- Earlier focused cross-check (`human-attention`, `admission-control`, `gate-evaluator`, `governance-report-content`, `workflow-kit-report`, `role-charter`) → **132/132 pass**.
+- **Live CLI smoke on this repo's own config** (pm/dev/qa/eng_director, all authoritative on local_cli):
+  - `node cli/bin/agentxchain.js role validate` → "Role charter validation (4 roles): all well-formed (4/4 invariants each)." exit 0.
+  - `node cli/bin/agentxchain.js role validate --json` → schema-valid `AllRoleCharterReport` (`total:4, well_formed:4, incomplete:0`).
+  - `node cli/bin/agentxchain.js role validate dev` → "✓ dev well-formed (4/4 invariants)" exit 0.
+- **Capability-contract probe** confirming the invariant-2 partition: `review_only`+`local_cli` → `invalid_review_only_binding` (incoherent), `review_only`+`manual` → `planning_only` (coherent), `authoritative`+`local_cli` → `direct` (coherent), `canRoleSatisfyWorkflowArtifactOwnership(review_only, manual)` → `true`.
+
+### Full-suite note (honest scope statement)
+I did **not** complete a single uninterrupted full-suite run this turn: `npx vitest run` over all 691 files exceeds the 10-minute foreground command budget on this machine (the prior M15 turn measured the full suite at ~34 min). To stay within single-shot constraints I instead ran the **exhaustive set of suites that import any file I touched** (the 20-suite targeted run above) plus all CLI-surface/docs/coverage contracts — every test in the actual blast radius of `role-charter.js`, `role.js`, `cli/bin/agentxchain.js`, and `report.js` is green. QA should run the full suite to confirm no second-order interaction outside that import graph.
 
 ## Acceptance Mapping
 
 | AC | Evidence |
 |----|----------|
-| AC-1 (`evaluateHumanAttention` ≥5 categories) | Module ships 6 categories; AT-HA-001…009 pass |
-| AC-2 (`attention` CLI `--json`/`--all`, exit 0 both states) | AT-HA-010, 010b, 011, 012 pass |
-| AC-3 (govern-by-exception: empty⇒clear; non-empty⇒deterministic order) | AT-HA-001, 008, 008b, 010 pass |
-| AC-4 (each item has concrete `action_hint`) | AT-HA-002…007 assert `action_hint`; `--json` schema test asserts the field on every item |
-| AC-5 (report `human_attention` section) | report.js integration + e2e export check + integration tests pass |
-| AC-6 (read-only) | AT-HA-013 (state/escalations/intents byte-identical; no `HUMAN_TASKS.md` created) |
-| AC-7 (tests pass, 0 failures) | 18/18 human-attention; contract fixes green; only the unrelated pre-existing bug-54 real-claude timing test fails |
-| AC-8 (vision closure VISION.md:51) | QA ship verdict — left for QA |
+| AC-1 (`evaluateRoleCharter`/`evaluateAllRoleCharters` score the 4 invariants) | Module ships both; AT-RC-001…009 pass |
+| AC-2 (`role validate [role_id]` `--json`, exit 0 all-well-formed / exit 1 any-incomplete) | AT-RC-010, 011, 012 + live smoke pass |
+| AC-3 (well_formed iff 4/4; invariants independent / no short-circuit) | AT-RC-007 (3 failing, 4th still evaluated & satisfied), AT-RC-009 pass |
+| AC-4 (reference pm/dev/qa + enterprise `security_reviewer` validate well_formed) | AT-RC-001, AT-RC-002 pass |
+| AC-5 (malformed role → incomplete + missing invariant ids + fix hint) | AT-RC-003…006, AT-RC-011 pass |
+| AC-6 (governance report `role_charters` summary) | report.js integration + `buildRoleCharterSummary` tests pass |
+| AC-7 (read-only) | AT-RC-013 (project files + config object byte-identical/unmutated) |
+| AC-8 (vision closure VISION.md:100–130 four-part charter invariant) | QA ship verdict — left for QA |
 
 ## Notes for QA
 
-- Run `cli/test/human-attention.test.js` (18) and the full suite. Expect the single pre-existing `bug-54-real-claude-reliability.test.js` Scenario B timing failure (real-`claude` watchdog, env-dependent) — confirm it reproduces on baseline / is unrelated to M15, exactly as documented above.
-- Verify the empty-queue path on a clean repo: `agentxchain attention` prints "Nothing needs your attention." and exits 0.
-- Verify ≥5 categories each yield a correct item + concrete `action_hint`; confirm deterministic ordering (AT-HA-008) and read-only (AT-HA-013).
-- ROADMAP M15 acceptance line (176) is intentionally left unchecked for your ship verdict.
+- Run `cli/test/role-charter.test.js` (18) and the **full suite** (`npx vitest run`) — I could not fit the full suite in one foreground window this turn (see scope note above); confirm there is no regression outside the import graph I exercised.
+- Verify the exit-code contract is real (it is a CI gate, unlike the M15 `attention` status surface): `role validate` exits `1` when any role is incomplete, `0` when all are well-formed.
+- Verify invariant independence: a role failing 3 invariants still reports the 4th's true verdict (AT-RC-007) — no short-circuit.
+- Verify read-only: `evaluateRoleCharter`/`evaluateAllRoleCharters` mutate neither the repo nor the passed config object (AT-RC-013).
+- ROADMAP M16 acceptance line (194) is intentionally left unchecked for your ship verdict; the five build-item boxes (188–193) are checked because the code, CLI, semantics, report integration, and tests now exist and are green.

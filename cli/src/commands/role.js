@@ -4,6 +4,10 @@ import {
   getRoleRuntimeCapabilityContract,
   summarizeRuntimeCapabilityContract,
 } from '../lib/runtime-capabilities.js';
+import {
+  evaluateRoleCharter,
+  evaluateAllRoleCharters,
+} from '../lib/role-charter.js';
 
 export function roleCommand(subcommand, roleId, opts) {
   const context = loadProjectContext();
@@ -12,7 +16,7 @@ export function roleCommand(subcommand, roleId, opts) {
     process.exit(1);
   }
 
-  const { config, version } = context;
+  const { config, rawConfig, version } = context;
 
   if (version !== 4) {
     console.log(chalk.red('  Not a governed AgentXchain project (requires v4 config).'));
@@ -25,6 +29,10 @@ export function roleCommand(subcommand, roleId, opts) {
 
   if (subcommand === 'show') {
     return showRole(roleId, roles, runtimes, roleIds, opts);
+  }
+
+  if (subcommand === 'validate') {
+    return validateRoles(roleId, config, rawConfig, roleIds, opts);
   }
 
   // Default: list
@@ -154,4 +162,64 @@ function showRole(roleId, roles, runtimes, roleIds, opts) {
     }
   }
   console.log('');
+}
+
+function renderCharterReport(report) {
+  const mark = report.overall === 'well_formed' ? chalk.green('✓') : chalk.red('✗');
+  if (report.overall === 'well_formed') {
+    console.log(`  ${mark} ${chalk.cyan(report.role_id)} well-formed (4/4 invariants)`);
+    return;
+  }
+  console.log(`  ${mark} ${chalk.cyan(report.role_id)} incomplete — missing: ${report.missing.join(', ')}`);
+  for (const inv of report.invariants) {
+    if (!inv.satisfied && inv.fix_hint) {
+      console.log(chalk.dim(`      → ${inv.fix_hint}`));
+    }
+  }
+}
+
+function validateRoles(roleId, config, rawConfig, roleIds, opts) {
+  // Single-role validation
+  if (roleId) {
+    if (!config.roles?.[roleId]) {
+      console.log(chalk.red(`  Unknown role: ${roleId}`));
+      console.log(chalk.dim(`  Available: ${roleIds.join(', ')}`));
+      process.exit(1);
+    }
+    const report = evaluateRoleCharter(config, rawConfig, roleId);
+    if (opts.json) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log('');
+      renderCharterReport(report);
+      console.log('');
+    }
+    process.exit(report.overall === 'well_formed' ? 0 : 1);
+  }
+
+  // All-roles validation
+  const all = evaluateAllRoleCharters(config, rawConfig);
+  if (opts.json) {
+    console.log(JSON.stringify(all, null, 2));
+    process.exit(all.incomplete === 0 ? 0 : 1);
+  }
+
+  if (all.total === 0) {
+    console.log('  No roles defined.');
+    process.exit(0);
+  }
+
+  if (all.incomplete === 0) {
+    console.log(chalk.bold(`\n  Role charter validation (${all.total} roles): all well-formed (4/4 invariants each).\n`));
+    process.exit(0);
+  }
+
+  console.log(chalk.bold(`\n  Role charter validation (${all.total} roles):\n`));
+  for (const report of all.roles) {
+    renderCharterReport(report);
+  }
+  console.log('');
+  console.log(`  ${all.incomplete} of ${all.total} roles incomplete.`);
+  console.log('');
+  process.exit(1);
 }
