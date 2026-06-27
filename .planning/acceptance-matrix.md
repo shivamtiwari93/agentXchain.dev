@@ -1,98 +1,101 @@
-# Acceptance Matrix — M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
+# Acceptance Matrix — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
-**Run:** run_4793c2273d675dd9
-**Turn:** turn_bab59d2ad8d0e45e (QA)
-**Scope:** Verify 8 decision trail mechanisms compose to address VISION.md:49 "nobody owns the decision trail" — 196 tests, 0 failures, ROADMAP.md:149-157 closed
+**Run:** run_74d17633499b410b
+**Turn:** turn_f26ac4b155de15b4 (QA)
+**Baseline:** git:297647c0325952ed98f0effd1c3c658e2663f1c4 (HEAD of dogfood/2157-lights-out)
+**Scope:** Verify `ship-status.js` composes 5 evidence dimensions into a single operator-queryable shippability assessment addressing VISION.md:50 "nobody knows what is actually shippable" — CLI command, coordinator aggregation, report integration, 23 regression tests, 0 failures.
+
+> **Stale-artifact correction (9th consecutive run):** The three QA workflow artifacts on disk at the
+> start of this turn (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) all referenced the
+> PRIOR milestone — M13 Decision Trail Ownership, `run_4793c2273d675dd9`, `turn_bab59d2ad8d0e45e`.
+> All three are rewritten from scratch for M14 / `run_74d17633499b410b` by this QA turn. See Finding 1.
 
 ## Section A: SYSTEM_SPEC Acceptance Criteria
 
-| Req # | Criterion | Evidence | Status |
-|-------|-----------|----------|--------|
-| AC-1 | All 8 test suites pass (~194 tests, 0 failures) | QA independently ran all 7 test files: 196 tests, 0 failures (8.32s). Exceeds SYSTEM_SPEC's ~194 baseline by 2 (AT-DT-CLI-001 added by dev + pre-existing undercounts in turn-result-validator and bug-78 suites). | PASS |
-| AC-2 | Each mechanism demonstrably addresses an aspect of "nobody owns the decision trail" | QA verified composition table below — all 8 mechanisms map to distinct ownership aspects (persistence, visibility, enforcement, integrity, access). | PASS |
-| AC-3 | ROADMAP.md:149-156 (8 mechanism items) checked off | QA confirmed: all 8 items marked `[x]` with run references to `run_4793c2273d675dd9`. | PASS |
-| AC-4 | ROADMAP.md:157 (acceptance item) checked off | QA confirmed: line 157 reads `[x] Acceptance: all 8 mechanisms verified...196 tests, 0 failures` with run reference. | PASS |
-| AC-5 | Vision closure: VISION.md:49 "nobody owns the decision trail" addressed by composition | QA confirms: the 8 mechanisms collectively provide persistence (#1), agent visibility (#2), automatic capture (#3), human visibility (#4), structural enforcement (#5), conflict integrity (#6), audit trail integrity (#7), and operator query access (#8). This is a complete composition. | PASS |
+| # | Criterion | Evidence (QA-run) | Status |
+|---|-----------|-------------------|--------|
+| AC-1 | `ship-status.js` with `evaluateShipStatus()` composing 5 dimensions; AT-SS-001..008 pass | QA ran `npx vitest run test/ship-status.test.js` → **23/23 pass, exit 0**. AT-SS-001 (all pass), 002 (running→pending), 003 (failed→fail), 004 (verdict missing after QA→fail), 005 (verdict NO→fail), 006 (gate not satisfied→fail), 007 (release misalign→fail), 008 (verification fail→fail) all present and green. 5 exported dimension evaluators confirmed in source. | PASS |
+| AC-2 | `agentxchain ship-status` CLI with `--json` and `--verbose`; AT-SS-011, AT-SS-012 pass | AT-SS-011/012 green in suite. QA live smoke: `--json` emitted top-level `{overall,dimensions,blocking_reasons,evidence_summary}` with each dimension `{name,status,detail,blocking_reason}` — matches ShipStatusReport schema exactly. `--verbose` rendered all 5 dimension names with per-dimension status. Both exit 0. | PASS |
+| AC-3 | Coordinator aggregation via `evaluateCoordinatorShipStatus()`; AT-SS-009, AT-SS-010 pass | Export confirmed in source; AT-SS-009 (all repos pass→pass) and AT-SS-010 (mixed 2-pass-1-fail→fail, blocking_repos lists failing repo) green in suite. | PASS |
+| AC-4 | Governance report includes ship-status summary | QA ran the 3 report-integration suites that reuse `buildShipStatusSummary` (`governance-report-content`, `report-cli`, `workflow-kit-report`) alongside ship-status → **69/69 pass, exit 0**. `report.js:1081 buildShipStatusSummary` confirmed; text formatter renders `Ship Status:` block. | PASS |
+| AC-5 | All tests pass with 0 failures | QA independently ran ship-status suite (23/23) and ship-status + 3 report-integration suites (69/69). Both exit 0, 0 failures. | PASS |
+| AC-6 | Vision closure: VISION.md:50 "nobody knows what is actually shippable" addressed by 5-dimension composition | The live `agentxchain ship-status` command answers the question in one invocation, composing run completion + QA verdict + gate clearance + release alignment + test verification with worst-case aggregation and surfaced blocking reasons. Composition verified end-to-end against live repo state (see Section D). | PASS |
 
-**Acceptance: 5/5 PASS**
+**Acceptance: 6/6 PASS**
 
 ## Section B: Dev Decision Verification
 
-### DEC-001 (AT-DT-CLI-001 closes untested --show not-found error path in decisions.js:32-36): VERIFIED
+### DEC-001 (Dimension 5 false-pending fix — skipped verification now neutral): VERIFIED
 
-QA independently confirmed:
-1. `decisions.js:32` — `const dec = getRepoDecisionById(root, opts.show);`
-2. `decisions.js:33-35` — `if (!dec) { console.error(chalk.red(\`Decision ${opts.show} not found\`)); process.exit(1); }`
-3. AT-DT-CLI-001 (test line 672) exercises this by calling `--show DEC-999` when only DEC-001 exists
-4. Assertions verify: command throws with non-zero exit, stderr matches `/DEC-999 not found/`
-5. Test uses proper cleanup pattern (tmpRoot with rmSync in finally block)
+QA read `evaluateTestVerificationDimension` (ship-status.js:248-300) line-by-line and confirmed the control flow is correct and well-ordered:
+1. Empty history → pending (unchanged).
+2. **`fail` branch first** (line 258): any turn with `verification.status === 'fail'` → fail. Skip-neutrality cannot mask a real failure.
+3. `NEUTRAL_VERIFICATION = {'skipped'}` excluded → `evidenceBearing` (line 272).
+4. `evidenceBearing.length === 0` (all-skipped) → pending, "no positive evidence" preserved (line 275).
+5. Any non-pass evidence-bearing turn → pending (line 284).
+6. All evidence-bearing pass → pass (line 294).
 
-### DEC-002 (PM test count claims corrected): VERIFIED WITH FINDING
+**Independent live confirmation:** `agentxchain ship-status --verbose` against the real repo reports `test_verification: All 2 verification-bearing accepted turns passed` — the planning (pm) turn's skipped verification is correctly excluded and the dimension passes on the dev turn's real evidence. Without the fix this would read pending forever. **Real defect, real fix.**
 
-Dev claimed "actual vitest counts are 49/12/7/6/102/12/8/8 = 196." The per-file counts are correct (49+12+7+6+102+12+8 = 196), but listing 8 numbers that sum to 204 is misleading — the mechanism #8 count (8) is a subset of mechanism #1's file (49). The correct notation is 7 unique files = 196 total tests, with the 8 mechanism-8 CLI tests being a subset of repo-decisions.test.js's 49. Non-blocking documentation inaccuracy.
+### DEC-002 (AT-SS-013 + AT-SS-014 added; suite 21→23): VERIFIED
 
-### DEC-003 (Composition verified — 8 mechanisms collectively address VISION.md:49): VERIFIED
+Both tests present and green. AT-SS-013 (`history: skipped, pass, skipped` → `test_verification` pass, overall pass) and AT-SS-014 (`history: skipped, skipped` → `test_verification` pending, overall pending) directly lock the two boundary behaviors of the fix. Suite count confirmed 23 by QA test run.
 
-QA independently confirmed each mechanism maps to a distinct ownership dimension. See Section D.
+### DEC-003 (ROADMAP build items 160-164 checked, acceptance 165 left for QA): VERIFIED
+
+ROADMAP.md M14 build items 160-164 are `[x]` with delivery+verification provenance; line 165 (acceptance) was `[ ]`, correctly deferred to this QA ship verdict. **QA now checks off line 165** as part of this turn.
 
 ## Section C: Architecture Invariants
 
-| Invariant | Evidence | Status |
-|-----------|----------|--------|
-| No changes to any source module in this run | Dev modified only `cli/test/repo-decisions.test.js` (1 test added) and `.planning/` artifacts — no source module changes | PASS |
-| Decision ledger is append-only with override chains | `appendRepoDecision` appends to `.agentxchain/decision-ledger.jsonl`; overrides create new entries with `overrides`/`overridden_by` fields | PASS |
-| Turn-result validator enforces decision schema on every turn | `turn-result-validator.js` 5-stage pipeline validates DEC-NNN IDs, required fields, challenge requirement — 102 tests confirm | PASS |
-| Scope overlap guard runs at intake (before approval) | `intake.js:901` scope_overlap_detected guard in `approveIntent()`, before run initialization | PASS |
-| Dispatch bundles always include full decision history | `dispatch-bundle.js:~1416` Decision History section, `dispatch-bundle.js:~775` repo decisions context — 12 tests confirm | PASS |
+| # | Invariant | Evidence | Status |
+|---|-----------|----------|--------|
+| 1 | Composes existing modules — no reimplementation of gate/release/verification logic | Dimensions delegate: gate_clearance reads `state.phase_gate_status` over `config.gates`; qa_ship_verdict calls exported `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)`; release_alignment calls `validateReleaseAlignment`. Confirmed in source. | PASS |
+| 2 | `evaluateShipStatus()` is read-only | Dev reads state via direct JSON parse (not `loadProjectState`, which can writeback). Read-only regression test in suite asserts byte-identical state. QA ran live `ship-status` twice against the repo with no state mutation. | PASS |
+| 3 | All 5 dimensions independently evaluated — one failure does not skip others | Live `--verbose` shows all 5 dimensions evaluated and reported even with 2 pending. AT-SS-006/007/008 confirm a single failing dimension still yields full per-dimension output. | PASS |
+| 4 | Coordinator aggregation is worst-case (any fail→fail; any pending→pending else) | `aggregateShipStatus` (ship-status.js:311): `hasFail ? fail : hasPending ? pending : pass`. AT-SS-010 confirms mixed-state→fail. | PASS |
+| 5 | CLI delegates entirely to the module — no business logic in command | `commands/ship-status.js` is presentation only (formats the report, sets exit code). Confirmed in IMPLEMENTATION_NOTES + command file structure. | PASS |
 
 **Invariants: 5/5 PASS**
 
-## Section D: Composition Verification (VISION.md:49)
+## Section D: Composition Verification (VISION.md:50) — live repo state
 
-| # | Mechanism | Ownership Dimension | How It Addresses "nobody owns the decision trail" | Tests | Status |
-|---|-----------|--------------------|----------------------------------------------------|-------|--------|
-| 1 | Decision Ledger | Persistence | Cross-run persistent storage in `.agentxchain/decision-ledger.jsonl` with 12 CRUD+query exports. Decisions survive across runs. | 49 | PASS |
-| 2 | Dispatch Bundle History | Agent Visibility | Every dispatched turn receives full decision history table in context bundle. Agents see prior decisions, preventing amnesia. | 12 | PASS |
-| 3 | Coordinator Writes | Automatic Capture | Coordinator writes at 5 lifecycle events (init, dispatch, phase-transition, completion, recovery). Trail captures governance actions. | 7 | PASS |
-| 4 | Reports/Dashboards | Human Visibility | Named decisions rendered in governance reports with per-repo breakdowns. Operators inspect trail through reports. | 6 | PASS |
-| 5 | Turn-Result Validator | Enforcement | DEC-NNN ID format, required category/statement/rationale, challenge requirement. Structurally prevents schema drift. | 102 | PASS |
-| 6 | Scope Overlap Guard | Conflict Integrity | Prevents conflicting decision chains by deferring overlapping intents at intake level. `--force-scope` provides override. | 12 | PASS |
-| 7 | No-Edit Review Normalization | Audit Trail Integrity | BUG-78 Rule 0a preserves review decision audit trail by auto-normalizing workspace→review for completed empty turns. | 8 | PASS |
-| 8 | Operator Decision CLI | Query Access | `agentxchain decisions` with `--all`, `--show`, `--json` flags. Operators can query the full trail. | 8* | PASS |
+`agentxchain ship-status --verbose` (QA-run, exit 0) against `run_74d17633499b410b` mid-QA-phase:
 
-*Mechanism #8 tests are within `repo-decisions.test.js` (8 of the 49 total). Unique test file total: 7 files, 196 tests.
+| # | Dimension | Live verdict | Interpretation |
+|---|-----------|--------------|----------------|
+| 1 | run_completion | pending | Run status "active" — correct, run not yet completed. |
+| 2 | qa_ship_verdict | pass | `## Verdict: YES` present (see Finding 2 — read from verdict file, no run-scope check). |
+| 3 | gate_clearance | pending | `qa_ship_verdict` gate still pending — correct mid-QA. |
+| 4 | release_alignment | pass | 17 release surfaces checked OK. |
+| 5 | test_verification | pass | 2 verification-bearing turns passed (skipped planning turn excluded — the DEC-001 fix). |
 
-**Composition: 8/8 mechanisms verified. VISION.md:49 "nobody owns the decision trail" is addressed.**
+**Overall: PENDING (3/5 pass, 2 blocking)** — exactly correct for a run mid-QA-phase. The two blocking reasons ("run not completed", "qa_ship_verdict gate not satisfied") will clear when this QA turn is accepted and the run completes. The composition demonstrably answers "what is actually shippable?" in a single command. **VISION.md:50 addressed.**
 
 ## Section E: Regression Results (QA-Verified)
 
-| Suite | Tests | Result | Exit Code |
-|-------|-------|--------|-----------|
-| repo-decisions.test.js | 49 | PASS | 0 |
-| turn-result-validator.test.js | 102 | PASS | 0 |
-| dispatch-bundle-decision-history.test.js | 12 | PASS | 0 |
-| scope-overlap.test.js | 12 | PASS | 0 |
-| bug-78-no-edit-review.test.js | 8 | PASS | 0 |
-| coordinator-decision-ledger.test.js | 7 | PASS | 0 |
-| named-decisions-visibility.test.js | 6 | PASS | 0 |
-| **Total** | **196** | **0 failures** | **0** |
+| Suite | Tests | Result | Exit |
+|-------|-------|--------|------|
+| ship-status.test.js | 23 | PASS | 0 |
+| governance-report-content.test.js | (in 69) | PASS | 0 |
+| report-cli.test.js | (in 69) | PASS | 0 |
+| workflow-kit-report.test.js | (in 69) | PASS | 0 |
+| **ship-status + 3 report-integration (combined run)** | **69** | **0 failures** | **0** |
 
-All suites run by QA via `npx vitest run` with exit code 0.
+Commands run by QA:
+- `npx vitest run test/ship-status.test.js` → 23 passed, exit 0
+- `npx vitest run test/ship-status.test.js test/governance-report-content.test.js test/report-cli.test.js test/workflow-kit-report.test.js` → 69 passed, exit 0
+- `node cli/bin/agentxchain.js ship-status --verbose` → exit 0
+- `node cli/bin/agentxchain.js ship-status --json` → schema-valid, exit 0
+
+**Limitation (declared, not hidden):** The full monorepo suite (~689 test files) exceeds the single-turn timeout and was NOT run to completion. Verification was scoped to the M14 surface and its direct integration touchpoints (report rendering). The dev declared the same limitation; QA confirms the scoping is appropriate — M14 touches only `ship-status.js`, its command, its tests, and `report.js` integration.
 
 ## Section F: QA Findings
 
-### Finding 1 (blocking, fixed): Stale QA artifacts from wrong run — 8th consecutive occurrence
+### Finding 1 (process, non-blocking, fixed): Stale QA artifacts — 9th consecutive run
+All three QA artifacts referenced M13 (`run_4793c2273d675dd9`) instead of current M14 (`run_74d17633499b410b`). This is the ninth consecutive run exhibiting this pattern. All three rewritten from scratch. Root cause is unaddressed by M14 scope (QA artifacts are not run-scoped on creation). Recommend a future intake item to scaffold per-run QA artifact stubs at phase entry.
 
-All three QA workflow artifacts (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) referenced `run_71c0a7eaf361090b` (BUG-FIX: Step Auto-Checkpoint) instead of current `run_4793c2273d675dd9` (M13: Decision Trail Ownership). This is the **eighth** consecutive run where this pattern has occurred. All three rewritten from scratch by this QA turn.
+### Finding 2 (design observation, non-blocking): Dimension 2 has no run/milestone scope check
+During the live smoke, `qa_ship_verdict` passed by reading `## Verdict: YES` from the **stale M13** verdict file before this turn rewrote it. The dimension validates content shape (via `evaluateWorkflowGateSemantics`) but does not verify the verdict belongs to the current run or milestone. This is **per-spec** (Dimension 2 must delegate to `evaluateWorkflowGateSemantics`, which is content-shape validation), so it does not block M14. But given the chronic stale-artifact pattern (Finding 1), a verdict from a prior milestone can produce a false-affirmative shippability signal. Logged as OBJ-001 for the decision trail; recommend a future hardening item to scope Dimension 2's verdict read to the active run.
 
-### Finding 2 (non-blocking): Dev test count notation misleading
-
-Dev DEC-002 states "actual vitest counts are 49/12/7/6/102/12/8/8 = 196" — but those 8 numbers sum to 204, not 196. The mechanism #8 count (8) is a subset of mechanism #1's file (49). Correct notation: 7 unique files totaling 196 tests, with mechanism #8's 8 tests being a subset of repo-decisions.test.js. The total 196 is correct; the per-mechanism breakdown double-counts.
-
-### Finding 3 (non-blocking): SYSTEM_SPEC mechanism #8 test count was wrong
-
-SYSTEM_SPEC line 82 claimed mechanism #8 has "2 tests." Actual count in the `decisions CLI command` describe block: 8 tests (7 original + 1 AT-DT-CLI-001). PM undercount by 6.
-
-### Finding 4 (non-blocking): ROADMAP.md Phases table QA row stale
-
-ROADMAP.md:165 still says "Verify 194 tests pass" and "Pending" — should be 196 tests. Updated by QA.
+### Finding 3 (process, informational): Cross-run duplicate-build pattern (dev OBJ-001 corroborated)
+The dev's OBJ-001 (this run was re-seeded for M14 even though product code was already committed in `run_322ba900566dddfe`) is a genuine governance observation. The implementation-guard counts only same-run committed product code, forcing a verify-and-close turn to manufacture a change. The dev avoided make-work by finding the genuine DEC-001 defect. QA corroborates this is a real guard gap but it is out of M14 scope and does not affect shippability.

@@ -1,75 +1,61 @@
-# Ship Verdict — M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
+# Ship Verdict — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
-**Run:** run_4793c2273d675dd9
-**Turn:** turn_bab59d2ad8d0e45e (QA)
-**Date:** 2026-06-26
+**Run:** run_74d17633499b410b
+**Turn:** turn_f26ac4b155de15b4 (QA)
+**Baseline:** git:297647c0325952ed98f0effd1c3c658e2663f1c4
+**Date:** 2026-06-27
 
 ## Verdict: YES
 
 ## Rationale
 
-All 5 SYSTEM_SPEC acceptance criteria independently verified and passing. 196 tests across 7 regression suites with 0 failures. 8 mechanisms compose to fully address VISION.md:49 "nobody owns the decision trail" across 5 ownership dimensions: persistence, visibility, enforcement, integrity, and access. ROADMAP.md:149-157 fully checked off. No blocking issues.
+All 6 SYSTEM_SPEC acceptance criteria independently verified by QA. The M14 surface — `ship-status.js` (5-dimension composition), the `agentxchain ship-status` CLI (`--json` + `--verbose`), coordinator aggregation, and governance-report integration — is delivered, committed, and green: **23/23 ship-status tests** and **69/69 combined ship-status + report-integration tests**, both exit 0, run by QA. The live CLI composes all 5 dimensions against real repo state and correctly reports PENDING mid-QA-phase with accurate blocking reasons. The dev's Dimension-5 skipped-neutrality fix (DEC-001) is a real correctness defect repaired with regression coverage and confirmed on live data. No blocking issues.
 
 ## Acceptance Test Results
 
-- **5/5 PASS** (AC-1 through AC-5)
-- AC-1: 196/196 tests pass across 7 test files (exceeds SYSTEM_SPEC ~194 baseline)
-- AC-2: 8 mechanisms map to distinct ownership dimensions — composition verified
-- AC-3: ROADMAP.md:149-156 (8 mechanism items) all checked off
-- AC-4: ROADMAP.md:157 (acceptance item) checked off with 196 test count
-- AC-5: VISION.md:49 "nobody owns the decision trail" addressed by 8-mechanism composition
+- **6/6 PASS** (AC-1 through AC-6)
+- AC-1: 23/23 ship-status tests pass (AT-SS-001..008 cover the 5-dimension verdicts incl. all fail branches), exit 0
+- AC-2: AT-SS-011/012 pass; live `--json` schema-valid, `--verbose` shows all 5 dimensions, both exit 0
+- AC-3: AT-SS-009/010 pass; `evaluateCoordinatorShipStatus` exported, worst-case mixed-state → fail
+- AC-4: 69/69 combined run incl. 3 report-integration suites reusing `buildShipStatusSummary`, exit 0
+- AC-5: 0 failures across both QA-run suites
+- AC-6: VISION.md:50 addressed — single command answers "what is actually shippable?"
 
-## Regression Results
+## Regression Results (QA-Verified)
 
-| Suite | Count | Result |
-|-------|-------|--------|
-| repo-decisions.test.js | 49 | PASS |
-| turn-result-validator.test.js | 102 | PASS |
-| dispatch-bundle-decision-history.test.js | 12 | PASS |
-| scope-overlap.test.js | 12 | PASS |
-| bug-78-no-edit-review.test.js | 8 | PASS |
-| coordinator-decision-ledger.test.js | 7 | PASS |
-| named-decisions-visibility.test.js | 6 | PASS |
-| **Total** | **196** | **0 failures** |
+| Suite | Tests | Result | Exit |
+|-------|-------|--------|------|
+| ship-status.test.js | 23 | PASS | 0 |
+| ship-status + governance-report-content + report-cli + workflow-kit-report (combined) | 69 | 0 failures | 0 |
+
+Limitation declared: full ~689-file monorepo suite NOT run to completion (exceeds single-turn timeout). Verification scoped to the M14 surface + its report-integration touchpoints — appropriate, since M14 modifies only `ship-status.js`, its command, its tests, and `report.js`.
 
 ## Dev Decision Verification
 
 | Decision | Status |
 |----------|--------|
-| DEC-001: AT-DT-CLI-001 closes untested --show not-found error path in decisions.js:32-36 | VERIFIED — code path confirmed, test exercises correct flow, proper cleanup pattern |
-| DEC-002: PM test count claims corrected — 196 total, not ~194 | VERIFIED — total correct, per-mechanism notation misleading (double-counts subset) |
-| DEC-003: Composition verified — 8 mechanisms address VISION.md:49 | VERIFIED — all 8 mechanisms independently confirmed across 5 ownership dimensions |
-
-## Composition Summary
-
-| Ownership Dimension | Mechanisms | Verified |
-|---------------------|-----------|----------|
-| Persistence | #1 Decision Ledger (cross-run JSONL storage) | YES |
-| Visibility | #2 Dispatch Bundles (agent), #4 Reports (human) | YES |
-| Enforcement | #5 Turn-Result Validator (schema + challenge) | YES |
-| Integrity | #6 Scope Overlap Guard, #7 Review Normalization | YES |
-| Access | #8 Operator Decision CLI (query with flags) | YES |
-| Automatic Capture | #3 Coordinator Writes (5 lifecycle events) | YES |
+| DEC-001: Dimension 5 false-pending fix (skipped verification now neutral via NEUTRAL_VERIFICATION) | VERIFIED — fail-branch-first ordering confirmed; all-skipped→pending preserved; live CLI shows "All 2 verification-bearing accepted turns passed" with the skipped planning turn correctly excluded |
+| DEC-002: AT-SS-013 + AT-SS-014 added (suite 21→23) | VERIFIED — both present and green; lock the two boundary behaviors of the fix |
+| DEC-003: ROADMAP 160-164 checked, acceptance 165 deferred to QA | VERIFIED — build items checked with provenance; QA now checks off line 165 |
 
 ## Architecture Invariants
 
 | Invariant | Status |
 |-----------|--------|
-| No source module changes (test-only + planning) | CONFIRMED |
-| Decision ledger append-only with override chains | CONFIRMED |
-| Turn-result validator enforces on every turn | CONFIRMED |
-| Scope overlap guard at intake (before approval) | CONFIRMED |
-| Dispatch bundles always include full decision history | CONFIRMED |
+| Composes existing modules (no reimplementation) | CONFIRMED |
+| `evaluateShipStatus()` read-only (no state writeback) | CONFIRMED |
+| All 5 dimensions independently evaluated | CONFIRMED |
+| Coordinator aggregation worst-case | CONFIRMED |
+| CLI delegates to module (no business logic in command) | CONFIRMED |
 
 ## Blocking Issues: 0
 
 ## Non-Blocking Findings
 
-1. **Stale QA artifacts (fixed)**: Eighth consecutive run with artifacts from prior run. Rewritten from scratch.
-2. **Dev test count notation**: "49/12/7/6/102/12/8/8 = 196" sums to 204 — mechanism #8 (8 tests) is a subset of mechanism #1 file (49). Total 196 is correct.
-3. **SYSTEM_SPEC mechanism #8 undercount**: PM claimed 2 CLI tests; actual is 8. Non-blocking.
-4. **ROADMAP Phases table**: QA row updated from "194 tests, Pending" to "196 tests, Complete."
+1. **Stale QA artifacts (fixed):** 9th consecutive run with artifacts from the prior milestone (M13, `run_4793c2273d675dd9`). All three rewritten from scratch for M14.
+2. **Dimension 2 has no run/milestone scope check (OBJ-001):** the live `qa_ship_verdict` dimension passed on the stale M13 verdict file before this turn rewrote it. Per-spec (content-shape validation), so non-blocking — but a latent false-affirmative risk given Finding 1. Recommend future hardening to scope the verdict read to the active run.
+3. **Cross-run duplicate-build / implementation-guard gap (dev OBJ-001 corroborated):** out of M14 scope; does not affect shippability.
 
 ## Ship Decision
 
-5/5 acceptance criteria pass. 196 tests, 0 failures. 5/5 invariants maintained. 3/3 dev decisions verified. 8/8 mechanisms compose to address VISION.md:49. ROADMAP.md M13 fully closed. **SHIP.**
+6/6 acceptance criteria pass. 23/23 + 69/69 tests, 0 failures, all QA-run. 5/5 invariants maintained. 3/3 dev decisions verified, including a genuine Dimension-5 defect fix. Live CLI composition demonstrably answers VISION.md:50. ROADMAP M14 build items closed; acceptance line 165 checked off by this turn. **SHIP.**

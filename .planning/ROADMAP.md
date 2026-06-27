@@ -162,7 +162,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Coordinator-level aggregation via `evaluateCoordinatorShipStatus()` — multi-repo coordinator runs expose per-repo shippability with overall aggregate status <!-- ship-status.js:352; dev verified run_74d17633499b410b; AT-SS-009/010 pass -->
 - [x] Governance report integration — `buildGovernanceReport()` includes ship-status summary section in report output <!-- report.js:1081 buildShipStatusSummary; dev verified run_74d17633499b410b; governance-report-content + workflow-kit-report tests pass -->
 - [x] Regression tests for ship-status module (all-clear, gate-blocked, qa-pending, release-misaligned, coordinator mixed-state scenarios) <!-- 23 tests cli/test/ship-status.test.js incl. AT-SS-013/014 skipped-verification neutrality; dev verified run_74d17633499b410b -->
-- [ ] Acceptance: `agentxchain ship-status` returns structured shippability assessment composing 5 evidence dimensions; coordinator runs show per-repo ship readiness; blocking reasons surfaced when not shippable <!-- dev verified composition run_74d17633499b410b/turn_a3d8f92370aff14e (5 deliverables above checked); QA ship verdict for this run still PENDING -->
+- [x] Acceptance: `agentxchain ship-status` returns structured shippability assessment composing 5 evidence dimensions; coordinator runs show per-repo ship readiness; blocking reasons surfaced when not shippable <!-- QA verified run_74d17633499b410b/turn_f26ac4b155de15b4: 6/6 acceptance criteria pass, 23/23 ship-status + 69/69 combined report-integration tests (0 failures, QA-run), live --json/--verbose compose 5 dimensions with surfaced blocking reasons; ship verdict YES -->
 
 ## Phases
 
@@ -170,4 +170,4 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 |-------|------|--------|
 | Planning | Derive M14 from VISION.md:50 "nobody knows what is actually shippable", scope ship-status module and CLI command | Done (run_74d17633499b410b / turn_d04775557f54746f re-signed; original scope run_322ba900566dddfe) |
 | Implementation | Build ship-status.js module, CLI command, coordinator aggregation, report integration, regression tests | **Already delivered & committed** by run_322ba900566dddfe dev turn_9ce54587bc5981c1 (HEAD 9fdbc1c51); 21/21 ship-status tests pass (PM re-verified turn_d04775557f54746f). Dev to VERIFY against spec + check off ROADMAP items, not rebuild. |
-| QA | Verify 5 evidence dimensions compose, test coverage, ship verdict | Pending |
+| QA | Verify 5 evidence dimensions compose, test coverage, ship verdict | Done (run_74d17633499b410b / turn_f26ac4b155de15b4: 6/6 AC pass, 23/23 + 69/69 tests, ship verdict YES) |
