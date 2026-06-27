@@ -344,4 +344,64 @@ describe('step auto-checkpoint after acceptance', () => {
     assert.ok(pmEntry, 'Turn should be accepted before checkpoint attempt');
     assert.equal(pmEntry.checkpoint_sha, undefined, 'No checkpoint_sha when checkpoint fails');
   });
+
+  it('AT-STEP-CKPT-004: checkpoint skips silently when accepted turn has no checkpointable files', async () => {
+    const root = makeTmpDir();
+    tmpDirs.push(root);
+    const config = setupProject(root);
+
+    // Assign PM turn
+    const assigned = assignGovernedTurn(root, config, 'pm');
+    assert.ok(assigned.ok, assigned.error);
+    const turn = getActiveTurn(assigned.state);
+
+    // Commit assignment state so workspace is clean before dispatch
+    execSync('git add .', { cwd: root, stdio: 'ignore' });
+    execSync('git commit -m "assign PM turn"', { cwd: root, stdio: 'ignore' });
+
+    // Write a review-only turn result — no files modified on disk, no files_changed
+    const turnResult = {
+      schema_version: '1.0',
+      run_id: assigned.state.run_id,
+      turn_id: turn.turn_id,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      status: 'completed',
+      summary: 'PM review — no file changes.',
+      decisions: [],
+      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No issues.', status: 'raised' }],
+      files_changed: [],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'ok', machine_evidence: [] },
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: 'dev',
+      phase_transition_request: null,
+      run_completion_request: false,
+      needs_human_reason: null,
+      cost: { input_tokens: 100, output_tokens: 50, usd: 0.01 },
+    };
+
+    writeJson(join(root, getTurnStagingResultPath(turn.turn_id)), turnResult);
+
+    dispatchLocalCli.mockResolvedValue({ ok: true, logs: [] });
+
+    // Run step --resume to pick up the staged PM turn result
+    await runStepInDir(root, { resume: true });
+
+    // Verify: turn was accepted (present in history)
+    const history = readJsonl(root, '.agentxchain/history.jsonl');
+    const pmEntry = history.find((e) => e.turn_id === turn.turn_id);
+    assert.ok(pmEntry, 'Expected PM turn in history');
+
+    // Verify: no checkpoint_sha — checkpoint skipped because no files to commit
+    assert.equal(pmEntry.checkpoint_sha, undefined, 'Expected no checkpoint_sha when checkpoint is skipped');
+
+    // Verify: NO checkpoint commit in git log (only init + assign commits)
+    const gitLog = execSync('git log --oneline', { cwd: root, encoding: 'utf8' });
+    assert.ok(!gitLog.match(/checkpoint:/i), 'Expected no checkpoint commit when turn has no files to checkpoint');
+
+    // Verify: step completed without error — state reflects accepted turn
+    const state = readState(root);
+    assert.equal(state.last_completed_turn_id, turn.turn_id, 'Expected last_completed_turn_id to match accepted turn');
+  });
 });
