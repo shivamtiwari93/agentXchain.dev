@@ -11,19 +11,19 @@
       "title": "Staff Product Manager",
       "mandate": "Protect user value, scope clarity, and acceptance criteria. Derive bounded roadmap increments from VISION.md. Enforce GSD planning discipline.",
       "write_authority": "authoritative",
-      "runtime": "local-opus-4.7"
+      "runtime": "local-opus-4.8"
     },
     "dev": {
       "title": "Staff Fullstack Developer",
       "mandate": "Implement approved work safely, write tests, verify behavior, and ship releases. Write actual source code \u2014 planning docs alone are not a deliverable.",
       "write_authority": "authoritative",
-      "runtime": "local-opus-4.7"
+      "runtime": "local-opus-4.8-ultra"
     },
     "qa": {
       "title": "Staff QA Engineer",
       "mandate": "Challenge correctness, acceptance coverage, and ship readiness. Every claim must be backed by evidence. No rubber stamps.",
       "write_authority": "authoritative",
-      "runtime": "local-opus-4.6"
+      "runtime": "local-opus-4.8-ultra"
     },
     "eng_director": {
       "title": "Engineering Director",
@@ -33,7 +33,7 @@
     }
   },
   "runtimes": {
-    "local-opus-4.7": {
+    "local-opus-4.8": {
       "type": "local_cli",
       "command": [
         "claude",
@@ -43,7 +43,7 @@
         "stream-json",
         "--dangerously-skip-permissions",
         "--model",
-        "opus",
+        "claude-opus-4-8",
         "--effort",
         "high"
       ],
@@ -65,7 +65,7 @@
       "cwd": ".",
       "prompt_transport": "stdin"
     },
-    "local-opus-4.6": {
+    "local-opus-4.8-ultra": {
       "type": "local_cli",
       "command": [
         "claude",
@@ -75,9 +75,11 @@
         "stream-json",
         "--dangerously-skip-permissions",
         "--model",
-        "claude-opus-4-6",
+        "claude-opus-4-8",
         "--effort",
-        "high"
+        "high",
+        "--settings",
+        "{\"ultracode\":true}"
       ],
       "cwd": ".",
       "prompt_transport": "stdin"
