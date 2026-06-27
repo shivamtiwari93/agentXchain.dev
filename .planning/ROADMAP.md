@@ -168,6 +168,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Derive M14 from VISION.md:50 "nobody knows what is actually shippable", scope ship-status module and CLI command | Active (run_322ba900566dddfe / turn_39be10dd1c8fe039) |
-| Implementation | Build ship-status.js module, CLI command, coordinator aggregation, report integration, regression tests | Pending |
+| Planning | Derive M14 from VISION.md:50 "nobody knows what is actually shippable", scope ship-status module and CLI command | Done (run_74d17633499b410b / turn_d04775557f54746f re-signed; original scope run_322ba900566dddfe) |
+| Implementation | Build ship-status.js module, CLI command, coordinator aggregation, report integration, regression tests | **Already delivered & committed** by run_322ba900566dddfe dev turn_9ce54587bc5981c1 (HEAD 9fdbc1c51); 21/21 ship-status tests pass (PM re-verified turn_d04775557f54746f). Dev to VERIFY against spec + check off ROADMAP items, not rebuild. |
 | QA | Verify 5 evidence dimensions compose, test coverage, ship verdict | Pending |

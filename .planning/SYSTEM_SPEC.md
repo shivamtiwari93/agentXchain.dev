@@ -1,8 +1,9 @@
 # System Spec — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
-**Run:** `run_322ba900566dddfe`
-**Turn:** `turn_39be10dd1c8fe039`
-**Baseline:** git:b09be1769 (HEAD of dogfood/2157-lights-out)
+**Run:** `run_74d17633499b410b`
+**Turn:** `turn_d04775557f54746f`
+**Baseline:** git:603609d74 (HEAD of dogfood/2157-lights-out)
+**Implementation status:** ALREADY BUILT and committed by prior run `run_322ba900566dddfe` (dev `turn_9ce54587bc5981c1`). This spec is carried forward unchanged for scope reference; see PM_SIGNOFF.md "Challenge to Previous Turn" for the duplicate-run finding.
 
 ## Purpose
 

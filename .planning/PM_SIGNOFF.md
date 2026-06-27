@@ -2,10 +2,10 @@
 
 Approved: YES
 
-**Run:** `run_322ba900566dddfe`
+**Run:** `run_74d17633499b410b`
 **Phase:** planning
-**Turn:** `turn_39be10dd1c8fe039`
-**Date:** 2026-06-26
+**Turn:** `turn_d04775557f54746f`
+**Date:** 2026-06-27
 
 ## Discovery Checklist
 - [x] Target user defined
@@ -32,23 +32,30 @@ No single command, module, or report section composes these into an actionable a
 
 ### Challenge to Previous Turn
 
-The previous PM turn (`turn_98ed2a7c83a53e47`, run `run_a20d13cf8703032f`) produced a sound M14 scope, but I do not rubber-stamp it. Two concrete defects found and corrected this turn:
+The prior planning turn (`turn_39be10dd1c8fe039`, run `run_322ba900566dddfe`) produced a sound, API-verified M14 scope. I do not rubber-stamp it, and this turn I uncovered a **material state change the prior PM could not have known**: the M14 implementation is now **already built and committed on disk**. I re-verified the full picture against source rather than carrying the prior signoff forward blindly.
 
-#### OBJ-PM-001: Planning artifacts stamped with a stale run ID (severity: medium)
+#### OBJ-PM-001 (was blocking → resolved this turn): M14 is already implemented and committed — this run is a duplicate re-trigger
 
-All three artifacts referenced `run_a20d13cf8703032f`; the active run is `run_322ba900566dddfe` / `turn_39be10dd1c8fe039`. Re-stamped PM_SIGNOFF, SYSTEM_SPEC, and the ROADMAP Phases table. Recurring pattern across runs — a non-blocking hygiene issue, not a scope defect.
+The vision scanner spun up this run (`run_74d17633499b410b`) because the M14 ROADMAP checkboxes (lines 160-165) are still unchecked, classifying M14 as "open work." But the implementation already exists and is real:
+- `cli/src/lib/ship-status.js` (19.5 KB), `cli/src/commands/ship-status.js`, `cli/test/ship-status.test.js` are **all tracked in git** and committed (dev `turn_9ce54587bc5981c1`, checkpoint `9fdbc1c51`). `git status` is clean.
+- CLI registered: `bin/agentxchain.js:127` import + `:425` `.command('ship-status')`.
+- Report integration wired: `report.js:16` import, `:1081` `ship_status: buildShipStatusSummary(artifact)`, `:1430` text render block.
+- All 11 expected exports present (`evaluateShipStatus`, `evaluateCoordinatorShipStatus`, `buildShipStatusSummary`, 5 dimension evaluators, `aggregateShipStatus`, `SHIP_STATUS_DIMENSIONS`).
+- **I ran the tests this turn:** `npx vitest run test/ship-status.test.js` → **21/21 pass** (1.15s). Machine-verified, not asserted from notes.
 
-#### OBJ-PM-002: Two dimension source pointers were inaccurate and would have sent Dev at phantom/private APIs (severity: high)
+Root cause: the ROADMAP boxes were never checked off when the prior run's dev turn landed, so the scanner still sees uncovered scope. This is a real governance gap (idle-expansion / scope-overlap did not detect already-committed product code for an unclosed roadmap item), captured as OBJ-002 in the turn result. It is **not** blocking forward progress: the path to closure is verify → check off ROADMAP → QA ship verdict — exactly what the remaining pipeline does. Escalating to human would stall a run that can legitimately complete.
 
-Verified the compose-target APIs against source before signoff:
-- **Dimension 1** attributed `evaluateRunCompletion` to `governed-state.js`. It is actually exported from `gate-evaluator.js:325`. `governed-state.js` only holds run status/phase via `readState`. Corrected in SYSTEM_SPEC.
-- **Dimension 2** told Dev to call `evaluateShipVerdict` from `workflow-gate-semantics.js`. That function is **module-internal and not exported** (`workflow-gate-semantics.js:386`). The exported public surface is `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)` with `SHIP_VERDICT_PATH = '.planning/ship-verdict.md'`. Corrected in SYSTEM_SPEC and Notes for Dev.
+#### Confirmed: prior API pointer corrections still hold against current source (severity: n/a)
 
-Dimensions 3 (`evaluatePhaseExit`/`evaluateRunCompletion`), 4 (`validateReleaseAlignment`, release-alignment.js:346), and 5 (turn verification evidence) and the `buildGovernanceReport` integration point (report.js:1241) were verified present and correctly attributed.
+The prior turn's compose-target corrections remain accurate at HEAD `603609d74`, re-verified this turn:
+- `evaluateRunCompletion` exported from `gate-evaluator.js:325` (not `governed-state.js`). ✓
+- `evaluateShipVerdict` is module-internal at `workflow-gate-semantics.js:386`; exported surface is `evaluateWorkflowGateSemantics` (`:481`) + `SHIP_VERDICT_PATH = '.planning/ship-verdict.md'` (`:8`). ✓
+- `validateReleaseAlignment` at `release-alignment.js:346`, `evaluatePhaseExit` at `gate-evaluator.js:183`, `buildGovernanceReport` at `report.js:1243`. ✓
+The committed implementation honored all of these (per IMPLEMENTATION_NOTES.md, which itself corrected a still-earlier mis-wired draft).
 
-#### Confirmed: module genuinely not yet built (severity: n/a)
+#### OBJ-PM-002: stale run-stamp recurrence (severity: medium → resolved)
 
-`cli/src/lib/ship-status.js`, `cli/src/commands/ship-status.js`, and `cli/test/ship-status.test.js` do not exist on disk. M14 is real, unstarted build work — not a verification-only milestone. Phase transition to implementation is justified.
+All three planning artifacts were stamped `run_322ba900566dddfe` / `turn_39be10dd1c8fe039`. Re-stamped PM_SIGNOFF, SYSTEM_SPEC, and the ROADMAP Phases table to the active `run_74d17633499b410b` / `turn_d04775557f54746f`. Recurring hygiene issue across runs, non-blocking.
 
 ### Core Workflow
 
@@ -116,9 +123,15 @@ M14 answers "is this ready to ship?" but does not act on the answer. Automation 
 
 ## Notes for Dev
 
-**Build charter.** New module and CLI command required.
+**⚠ VERIFY-AND-CLOSE charter, NOT a rebuild.** As of this turn the M14 implementation already exists, is committed (checkpoint `9fdbc1c51`), and passes 21/21 ship-status tests (PM re-ran `npx vitest run test/ship-status.test.js`). **Do not rebuild `ship-status.js`.** Your job this implementation phase is to:
+1. Confirm the committed module satisfies SYSTEM_SPEC acceptance tests AT-SS-001…012 (the on-disk suite has 21 tests covering all 12 IDs plus read-only / pre-release / artifact-path units).
+2. Run the full suite to confirm no regressions from the ship-status additions (CLI registration, report.js integration).
+3. **Check off the M14 ROADMAP items (lines 160-165)** with delivery evidence (commit/turn refs) — these unchecked boxes are the root cause that re-triggered this run; closing them is the actual remaining work.
+4. Produce/refresh IMPLEMENTATION_NOTES.md for this run if you make any changes; if you make zero code edits, emit a review-type turn.
 
-**Verified build pointers (use these exact APIs — checked against source this turn):**
+The original build pointers below are retained for reference / spec traceability.
+
+**Verified build pointers (use these exact APIs — re-checked against source this turn):**
 - Dimension 1 (run completion): `readState(root)` from `governed-state.js` for status+phase; `evaluateRunCompletion({ state, config, acceptedTurn, root })` from `gate-evaluator.js:325` for completion semantics.
 - Dimension 2 (QA ship verdict): `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)` from `workflow-gate-semantics.js` — both symbols are exported; `SHIP_VERDICT_PATH = '.planning/ship-verdict.md'`. Do NOT import `evaluateShipVerdict` (not exported).
 - Dimension 3 (gate clearance): `evaluatePhaseExit({ state, config, acceptedTurn, root })` + `evaluateRunCompletion(...)` from `gate-evaluator.js`.
