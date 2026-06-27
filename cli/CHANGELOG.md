@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.158.0
+
+- **Shippability visibility — `agentxchain ship-status`.** A single command answers "is this ready to ship?" by composing five independent evidence dimensions — run completion/phase status, QA ship verdict, gate clearance across all phases, release-alignment validation, and test verification — into a structured `ShipStatusReport` with per-dimension pass/fail/pending and surfaced blocking reasons. Supports `--json`/`--verbose`, multi-repo coordinator aggregation, and a ship-status summary section in the governance report.
+- **Human-attention surface — `agentxchain attention`.** A govern-by-exception view composing six attention categories into one answer to "what needs me?", with `--json`/`--all` and governance-report integration — so operators act on exceptions instead of scanning everything.
+- **The implementation gate no longer dead-ends artifact finalization.** A completed implementation turn that changes only planning artifacts is now accepted when a prior completed implementation turn in the same run already committed product code (for example, QA finalizing the gate-required `IMPLEMENTATION_NOTES` sections after the implementation was committed); a run that has produced no product code at all is still held to the strict "code, not just docs" requirement.
+- **Single-shot execution guard for dispatched turns.** Every role's dispatch prompt now states plainly that the turn is a one-shot, non-interactive subprocess: do all work synchronously and never background a job and wait for an async notification — preventing "ghost" turns that exit without writing a result.
+
+- npm test -- --test-timeout=60000 -> 7706 tests / 1561 suites / 0 failures / 5 skipped
+
 ## 2.157.0
 
 - **CI report gate annotations restored.** `ci-report` built GitHub Actions annotations and JUnit gate testcases by treating `gate_summary` as an object, but the report pipeline emits it as an array — so all gate annotations silently vanished. Now handles both shapes (the bug shipped in 2.156.0).

@@ -1,11 +1,10 @@
-# LinkedIn Post — AgentXchain v2.157.0
+# LinkedIn Post — AgentXchain v2.158.0
 
-> Ready-to-post LinkedIn company-page copy for the `v2.157.0` release. Updated 2026-05-02 for recovery classification, crash-resume PID guards, continuous checkpoint consistency, configurable deadlines, intake persistence, and Claude recovery hardening.
+> Ready-to-post LinkedIn company-page copy for the `v2.158.0` release. Updated 2026-06-27 for the `ship-status` and `attention` operator commands plus two governed-lifecycle hardening fixes (implementation-gate guard, single-shot execution guard).
 >
-> Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
-> - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7666 tests / 1528 suites / 0 failures / 5 skipped
+> Aggregate evidence: the v2.158.0 release run carries its own structured ship-status report (run completion, QA ship verdict, gate clearance, release alignment, test verification). Re-run `agentxchain ship-status --verbose` against the release run for the current counts before posting.
+>
+> - npm test -- --test-timeout=60000 -> 7706 tests / 1561 suites / 0 failures / 5 skipped
 
 ---
 
@@ -22,17 +21,14 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.157.0` tightens governed-run recovery and release readiness:
+`v2.158.0` gives operators two ways to ask a governed run where it stands — and hardens two lifecycle gates. It was produced by dogfooding AgentXchain on itself in a VISION-driven lights-out run:
 
-- Recovery events now carry structured class, severity, actor action, and operator action metadata.
-- Governance reports render recovery health from event history.
-- `step --resume` rejects retained live worker PIDs before reactivating governed runs.
-- Ghost blocker clearing writes the matching session checkpoint.
-- Configurable per-turn deadlines, restart-safe intake, and the Claude recovery hardening wave are included.
-- The DOGFOOD credential smoke helper remains available as a shipped npx bin for state-free diagnostics.
+- `agentxchain ship-status` composes five independent evidence dimensions — run completion, QA ship verdict, gate clearance, release alignment, test verification — into one structured "is this ready to ship?" report. Supports `--json`/`--verbose`, multi-repo coordinator aggregation, and a governance-report summary section.
+- `agentxchain attention` is a govern-by-exception view: it composes six attention categories into a single answer to "what needs me?" Supports `--json`/`--all` and governance-report integration.
+- Implementation-gate guard: a completed implementation turn that only finalizes planning artifacts (e.g. QA filling in gate-required `IMPLEMENTATION_NOTES` sections) is now accepted once the run has already committed product code. A run with no product code is still held strictly.
+- Single-shot execution guard: dispatch prompts now prevent "ghost" turns where a one-shot subprocess agent backgrounds its work and async-waits for a notification that never fires.
 
-- npm test -- --test-timeout=60000 -> 7666 tests / 1528 suites / 0 failures / 5 skipped
-- 108 conformance fixtures across 13 protocol surfaces
+Every dimension above is checkable: `agentxchain ship-status --verbose` recomposes the ship verdict from evidence, and `agentxchain attention` surfaces anything still waiting on a human.
 
 Fastest proof path:
 

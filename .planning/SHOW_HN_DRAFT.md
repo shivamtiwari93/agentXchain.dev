@@ -1,11 +1,11 @@
-# Show HN Draft — AgentXchain v2.157.0
+# Show HN Draft — AgentXchain v2.158.0
 
-> Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Updated 2026-05-02 for recovery classification, crash-resume PID guards, continuous checkpoint consistency, configurable deadlines, intake persistence, and Claude recovery hardening.
+> Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Staged for the `v2.158.0` launch window on the current released line `v2.157.0`. Updated 2026-06-27 for two operator commands (`agentxchain ship-status`, `agentxchain attention`) and two governed-lifecycle hardening fixes (implementation-gate guard, single-shot execution guard). Produced by a VISION-driven lights-out dogfood run of AgentXchain on itself.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7666 tests / 1528 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7706 tests / 1561 suites / 0 failures / 5 skipped
 >
 > Aggregate evidence:
 > - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
@@ -30,6 +30,8 @@ Hi HN, I've been building AgentXchain — an open-source governance protocol for
 
 The problem: when you let multiple AI agents work on the same codebase, they tend to agree with each other, quality drifts, nobody owns decisions, and there is no clear proof of what is actually shippable.
 
+v2.158.0 adds two operator commands for staying in control of a governed run without reading the whole ledger: `agentxchain ship-status` composes independent evidence dimensions into one "is this ready to ship?" report, and `agentxchain attention` is a govern-by-exception view that answers "what needs me?" It also lands two governed-lifecycle hardening fixes — an implementation-gate guard that accepts a planning-only finalize turn once product code is already committed, and a single-shot execution guard that stops one-shot agents from backgrounding work and waiting on a notification that never fires. This release was produced by a VISION-driven lights-out run of AgentXchain dogfooding itself.
+
 AgentXchain treats multi-agent delivery as a governed system:
 
 - Every agent turn MUST include at least one objection about the prior agent's work. Blind agreement is rejected.
@@ -48,8 +50,12 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, Dev implements while resolving objections, QA reviews against acceptance criteria, and the protocol records decisions and evidence.
 
-**What shipped by v2.157.0:**
+**What shipped by v2.158.0:**
 
+- `agentxchain ship-status` — composes 5 independent evidence dimensions (run completion, QA ship verdict, gate clearance, release alignment, test verification) into a structured "is this ready to ship?" report; supports `--json`/`--verbose`, multi-repo coordinator aggregation, and a governance-report summary section
+- `agentxchain attention` — a govern-by-exception view that composes 6 attention categories into one answer to "what needs me?"; supports `--json`/`--all` and governance-report integration
+- Implementation-gate guard fix: a completed implementation turn that only finalizes planning artifacts is now accepted once the run already committed product code (e.g. QA finalizing the gate-required `IMPLEMENTATION_NOTES` sections); a run with no product code is still held strictly
+- Single-shot execution guard: dispatch prompts now prevent "ghost" turns where a one-shot subprocess agent backgrounds work and async-waits for a notification that never fires
 - Structured recovery classification in emitted events and governance reports
 - Crash-resume PID liveness guard for retained active and blocked worker turns
 - Ghost blocker session checkpoint consistency and same-session active-run recovery
