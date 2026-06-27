@@ -471,6 +471,18 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('');
   }
 
+  // Single-shot execution model — prevents ghost turns from async / background-wait patterns.
+  lines.push('## Single-Shot Execution (read carefully)');
+  lines.push('');
+  lines.push('You run as a **single, non-interactive `--print` subprocess**. You get exactly ONE invocation with no "later": there is no async wake-up, no second message, and nothing will notify you after you stop responding. The moment you end your turn the subprocess exits — if you have not written your turn result by then, the entire turn is **discarded as a ghost** (no result, wasted run).');
+  lines.push('');
+  lines.push('Therefore:');
+  lines.push('- Do ALL work **synchronously** within this one turn. Run every command to completion in the foreground and read its output inline before continuing.');
+  lines.push('- **NEVER** start a background job and then wait for it. Do not use `ScheduleWakeup`; do not start a `Monitor` or `tail -f` and wait for events; do not background a process with `&` and poll for a notification; do not defer any conclusion to "after the suite/build finishes". You will not be re-invoked to finish.');
+  lines.push('- If you need a long command or test suite result, run it **blocking in the foreground** (e.g. `npm test`) and wait for it to return in-line — the per-turn timeout is generous, so budget your time for it.');
+  lines.push('- Writing the structured turn result below is your **final action**: gather every piece of evidence first, then write the result before you finish.');
+  lines.push('');
+
   // Output format with complete JSON template
   lines.push('## Required Output');
   lines.push('');

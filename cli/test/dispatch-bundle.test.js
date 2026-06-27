@@ -230,6 +230,20 @@ describe('writeDispatchBundle', () => {
     assert.match(prompt, /reserved state files/);
   });
 
+  it('PROMPT.md includes the single-shot synchronous-execution guard', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /Single-Shot Execution/);
+    assert.match(prompt, /discarded as a ghost/);
+    assert.match(prompt, /ScheduleWakeup/);
+    assert.match(prompt, /synchronously/);
+  });
+
   it('PROMPT.md includes review_only constraints for PM', () => {
     initializeGovernedRun(root, config);
     assignGovernedTurn(root, config, 'pm');
