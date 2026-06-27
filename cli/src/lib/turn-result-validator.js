@@ -138,7 +138,7 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
   }
 
   // ── Stage C: Artifact Validation ───────────────────────────────────────
-  const artifactResult = validateArtifact(turnResult, config, state);
+  const artifactResult = validateArtifact(turnResult, config, state, root);
   if (artifactResult.errors.length > 0) {
     return result('artifact', 'artifact_error', artifactResult.errors, artifactResult.warnings);
   }
@@ -670,7 +670,7 @@ function validateAssignment(tr, state) {
 
 // ── Stage C: Artifact Validation ─────────────────────────────────────────────
 
-function validateArtifact(tr, config, state = null) {
+function validateArtifact(tr, config, state = null, root = null) {
   const errors = [];
   const warnings = [];
 
@@ -733,10 +733,18 @@ function validateArtifact(tr, config, state = null) {
   if (writeAuthority === 'authoritative' && state?.phase === 'implementation' && tr.status === 'completed') {
     const productFiles = (tr.files_changed || []).filter(f => isProductChangePath(f));
     if (productFiles.length === 0) {
-      errors.push(
-        `Role "${tr.role}" completed an implementation turn without product code changes in files_changed. ` +
-        'Implementation-phase completion requires at least one non-planning, non-review repo path; planning artifacts alone are not sufficient.'
-      );
+      // A planning/review-only completion is legitimate ONLY as a follow-on once the
+      // objective's product code has already been delivered in a prior accepted turn of this
+      // run (e.g. QA, or a Dev re-run, finalizing the gate-required IMPLEMENTATION_NOTES
+      // ## Changes / ## Verification sections after the implementation itself was committed).
+      // If no product code has been committed for the run yet, planning artifacts alone still
+      // do not satisfy the implementation_complete gate.
+      if (!runHasCommittedProductCode(root, state?.run_id)) {
+        errors.push(
+          `Role "${tr.role}" completed an implementation turn without product code changes in files_changed. ` +
+          'Implementation-phase completion requires at least one non-planning, non-review repo path; planning artifacts alone are not sufficient.'
+        );
+      }
     } else if (productFiles.every(f => isTestPath(f))) {
       // Work-substance signal: an implementation turn that changed ONLY test files produced
       // no implementation source. That is legitimate for acceptance/verification objectives,
@@ -800,6 +808,34 @@ function isProductChangePath(filePath) {
     && filePath.trim().length > 0
     && !isAllowedReviewPath(filePath)
     && !filePath.startsWith('.agentxchain/staging/');
+}
+
+// Whether any prior accepted turn in this run already committed product code. A follow-on
+// implementation-phase turn that only finalizes planning artifacts (e.g. the gate-required
+// IMPLEMENTATION_NOTES ## Changes / ## Verification sections) is legitimate once the
+// objective's implementation is delivered; a run that has produced no product code at all is
+// still held to the "code, not just docs" requirement. Reads the governed accepted-turn log.
+function runHasCommittedProductCode(root, runId) {
+  if (!root || !runId) return false;
+  try {
+    const histPath = join(root, '.agentxchain', 'history.jsonl');
+    if (!existsSync(histPath)) return false;
+    for (const line of readFileSync(histPath, 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      let entry;
+      try { entry = JSON.parse(line); } catch { continue; }
+      if (entry.run_id !== runId) continue;
+      // Only a COMPLETED IMPLEMENTATION turn counts as "the objective's code was delivered" — a
+      // planning-phase or non-completed turn that incidentally touched a file must not disarm the
+      // guard (adversarial-review hardening).
+      if (entry.status !== 'completed' || entry.phase !== 'implementation') continue;
+      const files = Array.isArray(entry.files_changed) ? entry.files_changed : [];
+      if (files.some((f) => isProductChangePath(f))) return true;
+    }
+  } catch {
+    // History unreadable — fall back to the strict requirement (treat as no prior product code).
+  }
+  return false;
 }
 
 // A test/spec file path — used to flag implementation turns that produced only tests

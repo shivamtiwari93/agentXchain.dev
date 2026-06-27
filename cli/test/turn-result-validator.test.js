@@ -700,6 +700,27 @@ describe('turn-result-validator', () => {
       assert.equal(res.error_class, 'artifact_error');
       assert.ok(res.errors.some(w => w.includes('planning artifacts alone are not sufficient')));
     });
+
+    it('accepts a planning-only completed implementation turn once product code was committed earlier in the run', () => {
+      // A prior accepted dev turn in this run already delivered product code.
+      writeFileSync(
+        join(TMP_ROOT, '.agentxchain', 'history.jsonl'),
+        JSON.stringify({
+          run_id: 'run_01H',
+          role: 'dev',
+          phase: 'implementation',
+          status: 'completed',
+          files_changed: ['cli/src/lib/feature.js'],
+        }) + '\n'
+      );
+      // The follow-on turn only finalizes the gate-required planning artifact.
+      writeStagedResult(makeValidTurnResult({
+        files_changed: ['.planning/IMPLEMENTATION_NOTES.md'],
+        artifact: { type: 'workspace', ref: 'git:dirty' },
+      }));
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, true, `planning-only finalize should pass once product code is committed in the run, errors: ${JSON.stringify(res.errors)}`);
+    });
   });
 
   // ─── Stage D: Verification Validation ──────────────────────────────────

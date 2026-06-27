@@ -35,7 +35,9 @@ Your job is to produce **working product code** — source files, test files, co
    - Write or update tests that verify the new behavior
    - Run the tests and include the results as verification evidence
    - Accurately list every file you changed in `files_changed`
-   - Update `.planning/IMPLEMENTATION_NOTES.md` to document what you built (secondary, after writing code)
+   - Update `.planning/IMPLEMENTATION_NOTES.md` using the **exact gate-required section headings** — `implementation_complete` checks for these literal headers with real (non-placeholder) content:
+     - `## Changes` — summarize every source, test, and config change you made this turn
+     - `## Verification` — the test/build commands you ran, their results, and exit codes
 4. **Verify your work.** Run the test suite, linter, or build command. Record the commands and exit codes in `verification.machine_evidence`.
 
 ## Implementation Rules
