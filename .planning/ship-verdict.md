@@ -1,67 +1,85 @@
-# Ship Verdict — M14: Shippability Visibility — Vision Closure (VISION.md:50)
+# Ship Verdict — M15: Govern Without Micromanaging — Human Attention Surface (VISION.md:51)
 
-**Run:** run_74d17633499b410b
-**Turn:** turn_b7ac694416a751c0 (QA; re-issue after gate rejection of turn_f26ac4b155de15b4)
-**Baseline:** git:e685a903d9713931c9953420189d7127d95b204a
+**Run:** run_2929265fcbabe440
+**Turn:** turn_92c39cb5177586c2 (Staff QA Engineer)
+**Baseline:** git:e1c177be16581865652694aa4e236c411b328862
 **Date:** 2026-06-27
-
-> **Re-issue note:** turn_f26ac4b155de15b4's YES verdict had its `qa_ship_verdict` run-completion gate
-> rejected on a structural artifact defect — the acceptance matrix used a `| # |` header instead of the
-> contractually required `| Req # |`. This turn fixed the header (verified against the real
-> `evaluateWorkflowGateSemantics` validator → `{ok:true}`), independently re-ran the M14 verification
-> (23/23 + 69/69, exit 0), and re-issues the verdict. The substantive ship decision is unchanged.
 
 ## Verdict: YES
 
 ## Rationale
 
-All 6 SYSTEM_SPEC acceptance criteria independently verified by QA. The M14 surface — `ship-status.js` (5-dimension composition), the `agentxchain ship-status` CLI (`--json` + `--verbose`), coordinator aggregation, and governance-report integration — is delivered, committed, and green: **23/23 ship-status tests** and **69/69 combined ship-status + report-integration tests**, both exit 0, run by QA. The live CLI composes all 5 dimensions against real repo state and correctly reports PENDING mid-QA-phase with accurate blocking reasons. The dev's Dimension-5 skipped-neutrality fix (DEC-001) is a real correctness defect repaired with regression coverage and confirmed on live data. No blocking issues.
+All 6 M15 acceptance criteria (derived from ROADMAP.md lines 171-176) independently verified by QA on
+QA-run evidence. The surface — `human-attention.js` (`evaluateHumanAttention` composing **6** govern-by-
+exception categories, exceeding the ≥5 floor), the `agentxchain attention` CLI (`--json` / `--all`,
+exit 0 in both clear and attention states), and the `human_attention` governance-report summary — is
+delivered, committed, and green: **18/18 human-attention tests**, **37/37** with the two contracts the dev
+touched, and **46/46** report-integration tests, all exit 0, all re-run by QA this turn. The live CLI on
+this repo prints `Nothing needs your attention.` and exits 0 — the empty queue that IS the operational
+proof of "govern without micromanaging" (VISION.md:51). A real end-to-end `export → report` confirms
+`subject.run.human_attention` is wired into the standard governance report. The module is strictly
+read-only (AT-HA-013, byte-identical state) and reimplements no escalation/approval/intake logic. No
+blocking issues.
 
 ## Acceptance Test Results
 
-- **6/6 PASS** (AC-1 through AC-6)
-- AC-1: 23/23 ship-status tests pass (AT-SS-001..008 cover the 5-dimension verdicts incl. all fail branches), exit 0
-- AC-2: AT-SS-011/012 pass; live `--json` schema-valid, `--verbose` shows all 5 dimensions, both exit 0
-- AC-3: AT-SS-009/010 pass; `evaluateCoordinatorShipStatus` exported, worst-case mixed-state → fail
-- AC-4: 69/69 combined run incl. 3 report-integration suites reusing `buildShipStatusSummary`, exit 0
-- AC-5: 0 failures across both QA-run suites
-- AC-6: VISION.md:50 addressed — single command answers "what is actually shippable?"
+- **6/6 PASS** (AC-1 through AC-6) — see acceptance-matrix.md Section A
+- AC-1: 6-category composition, read-only, delegates to existing primitives; 18/18 tests
+- AC-2: `attention` CLI `--json`/`--all`, "Nothing needs your attention" + exit 0 when empty (live-verified)
+- AC-3: empty→`clear`/zero items; non-empty→`attention` with deterministic blocking-first priority ordering
+- AC-4: governance report `human_attention` summary present (real e2e export→report, clear)
+- AC-5: regression suite covers all required scenarios; 18/18
+- AC-6: prioritized ≥5-category queue, action_hint per item, composition over existing primitives → VISION.md:51
 
 ## Regression Results (QA-Verified)
 
 | Suite | Tests | Result | Exit |
 |-------|-------|--------|------|
-| ship-status.test.js | 23 | PASS | 0 |
-| ship-status + governance-report-content + report-cli + workflow-kit-report (combined) | 69 | 0 failures | 0 |
+| human-attention.test.js | 18 | PASS | 0 |
+| human-attention + vitest-contract + docs-cli-command-map | 37 | 0 failures | 0 |
+| governance-report-content + report-cli + workflow-kit-report | 46 | 0 failures | 0 |
+| Live `attention` / `attention --json` / `export`→`report --format json` | n/a | clear, schema-valid, human_attention present | 0 |
 
-Limitation declared: full ~689-file monorepo suite NOT run to completion (exceeds single-turn timeout). Verification scoped to the M14 surface + its report-integration touchpoints — appropriate, since M14 modifies only `ship-status.js`, its command, its tests, and `report.js`.
+**Limitation declared:** the full ~7700-test suite was initiated this turn but did not complete within the
+turn budget (QA terminated it after 612 passing tests, **0** `FAIL` markers). Verification is scoped to the
+M15 blast radius (8 changed files) + report-integration touchpoints — the accepted M14 precedent. The one
+known full-suite failure (`bug-54-real-claude-reliability` Scenario B, a real-binary 50 ms watchdog timing
+test) is proven outside M15's blast radius (imports none of the 8 changed files); QA did not run it and does
+not claim it passes.
 
 ## Dev Decision Verification
 
 | Decision | Status |
 |----------|--------|
-| DEC-001: Dimension 5 false-pending fix (skipped verification now neutral via NEUTRAL_VERIFICATION) | VERIFIED — fail-branch-first ordering confirmed; all-skipped→pending preserved; live CLI shows "All 2 verification-bearing accepted turns passed" with the skipped planning turn correctly excluded |
-| DEC-002: AT-SS-013 + AT-SS-014 added (suite 21→23) | VERIFIED — both present and green; lock the two boundary behaviors of the fix |
-| DEC-003: ROADMAP 160-164 checked, acceptance 165 deferred to QA | VERIFIED — build items checked with provenance; QA now checks off line 165 |
+| DEC-001: credentialed/approval unified, mutually-exclusive classification | VERIFIED — no double-count (AT-HA-005/002) |
+| DEC-002: escalation hint = record's own `resolution_command` (`agentxchain unblock <id>`) | VERIFIED — a correctness improvement over the ROADMAP example (AT-HA-003) |
+| DEC-003: 6th `manual_action` category for `gate_action:`/`human:` blocks | VERIFIED — closes a real silent-drop gap |
+| DEC-004: read-only state helper mirrored from ship-status.js | VERIFIED — Invariant #2 holds (AT-HA-013); minor duplication noted (Finding 3) |
+| DEC-005: vitest-contract count 689→690 + docs-cli-command-map `attention` | VERIFIED — 37/37 green; legitimate consequences, not contract-gaming |
 
 ## Architecture Invariants
 
 | Invariant | Status |
 |-----------|--------|
-| Composes existing modules (no reimplementation) | CONFIRMED |
-| `evaluateShipStatus()` read-only (no state writeback) | CONFIRMED |
-| All 5 dimensions independently evaluated | CONFIRMED |
-| Coordinator aggregation worst-case | CONFIRMED |
-| CLI delegates to module (no business logic in command) | CONFIRMED |
+| Composition layer — reimplements no escalation/approval/intake logic | CONFIRMED |
+| Strictly read-only | CONFIRMED (AT-HA-013) |
+| Empty queue ⇒ `overall:'clear'` | CONFIRMED (live + AT-HA-001) |
+| Every category isolated — one failure never suppresses others | CONFIRMED |
+| CLI delegates entirely to the module | CONFIRMED |
 
 ## Blocking Issues: 0
 
-## Non-Blocking Findings
+## Non-Blocking Findings (carried into the decision trail)
 
-1. **Stale QA artifacts (fixed):** 9th consecutive run with artifacts from the prior milestone (M13, `run_4793c2273d675dd9`). All three rewritten from scratch for M14.
-2. **Dimension 2 has no run/milestone scope check (OBJ-001):** the live `qa_ship_verdict` dimension passed on the stale M13 verdict file before this turn rewrote it. Per-spec (content-shape validation), so non-blocking — but a latent false-affirmative risk given Finding 1. Recommend future hardening to scope the verdict read to the active run.
-3. **Cross-run duplicate-build / implementation-guard gap (dev OBJ-001 corroborated):** out of M14 scope; does not affect shippability.
+1. **Stale QA artifacts — 10th consecutive run (fixed):** all three artifacts referenced M14; rewritten for M15.
+2. **OBJ-001 — report summary is a 3-of-6-category partial view:** `buildHumanAttentionSummary` omits escalations + pending-intents (static-export constraint, documented). The report's `human_attention` can read `clear` while live escalations exist. Per-spec for M15 (build item #4 mandates only the 4 summary fields); does not block. Recommend embedding escalation/intent counts into the export so the report can reach all 6 categories.
+3. **Duplicated `readGovernedStateReadOnly` helper (informational):** copied from ship-status.js; future refactor could share it.
 
 ## Ship Decision
 
-6/6 acceptance criteria pass. 23/23 + 69/69 tests, 0 failures, all QA-run. 5/5 invariants maintained. 3/3 dev decisions verified, including a genuine Dimension-5 defect fix. Live CLI composition demonstrably answers VISION.md:50. ROADMAP M14 build items closed; acceptance line 165 checked off by this turn. **SHIP.**
+6/6 acceptance criteria pass. 18/18 + 37/37 + 46/46 tests, 0 failures, all QA-run, all exit 0. 5/5
+invariants maintained. 5/5 dev decisions verified (including a genuine correctness improvement in the
+escalation action-hint and a real silent-drop gap closed by the 6th category). Live CLI demonstrably answers
+VISION.md:51 — the empty queue is the repo's actual state. The one non-blocking design finding (OBJ-001,
+partial report summary) is per-spec and documented. ROADMAP M15 build items closed; acceptance line 176
+checked off by this turn. **SHIP.**

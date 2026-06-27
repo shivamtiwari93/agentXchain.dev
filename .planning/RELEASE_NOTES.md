@@ -1,57 +1,100 @@
-# Release Notes — M14: Shippability Visibility — Vision Closure (VISION.md:50)
+# Release Notes — M15: Govern Without Micromanaging — Human Attention Surface (VISION.md:51)
 
-**Run:** run_74d17633499b410b
-**Turn:** turn_b7ac694416a751c0 (QA; re-issue after gate rejection of turn_f26ac4b155de15b4)
+**Run:** run_2929265fcbabe440
+**Turn:** turn_92c39cb5177586c2 (QA ship verdict)
 **Date:** 2026-06-27
 
 ## Summary
 
-Formal closure of ROADMAP.md M14: "Shippability Visibility — Vision Closure (VISION.md:50)." A new read-only composition layer, `ship-status.js`, answers the VISION.md:50 coordination failure — "nobody knows what is actually shippable" — by composing five independent evidence dimensions into a single operator-queryable assessment, surfaced through the `agentxchain ship-status` CLI command, coordinator aggregation, and the governance report. The product code was built and committed in prior run `run_322ba900566dddfe`; this run verified it against spec, fixed one real correctness defect in the test-verification dimension, added regression coverage, and closed the milestone.
+Formal closure of ROADMAP.md M15: "Govern Without Micromanaging — Human Attention Surface (VISION.md:51)" —
+the final unaddressed "Why This Must Exist" pain bullet, *"humans lose the ability to govern without
+micromanaging."* A new read-only composition layer, `human-attention.js`, aggregates the scattered
+human-decision triggers across runs into a single prioritized `HumanAttentionReport`, surfaced through the
+new `agentxchain attention` CLI command and embedded in the governance report. The defining property:
+when no human decision is pending the queue is **empty** (`overall: 'clear'`, exit 0, "Nothing needs your
+attention") — the operational proof that a human can step back and let governed autonomy run without
+micromanaging or blind trust (VISION.md:220).
 
 ## What Changed (This Run)
 
-### Fix: Dimension 5 (Test Verification) false-pending — `cli/src/lib/ship-status.js`
+### New module — `cli/src/lib/human-attention.js`
 
-`evaluateTestVerificationDimension` previously counted any non-passing `verification.status` — including the legitimate `skipped` status recorded by planning/review turns that run no test gate — toward the pending trigger. A single skipped planning turn would pin `test_verification` to `pending` forever, making a genuinely shippable run report as not-yet-shippable on M14's central signal. Fix: a `NEUTRAL_VERIFICATION = {'skipped'}` set excludes skipped turns from the evidence-bearing population. A `fail` still short-circuits to fail; an all-skipped history stays pending (no positive evidence); a history with at least one passing evidence-bearing turn passes.
+`evaluateHumanAttention(repoDir)` composes the cross-run human-decision queue across **6** govern-by-exception
+categories (exceeding the ≥5 floor), reaching each through its existing public surface — reimplementing none:
 
-### New Tests: AT-SS-013, AT-SS-014 — `cli/test/ship-status.test.js`
+| Category | Source (composed, not reimplemented) | Blocking |
+|----------|--------------------------------------|----------|
+| `credentialed_gate` | `state.blocked_on` `human_approval:<gate>` + `isCredentialedExitGate` (approval-policy.js) | yes |
+| `escalation` | `readHumanEscalations` (human-escalations.js), open records | yes |
+| `approval` | `state.blocked_on` `human_approval:<gate>` (non-credentialed) / pending transition/completion | yes |
+| `manual_action` | `state.blocked_on` `gate_action:<gate>` / `human:<detail>` | yes |
+| `budget_policy` | `state.blocked_on` `budget:exhausted` / `policy:<id>` | yes |
+| `pending_intent` | `findPendingApprovedIntents` (intake.js) | no (informational) |
 
-- **AT-SS-013** — skipped turns are neutral: `[skipped, pass, skipped]` → `test_verification` pass, overall pass.
-- **AT-SS-014** — all-skipped history → `test_verification` pending, overall pending.
+Output is a `HumanAttentionReport` — `{ overall: 'clear' | 'attention', items[], items_count, blocking_count,
+categories[], evidence_summary }` — with `items` deterministically ordered blocking-first, then by ascending
+priority (credentialed-gate & escalation outrank plain approval outranks budget/policy; pending-intent last),
+ties broken by `run_id` then `summary`. Each item carries a concrete `action_hint`. The module is strictly
+read-only (reads state without writeback) and isolates every category so a failure in one never blanks the queue.
 
-Suite grew 21 → 23 tests.
+### New CLI command — `agentxchain attention [--json] [--all]`
 
-### ROADMAP.md M14 Closed
+The single govern-by-exception operator command answering "what needs MY attention right now, and nothing
+else?" Default output lists only the blocking items, highest-priority first, each with its action hint;
+informational pending-intents are summarized as a count unless `--all` is passed. `--json` emits the full
+`HumanAttentionReport`. It is a **status surface, not a gate** — it exits 0 in both the clear and attention
+states. When the queue is empty it prints `Nothing needs your attention.`
 
-Build items (lines 160-164) checked off with delivery+verification provenance; acceptance item (line 165) checked off by the QA ship verdict this turn.
+### Governance report integration — `cli/src/lib/report.js`
 
-## The 5 Evidence Dimensions
+`buildGovernanceReport()` now embeds a `human_attention` summary (`overall`, `items_count`, `blocking_count`,
+`categories[]`) in `subject.run`, beside the existing `ship_status` summary. (The report summary, operating on
+a static export artifact, evaluates the 3 state/config-derivable categories; the live `agentxchain attention`
+command surfaces the full 6-category queue — see ship-verdict.md OBJ-001.)
 
-| # | Dimension | Source | Pass when |
-|---|-----------|--------|-----------|
-| 1 | Run Completion | `state.status` | run status is `completed` |
-| 2 | QA Ship Verdict | `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)` | `## Verdict: YES` present |
-| 3 | Gate Clearance | `state.phase_gate_status` over `config.gates` | all gates `passed` |
-| 4 | Release Alignment | `validateReleaseAlignment()` | all required surfaces aligned |
-| 5 | Test Verification | `verification.status` across accepted turns | ≥1 passing evidence-bearing turn, none failed (skipped neutral) |
+### Tests + contracts
 
-Aggregation is worst-case: any `fail` → fail; else any `pending` → pending; else `pass`.
+- New `cli/test/human-attention.test.js` — **18 tests** (AT-HA-001..013 + 3 report-integration cases): clear
+  queue, pending approval, open escalation, pending intent, credentialed gate, budget/policy, mixed-category
+  ordering, `--json`/`--all` CLI, and the read-only invariant.
+- Updated two contracts the new command + test file legitimately shifted: `vitest-contract.test.js`
+  (test-file count 689→690) and `docs-cli-command-map-content.test.js` + `website-v2/docs/cli.mdx`
+  (`attention` added to the governed-command map).
+
+### ROADMAP.md M15 closed
+
+Build items (lines 171-175) checked off by the dev with delivery+verification provenance; acceptance item
+(line 176) checked off by this QA ship verdict.
 
 ## User Impact
 
-- **Vision closure:** VISION.md:50 "nobody knows what is actually shippable" is now addressed. `agentxchain ship-status` answers the question in one command instead of forcing operators to inspect and mentally aggregate run state, QA verdicts, gates, release alignment, and verification evidence.
-- **New CLI command:** `agentxchain ship-status [--json] [--verbose]`. Default prints `Ship Status: YES/NO/PENDING (n/5 dimensions pass)` with blocking reasons; `--json` emits the full `ShipStatusReport`; `--verbose` breaks out all 5 dimensions. Non-zero exit when overall is `fail`.
-- **Coordinator support:** multi-repo coordinator runs expose per-repo ship readiness with a worst-case overall aggregate.
-- **Report integration:** governance reports now carry a ship-status summary section.
-- **Correctness:** the Dimension-5 fix means runs whose planning/review turns skipped verification are no longer falsely pinned to pending — the central shippability signal is now trustworthy.
-- **No breaking changes:** one defect fix + two tests this run; the composition is read-only and reuses existing evaluators.
+- **Vision closure:** VISION.md:51 "humans lose the ability to govern without micromanaging" is now addressed.
+  Instead of polling `status`, the dashboard, escalations, intents, and budget/policy state separately
+  (micromanaging) or trusting blindly (forbidden by VISION.md:220), an operator runs one command:
+  `agentxchain attention`.
+- **Govern by exception:** the command shows ONLY what needs a human, highest-priority first, each with a
+  concrete next action (`agentxchain approve-transition`, the escalation's own `agentxchain unblock <id>`,
+  `agentxchain start`, …). When nothing is pending it says so and exits 0 — the empty queue is the proof you
+  can step back.
+- **Report visibility:** governance reports now carry a `human_attention` summary, so the attention state is
+  visible in the standard report surface (state/config-derivable categories).
+- **No breaking changes:** one new module, one new read-only command, one additive report field, 18 new tests,
+  and two legitimate contract updates. The composition is read-only and reuses existing escalation/approval/
+  intake evaluators.
 
 ## Verification Summary
 
-QA independently ran:
-- `npx vitest run test/ship-status.test.js` → **23/23 pass, exit 0**
-- `npx vitest run test/ship-status.test.js test/governance-report-content.test.js test/report-cli.test.js test/workflow-kit-report.test.js` → **69/69 pass, exit 0**
-- `node cli/bin/agentxchain.js ship-status --verbose` → exit 0, all 5 dimensions composed against live repo state
-- `node cli/bin/agentxchain.js ship-status --json` → ShipStatusReport schema validated, exit 0
+QA independently ran (turn_92c39cb5177586c2):
+- `npx vitest run test/human-attention.test.js` → **18/18 pass, exit 0**
+- `npx vitest run test/human-attention.test.js test/vitest-contract.test.js test/docs-cli-command-map-content.test.js` → **37/37 pass, exit 0**
+- `npx vitest run test/governance-report-content.test.js test/report-cli.test.js test/workflow-kit-report.test.js` → **46/46 pass, exit 0**
+- `node cli/bin/agentxchain.js attention` → `Nothing needs your attention.`, **exit 0**
+- `node cli/bin/agentxchain.js attention --json` → schema-valid `HumanAttentionReport` (clear), **exit 0**
+- `agentxchain export | agentxchain report --format json` → `subject.run.human_attention` present (clear), **exit 0**
 
-Result: **6/6 acceptance criteria pass, 5/5 architecture invariants confirmed, 3/3 dev decisions verified, 0 blocking issues.** Limitation declared: the full ~689-file monorepo suite was not run to completion (single-turn timeout); verification scoped to the M14 surface and its report-integration touchpoints. **Ship verdict: YES.**
+Result: **6/6 acceptance criteria pass, 5/5 architecture invariants confirmed, 5/5 dev decisions verified,
+0 blocking issues.** Limitation declared: the full ~7700-test suite was initiated but did not complete within
+the turn budget (QA terminated after 612 passing tests, 0 `FAIL` markers); verification scoped to the M15
+blast radius (8 changed files) + report-integration touchpoints, per the accepted M14 precedent. The one
+known full-suite failure (`bug-54-real-claude-reliability` Scenario B, a real-binary timing test) is outside
+M15's blast radius and was not run. **Ship verdict: YES.**
