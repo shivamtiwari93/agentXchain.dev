@@ -160,6 +160,6 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Document 8 decision-trail ownership mechanisms, add M13 to ROADMAP, scope dev verification charter | Complete (turn_5ea0fb48212534dd) |
-| Implementation | Re-run 8 decision-trail test suites (194 tests) to confirm ownership infrastructure intact | Pending |
-| QA | Verify 194 tests pass, confirm vision bullet coverage, check off M13 acceptance, ship verdict | Pending |
+| Planning | Scope step auto-checkpoint acceptance verification, rewrite planning artifacts for run_71c0a7eaf361090b | Complete (turn_84a187d10ffbe060) |
+| Implementation | Run step-auto-checkpoint.test.js (3 tests), check off ROADMAP.md:70 | Pending |
+| QA | Verify 3 tests pass, confirm PM→Dev handoff acceptance criterion satisfied, ship verdict | Pending |
