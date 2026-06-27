@@ -67,7 +67,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Wire `checkpointAcceptedTurn()` into `step.js` after successful acceptance (matches `run.js` afterAccept behavior) <!-- run_8aceec319cd6aaed: step.js:80 import + step.js:1007-1020 auto-checkpoint block -->
 - [x] Add `--no-checkpoint` opt-out flag to `step` command <!-- run_8aceec319cd6aaed: agentxchain.js:752 -->
 - [x] Integration test: PM turn accepted → auto-checkpointed → dev turn assigned without dirty-workspace error <!-- run_8aceec319cd6aaed: step-auto-checkpoint.test.js (AT-STEP-CKPT-001 + AT-STEP-CKPT-002) -->
-- [ ] Acceptance: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit
+- [x] Acceptance: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit <!-- run_71c0a7eaf361090b: dev verified 3/3 tests pass (AT-STEP-CKPT-001, -002, -003), step-auto-checkpoint.test.js -->
 
 ### M5: Protocol V8 — Parallel Turn Support
 - [x] Implement parallel turn dispatch within a single phase (multiple devs working concurrently) <!-- run-loop.js:251 executeParallelTurns() + governed-state.js:3540-3555 max_concurrent_turns enforcement + normalized-config.js:1494 getMaxConcurrentTurns() -->
