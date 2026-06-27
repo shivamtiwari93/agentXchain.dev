@@ -125,6 +125,7 @@ import { benchmarkWorkloadsCommand } from '../src/commands/benchmark-workloads.j
 import { historyCommand } from '../src/commands/history.js';
 import { decisionsCommand } from '../src/commands/decisions.js';
 import { shipStatusCommand } from '../src/commands/ship-status.js';
+import { attentionCommand } from '../src/commands/attention.js';
 import { diffCommand } from '../src/commands/diff.js';
 import { eventsCommand } from '../src/commands/events.js';
 import { connectorCapabilitiesCommand, connectorCheckCommand, connectorValidateCommand } from '../src/commands/connector.js';
@@ -428,6 +429,14 @@ program
   .option('-v, --verbose', 'Per-dimension detail breakdown')
   .option('-d, --dir <path>', 'Project directory')
   .action(shipStatusCommand);
+
+program
+  .command('attention')
+  .description('Show the cross-run human-decision queue — what needs you, and nothing else (govern by exception)')
+  .option('-j, --json', 'Machine-readable JSON output (full HumanAttentionReport)')
+  .option('-a, --all', 'Include informational/non-blocking items (e.g. pending approved intents)')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(attentionCommand);
 
 program
   .command('diff <left_ref> <right_ref>')

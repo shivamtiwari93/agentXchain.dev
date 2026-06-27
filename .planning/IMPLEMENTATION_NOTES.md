@@ -1,99 +1,78 @@
-# Implementation Notes — M14: Shippability Visibility — Vision Closure (VISION.md:50)
+# Implementation Notes — M15: Govern Without Micromanaging — Human Attention Surface — Vision Closure (VISION.md:51)
 
-**Run:** `run_74d17633499b410b` (continuation; original build in `run_322ba900566dddfe`)
-**Turn:** `turn_a3d8f92370aff14e`
+**Run:** `run_2929265fcbabe440`
+**Turn:** `turn_9d23289f5ea9873b`
 **Role:** dev
 **Runtime:** `local-opus-4.8-ultra`
 **Date:** 2026-06-27
+**Baseline:** git:e84671ed2 (HEAD of dogfood/2157-lights-out)
 
-> M14's product code (`ship-status.js`, its command, and tests) was built and committed in the
-> prior run `run_322ba900566dddfe` (HEAD `9fdbc1c51`). The vision scanner re-seeded this run
-> against the still-unchecked M14 ROADMAP boxes. This turn is **verify-and-harden**: I
-> re-verified the implementation against spec, found and fixed one real correctness defect, added
-> regression coverage, and checked off the delivered ROADMAP items. The original build notes are
-> preserved below ("What Was Built" onward).
+---
 
-## Changes (run_74d17633499b410b / turn_a3d8f92370aff14e)
+## Challenge to Previous Turn
 
-- **`cli/src/lib/ship-status.js`** — fixed a false-pending defect in `evaluateTestVerificationDimension`
-  (Dimension 5). `queryAcceptedTurnHistory()` returns **every** accepted turn regardless of
-  role/phase, and planning/review turns legitimately record `verification.status === "skipped"`.
-  The prior logic counted any non-`pass`/`attested_pass` status (including `skipped`) toward the
-  `nonPass` pending trigger, so a single skipped planning turn would pin `test_verification` to
-  `pending` **forever** — making a genuinely shippable run (run completed, QA verdict YES, gates
-  passed) report as not-yet-shippable on M14's central signal. Fix: introduced a
-  `NEUTRAL_VERIFICATION = {'skipped'}` set; skipped turns are now excluded from the evidence-bearing
-  population. A history with at least one passing evidence-bearing turn → `pass`; an all-skipped
-  history → `pending` (no positive evidence yet, preserved); any `fail` → `fail` (unchanged).
-- **`cli/test/ship-status.test.js`** — added `AT-SS-013` (skipped turns are neutral → shippable run
-  still passes `test_verification`) and `AT-SS-014` (all-skipped history → `test_verification`
-  pending). Suite now 23 tests.
-- **`.planning/ROADMAP.md`** — checked off the five delivered M14 build items (lines 160–164) with
-  per-item provenance (delivery run + this turn's dev verification); the acceptance line (165) is
-  left for the QA ship verdict.
+The previous accepted turn is the PM signoff for M15 (`turn_fd0c9ed117cd5d23`). I did **not** rubber-stamp it — I verified every compose-target API the spec named actually exists with the claimed signature **against current source** before writing a line of the module, because prior planning turns in this project have repeatedly handed Dev dead-end symbols:
 
-## Verification (run_74d17633499b410b / turn_a3d8f92370aff14e)
+- `governed-state.js` — there is **no exported `readState(root)`** despite the spec's reference to "governed-state.js `readState(root)`". State is a plain JSON file; ship-status.js reads it via a private `readGovernedStateReadOnly` helper. I reproduced that read-only helper rather than invent an export. The `blocked_on` encodings the spec cited are real: `human_approval:<gate>` (governed-state.js:2222), `budget:exhausted` (:868), `policy:<id>` (:691).
+- `human-escalations.js` — `readHumanEscalations(root)` (:316) returns materialized records each carrying `status` (`'open'`/`'resolved'`) and a real `resolution_command` of the form `agentxchain unblock <escalation_id>` (:369). The spec's suggested `escalate --resolve <id>` hint does **not** match the code; I used the record's own `resolution_command` so the action hint is the command that actually resolves it.
+- `intake.js` `findPendingApprovedIntents(root, {run_id})` (:687), `approval-policy.js` `isCredentialedExitGate(config, phase)` (:57) — both exported as claimed and used as-is.
+- `report.js` `buildGovernanceReport` operates on an **export artifact**, not a live repo — so I mirrored `buildShipStatusSummary(artifact)` with an artifact-scoped `buildHumanAttentionSummary(artifact)` rather than calling the live `evaluateHumanAttention`.
 
-- `npx vitest run cli/test/ship-status.test.js` → **23/23 pass**, exit 0 (was 21; +AT-SS-013/014).
-- `npx vitest run cli/test/ship-status.test.js cli/test/governance-report-content.test.js cli/test/report-cli.test.js cli/test/workflow-kit-report.test.js` → **69/69 pass**, exit 0 (confirms the Dimension-5 change does not regress the report integration that reuses `evaluateTestVerificationDimension` via `buildShipStatusSummary`).
-- Live CLI smoke `node cli/bin/agentxchain.js ship-status --json` and `--verbose` → both compose all 5 dimensions against real repo state, exit 0 (overall `pending`: run still `active`, `implementation_complete`/`qa_ship_verdict` gates not yet satisfied — expected mid-run).
-- The full monorepo suite (689 test files) exceeds the single-turn timeout and was **not** run to completion; verification was scoped to the M14 surface and its integration touchpoints. Declared honestly here rather than claimed.
+## Changes
 
-## What Was Built
+### New: `cli/src/lib/human-attention.js`
+Govern-by-exception composition layer (Architecture Invariants #1–#7). Read-only; composes existing modules, reimplements no escalation/approval/intake logic.
 
-`cli/src/lib/ship-status.js` — a read-only **composition** layer that answers "is this ready to ship?" by composing five independent evidence dimensions into a single `ShipStatusReport`, surfaced through the `agentxchain ship-status` CLI command, coordinator aggregation, and the governance report.
+- `evaluateHumanAttention(repoDir)` → `HumanAttentionReport` `{ overall, items[], items_count, blocking_count, categories[], evidence_summary }`. Each item: `{ category, priority, blocking, run_id, summary, action_hint }`. `overall === 'clear'` **iff** `items.length === 0`.
+- **6 exception categories** (spec floor is 5), each an independently-exported pure evaluator:
+  1. `evaluatePendingApprovalCategory(state, config)` — pending human-approval gate from `blocked_on` `human_approval:<gate>` / `pending_phase_transition` / `pending_run_completion`. **Categories 1 & 4 unified:** the same pending decision is classified as `credentialed_gate` when the phase's exit gate is credentialed (`isCredentialedExitGate`), else `approval` — mutually exclusive, so one decision is never double-counted while still honouring the ordering contract.
+  2. `evaluateEscalationCategory(escalations)` — open records from `readHumanEscalations`; action hint = each record's own `resolution_command`.
+  3. `evaluateBudgetPolicyCategory(state)` — `budget:exhausted` / `policy:<id>` blockers.
+  4. `evaluateManualActionCategory(state)` — **bonus** category catching the remaining human-owned `blocked_on` encodings (`gate_action:<gate>`, `human:<detail>`) so a blocked run is never silently dropped.
+  5. `evaluatePendingIntentCategory(intents)` — informational (non-blocking) approved-but-undispatched intents from `findPendingApprovedIntents`.
+- **Deterministic Ordering contract:** priorities `credentialed_gate(10) < escalation(20) < approval(30) < manual_action(35) < budget_policy(40) < pending_intent(100)`; blocking categories all `< 100` and informational `>= 100`, so the blocking-first sort plus priority/`run_id`/`summary` tiebreak yields a stable order matching SYSTEM_SPEC §"Ordering contract".
+- **Category isolation (Invariant #4):** each category runs inside a `collect()` try/catch; a throw or empty in one never blanks the rest of the queue.
+- `buildHumanAttentionSummary(artifact)` — artifact-scoped summary (`overall`, `items_count`, `blocking_count`, `categories[]`) for report integration; evaluates only the state/config-derivable categories (the live command surfaces escalations/intents).
 
-This implementation **corrects a prior in-progress attempt** that was on disk at the start of this turn (see "Challenge to Previous Work"). The prior version was miswired against the real governed data shapes and would have failed the SYSTEM_SPEC's own acceptance tests.
+### New: `cli/src/commands/attention.js` + registration in `cli/bin/agentxchain.js`
+`agentxchain attention [--json] [--all] [--dir]`. Presentation only — delegates all logic to the module (Invariant #6). Empty queue ⇒ prints "Nothing needs your attention." and **exits 0**; attention state also exits 0 (status surface, not a gate). `--json` always emits the full schema-valid `HumanAttentionReport`. Default view lists blocking items first with each item's `action_hint`; informational pending-intent items are summarized as a count unless `--all`.
 
-## Challenge to Previous Work
+### Modified: `cli/src/lib/report.js`
+Imports `buildHumanAttentionSummary` and adds `human_attention` to the governed-run subject in `buildRunSubject()`, immediately after `ship_status` (AC-5).
 
-The prior on-disk `ship-status.js` had four defects, each verified against live data before replacement:
-
-1. **`phase_gate_status` read as objects.** Real values are strings (`"passed"`/`"pending"`/`"failed"`), but the prior code did `val?.outcome || val?.status` on a string → always empty → gate-clearance and qa-verdict dimensions could never detect pass/fail. (Verified: `.agentxchain/state.json` `phase_gate_status` is `{ "planning_signoff": "passed", ... }`.)
-2. **Run completion keyed on `state.phase`.** It matched `phase` against a terminal-phase set (`completed`/`done`/`shipped`/…) that does not exist in this protocol (phases are `planning`/`implementation`/`qa`). Completion is `state.status === 'completed'`. The prior dimension also had **no `fail` branch**, making AT-SS-003 (run failed → fail) impossible.
-3. **Ship verdict reimplemented with the wrong format.** It matched `verdict: ship` / `# ship`, but the real affirmative format is `## Verdict: YES` (set `{YES, SHIP, SHIP IT}`). The PM turn explicitly corrected the pointer to the exported `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)`; the prior code ignored it (violating Architecture Invariant #1).
-4. **Coordinator repo discovery iterated `config.repos` as an array.** The normalized shape is an object keyed by id with a `repo_order` array; `for…of` over it throws → caught → empty → coordinator always returned empty/pending. AT-SS-009/010 were impossible.
-
-The good idea from the prior attempt — deriving the report's `ship_status` from the **export artifact** rather than the live repo — was kept and made correct (the prior version mis-read `artifact.files[path]` as a string when it is `{ data | content_base64 }`).
-
-## Evidence Dimensions (verified compose-target APIs)
-
-1. **Run completion** — `state.status`: `completed` → pass; `failed`/`blocked`/`idle` → fail; `active`/`running`/`needs_human`/unknown → pending.
-2. **QA ship verdict** — live: `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)` from `workflow-gate-semantics.js` (`{ok, reason?}` or `null`). Missing before the final phase → pending; missing at/after the final phase → fail; `## Verdict: YES` → pass; non-affirmative → fail.
-3. **Gate clearance** — `state.phase_gate_status` (strings) keyed over `config.gates`. Any `failed` → fail; any not-`passed` → pending; all `passed` → pass.
-4. **Release alignment** — `validateReleaseAlignment(root, {})` from `release-alignment.js`. `ok` → pass; `errors` → fail; throws / no release context (pre-release) → pending. The evaluator is **injectable** so the composition is tested without rebuilding release-alignment's ~18 release surfaces (already covered by `release-alignment.test.js`).
-5. **Test verification** — `verification.status` across accepted turns from `queryAcceptedTurnHistory(root)`. Any `fail` → fail; any non-`pass`/`attested_pass` → pending; all pass → pass.
-
-**Aggregation (worst-case, Invariant #4):** any `fail` → `fail`; else any `pending` → `pending`; else `pass`.
-
-## Read-only (Invariant #2)
-
-State is read with a direct JSON parse, **not** `loadProjectState`, because the latter can normalize and `safeWriteJson` the state back. A regression test asserts the state file is byte-identical before/after evaluation.
-
-## Files
-
-### New
-- **`cli/src/lib/ship-status.js`** — `evaluateShipStatus(repoDir, options)`, `evaluateCoordinatorShipStatus(coordinatorDir, options)`, `buildShipStatusSummary(artifact)`, the five exported dimension evaluators, `aggregateShipStatus`, and `SHIP_STATUS_DIMENSIONS`. `options` allows injecting `context`/`state`/`history`/`releaseAlignmentEvaluator`/`semanticsEvaluator` for testing.
-- **`cli/src/commands/ship-status.js`** — `agentxchain ship-status` with `--json`, `--verbose`, `--dir`; coordinator auto-detected via `agentxchain-multi.json`; non-zero exit when overall is `fail`. Presentation only (Invariant #5).
-- **`cli/test/ship-status.test.js`** — 21 tests: AT-SS-001…012 plus read-only, pre-release-pending, non-governed, base64/verdict-file artifact paths, and aggregation units.
-
-### Modified
-- **`cli/bin/agentxchain.js`** — import + `ship-status` command registration.
-- **`cli/src/lib/report.js`** — import `buildShipStatusSummary`; `buildRunSubject()` adds `run.ship_status`; text formatter renders a `Ship Status: YES/NO/PENDING (n/5 dimensions pass)` block with blocking reasons.
-
-## Output Shapes
-
-- `ShipStatusReport`: `{ overall, dimensions: [{ name, status, detail, blocking_reason }], blocking_reasons[], evidence_summary }`
-- `CoordinatorShipStatusReport`: `{ overall, repos: [{ repo_id, ship_status }], blocking_repos[], evidence_summary }`
-- Report summary (`run.ship_status`): `{ overall, dimensions_passed, dimensions_total, blocking_reasons }`
-
-## Design Decisions
-
-- **DEC-001**: Replace the prior module rather than patch it — four defects touched every dimension's core logic and the public output shapes.
-- **DEC-002**: Read state with a direct read-only parse to honor the read-only invariant (avoid `loadProjectState` writeback).
-- **DEC-003**: Inject the release-alignment evaluator for tests; the live default calls `validateReleaseAlignment` and degrades to `pending` pre-release.
-- **DEC-004**: Keep the artifact-based report integration (`buildShipStatusSummary(artifact)`); release alignment is `pending` from an artifact since the filesystem is not live — the live CLI surfaces it.
+### Tests + contracts
+- New `cli/test/human-attention.test.js` — 18 tests covering AT-HA-001…013 plus report-integration (`buildHumanAttentionSummary`) cases.
+- Updated `cli/test/vitest-contract.test.js` (test-file count 689 → 690, bumped by the new test file).
+- Updated `cli/test/docs-cli-command-map-content.test.js` (added `attention` to the governed-command list + row mapping) and `website-v2/docs/cli.mdx` (added the `attention` command-map row) — both required because adding a governed CLI command is gated by the docs-coverage contract.
 
 ## Verification
 
-`npx vitest run test/ship-status.test.js` → 21/21 pass. Report integration suites (`report-cli`, `governance-report-content`, `report-gate-failure`, `report-html`, `workflow-kit-report`, `e2e-builtin-json-report`) → 60/60 pass. Full suite result recorded in the turn result.
+- `npx vitest run test/human-attention.test.js` → **18/18 pass** (AT-HA-001…013 + integration).
+- `npx vitest run test/docs-cli-command-map-content.test.js test/vitest-contract.test.js` → **19/19 pass** (the two count/coverage contracts my new command + test file touched).
+- `npx vitest run test/ship-status.test.js test/governance-report-content.test.js test/report-cli.test.js test/e2e-builtin-json-report.test.js test/workflow-kit-report.test.js` → **all pass** (report integration intact, no regression).
+- End-to-end report integration: built a valid run export via `buildRunExport` on a budget-blocked fixture and confirmed `report.subject.run.human_attention === { overall:'attention', items_count:1, blocking_count:1, categories:['budget_policy'] }`.
+- Live CLI smoke on this repo: `agentxchain attention` → "Nothing needs your attention." exit 0; `--json` → schema-valid `{ overall:'clear', items:[], ... }` exit 0.
+- **Full suite** (`npx vitest run`, 690 files / 7711 tests, ~34 min): **7708 passed, 3 failed** at first run. Two failures were the count/coverage contracts my change legitimately shifted (`vitest-contract` 689→690, `docs-cli-command-map` missing `attention`) — both fixed and re-verified green.
+
+### Known pre-existing failure (NOT a regression)
+`test/beta-tester-scenarios/bug-54-real-claude-reliability.test.js` › Scenario B fails on this machine: it fires a **50ms watchdog against the real `claude` binary** expecting `no_subprocess_output` on all 10 iterations, but a fast/idle machine lets `claude --version` emit stdout within 50ms on some iterations (iter 5 here). Proven outside M15's blast radius: (a) the file is not among my 5 changed files; (b) its import graph is `local-cli-adapter.js`, `claude-local-auth.js`, `dispatch-bundle.js`, `turn-paths.js` — none of which I touched and none of which import `human-attention`/`attention`/`report`; (c) it fails identically in isolation with my changes present. This is an environment/timing-dependent real-binary test (its own docstring notes it is gated on the local `claude` binary).
+
+## Acceptance Mapping
+
+| AC | Evidence |
+|----|----------|
+| AC-1 (`evaluateHumanAttention` ≥5 categories) | Module ships 6 categories; AT-HA-001…009 pass |
+| AC-2 (`attention` CLI `--json`/`--all`, exit 0 both states) | AT-HA-010, 010b, 011, 012 pass |
+| AC-3 (govern-by-exception: empty⇒clear; non-empty⇒deterministic order) | AT-HA-001, 008, 008b, 010 pass |
+| AC-4 (each item has concrete `action_hint`) | AT-HA-002…007 assert `action_hint`; `--json` schema test asserts the field on every item |
+| AC-5 (report `human_attention` section) | report.js integration + e2e export check + integration tests pass |
+| AC-6 (read-only) | AT-HA-013 (state/escalations/intents byte-identical; no `HUMAN_TASKS.md` created) |
+| AC-7 (tests pass, 0 failures) | 18/18 human-attention; contract fixes green; only the unrelated pre-existing bug-54 real-claude timing test fails |
+| AC-8 (vision closure VISION.md:51) | QA ship verdict — left for QA |
+
+## Notes for QA
+
+- Run `cli/test/human-attention.test.js` (18) and the full suite. Expect the single pre-existing `bug-54-real-claude-reliability.test.js` Scenario B timing failure (real-`claude` watchdog, env-dependent) — confirm it reproduces on baseline / is unrelated to M15, exactly as documented above.
+- Verify the empty-queue path on a clean repo: `agentxchain attention` prints "Nothing needs your attention." and exits 0.
+- Verify ≥5 categories each yield a correct item + concrete `action_hint`; confirm deterministic ordering (AT-HA-008) and read-only (AT-HA-013).
+- ROADMAP M15 acceptance line (176) is intentionally left unchecked for your ship verdict.

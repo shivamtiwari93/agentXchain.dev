@@ -14,6 +14,7 @@ import { summarizeCoordinatorEvent } from './coordinator-event-narrative.js';
 import { extractGateActionDigest } from './gate-actions.js';
 import { buildRecoveryClassificationReport } from './recovery-classification.js';
 import { buildShipStatusSummary } from './ship-status.js';
+import { buildHumanAttentionSummary } from './human-attention.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
@@ -1079,6 +1080,7 @@ function buildRunSubject(artifact) {
       workflow_kit_artifacts: extractWorkflowKitArtifacts(artifact),
       repo_decisions: artifact.summary?.repo_decisions || null,
       ship_status: buildShipStatusSummary(artifact),
+      human_attention: buildHumanAttentionSummary(artifact),
     },
     artifacts: {
       history_entries: artifact.summary?.history_entries || 0,
