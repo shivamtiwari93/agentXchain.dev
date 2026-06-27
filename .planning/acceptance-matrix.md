@@ -1,9 +1,17 @@
 # Acceptance Matrix — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
 **Run:** run_74d17633499b410b
-**Turn:** turn_f26ac4b155de15b4 (QA)
-**Baseline:** git:297647c0325952ed98f0effd1c3c658e2663f1c4 (HEAD of dogfood/2157-lights-out)
+**Turn:** turn_b7ac694416a751c0 (QA; re-issue after gate rejection of turn_f26ac4b155de15b4)
+**Baseline:** git:e685a903d9713931c9953420189d7127d95b204a (HEAD of dogfood/2157-lights-out)
 **Scope:** Verify `ship-status.js` composes 5 evidence dimensions into a single operator-queryable shippability assessment addressing VISION.md:50 "nobody knows what is actually shippable" — CLI command, coordinator aggregation, report integration, 23 regression tests, 0 failures.
+
+> **Gate-rejection correction (this turn):** The prior QA turn (turn_f26ac4b155de15b4) issued a YES
+> verdict but its `qa_ship_verdict` run-completion gate was **rejected** by `evaluateAcceptanceMatrix`
+> (workflow-gate-semantics.js:117) with reason: *"Acceptance matrix must preserve the `| Req # |`
+> requirement table header."* The Section A table header below was `| # |`, not the contractually
+> required `| Req # |`. This turn restores the `| Req # |` header (verified against the real validator
+> — see Section E), re-runs the M14 verification independently, and re-issues the verdict. The 6/6
+> acceptance result is unchanged; only the structural artifact defect that blocked the gate is fixed.
 
 > **Stale-artifact correction (9th consecutive run):** The three QA workflow artifacts on disk at the
 > start of this turn (acceptance-matrix.md, ship-verdict.md, RELEASE_NOTES.md) all referenced the
@@ -12,8 +20,8 @@
 
 ## Section A: SYSTEM_SPEC Acceptance Criteria
 
-| # | Criterion | Evidence (QA-run) | Status |
-|---|-----------|-------------------|--------|
+| Req # | Criterion | Evidence (QA-run) | Status |
+|-------|-----------|-------------------|--------|
 | AC-1 | `ship-status.js` with `evaluateShipStatus()` composing 5 dimensions; AT-SS-001..008 pass | QA ran `npx vitest run test/ship-status.test.js` → **23/23 pass, exit 0**. AT-SS-001 (all pass), 002 (running→pending), 003 (failed→fail), 004 (verdict missing after QA→fail), 005 (verdict NO→fail), 006 (gate not satisfied→fail), 007 (release misalign→fail), 008 (verification fail→fail) all present and green. 5 exported dimension evaluators confirmed in source. | PASS |
 | AC-2 | `agentxchain ship-status` CLI with `--json` and `--verbose`; AT-SS-011, AT-SS-012 pass | AT-SS-011/012 green in suite. QA live smoke: `--json` emitted top-level `{overall,dimensions,blocking_reasons,evidence_summary}` with each dimension `{name,status,detail,blocking_reason}` — matches ShipStatusReport schema exactly. `--verbose` rendered all 5 dimension names with per-dimension status. Both exit 0. | PASS |
 | AC-3 | Coordinator aggregation via `evaluateCoordinatorShipStatus()`; AT-SS-009, AT-SS-010 pass | Export confirmed in source; AT-SS-009 (all repos pass→pass) and AT-SS-010 (mixed 2-pass-1-fail→fail, blocking_repos lists failing repo) green in suite. | PASS |
@@ -59,17 +67,17 @@ ROADMAP.md M14 build items 160-164 are `[x]` with delivery+verification provenan
 
 ## Section D: Composition Verification (VISION.md:50) — live repo state
 
-`agentxchain ship-status --verbose` (QA-run, exit 0) against `run_74d17633499b410b` mid-QA-phase:
+`agentxchain ship-status --verbose` (QA-run THIS turn, exit 1) against `run_74d17633499b410b` mid-QA-phase, **before** the gate re-evaluates the matrix fix:
 
 | # | Dimension | Live verdict | Interpretation |
 |---|-----------|--------------|----------------|
 | 1 | run_completion | pending | Run status "active" — correct, run not yet completed. |
-| 2 | qa_ship_verdict | pass | `## Verdict: YES` present (see Finding 2 — read from verdict file, no run-scope check). |
-| 3 | gate_clearance | pending | `qa_ship_verdict` gate still pending — correct mid-QA. |
+| 2 | qa_ship_verdict | pass | `## Verdict: YES` present in ship-verdict.md (content-shape check). |
+| 3 | gate_clearance | **fail** | `phase_gate_status.qa_ship_verdict=failed` — the live symptom of the prior turn's matrix-header gate rejection. This is the product code correctly surfacing the real gate state. |
 | 4 | release_alignment | pass | 17 release surfaces checked OK. |
-| 5 | test_verification | pass | 2 verification-bearing turns passed (skipped planning turn excluded — the DEC-001 fix). |
+| 5 | test_verification | pass | All 3 verification-bearing accepted turns passed (skipped planning turn excluded — the DEC-001 fix holds with the prior QA turn now in history). |
 
-**Overall: PENDING (3/5 pass, 2 blocking)** — exactly correct for a run mid-QA-phase. The two blocking reasons ("run not completed", "qa_ship_verdict gate not satisfied") will clear when this QA turn is accepted and the run completes. The composition demonstrably answers "what is actually shippable?" in a single command. **VISION.md:50 addressed.**
+**Overall: NO / fail (3/5 pass, 2 blocking)** — `run_completion` pending (active) and `gate_clearance` fail (qa_ship_verdict gate). This is the honest live reading captured this turn. Notably, the M14 product itself surfaced the gate rejection in Dimension 3 (gate_clearance) even while Dimension 2 (content-shape) read pass — the composition did **not** produce a false-affirmative. Once this turn's `| Req # |` matrix fix is re-evaluated by the gate (qa_ship_verdict → passed) and the run completes, Dimension 3 → pass and Dimension 1 → pass, yielding overall YES. The composition demonstrably answers "what is actually shippable?" in a single command, including an honest NO when a gate is failing. **VISION.md:50 addressed.**
 
 ## Section E: Regression Results (QA-Verified)
 
@@ -81,11 +89,12 @@ ROADMAP.md M14 build items 160-164 are `[x]` with delivery+verification provenan
 | workflow-kit-report.test.js | (in 69) | PASS | 0 |
 | **ship-status + 3 report-integration (combined run)** | **69** | **0 failures** | **0** |
 
-Commands run by QA:
+Commands run by QA (THIS turn, turn_b7ac694416a751c0):
 - `npx vitest run test/ship-status.test.js` → 23 passed, exit 0
 - `npx vitest run test/ship-status.test.js test/governance-report-content.test.js test/report-cli.test.js test/workflow-kit-report.test.js` → 69 passed, exit 0
-- `node cli/bin/agentxchain.js ship-status --verbose` → exit 0
-- `node cli/bin/agentxchain.js ship-status --json` → schema-valid, exit 0
+- `node cli/bin/agentxchain.js ship-status --verbose` → exit 1 (gate_clearance fail, see Section D — honest pre-fix reading)
+- `node cli/bin/agentxchain.js ship-status --json` → schema-valid `ShipStatusReport`, exit 0
+- **Gate-validator check** (the exact validator the run-completion gate runs): `evaluateWorkflowGateSemantics(root, '.planning/acceptance-matrix.md')` → `{ ok: true }` **after** the `| Req # |` header fix (it returned the `| Req # |`-header rejection before the fix). ship-verdict.md → `{ ok: true }` (`## Verdict: YES`), RELEASE_NOTES.md → `{ ok: true }` (User Impact + Verification Summary present). See machine evidence.
 
 **Limitation (declared, not hidden):** The full monorepo suite (~689 test files) exceeds the single-turn timeout and was NOT run to completion. Verification was scoped to the M14 surface and its direct integration touchpoints (report rendering). The dev declared the same limitation; QA confirms the scoping is appropriate — M14 touches only `ship-status.js`, its command, its tests, and `report.js` integration.
 

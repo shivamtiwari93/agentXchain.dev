@@ -1,7 +1,7 @@
 # Release Notes — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
 **Run:** run_74d17633499b410b
-**Turn:** turn_f26ac4b155de15b4 (QA)
+**Turn:** turn_b7ac694416a751c0 (QA; re-issue after gate rejection of turn_f26ac4b155de15b4)
 **Date:** 2026-06-27
 
 ## Summary

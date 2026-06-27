@@ -1,9 +1,15 @@
 # Ship Verdict — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
 **Run:** run_74d17633499b410b
-**Turn:** turn_f26ac4b155de15b4 (QA)
-**Baseline:** git:297647c0325952ed98f0effd1c3c658e2663f1c4
+**Turn:** turn_b7ac694416a751c0 (QA; re-issue after gate rejection of turn_f26ac4b155de15b4)
+**Baseline:** git:e685a903d9713931c9953420189d7127d95b204a
 **Date:** 2026-06-27
+
+> **Re-issue note:** turn_f26ac4b155de15b4's YES verdict had its `qa_ship_verdict` run-completion gate
+> rejected on a structural artifact defect — the acceptance matrix used a `| # |` header instead of the
+> contractually required `| Req # |`. This turn fixed the header (verified against the real
+> `evaluateWorkflowGateSemantics` validator → `{ok:true}`), independently re-ran the M14 verification
+> (23/23 + 69/69, exit 0), and re-issues the verdict. The substantive ship decision is unchanged.
 
 ## Verdict: YES
 
