@@ -2,9 +2,9 @@
 
 Approved: YES
 
-**Run:** `run_a20d13cf8703032f`
+**Run:** `run_322ba900566dddfe`
 **Phase:** planning
-**Turn:** `turn_98ed2a7c83a53e47`
+**Turn:** `turn_39be10dd1c8fe039`
 **Date:** 2026-06-26
 
 ## Discovery Checklist
@@ -32,9 +32,23 @@ No single command, module, or report section composes these into an actionable a
 
 ### Challenge to Previous Turn
 
-#### OBJ-PM-001: All planning artifacts reference stale run (severity: high)
+The previous PM turn (`turn_98ed2a7c83a53e47`, run `run_a20d13cf8703032f`) produced a sound M14 scope, but I do not rubber-stamp it. Two concrete defects found and corrected this turn:
 
-PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all reference `run_4793c2273d675dd9` (M13: Decision Trail Ownership). The current run `run_a20d13cf8703032f` targets M14: Shippability Visibility — a new milestone requiring new code, not a verification-only run. All three artifacts rewritten from scratch. This is the 9th consecutive occurrence of stale planning artifacts needing rewrite at run start.
+#### OBJ-PM-001: Planning artifacts stamped with a stale run ID (severity: medium)
+
+All three artifacts referenced `run_a20d13cf8703032f`; the active run is `run_322ba900566dddfe` / `turn_39be10dd1c8fe039`. Re-stamped PM_SIGNOFF, SYSTEM_SPEC, and the ROADMAP Phases table. Recurring pattern across runs — a non-blocking hygiene issue, not a scope defect.
+
+#### OBJ-PM-002: Two dimension source pointers were inaccurate and would have sent Dev at phantom/private APIs (severity: high)
+
+Verified the compose-target APIs against source before signoff:
+- **Dimension 1** attributed `evaluateRunCompletion` to `governed-state.js`. It is actually exported from `gate-evaluator.js:325`. `governed-state.js` only holds run status/phase via `readState`. Corrected in SYSTEM_SPEC.
+- **Dimension 2** told Dev to call `evaluateShipVerdict` from `workflow-gate-semantics.js`. That function is **module-internal and not exported** (`workflow-gate-semantics.js:386`). The exported public surface is `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)` with `SHIP_VERDICT_PATH = '.planning/ship-verdict.md'`. Corrected in SYSTEM_SPEC and Notes for Dev.
+
+Dimensions 3 (`evaluatePhaseExit`/`evaluateRunCompletion`), 4 (`validateReleaseAlignment`, release-alignment.js:346), and 5 (turn verification evidence) and the `buildGovernanceReport` integration point (report.js:1241) were verified present and correctly attributed.
+
+#### Confirmed: module genuinely not yet built (severity: n/a)
+
+`cli/src/lib/ship-status.js`, `cli/src/commands/ship-status.js`, and `cli/test/ship-status.test.js` do not exist on disk. M14 is real, unstarted build work — not a verification-only milestone. Phase transition to implementation is justified.
 
 ### Core Workflow
 
@@ -84,9 +98,13 @@ PM_SIGNOFF.md, SYSTEM_SPEC.md, and ROADMAP.md Phases table all reference `run_47
 
 ### Design Decisions
 
-#### DEC-001: Planning artifacts from run_4793c2273d675dd9 (Decision Trail Ownership) rewritten for run_a20d13cf8703032f scoped as M14 Shippability Visibility vision closure
+#### DEC-001: M14 planning artifacts re-stamped and pointer-corrected for run_322ba900566dddfe
 
-The vision scanner triggered this run for roadmap replenishment — all milestones through M13 are checked. M14 targets VISION.md:50 "nobody knows what is actually shippable" as the next unclosed problem from the "Why This Must Exist" section, continuing the M11→:47, M12→:48, M13→:49, M14→:50 sequence.
+The vision scanner triggered this run for roadmap replenishment — all milestones through M13 are checked. M14 targets VISION.md:50 "nobody knows what is actually shippable" as the next unclosed problem from the "Why This Must Exist" section, continuing the M11→:47, M12→:48, M13→:49, M14→:50 sequence. Prior M14 planning (run_a20d13cf8703032f) carried forward and corrected rather than rewritten — scope was sound; only run-stamp and two API pointers needed fixing.
+
+#### DEC-004: Compose-target API pointers verified against source before signoff (category: quality)
+
+Dimension 1's `evaluateRunCompletion` was re-attributed from `governed-state.js` to its real home `gate-evaluator.js`; Dimension 2 was redirected from the non-exported `evaluateShipVerdict` to the exported `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)`. This prevents a predictable Dev dead-end and upholds Architecture Invariant #1 (compose, don't reimplement) — Dev must reach the existing logic through its real public surface.
 
 #### DEC-002: M14 is a build milestone — new ship-status module composes 5 existing evidence dimensions
 
@@ -99,6 +117,14 @@ M14 answers "is this ready to ship?" but does not act on the answer. Automation 
 ## Notes for Dev
 
 **Build charter.** New module and CLI command required.
+
+**Verified build pointers (use these exact APIs — checked against source this turn):**
+- Dimension 1 (run completion): `readState(root)` from `governed-state.js` for status+phase; `evaluateRunCompletion({ state, config, acceptedTurn, root })` from `gate-evaluator.js:325` for completion semantics.
+- Dimension 2 (QA ship verdict): `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)` from `workflow-gate-semantics.js` — both symbols are exported; `SHIP_VERDICT_PATH = '.planning/ship-verdict.md'`. Do NOT import `evaluateShipVerdict` (not exported).
+- Dimension 3 (gate clearance): `evaluatePhaseExit({ state, config, acceptedTurn, root })` + `evaluateRunCompletion(...)` from `gate-evaluator.js`.
+- Dimension 4 (release alignment): `validateReleaseAlignment(repoRoot, { targetVersion, scope })` from `release-alignment.js:346`.
+- Dimension 5 (test verification): read `verification.status` across accepted turns from history/state.
+- Report integration: `buildGovernanceReport(artifact, opts)` at `report.js:1241`.
 
 1. Create `cli/src/lib/ship-status.js` with:
    - `evaluateShipStatus(repoDir)` → `ShipStatusReport` (overall: pass/fail/pending, dimensions[], blocking_reasons[])
@@ -132,5 +158,5 @@ M14 answers "is this ready to ship?" but does not act on the answer. Automation 
 ## Acceptance Contract
 
 1. **Roadmap milestone addressed: M14: Shippability Visibility — Vision Closure (VISION.md:50)** — M14 closes the VISION.md problem "nobody knows what is actually shippable" by composing 5 evidence dimensions into a single shippability assessment.
-2. **Unchecked roadmap items added: 6 items for M14** — module, CLI command, coordinator aggregation, report integration, tests, acceptance criterion.
-3. **Evidence source: VISION.md:50** — Line 50 of "Why This Must Exist" section: "nobody knows what is actually shippable."
+2. **Unchecked roadmap item completed (planning side): `ship-status.js` with `evaluateShipStatus()` composing 5 evidence dimensions** — scoped here with verified compose-target APIs; build is Dev's responsibility. Six M14 ROADMAP items (module, CLI command, coordinator aggregation, report integration, tests, acceptance) remain unchecked pending implementation/QA.
+3. **Evidence source: .planning/ROADMAP.md:160** (the unchecked M14 module item), which derives from VISION.md:50 "nobody knows what is actually shippable."

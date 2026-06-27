@@ -1,7 +1,8 @@
 # System Spec — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
-**Run:** `run_a20d13cf8703032f`
-**Baseline:** git:f03e734cb (HEAD of dogfood/2157-lights-out)
+**Run:** `run_322ba900566dddfe`
+**Turn:** `turn_39be10dd1c8fe039`
+**Baseline:** git:b09be1769 (HEAD of dogfood/2157-lights-out)
 
 ## Purpose
 
@@ -37,19 +38,19 @@ Composes 5 evidence dimensions into a single shippability assessment:
 ```
 
 **Dimension 1: Run Completion Status**
-- Source: `governed-state.js` run status and phase
+- Source: `governed-state.js` `readState(root)` for status + phase; `gate-evaluator.js` `evaluateRunCompletion({ state, config, acceptedTurn, root })` for completion semantics (NOTE: the completion evaluator lives in `gate-evaluator.js`, not `governed-state.js`)
 - Pass: run status is `completed`
 - Pending: run is `running` or `needs_human`
 - Fail: run is `failed` or `idle` without completion
 
 **Dimension 2: QA Ship Verdict**
-- Source: workflow-gate-semantics ship_verdict evaluation or ship-verdict.md presence
-- Pass: QA ship verdict exists and says YES
+- Source: `workflow-gate-semantics.js` — call the EXPORTED `evaluateWorkflowGateSemantics(root, SHIP_VERDICT_PATH)` (both `evaluateWorkflowGateSemantics` and `SHIP_VERDICT_PATH = '.planning/ship-verdict.md'` are exported). NOTE: `evaluateShipVerdict` itself is module-internal and NOT exported — do not import it directly.
+- Pass: QA ship verdict exists and says YES (`## Verdict: YES`)
 - Pending: QA phase not yet reached
 - Fail: QA ship verdict says NO or is missing after QA phase
 
 **Dimension 3: Gate Clearance**
-- Source: `gate-evaluator.js` evaluation of all phase gates
+- Source: `gate-evaluator.js` — `evaluatePhaseExit({ state, config, acceptedTurn, root })` per phase and `evaluateRunCompletion(...)` for the terminal gate
 - Pass: all defined gates are satisfied
 - Pending: current phase gate not yet evaluated
 - Fail: any gate failed
