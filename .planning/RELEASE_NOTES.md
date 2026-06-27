@@ -1,100 +1,109 @@
-# Release Notes — M15: Govern Without Micromanaging — Human Attention Surface (VISION.md:51)
+# Release Notes — M16: Role Charter Well-Formedness — Open-Ended Roles Validation (VISION.md:100–130)
 
-**Run:** run_2929265fcbabe440
-**Turn:** turn_92c39cb5177586c2 (QA ship verdict)
+**Run:** run_dc50efa0354c0768
+**Turn:** turn_58f0ffa97741e28b (QA ship verdict)
 **Date:** 2026-06-27
 
 ## Summary
 
-Formal closure of ROADMAP.md M15: "Govern Without Micromanaging — Human Attention Surface (VISION.md:51)" —
-the final unaddressed "Why This Must Exist" pain bullet, *"humans lose the ability to govern without
-micromanaging."* A new read-only composition layer, `human-attention.js`, aggregates the scattered
-human-decision triggers across runs into a single prioritized `HumanAttentionReport`, surfaced through the
-new `agentxchain attention` CLI command and embedded in the governance report. The defining property:
-when no human decision is pending the queue is **empty** (`overall: 'clear'`, exit 0, "Nothing needs your
-attention") — the operational proof that a human can step back and let governed autonomy run without
-micromanaging or blind trust (VISION.md:220).
+First milestone to open the **"Roles Are Open-Ended, Not Fixed"** vision pillar (VISION.md:100–130). The
+vision is emphatic that AgentXchain "must never assume that a software team consists only of `pm`, `dev`, and
+`qa`" and must support arbitrary roles and charters — and it fixes a precise, testable four-part invariant for
+*any* chartered role (VISION.md:123–128): every role has a mandate, has authority boundaries, produces governed
+artifacts, and participates in a structured workflow. Until now nothing enforced that invariant on a role
+definition — `normalized-config.js` only checks `mandate`/`title` are non-empty strings, and
+`admission-control.js` checks phase-level topology, not whether a given *role* is a well-formed chartered
+participant. M16 closes the gap with a read-only, compose-don't-reimplement validator that scores every role
+against the four invariants, surfaced through a new `agentxchain role validate` command and embedded in the
+governance report.
 
 ## What Changed (This Run)
 
-### New module — `cli/src/lib/human-attention.js`
+### New module — `cli/src/lib/role-charter.js`
 
-`evaluateHumanAttention(repoDir)` composes the cross-run human-decision queue across **6** govern-by-exception
-categories (exceeding the ≥5 floor), reaching each through its existing public surface — reimplementing none:
+`evaluateRoleCharter(config, rawConfig, roleId)` scores a role against the four VISION:123–128 invariants and
+returns a `RoleCharterReport` — `{ role_id, overall: 'well_formed' | 'incomplete', invariants[], missing[],
+evidence_summary }`. Each invariant is `{ id, name, satisfied, detail, fix_hint }` (`fix_hint` null when
+satisfied). `overall === 'well_formed'` **iff** all four are satisfied; every invariant is evaluated
+independently (no short-circuit), so `missing[]` enumerates *all* unsatisfied ids.
 
-| Category | Source (composed, not reimplemented) | Blocking |
-|----------|--------------------------------------|----------|
-| `credentialed_gate` | `state.blocked_on` `human_approval:<gate>` + `isCredentialedExitGate` (approval-policy.js) | yes |
-| `escalation` | `readHumanEscalations` (human-escalations.js), open records | yes |
-| `approval` | `state.blocked_on` `human_approval:<gate>` (non-credentialed) / pending transition/completion | yes |
-| `manual_action` | `state.blocked_on` `gate_action:<gate>` / `human:<detail>` | yes |
-| `budget_policy` | `state.blocked_on` `budget:exhausted` / `policy:<id>` | yes |
-| `pending_intent` | `findPendingApprovedIntents` (intake.js) | no (informational) |
+| Invariant | Source (composed, not reimplemented) |
+|-----------|--------------------------------------|
+| `mandate` (VISION.md:124) | `role.mandate` is a non-empty trimmed string |
+| `authority_boundary` (VISION.md:125) | `write_authority` valid AND `getRoleRuntimeCapabilityContract(...).effective_write_path` is coherent (not in `{none, unknown, invalid_review_only_binding, invalid_authoritative_binding}`) — runtime-capabilities.js |
+| `produces_artifacts` (VISION.md:126) | reaches required-file production in ≥1 routed phase (`canRoleParticipateInRequiredFileProduction` + `getEffectiveGateArtifacts`) OR owns ≥1 satisfiable workflow-kit artifact (`canRoleSatisfyWorkflowArtifactOwnership`) — manual-runtime carve-out inherited |
+| `workflow_participation` (VISION.md:127) | role id is `entry_role` or in `allowed_next_roles` of ≥1 phase in `config.routing` |
 
-Output is a `HumanAttentionReport` — `{ overall: 'clear' | 'attention', items[], items_count, blocking_count,
-categories[], evidence_summary }` — with `items` deterministically ordered blocking-first, then by ascending
-priority (credentialed-gate & escalation outrank plain approval outranks budget/policy; pending-intent last),
-ties broken by `run_id` then `summary`. Each item carries a concrete `action_hint`. The module is strictly
-read-only (reads state without writeback) and isolates every category so a failure in one never blanks the queue.
+`evaluateAllRoleCharters(config, rawConfig)` aggregates `{ total, well_formed, incomplete,
+incomplete_role_ids[], roles[] }` with roles sorted by id for deterministic output. `buildRoleCharterSummary(artifact)`
+derives the compact report summary; `null` for a missing artifact. The module is strictly read-only and
+tolerates both normalized (`runtime_id`) and raw (`runtime`) config shapes so the same code serves the CLI and
+the governance report.
 
-### New CLI command — `agentxchain attention [--json] [--all]`
+### New CLI command — `agentxchain role validate [role_id] [--json]`
 
-The single govern-by-exception operator command answering "what needs MY attention right now, and nothing
-else?" Default output lists only the blocking items, highest-priority first, each with its action hint;
-informational pending-intents are summarized as a count unless `--all` is passed. `--json` emits the full
-`HumanAttentionReport`. It is a **status surface, not a gate** — it exits 0 in both the clear and attention
-states. When the queue is empty it prints `Nothing needs your attention.`
+Validates one role, or all defined roles when `role_id` is omitted. **Exit-code contract (a real CI gate):**
+exit `0` when every evaluated role is `well_formed`, exit `1` when any is `incomplete` — listing each
+unsatisfied invariant with a concrete fix hint. `--json` always emits the schema-valid report. An unknown
+explicit `role_id` exits `1` with "Unknown role". Presentation only — all logic delegates to the module.
 
 ### Governance report integration — `cli/src/lib/report.js`
 
-`buildGovernanceReport()` now embeds a `human_attention` summary (`overall`, `items_count`, `blocking_count`,
-`categories[]`) in `subject.run`, beside the existing `ship_status` summary. (The report summary, operating on
-a static export artifact, evaluates the 3 state/config-derivable categories; the live `agentxchain attention`
-command surfaces the full 6-category queue — see ship-verdict.md OBJ-001.)
+`buildGovernanceReport()` now embeds a `role_charters` summary (`total`, `well_formed`, `incomplete`,
+`incomplete_role_ids[]`) in `subject.run`, beside the existing `ship_status` (M14) and `human_attention` (M15)
+summaries (report.js:1085).
 
 ### Tests + contracts
 
-- New `cli/test/human-attention.test.js` — **18 tests** (AT-HA-001..013 + 3 report-integration cases): clear
-  queue, pending approval, open escalation, pending intent, credentialed gate, budget/policy, mixed-category
-  ordering, `--json`/`--all` CLI, and the read-only invariant.
-- Updated two contracts the new command + test file legitimately shifted: `vitest-contract.test.js`
-  (test-file count 689→690) and `docs-cli-command-map-content.test.js` + `website-v2/docs/cli.mdx`
-  (`attention` added to the governed-command map).
+- New `cli/test/role-charter.test.js` — **18 tests** (AT-RC-001…013 + report-integration + unknown-role):
+  reference roles well-formed; enterprise `security_reviewer` (review_only on manual, routed + owns artifact)
+  well-formed; empty mandate; review_only-on-local_cli incoherence; not-routed/owns-nothing; absent-from-routing;
+  three-failing-invariants-no-short-circuit; `well_formed iff 4/4`; mixed aggregate sort/counts; CLI exit 0/1;
+  `--json` schema (all + single); read-only (byte-identical config).
+- Updated `cli/test/vitest-contract.test.js` (test-file count 690 → 691) — the coverage-count contract gates
+  adding a test file.
 
-### ROADMAP.md M15 closed
+### ROADMAP.md M16 closed
 
-Build items (lines 171-175) checked off by the dev with delivery+verification provenance; acceptance item
-(line 176) checked off by this QA ship verdict.
+Build items (lines 188–193) checked off by the dev with delivery+verification provenance; the acceptance item
+(line 194) checked off by this QA ship verdict.
 
 ## User Impact
 
-- **Vision closure:** VISION.md:51 "humans lose the ability to govern without micromanaging" is now addressed.
-  Instead of polling `status`, the dashboard, escalations, intents, and budget/policy state separately
-  (micromanaging) or trusting blindly (forbidden by VISION.md:220), an operator runs one command:
-  `agentxchain attention`.
-- **Govern by exception:** the command shows ONLY what needs a human, highest-priority first, each with a
-  concrete next action (`agentxchain approve-transition`, the escalation's own `agentxchain unblock <id>`,
-  `agentxchain start`, …). When nothing is pending it says so and exits 0 — the empty queue is the proof you
-  can step back.
-- **Report visibility:** governance reports now carry a `human_attention` summary, so the attention state is
-  visible in the standard report surface (state/config-derivable categories).
-- **No breaking changes:** one new module, one new read-only command, one additive report field, 18 new tests,
-  and two legitimate contract updates. The composition is read-only and reuses existing escalation/approval/
-  intake evaluators.
+- **Vision closure begins:** VISION.md:100–130 "Roles Are Open-Ended, Not Fixed" is now directly addressed. A
+  user who adds a custom role (e.g. `security-reviewer`) gets a single answer to "is this role's charter
+  complete, or is it mandate-only text with no authority boundary, no owned artifact, and no phase that routes
+  to it?"
+- **A real config-validation gate:** `agentxchain role validate` exits non-zero when any role is incomplete,
+  making it usable in CI / `doctor` flows — each failure names the missing invariant(s) and a concrete fix.
+- **Report visibility:** governance reports now carry a `role_charters` summary, so role well-formedness is
+  visible in the standard report surface alongside ship-status and human-attention.
+- **No breaking changes:** one new module, one new read-only subcommand, one additive report field, 18 new
+  tests, and one legitimate contract count bump. The composition is read-only and reuses existing
+  capability/routing/artifact evaluators.
+
+## Known Limitations (non-blocking, see ship-verdict.md)
+
+- **OBJ-001:** when a config is *both* schema-invalid *and* charter-incomplete, the live `role validate` is
+  short-circuited by `loadProjectContext` with a misleading "No agentxchain.json found" before the charter
+  validator runs. The module itself scores those cases correctly (unit-tested), and the realistic schema-valid
+  malformed role IS reported live with fix hints. Recommended future fix: surface validation errors explicitly.
 
 ## Verification Summary
 
-QA independently ran (turn_92c39cb5177586c2):
-- `npx vitest run test/human-attention.test.js` → **18/18 pass, exit 0**
-- `npx vitest run test/human-attention.test.js test/vitest-contract.test.js test/docs-cli-command-map-content.test.js` → **37/37 pass, exit 0**
-- `npx vitest run test/governance-report-content.test.js test/report-cli.test.js test/workflow-kit-report.test.js` → **46/46 pass, exit 0**
-- `node cli/bin/agentxchain.js attention` → `Nothing needs your attention.`, **exit 0**
-- `node cli/bin/agentxchain.js attention --json` → schema-valid `HumanAttentionReport` (clear), **exit 0**
-- `agentxchain export | agentxchain report --format json` → `subject.run.human_attention` present (clear), **exit 0**
+QA independently ran (turn_58f0ffa97741e28b):
+- `npx vitest run test/role-charter.test.js` → **18/18 pass, exit 0**
+- 12-suite blast-radius batch (report-cli, governance-report-content, workflow-kit-report, role-command,
+  gate-evaluator, gate-evaluator-helpers, admission-control, vitest-contract, docs-cli-command-map-content,
+  docs-cli-governance-content, run-completion, role-charter) → **267/267 pass, exit 0**
+- `node cli/bin/agentxchain.js role validate` → "all well-formed (4/4 invariants each)", **exit 0**
+- `role validate dev` → "✓ dev well-formed", **exit 0**; `role validate doesnotexist` → "Unknown role", **exit 1**
+- QA-built config-valid charter-incomplete repo → "✗ ghost incomplete — missing: produces_artifacts,
+  workflow_participation" + fix hints, **exit 1**
+- `agentxchain export > exp.json && report --input exp.json --format json` → `subject.run.role_charters =
+  {total:4, well_formed:4, incomplete:0}` present alongside `ship_status` + `human_attention`, **overall: pass**
 
-Result: **6/6 acceptance criteria pass, 5/5 architecture invariants confirmed, 5/5 dev decisions verified,
-0 blocking issues.** Limitation declared: the full ~7700-test suite was initiated but did not complete within
-the turn budget (QA terminated after 612 passing tests, 0 `FAIL` markers); verification scoped to the M15
-blast radius (8 changed files) + report-integration touchpoints, per the accepted M14 precedent. The one
-known full-suite failure (`bug-54-real-claude-reliability` Scenario B, a real-binary timing test) is outside
-M15's blast radius and was not run. **Ship verdict: YES.**
+Result: **8/8 acceptance criteria pass, 5/5 architecture invariants confirmed, 3/3 dev decisions verified,
+0 blocking issues.** Limitation declared: the full ~691-file suite was not run to completion (over the
+single-shot budget); verification scoped to the M16 blast radius + CLI/docs/coverage contracts, per the
+accepted M14/M15 precedent. **Ship verdict: YES.**
