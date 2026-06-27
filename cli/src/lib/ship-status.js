@@ -41,6 +41,9 @@ const DEFAULT_STATE_PATH = '.agentxchain/state.json';
 const HISTORY_PATH = '.agentxchain/history.jsonl';
 
 const PASSING_VERIFICATION = new Set(['pass', 'attested_pass']);
+// Explicitly skipped verification (planning/review turns that run no test gate) is NEUTRAL:
+// it provides no test evidence but must not pin the shippability signal to "pending" forever.
+const NEUTRAL_VERIFICATION = new Set(['skipped']);
 const PASSING_RUN_STATUSES = new Set(['completed']);
 const FAILING_RUN_STATUSES = new Set(['failed', 'blocked', 'idle']);
 
@@ -263,7 +266,22 @@ export function evaluateTestVerificationDimension(history) {
     );
   }
 
-  const nonPass = history.filter((h) => !PASSING_VERIFICATION.has(normalizeVerificationStatus(h)));
+  // Turns that explicitly SKIPPED verification (e.g. planning/review turns with no test gate)
+  // are neutral — they neither contribute nor withhold test evidence. Excluding them prevents a
+  // shippable run from being pinned to "pending" forever just because one planning turn skipped.
+  const evidenceBearing = history.filter(
+    (h) => !NEUTRAL_VERIFICATION.has(normalizeVerificationStatus(h)),
+  );
+  if (evidenceBearing.length === 0) {
+    return dimension(
+      'test_verification',
+      'pending',
+      `No accepted turns with passing verification evidence yet (all ${history.length} skipped).`,
+      'No accepted turns have produced passing verification evidence yet.',
+    );
+  }
+
+  const nonPass = evidenceBearing.filter((h) => !PASSING_VERIFICATION.has(normalizeVerificationStatus(h)));
   if (nonPass.length > 0) {
     return dimension(
       'test_verification',
@@ -273,7 +291,12 @@ export function evaluateTestVerificationDimension(history) {
     );
   }
 
-  return dimension('test_verification', 'pass', `All ${history.length} accepted turns passed verification.`, null);
+  return dimension(
+    'test_verification',
+    'pass',
+    `All ${evidenceBearing.length} verification-bearing accepted turns passed.`,
+    null,
+  );
 }
 
 function normalizeVerificationStatus(entry) {

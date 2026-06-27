@@ -157,12 +157,12 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:34 "nobody owns the decision trail" — 196 tests, 0 failures <!-- dev verified run_4793c2273d675dd9; QA ship verdict YES (turn_bab59d2ad8d0e45e) -->
 
 ### M14: Shippability Visibility — Vision Closure (VISION.md:50)
-- [ ] New module `ship-status.js` with `evaluateShipStatus()` composing 5 evidence dimensions: (1) run completion/phase status, (2) QA ship verdict presence, (3) gate clearance across all phases, (4) release alignment validation, (5) test verification evidence — into a structured `ShipStatusReport` with per-dimension pass/fail/pending and blocking-reason surfacing
-- [ ] `agentxchain ship-status` CLI command with `--json` and `--verbose` flags — single operator command answering "is this ready to ship?"
-- [ ] Coordinator-level aggregation via `evaluateCoordinatorShipStatus()` — multi-repo coordinator runs expose per-repo shippability with overall aggregate status
-- [ ] Governance report integration — `buildGovernanceReport()` includes ship-status summary section in report output
-- [ ] Regression tests for ship-status module (all-clear, gate-blocked, qa-pending, release-misaligned, coordinator mixed-state scenarios)
-- [ ] Acceptance: `agentxchain ship-status` returns structured shippability assessment composing 5 evidence dimensions; coordinator runs show per-repo ship readiness; blocking reasons surfaced when not shippable
+- [x] New module `ship-status.js` with `evaluateShipStatus()` composing 5 evidence dimensions: (1) run completion/phase status, (2) QA ship verdict presence, (3) gate clearance across all phases, (4) release alignment validation, (5) test verification evidence — into a structured `ShipStatusReport` with per-dimension pass/fail/pending and blocking-reason surfacing <!-- delivered run_322ba900566dddfe (HEAD 9fdbc1c51); dev verified + hardened run_74d17633499b410b/turn_a3d8f92370aff14e (skipped-verification neutrality fix); 23 ship-status tests pass -->
+- [x] `agentxchain ship-status` CLI command with `--json` and `--verbose` flags — single operator command answering "is this ready to ship?" <!-- registered cli/bin/agentxchain.js:425; dev verified run_74d17633499b410b live smoke (--json + --verbose compose all 5 dimensions, exit 0); AT-SS-011/012 pass -->
+- [x] Coordinator-level aggregation via `evaluateCoordinatorShipStatus()` — multi-repo coordinator runs expose per-repo shippability with overall aggregate status <!-- ship-status.js:352; dev verified run_74d17633499b410b; AT-SS-009/010 pass -->
+- [x] Governance report integration — `buildGovernanceReport()` includes ship-status summary section in report output <!-- report.js:1081 buildShipStatusSummary; dev verified run_74d17633499b410b; governance-report-content + workflow-kit-report tests pass -->
+- [x] Regression tests for ship-status module (all-clear, gate-blocked, qa-pending, release-misaligned, coordinator mixed-state scenarios) <!-- 23 tests cli/test/ship-status.test.js incl. AT-SS-013/014 skipped-verification neutrality; dev verified run_74d17633499b410b -->
+- [ ] Acceptance: `agentxchain ship-status` returns structured shippability assessment composing 5 evidence dimensions; coordinator runs show per-repo ship readiness; blocking reasons surfaced when not shippable <!-- dev verified composition run_74d17633499b410b/turn_a3d8f92370aff14e (5 deliverables above checked); QA ship verdict for this run still PENDING -->
 
 ## Phases
 

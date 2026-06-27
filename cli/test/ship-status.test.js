@@ -199,6 +199,30 @@ describe('ship-status — single repo', () => {
     expect(dim(report, 'test_verification').status).toBe('fail');
   });
 
+  it('AT-SS-013: skipped-verification turns are neutral — shippable run still passes test_verification', () => {
+    // A planning/review turn legitimately records verification.status "skipped". It must not pin
+    // the dimension to pending: a dev turn that passed alongside it is sufficient ship evidence.
+    const dir = writeGovernedRepo({
+      state: completedState(),
+      history: verifications('skipped', 'pass', 'skipped'),
+      verdict: '## Verdict: YES',
+    });
+    const report = evaluateShipStatus(dir, { releaseAlignmentEvaluator: PASS_RELEASE });
+    expect(dim(report, 'test_verification').status).toBe('pass');
+    expect(report.overall).toBe('pass');
+  });
+
+  it('AT-SS-014: all-skipped history → test_verification pending (no positive evidence yet)', () => {
+    const dir = writeGovernedRepo({
+      state: completedState(),
+      history: verifications('skipped', 'skipped'),
+      verdict: '## Verdict: YES',
+    });
+    const report = evaluateShipStatus(dir, { releaseAlignmentEvaluator: PASS_RELEASE });
+    expect(dim(report, 'test_verification').status).toBe('pending');
+    expect(report.overall).toBe('pending');
+  });
+
   it('release alignment defaults to pending pre-release (no injection, no package/changelog)', () => {
     const dir = writeGovernedRepo({
       state: completedState(),

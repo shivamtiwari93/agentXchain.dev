@@ -1,10 +1,43 @@
 # Implementation Notes — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
-**Run:** `run_322ba900566dddfe`
-**Turn:** `turn_9ce54587bc5981c1`
+**Run:** `run_74d17633499b410b` (continuation; original build in `run_322ba900566dddfe`)
+**Turn:** `turn_a3d8f92370aff14e`
 **Role:** dev
 **Runtime:** `local-opus-4.8-ultra`
 **Date:** 2026-06-27
+
+> M14's product code (`ship-status.js`, its command, and tests) was built and committed in the
+> prior run `run_322ba900566dddfe` (HEAD `9fdbc1c51`). The vision scanner re-seeded this run
+> against the still-unchecked M14 ROADMAP boxes. This turn is **verify-and-harden**: I
+> re-verified the implementation against spec, found and fixed one real correctness defect, added
+> regression coverage, and checked off the delivered ROADMAP items. The original build notes are
+> preserved below ("What Was Built" onward).
+
+## Changes (run_74d17633499b410b / turn_a3d8f92370aff14e)
+
+- **`cli/src/lib/ship-status.js`** — fixed a false-pending defect in `evaluateTestVerificationDimension`
+  (Dimension 5). `queryAcceptedTurnHistory()` returns **every** accepted turn regardless of
+  role/phase, and planning/review turns legitimately record `verification.status === "skipped"`.
+  The prior logic counted any non-`pass`/`attested_pass` status (including `skipped`) toward the
+  `nonPass` pending trigger, so a single skipped planning turn would pin `test_verification` to
+  `pending` **forever** — making a genuinely shippable run (run completed, QA verdict YES, gates
+  passed) report as not-yet-shippable on M14's central signal. Fix: introduced a
+  `NEUTRAL_VERIFICATION = {'skipped'}` set; skipped turns are now excluded from the evidence-bearing
+  population. A history with at least one passing evidence-bearing turn → `pass`; an all-skipped
+  history → `pending` (no positive evidence yet, preserved); any `fail` → `fail` (unchanged).
+- **`cli/test/ship-status.test.js`** — added `AT-SS-013` (skipped turns are neutral → shippable run
+  still passes `test_verification`) and `AT-SS-014` (all-skipped history → `test_verification`
+  pending). Suite now 23 tests.
+- **`.planning/ROADMAP.md`** — checked off the five delivered M14 build items (lines 160–164) with
+  per-item provenance (delivery run + this turn's dev verification); the acceptance line (165) is
+  left for the QA ship verdict.
+
+## Verification (run_74d17633499b410b / turn_a3d8f92370aff14e)
+
+- `npx vitest run cli/test/ship-status.test.js` → **23/23 pass**, exit 0 (was 21; +AT-SS-013/014).
+- `npx vitest run cli/test/ship-status.test.js cli/test/governance-report-content.test.js cli/test/report-cli.test.js cli/test/workflow-kit-report.test.js` → **69/69 pass**, exit 0 (confirms the Dimension-5 change does not regress the report integration that reuses `evaluateTestVerificationDimension` via `buildShipStatusSummary`).
+- Live CLI smoke `node cli/bin/agentxchain.js ship-status --json` and `--verbose` → both compose all 5 dimensions against real repo state, exit 0 (overall `pending`: run still `active`, `implementation_complete`/`qa_ship_verdict` gates not yet satisfied — expected mid-run).
+- The full monorepo suite (689 test files) exceeds the single-turn timeout and was **not** run to completion; verification was scoped to the M14 surface and its integration touchpoints. Declared honestly here rather than claimed.
 
 ## What Was Built
 
