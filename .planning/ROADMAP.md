@@ -146,20 +146,20 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:33 "quality drifts" — 247 tests (197 original + 50 new coverage), 0 failures <!-- run_08c9a1482479ae2e: QA turn_6445d6caf44ad1d8 verified 247/247, ship verdict YES -->
 
 ### M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
-- [ ] Decision Ledger with cross-run persistence (`repo-decisions.js`: 12 exports including `readRepoDecisions`, `getActiveRepoDecisions`, `appendRepoDecision`, `overrideRepoDecision`, `validateOverride`, `resolveDecisionAuthority`, `getDecisionAuthorityMetadata`, `renderRepoDecisionsMarkdown`, `summarizeRepoDecisions`, `buildRepoDecisionOperatorSummary`) — 48 tests pass <!-- delivered across M1 runs; PM verified run_5b6ee2a8de1bd612 -->
-- [ ] Decision History rendered in dispatch bundles (`dispatch-bundle.js:~1416` Decision History section, `dispatch-bundle.js:~775` repo decisions context) — 12 tests pass <!-- delivered across M3 runs; PM verified run_5b6ee2a8de1bd612 -->
-- [ ] Coordinator Decision Ledger writes at 5 coordination events (init, dispatch, phase-transition, completion, recovery) — 7 tests pass <!-- delivered across M1 runs; PM verified run_5b6ee2a8de1bd612 -->
-- [ ] Named Decisions visibility in reports and dashboards with per-repo decision breakdowns — 6 tests pass <!-- delivered across M1 runs; PM verified run_5b6ee2a8de1bd612 -->
-- [ ] Turn-result validator enforces decision schema (DEC-NNN IDs, category, statement, rationale) and challenge requirement (review-only roles must raise objections, line 976) — 100 tests pass <!-- delivered across MW runs; PM verified run_5b6ee2a8de1bd612 -->
-- [ ] Scope overlap guard prevents conflicting decision chains (`scope-overlap.js`, `intake.js:901`, `continuous-run.js:1329,1407,1493`) — 12 tests pass <!-- delivered M10; PM verified run_5b6ee2a8de1bd612 -->
-- [ ] No-edit review normalization (BUG-78 Rule 0a) preserves review decision audit trail integrity — 7 tests pass <!-- delivered MW; PM verified run_5b6ee2a8de1bd612 -->
-- [ ] Operator decision CLI (`agentxchain decisions` with `--all`, `--show`, `--json`) provides query access to full decision trail — 2 tests pass <!-- delivered M1; PM verified run_5b6ee2a8de1bd612 -->
-- [ ] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:34 "nobody owns the decision trail" — 194 tests, 0 failures <!-- pending: QA ship verdict -->
+- [x] Decision Ledger with cross-run persistence (`repo-decisions.js`: 12 exports including `readRepoDecisions`, `getActiveRepoDecisions`, `appendRepoDecision`, `overrideRepoDecision`, `validateOverride`, `resolveDecisionAuthority`, `getDecisionAuthorityMetadata`, `renderRepoDecisionsMarkdown`, `summarizeRepoDecisions`, `buildRepoDecisionOperatorSummary`) — 49 tests pass <!-- delivered across M1 runs; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 (49 tests including AT-DT-CLI-001) -->
+- [x] Decision History rendered in dispatch bundles (`dispatch-bundle.js:~1416` Decision History section, `dispatch-bundle.js:~775` repo decisions context) — 12 tests pass <!-- delivered across M3 runs; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 -->
+- [x] Coordinator Decision Ledger writes at 5 coordination events (init, dispatch, phase-transition, completion, recovery) — 7 tests pass <!-- delivered across M1 runs; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 -->
+- [x] Named Decisions visibility in reports and dashboards with per-repo decision breakdowns — 6 tests pass <!-- delivered across M1 runs; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 -->
+- [x] Turn-result validator enforces decision schema (DEC-NNN IDs, category, statement, rationale) and challenge requirement (review-only roles must raise objections, line 976) — 102 tests pass <!-- delivered across MW runs; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 -->
+- [x] Scope overlap guard prevents conflicting decision chains (`scope-overlap.js`, `intake.js:901`, `continuous-run.js:1329,1407,1493`) — 12 tests pass <!-- delivered M10; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 -->
+- [x] No-edit review normalization (BUG-78 Rule 0a) preserves review decision audit trail integrity — 8 tests pass <!-- delivered MW; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 -->
+- [x] Operator decision CLI (`agentxchain decisions` with `--all`, `--show`, `--json`) provides query access to full decision trail — 8 tests pass <!-- delivered M1; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 (8 tests in CLI describe block including AT-DT-CLI-001) -->
+- [x] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:34 "nobody owns the decision trail" — 196 tests, 0 failures <!-- dev verified run_4793c2273d675dd9; pending: QA ship verdict -->
 
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
 | Planning | Scope M13 decision trail ownership verification, rewrite planning artifacts for run_4793c2273d675dd9 | Complete (turn_15d39107f73fd70f) |
-| Implementation | Run 8 decision trail test suites (~194 tests), check off ROADMAP.md:149-157 | Pending |
+| Implementation | Run 8 decision trail test suites (196 tests), check off ROADMAP.md:149-157, add AT-DT-CLI-001 | Complete (turn_8538a86c7a0d5afd) |
 | QA | Verify 194 tests pass, confirm 8 mechanisms compose to address VISION.md:34, ship verdict | Pending |

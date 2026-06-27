@@ -668,6 +668,39 @@ describe('decisions CLI command', () => {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
+
+  it('exits with error when --show references a nonexistent decision (AT-DT-CLI-001)', async () => {
+    const { execSync } = await import('node:child_process');
+    const cliPath = CLI_PATH;
+
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'axc-dec-cli8-'));
+    mkdirSync(join(tmpRoot, '.agentxchain'), { recursive: true });
+    writeFileSync(join(tmpRoot, 'agentxchain.json'), JSON.stringify({
+      project: { name: 'test-cli8', id: 'proj_cli8' },
+      roles: { dev: { model: 'test' } },
+      phases: ['dev'],
+    }));
+
+    // Write one decision but query a different ID
+    appendRepoDecision(tmpRoot, { id: 'DEC-001', status: 'active', category: 'arch', statement: 'Use PG' });
+
+    try {
+      let threw = false;
+      try {
+        execSync(`node "${cliPath}" decisions --show DEC-999 --dir ${tmpRoot}`, {
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+      } catch (err) {
+        threw = true;
+        assert.ok(err.status !== 0, 'should exit with non-zero code');
+        assert.match(err.stderr, /DEC-999 not found/);
+      }
+      assert.ok(threw, 'command should have thrown on nonexistent decision');
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('decision authority acceptance path', () => {
