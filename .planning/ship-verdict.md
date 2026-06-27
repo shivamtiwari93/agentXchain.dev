@@ -1,60 +1,75 @@
-# Ship Verdict — BUG-FIX: Step Auto-Checkpoint Acceptance Closure
+# Ship Verdict — M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
 
-**Run:** run_71c0a7eaf361090b
-**Turn:** turn_31528db7b18ee395 (QA)
+**Run:** run_4793c2273d675dd9
+**Turn:** turn_bab59d2ad8d0e45e (QA)
 **Date:** 2026-06-26
 
 ## Verdict: YES
 
 ## Rationale
 
-All 4 SYSTEM_SPEC acceptance criteria independently verified and passing. 180 tests across 5 regression suites with 0 failures. AT-STEP-CKPT-001 directly demonstrates the acceptance criterion: PM→Dev handoff via consecutive `step` calls succeeds without manual git commit. ROADMAP.md:70 checked off. No blocking issues.
+All 5 SYSTEM_SPEC acceptance criteria independently verified and passing. 196 tests across 7 regression suites with 0 failures. 8 mechanisms compose to fully address VISION.md:49 "nobody owns the decision trail" across 5 ownership dimensions: persistence, visibility, enforcement, integrity, and access. ROADMAP.md:149-157 fully checked off. No blocking issues.
 
 ## Acceptance Test Results
 
-- **4/4 PASS** (AC-1 through AC-4)
-- AC-1: 4/4 step-auto-checkpoint tests pass (exceeds 3-test SYSTEM_SPEC baseline by 1)
-- AC-2: AT-STEP-CKPT-001 flow verified — PM turn → acceptance → auto-checkpoint → dev assignment → no dirty-workspace error
-- AC-3: ROADMAP.md:70 confirmed checked off with run reference
-- AC-4: Acceptance contract satisfied — AT-STEP-CKPT-001 IS the proof
+- **5/5 PASS** (AC-1 through AC-5)
+- AC-1: 196/196 tests pass across 7 test files (exceeds SYSTEM_SPEC ~194 baseline)
+- AC-2: 8 mechanisms map to distinct ownership dimensions — composition verified
+- AC-3: ROADMAP.md:149-156 (8 mechanism items) all checked off
+- AC-4: ROADMAP.md:157 (acceptance item) checked off with 196 test count
+- AC-5: VISION.md:49 "nobody owns the decision trail" addressed by 8-mechanism composition
 
 ## Regression Results
 
 | Suite | Count | Result |
 |-------|-------|--------|
-| step-auto-checkpoint.test.js | 4 | PASS |
-| checkpoint-turn.test.js | 12 | PASS |
+| repo-decisions.test.js | 49 | PASS |
 | turn-result-validator.test.js | 102 | PASS |
-| gate-evaluator.test.js | 52 | PASS |
-| implementation-gate.test.js | 10 | PASS |
-| **Total** | **180** | **0 failures** |
+| dispatch-bundle-decision-history.test.js | 12 | PASS |
+| scope-overlap.test.js | 12 | PASS |
+| bug-78-no-edit-review.test.js | 8 | PASS |
+| coordinator-decision-ledger.test.js | 7 | PASS |
+| named-decisions-visibility.test.js | 6 | PASS |
+| **Total** | **196** | **0 failures** |
 
 ## Dev Decision Verification
 
 | Decision | Status |
 |----------|--------|
-| DEC-001: AT-STEP-CKPT-004 closes last untested branch in step.js auto-checkpoint (checkpoint.skipped at line 1017) | VERIFIED — code path confirmed, test exercises correct flow |
-| DEC-002: IMPLEMENTATION_NOTES.md rewritten for current run | VERIFIED — references run_71c0a7eaf361090b, describes AT-STEP-CKPT-004 accurately |
+| DEC-001: AT-DT-CLI-001 closes untested --show not-found error path in decisions.js:32-36 | VERIFIED — code path confirmed, test exercises correct flow, proper cleanup pattern |
+| DEC-002: PM test count claims corrected — 196 total, not ~194 | VERIFIED — total correct, per-mechanism notation misleading (double-counts subset) |
+| DEC-003: Composition verified — 8 mechanisms address VISION.md:49 | VERIFIED — all 8 mechanisms independently confirmed across 5 ownership dimensions |
+
+## Composition Summary
+
+| Ownership Dimension | Mechanisms | Verified |
+|---------------------|-----------|----------|
+| Persistence | #1 Decision Ledger (cross-run JSONL storage) | YES |
+| Visibility | #2 Dispatch Bundles (agent), #4 Reports (human) | YES |
+| Enforcement | #5 Turn-Result Validator (schema + challenge) | YES |
+| Integrity | #6 Scope Overlap Guard, #7 Review Normalization | YES |
+| Access | #8 Operator Decision CLI (query with flags) | YES |
+| Automatic Capture | #3 Coordinator Writes (5 lifecycle events) | YES |
 
 ## Architecture Invariants
 
 | Invariant | Status |
 |-----------|--------|
-| Auto-checkpoint runs after acceptance, never before | CONFIRMED |
-| Checkpoint stages only declared files_changed | CONFIRMED |
-| --no-checkpoint is opt-out, not opt-in | CONFIRMED |
-| Checkpoint failure produces retry command | CONFIRMED |
-| No source module changes (test-only) | CONFIRMED |
+| No source module changes (test-only + planning) | CONFIRMED |
+| Decision ledger append-only with override chains | CONFIRMED |
+| Turn-result validator enforces on every turn | CONFIRMED |
+| Scope overlap guard at intake (before approval) | CONFIRMED |
+| Dispatch bundles always include full decision history | CONFIRMED |
 
 ## Blocking Issues: 0
 
 ## Non-Blocking Findings
 
-1. **Stale QA artifacts (fixed)**: Seventh consecutive run with artifacts from prior run. Rewritten from scratch.
-2. **SYSTEM_SPEC pseudo-code divergence**: PM spec shows async call with different parameters. Actual code is synchronous with correct behavior. Documentation-only issue.
-3. **PM verification-only charter deviation**: Sixth recurrence. Dev adds genuine test coverage to satisfy implementation-phase guard.
-4. **Test count exceeds SYSTEM_SPEC baseline**: 4 vs 3 expected. Improvement.
+1. **Stale QA artifacts (fixed)**: Eighth consecutive run with artifacts from prior run. Rewritten from scratch.
+2. **Dev test count notation**: "49/12/7/6/102/12/8/8 = 196" sums to 204 — mechanism #8 (8 tests) is a subset of mechanism #1 file (49). Total 196 is correct.
+3. **SYSTEM_SPEC mechanism #8 undercount**: PM claimed 2 CLI tests; actual is 8. Non-blocking.
+4. **ROADMAP Phases table**: QA row updated from "194 tests, Pending" to "196 tests, Complete."
 
 ## Ship Decision
 
-4/4 acceptance criteria pass. 180 tests, 0 failures. 5/5 invariants maintained. 2/2 dev decisions verified. ROADMAP.md:70 acceptance item closed. **SHIP.**
+5/5 acceptance criteria pass. 196 tests, 0 failures. 5/5 invariants maintained. 3/3 dev decisions verified. 8/8 mechanisms compose to address VISION.md:49. ROADMAP.md M13 fully closed. **SHIP.**

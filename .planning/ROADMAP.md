@@ -154,7 +154,7 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Scope overlap guard prevents conflicting decision chains (`scope-overlap.js`, `intake.js:901`, `continuous-run.js:1329,1407,1493`) — 12 tests pass <!-- delivered M10; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 -->
 - [x] No-edit review normalization (BUG-78 Rule 0a) preserves review decision audit trail integrity — 8 tests pass <!-- delivered MW; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 -->
 - [x] Operator decision CLI (`agentxchain decisions` with `--all`, `--show`, `--json`) provides query access to full decision trail — 8 tests pass <!-- delivered M1; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 (8 tests in CLI describe block including AT-DT-CLI-001) -->
-- [x] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:34 "nobody owns the decision trail" — 196 tests, 0 failures <!-- dev verified run_4793c2273d675dd9; pending: QA ship verdict -->
+- [x] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:34 "nobody owns the decision trail" — 196 tests, 0 failures <!-- dev verified run_4793c2273d675dd9; QA ship verdict YES (turn_bab59d2ad8d0e45e) -->
 
 ## Phases
 
@@ -162,4 +162,4 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 |-------|------|--------|
 | Planning | Scope M13 decision trail ownership verification, rewrite planning artifacts for run_4793c2273d675dd9 | Complete (turn_15d39107f73fd70f) |
 | Implementation | Run 8 decision trail test suites (196 tests), check off ROADMAP.md:149-157, add AT-DT-CLI-001 | Complete (turn_8538a86c7a0d5afd) |
-| QA | Verify 194 tests pass, confirm 8 mechanisms compose to address VISION.md:34, ship verdict | Pending |
+| QA | Verify 196 tests pass, confirm 8 mechanisms compose to address VISION.md:34, ship verdict | Complete (turn_bab59d2ad8d0e45e) |

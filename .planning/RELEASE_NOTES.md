@@ -1,48 +1,53 @@
-# Release Notes — BUG-FIX: Step Auto-Checkpoint Acceptance Closure
+# Release Notes — M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
 
-**Run:** run_71c0a7eaf361090b
-**Turn:** turn_31528db7b18ee395 (QA)
+**Run:** run_4793c2273d675dd9
+**Turn:** turn_bab59d2ad8d0e45e (QA)
 **Date:** 2026-06-26
 
 ## Summary
 
-Formal closure of ROADMAP.md:70: "PM→Dev handoff via consecutive `step` calls succeeds without manual git commit." The underlying bug-fix was delivered in run_8aceec319cd6aaed — this run verified the fix and closed the acceptance criterion. One new test (AT-STEP-CKPT-004) was added to cover the previously-untested `checkpoint.skipped` path.
+Formal closure of ROADMAP.md M13: "Decision Trail Ownership — Vision Closure (VISION.md:34)." Eight mechanisms delivered across prior milestones (M1, M3, MW, M10) compose to fully address the VISION.md:49 coordination failure: "nobody owns the decision trail." This run verified the composition (196 tests, 0 failures) and added one test (AT-DT-CLI-001) covering a previously-untested CLI error path.
 
 ## What Changed (This Run)
 
-### New Test: AT-STEP-CKPT-004 in `cli/test/step-auto-checkpoint.test.js`
+### New Test: AT-DT-CLI-001 in `cli/test/repo-decisions.test.js`
 
-Tests the `checkpoint.skipped` branch at `step.js:1017` — when a review-only turn is accepted with `artifact.type: 'review'` and `files_changed: []`, `checkpointAcceptedTurn()` returns `{ ok: true, skipped: true }` and step.js continues silently without printing a checkpoint SHA or exiting with error.
+Tests the `--show` not-found error path at `decisions.js:32-36` — when `getRepoDecisionById()` returns null for a nonexistent decision ID, the command exits with non-zero code and prints a clear error message.
 
 Assertions:
-- Turn accepted and present in history
-- No `checkpoint_sha` in history entry (skipped, not failed)
-- No checkpoint commit in git log
-- `state.last_completed_turn_id` matches accepted turn (step completed without error)
+- Command throws (non-zero exit code)
+- stderr matches `/DEC-999 not found/`
 
-### ROADMAP.md:70 Checked Off
+### ROADMAP.md M13 Fully Closed
 
-Acceptance criterion "PM→Dev handoff via consecutive `step` calls succeeds without manual git commit" marked complete with run reference.
+All 9 items (lines 149-157) checked off:
+- 8 mechanism sub-items with verified test counts
+- 1 acceptance item updated to 196 tests, 0 failures
 
-## Complete Test Coverage (Verified)
+## 8 Mechanisms Composing Decision Trail Ownership
 
-| Test ID | Name | What It Proves |
-|---------|------|----------------|
-| AT-STEP-CKPT-001 | PM accepted → auto-checkpoint → dev assigns cleanly | The acceptance criterion itself |
-| AT-STEP-CKPT-002 | `--no-checkpoint` skips auto-checkpoint | Opt-out flag works |
-| AT-STEP-CKPT-003 | Checkpoint failure exits non-zero with retry command | Fail-safe behavior |
-| AT-STEP-CKPT-004 | Checkpoint skips silently for review-only turns | Skipped-path branch coverage |
+| # | Mechanism | What It Provides |
+|---|-----------|-----------------|
+| 1 | Decision Ledger | Cross-run persistent storage with 12 CRUD+query exports |
+| 2 | Dispatch Bundle History | Every dispatched turn sees full decision history in context |
+| 3 | Coordinator Writes | 5 lifecycle events (init, dispatch, phase-transition, completion, recovery) auto-produce entries |
+| 4 | Reports/Dashboards | Named decisions rendered in governance reports with per-repo breakdowns |
+| 5 | Turn-Result Validator | DEC-NNN schema enforcement + challenge requirement on every turn |
+| 6 | Scope Overlap Guard | Intake-level guard defers conflicting work; `--force-scope` override |
+| 7 | No-Edit Review Normalization | BUG-78 Rule 0a preserves audit trail for review-only turns |
+| 8 | Operator Decision CLI | `agentxchain decisions` with `--all`, `--show`, `--json` for operator query access |
 
 ## User Impact
 
-- **Acceptance criterion closed**: Operators using `agentxchain step` for turn-by-turn execution no longer need to manually `git add && git commit` between PM and dev turns. The auto-checkpoint handles workspace cleanup automatically.
-- **Improved branch coverage**: AT-STEP-CKPT-004 covers the `checkpoint.skipped` path, completing branch coverage of the step.js auto-checkpoint integration block (lines 1007-1020).
+- **Vision closure**: VISION.md:49 "nobody owns the decision trail" is now fully addressed. Operators and agents have persistent, enforced, queryable decision trails across runs, phases, and roles.
+- **Improved CLI coverage**: AT-DT-CLI-001 covers the `--show` not-found error path, completing operator-facing error handling coverage for the decisions command.
 - **No breaking changes**: One test file modified, no source module changes.
 
 ## Verification Summary
 
-QA independently ran 5 regression suites:
-- **180 tests, 0 failures** (exit code 0)
-- All 5 architecture invariants confirmed
-- All 4 SYSTEM_SPEC acceptance criteria pass
-- ROADMAP.md:70 acceptance item verified as closed
+QA independently ran all 8 decision trail test suites:
+- **196 tests, 0 failures** (exit code 0, 8.32s)
+- 5/5 acceptance criteria pass
+- 5/5 architecture invariants confirmed
+- 8/8 mechanisms verified as addressing distinct ownership dimensions
+- ROADMAP.md M13 (lines 149-157) fully closed
