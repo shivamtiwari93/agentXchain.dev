@@ -60,8 +60,8 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Audit all recovery paths: ghost recovery, budget exhaustion, credential failure, process crash <!-- run_24a851cc6e95d841: SYSTEM_SPEC.md documents 17 gaps across 4 domains (ghost, budget, credential, crash) -->
 - [x] Add structured recovery classification to governance reports <!-- run_5276bd12be02449a: recovery-classification module, emit-time payload enrichment, and report rendering across text/markdown/html -->
 - [x] Improve checkpoint-restore: verify a killed mid-turn process can cleanly resume <!-- run_da40a332eed44f56: step --resume PID liveness guard + stale dispatch-progress cleanup + step-crash-resume regression coverage -->
-- [ ] Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events)
-- [ ] Acceptance: simulated crash during dev turn recovers cleanly via `step --resume`
+- [x] Add turn-level cost tracking for local_cli runtimes (parse stream-json cost events) <!-- delivered in v2.157.0: stream-json-cost-parser.js + local-cli-adapter wiring; 25 tests -->
+- [x] Acceptance: simulated crash during dev turn recovers cleanly via `step --resume` <!-- delivered in v2.157.0: step-crash-resume-acceptance.test.js (5 scenarios) -->
 
 ### BUG-FIX: Step Command Missing Auto-Checkpoint After Acceptance
 - [x] Wire `checkpointAcceptedTurn()` into `step.js` after successful acceptance (matches `run.js` afterAccept behavior) <!-- run_8aceec319cd6aaed: step.js:80 import + step.js:1007-1020 auto-checkpoint block -->
@@ -95,13 +95,13 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Implement hosted runner that executes protocol against cloud agent APIs <!-- run_0937d8f23ff72791: hosted-runner.js (16 routes, node:http), execution-worker.js, job-queue.js, serve.js command, 11 tests; QA ship verdict YES, 323 regression tests clean -->
 - [x] Organization dashboard with multi-project visibility <!-- run_76ce2c791a84e1cb: project-registry.js, org-state-aggregator.js, org-overview.js, org-runs.js, 6 org routes on hosted-runner.js, static file serving, --projects CLI option, 8 integration tests (org-dashboard.test.js), 136 tests across 6 files; QA ship verdict YES -->
 - [x] Persistent run history and governance audit trail <!-- run_b2a4084d6b3fe3b3: getRunHistory + getAuditTrail (2 aggregator methods), 2 hosted runner routes (/v1/org/history, /v1/org/audit-trail), 2 dashboard components (org-history.js, org-audit-trail.js), 8 integration tests; QA ship verdict YES (turn_2f903c5a3d12867f), 132 tests across 6 files, 0 failures -->
-- [ ] Acceptance: a governed run completes via the hosted runner with dashboard visibility
+- [x] Acceptance: a governed run completes via the hosted runner with dashboard visibility <!-- delivered in v2.157.0: hosted-runner-e2e.test.js (5 scenarios) -->
 
 ### M9: CI Pipeline Integration
 - [x] CI reporter module with provider detection (GitHub Actions, GitLab CI, generic) <!-- run_685ea79f49acd469: cli/src/lib/ci-reporter.js with detectCIEnvironment(), formatGitHubAnnotations(), writeGitHubOutputVars(), formatJUnitXml(), deriveCIExitCode(); QA ship verdict YES (12/12 criteria, 23 tests, 0 failures) -->
 - [x] `agentxchain ci-report` command with GitHub Actions annotations, output variables, and JUnit XML <!-- run_685ea79f49acd469: cli/src/commands/ci-report.js + cli/bin/agentxchain.js registration (line 90 import, line 199 command); QA verified -->
 - [x] Exit code derivation from governance report (0=pass, 1=fail, 2=error) <!-- run_685ea79f49acd469: deriveCIExitCode() in ci-reporter.js returns 0/1/2; QA verified AT-CI-011 -->
-- [ ] Acceptance: CI reporter formats a governed run report as GitHub Actions annotations and JUnit XML with correct exit codes
+- [x] Acceptance: CI reporter formats a governed run report as GitHub Actions annotations and JUnit XML with correct exit codes <!-- delivered in v2.157.0: ci-reporter gate_summary fix + ci-report-acceptance.test.js (7 tests) -->
 
 ### MW: Workflow Kit — Opinionated Delivery Layer (Vision Pillar Closure)
 - [x] Planning framework: PM_SIGNOFF.md + ROADMAP.md artifacts with pm_signoff semantic validation <!-- workflow-kit-phase-templates.js planning-default; workflow-gate-semantics.js evaluatePmSignoff() -->
