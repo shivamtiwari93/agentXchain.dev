@@ -1,127 +1,158 @@
-# System Spec — M13: Decision Trail Ownership — Vision Closure (VISION.md:34)
+# System Spec — M14: Shippability Visibility — Vision Closure (VISION.md:50)
 
-**Run:** `run_4793c2273d675dd9`
-**Baseline:** git:c5f77e94d (HEAD of dogfood/2157-lights-out)
+**Run:** `run_a20d13cf8703032f`
+**Baseline:** git:f03e734cb (HEAD of dogfood/2157-lights-out)
 
 ## Purpose
 
-This run formally closes ROADMAP.md M13 (lines 148-157): "Decision Trail Ownership — Vision Closure (VISION.md:34)."
+This run delivers ROADMAP.md M14: "Shippability Visibility — Vision Closure (VISION.md:50)."
 
-VISION.md line 49 identifies a core coordination failure when multiple agents touch the same codebase over time: "nobody owns the decision trail." Without ownership, decisions scatter into transient turn outputs, get lost across runs, and become unqueryable. Operators have no way to inspect what was decided, when, or why.
+VISION.md line 50 identifies a core coordination failure when multiple agents touch the same codebase over time: "nobody knows what is actually shippable." Individual mechanisms exist — run completion evaluation, QA ship verdicts, gate clearance, release alignment, test verification — but no unified view composes them into a single operator-queryable assessment. Operators must manually inspect multiple artifacts and mentally aggregate to determine if the codebase is ready to ship.
 
-M13 addresses this by composing 8 mechanisms — all delivered across prior milestones (M1, M3, MW, M10) — that collectively provide:
-
-- **Persistence**: decisions survive across runs via a structured ledger
-- **Visibility**: decisions appear in dispatch context and governance reports
-- **Enforcement**: the protocol writes decisions at key events and validates their structure
-- **Integrity**: scope overlap and review normalization protect the trail
-- **Access**: operators can query the full decision trail via CLI
-
-All code is delivered. This run is verification-only: confirm ~194 tests pass and check off the milestone.
+M14 addresses this by building a new composition layer (`ship-status.js`) that evaluates 5 evidence dimensions and exposes the result through a CLI command (`agentxchain ship-status`), coordinator aggregation, and governance report integration.
 
 ## Interface
 
-### Mechanism 1: Decision Ledger with Cross-Run Persistence
+### Module: `cli/src/lib/ship-status.js`
 
-**Module:** `cli/src/lib/repo-decisions.js`
-**Test suite:** `cli/test/repo-decisions.test.js` (48 tests)
+#### `evaluateShipStatus(repoDir: string): ShipStatusReport`
 
-12 exports: `readRepoDecisions`, `getActiveRepoDecisions`, `appendRepoDecision`, `overrideRepoDecision`, `validateOverride`, `resolveDecisionAuthority`, `getDecisionAuthorityMetadata`, `renderRepoDecisionsMarkdown`, `summarizeRepoDecisions`, `buildRepoDecisionOperatorSummary`, plus query/filter functions.
+Composes 5 evidence dimensions into a single shippability assessment:
 
-Persists decisions in `.agentxchain/decision-ledger.jsonl` with structured fields (id, category, statement, rationale, run_id, turn_id, role, phase). Supports override chains with authority validation.
-
-### Mechanism 2: Decision History in Dispatch Bundles
-
-**Module:** `cli/src/lib/dispatch-bundle.js` (Decision History section ~line 1416, repo decisions context ~line 775)
-**Test suite:** `cli/test/dispatch-bundle-decision-history.test.js` (12 tests)
-
-Every dispatched turn receives the full decision history table in its context bundle. Agents see what was decided in prior turns and runs, preventing decision amnesia across handoffs.
-
-### Mechanism 3: Coordinator Decision Ledger Writes
-
-**Integration:** coordinator writes at 5 coordination events (init, dispatch, phase-transition, completion, recovery)
-**Test suite:** `cli/test/coordinator-decision-ledger.test.js` (7 tests)
-
-The coordinator automatically persists decisions at key lifecycle events, ensuring the trail captures governance actions not just agent decisions.
-
-### Mechanism 4: Named Decisions in Reports/Dashboards
-
-**Module:** `cli/src/lib/report.js` (decision rendering sections)
-**Test suite:** `cli/test/named-decisions-visibility.test.js` (6 tests)
-
-Governance reports render named decisions with per-repo breakdowns. Dashboard visibility ensures humans can inspect the decision trail through reports.
-
-### Mechanism 5: Turn-Result Validator Decision Schema Enforcement
-
-**Module:** `cli/src/lib/turn-result-validator.js` (decision validation in 5-stage pipeline)
-**Test suite:** `cli/test/turn-result-validator.test.js` (100 tests)
-
-Enforces DEC-NNN ID format, required category/statement/rationale fields, and challenge requirement (review-only roles must raise objections). Structurally prevents decision schema drift.
-
-### Mechanism 6: Scope Overlap Guard
-
-**Module:** `cli/src/lib/scope-overlap.js`
-**Integration:** `cli/src/lib/intake.js:901`, `cli/src/lib/continuous-run.js:1329,1407,1493`
-**Test suite:** `cli/test/scope-overlap.test.js` (12 tests)
-
-Prevents conflicting decision chains by deferring overlapping intents at intake level. `--force-scope` provides operator override.
-
-### Mechanism 7: No-Edit Review Normalization
-
-**Module:** `cli/src/lib/turn-result-validator.js` (Rule 0a)
-**Test suite:** `cli/test/bug-78-no-edit-review.test.js` (7 tests)
-
-BUG-78 fix: auto-normalizes `workspace` → `review` for completed turns with empty `files_changed`. Preserves review decision audit trail integrity by ensuring review-only turns don't block the pipeline.
-
-### Mechanism 8: Operator Decision CLI
-
-**Module:** `cli/src/commands/decisions.js`
-**Registration:** `cli/bin/agentxchain.js` (`agentxchain decisions`)
-**Test suite:** within `repo-decisions.test.js` (2 tests)
-
-`agentxchain decisions` with `--all` (include overridden), `--show` (detail view), `--json` (machine-readable) flags. Provides operators query access to the full decision trail.
-
-### Dev Charter
-
-**Verification-only.** Run the 8 test suites:
-
-```bash
-cd cli && npx vitest run test/repo-decisions.test.js test/dispatch-bundle-decision-history.test.js test/coordinator-decision-ledger.test.js test/named-decisions-visibility.test.js test/turn-result-validator.test.js test/scope-overlap.test.js test/bug-78-no-edit-review.test.js
+```javascript
+// ShipStatusReport structure
+{
+  overall: 'pass' | 'fail' | 'pending',  // aggregate verdict
+  dimensions: [
+    {
+      name: string,                        // dimension identifier
+      status: 'pass' | 'fail' | 'pending',
+      detail: string,                      // human-readable explanation
+      blocking_reason: string | null       // why this dimension blocks shipping
+    }
+  ],
+  blocking_reasons: string[],             // aggregated blocking reasons
+  evidence_summary: string                // one-line summary
+}
 ```
 
-Expected: ~194 tests, 0 failures.
+**Dimension 1: Run Completion Status**
+- Source: `governed-state.js` run status and phase
+- Pass: run status is `completed`
+- Pending: run is `running` or `needs_human`
+- Fail: run is `failed` or `idle` without completion
 
-After test verification, check off ROADMAP.md:149-157 (8 mechanism items + acceptance item).
+**Dimension 2: QA Ship Verdict**
+- Source: workflow-gate-semantics ship_verdict evaluation or ship-verdict.md presence
+- Pass: QA ship verdict exists and says YES
+- Pending: QA phase not yet reached
+- Fail: QA ship verdict says NO or is missing after QA phase
+
+**Dimension 3: Gate Clearance**
+- Source: `gate-evaluator.js` evaluation of all phase gates
+- Pass: all defined gates are satisfied
+- Pending: current phase gate not yet evaluated
+- Fail: any gate failed
+
+**Dimension 4: Release Alignment**
+- Source: `release-alignment.js` `validateReleaseAlignment()`
+- Pass: all required dimensions pass
+- Pending: release alignment not yet evaluated (pre-release phase)
+- Fail: any required dimension fails
+
+**Dimension 5: Test Verification**
+- Source: turn verification evidence (verification.status across accepted turns)
+- Pass: all accepted turns have verification.status === 'pass'
+- Pending: turns still in progress
+- Fail: any accepted turn has verification.status === 'fail'
+
+#### `evaluateCoordinatorShipStatus(coordinatorDir: string): CoordinatorShipStatusReport`
+
+For multi-repo coordinator runs:
+
+```javascript
+{
+  overall: 'pass' | 'fail' | 'pending',
+  repos: [
+    {
+      repo_id: string,
+      ship_status: ShipStatusReport        // per-repo assessment
+    }
+  ],
+  blocking_repos: string[],               // repos that block overall shipping
+  evidence_summary: string
+}
+```
+
+### Command: `agentxchain ship-status`
+
+**Registration:** `cli/bin/agentxchain.js`
+
+```
+agentxchain ship-status [options]
+
+Options:
+  --json      Machine-readable JSON output
+  --verbose   Per-dimension detail breakdown
+```
+
+Default output:
+```
+Ship Status: YES (5/5 dimensions pass)
+```
+or
+```
+Ship Status: NO (3/5 dimensions pass, 2 blocking)
+  - Gate clearance: FAIL — planning_signoff gate not satisfied
+  - Release alignment: FAIL — changelog missing target version section
+```
+
+### Report Integration
+
+`buildGovernanceReport()` in `report.js` includes:
+```javascript
+report.ship_status = {
+  overall: 'pass' | 'fail' | 'pending',
+  dimensions_passed: number,
+  dimensions_total: number,
+  blocking_reasons: string[]
+}
+```
 
 ### Architecture Invariants
 
-1. No changes to any module — verification only
-2. Decision ledger is append-only with override chains — never mutate existing entries
-3. Turn-result validator enforces decision schema on every turn — no bypass path
-4. Scope overlap guard runs at intake (before approval) — not at dispatch
-5. Dispatch bundles always include full decision history — agents never lack decision context
+1. `ship-status.js` composes existing modules — does not reimplement gate evaluation, release alignment, or verification logic
+2. `evaluateShipStatus()` is read-only — never modifies run state, artifacts, or config
+3. All 5 dimensions are independently evaluated — a failure in one does not skip evaluation of others
+4. Coordinator aggregation uses worst-case semantics (any fail → overall fail, any pending → overall pending if no fail)
+5. CLI command delegates entirely to the module — no business logic in the command file
 
 ## Acceptance Tests
 
-All 8 test suites must pass:
+### Test Suite: `cli/test/ship-status.test.js`
 
-| # | Mechanism | Test Suite | Expected Tests | Status |
-|---|-----------|------------|----------------|--------|
-| 1 | Decision Ledger | `repo-decisions.test.js` | 48 | Pending dev verification |
-| 2 | Dispatch Bundle History | `dispatch-bundle-decision-history.test.js` | 12 | Pending dev verification |
-| 3 | Coordinator Writes | `coordinator-decision-ledger.test.js` | 7 | Pending dev verification |
-| 4 | Reports/Dashboards | `named-decisions-visibility.test.js` | 6 | Pending dev verification |
-| 5 | Validator Schema | `turn-result-validator.test.js` | 100 | Pending dev verification |
-| 6 | Scope Overlap | `scope-overlap.test.js` | 12 | Pending dev verification |
-| 7 | Review Normalization | `bug-78-no-edit-review.test.js` | 7 | Pending dev verification |
-| 8 | Operator CLI | within `repo-decisions.test.js` | 2 | Pending dev verification |
+| # | Test ID | Scenario | Expected |
+|---|---------|----------|----------|
+| 1 | AT-SS-001 | All 5 dimensions pass | overall: pass, 0 blocking_reasons |
+| 2 | AT-SS-002 | Run not completed (status: running) | overall: pending, blocking_reason cites run status |
+| 3 | AT-SS-003 | Run failed | overall: fail, blocking_reason cites run failure |
+| 4 | AT-SS-004 | QA ship verdict missing after QA phase | overall: fail, blocking_reason cites missing verdict |
+| 5 | AT-SS-005 | QA ship verdict says NO | overall: fail, blocking_reason cites QA rejection |
+| 6 | AT-SS-006 | Phase gate not satisfied | overall: fail, blocking_reason cites gate |
+| 7 | AT-SS-007 | Release alignment dimension fails | overall: fail, blocking_reason cites alignment |
+| 8 | AT-SS-008 | Turn verification failed | overall: fail, blocking_reason cites verification |
+| 9 | AT-SS-009 | Coordinator: all repos pass | overall: pass |
+| 10 | AT-SS-010 | Coordinator: mixed states (2 pass, 1 fail) | overall: fail, blocking_repos lists failing repo |
+| 11 | AT-SS-011 | CLI --json output matches ShipStatusReport schema | JSON validated |
+| 12 | AT-SS-012 | CLI --verbose shows per-dimension detail | Output contains all 5 dimension names |
 
 ### Acceptance Criteria
 
 | # | Criterion | Evidence Required |
 |---|-----------|-------------------|
-| AC-1 | All 8 test suites pass (~194 tests, 0 failures) | Dev test output |
-| AC-2 | Each mechanism demonstrably addresses an aspect of "nobody owns the decision trail" | Dev confirms composition per PM_SIGNOFF.md table |
-| AC-3 | ROADMAP.md:149-156 (8 mechanism items) checked off | Dev edit |
-| AC-4 | ROADMAP.md:157 (acceptance item) checked off | Dev edit |
-| AC-5 | Vision closure: VISION.md:49 "nobody owns the decision trail" addressed by composition | QA ship verdict |
+| AC-1 | `ship-status.js` with `evaluateShipStatus()` composing 5 dimensions | Module exists, tests AT-SS-001 through AT-SS-008 pass |
+| AC-2 | `agentxchain ship-status` CLI command with `--json` and `--verbose` | Tests AT-SS-011, AT-SS-012 pass |
+| AC-3 | Coordinator aggregation via `evaluateCoordinatorShipStatus()` | Tests AT-SS-009, AT-SS-010 pass |
+| AC-4 | Governance report includes ship-status summary | Report integration test passes |
+| AC-5 | All 12 tests pass with 0 failures | Dev test output |
+| AC-6 | Vision closure: VISION.md:50 addressed by 5-dimension composition | QA ship verdict |

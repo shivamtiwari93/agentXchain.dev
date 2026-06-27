@@ -156,10 +156,18 @@ Milestones are derived from `.planning/VISION.md` and ordered by impact on the c
 - [x] Operator decision CLI (`agentxchain decisions` with `--all`, `--show`, `--json`) provides query access to full decision trail — 8 tests pass <!-- delivered M1; PM verified run_5b6ee2a8de1bd612; dev verified run_4793c2273d675dd9 (8 tests in CLI describe block including AT-DT-CLI-001) -->
 - [x] Acceptance: all 8 mechanisms verified as composition addressing VISION.md:34 "nobody owns the decision trail" — 196 tests, 0 failures <!-- dev verified run_4793c2273d675dd9; QA ship verdict YES (turn_bab59d2ad8d0e45e) -->
 
+### M14: Shippability Visibility — Vision Closure (VISION.md:50)
+- [ ] New module `ship-status.js` with `evaluateShipStatus()` composing 5 evidence dimensions: (1) run completion/phase status, (2) QA ship verdict presence, (3) gate clearance across all phases, (4) release alignment validation, (5) test verification evidence — into a structured `ShipStatusReport` with per-dimension pass/fail/pending and blocking-reason surfacing
+- [ ] `agentxchain ship-status` CLI command with `--json` and `--verbose` flags — single operator command answering "is this ready to ship?"
+- [ ] Coordinator-level aggregation via `evaluateCoordinatorShipStatus()` — multi-repo coordinator runs expose per-repo shippability with overall aggregate status
+- [ ] Governance report integration — `buildGovernanceReport()` includes ship-status summary section in report output
+- [ ] Regression tests for ship-status module (all-clear, gate-blocked, qa-pending, release-misaligned, coordinator mixed-state scenarios)
+- [ ] Acceptance: `agentxchain ship-status` returns structured shippability assessment composing 5 evidence dimensions; coordinator runs show per-repo ship readiness; blocking reasons surfaced when not shippable
+
 ## Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| Planning | Scope M13 decision trail ownership verification, rewrite planning artifacts for run_4793c2273d675dd9 | Complete (turn_15d39107f73fd70f) |
-| Implementation | Run 8 decision trail test suites (196 tests), check off ROADMAP.md:149-157, add AT-DT-CLI-001 | Complete (turn_8538a86c7a0d5afd) |
-| QA | Verify 196 tests pass, confirm 8 mechanisms compose to address VISION.md:34, ship verdict | Complete (turn_bab59d2ad8d0e45e) |
+| Planning | Derive M14 from VISION.md:50 "nobody knows what is actually shippable", scope ship-status module and CLI command | Active (turn_98ed2a7c83a53e47) |
+| Implementation | Build ship-status.js module, CLI command, coordinator aggregation, report integration, regression tests | Pending |
+| QA | Verify 5 evidence dimensions compose, test coverage, ship verdict | Pending |
