@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Post a release announcement to X/Twitter, LinkedIn, and Reddit.
-# Usage: bash marketing/post-release.sh "v2.25.1" "One-line summary of what shipped"
+# Usage: bash marketing/post-release.sh "vX.Y.Z" "One-line summary of what shipped"
 #
 # Channels: X/Twitter (@agentxchaindev) + LinkedIn (company page) + Reddit (r/agentXchain_dev)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION="${1:?Usage: bash marketing/post-release.sh \"v2.25.1\" \"summary\"}"
-SUMMARY="${2:?Usage: bash marketing/post-release.sh \"v2.25.1\" \"summary\"}"
+VERSION="${1:?Usage: bash marketing/post-release.sh \"vX.Y.Z\" \"summary\"}"
+SUMMARY="${2:?Usage: bash marketing/post-release.sh \"vX.Y.Z\" \"summary\"}"
 DOCS_VERSION="${VERSION//./-}"
 RELEASE_URL="https://agentxchain.dev/docs/releases/${DOCS_VERSION}"
 
@@ -17,7 +17,8 @@ ${SUMMARY}
 
 ${RELEASE_URL}
 
-#AgentXchain #AI #MultiAgent #DevTools"
+Open-source, MIT.
+#AgentXchain #AI #MultiAgent #DevTools #OpenSource"
 
 LINKEDIN_TEXT="AgentXchain ${VERSION} released 🚀
 

@@ -96,6 +96,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `mission list` | Observability | List mission artifacts with aggregate run, turn, and repo-decision counts |
 | `mission show` | Observability | Show the latest mission or one mission by ID, including attached chain summaries and latest plan health |
 | `mission attach-chain` | Observability | Bind a chain report to a mission so long-horizon work has a durable grouping layer |
+| `mission bind-coordinator` | Coordination | Bind an existing coordinator super_run to a mission (requires `--super-run-id`; optional `--coordinator-config`, `--coordinator-workspace`) |
 | `mission plan` | Planning | Generate a decomposition plan for a mission using LLM-assisted workstream decomposition |
 | `mission plan show` | Planning | Show a decomposition plan with workstream details and dependency state |
 | `mission plan approve` | Planning | Approve the latest proposed mission plan and supersede older active revisions |
@@ -178,6 +179,7 @@ agentxchain mission start --title <text> --goal <text> [--id <mission_id>] [--pl
 agentxchain mission list [--limit <n>] [--json] [--dir <path>]
 agentxchain mission show [mission_id] [--json] [--dir <path>]
 agentxchain mission attach-chain [chain_id|latest] [--mission <mission_id>] [--json] [--dir <path>]
+agentxchain mission bind-coordinator [mission_id] --super-run-id <id> [--coordinator-config <path>] [--coordinator-workspace <path>] [--json] [--dir <path>]
 ```
 
 `mission` is the single-repo hierarchy layer above chained runs. It exists because AgentXchain already uses **initiative** for multi-repo coordination. Reusing `initiative` inside one repo would create split-brain operator language, so the single-repo noun is **mission**.
@@ -220,6 +222,8 @@ The `--mission` flag on `run --chain` is the primary operator flow. It auto-atta
 Mission summaries derive aggregate chain count, total runs, total turns, latest chain terminal reason, and active repo-decision count. When a decomposition plan exists, the same summary also includes the latest plan status, completion percentage, and workstream counts so one command can answer basic mission-health questions. That repo-decision field still matters: decisions already carry across chained runs, and the mission surface keeps that continuity visible instead of pretending each chain starts from zero.
 
 `mission attach-chain` remains available for binding chains from runs that were not mission-bound at start. It defaults to attaching the latest chain report to the latest mission.
+
+`mission bind-coordinator` links a mission to an existing multi-repo coordinator `super_run`. Pass the required `--super-run-id`, plus `--coordinator-config` / `--coordinator-workspace` when the coordinator workspace is not auto-discoverable, so a single-repo mission can track coordinator-driven work.
 
 For the full operator model, see [Missions](/docs/missions). That page keeps the repo-local **Mission** hierarchy explicitly separate from coordinator **Initiative**, documents the derived mission-status contract, and makes `run --chain --mission ...` the primary flow instead of the manual repair path.
 
@@ -682,6 +686,19 @@ If you want the same report contract from **live repo state** instead of an exis
 
 For the stable report output contract, use [Governance Report Reference](/docs/governance-report). For the raw artifact schema, use [Export Schema Reference](/docs/export-schema).
 
+### `ci-report`
+
+```bash
+agentxchain ci-report [--input <path>] [--format auto|github-actions|junit-xml|json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--input <path>` | current project | Read a run export artifact from a file; omit to report on the current governed project |
+| `--format <format>` | `auto` | Output format: `auto` (detect CI environment), `github-actions` (inline annotations), `junit-xml`, or `json` |
+
+`ci-report` renders governed run results in CI-native formats so a pipeline can surface gate, verification, and acceptance outcomes without parsing the raw export. With `--format auto` it detects the CI environment (e.g. GitHub Actions) and emits the matching format; use `junit-xml` to publish results to a test-report viewer, or `json` for custom tooling.
+
 ### `restore`
 
 ```bash
@@ -1015,7 +1032,7 @@ Rejects the staged turn result. The turn returns to `pending` status and can be 
 agentxchain approve-transition [--dry-run]
 ```
 
-Approves a pending phase transition gate. The run must be in `blocked:gate` state with a pending `phase_transition_request`. On approval, the phase advances (e.g., `planning` to `implementation`, `implementation` to `verification`).
+Approves a pending phase transition gate. The run must be in `blocked:gate` state with a pending `phase_transition_request`. On approval, the phase advances (e.g., `planning` to `implementation`, `implementation` to `qa`).
 
 If the current phase's exit gate is pending but no `pending_phase_transition` object exists, `approve-transition` fails closed and prints the gate mismatch. Use `agentxchain unblock <hesc_id>` when the gate is tied to an open human escalation, or `agentxchain gate show <gate_id> --evaluate` to inspect the missing evidence.
 

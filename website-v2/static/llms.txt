@@ -14,15 +14,9 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Latest Release
 
-- v2.155.24: watch HTTP listener — signed GitHub-style webhooks can route into governed intake with durable result records, health checks, and delivery-ID audit correlation
-- v2.155.21: BUG-74 new-run charter materialization — initializeGovernedRun sets charter_materialization_pending for pm_idle_expansion_derived intents
-- v2.155.20: BUG-73 active retained-turn charter materialization recovery — interrupted active replay states now reissue stale dev turns as PM before stale-turn recovery blocks step --resume
-- v2.155.19: BUG-73 retained-turn charter materialization recovery — blocked resume paths now reissue stale retained dev turns as PM before materialization dispatch
-- v2.155.18: BUG-73 dispatch-time charter materialization routing — persisted pending materialization now routes back to PM even when older state still recommends dev
-- v2.155.17: BUG-73 charter materialization routing — pending idle-expansion charter materialization now routes back to PM instead of dispatching dev while the run is still in planning
-- v2.155.14: BUG-69 terminal run-completion prompt contract — final-phase authoritative and proposed roles now receive full-auto run-completion guidance under approval_policy.run_completion.action auto_approve
-- v2.155.12: full-auto gate prompt contract — agents are told not to request humans solely for approval when approval_policy auto-approves phase transitions or run completion
-- v2.155.11: dev role code-production mandate — implementation-phase dev turns must produce real source/test/config/script deliverables; planning-only implementation turns are explicitly invalid
+- v2.158.0: shippability surfaces `agentxchain ship-status` (five-dimension ready-to-ship verdict) and `agentxchain attention` (govern-by-exception queue), plus governed turn-lifecycle hardening — legitimate artifact-finalization turns are accepted and single-shot dispatched turns can no longer silently ghost
+- v2.157.0: turn-level cost tracking for local_cli runtimes, a CI-report gate-annotation regression fix, and continuous-loop recovery hardening (RB-13 circuit-breaker with class-aware reconcile guidance)
+- v2.156.0: lights-out resilience — continuous vision-driven runs survive provider rate limits, stalled turns, and cold starts; organization-scope dashboard; CI-native reporting (`agentxchain ci-report`) and a hosted runner (`agentxchain serve`); `--auto-approve` can never clear a credentialed exit gate
 
 ## Key Features
 
@@ -79,11 +73,11 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [OpenAI Codex CLI Integration](https://agentxchain.dev/docs/integrations/openai-codex-cli): Connect Codex CLI via local_cli adapter.
 - [VS Code Integration](https://agentxchain.dev/docs/integrations/vscode): Official VS Code extension + local CLI agents.
 - [Ollama Integration](https://agentxchain.dev/docs/integrations/ollama): Run local models via Ollama's OpenAI-compatible API.
-- [Anthropic Integration](https://agentxchain.dev/docs/integrations/anthropic): Claude Opus 4.6, Sonnet 4.6, Haiku 4.5 via api_proxy.
-- [OpenAI Integration](https://agentxchain.dev/docs/integrations/openai): GPT-5.4, GPT-5.3-Codex, GPT-OSS via api_proxy.
-- [Google Integration](https://agentxchain.dev/docs/integrations/google): Gemini 3.1 Pro, Flash, Gemma 4 via api_proxy.
+- [Anthropic Integration](https://agentxchain.dev/docs/integrations/anthropic): Claude Opus, Sonnet, and Haiku via api_proxy.
+- [OpenAI Integration](https://agentxchain.dev/docs/integrations/openai): GPT-5 series, Codex, and GPT-OSS via api_proxy.
+- [Google Integration](https://agentxchain.dev/docs/integrations/google): Gemini Pro/Flash and Gemma via api_proxy.
 - [MCP Integration](https://agentxchain.dev/docs/integrations/mcp): Any MCP-compatible agent via stdio or Streamable HTTP.
-- [OpenClaw Integration](https://agentxchain.dev/docs/integrations/openclaw): Connect OpenClaw (100K+ stars) via local_cli adapter; AgentXchain plugin for OpenClaw also available.
+- [OpenClaw Integration](https://agentxchain.dev/docs/integrations/openclaw): Connect OpenClaw via local_cli adapter; AgentXchain plugin for OpenClaw also available.
 - [Plugins](https://agentxchain.dev/docs/plugins): Plugin system for extending governed runs.
 - [Slack Notify Plugin](https://agentxchain.dev/docs/plugins/slack-notify): Built-in Slack incoming-webhook plugin for acceptance, gate, and escalation notifications.
 - [JSON Report Plugin](https://agentxchain.dev/docs/plugins/json-report): Built-in repo-local report writer for machine-readable lifecycle artifacts.
@@ -138,7 +132,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Case Study
 
-- [How AgentXchain Built AgentXchain](https://agentxchain.dev/docs/case-study-self-build): Evidence-backed case study of two AI agents (Claude Opus 4.6 + GPT 5.4) building AgentXchain itself — 1,140+ commits, 130+ decisions, 4,350+ tests, 190+ governed turns.
+- [How AgentXchain Built AgentXchain](https://agentxchain.dev/docs/case-study-self-build): Evidence-backed case study of two AI agents (Claude Opus 4.6 + GPT 5.5) building AgentXchain itself — 1,140+ commits, 130+ decisions, 4,350+ tests, 190+ governed turns.
 
 ## Other Pages
 

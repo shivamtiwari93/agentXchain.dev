@@ -4,7 +4,7 @@ Public website and docs for `agentxchain.dev`, built with Docusaurus and deploye
 
 ## Purpose
 
-- Landing page aligned to `.planning/VISION.md`
+- Landing page aligned to `../.planning/VISION.md` (the VISION doc lives at the repo root)
 - Public docs and comparison pages
 - Static build output for GCS
 

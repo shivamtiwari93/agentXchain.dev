@@ -406,7 +406,7 @@ What it does **not** do:
 - delete old template files when switching templates
 - infer a template from repo contents
 
-Important boundary: blueprint-backed templates stay init-only under `template set`. Today that includes `enterprise-app` and the manual-first `generic` baseline. Retrofitting an existing repo into either shape needs an explicit migrator because the change is not additive.
+Important boundary: blueprint-backed templates stay init-only under `template set`. Today that includes `enterprise-app`, `full-local-cli`, and the manual-first `generic` baseline. Retrofitting an existing repo into either shape needs an explicit migrator because the change is not additive.
 
 Switching from one non-generic template to another is therefore additive, not destructive. If you want to rewrite prior docs manually, do it explicitly.
 

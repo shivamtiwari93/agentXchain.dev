@@ -33,7 +33,7 @@ description: "Connect Google Gemini models to AgentXchain via the Generative AI 
     "dev": {
       "runtime": "gemini-dev",
       "mandate": "Implement features and fix bugs",
-      "authority": "proposed"
+      "write_authority": "proposed"
     }
   }
 }
@@ -77,6 +77,21 @@ ollama pull gemma4
       "provider": "ollama",
       "model": "gemma4",
       "auth_env": "OLLAMA_API_KEY"
+    }
+  }
+}
+```
+
+## Budget configuration
+
+Not all Gemini models are in the bundled cost-rate defaults, so cost reporting can read `$0` until you supply rates. To supply custom cost rates for models not in the bundled defaults, add an operator override keyed by the exact runtime `model` string:
+
+```json
+{
+  "budget": {
+    "max_cost_per_run": 10.00,
+    "cost_rates": {
+      "gemini-3.1-pro": { "input_per_1m": 2.50, "output_per_1m": 10.00 }
     }
   }
 }

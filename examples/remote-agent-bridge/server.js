@@ -82,7 +82,7 @@ function buildProposedResult(envelope) {
       rationale: 'remote_agent v1 uses proposed write authority — changes are staged for review.',
     }],
     objections: [],
-    files_changed: ['src/bridge-feature.js'],
+    files_changed: ['src/bridge-feature.js', '.planning/IMPLEMENTATION_NOTES.md'],
     artifacts_created: [],
     verification: {
       status: 'pass',
@@ -100,6 +100,12 @@ function buildProposedResult(envelope) {
         path: 'src/bridge-feature.js',
         action: 'create',
         content: '// Created by remote agent bridge example\nexport const bridgeFeature = "delivered";\n',
+      },
+      {
+        // Satisfies the default implementation_complete gate (requires_files)
+        path: '.planning/IMPLEMENTATION_NOTES.md',
+        action: 'create',
+        content: '# Implementation Notes\n\n## Changes\n- Added `src/bridge-feature.js` through the remote_agent bridge.\n\n## Verification\n- `echo bridge-ok` exited 0; the proposed change was staged for review via the bridge.\n',
       },
     ],
     cost: { input_tokens: 100, output_tokens: 150, usd: 0.005 },

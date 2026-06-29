@@ -35,7 +35,7 @@ description: "Connect Devin to AgentXchain as a governed remote agent."
     "dev": {
       "runtime": "devin-dev",
       "mandate": "Implement features end-to-end",
-      "authority": "proposed"
+      "write_authority": "proposed"
     }
   }
 }
@@ -96,4 +96,4 @@ The connector probe performs a GET request to verify the endpoint is reachable.
 - **Devin's API surface**: Check Devin's current API documentation for the exact endpoint URL and authentication method. The URL shown above is illustrative.
 - **Long timeouts**: Devin operates autonomously and may spend significant time on complex tasks. Set `timeout_ms` high enough to avoid premature timeout.
 - **Turn result format**: Devin's response must conform to the AgentXchain turn result schema (`schema_version`, `role`, `status`, `artifacts`, `decisions`, etc.). If Devin's native output format differs, you may need a thin translation layer between Devin and AgentXchain.
-- **Authority**: Use `"authority": "proposed"` so AgentXchain validates Devin's output before applying changes. This keeps governance intact even with an autonomous agent.
+- **Authority**: Use `"write_authority": "proposed"` so AgentXchain validates Devin's output before applying changes. This keeps governance intact even with an autonomous agent.

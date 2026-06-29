@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'AgentXchain.dev',
-  tagline: 'Constitutional governance for AI software teams',
+  tagline: 'The governance protocol for lights-out software factories',
   favicon: 'img/favicon.ico',
 
   future: {
@@ -107,6 +107,8 @@ const config: Config = {
   themeConfig: {
     image: 'img/agentXchain.dev_rectangle_600x120px.png',
     metadata: [
+      {name: 'description', content: 'AgentXchain is the governance protocol for lights-out software factories — governed multi-agent software delivery with structured turns, mandatory challenge, phase gates, and human sovereignty at the constitutional layer.'},
+      {name: 'og:description', content: 'Governed multi-agent software delivery. Five layers: protocol, runners, connectors, workflow kit, integrations. Structured turns, mandatory challenge, and human sovereignty.'},
       {name: 'twitter:card', content: 'summary_large_image'},
       {name: 'twitter:title', content: 'AgentXchain — The governance protocol for lights-out software factories'},
       {name: 'twitter:description', content: 'Governed multi-agent software delivery. Five layers: protocol, runners, connectors, workflow kit, integrations. Structured turns, mandatory challenge, and human sovereignty.'},
@@ -130,7 +132,7 @@ const config: Config = {
           label: 'Docs',
         },
         {to: '/why', label: 'Why', position: 'left'},
-        {to: '/launch', label: 'Launch', position: 'left'},
+        {to: '/launch', label: 'Launch Story', position: 'left'},
         {
           label: 'Compare',
           position: 'left',

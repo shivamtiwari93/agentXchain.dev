@@ -1,9 +1,0 @@
-.env
-.agentxchain-trigger.json
-.agentxchain-prompts/
-.agentxchain-workspaces/
-node_modules/
-dist/
-coverage/
-data/
-*.db

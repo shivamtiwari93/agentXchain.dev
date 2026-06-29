@@ -98,7 +98,7 @@ Return `200 OK` with a JSON body:
 
 ### Validation rules
 
-- `adapter.protocol` must be `"http-fixture-v1"`. Any other value (including `"stdio-fixture-v1"`) is rejected with: `capabilities.adapter.protocol must be 'http-fixture-v1'`.
+- `adapter.protocol` must be `"http-fixture-v1"`. Any other value (including `"stdio-fixture-v1"`) is rejected with: `capabilities.adapter.protocol must be "http-fixture-v1"`.
 - `adapter.command` is not required and is ignored for remote adapters.
 - If `surfaces` is present and the operator passes `--surface X`, the verifier fails fast with exit code 2 if `X` is not declared. If `surfaces` is omitted, surface filtering works without enforcement.
 
@@ -240,12 +240,6 @@ Optional Bearer auth:
 ```bash
 CONFORMANCE_TOKEN=secret123 node server.js
 agentxchain verify protocol --tier 1 --remote http://127.0.0.1:8788 --token secret123 --format json
-```
-
-Verify with:
-
-```bash
-agentxchain verify protocol --tier 1 --remote http://localhost:8080 --format json
 ```
 
 ## Fixture corpus ownership

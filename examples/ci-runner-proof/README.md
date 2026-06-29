@@ -31,6 +31,8 @@ Public docs:
 6. `node examples/ci-runner-proof/run-multi-phase-write.mjs`
    Proves a 3-phase governed run (planning → implementation → qa) with a write-owning (proposed) turn, real gate artifact check (`requires_files: ["src/server.js"]`), proposal application, and explicit gate-pass reporting through `phase_gate_status`. The proposed-turn contract is strict: `artifact.type` must be `patch` and file changes must arrive via `proposed_changes[]`, not raw `workspace` claims. This is the widest lights-out proof: multi-phase lifecycle, file mutations, and gate-driven phase advancement.
 
+> **Credentials:** Tiers 1–3 are deterministic and need no API key. Tiers 4–6 dispatch to real model APIs through the `api_proxy` adapter and require `ANTHROPIC_API_KEY` (set it before running them in CI).
+
 Build your own runner in that order. If the primitive path is not solid, adding `runLoop` only hides the defect.
 
 Tier 5 is not a second runner. It is the operator-surface parity proof that keeps the shipped CLI claim honest. Tier 6 is the multi-phase widening proof that closes the gap between review-only CI and real governed delivery.

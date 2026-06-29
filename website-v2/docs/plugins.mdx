@@ -221,7 +221,7 @@ Installed plugins: 1
     Path: .agentxchain/plugins/agentxchain--plugin-slack-notify--deadbeef
     Source: local_path (./plugins/plugin-slack-notify)
     Present: yes
-    Hooks: after_acceptance: slack_notify_acceptance | before_gate: slack_notify_gate
+    Hooks: after_acceptance: slack_notify_acceptance | before_gate: slack_notify_gate | on_escalation: slack_notify_escalation
 ```
 
 With `--json`:

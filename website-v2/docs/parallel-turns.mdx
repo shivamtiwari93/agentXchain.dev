@@ -114,27 +114,43 @@ See the [delegation chains documentation](/docs/delegation-chains) for full deta
 
 ```json title="agentxchain.json"
 {
-  "schema_version": 4,
-  "protocol_mode": "governed",
+  "schema_version": "1.0",
   "project": {
     "id": "parallel-demo",
     "name": "Parallel Turn Demo"
   },
+  "runtimes": {
+    "haiku-pm": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "auth_env": "ANTHROPIC_API_KEY"
+    },
+    "local-dev": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions", "--bare"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  },
   "roles": {
     "pm": {
+      "title": "Product Manager",
       "mandate": "Plan features and coordinate priorities",
-      "adapter": { "type": "api_proxy", "provider": "anthropic", "model": "claude-haiku-4-5-20251001" },
-      "write_authority": "review_only"
+      "write_authority": "review_only",
+      "runtime": "haiku-pm"
     },
     "backend": {
+      "title": "Backend Developer",
       "mandate": "Implement server-side logic and APIs",
-      "adapter": { "type": "local_cli", "command": "claude -p" },
-      "write_authority": "authoritative"
+      "write_authority": "authoritative",
+      "runtime": "local-dev"
     },
     "frontend": {
+      "title": "Frontend Developer",
       "mandate": "Implement UI components and client logic",
-      "adapter": { "type": "local_cli", "command": "claude -p" },
-      "write_authority": "authoritative"
+      "write_authority": "authoritative",
+      "runtime": "local-dev"
     }
   },
   "routing": {

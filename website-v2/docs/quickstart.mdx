@@ -592,11 +592,18 @@ That still holds in coordinator workspaces. Partial artifacts are intentional, n
 Governed runs can also start from delivery signals instead of manual `step` invocations. The `intake` command family turns CI failures, alerts, and other signals into governed work items with full audit trails:
 
 ```bash
-agentxchain intake record --source ci_failure --category test_regression
-agentxchain intake triage <event_id>
-agentxchain intake approve <intent_id>
-agentxchain intake plan <intent_id>
-agentxchain intake start <intent_id>     # repo-local execution
+# Record a CI-failure signal — creates a detected intent and prints its id
+agentxchain intake record \
+  --source ci_failure \
+  --category test_regression \
+  --signal '{"description":"test suite regressed on main"}' \
+  --evidence '{"type":"text","value":"npm test: 3 failing in auth.test.js"}'
+
+# Then drive the intent through its lifecycle by id (every step takes --intent)
+agentxchain intake triage --intent <intent_id>
+agentxchain intake approve --intent <intent_id>
+agentxchain intake plan --intent <intent_id>
+agentxchain intake start --intent <intent_id>     # repo-local execution
 ```
 
 When the fix spans multiple repos, use `intake handoff` instead of `intake start` to bridge the intent into a coordinator workstream. See [Continuous Delivery Intake](/docs/continuous-delivery-intake) for the full lifecycle.

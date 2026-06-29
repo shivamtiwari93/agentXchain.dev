@@ -87,7 +87,7 @@ Before configuring GitHub, verify the listener works locally:
 ```bash
 # Health check
 curl http://localhost:4800/health
-# {"ok":true,"version":"2.155.24","uptime_ms":12345,"events_processed":0}
+# {"ok":true,"version":"2.158.0","uptime_ms":12345,"events_processed":0}
 
 # Send a test PR event (unsigned, for local dev only)
 agentxchain watch --listen 4800 --allow-unsigned
@@ -199,7 +199,7 @@ Returns listener health and accepted delivery count.
 ```json
 {
   "ok": true,
-  "version": "2.155.24",
+  "version": "2.158.0",
   "uptime_ms": 45000,
   "events_processed": 7
 }

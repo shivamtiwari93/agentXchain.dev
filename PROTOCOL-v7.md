@@ -200,6 +200,7 @@ Validation rules enforced today:
   - `all_repos_accepted`
   - `interface_alignment`
   - `ordered_repo_sequence`
+  - `named_decisions`
   - `shared_human_gate`
 - `entry_repo` must be present in the workstream repo set.
 - Workstream dependencies must reference declared workstreams and must be acyclic.

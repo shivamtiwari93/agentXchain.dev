@@ -1,5 +1,7 @@
 # AgentXchain v3 — Seed Prompt Template
 
+> **Legacy (v3) — compatibility only.** This seed-prompt flow targets the older watch-driven IDE model (`PROTOCOL-v3.md`, lock-based turns, the `agents.*` config shape). It is retained for existing v3 users. For current governed multi-agent delivery, start with the [governed quickstart](https://agentxchain.dev/docs/quickstart) and scaffold with `agentxchain init --governed`.
+
 Copy the block below into a Cursor (or any IDE) session. Replace `{AGENT_ID}` with the agent's ID from `agentxchain.json` (e.g. `pm`, `backend`, `qa`).
 
 ---

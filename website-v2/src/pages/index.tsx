@@ -63,12 +63,12 @@ function Hero() {
         </p>
         <div className="cta-row">
           <Link className="btn-primary" to="/docs/quickstart#path-0-demo">
-            npx --yes -p agentxchain@latest -c "agentxchain demo"
+            Run the demo →
           </Link>
           <Link className="btn-secondary" to="/docs/quickstart">
-            npm install -g agentxchain
+            Install AgentXchain
           </Link>
-          <Link className="btn-secondary" to="/docs/five-minute-tutorial" style={{ marginLeft: '0.5rem' }}>
+          <Link className="btn-secondary" to="/docs/five-minute-tutorial">
             5-Minute Tutorial →
           </Link>
         </div>
@@ -930,7 +930,7 @@ function EndVision() {
     <section className="section-alt end-vision">
       <div className="container cta-inner">
         <span className="section-label text-blue">The end state</span>
-        <h2>Dark software factories</h2>
+        <h2>Lights-out software factories</h2>
         <p className="section-subtitle" style={{ maxWidth: 600, margin: '0 auto 2rem' }}>
           Long-running. Multi-agent. Governed. Auditable. Evidence-backed.
           Interoperable across models, tools, and organizations. That's the

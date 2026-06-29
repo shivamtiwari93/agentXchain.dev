@@ -69,7 +69,7 @@ Trail Meals Mobile
 | UX Review | UX Reviewer | `ux-patterns.md` |
 | QA | QA Engineer | `acceptance-matrix.md`, `ship-verdict.md` |
 
-6 roles, 5 phases, explicit workflow-kit with section-level semantic checks.
+6 roles, 5 phases, explicit workflow-kit with section-level semantic checks. The sixth role — the **Nutrition Analyst** (review-only) — participates in the implementation phase to validate calorie/weight formulas and unit accuracy rather than owning its own phase, so the phase table above lists 5 entry roles. This example ships the governed **config and contract**; the runtime audit trail under `.agentxchain/` is generated when you execute the run locally.
 
 ## Key Features
 

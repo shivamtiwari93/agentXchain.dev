@@ -33,7 +33,7 @@ description: "Connect Anthropic's Claude models to AgentXchain via the API proxy
     "qa": {
       "runtime": "claude-qa",
       "mandate": "Review code, find bugs, verify correctness",
-      "authority": "review_only"
+      "write_authority": "review_only"
     }
   }
 }
@@ -88,9 +88,9 @@ Use different Claude models for different roles to optimize cost and quality:
     }
   },
   "roles": {
-    "architect": { "runtime": "opus-architect", "mandate": "Design system architecture", "authority": "review_only" },
-    "dev": { "runtime": "sonnet-dev", "mandate": "Implement features", "authority": "proposed" },
-    "qa": { "runtime": "haiku-qa", "mandate": "Review and test", "authority": "review_only" }
+    "architect": { "runtime": "opus-architect", "mandate": "Design system architecture", "write_authority": "review_only" },
+    "dev": { "runtime": "sonnet-dev", "mandate": "Implement features", "write_authority": "proposed" },
+    "qa": { "runtime": "haiku-qa", "mandate": "Review and test", "write_authority": "review_only" }
   }
 }
 ```

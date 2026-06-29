@@ -1,3 +1,6 @@
+/* Fonts must be imported before any other rules (CSS @import spec) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
 /* AgentXchain brand tokens */
 :root {
   --ifm-color-primary: #2B7CB6;
@@ -21,6 +24,29 @@
   --axc-purple: #A78BFA;
 }
 
+/*
+ * Light-mode surface + text tokens. The custom landing components reference
+ * --ifm-card/surface/emphasis/font tokens that are otherwise only defined under
+ * [data-theme='dark'], so in light mode they fell back to baked-in dark hex
+ * (dark cards on a white page). Define explicit light values here, plus darker
+ * accent variants so green/blue text keeps ≥4.5:1 contrast on white.
+ */
+[data-theme='light'] {
+  --ifm-background-surface-color: #F1F5F9;
+  --ifm-card-background-color: #FFFFFF;
+  --ifm-color-emphasis-300: #D8E0EC;
+  --ifm-font-color-base: #1C2433;
+  --ifm-font-color-secondary: #51607A;
+  /* Darker accent variants for text/borders on a light background */
+  --axc-blue-light: #1F6FA8;
+  --axc-green-light: #4E8A23;
+}
+
+/* Components with hardcoded dark backgrounds need an explicit light override */
+[data-theme='light'] .community-card {
+  background: #FFFFFF;
+}
+
 [data-theme='dark'] {
   --ifm-color-primary: #3A9AD9;
   --ifm-color-primary-dark: #2689cc;
@@ -39,9 +65,6 @@
   --ifm-font-color-secondary: #7B92B2;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
-
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* Navbar tweaks */
 .navbar {
@@ -195,7 +218,7 @@
 
 .terminal-title {
   margin-left: 0.75rem;
-  color: #3D5575;
+  color: #6B82A8;
   font-size: 0.72rem;
   font-family: var(--ifm-font-family-monospace);
 }
@@ -211,7 +234,7 @@
 
 .terminal-code .prompt { color: var(--axc-green); }
 .terminal-code .cmd { color: #E6EDF3; }
-.terminal-code .comment { color: #2F4562; }
+.terminal-code .comment { color: #5A7196; }
 .terminal-code .output { color: var(--axc-green-light); }
 
 /* CTA buttons */
@@ -260,6 +283,18 @@
   gap: 0.75rem;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* Keyboard focus visibility (the card/button anchors reset text-decoration) */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.feature-card:focus-visible,
+.example-card:focus-visible,
+.community-card:focus-visible,
+.layer-card:focus-visible,
+.layer-link:focus-visible {
+  outline: 2px solid var(--axc-blue-light);
+  outline-offset: 2px;
 }
 
 .community-grid {
@@ -495,6 +530,8 @@
 .stat-number {
   font-size: 2rem;
   font-weight: 800;
+  /* Solid color fallback first, in case background-clip:text is unsupported */
+  color: var(--axc-blue-light);
   background: linear-gradient(135deg, var(--axc-blue-light), var(--axc-green-light));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -503,7 +540,7 @@
 
 .stat-label {
   font-size: 0.78rem;
-  color: #3D5575;
+  color: var(--ifm-font-color-secondary);
   margin-top: 0.1rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;

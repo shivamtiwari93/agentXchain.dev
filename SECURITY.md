@@ -14,7 +14,7 @@ Please include the affected path, impact, reproduction steps, and any required e
 
 Do not open public issues for active vulnerabilities.
 
-Use the repository **Security** tab / advisories if available, or contact the maintainer via `cli/package.json` (`repository` / `author`).
+Report privately through GitHub Security Advisories: **[open a draft security advisory](https://github.com/shivamtiwari93/agentXchain.dev/security/advisories/new)**. This is the canonical private channel — the maintainers are notified directly and the report stays confidential until a fix ships.
 
 When reporting, include:
 

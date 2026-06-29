@@ -90,7 +90,7 @@ function buildProposedResult(envelope) {
       rationale: 'remote_agent v1 uses proposed write authority.',
     }],
     objections: [],
-    files_changed: ['src/proof-feature.js'],
+    files_changed: ['src/proof-feature.js', '.planning/IMPLEMENTATION_NOTES.md'],
     artifacts_created: [],
     verification: {
       status: 'pass',
@@ -103,11 +103,18 @@ function buildProposedResult(envelope) {
     phase_transition_request: null,
     run_completion_request: null,
     needs_human_reason: null,
-    proposed_changes: [{
-      path: 'src/proof-feature.js',
-      action: 'create',
-      content: '// Created by remote agent bridge proof\nexport const proofFeature = "verified";\n',
-    }],
+    proposed_changes: [
+      {
+        path: 'src/proof-feature.js',
+        action: 'create',
+        content: '// Created by remote agent bridge proof\nexport const proofFeature = "verified";\n',
+      },
+      {
+        path: '.planning/IMPLEMENTATION_NOTES.md',
+        action: 'create',
+        content: '# Implementation Notes\n\n## Changes\n- Added `src/proof-feature.js`, delivering the proof feature through the remote_agent bridge.\n\n## Verification\n- `echo proof-ok` exited 0; the proposed change was staged and applied via the remote bridge.\n',
+      },
+    ],
     cost: { input_tokens: 100, output_tokens: 150, usd: 0.005 },
   };
 }

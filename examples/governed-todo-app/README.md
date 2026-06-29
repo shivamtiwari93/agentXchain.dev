@@ -160,8 +160,8 @@ governed-todo-app/
 ├── TALK.md                   # Human-readable collaboration log
 ├── .agentxchain/
 │   ├── state.json            # Orchestrator-owned run state
-│   ├── history.jsonl         # Append-only turn history
-│   ├── decision-ledger.jsonl # Permanent decision record
+│   ├── history.jsonl         # Append-only turn history (populated as you run turns)
+│   ├── decision-ledger.jsonl # Permanent decision record (populated as you run turns)
 │   ├── prompts/              # Role prompt templates
 │   │   ├── pm.md
 │   │   ├── dev.md
@@ -169,7 +169,7 @@ governed-todo-app/
 │   │   └── eng_director.md
 │   ├── staging/              # Turn result staging area
 │   ├── dispatch/             # Dispatch bundles (ephemeral)
-│   └── reviews/              # QA/director review artifacts
+│   └── reviews/              # QA/director review artifacts (created on first review)
 ├── .planning/
 │   ├── PM_SIGNOFF.md         # PM sign-off document
 │   ├── ROADMAP.md            # Roadmap with acceptance criteria

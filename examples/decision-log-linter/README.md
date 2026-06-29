@@ -57,7 +57,9 @@ decision-log-linter/
 └── .agentxchain/prompts/
 ```
 
-## How AgentXchain Governed This Example
+## How This Example Is Governed
+
+This example ships the **governed config and contract** — the role/gate/phase definitions in `agentxchain.json` plus the `.planning/` workflow artifacts the team produced. The runtime audit trail (`.agentxchain/history.jsonl`, `decision-ledger.jsonl`, `state.json`) is generated when you execute the run locally with `agentxchain run` / `agentxchain step`.
 
 The product contract is defined in:
 
