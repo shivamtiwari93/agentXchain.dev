@@ -1,10 +1,10 @@
-# Reddit Posts — AgentXchain v2.158.0
+# Reddit Posts — AgentXchain v2.159.0
 
-> Ready-to-post content for Reddit for the `v2.158.0` release, staged on the current released line `v2.157.0`. Updated 2026-06-27 for the `ship-status` and `attention` operator commands plus governed-lifecycle hardening (implementation-gate guard fix, single-shot execution guard). Produced by dogfooding agentXchain on itself in a VISION-driven lights-out run.
+> Ready-to-post content for Reddit for the `v2.159.0` release, staged on the current released line `v2.158.0`. Updated 2026-06-29 for role-charter well-formedness validation (the new `agentxchain role validate` command) plus a public-surface accuracy and light-mode pass. This is an honest quality and correctness release plus one new validation command — not a big feature launch. Produced by dogfooding agentXchain on itself in a VISION-driven lights-out run.
 > All five adapter types are proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 >
 > Aggregate evidence: 108 conformance fixtures across 13 protocol surfaces.
-> - npm test -- --test-timeout=60000 -> 7706 tests / 1561 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7724 tests / 1579 suites / 0 failures / 5 skipped
 
 ---
 
@@ -24,14 +24,14 @@ The problem: multi-agent coding systems often make several agents agree with eac
 - Phase gates enforce that real artifacts exist before work advances.
 - The same contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
-What shipped in v2.158.0:
+What shipped in v2.159.0 (an honest quality + correctness release, plus one new validation command):
 
-- `agentxchain ship-status` composes five independent evidence dimensions (run completion, QA ship verdict, gate clearance, release alignment, test verification) into a structured "is this ready to ship?" report. Supports `--json`/`--verbose`, multi-repo coordinator aggregation, and a governance-report summary section.
-- `agentxchain attention` is a govern-by-exception view that composes six attention categories into one answer to "what needs me?". Supports `--json`/`--all` and governance-report integration.
-- Implementation-gate guard fix: a completed implementation turn that only finalizes planning artifacts is now accepted once the run already committed product code (e.g. QA finalizing the gate-required IMPLEMENTATION_NOTES sections). A run with no product code is still held strictly.
-- Single-shot execution guard: dispatch prompts now prevent "ghost" turns where a one-shot subprocess agent backgrounds work and async-waits for a notification that never fires.
+- `agentxchain role validate` scores every configured role against the VISION's four-part charter invariant: (1) a mandate, (2) a coherent authority×runtime boundary, (3) production of governed artifacts, (4) participation in the structured workflow. Malformed or no-op roles are now caught before a governed run instead of after. Backed by a new `role-charter.js` scorer.
+- Public-surface accuracy + light-mode pass: the docs site now renders correctly in light mode (it was dark cards on a white background), with accessibility polish.
+- Documentation corrected against the shipped CLI: intake flag syntax, the `write_authority` role key across the `api_proxy` integration guides, continuous-mode defaults (100/3), the parallel-turns config shape, and the CLI reference for the qa phase, `mission bind-coordinator`, `ci-report`, and the `named_decisions` barrier.
+- Examples hardening: removed an obsolete example, fixed the remote-agent-bridge deterministic proof, corrected the README, and added two new READMEs.
 
-This release was itself produced by dogfooding agentXchain on its own repo in a VISION-driven lights-out run.
+The role-charter work was itself produced by dogfooding agentXchain on its own repo in a VISION-driven lights-out run.
 
 Proof:
 
@@ -58,18 +58,18 @@ MIT licensed. Protocol is the product; the CLI is one implementation.
 
 ## r/artificial
 
-**Title:** AgentXchain v2.158.0 — two operator commands (ship-status, attention) and governed-lifecycle hardening
+**Title:** AgentXchain v2.159.0 — role-charter validation (`role validate`) plus a public-surface accuracy and light-mode pass
 
 **Body:**
 
 AgentXchain is an open-source protocol for governing multi-agent software delivery. The core rule is simple: agents are required to challenge prior work before a governed run can advance.
 
-v2.158.0 adds two operator commands and two lifecycle fixes, all surfaced by dogfooding agentXchain on itself in a VISION-driven lights-out run:
+v2.159.0 is an honest quality + correctness release plus one new validation command, surfaced by dogfooding agentXchain on itself in a VISION-driven lights-out run:
 
-- `agentxchain ship-status` composes five independent evidence dimensions (run completion, QA ship verdict, gate clearance, release alignment, test verification) into one structured "is this ready to ship?" report; supports `--json`/`--verbose`, multi-repo coordinator aggregation, and a governance-report summary
-- `agentxchain attention` is a govern-by-exception view composing six attention categories into one answer to "what needs me?"; supports `--json`/`--all` and governance-report integration
-- implementation-gate guard fix: a completed implementation turn that only finalizes planning artifacts is accepted once product code is already committed; a run with no product code is still held strictly
-- single-shot execution guard: dispatch prompts now prevent "ghost" turns where a one-shot subprocess agent backgrounds work and waits for a notification that never fires
+- `agentxchain role validate` scores every configured role against the VISION's four-part charter invariant: (1) a mandate, (2) a coherent authority×runtime boundary, (3) production of governed artifacts, (4) participation in the structured workflow. Malformed or no-op roles are caught before a governed run instead of after. Backed by a new `role-charter.js` scorer.
+- a public-surface accuracy + light-mode pass: the docs site now renders correctly in light mode (it was dark cards on white) with accessibility polish
+- documentation corrected against the shipped CLI: intake flag syntax, the `write_authority` role key across the `api_proxy` integration guides, continuous-mode defaults (100/3), the parallel-turns config shape, and the CLI reference for the qa phase, `mission bind-coordinator`, `ci-report`, and the `named_decisions` barrier
+- examples hardening: removed an obsolete example, fixed the remote-agent-bridge deterministic proof, corrected the README, and added two new READMEs
 
 The governance model is runtime-agnostic: manual, local CLI, API proxy, MCP, and remote_agent adapters are all proven live. The non-manual adapters have real-model proof; manual remains the governed human path.
 
@@ -105,7 +105,7 @@ AgentXchain governs the collaboration layer:
 - local CLI, API proxy, MCP, remote_agent, and manual paths run under one contract
 - manual is the governed human control path, while `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof
 
-v2.158.0 adds two operator commands — `agentxchain ship-status` (composes run completion, QA verdict, gate clearance, release alignment, and test verification into one "is this ready to ship?" report) and `agentxchain attention` (a govern-by-exception "what needs me?" view) — plus two governed-lifecycle fixes: an implementation-gate guard fix that accepts a planning-only finalizing turn once product code is committed, and a single-shot execution guard that stops "ghost" turns where a one-shot agent backgrounds work and waits on a notification that never fires.
+v2.159.0 is an honest quality + correctness release plus one new validation command. It adds `agentxchain role validate`, which scores every configured role against the VISION's four-part charter invariant (a mandate, a coherent authority×runtime boundary, production of governed artifacts, and participation in the structured workflow) so malformed or no-op roles are caught before a governed run instead of after — backed by a new `role-charter.js` scorer. It also lands a public-surface accuracy + light-mode pass: the docs site now renders correctly in light mode, documentation is corrected against the shipped CLI, and the examples are hardened.
 
 Try the zero-key demo:
 
@@ -133,7 +133,7 @@ AgentXchain is an open-source governance protocol where:
 - humans can approve phase transitions and ship decisions
 - decisions, objections, evidence, and files changed are auditable
 - manual, local CLI, API proxy, MCP, and remote_agent adapters use the same protocol
-- v2.158.0 adds `ship-status` (a structured "is this ready to ship?" report) and `attention` (a "what needs me?" govern-by-exception view), plus governed-lifecycle hardening
+- v2.159.0 adds `role validate`, which scores every configured role against the VISION's four-part charter invariant so malformed or no-op roles are caught before a governed run, plus a public-surface accuracy and light-mode pass
 
 Try it in 30 seconds:
 
@@ -147,7 +147,7 @@ MIT licensed. https://agentxchain.dev
 
 ## Posting Instructions
 
-1. Confirm `npm view agentxchain@2.158.0 version` before posting.
+1. Confirm `npm view agentxchain@2.159.0 version` before posting.
 2. Post during US morning hours, preferably Tuesday-Thursday 10-11am ET.
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT.
 4. Lead with the demo command because it works without API keys.

@@ -1,11 +1,11 @@
-# Show HN Draft — AgentXchain v2.158.0
+# Show HN Draft — AgentXchain v2.159.0
 
-> Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Staged for the `v2.158.0` launch window on the current released line `v2.157.0`. Updated 2026-06-27 for two operator commands (`agentxchain ship-status`, `agentxchain attention`) and two governed-lifecycle hardening fixes (implementation-gate guard, single-shot execution guard). Produced by a VISION-driven lights-out dogfood run of AgentXchain on itself.
+> Draft mirror for `.planning/MARKETING/HN_SUBMISSION.md`. Staged for the `v2.159.0` launch window on the current released line `v2.158.0`. Updated 2026-06-29 for role-charter well-formedness validation (the new `agentxchain role validate` command) plus a public-surface accuracy and light-mode pass across the docs site and examples. Produced by a VISION-driven lights-out dogfood run of AgentXchain on itself.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7706 tests / 1561 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7724 tests / 1579 suites / 0 failures / 5 skipped
 >
 > Aggregate evidence:
 > - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
@@ -30,7 +30,7 @@ Hi HN, I've been building AgentXchain — an open-source governance protocol for
 
 The problem: when you let multiple AI agents work on the same codebase, they tend to agree with each other, quality drifts, nobody owns decisions, and there is no clear proof of what is actually shippable.
 
-v2.158.0 adds two operator commands for staying in control of a governed run without reading the whole ledger: `agentxchain ship-status` composes independent evidence dimensions into one "is this ready to ship?" report, and `agentxchain attention` is a govern-by-exception view that answers "what needs me?" It also lands two governed-lifecycle hardening fixes — an implementation-gate guard that accepts a planning-only finalize turn once product code is already committed, and a single-shot execution guard that stops one-shot agents from backgrounding work and waiting on a notification that never fires. This release was produced by a VISION-driven lights-out run of AgentXchain dogfooding itself.
+v2.159.0 is an honest, focused quality and correctness release plus one new validation command. The headline is role-charter well-formedness validation: the new `agentxchain role validate` command scores every configured role against the VISION's four-part charter invariant — (1) a mandate, (2) a coherent authority×runtime boundary, (3) production of governed artifacts, and (4) participation in the structured workflow — so malformed or no-op roles are caught before a governed run instead of after. The second theme is a public-surface accuracy and light-mode pass: the docs site now renders correctly in light mode (it was dark cards on white), with accessibility polish, documentation corrected against the shipped CLI, and the examples hardened. This release was produced by a VISION-driven lights-out run of AgentXchain dogfooding itself.
 
 AgentXchain treats multi-agent delivery as a governed system:
 
@@ -50,19 +50,13 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, Dev implements while resolving objections, QA reviews against acceptance criteria, and the protocol records decisions and evidence.
 
-**What shipped by v2.158.0:**
+**What shipped by v2.159.0:**
 
-- `agentxchain ship-status` — composes 5 independent evidence dimensions (run completion, QA ship verdict, gate clearance, release alignment, test verification) into a structured "is this ready to ship?" report; supports `--json`/`--verbose`, multi-repo coordinator aggregation, and a governance-report summary section
-- `agentxchain attention` — a govern-by-exception view that composes 6 attention categories into one answer to "what needs me?"; supports `--json`/`--all` and governance-report integration
-- Implementation-gate guard fix: a completed implementation turn that only finalizes planning artifacts is now accepted once the run already committed product code (e.g. QA finalizing the gate-required `IMPLEMENTATION_NOTES` sections); a run with no product code is still held strictly
-- Single-shot execution guard: dispatch prompts now prevent "ghost" turns where a one-shot subprocess agent backgrounds work and async-waits for a notification that never fires
-- Structured recovery classification in emitted events and governance reports
-- Crash-resume PID liveness guard for retained active and blocked worker turns
-- Ghost blocker session checkpoint consistency and same-session active-run recovery
-- Configurable per-turn deadlines from `per_turn_minutes`
-- Restart-safe intent/event intake for continuous runs
-- Claude recovery hardening for retained auth failures, provider timeouts, Node incompatibility crashes, and refreshed credentials
-- DOGFOOD credential smoke direct npx entrypoint for shipped-package diagnostics
+- `agentxchain role validate` — scores every configured role against the VISION's four-part charter invariant: (1) a mandate, (2) a coherent authority×runtime boundary, (3) production of governed artifacts, and (4) participation in the structured workflow; malformed or no-op roles are caught before a governed run instead of after. Backed by a new `role-charter.js` scorer
+- Public-surface light-mode fix: the docs site now renders correctly in light mode (it was dark cards on a white background), plus accessibility polish
+- Documentation corrected against the shipped CLI: intake flag syntax, the `write_authority` role key across the `api_proxy` integration guides, continuous-mode defaults (100/3), the parallel-turns config shape, and the CLI reference for the `qa` phase, `mission bind-coordinator`, `ci-report`, and the `named_decisions` barrier
+- Examples hardening: removed an obsolete example, fixed the remote-agent-bridge deterministic proof, corrected the README, and added two new READMEs
+- The role-charter work was produced by dogfooding AgentXchain on itself in a VISION-driven lights-out run
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual`
 - Parallel turns: up to 4 agents concurrently within a governed run, with dispatch isolation and serialized acceptance
 - Delegation chains: a senior role delegates to specialists, reviews their output, and decides next steps (delegate → execute → review)

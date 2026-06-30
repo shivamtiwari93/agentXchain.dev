@@ -14,6 +14,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Latest Release
 
+- v2.159.0: role-charter well-formedness validation (`agentxchain role validate`) against the four-part charter invariant, plus a public-surface accuracy & light-mode pass (working light theme, docs corrected against the shipped CLI, examples hardening)
 - v2.158.0: shippability surfaces `agentxchain ship-status` (five-dimension ready-to-ship verdict) and `agentxchain attention` (govern-by-exception queue), plus governed turn-lifecycle hardening — legitimate artifact-finalization turns are accepted and single-shot dispatched turns can no longer silently ghost
 - v2.157.0: turn-level cost tracking for local_cli runtimes, a CI-report gate-annotation regression fix, and continuous-loop recovery hardening (RB-13 circuit-breaker with class-aware reconcile guidance)
 - v2.156.0: lights-out resilience — continuous vision-driven runs survive provider rate limits, stalled turns, and cold starts; organization-scope dashboard; CI-native reporting (`agentxchain ci-report`) and a hosted runner (`agentxchain serve`); `--auto-approve` can never clear a credentialed exit gate
@@ -142,6 +143,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 
 ## Release Notes
 
+- [v2.159.0](https://agentxchain.dev/docs/releases/v2-159-0)
 - [v2.158.0](https://agentxchain.dev/docs/releases/v2-158-0)
 - [v2.157.0](https://agentxchain.dev/docs/releases/v2-157-0)
 - [v2.156.0](https://agentxchain.dev/docs/releases/v2-156-0)

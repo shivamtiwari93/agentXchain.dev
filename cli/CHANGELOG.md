@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.159.0
+
+- **Role-charter well-formedness — `agentxchain role validate`.** Validates every configured role against the four-part charter invariant from the VISION — a mandate, a coherent authority×runtime boundary, production of governed artifacts, and participation in the structured workflow — so malformed or no-op roles are caught before a governed run instead of after. Backed by the new `role-charter.js` scorer; `role validate` reports per-role pass/fail with the failing invariant.
+- **Public-surface accuracy & light-mode pass.** The docs site now renders correctly in light mode (previously dark cards on a white page), plus design/accessibility polish (terminal/secondary-text contrast, `:focus-visible`). Documentation corrected against the shipped CLI: intake flag syntax, the `write_authority` role key across all `api_proxy` integration guides, continuous-mode defaults (`max_runs=100`/`max_idle_cycles=3`), the `parallel-turns` config shape, the CLI reference (`qa` phase name, `mission bind-coordinator`, `ci-report`), and the `named_decisions` coordinator barrier in the protocol doc.
+- **Examples hardening.** Removed an obsolete/broken example, fixed the `remote-agent-bridge` deterministic proof so it satisfies the implementation gate and prints its success line, corrected README accuracy, and added missing READMEs (`mcp-anthropic-agent`, `live-governed-proof`).
+- **Test stability.** The intake-start active-turn fixture no longer trips the scope-overlap guard during setup.
+
+- npm test -- --test-timeout=60000 -> 7724 tests / 1579 suites / 0 failures / 5 skipped
+
 ## 2.158.0
 
 - **Shippability visibility — `agentxchain ship-status`.** A single command answers "is this ready to ship?" by composing five independent evidence dimensions — run completion/phase status, QA ship verdict, gate clearance across all phases, release-alignment validation, and test verification — into a structured `ShipStatusReport` with per-dimension pass/fail/pending and surfaced blocking reasons. Supports `--json`/`--verbose`, multi-repo coordinator aggregation, and a ship-status summary section in the governance report.

@@ -1,10 +1,10 @@
-# LinkedIn Post — AgentXchain v2.158.0
+# LinkedIn Post — AgentXchain v2.159.0
 
-> Ready-to-post LinkedIn company-page copy for the `v2.158.0` release. Updated 2026-06-27 for the `ship-status` and `attention` operator commands plus two governed-lifecycle hardening fixes (implementation-gate guard, single-shot execution guard).
+> Ready-to-post LinkedIn company-page copy for the `v2.159.0` release. Updated 2026-06-29 for the new `role validate` command (role-charter well-formedness scoring) plus a public-surface accuracy and light-mode pass. An honest quality + correctness release, not a big feature launch.
 >
-> Aggregate evidence: the v2.158.0 release run carries its own structured ship-status report (run completion, QA ship verdict, gate clearance, release alignment, test verification). Re-run `agentxchain ship-status --verbose` against the release run for the current counts before posting.
+> Aggregate evidence:
 >
-> - npm test -- --test-timeout=60000 -> 7706 tests / 1561 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7724 tests / 1579 suites / 0 failures / 5 skipped
 
 ---
 
@@ -21,14 +21,14 @@ What that means in practice:
 - Decisions, objections, evidence, and `files_changed` are recorded in append-only repo artifacts
 - The same governance contract works across `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`
 
-`v2.158.0` gives operators two ways to ask a governed run where it stands — and hardens two lifecycle gates. It was produced by dogfooding AgentXchain on itself in a VISION-driven lights-out run:
+`v2.159.0` is an honest quality + correctness release with one new validation command — not a big feature launch. The headline command was produced by dogfooding AgentXchain on itself in a VISION-driven lights-out run:
 
-- `agentxchain ship-status` composes five independent evidence dimensions — run completion, QA ship verdict, gate clearance, release alignment, test verification — into one structured "is this ready to ship?" report. Supports `--json`/`--verbose`, multi-repo coordinator aggregation, and a governance-report summary section.
-- `agentxchain attention` is a govern-by-exception view: it composes six attention categories into a single answer to "what needs me?" Supports `--json`/`--all` and governance-report integration.
-- Implementation-gate guard: a completed implementation turn that only finalizes planning artifacts (e.g. QA filling in gate-required `IMPLEMENTATION_NOTES` sections) is now accepted once the run has already committed product code. A run with no product code is still held strictly.
-- Single-shot execution guard: dispatch prompts now prevent "ghost" turns where a one-shot subprocess agent backgrounds its work and async-waits for a notification that never fires.
+- `agentxchain role validate` scores every configured role against the VISION's four-part charter invariant: (1) a mandate, (2) a coherent authority×runtime boundary, (3) production of governed artifacts, and (4) participation in the structured workflow. Malformed or no-op roles get caught before a governed run instead of after. Backed by a new `role-charter.js` scorer.
+- Public-surface accuracy & light-mode pass: the docs site now renders correctly in light mode (it was showing dark cards on a white background), with accessibility polish alongside.
+- Documentation corrected against the shipped CLI: intake flag syntax, the `write_authority` role key across the `api_proxy` integration guides, continuous-mode defaults (100/3), the parallel-turns config shape, and the CLI reference for the `qa` phase, `mission bind-coordinator`, `ci-report`, and the `named_decisions` barrier.
+- Examples hardening: removed an obsolete example, fixed the remote-agent-bridge deterministic proof, tightened README accuracy, and added two new READMEs.
 
-Every dimension above is checkable: `agentxchain ship-status --verbose` recomposes the ship verdict from evidence, and `agentxchain attention` surfaces anything still waiting on a human.
+Every claim above is checkable from the shipped surface: run `agentxchain role validate` against your own config to see the charter scores, and the corrected docs now match the CLI you actually get.
 
 Fastest proof path:
 

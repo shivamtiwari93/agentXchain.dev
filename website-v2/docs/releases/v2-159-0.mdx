@@ -1,0 +1,41 @@
+---
+sidebar_position: 0
+title: "v2.159.0 Release Notes"
+---
+
+# AgentXchain v2.159.0
+
+`v2.159.0` adds role-charter well-formedness validation (`agentxchain role validate`) and lands a public-surface accuracy and light-mode pass across the website, docs, and examples. The role-charter work was produced by dogfooding agentXchain on itself with a VISION-driven lights-out run; the public-surface pass corrects documentation against the shipped CLI and fixes the website's light theme.
+
+## What's New
+
+- **Role-charter well-formedness — `agentxchain role validate`.** AgentXchain roles are open-ended and charter-driven, so the VISION fixes a precise, testable four-part invariant for *any* role: it must (1) have a mandate, (2) have a coherent authority×runtime boundary, (3) produce governed artifacts, and (4) participate in the structured workflow. The new `role validate` command scores each configured role against those four invariants and reports per-role pass/fail with the specific failing invariant, so malformed or no-op roles are caught before a governed run instead of after. Backed by the new `role-charter.js` scorer.
+
+## Quality & Accuracy
+
+- **Light mode now works.** The documentation site previously rendered dark cards on a white page below the fold; it now has a proper light theme, plus accessibility polish (terminal and secondary-text contrast, keyboard `:focus-visible` outlines).
+- **Documentation corrected against the shipped CLI.** Intake examples use the real flag syntax (`--intent`, `--source/--signal/--evidence`); the `write_authority` role key is correct across every `api_proxy` integration guide; continuous-mode defaults read `max_runs=100` / `max_idle_cycles=3`; the `parallel-turns` config example matches the current schema; the CLI reference uses the real `qa` phase name and documents `mission bind-coordinator` and `ci-report`; and the protocol reference lists the `named_decisions` coordinator barrier.
+- **Examples hardening.** Removed an obsolete/broken example, fixed the `remote-agent-bridge` deterministic proof so it satisfies the implementation gate and prints its success line, corrected README accuracy, and added missing READMEs (`mcp-anthropic-agent`, `live-governed-proof`).
+
+## Evidence
+
+- npm test -- --test-timeout=60000 -> 7724 tests / 1579 suites / 0 failures / 5 skipped
+
+## Tester Re-Run Contract
+
+Verify: `npx --yes -p agentxchain@2.159.0 -c "agentxchain --version"`
+
+Then confirm the headline feature against a governed project:
+
+- `agentxchain role validate` reports per-role pass/fail; a role missing a mandate, an authority×runtime boundary, governed-artifact production, or workflow participation is flagged with the specific failing invariant.
+
+Carry-forward tester checks for shipped-package closure proof:
+
+- BUG-54 startup watchdog evidence should quote `startup_latency_ms`,
+  `elapsed_since_spawn_ms`, and `runtimes.<id>.startup_watchdog_ms`.
+- BUG-55/87 verification-output evidence should quote
+  `undeclared_verification_outputs`, `verification.produced_files`, and
+  `git status --short` after `accept-turn` followed by `checkpoint-turn`.
+  Clean tree means BUG-55 is fixed for your reproduction.
+- BUG-52/53 continuous recovery evidence should quote `phase_entered`,
+  `reconciled_before_dispatch`, and `session_continuation`.

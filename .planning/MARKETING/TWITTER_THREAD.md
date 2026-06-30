@@ -1,13 +1,11 @@
-# Twitter/X Thread — AgentXchain v2.158.0
+# Twitter/X Thread — AgentXchain v2.159.0
 
-> Ready-to-post thread for the `v2.158.0` release, staged on the current released line `v2.157.0`. Updated 2026-06-27 for two operator commands — `ship-status` (is this ready to ship?) and `attention` (what needs me?) — plus implementation-gate and single-shot execution hardening. Produced by dogfooding agentXchain on itself in a VISION-driven lights-out run.
+> Ready-to-post thread for the `v2.159.0` release, staged on the current released line `v2.158.0`. Updated 2026-06-29 for role-charter well-formedness validation — the new `agentxchain role validate` command scores every configured role against the VISION's four-part charter invariant — plus a public-surface accuracy & light-mode pass. An honest quality + correctness release, not a big feature launch. Produced by dogfooding agentXchain on itself in a VISION-driven lights-out run.
 >
 > Conformance corpus: 108 conformance fixtures across 13 protocol surfaces.
 >
 > Aggregate evidence:
-> - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
-> - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7706 tests / 1561 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7724 tests / 1579 suites / 0 failures / 5 skipped
 
 ---
 
@@ -19,7 +17,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.158.0 ships two operator commands — `ship-status` and `attention` — plus governed-lifecycle hardening. Open source. MIT.
+AgentXchain v2.159.0 adds `agentxchain role validate` — it catches malformed or no-op roles BEFORE a governed run, not after. Plus a docs accuracy + light-mode pass. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -59,12 +57,12 @@ All 5 adapter types proven live:
 
 `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
 
-New in v2.158.0:
+New in v2.159.0:
 
-- `agentxchain ship-status` composes 5 evidence dimensions (run completion, QA verdict, gate clearance, release alignment, test verification) into one "is this ready to ship?" report. --json/--verbose, multi-repo aggregation, governance-report summary.
-- `agentxchain attention` is a govern-by-exception view: 6 attention categories answering "what needs me?" --json/--all, governance-report integration.
-- Implementation-gate guard: a turn that only finalizes planning artifacts is accepted once product code is already committed; a run with no product code is still held strictly.
-- Single-shot execution guard: dispatch prompts now prevent "ghost" turns where a one-shot agent backgrounds work and waits on a notification that never fires.
+- `agentxchain role validate` scores every configured role against the VISION's four-part charter invariant: (1) a mandate, (2) a coherent authority×runtime boundary, (3) production of governed artifacts, (4) participation in the structured workflow. Malformed or no-op roles are caught before a governed run instead of after. Backed by a new `role-charter.js` scorer.
+- Public-surface accuracy & light-mode pass: the docs site now renders correctly in light mode (was dark cards on white), plus accessibility polish.
+- Docs corrected against the shipped CLI: intake flag syntax, the `write_authority` role key across api_proxy integration guides, continuous-mode defaults 100/3, parallel-turns config shape, CLI reference for the qa phase + mission bind-coordinator + ci-report, named_decisions barrier.
+- Examples hardening: removed an obsolete example, fixed the remote-agent-bridge deterministic proof, README accuracy, two new READMEs.
 
 **Tweet 5 (the insight):**
 

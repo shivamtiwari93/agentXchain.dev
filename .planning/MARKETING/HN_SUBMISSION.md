@@ -1,11 +1,11 @@
-# Hacker News Submission — AgentXchain v2.158.0
+# Hacker News Submission — AgentXchain v2.159.0
 
-> Ready-to-post for `v2.158.0` launch window, staged on the current released line `v2.157.0`. Updated 2026-06-27 for two new operator commands (`ship-status`, `attention`) plus two governed-lifecycle hardening fixes (implementation-gate guard, single-shot execution guard). This release was itself produced by a VISION-driven lights-out dogfood run of agentXchain on its own repo.
+> Ready-to-post for `v2.159.0` launch window, staged on the current released line `v2.158.0`. Updated 2026-06-29 for one new validation command (`role validate`, backed by a new `role-charter.js` scorer) plus a public-surface accuracy and light-mode pass. This is an honest, focused quality and correctness release — not a big feature launch. The role-charter work was itself produced by a VISION-driven lights-out dogfood run of agentXchain on its own repo.
 >
 > Aggregate evidence:
 > - node --test --test-timeout=60000 cli/test/compare-crewai-claims.test.js cli/test/compare-langgraph-claims.test.js cli/test/compare-openai-agents-sdk-claims.test.js cli/test/compare-autogen-claims.test.js cli/test/compare-devin-claims.test.js cli/test/compare-metagpt-claims.test.js cli/test/compare-openhands-claims.test.js cli/test/compare-codegen-claims.test.js cli/test/compare-warp-claims.test.js cli/test/comparison-pages-content.test.js cli/test/compare-page-architecture.test.js -> 98 tests / 11 suites / 0 failures / 0 skipped
 > - node --test --test-timeout=120000 cli/test/agent-talk-word-cap.test.js cli/test/current-release-surface.test.js -> 31 tests / 2 suites / 0 failures / 0 skipped
-> - npm test -- --test-timeout=60000 -> 7706 tests / 1561 suites / 0 failures / 5 skipped
+> - npm test -- --test-timeout=60000 -> 7724 tests / 1579 suites / 0 failures / 5 skipped
 >
 > Aggregate evidence:
 > - 10-cycle governed dogfood on tusq.dev: 987 lines product code, 42 checkpoint commits, all 4 phases per cycle
@@ -46,12 +46,13 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What shipped by v2.158.0:**
-- `agentxchain ship-status`: composes five independent evidence dimensions — run completion, QA ship verdict, gate clearance, release alignment, and test verification — into one structured "is this ready to ship?" report. Supports `--json`/`--verbose`, aggregates across repos in a multi-repo coordinator, and surfaces a governance-report summary section
-- `agentxchain attention`: a govern-by-exception view that composes six attention categories into a single answer to "what needs me?" Supports `--json`/`--all`, with governance-report integration
-- Implementation-gate guard fix: a completed implementation turn that only finalizes planning artifacts (e.g. QA filling in the gate-required IMPLEMENTATION_NOTES sections) is now accepted once the run has already committed product code — while a run with no product code is still held strictly
-- Single-shot execution guard: dispatch prompts now prevent "ghost" turns where a one-shot subprocess agent backgrounds its work and async-waits for a notification that never fires
-- This release was produced by dogfooding agentXchain on its own repo: a VISION doc drove a lights-out governed run that planned, implemented, QA'd, and shipped the four items above
+**What shipped in v2.159.0:**
+- `agentxchain role validate`: scores every configured role against the VISION's four-part charter invariant — (1) a mandate, (2) a coherent authority×runtime boundary, (3) production of governed artifacts, and (4) participation in the structured workflow. Malformed or no-op roles are caught before a governed run instead of after. Backed by a new `role-charter.js` scorer
+- Public-surface accuracy and light-mode pass: the docs site now renders correctly in light mode (it was previously showing dark cards on white), plus accessibility polish
+- Documentation corrected against the shipped CLI: intake flag syntax, the `write_authority` role key across the `api_proxy` integration guides, continuous-mode defaults (100/3), parallel-turns config shape, and the CLI reference for the qa phase, mission bind-coordinator, ci-report, and the `named_decisions` barrier
+- Examples hardening: removed an obsolete example, fixed the remote-agent-bridge deterministic proof, README accuracy, and added two new READMEs
+- This is an honest, focused quality and correctness release plus one new validation command — not a big feature launch
+- The role-charter work was produced by dogfooding agentXchain on its own repo: a VISION doc drove a lights-out governed run that planned, implemented, QA'd, and shipped it
 - Perpetual continuous mode: `agentxchain run --continuous --on-idle perpetual` — vision-driven multi-run sessions that auto-chain through idle expansion, charter materialization, implementation, QA, and launch without human steering
 - Parallel turns: run up to 4 agent turns concurrently within a governed run. Per-turn dispatch isolation prevents file races; acceptance is serialized. Proven with recorded runs.
 - Delegation chains: a senior role delegates work to specialists, reviews their output, and decides next steps. Three-phase model: delegate → execute → review. Composes with parallel turns.
