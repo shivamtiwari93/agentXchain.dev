@@ -119,9 +119,13 @@ function pipelineThroughPlan(dir, template = 'generic') {
   const approveResult = runCli([
     'intake', 'approve',
     '--intent', intentId,
+    // Test fixtures intentionally create multiple similarly-worded intents to set up
+    // start/active-turn scenarios; bypass the scope-overlap guard during this setup so
+    // it doesn't reject near-duplicate charters (overlap behavior is covered elsewhere).
+    '--force-scope',
     '--json',
   ], dir);
-  assert.equal(approveResult.status, 0, `approve failed: ${approveResult.stderr}`);
+  assert.equal(approveResult.status, 0, `approve failed: ${approveResult.stdout || approveResult.stderr}`);
 
   const planResult = runCli([
     'intake', 'plan',
